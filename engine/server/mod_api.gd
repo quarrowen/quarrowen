@@ -8,6 +8,7 @@ extends RefCounted
 ##   tick           {delta, tick}
 ##   block_break    {player, position, block, drops: [[id, count]...], cancelled}
 ##   block_broken   {player, position, block}
+##   block_destroyed {position, block, drops}                broken without a player (support lost, break_block)
 ##   block_place    {player, position, block, cancelled}
 ##   block_placed   {player, position, block}
 ##   chat           {player, text, cancelled}
@@ -172,6 +173,45 @@ func register_effect(effect_name: String, def: Dictionary) -> int:
 ## engine:dust, engine:explosion.
 func play_effect(effect_name: String, position: Vector3, options := {}) -> void:
 	_server.play_effect(_qualify_ref(effect_name), position, options)
+
+
+## Makes blocks of a type change over time. `handler(ctx)` gets {position, block, state, ticks, reason,
+## payload}: "random" ticks come about every options.interval seconds (default 30) per block, and a
+## chunk that was unloaded hands each block the ticks it missed at once (`ticks` > 1) unless
+## options.catch_up is false; "scheduled" ticks come from schedule_block_tick.
+func register_block_tick(block_name: String, handler: Callable, options := {}) -> void:
+	var id := block(block_name)
+	if id <= 0:
+		push_error("[%s] register_block_tick: unknown block '%s'" % [mod_id, block_name])
+		return
+	_server.block_ticks.register(id, handler, options)
+
+
+## Calls the tick handler of the block at `position` after `seconds`, with `payload` (saved with the world).
+func schedule_block_tick(position: Vector3i, seconds: float, payload := {}) -> void:
+	_server.block_ticks.schedule(position, seconds, payload)
+
+
+## Light level 0-15 at a position right now: block light or sky light scaled by daylight, whichever is
+## brighter. An estimate (no occlusion) meant for growth and spawning rules.
+func get_light(position: Vector3i) -> int:
+	return _server.block_ticks.light_at(position, get_daylight())
+
+
+## {sky, block} light levels 0-15 (sky not scaled by the time of day).
+func get_light_levels(position: Vector3i) -> Dictionary:
+	return _server.block_ticks.light_levels(position)
+
+
+## Seconds of world time that have passed (keeps counting across restarts, not while stopped).
+func get_world_clock() -> float:
+	return _server.block_ticks.clock
+
+
+## Breaks a block as if mined without a player: drops its items (when `drop`) and plays its sound.
+## Fires block_destroyed {position, block, drops} (drops may be changed).
+func break_block(position: Vector3i, drop := true) -> void:
+	_server.break_block(position, drop)
 
 
 ## Plays a sound at a world position for everyone in range.

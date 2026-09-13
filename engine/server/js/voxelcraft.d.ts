@@ -281,6 +281,7 @@ declare module "voxelcraft" {
     tick: { delta: number; tick: number };
     block_break: { player: Player; position: Vec3; block: BlockId; drops: [ItemId, number][]; cancelled: boolean };
     block_broken: { player: Player; position: Vec3; block: BlockId; item: ItemId; slot: number; harvested: boolean };
+    block_destroyed: { position: Vec3; block: BlockId; drops: [ItemId, number][] };
     block_place: { player: Player; position: Vec3; block: BlockId; cancelled: boolean };
     block_placed: { player: Player; position: Vec3; block: BlockId };
     block_interact: { player: Player; position: Vec3; block: BlockId };
@@ -366,6 +367,13 @@ declare module "voxelcraft" {
     registerStat(name: string, base: number): void;
     registerCosmetic(name: string, def: CosmeticDef): string;
     registerEffect(name: string, def: EffectDef): number;
+    registerBlockTick(block: string, handler: (ctx: { position: Vec3; block: BlockId; state: number; ticks: number; reason: "random" | "scheduled"; payload: Record<string, unknown> }) => void,
+      options?: { interval?: number; catch_up?: boolean }): void;
+    scheduleBlockTick(position: Vec3, seconds: number, payload?: Record<string, unknown>): void;
+    getLight(position: Vec3): number;
+    getLightLevels(position: Vec3): { sky: number; block: number };
+    worldClock(): number;
+    breakBlock(position: Vec3, drop?: boolean): void;
     playEffect(name: string, position: Vec3, options?: EffectOptions): void;
     registerCosmeticCategory(name: string, def?: { display_name?: string; attach?: string; covers?: string[] }): boolean;
     setCosmeticsPolicy(values: { allow_builtin?: boolean; allow_colors?: boolean; armor?: "player" | "armor" | "cosmetics"; blocked?: string[]; uniform?: Avatar }): void;

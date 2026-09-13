@@ -16,7 +16,8 @@ var _forest := FastNoiseLite.new()
 
 func _init(api) -> void:
 	world_seed = api.world_seed
-	for block_name in ["stone", "dirt", "grass", "sand", "gravel", "snow", "water", "bedrock", "log", "leaves", "coal_ore", "iron_ore"]:
+	for block_name in ["stone", "dirt", "grass", "sand", "gravel", "snow", "water", "bedrock", "log", "leaves", "coal_ore", "iron_ore",
+			"tall_grass", "poppy", "dandelion"]:
 		b[block_name] = api.block("base:" + block_name)
 	_configure(_continent, world_seed, 0.0025, 4)
 	_configure(_hills, world_seed + 1, 0.02, 3)
@@ -89,6 +90,20 @@ func generate(chunk) -> void:
 		var th := heights[tx + tz * Chunk.SIZE_X]
 		if blocks.decode_u16(Chunk.index(tx, th, tz) << 1) == b.grass and th + 9 < Chunk.SIZE_Y:
 			_place_tree(blocks, tx, th + 1, tz, rng)
+
+	# Tall grass and flowers on open grass; meadows (low forest noise) are grassier.
+	var grassiness := 0.08 + (1.0 - density) * 0.14
+	for z in Chunk.SIZE_Z:
+		for x in Chunk.SIZE_X:
+			var h := heights[x + z * Chunk.SIZE_X]
+			if h + 1 >= Chunk.SIZE_Y or blocks.decode_u16(Chunk.index(x, h, z) << 1) != b.grass \
+					or blocks.decode_u16(Chunk.index(x, h + 1, z) << 1) != 0:
+				continue
+			var roll := rng.randf()
+			if roll < grassiness:
+				blocks.encode_u16(Chunk.index(x, h + 1, z) << 1, b.tall_grass)
+			elif roll < grassiness + 0.012:
+				blocks.encode_u16(Chunk.index(x, h + 1, z) << 1, b.poppy if rng.randf() < 0.5 else b.dandelion)
 
 	chunk.blocks = blocks
 

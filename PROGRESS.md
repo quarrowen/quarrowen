@@ -85,10 +85,17 @@ changes with `tools/build_native.sh`.
 
 ## Roadmap (milestones, agreed 2026-09-13)
 
-1. **Vanilla survival loop** (current): chests and storage, furnace/smelting, hunger and food,
-   farming, beds and spawn points, biomes, caves and structures. Each is built as an engine
-   capability mods can use (containers, block ticking, processing recipes, world structures), then
-   used by vanilla.
+1. **Vanilla survival loop** (current, branch `survival`). Each step adds an engine capability, then
+   vanilla/base content:
+   1. Block ticks (random, scheduled, catch-up), server light, `plant` render mode, support and
+      replaceable blocks -> farming (hoes, farmland, wheat, bread), saplings, tall grass and flowers.
+   2. Containers and stations: slot-based container screen -> chest, furnace (fuel, smelting),
+      crafting table (station recipes).
+   3. Hunger and food: hunger stat, food values, regeneration tied to hunger, starvation.
+   4. Beds and spawn points: bed block, sleeping skips the night, respawn at a valid bed.
+   5. Mobs and spawning: light-level spawn rules, breeding, climbing, explosions that break terrain ->
+      cow, sheep (wool for beds), chicken, spider, an exploding mob.
+   6. World generation: biomes, caves, cross-chunk structures (dungeons, ruins with loot chests).
 2. **Creator platform** (follow-up): hot-reload mods on a running server, in-game script console, mod
    packaging with versions/dependencies, generated API docs site, starter templates.
 3. **Player-made content / UGC** (follow-up): uploads of skins, cosmetics and later items/models;

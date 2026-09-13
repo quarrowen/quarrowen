@@ -27,6 +27,7 @@ const PlayerStats = preload("res://engine/server/player_stats.gd")
 const PlayerRig = preload("res://engine/shared/player_rig.gd")
 const Cosmetics = preload("res://engine/shared/cosmetics.gd")
 const EffectRegistry = preload("res://engine/shared/effect_registry.gd")
+const BlockTicks = preload("res://engine/server/block_ticks.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -72,6 +73,8 @@ var player_rig := PlayerRig.default_rig()
 var cosmetics := Cosmetics.new()
 ## Named visual effects clients render on request (see EffectRegistry).
 var effects := EffectRegistry.new()
+## Random and scheduled block ticks, the world clock and server-side light (see BlockTicks).
+var block_ticks := BlockTicks.new(self)
 ## Game-wide rules mods can change with set_gameplay.
 var gameplay := {
 	"item_drops": "entity",  # "entity": broken blocks drop items to pick up; "inventory": straight into the inventory
@@ -111,6 +114,7 @@ var _save_dirty := {}  # Vector2i chunk -> true
 var _js_mods: Array = []  # keeps JavaScript runtimes alive
 var _recipes: Array = []  # {inputs: {item id: count}, output: item id, count}
 var _snapshot_round := 0
+var _support_rules := {}  # block id -> null (none) | true (solid below) | {block id: true}
 var _time_of_day := 0.5
 var _day_length := 0.0
 var _time_sync_timer := 0.0
@@ -578,6 +582,7 @@ func _physics_process(delta: float) -> void:
 	_stream_assets()
 	_poll_chunk_jobs()
 	_advance_time(delta)
+	block_ticks.update(delta)
 	var sim_usec := 0
 	var stream_usec := 0
 	for p: ServerPlayer in players.values():
@@ -1190,7 +1195,7 @@ func _request_chunk(coord: Vector2i) -> void:
 
 func _make_chunk_job(coord: Vector2i) -> Dictionary:
 	return {"coord": coord, "path": _chunk_path(coord), "generator": generator, "passes": generation_passes,
-		"seed": world_seed, "result": {}, "task_id": -1}
+		"seed": world_seed, "result": {}, "task_id": -1, "scan_ids": block_ticks.scan_ids()}
 
 
 ## Worker thread: generate the chunk, then apply saved edits and block data on top. Touches only the
@@ -1228,6 +1233,7 @@ func _run_chunk_job(job: Dictionary) -> void:
 				chunk.load_states(PackedInt32Array(saved_states))
 			if saved.get("entities") is Array:
 				job.entities = saved.entities
+			job.ticks = saved.get("ticks")
 			var entries = saved.get("data", {})
 			if entries is Dictionary:
 				for key: String in entries:
@@ -1235,7 +1241,8 @@ func _run_chunk_job(job: Dictionary) -> void:
 					if parts.size() == 3 and entries[key] is Dictionary:
 						data[Vector3i(int(parts[0]), int(parts[1]), int(parts[2]))] = entries[key]
 	job.result = {"chunk": chunk, "generated": generated, "deltas": deltas, "data": data, "entities": job.get("entities", []),
-		"usec": Time.get_ticks_usec() - started}
+		"tickable": BlockTicks.scan(chunk.blocks, job.scan_ids[0]), "lights": BlockTicks.scan(chunk.blocks, job.scan_ids[1]),
+		"ticks": job.get("ticks"), "usec": Time.get_ticks_usec() - started}
 
 
 func _poll_chunk_jobs() -> void:
@@ -1252,6 +1259,7 @@ func _integrate_chunk(job: Dictionary) -> void:
 	if world.chunks.has(job.coord) or r.is_empty():
 		return
 	world.add_chunk(r.chunk)
+	block_ticks.load_chunk(job.coord, r.tickable, r.lights, r.ticks)
 	if not r.deltas.is_empty():
 		_deltas[job.coord] = r.deltas
 		_generated[job.coord] = r.generated
@@ -1305,8 +1313,10 @@ func _unload_unused_chunks() -> void:
 		if needed.has(coord):
 			continue
 		var records := entities.unload_chunk(coord)
-		if _save_dirty.has(coord) or _block_data.has(coord) or not records.is_empty() or _entity_chunks.has(coord):
+		if _save_dirty.has(coord) or _block_data.has(coord) or not records.is_empty() or _entity_chunks.has(coord) \
+				or block_ticks.save_chunk(coord) != null:
 			writes.append(_serialize_chunk(coord, records))
+		block_ticks.unload_chunk(coord)
 		_entity_chunks.erase(coord)
 		_save_dirty.erase(coord)
 		_deltas.erase(coord)
@@ -1466,8 +1476,9 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 		return
 	var block := p.inventory.selected_block()
 	var current := world.get_block_v(pos)
-	var valid := _can_edit(p, pos) and block > 0 and registry.placeable_lut[block] == 1 \
-		and (current == BlockRegistry.AIR or registry.liquid_lut[current] == 1) and _has_solid_neighbor(pos)
+	var valid: bool = _can_edit(p, pos) and block > 0 and registry.placeable_lut[block] == 1 \
+		and (current == BlockRegistry.AIR or registry.liquid_lut[current] == 1 or registry.defs[current].replaceable) \
+		and _has_solid_neighbor(pos) and is_supported(pos, block)
 	if valid:
 		for other: ServerPlayer in players.values():
 			if registry.solid_lut[block] == 1 and PlayerPhysics.overlaps_block(other.state.position, pos) and not other.dead:
@@ -2043,9 +2054,52 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0) -> 
 	_save_dirty[coord] = true
 	if old != block and not keep_data:
 		clear_block_data(pos)
+	block_ticks.block_changed(pos, old, block)
 	for p: ServerPlayer in players.values():
 		if p.sent_chunks.has(coord):
 			Net.s_block_changed.rpc_id(p.peer_id, pos, block, state & 255)
+	# Blocks that need support (plants, torches) break when what holds them goes away.
+	if old != block and pos.y + 1 < Chunk.SIZE_Y:
+		var above := world.get_block_v(pos + Vector3i.UP)
+		if above != BlockRegistry.AIR and above != BlockRegistry.UNLOADED and not is_supported(pos + Vector3i.UP, above):
+			break_block(pos + Vector3i.UP, true)
+
+
+## Whether `block` may stand at `pos`: its `support` rule ("solid" or [block names]) must accept the block
+## below. Blocks without a rule always can.
+func is_supported(pos: Vector3i, block: int) -> bool:
+	if not _support_rules.has(block):
+		var rule = registry.defs[block].get("support")
+		var resolved = null
+		if rule is String and rule == "solid":
+			resolved = true
+		elif rule is Array or rule is String:
+			resolved = {}
+			for block_name in (rule if rule is Array else [rule]):
+				var id := registry.id_of(String(block_name))
+				if id > 0:
+					resolved[id] = true
+		_support_rules[block] = resolved
+	var needed = _support_rules[block]
+	if needed == null:
+		return true
+	var below := world.get_block_v(pos + Vector3i.DOWN)
+	return registry.solid_lut[below] == 1 and below != BlockRegistry.UNLOADED if needed is bool else needed.has(below)
+
+
+## Breaks a block without a player (support lost, explosions, mods): drops items, plays its sound.
+func break_block(pos: Vector3i, drop := true) -> void:
+	var block := world.get_block_v(pos)
+	if block == BlockRegistry.AIR or block == BlockRegistry.UNLOADED:
+		return
+	var drops := _default_drops(block) if drop else []
+	var ev := emit("block_destroyed", {"position": pos, "block": block, "drops": drops})
+	_apply_block(pos, BlockRegistry.AIR)
+	play_sound_at(block_sound(block, "break"), Vector3(pos) + Vector3.ONE * 0.5, 0.8, randf_range(0.9, 1.1))
+	for d in (ev.drops if ev.drops is Array else []):
+		if d is Array and d.size() == 2 and items.is_valid(int(d[0])) and int(d[1]) > 0:
+			entities.drop_item(int(d[0]), int(d[1]), Vector3(pos) + Vector3(0.5, 0.3, 0.5),
+				Vector3(randf_range(-1.0, 1.0), randf_range(2.0, 3.5), randf_range(-1.0, 1.0)), 0.3)
 
 
 ## Tells the client the authoritative block and inventory so it can roll back its prediction.
@@ -2078,6 +2132,7 @@ func _load_meta(seed_override: int) -> void:
 			_meta[key] = {}
 	if not (_meta.get("admins") is Array):
 		_meta.admins = []
+	block_ticks.clock = float(_meta.get("clock", 0.0))
 	if _meta.get("time") is Array and _meta.time.size() == 2:
 		_time_of_day = float(_meta.time[0])
 		_day_length = float(_meta.time[1])
@@ -2094,7 +2149,8 @@ func _serialize_chunk(coord: Vector2i, entity_records = null) -> Array:
 		_entity_chunks.erase(coord)
 	else:
 		_entity_chunks[coord] = true
-	if deltas.is_empty() and entries.is_empty() and states.is_empty() and records.is_empty():
+	var tick_state = block_ticks.save_chunk(coord)
+	if deltas.is_empty() and entries.is_empty() and states.is_empty() and records.is_empty() and tick_state == null:
 		return [_chunk_path(coord), null]
 	var palette := []
 	var palette_index := {}
@@ -2109,7 +2165,7 @@ func _serialize_chunk(coord: Vector2i, entity_records = null) -> Array:
 	var data := {}
 	for pos: Vector3i in entries:
 		data["%d,%d,%d" % [pos.x, pos.y, pos.z]] = entries[pos]
-	return [_chunk_path(coord), JSON.stringify({"version": 1, "palette": palette, "blocks": edits, "states": Array(states), "data": data, "entities": records})]
+	return [_chunk_path(coord), JSON.stringify({"version": 1, "palette": palette, "blocks": edits, "states": Array(states), "data": data, "entities": records, "ticks": tick_state})]
 
 func _store_player(p: ServerPlayer) -> void:
 	_meta.players[p.player_id] = {
@@ -2138,6 +2194,8 @@ func _save_all(wait := false) -> void:
 		coords[coord] = true  # block data dictionaries may have been mutated in place
 	for coord: Vector2i in _entity_chunks.keys():
 		coords[coord] = true  # persistent entities may have left the chunk
+	for coord: Vector2i in block_ticks.ticking_chunks():
+		coords[coord] = true  # keeps the tick clock current so catch-up never counts loaded time
 	for e: Entity in entities.entities.values():
 		if e.def.persistent:
 			coords[VoxelWorld.chunk_coord_of(e.body.position)] = true
@@ -2150,6 +2208,7 @@ func _save_all(wait := false) -> void:
 	for p: ServerPlayer in players.values():
 		_store_player(p)
 	_meta.time = [_time_of_day, _day_length]
+	_meta.clock = block_ticks.clock
 	writes.append([_save_dir + "/world.json", JSON.stringify(_meta, "\t")])
 	_write_async(writes, wait)
 

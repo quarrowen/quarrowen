@@ -183,6 +183,14 @@ func _call_host(method: String, a: Array):
 		"registerCosmeticCategory": return api.register_cosmetic_category(_str(a, 0), _dict(a, 1))
 		"setCosmeticsPolicy": api.set_cosmetics_policy(_dict(a, 0))
 		"registerEffect": return api.register_effect(_str(a, 0), _dict(a, 1))
+		"registerBlockTick":
+			var tick_id := _int(a, 1, -1)
+			api.register_block_tick(_str(a, 0), func(ctx): _invoke(tick_id, [ctx]), _dict(a, 2))
+		"scheduleBlockTick": api.schedule_block_tick(_block_pos(a, 0), float(a[1]) if a.size() > 1 else 0.0, _dict(a, 2))
+		"getLight": return api.get_light(_block_pos(a, 0))
+		"getLightLevels": return api.get_light_levels(_block_pos(a, 0))
+		"worldClock": return api.get_world_clock()
+		"breakBlock": api.break_block(_block_pos(a, 0), a[1] if a.size() > 1 and a[1] is bool else true)
 		"playEffect":
 			var options := _dict(a, 2)
 			if options.has("follow"):

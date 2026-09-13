@@ -21,6 +21,9 @@ fi
 
 install_lib() { # source dest_dir name
   mkdir -p "../native/bin/$2"
+  # Replace rather than overwrite: on macOS, rewriting a library a running Godot (the editor) has
+  # loaded invalidates its code signature and new processes hang loading it.
+  rm -f "../native/bin/$2/$3"
   cp "$1" "../native/bin/$2/$3"
   echo "installed native/bin/$2/$3"
 }

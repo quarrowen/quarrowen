@@ -52,6 +52,27 @@ class Surface:
 			custom.append_array([tile.position.x, tile.position.y, tile.size.x, tile.size.y])
 		indices.append_array([n, n + 1, n + 2, n, n + 2, n + 3])
 
+	const PLANT_QUADS := [
+		[Vector3(0, 1, 0), Vector3(1, 1, 1), Vector3(1, 0, 1), Vector3(0, 0, 0)],
+		[Vector3(1, 1, 1), Vector3(0, 1, 0), Vector3(0, 0, 0), Vector3(1, 0, 1)],
+		[Vector3(1, 1, 0), Vector3(0, 1, 1), Vector3(0, 0, 1), Vector3(1, 0, 0)],
+		[Vector3(0, 1, 1), Vector3(1, 1, 0), Vector3(1, 0, 0), Vector3(0, 0, 1)],
+	]
+
+	## Crossed quads through a cell, both sides (the solid material culls back faces).
+	func add_plant(origin: Vector3, tile: Rect2, sky: int, block: int, flags: float) -> void:
+		var color := Color(sky / 15.0, block / 15.0, 0.9)
+		for quad in PLANT_QUADS:
+			var n := verts.size()
+			for k in 4:
+				verts.append(origin + quad[k])
+				normals.append(Vector3.UP)
+				colors.append(color)
+				uvs.append(UVS[k])
+				uv2s.append(Vector2(flags, 0.0))
+				custom.append_array([tile.position.x, tile.position.y, tile.size.x, tile.size.y])
+			indices.append_array([n, n + 1, n + 2, n, n + 2, n + 3])
+
 	func to_arrays() -> Array:
 		if verts.is_empty():
 			return []
@@ -127,6 +148,7 @@ static func build(chunks: Array, ctx: Dictionary) -> Array:
 	const OPAQUE := BlockRegistry.Render.OPAQUE
 	const TRANSLUCENT := BlockRegistry.Render.TRANSLUCENT
 	const MODEL := BlockRegistry.Render.MODEL
+	const PLANT := BlockRegistry.Render.PLANT
 	const TOP := Chunk.SIZE_Y - 1
 
 	var empty_layer := PackedByteArray()
@@ -150,6 +172,11 @@ static func build(chunks: Array, ctx: Dictionary) -> Array:
 				if render == MODEL:
 					var model_light := light.at(x, y, z)
 					models.append_array([b, x, y, z, model_light[0], model_light[1]])
+					continue
+				if render == PLANT:
+					var plant_light := light.at(x, y, z)
+					var plant_flags := float(int(ctx.sway[b] != 0) | (int(ctx.emission[b] != 0) << 2))
+					solid.add_plant(Vector3(x, y, z), face_uvs[b * 6] if b * 6 < face_uvs.size() else ctx.missing_uv, plant_light[0], plant_light[1], plant_flags)
 					continue
 				neighbors[0] = blocks.decode_u16((i + 1) << 1) if x < 15 else (pos_x.decode_u16((i - 15) << 1) if has_pos_x else UNLOADED)
 				neighbors[1] = blocks.decode_u16((i - 1) << 1) if x > 0 else (neg_x.decode_u16((i + 15) << 1) if has_neg_x else UNLOADED)

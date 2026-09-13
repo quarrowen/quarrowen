@@ -93,6 +93,29 @@ func _vanilla(c) -> void:
 	_check(c.world.get_block_v(spot) == c.registry.id_of("base:planks"), "creative placement confirmed")
 	_check(c.inventory.selected_block() == c.registry.id_of("base:planks"), "creative placement did not consume")
 
+	# Farming: till grass with a hoe, plant seeds on the farmland (crossed-quad plant block).
+	Net.c_chat.rpc_id(1, "/give base:wooden_hoe")
+	Net.c_chat.rpc_id(1, "/give base:wheat_seeds 4")
+	var hoe: int = c.items.id_of("base:wooden_hoe")
+	var seeds: int = c.items.id_of("base:wheat_seeds")
+	await _wait_until(func(): return c.inventory.count_of(hoe) == 1 and c.inventory.count_of(seeds) >= 1, 3.0)
+	var soil := _find_open_grass(c)
+	_check(soil != Vector3i(0, -999, 0), "found open grass to farm")
+	if soil != Vector3i(0, -999, 0):
+		var farmland: int = c.registry.id_of("base:farmland")
+		await _select_item(c, hoe)
+		_aim_at(c, Vector3(soil) + Vector3(0.5, 0.98, 0.5))
+		await get_tree().create_timer(0.3).timeout
+		c.use_selected_item()
+		_check(await _wait_until(func(): return c.world.get_block_v(soil) == farmland, 3.0), "the hoe tilled grass into farmland")
+		await _select_item(c, seeds)
+		_aim_at(c, Vector3(soil) + Vector3(0.5, 0.98, 0.5))
+		await get_tree().create_timer(0.3).timeout
+		c.use_selected_item()
+		var wheat: int = c.registry.id_of("base:wheat_0")
+		_check(await _wait_until(func(): return c.world.get_block_v(soil + Vector3i.UP) == wheat, 3.0) \
+			and c.registry.defs[wheat].render == c.BlockRegistry.Render.PLANT, "seeds planted wheat (a plant block)")
+
 
 func _skyblock(c) -> void:
 	_check(not c.inventory.creative, "skyblock puts players in survival")
@@ -666,6 +689,23 @@ func _find_place_spot(c) -> Vector3i:
 			if c.world.get_block_v(p) == 0 and c.registry.solid_lut[c.world.get_block_v(p + Vector3i.DOWN)] == 1:
 				return p
 	return base + Vector3i(0, 3, 0)
+
+
+## A grass block with air above within reach, preferring ones not under the player.
+func _find_open_grass(c) -> Vector3i:
+	var grass: int = c.registry.id_of("base:grass")
+	var tall_grass: int = c.registry.id_of("base:tall_grass")
+	var feet: Vector3 = c.state.position
+	var base := Vector3i(floori(feet.x), floori(feet.y), floori(feet.z))
+	for r in range(2, 5):
+		for x in range(-r, r + 1):
+			for z in range(-r, r + 1):
+				for y in range(-3, 2):
+					var p := base + Vector3i(x, y, z)
+					var above: int = c.world.get_block_v(p + Vector3i.UP)
+					if c.world.get_block_v(p) == grass and (above == 0 or above == tall_grass) and c.world.get_block_v(p + Vector3i(0, 2, 0)) == 0:
+						return p
+	return Vector3i(0, -999, 0)
 
 
 func _find_block_near(c, id: int, radius: int) -> Vector3i:

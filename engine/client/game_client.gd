@@ -1138,7 +1138,7 @@ func request_place(pos: Vector3i) -> void:
 	if block <= 0 or registry.placeable_lut[block] == 0:
 		return
 	var current := world.get_block_v(pos)
-	if current != BlockRegistry.AIR and registry.liquid_lut[current] == 0:
+	if current != BlockRegistry.AIR and registry.liquid_lut[current] == 0 and not (registry.is_valid(current) and registry.defs[current].replaceable):
 		return
 	if registry.solid_lut[block] == 1:
 		if PlayerPhysics.overlaps_block(state.position, pos):

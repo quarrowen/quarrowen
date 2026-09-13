@@ -9,6 +9,7 @@ const EntityPhysics = preload("res://engine/shared/entity_physics.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const SoundRegistry = preload("res://engine/shared/sound_registry.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
+const Chunk = preload("res://engine/shared/chunk.gd")
 
 const DATA_DIR := "user://gameplay_test"
 var _failures := 0
@@ -23,6 +24,7 @@ func _ready() -> void:
 	await _progression()
 	await _cosmetics()
 	await _effects()
+	await _farming()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -427,6 +429,88 @@ func _effects() -> void:
 	_check(p.appearance.get("armor_glow", {}).get("color") == "#60e0ffff", "glowing armor reaches the appearance")
 	var stomp: Array = server.entities.ai.config_for(server.entities.registry.id_of("vanilla:colossus")).attacks.filter(func(a): return a.name == "stomp")
 	_check(stomp.size() == 1 and stomp[0].effect == "engine:dust", "mob attacks carry effects")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _farming() -> void:
+	const BlockTicks = preload("res://engine/server/block_ticks.gd")
+	var blocks := PackedByteArray()
+	blocks.resize(Chunk.VOLUME * 2)
+	blocks.encode_u16(Chunk.index(3, 40, 5) << 1, 300)
+	blocks.encode_u16(Chunk.index(9, 70, 1) << 1, 44)
+	blocks.encode_u16(Chunk.index(9, 71, 1) << 1, 300 + 256)
+	var found := BlockTicks.scan(blocks, PackedInt32Array([44, 300]))
+	_check(found.size() == 2 and found[Chunk.index(3, 40, 5)] == 300 and found[Chunk.index(9, 70, 1)] == 44, "tick index finds exactly the listed block ids (%s)" % found)
+
+	var server = _start("farming_%d" % Time.get_ticks_msec(), ["vanilla", "arcana"])
+	var ticks = server.block_ticks
+	var reg = server.registry
+	var farmland: int = reg.id_of("base:farmland")
+	var wheat: Array = [reg.id_of("base:wheat_0"), reg.id_of("base:wheat_1"), reg.id_of("base:wheat_2"), reg.id_of("base:wheat_3")]
+	server.set_world_time(0.5, 0.0)  # noon, frozen
+	var y: int = server.surface_height(8, 8)
+	var soil := Vector3i(8, y, 8)
+	for dy in range(1, 4):
+		server.set_block_authoritative(soil + Vector3i(0, dy, 0), 0)
+	server.set_block_authoritative(soil, farmland, false, 1)
+	server.set_block_authoritative(soil + Vector3i.UP, wheat[0])
+	_check(reg.defs[wheat[0]].render == reg.Render.PLANT and not reg.defs[wheat[0]].solid, "wheat renders as a plant and is not solid")
+	_check(ticks.light_at(soil + Vector3i.UP, 1.0) == 15, "open sky at noon is full light")
+	ticks._call(soil + Vector3i.UP, 1, "random", {})
+	_check(server.world.get_block_v(soil + Vector3i.UP) == wheat[1], "a random tick grows watered wheat one stage")
+	ticks._call(soil + Vector3i.UP, 12, "random", {})
+	_check(server.world.get_block_v(soil + Vector3i.UP) == wheat[3], "caught-up ticks grow it to ripe wheat")
+
+	# Catch-up after an unload: a saved clock in the past hands the missed ticks over.
+	server.set_block_authoritative(soil + Vector3i.UP, wheat[0])
+	var coord := Vector2i(0, 0)
+	var saved: Dictionary = ticks.save_chunk(coord)
+	_check(saved != null and saved.has("at"), "chunks with growing plants save a tick clock")
+	var positions: Dictionary = ticks._positions[coord].duplicate()
+	ticks.unload_chunk(coord)
+	ticks.clock += 3600.0
+	ticks.load_chunk(coord, positions, {}, saved)
+	ticks.update(BlockTicks.STEP)
+	_check(server.world.get_block_v(soil + Vector3i.UP) == wheat[3], "wheat kept growing while its chunk was unloaded")
+
+	# Support: removing the farmland pops the wheat off as items.
+	var items_before: int = server.entities.entities.size()
+	server.break_block(soil)
+	_check(server.world.get_block_v(soil + Vector3i.UP) == 0 and server.entities.entities.size() >= items_before + 2,
+		"breaking the farmland broke the wheat and dropped it")
+	_check(not server.is_supported(soil + Vector3i.UP, wheat[0]), "wheat cannot stand without farmland")
+
+	# Light: a stone roof blocks the sky; a light block lights its surroundings.
+	var stone: int = reg.id_of("base:stone")
+	var probe := Vector3i(20, server.surface_height(20, 20) + 1, 20)
+	for dx in range(-7, 8):
+		for dz in range(-7, 8):
+			server.set_block_authoritative(probe + Vector3i(dx, 3, dz), stone)
+	_check(ticks.sky_light(probe) <= 8, "a wide roof shades the sky light (%d)" % ticks.sky_light(probe))
+	var glow_id := -1
+	for d in reg.defs:
+		if d.light >= 12:
+			glow_id = d.id
+			break
+	if glow_id > 0:
+		server.set_block_authoritative(probe + Vector3i(2, 0, 0), glow_id)
+		_check(ticks.block_light(probe) == reg.defs[glow_id].light - 2, "block light falls off with distance (%d)" % ticks.block_light(probe))
+
+	# Scheduled ticks fire once when due, and saplings grow into trees.
+	var sapling: int = reg.id_of("base:sapling")
+	var tree_spot := Vector3i(40, server.surface_height(40, 40), 40)
+	server.set_block_authoritative(tree_spot, reg.id_of("base:grass"))
+	for dy in range(1, 9):
+		for dx in range(-2, 3):
+			for dz in range(-2, 3):
+				server.set_block_authoritative(tree_spot + Vector3i(dx, dy, dz), 0)
+	server.set_block_authoritative(tree_spot + Vector3i.UP, sapling)
+	ticks.schedule(tree_spot + Vector3i.UP, 1.0)
+	ticks.update(0.6)
+	_check(server.world.get_block_v(tree_spot + Vector3i.UP) == sapling, "a scheduled tick waits until it is due")
+	ticks.update(0.6)
+	_check(server.world.get_block_v(tree_spot + Vector3i.UP) == reg.id_of("base:log"), "the scheduled tick grew the sapling into a tree")
 	server.queue_free()
 	await get_tree().process_frame
 

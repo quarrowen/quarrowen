@@ -16,6 +16,7 @@ use crate::{CHUNK_BYTES, LUT_SIZE, SIZE_Y, UNLOADED};
 const RENDER_OPAQUE: u8 = 1;
 const RENDER_TRANSLUCENT: u8 = 3;
 const RENDER_MODEL: u8 = 4;
+const RENDER_PLANT: u8 = 5;
 const MAX_LIGHT: u8 = 15;
 const LIQUID_TOP: f32 = 0.88;
 
@@ -25,6 +26,14 @@ const RZ: usize = 48;
 const RY: usize = SIZE_Y as usize;
 const REGION: usize = RX * RZ * RY;
 const OFFSET: usize = 16;
+
+/// Crossed diagonal quads for plants, each listed once per side (the solid material culls back faces).
+const PLANT_QUADS: [[[f32; 3]; 4]; 4] = [
+    [[0., 1., 0.], [1., 1., 1.], [1., 0., 1.], [0., 0., 0.]],
+    [[1., 1., 1.], [0., 1., 0.], [0., 0., 0.], [1., 0., 1.]],
+    [[1., 1., 0.], [0., 1., 1.], [0., 0., 1.], [1., 0., 0.]],
+    [[0., 1., 1.], [1., 1., 0.], [1., 0., 0.], [0., 0., 1.]],
+];
 
 // Corners per face, clockwise viewed from outside (Godot front faces). Order: +X, -X, +Y, -Y, +Z, -Z.
 const CORNERS: [[[f32; 3]; 4]; 6] = [
@@ -78,6 +87,24 @@ impl Surface {
         if ao(0) + ao(2) < ao(1) + ao(3) {
             self.indices.extend_from_slice(&[n, n + 1, n + 3, n + 1, n + 2, n + 3]);
         } else {
+            self.indices.extend_from_slice(&[n, n + 1, n + 2, n, n + 2, n + 3]);
+        }
+    }
+
+    /// A plant: crossed quads through the cell at `p`, lit by the cell's own light, texture 0..1.
+    fn add_plant(&mut self, p: [usize; 3], tile: &[f32], sky: u8, block: u8, flags: f32) {
+        let uv = [Vector2::new(0.0, 0.0), Vector2::new(1.0, 0.0), Vector2::new(1.0, 1.0), Vector2::new(0.0, 1.0)];
+        for quad in PLANT_QUADS.iter() {
+            let n = self.verts.len() as i32;
+            for k in 0..4 {
+                let c = quad[k];
+                self.verts.push(Vector3::new(p[0] as f32 + c[0], p[1] as f32 + c[1], p[2] as f32 + c[2]));
+                self.normals.push(Vector3::UP);
+                self.colors.push(Color::from_rgba(sky as f32 / 15.0, block as f32 / 15.0, 0.9, 1.0));
+                self.uvs.push(uv[k]);
+                self.uv2s.push(Vector2::new(flags, 0.0));
+                self.custom.extend_from_slice(tile);
+            }
             self.indices.extend_from_slice(&[n, n + 1, n + 2, n, n + 2, n + 3]);
         }
     }
@@ -315,7 +342,7 @@ fn mesh_center(region: &[u16], sky: &[u8], block_light: &[u8], t: &Tables) -> (S
                     let id = region[i];
                     let mode = t.render[id as usize];
                     mask[u + v * u_len] = 0;
-                    if mode == 0 || mode == RENDER_MODEL {
+                    if mode == 0 || mode == RENDER_MODEL || mode == RENDER_PLANT {
                         continue;
                     }
                     let ny = p[1] as i32 + normal[1];
@@ -374,6 +401,17 @@ fn mesh_center(region: &[u16], sky: &[u8], block_light: &[u8], t: &Tables) -> (S
                 let target = if (key >> 18) & 1 == 1 { &mut translucent } else { &mut solid };
                 target.add_quad(quad_sized(face, p, size, lower), face, tile(t.uvs, id, face), corners, face_flags(t, id));
             });
+        }
+    }
+    for y in 0..height {
+        for z in 0..16 {
+            for x in 0..16 {
+                let i = ridx(OFFSET + x, y, OFFSET + z);
+                let id = region[i];
+                if t.render[id as usize] == RENDER_PLANT {
+                    solid.add_plant([x, y, z], tile(t.uvs, id, 0), sky[i], block_light[i], face_flags(t, id));
+                }
+            }
         }
     }
     (solid, translucent)

@@ -110,7 +110,126 @@ func _init() -> void:
 	# Worn armor in the 64x64 skin layout; each armor slot only uses the regions it covers.
 	_save(_armor_layer(Color(0.78, 0.8, 0.84), Color(0.5, 0.52, 0.58)), base + "iron_armor.png")
 	_save(_armor_layer(Color(0.55, 0.35, 0.2), Color(0.38, 0.23, 0.12)), vanilla + "leather_armor.png")
+
+	# Farming and plants (appended last so earlier textures keep their random sequence).
+	_save(_farmland(), base + "farmland_top.png")
+	for stage in 4:
+		_save(_wheat(stage), base + "wheat_%d.png" % stage)
+	_save(_tall_grass(), base + "tall_grass.png")
+	_save(_sapling(), base + "sapling.png")
+	_save(_flower(Color(0.9, 0.15, 0.15), Color(0.2, 0.15, 0.1)), base + "poppy.png")
+	_save(_flower(Color(1.0, 0.85, 0.15), Color(0.95, 0.6, 0.1)), base + "dandelion.png")
+	_save(_seeds(), base + "wheat_seeds.png")
+	_save(_wheat_item(), base + "wheat.png")
+	_save(_bread(), base + "bread.png")
+	for material in materials:
+		_save(_hoe(materials[material]), base + "%s_hoe.png" % material)
 	quit()
+
+
+func _farmland() -> Image:
+	var img := _noise(Color(0.34, 0.22, 0.13), 0.06)
+	for y in TILE:
+		if y % 4 == 1:
+			for x in TILE:
+				img.set_pixel(x, y, _vary(Color(0.24, 0.15, 0.09), 0.05))
+	return img
+
+
+## Crop stages: sprouts, leafy shoots, tall green stalks, golden ripe wheat.
+func _wheat(stage: int) -> Image:
+	var img := _blank()
+	var height: int = [4, 8, 12, 14][stage]
+	var stalk: Color = [Color(0.35, 0.7, 0.25), Color(0.35, 0.68, 0.22), Color(0.45, 0.65, 0.2), Color(0.78, 0.66, 0.28)][stage]
+	for column in [2, 5, 8, 11, 14]:
+		var h: int = height - (column % 3)
+		for y in range(TILE - 1, TILE - 1 - h, -1):
+			var sway := 1 if (TILE - y) > h * 0.6 and column % 2 == 0 else 0
+			img.set_pixel(clampi(column + sway, 0, TILE - 1), y, _vary(stalk, 0.08))
+		if stage == 3:
+			for y in range(TILE - h, TILE - h + 4):
+				img.set_pixel(clampi(column - 1, 0, TILE - 1), y, _vary(Color(0.9, 0.78, 0.35), 0.06))
+				img.set_pixel(column, y, _vary(Color(0.85, 0.72, 0.3), 0.06))
+	return img
+
+
+func _tall_grass() -> Image:
+	var img := _blank()
+	for blade in 9:
+		var x := rng.randi_range(1, TILE - 2)
+		var h := rng.randi_range(6, 13)
+		var lean := rng.randi_range(-1, 1)
+		for i in h:
+			img.set_pixel(clampi(x + (lean * i) / 5, 0, TILE - 1), TILE - 1 - i, _vary(Color(0.36, 0.62, 0.24), 0.1))
+	return img
+
+
+func _sapling() -> Image:
+	var img := _blank()
+	for y in range(8, TILE):
+		img.set_pixel(7, y, _vary(Color(0.42, 0.29, 0.16), 0.05))
+	for y in TILE:
+		for x in TILE:
+			if Vector2(x - 7.5, (y - 5.5) * 1.2).length() < 4.5 and rng.randf() > 0.15:
+				img.set_pixel(x, y, _vary(Color(0.25, 0.55, 0.18), 0.12))
+	return img
+
+
+func _flower(petal: Color, center: Color) -> Image:
+	var img := _blank()
+	for y in range(7, TILE):
+		img.set_pixel(7, y, _vary(Color(0.3, 0.58, 0.2), 0.05))
+	img.set_pixel(8, 11, Color(0.3, 0.6, 0.2))
+	img.set_pixel(9, 10, Color(0.3, 0.6, 0.2))
+	for y in TILE:
+		for x in TILE:
+			var d := Vector2(x - 7.0, y - 4.5).length()
+			if d < 1.2:
+				img.set_pixel(x, y, center)
+			elif d < 3.0:
+				img.set_pixel(x, y, _vary(petal, 0.06))
+	return img
+
+
+func _seeds() -> Image:
+	var img := _blank()
+	for i in 9:
+		var p := Vector2i(rng.randi_range(3, 12), rng.randi_range(4, 12))
+		img.set_pixel(p.x, p.y, Color(0.45, 0.6, 0.2))
+		img.set_pixel(p.x, p.y + 1, Color(0.35, 0.5, 0.15))
+	return img
+
+
+func _wheat_item() -> Image:
+	var img := _blank()
+	for i in range(2, 14):
+		img.set_pixel(15 - i, i, _vary(Color(0.8, 0.68, 0.3), 0.05))
+	for i in range(2, 8):
+		img.set_pixel(15 - i - 1, i, _vary(Color(0.92, 0.8, 0.38), 0.05))
+		img.set_pixel(15 - i + 1, i, _vary(Color(0.88, 0.75, 0.33), 0.05))
+	return img
+
+
+func _bread() -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var d := Vector2((x - 7.5) / 6.5, (y - 8.5) / 3.5).length()
+			if d < 1.0:
+				var crust := Color(0.72, 0.45, 0.2) if y > 7 or d > 0.8 else Color(0.85, 0.6, 0.3)
+				img.set_pixel(x, y, _vary(crust, 0.05))
+	return img
+
+
+func _hoe(head: Color) -> Image:
+	var img := _blank()
+	for y in range(4, 16):
+		img.set_pixel(15 - y, y, _vary(Color(0.45, 0.3, 0.16), 0.05))
+	for x in range(8, 14):
+		img.set_pixel(x, 2, _vary(head, 0.05))
+		img.set_pixel(x, 3, _vary(head.darkened(0.15), 0.05))
+	img.set_pixel(8, 4, head)
+	return img
 
 
 ## Box-unfold rectangles of a skin layout region [u, v, w, h, d]: top, bottom, right, front, left, back.

@@ -248,6 +248,35 @@ api.on("entity_death", func(ev):
   armor from pigs (vanilla), the Soul Blade that levels with kills (Arcana, GDScript) and the
   Prospector's Pick that mines faster as it gains experience (Guild, JavaScript).
 
+### Blocks over time, light and plants
+
+Blocks can change on their own: crops grow, farmland dries, saplings become trees. Mods register a
+tick handler per block type; the engine only visits blocks of those types, and when a chunk comes back
+after being unloaded each block gets the ticks it missed in one call, so farms keep growing while
+nobody is near. Scheduled ticks run once at a set time and survive restarts.
+
+```gdscript
+api.register_block_tick("my_mod:mushroom", func(ctx):
+	# ctx: position, block, state, ticks (> 1 when catching up), reason ("random" | "scheduled"), payload
+	if api.get_light(ctx.position) < 8:
+		api.set_block(ctx.position, api.block("my_mod:big_mushroom")),
+	{"interval": 60})                                       # about once a minute per block
+api.schedule_block_tick(position, 5.0, {"fuse": true})    # the block's handler runs in 5 s
+api.register_block("my_mod:mushroom", {"textures": "textures/mushroom.png", "render": "plant",
+	"support": ["base:dirt", "base:grass"]})               # breaks when its support goes
+```
+
+- `api.get_light(pos)` (0-15, block light or daylight-scaled sky light) and `get_light_levels(pos)`
+  estimate light on the server from column heights and nearby light sources.
+- Block keys: `render: "plant"` (two crossed quads), `support` ("solid" or block names it must stand
+  on; it cannot be placed elsewhere and pops off as items when that block goes), `replaceable`
+  (placing a block there replaces it, like tall grass). `api.break_block(pos)` breaks a block
+  without a player and fires `block_destroyed` (drops may be changed).
+- **Bundled farming (base):** hoes till grass or dirt into farmland; wheat seeds (from tall grass)
+  grow through four stages with light, twice as fast on farmland near water; ripe wheat makes bread;
+  farmland dries back to dirt when bare and dry; saplings (from leaves) grow into trees. Vanilla
+  terrain grows tall grass and flowers.
+
 ### Effects: glows, trails and particles
 
 Effects are data the server names and clients draw, so mods never ship client code. An effect mixes

@@ -207,6 +207,15 @@
     setCosmeticsPolicy: (values) => host("setCosmeticsPolicy", values),
     /** Particles, light flash, shake and sound as data; see EffectDef. Returns the id or -1. */
     registerEffect: (name, def) => host("registerEffect", name, def),
+    /** handler(ctx) with ctx {position, block, state, ticks, reason: "random" | "scheduled", payload};
+     *  options {interval: seconds (default 30), catch_up: true}. */
+    registerBlockTick: (block, handler, options = {}) => host("registerBlockTick", block, register(handler), options),
+    scheduleBlockTick: (position, seconds, payload = {}) => host("scheduleBlockTick", position, seconds, payload),
+    /** 0-15: block light or daylight-scaled sky light (estimate). */
+    getLight: (position) => host("getLight", position),
+    getLightLevels: (position) => host("getLightLevels", position),
+    worldClock: () => host("worldClock"),
+    breakBlock: (position, drop = true) => host("breakBlock", position, drop),
     /** options: {color, scale, direction: {x,y,z} | [x,y,z], duration, follow: entity | player} */
     playEffect: (name, position, options = {}) => host("playEffect", name, position, options),
     /** A mob behaviour for mobs listing it in ai.behaviors. score(mob, ctx) -> number each think;

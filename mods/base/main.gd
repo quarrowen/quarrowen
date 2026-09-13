@@ -3,6 +3,9 @@ extends "res://engine/server/mod.gd"
 ## as "base:<name>".
 
 const APPLE_HEAL := 4.0
+const Farming = preload("farming.gd")
+
+var farming := Farming.new()
 
 
 func setup(api) -> void:
@@ -58,6 +61,7 @@ func setup(api) -> void:
 	api.register_recipe({"base:gravel": 2, "base:coal": 1}, "base:brick", 4)
 	api.register_recipe({"base:cobblestone": 1}, "base:gravel", 1)
 	_register_tools(api)
+	farming.setup(api, {"dirt": dirt, "grass": grass})
 
 	api.on("item_use", func(ev):
 		if ev.item == apple:

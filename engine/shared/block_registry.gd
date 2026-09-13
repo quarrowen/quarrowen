@@ -9,7 +9,7 @@ const MAX_BLOCKS := 65535
 const LUT_SIZE := 65536
 const MAX_NAME_LENGTH := 64
 
-enum Render { INVISIBLE, OPAQUE, CUTOUT, TRANSLUCENT, MODEL }
+enum Render { INVISIBLE, OPAQUE, CUTOUT, TRANSLUCENT, MODEL, PLANT }
 
 const RENDER_NAMES := {
 	"invisible": Render.INVISIBLE,
@@ -17,12 +17,13 @@ const RENDER_NAMES := {
 	"cutout": Render.CUTOUT,
 	"translucent": Render.TRANSLUCENT,
 	"model": Render.MODEL,
+	"plant": Render.PLANT,  # two crossed quads (grass, flowers, crops, saplings); not solid by default
 }
 
 ## Fields sent to clients. Anything else in a definition (e.g. drops) stays on the server.
 const NETWORK_FIELDS := ["name", "display_name", "render", "solid", "liquid", "cull_same", "breakable", "placeable",
 	"textures", "light", "interactive", "model", "orientation", "connect_group", "model_arm", "sway", "sounds",
-	"hardness", "tier", "tool"]
+	"hardness", "tier", "tool", "replaceable"]
 
 ## Face order used by `textures`: +X, -X, +Y (top), -Y (bottom), +Z, -Z.
 const FACE_COUNT := 6
@@ -49,7 +50,9 @@ func _init() -> void:
 	register({"name": "engine:air", "display_name": "Air", "render": "invisible"})
 
 
-## Definition keys: name, display_name, render ("opaque" | "cutout" | "translucent" | "invisible"),
+## Server-only keys: drops, hazard, support ("solid" or [block names] the block must stand on; it breaks
+## when that block goes away and cannot be placed elsewhere).
+## Definition keys: name, display_name, render ("opaque" | "cutout" | "translucent" | "invisible" | "plant"),
 ## solid, liquid, cull_same, breakable, placeable, textures as a String (all faces), a Dictionary
 ## {all, side, top, bottom} or an Array of 6 names, light (0-15 emitted), interactive (right-click
 ## fires block_interact instead of placing), model (glTF asset name, with render "model"),
@@ -67,13 +70,14 @@ func register(def: Dictionary) -> int:
 		return -1
 	var d := def.duplicate(true)
 	var render: int = RENDER_NAMES.get(String(def.get("render", "opaque")), Render.OPAQUE) \
-		if def.get("render") is String else clampi(int(def.get("render", Render.OPAQUE)), 0, Render.MODEL)
+		if def.get("render") is String else clampi(int(def.get("render", Render.OPAQUE)), 0, Render.PLANT)
 	var liquid := bool(def.get("liquid", false))
 	d.name = block_name
 	d.display_name = String(def.get("display_name", block_name.get_slice(":", 1).capitalize())).left(MAX_NAME_LENGTH)
 	d.render = render
 	d.liquid = liquid
-	d.solid = bool(def.get("solid", render != Render.INVISIBLE and not liquid))
+	d.solid = bool(def.get("solid", render != Render.INVISIBLE and render != Render.PLANT and not liquid))
+	d.replaceable = bool(def.get("replaceable", false))  # placing a block here replaces it (tall grass)
 	d.cull_same = bool(def.get("cull_same", render == Render.TRANSLUCENT))
 	d.breakable = bool(def.get("breakable", render != Render.INVISIBLE and not liquid))
 	d.placeable = bool(def.get("placeable", d.breakable))
