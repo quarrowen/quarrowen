@@ -194,7 +194,8 @@ api.register_sound("growl", ["sounds/growl1.ogg", "sounds/growl2.ogg"], {"range"
 api.register_entity("wolf", {
 	"model": "models/wolf.glb",        # parts named leg_a*, leg_b*, arm_a*, arm_b*, head animate
 	"width": 0.6, "height": 0.85, "health": 12, "speed": 4.0,
-	"ai": "hostile", "attack_damage": 3, "sight_range": 24,
+	"ai": {"preset": "hostile", "aggression": 0.8, "group": "wolves",   # see "Mob AI" below
+		"attacks": [{"name": "bite", "type": "melee", "damage": 3, "windup": 0.3}]},
 	"drops": [["base:coal", 1, 0.5]],  # [item, count, chance]
 	"sounds": {"hurt": "growl", "ambient": "growl"},
 	"persistent": false,              # true: saved with its chunk (animals); false: despawns far from players
@@ -206,9 +207,8 @@ api.on("entity_death", func(ev):
 		ev.attacker.send_message("You defeated a wolf"))
 ```
 
-- **Entities** are simulated only on the server: gravity and voxel collision, built-in AI (`wander`,
-  `passive` flees when hurt, `hostile` chases and attacks survival players; hops up single blocks),
-  `set_goal` for scripted movement, knockback, hurt cooldowns and death drops. Projectiles
+- **Entities** are simulated only on the server: gravity and voxel collision (batched in native code),
+  engine mob AI (next section), knockback, hurt cooldowns and death drops. Projectiles
   (`kind: "projectile"`, e.g. Arcana's Wand of Sparks) sweep against blocks, mobs and players each
   tick and fire `projectile_hit`. Dropped item stacks (the built-in `engine:item`) are pulled toward
   nearby players, merge with neighbours and despawn after 5 minutes.
@@ -234,6 +234,65 @@ api.on("entity_death", func(ev):
 - **Admin commands:** `/give`, `/tp`, `/summon`, `/heal`, `/gamemode`, `/gameplay`; everyone has
   `/kill`. The vanilla game lets anyone use `/gamemode survival|creative`; at night zombies spawn
   (and burn at sunrise), pigs graze by day, and leaves sometimes drop apples.
+
+### Mob AI
+
+Mob AI is an engine capability; mods pick a preset and tune anything, per type or per mob.
+
+```gdscript
+api.register_entity("colossus", {
+	"model": "models/colossus.glb", "width": 1.2, "height": 7.2, "health": 400, "speed": 2.4,
+	"ai": {
+		"preset": "boss",                      # hostile | neutral | passive | archer | boss | wander | none
+		"aggression": 0.8, "intelligence": 0.9, "courage": 1.0,
+		"sight_range": 40, "leash": 48, "step_up": 2, "boss": {"name": "Ancient Colossus"},
+		"attacks": [
+			{"name": "stomp", "type": "slam", "damage": 9, "radius": 5, "windup": 1.1, "cooldown": 5},
+			{"name": "punch", "type": "melee", "damage": 11, "range": 2.2, "arc": 120, "windup": 0.7},
+		],
+		"phases": [{"health_below": 0.5, "message": "The Ancient Colossus roars in fury!", "speed_multiplier": 1.35,
+			"add_attacks": [{"name": "charge", "type": "charge", "damage": 14, "min_range": 6, "range": 24}]}],
+	},
+})
+var boss = api.spawn_entity("colossus", position)
+boss.tune({"aggression": 1.0})                   # this one only
+boss.set_target(player)
+```
+
+- **Navigation:** A* on the voxel grid for the mob's real size (a 1.2x7.2 boss needs a 2x2x8 gap),
+  climbing up to `step_up` blocks, dropping at most `max_drop`, optional swimming, never entering
+  blocks marked `"hazard": true`, and keeping away from lethal edges. Paths are string-pulled and
+  re-planned when the target moves; a per-tick budget keeps the cost flat.
+- **Senses and memory:** sight within `sight_range` and a `fov` cone, blocked by opaque blocks;
+  hearing noises (block breaking and placing, fighting, sprinting, `make_noise`) within
+  `hearing_range`; memory of where enemies were last seen and where they were heading, for
+  `memory` seconds. Threat tables: whoever hurts a mob most becomes its target.
+- **Decisions:** each think (4x a second) behaviours are scored and the best runs: idle, wander,
+  investigate (a noise or an ally's call), engage, search (go where the target was last heading),
+  flee (below `(1 - courage) / 2` health, or passive mobs hurt or approached within `skittish`),
+  return home (past `leash`; bosses reset), scripted goals and mod behaviours.
+- **Tactics:** melee mobs spread around a shared target instead of stacking and circle while their
+  attacks recharge; ranged mobs keep `preferred_range`, strafe, retreat when approached and lead
+  moving targets; `agility` sidesteps incoming projectiles; spotting or being hurt alerts allies of
+  the same `group`; `enemy_groups` lets mobs fight other mobs; heavy hits stagger wind-ups; hurt mobs
+  that fled stay away and recover before returning. `intelligence` scales prediction, flanking and
+  shot leading; `aggression` scales pursuit distance and attack tempo.
+- **Attacks** (`melee`, `ranged`, `leap`, `charge`, `slam`, `summon`, `custom`) all telegraph with a
+  wind-up the client animates, so players can dodge, block line of sight or interrupt. Selection
+  weighs range, cooldowns, health conditions and the situation (slams when several enemies are close,
+  charges over open ground, summons when alone). `custom` attacks fire `mob_attack` for the mod to act.
+- **Bosses:** `phases` change attacks, speed and aggression at health thresholds (`mob_phase`) and
+  `boss` shows a health bar to nearby players.
+- **Mod hooks:** `register_mob_behavior(name, {score, update, stop})` adds behaviours that compete
+  with the engine's (JavaScript: `api.registerMobBehavior`); entity methods `set_target`, `add_threat`,
+  `tune`, `alert`, `set_home`, `perform_attack`, `set_goal`; events `mob_target` (cancellable),
+  `mob_attack` (cancellable) and `mob_phase`. Reference: `engine/server/ai/mob_config.gd`.
+- **In the bundled games:** zombie packs (claw + lunge, they call each other in), skeleton archers
+  that kite and dodge, pig herds that scatter together, the Ancient Colossus (`/colossus`), and in the
+  guild mod an elite bounty zombie tuned from JavaScript and a treasure goblin whose loot-grabbing
+  behaviour is written in JavaScript (`/guild goblin`).
+- **Cost:** 300 mobs with about 130 hunting 10 players, plus 200 item stacks: 3.5 ms per tick with
+  the native extension, 9.3 ms with the GDScript fallback (`tests/bench.tscn`).
 
 ### Example: the Industry mod
 
@@ -366,6 +425,8 @@ automatically when the library is missing; `VOXEL_NATIVE=0` forces the fallbacks
 |---|---|---|---|
 | Chunk meshing | `NativeMesher` | 8.2 ms/chunk, per-face, approximate lighting (heightmap sky, unoccluded block light) | 1.1 ms/chunk with flood-fill light, smooth lighting, AO and greedy merging (2× fewer quads) |
 | Player physics step | `NativeVoxelWorld.step_player` | 0.011 ms | 0.001 ms, identical results |
+| Entity physics (500 bodies) | `NativeVoxelWorld.step_entities` | 2.3 ms/tick | 1.0 ms/tick, one batched call |
+| Mob pathfinding, sight | `NativeVoxelWorld.find_path` / `line_of_sight` | 350-node budget | 1500-node budget, ~50 µs per path |
 | Snapshots (100 clustered players) | `NativeSnapshots` | ~3.1 ms | 0.076 ms (spatial grid) |
 | Signals | `NativeProcess` | hard kill | graceful save on SIGTERM/SIGINT |
 | JavaScript mods | `NativeJsRuntime` | not available | QuickJS-NG, sandboxed |
@@ -390,6 +451,7 @@ godot --headless --path . res://tests/host_flow_test.tscn                     # 
 godot --headless --path . res://tests/persistence_test.tscn   # delta saves, block data, backups + restore
 godot --headless --path . res://tests/identity_test.tscn      # encrypted identity export / import
 godot --headless --path . res://tests/gameplay_test.tscn      # inventory rules, entities, damage, persistent mobs
+godot --headless --path . res://tests/ai_test.tscn            # mob AI in a flat arena (tests/mods/ai_arena)
 godot --headless --path . res://tests/js_sandbox_test.tscn    # JavaScript limits
 godot --headless --path . res://tests/bench.tscn              # worldgen, meshing, snapshots, physics
 godot --headless --path . res://tests/bots.tscn -- --port=24603 --bots=100
