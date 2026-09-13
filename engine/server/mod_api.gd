@@ -18,6 +18,8 @@ extends RefCounted
 ##   item_durability {player, slot, item, data, amount, reason ("mine" | "attack" | "armor" | ...), cancelled}
 ##   item_break     {player, slot, item, data}                an item wore out
 ##   equipment_changed {player, slot, old_item, item}
+##   player_appearance {player, appearance}                    what others see; may be changed
+##   avatar_change  {player, avatar}                          the player's look was recomputed; avatar may be changed
 ##   player_stats   {player, stats}                           stats may be changed (see ItemRegistry.BASE_STATS)
 ##   block_break / block_broken also carry {item, slot} (the held tool) and block_broken {harvested}
 ##   item_drop      {player, item, count, cancelled}          Q key
@@ -112,8 +114,12 @@ func register_block(block_name: String, def: Dictionary) -> int:
 func register_item(item_name: String, def: Dictionary) -> int:
 	var d := def.duplicate(true)
 	d.name = _qualify(item_name)
-	if not String(def.get("icon", "")).is_empty():
-		d.icon = register_asset(def.icon)
+	for key in ["icon", "model", "armor_texture"]:
+		if not String(def.get(key, "")).is_empty():
+			d[key] = register_asset(def[key])
+	if def.get("effects") is Dictionary:
+		for hook in def.effects:
+			d.effects[hook] = _qualify_ref(String(def.effects[hook]))
 	return _server.items.register(d)
 
 
@@ -143,6 +149,29 @@ func register_sound(sound_name: String, files, options := {}) -> int:
 		assets.append(register_asset(String(f)))
 	d.files = assets
 	return _server.sounds.register(d)
+
+
+## Registers a visual effect: particle emitters, light flash, camera shake and sound (see
+## engine/shared/effect_registry.gd). Emitter textures are paths in this mod or "soft", "spark",
+## "star", "square". Returns the effect id, or -1.
+func register_effect(effect_name: String, def: Dictionary) -> int:
+	var d := def.duplicate(true)
+	d.name = _qualify(effect_name)
+	if def.get("sound") is String:
+		d.sound = _qualify_ref(def.sound)
+	if def.get("emitters") is Array:
+		for e in d.emitters:
+			if e is Dictionary and e.get("texture") is String and not e.texture in ["soft", "spark", "star", "square"]:
+				e.texture = register_asset(e.texture)
+	return _server.effects.register(d)
+
+
+## Plays an effect for everyone in range. options: color ("#rrggbb", tints it), scale, direction
+## (Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).
+## Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,
+## engine:dust, engine:explosion.
+func play_effect(effect_name: String, position: Vector3, options := {}) -> void:
+	_server.play_effect(_qualify_ref(effect_name), position, options)
 
 
 ## Plays a sound at a world position for everyone in range.
@@ -178,6 +207,43 @@ func get_entities(center: Vector3, radius: float, entity_name := "") -> Array:
 
 func get_entity(entity_id: int):
 	return _server.entities.entities.get(entity_id)
+
+
+## Replaces the player character rig for this server (see engine/shared/player_rig.gd).
+func set_player_rig(def: Dictionary) -> void:
+	_server.set_player_rig(def)
+
+
+## Registers a server cosmetic players can wear on this server (see engine/shared/cosmetics.gd for
+## the def: category, paint, pixels, boxes, texture, model, color, covers, unlocked...). `texture` and
+## `model` are paths in this mod. `unlocked: false` makes it wearable only after player.grant_cosmetic.
+## Returns the cosmetic's full name ("mod:name"), or "" when invalid.
+func register_cosmetic(cosmetic_name: String, def: Dictionary) -> String:
+	var d := def.duplicate(true)
+	d.name = _qualify(cosmetic_name)
+	for key in ["texture", "model"]:
+		if not String(def.get(key, "")).is_empty():
+			d[key] = register_asset(def[key])
+	return _server.cosmetics.register(d)
+
+
+## Adds a cosmetic category. def: display_name, attach (rig attachment point for boxes and models),
+## covers (armor slots its cosmetics replace by default).
+func register_cosmetic_category(category_name: String, def := {}) -> bool:
+	var d := def.duplicate()
+	d.name = category_name
+	return _server.cosmetics.register_category(d)
+
+
+## Sets how cosmetics work on this server. values (any subset):
+##   allow_builtin: players may wear built-in cosmetics (their own look from other servers)
+##   allow_colors:  players may recolor cosmetics and choose skin colors
+##   armor: "player" (each player chooses per slot), "armor" (armor always shows), "cosmetics"
+##   blocked: [cosmetic names or categories]
+##   uniform: avatar data laid over every player, e.g. {wear: {shirt: {id: "builtin:tshirt", color: "#d94c4c"}}}
+## For per-player looks (teams, disguises) use player.set_avatar_override or the avatar_change event.
+func set_cosmetics_policy(values: Dictionary) -> void:
+	_server.set_cosmetics_policy(values)
 
 
 ## Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching

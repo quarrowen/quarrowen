@@ -43,6 +43,22 @@ export function setup(api) {
   };
 
   api.registerSound("coin", "sounds/coin.wav", { pitch_variance: 0.05 });
+  api.registerEffect("gold_burst", {
+    emitters: [{ amount: 18, lifetime: 0.7, speed: [1.5, 3.5], direction: [0, 1, 0], spread: 70, gravity: 9, size: [0.12, 0.06],
+      colors: ["#fff8c0", "#ffd040", "#c08000"], texture: "square" }],
+    light: { color: "#ffd040", energy: 2, range: 5, seconds: 0.3 }, sound: "guild:coin",
+  });
+
+  // --- Cosmetics: a cape for members who have completed three quests -----------------------------
+  const CAPE = api.registerCosmetic("guild_cape", {
+    category: "back", display_name: "Guild cape", color: "#3a6a3a", unlocked: false,
+    description: "Guild: complete three quests.",
+    boxes: [
+      { from: [-4.5, -12, 0.2], size: [9, 17, 0.8] },
+      { from: [-4.5, 4, 0.2], size: [9, 1, 1.2], color: "#e8c040" },
+      { from: [-1.5, -3, 1], size: [3, 3, 0.3], color: "#e8c040" },
+    ],
+  });
 
   // --- Prospector's Pick: a tool that levels up from the blocks it mines -------------------------
   // Built only from engine pieces: the block_broken event, item data (xp, level, name, lore) and
@@ -223,10 +239,15 @@ export function setup(api) {
           player.give(ids.coin, def.reward);
           setState(player, null);
           player.setData("completed", player.getData("completed", 0) + 1);
+          if (player.getData("completed", 0) >= 3 && !player.hasCosmetic(CAPE)) {
+            player.grantCosmetic(CAPE);
+            player.sendMessage("The Guild grants you its cape! Wear it from Esc > Customize avatar.");
+          }
           const ledger = api.storage.get("ledger", {});
           ledger[player.name] = (ledger[player.name] ?? 0) + 1;
           api.storage.set("ledger", ledger);
           api.broadcast(`${player.name} completed "${def.title}" for the Guild`);
+          api.playEffect("engine:sparkle", player.position, { follow: player, scale: 1.5, color: "#ffe080" });
         }
         break;
       }
@@ -281,7 +302,12 @@ export function setup(api) {
       player.showTitle("", `Prospector's Pick reached level ${level}`, 2);
       api.playSound("guild:coin", position, 1, 1.5);
     }
-    if (level >= 3 && block === ids.goldOre && Math.random() < 0.25) api.dropItem(ids.coin, 1, position);
+    if (level >= 3 && block === ids.goldOre && Math.random() < 0.25) {
+      api.dropItem(ids.coin, 1, position);
+      api.playEffect("gold_burst", { x: position.x + 0.5, y: position.y + 0.5, z: position.z + 0.5 });
+    }
+    // A levelled pick shimmers gold.
+    if (level >= 2) data.glow = { color: "#ffd040", energy: 0.25 * level };
     data.level = level;
     data.name = level > 0 ? `Prospector's Pick +${level}` : "Prospector's Pick";
     data.modifiers = level > 0 ? [{ stat: "mining_speed", amount: 0.2 * level, op: "multiply" }] : [];
@@ -339,6 +365,7 @@ export function setup(api) {
     const position = { x, y: y + 1, z };
     api.setBlock({ x, y, z }, gravel);
     api.setBlock(position, ids.meteorite);
+    api.playEffect("engine:explosion", { x: x + 0.5, y: y + 1.5, z: z + 0.5 }, { scale: 1.5 });
     api.broadcast(`A meteor fell near ${target.name} at ${x}, ${y + 1}, ${z}!`);
     for (const player of api.players()) player.showTitle("Meteor shower!", `Something landed near ${target.name}`, 3);
     return position;

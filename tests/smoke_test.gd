@@ -246,6 +246,7 @@ func _arcana(c) -> void:
 	c.use_selected_item()
 	var moved := await _wait_until(func(): return c.state.position.distance_to(before) > 2.5, 3.0)
 	_check(moved, "Wand of Blink teleported the player %.1f blocks" % c.state.position.distance_to(before))
+	_check(await _wait_until(func(): return c.effects_seen.get("arcana:blink", 0) >= 2, 2.0), "blink effects played where you left and arrived")
 	var label: Label = c._server_ui._panels["arcana:mana"].get_child(0).get_child(0)
 	_check(label.text.contains("80") or label.text.contains("81") or label.text.contains("82"), "blink cost mana (%s)" % label.text)
 
@@ -423,6 +424,9 @@ func _combat(c) -> void:
 	c.inventory_click(c.inventory.ids.find(chestplate), 1, true)
 	_check(await _wait_until(func(): return c.inventory.ids[c.inventory.equipment_index("chest")] == chestplate, 2.0), "shift-click wore the chestplate")
 	_check(await _wait_until(func(): return c.stats.get("armor", 0.0) == 6.0 and c._armor_bar.visible, 2.0), "server stats and armor HUD show 6 armor")
+	_check(await _wait_until(func(): return c._self_avatar._armor_material.albedo_texture != null and c._self_avatar._armor_meshes[0].visible, 2.0),
+		"your avatar wears the chestplate texture")
+	_check(c._self_avatar._held != null, "your avatar holds the selected item")
 	var lines: PackedStringArray = c.ItemVisuals.tooltip_lines(c.items, chestplate, {})
 	_check(lines.size() >= 3 and lines[1].contains("armor"), "tooltip lists armor and durability (%s)" % " | ".join(lines))
 	Net.c_chat.rpc_id(1, "/give base:stone_pickaxe")
@@ -457,9 +461,13 @@ func _combat(c) -> void:
 				shot = true
 				break
 		_check(shot, "Wand of Sparks projectile hit the zombie")
+		var burst := await _wait_until(func(): return c.effects_seen.has("arcana:spark_burst"), 2.0)
+		_check(burst and c.effects_seen.has("arcana:cast"), "the wand's cast and impact effects played (%s)" % str(c.effects_seen.keys()))
+		_check(c._view_model._held != null and c._view_model._held.get_child(0).material_overlay != null, "the wand glows in your hand")
 		Net.c_chat.rpc_id(1, "/heal")
 		await _select_item(c, sword)
 		await _fight(c, target, 12.0)
+		_check(c.effects_seen.has("engine:hit"), "sword hits made hit sparks")
 
 	# Death and respawn.
 	Net.c_chat.rpc_id(1, "/kill")

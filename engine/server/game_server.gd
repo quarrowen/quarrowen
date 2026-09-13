@@ -24,6 +24,9 @@ const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const Mining = preload("res://engine/shared/mining.gd")
 const PlayerStats = preload("res://engine/server/player_stats.gd")
+const PlayerRig = preload("res://engine/shared/player_rig.gd")
+const Cosmetics = preload("res://engine/shared/cosmetics.gd")
+const EffectRegistry = preload("res://engine/shared/effect_registry.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -53,6 +56,8 @@ const REGEN_INTERVAL := 2.5
 const VOID_DAMAGE_Y := -32.0
 ## Landing as fast as a fall from higher than this (blocks) hurts: 1 damage per extra block.
 const SAFE_FALL_HEIGHT := 3.2
+## Minimum seconds between avatar changes from a client.
+const AVATAR_CHANGE_INTERVAL := 0.2
 
 var registry := BlockRegistry.new()
 var items := ItemRegistry.new(registry)
@@ -61,6 +66,12 @@ var world := VoxelWorld.new()
 var world_seed := 0
 var entities := Entities.new(self)
 var sounds := SoundRegistry.new()
+## The character body every client draws players with (see PlayerRig; mods may replace it).
+var player_rig := PlayerRig.default_rig()
+## Built-in and server cosmetics, categories and this server's cosmetics policy.
+var cosmetics := Cosmetics.new()
+## Named visual effects clients render on request (see EffectRegistry).
+var effects := EffectRegistry.new()
 ## Game-wide rules mods can change with set_gameplay.
 var gameplay := {
 	"item_drops": "entity",  # "entity": broken blocks drop items to pick up; "inventory": straight into the inventory
@@ -530,6 +541,10 @@ func _cmd_gameplay(player, args: PackedStringArray) -> void:
 	broadcast_chat("%s set %s to %s" % [player.name, args[0], value])
 
 
+func set_player_rig(def: Dictionary) -> void:
+	player_rig = PlayerRig.sanitize(def)
+
+
 func set_gameplay(values: Dictionary) -> void:
 	for key in values:
 		if not gameplay.has(key):
@@ -807,6 +822,24 @@ func play_sound_at(sound_name: String, pos: Vector3, volume := 1.0, pitch := 1.0
 			Net.s_sound.rpc_id(p.peer_id, id, pos, volume, pitch, true)
 
 
+## Plays a registered effect at a position for players in range. options: see EffectRegistry
+## (color, scale, direction, duration, follow: an entity or player).
+func play_effect(effect_name: String, pos: Vector3, options := {}, exclude := 0) -> void:
+	var id := effects.id_of(effect_name)
+	if id < 0 or not _started:
+		return
+	var follow = options.get("follow")
+	var clean := EffectRegistry.clean_options(options)
+	if follow is ServerPlayer:
+		clean.follow_player = follow.peer_id
+	elif follow != null and follow is Object and follow.get("id") is int:
+		clean.follow_entity = follow.id
+	var reach: float = effects.defs[id].range
+	for p: ServerPlayer in players.values():
+		if p.peer_id != exclude and p.state.position.distance_to(pos) <= reach:
+			Net.s_effect.rpc_id(p.peer_id, id, pos, clean)
+
+
 func play_sound_to(p: ServerPlayer, sound_name: String, volume := 1.0, pitch := 1.0) -> void:
 	var id := sounds.id_of(sound_name)
 	if id >= 0 and _started:
@@ -976,7 +1009,8 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 			manifest.append([asset_name, a.hash, a.size])
 	var content := {"blocks": registry.to_network(), "items": items.to_network(), "rules": rules.to_dict(),
 		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
-		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate()}
+		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
+		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
@@ -1021,10 +1055,10 @@ func on_client_ready(peer_id: int) -> void:
 	if j.is_empty() or not j.requested or not j.queue.is_empty():
 		return
 	_joining.erase(peer_id)
-	_spawn_player(peer_id, j.name, j.player_id)
+	_spawn_player(peer_id, j.name, j.player_id, j.get("avatar", {}))
 
 
-func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void:
+func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar = {}) -> void:
 	var p := ServerPlayer.new(self, peer_id, player_name)
 	p.player_id = player_id
 	p.edit_tokens = EDITS_PER_SECOND
@@ -1037,6 +1071,9 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void
 		p.load_inventory(saved)
 		p.inventory.creative = bool(saved.get("creative", false))
 		p.data = saved.get("data", {}) if saved.get("data") is Dictionary else {}
+		for id in (saved.get("cosmetics") if saved.get("cosmetics") is Array else []):
+			p.owned_cosmetics[String(id)] = true
+		p.server_wear = saved.get("server_wear") if saved.get("server_wear") is Dictionary else {}
 		p.health = clampf(float(saved.get("health", p.max_health)), 1.0, p.max_health)
 		var spawn_point = saved.get("spawn_point")
 		if spawn_point is Array and spawn_point.size() == 3:
@@ -1047,6 +1084,8 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void
 	ensure_area_loaded(p.state.position)
 
 	Net.s_welcome.rpc_id(peer_id, peer_id, p.state.position, 0.0)
+	_set_client_avatar(p, avatar, true)
+	Net.s_cosmetics.rpc_id(peer_id, PackedStringArray(p.owned_cosmetics.keys()), cosmetics.policy)
 	Net.s_time.rpc_id(peer_id, _time_of_day, _day_length)
 	p.sync_inventory()
 	refresh_stats(p)
@@ -1055,6 +1094,8 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void
 		if other != p:
 			Net.s_player_joined.rpc_id(peer_id, other.peer_id, other.name)
 			Net.s_player_joined.rpc_id(other.peer_id, peer_id, player_name)
+			Net.s_player_appearance.rpc_id(peer_id, other.peer_id, other.appearance)
+			Net.s_player_appearance.rpc_id(other.peer_id, peer_id, p.appearance)
 	if not server_info.motd.is_empty():
 		p.send_message(server_info.motd)
 	broadcast_chat("%s joined the game" % player_name)
@@ -1444,6 +1485,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 	_apply_block(pos, block, false, state)
 	entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 8.0, p)
 	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
+	_broadcast_player_event(p, Entities.Event.SWING)
 	emit("block_placed", {"player": p, "position": pos, "block": block})
 
 
@@ -1503,6 +1545,11 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 	if has_target and (not world.has_chunk(VoxelWorld.chunk_coord_at(target.x, target.z)) \
 			or p.get_eye_position().distance_to(Vector3(target) + Vector3.ONE * 0.5) > REACH + 0.87):
 		has_target = false
+	_broadcast_player_event(p, Entities.Event.SWING)
+	var use_effect := String(items.visuals(item, p.inventory.data[p.inventory.selected]).effects.get("use", ""))
+	if not use_effect.is_empty():
+		var look_dir := PlayerPhysics.look_direction(p.yaw, p.pitch)
+		play_effect(use_effect, p.get_eye_position() + look_dir * 0.8, {"direction": look_dir})
 	emit("item_use", {"player": p, "item": item, "has_target": has_target, "position": target,
 		"normal": normal.clamp(-Vector3i.ONE, Vector3i.ONE), "direction": PlayerPhysics.look_direction(p.yaw, p.pitch)})
 
@@ -1543,6 +1590,11 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 	if ev.cancelled:
 		return
 	play_sound_at("engine:swing", eye, 0.7, randf_range(0.9, 1.1), peer_id)
+	_broadcast_player_event(p, Entities.Event.SWING)
+	var look := items.visuals(item, p.inventory.data[p.inventory.selected]) if item >= ItemRegistry.FIRST_ITEM else {"effects": {}}
+	var direction3 := PlayerPhysics.look_direction(p.yaw, p.pitch)
+	if look.effects.has("swing"):
+		play_effect(look.effects.swing, eye + direction3 * 0.9, {"direction": direction3})
 	entities.ai.make_noise(eye, 14.0, p, true)
 	var direction := PlayerPhysics.look_direction(p.yaw, 0.0)
 	var landed := false
@@ -1556,6 +1608,11 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 					entities.damage(other, float(ev.damage) * sweep, "attack", p, other.body.position - p.state.position)
 	elif gameplay.pvp:
 		landed = damage_player(target, float(ev.damage), "attack", p, direction, false, 6.0 * float(stats.knockback))
+	if landed:
+		var impact := eye.clamp(box.position, box.end).lerp(center, 0.5)
+		play_effect(String(look.effects.get("hit", "engine:hit")), impact, {"direction": -direction3})
+		if critical:
+			play_effect("engine:crit", impact + Vector3(0, 0.3, 0))
 	if landed and items.max_durability(item) > 0:
 		damage_item(p, p.inventory.selected, 1 if not items.weapon_of(item).is_empty() else 2, "attack")
 
@@ -1657,6 +1714,7 @@ func on_mine_start(peer_id: int, pos: Vector3i) -> void:
 	if block == BlockRegistry.UNLOADED or registry.breakable_lut[block] == 0:
 		return
 	p.mining = {"position": pos, "started": _time}
+	_broadcast_player_event(p, Entities.Event.SWING)
 	var seconds := Mining.break_time(registry.defs[block], items.tool_of(p.inventory.selected_item()), p.get_stat("mining_speed"))
 	_broadcast_mining(p, pos, seconds)
 
@@ -1702,6 +1760,7 @@ func damage_item(p: ServerPlayer, slot: int, amount: int, reason := "use") -> vo
 		p.inventory.clear_slot(slot)
 		emit("item_break", {"player": p, "slot": slot, "item": id, "data": item_data})
 		play_sound_at("engine:item_break", p.get_eye_position())
+		play_effect(String(items.visuals(id, item_data).effects.get("break", "engine:smoke")), p.get_eye_position() + PlayerPhysics.look_direction(p.yaw, p.pitch) * 0.6, {"scale": 0.4})
 		p.send_message("Your %s broke" % items.display_name(id))
 	else:
 		p.inventory.data[slot] = item_data
@@ -1732,6 +1791,118 @@ func refresh_stats(p: ServerPlayer) -> void:
 	if p._online() and stats != p._sent_stats:
 		p._sent_stats = stats.duplicate()
 		Net.s_player_stats.rpc_id(p.peer_id, stats)
+	refresh_appearance(p)
+
+
+## What other players see: held item, visible armor and avatar. Sent to everyone when it changes.
+func refresh_appearance(p: ServerPlayer) -> void:
+	var armor := {}
+	for i in p.inventory.equipment_slots.size():
+		var index := Inventory.SIZE + i
+		var slot_name: String = p.inventory.equipment_slots[i]
+		if slot_name != "offhand" and p.inventory.ids[index] > 0:
+			armor[slot_name] = p.inventory.ids[index]
+	var visible := cosmetics.visible_armor(armor, p.avatar)
+	var appearance := {"held": p.inventory.selected_item(), "armor": visible, "avatar": p.avatar}
+	var held := p.inventory.selected_item()
+	if held >= ItemRegistry.FIRST_ITEM:
+		var look := items.visuals(held, p.inventory.data[p.inventory.selected])
+		if not look.glow.is_empty() or not look.trail.is_empty() or look.effects.has("held"):
+			appearance.held_look = {"glow": look.glow, "trail": look.trail, "held": look.effects.get("held", "")}
+	# The brightest glow among visible armor lights the whole armor texture.
+	for slot_name in visible:
+		var slot_index := p.inventory.equipment_index(slot_name)
+		var glow: Dictionary = items.visuals(visible[slot_name], p.inventory.data[slot_index] if slot_index >= 0 else {}).glow
+		if not glow.is_empty() and float(glow.energy) > float(appearance.get("armor_glow", {}).get("energy", 0.0)):
+			appearance.armor_glow = glow
+	var ev := emit("player_appearance", {"player": p, "appearance": appearance})
+	appearance = ev.appearance
+	if appearance == p.appearance or not _started:
+		p.appearance = appearance
+		return
+	p.appearance = appearance
+	for other: ServerPlayer in players.values():
+		Net.s_player_appearance.rpc_id(other.peer_id, p.peer_id, appearance)
+
+
+# --- Cosmetics ----------------------------------------------------------------------------------
+
+## A client sent its avatar: while joining it is kept for spawn; in game it replaces the player's look.
+func on_set_avatar(peer_id: int, avatar: Dictionary) -> void:
+	var j: Dictionary = _joining.get(peer_id, {})
+	if not j.is_empty():
+		if j.authenticated:
+			j.avatar = avatar
+		return
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or _time - p.avatar_changed_at < AVATAR_CHANGE_INTERVAL:
+		return
+	p.avatar_changed_at = _time
+	_set_client_avatar(p, avatar, false)
+
+
+## Built-in picks form the player's portable look. Server cosmetic picks are remembered by this server;
+## on join (`joining`) the client only knows its portable look, so remembered picks are kept.
+func _set_client_avatar(p: ServerPlayer, avatar, joining: bool) -> void:
+	var clean := cosmetics.sanitize_avatar(avatar, can_wear.bind(p))
+	if not cosmetics.policy.allow_colors:
+		clean.erase("skin")
+		clean.erase("body")
+		for cat_name in clean.get("wear", {}):
+			clean.wear[cat_name].erase("color")
+	var portable := clean.duplicate(true)
+	var server_picks := {}
+	for cat_name in clean.get("wear", {}):
+		if not Cosmetics.is_builtin(clean.wear[cat_name].id):
+			server_picks[cat_name] = clean.wear[cat_name]
+			portable.wear.erase(cat_name)
+	p.portable_avatar = portable
+	if not joining:
+		p.server_wear = server_picks
+	refresh_avatar(p)
+
+
+## Whether a player may pick a cosmetic themselves (mods can still dress anyone in anything).
+func can_wear(cosmetic_name: String, p: ServerPlayer) -> bool:
+	var d := cosmetics.get_def(cosmetic_name)
+	if d.is_empty() or cosmetics.is_blocked(cosmetic_name):
+		return false
+	if Cosmetics.is_builtin(cosmetic_name):
+		return cosmetics.policy.allow_builtin
+	return d.unlocked or p.owned_cosmetics.has(cosmetic_name)
+
+
+## Recomputes the look others see: portable look (or the name's default), then this server's picks,
+## the policy uniform, the player's override and avatar_change handlers.
+func refresh_avatar(p: ServerPlayer) -> void:
+	var base: Dictionary = p.portable_avatar if not p.portable_avatar.is_empty() else Cosmetics.default_avatar(p.name)
+	var avatar := cosmetics.sanitize_avatar(base, can_wear.bind(p))
+	avatar = Cosmetics.merge(avatar, cosmetics.sanitize_avatar({"wear": p.server_wear}, can_wear.bind(p)))
+	avatar = Cosmetics.merge(avatar, cosmetics.policy.uniform)
+	avatar = Cosmetics.merge(avatar, p.avatar_override)
+	var ev := emit("avatar_change", {"player": p, "avatar": avatar})
+	p.avatar = cosmetics.sanitize_avatar(ev.avatar)
+	refresh_appearance(p)
+
+
+func grant_cosmetic(p: ServerPlayer, cosmetic_name: String, owned: bool) -> void:
+	if owned == p.owned_cosmetics.has(cosmetic_name) or cosmetics.get_def(cosmetic_name).is_empty():
+		return
+	if owned:
+		p.owned_cosmetics[cosmetic_name] = true
+	else:
+		p.owned_cosmetics.erase(cosmetic_name)
+	if p._online():
+		Net.s_cosmetics.rpc_id(p.peer_id, PackedStringArray(p.owned_cosmetics.keys()), cosmetics.policy)
+	refresh_avatar(p)
+
+
+func set_cosmetics_policy(values: Dictionary) -> void:
+	cosmetics.set_policy(values)
+	for p: ServerPlayer in players.values():
+		if p._online():
+			Net.s_cosmetics.rpc_id(p.peer_id, PackedStringArray(p.owned_cosmetics.keys()), cosmetics.policy)
+		refresh_avatar(p)
 
 
 func _update_player_rules(p: ServerPlayer) -> void:
@@ -1950,6 +2121,8 @@ func _store_player(p: ServerPlayer) -> void:
 		"modifiers": p.modifiers.duplicate(true),
 		"creative": p.inventory.creative,
 		"data": p.data,
+		"cosmetics": p.owned_cosmetics.keys(),
+		"server_wear": p.server_wear,
 		"health": maxf(p.health, 1.0) if not p.dead else p.max_health,
 		"spawn_point": [p.spawn_point.x, p.spawn_point.y, p.spawn_point.z] if p.spawn_point != Vector3.INF else null,
 	}

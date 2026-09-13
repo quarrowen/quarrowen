@@ -61,14 +61,47 @@ func setup(mod_api) -> void:
 	ids.shard = api.register_item("mana_shard", {"display_name": "Mana Shard", "icon": "textures/mana_shard.png", "usable": true})
 	ids.blink = api.register_item("wand_of_blink", {"display_name": "Wand of Blink", "icon": "textures/wand_of_blink.png", "usable": true, "max_stack": 1})
 	ids.light = api.register_item("wand_of_light", {"display_name": "Wand of Light", "icon": "textures/wand_of_light.png", "usable": true, "max_stack": 1})
-	ids.sparks = api.register_item("wand_of_sparks", {"display_name": "Wand of Sparks", "icon": "textures/wand_of_sparks.png", "usable": true, "max_stack": 1})
+	ids.sparks = api.register_item("wand_of_sparks", {"display_name": "Wand of Sparks", "icon": "textures/wand_of_sparks.png", "usable": true, "max_stack": 1,
+		"glow": {"color": "#ff9040", "energy": 0.6}, "effects": {"use": "cast"}})
 	api.register_sound("spark_cast", "sounds/spark_cast.wav", {"pitch_variance": 0.15})
 	api.register_sound("spark_hit", "sounds/spark_hit.wav")
 	ids.spark = api.register_entity("spark", {"kind": "projectile", "sprite": "textures/spark.png", "glow": true,
 		"width": 0.3, "height": 0.3, "damage": 6, "gravity": 1.5, "lifetime": 3.0})
+	# Effects are data: the client draws them, the mod only says when and where.
+	api.register_effect("soul_hit", {"emitters": [
+		{"amount": 16, "lifetime": 0.5, "speed": [2.0, 4.5], "spread": 180, "gravity": -1.0, "drag": 3.0, "size": [0.14, 0.02],
+			"colors": ["#f0d8ff", "#b060ff", "#4010a000"], "texture": "spark"},
+		{"amount": 6, "lifetime": 0.9, "speed": [0.3, 0.8], "direction": [0, 1, 0], "spread": 40, "gravity": -1.5, "size": [0.25, 0.05],
+			"colors": ["#8040ffa0", "#2000a000"]}],
+		"light": {"color": "#a060ff", "energy": 1.5, "range": 4.0, "seconds": 0.25}})
+	api.register_effect("soul_level", {"emitters": [
+		{"amount": 60, "lifetime": 1.2, "speed": [1.5, 4.0], "spread": 180, "gravity": -2.0, "drag": 1.5, "size": [0.18, 0.0],
+			"colors": ["#ffffff", "#c080ff", "#6020c000"], "texture": "star", "shape": "sphere", "radius": 0.6}],
+		"light": {"color": "#b070ff", "energy": 5.0, "range": 10.0, "seconds": 0.8},
+		"shake": {"strength": 0.35, "seconds": 0.4, "radius": 10.0}, "sound": "arcana:spark_cast"})
+	api.register_effect("soul_aura", {"duration": -1, "emitters": [
+		{"amount": 10, "burst": false, "lifetime": 0.8, "speed": [0.05, 0.3], "direction": [0, 1, 0], "spread": 60, "gravity": -0.6,
+			"size": [0.07, 0.0], "colors": ["#e0c0ff", "#9050ff", "#4010a000"], "shape": "sphere", "radius": 0.12}]})
+	api.register_effect("blink", {"emitters": [
+		{"amount": 30, "lifetime": 0.6, "speed": [0.5, 2.5], "spread": 180, "gravity": -2.0, "drag": 2.0, "size": [0.15, 0.0],
+			"colors": ["#d0f8ff", "#40c0ff", "#0060c000"], "shape": "box", "extents": [0.3, 0.9, 0.3]}],
+		"light": {"color": "#60d0ff", "energy": 2.5, "range": 6.0, "seconds": 0.3}})
+	api.register_effect("cast", {"emitters": [
+		{"amount": 12, "lifetime": 0.35, "speed": [1.0, 3.0], "direction": [0, 1, 0], "spread": 35, "drag": 4.0, "size": [0.1, 0.0],
+			"colors": ["#fff0c0", "#ff9040", "#ff402000"], "texture": "spark"}]})
+	api.register_effect("spark_burst", {"emitters": [
+		{"amount": 24, "lifetime": 0.45, "speed": [2.0, 6.0], "spread": 180, "gravity": 6.0, "drag": 2.0, "size": [0.12, 0.02],
+			"colors": ["#ffffff", "#ffc040", "#ff602000"], "texture": "spark"}],
+		"light": {"color": "#ffa040", "energy": 3.0, "range": 6.0, "seconds": 0.3}})
 	ids.soul_blade = api.register_item("soul_blade", {"display_name": "Soul Blade", "icon": "textures/soul_blade.png",
 		"durability": 400, "weapon": {"damage": 5.0, "cooldown": 0.6, "sweep": 0.25},
+		"trail": {"color": "#a060ff90", "width": 0.5, "seconds": 0.2}, "effects": {"hit": "soul_hit"},
 		"lore": ["Grows stronger with every soul it takes."]})
+	# A helmet whose crystals glow when worn (armor glow lights up the armor texture).
+	ids.crystal_helmet = api.register_item("crystal_helmet", {"display_name": "Crystal Helmet", "icon": "base:textures/iron_helmet.png",
+		"equip_slot": "head", "durability": 300, "armor": {"armor": 3.0, "toughness": 1.0}, "armor_texture": "base:textures/iron_armor.png",
+		"glow": {"color": "#60e0ff", "energy": 0.8},
+		"lore": ["Mana crystals set in iron."]})
 	ids.crystal = api.register_block("mana_crystal_ore", {"display_name": "Mana Crystal Ore", "textures": "textures/mana_crystal_ore.png",
 		"light": 7, "drops": [[ids.shard, 2]]})
 	ids.pylon = api.register_block("mana_pylon", {"display_name": "Mana Pylon", "model": "models/mana_pylon.glb",
@@ -76,16 +109,35 @@ func setup(mod_api) -> void:
 	ids.orb = api.register_block("light_orb", {"display_name": "Light Orb", "textures": "textures/light_orb.png", "render": "cutout",
 		"light": 15, "solid": false, "drops": "", "placeable": false})
 
+	# Cosmetics: robes anyone can wear here, and a hat earned by levelling a Soul Blade.
+	api.register_cosmetic("mage_robe", {"category": "jacket", "display_name": "Mage robe", "color": "#4a3a8a",
+		"description": "Arcana: worn by those who study the crystals.", "paint": [
+			{"region": "torso_overlay", "rows": [0, 12]},
+			{"region": "arm_r_overlay", "rows": [0, 12]}, {"region": "arm_l_overlay", "rows": [0, 12]},
+			{"region": "leg_r_overlay", "rows": [0, 10]}, {"region": "leg_l_overlay", "rows": [0, 10]},
+			{"region": "torso_overlay", "rows": [9, 10], "sides": ["front", "back", "left", "right"], "color": "#e8c040"},
+			{"region": "arm_r_overlay", "rows": [10, 12], "sides": ["front", "back", "left", "right"], "color": "#e8c040"},
+			{"region": "arm_l_overlay", "rows": [10, 12], "sides": ["front", "back", "left", "right"], "color": "#e8c040"}]})
+	ids.archmage_hat = api.register_cosmetic("archmage_hat", {"category": "hat", "display_name": "Archmage hat", "color": "#2a3a8a",
+		"unlocked": false, "description": "Arcana: awarded for a Soul Blade of level 3.", "boxes": [
+			{"from": [-6, 0, -6], "size": [12, 1, 12]}, {"from": [-4, 1, -4], "size": [8, 3, 8]},
+			{"from": [-3, 4, -2.5], "size": [6, 3, 6]}, {"from": [-2, 7, -1], "size": [4, 3, 4]},
+			{"from": [-1, 10, 0.5], "size": [2, 2, 2]}, {"from": [-0.5, 12, 1.5], "size": [1, 1.5, 1]},
+			{"from": [-4.1, 1, -4.1], "size": [8.2, 1, 8.2], "color": "#e8c040"},
+			{"from": [-1, 2, -4.4], "size": [2, 2, 0.5], "color": "#9ff0ff"}]})
+
 	api.add_generation_pass(CrystalPass.new(api.block("base:stone"), ids.crystal))
 	api.register_recipe({"base:log": 1, "arcana:mana_shard": 3}, "arcana:wand_of_blink")
 	api.register_recipe({"base:log": 1, "arcana:mana_shard": 2, "base:glass": 1}, "arcana:wand_of_light")
 	api.register_recipe({"arcana:mana_shard": 6, "base:cobblestone": 2}, "arcana:mana_pylon")
 	api.register_recipe({"base:log": 1, "arcana:mana_shard": 4}, "arcana:wand_of_sparks")
 	api.register_recipe({"base:iron_sword": 1, "arcana:mana_shard": 8}, "arcana:soul_blade")
+	api.register_recipe({"base:iron_helmet": 1, "arcana:mana_shard": 5}, "arcana:crystal_helmet")
 	api.on("entity_death", _on_soul_harvest)
 	api.on("projectile_hit", func(ev):
 		if ev.entity.type == ids.spark:
-			api.play_sound("spark_hit", ev.position))
+			api.play_sound("spark_hit", ev.position)
+			api.play_effect("spark_burst", ev.position))
 
 	api.on("player_join", _on_join)
 	api.on("player_leave", func(ev): _hud_shown.erase(ev.player.peer_id))
@@ -94,7 +146,7 @@ func setup(mod_api) -> void:
 		if ev.block == ids.pylon:
 			api.set_block_data(ev.position, {}))
 	api.every(TICK, _tick)
-	api.register_command("arcana", "kit - shards, wands and a pylon", _cmd_arcana)
+	api.register_command("arcana", "kit - shards, wands and a pylon | blade <level> (admins)", _cmd_arcana)
 
 
 func _mana(player) -> float:
@@ -188,7 +240,9 @@ func _blink(player, direction: Vector3) -> void:
 		player.show_title("", "No room to blink there", 1.2)
 		return
 	if _spend(player, BLINK_COST):
+		api.play_effect("blink", player.position + Vector3(0, 0.9, 0))
 		player.teleport(destination)
+		api.play_effect("blink", destination + Vector3(0, 0.9, 0))
 
 
 func _free(cell: Vector3i) -> bool:
@@ -228,20 +282,45 @@ func _on_soul_harvest(ev: Dictionary) -> void:
 			level += 1
 	if level > int(data.get("level", 0)):
 		player.show_title("", "Soul Blade reached level %d" % level, 2.0)
-		api.play_sound("spark_cast", player.position, 1.0, 0.6)
+		api.play_effect("soul_level", player.position + Vector3(0, 1.0, 0), {"follow": player})
+		if level >= 3 and not player.has_cosmetic(ids.archmage_hat):
+			player.grant_cosmetic(ids.archmage_hat)
+			player.send_message("You earned the Archmage hat! Wear it from Esc > Customize avatar.")
+	player.set_item_data(slot, _soul_data(data.souls, data))
+
+
+## Item data for a Soul Blade holding `souls` souls: level, name, lore, stat modifiers and its look.
+func _soul_data(souls: int, data := {}) -> Dictionary:
+	data = data.duplicate(true)
+	data.souls = souls
+	var level := 0
+	for threshold in SOUL_LEVELS:
+		if souls >= threshold:
+			level += 1
 	data.level = level
 	data.name = "Soul Blade" + (" +%d" % level if level > 0 else "")
 	data.modifiers = [{"stat": "attack_damage", "amount": level * 1.5}]
 	if level >= 3:
 		data.modifiers.append({"stat": "crit_chance", "amount": 0.05 * (level - 2)})
-	var next := "max level" if level >= SOUL_LEVELS.size() else "%d / %d souls to level %d" % [data.souls, SOUL_LEVELS[level], level + 1]
-	data.lore = ["Souls: %d (%s)" % [data.souls, next]]
-	player.set_item_data(slot, data)
+	var next := "max level" if level >= SOUL_LEVELS.size() else "%d / %d souls to level %d" % [souls, SOUL_LEVELS[level], level + 1]
+	data.lore = ["Souls: %d (%s)" % [souls, next]]
+	# The blade glows brighter with each level, lights its surroundings from level 3 and trails wisps at 4.
+	if level > 0:
+		data.glow = {"color": "#b070ff", "energy": 0.35 * level, "light": 3.0 if level >= 3 else 0.0}
+		data.trail = {"color": "#b070ffa0", "width": 0.5 + 0.06 * level, "seconds": 0.2 + 0.03 * level}
+	if level >= 4:
+		data.effects = {"held": "soul_aura"}
+	return data
 
 
-func _cmd_arcana(player, _args: PackedStringArray) -> void:
+func _cmd_arcana(player, args: PackedStringArray) -> void:
 	if not (player.is_creative() or player.is_admin()):
 		player.send_message("Only admins can hand out Arcana kits in survival.")
+		return
+	if args.size() >= 1 and args[0] == "blade":
+		var level := clampi(int(args[1]) if args.size() > 1 else SOUL_LEVELS.size(), 0, SOUL_LEVELS.size())
+		player.give(ids.soul_blade, 1, _soul_data(SOUL_LEVELS[level - 1] if level > 0 else 0))
+		player.send_message("A level %d Soul Blade." % level)
 		return
 	if player.is_creative():
 		player.set_hotbar([ids.shard, ids.blink, ids.light, ids.pylon, api.block("base:stone"), ids.sparks, ids.soul_blade])

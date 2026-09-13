@@ -90,6 +90,8 @@ func _on_event(ev: Dictionary, callback_id: int) -> void:
 		for key in changed.stats:
 			if ev.stats.has(key) and (changed.stats[key] is float or changed.stats[key] is int):
 				ev.stats[key] = float(changed.stats[key])
+	if ev.has("avatar") and changed.get("avatar") is Dictionary:
+		ev.avatar = changed.avatar  # the server sanitizes it
 	if ev.has("message") and changed.get("message") is String and ev.message is String:
 		ev.message = changed.message
 	if ev.has("position") and ev.position is Vector3 and changed.get("position") is Dictionary:
@@ -177,6 +179,17 @@ func _call_host(method: String, a: Array):
 		"setGameplay": api.set_gameplay(_dict(a, 0))
 		"registerEquipmentSlot": api.register_equipment_slot(_str(a, 0), _dict(a, 1))
 		"registerStat": api.register_stat(_str(a, 0), float(a[1]) if a.size() > 1 else 0.0)
+		"registerCosmetic": return api.register_cosmetic(_str(a, 0), _dict(a, 1))
+		"registerCosmeticCategory": return api.register_cosmetic_category(_str(a, 0), _dict(a, 1))
+		"setCosmeticsPolicy": api.set_cosmetics_policy(_dict(a, 0))
+		"registerEffect": return api.register_effect(_str(a, 0), _dict(a, 1))
+		"playEffect":
+			var options := _dict(a, 2)
+			if options.has("follow"):
+				options.follow = _any_ref([options.follow], 0)
+			if options.get("direction") is Dictionary:
+				options.direction = _vec3([options.direction], 0)
+			api.play_effect(_str(a, 0), _vec3(a, 1), options)
 		"makeNoise": api.make_noise(_vec3(a, 0), float(a[1]) if a.size() > 1 else 8.0, _any_ref(a, 2))
 		"registerMobBehavior":
 			var score_id := _int(a, 1, -1)
@@ -213,6 +226,12 @@ func _call_player(method: String, a: Array):
 		"getStat": return player.get_stat(_str(a, 1))
 		"addModifier": player.add_modifier(_str(a, 1), _str(a, 2), float(a[3]) if a.size() > 3 else 0.0, _str(a, 4) if a.size() > 4 else "add", float(a[5]) if a.size() > 5 else 0.0)
 		"removeModifier": player.remove_modifier(_str(a, 1))
+		"grantCosmetic": player.grant_cosmetic(api._qualify_ref(_str(a, 1)))
+		"revokeCosmetic": player.revoke_cosmetic(api._qualify_ref(_str(a, 1)))
+		"hasCosmetic": return player.has_cosmetic(api._qualify_ref(_str(a, 1)))
+		"cosmetics": return player.owned_cosmetics.keys()
+		"avatar": return player.avatar
+		"setAvatarOverride": player.set_avatar_override(_dict(a, 1))
 		"refreshStats": player.refresh_stats()
 		"take": return player.take(_int(a, 1), _int(a, 2, 1))
 		"countOf": return player.count_of(_int(a, 1))

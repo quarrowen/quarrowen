@@ -52,12 +52,62 @@ declare module "voxelcraft" {
     modifiers?: StatModifier[];
     model?: string;
     lore?: string[];
+    /** Emissive glow when held or worn; light = radius in blocks. Item data may override glow, trail and effects. */
+    glow?: { color?: string; energy?: number; light?: number };
+    /** Ribbon behind the item while swinging. */
+    trail?: { color?: string; width?: number; seconds?: number };
+    /** Effect names: swing, hit (at the target), use, held (continuous), break. */
+    effects?: { swing?: string; hit?: string; use?: string; held?: string; break?: string };
     /** Legacy shorthand for weapon.damage. */
     attack_damage?: number;
   }
 
+  /** Colors are "#rrggbb". An empty id in overrides and uniforms takes a category off. */
+  export interface Avatar {
+    skin?: string;
+    body?: { head?: string; torso?: string; arms?: string; legs?: string };
+    wear?: Record<string, { id: string; color?: string }>;
+    show_armor?: { head?: boolean; chest?: boolean; legs?: boolean; feet?: boolean };
+  }
+
+  /** A cosmetic, drawn from data (see engine/shared/cosmetics.gd). Regions use the 64x64 skin layout;
+   *  boxes are in skin pixels at the category's attachment point (+y up, -z forward). */
+  export interface CosmeticDef {
+    category: "face" | "pants" | "shoes" | "shirt" | "jacket" | "hair" | "hat" | "glasses" | "back" | string;
+    display_name?: string; description?: string;
+    /** Default tint; paint/boxes/pixels without a color use the tint. */
+    color?: string; tint?: boolean;
+    paint?: { region: string; rows?: [number, number]; sides?: ("front" | "back" | "left" | "right" | "top" | "bottom")[]; color?: string; shade?: number }[];
+    pixels?: { rows: string[]; palette?: Record<string, string> };
+    boxes?: { from: Vec3Array; size: Vec3Array; color?: string; shade?: number }[];
+    texture?: string; model?: string;
+    model_transform?: { position?: Vec3Array; rotation?: Vec3Array; scale?: number };
+    /** Armor slots it replaces when shown (hats: ["head"]). */
+    covers?: ("head" | "chest" | "legs" | "feet")[];
+    /** false: only players granted it may wear it. */
+    unlocked?: boolean;
+  }
+  export type Vec3Array = [number, number, number];
+
+  /** See engine/shared/effect_registry.gd. Colors "#rrggbb" or "#rrggbbaa". */
+  export interface EffectDef {
+    emitters?: {
+      amount?: number; burst?: boolean; lifetime?: number; speed?: [number, number]; direction?: Vec3Array;
+      spread?: number; gravity?: number; drag?: number; size?: [number, number]; colors?: string[];
+      shape?: "point" | "sphere" | "box"; radius?: number; extents?: Vec3Array;
+      texture?: "soft" | "spark" | "star" | "square" | string; blend?: "add" | "mix";
+    }[];
+    light?: { color?: string; energy?: number; range?: number; seconds?: number };
+    shake?: { strength?: number; seconds?: number; radius?: number };
+    sound?: string;
+    /** Seconds continuous emitters run (0 = one burst, -1 = until stopped). */
+    duration?: number;
+    range?: number;
+  }
+  export interface EffectOptions { color?: string; scale?: number; direction?: Vec3 | Vec3Array; duration?: number; follow?: Entity | Player }
+
   /** Per-item data (engine keys; mods add their own). */
-  export interface ItemData { damage?: number; name?: string; lore?: string[]; modifiers?: StatModifier[]; [key: string]: unknown }
+  export interface ItemData { damage?: number; name?: string; lore?: string[]; modifiers?: StatModifier[]; glow?: ItemDef["glow"]; trail?: ItemDef["trail"]; effects?: ItemDef["effects"]; [key: string]: unknown }
   export interface ItemStack { item: ItemId; count: number; data: ItemData }
 
   export interface EntityDef {
@@ -131,6 +181,8 @@ declare module "voxelcraft" {
     projectile?: string; projectile_speed?: number; spread?: number; count?: number;
     entity?: string; max_summons?: number; speed?: number; duration?: number;
     health_below?: number; health_above?: number; sound?: string;
+    /** Full effect names: during the wind-up (follows the mob) and when the attack lands. */
+    windup_effect?: string; effect?: string;
   }
 
   /** Engine mob AI settings; see engine/server/ai/mob_config.gd. */
@@ -189,6 +241,12 @@ declare module "voxelcraft" {
     getStat(name: string): number;
     addModifier(id: string, stat: string, amount: number, op?: "add" | "multiply", seconds?: number): void;
     removeModifier(id: string): void;
+    grantCosmetic(name: string): void;
+    revokeCosmetic(name: string): void;
+    hasCosmetic(name: string): boolean;
+    cosmetics(): string[];
+    avatar(): Avatar;
+    setAvatarOverride(values: Avatar): void;
     refreshStats(): void;
     take(item: ItemId, count?: number): boolean;
     countOf(item: ItemId): number;
@@ -245,6 +303,7 @@ declare module "voxelcraft" {
     item_durability: { player: Player; slot: number; item: ItemId; data: ItemData; amount: number; reason: string; cancelled: boolean };
     item_break: { player: Player; slot: number; item: ItemId; data: ItemData };
     equipment_changed: { player: Player; slot: string; old_item: ItemId; item: ItemId };
+    avatar_change: { player: Player; avatar: Avatar };
     player_stats: { player: Player; stats: Record<string, number> };
     mob_target: { entity: Entity; target: Player | Entity; previous: Player | Entity | null; reason: string; cancelled: boolean };
     mob_attack: { entity: Entity; attack: { name: string; type: string; damage: number }; target: Player | Entity; cancelled: boolean };
@@ -305,6 +364,11 @@ declare module "voxelcraft" {
     makeNoise(position: Vec3, radius: number, source?: Player | Entity | null): void;
     registerEquipmentSlot(name: string, def?: { display_name?: string }): void;
     registerStat(name: string, base: number): void;
+    registerCosmetic(name: string, def: CosmeticDef): string;
+    registerEffect(name: string, def: EffectDef): number;
+    playEffect(name: string, position: Vec3, options?: EffectOptions): void;
+    registerCosmeticCategory(name: string, def?: { display_name?: string; attach?: string; covers?: string[] }): boolean;
+    setCosmeticsPolicy(values: { allow_builtin?: boolean; allow_colors?: boolean; armor?: "player" | "armor" | "cosmetics"; blocked?: string[]; uniform?: Avatar }): void;
     registerMobBehavior(name: string, def: { score: (mob: Entity, ctx: MobContext) => number; update: (mob: Entity, ctx: MobContext) => void; stop?: (mob: Entity) => void }): void;
 
     on<E extends keyof Events>(event: E, handler: (event: Events[E]) => void, priority?: number): void;

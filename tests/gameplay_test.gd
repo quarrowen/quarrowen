@@ -21,6 +21,8 @@ func _ready() -> void:
 	await _server_rules()
 	await _equipment()
 	await _progression()
+	await _cosmetics()
+	await _effects()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -297,6 +299,134 @@ func _progression() -> void:
 		_check(int(pick_data.get("xp", 0)) == 5 and int(pick_data.get("level", 0)) == 1, "JavaScript pick levelled from mining (%s)" % str(pick_data))
 		_check(is_equal_approx(p.get_stat("mining_speed"), 1.2), "its level speeds up mining (%.2f)" % p.get_stat("mining_speed"))
 	server.players.erase(90)
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _cosmetics() -> void:
+	const Cosmetics = preload("res://engine/shared/cosmetics.gd")
+	const LookBuilder = preload("res://engine/client/avatar/look_builder.gd")
+	var registry := Cosmetics.new()
+	_check(registry.in_category("hat").size() >= 5 and registry.in_category("face").size() >= 5, "built-in catalog has hats and faces")
+	var messy := {"skin": "#abc", "body": {"arms": "red", "legs": "#102030"}, "show_armor": {"head": true, "tail": true},
+		"wear": {"hat": {"id": "builtin:crown", "color": "#nothex"}, "shirt": {"id": "builtin:crown"}, "wings": {"id": "builtin:wings"},
+			"face": {"id": "nobody:face"}}}
+	var clean := registry.sanitize_avatar(messy)
+	_check(clean.skin == "#aabbcc" and clean.body == {"legs": "#102030"} and clean.show_armor == {"head": true},
+		"sanitize keeps valid colors and armor choices (%s)" % clean)
+	_check(clean.wear.keys() == ["hat"] and clean.wear.hat.color == "#e8c040", "sanitize drops unknown and misfiled cosmetics, bad colors fall back")
+	var merged := Cosmetics.merge(clean, {"wear": {"hat": {"id": ""}, "back": {"id": "builtin:cape", "color": "#ffffff"}}})
+	_check(not merged.wear.has("hat") and merged.wear.back.id == "builtin:cape", "merge removes with empty ids and adds")
+
+	# Client side: data-drawn looks.
+	var looks := LookBuilder.new(registry)
+	var look := {"skin": "#8c5a3a", "wear": {"shirt": {"id": "builtin:tshirt", "color": "#ff0000"}, "hat": {"id": "builtin:top_hat"},
+		"face": {"id": "builtin:smile", "color": "#0000ff"}}}
+	var skin := looks.skin_image(look)
+	var torso: Color = skin.get_pixel(21, 24)
+	var arm_low: Color = skin.get_pixel(45, 30)  # right arm front, below the sleeve
+	var eye: Color = skin.get_pixel(8 + 2, 8 + 3)
+	_check(torso.r > 0.9 and torso.g < 0.1, "t-shirt paints the torso (%s)" % torso)
+	_check(absf(arm_low.r - 0.55) < 0.06, "arms below the sleeves keep the skin color (%s)" % arm_low)
+	_check(eye.b > 0.9 and eye.r < 0.1, "face pixels use the eye tint (%s)" % eye)
+	var parts := looks.accessories(look, 0.05)
+	_check(parts.size() == 1 and parts[0].attach == "hat" and parts[0].node.get_child_count() == 1, "hats become accessory meshes")
+	for entry in parts:
+		entry.node.free()
+
+	# Server side: armor visibility, ownership, policy, overrides.
+	var server = _start("cosmetics_%d" % Time.get_ticks_msec(), ["vanilla", "arcana"])
+	var p := ServerPlayer.new(server, 78, "Stylist")
+	p.player_id = "stylist"
+	server.players[78] = p
+	var helmet: int = server.items.id_of("base:iron_helmet")
+	p.inventory.set_slot(p.equipment_slot("head"), helmet, 1)
+	server._set_client_avatar(p, {"wear": {"hat": {"id": "builtin:cap"}, "hair": {"id": "builtin:short_hair"}}}, true)
+	server.refresh_appearance(p)
+	_check(p.appearance.avatar.wear.hat.id == "builtin:cap" and not p.appearance.armor.has("head"), "a hat shows instead of the helmet by default")
+	server._set_client_avatar(p, {"wear": {"hat": {"id": "builtin:cap"}}, "show_armor": {"head": true}}, false)
+	_check(p.appearance.armor.get("head") == helmet, "show_armor puts the helmet back")
+	server.set_cosmetics_policy({"armor": "cosmetics"})
+	_check(not p.appearance.armor.has("head"), "policy can force cosmetics over armor")
+	server.set_cosmetics_policy({"armor": "player"})
+
+	var hat := "arcana:archmage_hat"
+	server._set_client_avatar(p, {"wear": {"hat": {"id": hat}}}, false)
+	_check(not p.avatar.get("wear", {}).has("hat"), "locked server cosmetics cannot be worn")
+	p.grant_cosmetic(hat)
+	server._set_client_avatar(p, {"wear": {"hat": {"id": hat}, "shirt": {"id": "builtin:tank_top"}}}, false)
+	_check(p.avatar.wear.hat.id == hat and p.server_wear.has("hat") and not p.portable_avatar.wear.has("hat"),
+		"granted cosmetics can be worn and are remembered by the server, not the portable look")
+	server._set_client_avatar(p, {"wear": {"shirt": {"id": "builtin:tshirt"}}}, true)
+	_check(p.avatar.wear.hat.id == hat and p.avatar.wear.shirt.id == "builtin:tshirt", "rejoining keeps server picks over the portable look")
+	server._store_player(p)
+	_check(server._meta.players.stylist.cosmetics == [hat] and server._meta.players.stylist.server_wear.has("hat"), "owned cosmetics are saved")
+	p.revoke_cosmetic(hat)
+	_check(not p.avatar.wear.has("hat"), "revoking takes the cosmetic off")
+
+	server.set_cosmetics_policy({"uniform": {"wear": {"shirt": {"id": "builtin:long_sleeve", "color": "#3d9c9c"}}}, "blocked": ["builtin:tshirt"]})
+	_check(p.avatar.wear.shirt.id == "builtin:long_sleeve" and p.avatar.wear.shirt.color == "#3d9c9c", "a uniform dresses everyone")
+	server.set_cosmetics_policy({"uniform": {}})
+	_check(not p.avatar.get("wear", {}).has("shirt"), "blocked cosmetics are removed")
+	server.set_cosmetics_policy({"blocked": []})
+	p.set_avatar_override({"wear": {"glasses": {"id": "builtin:shades"}}})
+	_check(p.avatar.wear.glasses.id == "builtin:shades", "mods can override a player's look")
+	server.add_handler("avatar_change", func(ev): ev.avatar.skin = "#00ff00", 0)
+	p.set_avatar_override({})
+	_check(p.avatar.skin == "#00ff00" and not p.avatar.get("wear", {}).has("glasses"), "avatar_change handlers can change the look")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _effects() -> void:
+	const EffectRegistry = preload("res://engine/shared/effect_registry.gd")
+	const EffectPlayer = preload("res://engine/client/effects/effect_player.gd")
+	var registry := EffectRegistry.new()
+	_check(registry.id_of("engine:explosion") >= 0 and registry.id_of("engine:hit") >= 0, "built-in effects exist")
+	var id := registry.register({"name": "test:wild", "duration": 99999, "emitters": [
+		{"amount": 100000, "lifetime": -3, "speed": "fast", "colors": ["#ff000080", "nope"], "shape": "cube", "texture": 5}, "junk"],
+		"light": {"energy": 500}, "shake": {"strength": 9}})
+	var d: Dictionary = registry.defs[id]
+	_check(d.emitters.size() == 1 and d.emitters[0].amount == 256 and d.emitters[0].lifetime == 0.05 and d.emitters[0].speed == [1.0, 2.0],
+		"emitter values are clamped and defaulted")
+	_check(d.emitters[0].colors == ["#ff000080"] and d.emitters[0].shape == "point" and d.duration == 600.0 and d.light.energy == 16.0 and d.shake.strength == 3.0,
+		"colors, shapes, duration, light and shake are cleaned")
+	_check(EffectRegistry.clean_options({"color": "#00ff00", "scale": 99, "direction": [0, 0, -1], "evil": true}) == {"color": "#00ff00ff", "scale": 20.0, "direction": Vector3(0, 0, -1)},
+		"play options are cleaned")
+
+	# Client: effects become particles, a light and shake, and clean themselves up.
+	var player := EffectPlayer.new()
+	add_child(player)
+	var root := player.play(registry.id_of("engine:explosion"), Vector3(0, 60, 0), {"scale": 2.0}, null, Vector3(0, 60, 3))
+	var particles := root.get_children().filter(func(n): return n is CPUParticles3D)
+	_check(particles.size() == 2 and root.get_children().any(func(n): return n is OmniLight3D), "explosion builds two emitters and a light flash")
+	_check(is_equal_approx((particles[0] as CPUParticles3D).initial_velocity_max, 18.0), "scale multiplies particle speed")
+	await get_tree().process_frame
+	_check(player.shake_offset.length() > 0.0, "a nearby explosion shakes the camera")
+	var held := player.play_def(registry.defs[id], Vector3.ZERO, {"duration": -1}, player)
+	await get_tree().create_timer(1.8).timeout
+	_check(not is_instance_valid(root) and is_instance_valid(held), "one-shot effects free themselves; held effects stay until removed")
+	player.queue_free()
+
+	# Server: item looks come from definitions and item data, and reach the appearance.
+	var server = _start("effects_%d" % Time.get_ticks_msec(), ["vanilla", "arcana"])
+	var items = server.items
+	var blade: int = items.id_of("arcana:soul_blade")
+	_check(items.visuals(blade).trail.color == "#a060ff90" and items.visuals(blade).effects.hit == "arcana:soul_hit", "item defs carry trails and qualified effect names")
+	var levelled: Dictionary = items.visuals(blade, {"glow": {"color": "#b070ff", "energy": 1.4}, "effects": {"held": "arcana:soul_aura"}})
+	_check(levelled.glow.energy == 1.4 and levelled.effects.held == "arcana:soul_aura" and levelled.effects.hit == "arcana:soul_hit",
+		"item data overrides glow and adds effects")
+	var p := ServerPlayer.new(server, 79, "Glimmer")
+	p.player_id = "glimmer"
+	server.players[79] = p
+	p.inventory.set_slot(0, blade, 1, {"glow": {"color": "#b070ff", "energy": 1.0}})
+	p.inventory.set_slot(p.equipment_slot("head"), items.id_of("arcana:crystal_helmet"), 1)
+	server.refresh_appearance(p)
+	_check(p.appearance.get("held_look", {}).get("glow", {}).get("energy") == 1.0 and p.appearance.held_look.trail.width == 0.5,
+		"the appearance carries the held stack's glow and trail")
+	_check(p.appearance.get("armor_glow", {}).get("color") == "#60e0ffff", "glowing armor reaches the appearance")
+	var stomp: Array = server.entities.ai.config_for(server.entities.registry.id_of("vanilla:colossus")).attacks.filter(func(a): return a.name == "stomp")
+	_check(stomp.size() == 1 and stomp[0].effect == "engine:dust", "mob attacks carry effects")
 	server.queue_free()
 	await get_tree().process_frame
 

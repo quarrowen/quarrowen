@@ -1,6 +1,6 @@
 # VoxelCraft — progress and resume notes
 
-Last updated: 2026-09-13 (after the Claude Code restart). Read this first when resuming.
+Last updated: 2026-09-13 (visuals phase 2 complete: avatars, cosmetics, effects). Read this first when resuming.
 
 ## Repository and branches
 
@@ -12,7 +12,8 @@ Branches stack on each other; nothing is merged to `master` yet.
 | `hardening` | #1 (draft, base `master`) | tests + CI, 16-bit block ids, identity/auth, permissions, exports, DTLS + version handshake + server pinning, backups, identity export/import | green |
 | `gameplay` | #2 (draft, base `hardening`) | entities, health/combat, 36-slot inventory, audio | combat test hardened (teleport when the chase stalls, looser fall check); re-run pending |
 | `mob-ai` | #3 (draft, base `gameplay`) | engine mob AI + README docs | green |
-| `equipment` | #4 (draft, base `mob-ai`) | phase 1 equipment: item data, slots, stats, timed mining, durability, progression examples | local suites pass; CI pending |
+| `equipment` | #4 (draft, base `mob-ai`) | phase 1 equipment: item data, slots, stats, timed mining, durability, progression examples | green |
+| `visuals` | #5 (draft, base `equipment`) | avatars (rig, animation, held items, worn armor, F5 camera, first-person arm), cosmetics, effects | local suites pass |
 
 Local test commands: `tools/run_tests.sh` (native) and `VOXEL_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh`
 (GDScript fallbacks). Both pass locally on `mob-ai` (14 and 13 suites). Rebuild native after Rust
@@ -56,15 +57,45 @@ changes with `tools/build_native.sh`.
 - Benchmark (`tests/bench.tscn`): 300 mobs (≈130 hunting 10 players) + 200 items ≈ 3.5 ms/tick
   native, ≈ 9.3 ms/tick GDScript fallback.
 
+## Done on `visuals` (phase 2 steps 1-4)
+
+- Step 1, avatars: `engine/shared/player_rig.gd` (10-part rig as data, 64x64 skin layout regions,
+  attachment points, `api.set_player_rig`), `engine/client/avatar/` (`avatar.gd` procedural animation,
+  `skin_compositor.gd`, `item_mesh.gd` held items, armor textures via item `armor_texture`),
+  appearance replication (`s_player_appearance {held, armor, avatar}`), F5 camera modes.
+- Step 2, first person: `view_model.gd` arm + held item (camera-space item orientation via
+  `ItemMesh.node_for(id, true)`), bob/sway/swing/equip dip, drawn within 0.35 of the camera.
+- Step 3, cosmetics: `engine/shared/cosmetics.gd` (categories, ~45 built-in data-drawn cosmetics:
+  paint ops, face pixels, voxel boxes; avatar sanitize/merge; policy; armor visibility per slot),
+  `look_builder.gd` (avatar -> skin texture + accessory meshes), `avatar_store.gd`
+  (user://avatar.json, portable), `avatar_editor.gd` (main menu + Esc menu, 3D preview, colors,
+  armor toggles). Server: `c_set_avatar` (join + in game), `s_cosmetics(owned, policy)`,
+  `refresh_avatar` (portable or name default -> server picks -> uniform -> override ->
+  `avatar_change`), ownership + server picks saved in player meta. Mod API: `register_cosmetic`,
+  `register_cosmetic_category`, `set_cosmetics_policy`, `player.grant_cosmetic/revoke_cosmetic/
+  has_cosmetic/set_avatar_override`; JS equivalents. Content: Arcana mage robe + archmage hat
+  (Soul Blade level 3), Guild cape (3 quests). Protocol VERSION 10 / 0.10.0.
+- Tests: gameplay_test `_cosmetics`, multiplayer test (Bob's crown -> top hat seen by Alice);
+  screenshot options `--avatar`, `--wear`, `--editor`, `--camera`, `--equip`, `--select`.
+
+- Step 4, effects: `engine/shared/effect_registry.gd` (emitters, light flash, shake, sound; 8
+  `engine:*` built-ins; `s_effect(id, position, options)` with follow entity/player),
+  `engine/client/effects/effect_player.gd` (CPUParticles3D, procedural sprites, block-break debris,
+  quality scaling) and `swing_trail.gd` (ribbon between item grip/tip markers; subtle in first
+  person). Items: `glow`, `trail`, `effects` {swing, hit, use, held, break}, overridable per stack in
+  item data (`ItemRegistry.visuals`); appearance carries `held_look` and `armor_glow`. Mob attacks:
+  `windup_effect`, `effect`. API: `register_effect`, `play_effect` (+ JS). Content: Soul Blade
+  glow/trail/aura by level (`/arcana blade <level>`), blink/cast/spark effects, Crystal Helmet,
+  Guild gold burst + pick shimmer + quest sparkle + meteor explosion, Colossus stomp dust, iron sword
+  trails. Protocol 11 / 0.11.0. `tools/run_tests.sh` now also fails on SCRIPT ERROR in test logs.
+
 ## Pending (next steps, in order)
 
-1. Confirm CI is green on #2 and #3 (`gh run list --branch gameplay|mob-ai`).
-2. Equipment phase 2 (visuals): character rig, first-person held items, worn armor, glows/trails/
-   particles, and a Roblox-style cosmetics/avatar system. User wants a design deep dive on
-   cosmetics first (questions were asked at the end of the phase 1 session).
-3. AI performance, if mob counts grow: move perception LOS batching and steering to native; path
+1. Player-made content imports (skins, cosmetics uploads) were deferred by the user ("need to explore
+   more"); cosmetics reference assets by name/hash so uploads can be added later. No layered 3D clothing.
+2. AI performance, if mob counts grow: move perception LOS batching and steering to native; path
    budget is 8/tick native, 2/tick fallback.
-4. The Godot MCP editor plugin lives in `addons/godot_mcp/` locally; it is git-ignored and excluded
+3. The Godot MCP editor plugin lives in `addons/godot_mcp/` locally; it is git-ignored and excluded
    from exports on `mob-ai` (not on `gameplay`/`hardening`, where it just shows as untracked).
 
 ## Equipment decisions (user, 2026-09-13)

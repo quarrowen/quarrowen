@@ -68,6 +68,15 @@
     /** op "add" or "multiply" (0.2 = +20%); seconds 0 = until removed. */
     addModifier(id, stat, amount, op = "add", seconds = 0) { host("player.addModifier", this.id, id, stat, amount, op, seconds); }
     removeModifier(id) { host("player.removeModifier", this.id, id); }
+    /** Server cosmetics: names without a ":" are this mod's. */
+    grantCosmetic(name) { host("player.grantCosmetic", this.id, name); }
+    revokeCosmetic(name) { host("player.revokeCosmetic", this.id, name); }
+    hasCosmetic(name) { return host("player.hasCosmetic", this.id, name); }
+    cosmetics() { return host("player.cosmetics", this.id); }
+    /** The look others see: {skin, body, wear: {category: {id, color}}, show_armor}. */
+    avatar() { return host("player.avatar", this.id); }
+    /** Avatar data laid over this player's look (team uniforms, disguises); {} clears. */
+    setAvatarOverride(values) { host("player.setAvatarOverride", this.id, values); }
     refreshStats() { host("player.refreshStats", this.id); }
     take(item, count = 1) { return host("player.take", this.id, item, count); }
     countOf(item) { return host("player.countOf", this.id, item); }
@@ -191,6 +200,15 @@
     makeNoise: (position, radius, source = null) => host("makeNoise", position, radius, source),
     registerEquipmentSlot: (name, def = {}) => host("registerEquipmentSlot", name, def),
     registerStat: (name, base) => host("registerStat", name, base),
+    /** A cosmetic players can wear here; see CosmeticDef. Returns the full name or "". */
+    registerCosmetic: (name, def) => host("registerCosmetic", name, def),
+    registerCosmeticCategory: (name, def = {}) => host("registerCosmeticCategory", name, def),
+    /** {allow_builtin, allow_colors, armor: "player" | "armor" | "cosmetics", blocked, uniform} */
+    setCosmeticsPolicy: (values) => host("setCosmeticsPolicy", values),
+    /** Particles, light flash, shake and sound as data; see EffectDef. Returns the id or -1. */
+    registerEffect: (name, def) => host("registerEffect", name, def),
+    /** options: {color, scale, direction: {x,y,z} | [x,y,z], duration, follow: entity | player} */
+    playEffect: (name, position, options = {}) => host("playEffect", name, position, options),
     /** A mob behaviour for mobs listing it in ai.behaviors. score(mob, ctx) -> number each think;
      *  update(mob, ctx) while it runs. ctx: {target, can_see_target, target_distance, health, behavior, arrived}. */
     registerMobBehavior: (name, { score, update, stop } = {}) =>

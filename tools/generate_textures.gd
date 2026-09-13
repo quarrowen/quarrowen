@@ -107,7 +107,42 @@ func _init() -> void:
 			_save(_item(armors[material], piece), (vanilla if material == "leather" else base) + "%s_%s.png" % [material, piece])
 	_save(_item(Color(0.62, 0.35, 0.95), "sword"), arcana + "soul_blade.png")
 	_save(_item(Color(1.0, 0.8, 0.25), "pickaxe"), guild + "prospector_pick.png")
+	# Worn armor in the 64x64 skin layout; each armor slot only uses the regions it covers.
+	_save(_armor_layer(Color(0.78, 0.8, 0.84), Color(0.5, 0.52, 0.58)), base + "iron_armor.png")
+	_save(_armor_layer(Color(0.55, 0.35, 0.2), Color(0.38, 0.23, 0.12)), vanilla + "leather_armor.png")
 	quit()
+
+
+## Box-unfold rectangles of a skin layout region [u, v, w, h, d]: top, bottom, right, front, left, back.
+func _unfold(r: Array) -> Array:
+	var u: int = r[0]
+	var v: int = r[1]
+	var w: int = r[2]
+	var h: int = r[3]
+	var d: int = r[4]
+	return [Rect2i(u + d, v, w, d), Rect2i(u + d + w, v, w, d), Rect2i(u, v + d, d, h), Rect2i(u + d, v + d, w, h),
+		Rect2i(u + d + w, v + d, d, h), Rect2i(u + 2 * d + w, v + d, w, h)]
+
+
+func _armor_layer(plate: Color, trim: Color) -> Image:
+	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var regions := {"head": [0, 0, 8, 8, 8], "torso": [16, 16, 8, 12, 4], "arm_r": [40, 16, 4, 12, 4], "arm_l": [32, 48, 4, 12, 4],
+		"leg_r": [0, 16, 4, 12, 4], "leg_l": [16, 48, 4, 12, 4]}
+	for key in regions:
+		var rects := _unfold(regions[key])
+		for i in rects.size():
+			var rect: Rect2i = rects[i]
+			for y in range(rect.position.y, rect.end.y):
+				for x in range(rect.position.x, rect.end.x):
+					var edge := x == rect.position.x or x == rect.end.x - 1 or y == rect.position.y or y == rect.end.y - 1
+					var c := trim if edge else _vary(plate, 0.05)
+					if key == "head" and i == 3 and y >= rect.position.y + 3 and y <= rect.position.y + 5 and x > rect.position.x and x < rect.end.x - 1:
+						c = Color(0, 0, 0, 0)  # visor slit
+					if key == "torso" and i == 3 and y == rect.position.y + 5:
+						c = trim  # belt line on the chest plate
+					img.set_pixel(x, y, c)
+	return img
 
 
 func _meteorite(hot: bool) -> Image:

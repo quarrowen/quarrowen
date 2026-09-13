@@ -318,6 +318,13 @@ func c_drop_item(whole_stack: bool) -> void:
 		server.on_drop_item(_sender(), whole_stack)
 
 
+## The player's avatar (Cosmetics data): on join their portable look, in game any change.
+@rpc("any_peer", "call_remote", "reliable")
+func c_set_avatar(avatar: Dictionary) -> void:
+	if server:
+		server.on_set_avatar(_sender(), avatar)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func c_shutdown(token: String) -> void:
 	if server:
@@ -390,6 +397,28 @@ func s_block_changed(position: Vector3i, block: int, state: int) -> void:
 func s_inventory(slots: PackedInt32Array, selected: int, creative: bool, item_data: Dictionary) -> void:
 	if client:
 		client.on_inventory(slots, selected, creative, item_data)
+
+
+## Plays effect `effect_id` (see EffectRegistry) at a position; options may name an entity or player
+## to follow.
+@rpc("authority", "call_remote", "reliable")
+func s_effect(effect_id: int, position: Vector3, options: Dictionary) -> void:
+	if client:
+		client.on_effect(effect_id, position, options)
+
+
+## Server cosmetics you own here and the server's cosmetics policy (see Cosmetics).
+@rpc("authority", "call_remote", "reliable")
+func s_cosmetics(owned: PackedStringArray, policy: Dictionary) -> void:
+	if client:
+		client.on_cosmetics(owned, policy)
+
+
+## How a player looks: {held, armor: {slot: item}, avatar}. Also sent for yourself.
+@rpc("authority", "call_remote", "reliable")
+func s_player_appearance(peer_id: int, appearance: Dictionary) -> void:
+	if client:
+		client.on_player_appearance(peer_id, appearance)
 
 
 @rpc("authority", "call_remote", "reliable")

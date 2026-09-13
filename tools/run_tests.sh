@@ -84,6 +84,12 @@ for extra in tests/host_flow_test.tscn; do
   [ -f "$extra" ] && run_scene "$(basename "$extra" .tscn)" "$WORK/$(basename "$extra" .tscn).log" "res://$extra"
 done
 
+# A script error inside a test can abort its remaining checks without failing it; treat it as a failure.
+for log in "$WORK"/*.log; do
+  case "$(basename "$log")" in server_*|import.log) continue ;; esac
+  if grep -q "SCRIPT ERROR" "$log"; then FAILED+=("clean-test-log:$(basename "$log")"); grep -h "SCRIPT ERROR" -A2 "$log" | head -6; fi
+done
+
 echo
 echo "passed: ${#PASSED[@]}  failed: ${#FAILED[@]}"
 [ ${#FAILED[@]} -eq 0 ] || { printf '  %s\n' "${FAILED[@]}"; exit 1; }

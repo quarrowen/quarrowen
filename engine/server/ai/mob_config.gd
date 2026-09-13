@@ -99,7 +99,9 @@ const ATTACK_DEFAULTS := {
 	"duration": 1.2,      # charge
 	"health_below": 1.01, # only usable at or below this health fraction
 	"health_above": -1.0,
-	"sound": "",
+	"sound": "",          # played when the wind-up starts
+	"windup_effect": "",  # effect name (full, e.g. "engine:magic") following the mob during the wind-up
+	"effect": "",         # effect when the attack lands: at the mob's front, or its feet for slam / summon
 }
 
 

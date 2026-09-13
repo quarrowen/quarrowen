@@ -14,6 +14,11 @@ extends Node
 const GameClient = preload("res://engine/client/game_client.gd")
 const ModLoader = preload("res://engine/server/mod_loader.gd")
 const Identity = preload("res://engine/shared/identity.gd")
+const Cosmetics = preload("res://engine/shared/cosmetics.gd")
+const PlayerRig = preload("res://engine/shared/player_rig.gd")
+const LookBuilder = preload("res://engine/client/avatar/look_builder.gd")
+const AvatarStore = preload("res://engine/client/avatar/avatar_store.gd")
+const AvatarEditor = preload("res://engine/client/avatar/avatar_editor.gd")
 
 const DEFAULT_PORT := 24565
 const DEFAULT_GAME := "vanilla"
@@ -180,6 +185,11 @@ func _build_menu() -> void:
 
 	_name_edit = _labeled(box, "Name", LineEdit.new())
 	_name_edit.text = _args.get("name", "Player%d" % (randi() % 1000))
+	var avatar_button := Button.new()
+	avatar_button.text = "Customize avatar"
+	avatar_button.custom_minimum_size.y = 36
+	avatar_button.pressed.connect(_open_avatar_editor)
+	box.add_child(avatar_button)
 	_port_edit = _labeled(box, "Port", SpinBox.new())
 	_port_edit.min_value = 1024
 	_port_edit.max_value = 65535
@@ -248,6 +258,18 @@ func _build_menu() -> void:
 	_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_message_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.6))
 	box.add_child(_message_label)
+
+
+## Your portable look: built-in cosmetics, saved on this computer and shown on every server that allows them.
+func _open_avatar_editor() -> void:
+	var registry := Cosmetics.new()
+	var editor := AvatarEditor.new()
+	editor.setup(registry, LookBuilder.new(registry), PlayerRig.default_rig(), _name_edit.text, AvatarStore.load_avatar())
+	editor.done.connect(func(edited: Dictionary):
+		AvatarStore.save_avatar(registry.sanitize_avatar(edited))
+		editor.queue_free())
+	editor.cancelled.connect(editor.queue_free)
+	add_child(editor)
 
 
 func _refresh_identity_label() -> void:
