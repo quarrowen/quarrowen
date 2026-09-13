@@ -523,12 +523,22 @@ func _fight(c, entity_id: int, timeout: float) -> bool:
 ## Walks to the nearest dropped stack of `item` until it is in the inventory.
 func _collect(c, item: int, timeout: float) -> bool:
 	var start_count: int = c.inventory.count_of(item)
-	var deadline := Time.get_ticks_msec() + int(timeout * 1000)
+	var started := Time.get_ticks_msec()
+	var deadline := started + int(timeout * 1000)
+	var teleported := false
 	var got := false
 	while Time.get_ticks_msec() < deadline:
 		if c.inventory.count_of(item) > start_count:
 			got = true
 			break
+		if not teleported and Time.get_ticks_msec() - started > 4000:
+			# Walking is best effort (the stack may have rolled into a hole); go straight to it.
+			for id in c._entities:
+				if c._entities[id].item_id == item:
+					var at: Vector3 = c._entities[id].position
+					Net.c_chat.rpc_id(1, "/tp %.2f %.2f %.2f" % [at.x, at.y + 0.2, at.z])
+					teleported = true
+					break
 		var nearest = null
 		for id in c._entities:
 			var view = c._entities[id]
