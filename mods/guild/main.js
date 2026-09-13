@@ -44,6 +44,18 @@ export function setup(api) {
 
   api.registerSound("coin", "sounds/coin.wav", { pitch_variance: 0.05 });
 
+  // --- Prospector's Pick: a tool that levels up from the blocks it mines -------------------------
+  // Built only from engine pieces: the block_broken event, item data (xp, level, name, lore) and
+  // per-item stat modifiers. Each level mines 20% faster; level 3 adds a chance of double gold.
+  const PICK_LEVELS = [5, 20, 60, 150];
+  const pick = api.registerItem("prospector_pick", {
+    display_name: "Prospector's Pick", icon: "textures/prospector_pick.png", durability: 500,
+    tool: { type: "pickaxe", tier: 2, speed: 4 }, weapon: { damage: 3, cooldown: 0.5 },
+    lore: ["Learns the rock as you mine it."],
+  });
+  api.registerRecipe({ "guild:gold_coin": 6, "base:stone_pickaxe": 1 }, "guild:prospector_pick");
+  const pickLevel = (xp) => PICK_LEVELS.filter((needed) => xp >= needed).length;
+
   // --- Treasure goblin: engine AI plus a behaviour written in JavaScript --------------------------
   // It is skittish (the engine makes it flee from nearby players) and greedy: the custom "loot"
   // behaviour sends it after dropped gold coins, which it keeps until someone catches it.
@@ -257,9 +269,25 @@ export function setup(api) {
     }
   });
 
-  api.on("block_broken", ({ player, block }) => {
+  api.on("block_broken", ({ player, block, item, slot, harvested, position }) => {
     progress(player, "broken");
     if (block === ids.goldOre) progress(player, "gold");
+    if (item !== pick || !harvested) return;
+    const stack = player.getItem(slot);
+    if (stack.item !== pick) return; // it broke on this block
+    const data = { ...stack.data, xp: (stack.data.xp ?? 0) + 1 };
+    const level = pickLevel(data.xp);
+    if (level > (stack.data.level ?? 0)) {
+      player.showTitle("", `Prospector's Pick reached level ${level}`, 2);
+      api.playSound("guild:coin", position, 1, 1.5);
+    }
+    if (level >= 3 && block === ids.goldOre && Math.random() < 0.25) api.dropItem(ids.coin, 1, position);
+    data.level = level;
+    data.name = level > 0 ? `Prospector's Pick +${level}` : "Prospector's Pick";
+    data.modifiers = level > 0 ? [{ stat: "mining_speed", amount: 0.2 * level, op: "multiply" }] : [];
+    const next = PICK_LEVELS[level];
+    data.lore = [next ? `Experience ${data.xp} / ${next}` : `Experience ${data.xp} (max level)`];
+    player.setItemData(slot, data);
   });
   api.on("block_placed", ({ player }) => progress(player, "placed"));
 
@@ -333,7 +361,7 @@ export function setup(api) {
     switch (sub) {
       case "kit":
         if (player.isCreative()) {
-          player.setHotbar([ids.board, api.block("base:planks"), api.block("base:stone"), ids.goldOre]);
+          player.setHotbar([ids.board, api.block("base:planks"), api.block("base:stone"), ids.goldOre, pick]);
         } else {
           player.give(ids.board, 1);
         }

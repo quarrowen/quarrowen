@@ -68,11 +68,19 @@ func attach(e) -> MobBrain:
 	if not brain.config.enemy_groups.is_empty():
 		_mob_rivalries = true
 	brains[e.id] = brain
+	# Visible to neighbour queries (alerts, separation) right away, not only after the next rebuild.
+	var cell := Vector2i(floori(e.body.position.x / GRID_CELL), floori(e.body.position.z / GRID_CELL))
+	if not _grid.has(cell):
+		_grid[cell] = []
+	_grid[cell].append(brain)
 	return brain
 
 
 func detach(e) -> void:
+	var brain = brains.get(e.id)
 	brains.erase(e.id)
+	for cell in _grid:
+		_grid[cell].erase(brain)
 	if _boss_viewers.has(e.id):
 		for peer_id in _boss_viewers[e.id]:
 			var p = server.players.get(peer_id)

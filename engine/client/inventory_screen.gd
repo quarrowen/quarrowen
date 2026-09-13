@@ -7,6 +7,7 @@ extends Control
 signal slot_clicked(slot: int, button: int, shift: bool)
 
 const Inventory = preload("res://engine/shared/inventory.gd")
+const ItemVisuals = preload("res://engine/client/item_visuals.gd")
 const SLOT_SIZE := 52
 
 var inventory: Inventory
@@ -18,6 +19,10 @@ var _panel: PanelContainer
 var _cursor_icon: TextureRect
 var _cursor_count: Label
 var _title: Label
+var _equipment_box: VBoxContainer
+var _tooltip: PanelContainer
+var _tooltip_label: Label
+var _hovered := -2
 
 
 func _ready() -> void:
@@ -32,6 +37,7 @@ func _ready() -> void:
 	_panel.set_anchors_preset(Control.PRESET_CENTER)
 	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_panel.add_theme_stylebox_override("panel", _box_style(Color(0.08, 0.08, 0.1, 0.92), 12))
 	add_child(_panel)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
@@ -39,18 +45,31 @@ func _ready() -> void:
 	_title = Label.new()
 	_title.text = "Inventory"
 	box.add_child(_title)
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 14)
+	box.add_child(columns)
+	_equipment_box = VBoxContainer.new()
+	columns.add_child(_equipment_box)
+	var backpack := VBoxContainer.new()
+	columns.add_child(backpack)
 	var main := GridContainer.new()
 	main.columns = Inventory.HOTBAR
-	box.add_child(main)
-	box.add_child(HSeparator.new())
+	backpack.add_child(main)
+	backpack.add_child(HSeparator.new())
 	var hotbar := GridContainer.new()
 	hotbar.columns = Inventory.HOTBAR
-	box.add_child(hotbar)
+	backpack.add_child(hotbar)
 	_slots.resize(Inventory.SIZE)
 	for i in Inventory.SIZE:
 		var slot := _make_slot(i)
 		_slots[i] = slot
 		(hotbar if i < Inventory.HOTBAR else main).add_child(slot)
+	_tooltip = PanelContainer.new()
+	_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tooltip.visible = false
+	_tooltip.add_theme_stylebox_override("panel", _box_style(Color(0.05, 0.03, 0.1, 0.95), 8))
+	_tooltip_label = Label.new()
+	_tooltip.add_child(_tooltip_label)
 	var hint := Label.new()
 	hint.text = "Left: move stack   Right: split / place one   Shift: quick move   Outside: drop"
 	hint.modulate = Color(1, 1, 1, 0.6)
@@ -68,6 +87,35 @@ func _ready() -> void:
 	_cursor_count.add_theme_color_override("font_shadow_color", Color.BLACK)
 	_cursor_icon.add_child(_cursor_count)
 	_cursor_count.position = Vector2(22, 20)
+	add_child(_tooltip)
+
+
+## Builds one slot per equipment slot the server defined (called once content is known).
+func build_equipment(slot_defs: Array) -> void:
+	for child in _equipment_box.get_children():
+		child.queue_free()
+	_slots.resize(Inventory.SIZE + slot_defs.size())
+	for i in slot_defs.size():
+		var row := HBoxContainer.new()
+		var slot := _make_slot(Inventory.SIZE + i)
+		_slots[Inventory.SIZE + i] = slot
+		row.add_child(slot)
+		var label := Label.new()
+		label.text = String(slot_defs[i].get("display_name", slot_defs[i].get("name", "")))
+		label.modulate = Color(1, 1, 1, 0.55)
+		label.add_theme_font_size_override("font_size", 12)
+		row.add_child(label)
+		_equipment_box.add_child(row)
+
+
+static func _box_style(color: Color, margin: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.border_color = Color(0.45, 0.35, 0.7, 0.8)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(4)
+	style.set_content_margin_all(margin)
+	return style
 
 
 func _make_slot(index: int) -> Panel:
@@ -100,7 +148,10 @@ func _make_slot(index: int) -> Panel:
 			var button := 1 if event.button_index == MOUSE_BUTTON_LEFT else (2 if event.button_index == MOUSE_BUTTON_RIGHT else 3)
 			slot_clicked.emit(index, button, event.shift_pressed)
 			accept_event())
-	slot.mouse_entered.connect(func(): _title.text = _describe(index))
+	slot.mouse_entered.connect(func(): _hovered = index)
+	slot.mouse_exited.connect(func():
+		if _hovered == index:
+			_hovered = -2)
 	return slot
 
 
@@ -115,8 +166,11 @@ func _gui_input(event: InputEvent) -> void:
 func refresh() -> void:
 	if inventory == null or atlas.is_empty() or _slots.is_empty():
 		return
-	for i in Inventory.SIZE:
+	for i in mini(_slots.size(), inventory.total()):
+		if _slots[i] == null:
+			continue
 		_draw_stack(_slots[i].get_node("Icon"), _slots[i].get_node("Count"), inventory.ids[i], inventory.counts[i])
+		ItemVisuals.update_wear_bar(_slots[i], items, inventory.ids[i] if inventory.counts[i] > 0 else 0, inventory.data[i])
 		var style: StyleBoxFlat = _slots[i].get_theme_stylebox("panel")
 		style.border_color = Color(0.9, 0.9, 0.9) if i == inventory.selected else Color(0.35, 0.35, 0.4)
 	_draw_stack(_cursor_icon, _cursor_count, inventory.cursor_id, inventory.cursor_count)
@@ -134,11 +188,14 @@ func _draw_stack(icon: TextureRect, count: Label, id: int, amount: int) -> void:
 	count.text = str(amount) if has_item and amount > 1 else ""
 
 
-func _describe(index: int) -> String:
-	var id := inventory.ids[index] if inventory else 0
-	return items.display_name(id) if id > 0 and items.is_valid(id) else "Inventory"
-
-
 func _process(_delta: float) -> void:
-	if visible:
-		_cursor_icon.position = get_local_mouse_position() - Vector2(18, 18)
+	if not visible:
+		return
+	var mouse := get_local_mouse_position()
+	_cursor_icon.position = mouse - Vector2(18, 18)
+	var id := inventory.ids[_hovered] if _hovered >= 0 and _hovered < inventory.total() and inventory.counts[_hovered] > 0 else 0
+	_tooltip.visible = id > 0 and inventory.cursor_count <= 0
+	if _tooltip.visible:
+		_tooltip_label.text = "\n".join(ItemVisuals.tooltip_lines(items, id, inventory.data[_hovered]))
+		_tooltip.position = mouse + Vector2(18, 12)
+		_tooltip.reset_size()

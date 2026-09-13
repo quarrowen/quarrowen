@@ -22,6 +22,8 @@ const Entity = preload("res://engine/server/entity.gd")
 const SoundRegistry = preload("res://engine/shared/sound_registry.gd")
 const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
+const Mining = preload("res://engine/shared/mining.gd")
+const PlayerStats = preload("res://engine/server/player_stats.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -67,6 +69,7 @@ var gameplay := {
 	"fall_damage": true,
 	"natural_regeneration": true,
 	"mob_spawning": true,
+	"durability": true,  # tools, weapons and armor wear out
 }
 var server_info := {"name": "VoxelCraft Server", "game": "", "description": "", "motd": "", "mods": []}
 var generator: Object = null
@@ -272,8 +275,9 @@ func _hash_assets() -> void:
 func set_rules(values: Dictionary) -> void:
 	rules.apply_dict(values)
 	_apply_rules_to_world()
-	if _started:
-		for p: ServerPlayer in players.values():
+	for p: ServerPlayer in players.values():
+		_update_player_rules(p)
+		if _started:
 			Net.s_rules.rpc_id(p.peer_id, rules.to_dict())
 
 
@@ -633,7 +637,7 @@ func _simulate_player(p: ServerPlayer) -> void:
 	while budget > 0 and not p.input_queue.is_empty():
 		var input = p.input_queue.pop_front()
 		var falling_speed := -p.state.velocity.y
-		PlayerPhysics.step(p.state, input, world, rules)
+		PlayerPhysics.step(p.state, input, world, p.physics_rules if p.physics_rules != null else rules)
 		p.last_processed_seq = input.seq
 		budget -= 1
 		_track_fall(p, falling_speed)
@@ -660,6 +664,11 @@ func _track_fall(p: ServerPlayer, speed_before: float) -> void:
 # --- Health, damage & death ---------------------------------------------------------------------
 
 func _update_health(p: ServerPlayer, delta: float) -> void:
+	if tick % 30 == 0 and not p.modifiers.is_empty():
+		for m in p.modifiers.values():
+			if m.expires > 0.0 and _time >= m.expires:
+				p.refresh_stats()
+				break
 	if p.dead:
 		return
 	p.hurt_timer = maxf(p.hurt_timer - delta, 0.0)
@@ -682,10 +691,19 @@ func damage_player(p: ServerPlayer, amount: float, cause: String, attacker = nul
 		return false
 	if p.hurt_timer > 0.0 and not bypass_cooldown:
 		return false
-	var ev := emit("player_damage", {"player": p, "amount": amount, "cause": cause, "attacker": attacker, "cancelled": false})
+	var stats := p.get_stats()
+	var protected := cause in PlayerStats.ARMOR_CAUSES
+	var reduced := PlayerStats.apply_armor(amount, stats.armor, stats.toughness) if protected else amount
+	var ev := emit("player_damage", {"player": p, "amount": reduced, "raw_amount": amount, "cause": cause, "attacker": attacker, "cancelled": false})
 	if ev.cancelled or float(ev.amount) <= 0.0:
 		return false
 	p.health = maxf(p.health - float(ev.amount), 0.0)
+	if protected:
+		for i in p.inventory.equipment_slots.size():
+			var index := Inventory.SIZE + i
+			if p.inventory.ids[index] > 0 and not items.get_def(p.inventory.ids[index]).get("armor", {}).is_empty():
+				damage_item(p, index, 1, "armor")
+	knockback *= 1.0 - float(stats.knockback_resistance)
 	p.hurt_timer = PLAYER_HURT_INVULNERABLE
 	p.last_damage_time = _time
 	p.regen_timer = 0.0
@@ -736,11 +754,11 @@ func kill_player(p: ServerPlayer, cause: String, attacker) -> void:
 	p.fall_velocity = 0.0
 	if not ev.keep_inventory and not p.inventory.creative:
 		var center := p.state.position + Vector3(0, 1.0, 0)
-		for i in Inventory.SIZE:
+		for i in p.inventory.total():
 			if p.inventory.ids[i] > 0 and p.inventory.counts[i] > 0:
-				entities.drop_item(p.inventory.ids[i], p.inventory.counts[i], center)
+				entities.drop_item(p.inventory.ids[i], p.inventory.counts[i], center, Vector3.INF, 0.6, p.inventory.data[i])
 		if p.inventory.cursor_count > 0:
-			entities.drop_item(p.inventory.cursor_id, p.inventory.cursor_count, center)
+			entities.drop_item(p.inventory.cursor_id, p.inventory.cursor_count, center, Vector3.INF, 0.6, p.inventory.cursor_data)
 		p.inventory.clear()
 		p.sync_inventory()
 	sync_health(p)
@@ -957,7 +975,8 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		if a.has("hash"):
 			manifest.append([asset_name, a.hash, a.size])
 	var content := {"blocks": registry.to_network(), "items": items.to_network(), "rules": rules.to_dict(),
-		"entities": entities.registry.to_network(), "sounds": sounds.to_network()}
+		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
+		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
@@ -1015,7 +1034,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void
 		var pos = saved.get("position")
 		if pos is Array and pos.size() == 3:
 			p.state.position = Vector3(pos[0], pos[1], pos[2])
-		p.inventory.load_packed(PackedInt32Array(saved.get("inventory", [])))
+		p.load_inventory(saved)
 		p.inventory.creative = bool(saved.get("creative", false))
 		p.data = saved.get("data", {}) if saved.get("data") is Dictionary else {}
 		p.health = clampf(float(saved.get("health", p.max_health)), 1.0, p.max_health)
@@ -1030,6 +1049,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void
 	Net.s_welcome.rpc_id(peer_id, peer_id, p.state.position, 0.0)
 	Net.s_time.rpc_id(peer_id, _time_of_day, _day_length)
 	p.sync_inventory()
+	refresh_stats(p)
 	sync_health(p)
 	for other: ServerPlayer in players.values():
 		if other != p:
@@ -1361,10 +1381,23 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 	if p == null:
 		return
 	var current := world.get_block_v(pos)
-	if not _can_edit(p, pos) or current == BlockRegistry.UNLOADED or registry.breakable_lut[current] == 0:
+	if not _can_edit(p, pos) or current == BlockRegistry.UNLOADED or registry.breakable_lut[current] == 0 or p.dead:
 		_reject_edit(p, pos)
 		return
-	var ev := emit("block_break", {"player": p, "position": pos, "block": current, "drops": _default_drops(current), "cancelled": false})
+	var held := p.inventory.selected_item()
+	var tool := items.tool_of(held)
+	var harvest := true
+	if not p.inventory.creative:
+		var required := Mining.break_time(registry.defs[current], tool, p.get_stat("mining_speed"))
+		# Accept a little early for latency; the client times the crack animation itself.
+		var mined_long_enough: bool = p.mining.get("position") == pos and _time - float(p.mining.get("started", INF)) >= required * 0.8 - 0.15
+		if required > 0.05 and not mined_long_enough:
+			_reject_edit(p, pos)
+			return
+		harvest = Mining.can_harvest(registry.defs[current], tool)
+	_stop_mining(p)
+	var ev := emit("block_break", {"player": p, "position": pos, "block": current, "item": held, "slot": p.inventory.selected,
+		"drops": _default_drops(current) if harvest else [], "cancelled": false})
 	if ev.cancelled:
 		_reject_edit(p, pos)
 		return
@@ -1380,8 +1413,10 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 					Vector3(randf_range(-1.0, 1.0), randf_range(2.0, 3.5), randf_range(-1.0, 1.0)), 0.3)
 			else:
 				p.inventory.add(int(drop[0]), int(drop[1]), items.max_stack(int(drop[0])))
+		if registry.defs[current].hardness > 0.0 and items.max_durability(held) > 0:
+			damage_item(p, p.inventory.selected, 1, "mine")
 		p.sync_inventory()
-	emit("block_broken", {"player": p, "position": pos, "block": current})
+	emit("block_broken", {"player": p, "position": pos, "block": current, "item": held, "slot": p.inventory.selected, "harvested": harvest})
 
 
 func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
@@ -1425,7 +1460,9 @@ func on_interact(peer_id: int, pos: Vector3i) -> void:
 func on_select_slot(peer_id: int, slot: int) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p:
-		p.inventory.selected = clampi(slot, 0, p.inventory.ids.size() - 1)
+		p.inventory.selected = clampi(slot, 0, Inventory.HOTBAR - 1)
+		_stop_mining(p)
+		refresh_stats(p)
 
 
 func on_chat(peer_id: int, text: String) -> void:
@@ -1457,6 +1494,9 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 	if p == null:
 		return
 	var item := p.inventory.selected_item()
+	if item >= ItemRegistry.FIRST_ITEM and not items.is_usable(item) and not String(items.get_def(item).equip_slot).is_empty():
+		_equip_from_hand(p)
+		return
 	if item < ItemRegistry.FIRST_ITEM or not items.is_usable(item) or p.edit_tokens < 1.0:
 		return
 	p.edit_tokens -= 1.0
@@ -1475,7 +1515,10 @@ func on_open_menu(peer_id: int, menu: String) -> void:
 
 func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 	var p: ServerPlayer = players.get(peer_id)
-	if p == null or p.dead or _time - p.last_attack_time < ATTACK_INTERVAL:
+	if p == null or p.dead:
+		return
+	var stats := p.get_stats()
+	if _time - p.last_attack_time < float(stats.attack_cooldown) * 0.9:
 		return
 	var target = entities.entities.get(target_id) if kind == 0 else players.get(target_id)
 	if target == null or target == p or (kind == 0 and not target.is_alive()) or (kind == 1 and target.dead):
@@ -1484,7 +1527,7 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 		Vector3(PlayerPhysics.HALF_WIDTH * 2.0, PlayerPhysics.HEIGHT, PlayerPhysics.HALF_WIDTH * 2.0))
 	var eye := p.get_eye_position()
 	var distance := eye.distance_to(eye.clamp(box.position, box.end))
-	if distance > ATTACK_REACH:
+	if distance > float(stats.reach):
 		return
 	var center := box.get_center()
 	var ray := VoxelRaycast.cast(world, registry.solid_lut, eye, center - eye, eye.distance_to(center))
@@ -1492,17 +1535,29 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 		return  # a wall is in the way
 	p.last_attack_time = _time
 	var item := p.inventory.selected_item()
+	# Critical hits: attacking while falling (a jump attack) or by the crit_chance stat.
+	var critical: bool = (not p.state.on_ground and p.state.velocity.y < -1.0) or randf() < float(stats.crit_chance)
+	var damage: float = float(stats.attack_damage) * (float(stats.crit_multiplier) if critical else 1.0)
 	var ev := emit("player_attack", {"player": p, "target": target, "target_kind": "entity" if kind == 0 else "player",
-		"item": item, "damage": items.attack_damage(item), "cancelled": false})
+		"item": item, "slot": p.inventory.selected, "damage": damage, "critical": critical, "cancelled": false})
 	if ev.cancelled:
 		return
 	play_sound_at("engine:swing", eye, 0.7, randf_range(0.9, 1.1), peer_id)
 	entities.ai.make_noise(eye, 14.0, p, true)
 	var direction := PlayerPhysics.look_direction(p.yaw, 0.0)
+	var landed := false
 	if kind == 0:
-		entities.damage(target, float(ev.damage), "attack", p, direction)
+		landed = entities.damage(target, float(ev.damage), "attack", p, direction)
+		var sweep := float(items.weapon_of(item).get("sweep", 0.0))
+		if landed and sweep > 0.0:
+			for other in entities.in_radius(target.body.position, 1.8):
+				if other != target and other.def.kind == "mob":
+					other.hurt_timer = 0.0
+					entities.damage(other, float(ev.damage) * sweep, "attack", p, other.body.position - p.state.position)
 	elif gameplay.pvp:
-		damage_player(target, float(ev.damage), "attack", p, direction)
+		landed = damage_player(target, float(ev.damage), "attack", p, direction, false, 6.0 * float(stats.knockback))
+	if landed and items.max_durability(item) > 0:
+		damage_item(p, p.inventory.selected, 1 if not items.weapon_of(item).is_empty() else 2, "attack")
 
 
 func on_interact_entity(peer_id: int, target_id: int) -> void:
@@ -1524,17 +1579,19 @@ func on_inventory_click(peer_id: int, slot: int, button: int, shift: bool) -> vo
 		# Clicked outside the inventory: drop what the cursor holds.
 		if p.inventory.cursor_count > 0:
 			var n := p.inventory.cursor_count if button == 1 else 1
-			p.drop(p.inventory.cursor_id, n)
+			p.drop(p.inventory.cursor_id, n, p.inventory.cursor_data)
 			p.inventory.cursor_count -= n
 			if p.inventory.cursor_count <= 0:
 				p.inventory.cursor_id = 0
-	elif button == 3 and p.inventory.creative and slot >= 0 and slot < Inventory.SIZE and p.inventory.cursor_count <= 0:
+				p.inventory.cursor_data = {}
+	elif button == 3 and p.inventory.creative and slot >= 0 and slot < p.inventory.total() and p.inventory.cursor_count <= 0:
 		# Middle click in creative: pick up a full stack copy.
 		if p.inventory.ids[slot] > 0:
 			p.inventory.cursor_id = p.inventory.ids[slot]
 			p.inventory.cursor_count = items.max_stack(p.inventory.ids[slot])
+			p.inventory.cursor_data = p.inventory.data[slot].duplicate(true)
 	else:
-		p.inventory.click(slot, button, shift, items.max_stack)
+		p.inventory.click(slot, button, shift, items.max_stack, _slot_accepts.bind(p))
 	p.sync_inventory()
 
 
@@ -1542,11 +1599,12 @@ func on_inventory_closed(peer_id: int) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null or p.inventory.cursor_count <= 0:
 		return
-	var left := p.inventory.add(p.inventory.cursor_id, p.inventory.cursor_count, items.max_stack(p.inventory.cursor_id))
+	var left := p.inventory.add(p.inventory.cursor_id, p.inventory.cursor_count, items.max_stack(p.inventory.cursor_id), p.inventory.cursor_data)
 	if left > 0:
-		p.drop(p.inventory.cursor_id, left)
+		p.drop(p.inventory.cursor_id, left, p.inventory.cursor_data)
 	p.inventory.cursor_id = 0
 	p.inventory.cursor_count = 0
+	p.inventory.cursor_data = {}
 	p.sync_inventory()
 
 
@@ -1564,11 +1622,130 @@ func on_drop_item(peer_id: int, whole_stack: bool) -> void:
 	if emit("item_drop", {"player": p, "item": id, "count": n, "cancelled": false}).cancelled:
 		p.sync_inventory()
 		return
+	var item_data: Dictionary = p.inventory.data[slot].duplicate(true)
 	if not p.inventory.creative:
-		p.inventory.set_slot(slot, id, count - n)
+		p.inventory.set_slot(slot, id, count - n, item_data)
 		p.sync_inventory()
-	p.drop(id, n)
+	p.drop(id, n, item_data)
 	play_sound_at("engine:drop", p.get_eye_position(), 0.6)
+
+
+func _slot_accepts(slot_index: int, id: int, p: ServerPlayer) -> bool:
+	var i := slot_index - Inventory.SIZE
+	return i >= 0 and i < p.inventory.equipment_slots.size() and items.fits_slot(id, p.inventory.equipment_slots[i])
+
+
+## Right-click with a wearable item: swap it with whatever is in its equipment slot.
+func _equip_from_hand(p: ServerPlayer) -> void:
+	var hand := p.inventory.selected
+	var id := p.inventory.ids[hand]
+	var index := p.inventory.equipment_index(String(items.get_def(id).equip_slot))
+	if index < 0 or p.inventory.counts[hand] != 1:
+		return
+	var worn := [p.inventory.ids[index], p.inventory.counts[index], p.inventory.data[index]]
+	p.inventory.set_slot(index, id, 1, p.inventory.data[hand])
+	p.inventory.set_slot(hand, worn[0], worn[1], worn[2])
+	play_sound_at("engine:equip", p.get_eye_position(), 0.8)
+	p.sync_inventory()
+
+
+func on_mine_start(peer_id: int, pos: Vector3i) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or p.dead or p.get_eye_position().distance_to(Vector3(pos) + Vector3.ONE * 0.5) > REACH + 1.5:
+		return
+	var block := world.get_block_v(pos)
+	if block == BlockRegistry.UNLOADED or registry.breakable_lut[block] == 0:
+		return
+	p.mining = {"position": pos, "started": _time}
+	var seconds := Mining.break_time(registry.defs[block], items.tool_of(p.inventory.selected_item()), p.get_stat("mining_speed"))
+	_broadcast_mining(p, pos, seconds)
+
+
+func on_mine_stop(peer_id: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p != null:
+		_stop_mining(p)
+
+
+func _stop_mining(p: ServerPlayer) -> void:
+	if p.mining.is_empty():
+		return
+	var pos: Vector3i = p.mining.position
+	p.mining = {}
+	_broadcast_mining(p, pos, -1.0)
+
+
+## Lets nearby players see the crack animation on a block someone else is breaking.
+func _broadcast_mining(p: ServerPlayer, pos: Vector3i, seconds: float) -> void:
+	if not _started:
+		return
+	for other: ServerPlayer in players.values():
+		if other != p and other.state.position.distance_to(Vector3(pos)) < 32.0:
+			Net.s_mining.rpc_id(other.peer_id, p.peer_id, pos, seconds)
+
+
+## Wears an item: adds `amount` to its item data `damage`; at the item's durability it breaks.
+func damage_item(p: ServerPlayer, slot: int, amount: int, reason := "use") -> void:
+	if slot < 0 or slot >= p.inventory.total() or amount <= 0:
+		return
+	var id := p.inventory.ids[slot]
+	var max_durability := items.max_durability(id)
+	if id <= 0 or max_durability <= 0 or not gameplay.durability or p.inventory.creative:
+		return
+	var ev := emit("item_durability", {"player": p, "slot": slot, "item": id, "data": p.inventory.data[slot],
+		"amount": amount, "reason": reason, "cancelled": false})
+	if ev.cancelled or int(ev.amount) <= 0:
+		return
+	var item_data: Dictionary = p.inventory.data[slot].duplicate(true)
+	item_data.damage = int(item_data.get("damage", 0)) + int(ev.amount)
+	if item_data.damage >= max_durability:
+		p.inventory.clear_slot(slot)
+		emit("item_break", {"player": p, "slot": slot, "item": id, "data": item_data})
+		play_sound_at("engine:item_break", p.get_eye_position())
+		p.send_message("Your %s broke" % items.display_name(id))
+	else:
+		p.inventory.data[slot] = item_data
+	p.sync_inventory()
+
+
+## Recomputes a player's stats, applies max health and movement speed, reports equipment changes and
+## sends the result to the client when it changed.
+func refresh_stats(p: ServerPlayer) -> void:
+	var stats := PlayerStats.compute(p, items)
+	var ev := emit("player_stats", {"player": p, "stats": stats})
+	if ev.stats is Dictionary:
+		stats = ev.stats
+	p._stats = stats
+	p._stats_dirty = false
+	var new_max := float(stats.max_health)
+	if not is_equal_approx(new_max, p.max_health):
+		p.max_health = new_max
+		p.health = minf(p.health, new_max)
+		sync_health(p)
+	_update_player_rules(p)
+	var worn := p.inventory.ids.slice(Inventory.SIZE)
+	if p._equipment_ids.size() == worn.size():
+		for i in worn.size():
+			if worn[i] != p._equipment_ids[i]:
+				emit("equipment_changed", {"player": p, "slot": p.inventory.equipment_slots[i], "old_item": p._equipment_ids[i], "item": worn[i]})
+	p._equipment_ids = worn
+	if p._online() and stats != p._sent_stats:
+		p._sent_stats = stats.duplicate()
+		Net.s_player_stats.rpc_id(p.peer_id, stats)
+
+
+func _update_player_rules(p: ServerPlayer) -> void:
+	var speed := float(p._stats.get("move_speed", 1.0)) if not p._stats.is_empty() else 1.0
+	if is_equal_approx(speed, 1.0):
+		p.physics_rules = null
+		return
+	p.physics_rules = PlayerPhysics.Rules.new()
+	var values := rules.to_dict()
+	values.walk_speed = rules.walk_speed * speed
+	values.sprint_speed = rules.sprint_speed * speed
+	p.physics_rules.apply_dict(values)
+	p.physics_rules.solid_lut = rules.solid_lut
+	p.physics_rules.liquid_lut = rules.liquid_lut
 
 
 # --- Crafting -----------------------------------------------------------------------------------
@@ -1590,7 +1767,9 @@ func show_crafting(p: ServerPlayer) -> void:
 	var children := [{"type": "label", "text": "Crafting", "size": 22, "color": "#ffd166"}]
 	if _recipes.is_empty():
 		children.append({"type": "label", "text": "This server has no recipes."})
-	for i in mini(_recipes.size(), 20):
+	var order := range(_recipes.size())
+	order.sort_custom(func(a, b): return _can_craft(p, _recipes[a]) and not _can_craft(p, _recipes[b]))
+	for i in order.slice(0, 20):
 		var recipe: Dictionary = _recipes[i]
 		var parts := PackedStringArray()
 		for id: int in recipe.inputs:
@@ -1701,7 +1880,7 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0) -> 
 ## Tells the client the authoritative block and inventory so it can roll back its prediction.
 func _reject_edit(p: ServerPlayer, pos: Vector3i) -> void:
 	var block := world.get_block_v(pos)
-	if block != BlockRegistry.UNLOADED:
+	if block != BlockRegistry.UNLOADED and _started:
 		Net.s_block_changed.rpc_id(p.peer_id, pos, block, get_block_state(pos))
 	p.sync_inventory()
 
@@ -1765,7 +1944,10 @@ func _store_player(p: ServerPlayer) -> void:
 	_meta.players[p.player_id] = {
 		"name": p.name,
 		"position": [p.state.position.x, p.state.position.y, p.state.position.z],
-		"inventory": Array(p.inventory.to_packed()),
+		"inventory": p.save_inventory().inventory,
+		"item_data": p.save_inventory().item_data,
+		"equipment": p.save_inventory().equipment,
+		"modifiers": p.modifiers.duplicate(true),
 		"creative": p.inventory.creative,
 		"data": p.data,
 		"health": maxf(p.health, 1.0) if not p.dead else p.max_health,

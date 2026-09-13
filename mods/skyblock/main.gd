@@ -114,6 +114,7 @@ func _cmd_island(player, args: PackedStringArray) -> void:
 
 func _give_starter_items(player) -> void:
 	player.give(ids.dirt, 8)
+	player.give(api.item("base:wooden_pickaxe"))  # cobblestone needs a pickaxe to drop
 
 
 # --- Events -------------------------------------------------------------------------------------

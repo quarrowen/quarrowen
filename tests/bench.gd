@@ -91,7 +91,7 @@ func _ready() -> void:
 		var px := randf_range(-50, 50)
 		var pz := randf_range(-50, 50)
 		p.state.position = Vector3(px, server.surface_height(floori(px), floori(pz)) + 1, pz)
-		p.max_health = 1000000.0
+		p.set_max_health(1000000.0)
 		p.health = 1000000.0
 		server.players[p.peer_id] = p
 	for kind in [["vanilla:zombie", 150], ["vanilla:pig", 150]]:

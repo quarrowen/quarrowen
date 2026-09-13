@@ -299,6 +299,19 @@ func c_inventory_closed() -> void:
 		server.on_inventory_closed(_sender())
 
 
+## Started (or stopped) holding break on a block in survival; the server times the break.
+@rpc("any_peer", "call_remote", "reliable")
+func c_mine_start(position: Vector3i) -> void:
+	if server:
+		server.on_mine_start(_sender(), position)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func c_mine_stop() -> void:
+	if server:
+		server.on_mine_stop(_sender())
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func c_drop_item(whole_stack: bool) -> void:
 	if server:
@@ -374,9 +387,22 @@ func s_block_changed(position: Vector3i, block: int, state: int) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
-func s_inventory(slots: PackedInt32Array, selected: int, creative: bool) -> void:
+func s_inventory(slots: PackedInt32Array, selected: int, creative: bool, item_data: Dictionary) -> void:
 	if client:
-		client.on_inventory(slots, selected, creative)
+		client.on_inventory(slots, selected, creative, item_data)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_player_stats(stats: Dictionary) -> void:
+	if client:
+		client.on_player_stats(stats)
+
+
+## Another player is breaking a block (`seconds` until it breaks; -1 = stopped).
+@rpc("authority", "call_remote", "reliable")
+func s_mining(peer_id: int, position: Vector3i, seconds: float) -> void:
+	if client:
+		client.on_mining(peer_id, position, seconds)
 
 
 @rpc("authority", "call_remote", "reliable")

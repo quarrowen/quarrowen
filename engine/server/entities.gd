@@ -72,6 +72,7 @@ func spawn(type_id: int, pos: Vector3, options := {}) -> Entity:
 		e.item_id = int(options.get("item", 0))
 		e.item_count = int(options.get("count", 1))
 		e.pickup_delay = float(options.get("pickup_delay", ITEM_PICKUP_DELAY))
+		e.item_data = options.get("item_data", {}) if options.get("item_data") is Dictionary else {}
 		if not _server.items.is_valid(e.item_id) or e.item_count <= 0:
 			return null
 	if e.def.kind == "mob":
@@ -84,14 +85,14 @@ func spawn(type_id: int, pos: Vector3, options := {}) -> Entity:
 
 
 ## Drops an item stack at `pos` with a small random toss.
-func drop_item(item: int, count: int, pos: Vector3, velocity := Vector3.INF, pickup_delay := ITEM_PICKUP_DELAY) -> Entity:
+func drop_item(item: int, count: int, pos: Vector3, velocity := Vector3.INF, pickup_delay := ITEM_PICKUP_DELAY, item_data := {}) -> Entity:
 	if velocity == Vector3.INF:
 		velocity = Vector3(randf_range(-1.5, 1.5), randf_range(3.0, 5.0), randf_range(-1.5, 1.5))
 	var max_stack: int = _server.items.max_stack(item)
 	var last: Entity = null
 	while count > 0:
 		var n := mini(count, max_stack)
-		last = spawn(EntityRegistry.ITEM, pos, {"item": item, "count": n, "velocity": velocity, "pickup_delay": pickup_delay})
+		last = spawn(EntityRegistry.ITEM, pos, {"item": item, "count": n, "velocity": velocity, "pickup_delay": pickup_delay, "item_data": item_data})
 		count -= n
 		if last == null:
 			break
@@ -289,17 +290,17 @@ func _collect(e: Entity) -> void:
 			continue
 		var chest: Vector3 = p.state.position + Vector3(0, 0.9, 0)
 		var dist := chest.distance_to(center)
-		if dist > ITEM_MAGNET_RANGE or p.inventory.space_for(e.item_id, _server.items.max_stack(e.item_id)) <= 0:
+		if dist > ITEM_MAGNET_RANGE or p.inventory.space_for(e.item_id, _server.items.max_stack(e.item_id), e.item_data) <= 0:
 			continue
 		if dist > ITEM_PICKUP_RANGE:
 			var pull := (chest - center).normalized() * 9.0
 			e.body.velocity = e.body.velocity.lerp(pull, 0.35)
 			e.wake()
 			return
-		var ev: Dictionary = _server.emit("item_pickup", {"player": p, "entity": e, "item": e.item_id, "count": e.item_count, "cancelled": false})
+		var ev: Dictionary = _server.emit("item_pickup", {"player": p, "entity": e, "item": e.item_id, "count": e.item_count, "data": e.item_data, "cancelled": false})
 		if ev.cancelled:
 			continue
-		var left: int = p.inventory.add(e.item_id, e.item_count, _server.items.max_stack(e.item_id))
+		var left: int = p.inventory.add(e.item_id, e.item_count, _server.items.max_stack(e.item_id), e.item_data)
 		p.sync_inventory()
 		_server.broadcast_entity_event(e, Event.PICKUP, p.peer_id)
 		_server.play_sound_at("engine:pickup", center, 0.6, randf_range(0.9, 1.5))
@@ -326,7 +327,7 @@ func _merge_items() -> void:
 			var b: Entity = items[j]
 			if b.removed or b.item_id != a.item_id or a.body.position.distance_squared_to(b.body.position) > r2:
 				continue
-			if a.item_count + b.item_count > _server.items.max_stack(a.item_id):
+			if a.item_count + b.item_count > _server.items.max_stack(a.item_id) or a.item_data != b.item_data:
 				continue
 			a.item_count += b.item_count
 			a.age = minf(a.age, b.age)

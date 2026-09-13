@@ -21,7 +21,8 @@ const RENDER_NAMES := {
 
 ## Fields sent to clients. Anything else in a definition (e.g. drops) stays on the server.
 const NETWORK_FIELDS := ["name", "display_name", "render", "solid", "liquid", "cull_same", "breakable", "placeable",
-	"textures", "light", "interactive", "model", "orientation", "connect_group", "model_arm", "sway", "sounds"]
+	"textures", "light", "interactive", "model", "orientation", "connect_group", "model_arm", "sway", "sounds",
+	"hardness", "tier", "tool"]
 
 ## Face order used by `textures`: +X, -X, +Y (top), -Y (bottom), +Z, -Z.
 const FACE_COUNT := 6
@@ -86,6 +87,10 @@ func register(def: Dictionary) -> int:
 	## Foliage that sways in the wind (visual only).
 	d.sway = bool(def.get("sway", false))
 	d.hazard = bool(def.get("hazard", false))
+	## Mining: seconds by hand ~ hardness * 1.5 (0 = instant), tool tier needed for drops, effective tool type.
+	d.hardness = clampf(float(def.get("hardness", 0.5)), 0.0, 1000.0)
+	d.tier = clampi(int(def.get("tier", 0)), 0, 100)
+	d.tool = String(def.get("tool", "")).left(32)
 	## Sound names per action: {"break": "base:stone", "place": ..., "step": ...}.
 	d.sounds = {}
 	if def.get("sounds") is Dictionary:
