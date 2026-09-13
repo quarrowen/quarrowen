@@ -156,7 +156,7 @@ The API (`engine/server/mod_api.gd`, `server_player.gd`) covers:
 
 ### Items and crafting
 
-Every block is also an item (same id); `register_item` adds non-block items with ids from 256. The
+Every block is also an item (same id); `register_item` adds non-block items with ids from 65536. The
 engine provides a crafting menu (C) listing every `register_recipe` recipe, greyed out when the player
 lacks inputs. Drops may name items (`"drops": "base:coal"`). Right-clicking with a `usable` item fires
 `item_use` with the target block, face normal and look direction.

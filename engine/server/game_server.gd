@@ -666,8 +666,8 @@ func _run_chunk_job(job: Dictionary) -> void:
 				var id := registry.id_of(String(palette[name_index]))
 				if id < 0:
 					continue  # block from a removed mod: keep generated terrain
-				blocks[index] = id
-				if id != generated[index]:
+				blocks.encode_u16(index << 1, id)
+				if id != generated.decode_u16(index << 1):
 					deltas[index] = id
 			chunk.blocks = blocks
 			var saved_states = saved.get("states", [])
@@ -873,7 +873,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 	var block := p.inventory.selected_block()
 	var current := world.get_block_v(pos)
 	var valid := _can_edit(p, pos) and block > 0 and registry.placeable_lut[block] == 1 \
-		and (current == BlockRegistry.AIR or registry.liquid_lut[current & 255] == 1) and _has_solid_neighbor(pos)
+		and (current == BlockRegistry.AIR or registry.liquid_lut[current] == 1) and _has_solid_neighbor(pos)
 	if valid:
 		for other: ServerPlayer in players.values():
 			if registry.solid_lut[block] == 1 and PlayerPhysics.overlaps_block(other.state.position, pos):
@@ -1045,7 +1045,7 @@ func _can_edit(p: ServerPlayer, pos: Vector3i) -> bool:
 
 func _has_solid_neighbor(pos: Vector3i) -> bool:
 	for dir in [Vector3i.UP, Vector3i.DOWN, Vector3i.LEFT, Vector3i.RIGHT, Vector3i.FORWARD, Vector3i.BACK]:
-		if registry.solid_lut[world.get_block_v(pos + dir) & 255] == 1 and world.get_block_v(pos + dir) != BlockRegistry.UNLOADED:
+		if registry.solid_lut[world.get_block_v(pos + dir)] == 1 and world.get_block_v(pos + dir) != BlockRegistry.UNLOADED:
 			return true
 	return false
 
@@ -1062,7 +1062,7 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0) -> 
 	var index := Chunk.index(pos.x & 15, pos.y, pos.z & 15)
 	if not _deltas.has(coord):
 		_deltas[coord] = {}
-	if _generated[coord][index] == block:
+	if _generated[coord].decode_u16(index << 1) == block:
 		_deltas[coord].erase(index)
 	else:
 		_deltas[coord][index] = block

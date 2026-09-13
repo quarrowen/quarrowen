@@ -265,7 +265,7 @@ func get_daylight() -> float:
 func sees_sky(pos: Vector3i) -> bool:
 	for y in range(pos.y + 1, Chunk.SIZE_Y):
 		var id := get_block(Vector3i(pos.x, y, pos.z))
-		if _server.registry.opaque_lut[id & 255] == 1 or _server.registry.solid_lut[id & 255] == 1:
+		if _server.registry.opaque_lut[id] == 1 or _server.registry.solid_lut[id] == 1:
 			return false
 	return true
 

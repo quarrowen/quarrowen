@@ -46,8 +46,8 @@ class CrystalPass:
 			var z := rng.randi_range(1, 14)
 			for n in rng.randi_range(1, 4):
 				var i: int = x + rng.randi_range(-1, 1) + ((z + rng.randi_range(-1, 1)) << 4) + ((y + rng.randi_range(-1, 1)) << 8)
-				if i >= 0 and i < blocks.size() and blocks[i] == stone:
-					blocks[i] = crystal
+				if i >= 0 and i < blocks.size() / 2 and blocks.decode_u16(i << 1) == stone:
+					blocks.encode_u16(i << 1, crystal)
 		chunk.blocks = blocks
 
 

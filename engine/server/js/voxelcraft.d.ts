@@ -8,7 +8,7 @@ declare module "voxelcraft" {
   export interface Vec3 { x: number; y: number; z: number; }
 
   export type BlockId = number;
-  /** Block ids (1-254) double as their items; other items start at 256. */
+  /** Block ids (1-65534) double as their items; other items start at 65536. */
   export type ItemId = number;
 
   export interface BlockDef {

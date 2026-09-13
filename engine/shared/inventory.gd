@@ -26,7 +26,7 @@ func selected_item() -> int:
 ## The selected item if it is a block, else 0.
 func selected_block() -> int:
 	var id := selected_item()
-	return id if id < 256 else 0
+	return id if id < 65536 else 0
 
 
 ## Consumes one item from the selected slot (no-op in creative).

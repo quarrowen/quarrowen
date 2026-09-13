@@ -2,7 +2,7 @@ extends RefCounted
 ## Wire protocol constants and limits shared by client and server.
 
 ## Bump whenever RPC signatures or payload layouts change.
-const VERSION := 4
+const VERSION := 5
 
 const MAX_ASSET_SIZE := 16 * 1024 * 1024
 const MAX_TOTAL_ASSET_SIZE := 256 * 1024 * 1024
