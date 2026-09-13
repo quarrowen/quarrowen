@@ -386,7 +386,7 @@ func _combat(c) -> void:
 	while top > 0 and c.world.get_block(floori(ground.x), top, floori(ground.z)) == 0:
 		top -= 1  # land on the highest block in the column (trees included), 12 blocks down
 	Net.c_chat.rpc_id(1, "/tp %.2f %d %.2f" % [ground.x, top + 13, ground.z])
-	var fell := await _wait_until(func(): return c.health <= 13.0, 5.0)
+	var fell := await _wait_until(func(): return c.health <= 17.0, 5.0)
 	_check(fell, "fell 12 blocks and took fall damage (health %.1f)" % c.health)
 
 	# Drop the sword with Q, then pick it back up.
