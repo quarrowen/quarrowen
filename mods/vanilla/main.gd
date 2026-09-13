@@ -68,7 +68,7 @@ func _setup_mobs() -> void:
 	api.register_item("leather", {"icon": "textures/leather.png"})
 	for piece in [["helmet", "head", 1.0, 5], ["chestplate", "chest", 3.0, 8], ["leggings", "legs", 2.0, 7], ["boots", "feet", 1.0, 4]]:
 		api.register_item("leather_%s" % piece[0], {"display_name": "Leather %s" % String(piece[0]).capitalize(),
-			"icon": "textures/leather_%s.png" % piece[0], "equip_slot": piece[1], "durability": 80, "armor": {"armor": piece[2]}})
+			"icon": "textures/leather_%s.png" % piece[0], "equip_slot": piece[1], "durability": 80, "armor": {"armor": piece[2]}, "armor_texture": "textures/leather_armor.png"})
 		api.register_recipe({"vanilla:leather": piece[3]}, "vanilla:leather_%s" % piece[0])
 	ids.porkchop = api.register_item("porkchop", {"display_name": "Porkchop", "icon": "textures/porkchop.png", "usable": true})
 	api.register_entity("arrow", {"kind": "projectile", "sprite": "textures/arrow.png", "width": 0.25, "height": 0.25,

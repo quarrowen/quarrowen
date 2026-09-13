@@ -32,7 +32,7 @@ const SLEEP_AFTER_TICKS := 20
 const SLEEPING_STEP_INTERVAL := 15
 const PROJECTILE_OWNER_GRACE := 0.25
 
-enum Event { HURT, DEATH, PICKUP, ATTACK, RESPAWN, WINDUP }
+enum Event { HURT, DEATH, PICKUP, ATTACK, RESPAWN, WINDUP, SWING }
 
 var registry := EntityRegistry.new()
 var ai: MobAI

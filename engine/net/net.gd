@@ -392,6 +392,13 @@ func s_inventory(slots: PackedInt32Array, selected: int, creative: bool, item_da
 		client.on_inventory(slots, selected, creative, item_data)
 
 
+## How a player looks: {held, armor: {slot: item}, ...}. Also sent for yourself.
+@rpc("authority", "call_remote", "reliable")
+func s_player_appearance(peer_id: int, appearance: Dictionary) -> void:
+	if client:
+		client.on_player_appearance(peer_id, appearance)
+
+
 @rpc("authority", "call_remote", "reliable")
 func s_player_stats(stats: Dictionary) -> void:
 	if client:

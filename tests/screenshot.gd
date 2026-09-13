@@ -8,7 +8,7 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1"}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -27,6 +27,16 @@ func _ready() -> void:
 		await get_tree().create_timer(0.3).timeout
 	if not String(options.menu).is_empty():
 		Net.c_open_menu.rpc_id(1, options.menu)
+	if not String(options.equip).is_empty():
+		await get_tree().create_timer(0.8).timeout
+		for slot in 36:
+			var id: int = client.inventory.ids[slot]
+			if id > 0 and not String(client.items.get_def(id).get("equip_slot", "")).is_empty():
+				client.inventory_click(slot, 1, true)
+				await get_tree().create_timer(0.2).timeout
+	if int(options.select) >= 0:
+		client.select_slot(int(options.select))
+	client.camera_mode = int(options.camera)
 	if not String(options.mine).is_empty():
 		client.ignore_mouse_capture = true
 		Input.action_press("break")  # hold break on whatever the camera looks at

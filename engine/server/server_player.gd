@@ -45,6 +45,8 @@ var inventory_open := false
 var mining := {}  # {position, started} while breaking a block
 ## Physics rules adjusted by this player's move_speed stat (null = the server's rules).
 var physics_rules = null
+## Last appearance sent to clients (held item, visible armor, cosmetics).
+var appearance := {}
 var _stats := {}
 var _stats_dirty := true
 var _sent_stats := {}

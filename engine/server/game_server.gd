@@ -24,6 +24,7 @@ const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const Mining = preload("res://engine/shared/mining.gd")
 const PlayerStats = preload("res://engine/server/player_stats.gd")
+const PlayerRig = preload("res://engine/shared/player_rig.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -61,6 +62,8 @@ var world := VoxelWorld.new()
 var world_seed := 0
 var entities := Entities.new(self)
 var sounds := SoundRegistry.new()
+## The character body every client draws players with (see PlayerRig; mods may replace it).
+var player_rig := PlayerRig.default_rig()
 ## Game-wide rules mods can change with set_gameplay.
 var gameplay := {
 	"item_drops": "entity",  # "entity": broken blocks drop items to pick up; "inventory": straight into the inventory
@@ -530,6 +533,10 @@ func _cmd_gameplay(player, args: PackedStringArray) -> void:
 	broadcast_chat("%s set %s to %s" % [player.name, args[0], value])
 
 
+func set_player_rig(def: Dictionary) -> void:
+	player_rig = PlayerRig.sanitize(def)
+
+
 func set_gameplay(values: Dictionary) -> void:
 	for key in values:
 		if not gameplay.has(key):
@@ -976,7 +983,8 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 			manifest.append([asset_name, a.hash, a.size])
 	var content := {"blocks": registry.to_network(), "items": items.to_network(), "rules": rules.to_dict(),
 		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
-		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate()}
+		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
+		"player_rig": player_rig}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
@@ -1055,6 +1063,8 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void
 		if other != p:
 			Net.s_player_joined.rpc_id(peer_id, other.peer_id, other.name)
 			Net.s_player_joined.rpc_id(other.peer_id, peer_id, player_name)
+			Net.s_player_appearance.rpc_id(peer_id, other.peer_id, other.appearance)
+			Net.s_player_appearance.rpc_id(other.peer_id, peer_id, p.appearance)
 	if not server_info.motd.is_empty():
 		p.send_message(server_info.motd)
 	broadcast_chat("%s joined the game" % player_name)
@@ -1444,6 +1454,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 	_apply_block(pos, block, false, state)
 	entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 8.0, p)
 	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
+	_broadcast_player_event(p, Entities.Event.SWING)
 	emit("block_placed", {"player": p, "position": pos, "block": block})
 
 
@@ -1503,6 +1514,7 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 	if has_target and (not world.has_chunk(VoxelWorld.chunk_coord_at(target.x, target.z)) \
 			or p.get_eye_position().distance_to(Vector3(target) + Vector3.ONE * 0.5) > REACH + 0.87):
 		has_target = false
+	_broadcast_player_event(p, Entities.Event.SWING)
 	emit("item_use", {"player": p, "item": item, "has_target": has_target, "position": target,
 		"normal": normal.clamp(-Vector3i.ONE, Vector3i.ONE), "direction": PlayerPhysics.look_direction(p.yaw, p.pitch)})
 
@@ -1543,6 +1555,7 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 	if ev.cancelled:
 		return
 	play_sound_at("engine:swing", eye, 0.7, randf_range(0.9, 1.1), peer_id)
+	_broadcast_player_event(p, Entities.Event.SWING)
 	entities.ai.make_noise(eye, 14.0, p, true)
 	var direction := PlayerPhysics.look_direction(p.yaw, 0.0)
 	var landed := false
@@ -1657,6 +1670,7 @@ func on_mine_start(peer_id: int, pos: Vector3i) -> void:
 	if block == BlockRegistry.UNLOADED or registry.breakable_lut[block] == 0:
 		return
 	p.mining = {"position": pos, "started": _time}
+	_broadcast_player_event(p, Entities.Event.SWING)
 	var seconds := Mining.break_time(registry.defs[block], items.tool_of(p.inventory.selected_item()), p.get_stat("mining_speed"))
 	_broadcast_mining(p, pos, seconds)
 
@@ -1732,6 +1746,26 @@ func refresh_stats(p: ServerPlayer) -> void:
 	if p._online() and stats != p._sent_stats:
 		p._sent_stats = stats.duplicate()
 		Net.s_player_stats.rpc_id(p.peer_id, stats)
+	refresh_appearance(p)
+
+
+## What other players see: held item and visible armor. Sent to everyone when it changes.
+func refresh_appearance(p: ServerPlayer) -> void:
+	var armor := {}
+	for i in p.inventory.equipment_slots.size():
+		var index := Inventory.SIZE + i
+		var slot_name: String = p.inventory.equipment_slots[i]
+		if slot_name != "offhand" and p.inventory.ids[index] > 0:
+			armor[slot_name] = p.inventory.ids[index]
+	var appearance := {"held": p.inventory.selected_item(), "armor": armor}
+	var ev := emit("player_appearance", {"player": p, "appearance": appearance})
+	appearance = ev.appearance
+	if appearance == p.appearance or not _started:
+		p.appearance = appearance
+		return
+	p.appearance = appearance
+	for other: ServerPlayer in players.values():
+		Net.s_player_appearance.rpc_id(other.peer_id, p.peer_id, appearance)
 
 
 func _update_player_rules(p: ServerPlayer) -> void:

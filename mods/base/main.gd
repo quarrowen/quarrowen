@@ -89,7 +89,7 @@ func _register_tools(api) -> void:
 	var pieces := [["helmet", "head", 2.0, 5], ["chestplate", "chest", 6.0, 8], ["leggings", "legs", 5.0, 7], ["boots", "feet", 2.0, 4]]
 	for piece in pieces:
 		api.register_item("iron_%s" % piece[0], {"display_name": "Iron %s" % String(piece[0]).capitalize(), "icon": "textures/iron_%s.png" % piece[0],
-			"equip_slot": piece[1], "durability": 180, "armor": {"armor": piece[2]}})
+			"equip_slot": piece[1], "durability": 180, "armor": {"armor": piece[2]}, "armor_texture": "textures/iron_armor.png"})
 		api.register_recipe({"base:iron_ingot": piece[3]}, "base:iron_%s" % piece[0])
 
 

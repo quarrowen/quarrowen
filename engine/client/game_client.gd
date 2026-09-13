@@ -30,6 +30,14 @@ const SoundPlayer = preload("res://engine/client/sound_player.gd")
 const InventoryScreen = preload("res://engine/client/inventory_screen.gd")
 const Mining = preload("res://engine/shared/mining.gd")
 const ItemVisuals = preload("res://engine/client/item_visuals.gd")
+const PlayerRig = preload("res://engine/shared/player_rig.gd")
+const Avatar = preload("res://engine/client/avatar/avatar.gd")
+const SkinCompositor = preload("res://engine/client/avatar/skin_compositor.gd")
+const BuiltinLooks = preload("res://engine/client/avatar/builtin_looks.gd")
+const ItemMesh = preload("res://engine/client/avatar/item_mesh.gd")
+const ViewModel = preload("res://engine/client/avatar/view_model.gd")
+
+enum CameraMode { FIRST_PERSON, THIRD_PERSON, FRONT }
 
 const MAX_CONNECT_ATTEMPTS := 20
 const MESH_WORKERS := 4
@@ -116,6 +124,15 @@ var _mining := {}  # {position, started, seconds} while breaking a block in surv
 var _mining_sound_at := 0.0
 var _cracks := {}  # peer id (0 = me) -> {node, position, started, seconds}
 var _armor_bar: HBoxContainer
+var _player_rig := PlayerRig.default_rig()
+var _item_meshes: ItemMesh
+var _asset_images := {}  # asset name -> Image
+var _appearances := {}  # peer id -> appearance from the server
+var _look_cache := {}  # key -> ImageTexture (players sharing a look share textures)
+var _self_avatar: Avatar
+var camera_mode := CameraMode.FIRST_PERSON
+var _view_model: ViewModel
+var _look_delta := Vector2.ZERO
 var _armor_textures := []
 
 var _edit_timer := 0.0
@@ -255,6 +272,7 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 		_leave("Server sent invalid block or item definitions")
 		return
 	inventory.set_equipment_slots(items.slot_names())
+	_player_rig = PlayerRig.sanitize(content.get("player_rig"))
 	stats = items.stats.duplicate()
 	if content.get("rules") is Dictionary:
 		on_rules(content.rules)
@@ -328,8 +346,16 @@ func _finish_content() -> void:
 		if img.get_width() > Protocol.MAX_TEXTURE_SIZE or img.get_height() > Protocol.MAX_TEXTURE_SIZE:
 			push_warning("[client] Texture %s is too large" % asset_name)
 			continue
-		images[asset_name] = img
+		_asset_images[asset_name] = img
 		_asset_textures[asset_name] = ImageTexture.create_from_image(img)
+	# The block atlas only holds block faces and item icons (not skins, armor or UI art).
+	for d in registry.defs:
+		for tex in d.textures:
+			if _asset_images.has(tex):
+				images[tex] = _asset_images[tex]
+	for d in items.defs:
+		if _asset_images.has(d.icon):
+			images[d.icon] = _asset_images[d.icon]
 
 	_atlas = TextureAtlas.build(images)
 	_solid_material = VoxelMaterial.create(_atlas.texture, false)
@@ -359,6 +385,13 @@ func _finish_content() -> void:
 	_sounds.manifest = _manifest
 	_inventory_screen.atlas = _atlas
 	_inventory_screen.build_equipment(items.slots)
+	_item_meshes = ItemMesh.new(items, registry, _atlas, func(asset: String) -> PackedByteArray:
+		return ContentCache.read(_manifest[asset].hash) if _manifest.has(asset) else PackedByteArray())
+	_self_avatar = Avatar.new()
+	add_child(_self_avatar)
+	_self_avatar.build(_player_rig)
+	_self_avatar.visible = false
+	_apply_look(_self_avatar, player_name, _appearances.get(my_id, {}))
 	_mesh_context = ChunkMesher.make_context(registry, _atlas.uv)
 	_apply_graphics(false)
 	_server_ui.textures = _asset_textures
@@ -469,9 +502,48 @@ func on_player_joined(peer_id: int, remote_name: String) -> void:
 	if peer_id == my_id or _remote_players.has(peer_id):
 		return
 	var remote := RemotePlayer.new()
-	remote.setup(peer_id, remote_name)
+	remote.setup(peer_id, remote_name, _player_rig)
 	add_child(remote)
 	_remote_players[peer_id] = remote
+	_apply_look(remote.avatar, remote_name, _appearances.get(peer_id, {}))
+
+
+func on_player_appearance(peer_id: int, appearance: Dictionary) -> void:
+	_appearances[peer_id] = appearance
+	if peer_id == my_id and _self_avatar != null:
+		_apply_look(_self_avatar, player_name, appearance)
+	elif _remote_players.has(peer_id):
+		_apply_look(_remote_players[peer_id].avatar, _remote_players[peer_id].player_name, appearance)
+
+
+## Dresses an avatar: skin (body, face, clothes), visible armor and the held item.
+func _apply_look(avatar: Avatar, name_text: String, appearance: Dictionary) -> void:
+	if _item_meshes == null:
+		return
+	var look := BuiltinLooks.default_appearance(name_text)
+	var skin_key := "skin:%s" % str(look)
+	if not _look_cache.has(skin_key):
+		var skin := SkinCompositor.compose_skin(look.colors, BuiltinLooks.face(), [BuiltinLooks.pants(look.pants), BuiltinLooks.shirt(look.shirt)])
+		_look_cache[skin_key] = ImageTexture.create_from_image(skin)
+	avatar.set_skin(_look_cache[skin_key])
+	var pieces := {}
+	var armor = appearance.get("armor", {})
+	if armor is Dictionary:
+		for slot in armor:
+			var texture := String(items.get_def(int(armor[slot])).get("armor_texture", ""))
+			if _asset_images.has(texture):
+				pieces[String(slot)] = _asset_images[texture]
+	var armor_key := "armor:%s" % str(armor)
+	if pieces.is_empty():
+		avatar.set_armor(null)
+	else:
+		if not _look_cache.has(armor_key):
+			_look_cache[armor_key] = ImageTexture.create_from_image(SkinCompositor.compose_armor(pieces))
+		avatar.set_armor(_look_cache[armor_key])
+	avatar.set_held(_item_meshes.node_for(int(appearance.get("held", 0))))
+	if avatar == _self_avatar:
+		_view_model.set_skin(avatar._skin_material.albedo_texture)
+		_view_model.set_armor(avatar._armor_material.albedo_texture)
 
 
 func on_health(value: float, max_value: float, is_dead: bool, hurt: bool) -> void:
@@ -585,6 +657,7 @@ func on_player_event(peer_id: int, kind: int) -> void:
 		0: remote.hurt()
 		1: remote.set_dead(true)
 		4: remote.set_dead(false)
+		6: remote.swing()
 
 
 func on_sound(sound_id: int, pos: Vector3, volume: float, pitch: float, positional: bool) -> void:
@@ -733,6 +806,7 @@ func _process(delta: float) -> void:
 	var render_position := _prev_position.lerp(state.position, fraction) + _render_offset
 	_camera.position = render_position + Vector3(0.0, PlayerPhysics.EYE_HEIGHT, 0.0)
 	_camera.rotation = Vector3(pitch, yaw, 0.0)
+	_update_self_avatar(delta, render_position)
 
 	_update_time(delta)
 	_update_target()
@@ -741,6 +815,35 @@ func _process(delta: float) -> void:
 	_update_cracks()
 	_update_hud()
 	_hurt_flash.color.a = move_toward(_hurt_flash.color.a, 0.0, delta * 1.2)
+
+
+## Your own character: hidden in first person; in third person the camera pulls back (stopping at
+## walls) behind you, or in front of you facing back.
+func _update_self_avatar(delta: float, render_position: Vector3) -> void:
+	if _self_avatar == null:
+		return
+	_self_avatar.visible = camera_mode != CameraMode.FIRST_PERSON
+	_self_avatar.position = render_position
+	_self_avatar.rotation.y = yaw
+	_self_avatar.set_dead(dead)
+	_self_avatar.animate(delta, state.velocity, state.on_ground, pitch)
+	_view_model.visible = camera_mode == CameraMode.FIRST_PERSON and not dead
+	var held := inventory.selected_item()
+	if held != _view_model._held_id:
+		_view_model.set_held(held, _item_meshes.node_for(held, true))  # follow the hotbar immediately, not the server echo
+	_view_model.animate(delta, Vector2(state.velocity.x, state.velocity.z).length(), state.on_ground, _look_delta)
+	_look_delta = Vector2.ZERO
+	if camera_mode == CameraMode.FIRST_PERSON:
+		return
+	var eye := _camera.position
+	var back := _camera.basis.z if camera_mode == CameraMode.THIRD_PERSON else -_camera.basis.z
+	var distance := 4.0
+	var ray := VoxelRaycast.cast(world, registry.solid_lut, eye, back, distance)
+	if ray.hit:
+		distance = maxf(eye.distance_to(Vector3(ray.position) + Vector3.ONE * 0.5) - 1.0, 0.3)
+	_camera.position = eye + back * distance
+	if camera_mode == CameraMode.FRONT:
+		_camera.rotation = Vector3(-pitch, yaw + PI, 0.0)
 
 
 func _update_target() -> void:
@@ -815,6 +918,12 @@ func _handle_edits(delta: float) -> void:
 		request_place(_target.position + _target.normal)
 
 
+func _self_swing() -> void:
+	if _self_avatar != null:
+		_self_avatar.swing()
+		_view_model.swing()
+
+
 ## Survival breaking: hold on a block until its break time passes (see Mining), with a crack overlay.
 func _continue_mining(pos: Vector3i) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
@@ -827,6 +936,9 @@ func _continue_mining(pos: Vector3i) -> void:
 		_mining = {"position": pos, "started": now, "seconds": seconds, "block": block}
 		Net.c_mine_start.rpc_id(1, pos)
 		_show_crack(0, pos, seconds)
+	if now - float(_mining.get("swung", -1.0)) > 0.3:
+		_mining.swung = now
+		_self_swing()
 	var progress := (now - float(_mining.started)) / maxf(float(_mining.seconds), 0.001)
 	if now - _mining_sound_at > 0.25:
 		_mining_sound_at = now
@@ -892,6 +1004,7 @@ func attack_target() -> bool:
 		return false
 	_attack_timer = maxf(float(stats.get("attack_cooldown", ATTACK_REPEAT)), 0.1)
 	Net.c_attack.rpc_id(1, _entity_target.kind, _entity_target.id)
+	_self_swing()
 	_sounds.play_name("engine:swing", _camera.position, 0.7, randf_range(0.9, 1.1))
 	return true
 
@@ -917,6 +1030,7 @@ func use_selected_item() -> bool:
 	if item < ItemRegistry.FIRST_ITEM or not (items.is_usable(item) or wearable):
 		return false
 	Net.c_use_item.rpc_id(1, _target.hit, _target.get("position", Vector3i.ZERO), _target.get("normal", Vector3i.ZERO))
+	_self_swing()
 	return true
 
 
@@ -952,6 +1066,7 @@ func request_place(pos: Vector3i) -> void:
 	_refresh_hotbar()
 	_sounds.play_name(String(registry.defs[block].sounds.get("place", "")), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1))
 	Net.c_place_block.rpc_id(1, pos, yaw)
+	_self_swing()
 
 
 func select_slot(index: int) -> void:
@@ -1166,6 +1281,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		yaw = wrapf(yaw - event.relative.x * MOUSE_SENSITIVITY, -PI, PI)
+		_look_delta += event.relative
 		pitch = clampf(pitch - event.relative.y * MOUSE_SENSITIVITY, -PI * 0.49, PI * 0.49)
 	elif event.is_action_pressed("pause") and _inventory_screen.visible:
 		_set_inventory_open(false)
@@ -1185,6 +1301,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("crafting") and _welcomed:
 		Net.c_open_menu.rpc_id(1, "crafting")
+	elif event.is_action_pressed("camera"):
+		camera_mode = (camera_mode + 1) % 3 as CameraMode
 	elif event.is_action_pressed("graphics"):
 		graphics.cycle()
 		_apply_graphics(true)
@@ -1265,7 +1383,7 @@ static func _register_input_actions() -> void:
 		"move_forward": [KEY_W, KEY_UP], "move_back": [KEY_S, KEY_DOWN],
 		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE], "sprint": [KEY_SHIFT, KEY_CTRL],
-		"chat": [KEY_T, KEY_ENTER], "toggle_debug": [KEY_F3], "pause": [KEY_ESCAPE], "crafting": [KEY_C], "graphics": [KEY_F4],
+		"chat": [KEY_T, KEY_ENTER], "toggle_debug": [KEY_F3], "pause": [KEY_ESCAPE], "crafting": [KEY_C], "graphics": [KEY_F4], "camera": [KEY_F5],
 		"inventory": [KEY_E, KEY_TAB], "drop": [KEY_Q],
 	}
 	for action: String in keys:
@@ -1348,6 +1466,8 @@ func _build_scene() -> void:
 	_camera.far = RENDER_DISTANCE * 1.5
 	add_child(_camera)
 	_camera.make_current()
+	_view_model = ViewModel.new()
+	_camera.add_child(_view_model)
 	var listener := AudioListener3D.new()
 	_camera.add_child(listener)
 	listener.make_current()

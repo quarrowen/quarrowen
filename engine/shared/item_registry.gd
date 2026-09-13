@@ -9,7 +9,7 @@ extends RefCounted
 const FIRST_ITEM := 65536
 const MAX_ITEMS := 4096
 const NETWORK_FIELDS := ["name", "display_name", "icon", "max_stack", "usable", "durability", "tool", "weapon",
-	"armor", "equip_slot", "modifiers", "model", "lore"]
+	"armor", "equip_slot", "modifiers", "model", "lore", "armor_texture"]
 const DEFAULT_SLOTS := ["head", "chest", "legs", "feet", "offhand"]
 const MAX_SLOTS := 16
 
@@ -57,7 +57,8 @@ static func is_block_item(id: int) -> bool:
 ##   armor: {armor, toughness, knockback_resistance}
 ##   equip_slot: equipment slot it goes in ("head", "chest", ...; mods can register more)
 ##   modifiers: [{stat, amount, op}] applied while equipped, or while held for tools and weapons
-##   model: glTF asset for held / worn rendering; lore: tooltip lines
+##   model: glTF asset for held rendering; lore: tooltip lines
+##   armor_texture: worn look in the 64x64 skin layout (the slot picks which regions show)
 ##   attack_damage (legacy shorthand for weapon.damage)
 ## Returns the item id or -1.
 func register(def: Dictionary) -> int:
@@ -80,6 +81,7 @@ func register(def: Dictionary) -> int:
 	d.equip_slot = String(def.get("equip_slot", "")).left(32)
 	d.modifiers = clean_modifiers(def.get("modifiers", []))
 	d.model = String(def.get("model", "")).left(256)
+	d.armor_texture = String(def.get("armor_texture", "")).left(256)
 	d.lore = (def.get("lore") as Array).map(func(l): return String(l).left(120)).slice(0, 8) if def.get("lore") is Array else []
 	var id := FIRST_ITEM + defs.size()
 	d.id = id

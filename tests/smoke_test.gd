@@ -423,6 +423,9 @@ func _combat(c) -> void:
 	c.inventory_click(c.inventory.ids.find(chestplate), 1, true)
 	_check(await _wait_until(func(): return c.inventory.ids[c.inventory.equipment_index("chest")] == chestplate, 2.0), "shift-click wore the chestplate")
 	_check(await _wait_until(func(): return c.stats.get("armor", 0.0) == 6.0 and c._armor_bar.visible, 2.0), "server stats and armor HUD show 6 armor")
+	_check(await _wait_until(func(): return c._self_avatar._armor_material.albedo_texture != null and c._self_avatar._armor_meshes[0].visible, 2.0),
+		"your avatar wears the chestplate texture")
+	_check(c._self_avatar._held != null, "your avatar holds the selected item")
 	var lines: PackedStringArray = c.ItemVisuals.tooltip_lines(c.items, chestplate, {})
 	_check(lines.size() >= 3 and lines[1].contains("armor"), "tooltip lists armor and durability (%s)" % " | ".join(lines))
 	Net.c_chat.rpc_id(1, "/give base:stone_pickaxe")

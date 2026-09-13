@@ -18,6 +18,7 @@ extends RefCounted
 ##   item_durability {player, slot, item, data, amount, reason ("mine" | "attack" | "armor" | ...), cancelled}
 ##   item_break     {player, slot, item, data}                an item wore out
 ##   equipment_changed {player, slot, old_item, item}
+##   player_appearance {player, appearance}                    what others see; may be changed
 ##   player_stats   {player, stats}                           stats may be changed (see ItemRegistry.BASE_STATS)
 ##   block_break / block_broken also carry {item, slot} (the held tool) and block_broken {harvested}
 ##   item_drop      {player, item, count, cancelled}          Q key
@@ -112,8 +113,9 @@ func register_block(block_name: String, def: Dictionary) -> int:
 func register_item(item_name: String, def: Dictionary) -> int:
 	var d := def.duplicate(true)
 	d.name = _qualify(item_name)
-	if not String(def.get("icon", "")).is_empty():
-		d.icon = register_asset(def.icon)
+	for key in ["icon", "model", "armor_texture"]:
+		if not String(def.get(key, "")).is_empty():
+			d[key] = register_asset(def[key])
 	return _server.items.register(d)
 
 
@@ -178,6 +180,11 @@ func get_entities(center: Vector3, radius: float, entity_name := "") -> Array:
 
 func get_entity(entity_id: int):
 	return _server.entities.entities.get(entity_id)
+
+
+## Replaces the player character rig for this server (see engine/shared/player_rig.gd).
+func set_player_rig(def: Dictionary) -> void:
+	_server.set_player_rig(def)
 
 
 ## Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching
