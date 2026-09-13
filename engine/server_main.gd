@@ -1,0 +1,98 @@
+extends Node
+## Dedicated server entry point (scenes/server.tscn). Contains no client code, so a server export or
+## container only needs engine/shared, engine/server and engine/net.
+##
+## Every option can come from a CLI arg (after `--`) or an environment variable; CLI wins.
+##   --port=24565          VOXEL_PORT
+##   --max-players=64      VOXEL_MAX_PLAYERS
+##   --mods=vanilla        VOXEL_MODS          comma-separated; dependencies load automatically
+##   --mods-dir=/mods      VOXEL_MODS_DIR      searched before bundled res://mods
+##   --data-dir=/data      VOXEL_DATA_DIR      world saves (default user://worlds)
+##   --world=name          VOXEL_WORLD         defaults to the first mod id
+##   --seed=123            VOXEL_SEED          seed for a new world
+##   --metrics=10          VOXEL_METRICS       print tick/bandwidth stats every N seconds
+##   --admin-token=xyz     VOXEL_ADMIN_TOKEN   token allowed to request a save-and-shutdown
+
+const GameServer = preload("res://engine/server/game_server.gd")
+const Native = preload("res://engine/shared/native.gd")
+
+const DEFAULTS := {
+	"port": "24565",
+	"max-players": "64",
+	"mods": "vanilla",
+	"mods-dir": "",
+	"data-dir": "user://worlds",
+	"world": "",
+	"seed": "-1",
+	"metrics": "0",
+	"admin-token": "",
+}
+
+var _server: Node
+var _signals := false
+
+
+func _ready() -> void:
+	var options := read_options(OS.get_cmdline_user_args())
+	var mods: PackedStringArray = String(options.mods).split(",", false)
+	if mods.is_empty():
+		printerr("[server] No mods configured (--mods / VOXEL_MODS)")
+		get_tree().quit(2)
+		return
+	# Save before exiting on window close, and on SIGTERM/SIGINT when the native extension is loaded
+	# (Godot itself would terminate immediately, losing unsaved changes).
+	get_tree().auto_accept_quit = false
+	if ClassDB.class_exists(&"NativeProcess"):
+		_signals = ClassDB.class_call_static(&"NativeProcess", &"install_shutdown_handlers")
+	print("[server] native extension %s, graceful signal shutdown %s" % [
+		"loaded" if Native.enabled() else "not loaded (GDScript fallbacks)", "on" if _signals else "off"])
+
+	_server = GameServer.new()
+	_server.name = "GameServer"
+	add_child(_server)
+	var err: Error = _server.start({
+		"port": int(options.port),
+		"max_players": int(options["max-players"]),
+		"mods": mods,
+		"mod_dirs": PackedStringArray([options["mods-dir"]]) if not options["mods-dir"].is_empty() else PackedStringArray(),
+		"data_dir": options["data-dir"],
+		"world": options.world if not options.world.is_empty() else mods[0],
+		"seed": int(options.seed),
+		"metrics": float(options.metrics),
+		"admin_token": options["admin-token"],
+	})
+	if err != OK:
+		printerr("[server] Startup failed: %s" % error_string(err))
+		get_tree().quit(1)
+
+
+func _process(_delta: float) -> void:
+	if _signals and ClassDB.class_call_static(&"NativeProcess", &"is_shutdown_requested"):
+		_signals = false
+		_shutdown()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_shutdown()
+
+
+func _shutdown() -> void:
+	print("[server] Shutting down")
+	if _server:
+		_server.queue_free()  # saves in _exit_tree
+		_server = null
+	get_tree().quit()
+
+
+static func read_options(args: PackedStringArray) -> Dictionary:
+	var options := {}
+	for key: String in DEFAULTS:
+		var env := OS.get_environment("VOXEL_" + key.to_upper().replace("-", "_"))
+		options[key] = env if not env.is_empty() else DEFAULTS[key]
+	for arg in args:
+		if arg.begins_with("--"):
+			var parts := arg.substr(2).split("=", true, 1)
+			if options.has(parts[0]):
+				options[parts[0]] = parts[1] if parts.size() > 1 else "true"
+	return options

@@ -1,0 +1,8 @@
+{
+	"id": "vanilla",
+	"name": "Vanilla Sandbox",
+	"version": "1.0.0",
+	"description": "Endless generated terrain with mountains, oceans and forests. Creative building.",
+	"depends": ["base"],
+	"game": true
+}

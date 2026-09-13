@@ -1,0 +1,13 @@
+# Keep the server image to engine code, bundled mods and project config.
+.godot/
+.git/
+native/target/
+assets/
+tests/
+tools/
+**/*.import
+**/.DS_Store
+Dockerfile
+compose.yaml
+README.md
+server-mods/

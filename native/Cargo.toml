@@ -1,0 +1,26 @@
+[package]
+name = "voxelcraft_native"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Native hot paths for the VoxelCraft engine: chunk storage, player physics, meshing, process signals."
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# experimental-threads: meshing runs on Godot WorkerThreadPool threads.
+godot = { version = "0.5.5", features = ["api-4-7", "experimental-threads"] }
+# Pure-Rust math so trig results are identical on every platform (client/server determinism).
+libm = "0.2.16"
+# QuickJS-NG JavaScript engine for server mods written in JavaScript (sandboxed: no fs/network).
+rquickjs = { version = "0.13.0", features = ["loader"] }
+
+[target.'cfg(unix)'.dependencies]
+signal-hook = "0.4.4"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "unwind"

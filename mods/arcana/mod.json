@@ -1,0 +1,8 @@
+{
+	"id": "arcana",
+	"name": "Arcana",
+	"version": "1.0.0",
+	"description": "A mana system: crystals spawn underground, pylons recharge mana, wands cast spells. Add to any game, e.g. --mods=vanilla,arcana",
+	"depends": ["base"],
+	"game": false
+}

@@ -1,0 +1,1154 @@
+extends Node3D
+## Universal game client. Knows nothing about any particular game: it downloads the server's block
+## definitions, textures and physics rules, renders streamed chunks, predicts local movement and
+## edits (the server confirms or corrects them), and draws server-described UI.
+
+signal exited(message: String)
+
+const BlockRegistry = preload("res://engine/shared/block_registry.gd")
+const Chunk = preload("res://engine/shared/chunk.gd")
+const VoxelWorld = preload("res://engine/shared/voxel_world.gd")
+const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
+const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
+const Inventory = preload("res://engine/shared/inventory.gd")
+const Protocol = preload("res://engine/shared/protocol.gd")
+const ChunkMesher = preload("res://engine/client/chunk_mesher.gd")
+const TextureAtlas = preload("res://engine/client/texture_atlas.gd")
+const ContentCache = preload("res://engine/client/content_cache.gd")
+const RemotePlayer = preload("res://engine/client/remote_player.gd")
+const ServerUI = preload("res://engine/client/server_ui.gd")
+const VoxelMaterial = preload("res://engine/client/voxel_material.gd")
+const ModelLibrary = preload("res://engine/client/model_library.gd")
+const WorldTime = preload("res://engine/shared/world_time.gd")
+const ItemRegistry = preload("res://engine/shared/item_registry.gd")
+const GraphicsSettings = preload("res://engine/client/graphics_settings.gd")
+
+const MAX_CONNECT_ATTEMPTS := 20
+const MESH_WORKERS := 4
+const MOUSE_SENSITIVITY := 0.0025
+const REACH := 5.0
+const EDIT_REPEAT_DELAY := 0.25
+const INPUT_REDUNDANCY := 3
+const MAX_PENDING_INPUTS := 240
+const TELEPORT_DISTANCE := 3.0
+const RENDER_DISTANCE := 8 * 16
+const CHAT_LINES := 8
+const CHAT_LINE_LIFETIME := 10.0
+
+enum Phase { CONNECTING, DOWNLOADING, JOINING, PLAYING }
+
+var server_address := "127.0.0.1"
+var server_port := 24565
+var player_name := "Player"
+## Passed by the menu when this client launched a local server it should stop on exit.
+var admin_token := ""
+## Accept gameplay input without a captured mouse (headless bots / tests).
+var ignore_mouse_capture := false
+
+var phase := Phase.CONNECTING
+var server_info := {}
+var registry := BlockRegistry.new()
+var items := ItemRegistry.new(registry)
+var rules := PlayerPhysics.Rules.new()
+var world := VoxelWorld.new()
+var inventory := Inventory.new()
+var graphics := GraphicsSettings.new()
+var my_id := 0
+var state := PlayerPhysics.State.new()
+var yaw := 0.0
+var pitch := 0.0
+
+var _welcomed := false
+var _connect_attempts := 0
+var _exiting := false
+var _input_seq := 0
+var _pending_inputs: Array = []
+var _recent_packets: Array[PackedByteArray] = []
+var _prev_position := Vector3.ZERO
+var _render_offset := Vector3.ZERO
+var _correction_count := 0
+
+var _manifest := {}  # asset name -> {hash, size}
+var _downloads := {}  # hash -> PackedByteArray being received
+var _download_total := 0
+var _download_received := 0
+var _asset_textures := {}  # asset name -> ImageTexture
+var _mesh_context := {}
+
+var _chunk_nodes := {}  # Vector2i -> MeshInstance3D
+var _mesh_dirty := {}  # Vector2i -> true
+var _mesh_urgent := {}  # Vector2i -> true
+var _mesh_jobs := {}  # Vector2i -> Dictionary
+var _remote_players := {}  # peer_id -> RemotePlayer
+
+var _edit_timer := 0.0
+var _target := {}
+
+var _atlas := {}
+var _solid_material: ShaderMaterial
+var _translucent_material: ShaderMaterial
+var _model_meshes := {}  # block id -> ArrayMesh
+var _arm_meshes := {}  # block id -> ArrayMesh drawn toward connected neighbours
+var _connect_groups := {}  # block id -> group name
+var _model_nodes := {}  # Vector2i chunk -> Array of MultiMeshInstance3D
+var _time_of_day := 0.5
+var _day_length := 0.0
+var _daylight := 1.0
+var _applied_daylight := -1.0
+var _sky_material: ProceduralSkyMaterial
+var _environment: Environment
+var _sun: DirectionalLight3D
+var _camera: Camera3D
+var _highlight: MeshInstance3D
+
+var _hud_root: Control
+var _server_ui: ServerUI
+var _status_label: Label
+var _debug_label: Label
+var _hotbar: HBoxContainer
+var _hotbar_slots: Array[Panel] = []
+var _chat_log: VBoxContainer
+var _chat_input: LineEdit
+var _pause_panel: PanelContainer
+
+
+func _ready() -> void:
+	graphics.load_saved()
+	_register_input_actions()
+	_build_scene()
+	_build_hud()
+	_apply_graphics(false)
+	Net.client = self
+	multiplayer.connected_to_server.connect(_on_connected)
+	multiplayer.connection_failed.connect(_on_connection_failed)
+	multiplayer.server_disconnected.connect(_on_server_disconnected)
+	_connect()
+
+
+func _exit_tree() -> void:
+	for job: Dictionary in _mesh_jobs.values():
+		WorkerThreadPool.wait_for_task_completion(job.task_id)
+	_mesh_jobs.clear()
+	if Net.client == self:
+		Net.client = null
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+# --- Connection ---------------------------------------------------------------------------------
+
+func _connect() -> void:
+	_connect_attempts += 1
+	_set_status("Connecting to %s:%d..." % [server_address, server_port])
+	var err := Net.create_client(server_address, server_port)
+	if err != OK:
+		_leave("Could not start client: %s" % error_string(err))
+
+
+func _on_connected() -> void:
+	_set_status("Handshaking...")
+	Net.c_hello.rpc_id(1, Protocol.VERSION, player_name)
+
+
+func _on_connection_failed() -> void:
+	if _connect_attempts < MAX_CONNECT_ATTEMPTS and not _exiting:
+		Net.close()
+		await get_tree().create_timer(0.5).timeout
+		if not _exiting:
+			_connect()
+		return
+	_leave("Could not connect to %s:%d" % [server_address, server_port])
+
+
+func _on_server_disconnected() -> void:
+	_leave("Disconnected from server")
+
+
+func disconnect_from_server() -> void:
+	if not admin_token.is_empty() and multiplayer.has_multiplayer_peer() \
+			and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		Net.c_shutdown.rpc_id(1, admin_token)
+		# Give ENet a moment to flush the reliable packet before the peer is closed.
+		await get_tree().create_timer(0.2).timeout
+	_leave("")
+
+
+func _leave(message: String) -> void:
+	if _exiting:
+		return
+	_exiting = true
+	Net.close()
+	exited.emit(message)
+
+
+func on_kick(reason: String) -> void:
+	_leave("Kicked: %s" % reason)
+
+
+# --- Content download ---------------------------------------------------------------------------
+
+func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> void:
+	if phase != Phase.CONNECTING:
+		return
+	server_info = info
+	if not registry.load_network(content.get("blocks")) or not items.load_network(content.get("items", [])):
+		_leave("Server sent invalid block or item definitions")
+		return
+	if content.get("rules") is Dictionary:
+		on_rules(content.rules)
+
+	var total_size := 0
+	var missing := PackedStringArray()
+	for entry in manifest.slice(0, Protocol.MAX_ASSETS):
+		if not (entry is Array) or entry.size() != 3 or not (entry[0] is String) or not (entry[1] is String):
+			continue
+		var hash: String = entry[1]
+		var size := int(entry[2])
+		if not ContentCache.is_valid_hash(hash) or size < 0 or size > Protocol.MAX_ASSET_SIZE:
+			continue
+		total_size += size
+		if total_size > Protocol.MAX_TOTAL_ASSET_SIZE:
+			_leave("Server content is too large")
+			return
+		_manifest[entry[0]] = {"hash": hash, "size": size}
+		if not ContentCache.has(hash) and not _downloads.has(hash):
+			_downloads[hash] = PackedByteArray()
+			_download_total += size
+			missing.append(hash)
+
+	print("[client] Server '%s' running %s: %d blocks, %d assets (%d to download)" % [
+		info.get("name", "?"), info.get("game", "?"), registry.defs.size() - 1, _manifest.size(), missing.size()])
+	phase = Phase.DOWNLOADING
+	Net.c_request_assets.rpc_id(1, missing)
+	_update_download_status()
+	if _downloads.is_empty():
+		_finish_content()
+
+
+func on_asset_piece(hash: String, offset: int, total: int, bytes: PackedByteArray) -> void:
+	if phase != Phase.DOWNLOADING or not _downloads.has(hash):
+		return
+	var buffer: PackedByteArray = _downloads[hash]
+	if offset != buffer.size() or offset + bytes.size() > mini(total, Protocol.MAX_ASSET_SIZE):
+		_leave("Asset transfer error")
+		return
+	buffer.append_array(bytes)
+	_download_received += bytes.size()
+	if buffer.size() < total:
+		_downloads[hash] = buffer
+	else:
+		_downloads.erase(hash)
+		if not ContentCache.store(hash, buffer):
+			_leave("Downloaded asset failed verification")
+			return
+	_update_download_status()
+	if _downloads.is_empty():
+		_finish_content()
+
+
+func _update_download_status() -> void:
+	if _download_total > 0:
+		_set_status("Downloading %s content... %d%%" % [server_info.get("game", "server"), roundi(100.0 * _download_received / _download_total)])
+
+
+func _finish_content() -> void:
+	var images := {}
+	for asset_name: String in _manifest:
+		if not asset_name.get_extension().to_lower() == "png":
+			continue
+		var img := Image.new()
+		if img.load_png_from_buffer(ContentCache.read(_manifest[asset_name].hash)) != OK:
+			push_warning("[client] Could not decode %s" % asset_name)
+			continue
+		if img.get_width() > Protocol.MAX_TEXTURE_SIZE or img.get_height() > Protocol.MAX_TEXTURE_SIZE:
+			push_warning("[client] Texture %s is too large" % asset_name)
+			continue
+		images[asset_name] = img
+		_asset_textures[asset_name] = ImageTexture.create_from_image(img)
+
+	_atlas = TextureAtlas.build(images)
+	_solid_material = VoxelMaterial.create(_atlas.texture, false)
+	_translucent_material = VoxelMaterial.create(_atlas.texture, true)
+	_applied_daylight = -1.0
+	for d in registry.defs:
+		if not d.model.is_empty() and _manifest.has(d.model):
+			var mesh := ModelLibrary.load_mesh(ContentCache.read(_manifest[d.model].hash))
+			if mesh:
+				_model_meshes[d.id] = mesh
+			else:
+				push_warning("[client] Could not load model %s" % d.model)
+		if not d.model_arm.is_empty() and _manifest.has(d.model_arm):
+			var arm := ModelLibrary.load_mesh(ContentCache.read(_manifest[d.model_arm].hash))
+			if arm:
+				_arm_meshes[d.id] = arm
+		if not d.connect_group.is_empty():
+			_connect_groups[d.id] = d.connect_group
+	_mesh_context = ChunkMesher.make_context(registry, _atlas.uv)
+	_apply_graphics(false)
+	_server_ui.textures = _asset_textures
+	_rebuild_hotbar()
+	phase = Phase.JOINING
+	_set_status("Joining %s..." % server_info.get("name", "server"))
+	Net.c_ready.rpc_id(1)
+
+
+func on_time(time_of_day: float, day_length: float) -> void:
+	_time_of_day = fposmod(time_of_day, 1.0)
+	_day_length = maxf(day_length, 0.0)
+
+
+func on_rules(values: Dictionary) -> void:
+	rules.apply_dict(values)
+	rules.solid_lut = registry.solid_lut
+	rules.liquid_lut = registry.liquid_lut
+	world.set_lookup_tables(registry.solid_lut, registry.liquid_lut)
+	world.void_below = rules.void_below
+
+
+# --- Server messages ----------------------------------------------------------------------------
+
+func on_welcome(peer_id: int, spawn: Vector3, spawn_yaw: float) -> void:
+	my_id = peer_id
+	state.position = spawn
+	_prev_position = spawn
+	yaw = spawn_yaw
+	_welcomed = true
+	phase = Phase.PLAYING
+	_set_status("Loading terrain...")
+	print("[client] Joined as peer %d at %s" % [peer_id, spawn])
+
+
+func on_chunk(coord: Vector2i, payload: PackedByteArray, states: PackedInt32Array) -> void:
+	var data := Chunk.decode_blocks(payload)
+	if data.is_empty():
+		push_warning("[client] Dropped malformed chunk %s" % coord)
+		return
+	# Unknown ids from a misbehaving server would index past the lookup tables' valid entries.
+	var chunk := Chunk.new(coord, data)
+	chunk.load_states(states)
+	world.add_chunk(chunk)
+	# Neighbours' faces and light near the shared borders depend on this chunk.
+	for x in range(-1, 2):
+		for z in range(-1, 2):
+			_mark_dirty(coord + Vector2i(x, z), false)
+
+
+func on_unload_chunk(coord: Vector2i) -> void:
+	world.remove_chunk(coord)
+	_mesh_dirty.erase(coord)
+	_mesh_urgent.erase(coord)
+	var node: MeshInstance3D = _chunk_nodes.get(coord)
+	if node:
+		node.queue_free()
+		_chunk_nodes.erase(coord)
+	_clear_models(coord)
+
+
+func on_block_changed(pos: Vector3i, block: int, state: int) -> void:
+	if not registry.is_valid(block) or (world.get_block_v(pos) == block and get_block_state(pos) == state):
+		return
+	if world.set_block(pos.x, pos.y, pos.z, block):
+		_set_state(pos, state)
+		_on_block_modified(pos)
+
+
+func get_block_state(pos: Vector3i) -> int:
+	var chunk = world.chunks.get(VoxelWorld.chunk_coord_at(pos.x, pos.z))
+	return chunk.states.get(Chunk.index(pos.x & 15, pos.y, pos.z & 15), 0) if chunk != null and pos.y >= 0 and pos.y < Chunk.SIZE_Y else 0
+
+
+func _set_state(pos: Vector3i, state: int) -> void:
+	var chunk = world.chunks.get(VoxelWorld.chunk_coord_at(pos.x, pos.z))
+	if chunk == null:
+		return
+	var index := Chunk.index(pos.x & 15, pos.y, pos.z & 15)
+	if state > 0:
+		chunk.states[index] = state & 255
+	else:
+		chunk.states.erase(index)
+
+
+func on_inventory(slots: PackedInt32Array, selected: int, creative: bool) -> void:
+	if not inventory.load_packed(slots):
+		return
+	inventory.creative = creative
+	if selected != inventory.selected:
+		# The server may pick the slot (e.g. mods resetting the hotbar); follow it.
+		inventory.selected = clampi(selected, 0, Inventory.SIZE - 1)
+	_refresh_hotbar()
+
+
+func on_player_joined(peer_id: int, remote_name: String) -> void:
+	if peer_id == my_id or _remote_players.has(peer_id):
+		return
+	var remote := RemotePlayer.new()
+	remote.setup(peer_id, remote_name)
+	add_child(remote)
+	_remote_players[peer_id] = remote
+
+
+func on_player_left(peer_id: int) -> void:
+	var remote: Node = _remote_players.get(peer_id)
+	if remote:
+		remote.queue_free()
+		_remote_players.erase(peer_id)
+
+
+func on_snapshot(_tick: int, payload: PackedByteArray) -> void:
+	if not _welcomed or payload.size() < 31:
+		return
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = payload
+	var last_seq := buf.get_32()
+	var pos := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
+	var vel := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
+	var on_ground := buf.get_u8() == 1
+	_reconcile(last_seq, pos, vel, on_ground)
+	var now := Time.get_ticks_msec() / 1000.0
+	var count := mini(buf.get_u16(), (payload.size() - 31) / 20)
+	for i in count:
+		var peer_id := buf.get_32()
+		var remote_pos := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
+		var remote_yaw := buf.get_u16() / 65535.0 * TAU
+		var remote_pitch := buf.get_16() / 32767.0 * PI * 0.5
+		if _remote_players.has(peer_id):
+			_remote_players[peer_id].push_state(now, remote_pos, remote_yaw, remote_pitch)
+
+
+func on_chat(text: String) -> void:
+	var label := Label.new()
+	label.text = text.left(300)
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	label.set_meta("born", Time.get_ticks_msec() / 1000.0)
+	_chat_log.add_child(label)
+	while _chat_log.get_child_count() > CHAT_LINES:
+		var oldest := _chat_log.get_child(0)
+		_chat_log.remove_child(oldest)
+		oldest.queue_free()
+
+
+func on_ui_show(ui_id: String, spec: Dictionary) -> void:
+	_server_ui.show_panel(ui_id.left(64), spec)
+	if _server_ui.has_modal():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func on_ui_hide(ui_id: String) -> void:
+	_server_ui.hide_panel(ui_id)
+
+
+func on_title(text: String, subtitle: String, seconds: float) -> void:
+	_server_ui.show_title(text, subtitle, seconds)
+
+
+# --- Prediction & reconciliation ----------------------------------------------------------------
+
+func _physics_process(_delta: float) -> void:
+	if not _can_simulate():
+		return
+	var input := PlayerPhysics.PlayerInput.new()
+	_input_seq += 1
+	input.seq = _input_seq
+	if _gameplay_input_enabled():
+		input.move = Input.get_vector("move_left", "move_right", "move_back", "move_forward")
+		input.jump = Input.is_action_pressed("jump")
+		input.sprint = Input.is_action_pressed("sprint")
+	input.yaw = yaw
+	input.pitch = pitch
+
+	# Round-trip through the wire format so prediction uses exactly what the server will see.
+	var buf := StreamPeerBuffer.new()
+	input.write(buf)
+	var encoded := buf.data_array
+	buf.seek(0)
+	input = PlayerPhysics.PlayerInput.read(buf)
+
+	_prev_position = state.position
+	PlayerPhysics.step(state, input, world, rules)
+	_pending_inputs.append(input)
+	if _pending_inputs.size() > MAX_PENDING_INPUTS:
+		_pending_inputs.pop_front()
+
+	_recent_packets.append(encoded)
+	if _recent_packets.size() > INPUT_REDUNDANCY:
+		_recent_packets.pop_front()
+	var packet := PackedByteArray([_recent_packets.size()])
+	for p in _recent_packets:
+		packet.append_array(p)
+	Net.c_inputs.rpc_id(1, packet)
+
+
+func _reconcile(last_seq: int, pos: Vector3, vel: Vector3, on_ground: bool) -> void:
+	var predicted := state.position
+	state.position = pos
+	state.velocity = vel
+	state.on_ground = on_ground
+	while not _pending_inputs.is_empty() and _pending_inputs[0].seq <= last_seq:
+		_pending_inputs.pop_front()
+	if _can_simulate():
+		for input in _pending_inputs:
+			PlayerPhysics.step(state, input, world, rules)
+	var error := predicted - state.position
+	if error.length_squared() > 0.0001:
+		_correction_count += 1
+	if error.length() > TELEPORT_DISTANCE:
+		_render_offset = Vector3.ZERO
+		_prev_position = state.position
+	else:
+		# Keep the rendered position continuous and blend the correction out over a few frames.
+		_render_offset += error
+		_prev_position -= error
+
+
+func _can_simulate() -> bool:
+	if not _welcomed:
+		return false
+	var center := VoxelWorld.chunk_coord_of(state.position)
+	for x in range(-1, 2):
+		for z in range(-1, 2):
+			if not world.has_chunk(center + Vector2i(x, z)):
+				return false
+	return true
+
+
+# --- Frame update -------------------------------------------------------------------------------
+
+func _process(delta: float) -> void:
+	_poll_mesh_jobs()
+	_schedule_mesh_jobs()
+	if not _welcomed:
+		return
+
+	if _status_label.visible and _can_simulate() and _chunk_nodes.has(VoxelWorld.chunk_coord_of(state.position)):
+		_set_status("")
+
+	var fraction := Engine.get_physics_interpolation_fraction()
+	_render_offset = _render_offset.lerp(Vector3.ZERO, 1.0 - exp(-delta * 15.0))
+	var render_position := _prev_position.lerp(state.position, fraction) + _render_offset
+	_camera.position = render_position + Vector3(0.0, PlayerPhysics.EYE_HEIGHT, 0.0)
+	_camera.rotation = Vector3(pitch, yaw, 0.0)
+
+	_update_time(delta)
+	_update_target()
+	_handle_edits(delta)
+	_update_hud()
+
+
+func _update_target() -> void:
+	_target = VoxelRaycast.cast(world, registry.targetable_lut, _camera.position, -_camera.basis.z, REACH)
+	_highlight.visible = _target.hit
+	if _target.hit:
+		_highlight.position = Vector3(_target.position) + Vector3(0.5, 0.5, 0.5)
+
+
+func _handle_edits(delta: float) -> void:
+	_edit_timer -= delta
+	if not _gameplay_input_enabled():
+		return
+	if Input.is_action_just_pressed("place") and use_selected_item():
+		_edit_timer = EDIT_REPEAT_DELAY
+		return
+	if not _target.hit:
+		return
+	var breaking := Input.is_action_just_pressed("break") or (Input.is_action_pressed("break") and _edit_timer <= 0.0)
+	var placing := Input.is_action_just_pressed("place") or (Input.is_action_pressed("place") and _edit_timer <= 0.0)
+	if breaking:
+		_edit_timer = EDIT_REPEAT_DELAY
+		request_break(_target.position)
+	elif placing and Input.is_action_just_pressed("place") and registry.interactive_lut[_target.block] == 1:
+		_edit_timer = EDIT_REPEAT_DELAY
+		Net.c_interact.rpc_id(1, _target.position)
+	elif placing:
+		_edit_timer = EDIT_REPEAT_DELAY
+		request_place(_target.position + _target.normal)
+
+
+## Uses the held item on the current target (or on nothing). Returns false if it is not usable.
+func use_selected_item() -> bool:
+	var item := inventory.selected_item()
+	if item < ItemRegistry.FIRST_ITEM or not items.is_usable(item):
+		return false
+	Net.c_use_item.rpc_id(1, _target.hit, _target.get("position", Vector3i.ZERO), _target.get("normal", Vector3i.ZERO))
+	return true
+
+
+## Predicts the edit locally and asks the server to apply it.
+func request_break(pos: Vector3i) -> void:
+	var current := world.get_block_v(pos)
+	if current == BlockRegistry.UNLOADED or registry.breakable_lut[current] == 0:
+		return
+	world.set_block(pos.x, pos.y, pos.z, BlockRegistry.AIR)
+	_on_block_modified(pos)
+	Net.c_break_block.rpc_id(1, pos)
+
+
+## Places the selected hotbar block, predicting the result.
+func request_place(pos: Vector3i) -> void:
+	var block := inventory.selected_block()
+	if block <= 0 or registry.placeable_lut[block] == 0:
+		return
+	var current := world.get_block_v(pos)
+	if current != BlockRegistry.AIR and registry.liquid_lut[current & 255] == 0:
+		return
+	if registry.solid_lut[block] == 1:
+		if PlayerPhysics.overlaps_block(state.position, pos):
+			return
+		for remote: Node3D in _remote_players.values():
+			if PlayerPhysics.overlaps_block(remote.position, pos):
+				return
+	world.set_block(pos.x, pos.y, pos.z, block)
+	_set_state(pos, BlockRegistry.facing_from_yaw(yaw) if registry.defs[block].orientation == 1 else 0)
+	_on_block_modified(pos)
+	inventory.consume_selected()
+	_refresh_hotbar()
+	Net.c_place_block.rpc_id(1, pos, yaw)
+
+
+func select_slot(index: int) -> void:
+	inventory.selected = wrapi(index, 0, Inventory.SIZE)
+	_refresh_hotbar()
+	if _welcomed:
+		Net.c_select_slot.rpc_id(1, inventory.selected)
+
+
+func _on_block_modified(pos: Vector3i) -> void:
+	# Light can spread up to 15 blocks, so the surrounding chunks may need new meshes too.
+	var coord := VoxelWorld.chunk_coord_at(pos.x, pos.z)
+	for x in range(-1, 2):
+		for z in range(-1, 2):
+			_mark_dirty(coord + Vector2i(x, z), x == 0 and z == 0)
+
+
+# --- Chunk meshing ------------------------------------------------------------------------------
+
+func _mark_dirty(coord: Vector2i, urgent: bool) -> void:
+	if not world.has_chunk(coord):
+		return
+	_mesh_dirty[coord] = true
+	if urgent:
+		_mesh_urgent[coord] = true
+
+
+func _schedule_mesh_jobs() -> void:
+	if _mesh_dirty.is_empty() or _mesh_jobs.size() >= MESH_WORKERS or _mesh_context.is_empty():
+		return
+	var center := VoxelWorld.chunk_coord_of(state.position)
+	var candidates: Array = _mesh_dirty.keys().filter(func(c): return not _mesh_jobs.has(c))
+	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		var ua := _mesh_urgent.has(a)
+		var ub := _mesh_urgent.has(b)
+		if ua != ub:
+			return ua
+		return (a - center).length_squared() < (b - center).length_squared())
+	for coord: Vector2i in candidates:
+		if _mesh_jobs.size() >= MESH_WORKERS:
+			break
+		_mesh_dirty.erase(coord)
+		_mesh_urgent.erase(coord)
+		var chunks := []
+		for dz in range(-1, 2):
+			for dx in range(-1, 2):
+				chunks.append(_chunk_blocks(coord + Vector2i(dx, dz)))
+		var job := {"chunks": chunks, "context": _mesh_context, "result": []}
+		job.task_id = WorkerThreadPool.add_task(_run_mesh_job.bind(job), false, "chunk mesh")
+		_mesh_jobs[coord] = job
+
+
+func _chunk_blocks(coord: Vector2i) -> PackedByteArray:
+	var chunk = world.chunks.get(coord)
+	return chunk.blocks if chunk != null else PackedByteArray()
+
+
+## Runs on a worker thread: touches only the job dictionary.
+func _run_mesh_job(job: Dictionary) -> void:
+	job.result = ChunkMesher.build(job.chunks, job.context)
+
+
+func _poll_mesh_jobs() -> void:
+	for coord: Vector2i in _mesh_jobs.keys():
+		var job: Dictionary = _mesh_jobs[coord]
+		if not WorkerThreadPool.is_task_completed(job.task_id):
+			continue
+		WorkerThreadPool.wait_for_task_completion(job.task_id)
+		_mesh_jobs.erase(coord)
+		if world.has_chunk(coord):
+			# Apply even if a newer version is queued: it is still fresher than what is on screen.
+			_apply_mesh(coord, job.result)
+
+
+func _apply_mesh(coord: Vector2i, result: Array) -> void:
+	var node: MeshInstance3D = _chunk_nodes.get(coord)
+	if node == null:
+		node = MeshInstance3D.new()
+		node.position = Vector3(coord.x * Chunk.SIZE_X, 0, coord.y * Chunk.SIZE_Z)
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(node)
+		_chunk_nodes[coord] = node
+	var mesh := ArrayMesh.new()
+	for i in 2:
+		if not result[i].is_empty():
+			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, result[i], [], {}, ChunkMesher.SURFACE_FLAGS)
+			mesh.surface_set_material(mesh.get_surface_count() - 1, _solid_material if i == 0 else _translucent_material)
+	node.mesh = mesh
+	_apply_models(coord, result[2] if result.size() > 2 else PackedInt32Array())
+
+
+## Draws model blocks of a chunk with one MultiMesh per model (plus one per arm model for connected
+## blocks). Instance colors carry light; oriented blocks rotate by their state.
+func _apply_models(coord: Vector2i, instances: PackedInt32Array) -> void:
+	_clear_models(coord)
+	var chunk = world.chunks.get(coord)
+	if chunk == null:
+		return
+	var origin := Vector3i(coord.x * Chunk.SIZE_X, 0, coord.y * Chunk.SIZE_Z)
+	var batches := {}  # mesh -> {transforms: Array[Transform3D], lights: PackedInt32Array}
+	for i in range(0, instances.size() - 5, 6):
+		var block := instances[i]
+		if not _model_meshes.has(block):
+			continue
+		var local := Vector3i(instances[i + 1], instances[i + 2], instances[i + 3])
+		var light := PackedInt32Array([instances[i + 4], instances[i + 5]])
+		var group: String = _connect_groups.get(block, "")
+		var centered: bool = not registry.defs[block].model_arm.is_empty()
+		var center := Vector3(local) + (Vector3(0.5, 0.5, 0.5) if centered else Vector3(0.5, 0.0, 0.5))
+		var state: int = chunk.states.get(Chunk.index(local.x, local.y, local.z), 0)
+		var basis := Basis(Vector3.UP, (state & 3) * PI * 0.5) if registry.defs[block].orientation == 1 else Basis.IDENTITY
+		_batch(batches, _model_meshes[block], Transform3D(basis, center), light)
+		if registry.emission_lut[block] > 0:
+			batches[_model_meshes[block]].emissive = true
+		if _arm_meshes.has(block) and not group.is_empty():
+			for dir in ARM_BASES:
+				var neighbor := world.get_block_v(origin + local + dir)
+				if _connect_groups.get(neighbor, "") == group:
+					_batch(batches, _arm_meshes[block], Transform3D(ARM_BASES[dir], center), light)
+	var nodes := []
+	for mesh: Mesh in batches:
+		var batch: Dictionary = batches[mesh]
+		var multimesh := MultiMesh.new()
+		multimesh.transform_format = MultiMesh.TRANSFORM_3D
+		multimesh.use_colors = true
+		multimesh.mesh = mesh
+		multimesh.instance_count = batch.transforms.size()
+		for n in multimesh.instance_count:
+			multimesh.set_instance_transform(n, batch.transforms[n])
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = multimesh
+		mmi.position = Vector3(origin)
+		mmi.set_meta("lights", batch.lights)
+		mmi.set_meta("emissive", batch.get("emissive", false))
+		add_child(mmi)
+		_color_models(mmi)
+		nodes.append(mmi)
+	if not nodes.is_empty():
+		_model_nodes[coord] = nodes
+
+
+## Rotations taking an arm modelled along -Z to each neighbour direction.
+const ARM_BASES := {
+	Vector3i(0, 0, -1): Basis(),
+	Vector3i(0, 0, 1): Basis(Vector3.UP, PI),
+	Vector3i(1, 0, 0): Basis(Vector3.UP, -PI * 0.5),
+	Vector3i(-1, 0, 0): Basis(Vector3.UP, PI * 0.5),
+	Vector3i(0, 1, 0): Basis(Vector3.RIGHT, PI * 0.5),
+	Vector3i(0, -1, 0): Basis(Vector3.RIGHT, -PI * 0.5),
+}
+
+
+static func _batch(batches: Dictionary, mesh: Mesh, xform: Transform3D, light: PackedInt32Array) -> void:
+	if not batches.has(mesh):
+		batches[mesh] = {"transforms": [], "lights": PackedInt32Array()}
+	batches[mesh].transforms.append(xform)
+	batches[mesh].lights.append_array(light)
+
+
+func _clear_models(coord: Vector2i) -> void:
+	for mmi: Node in _model_nodes.get(coord, []):
+		mmi.queue_free()
+	_model_nodes.erase(coord)
+
+
+func _color_models(mmi: MultiMeshInstance3D) -> void:
+	var list: PackedInt32Array = mmi.get_meta("lights")
+	# Emissive models (lit lamps) go above 1.0 so the bloom pass picks them up.
+	var boost := 1.8 if mmi.get_meta("emissive", false) and graphics.value("bloom") else 1.0
+	for n in mmi.multimesh.instance_count:
+		var sky := pow(0.8, 15 - list[n * 2]) * _daylight
+		var block := pow(0.8, 15 - list[n * 2 + 1])
+		mmi.multimesh.set_instance_color(n, Color(maxf(maxf(sky, block), 0.05), maxf(maxf(sky, block * 0.86), 0.05), maxf(maxf(sky, block * 0.66), 0.05)) * boost)
+
+
+## Advances the replicated world clock and applies daylight to the sky, fog, materials and models.
+func _update_time(delta: float) -> void:
+	if _day_length > 0.0:
+		_time_of_day = fposmod(_time_of_day + delta / _day_length, 1.0)
+	_daylight = WorldTime.daylight(_time_of_day)
+	if absf(_daylight - _applied_daylight) < 0.005 or _solid_material == null:
+		return
+	_applied_daylight = _daylight
+	var t := inverse_lerp(WorldTime.NIGHT_LIGHT, 1.0, _daylight)
+	# Sun low on the horizon warms the light; night is cool and blue.
+	var sun_height := sin((_time_of_day - 0.25) * TAU)
+	var sun_tint := Color(0.55, 0.62, 0.9).lerp(Color(1.0, 0.72, 0.5), clampf(t * 3.0, 0.0, 1.0)).lerp(Color(1.0, 0.97, 0.92), clampf((sun_height - 0.15) * 2.5, 0.0, 1.0))
+	var sun_direction := Vector3(cos((_time_of_day - 0.25) * TAU), sun_height, 0.35).normalized()
+	for material in [_solid_material, _translucent_material]:
+		material.set_shader_parameter("daylight", _daylight)
+		material.set_shader_parameter("sun_tint", Vector3(sun_tint.r, sun_tint.g, sun_tint.b))
+		material.set_shader_parameter("sun_direction", sun_direction)
+	var horizon := Color(0.05, 0.06, 0.12).lerp(Color(0.72, 0.84, 0.96), t)
+	_sky_material.sky_top_color = Color(0.01, 0.02, 0.06).lerp(Color(0.32, 0.54, 0.92), t)
+	_sky_material.sky_horizon_color = horizon
+	_sky_material.ground_horizon_color = horizon
+	_sky_material.ground_bottom_color = Color(0.02, 0.02, 0.04).lerp(Color(0.3, 0.4, 0.55), t)
+	_environment.fog_light_color = horizon
+	for material in [_solid_material, _translucent_material]:
+		material.set_shader_parameter("sky_color", Vector3(_sky_material.sky_top_color.r, _sky_material.sky_top_color.g, _sky_material.sky_top_color.b))
+		material.set_shader_parameter("horizon_color", Vector3(horizon.r, horizon.g, horizon.b))
+	for nodes: Array in _model_nodes.values():
+		for mmi: MultiMeshInstance3D in nodes:
+			_color_models(mmi)
+
+
+# --- Input --------------------------------------------------------------------------------------
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _chat_input.visible:
+		return
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		yaw = wrapf(yaw - event.relative.x * MOUSE_SENSITIVITY, -PI, PI)
+		pitch = clampf(pitch - event.relative.y * MOUSE_SENSITIVITY, -PI * 0.49, PI * 0.49)
+	elif event.is_action_pressed("pause"):
+		_set_paused(not _pause_panel.visible)
+	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED \
+			and not _pause_panel.visible and not _server_ui.has_modal():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("chat") and _welcomed:
+		_open_chat()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("crafting") and _welcomed:
+		Net.c_open_menu.rpc_id(1, "crafting")
+	elif event.is_action_pressed("graphics"):
+		graphics.cycle()
+		_apply_graphics(true)
+	elif event.is_action_pressed("toggle_debug"):
+		_debug_label.visible = not _debug_label.visible
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		select_slot(inventory.selected - 1)
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		select_slot(inventory.selected + 1)
+	elif event is InputEventKey and event.pressed and not event.echo \
+			and event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_9:
+		select_slot(event.physical_keycode - KEY_1)
+
+
+func _gameplay_input_enabled() -> bool:
+	var captured := ignore_mouse_capture or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	return captured and not _chat_input.visible and not _pause_panel.visible and not _server_ui.has_modal()
+
+
+func _set_paused(paused: bool) -> void:
+	_pause_panel.visible = paused
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if paused else Input.MOUSE_MODE_CAPTURED
+
+
+func _open_chat() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_chat_input.visible = true
+	_chat_input.text = ""
+	_chat_input.grab_focus.call_deferred()
+
+
+func _on_chat_submitted(text: String) -> void:
+	_chat_input.visible = false
+	_chat_input.release_focus()
+	if not text.strip_edges().is_empty():
+		Net.c_chat.rpc_id(1, text)
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _on_chat_gui_input(event: InputEvent) -> void:
+	if event.is_action_pressed("pause"):
+		_chat_input.visible = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_chat_input.accept_event()
+
+
+func _on_ui_action(ui_id: String, action: String) -> void:
+	Net.c_ui_action.rpc_id(1, ui_id, action)
+
+
+static func _register_input_actions() -> void:
+	var keys := {
+		"move_forward": [KEY_W, KEY_UP], "move_back": [KEY_S, KEY_DOWN],
+		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
+		"jump": [KEY_SPACE], "sprint": [KEY_SHIFT, KEY_CTRL],
+		"chat": [KEY_T, KEY_ENTER], "toggle_debug": [KEY_F3], "pause": [KEY_ESCAPE], "crafting": [KEY_C], "graphics": [KEY_F4],
+	}
+	for action: String in keys:
+		if InputMap.has_action(action):
+			continue
+		InputMap.add_action(action)
+		for key: int in keys[action]:
+			var ev := InputEventKey.new()
+			ev.physical_keycode = key
+			InputMap.action_add_event(action, ev)
+	for pair in [["break", MOUSE_BUTTON_LEFT], ["place", MOUSE_BUTTON_RIGHT]]:
+		if InputMap.has_action(pair[0]):
+			continue
+		InputMap.add_action(pair[0])
+		var mb := InputEventMouseButton.new()
+		mb.button_index = pair[1]
+		InputMap.action_add_event(pair[0], mb)
+
+
+## Pushes the current graphics preset into post-processing, materials and (when AO changes) meshes.
+func _apply_graphics(announce: bool) -> void:
+	graphics.apply_environment(_environment, get_viewport())
+	if _solid_material != null:
+		for material in [_solid_material, _translucent_material]:
+			material.set_shader_parameter("enable_sway", graphics.value("sway"))
+			material.set_shader_parameter("enable_ao", graphics.value("ambient_occlusion"))
+			material.set_shader_parameter("fancy_water", graphics.value("fancy_water"))
+			material.set_shader_parameter("emissive_boost", 1.6 if graphics.value("bloom") else 1.0)
+	if not _mesh_context.is_empty() and _mesh_context.ambient_occlusion != graphics.value("ambient_occlusion"):
+		_mesh_context.ambient_occlusion = graphics.value("ambient_occlusion")
+		for coord: Vector2i in world.chunks:
+			_mark_dirty(coord, false)
+	_applied_daylight = -1.0
+	for nodes: Array in _model_nodes.values():
+		for mmi: MultiMeshInstance3D in nodes:
+			_color_models(mmi)
+	if announce:
+		_server_ui.show_title("", "Graphics: %s" % graphics.preset, 1.5)
+
+
+# --- Scene & HUD construction -------------------------------------------------------------------
+
+func _build_scene() -> void:
+	var sky_material := ProceduralSkyMaterial.new()
+	_sky_material = sky_material
+	sky_material.sky_top_color = Color(0.32, 0.54, 0.92)
+	sky_material.sky_horizon_color = Color(0.72, 0.84, 0.96)
+	sky_material.ground_horizon_color = Color(0.72, 0.84, 0.96)
+	sky_material.ground_bottom_color = Color(0.3, 0.4, 0.55)
+	var sky := Sky.new()
+	sky.sky_material = sky_material
+	var env := Environment.new()
+	_environment = env
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	# Constant ambient + sun give models their shape; their brightness (day/night, torches) comes
+	# from per-instance light colors, like the block shader.
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color.WHITE
+	env.ambient_light_energy = 0.55
+	env.fog_enabled = true
+	env.fog_mode = Environment.FOG_MODE_DEPTH
+	env.fog_light_color = Color(0.72, 0.84, 0.96)
+	env.fog_depth_begin = RENDER_DISTANCE * 0.55
+	env.fog_depth_end = RENDER_DISTANCE * 0.95
+	env.fog_sky_affect = 0.0
+	var world_env := WorldEnvironment.new()
+	world_env.environment = env
+	add_child(world_env)
+
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-55, 35, 0)
+	sun.light_energy = 0.75
+	_sun = sun
+	add_child(sun)
+
+	_camera = Camera3D.new()
+	_camera.fov = 75.0
+	_camera.near = 0.05
+	_camera.far = RENDER_DISTANCE * 1.5
+	add_child(_camera)
+	_camera.make_current()
+
+	_highlight = MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3.ONE * 1.004
+	_highlight.mesh = box
+	var highlight_material := StandardMaterial3D.new()
+	highlight_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	highlight_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	highlight_material.albedo_color = Color(1, 1, 1, 0.18)
+	_highlight.material_override = highlight_material
+	_highlight.visible = false
+	add_child(_highlight)
+
+
+func _build_hud() -> void:
+	var layer := CanvasLayer.new()
+	add_child(layer)
+	_hud_root = Control.new()
+	_hud_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_hud_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_hud_root)
+
+	var crosshair := Control.new()
+	crosshair.set_anchors_preset(Control.PRESET_CENTER)
+	crosshair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_root.add_child(crosshair)
+	for rect in [Rect2(-10, -1, 20, 2), Rect2(-1, -10, 2, 20)]:
+		var bar := ColorRect.new()
+		bar.color = Color(1, 1, 1, 0.85)
+		bar.position = rect.position
+		bar.size = rect.size
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		crosshair.add_child(bar)
+
+	_server_ui = ServerUI.new()
+	_server_ui.action_pressed.connect(_on_ui_action)
+	_hud_root.add_child(_server_ui)
+
+	_debug_label = _shadow_label()
+	_debug_label.position = Vector2(10, 8)
+	_hud_root.add_child(_debug_label)
+
+	_status_label = _shadow_label()
+	_status_label.set_anchors_preset(Control.PRESET_CENTER)
+	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_status_label.position.y = -60
+	_status_label.add_theme_font_size_override("font_size", 28)
+	_hud_root.add_child(_status_label)
+
+	_hotbar = HBoxContainer.new()
+	_hotbar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_hotbar.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_hotbar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_hotbar.position.y -= 12
+	_hotbar.add_theme_constant_override("separation", 4)
+	_hotbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_root.add_child(_hotbar)
+
+	_chat_log = VBoxContainer.new()
+	_chat_log.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_chat_log.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_chat_log.position = Vector2(12, -110)
+	_chat_log.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_root.add_child(_chat_log)
+
+	_chat_input = LineEdit.new()
+	_chat_input.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_chat_input.position = Vector2(12, -100)
+	_chat_input.custom_minimum_size = Vector2(480, 0)
+	_chat_input.placeholder_text = "Chat or /command (Enter to send, Esc to cancel)"
+	_chat_input.max_length = 160
+	_chat_input.visible = false
+	_chat_input.text_submitted.connect(_on_chat_submitted)
+	_chat_input.gui_input.connect(_on_chat_gui_input)
+	_hud_root.add_child(_chat_input)
+
+	_pause_panel = PanelContainer.new()
+	_pause_panel.set_anchors_preset(Control.PRESET_CENTER)
+	_pause_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_pause_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_pause_panel.visible = false
+	_hud_root.add_child(_pause_panel)
+	var pause_box := VBoxContainer.new()
+	pause_box.add_theme_constant_override("separation", 10)
+	_pause_panel.add_child(pause_box)
+	var resume := Button.new()
+	resume.text = "Resume"
+	resume.custom_minimum_size = Vector2(240, 44)
+	resume.pressed.connect(_set_paused.bind(false))
+	pause_box.add_child(resume)
+	var quit := Button.new()
+	quit.text = "Stop server & quit to menu" if not admin_token.is_empty() else "Disconnect"
+	quit.custom_minimum_size = Vector2(240, 44)
+	quit.pressed.connect(disconnect_from_server)
+	pause_box.add_child(quit)
+
+
+func _rebuild_hotbar() -> void:
+	for slot in _hotbar_slots:
+		slot.queue_free()
+	_hotbar_slots.clear()
+	for i in Inventory.SIZE:
+		var slot := Panel.new()
+		slot.custom_minimum_size = Vector2(52, 52)
+		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0, 0, 0, 0.45)
+		style.set_border_width_all(3)
+		slot.add_theme_stylebox_override("panel", style)
+		var icon := TextureRect.new()
+		icon.name = "Icon"
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 8)
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(icon)
+		var count := _shadow_label()
+		count.name = "Count"
+		count.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 4)
+		count.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		count.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		slot.add_child(count)
+		_hotbar.add_child(slot)
+		_hotbar_slots.append(slot)
+	_refresh_hotbar()
+
+
+func _refresh_hotbar() -> void:
+	if _hotbar_slots.is_empty() or _atlas.is_empty():
+		return
+	for i in Inventory.SIZE:
+		var slot := _hotbar_slots[i]
+		var style: StyleBoxFlat = slot.get_theme_stylebox("panel")
+		style.border_color = Color.WHITE if i == inventory.selected else Color(0, 0, 0, 0.6)
+		var id := inventory.ids[i]
+		var has_item := items.is_valid(id) and (inventory.creative or inventory.counts[i] > 0)
+		var icon: TextureRect = slot.get_node("Icon")
+		var count: Label = slot.get_node("Count")
+		if has_item:
+			var tex := AtlasTexture.new()
+			tex.atlas = _atlas.texture
+			tex.region = _atlas.pixels.get(items.icon_of(id), _atlas.pixels[""])
+			icon.texture = tex
+		else:
+			icon.texture = null
+		count.text = str(inventory.counts[i]) if has_item and not inventory.creative and inventory.counts[i] > 1 else ""
+
+
+func _shadow_label() -> Label:
+	var label := Label.new()
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return label
+
+
+func _set_status(text: String) -> void:
+	_status_label.text = text
+	_status_label.visible = not text.is_empty()
+
+
+func _update_hud() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	for line in _chat_log.get_children():
+		var age: float = now - float(line.get_meta("born", now))
+		line.modulate.a = clampf((CHAT_LINE_LIFETIME - age) / 2.0, 0.0, 1.0) if not _chat_input.visible else 1.0
+
+	if not _debug_label.visible:
+		return
+	var p := state.position
+	var target_text := "none"
+	if _target.hit:
+		target_text = "%s %s" % [registry.display_name(_target.block), _target.position]
+	var selected := inventory.selected_item()
+	_debug_label.text = "\n".join([
+		"%s - %s  %d fps" % [server_info.get("name", "?"), server_info.get("game", "?"), Engine.get_frames_per_second()],
+		"XYZ %.2f / %.2f / %.2f   chunk %s   time %02d:%02d (light %.2f)" % [p.x, p.y, p.z, VoxelWorld.chunk_coord_of(p),
+			int(_time_of_day * 24.0), int(fmod(_time_of_day * 1440.0, 60.0)), _daylight],
+		"Ping %d ms   pending inputs %d   corrections %d" % [Net.get_ping_ms(), _pending_inputs.size(), _correction_count],
+		"Chunks %d   meshed %d   mesh queue %d (+%d running)" % [world.chunks.size(), _chunk_nodes.size(), _mesh_dirty.size(), _mesh_jobs.size()],
+		"Players %d   %s   holding %s   target %s" % [_remote_players.size() + 1, "creative" if inventory.creative else "survival",
+			items.display_name(selected) if selected > 0 else "nothing", target_text],
+		"Graphics: %s (%d%% render scale)   [F4] change" % [graphics.preset, roundi(graphics.value("render_scale") * 100)],
+		"[F3] debug  [T] chat  [C] crafting  [Esc] menu  [1-9 / wheel] slot",
+	])

@@ -1,0 +1,202 @@
+extends Node
+## Entry point. Runs a dedicated server with `-- --server`, otherwise shows the main menu.
+##
+## User args (after `--`):
+##   --server              run the dedicated server instead (same options as engine/server_main.gd)
+##   --port=24565          port to connect to / host on
+##   --connect=1.2.3.4     skip the menu and join a server
+##   --host=skyblock       skip the menu, start a local server for that game and join it
+##   --name=Steve          player name for --connect / --host
+
+const GameClient = preload("res://engine/client/game_client.gd")
+const ModLoader = preload("res://engine/server/mod_loader.gd")
+
+const DEFAULT_PORT := 24565
+const DEFAULT_GAME := "vanilla"
+
+var _args := {}
+var _server_pid := -1
+var _client: Node
+var _menu: Control
+var _name_edit: LineEdit
+var _address_edit: LineEdit
+var _port_edit: SpinBox
+var _game_select: OptionButton
+var _message_label: Label
+var _games: Array = []
+
+
+func _ready() -> void:
+	_args = _parse_args()
+	if _args.has("server"):
+		_run_dedicated_server()
+		return
+	get_tree().auto_accept_quit = false
+	_build_menu()
+	if _args.has("connect"):
+		_start_client(_args.connect, int(_args.get("port", DEFAULT_PORT)), _args.get("name", "Player"), "")
+	elif _args.has("host"):
+		var game: String = _args.host if _args.host != "true" else DEFAULT_GAME
+		_host(game, int(_args.get("port", DEFAULT_PORT)), _args.get("name", "Player"))
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if _client and _server_pid > 0:
+			await _client.disconnect_from_server()
+		_stop_local_server()
+		get_tree().quit()
+
+
+static func _parse_args() -> Dictionary:
+	var out := {}
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--"):
+			var parts := arg.substr(2).split("=", true, 1)
+			out[parts[0]] = parts[1] if parts.size() > 1 else "true"
+	return out
+
+
+func _run_dedicated_server() -> void:
+	get_tree().change_scene_to_file.call_deferred("res://scenes/server.tscn")
+
+
+func _host(game: String, port: int, player_name: String) -> void:
+	_stop_local_server()
+	var token := "%x%x" % [randi(), randi()]
+	var args := PackedStringArray()
+	if not OS.has_feature("template"):
+		# Running from the editor binary: point it at this project.
+		args.append_array(["--path", ProjectSettings.globalize_path("res://")])
+	args.append_array(["--headless", "res://scenes/server.tscn", "--", "--mods=%s" % game, "--port=%d" % port, "--admin-token=%s" % token])
+	_server_pid = OS.create_process(OS.get_executable_path(), args)
+	if _server_pid <= 0:
+		_show_menu("Failed to launch local server process")
+		return
+	print("[menu] Started local %s server (pid %d)" % [game, _server_pid])
+	_start_client("127.0.0.1", port, player_name, token)
+
+
+func _stop_local_server() -> void:
+	if _server_pid > 0:
+		if OS.is_process_running(_server_pid):
+			OS.kill(_server_pid)
+		_server_pid = -1
+
+
+func _start_client(address: String, port: int, player_name: String, token: String) -> void:
+	_menu.visible = false
+	_client = GameClient.new()
+	_client.server_address = address
+	_client.server_port = port
+	_client.player_name = player_name
+	_client.admin_token = token
+	_client.exited.connect(_on_client_exited)
+	add_child(_client)
+
+
+func _on_client_exited(message: String) -> void:
+	if _client:
+		_client.queue_free()
+		_client = null
+	if _server_pid > 0:
+		# The host asked the server to save and quit; kill it only if it is still around.
+		await get_tree().create_timer(1.0).timeout
+		_stop_local_server()
+	_show_menu(message)
+
+
+# --- Menu ---------------------------------------------------------------------------------------
+
+func _build_menu() -> void:
+	_menu = Control.new()
+	_menu.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_menu)
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.1, 0.13, 0.18)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_menu.add_child(bg)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_menu.add_child(center)
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(400, 0)
+	box.add_theme_constant_override("separation", 10)
+	center.add_child(box)
+
+	var title := Label.new()
+	title.text = "VoxelCraft"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 48)
+	box.add_child(title)
+
+	_name_edit = _labeled(box, "Name", LineEdit.new())
+	_name_edit.text = _args.get("name", "Player%d" % (randi() % 1000))
+	_port_edit = _labeled(box, "Port", SpinBox.new())
+	_port_edit.min_value = 1024
+	_port_edit.max_value = 65535
+	_port_edit.value = int(_args.get("port", DEFAULT_PORT))
+
+	box.add_child(HSeparator.new())
+	_address_edit = _labeled(box, "Server address", LineEdit.new())
+	_address_edit.text = "127.0.0.1"
+	var join_button := Button.new()
+	join_button.text = "Join server"
+	join_button.custom_minimum_size.y = 44
+	join_button.pressed.connect(func(): _start_client(_address_edit.text.strip_edges(), int(_port_edit.value), _name_edit.text, ""))
+	box.add_child(join_button)
+
+	box.add_child(HSeparator.new())
+	_game_select = _labeled(box, "Game", OptionButton.new())
+	var available := ModLoader.discover(PackedStringArray(["res://mods"]))
+	for id: String in available:
+		if available[id].game:
+			_games.append(available[id])
+	_games.sort_custom(func(a, b): return a.name < b.name)
+	for game in _games:
+		_game_select.add_item(game.name)
+	var host_button := Button.new()
+	host_button.text = "Host game (local server)"
+	host_button.custom_minimum_size.y = 44
+	host_button.disabled = _games.is_empty()
+	host_button.pressed.connect(func(): _host(_games[_game_select.selected].id, int(_port_edit.value), _name_edit.text))
+	box.add_child(host_button)
+	var description := Label.new()
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description.modulate = Color(1, 1, 1, 0.7)
+	box.add_child(description)
+	_game_select.item_selected.connect(func(i): description.text = _games[i].description)
+	if not _games.is_empty():
+		description.text = _games[0].description
+
+	box.add_child(HSeparator.new())
+	var quit_button := Button.new()
+	quit_button.text = "Quit"
+	quit_button.custom_minimum_size.y = 44
+	quit_button.pressed.connect(func(): get_tree().root.propagate_notification(NOTIFICATION_WM_CLOSE_REQUEST))
+	box.add_child(quit_button)
+
+	_message_label = Label.new()
+	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_message_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.6))
+	box.add_child(_message_label)
+
+
+func _labeled(parent: Control, label_text: String, control: Control) -> Control:
+	var row := HBoxContainer.new()
+	var label := Label.new()
+	label.text = label_text
+	label.custom_minimum_size.x = 130
+	row.add_child(label)
+	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(control)
+	parent.add_child(row)
+	return control
+
+
+func _show_menu(message: String) -> void:
+	_menu.visible = true
+	_message_label.text = message
