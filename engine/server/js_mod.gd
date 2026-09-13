@@ -142,7 +142,7 @@ func _call_host(method: String, a: Array):
 				return player
 			api.show_crafting(player)
 		"on": api.on(_str(a, 0), _on_event.bind(_int(a, 1)), _int(a, 2, 0))
-		"command": api.register_command(_str(a, 0), _str(a, 1), _on_command.bind(_int(a, 2)))
+		"command": api.register_command(_str(a, 0), _str(a, 1), _on_command.bind(_int(a, 2)), _str(a, 3))
 		"after": return api.after(float(a[0]) if a.size() > 0 else 0.0, _on_timer.bind(_int(a, 1)))
 		"every": return api.every(maxf(float(a[0]) if a.size() > 0 else 1.0, 0.05), _on_timer.bind(_int(a, 1)))
 		"cancel": api.cancel(_int(a, 0))
@@ -172,6 +172,7 @@ func _call_player(method: String, a: Array):
 		"showUi": player.show_ui("%s:%s" % [manifest.id, _str(a, 1)] if not _str(a, 1).contains(":") else _str(a, 1), _dict(a, 2))
 		"hideUi": player.hide_ui("%s:%s" % [manifest.id, _str(a, 1)] if not _str(a, 1).contains(":") else _str(a, 1))
 		"isCreative": return player.is_creative()
+		"isAdmin": return player.is_admin()
 		"setCreative": player.set_creative(bool(a[1]) if a.size() > 1 else false)
 		"setHotbar": player.set_hotbar(a[1] if a.size() > 1 and a[1] is Array else [])
 		"getData":

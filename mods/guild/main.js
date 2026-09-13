@@ -274,7 +274,13 @@ export function setup(api) {
   // --- Commands --------------------------------------------------------------------------------
 
   api.command("guild", "kit | meteor | top | coins - Adventurers' Guild", (player, args) => {
-    switch (args[0] ?? "") {
+    const sub = args[0] ?? "";
+    const cheat = sub === "meteor" || (sub === "kit" && !player.isCreative());
+    if (cheat && !player.isAdmin()) {
+      player.sendMessage(`Only admins can use /guild ${sub} here.`);
+      return;
+    }
+    switch (sub) {
       case "kit":
         if (player.isCreative()) {
           player.setHotbar([ids.board, api.block("base:planks"), api.block("base:stone"), ids.goldOre]);

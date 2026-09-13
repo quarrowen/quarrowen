@@ -72,6 +72,7 @@ declare module "voxelcraft" {
     showUi(id: string, spec: UiSpec): void;
     hideUi(id: string): void;
     isCreative(): boolean;
+    isAdmin(): boolean;
     setCreative(enabled: boolean): void;
     setHotbar(items: ItemId[]): void;
     getData<T = unknown>(key: string, fallback?: T): T;
@@ -134,7 +135,7 @@ declare module "voxelcraft" {
     showCrafting(player: Player): void;
 
     on<E extends keyof Events>(event: E, handler: (event: Events[E]) => void, priority?: number): void;
-    command(name: string, description: string, handler: (player: Player, args: string[]) => void): void;
+    command(name: string, description: string, handler: (player: Player, args: string[]) => void, options?: { admin?: boolean }): void;
     after(seconds: number, fn: () => void): number;
     every(seconds: number, fn: () => void): number;
     cancel(taskId: number): void;

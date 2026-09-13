@@ -7,6 +7,7 @@ extends Node
 const NetScript = preload("res://engine/net/net.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
+const Identity = preload("res://engine/shared/identity.gd")
 
 
 class Bot:
@@ -22,6 +23,7 @@ class Bot:
 	var bytes_in := 0
 	var rng := RandomNumberGenerator.new()
 	var recent: Array[PackedByteArray] = []
+	var key: CryptoKey
 
 	func start(address: String, port: int) -> void:
 		rng.seed = index * 7919
@@ -32,7 +34,9 @@ class Bot:
 		net.name = "Net"
 		net.client = self
 		add_child(net)
-		api.connected_to_server.connect(func(): net.c_hello.rpc_id(1, Protocol.VERSION, "bot%03d" % index))
+		# Bots use small throwaway keys; real clients keep a 2048-bit identity on disk.
+		key = Crypto.new().generate_rsa(1024)
+		api.connected_to_server.connect(func(): net.c_hello.rpc_id(1, Protocol.VERSION, "bot%03d" % index, Identity.public_pem(key)))
 		net.create_client(address, port)
 
 	func _physics_process(_delta: float) -> void:
@@ -61,6 +65,9 @@ class Bot:
 			net.c_break_block.rpc_id(1, Vector3i(floori(front.x), floori(front.y), floori(front.z)))
 
 	# --- Net handler interface (subset used by bots; the rest are no-ops) ---
+	func on_challenge(nonce: PackedByteArray) -> void:
+		net.c_auth.rpc_id(1, Identity.sign(key, nonce))
+
 	func on_server_info(_info, _content, _manifest) -> void:
 		net.c_request_assets.rpc_id(1, PackedStringArray())
 		net.c_ready.rpc_id(1)

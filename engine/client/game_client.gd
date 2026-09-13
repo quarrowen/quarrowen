@@ -22,6 +22,7 @@ const ModelLibrary = preload("res://engine/client/model_library.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const ItemRegistry = preload("res://engine/shared/item_registry.gd")
 const GraphicsSettings = preload("res://engine/client/graphics_settings.gd")
+const Identity = preload("res://engine/shared/identity.gd")
 
 const MAX_CONNECT_ATTEMPTS := 20
 const MESH_WORKERS := 4
@@ -42,6 +43,10 @@ var server_port := 24565
 var player_name := "Player"
 ## Passed by the menu when this client launched a local server it should stop on exit.
 var admin_token := ""
+## Which saved identity (user://identity/<name>.pem) to log in with.
+var identity_name := "default"
+## Tests only: sign challenges with this key instead of the identity (must fail authentication).
+var test_signing_key: CryptoKey = null
 ## Accept gameplay input without a captured mouse (headless bots / tests).
 var ignore_mouse_capture := false
 
@@ -58,6 +63,7 @@ var state := PlayerPhysics.State.new()
 var yaw := 0.0
 var pitch := 0.0
 
+var _identity: CryptoKey
 var _welcomed := false
 var _connect_attempts := 0
 var _exiting := false
@@ -137,6 +143,8 @@ func _exit_tree() -> void:
 # --- Connection ---------------------------------------------------------------------------------
 
 func _connect() -> void:
+	if _identity == null:
+		_identity = Identity.load_or_create(identity_name)
 	_connect_attempts += 1
 	_set_status("Connecting to %s:%d..." % [server_address, server_port])
 	var err := Net.create_client(server_address, server_port)
@@ -146,7 +154,12 @@ func _connect() -> void:
 
 func _on_connected() -> void:
 	_set_status("Handshaking...")
-	Net.c_hello.rpc_id(1, Protocol.VERSION, player_name)
+	Net.c_hello.rpc_id(1, Protocol.VERSION, player_name, Identity.public_pem(_identity))
+
+
+func on_challenge(nonce: PackedByteArray) -> void:
+	_set_status("Authenticating...")
+	Net.c_auth.rpc_id(1, Identity.sign(test_signing_key if test_signing_key != null else _identity, nonce))
 
 
 func _on_connection_failed() -> void:
@@ -313,6 +326,8 @@ func on_welcome(peer_id: int, spawn: Vector3, spawn_yaw: float) -> void:
 	yaw = spawn_yaw
 	_welcomed = true
 	phase = Phase.PLAYING
+	if not admin_token.is_empty():
+		Net.c_claim_admin.rpc_id(1, admin_token)
 	_set_status("Loading terrain...")
 	print("[client] Joined as peer %d at %s" % [peer_id, spawn])
 

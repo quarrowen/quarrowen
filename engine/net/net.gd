@@ -6,7 +6,8 @@ extends Node
 ## Channel 0 is reliable (content, chunks, edits, UI), channel 1 carries unreliable movement.
 ##
 ## Join sequence:
-##   c_hello(protocol, name) -> s_server_info(info, content, manifest)
+##   c_hello(protocol, name, public key) -> s_challenge(nonce) -> c_auth(signature)
+##   -> s_server_info(info, content, manifest)
 ##   c_request_assets(missing hashes) -> s_asset_piece(...)*
 ##   c_ready() -> s_welcome, s_inventory, s_chunk*, s_snapshot* ...
 
@@ -61,9 +62,21 @@ func _sender() -> int:
 # --- Client -> server -------------------------------------------------------------------------
 
 @rpc("any_peer", "call_remote", "reliable")
-func c_hello(protocol: int, player_name: String) -> void:
+func c_hello(protocol: int, player_name: String, public_key: String) -> void:
 	if server:
-		server.on_hello(_sender(), protocol, player_name)
+		server.on_hello(_sender(), protocol, player_name, public_key)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func c_auth(signature: PackedByteArray) -> void:
+	if server:
+		server.on_auth(_sender(), signature)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func c_claim_admin(token: String) -> void:
+	if server:
+		server.on_claim_admin(_sender(), token)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -146,6 +159,12 @@ func c_shutdown(token: String) -> void:
 func s_kick(reason: String) -> void:
 	if client:
 		client.on_kick(reason)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_challenge(nonce: PackedByteArray) -> void:
+	if client:
+		client.on_challenge(nonce)
 
 
 @rpc("authority", "call_remote", "reliable")

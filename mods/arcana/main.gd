@@ -187,6 +187,9 @@ func _conjure_light(player, ev: Dictionary) -> void:
 
 
 func _cmd_arcana(player, _args: PackedStringArray) -> void:
+	if not (player.is_creative() or player.is_admin()):
+		player.send_message("Only admins can hand out Arcana kits in survival.")
+		return
 	if player.is_creative():
 		player.set_hotbar([ids.shard, ids.blink, ids.light, ids.pylon, api.block("base:stone")])
 		player.send_message("Arcana kit in your hotbar: shard, Wand of Blink, Wand of Light, Mana Pylon.")

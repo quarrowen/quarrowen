@@ -11,6 +11,7 @@ const ServerPlayer = preload("res://engine/server/server_player.gd")
 const ModApi = preload("res://engine/server/mod_api.gd")
 const ModLoader = preload("res://engine/server/mod_loader.gd")
 const JsMod = preload("res://engine/server/js_mod.gd")
+const Identity = preload("res://engine/shared/identity.gd")
 const Native = preload("res://engine/shared/native.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const ItemRegistry = preload("res://engine/shared/item_registry.gd")
@@ -74,6 +75,8 @@ var _time_of_day := 0.5
 var _day_length := 0.0
 var _time_sync_timer := 0.0
 var _admin_token := ""
+## Lower-case names or player ids granted admin by configuration (VOXEL_ADMINS).
+var _config_admins := {}
 var _save_timer := 0.0
 var _unload_timer := 0.0
 var _view_offsets: Array[Vector2i] = []
@@ -88,6 +91,8 @@ var _metrics := {}
 ##   offline (true = load mods and world without opening a socket, for benchmarks)
 func start(config: Dictionary) -> Error:
 	_admin_token = config.get("admin_token", "")
+	for entry in String(config.get("admins", "")).split(",", false):
+		_config_admins[entry.strip_edges().to_lower()] = true
 	_metrics_interval = float(config.get("metrics", 0.0))
 	Engine.max_fps = 60
 	var data_dir := String(config.get("data_dir", "user://worlds"))
@@ -239,8 +244,17 @@ func emit(event: String, payload: Dictionary) -> Dictionary:
 	return payload
 
 
-func add_command(command: String, description: String, handler: Callable, mod_id: String) -> void:
-	_commands[command.to_lower()] = {"description": description, "handler": handler, "mod": mod_id}
+## permission: "" (everyone) or "admin".
+func add_command(command: String, description: String, handler: Callable, mod_id: String, permission := "") -> void:
+	_commands[command.to_lower()] = {"description": description, "handler": handler, "mod": mod_id, "permission": permission}
+
+
+func is_admin(p) -> bool:
+	return p != null and (_meta.admins.has(p.player_id) or _config_admins.has(p.player_id) or _config_admins.has(p.name.to_lower()))
+
+
+func _permitted(p, command: Dictionary) -> bool:
+	return command.get("permission", "") != "admin" or is_admin(p)
 
 
 func schedule(seconds: float, callback: Callable, interval: float) -> int:
@@ -269,13 +283,49 @@ func _run_tasks() -> void:
 func _register_builtin_commands() -> void:
 	add_command("help", "List commands", _cmd_help, "engine")
 	add_command("players", "List online players", _cmd_players, "engine")
+	add_command("op", "<player> - grant admin", _cmd_op.bind(true), "engine", "admin")
+	add_command("deop", "<player> - revoke admin", _cmd_op.bind(false), "engine", "admin")
+	add_command("kick", "<player> [reason] - disconnect a player", _cmd_kick, "engine", "admin")
+	add_command("whoami", "Show your player id and permissions", _cmd_whoami, "engine")
 
 
 func _cmd_help(player, _args: PackedStringArray) -> void:
 	var names := _commands.keys()
 	names.sort()
 	for n in names:
-		player.send_message("/%s - %s" % [n, _commands[n].description])
+		if _permitted(player, _commands[n]):
+			player.send_message("/%s - %s" % [n, _commands[n].description])
+
+
+func _cmd_op(player, args: PackedStringArray, grant: bool) -> void:
+	var target = _find_online(args[0] if args.size() > 0 else "")
+	if target == null:
+		player.send_message("No online player named '%s'" % (args[0] if args.size() > 0 else ""))
+		return
+	if grant and not _meta.admins.has(target.player_id):
+		_meta.admins.append(target.player_id)
+	elif not grant:
+		_meta.admins.erase(target.player_id)
+	broadcast_chat("%s %s admin rights for %s" % [player.name, "granted" if grant else "revoked", target.name])
+
+
+func _cmd_kick(player, args: PackedStringArray) -> void:
+	var target = _find_online(args[0] if args.size() > 0 else "")
+	if target == null:
+		player.send_message("No online player named '%s'" % (args[0] if args.size() > 0 else ""))
+		return
+	kick(target.peer_id, " ".join(args.slice(1)) if args.size() > 1 else "Kicked by %s" % player.name)
+
+
+func _cmd_whoami(player, _args: PackedStringArray) -> void:
+	player.send_message("%s: player id %s%s" % [player.name, player.player_id, " (admin)" if is_admin(player) else ""])
+
+
+func _find_online(player_name: String):
+	for p: ServerPlayer in players.values():
+		if p.name.to_lower() == player_name.to_lower():
+			return p
+	return null
 
 
 func _cmd_players(player, _args: PackedStringArray) -> void:
@@ -462,20 +512,48 @@ func _broadcast_time() -> void:
 
 # --- Joining & content delivery -----------------------------------------------------------------
 
-func on_hello(peer_id: int, protocol: int, player_name: String) -> void:
+func on_hello(peer_id: int, protocol: int, player_name: String, public_key: String) -> void:
 	if players.has(peer_id) or _joining.has(peer_id):
 		return
 	if protocol != Protocol.VERSION:
 		kick(peer_id, "Protocol mismatch: server %d, client %d" % [Protocol.VERSION, protocol])
 		return
+	var key := Identity.parse_public_key(public_key)
+	if key == null:
+		kick(peer_id, "Invalid identity key")
+		return
+	var player_id := Identity.player_id(key)
 	var clean_name := player_name.strip_edges().left(16)
 	if clean_name.is_empty():
 		clean_name = "Player%d" % (peer_id % 1000)
 	for p: ServerPlayer in players.values():
+		if p.player_id == player_id:
+			kick(peer_id, "You are already connected")
+			return
 		if p.name.to_lower() == clean_name.to_lower():
 			kick(peer_id, "The name '%s' is already in use" % clean_name)
 			return
-	_joining[peer_id] = {"name": clean_name, "queue": [], "offset": 0, "requested": false}
+	var owner := String(_meta.names.get(clean_name.to_lower(), ""))
+	if not owner.is_empty() and owner != player_id:
+		kick(peer_id, "The name '%s' belongs to another player on this server" % clean_name)
+		return
+	var nonce := Identity.new_nonce()
+	_joining[peer_id] = {"name": clean_name, "player_id": player_id, "key": key, "nonce": nonce,
+		"authenticated": false, "queue": [], "offset": 0, "requested": false}
+	Net.s_challenge.rpc_id(peer_id, nonce)
+
+
+## The client proves it holds the private key for the identity it presented.
+func on_auth(peer_id: int, signature: PackedByteArray) -> void:
+	var j: Dictionary = _joining.get(peer_id, {})
+	if j.is_empty() or j.authenticated:
+		return
+	if not Identity.verify(j.key, j.nonce, signature):
+		_joining.erase(peer_id)
+		kick(peer_id, "Authentication failed")
+		return
+	j.authenticated = true
+	_meta.names[String(j.name).to_lower()] = j.player_id
 	var manifest := []
 	for asset_name: String in _assets:
 		var a: Dictionary = _assets[asset_name]
@@ -485,9 +563,19 @@ func on_hello(peer_id: int, protocol: int, player_name: String) -> void:
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
+## The local host proves it launched this server and becomes a permanent admin.
+func on_claim_admin(peer_id: int, token: String) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or _admin_token.is_empty() or token != _admin_token:
+		return
+	if not _meta.admins.has(p.player_id):
+		_meta.admins.append(p.player_id)
+	p.send_message("You are an admin on this server.")
+
+
 func on_request_assets(peer_id: int, hashes: PackedStringArray) -> void:
 	var j: Dictionary = _joining.get(peer_id, {})
-	if j.is_empty() or j.requested:
+	if j.is_empty() or j.requested or not j.authenticated:
 		return
 	j.requested = true
 	for hash in hashes.slice(0, Protocol.MAX_ASSETS):
@@ -516,13 +604,14 @@ func on_client_ready(peer_id: int) -> void:
 	if j.is_empty() or not j.requested or not j.queue.is_empty():
 		return
 	_joining.erase(peer_id)
-	_spawn_player(peer_id, j.name)
+	_spawn_player(peer_id, j.name, j.player_id)
 
 
-func _spawn_player(peer_id: int, player_name: String) -> void:
+func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void:
 	var p := ServerPlayer.new(self, peer_id, player_name)
+	p.player_id = player_id
 	p.edit_tokens = EDITS_PER_SECOND
-	var saved = _meta.players.get(player_name)
+	var saved = _meta.players.get(player_id)
 	var first_time := not (saved is Dictionary)
 	if not first_time:
 		var pos = saved.get("position")
@@ -546,7 +635,7 @@ func _spawn_player(peer_id: int, player_name: String) -> void:
 	if not server_info.motd.is_empty():
 		p.send_message(server_info.motd)
 	broadcast_chat("%s joined the game" % player_name)
-	print("[server] %s joined (peer %d)" % [player_name, peer_id])
+	print("[server] %s joined (peer %d, player id %s%s)" % [player_name, peer_id, player_id, ", admin" if is_admin(p) else ""])
 	emit("player_join", {"player": p, "first_time": first_time})
 
 
@@ -923,6 +1012,8 @@ func on_chat(peer_id: int, text: String) -> void:
 		var command: Dictionary = _commands.get(parts[0].to_lower(), {})
 		if command.is_empty():
 			p.send_message("Unknown command /%s. Try /help" % parts[0])
+		elif not _permitted(p, command):
+			p.send_message("You don't have permission to use /%s" % parts[0])
 		else:
 			command.handler.call(p, parts.slice(1))
 		return
@@ -1103,9 +1194,11 @@ func _load_meta(seed_override: int) -> void:
 			_meta = parsed
 	if not _meta.has("seed"):
 		_meta.seed = seed_override if seed_override >= 0 else randi()
-	for key in ["players", "mod_storage"]:
+	for key in ["players", "mod_storage", "names"]:
 		if not (_meta.get(key) is Dictionary):
 			_meta[key] = {}
+	if not (_meta.get("admins") is Array):
+		_meta.admins = []
 	if _meta.get("time") is Array and _meta.time.size() == 2:
 		_time_of_day = float(_meta.time[0])
 		_day_length = float(_meta.time[1])
@@ -1135,7 +1228,8 @@ func _serialize_chunk(coord: Vector2i) -> Array:
 	return [_chunk_path(coord), JSON.stringify({"version": 1, "palette": palette, "blocks": edits, "states": Array(states), "data": data})]
 
 func _store_player(p: ServerPlayer) -> void:
-	_meta.players[p.name] = {
+	_meta.players[p.player_id] = {
+		"name": p.name,
 		"position": [p.state.position.x, p.state.position.y, p.state.position.z],
 		"inventory": Array(p.inventory.to_packed()),
 		"creative": p.inventory.creative,

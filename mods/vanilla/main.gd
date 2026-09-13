@@ -18,8 +18,8 @@ func setup(mod_api) -> void:
 	api.set_spawn_handler(_spawn_position)
 	api.on("player_join", _on_join)
 	api.register_command("spawn", "Teleport to world spawn", func(player, _args): player.teleport(_spawn_position(player)))
-	api.register_command("fly", "Toggle low gravity", _toggle_low_gravity)
-	api.register_command("time", "day | night | noon | midnight | <0-1> | speed <seconds per day>", _cmd_time)
+	api.register_command("fly", "Toggle low gravity for everyone", _toggle_low_gravity, "admin")
+	api.register_command("time", "day | night | noon | midnight | <0-1> | speed <seconds per day>", _cmd_time, "admin")
 	if not api.storage.get("time_initialized", false):
 		api.storage.time_initialized = true
 		api.set_world_time(0.3, 1200.0)  # start the morning of a 20-minute day

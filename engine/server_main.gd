@@ -11,7 +11,8 @@ extends Node
 ##   --world=name          VOXEL_WORLD         defaults to the first mod id
 ##   --seed=123            VOXEL_SEED          seed for a new world
 ##   --metrics=10          VOXEL_METRICS       print tick/bandwidth stats every N seconds
-##   --admin-token=xyz     VOXEL_ADMIN_TOKEN   token allowed to request a save-and-shutdown
+##   --admin-token=xyz     VOXEL_ADMIN_TOKEN   token the local host uses to shut down / become admin
+##   --admins=a,b          VOXEL_ADMINS        admin player ids (see /whoami) or names
 
 const GameServer = preload("res://engine/server/game_server.gd")
 const Native = preload("res://engine/shared/native.gd")
@@ -26,6 +27,7 @@ const DEFAULTS := {
 	"seed": "-1",
 	"metrics": "0",
 	"admin-token": "",
+	"admins": "",
 }
 
 var _server: Node
@@ -60,6 +62,7 @@ func _ready() -> void:
 		"seed": int(options.seed),
 		"metrics": float(options.metrics),
 		"admin_token": options["admin-token"],
+		"admins": options.admins,
 	})
 	if err != OK:
 		printerr("[server] Startup failed: %s" % error_string(err))
