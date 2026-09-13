@@ -76,6 +76,23 @@ func setup(mod_api) -> void:
 	ids.orb = api.register_block("light_orb", {"display_name": "Light Orb", "textures": "textures/light_orb.png", "render": "cutout",
 		"light": 15, "solid": false, "drops": "", "placeable": false})
 
+	# Cosmetics: robes anyone can wear here, and a hat earned by levelling a Soul Blade.
+	api.register_cosmetic("mage_robe", {"category": "jacket", "display_name": "Mage robe", "color": "#4a3a8a",
+		"description": "Arcana: worn by those who study the crystals.", "paint": [
+			{"region": "torso_overlay", "rows": [0, 12]},
+			{"region": "arm_r_overlay", "rows": [0, 12]}, {"region": "arm_l_overlay", "rows": [0, 12]},
+			{"region": "leg_r_overlay", "rows": [0, 10]}, {"region": "leg_l_overlay", "rows": [0, 10]},
+			{"region": "torso_overlay", "rows": [9, 10], "sides": ["front", "back", "left", "right"], "color": "#e8c040"},
+			{"region": "arm_r_overlay", "rows": [10, 12], "sides": ["front", "back", "left", "right"], "color": "#e8c040"},
+			{"region": "arm_l_overlay", "rows": [10, 12], "sides": ["front", "back", "left", "right"], "color": "#e8c040"}]})
+	ids.archmage_hat = api.register_cosmetic("archmage_hat", {"category": "hat", "display_name": "Archmage hat", "color": "#2a3a8a",
+		"unlocked": false, "description": "Arcana: awarded for a Soul Blade of level 3.", "boxes": [
+			{"from": [-6, 0, -6], "size": [12, 1, 12]}, {"from": [-4, 1, -4], "size": [8, 3, 8]},
+			{"from": [-3, 4, -2.5], "size": [6, 3, 6]}, {"from": [-2, 7, -1], "size": [4, 3, 4]},
+			{"from": [-1, 10, 0.5], "size": [2, 2, 2]}, {"from": [-0.5, 12, 1.5], "size": [1, 1.5, 1]},
+			{"from": [-4.1, 1, -4.1], "size": [8.2, 1, 8.2], "color": "#e8c040"},
+			{"from": [-1, 2, -4.4], "size": [2, 2, 0.5], "color": "#9ff0ff"}]})
+
 	api.add_generation_pass(CrystalPass.new(api.block("base:stone"), ids.crystal))
 	api.register_recipe({"base:log": 1, "arcana:mana_shard": 3}, "arcana:wand_of_blink")
 	api.register_recipe({"base:log": 1, "arcana:mana_shard": 2, "base:glass": 1}, "arcana:wand_of_light")
@@ -229,6 +246,9 @@ func _on_soul_harvest(ev: Dictionary) -> void:
 	if level > int(data.get("level", 0)):
 		player.show_title("", "Soul Blade reached level %d" % level, 2.0)
 		api.play_sound("spark_cast", player.position, 1.0, 0.6)
+		if level >= 3 and not player.has_cosmetic(ids.archmage_hat):
+			player.grant_cosmetic(ids.archmage_hat)
+			player.send_message("You earned the Archmage hat! Wear it from Esc > Customize avatar.")
 	data.level = level
 	data.name = "Soul Blade" + (" +%d" % level if level > 0 else "")
 	data.modifiers = [{"stat": "attack_damage", "amount": level * 1.5}]

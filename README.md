@@ -44,6 +44,8 @@ engine/
     entity_registry.gd      entity types (mobs, projectiles, dropped items); network subset for clients
     entity_physics.gd       gravity + AABB-vs-voxel collision for entities
     sound_registry.gd       named sounds made of downloadable audio assets
+    player_rig.gd           the player body as data (parts, skin layout regions, attachment points)
+    cosmetics.gd            cosmetic categories, built-in catalog, avatar data rules, server policy
     inventory.gd item_registry.gd chunk.gd voxel_world.gd voxel_raycast.gd protocol.gd native.gd
   server/
     game_server.gd          tick, content delivery, validation, events, chunk jobs, delta saves
@@ -58,6 +60,8 @@ engine/
     entity_view.gd          interpolated, animated entity visuals
     sound_player.gd         voice pool for downloaded and built-in sounds (sounds/)
     inventory_screen.gd     36-slot inventory UI (server-authoritative clicks)
+    avatar/                 player avatars: rig animation, skin compositing, look builder, held items,
+                            first-person arm, avatar editor
     content_cache.gd texture_atlas.gd server_ui.gd remote_player.gd
 native/                     Rust GDExtension (meshing + lighting, physics, snapshots, signals, JS)
 mods/
@@ -243,6 +247,48 @@ api.on("entity_death", func(ev):
 - **Bundled:** wooden, stone and iron pickaxes, axes, shovels and swords, iron armor (base), leather
   armor from pigs (vanilla), the Soul Blade that levels with kills (Arcana, GDScript) and the
   Prospector's Pick that mines faster as it gains experience (Guild, JavaScript).
+
+### Avatars and cosmetics
+
+Players are drawn with a rig of 10 boxes (head, torso, upper and lower arms and legs) textured in the
+standard 64x64 Minecraft skin layout, animated procedurally (walking, running, jumping, swinging,
+looking, getting hurt). Held items and worn armor show on everyone's avatar, F5 cycles first person,
+behind and in front, and first person shows your arm and held item. Servers can replace the rig with
+`api.set_player_rig(def)` (see `engine/shared/player_rig.gd`); outfits keep working because they are
+drawn in layout regions, not per part.
+
+A player's look is plain data: skin color (or per-part body colors) and one cosmetic per category
+(face, pants, shoes, shirt, jacket, hair, hat, glasses, back). Esc > **Customize avatar** (or the main
+menu) opens the editor with a turning preview.
+
+- **Portable look:** built-in cosmetics are part of the engine; your choices are saved on your
+  computer and appear on every server that allows them.
+- **Server cosmetics:** mods register their own, free for everyone or granted to players (quest
+  rewards, shops, ranks). Ownership and picks are saved per player with the world.
+- **Armor or cosmetics:** a cosmetic that covers an armor slot (hats cover the head) shows instead of
+  that armor piece; each player can choose per slot to show their armor instead.
+- **Server control:** `set_cosmetics_policy` can disallow built-in cosmetics or recoloring, force armor
+  or cosmetics to show, block categories or items, and dress everyone in a uniform;
+  `player.set_avatar_override` and the `avatar_change` event change individual looks (teams, disguises).
+
+Cosmetics are data, so they need no art tools: `paint` fills areas of the skin layout, `pixels` draws a
+face, `boxes` builds a voxel accessory at the category's attachment point, or use a `texture` (64x64
+layer) or glTF `model`.
+
+```gdscript
+api.register_cosmetic("pirate_hat", {"category": "hat", "color": "#2a2a2a", "unlocked": false,
+	"boxes": [{"from": [-6, 0, -4], "size": [12, 2, 8]}, {"from": [-4, 2, -3], "size": [8, 3, 6]},
+		{"from": [-1, 3, -3.2], "size": [2, 2, 0.3], "color": "#f0f0f0"}]})
+api.register_cosmetic("sash", {"category": "jacket", "color": "#b03030",
+	"paint": [{"region": "torso_overlay", "rows": [4, 6], "sides": ["front", "back", "left", "right"]}]})
+api.set_cosmetics_policy({"armor": "player", "blocked": ["back"]})
+player.grant_cosmetic("my_mod:pirate_hat")
+player.set_avatar_override({"wear": {"shirt": {"id": "builtin:tshirt", "color": "#4a78d0"}}})   # blue team
+```
+
+Bundled: the Mage robe and the Archmage hat for a level 3 Soul Blade (Arcana, GDScript) and the Guild
+cape for three completed quests (Guild, JavaScript). Uploading your own skins and 3D clothing is not
+supported yet.
 
 ### Entities, combat, inventory and sound
 
@@ -507,12 +553,13 @@ godot --headless --path . res://tests/host_flow_test.tscn                     # 
 
 godot --headless --path . res://tests/persistence_test.tscn   # delta saves, block data, backups + restore
 godot --headless --path . res://tests/identity_test.tscn      # encrypted identity export / import
-godot --headless --path . res://tests/gameplay_test.tscn      # inventory rules, entities, damage, persistent mobs
+godot --headless --path . res://tests/gameplay_test.tscn      # inventory, entities, damage, equipment, cosmetics
 godot --headless --path . res://tests/ai_test.tscn            # mob AI in a flat arena (tests/mods/ai_arena)
 godot --headless --path . res://tests/js_sandbox_test.tscn    # JavaScript limits
 godot --headless --path . res://tests/bench.tscn              # worldgen, meshing, snapshots, physics
 godot --headless --path . res://tests/bots.tscn -- --port=24603 --bots=100
 godot --path . res://tests/screenshot.tscn -- --port=24603 --commands="/industry demo|/time night"
+godot --path . res://tests/screenshot.tscn -- --port=24603 --camera=2 --editor=hat   # avatar editor
 ```
 
 - **vanilla:** creative mode, movement prediction, edits.
@@ -525,5 +572,6 @@ godot --path . res://tests/screenshot.tscn -- --port=24603 --commands="/industry
 - **skyblock** also chops a log and crafts planks in survival.
 - **All games:** server rollback of an invalid edit.
 - **auth:** permissions, name claims, key-bound saved data, tampered signatures.
-- **multiplayer:** two client processes see each other join, move, build, chat and leave.
+- **multiplayer:** two client processes see each other join, move, build, chat and leave, and see each
+  other's avatar cosmetics change.
 - **host_flow:** Host launches a server, the host becomes admin, leaving stops the server.

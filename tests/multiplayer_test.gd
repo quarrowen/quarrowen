@@ -1,6 +1,7 @@
 extends Node
 ## Two real clients on one server. This process is "Alice"; it launches "Bob" as a second Godot
-## process and both verify they see each other move, see each other's edits and receive chat.
+## process and both verify they see each other move, see each other's edits, receive chat and see
+## each other's avatar cosmetics (Bob joins wearing a crown, then changes to a top hat).
 ##   godot --headless --path . res://tests/multiplayer_test.tscn -- --port=25601
 
 const GameClient = preload("res://engine/client/game_client.gd")
@@ -25,6 +26,8 @@ func _ready() -> void:
 	_client.player_name = "Alice" if _role == "a" else "Bob"
 	_client.identity_name = "mp_%s" % _role
 	_client.ignore_mouse_capture = true
+	_client.avatar = {} if _role == "a" else {"skin": "#8c5a3a", "wear": {
+		"hat": {"id": "builtin:crown", "color": "#e8c040"}, "shirt": {"id": "builtin:tshirt", "color": "#d94c4c"}}}
 	add_child(_client)
 	(_alice if _role == "a" else _bob).call_deferred()
 
@@ -41,6 +44,19 @@ func _alice() -> void:
 
 	var sees_bob := await _wait(func(): return _remote("Bob") != null, 25.0)
 	_check(sees_bob, "Alice sees Bob join")
+	if sees_bob:
+		var hat := func(id: String) -> bool:
+			var bob = _remote("Bob")
+			if bob == null or not bob.avatar.attachments.has("hat") or bob.avatar.attachments.hat.get_node_or_null("cosmetic_hat") == null:
+				return false
+			return _client._appearances.get(bob.peer_id, {}).get("avatar", {}).get("wear", {}).get("hat", {}).get("id", "") == id
+		_check(await _wait(hat.bind("builtin:crown"), 10.0), "Alice sees Bob's crown")
+		var bob_look: Dictionary = _client._appearances.get(_remote("Bob").peer_id, {}).get("avatar", {})
+		var torso_front: Color = _client._looks.skin_image(bob_look).get_pixel(21, 24)  # skin layout: torso front
+		_check(torso_front.r > 0.6 and torso_front.g < 0.45, "Bob's red t-shirt is on his skin (%s)" % torso_front)
+		_write_result("change_hat", "1")
+		_check(await _wait(hat.bind("builtin:top_hat"), 10.0), "Alice sees Bob change to a top hat")
+
 	if sees_bob:
 		var start: Vector3 = _remote("Bob").position
 		var moved := await _wait(func(): return _remote("Bob") != null and _remote("Bob").position.distance_to(start) > 2.0, 15.0)
@@ -74,6 +90,10 @@ func _bob() -> void:
 		return
 	if await _wait(func(): return _remote("Alice") != null, 10.0):
 		_write_result("saw_alice", "1")
+	await _wait(func(): return _read_result().has("change_hat"), 20.0)
+	var changed: Dictionary = _client.avatar.duplicate(true)
+	changed.wear.hat = {"id": "builtin:top_hat", "color": "#2a2a2a"}
+	Net.c_set_avatar.rpc_id(1, changed)
 	# Place a plank next to where we stand, then walk so Alice sees movement.
 	_client.select_slot(4)
 	await get_tree().create_timer(0.3).timeout

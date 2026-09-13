@@ -47,6 +47,17 @@ var mining := {}  # {position, started} while breaking a block
 var physics_rules = null
 ## Last appearance sent to clients (held item, visible armor, cosmetics).
 var appearance := {}
+## The look others see (Cosmetics avatar data), recomputed by the server from the fields below.
+var avatar := {}
+## The player's own built-in look, sent by their client.
+var portable_avatar := {}
+## Server cosmetics the player picked on this server: {category: {id, color}}.
+var server_wear := {}
+## Avatar data mods lay over the player's look (see set_avatar_override).
+var avatar_override := {}
+## Server cosmetics granted to this player: name -> true.
+var owned_cosmetics := {}
+var avatar_changed_at := -100.0
 var _stats := {}
 var _stats_dirty := true
 var _sent_stats := {}
@@ -260,6 +271,26 @@ func sync_inventory() -> void:
 	if _online():
 		Net.s_inventory.rpc_id(peer_id, inventory.to_packed(), inventory.selected, inventory.creative, inventory.data_to_network())
 		_server.refresh_stats(self)
+
+
+## Lets the player wear a server cosmetic registered with `unlocked: false`. Saved with the world.
+func grant_cosmetic(cosmetic_name: String) -> void:
+	_server.grant_cosmetic(self, cosmetic_name, true)
+
+
+func revoke_cosmetic(cosmetic_name: String) -> void:
+	_server.grant_cosmetic(self, cosmetic_name, false)
+
+
+func has_cosmetic(cosmetic_name: String) -> bool:
+	return owned_cosmetics.has(cosmetic_name)
+
+
+## Avatar data laid over this player's look, e.g. a team uniform: {wear: {shirt: {id, color}}}; an
+## empty id takes a category off. Pass {} to clear. Not saved.
+func set_avatar_override(values: Dictionary) -> void:
+	avatar_override = _server.cosmetics.sanitize_avatar(values, Callable(), true)
+	_server.refresh_avatar(self)
 
 
 func is_admin() -> bool:

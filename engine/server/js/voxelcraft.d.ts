@@ -56,6 +56,33 @@ declare module "voxelcraft" {
     attack_damage?: number;
   }
 
+  /** Colors are "#rrggbb". An empty id in overrides and uniforms takes a category off. */
+  export interface Avatar {
+    skin?: string;
+    body?: { head?: string; torso?: string; arms?: string; legs?: string };
+    wear?: Record<string, { id: string; color?: string }>;
+    show_armor?: { head?: boolean; chest?: boolean; legs?: boolean; feet?: boolean };
+  }
+
+  /** A cosmetic, drawn from data (see engine/shared/cosmetics.gd). Regions use the 64x64 skin layout;
+   *  boxes are in skin pixels at the category's attachment point (+y up, -z forward). */
+  export interface CosmeticDef {
+    category: "face" | "pants" | "shoes" | "shirt" | "jacket" | "hair" | "hat" | "glasses" | "back" | string;
+    display_name?: string; description?: string;
+    /** Default tint; paint/boxes/pixels without a color use the tint. */
+    color?: string; tint?: boolean;
+    paint?: { region: string; rows?: [number, number]; sides?: ("front" | "back" | "left" | "right" | "top" | "bottom")[]; color?: string; shade?: number }[];
+    pixels?: { rows: string[]; palette?: Record<string, string> };
+    boxes?: { from: Vec3Array; size: Vec3Array; color?: string; shade?: number }[];
+    texture?: string; model?: string;
+    model_transform?: { position?: Vec3Array; rotation?: Vec3Array; scale?: number };
+    /** Armor slots it replaces when shown (hats: ["head"]). */
+    covers?: ("head" | "chest" | "legs" | "feet")[];
+    /** false: only players granted it may wear it. */
+    unlocked?: boolean;
+  }
+  export type Vec3Array = [number, number, number];
+
   /** Per-item data (engine keys; mods add their own). */
   export interface ItemData { damage?: number; name?: string; lore?: string[]; modifiers?: StatModifier[]; [key: string]: unknown }
   export interface ItemStack { item: ItemId; count: number; data: ItemData }
@@ -189,6 +216,12 @@ declare module "voxelcraft" {
     getStat(name: string): number;
     addModifier(id: string, stat: string, amount: number, op?: "add" | "multiply", seconds?: number): void;
     removeModifier(id: string): void;
+    grantCosmetic(name: string): void;
+    revokeCosmetic(name: string): void;
+    hasCosmetic(name: string): boolean;
+    cosmetics(): string[];
+    avatar(): Avatar;
+    setAvatarOverride(values: Avatar): void;
     refreshStats(): void;
     take(item: ItemId, count?: number): boolean;
     countOf(item: ItemId): number;
@@ -245,6 +278,7 @@ declare module "voxelcraft" {
     item_durability: { player: Player; slot: number; item: ItemId; data: ItemData; amount: number; reason: string; cancelled: boolean };
     item_break: { player: Player; slot: number; item: ItemId; data: ItemData };
     equipment_changed: { player: Player; slot: string; old_item: ItemId; item: ItemId };
+    avatar_change: { player: Player; avatar: Avatar };
     player_stats: { player: Player; stats: Record<string, number> };
     mob_target: { entity: Entity; target: Player | Entity; previous: Player | Entity | null; reason: string; cancelled: boolean };
     mob_attack: { entity: Entity; attack: { name: string; type: string; damage: number }; target: Player | Entity; cancelled: boolean };
@@ -305,6 +339,9 @@ declare module "voxelcraft" {
     makeNoise(position: Vec3, radius: number, source?: Player | Entity | null): void;
     registerEquipmentSlot(name: string, def?: { display_name?: string }): void;
     registerStat(name: string, base: number): void;
+    registerCosmetic(name: string, def: CosmeticDef): string;
+    registerCosmeticCategory(name: string, def?: { display_name?: string; attach?: string; covers?: string[] }): boolean;
+    setCosmeticsPolicy(values: { allow_builtin?: boolean; allow_colors?: boolean; armor?: "player" | "armor" | "cosmetics"; blocked?: string[]; uniform?: Avatar }): void;
     registerMobBehavior(name: string, def: { score: (mob: Entity, ctx: MobContext) => number; update: (mob: Entity, ctx: MobContext) => void; stop?: (mob: Entity) => void }): void;
 
     on<E extends keyof Events>(event: E, handler: (event: Events[E]) => void, priority?: number): void;

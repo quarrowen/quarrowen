@@ -33,7 +33,10 @@ const ItemVisuals = preload("res://engine/client/item_visuals.gd")
 const PlayerRig = preload("res://engine/shared/player_rig.gd")
 const Avatar = preload("res://engine/client/avatar/avatar.gd")
 const SkinCompositor = preload("res://engine/client/avatar/skin_compositor.gd")
-const BuiltinLooks = preload("res://engine/client/avatar/builtin_looks.gd")
+const Cosmetics = preload("res://engine/shared/cosmetics.gd")
+const LookBuilder = preload("res://engine/client/avatar/look_builder.gd")
+const AvatarStore = preload("res://engine/client/avatar/avatar_store.gd")
+const AvatarEditor = preload("res://engine/client/avatar/avatar_editor.gd")
 const ItemMesh = preload("res://engine/client/avatar/item_mesh.gd")
 const ViewModel = preload("res://engine/client/avatar/view_model.gd")
 
@@ -69,6 +72,8 @@ var test_signing_key: CryptoKey = null
 var test_protocol := -1
 ## Accept gameplay input without a captured mouse (headless bots / tests).
 var ignore_mouse_capture := false
+## Your portable avatar (Cosmetics data) sent to the server on join; null loads the saved one.
+var avatar = null
 
 var phase := Phase.CONNECTING
 var server_info := {}
@@ -77,6 +82,9 @@ var items := ItemRegistry.new(registry)
 var rules := PlayerPhysics.Rules.new()
 var world := VoxelWorld.new()
 var inventory := Inventory.new()
+var cosmetics := Cosmetics.new()
+## Server cosmetics you own on this server.
+var owned_cosmetics := PackedStringArray()
 var entity_types := EntityRegistry.new()
 var health := 20.0
 var max_health := 20.0
@@ -128,7 +136,9 @@ var _player_rig := PlayerRig.default_rig()
 var _item_meshes: ItemMesh
 var _asset_images := {}  # asset name -> Image
 var _appearances := {}  # peer id -> appearance from the server
-var _look_cache := {}  # key -> ImageTexture (players sharing a look share textures)
+var _look_cache := {}  # key -> ImageTexture (players sharing armor share textures)
+var _looks: LookBuilder
+var _avatar_editor: AvatarEditor
 var _self_avatar: Avatar
 var camera_mode := CameraMode.FIRST_PERSON
 var _view_model: ViewModel
@@ -175,6 +185,8 @@ var _volume_slider: HSlider
 
 func _ready() -> void:
 	graphics.load_saved()
+	if not (avatar is Dictionary):
+		avatar = AvatarStore.load_avatar()
 	_register_input_actions()
 	_build_scene()
 	_build_hud()
@@ -273,6 +285,8 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 		return
 	inventory.set_equipment_slots(items.slot_names())
 	_player_rig = PlayerRig.sanitize(content.get("player_rig"))
+	cosmetics.load_network(content.get("cosmetics"))
+	Net.c_set_avatar.rpc_id(1, avatar)
 	stats = items.stats.duplicate()
 	if content.get("rules") is Dictionary:
 		on_rules(content.rules)
@@ -387,6 +401,8 @@ func _finish_content() -> void:
 	_inventory_screen.build_equipment(items.slots)
 	_item_meshes = ItemMesh.new(items, registry, _atlas, func(asset: String) -> PackedByteArray:
 		return ContentCache.read(_manifest[asset].hash) if _manifest.has(asset) else PackedByteArray())
+	_looks = LookBuilder.new(cosmetics, _asset_images, func(asset: String) -> PackedByteArray:
+		return ContentCache.read(_manifest[asset].hash) if _manifest.has(asset) else PackedByteArray())
 	_self_avatar = Avatar.new()
 	add_child(_self_avatar)
 	_self_avatar.build(_player_rig)
@@ -430,6 +446,8 @@ func on_welcome(peer_id: int, spawn: Vector3, spawn_yaw: float) -> void:
 	yaw = spawn_yaw
 	_welcomed = true
 	phase = Phase.PLAYING
+	if _self_avatar != null and _appearances.has(my_id):
+		_apply_look(_self_avatar, player_name, _appearances[my_id])  # it may arrive before the welcome
 	if not admin_token.is_empty():
 		Net.c_claim_admin.rpc_id(1, admin_token)
 	_set_status("Loading terrain...")
@@ -516,16 +534,16 @@ func on_player_appearance(peer_id: int, appearance: Dictionary) -> void:
 		_apply_look(_remote_players[peer_id].avatar, _remote_players[peer_id].player_name, appearance)
 
 
-## Dresses an avatar: skin (body, face, clothes), visible armor and the held item.
-func _apply_look(avatar: Avatar, name_text: String, appearance: Dictionary) -> void:
+func on_cosmetics(owned: PackedStringArray, policy: Dictionary) -> void:
+	owned_cosmetics = owned
+	cosmetics.set_policy(policy)
+
+
+## Dresses an avatar: skin and accessories (cosmetics), visible armor and the held item.
+func _apply_look(target: Avatar, name_text: String, appearance: Dictionary) -> void:
 	if _item_meshes == null:
 		return
-	var look := BuiltinLooks.default_appearance(name_text)
-	var skin_key := "skin:%s" % str(look)
-	if not _look_cache.has(skin_key):
-		var skin := SkinCompositor.compose_skin(look.colors, BuiltinLooks.face(), [BuiltinLooks.pants(look.pants), BuiltinLooks.shirt(look.shirt)])
-		_look_cache[skin_key] = ImageTexture.create_from_image(skin)
-	avatar.set_skin(_look_cache[skin_key])
+	_looks.apply(target, appearance.get("avatar", {}) if appearance.get("avatar") is Dictionary else {}, name_text)
 	var pieces := {}
 	var armor = appearance.get("armor", {})
 	if armor is Dictionary:
@@ -535,15 +553,15 @@ func _apply_look(avatar: Avatar, name_text: String, appearance: Dictionary) -> v
 				pieces[String(slot)] = _asset_images[texture]
 	var armor_key := "armor:%s" % str(armor)
 	if pieces.is_empty():
-		avatar.set_armor(null)
+		target.set_armor(null)
 	else:
 		if not _look_cache.has(armor_key):
 			_look_cache[armor_key] = ImageTexture.create_from_image(SkinCompositor.compose_armor(pieces))
-		avatar.set_armor(_look_cache[armor_key])
-	avatar.set_held(_item_meshes.node_for(int(appearance.get("held", 0))))
-	if avatar == _self_avatar:
-		_view_model.set_skin(avatar._skin_material.albedo_texture)
-		_view_model.set_armor(avatar._armor_material.albedo_texture)
+		target.set_armor(_look_cache[armor_key])
+	target.set_held(_item_meshes.node_for(int(appearance.get("held", 0))))
+	if target == _self_avatar:
+		_view_model.set_skin(target._skin_material.albedo_texture)
+		_view_model.set_armor(target._armor_material.albedo_texture)
 
 
 func on_health(value: float, max_value: float, is_dead: bool, hurt: bool) -> void:
@@ -1283,6 +1301,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		yaw = wrapf(yaw - event.relative.x * MOUSE_SENSITIVITY, -PI, PI)
 		_look_delta += event.relative
 		pitch = clampf(pitch - event.relative.y * MOUSE_SENSITIVITY, -PI * 0.49, PI * 0.49)
+	elif _avatar_editor != null:
+		if event.is_action_pressed("pause"):
+			_close_avatar_editor()
+		return
 	elif event.is_action_pressed("pause") and _inventory_screen.visible:
 		_set_inventory_open(false)
 	elif event.is_action_pressed("inventory") and _welcomed and not dead and (_inventory_screen.visible or _gameplay_input_enabled()):
@@ -1320,7 +1342,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _gameplay_input_enabled() -> bool:
 	var captured := ignore_mouse_capture or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	return captured and not _chat_input.visible and not _pause_panel.visible and not _server_ui.has_modal() \
-		and not _inventory_screen.visible and not dead
+		and not _inventory_screen.visible and not dead and _avatar_editor == null
 
 
 func drop_selected(whole_stack := false) -> void:
@@ -1345,6 +1367,49 @@ func _set_inventory_open(open: bool) -> void:
 func inventory_click(slot: int, button := 1, shift := false) -> void:
 	Net.c_inventory_click.rpc_id(1, slot, button, shift)
 	_sounds.play_name("engine:ui_click", Vector3.ZERO, 0.4, 1.0, false)
+
+
+## In game: your look with this server's cosmetics; saved built-in choices travel to other servers.
+func open_avatar_editor() -> void:
+	if _avatar_editor != null or _looks == null:
+		return
+	_set_paused(false)
+	var current: Dictionary = _appearances.get(my_id, {}).get("avatar", {})
+	var start := LookBuilder.resolve(avatar, player_name).duplicate(true)
+	for cat_name in current.get("wear", {}):
+		if not Cosmetics.is_builtin(String(current.wear[cat_name].id)):
+			var wear: Dictionary = start.get("wear", {})
+			wear[cat_name] = current.wear[cat_name]
+			start.wear = wear
+	_avatar_editor = AvatarEditor.new()
+	_avatar_editor.setup(cosmetics, _looks, _player_rig, player_name, start, {"in_game": true, "owned": owned_cosmetics})
+	_avatar_editor.done.connect(_on_avatar_edited)
+	_avatar_editor.cancelled.connect(_close_avatar_editor)
+	_hud_root.add_child(_avatar_editor)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _on_avatar_edited(edited: Dictionary) -> void:
+	# Server cosmetics exist only here: the saved portable look keeps its own choice for those categories.
+	var portable := edited.duplicate(true)
+	var previous: Dictionary = LookBuilder.resolve(avatar, player_name)
+	for cat_name in edited.get("wear", {}):
+		if not Cosmetics.is_builtin(String(edited.wear[cat_name].id)):
+			if previous.get("wear", {}).has(cat_name):
+				portable.wear[cat_name] = previous.wear[cat_name]
+			else:
+				portable.wear.erase(cat_name)
+	avatar = cosmetics.sanitize_avatar(portable)
+	AvatarStore.save_avatar(avatar)
+	Net.c_set_avatar.rpc_id(1, edited)
+	_close_avatar_editor()
+
+
+func _close_avatar_editor() -> void:
+	if _avatar_editor != null:
+		_avatar_editor.queue_free()
+		_avatar_editor = null
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _set_paused(paused: bool) -> void:
@@ -1605,6 +1670,11 @@ func _build_hud() -> void:
 	resume.custom_minimum_size = Vector2(240, 44)
 	resume.pressed.connect(_set_paused.bind(false))
 	pause_box.add_child(resume)
+	var customize := Button.new()
+	customize.text = "Customize avatar"
+	customize.custom_minimum_size = Vector2(240, 44)
+	customize.pressed.connect(open_avatar_editor)
+	pause_box.add_child(customize)
 	var quit := Button.new()
 	quit.text = "Stop server & quit to menu" if not admin_token.is_empty() else "Disconnect"
 	quit.custom_minimum_size = Vector2(240, 44)

@@ -25,6 +25,7 @@ const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const Mining = preload("res://engine/shared/mining.gd")
 const PlayerStats = preload("res://engine/server/player_stats.gd")
 const PlayerRig = preload("res://engine/shared/player_rig.gd")
+const Cosmetics = preload("res://engine/shared/cosmetics.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -54,6 +55,8 @@ const REGEN_INTERVAL := 2.5
 const VOID_DAMAGE_Y := -32.0
 ## Landing as fast as a fall from higher than this (blocks) hurts: 1 damage per extra block.
 const SAFE_FALL_HEIGHT := 3.2
+## Minimum seconds between avatar changes from a client.
+const AVATAR_CHANGE_INTERVAL := 0.2
 
 var registry := BlockRegistry.new()
 var items := ItemRegistry.new(registry)
@@ -64,6 +67,8 @@ var entities := Entities.new(self)
 var sounds := SoundRegistry.new()
 ## The character body every client draws players with (see PlayerRig; mods may replace it).
 var player_rig := PlayerRig.default_rig()
+## Built-in and server cosmetics, categories and this server's cosmetics policy.
+var cosmetics := Cosmetics.new()
 ## Game-wide rules mods can change with set_gameplay.
 var gameplay := {
 	"item_drops": "entity",  # "entity": broken blocks drop items to pick up; "inventory": straight into the inventory
@@ -984,7 +989,7 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 	var content := {"blocks": registry.to_network(), "items": items.to_network(), "rules": rules.to_dict(),
 		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
 		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
-		"player_rig": player_rig}
+		"player_rig": player_rig, "cosmetics": cosmetics.to_network()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
@@ -1029,10 +1034,10 @@ func on_client_ready(peer_id: int) -> void:
 	if j.is_empty() or not j.requested or not j.queue.is_empty():
 		return
 	_joining.erase(peer_id)
-	_spawn_player(peer_id, j.name, j.player_id)
+	_spawn_player(peer_id, j.name, j.player_id, j.get("avatar", {}))
 
 
-func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void:
+func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar = {}) -> void:
 	var p := ServerPlayer.new(self, peer_id, player_name)
 	p.player_id = player_id
 	p.edit_tokens = EDITS_PER_SECOND
@@ -1045,6 +1050,9 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void
 		p.load_inventory(saved)
 		p.inventory.creative = bool(saved.get("creative", false))
 		p.data = saved.get("data", {}) if saved.get("data") is Dictionary else {}
+		for id in (saved.get("cosmetics") if saved.get("cosmetics") is Array else []):
+			p.owned_cosmetics[String(id)] = true
+		p.server_wear = saved.get("server_wear") if saved.get("server_wear") is Dictionary else {}
 		p.health = clampf(float(saved.get("health", p.max_health)), 1.0, p.max_health)
 		var spawn_point = saved.get("spawn_point")
 		if spawn_point is Array and spawn_point.size() == 3:
@@ -1055,6 +1063,8 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void
 	ensure_area_loaded(p.state.position)
 
 	Net.s_welcome.rpc_id(peer_id, peer_id, p.state.position, 0.0)
+	_set_client_avatar(p, avatar, true)
+	Net.s_cosmetics.rpc_id(peer_id, PackedStringArray(p.owned_cosmetics.keys()), cosmetics.policy)
 	Net.s_time.rpc_id(peer_id, _time_of_day, _day_length)
 	p.sync_inventory()
 	refresh_stats(p)
@@ -1749,7 +1759,7 @@ func refresh_stats(p: ServerPlayer) -> void:
 	refresh_appearance(p)
 
 
-## What other players see: held item and visible armor. Sent to everyone when it changes.
+## What other players see: held item, visible armor and avatar. Sent to everyone when it changes.
 func refresh_appearance(p: ServerPlayer) -> void:
 	var armor := {}
 	for i in p.inventory.equipment_slots.size():
@@ -1757,7 +1767,7 @@ func refresh_appearance(p: ServerPlayer) -> void:
 		var slot_name: String = p.inventory.equipment_slots[i]
 		if slot_name != "offhand" and p.inventory.ids[index] > 0:
 			armor[slot_name] = p.inventory.ids[index]
-	var appearance := {"held": p.inventory.selected_item(), "armor": armor}
+	var appearance := {"held": p.inventory.selected_item(), "armor": cosmetics.visible_armor(armor, p.avatar), "avatar": p.avatar}
 	var ev := emit("player_appearance", {"player": p, "appearance": appearance})
 	appearance = ev.appearance
 	if appearance == p.appearance or not _started:
@@ -1766,6 +1776,86 @@ func refresh_appearance(p: ServerPlayer) -> void:
 	p.appearance = appearance
 	for other: ServerPlayer in players.values():
 		Net.s_player_appearance.rpc_id(other.peer_id, p.peer_id, appearance)
+
+
+# --- Cosmetics ----------------------------------------------------------------------------------
+
+## A client sent its avatar: while joining it is kept for spawn; in game it replaces the player's look.
+func on_set_avatar(peer_id: int, avatar: Dictionary) -> void:
+	var j: Dictionary = _joining.get(peer_id, {})
+	if not j.is_empty():
+		if j.authenticated:
+			j.avatar = avatar
+		return
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or _time - p.avatar_changed_at < AVATAR_CHANGE_INTERVAL:
+		return
+	p.avatar_changed_at = _time
+	_set_client_avatar(p, avatar, false)
+
+
+## Built-in picks form the player's portable look. Server cosmetic picks are remembered by this server;
+## on join (`joining`) the client only knows its portable look, so remembered picks are kept.
+func _set_client_avatar(p: ServerPlayer, avatar, joining: bool) -> void:
+	var clean := cosmetics.sanitize_avatar(avatar, can_wear.bind(p))
+	if not cosmetics.policy.allow_colors:
+		clean.erase("skin")
+		clean.erase("body")
+		for cat_name in clean.get("wear", {}):
+			clean.wear[cat_name].erase("color")
+	var portable := clean.duplicate(true)
+	var server_picks := {}
+	for cat_name in clean.get("wear", {}):
+		if not Cosmetics.is_builtin(clean.wear[cat_name].id):
+			server_picks[cat_name] = clean.wear[cat_name]
+			portable.wear.erase(cat_name)
+	p.portable_avatar = portable
+	if not joining:
+		p.server_wear = server_picks
+	refresh_avatar(p)
+
+
+## Whether a player may pick a cosmetic themselves (mods can still dress anyone in anything).
+func can_wear(cosmetic_name: String, p: ServerPlayer) -> bool:
+	var d := cosmetics.get_def(cosmetic_name)
+	if d.is_empty() or cosmetics.is_blocked(cosmetic_name):
+		return false
+	if Cosmetics.is_builtin(cosmetic_name):
+		return cosmetics.policy.allow_builtin
+	return d.unlocked or p.owned_cosmetics.has(cosmetic_name)
+
+
+## Recomputes the look others see: portable look (or the name's default), then this server's picks,
+## the policy uniform, the player's override and avatar_change handlers.
+func refresh_avatar(p: ServerPlayer) -> void:
+	var base: Dictionary = p.portable_avatar if not p.portable_avatar.is_empty() else Cosmetics.default_avatar(p.name)
+	var avatar := cosmetics.sanitize_avatar(base, can_wear.bind(p))
+	avatar = Cosmetics.merge(avatar, cosmetics.sanitize_avatar({"wear": p.server_wear}, can_wear.bind(p)))
+	avatar = Cosmetics.merge(avatar, cosmetics.policy.uniform)
+	avatar = Cosmetics.merge(avatar, p.avatar_override)
+	var ev := emit("avatar_change", {"player": p, "avatar": avatar})
+	p.avatar = cosmetics.sanitize_avatar(ev.avatar)
+	refresh_appearance(p)
+
+
+func grant_cosmetic(p: ServerPlayer, cosmetic_name: String, owned: bool) -> void:
+	if owned == p.owned_cosmetics.has(cosmetic_name) or cosmetics.get_def(cosmetic_name).is_empty():
+		return
+	if owned:
+		p.owned_cosmetics[cosmetic_name] = true
+	else:
+		p.owned_cosmetics.erase(cosmetic_name)
+	if p._online():
+		Net.s_cosmetics.rpc_id(p.peer_id, PackedStringArray(p.owned_cosmetics.keys()), cosmetics.policy)
+	refresh_avatar(p)
+
+
+func set_cosmetics_policy(values: Dictionary) -> void:
+	cosmetics.set_policy(values)
+	for p: ServerPlayer in players.values():
+		if p._online():
+			Net.s_cosmetics.rpc_id(p.peer_id, PackedStringArray(p.owned_cosmetics.keys()), cosmetics.policy)
+		refresh_avatar(p)
 
 
 func _update_player_rules(p: ServerPlayer) -> void:
@@ -1984,6 +2074,8 @@ func _store_player(p: ServerPlayer) -> void:
 		"modifiers": p.modifiers.duplicate(true),
 		"creative": p.inventory.creative,
 		"data": p.data,
+		"cosmetics": p.owned_cosmetics.keys(),
+		"server_wear": p.server_wear,
 		"health": maxf(p.health, 1.0) if not p.dead else p.max_health,
 		"spawn_point": [p.spawn_point.x, p.spawn_point.y, p.spawn_point.z] if p.spawn_point != Vector3.INF else null,
 	}

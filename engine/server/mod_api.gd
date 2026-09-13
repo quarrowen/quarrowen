@@ -19,6 +19,7 @@ extends RefCounted
 ##   item_break     {player, slot, item, data}                an item wore out
 ##   equipment_changed {player, slot, old_item, item}
 ##   player_appearance {player, appearance}                    what others see; may be changed
+##   avatar_change  {player, avatar}                          the player's look was recomputed; avatar may be changed
 ##   player_stats   {player, stats}                           stats may be changed (see ItemRegistry.BASE_STATS)
 ##   block_break / block_broken also carry {item, slot} (the held tool) and block_broken {harvested}
 ##   item_drop      {player, item, count, cancelled}          Q key
@@ -185,6 +186,38 @@ func get_entity(entity_id: int):
 ## Replaces the player character rig for this server (see engine/shared/player_rig.gd).
 func set_player_rig(def: Dictionary) -> void:
 	_server.set_player_rig(def)
+
+
+## Registers a server cosmetic players can wear on this server (see engine/shared/cosmetics.gd for
+## the def: category, paint, pixels, boxes, texture, model, color, covers, unlocked...). `texture` and
+## `model` are paths in this mod. `unlocked: false` makes it wearable only after player.grant_cosmetic.
+## Returns the cosmetic's full name ("mod:name"), or "" when invalid.
+func register_cosmetic(cosmetic_name: String, def: Dictionary) -> String:
+	var d := def.duplicate(true)
+	d.name = _qualify(cosmetic_name)
+	for key in ["texture", "model"]:
+		if not String(def.get(key, "")).is_empty():
+			d[key] = register_asset(def[key])
+	return _server.cosmetics.register(d)
+
+
+## Adds a cosmetic category. def: display_name, attach (rig attachment point for boxes and models),
+## covers (armor slots its cosmetics replace by default).
+func register_cosmetic_category(category_name: String, def := {}) -> bool:
+	var d := def.duplicate()
+	d.name = category_name
+	return _server.cosmetics.register_category(d)
+
+
+## Sets how cosmetics work on this server. values (any subset):
+##   allow_builtin: players may wear built-in cosmetics (their own look from other servers)
+##   allow_colors:  players may recolor cosmetics and choose skin colors
+##   armor: "player" (each player chooses per slot), "armor" (armor always shows), "cosmetics"
+##   blocked: [cosmetic names or categories]
+##   uniform: avatar data laid over every player, e.g. {wear: {shirt: {id: "builtin:tshirt", color: "#d94c4c"}}}
+## For per-player looks (teams, disguises) use player.set_avatar_override or the avatar_change event.
+func set_cosmetics_policy(values: Dictionary) -> void:
+	_server.set_cosmetics_policy(values)
 
 
 ## Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching

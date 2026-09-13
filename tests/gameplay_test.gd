@@ -21,6 +21,7 @@ func _ready() -> void:
 	await _server_rules()
 	await _equipment()
 	await _progression()
+	await _cosmetics()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -297,6 +298,81 @@ func _progression() -> void:
 		_check(int(pick_data.get("xp", 0)) == 5 and int(pick_data.get("level", 0)) == 1, "JavaScript pick levelled from mining (%s)" % str(pick_data))
 		_check(is_equal_approx(p.get_stat("mining_speed"), 1.2), "its level speeds up mining (%.2f)" % p.get_stat("mining_speed"))
 	server.players.erase(90)
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _cosmetics() -> void:
+	const Cosmetics = preload("res://engine/shared/cosmetics.gd")
+	const LookBuilder = preload("res://engine/client/avatar/look_builder.gd")
+	var registry := Cosmetics.new()
+	_check(registry.in_category("hat").size() >= 5 and registry.in_category("face").size() >= 5, "built-in catalog has hats and faces")
+	var messy := {"skin": "#abc", "body": {"arms": "red", "legs": "#102030"}, "show_armor": {"head": true, "tail": true},
+		"wear": {"hat": {"id": "builtin:crown", "color": "#nothex"}, "shirt": {"id": "builtin:crown"}, "wings": {"id": "builtin:wings"},
+			"face": {"id": "nobody:face"}}}
+	var clean := registry.sanitize_avatar(messy)
+	_check(clean.skin == "#aabbcc" and clean.body == {"legs": "#102030"} and clean.show_armor == {"head": true},
+		"sanitize keeps valid colors and armor choices (%s)" % clean)
+	_check(clean.wear.keys() == ["hat"] and clean.wear.hat.color == "#e8c040", "sanitize drops unknown and misfiled cosmetics, bad colors fall back")
+	var merged := Cosmetics.merge(clean, {"wear": {"hat": {"id": ""}, "back": {"id": "builtin:cape", "color": "#ffffff"}}})
+	_check(not merged.wear.has("hat") and merged.wear.back.id == "builtin:cape", "merge removes with empty ids and adds")
+
+	# Client side: data-drawn looks.
+	var looks := LookBuilder.new(registry)
+	var look := {"skin": "#8c5a3a", "wear": {"shirt": {"id": "builtin:tshirt", "color": "#ff0000"}, "hat": {"id": "builtin:top_hat"},
+		"face": {"id": "builtin:smile", "color": "#0000ff"}}}
+	var skin := looks.skin_image(look)
+	var torso: Color = skin.get_pixel(21, 24)
+	var arm_low: Color = skin.get_pixel(45, 30)  # right arm front, below the sleeve
+	var eye: Color = skin.get_pixel(8 + 2, 8 + 3)
+	_check(torso.r > 0.9 and torso.g < 0.1, "t-shirt paints the torso (%s)" % torso)
+	_check(absf(arm_low.r - 0.55) < 0.06, "arms below the sleeves keep the skin color (%s)" % arm_low)
+	_check(eye.b > 0.9 and eye.r < 0.1, "face pixels use the eye tint (%s)" % eye)
+	var parts := looks.accessories(look, 0.05)
+	_check(parts.size() == 1 and parts[0].attach == "hat" and parts[0].node.get_child_count() == 1, "hats become accessory meshes")
+	for entry in parts:
+		entry.node.free()
+
+	# Server side: armor visibility, ownership, policy, overrides.
+	var server = _start("cosmetics_%d" % Time.get_ticks_msec(), ["vanilla", "arcana"])
+	var p := ServerPlayer.new(server, 78, "Stylist")
+	p.player_id = "stylist"
+	server.players[78] = p
+	var helmet: int = server.items.id_of("base:iron_helmet")
+	p.inventory.set_slot(p.equipment_slot("head"), helmet, 1)
+	server._set_client_avatar(p, {"wear": {"hat": {"id": "builtin:cap"}, "hair": {"id": "builtin:short_hair"}}}, true)
+	server.refresh_appearance(p)
+	_check(p.appearance.avatar.wear.hat.id == "builtin:cap" and not p.appearance.armor.has("head"), "a hat shows instead of the helmet by default")
+	server._set_client_avatar(p, {"wear": {"hat": {"id": "builtin:cap"}}, "show_armor": {"head": true}}, false)
+	_check(p.appearance.armor.get("head") == helmet, "show_armor puts the helmet back")
+	server.set_cosmetics_policy({"armor": "cosmetics"})
+	_check(not p.appearance.armor.has("head"), "policy can force cosmetics over armor")
+	server.set_cosmetics_policy({"armor": "player"})
+
+	var hat := "arcana:archmage_hat"
+	server._set_client_avatar(p, {"wear": {"hat": {"id": hat}}}, false)
+	_check(not p.avatar.get("wear", {}).has("hat"), "locked server cosmetics cannot be worn")
+	p.grant_cosmetic(hat)
+	server._set_client_avatar(p, {"wear": {"hat": {"id": hat}, "shirt": {"id": "builtin:tank_top"}}}, false)
+	_check(p.avatar.wear.hat.id == hat and p.server_wear.has("hat") and not p.portable_avatar.wear.has("hat"),
+		"granted cosmetics can be worn and are remembered by the server, not the portable look")
+	server._set_client_avatar(p, {"wear": {"shirt": {"id": "builtin:tshirt"}}}, true)
+	_check(p.avatar.wear.hat.id == hat and p.avatar.wear.shirt.id == "builtin:tshirt", "rejoining keeps server picks over the portable look")
+	server._store_player(p)
+	_check(server._meta.players.stylist.cosmetics == [hat] and server._meta.players.stylist.server_wear.has("hat"), "owned cosmetics are saved")
+	p.revoke_cosmetic(hat)
+	_check(not p.avatar.wear.has("hat"), "revoking takes the cosmetic off")
+
+	server.set_cosmetics_policy({"uniform": {"wear": {"shirt": {"id": "builtin:long_sleeve", "color": "#3d9c9c"}}}, "blocked": ["builtin:tshirt"]})
+	_check(p.avatar.wear.shirt.id == "builtin:long_sleeve" and p.avatar.wear.shirt.color == "#3d9c9c", "a uniform dresses everyone")
+	server.set_cosmetics_policy({"uniform": {}})
+	_check(not p.avatar.get("wear", {}).has("shirt"), "blocked cosmetics are removed")
+	server.set_cosmetics_policy({"blocked": []})
+	p.set_avatar_override({"wear": {"glasses": {"id": "builtin:shades"}}})
+	_check(p.avatar.wear.glasses.id == "builtin:shades", "mods can override a player's look")
+	server.add_handler("avatar_change", func(ev): ev.avatar.skin = "#00ff00", 0)
+	p.set_avatar_override({})
+	_check(p.avatar.skin == "#00ff00" and not p.avatar.get("wear", {}).has("glasses"), "avatar_change handlers can change the look")
 	server.queue_free()
 	await get_tree().process_frame
 

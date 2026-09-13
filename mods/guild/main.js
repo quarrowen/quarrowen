@@ -44,6 +44,17 @@ export function setup(api) {
 
   api.registerSound("coin", "sounds/coin.wav", { pitch_variance: 0.05 });
 
+  // --- Cosmetics: a cape for members who have completed three quests -----------------------------
+  const CAPE = api.registerCosmetic("guild_cape", {
+    category: "back", display_name: "Guild cape", color: "#3a6a3a", unlocked: false,
+    description: "Guild: complete three quests.",
+    boxes: [
+      { from: [-4.5, -12, 0.2], size: [9, 17, 0.8] },
+      { from: [-4.5, 4, 0.2], size: [9, 1, 1.2], color: "#e8c040" },
+      { from: [-1.5, -3, 1], size: [3, 3, 0.3], color: "#e8c040" },
+    ],
+  });
+
   // --- Prospector's Pick: a tool that levels up from the blocks it mines -------------------------
   // Built only from engine pieces: the block_broken event, item data (xp, level, name, lore) and
   // per-item stat modifiers. Each level mines 20% faster; level 3 adds a chance of double gold.
@@ -223,6 +234,10 @@ export function setup(api) {
           player.give(ids.coin, def.reward);
           setState(player, null);
           player.setData("completed", player.getData("completed", 0) + 1);
+          if (player.getData("completed", 0) >= 3 && !player.hasCosmetic(CAPE)) {
+            player.grantCosmetic(CAPE);
+            player.sendMessage("The Guild grants you its cape! Wear it from Esc > Customize avatar.");
+          }
           const ledger = api.storage.get("ledger", {});
           ledger[player.name] = (ledger[player.name] ?? 0) + 1;
           api.storage.set("ledger", ledger);

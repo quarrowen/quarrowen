@@ -3,12 +3,14 @@ extends Node
 ## quits. Needs a real window:
 ##   godot --path . res://tests/screenshot.tscn -- --port=24600 --out=/tmp/shot.png \
 ##     [--yaw=0.8] [--pitch=-0.25] [--commands="/industry demo|/time night"] [--wait=3] [--menu=crafting]
+##     [--camera=0|1|2] [--avatar='{"wear": {...}}' (join with) | --wear='{...}' (change in game)]
+##     [--editor=hat (opens the avatar editor on a category)]
 
 const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1"}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -16,6 +18,7 @@ func _ready() -> void:
 	var client = GameClient.new()
 	client.server_port = int(options.port)
 	client.player_name = "Camera"
+	client.avatar = JSON.parse_string(options.avatar) if not String(options.avatar).is_empty() else {}
 	add_child(client)
 	await _meshed(client)
 	client.yaw = float(options.yaw)
@@ -44,6 +47,12 @@ func _ready() -> void:
 		await get_tree().create_timer(1.0).timeout
 		client._set_inventory_open(true)
 		client._inventory_screen._hovered = int(options.hover)
+	if not String(options.wear).is_empty():
+		Net.c_set_avatar.rpc_id(1, JSON.parse_string(options.wear))  # in game, so server cosmetics apply too
+		await get_tree().create_timer(0.5).timeout
+	if not String(options.editor).is_empty():
+		client.open_avatar_editor()
+		client._avatar_editor._show_category(options.editor)
 	await get_tree().create_timer(float(options.wait)).timeout
 	await _meshed(client)
 	if not String(options.mine).is_empty():
