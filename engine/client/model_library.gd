@@ -43,6 +43,37 @@ static func load_mesh(bytes: PackedByteArray) -> ArrayMesh:
 	return out if out.get_surface_count() > 0 else null
 
 
+## For animated entities: one entry per glTF node with a mesh, {name, mesh, transform}, where the
+## transform is the node's global transform (its pivot) and the mesh stays in node space so the part
+## can rotate around its pivot. Returns [] if the bytes are not a usable model.
+static func load_parts(bytes: PackedByteArray) -> Array:
+	var doc := GLTFDocument.new()
+	var state := GLTFState.new()
+	if bytes.is_empty() or doc.append_from_buffer(bytes, "", state) != OK:
+		return []
+	var nodes := state.get_nodes()
+	var meshes := state.get_meshes()
+	var parts := []
+	var vertex_count := 0
+	for i in nodes.size():
+		var node: GLTFNode = nodes[i]
+		if node.mesh < 0 or node.mesh >= meshes.size():
+			continue
+		var importer: ImporterMesh = meshes[node.mesh].mesh
+		var mesh := ArrayMesh.new()
+		for s in importer.get_surface_count():
+			var arrays := importer.get_surface_arrays(s)
+			vertex_count += (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+			if vertex_count > MAX_VERTICES:
+				return parts
+			arrays[Mesh.ARRAY_TANGENT] = null
+			mesh.add_surface_from_arrays(importer.get_surface_primitive_type(s), arrays)
+			mesh.surface_set_material(mesh.get_surface_count() - 1, _prepare_material(importer.get_surface_material(s)))
+		var part_name := String(node.original_name) if not String(node.original_name).is_empty() else String(node.resource_name)
+		parts.append({"name": part_name, "mesh": mesh, "transform": _global_transform(nodes, i)})
+	return parts
+
+
 static func _global_transform(nodes: Array[GLTFNode], index: int) -> Transform3D:
 	var xform := Transform3D.IDENTITY
 	var i := index

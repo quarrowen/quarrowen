@@ -20,7 +20,7 @@ static func is_block_item(id: int) -> bool:
 
 
 ## def: name, display_name, icon (asset name), max_stack (default 64), usable (right-click fires
-## item_use). Returns the item id or -1.
+## item_use), attack_damage (server only; default 1). Returns the item id or -1.
 func register(def: Dictionary) -> int:
 	var item_name := String(def.get("name", ""))
 	if item_name.is_empty() or ids.has(item_name) or blocks.ids.has(item_name) or defs.size() >= MAX_ITEMS:
@@ -68,6 +68,11 @@ func display_name(id: int) -> String:
 
 func max_stack(id: int) -> int:
 	return get_def(id).get("max_stack", 64) if id >= FIRST_ITEM else 64
+
+
+## Damage dealt when attacking while holding this item (bare hand and blocks: 1).
+func attack_damage(id: int) -> float:
+	return maxf(float(get_def(id).get("attack_damage", 1.0)), 0.0) if id >= FIRST_ITEM else 1.0
 
 
 func is_usable(id: int) -> bool:

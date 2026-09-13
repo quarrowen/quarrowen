@@ -5,6 +5,7 @@ extends RefCounted
 
 const ModApi = preload("res://engine/server/mod_api.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
+const Entity = preload("res://engine/server/entity.gd")
 
 const PRELUDE := "res://engine/server/js/prelude.js"
 ## Milliseconds a single callback may run before QuickJS interrupts it.
@@ -78,6 +79,17 @@ func _on_event(ev: Dictionary, callback_id: int) -> void:
 			elif d is Dictionary and d.has("item"):
 				drops.append([int(d.item), int(d.get("count", 1))])
 		ev.drops = drops
+	# Other fields handlers may rewrite, when the event carries them.
+	for key in ["amount", "damage"]:
+		if ev.has(key) and (changed.get(key) is float or changed.get(key) is int):
+			ev[key] = float(changed[key])
+	for key in ["keep_inventory", "keep"]:
+		if ev.has(key) and changed.get(key) is bool:
+			ev[key] = changed[key]
+	if ev.has("message") and changed.get("message") is String:
+		ev.message = changed.message
+	if ev.has("position") and ev.position is Vector3 and changed.get("position") is Dictionary:
+		ev.position = _vec3([changed.position], 0)
 
 
 func _on_command(player, args: PackedStringArray, callback_id: int) -> void:
@@ -103,6 +115,8 @@ func _host(method: String, args_json: String) -> String:
 func _call_host(method: String, a: Array):
 	if method.begins_with("player."):
 		return _call_player(method.substr(7), a)
+	if method.begins_with("entity."):
+		return _call_entity(method.substr(7), a)
 	match method:
 		"info": api.info(_str(a, 0))
 		"registerBlock": return api.register_block(_str(a, 0), _dict(a, 1))
@@ -148,6 +162,16 @@ func _call_host(method: String, a: Array):
 		"cancel": api.cancel(_int(a, 0))
 		"storageGet": return api.storage.get(_str(a, 0), a[1] if a.size() > 1 else null)
 		"storageSet": api.storage[_str(a, 0)] = a[1] if a.size() > 1 else null
+		"registerEntity": return api.register_entity(_str(a, 0), _dict(a, 1))
+		"registerSound": return api.register_sound(_str(a, 0), a[1] if a.size() > 1 and (a[1] is Array or a[1] is String) else [], _dict(a, 2))
+		"playSound": api.play_sound(_str(a, 0), _vec3(a, 1), float(a[2]) if a.size() > 2 else 1.0, float(a[3]) if a.size() > 3 else 1.0)
+		"spawnEntity": return api.spawn_entity(_str(a, 0), _vec3(a, 1), _entity_options(_dict(a, 2)))
+		"spawnProjectile": return api.spawn_projectile(_str(a, 0), _vec3(a, 1), _vec3(a, 2), _any_ref(a, 3))
+		"dropItem": return api.drop_item(_int(a, 0), _int(a, 1, 1), _vec3(a, 2))
+		"entities": return api.get_entities(_vec3(a, 0), float(a[1]) if a.size() > 1 else 16.0, _str(a, 2))
+		"addSpawnRule": api.add_spawn_rule(_dict(a, 0))
+		"setGameplay": api.set_gameplay(_dict(a, 0))
+		"getGameplay": return api.get_gameplay(_str(a, 0))
 		_: return HostError.new("unknown API method '%s'" % method)
 	return null
 
@@ -183,8 +207,75 @@ func _call_player(method: String, a: Array):
 				player.data[manifest.id] = {}
 			player.data[manifest.id][_str(a, 1)] = a[2] if a.size() > 2 else null
 		"kick": player.kick(_str(a, 1))
+		"health": return player.health
+		"maxHealth": return player.max_health
+		"isDead": return player.dead
+		"setHealth": player.set_health(float(a[1]) if a.size() > 1 else player.max_health)
+		"heal": player.heal(float(a[1]) if a.size() > 1 else 1.0)
+		"damage": return player.damage(float(a[1]) if a.size() > 1 else 1.0, _str(a, 2) if a.size() > 2 else "magic", _any_ref(a, 3))
+		"playSound": player.play_sound(_str(a, 1), float(a[2]) if a.size() > 2 else 1.0, float(a[3]) if a.size() > 3 else 1.0)
+		"drop": player.drop(_int(a, 1), _int(a, 2, 1))
+		"push": player.push(_vec3(a, 1))
+		"setSpawnPoint": player.spawn_point = _vec3(a, 1) if a.size() > 1 and a[1] != null else Vector3.INF
 		_: return HostError.new("unknown player method '%s'" % method)
 	return null
+
+
+func _call_entity(method: String, a: Array):
+	var e = _entity_ref(a, 0)
+	if method == "alive":
+		return e != null and e.is_alive()
+	if e == null:
+		return HostError.new("entity is gone")
+	match method:
+		"type": return e.type_name
+		"position": return e.position
+		"setPosition": e.position = _vec3(a, 1)
+		"velocity": return e.velocity
+		"setVelocity": e.velocity = _vec3(a, 1)
+		"push": e.push(_vec3(a, 1))
+		"health": return e.health
+		"maxHealth": return e.max_health
+		"damage": return e.damage(float(a[1]) if a.size() > 1 else 1.0, _any_ref(a, 2), _str(a, 3) if a.size() > 3 else "magic")
+		"heal": e.heal(float(a[1]) if a.size() > 1 else 1.0)
+		"remove": e.remove()
+		"setGoal": e.set_goal(_vec3(a, 1) if a.size() > 1 and a[1] != null else Vector3.INF)
+		"getData":
+			var own: Dictionary = e.data.get(manifest.id, {})
+			return own.get(_str(a, 1), a[2] if a.size() > 2 else null)
+		"setData":
+			if not (e.data.get(manifest.id) is Dictionary):
+				e.data[manifest.id] = {}
+			e.data[manifest.id][_str(a, 1)] = a[2] if a.size() > 2 else null
+		_: return HostError.new("unknown entity method '%s'" % method)
+	return null
+
+
+func _entity_ref(a: Array, i: int):
+	var ref = a[i] if i < a.size() else null
+	var id := int(ref.get("__entity", -1)) if ref is Dictionary else -1
+	return _server.entities.entities.get(id)
+
+
+## A player or entity reference (attackers, projectile owners), or null.
+func _any_ref(a: Array, i: int):
+	var ref = a[i] if i < a.size() else null
+	if ref is Dictionary and ref.has("__entity"):
+		return _entity_ref(a, i)
+	if ref is Dictionary and ref.has("__player"):
+		return _server.players.get(int(ref.__player))
+	return null
+
+
+func _entity_options(options: Dictionary) -> Dictionary:
+	var out := {}
+	if options.has("yaw"):
+		out.yaw = float(options.yaw)
+	if options.get("velocity") is Dictionary:
+		out.velocity = _vec3([options.velocity], 0)
+	if options.get("data") is Dictionary:
+		out.data = {manifest.id: options.data}
+	return out
 
 
 # --- Conversion ---------------------------------------------------------------------------------
@@ -195,6 +286,8 @@ func to_js(value):
 		return {"x": value.x, "y": value.y, "z": value.z}
 	if value is Object and value.get_script() == ServerPlayer:
 		return {"__player": value.peer_id, "name": value.name}
+	if value is Object and value.get_script() == Entity:
+		return {"__entity": value.id, "type": value.type_name, "kind": value.def.kind, "item": value.item_id, "count": value.item_count}
 	if value is Dictionary:
 		var out := {}
 		for key in value:

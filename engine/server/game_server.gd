@@ -9,6 +9,7 @@ const VoxelWorld = preload("res://engine/shared/voxel_world.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
+const Inventory = preload("res://engine/shared/inventory.gd")
 const ModApi = preload("res://engine/server/mod_api.gd")
 const ModLoader = preload("res://engine/server/mod_loader.gd")
 const JsMod = preload("res://engine/server/js_mod.gd")
@@ -16,6 +17,11 @@ const Identity = preload("res://engine/shared/identity.gd")
 const Native = preload("res://engine/shared/native.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const ItemRegistry = preload("res://engine/shared/item_registry.gd")
+const Entities = preload("res://engine/server/entities.gd")
+const Entity = preload("res://engine/server/entity.gd")
+const SoundRegistry = preload("res://engine/shared/sound_registry.gd")
+const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
+const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -37,12 +43,31 @@ const EDITS_PER_SECOND := 15.0
 const CHAT_MAX_LENGTH := 160
 const SAVE_INTERVAL := 10.0
 const WORLD_UNLOAD_INTERVAL := 10.0
+const ATTACK_REACH := 4.5
+const ATTACK_INTERVAL := 0.25
+const PLAYER_HURT_INVULNERABLE := 0.5
+const REGEN_DELAY := 5.0
+const REGEN_INTERVAL := 2.5
+const VOID_DAMAGE_Y := -32.0
+## Landing as fast as a fall from higher than this (blocks) hurts: 1 damage per extra block.
+const SAFE_FALL_HEIGHT := 3.2
 
 var registry := BlockRegistry.new()
 var items := ItemRegistry.new(registry)
 var rules := PlayerPhysics.Rules.new()
 var world := VoxelWorld.new()
 var world_seed := 0
+var entities := Entities.new(self)
+var sounds := SoundRegistry.new()
+## Game-wide rules mods can change with set_gameplay.
+var gameplay := {
+	"item_drops": "entity",  # "entity": broken blocks drop items to pick up; "inventory": straight into the inventory
+	"keep_inventory": true,
+	"pvp": false,
+	"fall_damage": true,
+	"natural_regeneration": true,
+	"mob_spawning": true,
+}
 var server_info := {"name": "VoxelCraft Server", "game": "", "description": "", "motd": "", "mods": []}
 var generator: Object = null
 ## Objects with decorate(chunk, world_seed) run after the generator on worker threads (e.g. ores).
@@ -92,6 +117,8 @@ var _backup_task := -1
 var _backup_job := {}  # shared with the worker: {path, error, pruned, requester}
 ## Automatic backups are skipped while nothing happens in the world.
 var _activity_since_backup := false
+## Chunks whose saved file lists persistent entities; resaved so entities that walked away are dropped.
+var _entity_chunks := {}
 
 
 ## config keys:
@@ -319,6 +346,13 @@ func _register_builtin_commands() -> void:
 	add_command("whoami", "Show your player id and permissions", _cmd_whoami, "engine")
 	add_command("backup", "Back up the world now", _cmd_backup, "engine", "admin")
 	add_command("backups", "List world backups", _cmd_backups, "engine", "admin")
+	add_command("give", "<item> [count] [player] - give items", _cmd_give, "engine", "admin")
+	add_command("tp", "<x> <y> <z> | <player> - teleport", _cmd_tp, "engine", "admin")
+	add_command("summon", "<entity> [count] - spawn entities in front of you", _cmd_summon, "engine", "admin")
+	add_command("heal", "[player] - restore health", _cmd_heal, "engine", "admin")
+	add_command("gamemode", "survival | creative [player]", _cmd_gamemode, "engine", "admin")
+	add_command("kill", "Die and respawn", func(p, _args): kill_player(p, "command", null), "engine")
+	add_command("gameplay", "[rule value] - show or change gameplay rules", _cmd_gameplay, "engine", "admin")
 
 
 func _cmd_help(player, _args: PackedStringArray) -> void:
@@ -414,6 +448,93 @@ func _poll_backup(delta: float) -> void:
 	emit("backup", {"path": job.path, "error": job.error})
 
 
+func _target_player(player, args: PackedStringArray, index: int):
+	if args.size() <= index:
+		return player
+	var target = _find_online(args[index])
+	if target == null:
+		player.send_message("No online player named '%s'" % args[index])
+	return target
+
+
+func _cmd_give(player, args: PackedStringArray) -> void:
+	if args.is_empty():
+		player.send_message("Usage: /give <item> [count] [player]")
+		return
+	var id := items.id_of(args[0] if args[0].contains(":") else "base:" + args[0])
+	if id <= 0:
+		player.send_message("Unknown item '%s'" % args[0])
+		return
+	var target = _target_player(player, args, 2)
+	if target == null:
+		return
+	var count := clampi(int(args[1]) if args.size() > 1 else 1, 1, 64 * 36)
+	var left: int = target.give(id, count)
+	player.send_message("Gave %d %s to %s" % [count - left, items.display_name(id), target.name])
+
+
+func _cmd_tp(player, args: PackedStringArray) -> void:
+	if args.size() == 3 and args[0].is_valid_float() and args[1].is_valid_float() and args[2].is_valid_float():
+		player.teleport(Vector3(float(args[0]), float(args[1]), float(args[2])))
+	elif args.size() == 1:
+		var target = _target_player(player, args, 0)
+		if target != null:
+			player.teleport(target.state.position)
+	else:
+		player.send_message("Usage: /tp <x> <y> <z> | /tp <player>")
+
+
+func _cmd_summon(player, args: PackedStringArray) -> void:
+	var type_id := entities.registry.id_of(args[0]) if not args.is_empty() else -1
+	if type_id < 0 or type_id == EntityRegistry.ITEM:
+		var names := entities.registry.ids.keys().filter(func(n): return n != "engine:item")
+		player.send_message("Usage: /summon <entity> [count]. Entities: %s" % ", ".join(names))
+		return
+	var forward := PlayerPhysics.look_direction(player.yaw, 0.0)
+	for i in clampi(int(args[1]) if args.size() > 1 else 1, 1, 20):
+		entities.spawn(type_id, player.state.position + forward * 3.0 + Vector3(randf_range(-0.5, 0.5), 0.2, randf_range(-0.5, 0.5)))
+
+
+func _cmd_heal(player, args: PackedStringArray) -> void:
+	var target = _target_player(player, args, 0)
+	if target != null:
+		heal_player(target, target.max_health)
+
+
+func _cmd_gamemode(player, args: PackedStringArray) -> void:
+	if args.is_empty() or not args[0] in ["survival", "creative"]:
+		player.send_message("Usage: /gamemode survival | creative [player]")
+		return
+	var target = _target_player(player, args, 1)
+	if target == null:
+		return
+	target.set_creative(args[0] == "creative")
+	target.send_message("Game mode: %s" % args[0])
+
+
+func _cmd_gameplay(player, args: PackedStringArray) -> void:
+	if args.size() < 2:
+		for key in gameplay:
+			player.send_message("%s = %s" % [key, gameplay[key]])
+		return
+	if not gameplay.has(args[0]):
+		player.send_message("Unknown rule '%s'" % args[0])
+		return
+	var value = args[1] if gameplay[args[0]] is String else args[1] in ["true", "on", "1", "yes"]
+	set_gameplay({args[0]: value})
+	broadcast_chat("%s set %s to %s" % [player.name, args[0], value])
+
+
+func set_gameplay(values: Dictionary) -> void:
+	for key in values:
+		if not gameplay.has(key):
+			push_warning("[server] Unknown gameplay rule '%s'" % key)
+		elif gameplay[key] is bool:
+			gameplay[key] = bool(values[key])
+		else:
+			gameplay[key] = String(values[key])
+
+
 func _find_online(player_name: String):
 	for p: ServerPlayer in players.values():
 		if p.name.to_lower() == player_name.to_lower():
@@ -447,6 +568,9 @@ func _physics_process(delta: float) -> void:
 		_stream_chunks(p)
 		sim_usec += b - a
 		stream_usec += Time.get_ticks_usec() - b
+	entities.tick(delta)
+	for p: ServerPlayer in players.values():
+		_update_health(p, delta)
 	var t1 := Time.get_ticks_usec()
 	_run_tasks()
 	emit("tick", {"delta": delta, "tick": tick})
@@ -454,6 +578,7 @@ func _physics_process(delta: float) -> void:
 
 	if tick % SNAPSHOT_INTERVAL_TICKS == 0 and not players.is_empty():
 		_send_snapshots()
+		entities.replicate(players.values())
 	var t3 := Time.get_ticks_usec()
 
 	_poll_backup(delta)
@@ -496,13 +621,187 @@ func _record_metrics(delta: float, total: int, sim: int, stream: int, mods: int,
 
 
 func _simulate_player(p: ServerPlayer) -> void:
+	if p.dead:
+		# Dead players do not move; acknowledge inputs so the client's prediction queue drains.
+		if not p.input_queue.is_empty():
+			p.last_processed_seq = p.input_queue.back().seq
+			p.input_queue.clear()
+		return
 	# Normally one input per tick; consume two when the client is ahead to drain jitter backlog.
 	var budget := 2 if p.input_queue.size() > 3 else 1
 	while budget > 0 and not p.input_queue.is_empty():
 		var input = p.input_queue.pop_front()
+		var falling_speed := -p.state.velocity.y
 		PlayerPhysics.step(p.state, input, world, rules)
 		p.last_processed_seq = input.seq
 		budget -= 1
+		_track_fall(p, falling_speed)
+
+
+func _track_fall(p: ServerPlayer, speed_before: float) -> void:
+	var feet := world.get_block(floori(p.state.position.x), floori(p.state.position.y + 0.2), floori(p.state.position.z))
+	if registry.liquid_lut[feet] == 1:
+		p.fall_velocity = 0.0
+		return
+	if not p.state.on_ground:
+		p.fall_velocity = maxf(p.fall_velocity, speed_before)
+		return
+	var impact := maxf(p.fall_velocity, speed_before)
+	p.fall_velocity = 0.0
+	# Height an object must fall under normal gravity to land this fast: v^2 / (2g).
+	var height := impact * impact / (2.0 * 32.0)
+	if height > SAFE_FALL_HEIGHT and gameplay.fall_damage:
+		damage_player(p, floorf(height - SAFE_FALL_HEIGHT + 0.5), "fall", null)
+
+
+# --- Health, damage & death ---------------------------------------------------------------------
+
+func _update_health(p: ServerPlayer, delta: float) -> void:
+	if p.dead:
+		return
+	p.hurt_timer = maxf(p.hurt_timer - delta, 0.0)
+	if p.state.position.y < VOID_DAMAGE_Y:
+		p.void_timer += delta
+		if p.void_timer >= 0.5:
+			p.void_timer = 0.0
+			damage_player(p, 4.0, "void", null, Vector3.ZERO, true)
+	if gameplay.natural_regeneration and p.health < p.max_health and _time - p.last_damage_time > REGEN_DELAY:
+		p.regen_timer += delta
+		if p.regen_timer >= REGEN_INTERVAL:
+			p.regen_timer = 0.0
+			heal_player(p, 1.0)
+
+
+## Returns true if damage applied. `direction` sets the knockback direction (defaults to away from
+## the attacker). `bypass_cooldown` lets continuous damage (void) ignore the invulnerability window.
+func damage_player(p: ServerPlayer, amount: float, cause: String, attacker = null, direction := Vector3.ZERO, bypass_cooldown := false) -> bool:
+	if p == null or p.dead or amount <= 0.0 or (p.inventory.creative and cause != "void"):
+		return false
+	if p.hurt_timer > 0.0 and not bypass_cooldown:
+		return false
+	var ev := emit("player_damage", {"player": p, "amount": amount, "cause": cause, "attacker": attacker, "cancelled": false})
+	if ev.cancelled or float(ev.amount) <= 0.0:
+		return false
+	p.health = maxf(p.health - float(ev.amount), 0.0)
+	p.hurt_timer = PLAYER_HURT_INVULNERABLE
+	p.last_damage_time = _time
+	p.regen_timer = 0.0
+	var source := Entities._attacker_position(attacker)
+	if direction == Vector3.ZERO and source != Vector3.INF:
+		direction = p.state.position - source
+	direction.y = 0.0
+	if direction.length_squared() > 0.0001:
+		p.state.velocity += direction.normalized() * 6.0 + Vector3(0, 4.5, 0)
+	sync_health(p, true)
+	play_sound_at("engine:hurt", p.get_eye_position(), 1.0, randf_range(0.9, 1.1))
+	_broadcast_player_event(p, Entities.Event.HURT)
+	if p.health <= 0.0:
+		kill_player(p, cause, attacker)
+	return true
+
+
+func heal_player(p: ServerPlayer, amount: float) -> void:
+	if p.dead or p.health >= p.max_health:
+		return
+	p.health = minf(p.health + amount, p.max_health)
+	sync_health(p)
+
+
+func sync_health(p: ServerPlayer, hurt := false) -> void:
+	if _started:
+		Net.s_health.rpc_id(p.peer_id, p.health, p.max_health, p.dead, hurt)
+
+
+func kill_player(p: ServerPlayer, cause: String, attacker) -> void:
+	if p.dead:
+		return
+	var attacker_name := ""
+	if attacker != null and attacker.get("peer_id") != null:
+		attacker_name = String(attacker.name)
+	elif attacker != null and attacker.get("def") != null:
+		attacker_name = String(attacker.def.display_name)
+	var messages := {"fall": "%s fell from a high place", "void": "%s fell out of the world",
+		"attack": "%s was slain by %s", "mob": "%s was slain by %s", "projectile": "%s was shot by %s"}
+	var message := "%s died" % p.name
+	if messages.has(cause) and (not attacker_name.is_empty() or String(messages[cause]).count("%s") == 1):
+		message = messages[cause] % ([p.name, attacker_name] if String(messages[cause]).count("%s") == 2 else [p.name])
+	var ev := emit("player_death", {"player": p, "cause": cause, "attacker": attacker,
+		"keep_inventory": gameplay.keep_inventory, "message": message})
+	p.health = 0.0
+	p.dead = true
+	p.fall_velocity = 0.0
+	if not ev.keep_inventory and not p.inventory.creative:
+		var center := p.state.position + Vector3(0, 1.0, 0)
+		for i in Inventory.SIZE:
+			if p.inventory.ids[i] > 0 and p.inventory.counts[i] > 0:
+				entities.drop_item(p.inventory.ids[i], p.inventory.counts[i], center)
+		if p.inventory.cursor_count > 0:
+			entities.drop_item(p.inventory.cursor_id, p.inventory.cursor_count, center)
+		p.inventory.clear()
+		p.sync_inventory()
+	sync_health(p)
+	_broadcast_player_event(p, Entities.Event.DEATH)
+	play_sound_at("engine:death", p.get_eye_position())
+	if not String(ev.message).is_empty():
+		broadcast_chat(String(ev.message))
+
+
+func on_respawn(peer_id: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or not p.dead:
+		return
+	var spawn := p.spawn_point
+	if spawn == Vector3.INF:
+		spawn = spawn_handler.call(p) if spawn_handler.is_valid() else _default_spawn()
+	var ev := emit("player_respawn", {"player": p, "position": spawn})
+	p.dead = false
+	p.health = p.max_health
+	p.hurt_timer = 1.0
+	p.last_damage_time = _time
+	p.teleport(ev.position if ev.position is Vector3 else spawn)
+	sync_health(p)
+	_broadcast_player_event(p, Entities.Event.RESPAWN)
+
+
+func _broadcast_player_event(p: ServerPlayer, kind: int) -> void:
+	if not _started:
+		return
+	for other: ServerPlayer in players.values():
+		if other != p:
+			Net.s_player_event.rpc_id(other.peer_id, p.peer_id, kind)
+
+
+# --- Sounds -------------------------------------------------------------------------------------
+
+## Plays a registered sound at a world position for players in range. `exclude` is a peer id that
+## already played it locally (e.g. the player who broke the block).
+func play_sound_at(sound_name: String, pos: Vector3, volume := 1.0, pitch := 1.0, exclude := 0) -> void:
+	var id := sounds.id_of(sound_name)
+	if id < 0 or not _started:
+		return
+	var reach: float = sounds.defs[id].range
+	for p: ServerPlayer in players.values():
+		if p.peer_id != exclude and p.state.position.distance_to(pos) <= reach:
+			Net.s_sound.rpc_id(p.peer_id, id, pos, volume, pitch, true)
+
+
+func play_sound_to(p: ServerPlayer, sound_name: String, volume := 1.0, pitch := 1.0) -> void:
+	var id := sounds.id_of(sound_name)
+	if id >= 0 and _started:
+		Net.s_sound.rpc_id(p.peer_id, id, Vector3.ZERO, volume, pitch, false)
+
+
+func broadcast_entity_event(e, kind: int, arg: int) -> void:
+	if not _started:
+		return
+	for p: ServerPlayer in players.values():
+		if p.known_entities.has(e.id):
+			Net.s_entity_event.rpc_id(p.peer_id, e.id, kind, arg)
+
+
+## Sound name for a block action ("break", "place", "step"); empty when the block has none.
+func block_sound(block: int, action: String) -> String:
+	return String(registry.defs[block].sounds.get(action, "")) if registry.is_valid(block) else ""
 
 
 func _send_snapshots() -> void:
@@ -653,7 +952,8 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		var a: Dictionary = _assets[asset_name]
 		if a.has("hash"):
 			manifest.append([asset_name, a.hash, a.size])
-	var content := {"blocks": registry.to_network(), "items": items.to_network(), "rules": rules.to_dict()}
+	var content := {"blocks": registry.to_network(), "items": items.to_network(), "rules": rules.to_dict(),
+		"entities": entities.registry.to_network(), "sounds": sounds.to_network()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
@@ -714,6 +1014,10 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void
 		p.inventory.load_packed(PackedInt32Array(saved.get("inventory", [])))
 		p.inventory.creative = bool(saved.get("creative", false))
 		p.data = saved.get("data", {}) if saved.get("data") is Dictionary else {}
+		p.health = clampf(float(saved.get("health", p.max_health)), 1.0, p.max_health)
+		var spawn_point = saved.get("spawn_point")
+		if spawn_point is Array and spawn_point.size() == 3:
+			p.spawn_point = Vector3(spawn_point[0], spawn_point[1], spawn_point[2])
 	players[peer_id] = p
 	if first_time:
 		p.state.position = spawn_handler.call(p) if spawn_handler.is_valid() else _default_spawn()
@@ -722,6 +1026,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void
 	Net.s_welcome.rpc_id(peer_id, peer_id, p.state.position, 0.0)
 	Net.s_time.rpc_id(peer_id, _time_of_day, _day_length)
 	p.sync_inventory()
+	sync_health(p)
 	for other: ServerPlayer in players.values():
 		if other != p:
 			Net.s_player_joined.rpc_id(peer_id, other.peer_id, other.name)
@@ -856,13 +1161,16 @@ func _run_chunk_job(job: Dictionary) -> void:
 			var saved_states = saved.get("states", [])
 			if saved_states is Array:
 				chunk.load_states(PackedInt32Array(saved_states))
+			if saved.get("entities") is Array:
+				job.entities = saved.entities
 			var entries = saved.get("data", {})
 			if entries is Dictionary:
 				for key: String in entries:
 					var parts := key.split(",")
 					if parts.size() == 3 and entries[key] is Dictionary:
 						data[Vector3i(int(parts[0]), int(parts[1]), int(parts[2]))] = entries[key]
-	job.result = {"chunk": chunk, "generated": generated, "deltas": deltas, "data": data, "usec": Time.get_ticks_usec() - started}
+	job.result = {"chunk": chunk, "generated": generated, "deltas": deltas, "data": data, "entities": job.get("entities", []),
+		"usec": Time.get_ticks_usec() - started}
 
 
 func _poll_chunk_jobs() -> void:
@@ -884,6 +1192,9 @@ func _integrate_chunk(job: Dictionary) -> void:
 		_generated[job.coord] = r.generated
 	if not r.data.is_empty():
 		_block_data[job.coord] = r.data
+	if not r.entities.is_empty():
+		_entity_chunks[job.coord] = true
+		entities.load_chunk(r.entities)
 	if not _metrics.is_empty():
 		_metrics.gen += 1
 		_metrics.gen_usec += r.usec
@@ -928,8 +1239,10 @@ func _unload_unused_chunks() -> void:
 	for coord: Vector2i in world.chunks.keys():
 		if needed.has(coord):
 			continue
-		if _save_dirty.has(coord) or _block_data.has(coord):
-			writes.append(_serialize_chunk(coord))
+		var records := entities.unload_chunk(coord)
+		if _save_dirty.has(coord) or _block_data.has(coord) or not records.is_empty() or _entity_chunks.has(coord):
+			writes.append(_serialize_chunk(coord, records))
+		_entity_chunks.erase(coord)
 		_save_dirty.erase(coord)
 		_deltas.erase(coord)
 		_generated.erase(coord)
@@ -953,6 +1266,15 @@ func set_block_authoritative(pos: Vector3i, id: int, keep_data := false, state :
 	_ensure_chunk(VoxelWorld.chunk_coord_at(pos.x, pos.z))
 	if world.get_block_v(pos) != id or get_block_state(pos) != state:
 		_apply_block(pos, id, keep_data, state)
+
+
+## Y of the highest non-air block in the column (loading it if needed), or -1.
+func surface_height(x: int, z: int) -> int:
+	_ensure_chunk(VoxelWorld.chunk_coord_at(x, z))
+	for y in range(Chunk.SIZE_Y - 1, -1, -1):
+		if world.get_block(x, y, z) != BlockRegistry.AIR:
+			return y
+	return -1
 
 
 func get_block_state(pos: Vector3i) -> int:
@@ -999,6 +1321,8 @@ func find_block_data(block := -1) -> Array[Vector3i]:
 
 
 func broadcast_chat(text: String) -> void:
+	if not _started:
+		return
 	for p: ServerPlayer in players.values():
 		Net.s_chat.rpc_id(p.peer_id, text)
 
@@ -1041,9 +1365,15 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 		_reject_edit(p, pos)
 		return
 	_apply_block(pos, BlockRegistry.AIR)
+	play_sound_at(block_sound(current, "break"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
 	if not p.inventory.creative and ev.drops is Array:
 		for drop in ev.drops:
-			if drop is Array and drop.size() == 2 and items.is_valid(int(drop[0])):
+			if not (drop is Array and drop.size() == 2 and items.is_valid(int(drop[0]))):
+				continue
+			if gameplay.item_drops == "entity":
+				entities.drop_item(int(drop[0]), int(drop[1]), Vector3(pos) + Vector3(0.5, 0.3, 0.5),
+					Vector3(randf_range(-1.0, 1.0), randf_range(2.0, 3.5), randf_range(-1.0, 1.0)), 0.3)
+			else:
 				p.inventory.add(int(drop[0]), int(drop[1]), items.max_stack(int(drop[0])))
 		p.sync_inventory()
 	emit("block_broken", {"player": p, "position": pos, "block": current})
@@ -1059,7 +1389,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 		and (current == BlockRegistry.AIR or registry.liquid_lut[current] == 1) and _has_solid_neighbor(pos)
 	if valid:
 		for other: ServerPlayer in players.values():
-			if registry.solid_lut[block] == 1 and PlayerPhysics.overlaps_block(other.state.position, pos):
+			if registry.solid_lut[block] == 1 and PlayerPhysics.overlaps_block(other.state.position, pos) and not other.dead:
 				valid = false
 				break
 	if valid:
@@ -1072,6 +1402,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 		p.sync_inventory()
 	var state := BlockRegistry.facing_from_yaw(yaw) if registry.defs[block].orientation == 1 and is_finite(yaw) else 0
 	_apply_block(pos, block, false, state)
+	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
 	emit("block_placed", {"player": p, "position": pos, "block": block})
 
 
@@ -1134,6 +1465,103 @@ func on_open_menu(peer_id: int, menu: String) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p and menu == "crafting":
 		show_crafting(p)
+
+
+func on_attack(peer_id: int, kind: int, target_id: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or p.dead or _time - p.last_attack_time < ATTACK_INTERVAL:
+		return
+	var target = entities.entities.get(target_id) if kind == 0 else players.get(target_id)
+	if target == null or target == p or (kind == 0 and not target.is_alive()) or (kind == 1 and target.dead):
+		return
+	var box: AABB = target.aabb() if kind == 0 else AABB(target.state.position - Vector3(PlayerPhysics.HALF_WIDTH, 0, PlayerPhysics.HALF_WIDTH),
+		Vector3(PlayerPhysics.HALF_WIDTH * 2.0, PlayerPhysics.HEIGHT, PlayerPhysics.HALF_WIDTH * 2.0))
+	var eye := p.get_eye_position()
+	var distance := eye.distance_to(eye.clamp(box.position, box.end))
+	if distance > ATTACK_REACH:
+		return
+	var center := box.get_center()
+	var ray := VoxelRaycast.cast(world, registry.solid_lut, eye, center - eye, eye.distance_to(center))
+	if ray.hit and eye.distance_to(Vector3(ray.position) + Vector3.ONE * 0.5) < distance - 0.5:
+		return  # a wall is in the way
+	p.last_attack_time = _time
+	var item := p.inventory.selected_item()
+	var ev := emit("player_attack", {"player": p, "target": target, "target_kind": "entity" if kind == 0 else "player",
+		"item": item, "damage": items.attack_damage(item), "cancelled": false})
+	if ev.cancelled:
+		return
+	play_sound_at("engine:swing", eye, 0.7, randf_range(0.9, 1.1), peer_id)
+	var direction := PlayerPhysics.look_direction(p.yaw, 0.0)
+	if kind == 0:
+		entities.damage(target, float(ev.damage), "attack", p, direction)
+	elif gameplay.pvp:
+		damage_player(target, float(ev.damage), "attack", p, direction)
+
+
+func on_interact_entity(peer_id: int, target_id: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	var e = entities.entities.get(target_id)
+	if p == null or p.dead or e == null or not e.is_alive() or p.edit_tokens < 1.0:
+		return
+	p.edit_tokens -= 1.0
+	if p.get_eye_position().distance_to(e.aabb().get_center()) > ATTACK_REACH + e.def.width:
+		return
+	emit("entity_interact", {"player": p, "entity": e, "item": p.inventory.selected_item()})
+
+
+func on_inventory_click(peer_id: int, slot: int, button: int, shift: bool) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or p.dead:
+		return
+	if slot == -1:
+		# Clicked outside the inventory: drop what the cursor holds.
+		if p.inventory.cursor_count > 0:
+			var n := p.inventory.cursor_count if button == 1 else 1
+			p.drop(p.inventory.cursor_id, n)
+			p.inventory.cursor_count -= n
+			if p.inventory.cursor_count <= 0:
+				p.inventory.cursor_id = 0
+	elif button == 3 and p.inventory.creative and slot >= 0 and slot < Inventory.SIZE and p.inventory.cursor_count <= 0:
+		# Middle click in creative: pick up a full stack copy.
+		if p.inventory.ids[slot] > 0:
+			p.inventory.cursor_id = p.inventory.ids[slot]
+			p.inventory.cursor_count = items.max_stack(p.inventory.ids[slot])
+	else:
+		p.inventory.click(slot, button, shift, items.max_stack)
+	p.sync_inventory()
+
+
+func on_inventory_closed(peer_id: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or p.inventory.cursor_count <= 0:
+		return
+	var left := p.inventory.add(p.inventory.cursor_id, p.inventory.cursor_count, items.max_stack(p.inventory.cursor_id))
+	if left > 0:
+		p.drop(p.inventory.cursor_id, left)
+	p.inventory.cursor_id = 0
+	p.inventory.cursor_count = 0
+	p.sync_inventory()
+
+
+func on_drop_item(peer_id: int, whole_stack: bool) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or p.dead or p.edit_tokens < 1.0:
+		return
+	p.edit_tokens -= 1.0
+	var slot := p.inventory.selected
+	var id := p.inventory.ids[slot]
+	var count := p.inventory.counts[slot] if not p.inventory.creative else items.max_stack(id)
+	if id <= 0 or count <= 0:
+		return
+	var n := count if whole_stack else 1
+	if emit("item_drop", {"player": p, "item": id, "count": n, "cancelled": false}).cancelled:
+		p.sync_inventory()
+		return
+	if not p.inventory.creative:
+		p.inventory.set_slot(slot, id, count - n)
+		p.sync_inventory()
+	p.drop(id, n)
+	play_sound_at("engine:drop", p.get_eye_position(), 0.6)
 
 
 # --- Crafting -----------------------------------------------------------------------------------
@@ -1299,12 +1727,17 @@ func _load_meta(seed_override: int) -> void:
 
 
 ## Returns [path, json text] for a chunk's delta, or [path, null] when there is nothing to keep.
-func _serialize_chunk(coord: Vector2i) -> Array:
+func _serialize_chunk(coord: Vector2i, entity_records = null) -> Array:
 	var deltas: Dictionary = _deltas.get(coord, {})
 	var entries: Dictionary = _block_data.get(coord, {})
 	var chunk = world.chunks.get(coord)
 	var states: PackedInt32Array = chunk.encode_states() if chunk != null else PackedInt32Array()
-	if deltas.is_empty() and entries.is_empty() and states.is_empty():
+	var records: Array = entity_records if entity_records is Array else entities.serialize_chunk(coord)
+	if records.is_empty():
+		_entity_chunks.erase(coord)
+	else:
+		_entity_chunks[coord] = true
+	if deltas.is_empty() and entries.is_empty() and states.is_empty() and records.is_empty():
 		return [_chunk_path(coord), null]
 	var palette := []
 	var palette_index := {}
@@ -1319,7 +1752,7 @@ func _serialize_chunk(coord: Vector2i) -> Array:
 	var data := {}
 	for pos: Vector3i in entries:
 		data["%d,%d,%d" % [pos.x, pos.y, pos.z]] = entries[pos]
-	return [_chunk_path(coord), JSON.stringify({"version": 1, "palette": palette, "blocks": edits, "states": Array(states), "data": data})]
+	return [_chunk_path(coord), JSON.stringify({"version": 1, "palette": palette, "blocks": edits, "states": Array(states), "data": data, "entities": records})]
 
 func _store_player(p: ServerPlayer) -> void:
 	_meta.players[p.player_id] = {
@@ -1328,6 +1761,8 @@ func _store_player(p: ServerPlayer) -> void:
 		"inventory": Array(p.inventory.to_packed()),
 		"creative": p.inventory.creative,
 		"data": p.data,
+		"health": maxf(p.health, 1.0) if not p.dead else p.max_health,
+		"spawn_point": [p.spawn_point.x, p.spawn_point.y, p.spawn_point.z] if p.spawn_point != Vector3.INF else null,
 	}
 
 
@@ -1339,6 +1774,11 @@ func _save_all(wait := false) -> void:
 	var coords := _save_dirty.duplicate()
 	for coord: Vector2i in _block_data:
 		coords[coord] = true  # block data dictionaries may have been mutated in place
+	for coord: Vector2i in _entity_chunks.keys():
+		coords[coord] = true  # persistent entities may have left the chunk
+	for e: Entity in entities.entities.values():
+		if e.def.persistent:
+			coords[VoxelWorld.chunk_coord_of(e.body.position)] = true
 	for coord: Vector2i in coords:
 		if world.chunks.has(coord):
 			writes.append(_serialize_chunk(coord))

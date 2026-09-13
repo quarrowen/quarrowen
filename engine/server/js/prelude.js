@@ -30,12 +30,14 @@
     return revive(reply?.value ?? null);
   };
 
-  const toHost = (_key, value) => (value instanceof Player ? { __player: value.id } : value);
+  const toHost = (_key, value) =>
+    value instanceof Player ? { __player: value.id } : value instanceof Entity ? { __entity: value.id } : value;
 
   const revive = (value) => {
     if (Array.isArray(value)) return value.map(revive);
     if (value !== null && typeof value === "object") {
       if ("__player" in value) return new Player(value.__player, value.name);
+      if ("__entity" in value) return new Entity(value.__entity, value.type, value.kind, value.item, value.count);
       const out = {};
       for (const [k, v] of Object.entries(value)) out[k] = revive(v);
       return out;
@@ -69,10 +71,48 @@
     getData(key, fallback = null) { return host("player.getData", this.id, key, fallback); }
     setData(key, value) { host("player.setData", this.id, key, value); }
     kick(reason) { host("player.kick", this.id, reason); }
+    get health() { return host("player.health", this.id); }
+    get maxHealth() { return host("player.maxHealth", this.id); }
+    get dead() { return host("player.isDead", this.id); }
+    setHealth(value) { host("player.setHealth", this.id, value); }
+    heal(amount) { host("player.heal", this.id, amount); }
+    damage(amount, cause = "magic", attacker = null) { return host("player.damage", this.id, amount, cause, attacker); }
+    /** A sound only this player hears (not positioned). */
+    playSound(name, volume = 1, pitch = 1) { host("player.playSound", this.id, name, volume, pitch); }
+    drop(item, count = 1) { host("player.drop", this.id, item, count); }
+    push(impulse) { host("player.push", this.id, impulse); }
+    /** Where the player respawns; null restores the game's default. */
+    setSpawnPoint(position) { host("player.setSpawnPoint", this.id, position); }
+  }
+
+  class Entity {
+    constructor(id, type, kind, item, count) {
+      this.id = id;
+      this.type = type;
+      this.kind = kind;
+      this.item = item;
+      this.count = count;
+    }
+    get alive() { return host("entity.alive", this); }
+    get position() { return host("entity.position", this); }
+    set position(value) { host("entity.setPosition", this, value); }
+    get velocity() { return host("entity.velocity", this); }
+    set velocity(value) { host("entity.setVelocity", this, value); }
+    get health() { return host("entity.health", this); }
+    get maxHealth() { return host("entity.maxHealth", this); }
+    push(impulse) { host("entity.push", this, impulse); }
+    damage(amount, attacker = null, cause = "magic") { return host("entity.damage", this, amount, attacker, cause); }
+    heal(amount) { host("entity.heal", this, amount); }
+    remove() { host("entity.remove", this); }
+    /** Walk toward a position (mobs); null resumes normal behaviour. */
+    setGoal(position) { host("entity.setGoal", this, position); }
+    getData(key, fallback = null) { return host("entity.getData", this, key, fallback); }
+    setData(key, value) { host("entity.setData", this, key, value); }
   }
 
   const api = {
     Player,
+    Entity,
     info: (...parts) => host("info", parts.map(String).join(" ")),
     // Content
     registerBlock: (name, def) => host("registerBlock", name, def),
@@ -109,6 +149,17 @@
     broadcast: (text) => host("broadcast", String(text)),
     setServerInfo: (values) => host("setServerInfo", values),
     showCrafting: (player) => host("showCrafting", player),
+    // Entities, sounds & gameplay
+    registerEntity: (name, def) => host("registerEntity", name, def),
+    registerSound: (name, files, options = {}) => host("registerSound", name, files, options),
+    playSound: (name, position, volume = 1, pitch = 1) => host("playSound", name, position, volume, pitch),
+    spawnEntity: (type, position, options = {}) => host("spawnEntity", type, position, options),
+    spawnProjectile: (type, from, velocity, owner = null) => host("spawnProjectile", type, from, velocity, owner),
+    dropItem: (item, count, position) => host("dropItem", item, count, position),
+    entities: (center, radius, type = "") => host("entities", center, radius, type),
+    addSpawnRule: (rule) => host("addSpawnRule", rule),
+    setGameplay: (values) => host("setGameplay", values),
+    getGameplay: (rule) => host("getGameplay", rule),
     // Events, commands, timers
     on: (event, handler, priority = 0) => host("on", event, register(handler), priority),
     command: (name, description, handler, { admin = false } = {}) =>
@@ -138,7 +189,7 @@
   };
 
   // Engine -> script: invokes a registered callback. Events are plain objects; the fields handlers
-  // may change (cancelled, drops) are sent back.
+  // may change (cancelled, drops, amount, damage, keep_inventory, keep, message, position) are sent back.
   globalThis.__dispatch = (json) => {
     const { id, args } = JSON.parse(json);
     const fn = callbacks.get(id);
@@ -147,7 +198,8 @@
     const result = fn(...revived);
     const first = revived[0];
     const event = first !== null && typeof first === "object" && !(first instanceof Player) && !Array.isArray(first)
-      ? { cancelled: first.cancelled, drops: first.drops }
+      ? { cancelled: first.cancelled, drops: first.drops, amount: first.amount, damage: first.damage,
+          keep_inventory: first.keep_inventory, keep: first.keep, message: first.message, position: first.position }
       : null;
     return JSON.stringify({ value: result ?? null, event }, toHost);
   };

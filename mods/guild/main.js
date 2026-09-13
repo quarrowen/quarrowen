@@ -7,6 +7,7 @@
 //   /guild kit      quest board + tools in your hotbar
 //   /guild meteor   call down a meteor near you now
 //   /guild top      the guild leaderboard
+//   /guild bounty   summon a bounty monster worth extra coins (needs a mod with vanilla:zombie)
 
 const METEOR_INTERVAL = 240; // seconds between meteor showers
 const ACTIVE_QUEST_UI = "tracker";
@@ -19,7 +20,9 @@ const QUESTS = [
   { id: "prospector", title: "Gold Rush", text: "Mine 3 gold ore", stat: "gold", goal: 3, reward: 8 },
   { id: "pathfinder", title: "Pathfinder", text: "Travel 150 blocks", stat: "travel", goal: 150, reward: 6 },
   { id: "stargazer", title: "Stargazer", text: "Touch a fallen meteorite", stat: "meteor", goal: 1, reward: 10 },
+  { id: "hunter", title: "Monster Hunter", text: "Defeat 3 monsters", stat: "hunted", goal: 3, reward: 7 },
 ];
+const BOUNTY_MOB = "vanilla:zombie";
 
 export function setup(api) {
   const ids = {
@@ -37,6 +40,8 @@ export function setup(api) {
     }),
     cooled: api.registerBlock("cooled_meteorite", { display_name: "Cooled Meteorite", textures: "textures/meteorite_cooled.png" }),
   };
+
+  api.registerSound("coin", "sounds/coin.wav", { pitch_variance: 0.05 });
 
   api.addOrePass({ ore: "guild:gold_ore", replace: "base:stone", veins: 3, size: 4, min_y: 5, max_y: 40, chance: 0.7 });
   api.registerRecipe({ "guild:gold_coin": 4, "base:planks": 2 }, "guild:quest_board");
@@ -185,6 +190,7 @@ export function setup(api) {
         const entry = shop[Number(arg)];
         if (entry && player.take(ids.coin, entry.price)) {
           player.give(entry.id, entry.count);
+          player.playSound("guild:coin");
           player.sendMessage(`Bought ${entry.count} x ${api.itemDisplayName(entry.id)}`);
         }
         break;
@@ -224,6 +230,18 @@ export function setup(api) {
     if (block === ids.goldOre) progress(player, "gold");
   });
   api.on("block_placed", ({ player }) => progress(player, "placed"));
+
+  // Monster hunting: any mob a player defeats counts for the quest; bounty monsters pay coins.
+  api.on("entity_death", ({ entity, attacker }) => {
+    if (!(attacker instanceof api.Player) || entity.kind !== "mob") return;
+    progress(attacker, "hunted");
+    const bounty = entity.getData("bounty", 0);
+    if (bounty > 0) {
+      attacker.give(ids.coin, bounty);
+      attacker.showTitle("Bounty claimed!", `+${bounty} gold coins`, 2.5);
+      api.playSound("guild:coin", entity.position);
+    }
+  });
   api.on("item_crafted", ({ player }) => progress(player, "crafted"));
 
   api.on("player_join", ({ player, first_time }) => {
@@ -273,7 +291,7 @@ export function setup(api) {
 
   // --- Commands --------------------------------------------------------------------------------
 
-  api.command("guild", "kit | meteor | top | coins - Adventurers' Guild", (player, args) => {
+  api.command("guild", "kit | meteor | top | coins | bounty - Adventurers' Guild", (player, args) => {
     const sub = args[0] ?? "";
     const cheat = sub === "meteor" || (sub === "kit" && !player.isCreative());
     if (cheat && !player.isAdmin()) {
@@ -308,11 +326,22 @@ export function setup(api) {
         api.after(8, () => player.online && player.hideUi("leaderboard"));
         break;
       }
+      case "bounty": {
+        if (!player.isAdmin()) {
+          player.sendMessage("Only admins can post bounties.");
+          break;
+        }
+        const here = player.position;
+        const look = player.lookDirection;
+        const mob = api.spawnEntity(BOUNTY_MOB, { x: here.x + look.x * 4, y: here.y + 0.5, z: here.z + look.z * 4 }, { data: { bounty: 5 } });
+        player.sendMessage(mob ? "A bounty monster appeared! Defeat it for 5 coins." : `No ${BOUNTY_MOB} on this server.`);
+        break;
+      }
       case "coins":
         player.sendMessage(`You carry ${coins(player)} gold coins.`);
         break;
       default:
-        player.sendMessage("Usage: /guild kit | meteor | top | coins");
+        player.sendMessage("Usage: /guild kit | meteor | top | coins | bounty");
     }
   });
 }

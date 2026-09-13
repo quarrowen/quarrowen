@@ -41,27 +41,34 @@ engine/
     player_physics.gd       deterministic movement; tunables come from the server
     world_time.gd           day/night curve
     identity.gd             RSA identity keys, login challenge signing and verification
+    entity_registry.gd      entity types (mobs, projectiles, dropped items); network subset for clients
+    entity_physics.gd       gravity + AABB-vs-voxel collision for entities
+    sound_registry.gd       named sounds made of downloadable audio assets
     inventory.gd item_registry.gd chunk.gd voxel_world.gd voxel_raycast.gd protocol.gd native.gd
   server/
     game_server.gd          tick, content delivery, validation, events, chunk jobs, delta saves
-    mod_loader.gd mod_api.gd server_player.gd mod.gd ore_pass.gd
+    entities.gd entity.gd   entity simulation, AI, projectiles, item stacks, spawn rules, replication
+    mod_loader.gd mod_api.gd server_player.gd mod.gd ore_pass.gd world_backups.gd
     js_mod.gd js/            JavaScript mod host, prelude and TypeScript declarations
   client/
     game_client.gd          download → build content → play; prediction, meshing, models, HUD
     chunk_mesher.gd         mesh jobs (native lit greedy mesher, GDScript fallback)
     voxel_material.gd       block shader: tiling across merged quads, sky/block light, daylight
     model_library.gd        glTF block models → MultiMesh-ready meshes
+    entity_view.gd          interpolated, animated entity visuals
+    sound_player.gd         voice pool for downloaded and built-in sounds (sounds/)
+    inventory_screen.gd     36-slot inventory UI (server-authoritative clicks)
     content_cache.gd texture_atlas.gd server_ui.gd remote_player.gd
 native/                     Rust GDExtension (meshing + lighting, physics, snapshots, signals, JS)
 mods/
-  base/                     shared blocks + textures (not a game)
-  vanilla/                  generated terrain, creative building, day/night, /time
+  base/                     shared blocks, textures, block sounds, swords, apples (not a game)
+  vanilla/                  generated terrain, creative/survival, day/night, zombies and pigs
   skyblock/                 per-player void islands, survival, generator block, challenges
   industry/                 power networks: generators, solar, cables, batteries, lamps, auto-miner
   arcana/                   mana: crystal ore generation pass, mana pool HUD, pylons, spell wands
   guild/                    JavaScript mod: quest boards, coins, shop, gold ore, meteors, leaderboard
-tests/                      end-to-end, auth, multiplayer, host flow, persistence, identity, sandbox, benchmarks
-tools/                      run_tests.sh, build_native.sh, export.sh, texture/model generators
+tests/                      end-to-end, combat, auth, multiplayer, host flow, persistence, identity, gameplay, sandbox, benchmarks
+tools/                      run_tests.sh, build_native.sh, export.sh, texture/sound/model generators
 export_presets.cfg          macOS / Windows / Linux clients, Linux dedicated servers (x86_64, arm64)
 .github/workflows/ci.yml    native builds, tests, exports and the server image
 ```
@@ -117,8 +124,9 @@ export function setup(api) {
   `getBlockData` returns a copy (save with `setBlockData`). JavaScript can't run on world-generation
   threads, so JS mods use `addOrePass` for world generation.
 - The example `mods/guild` uses models, items, recipes, an ore pass, server UI with a shop, saved
-  per-player data and mod storage, cancellable events and drop rewriting, commands, timers and other
-  mods' items.
+  per-player data and mod storage, cancellable events and drop rewriting, commands, timers, other
+  mods' items, sounds, a monster-hunting quest (`entity_death`) and `/guild bounty`, which spawns a
+  zombie carrying entity data worth 5 coins.
 
 ### GDScript mods
 
@@ -158,11 +166,17 @@ The API (`engine/server/mod_api.gd`, `server_player.gd`) covers:
   `facing_direction`. Oriented blocks get a facing automatically when placed.
 - **Block data (block entities):** `set_block_data` / `get_block_data` / `clear_block_data`,
   `find_block_data`. Saved with the world and removed when the block is broken or replaced.
-- **Players:** `teleport`, `give` / `take` / `count_of`, `set_creative`, `set_hotbar`,
-  `send_message`, `show_title`, `show_ui` / `hide_ui`, `data` (persisted), `kick`.
+- **Players:** `teleport`, `give` / `take` / `count_of` / `drop`, `set_creative`, `set_hotbar`,
+  `send_message`, `show_title`, `show_ui` / `hide_ui`, `data` (persisted), `kick`, `health` /
+  `max_health` / `damage` / `heal` / `set_health` / `kill`, `spawn_point`, `push`, `play_sound`.
+- **Entities, combat & sound:** `register_entity`, `spawn_entity`, `spawn_projectile`, `drop_item`,
+  `get_entities`, `add_spawn_rule`, `register_sound`, `play_sound`, `set_gameplay` (see below).
 - **Events:** `player_join`, `player_leave`, `tick`, `block_break` (cancellable, editable drops),
   `block_broken`, `block_place` (cancellable), `block_placed`, `block_interact`, `item_use`,
-  `item_crafted`, `chat` (cancellable), `ui_action`.
+  `item_crafted`, `chat` (cancellable), `ui_action`, `item_drop`, `item_pickup`, `player_attack`,
+  `player_damage`, `player_death`, `player_respawn`, `entity_spawned`, `entity_removed`,
+  `entity_damage`, `entity_death`, `entity_interact`, `entity_natural_spawn`, `projectile_hit`
+  (most cancellable or editable; see the header of `mod_api.gd`).
 - **Other:** `register_command`, `after` / `every` / `cancel`, `storage` (persisted per mod),
   `broadcast`, `set_server_info`.
 
@@ -172,6 +186,54 @@ Every block is also an item (same id); `register_item` adds non-block items with
 engine provides a crafting menu (C) listing every `register_recipe` recipe, greyed out when the player
 lacks inputs. Drops may name items (`"drops": "base:coal"`). Right-clicking with a `usable` item fires
 `item_use` with the target block, face normal and look direction.
+
+### Entities, combat, inventory and sound
+
+```gdscript
+api.register_sound("growl", ["sounds/growl1.ogg", "sounds/growl2.ogg"], {"range": 20})
+api.register_entity("wolf", {
+	"model": "models/wolf.glb",        # parts named leg_a*, leg_b*, arm_a*, arm_b*, head animate
+	"width": 0.6, "height": 0.85, "health": 12, "speed": 4.0,
+	"ai": "hostile", "attack_damage": 3, "sight_range": 24,
+	"drops": [["base:coal", 1, 0.5]],  # [item, count, chance]
+	"sounds": {"hurt": "growl", "ambient": "growl"},
+	"persistent": false,              # true: saved with its chunk (animals); false: despawns far from players
+})
+api.add_spawn_rule({"entity": "wolf", "time": "night", "on": ["base:grass", "base:snow"], "max_nearby": 3})
+api.register_item("club", {"icon": "textures/club.png", "max_stack": 1, "attack_damage": 6})
+api.on("entity_death", func(ev):
+	if ev.attacker != null and ev.entity.type_name == "my_mod:wolf":
+		ev.attacker.send_message("You defeated a wolf"))
+```
+
+- **Entities** are simulated only on the server: gravity and voxel collision, built-in AI (`wander`,
+  `passive` flees when hurt, `hostile` chases and attacks survival players; hops up single blocks),
+  `set_goal` for scripted movement, knockback, hurt cooldowns and death drops. Projectiles
+  (`kind: "projectile"`, e.g. Arcana's Wand of Sparks) sweep against blocks, mobs and players each
+  tick and fire `projectile_hit`. Dropped item stacks (the built-in `engine:item`) are pulled toward
+  nearby players, merge with neighbours and despawn after 5 minutes.
+- **Replication:** each player receives spawn/despawn messages for entities within 64 blocks and
+  compact unreliable position updates only for entities that moved (resting items and idle mobs
+  cost nothing). Clients interpolate like remote players and animate model parts procedurally.
+- **Health:** players have 20 health, shown as hearts in survival. Damage comes from mobs, projectiles,
+  falls (landing speed, so low-gravity worlds hurt less), the void and mods; health regenerates after
+  a few seconds without damage. Death shows a respawn screen and optionally drops the inventory.
+  Left-click attacks the mob or player under the crosshair (server-checked reach, line of sight and
+  cooldown; damage from the held item's `attack_damage`).
+- **Gameplay rules** (`set_gameplay`, or `/gameplay rule value`): `item_drops` ("entity" or
+  "inventory"; Skyblock uses inventory so drops don't fall into the void), `keep_inventory`, `pvp`,
+  `fall_damage`, `natural_regeneration`, `mob_spawning`.
+- **Inventory:** 36 slots. E opens the inventory screen (left click moves stacks, right click
+  splits or places one, shift-click moves between hotbar and inventory, clicking outside drops); Q
+  drops the held item (Ctrl+Q the whole stack). All clicks are resolved on the server.
+- **Sound:** mods ship `.ogg` or `.wav` files that stream to clients like textures. Blocks name
+  `sounds` for break, place and footsteps (the client plays its own actions immediately; the server
+  sends them to everyone else nearby). A pool of 16 spatial voices keeps audio cheap; the pause menu
+  has a volume slider. Engine sounds (hurt, pickup, swing) are built into the client.
+  `tools/generate_sounds.py` synthesizes the bundled placeholder effects.
+- **Admin commands:** `/give`, `/tp`, `/summon`, `/heal`, `/gamemode`, `/gameplay`; everyone has
+  `/kill`. The vanilla game lets anyone use `/gamemode survival|creative`; at night zombies spawn
+  (and burn at sunrise), pigs graze by day, and leaves sometimes drop apples.
 
 ### Example: the Industry mod
 
@@ -195,7 +257,8 @@ lacks inputs. Drops may name items (`"drops": "base:coal"`). Right-clicking with
 `--mods=vanilla,arcana`. A generation pass seeds glowing mana crystal ore into any world's stone;
 mining it gives mana shards. Players have a mana pool in a HUD panel that regenerates, quickly near a
 Mana Pylon. Usable items: shards restore mana, the Wand of Blink teleports you up to 8 blocks, the
-Wand of Light conjures a temporary light orb. Craft wands and pylons with C, or `/arcana kit`.
+Wand of Light conjures a temporary light orb, the Wand of Sparks shoots a glowing projectile that
+hurts mobs. Craft wands and pylons with C, or `/arcana kit`.
 
 ## World saves (delta model)
 
@@ -319,12 +382,14 @@ tools/build_native.sh    # then open/import the project once to register it
 # End-to-end against a running server (--game = vanilla | skyblock | industry | arcana | guild)
 godot --headless --path . res://scenes/server.tscn -- --mods=vanilla,industry --port=24603 &
 godot --headless --path . res://tests/smoke_test.tscn -- --port=24603 --game=industry
+godot --headless --path . res://tests/smoke_test.tscn -- --port=24603 --game=combat     # needs --admins=Bot_combat
 godot --headless --path . res://tests/auth_test.tscn -- --port=24603          # needs --admins=Admin; also version + pinning
 godot --headless --path . res://tests/multiplayer_test.tscn -- --port=24603   # launches a 2nd client
 godot --headless --path . res://tests/host_flow_test.tscn                     # menu Host flow
 
 godot --headless --path . res://tests/persistence_test.tscn   # delta saves, block data, backups + restore
 godot --headless --path . res://tests/identity_test.tscn      # encrypted identity export / import
+godot --headless --path . res://tests/gameplay_test.tscn      # inventory rules, entities, damage, persistent mobs
 godot --headless --path . res://tests/js_sandbox_test.tscn    # JavaScript limits
 godot --headless --path . res://tests/bench.tscn              # worldgen, meshing, snapshots, physics
 godot --headless --path . res://tests/bots.tscn -- --port=24603 --bots=100

@@ -15,11 +15,26 @@ extends RefCounted
 ##   block_interact {player, position, block}   right-click on a block registered "interactive"
 ##   item_use       {player, item, has_target, position, normal, direction}   right-click holding a usable item
 ##   item_crafted   {player, item, count}
+##   item_drop      {player, item, count, cancelled}          Q key
+##   item_pickup    {player, entity, item, count, cancelled}
+##   player_attack  {player, target, target_kind ("entity" | "player"), item, damage, cancelled}   damage may be changed
+##   player_damage  {player, amount, cause, attacker, cancelled}   amount may be changed; cause: attack, mob,
+##                  projectile, fall, void, magic, ...
+##   player_death   {player, cause, attacker, keep_inventory, message}   keep_inventory and message may be changed
+##   player_respawn {player, position}                        position may be changed
+##   entity_spawned {entity}          entity_removed {entity}
+##   entity_damage  {entity, amount, cause, attacker, cancelled}
+##   entity_death   {entity, cause, attacker, drops: [[id, count]...]}   drops may be changed
+##   entity_interact {player, entity, item}                   right-click on an entity
+##   entity_natural_spawn {type, position, cancelled}         from spawn rules
+##   projectile_hit {entity, owner, hit ("block" | "entity" | "player"), target, position, block, damage,
+##                  cancelled (no damage), keep (do not remove the projectile)}
 
 const BlockRegistry = preload("res://engine/shared/block_registry.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const OrePass = preload("res://engine/server/ore_pass.gd")
+const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 
 var mod_id: String
 var mod_dir: String
@@ -77,6 +92,10 @@ func register_block(block_name: String, def: Dictionary) -> int:
 		d.render = "model"
 	if not String(def.get("model_arm", "")).is_empty():
 		d.model_arm = register_asset(def.model_arm)
+	if def.get("sounds") is Dictionary:
+		d.sounds = {}
+		for action in def.sounds:
+			d.sounds[action] = _qualify_ref(String(def.sounds[action]))
 	return _server.registry.register(d)
 
 
@@ -88,6 +107,98 @@ func register_item(item_name: String, def: Dictionary) -> int:
 	if not String(def.get("icon", "")).is_empty():
 		d.icon = register_asset(def.icon)
 	return _server.items.register(d)
+
+
+## Registers an entity type (mob, projectile, object). See EntityRegistry.register for keys. Model and
+## sprite paths are relative to the mod folder; sound names without a ":" are this mod's.
+## Returns the type id, or -1.
+func register_entity(entity_name: String, def: Dictionary) -> int:
+	var d := def.duplicate(true)
+	d.name = _qualify(entity_name)
+	for key in ["model", "sprite"]:
+		if not String(def.get(key, "")).is_empty():
+			d[key] = register_asset(def[key])
+	if def.get("sounds") is Dictionary:
+		d.sounds = {}
+		for action in def.sounds:
+			d.sounds[action] = _qualify_ref(String(def.sounds[action]))
+	return _server.entities.registry.register(d)
+
+
+## Registers a sound from one or more audio files in the mod folder (.ogg or .wav; a random one plays
+## each time). options: volume (0-2), pitch, pitch_variance, range (blocks). Returns the sound id.
+func register_sound(sound_name: String, files, options := {}) -> int:
+	var d := options.duplicate()
+	d.name = _qualify(sound_name)
+	var assets := []
+	for f in (files if files is Array else [files]):
+		assets.append(register_asset(String(f)))
+	d.files = assets
+	return _server.sounds.register(d)
+
+
+## Plays a sound at a world position for everyone in range.
+func play_sound(sound_name: String, position: Vector3, volume := 1.0, pitch := 1.0) -> void:
+	_server.play_sound_at(_qualify_ref(sound_name), position, volume, pitch)
+
+
+## Entity type id by name ("vanilla:zombie", or a local name). -1 if unknown.
+func entity_type(entity_name: String) -> int:
+	return _server.entities.registry.id_of(_qualify_ref(entity_name))
+
+
+## Spawns an entity. options: yaw, velocity (Vector3), data (Dictionary), owner (player or entity,
+## for projectiles). Returns the entity or null.
+func spawn_entity(entity_name: String, position: Vector3, options := {}):
+	return _server.entities.spawn(entity_type(entity_name), position, options)
+
+
+## Fires a projectile entity from `from` with `velocity`, credited to `owner` (player or entity).
+func spawn_projectile(entity_name: String, from: Vector3, velocity: Vector3, owner = null):
+	return _server.entities.spawn(entity_type(entity_name), from, {"velocity": velocity, "owner": owner, "yaw": atan2(-velocity.x, -velocity.z)})
+
+
+## Drops an item stack entity (players walk over it to pick it up).
+func drop_item(item_id: int, count: int, position: Vector3):
+	return _server.entities.drop_item(item_id, count, position)
+
+
+## Living entities within `radius` of `center`, optionally only of one type.
+func get_entities(center: Vector3, radius: float, entity_name := "") -> Array:
+	return _server.entities.in_radius(center, radius, entity_type(entity_name) if not entity_name.is_empty() else -1)
+
+
+func get_entity(entity_id: int):
+	return _server.entities.entities.get(entity_id)
+
+
+## Natural spawning. def: entity (name), time ("night" | "day" | "any"), on (block names the mob may
+## stand on; default any), max_nearby (per player), max_total, chance (per player per second),
+## min_distance, max_distance.
+func add_spawn_rule(def: Dictionary) -> void:
+	var type_id := entity_type(String(def.get("entity", "")))
+	if type_id < 0:
+		push_error("[%s] add_spawn_rule: unknown entity %s" % [mod_id, def.get("entity")])
+		return
+	var rule := def.duplicate()
+	rule.entity = type_id
+	var on := []
+	for block_ref in def.get("on", []):
+		var id := block(String(block_ref))
+		if id > 0:
+			on.append(id)
+	rule.on = on
+	_server.entities.add_spawn_rule(rule)
+
+
+## Game-wide rules: item_drops ("entity" | "inventory"), keep_inventory, pvp, fall_damage,
+## natural_regeneration, mob_spawning.
+func set_gameplay(values: Dictionary) -> void:
+	_server.set_gameplay(values)
+
+
+func get_gameplay(rule: String):
+	return _server.gameplay.get(rule)
 
 
 ## Looks up any block or item id by name ("base:coal", or a local name). -1 if unknown.
@@ -331,3 +442,8 @@ func cancel(task_id: int) -> void:
 
 func _qualify(local_name: String) -> String:
 	return "%s:%s" % [mod_id, local_name]
+
+
+## Names that already have a namespace ("base:stone", "engine:hurt") are kept as they are.
+func _qualify_ref(ref: String) -> String:
+	return ref if ref.contains(":") or ref.is_empty() else _qualify(ref)

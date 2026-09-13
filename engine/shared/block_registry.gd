@@ -21,7 +21,7 @@ const RENDER_NAMES := {
 
 ## Fields sent to clients. Anything else in a definition (e.g. drops) stays on the server.
 const NETWORK_FIELDS := ["name", "display_name", "render", "solid", "liquid", "cull_same", "breakable", "placeable",
-	"textures", "light", "interactive", "model", "orientation", "connect_group", "model_arm", "sway"]
+	"textures", "light", "interactive", "model", "orientation", "connect_group", "model_arm", "sway", "sounds"]
 
 ## Face order used by `textures`: +X, -X, +Y (top), -Y (bottom), +Z, -Z.
 const FACE_COUNT := 6
@@ -83,6 +83,12 @@ func register(def: Dictionary) -> int:
 	d.model_arm = String(def.get("model_arm", "")).left(256)
 	## Foliage that sways in the wind (visual only).
 	d.sway = bool(def.get("sway", false))
+	## Sound names per action: {"break": "base:stone", "place": ..., "step": ...}.
+	d.sounds = {}
+	if def.get("sounds") is Dictionary:
+		for action in ["break", "place", "step"]:
+			if def.sounds.get(action) is String:
+				d.sounds[action] = String(def.sounds[action]).left(128)
 	var id := defs.size()
 	d.id = id
 	defs.append(d)

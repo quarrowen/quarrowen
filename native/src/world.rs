@@ -133,7 +133,40 @@ impl NativeVoxelWorld {
             if body.on_ground { 1.0 } else { 0.0 },
         ][..])
     }
+
+    /// Steps many entity bodies at once (EntityPhysics.step). Input: 11 floats per body
+    /// [px, py, pz, vx, vy, vz, half_width, height, gravity, drag, on_ground]. Output: 7 floats per
+    /// body [px, py, pz, vx, vy, vz, flags] with flags 1 = on ground, 2 = blocked sideways, 4 = in liquid.
+    #[func]
+    fn step_entities(&self, bodies: PackedFloat32Array, dt: f32) -> PackedFloat32Array {
+        let input = bodies.as_slice();
+        let count = input.len() / ENTITY_IN;
+        let mut out = Vec::with_capacity(count * ENTITY_OUT);
+        for chunk in input.chunks_exact(ENTITY_IN) {
+            let mut body = Body {
+                position: Vector3::new(chunk[0], chunk[1], chunk[2]),
+                velocity: Vector3::new(chunk[3], chunk[4], chunk[5]),
+                on_ground: chunk[10] > 0.5,
+            };
+            let size = physics::Size { half_width: chunk[6], height: chunk[7] };
+            let result = physics::step_entity(&mut body, size, self, dt, chunk[8], chunk[9]);
+            let flags = (body.on_ground as i32) | ((result.blocked as i32) << 1) | ((result.in_liquid as i32) << 2);
+            out.extend_from_slice(&[
+                body.position.x,
+                body.position.y,
+                body.position.z,
+                body.velocity.x,
+                body.velocity.y,
+                body.velocity.z,
+                flags as f32,
+            ]);
+        }
+        PackedFloat32Array::from(&out[..])
+    }
 }
+
+const ENTITY_IN: usize = 11;
+const ENTITY_OUT: usize = 7;
 
 /// Little-endian u16 ids from a chunk payload.
 pub fn decode_ids(bytes: &[u8]) -> Box<[u16]> {

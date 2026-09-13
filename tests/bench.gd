@@ -80,6 +80,25 @@ func _ready() -> void:
 		PlayerPhysics.step(state, input, world, server.rules)
 	_report("player physics step", Time.get_ticks_usec() - t, steps, "step")
 	print("[bench] physics ended at %s (sanity check)" % state.position)
+
+	# Entity simulation: wandering mobs plus resting item stacks in the loaded area.
+	server.set_physics_process(false)
+	var spawn := server._default_spawn()
+	for kind in [["vanilla:zombie", 150], ["vanilla:pig", 150]]:
+		for i in kind[1]:
+			var x := randf_range(-60, 60)
+			var z := randf_range(-60, 60)
+			var y: int = server.surface_height(floori(x), floori(z))
+			server.entities.spawn(server.entities.registry.id_of(kind[0]), Vector3(x, y + 1, z))
+	var coal: int = server.items.id_of("base:coal")
+	for i in 200:
+		server.entities.drop_item(coal, 1, spawn + Vector3(randf_range(-30, 30), 20, randf_range(-30, 30)))
+	for i in 180:
+		server.entities.tick(1.0 / 60.0)  # let items settle
+	t = Time.get_ticks_usec()
+	for i in 600:
+		server.entities.tick(1.0 / 60.0)
+	_report("entity tick (%d mobs + 200 items)" % 300, Time.get_ticks_usec() - t, 600, "tick")
 	server.queue_free()
 	await get_tree().process_frame
 	_remove_tree(ProjectSettings.globalize_path("user://bench"))

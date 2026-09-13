@@ -1,5 +1,6 @@
-//! Port of engine/shared/player_physics.gd. Keep the two in lockstep: the client predicts with the
-//! same step the server runs, so any divergence shows up as rubber-banding.
+//! Port of engine/shared/player_physics.gd (players) and engine/shared/entity_physics.gd (entities).
+//! Keep them in lockstep with the GDScript versions: the client predicts players with the same step
+//! the server runs, so any divergence shows up as rubber-banding.
 
 use godot::builtin::{Vector2, Vector3};
 
@@ -56,8 +57,77 @@ impl Rules {
     }
 }
 
+/// A collision box: half width (x/z) and height, feet at the position.
+#[derive(Clone, Copy)]
+pub struct Size {
+    pub half_width: f32,
+    pub height: f32,
+}
+
+const PLAYER: Size = Size { half_width: HALF_WIDTH, height: HEIGHT };
+
+/// Result flags of an entity step.
+pub struct EntityStep {
+    pub blocked: bool,
+    pub in_liquid: bool,
+}
+
+/// One entity step (EntityPhysics.step): gravity, liquid drag, airborne drag, collision.
+pub fn step_entity(s: &mut Body, size: Size, world: &NativeVoxelWorld, dt: f32, gravity: f32, drag: f32) -> EntityStep {
+    if collides(s.position, size, world) {
+        s.position.y += 0.25;
+        s.velocity = Vector3::ZERO;
+        s.on_ground = false;
+        return EntityStep { blocked: false, in_liquid: false };
+    }
+    let in_liquid = world.is_liquid(
+        s.position.x.floor() as i32,
+        (s.position.y + (size.height * 0.5).min(0.4)).floor() as i32,
+        s.position.z.floor() as i32,
+    );
+    if in_liquid {
+        s.velocity.y = move_toward(s.velocity.y, -1.5, 12.0 * dt);
+        let damp = (1.0 - 3.0 * dt).max(0.0);
+        s.velocity.x *= damp;
+        s.velocity.z *= damp;
+    } else {
+        s.velocity.y = (s.velocity.y - gravity * dt).max(-60.0);
+        if drag > 0.0 && !s.on_ground {
+            let damp = (1.0 - drag * dt).max(0.0);
+            s.velocity.x *= damp;
+            s.velocity.z *= damp;
+        }
+    }
+    let motion = s.velocity * dt;
+    let largest = motion.x.abs().max(motion.y.abs()).max(motion.z.abs());
+    let steps = ((largest / MAX_SUBSTEP).ceil() as i32).max(1);
+    let mut part = motion / steps as f32;
+    s.on_ground = false;
+    let mut blocked = false;
+    for _ in 0..steps {
+        if move_axis(s, 1, part.y, size, world) {
+            if part.y < 0.0 {
+                s.on_ground = true;
+            }
+            s.velocity.y = 0.0;
+            part.y = 0.0;
+        }
+        if move_axis(s, 0, part.x, size, world) {
+            s.velocity.x = 0.0;
+            part.x = 0.0;
+            blocked = true;
+        }
+        if move_axis(s, 2, part.z, size, world) {
+            s.velocity.z = 0.0;
+            part.z = 0.0;
+            blocked = true;
+        }
+    }
+    EntityStep { blocked, in_liquid }
+}
+
 pub fn step(s: &mut Body, input: &Input, world: &NativeVoxelWorld, rules: &Rules) {
-    if collides(s.position, world) {
+    if collides(s.position, PLAYER, world) {
         // Stuck inside a block (terrain changed around us): push upward until free.
         s.position.y += 0.25;
         s.velocity = Vector3::ZERO;
@@ -107,18 +177,18 @@ pub fn step(s: &mut Body, input: &Input, world: &NativeVoxelWorld, rules: &Rules
     let mut part = motion / steps as f32;
     s.on_ground = false;
     for _ in 0..steps {
-        if move_axis(s, 1, part.y, world) {
+        if move_axis(s, 1, part.y, PLAYER, world) {
             if part.y < 0.0 {
                 s.on_ground = true;
             }
             s.velocity.y = 0.0;
             part.y = 0.0;
         }
-        if move_axis(s, 0, part.x, world) {
+        if move_axis(s, 0, part.x, PLAYER, world) {
             s.velocity.x = 0.0;
             part.x = 0.0;
         }
-        if move_axis(s, 2, part.z, world) {
+        if move_axis(s, 2, part.z, PLAYER, world) {
             s.velocity.z = 0.0;
             part.z = 0.0;
         }
@@ -142,43 +212,43 @@ fn set_axis(v: &mut Vector3, i: usize, value: f32) {
 }
 
 /// Moves along one axis; on collision snaps flush against the blocking voxel.
-fn move_axis(s: &mut Body, i: usize, delta: f32, world: &NativeVoxelWorld) -> bool {
+fn move_axis(s: &mut Body, i: usize, delta: f32, size: Size, world: &NativeVoxelWorld) -> bool {
     if delta == 0.0 {
         return false;
     }
     let mut p = s.position;
     let moved = axis(p, i) + delta;
     set_axis(&mut p, i, moved);
-    if !collides(p, world) {
+    if !collides(p, size, world) {
         s.position = p;
         return false;
     }
     let value = axis(p, i);
     let snapped = if i == 1 {
         if delta > 0.0 {
-            (value + HEIGHT).floor() - HEIGHT - SKIN
+            (value + size.height).floor() - size.height - SKIN
         } else {
             value.floor() + 1.0
         }
     } else if delta > 0.0 {
-        (value + HALF_WIDTH).floor() - HALF_WIDTH - SKIN
+        (value + size.half_width).floor() - size.half_width - SKIN
     } else {
-        (value - HALF_WIDTH).floor() + 1.0 + HALF_WIDTH + SKIN
+        (value - size.half_width).floor() + 1.0 + size.half_width + SKIN
     };
     set_axis(&mut p, i, snapped);
-    if (snapped - axis(s.position, i)) * delta >= 0.0 && !collides(p, world) {
+    if (snapped - axis(s.position, i)) * delta >= 0.0 && !collides(p, size, world) {
         s.position = p;
     }
     true
 }
 
-fn collides(p: Vector3, world: &NativeVoxelWorld) -> bool {
-    let x0 = (p.x - HALF_WIDTH).floor() as i32;
-    let x1 = (p.x + HALF_WIDTH - EDGE).floor() as i32;
+fn collides(p: Vector3, size: Size, world: &NativeVoxelWorld) -> bool {
+    let x0 = (p.x - size.half_width).floor() as i32;
+    let x1 = (p.x + size.half_width - EDGE).floor() as i32;
     let y0 = p.y.floor() as i32;
-    let y1 = (p.y + HEIGHT - EDGE).floor() as i32;
-    let z0 = (p.z - HALF_WIDTH).floor() as i32;
-    let z1 = (p.z + HALF_WIDTH - EDGE).floor() as i32;
+    let y1 = (p.y + size.height - EDGE).floor() as i32;
+    let z0 = (p.z - size.half_width).floor() as i32;
+    let z1 = (p.z + size.half_width - EDGE).floor() as i32;
     for y in y0..=y1 {
         for z in z0..=z1 {
             for x in x0..=x1 {
