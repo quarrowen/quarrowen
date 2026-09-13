@@ -21,6 +21,7 @@ var owner = null
 ## Dropped item stacks.
 var item_id := 0
 var item_count := 0
+var item_data := {}
 
 ## Mobs: the AI brain (engine/server/ai/mob_brain.gd); null for other kinds.
 var brain = null

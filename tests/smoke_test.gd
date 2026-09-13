@@ -120,12 +120,19 @@ func _skyblock(c) -> void:
 	_check(gen_pos != Vector3i(0, -999, 0), "island has a generator")
 	if gen_pos != Vector3i(0, -999, 0):
 		var above := gen_pos + Vector3i.UP
-		c.request_break(above)
-		await get_tree().create_timer(0.5).timeout
-		_check(c.inventory.count_of(cobble) == 1, "mined cobblestone went to inventory")
+		var pickaxe: int = c.items.id_of("base:wooden_pickaxe")
+		_check(c.inventory.count_of(pickaxe) == 1, "starter kit has a wooden pickaxe")
+		c.select_slot(c.inventory.ids.find(pickaxe))
+		await get_tree().create_timer(0.3).timeout
+		var started := Time.get_ticks_msec()
+		await c.mine_block(above)
+		await _wait_until(func(): return c.inventory.count_of(cobble) == 1, 2.0)
+		_check(c.inventory.count_of(cobble) == 1, "mined cobblestone with the pickaxe (%.1f s)" % ((Time.get_ticks_msec() - started) / 1000.0))
+		var wear: int = c.inventory.data[c.inventory.ids.find(pickaxe)].get("damage", 0)
+		_check(wear == 1, "mining wore the pickaxe (damage %d)" % wear)
 		await get_tree().create_timer(1.2).timeout
 		_check(c.world.get_block_v(above) == cobble, "generator regrew cobblestone (mod scheduler)")
-		c.request_break(gen_pos)
+		await c.mine_block(gen_pos)
 		await get_tree().create_timer(0.6).timeout
 		_check(c.world.get_block_v(gen_pos) == generator, "mod vetoed breaking the generator")
 
@@ -133,7 +140,7 @@ func _skyblock(c) -> void:
 	var log_id: int = c.registry.id_of("base:log")
 	var log_pos := _find_block_near(c, log_id, 5)
 	if log_pos != Vector3i(0, -999, 0):
-		c.request_break(log_pos)
+		await c.mine_block(log_pos)
 		await _wait_until(func(): return c.inventory.count_of(log_id) == 1, 3.0)
 		_check(c.inventory.count_of(log_id) == 1, "chopped a log")
 		Net.c_open_menu.rpc_id(1, "crafting")
@@ -339,7 +346,7 @@ func _combat(c) -> void:
 	_check(c.health == 20.0 and c._hearts.visible, "health HUD shows 20 (%.1f)" % c.health)
 	_check(c.entity_types.id_of("vanilla:pig") > 0 and c._entity_parts.get(c.entity_types.id_of("vanilla:pig"), []).size() == 6,
 		"entity types and animated model parts replicated")
-	_select_item(c, sword)
+	await _select_item(c, sword)
 
 	# A pig: chase it, kill it, pick up what it drops.
 	var sounds_before: int = c._sounds.played
@@ -372,7 +379,7 @@ func _combat(c) -> void:
 	var porkchop: int = c.items.id_of("vanilla:porkchop")
 	if c.health < 20.0 and c.inventory.count_of(porkchop) > 0:
 		var before: float = c.health
-		_select_item(c, porkchop)
+		await _select_item(c, porkchop)
 		await get_tree().create_timer(0.2).timeout
 		c.use_selected_item()
 		_check(await _wait_until(func(): return c.health >= minf(before + 5.0, 20.0), 2.0), "eating healed (%.1f -> %.1f)" % [before, c.health])
@@ -390,7 +397,7 @@ func _combat(c) -> void:
 	_check(fell, "fell 12 blocks and took fall damage (health %.1f)" % c.health)
 
 	# Drop the sword with Q, then pick it back up.
-	_select_item(c, sword)
+	await _select_item(c, sword)
 	await get_tree().create_timer(0.3).timeout
 	c.drop_selected()
 	_check(await _wait_until(func(): return c.inventory.count_of(sword) == 0, 2.0), "dropped the sword")
@@ -409,6 +416,27 @@ func _combat(c) -> void:
 	_check(await _wait_until(func(): return c.inventory.ids[20] == 0 and c.inventory.count_of(sword) == 1, 2.0), "shift-click moved it back to the hotbar")
 	c._set_inventory_open(false)
 
+	# Equipment: wear a chestplate, see armor in stats and the HUD; mine stone with a pickaxe.
+	Net.c_chat.rpc_id(1, "/give base:iron_chestplate")
+	var chestplate: int = c.items.id_of("base:iron_chestplate")
+	await _wait_until(func(): return c.inventory.count_of(chestplate) == 1, 2.0)
+	c.inventory_click(c.inventory.ids.find(chestplate), 1, true)
+	_check(await _wait_until(func(): return c.inventory.ids[c.inventory.equipment_index("chest")] == chestplate, 2.0), "shift-click wore the chestplate")
+	_check(await _wait_until(func(): return c.stats.get("armor", 0.0) == 6.0 and c._armor_bar.visible, 2.0), "server stats and armor HUD show 6 armor")
+	var lines: PackedStringArray = c.ItemVisuals.tooltip_lines(c.items, chestplate, {})
+	_check(lines.size() >= 3 and lines[1].contains("armor"), "tooltip lists armor and durability (%s)" % " | ".join(lines))
+	Net.c_chat.rpc_id(1, "/give base:stone_pickaxe")
+	var pickaxe: int = c.items.id_of("base:stone_pickaxe")
+	await _wait_until(func(): return c.inventory.count_of(pickaxe) == 1, 2.0)
+	await _select_item(c, pickaxe)
+	await get_tree().create_timer(0.3).timeout
+	var mine_target := _nearest_solid(c)
+	c.mine_block(mine_target)  # runs on its own; watch the crack and the result
+	await get_tree().create_timer(0.15).timeout
+	_check(c._cracks.has(0), "mining shows the crack overlay")
+	_check(await _wait_until(func(): return c.world.get_block_v(mine_target) == 0, 4.0), "survival mining broke the block")
+	_check(await _wait_until(func(): return c.inventory.data[c.inventory.ids.find(pickaxe)].get("damage", 0) >= 1, 3.0), "breaking a block wore the pickaxe")
+
 	# Wand of Sparks (arcana): a projectile that damages mobs.
 	Net.c_chat.rpc_id(1, "/give arcana:wand_of_sparks")
 	var wand: int = c.items.id_of("arcana:wand_of_sparks")
@@ -416,7 +444,7 @@ func _combat(c) -> void:
 	Net.c_chat.rpc_id(1, "/summon vanilla:zombie")
 	var target := await _wait_for_entity(c, "vanilla:zombie", 4.0)
 	if target >= 0:
-		_select_item(c, wand)
+		await _select_item(c, wand)
 		var shot := false
 		for attempt in 6:
 			var view = c._entities.get(target)
@@ -430,7 +458,7 @@ func _combat(c) -> void:
 				break
 		_check(shot, "Wand of Sparks projectile hit the zombie")
 		Net.c_chat.rpc_id(1, "/heal")
-		_select_item(c, sword)
+		await _select_item(c, sword)
 		await _fight(c, target, 12.0)
 
 	# Death and respawn.
@@ -471,8 +499,27 @@ func _find_open_ground(c, around: Vector2i) -> Vector3:
 	return best
 
 
+## A solid block within reach next to the player (the ground beside its feet).
+func _nearest_solid(c) -> Vector3i:
+	var base := Vector3i(floori(c.state.position.x), floori(c.state.position.y) - 1, floori(c.state.position.z))
+	for d in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1), Vector3i(1, 0, 1)]:
+		var p: Vector3i = base + d
+		if c.registry.breakable_lut[c.world.get_block_v(p)] == 1:
+			return p
+	return base
+
+
 func _select_item(c, item: int) -> void:
 	var slot: int = c.inventory.ids.find(item)
+	if slot >= 9:
+		# Hotbar full: swap it with the last hotbar slot through the inventory screen rules.
+		c.inventory_click(slot)
+		await _wait_until(func(): return c.inventory.cursor_id == item, 2.0)
+		c.inventory_click(8)
+		await _wait_until(func(): return c.inventory.ids[8] == item, 2.0)
+		c.inventory_click(slot)
+		await _wait_until(func(): return c.inventory.cursor_count == 0, 2.0)
+		slot = 8
 	if slot >= 0 and slot < 9:
 		c.select_slot(slot)
 

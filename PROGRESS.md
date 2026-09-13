@@ -11,7 +11,8 @@ Branches stack on each other; nothing is merged to `master` yet.
 |---|---|---|---|
 | `hardening` | #1 (draft, base `master`) | tests + CI, 16-bit block ids, identity/auth, permissions, exports, DTLS + version handshake + server pinning, backups, identity export/import | green |
 | `gameplay` | #2 (draft, base `hardening`) | entities, health/combat, 36-slot inventory, audio | combat test hardened (teleport when the chase stalls, looser fall check); re-run pending |
-| `mob-ai` | #3 (draft, base `gameplay`) | engine mob AI + README docs | native suite green on CI; fallback fall-damage check fixed; re-run pending |
+| `mob-ai` | #3 (draft, base `gameplay`) | engine mob AI + README docs | green |
+| `equipment` | #4 (draft, base `mob-ai`) | phase 1 equipment: item data, slots, stats, timed mining, durability, progression examples | local suites pass; CI pending |
 
 Local test commands: `tools/run_tests.sh` (native) and `VOXEL_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh`
 (GDScript fallbacks). Both pass locally on `mob-ai` (14 and 13 suites). Rebuild native after Rust
@@ -58,14 +59,24 @@ changes with `tools/build_native.sh`.
 ## Pending (next steps, in order)
 
 1. Confirm CI is green on #2 and #3 (`gh run list --branch gameplay|mob-ai`).
-2. Equipment system (below): agree on the design with the user, then build it on a new branch off
-   `mob-ai`.
+2. Equipment phase 2 (visuals): character rig, first-person held items, worn armor, glows/trails/
+   particles, and a Roblox-style cosmetics/avatar system. User wants a design deep dive on
+   cosmetics first (questions were asked at the end of the phase 1 session).
 3. AI performance, if mob counts grow: move perception LOS batching and steering to native; path
    budget is 8/tick native, 2/tick fallback.
 4. The Godot MCP editor plugin lives in `addons/godot_mcp/` locally; it is git-ignored and excluded
    from exports on `mob-ai` (not on `gameplay`/`hardening`, where it just shows as untracked).
 
-## Next feature discussed: equipment (user request, not started)
+## Equipment decisions (user, 2026-09-13)
+
+- Mining: timed breaking; blocks define hardness + tier; tools define speed + tier. (done)
+- Progression: engine provides only building blocks; mods design their own. (done)
+- Visuals: first-person held item and visible armor are in scope, plus glows, trails, particles — as
+  engine capabilities mods use. Deep dive wanted on armor/cosmetics: carry over Roblox-style avatar
+  customization so players can heavily customize looks. (phase 2)
+- Durability: mods decide; on by default. (done)
+
+## Original equipment notes
 
 User wants: vanilla ships basic armor, weapons and tools, but mods define everything — including
 progression (items that level up with use), upgrades, and engine-provided visual/audio effects

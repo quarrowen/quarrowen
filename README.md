@@ -187,6 +187,63 @@ engine provides a crafting menu (C) listing every `register_recipe` recipe, grey
 lacks inputs. Drops may name items (`"drops": "base:coal"`). Right-clicking with a `usable` item fires
 `item_use` with the target block, face normal and look direction.
 
+### Tools, weapons, armor and progression
+
+The engine supplies the pieces: item definitions with tool, weapon and armor stats, per-item data,
+equipment slots, a stat system with modifiers, timed mining with tiers, durability, and events. How
+items progress (experience, kills, upgrades, sockets) is entirely up to mods.
+
+```gdscript
+api.register_item("ruby_pickaxe", {
+	"icon": "textures/ruby_pickaxe.png", "durability": 900,
+	"tool": {"type": "pickaxe", "tier": 4, "speed": 9},       # breaks blocks up to tier 4, 9x faster
+	"weapon": {"damage": 4, "cooldown": 0.5},
+	"modifiers": [{"stat": "move_speed", "amount": 0.05, "op": "multiply"}],   # while held
+})
+api.register_item("ruby_helmet", {"equip_slot": "head", "durability": 400, "armor": {"armor": 3, "toughness": 2}})
+api.register_block("ruby_ore", {"textures": "textures/ruby_ore.png", "hardness": 4, "tier": 3, "tool": "pickaxe"})
+api.register_equipment_slot("ring", {"display_name": "Ring"})
+api.register_stat("mana_regen", 1.0)
+
+# Progression is just item data + events: this sword levels up with kills.
+api.on("entity_death", func(ev):
+	var p = ev.attacker
+	if p == null or p.get("peer_id") == null or p.get_item(p.selected_slot).item != api.item("my_mod:blade"):
+		return
+	var data: Dictionary = p.get_item(p.selected_slot).data.duplicate(true)
+	data.kills = int(data.get("kills", 0)) + 1
+	data.name = "Blade +%d" % (data.kills / 10)
+	data.lore = ["%d kills" % data.kills]
+	data.modifiers = [{"stat": "attack_damage", "amount": data.kills / 10}]
+	p.set_item_data(p.selected_slot, data))
+```
+
+- **Mining:** blocks have `hardness` (seconds by hand is about hardness x 1.5), a `tier` needed for
+  drops and an effective `tool` type; tools have `type`, `tier` and `speed`. Survival players hold the
+  button while a crack animation plays (others nearby see it too); the server checks the time before
+  accepting the break, and a tool that is too weak mines slowly and yields nothing. Creative is instant.
+- **Item data:** every stack can carry a Dictionary (`get_item`, `set_item_data`, `give(item, count,
+  data)`). The engine reads `damage` (wear), `name`, `lore` and `modifiers`; mods keep anything else
+  there (xp, level, sockets, owner). Stacks only merge when their data matches; data survives drops,
+  deaths and saves.
+- **Equipment:** head, chest, legs, feet and offhand slots plus any a mod registers, shown beside the
+  inventory. Shift-click or right-click wears armor.
+- **Stats:** `max_health`, `armor`, `toughness`, `attack_damage`, `attack_cooldown`, `reach`,
+  `crit_chance`, `crit_multiplier`, `knockback`, `knockback_resistance`, `mining_speed`, `move_speed`,
+  and mod stats from `register_stat`. They come from worn items, the held tool or weapon, modifiers in
+  item data and timed modifiers (`player.add_modifier(id, stat, amount, op, seconds)`), and the
+  `player_stats` event can adjust the result. Armor reduces attack, mob and projectile damage;
+  `move_speed` changes that player's physics (predicted on the client).
+- **Combat:** weapon damage and cooldown, jump-attack criticals, `crit_chance`, sweeps that hit mobs
+  around the target, and knockback.
+- **Durability** (on by default; `set_gameplay({"durability": false})` turns it off): tools wear when
+  mining, weapons when hitting, armor when hit; `item_durability` can change or cancel wear and
+  `item_break` fires when an item wears out. Hotbar and inventory slots show a wear bar; tooltips list
+  stats, durability and lore.
+- **Bundled:** wooden, stone and iron pickaxes, axes, shovels and swords, iron armor (base), leather
+  armor from pigs (vanilla), the Soul Blade that levels with kills (Arcana, GDScript) and the
+  Prospector's Pick that mines faster as it gains experience (Guild, JavaScript).
+
 ### Entities, combat, inventory and sound
 
 ```gdscript

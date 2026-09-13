@@ -65,6 +65,11 @@ func _setup_mobs() -> void:
 	api.register_sound("colossus_roar", "sounds/colossus_roar.wav", {"range": 64.0})
 	api.register_sound("colossus_hurt", "sounds/colossus_hurt.wav", {"range": 32.0})
 	api.register_item("bone", {"display_name": "Bone", "icon": "textures/bone.png"})
+	api.register_item("leather", {"icon": "textures/leather.png"})
+	for piece in [["helmet", "head", 1.0, 5], ["chestplate", "chest", 3.0, 8], ["leggings", "legs", 2.0, 7], ["boots", "feet", 1.0, 4]]:
+		api.register_item("leather_%s" % piece[0], {"display_name": "Leather %s" % String(piece[0]).capitalize(),
+			"icon": "textures/leather_%s.png" % piece[0], "equip_slot": piece[1], "durability": 80, "armor": {"armor": piece[2]}})
+		api.register_recipe({"vanilla:leather": piece[3]}, "vanilla:leather_%s" % piece[0])
 	ids.porkchop = api.register_item("porkchop", {"display_name": "Porkchop", "icon": "textures/porkchop.png", "usable": true})
 	api.register_entity("arrow", {"kind": "projectile", "sprite": "textures/arrow.png", "width": 0.25, "height": 0.25,
 		"damage": 4, "gravity": 14.0, "lifetime": 4.0})
@@ -100,7 +105,7 @@ func _setup_mobs() -> void:
 	# Pigs graze in herds; hurting one makes the whole herd scatter.
 	ids.pig = api.register_entity("pig", {
 		"kind": "mob", "model": "models/pig.glb", "width": 0.9, "height": 0.9,
-		"health": 10, "speed": 2.2, "persistent": true, "drops": [["vanilla:porkchop", 1], ["vanilla:porkchop", 1, 0.5]],
+		"health": 10, "speed": 2.2, "persistent": true, "drops": [["vanilla:porkchop", 1], ["vanilla:porkchop", 1, 0.5], ["vanilla:leather", 1, 0.6]],
 		"sounds": {"hurt": "pig_hurt", "death": "pig_death", "ambient": "pig_ambient"},
 		"ai": {"preset": "passive", "group": "pigs", "alert_radius": 12, "wander_radius": 8},
 	})
@@ -178,6 +183,7 @@ func _cmd_gamemode(player, args: PackedStringArray) -> void:
 		# The creative hotbar holds placeholder stacks; start survival with a small kit instead.
 		player.clear_inventory()
 		player.give(api.item("base:stone_sword"))
+		player.give(api.item("base:wooden_pickaxe"))
 		player.give(api.item("base:planks"), 16)
 		player.give(api.item("base:apple"), 3)
 	else:

@@ -8,7 +8,7 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -27,8 +27,17 @@ func _ready() -> void:
 		await get_tree().create_timer(0.3).timeout
 	if not String(options.menu).is_empty():
 		Net.c_open_menu.rpc_id(1, options.menu)
+	if not String(options.mine).is_empty():
+		client.ignore_mouse_capture = true
+		Input.action_press("break")  # hold break on whatever the camera looks at
+	if not String(options.inventory).is_empty():
+		await get_tree().create_timer(1.0).timeout
+		client._set_inventory_open(true)
+		client._inventory_screen._hovered = int(options.hover)
 	await get_tree().create_timer(float(options.wait)).timeout
 	await _meshed(client)
+	if not String(options.mine).is_empty():
+		await get_tree().create_timer(float(options.mine)).timeout  # let the crack grow
 	var viewport_rid := get_viewport().get_viewport_rid()
 	RenderingServer.viewport_set_measure_render_time(viewport_rid, true)
 	var cpu := 0.0

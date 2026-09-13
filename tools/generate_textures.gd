@@ -91,6 +91,22 @@ func _init() -> void:
 		arrow.set_pixel(d.x, d.y, Color(0.95, 0.95, 0.95))
 	_save(arrow, vanilla + "arrow.png")
 	_save(_item(Color(0.9, 0.88, 0.8), "shard"), vanilla + "bone.png")
+
+	# Tools and armor (appended last so earlier textures keep their random sequence).
+	var materials := {"wooden": Color(0.62, 0.45, 0.25), "stone": Color(0.6, 0.6, 0.63), "iron": Color(0.85, 0.85, 0.88)}
+	for material in materials:
+		for tool in ["pickaxe", "axe", "shovel"]:
+			_save(_item(materials[material], tool), base + "%s_%s.png" % [material, tool])
+	_save(_item(Color(0.85, 0.85, 0.88), "sword"), base + "iron_sword.png")
+	_save(_item(Color(0.55, 0.4, 0.22), "stick"), base + "stick.png")
+	_save(_item(Color(0.85, 0.85, 0.88), "ingot"), base + "iron_ingot.png")
+	_save(_item(Color(0.55, 0.35, 0.2), "hide"), vanilla + "leather.png")
+	var armors := {"leather": Color(0.55, 0.35, 0.2), "iron": Color(0.82, 0.83, 0.86)}
+	for material in armors:
+		for piece in ["helmet", "chestplate", "leggings", "boots"]:
+			_save(_item(armors[material], piece), (vanilla if material == "leather" else base) + "%s_%s.png" % [material, piece])
+	_save(_item(Color(0.62, 0.35, 0.95), "sword"), arcana + "soul_blade.png")
+	_save(_item(Color(1.0, 0.8, 0.25), "pickaxe"), guild + "prospector_pick.png")
 	quit()
 
 
@@ -120,12 +136,24 @@ func _item(color: Color, glyph: String) -> Image:
 				"sword": on = (absi(x - (15 - y)) <= 1 and y < 11) or (absi(x - y) <= 0 and y > 8 and y < 13) or (x < 4 and y > 11)
 				"apple": on = Vector2(x - 7.5, y - 9.0).length() < 5.0 or (x == 8 and y > 2 and y < 5)
 				"meat": on = Vector2((x - 7.0) * 0.8, y - 8.0).length() < 5.0 or (x > 10 and absi(y - 12) <= 1)
+				"pickaxe": on = (absi(x - (15 - y)) <= 0 and y > 4) or (y >= 2 and y <= 3 and x >= 5 and x <= 14) or (y == 4 and (x == 5 or x == 14))
+				"axe": on = (absi(x - (15 - y)) <= 0 and y > 3) or (x >= 8 and x <= 13 and y >= 1 and y <= 6 and not (x >= 11 and y >= 4))
+				"shovel": on = (absi(x - (15 - y)) <= 0 and y > 5) or Vector2(x - 11.0, y - 3.5).length() < 2.6
+				"stick": on = absi(x - (15 - y)) <= 0 and y > 2 and y < 14
+				"ingot": on = y >= 6 and y <= 10 and x >= 3 + (10 - y) / 2 and x <= 12 - (10 - y) / 2
+				"hide": on = x >= 3 and x <= 12 and y >= 3 and y <= 12 and not ((x == 3 or x == 12) and (y == 3 or y == 12))
+				"helmet": on = y >= 4 and y <= 9 and x >= 3 and x <= 12 and not (y >= 8 and x >= 5 and x <= 10)
+				"chestplate": on = (y >= 3 and y <= 13 and x >= 4 and x <= 11 and not (y <= 5 and x >= 6 and x <= 9)) or (y >= 3 and y <= 6 and (x == 2 or x == 3 or x == 12 or x == 13))
+				"leggings": on = (y >= 3 and y <= 5 and x >= 4 and x <= 11) or (y > 5 and y <= 13 and ((x >= 4 and x <= 6) or (x >= 9 and x <= 11)))
+				"boots": on = (y >= 7 and y <= 12 and ((x >= 2 and x <= 5) or (x >= 9 and x <= 12))) or (y >= 11 and y <= 12 and ((x >= 2 and x <= 7) or (x >= 9 and x <= 14)))
 			if on:
 				var c := color if glyph != "wand" or y > 5 else color.lightened(0.4)
 				if glyph == "wand" and y > 5:
 					c = Color(0.45, 0.3, 0.18)
 				if glyph == "sword" and y > 9:
 					c = Color(0.4, 0.26, 0.14)  # hilt
+				if glyph in ["pickaxe", "axe", "shovel"] and absi(x - (15 - y)) <= 0 and y > 5:
+					c = Color(0.45, 0.3, 0.16)  # handle
 				if glyph == "apple" and y < 5:
 					c = Color(0.4, 0.26, 0.14)
 				if glyph == "meat" and x > 10 and absi(y - 12) <= 1:

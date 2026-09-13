@@ -28,6 +28,8 @@ const EntityView = preload("res://engine/client/entity_view.gd")
 const EntityPhysics = preload("res://engine/shared/entity_physics.gd")
 const SoundPlayer = preload("res://engine/client/sound_player.gd")
 const InventoryScreen = preload("res://engine/client/inventory_screen.gd")
+const Mining = preload("res://engine/shared/mining.gd")
+const ItemVisuals = preload("res://engine/client/item_visuals.gd")
 
 const MAX_CONNECT_ATTEMPTS := 20
 const MESH_WORKERS := 4
@@ -71,6 +73,8 @@ var entity_types := EntityRegistry.new()
 var health := 20.0
 var max_health := 20.0
 var dead := false
+## Stats the server computed for this player (reach, attack_cooldown, mining_speed, armor, ...).
+var stats := {}
 var graphics := GraphicsSettings.new()
 var my_id := 0
 var state := PlayerPhysics.State.new()
@@ -107,6 +111,12 @@ var _entity_target := {}  # {kind: 0 entity / 1 player, id, distance} or empty
 var _attack_timer := 0.0
 var _step_distance := 0.0
 var _sounds: SoundPlayer
+var _base_rules := {}
+var _mining := {}  # {position, started, seconds} while breaking a block in survival
+var _mining_sound_at := 0.0
+var _cracks := {}  # peer id (0 = me) -> {node, position, started, seconds}
+var _armor_bar: HBoxContainer
+var _armor_textures := []
 
 var _edit_timer := 0.0
 var _target := {}
@@ -241,9 +251,11 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	if phase != Phase.CONNECTING:
 		return
 	server_info = info
-	if not registry.load_network(content.get("blocks")) or not items.load_network(content.get("items", [])):
+	if not registry.load_network(content.get("blocks")) or not items.load_network(content.get("items", []), content.get("equipment_slots"), content.get("stats")):
 		_leave("Server sent invalid block or item definitions")
 		return
+	inventory.set_equipment_slots(items.slot_names())
+	stats = items.stats.duplicate()
 	if content.get("rules") is Dictionary:
 		on_rules(content.rules)
 	if not entity_types.load_network(content.get("entities", [])) or not _sounds.registry.load_network(content.get("sounds", [])):
@@ -346,6 +358,7 @@ func _finish_content() -> void:
 			_entity_sprites[d.id] = _asset_textures[d.sprite]
 	_sounds.manifest = _manifest
 	_inventory_screen.atlas = _atlas
+	_inventory_screen.build_equipment(items.slots)
 	_mesh_context = ChunkMesher.make_context(registry, _atlas.uv)
 	_apply_graphics(false)
 	_server_ui.textures = _asset_textures
@@ -361,7 +374,14 @@ func on_time(time_of_day: float, day_length: float) -> void:
 
 
 func on_rules(values: Dictionary) -> void:
-	rules.apply_dict(values)
+	_base_rules = values.duplicate()
+	var speed := float(stats.get("move_speed", 1.0))
+	var adjusted := values.duplicate()
+	if adjusted.has("walk_speed"):
+		adjusted.walk_speed = float(adjusted.walk_speed) * speed
+	if adjusted.has("sprint_speed"):
+		adjusted.sprint_speed = float(adjusted.sprint_speed) * speed
+	rules.apply_dict(adjusted)
 	rules.solid_lut = registry.solid_lut
 	rules.liquid_lut = registry.liquid_lut
 	world.set_lookup_tables(registry.solid_lut, registry.liquid_lut)
@@ -433,9 +453,10 @@ func _set_state(pos: Vector3i, state: int) -> void:
 		chunk.states.erase(index)
 
 
-func on_inventory(slots: PackedInt32Array, selected: int, creative: bool) -> void:
+func on_inventory(slots: PackedInt32Array, selected: int, creative: bool, item_data: Dictionary) -> void:
 	if not inventory.load_packed(slots):
 		return
+	inventory.load_network_data(item_data)
 	inventory.creative = creative
 	if selected != inventory.selected:
 		# The server may pick the slot (e.g. mods resetting the hotbar); follow it.
@@ -469,6 +490,23 @@ func on_health(value: float, max_value: float, is_dead: bool, hurt: bool) -> voi
 		if not ignore_mouse_capture:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_refresh_hearts()
+
+
+func on_player_stats(values: Dictionary) -> void:
+	var moved: bool = float(values.get("move_speed", 1.0)) != float(stats.get("move_speed", 1.0))
+	for key in values:
+		if key is String and (values[key] is float or values[key] is int):
+			stats[key] = float(values[key])
+	if moved and not _base_rules.is_empty():
+		on_rules(_base_rules)
+	_refresh_armor()
+
+
+func on_mining(peer_id: int, pos: Vector3i, seconds: float) -> void:
+	if seconds < 0.0:
+		_clear_crack(peer_id)
+	else:
+		_show_crack(peer_id, pos, seconds)
 
 
 func respawn() -> void:
@@ -700,6 +738,7 @@ func _process(delta: float) -> void:
 	_update_target()
 	_handle_edits(delta)
 	_update_footsteps(render_position)
+	_update_cracks()
 	_update_hud()
 	_hurt_flash.color.a = move_toward(_hurt_flash.color.a, 0.0, delta * 1.2)
 
@@ -713,7 +752,7 @@ func _update_target() -> void:
 		var cell := Vector3(_target.position)
 		block_distance = maxf(EntityPhysics.segment_hits_box(origin, direction, REACH + 1.0, cell, cell + Vector3.ONE), 0.0)
 	_entity_target = {}
-	var best := minf(block_distance, ATTACK_REACH)
+	var best := minf(block_distance, float(stats.get("reach", ATTACK_REACH)))
 	for id: int in _entities:
 		var view: EntityView = _entities[id]
 		if view.dying or String(view.type_def.get("kind", "")) != "mob":
@@ -755,9 +794,16 @@ func _handle_edits(delta: float) -> void:
 		_edit_timer = EDIT_REPEAT_DELAY
 		return
 	if not _target.hit:
+		_stop_mining()
 		return
 	var breaking := Input.is_action_just_pressed("break") or (Input.is_action_pressed("break") and _edit_timer <= 0.0)
 	var placing := Input.is_action_just_pressed("place") or (Input.is_action_pressed("place") and _edit_timer <= 0.0)
+	if not inventory.creative:
+		if Input.is_action_pressed("break"):
+			_continue_mining(_target.position)
+		else:
+			_stop_mining()
+		breaking = false
 	if breaking:
 		_edit_timer = EDIT_REPEAT_DELAY
 		request_break(_target.position)
@@ -769,11 +815,82 @@ func _handle_edits(delta: float) -> void:
 		request_place(_target.position + _target.normal)
 
 
+## Survival breaking: hold on a block until its break time passes (see Mining), with a crack overlay.
+func _continue_mining(pos: Vector3i) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if _mining.get("position") != pos:
+		_stop_mining()
+		var block := world.get_block_v(pos)
+		if block == BlockRegistry.UNLOADED or registry.breakable_lut[block] == 0:
+			return
+		var seconds := Mining.break_time(registry.defs[block], items.tool_of(inventory.selected_item()), float(stats.get("mining_speed", 1.0)))
+		_mining = {"position": pos, "started": now, "seconds": seconds, "block": block}
+		Net.c_mine_start.rpc_id(1, pos)
+		_show_crack(0, pos, seconds)
+	var progress := (now - float(_mining.started)) / maxf(float(_mining.seconds), 0.001)
+	if now - _mining_sound_at > 0.25:
+		_mining_sound_at = now
+		_sounds.play_name(String(registry.defs[_mining.block].sounds.get("step", "")), Vector3(pos) + Vector3.ONE * 0.5, 0.5, randf_range(0.8, 1.0))
+	if progress >= 1.0:
+		_mining = {}
+		_clear_crack(0)
+		request_break(pos)
+
+
+func _stop_mining() -> void:
+	if _mining.is_empty():
+		return
+	_mining = {}
+	_clear_crack(0)
+	if _welcomed:
+		Net.c_mine_stop.rpc_id(1)
+
+
+## Breaks a block the way a player holding the button would (used by tests and automation).
+func mine_block(pos: Vector3i) -> void:
+	if inventory.creative:
+		request_break(pos)
+		return
+	var block := world.get_block_v(pos)
+	var seconds := Mining.break_time(registry.defs[block], items.tool_of(inventory.selected_item()), float(stats.get("mining_speed", 1.0)))
+	Net.c_mine_start.rpc_id(1, pos)
+	_show_crack(0, pos, seconds)
+	await get_tree().create_timer(seconds + 0.05).timeout
+	_clear_crack(0)
+	request_break(pos)
+
+
+func _show_crack(peer_id: int, pos: Vector3i, seconds: float) -> void:
+	_clear_crack(peer_id)
+	var node := ItemVisuals.crack_node()
+	node.position = Vector3(pos) + Vector3.ONE * 0.5
+	add_child(node)
+	_cracks[peer_id] = {"node": node, "started": Time.get_ticks_msec() / 1000.0, "seconds": maxf(seconds, 0.001)}
+
+
+func _clear_crack(peer_id: int) -> void:
+	var crack: Dictionary = _cracks.get(peer_id, {})
+	if not crack.is_empty():
+		crack.node.queue_free()
+		_cracks.erase(peer_id)
+
+
+func _update_cracks() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	for peer_id in _cracks.keys():
+		var crack: Dictionary = _cracks[peer_id]
+		var progress: float = (now - crack.started) / crack.seconds
+		if progress > 1.5 and peer_id != 0:
+			_clear_crack(peer_id)
+			continue
+		ItemVisuals.set_crack_stage(crack.node, Mining.stage(progress))
+
+
 ## Attacks the entity or player under the crosshair. Returns false if nothing is targeted.
 func attack_target() -> bool:
 	if _entity_target.is_empty() or dead:
 		return false
-	_attack_timer = ATTACK_REPEAT
+	_attack_timer = maxf(float(stats.get("attack_cooldown", ATTACK_REPEAT)), 0.1)
 	Net.c_attack.rpc_id(1, _entity_target.kind, _entity_target.id)
 	_sounds.play_name("engine:swing", _camera.position, 0.7, randf_range(0.9, 1.1))
 	return true
@@ -796,7 +913,8 @@ func _update_footsteps(render_position: Vector3) -> void:
 ## Uses the held item on the current target (or on nothing). Returns false if it is not usable.
 func use_selected_item() -> bool:
 	var item := inventory.selected_item()
-	if item < ItemRegistry.FIRST_ITEM or not items.is_usable(item):
+	var wearable := item >= ItemRegistry.FIRST_ITEM and not String(items.get_def(item).get("equip_slot", "")).is_empty()
+	if item < ItemRegistry.FIRST_ITEM or not (items.is_usable(item) or wearable):
 		return false
 	Net.c_use_item.rpc_id(1, _target.hit, _target.get("position", Vector3i.ZERO), _target.get("normal", Vector3i.ZERO))
 	return true
@@ -837,6 +955,7 @@ func request_place(pos: Vector3i) -> void:
 
 
 func select_slot(index: int) -> void:
+	_stop_mining()
 	inventory.selected = wrapi(index, 0, Inventory.HOTBAR)
 	_refresh_hotbar()
 	if _welcomed:
@@ -1310,6 +1429,24 @@ func _build_hud() -> void:
 		heart.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_hearts.add_child(heart)
 
+	_armor_textures = [ItemVisuals.shield_icon(1.0), ItemVisuals.shield_icon(0.5), ItemVisuals.shield_icon(0.0)]
+	_armor_bar = HBoxContainer.new()
+	_armor_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_armor_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_armor_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_armor_bar.position.y -= 100
+	_armor_bar.add_theme_constant_override("separation", 2)
+	_armor_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_armor_bar.visible = false
+	_hud_root.add_child(_armor_bar)
+	for i in 10:
+		var shield := TextureRect.new()
+		shield.custom_minimum_size = Vector2(22, 22)
+		shield.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		shield.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		shield.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_armor_bar.add_child(shield)
+
 	_hurt_flash = ColorRect.new()
 	_hurt_flash.color = Color(0.8, 0.0, 0.0, 0.0)
 	_hurt_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1451,6 +1588,17 @@ func _refresh_hotbar() -> void:
 		else:
 			icon.texture = null
 		count.text = str(inventory.counts[i]) if has_item and not inventory.creative and inventory.counts[i] > 1 else ""
+		ItemVisuals.update_wear_bar(slot, items, id if has_item else 0, inventory.data[i])
+
+
+func _refresh_armor() -> void:
+	if _armor_bar == null:
+		return
+	var armor := float(stats.get("armor", 0.0))
+	_armor_bar.visible = _welcomed and not inventory.creative and armor > 0.0
+	for i in 10:
+		var fill := clampf((armor - i * 2.0) / 2.0, 0.0, 1.0)
+		_armor_bar.get_child(i).texture = _armor_textures[0 if fill > 0.75 else (1 if fill > 0.25 else 2)]
 
 
 func _refresh_hearts() -> void:

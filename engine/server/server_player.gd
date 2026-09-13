@@ -4,13 +4,14 @@ extends RefCounted
 
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 const Inventory = preload("res://engine/shared/inventory.gd")
+const PlayerStats = preload("res://engine/server/player_stats.gd")
 
 var peer_id := 0
 var name := ""
 ## Permanent id derived from the player's identity key.
 var player_id := ""
 var state := PlayerPhysics.State.new()
-var inventory := Inventory.new()
+var inventory: Inventory
 var yaw := 0.0
 var pitch := 0.0
 ## Free-form per-player data owned by mods; persisted with the world. Namespace your keys.
@@ -20,6 +21,8 @@ var max_health := 20.0
 var dead := false
 ## Where the player respawns; Vector3.INF uses the game's spawn handler.
 var spawn_point := Vector3.INF
+## Timed stat modifiers: id -> {stat, amount, op, expires (server time, 0 = permanent)}.
+var modifiers := {}
 
 # Engine bookkeeping.
 var input_queue: Array = []
@@ -39,6 +42,13 @@ var void_timer := 0.0
 var last_attack_time := -100.0
 var fall_velocity := 0.0
 var inventory_open := false
+var mining := {}  # {position, started} while breaking a block
+## Physics rules adjusted by this player's move_speed stat (null = the server's rules).
+var physics_rules = null
+var _stats := {}
+var _stats_dirty := true
+var _sent_stats := {}
+var _equipment_ids := PackedInt32Array()
 
 var _server
 
@@ -47,6 +57,11 @@ func _init(server, id: int, player_name: String) -> void:
 	_server = server
 	peer_id = id
 	name = player_name
+	inventory = Inventory.new(server.items.slot_names())
+
+
+func _online() -> bool:
+	return _server._started and _server.players.get(peer_id) == self
 
 
 # --- Mod API ------------------------------------------------------------------------------------
@@ -54,6 +69,11 @@ func _init(server, id: int, player_name: String) -> void:
 var position: Vector3:
 	get:
 		return state.position
+
+## Index of the selected hotbar slot.
+var selected_slot: int:
+	get:
+		return inventory.selected
 
 
 func get_eye_position() -> Vector3:
@@ -85,10 +105,9 @@ func set_health(value: float) -> void:
 		_server.kill_player(self, "magic", null)
 
 
+## Sets the base max health for this player (items and effects still modify it).
 func set_max_health(value: float) -> void:
-	max_health = clampf(value, 1.0, 1000.0)
-	health = minf(health, max_health)
-	_server.sync_health(self)
+	add_modifier("engine:max_health", "max_health", clampf(value, 1.0, 1000.0) - float(_server.items.stats.max_health))
 
 
 func kill(cause := "magic") -> void:
@@ -106,22 +125,26 @@ func play_sound(sound_name: String, volume := 1.0, pitch := 1.0) -> void:
 
 
 func send_message(text: String) -> void:
-	Net.s_chat.rpc_id(peer_id, text)
+	if _online():
+		Net.s_chat.rpc_id(peer_id, text)
 
 
 func show_title(text: String, subtitle := "", seconds := 3.0) -> void:
-	Net.s_title.rpc_id(peer_id, text, subtitle, seconds)
+	if _online():
+		Net.s_title.rpc_id(peer_id, text, subtitle, seconds)
 
 
 ## Shows or replaces a server-defined UI panel. See engine/client/server_ui.gd for the spec format.
 func show_ui(ui_id: String, spec: Dictionary) -> void:
 	ui_ids[ui_id] = true
-	Net.s_ui_show.rpc_id(peer_id, ui_id, spec)
+	if _online():
+		Net.s_ui_show.rpc_id(peer_id, ui_id, spec)
 
 
 func hide_ui(ui_id: String) -> void:
 	ui_ids.erase(ui_id)
-	Net.s_ui_hide.rpc_id(peer_id, ui_id)
+	if _online():
+		Net.s_ui_hide.rpc_id(peer_id, ui_id)
 
 
 func is_creative() -> bool:
@@ -133,9 +156,9 @@ func set_creative(enabled: bool) -> void:
 	sync_inventory()
 
 
-## Adds blocks or items; returns how many did not fit.
-func give(item: int, count := 1) -> int:
-	var left := inventory.add(item, count, _server.items.max_stack(item))
+## Adds blocks or items (optionally with item data); returns how many did not fit.
+func give(item: int, count := 1, item_data := {}) -> int:
+	var left := inventory.add(item, count, _server.items.max_stack(item), item_data)
 	sync_inventory()
 	return left
 
@@ -158,9 +181,9 @@ func clear_inventory() -> void:
 
 
 ## Drops items as an entity in front of the player.
-func drop(item: int, count := 1) -> void:
+func drop(item: int, count := 1, item_data := {}) -> void:
 	_server.entities.drop_item(item, count, get_eye_position() - Vector3(0, 0.3, 0),
-		PlayerPhysics.look_direction(yaw, pitch) * 5.0 + Vector3(0, 1.5, 0), 1.5)
+		PlayerPhysics.look_direction(yaw, pitch) * 5.0 + Vector3(0, 1.5, 0), 1.5, item_data)
 
 
 ## Fills hotbar slots in order with the given block ids.
@@ -171,8 +194,70 @@ func set_hotbar(blocks: Array, count := 1) -> void:
 	sync_inventory()
 
 
+## {item, count, data} in a slot (0-35 backpack, then equipment; see equipment_slot).
+func get_item(slot: int) -> Dictionary:
+	if slot < 0 or slot >= inventory.total():
+		return {"item": 0, "count": 0, "data": {}}
+	return {"item": inventory.ids[slot], "count": inventory.counts[slot], "data": inventory.data[slot]}
+
+
+## Replaces the item data of a slot (a copy is stored). Use it for wear, experience, levels,
+## upgrades, custom names ("name"), tooltip lines ("lore") and per-item stat "modifiers".
+func set_item_data(slot: int, item_data: Dictionary) -> void:
+	if slot < 0 or slot >= inventory.total() or inventory.ids[slot] <= 0:
+		return
+	if var_to_bytes(item_data).size() > Inventory.MAX_DATA_BYTES:
+		push_warning("[server] item data for %s is too large" % name)
+		return
+	inventory.data[slot] = item_data.duplicate(true)
+	sync_inventory()
+
+
+## Inventory index of a named equipment slot ("head", "chest", ...), or -1.
+func equipment_slot(slot_name: String) -> int:
+	return inventory.equipment_index(slot_name)
+
+
+## Wears down the item in a slot (respects the durability gameplay rule and item_durability event).
+func damage_item(slot: int, amount := 1, reason := "use") -> void:
+	_server.damage_item(self, slot, amount, reason)
+
+
+## Current stats (see ItemRegistry.BASE_STATS and register_stat).
+func get_stats() -> Dictionary:
+	if _stats_dirty or _stats.is_empty():
+		_server.refresh_stats(self)
+	return _stats
+
+
+func get_stat(stat_name: String) -> float:
+	return float(get_stats().get(stat_name, 0.0))
+
+
+## Adds or replaces a stat modifier. `op`: "add" or "multiply" (amount 0.2 = +20%); `seconds` 0 = until
+## removed. Use ids like "my_mod:haste".
+func add_modifier(id: String, stat: String, amount: float, op := "add", seconds := 0.0) -> void:
+	modifiers[id] = {"stat": stat, "amount": amount, "op": "multiply" if op == "multiply" else "add",
+		"expires": _server._time + seconds if seconds > 0.0 else 0.0}
+	refresh_stats()
+
+
+func remove_modifier(id: String) -> void:
+	if modifiers.erase(id):
+		refresh_stats()
+
+
+## Recomputes stats now (after changing item data or modifiers outside the API).
+func refresh_stats() -> void:
+	_stats_dirty = true
+	_server.refresh_stats(self)
+
+
 func sync_inventory() -> void:
-	Net.s_inventory.rpc_id(peer_id, inventory.to_packed(), inventory.selected, inventory.creative)
+	_stats_dirty = true
+	if _online():
+		Net.s_inventory.rpc_id(peer_id, inventory.to_packed(), inventory.selected, inventory.creative, inventory.data_to_network())
+		_server.refresh_stats(self)
 
 
 func is_admin() -> bool:
@@ -181,3 +266,41 @@ func is_admin() -> bool:
 
 func kick(reason: String) -> void:
 	_server.kick(peer_id, reason)
+
+
+# --- Persistence --------------------------------------------------------------------------------
+
+func save_inventory() -> Dictionary:
+	var backpack := PackedInt32Array()
+	backpack.append_array(inventory.ids.slice(0, Inventory.SIZE))
+	backpack.append_array(inventory.counts.slice(0, Inventory.SIZE))
+	var item_data := {}
+	for i in Inventory.SIZE:
+		if inventory.ids[i] > 0 and not inventory.data[i].is_empty():
+			item_data[str(i)] = inventory.data[i]
+	var equipment := {}
+	for i in inventory.equipment_slots.size():
+		var index := Inventory.SIZE + i
+		if inventory.ids[index] > 0:
+			equipment[inventory.equipment_slots[i]] = [inventory.ids[index], inventory.counts[index], inventory.data[index]]
+	return {"inventory": Array(backpack), "item_data": item_data, "equipment": equipment}
+
+
+func load_inventory(saved: Dictionary) -> void:
+	inventory.load_packed(PackedInt32Array(saved.get("inventory", [])))
+	var item_data = saved.get("item_data", {})
+	if item_data is Dictionary:
+		for key in item_data:
+			var i := int(key)
+			if i >= 0 and i < Inventory.SIZE and item_data[key] is Dictionary and inventory.ids[i] > 0:
+				inventory.data[i] = item_data[key]
+	var equipment = saved.get("equipment", {})
+	if equipment is Dictionary:
+		for slot_name in equipment:
+			var entry = equipment[slot_name]
+			var index := inventory.equipment_index(String(slot_name))
+			if index >= 0 and entry is Array and entry.size() == 3 and _server.items.is_valid(int(entry[0])):
+				inventory.set_slot(index, int(entry[0]), int(entry[1]), entry[2] if entry[2] is Dictionary else {})
+			elif entry is Array and entry.size() == 3 and _server.items.is_valid(int(entry[0])):
+				inventory.add(int(entry[0]), int(entry[1]), 1, entry[2] if entry[2] is Dictionary else {})  # slot no longer exists
+	_stats_dirty = true

@@ -15,6 +15,11 @@ extends RefCounted
 ##   block_interact {player, position, block}   right-click on a block registered "interactive"
 ##   item_use       {player, item, has_target, position, normal, direction}   right-click holding a usable item
 ##   item_crafted   {player, item, count}
+##   item_durability {player, slot, item, data, amount, reason ("mine" | "attack" | "armor" | ...), cancelled}
+##   item_break     {player, slot, item, data}                an item wore out
+##   equipment_changed {player, slot, old_item, item}
+##   player_stats   {player, stats}                           stats may be changed (see ItemRegistry.BASE_STATS)
+##   block_break / block_broken also carry {item, slot} (the held tool) and block_broken {harvested}
 ##   item_drop      {player, item, count, cancelled}          Q key
 ##   item_pickup    {player, entity, item, count, cancelled}
 ##   player_attack  {player, target, target_kind ("entity" | "player"), item, damage, cancelled}   damage may be changed
@@ -173,6 +178,20 @@ func get_entities(center: Vector3, radius: float, entity_name := "") -> Array:
 
 func get_entity(entity_id: int):
 	return _server.entities.entities.get(entity_id)
+
+
+## Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching
+## `equip_slot` go in it; its modifiers apply while worn. def: display_name.
+func register_equipment_slot(slot_name: String, def := {}) -> void:
+	var d := def.duplicate()
+	d.name = slot_name
+	_server.items.register_slot(d)
+
+
+## Adds a player stat with a base value. Items and effects change it with modifiers; read it with
+## player.get_stat(name). Engine stats: see ItemRegistry.BASE_STATS.
+func register_stat(stat_name: String, base: float) -> void:
+	_server.items.register_stat(stat_name, base)
 
 
 ## Registers a mob behaviour that mobs listing it in ai.behaviors can choose. `def`:

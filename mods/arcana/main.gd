@@ -22,6 +22,8 @@ const LIGHT_SECONDS := 30.0
 const HUD_ID := "arcana:mana"
 const SPARK_COST := 8.0
 const SPARK_SPEED := 26.0
+## Soul Blade: souls needed for each level; each level adds damage and eventually crit chance.
+const SOUL_LEVELS := [3, 8, 16, 30, 50]
 
 var api
 var ids := {}
@@ -64,6 +66,9 @@ func setup(mod_api) -> void:
 	api.register_sound("spark_hit", "sounds/spark_hit.wav")
 	ids.spark = api.register_entity("spark", {"kind": "projectile", "sprite": "textures/spark.png", "glow": true,
 		"width": 0.3, "height": 0.3, "damage": 6, "gravity": 1.5, "lifetime": 3.0})
+	ids.soul_blade = api.register_item("soul_blade", {"display_name": "Soul Blade", "icon": "textures/soul_blade.png",
+		"durability": 400, "weapon": {"damage": 5.0, "cooldown": 0.6, "sweep": 0.25},
+		"lore": ["Grows stronger with every soul it takes."]})
 	ids.crystal = api.register_block("mana_crystal_ore", {"display_name": "Mana Crystal Ore", "textures": "textures/mana_crystal_ore.png",
 		"light": 7, "drops": [[ids.shard, 2]]})
 	ids.pylon = api.register_block("mana_pylon", {"display_name": "Mana Pylon", "model": "models/mana_pylon.glb",
@@ -76,6 +81,8 @@ func setup(mod_api) -> void:
 	api.register_recipe({"base:log": 1, "arcana:mana_shard": 2, "base:glass": 1}, "arcana:wand_of_light")
 	api.register_recipe({"arcana:mana_shard": 6, "base:cobblestone": 2}, "arcana:mana_pylon")
 	api.register_recipe({"base:log": 1, "arcana:mana_shard": 4}, "arcana:wand_of_sparks")
+	api.register_recipe({"base:iron_sword": 1, "arcana:mana_shard": 8}, "arcana:soul_blade")
+	api.on("entity_death", _on_soul_harvest)
 	api.on("projectile_hit", func(ev):
 		if ev.entity.type == ids.spark:
 			api.play_sound("spark_hit", ev.position))
@@ -203,17 +210,47 @@ func _conjure_light(player, ev: Dictionary) -> void:
 				api.set_block(pos, 0))
 
 
+## Soul Blade progression, built from engine pieces only: the kill event, item data (souls, level,
+## name, lore, per-item modifiers) and item stats. Nothing about levelling is in the engine.
+func _on_soul_harvest(ev: Dictionary) -> void:
+	var player = ev.attacker
+	if player == null or player.get("peer_id") == null or ev.entity.def.kind != "mob":
+		return
+	var slot: int = player.selected_slot
+	var stack: Dictionary = player.get_item(slot)
+	if stack.item != ids.soul_blade:
+		return
+	var data: Dictionary = stack.data.duplicate(true)
+	data.souls = int(data.get("souls", 0)) + 1
+	var level := 0
+	for threshold in SOUL_LEVELS:
+		if data.souls >= threshold:
+			level += 1
+	if level > int(data.get("level", 0)):
+		player.show_title("", "Soul Blade reached level %d" % level, 2.0)
+		api.play_sound("spark_cast", player.position, 1.0, 0.6)
+	data.level = level
+	data.name = "Soul Blade" + (" +%d" % level if level > 0 else "")
+	data.modifiers = [{"stat": "attack_damage", "amount": level * 1.5}]
+	if level >= 3:
+		data.modifiers.append({"stat": "crit_chance", "amount": 0.05 * (level - 2)})
+	var next := "max level" if level >= SOUL_LEVELS.size() else "%d / %d souls to level %d" % [data.souls, SOUL_LEVELS[level], level + 1]
+	data.lore = ["Souls: %d (%s)" % [data.souls, next]]
+	player.set_item_data(slot, data)
+
+
 func _cmd_arcana(player, _args: PackedStringArray) -> void:
 	if not (player.is_creative() or player.is_admin()):
 		player.send_message("Only admins can hand out Arcana kits in survival.")
 		return
 	if player.is_creative():
-		player.set_hotbar([ids.shard, ids.blink, ids.light, ids.pylon, api.block("base:stone"), ids.sparks])
-		player.send_message("Arcana kit in your hotbar: shard, Wand of Blink, Wand of Light, Mana Pylon, Wand of Sparks.")
+		player.set_hotbar([ids.shard, ids.blink, ids.light, ids.pylon, api.block("base:stone"), ids.sparks, ids.soul_blade])
+		player.send_message("Arcana kit in your hotbar: shard, Wand of Blink, Wand of Light, Mana Pylon, Wand of Sparks, Soul Blade.")
 		return
 	player.give(ids.shard, 16)
 	player.give(ids.blink, 1)
 	player.give(ids.light, 1)
 	player.give(ids.pylon, 1)
 	player.give(ids.sparks, 1)
+	player.give(ids.soul_blade, 1)
 	player.send_message("Arcana kit: shards (right-click to restore mana), Wand of Blink, Wand of Light and a Mana Pylon.")

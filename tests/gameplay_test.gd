@@ -17,7 +17,10 @@ var _failures := 0
 func _ready() -> void:
 	_inventory_rules()
 	_registries()
+	_mining_rules()
 	await _server_rules()
+	await _equipment()
+	await _progression()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -50,6 +53,28 @@ func _inventory_rules() -> void:
 		"9-slot inventories from older saves load into the hotbar")
 	var round_trip := Inventory.new()
 	_check(round_trip.load_packed(inv.to_packed()) and round_trip.ids == inv.ids, "inventory round-trips through to_packed")
+
+
+func _mining_rules() -> void:
+	const Mining = preload("res://engine/shared/mining.gd")
+	var stone := {"hardness": 1.5, "tier": 1, "tool": "pickaxe"}
+	var dirt := {"hardness": 0.5, "tool": "shovel"}
+	var wood_pick := {"type": "pickaxe", "tier": 1, "speed": 2.0}
+	_check(is_equal_approx(Mining.break_time(dirt, {}), 0.75), "dirt by hand takes 0.75 s")
+	_check(is_equal_approx(Mining.break_time(stone, wood_pick), 1.125), "stone with a wooden pickaxe takes 1.125 s")
+	_check(Mining.break_time(stone, {}) > 7.0 and not Mining.can_harvest(stone, {}), "stone by hand is slow and drops nothing")
+	_check(Mining.can_harvest({"tier": 2, "tool": "pickaxe"}, {"type": "pickaxe", "tier": 3}) and not Mining.can_harvest({"tier": 3, "tool": "pickaxe"}, wood_pick),
+		"tool tier gates harvesting")
+	_check(is_equal_approx(Mining.break_time(dirt, {}, 2.0), 0.375), "mining_speed stat speeds breaking up")
+	var inv := Inventory.new(PackedStringArray(["head", "chest"]))
+	inv.add(70000, 1, 1, {"damage": 3})
+	inv.add(70000, 1, 1)
+	_check(inv.ids[0] == 70000 and inv.ids[1] == 70000 and inv.data[0].damage == 3 and inv.data[1].is_empty(), "items with different data do not stack")
+	inv.add(5, 10)
+	inv.add(5, 5, 64, {"name": "Lucky"})
+	_check(inv.counts[2] == 10 and inv.data[3].get("name") == "Lucky", "renamed stacks stay separate")
+	inv.remove(5, 10)
+	_check(inv.ids[3] == 5 and inv.ids[2] == 0, "recipes consume plain stacks before ones with data")
 
 
 func _registries() -> void:
@@ -137,10 +162,149 @@ func _server_rules() -> void:
 	await get_tree().process_frame
 
 
-func _start(world: String):
+func _equipment() -> void:
+	var server = _start("equip_%d" % Time.get_ticks_msec())
+	var items = server.items
+	var p := ServerPlayer.new(server, 77, "Knight")
+	p.player_id = "knight"
+	server.players[77] = p
+	var y: int = server.surface_height(8, 8)
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	p.edit_tokens = 100.0
+	var chest := p.equipment_slot("chest")
+	var chestplate: int = items.id_of("base:iron_chestplate")
+	var helmet: int = items.id_of("base:iron_helmet")
+	var sword: int = items.id_of("base:iron_sword")
+	_check(chest == Inventory.SIZE + 1 and p.inventory.total() == Inventory.SIZE + 5, "equipment slots follow the backpack")
+
+	p.give(helmet)
+	var helmet_slot := p.inventory.ids.find(helmet)
+	p.inventory.click(helmet_slot, 1, false, items.max_stack)
+	server.on_inventory_click(77, chest, 1, false)
+	_check(p.inventory.ids[chest] == 0 and p.inventory.cursor_id == helmet, "a helmet does not fit the chest slot")
+	server.on_inventory_closed(77)
+	p.give(chestplate)
+	server.on_inventory_click(77, p.inventory.ids.find(chestplate), 1, true)
+	_check(p.inventory.ids[chest] == chestplate, "shift-click wears armor")
+	_check(p.get_stat("armor") == 6.0, "chestplate gives 6 armor (%s)" % p.get_stat("armor"))
+
+	p.hurt_timer = 0.0
+	server.damage_player(p, 10.0, "attack", null)
+	_check(p.health > 10.0 and p.health < 20.0, "armor reduced a 10 damage hit (health %.2f)" % p.health)
+	_check(p.inventory.data[chest].get("damage", 0) == 1, "the hit wore the armor")
+	p.hurt_timer = 0.0
+	var before: float = p.health
+	server.damage_player(p, 3.0, "fall", null)
+	_check(is_equal_approx(before - p.health, 3.0), "armor does not stop fall damage")
+
+	p.inventory.clear_slot(0)
+	p.inventory.set_slot(0, sword, 1)
+	p.inventory.selected = 0
+	p.refresh_stats()
+	_check(p.get_stat("attack_damage") == 6.0 and p.get_stat("attack_cooldown") == 0.6, "holding an iron sword sets attack stats")
+	p.set_item_data(0, {"modifiers": [{"stat": "attack_damage", "amount": 2}], "level": 3})
+	_check(p.get_stat("attack_damage") == 8.0, "per-item modifiers in item data apply (%.1f)" % p.get_stat("attack_damage"))
+	p.add_modifier("test:rage", "attack_damage", 0.5, "multiply", 1.0)
+	_check(p.get_stat("attack_damage") == 12.0, "timed multiply modifier applies (%.1f)" % p.get_stat("attack_damage"))
+	server._time += 1.5
+	p.refresh_stats()
+	_check(p.get_stat("attack_damage") == 8.0, "timed modifier expired")
+	p.add_modifier("test:fast", "move_speed", 0.5, "multiply")
+	_check(p.physics_rules != null and is_equal_approx(p.physics_rules.walk_speed, server.rules.walk_speed * 1.5), "move_speed changes this player's physics")
+	p.remove_modifier("test:fast")
+	var hook := func(ev): ev.stats.reach += 2.0
+	server.add_handler("player_stats", hook, 0)
+	p.refresh_stats()
+	_check(p.get_stat("reach") > 6.0, "player_stats event can adjust stats")
+
+	var broke := []
+	server.add_handler("item_break", func(ev): broke.append(ev.item), 0)
+	for i in 300:
+		server.damage_item(p, 0, 1, "attack")
+	_check(broke == [sword] and p.inventory.ids[0] == 0, "item breaks at its durability")
+
+	var saved: Dictionary = p.save_inventory()
+	var copy := ServerPlayer.new(server, 78, "Copy")
+	copy.load_inventory(saved)
+	_check(copy.inventory.ids[chest] == chestplate and copy.inventory.data[chest].get("damage", 0) == 1, "equipment and item data survive saving")
+
+	# Timed mining: breaking needs a started mine that lasted long enough; tiers gate drops.
+	var stone: int = server.registry.id_of("base:stone")
+	var target := Vector3i(9, y + 1, 9)
+	server.set_block_authoritative(target, stone)
+	p.inventory.clear_slot(0)
+	server.on_break_block(77, target)
+	_check(server.world.get_block_v(target) == stone, "survival break without mining is rejected")
+	server.on_mine_start(77, target)
+	server._time += 3.0
+	server.on_break_block(77, target)
+	_check(server.world.get_block_v(target) == stone, "still too early by hand (stone takes 7.4 s)")
+	server._time += 5.0
+	server.on_break_block(77, target)
+	var dropped: Array = server.entities.in_radius(Vector3(target) + Vector3(0.5, 0.5, 0.5), 2.0, EntityRegistry.ITEM)
+	_check(server.world.get_block_v(target) == 0 and dropped.is_empty(), "stone broke by hand but dropped nothing")
+	server.set_block_authoritative(target, stone)
+	var pick: int = items.id_of("base:stone_pickaxe")
+	p.inventory.set_slot(0, pick, 1)
+	p.refresh_stats()
+	server.on_mine_start(77, target)
+	server._time += 0.6
+	server.on_break_block(77, target)
+	dropped = server.entities.in_radius(Vector3(target) + Vector3(0.5, 0.5, 0.5), 2.0, EntityRegistry.ITEM)
+	_check(server.world.get_block_v(target) == 0 and dropped.size() == 1, "stone pickaxe mined stone in 0.56 s with a drop")
+	_check(p.inventory.data[0].get("damage", 0) == 1, "mining wore the pickaxe")
+	server.players.erase(77)
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _progression() -> void:
+	var mods := ["vanilla", "arcana", "guild"] if ClassDB.class_exists(&"NativeJsRuntime") else ["vanilla", "arcana"]
+	var server = _start("progression_%d" % Time.get_ticks_msec(), mods)
+	var p := ServerPlayer.new(server, 90, "Hero")
+	p.player_id = "hero"
+	server.players[90] = p
+	var y: int = server.surface_height(8, 8)
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	p.edit_tokens = 1000.0
+	# Soul Blade (GDScript mod): kills level it up through item data.
+	var blade: int = server.items.id_of("arcana:soul_blade")
+	p.inventory.set_slot(0, blade, 1)
+	p.inventory.selected = 0
+	var zombie: int = server.entities.registry.id_of("vanilla:zombie")
+	for i in 3:
+		var mob = server.entities.spawn(zombie, p.position + Vector3(2, 0, 0))
+		mob.health = 1.0
+		server.entities.damage(mob, 5.0, "attack", p)
+	var data: Dictionary = p.inventory.data[0]
+	_check(data.get("souls") == 3 and data.get("level") == 1 and data.get("name") == "Soul Blade +1", "Soul Blade levelled from kills (%s)" % str(data))
+	p.refresh_stats()
+	_check(p.get_stat("attack_damage") == 6.5, "its level adds damage through item modifiers (%.1f)" % p.get_stat("attack_damage"))
+	# Prospector's Pick (JavaScript mod): harvested blocks level it and speed up mining.
+	if "guild" in mods:
+		var pick: int = server.items.id_of("guild:prospector_pick")
+		p.inventory.set_slot(1, pick, 1)
+		p.inventory.selected = 1
+		p.refresh_stats()
+		var dirt: int = server.registry.id_of("base:dirt")
+		for i in 5:
+			var target := Vector3i(10 + i, y + 1, 10)
+			server.set_block_authoritative(target, dirt)
+			server.on_mine_start(90, target)
+			server._time += 1.0
+			server.on_break_block(90, target)
+		var pick_data: Dictionary = p.inventory.data[1]
+		_check(int(pick_data.get("xp", 0)) == 5 and int(pick_data.get("level", 0)) == 1, "JavaScript pick levelled from mining (%s)" % str(pick_data))
+		_check(is_equal_approx(p.get_stat("mining_speed"), 1.2), "its level speeds up mining (%.2f)" % p.get_stat("mining_speed"))
+	server.players.erase(90)
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _start(world: String, mods := ["vanilla"]):
 	var server := GameServer.new()
 	add_child(server)
-	var err: Error = server.start({"mods": PackedStringArray(["vanilla"]), "world": world, "data_dir": DATA_DIR, "seed": 42, "offline": true})
+	var err: Error = server.start({"mods": PackedStringArray(mods), "world": world, "data_dir": DATA_DIR, "seed": 42, "offline": true})
 	if err != OK:
 		_check(false, "server start: %s" % error_string(err))
 	server.set_physics_process(false)  # the test drives ticks itself

@@ -55,7 +55,20 @@
     get yaw() { return host("player.yaw", this.id); }
     get lookDirection() { return host("player.lookDirection", this.id); }
     get online() { return host("player.online", this.id); }
-    give(item, count = 1) { return host("player.give", this.id, item, count); }
+    /** Adds items, optionally with item data (wear, xp, custom name, lore, modifiers). */
+    give(item, count = 1, data = {}) { return host("player.give", this.id, item, count, data); }
+    /** {item, count, data} in slot 0-35 (backpack) or an equipment slot index (see equipmentSlot). */
+    getItem(slot) { return host("player.getItem", this.id, slot); }
+    setItemData(slot, data) { host("player.setItemData", this.id, slot, data); }
+    get selectedSlot() { return host("player.selectedSlot", this.id); }
+    equipmentSlot(name) { return host("player.equipmentSlot", this.id, name); }
+    damageItem(slot, amount = 1, reason = "use") { host("player.damageItem", this.id, slot, amount, reason); }
+    get stats() { return host("player.stats", this.id); }
+    getStat(name) { return host("player.getStat", this.id, name); }
+    /** op "add" or "multiply" (0.2 = +20%); seconds 0 = until removed. */
+    addModifier(id, stat, amount, op = "add", seconds = 0) { host("player.addModifier", this.id, id, stat, amount, op, seconds); }
+    removeModifier(id) { host("player.removeModifier", this.id, id); }
+    refreshStats() { host("player.refreshStats", this.id); }
     take(item, count = 1) { return host("player.take", this.id, item, count); }
     countOf(item) { return host("player.countOf", this.id, item); }
     teleport(position) { host("player.teleport", this.id, position); }
@@ -176,6 +189,8 @@
     setGameplay: (values) => host("setGameplay", values),
     getGameplay: (rule) => host("getGameplay", rule),
     makeNoise: (position, radius, source = null) => host("makeNoise", position, radius, source),
+    registerEquipmentSlot: (name, def = {}) => host("registerEquipmentSlot", name, def),
+    registerStat: (name, base) => host("registerStat", name, base),
     /** A mob behaviour for mobs listing it in ai.behaviors. score(mob, ctx) -> number each think;
      *  update(mob, ctx) while it runs. ctx: {target, can_see_target, target_distance, health, behavior, arrived}. */
     registerMobBehavior: (name, { score, update, stop } = {}) =>
@@ -219,7 +234,8 @@
     const first = revived[0];
     const event = first !== null && typeof first === "object" && !(first instanceof Player) && !Array.isArray(first)
       ? { cancelled: first.cancelled, drops: first.drops, amount: first.amount, damage: first.damage,
-          keep_inventory: first.keep_inventory, keep: first.keep, message: first.message, position: first.position }
+          keep_inventory: first.keep_inventory, keep: first.keep, message: first.message, position: first.position,
+          stats: first.stats }
       : null;
     return JSON.stringify({ value: result ?? null, event }, toHost);
   };

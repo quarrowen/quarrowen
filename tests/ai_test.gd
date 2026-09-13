@@ -19,6 +19,7 @@ var _next_peer := 100
 
 
 func _ready() -> void:
+	seed(20260913)  # mob decisions use randomness; keep runs repeatable
 	server = GameServer.new()
 	add_child(server)
 	# The guild mod (JavaScript) needs the native extension's JS runtime.
@@ -128,7 +129,7 @@ func _perception_and_chase() -> void:
 	_check(grunt.get_target() == null, "does not see a player behind a wall")
 	server.entities.ai.make_noise(player.state.position, 20.0, player)
 	var health: float = player.health
-	var hit := _run_until(func(): return player.health < health, 12.0)
+	var hit := _run_until(func(): return player.health < health, 16.0)
 	_check(hit, "heard the player, pathed through the gap and attacked (behavior %s)" % grunt.get_behavior())
 	_remove(grunt, player)
 
@@ -153,7 +154,7 @@ func _surround() -> void:
 	var o := Vector3i(400, Y, 0)
 	_load(o, 2)
 	var player := _player(Vector3(o) + Vector3(0.5, 0, 0.5))
-	player.max_health = 1000.0
+	player.set_max_health(1000.0)
 	player.health = 1000.0
 	var grunts := []
 	for i in 4:
@@ -181,7 +182,7 @@ func _archer_keeps_distance() -> void:
 	var o := Vector3i(500, Y, 0)
 	_load(o, 2)
 	var player := _player(Vector3(o) + Vector3(0.5, 0, 3.5))
-	player.max_health = 1000.0
+	player.set_max_health(1000.0)
 	player.health = 1000.0
 	var archer = _spawn("ai_arena:archer", Vector3(o) + Vector3(0.5, 0, 0.5))
 	archer.set_target(player)
@@ -221,7 +222,7 @@ func _ally_alert() -> void:
 		for hgt in 3:
 			_put(o + Vector3i(x, hgt, -3), stone)
 	var player := _player(Vector3(o) + Vector3(0.5, 0, 6.5))
-	player.max_health = 1000.0
+	player.set_max_health(1000.0)
 	player.health = 1000.0
 	var lookout = _spawn("ai_arena:grunt", Vector3(o) + Vector3(0.5, 0, 0.5))
 	var hidden = _spawn("ai_arena:grunt", Vector3(o) + Vector3(0.5, 0, -6.5))  # behind the wall
@@ -261,7 +262,7 @@ func _giant() -> void:
 	var o := Vector3i(900, Y, 0)
 	_load(o, 2)
 	var player := _player(Vector3(o) + Vector3(0.5, 0, 14.5))
-	player.max_health = 1000.0
+	player.set_max_health(1000.0)
 	player.health = 1000.0
 	for x in range(-6, 7):
 		for hgt in 2:

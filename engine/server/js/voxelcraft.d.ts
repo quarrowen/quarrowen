@@ -34,13 +34,31 @@ declare module "voxelcraft" {
     drops?: string | [ItemId, number][];
     /** Sound names ("base:stone", or this mod's) for breaking, placing and walking on the block. */
     sounds?: { break?: string; place?: string; step?: string };
+    /** Mining: seconds by hand ~ hardness * 1.5; tier of tool needed for drops; effective tool type. */
+    hardness?: number; tier?: number; tool?: string;
+    hazard?: boolean;
   }
+
+  export interface StatModifier { stat: string; amount: number; op?: "add" | "multiply" }
 
   export interface ItemDef {
     display_name?: string; icon?: string; max_stack?: number; usable?: boolean;
-    /** Damage when attacking while holding it (default 1). */
+    /** Uses before it breaks (0 = never). Wear is item data `damage`. */
+    durability?: number;
+    tool?: { type: string; tier?: number; speed?: number };
+    weapon?: { damage?: number; cooldown?: number; reach?: number; crit_chance?: number; knockback?: number; sweep?: number };
+    armor?: { armor?: number; toughness?: number; knockback_resistance?: number };
+    equip_slot?: string;
+    modifiers?: StatModifier[];
+    model?: string;
+    lore?: string[];
+    /** Legacy shorthand for weapon.damage. */
     attack_damage?: number;
   }
+
+  /** Per-item data (engine keys; mods add their own). */
+  export interface ItemData { damage?: number; name?: string; lore?: string[]; modifiers?: StatModifier[]; [key: string]: unknown }
+  export interface ItemStack { item: ItemId; count: number; data: ItemData }
 
   export interface EntityDef {
     display_name?: string;
@@ -161,7 +179,17 @@ declare module "voxelcraft" {
     readonly yaw: number;
     readonly lookDirection: Vec3;
     readonly online: boolean;
-    give(item: ItemId, count?: number): number;
+    give(item: ItemId, count?: number, data?: ItemData): number;
+    getItem(slot: number): ItemStack;
+    setItemData(slot: number, data: ItemData): void;
+    readonly selectedSlot: number;
+    equipmentSlot(name: string): number;
+    damageItem(slot: number, amount?: number, reason?: string): void;
+    readonly stats: Record<string, number>;
+    getStat(name: string): number;
+    addModifier(id: string, stat: string, amount: number, op?: "add" | "multiply", seconds?: number): void;
+    removeModifier(id: string): void;
+    refreshStats(): void;
     take(item: ItemId, count?: number): boolean;
     countOf(item: ItemId): number;
     teleport(position: Vec3): void;
@@ -194,7 +222,7 @@ declare module "voxelcraft" {
     player_leave: { player: Player };
     tick: { delta: number; tick: number };
     block_break: { player: Player; position: Vec3; block: BlockId; drops: [ItemId, number][]; cancelled: boolean };
-    block_broken: { player: Player; position: Vec3; block: BlockId };
+    block_broken: { player: Player; position: Vec3; block: BlockId; item: ItemId; slot: number; harvested: boolean };
     block_place: { player: Player; position: Vec3; block: BlockId; cancelled: boolean };
     block_placed: { player: Player; position: Vec3; block: BlockId };
     block_interact: { player: Player; position: Vec3; block: BlockId };
@@ -204,7 +232,7 @@ declare module "voxelcraft" {
     ui_action: { player: Player; ui_id: string; action: string };
     item_drop: { player: Player; item: ItemId; count: number; cancelled: boolean };
     item_pickup: { player: Player; entity: Entity; item: ItemId; count: number; cancelled: boolean };
-    player_attack: { player: Player; target: Entity | Player; target_kind: "entity" | "player"; item: ItemId; damage: number; cancelled: boolean };
+    player_attack: { player: Player; target: Entity | Player; target_kind: "entity" | "player"; item: ItemId; slot: number; damage: number; critical: boolean; cancelled: boolean };
     player_damage: { player: Player; amount: number; cause: string; attacker: Player | Entity | null; cancelled: boolean };
     player_death: { player: Player; cause: string; attacker: Player | Entity | null; keep_inventory: boolean; message: string };
     player_respawn: { player: Player; position: Vec3 };
@@ -214,6 +242,10 @@ declare module "voxelcraft" {
     entity_death: { entity: Entity; cause: string; attacker: Player | Entity | null; drops: [ItemId, number][] };
     entity_interact: { player: Player; entity: Entity; item: ItemId };
     entity_natural_spawn: { type: string; position: Vec3; cancelled: boolean };
+    item_durability: { player: Player; slot: number; item: ItemId; data: ItemData; amount: number; reason: string; cancelled: boolean };
+    item_break: { player: Player; slot: number; item: ItemId; data: ItemData };
+    equipment_changed: { player: Player; slot: string; old_item: ItemId; item: ItemId };
+    player_stats: { player: Player; stats: Record<string, number> };
     mob_target: { entity: Entity; target: Player | Entity; previous: Player | Entity | null; reason: string; cancelled: boolean };
     mob_attack: { entity: Entity; attack: { name: string; type: string; damage: number }; target: Player | Entity; cancelled: boolean };
     mob_phase: { entity: Entity; phase: number; message: string };
@@ -271,6 +303,8 @@ declare module "voxelcraft" {
     setGameplay(values: Gameplay): void;
     getGameplay<K extends keyof Gameplay>(rule: K): Gameplay[K];
     makeNoise(position: Vec3, radius: number, source?: Player | Entity | null): void;
+    registerEquipmentSlot(name: string, def?: { display_name?: string }): void;
+    registerStat(name: string, base: number): void;
     registerMobBehavior(name: string, def: { score: (mob: Entity, ctx: MobContext) => number; update: (mob: Entity, ctx: MobContext) => void; stop?: (mob: Entity) => void }): void;
 
     on<E extends keyof Events>(event: E, handler: (event: Events[E]) => void, priority?: number): void;

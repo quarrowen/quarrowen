@@ -93,6 +93,9 @@ def main():
     write("engine/client/sounds/swing.wav", noise_burst(0.14, 0.08, curve=2.0, gain=0.6))
     write("engine/client/sounds/ui_click.wav", tone(0.03, 1800, 1400, gain=0.4, curve=6.0))
     write("engine/client/sounds/drop.wav", tone(0.08, 500, 300, gain=0.4))
+    write("engine/client/sounds/equip.wav", mix(resonant_knock(0.12, [620, 930], 35), noise_burst(0.06, 0.4, gain=0.25)))
+    write("engine/client/sounds/item_break.wav", mix(noise_burst(0.25, 0.6, gain=0.7), resonant_knock(0.2, [1400, 2100], 25)))
+    write("engine/client/sounds/crit.wav", mix(noise_burst(0.1, 0.5, gain=0.6), tone(0.12, 900, 500, gain=0.3)))
 
     # --- base: block materials ---
     for variant in range(2):
