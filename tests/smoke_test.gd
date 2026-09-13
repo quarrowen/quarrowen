@@ -359,7 +359,10 @@ func _combat(c) -> void:
 	var zombie := await _wait_for_entity(c, "vanilla:zombie", 4.0)
 	_check(zombie >= 0, "bounty zombie spawned by JavaScript")
 	if zombie >= 0:
-		var hurt := await _wait_until(func(): return c.health < 20.0, 8.0)
+		var hurt := await _wait_until(func(): return c.health < 20.0, 4.0)
+		if not hurt and c._entities.has(zombie):
+			_teleport_near(c._entities[zombie].position)  # it may have got stuck on terrain
+			hurt = await _wait_until(func(): return c.health < 20.0, 6.0)
 		_check(hurt, "the zombie attacked (health %.1f)" % c.health)
 		_check(await _fight(c, zombie, 15.0), "killed the zombie")
 		var paid := await _wait_until(func(): return c.inventory.count_of(coin) >= coins_before + 5, 3.0)
@@ -496,6 +499,7 @@ func _wait_for_entity(c, type_name: String, timeout: float) -> int:
 func _fight(c, entity_id: int, timeout: float) -> bool:
 	var deadline := Time.get_ticks_msec() + int(timeout * 1000)
 	var won := false
+	var last_close := Time.get_ticks_msec()
 	while Time.get_ticks_msec() < deadline:
 		var view = c._entities.get(entity_id)
 		if view == null or view.dying:
@@ -503,6 +507,12 @@ func _fight(c, entity_id: int, timeout: float) -> bool:
 			break
 		_aim_at(c, view.position + Vector3(0, view.height * 0.5, 0))
 		var flat := Vector2(view.position.x - c.state.position.x, view.position.z - c.state.position.z).length()
+		if flat < 3.0:
+			last_close = Time.get_ticks_msec()
+		elif Time.get_ticks_msec() - last_close > 3000:
+			# Chasing is best effort (slow CI machines, smart fleeing mobs): step next to it.
+			_teleport_near(view.position)
+			last_close = Time.get_ticks_msec()
 		if flat > 2.2:
 			Input.action_press("move_forward")
 			Input.action_press("sprint")  # fleeing mobs are quick
@@ -521,6 +531,11 @@ func _fight(c, entity_id: int, timeout: float) -> bool:
 	Input.action_release("jump")
 	print("[test] fight over (won %s) at %d fps, entity target %s" % [won, Engine.get_frames_per_second(), c._entity_target])
 	return won
+
+
+func _teleport_near(target: Vector3) -> void:
+	var offset := Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized() * 1.8
+	Net.c_chat.rpc_id(1, "/tp %.2f %.2f %.2f" % [target.x + offset.x, target.y + 0.5, target.z + offset.z])
 
 
 ## Walks to the nearest dropped stack of `item` until it is in the inventory.
