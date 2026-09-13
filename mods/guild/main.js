@@ -7,7 +7,8 @@
 //   /guild kit      quest board + tools in your hotbar
 //   /guild meteor   call down a meteor near you now
 //   /guild top      the guild leaderboard
-//   /guild bounty   summon a bounty monster worth extra coins (needs a mod with vanilla:zombie)
+//   /guild bounty   summon an elite bounty monster worth extra coins (needs a mod with vanilla:zombie)
+//   /guild goblin   release a treasure goblin that grabs dropped coins and runs away with them
 
 const METEOR_INTERVAL = 240; // seconds between meteor showers
 const ACTIVE_QUEST_UI = "tracker";
@@ -42,6 +43,37 @@ export function setup(api) {
   };
 
   api.registerSound("coin", "sounds/coin.wav", { pitch_variance: 0.05 });
+
+  // --- Treasure goblin: engine AI plus a behaviour written in JavaScript --------------------------
+  // It is skittish (the engine makes it flee from nearby players) and greedy: the custom "loot"
+  // behaviour sends it after dropped gold coins, which it keeps until someone catches it.
+  api.registerEntity("goblin", {
+    kind: "mob", model: "models/goblin.glb", width: 0.5, height: 1.0, health: 12, speed: 4.2,
+    ai: { preset: "passive", skittish: 7, intelligence: 0.9, agility: 0.8, group: "goblins", behaviors: ["guild:loot"] },
+  });
+  const nearestCoin = (mob) =>
+    api.entities(mob.position, 14).find((e) => e.kind === "item" && e.item === ids.coin) ?? null;
+  api.registerMobBehavior("loot", {
+    score: (mob, ctx) => (ctx.behavior === "flee" ? 0 : nearestCoin(mob) ? 0.8 : 0),
+    update: (mob) => {
+      const coin = nearestCoin(mob);
+      if (!coin) return;
+      const here = mob.position;
+      const at = coin.position;
+      if (Math.hypot(here.x - at.x, here.z - at.z) < 1.2) {
+        mob.setData("loot", mob.getData("loot", 0) + coin.count);
+        coin.remove();
+        api.playSound("guild:coin", here);
+      } else {
+        mob.moveTo(at, 1.2, 0.5);
+      }
+    },
+  });
+  api.on("entity_death", ({ entity }) => {
+    if (entity.type !== "guild:goblin") return;
+    const loot = entity.getData("loot", 0);
+    api.dropItem(ids.coin, 2 + loot * 2, entity.position); // caught it: double the stolen coins
+  });
 
   api.addOrePass({ ore: "guild:gold_ore", replace: "base:stone", veins: 3, size: 4, min_y: 5, max_y: 40, chance: 0.7 });
   api.registerRecipe({ "guild:gold_coin": 4, "base:planks": 2 }, "guild:quest_board");
@@ -291,7 +323,7 @@ export function setup(api) {
 
   // --- Commands --------------------------------------------------------------------------------
 
-  api.command("guild", "kit | meteor | top | coins | bounty - Adventurers' Guild", (player, args) => {
+  api.command("guild", "kit | meteor | top | coins | bounty | goblin - Adventurers' Guild", (player, args) => {
     const sub = args[0] ?? "";
     const cheat = sub === "meteor" || (sub === "kit" && !player.isCreative());
     if (cheat && !player.isAdmin()) {
@@ -334,14 +366,30 @@ export function setup(api) {
         const here = player.position;
         const look = player.lookDirection;
         const mob = api.spawnEntity(BOUNTY_MOB, { x: here.x + look.x * 4, y: here.y + 0.5, z: here.z + look.z * 4 }, { data: { bounty: 5 } });
-        player.sendMessage(mob ? "A bounty monster appeared! Defeat it for 5 coins." : `No ${BOUNTY_MOB} on this server.`);
+        if (mob) {
+          // An elite: tuned tougher and smarter than its kind, and it already knows who to hunt.
+          mob.tune({ aggression: 0.9, intelligence: 0.9, agility: 0.4, chase_speed: 1.5 });
+          mob.setTarget(player);
+        }
+        player.sendMessage(mob ? "An elite bounty monster appeared! Defeat it for 5 coins." : `No ${BOUNTY_MOB} on this server.`);
+        break;
+      }
+      case "goblin": {
+        if (!player.isAdmin()) {
+          player.sendMessage("Only admins can release goblins.");
+          break;
+        }
+        const here = player.position;
+        api.spawnEntity("guild:goblin", { x: here.x + 5, y: here.y + 0.5, z: here.z });
+        for (let i = 0; i < 3; i++) api.dropItem(ids.coin, 1, { x: here.x + 8 + i * 2, y: here.y + 1, z: here.z + 3 });
+        player.sendMessage("A treasure goblin is after the coins! Catch it before it runs off.");
         break;
       }
       case "coins":
         player.sendMessage(`You carry ${coins(player)} gold coins.`);
         break;
       default:
-        player.sendMessage("Usage: /guild kit | meteor | top | coins | bounty");
+        player.sendMessage("Usage: /guild kit | meteor | top | coins | bounty | goblin");
     }
   });
 }

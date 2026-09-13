@@ -108,6 +108,21 @@
     setGoal(position) { host("entity.setGoal", this, position); }
     getData(key, fallback = null) { return host("entity.getData", this, key, fallback); }
     setData(key, value) { host("entity.setData", this, key, value); }
+    // Mob AI
+    get target() { return host("entity.target", this); }
+    /** Attack this player or entity now (null forgets the current target). */
+    setTarget(target) { host("entity.setTarget", this, target); }
+    addThreat(source, amount) { host("entity.addThreat", this, source, amount); }
+    /** Override AI settings for this mob only (aggression, attacks, phases, ...). */
+    tune(values) { host("entity.tune", this, values); }
+    alert(position) { host("entity.alert", this, position); }
+    setHome(position, leash = -1) { host("entity.setHome", this, position, leash); }
+    /** Start a named attack against the current target now. */
+    attack(name) { return host("entity.attack", this, name); }
+    get behavior() { return host("entity.behavior", this); }
+    moveTo(position, speed = 1, radius = 0.8) { host("entity.moveTo", this, position, speed, radius); }
+    stop() { host("entity.stop", this); }
+    lookAt(position) { host("entity.lookAt", this, position); }
   }
 
   const api = {
@@ -160,6 +175,11 @@
     addSpawnRule: (rule) => host("addSpawnRule", rule),
     setGameplay: (values) => host("setGameplay", values),
     getGameplay: (rule) => host("getGameplay", rule),
+    makeNoise: (position, radius, source = null) => host("makeNoise", position, radius, source),
+    /** A mob behaviour for mobs listing it in ai.behaviors. score(mob, ctx) -> number each think;
+     *  update(mob, ctx) while it runs. ctx: {target, can_see_target, target_distance, health, behavior, arrived}. */
+    registerMobBehavior: (name, { score, update, stop } = {}) =>
+      host("registerMobBehavior", name, register(score), register(update), stop ? register(stop) : -1),
     // Events, commands, timers
     on: (event, handler, priority = 0) => host("on", event, register(handler), priority),
     command: (name, description, handler, { admin = false } = {}) =>

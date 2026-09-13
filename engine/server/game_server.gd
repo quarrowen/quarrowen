@@ -282,6 +282,7 @@ func _apply_rules_to_world() -> void:
 	rules.liquid_lut = registry.liquid_lut
 	world.set_lookup_tables(registry.solid_lut, registry.liquid_lut)
 	world.void_below = rules.void_below
+	entities.ai.update_tables()
 
 
 # --- Events, commands, scheduler ----------------------------------------------------------------
@@ -636,6 +637,8 @@ func _simulate_player(p: ServerPlayer) -> void:
 		p.last_processed_seq = input.seq
 		budget -= 1
 		_track_fall(p, falling_speed)
+	if tick % 15 == 0 and p.state.on_ground and Vector2(p.state.velocity.x, p.state.velocity.z).length() > rules.walk_speed + 0.5:
+		entities.ai.make_noise(p.state.position, 7.0, p)  # sprinting footsteps
 
 
 func _track_fall(p: ServerPlayer, speed_before: float) -> void:
@@ -674,7 +677,7 @@ func _update_health(p: ServerPlayer, delta: float) -> void:
 
 ## Returns true if damage applied. `direction` sets the knockback direction (defaults to away from
 ## the attacker). `bypass_cooldown` lets continuous damage (void) ignore the invulnerability window.
-func damage_player(p: ServerPlayer, amount: float, cause: String, attacker = null, direction := Vector3.ZERO, bypass_cooldown := false) -> bool:
+func damage_player(p: ServerPlayer, amount: float, cause: String, attacker = null, direction := Vector3.ZERO, bypass_cooldown := false, knockback := 6.0) -> bool:
 	if p == null or p.dead or amount <= 0.0 or (p.inventory.creative and cause != "void"):
 		return false
 	if p.hurt_timer > 0.0 and not bypass_cooldown:
@@ -691,7 +694,8 @@ func damage_player(p: ServerPlayer, amount: float, cause: String, attacker = nul
 		direction = p.state.position - source
 	direction.y = 0.0
 	if direction.length_squared() > 0.0001:
-		p.state.velocity += direction.normalized() * 6.0 + Vector3(0, 4.5, 0)
+		p.state.velocity += direction.normalized() * knockback + Vector3(0, minf(4.5, knockback * 0.75), 0)
+	entities.ai.make_noise(p.state.position, 12.0, p, true)
 	sync_health(p, true)
 	play_sound_at("engine:hurt", p.get_eye_position(), 1.0, randf_range(0.9, 1.1))
 	_broadcast_player_event(p, Entities.Event.HURT)
@@ -1365,6 +1369,7 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 		_reject_edit(p, pos)
 		return
 	_apply_block(pos, BlockRegistry.AIR)
+	entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 10.0, p)
 	play_sound_at(block_sound(current, "break"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
 	if not p.inventory.creative and ev.drops is Array:
 		for drop in ev.drops:
@@ -1402,6 +1407,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 		p.sync_inventory()
 	var state := BlockRegistry.facing_from_yaw(yaw) if registry.defs[block].orientation == 1 and is_finite(yaw) else 0
 	_apply_block(pos, block, false, state)
+	entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 8.0, p)
 	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
 	emit("block_placed", {"player": p, "position": pos, "block": block})
 
@@ -1491,6 +1497,7 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 	if ev.cancelled:
 		return
 	play_sound_at("engine:swing", eye, 0.7, randf_range(0.9, 1.1), peer_id)
+	entities.ai.make_noise(eye, 14.0, p, true)
 	var direction := PlayerPhysics.look_direction(p.yaw, 0.0)
 	if kind == 0:
 		entities.damage(target, float(ev.damage), "attack", p, direction)

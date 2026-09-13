@@ -22,14 +22,11 @@ var owner = null
 var item_id := 0
 var item_count := 0
 
+## Mobs: the AI brain (engine/server/ai/mob_brain.gd); null for other kinds.
+var brain = null
+
 # Engine bookkeeping.
 var pickup_delay := 0.0
-var target = null  # ServerPlayer being chased
-var goal := Vector3.INF  # mod-assigned walk target
-var wander_direction := Vector2.ZERO
-var wander_timer := 0.0
-var flee_timer := 0.0
-var flee_from := Vector3.ZERO
 var attack_timer := 0.0
 var hurt_timer := 0.0
 var think_timer := 0.0
@@ -98,10 +95,64 @@ func heal(amount: float) -> void:
 		health = minf(health + amount, def.health)
 
 
-## Makes a mob walk toward `pos` (overrides wandering); Vector3.INF clears it.
+## Makes a mob walk to `pos`, overriding its behaviour until it arrives; Vector3.INF clears it.
 func set_goal(pos: Vector3) -> void:
-	goal = pos
+	if brain != null:
+		brain.scripted_goal = pos
 	wake()
+
+
+## Mobs: the current enemy (a player or entity), or null.
+func get_target():
+	return brain.target if brain != null else null
+
+
+## Mobs: attack this player or entity now (null forgets the current target).
+func set_target(new_target) -> void:
+	if brain != null:
+		brain.set_target(new_target)
+
+
+## Mobs: makes `source` more (or less) hated; the highest threat becomes the target.
+func add_threat(source, amount: float) -> void:
+	if brain != null:
+		brain.add_threat(source, amount)
+
+
+## Mobs: overrides AI settings for this mob only (see engine/server/ai/mob_config.gd).
+func tune(values: Dictionary) -> void:
+	if brain != null:
+		brain.tune(values)
+
+
+## Mobs: investigate a position as if it heard something there.
+func alert(pos: Vector3) -> void:
+	if brain != null:
+		brain.alert(pos)
+
+
+## Mobs: the home it returns to when it strays beyond its leash.
+func set_home(pos: Vector3, leash := -1.0) -> void:
+	if brain != null:
+		brain.home = pos
+		if leash >= 0.0:
+			brain.tune({"leash": leash})
+
+
+## Mobs: starts the named attack against the current target right away (ignores range and cooldown).
+func perform_attack(attack_name: String) -> bool:
+	if brain == null or brain.target == null or not brain.attack.is_empty():
+		return false
+	for a in brain.config.attacks:
+		if a.name == attack_name:
+			brain.Attacks.begin(brain, a, brain.target)
+			return true
+	return false
+
+
+## Mobs: name of the running behaviour ("wander", "engage", "flee", ...).
+func get_behavior() -> String:
+	return brain.behavior if brain != null else ""
 
 
 ## Adds velocity (e.g. knockback, launch pads).

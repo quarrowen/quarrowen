@@ -22,8 +22,8 @@ func _init() -> void:
 ##   sprite: texture asset drawn as a billboard when there is no model (projectiles, particles)
 ##   width, height: collision box in blocks; scale: model scale; glow: unshaded (e.g. magic sparks)
 ##   health (0 = cannot be damaged), speed, gravity, drag, knockback_resistance (0-1)
-##   ai: "none" | "wander" | "passive" (wanders, flees when hurt) | "hostile" (chases and attacks players)
-##   attack_damage, attack_range, attack_cooldown, sight_range
+##   ai: a preset name or a Dictionary of behaviour settings, attacks and phases; see
+##       engine/server/ai/mob_config.gd (mobs only)
 ##   damage (projectiles: damage dealt on hit), lifetime (seconds, 0 = forever)
 ##   drops: [[item name or id, count], ...] on death; sounds: {hurt, death, ambient, attack}
 ##   persistent: saved with the chunk it is in (otherwise despawns when no player is near)
@@ -38,8 +38,8 @@ func register(def: Dictionary) -> int:
 	d.kind = String(def.get("kind", "mob")) if String(def.get("kind", "mob")) in KINDS else "mob"
 	d.model = String(def.get("model", "")).left(256)
 	d.sprite = String(def.get("sprite", "")).left(256)
-	d.width = clampf(float(def.get("width", 0.6)), 0.05, 4.0)
-	d.height = clampf(float(def.get("height", 1.8 if d.kind == "mob" else 0.25)), 0.05, 6.0)
+	d.width = clampf(float(def.get("width", 0.6)), 0.05, 8.0)
+	d.height = clampf(float(def.get("height", 1.8 if d.kind == "mob" else 0.25)), 0.05, 16.0)
 	d.scale = clampf(float(def.get("scale", 1.0)), 0.05, 10.0)
 	d.glow = bool(def.get("glow", false))
 	d.health = maxf(float(def.get("health", 10.0 if d.kind == "mob" else 0.0)), 0.0)
@@ -47,11 +47,7 @@ func register(def: Dictionary) -> int:
 	d.gravity = float(def.get("gravity", 32.0 if d.kind != "projectile" else 12.0))
 	d.drag = maxf(float(def.get("drag", 0.0)), 0.0)
 	d.knockback_resistance = clampf(float(def.get("knockback_resistance", 0.0)), 0.0, 1.0)
-	d.ai = String(def.get("ai", "wander" if d.kind == "mob" else "none"))
-	d.attack_damage = maxf(float(def.get("attack_damage", 2.0)), 0.0)
-	d.attack_range = clampf(float(def.get("attack_range", 1.4)), 0.5, 8.0)
-	d.attack_cooldown = clampf(float(def.get("attack_cooldown", 1.0)), 0.1, 30.0)
-	d.sight_range = clampf(float(def.get("sight_range", 16.0)), 1.0, 64.0)
+	d.ai = def.get("ai", "wander" if d.kind == "mob" else "none")
 	d.damage = maxf(float(def.get("damage", 0.0)), 0.0)
 	d.lifetime = maxf(float(def.get("lifetime", 10.0 if d.kind == "projectile" else 0.0)), 0.0)
 	d.persistent = bool(def.get("persistent", false))

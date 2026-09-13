@@ -29,6 +29,10 @@ var _pickup_target: Node3D = null
 var _pickup_from := Vector3.ZERO
 var _pickup_started := 0.0
 var _spin := 0.0
+var _windup_until := 0.0
+var _attack_at := -10.0
+
+static var _windup_overlay: StandardMaterial3D
 
 static var _hurt_overlay: StandardMaterial3D
 
@@ -109,6 +113,26 @@ func hurt() -> void:
 		m.material_overlay = _hurt_overlay
 
 
+## The mob is about to attack: arms rise and it glows, so players can react.
+func windup() -> void:
+	_windup_until = Time.get_ticks_msec() / 1000.0 + 0.8
+	if _windup_overlay == null:
+		_windup_overlay = StandardMaterial3D.new()
+		_windup_overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_windup_overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_windup_overlay.albedo_color = Color(1.0, 0.85, 0.3, 0.35)
+	for m in _meshes:
+		m.material_overlay = _windup_overlay
+
+
+func attack() -> void:
+	_windup_until = 0.0
+	_attack_at = Time.get_ticks_msec() / 1000.0
+	for m in _meshes:
+		if m.material_overlay == _windup_overlay:
+			m.material_overlay = null
+
+
 func die() -> void:
 	dying = true
 	_died_at = Time.get_ticks_msec() / 1000.0
@@ -173,6 +197,14 @@ func _animate(delta: float) -> void:
 	_walk_phase += delta * (4.0 + speed * 2.0) * (1.0 if swing > 0.05 else 0.0)
 	var angle := sin(_walk_phase) * 0.7 * swing
 	var swings := {"leg_a": angle, "leg_b": -angle, "arm_a": -angle * 0.5, "arm_b": angle * 0.5, "head": sin(_walk_phase * 0.5) * 0.08 * swing}
+	var now := Time.get_ticks_msec() / 1000.0
+	if now < _windup_until:
+		swings.arm_a = -2.2  # arms raised
+		swings.arm_b = -2.2
+	elif now - _attack_at < 0.25:
+		var t := (now - _attack_at) / 0.25
+		swings.arm_a = lerpf(-2.2, 0.6, t)  # swing down
+		swings.arm_b = lerpf(-2.2, 0.6, t)
 	for key in swings:
 		for pivot: Node3D in _parts.get(key, []):
 			pivot.rotation.x = swings[key]

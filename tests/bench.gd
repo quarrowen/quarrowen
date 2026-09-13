@@ -81,9 +81,19 @@ func _ready() -> void:
 	_report("player physics step", Time.get_ticks_usec() - t, steps, "step")
 	print("[bench] physics ended at %s (sanity check)" % state.position)
 
-	# Entity simulation: wandering mobs plus resting item stacks in the loaded area.
+	# Entity simulation: mobs hunting 10 players (perception, pathfinding, tactics) plus pigs and
+	# resting item stacks in the loaded area.
 	server.set_physics_process(false)
 	var spawn := server._default_spawn()
+	var ServerPlayer = load("res://engine/server/server_player.gd")
+	for i in 10:
+		var p = ServerPlayer.new(server, 1000 + i, "Bench%d" % i)
+		var px := randf_range(-50, 50)
+		var pz := randf_range(-50, 50)
+		p.state.position = Vector3(px, server.surface_height(floori(px), floori(pz)) + 1, pz)
+		p.max_health = 1000000.0
+		p.health = 1000000.0
+		server.players[p.peer_id] = p
 	for kind in [["vanilla:zombie", 150], ["vanilla:pig", 150]]:
 		for i in kind[1]:
 			var x := randf_range(-60, 60)
@@ -94,11 +104,22 @@ func _ready() -> void:
 	for i in 200:
 		server.entities.drop_item(coal, 1, spawn + Vector3(randf_range(-30, 30), 20, randf_range(-30, 30)))
 	for i in 180:
-		server.entities.tick(1.0 / 60.0)  # let items settle
+		server._time += 1.0 / 60.0
+		server.entities.tick(1.0 / 60.0)  # let items settle, mobs acquire targets
+	var engaged := 0
 	t = Time.get_ticks_usec()
 	for i in 600:
+		server._time += 1.0 / 60.0
+		server.tick += 1
 		server.entities.tick(1.0 / 60.0)
-	_report("entity tick (%d mobs + 200 items)" % 300, Time.get_ticks_usec() - t, 600, "tick")
+		for p in server.players.values():
+			p.hurt_timer = 0.0
+	for brain in server.entities.ai.brains.values():
+		if brain.behavior in ["engage", "search", "investigate"]:
+			engaged += 1
+	_report("entity tick (%d mobs, %d hunting, 200 items)" % [server.entities.ai.brains.size(), engaged], Time.get_ticks_usec() - t, 600, "tick")
+	server.players.clear()
+
 	server.queue_free()
 	await get_tree().process_frame
 	_remove_tree(ProjectSettings.globalize_path("user://bench"))

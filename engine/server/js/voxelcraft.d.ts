@@ -52,8 +52,7 @@ declare module "voxelcraft" {
     glow?: boolean;
     width?: number; height?: number; scale?: number;
     health?: number; speed?: number; gravity?: number; drag?: number; knockback_resistance?: number;
-    ai?: "none" | "wander" | "passive" | "hostile";
-    attack_damage?: number; attack_range?: number; attack_cooldown?: number; sight_range?: number;
+    ai?: MobAi["preset"] | MobAi;
     /** Projectile damage on hit. */
     damage?: number;
     lifetime?: number;
@@ -93,6 +92,47 @@ declare module "voxelcraft" {
     setGoal(position: Vec3 | null): void;
     getData<T = unknown>(key: string, fallback?: T): T;
     setData(key: string, value: unknown): void;
+    readonly target: Player | Entity | null;
+    setTarget(target: Player | Entity | null): void;
+    addThreat(source: Player | Entity, amount: number): void;
+    tune(values: MobAi): void;
+    alert(position: Vec3): void;
+    setHome(position: Vec3, leash?: number): void;
+    attack(name: string): boolean;
+    readonly behavior: string;
+    moveTo(position: Vec3, speed?: number, radius?: number): void;
+    stop(): void;
+    lookAt(position: Vec3): void;
+  }
+
+  export interface MobAttack {
+    name?: string;
+    type?: "melee" | "ranged" | "leap" | "charge" | "slam" | "summon" | "custom";
+    damage?: number; range?: number; min_range?: number; cooldown?: number; windup?: number; recovery?: number;
+    knockback?: number; weight?: number; arc?: number; radius?: number;
+    projectile?: string; projectile_speed?: number; spread?: number; count?: number;
+    entity?: string; max_summons?: number; speed?: number; duration?: number;
+    health_below?: number; health_above?: number; sound?: string;
+  }
+
+  /** Engine mob AI settings; see engine/server/ai/mob_config.gd. */
+  export interface MobAi {
+    preset?: "hostile" | "neutral" | "passive" | "archer" | "boss" | "wander" | "none";
+    temperament?: "hostile" | "neutral" | "passive" | "none";
+    aggression?: number; courage?: number; intelligence?: number; agility?: number;
+    sight_range?: number; fov?: number; hearing_range?: number; memory?: number; reaction_time?: number;
+    group?: string; enemy_groups?: string[]; alert_radius?: number; chase_speed?: number;
+    wander_speed?: number; wander_radius?: number; preferred_range?: [number, number]; skittish?: number;
+    leash?: number; reset_on_leash?: boolean; regen?: number; step_up?: number; max_drop?: number; can_swim?: boolean;
+    attack_interval?: number; attacks?: MobAttack[];
+    phases?: { health_below: number; message?: string; speed_multiplier?: number; aggression?: number; attacks?: MobAttack[]; add_attacks?: MobAttack[] }[];
+    boss?: { name?: string; bar_range?: number };
+    behaviors?: string[];
+  }
+
+  export interface MobContext {
+    target: Player | Entity | null; can_see_target: boolean; target_distance: number;
+    health: number; behavior: string; arrived: boolean;
   }
 
   export interface OrePassDef {
@@ -174,6 +214,9 @@ declare module "voxelcraft" {
     entity_death: { entity: Entity; cause: string; attacker: Player | Entity | null; drops: [ItemId, number][] };
     entity_interact: { player: Player; entity: Entity; item: ItemId };
     entity_natural_spawn: { type: string; position: Vec3; cancelled: boolean };
+    mob_target: { entity: Entity; target: Player | Entity; previous: Player | Entity | null; reason: string; cancelled: boolean };
+    mob_attack: { entity: Entity; attack: { name: string; type: string; damage: number }; target: Player | Entity; cancelled: boolean };
+    mob_phase: { entity: Entity; phase: number; message: string };
     projectile_hit: { entity: Entity; owner: Player | Entity | null; hit: "block" | "entity" | "player"; target: Player | Entity | null;
       position: Vec3; block: Vec3; damage: number; cancelled: boolean; keep: boolean };
   }
@@ -227,6 +270,8 @@ declare module "voxelcraft" {
     addSpawnRule(rule: SpawnRule): void;
     setGameplay(values: Gameplay): void;
     getGameplay<K extends keyof Gameplay>(rule: K): Gameplay[K];
+    makeNoise(position: Vec3, radius: number, source?: Player | Entity | null): void;
+    registerMobBehavior(name: string, def: { score: (mob: Entity, ctx: MobContext) => number; update: (mob: Entity, ctx: MobContext) => void; stop?: (mob: Entity) => void }): void;
 
     on<E extends keyof Events>(event: E, handler: (event: Events[E]) => void, priority?: number): void;
     command(name: string, description: string, handler: (player: Player, args: string[]) => void, options?: { admin?: boolean }): void;

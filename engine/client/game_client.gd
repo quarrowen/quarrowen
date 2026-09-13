@@ -531,6 +531,8 @@ func on_entity_event(entity_id: int, kind: int, arg: int) -> void:
 	match kind:
 		0: view.hurt()
 		1: view.die()
+		3: view.attack()
+		5: view.windup()
 		2:
 			var collector: Node3D = _camera if arg == my_id else _remote_players.get(arg)
 			if collector:

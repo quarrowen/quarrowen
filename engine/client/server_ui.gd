@@ -12,7 +12,7 @@ extends Control
 ## Elements:
 ##   {"type": "label", "text": "...", "size": 16, "color": "#ffffff"}
 ##   {"type": "button", "text": "...", "action": "id", "disabled": false}  -> ui_action event
-##   {"type": "progress", "value": 3, "max": 10}
+##   {"type": "progress", "value": 3, "max": 10, "color": "#6fcf97", "width": 180}
 ##   {"type": "image", "asset": "mod:textures/x.png", "size": 32}
 ##   {"type": "vbox" | "hbox", "children": [...]}
 ##   {"type": "spacer", "size": 8}
@@ -174,7 +174,15 @@ func _build(spec: Dictionary, ui_id: String, depth: int) -> Control:
 			bar.max_value = maxf(float(spec.get("max", 1)), 0.001)
 			bar.value = float(spec.get("value", 0))
 			bar.show_percentage = false
-			bar.custom_minimum_size = Vector2(180, 10)
+			bar.custom_minimum_size = Vector2(clampf(float(spec.get("width", 180)), 20, 800), 10)
+			var fill := StyleBoxFlat.new()
+			fill.bg_color = Color.from_string(String(spec.get("color", "#6fcf97")), Color(0.44, 0.81, 0.59))
+			fill.set_corner_radius_all(2)
+			var background := StyleBoxFlat.new()
+			background.bg_color = Color(0, 0, 0, 0.55)
+			background.set_corner_radius_all(2)
+			bar.add_theme_stylebox_override("fill", fill)
+			bar.add_theme_stylebox_override("background", background)
 			bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			return bar
 		"image":

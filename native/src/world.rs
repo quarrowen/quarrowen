@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use godot::prelude::*;
 
+use crate::pathfind;
 use crate::physics::{self, Body, Input, Rules};
 use crate::{CHUNK_BYTES, LUT_SIZE, SIZE_Y, UNLOADED, VOLUME};
 
@@ -15,6 +16,9 @@ pub struct NativeVoxelWorld {
     void_below: bool,
     solid: Lut,
     liquid: Lut,
+    /// Blocks that stop line of sight (opaque blocks) and blocks mobs must never path through.
+    sight: Lut,
+    hazard: Lut,
 }
 
 /// Lookup table indexed by block id (LUT_SIZE entries).
@@ -51,6 +55,38 @@ impl NativeVoxelWorld {
     #[inline]
     pub fn is_liquid(&self, x: i32, y: i32, z: i32) -> bool {
         self.liquid.0[self.block(x, y, z) as usize] == 1
+    }
+
+    #[inline]
+    pub fn solid_at(&self, block: u16) -> bool {
+        self.solid.0[block as usize] == 1
+    }
+
+    #[inline]
+    pub fn liquid_at(&self, block: u16) -> bool {
+        self.liquid.0[block as usize] == 1
+    }
+
+    #[inline]
+    pub fn hazard_at(&self, block: u16) -> bool {
+        self.hazard.0[block as usize] == 1
+    }
+
+    #[inline]
+    pub fn sight_blocked_at(&self, block: u16) -> bool {
+        self.sight.0[block as usize] == 1
+    }
+}
+
+fn agent_from(values: &PackedInt32Array) -> pathfind::Agent {
+    let v = values.as_slice();
+    let at = |i: usize, default: i32| v.get(i).copied().unwrap_or(default);
+    pathfind::Agent {
+        width: at(0, 1).clamp(1, 8),
+        height: at(1, 2).clamp(1, 16),
+        step_up: at(2, 1).clamp(0, 8),
+        max_drop: at(3, 3).clamp(0, 32),
+        can_swim: at(4, 0) != 0,
     }
 }
 
@@ -100,6 +136,43 @@ impl NativeVoxelWorld {
         copy_lut(&mut self.solid, &solid);
         copy_lut(&mut self.liquid, &liquid);
         self.solid.0[UNLOADED as usize] = 1;
+    }
+
+    /// `sight`: 1 for blocks that stop line of sight; `hazard`: 1 for blocks mobs avoid.
+    #[func]
+    fn set_ai_tables(&mut self, sight: PackedByteArray, hazard: PackedByteArray) {
+        copy_lut(&mut self.sight, &sight);
+        copy_lut(&mut self.hazard, &hazard);
+        self.sight.0[UNLOADED as usize] = 1;
+        self.hazard.0[UNLOADED as usize] = 0;
+    }
+
+    /// A* for a mob. `agent`: [width, height, step_up, max_drop, can_swim] in blocks. Returns
+    /// [(status, node count, expanded), node...] where nodes are footprint minimum corners from start
+    /// to end; status 0 = no path, 1 = reached, 2 = partial (closest reachable node).
+    #[func]
+    fn find_path(&self, start: Vector3i, goal: Vector3i, radius: f32, agent: PackedInt32Array, max_nodes: i32) -> PackedVector3Array {
+        let a = agent_from(&agent);
+        let (status, nodes) = self.astar((start.x, start.y, start.z), (goal.x, goal.y, goal.z), radius, &a, max_nodes.clamp(1, 20000) as usize);
+        let mut out = Vec::with_capacity(nodes.len() + 1);
+        out.push(Vector3::new(status, nodes.len() as f32, 0.0));
+        out.extend(nodes.iter().map(|n| Vector3::new(n.0 as f32, n.1 as f32, n.2 as f32)));
+        PackedVector3Array::from(&out[..])
+    }
+
+    #[func]
+    fn walkable_line(&self, from: Vector3i, to: Vector3i, agent: PackedInt32Array) -> bool {
+        self.walk_line((from.x, from.y, from.z), (to.x, to.y, to.z), &agent_from(&agent))
+    }
+
+    #[func]
+    fn standable(&self, node: Vector3i, agent: PackedInt32Array) -> bool {
+        self.can_stand(node.x, node.y, node.z, &agent_from(&agent))
+    }
+
+    #[func]
+    fn line_of_sight(&self, from: Vector3, to: Vector3) -> bool {
+        self.sight_line([from.x, from.y, from.z], [to.x, to.y, to.z])
     }
 
     #[func]

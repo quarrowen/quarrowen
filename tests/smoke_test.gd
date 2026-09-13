@@ -515,8 +515,10 @@ func _fight(c, entity_id: int, timeout: float) -> bool:
 			last_close = Time.get_ticks_msec()
 		if flat > 2.2:
 			Input.action_press("move_forward")
+			Input.action_press("sprint")  # fleeing mobs are quick
 		else:
 			Input.action_release("move_forward")
+			Input.action_release("sprint")
 		if c.state.on_ground and flat > 2.2 and Vector2(c.state.velocity.x, c.state.velocity.z).length() < 0.5:
 			Input.action_press("jump")
 		else:
@@ -525,6 +527,7 @@ func _fight(c, entity_id: int, timeout: float) -> bool:
 			c.attack_target()
 		await get_tree().process_frame
 	Input.action_release("move_forward")
+	Input.action_release("sprint")
 	Input.action_release("jump")
 	print("[test] fight over (won %s) at %d fps, entity target %s" % [won, Engine.get_frames_per_second(), c._entity_target])
 	return won
