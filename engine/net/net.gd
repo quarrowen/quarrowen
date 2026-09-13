@@ -5,37 +5,157 @@ extends Node
 ## Naming: c_* = sent by clients to the server, s_* = sent by the server to clients.
 ## Channel 0 is reliable (content, chunks, edits, UI), channel 1 carries unreliable movement.
 ##
-## Join sequence:
-##   c_hello(protocol, name) -> s_server_info(info, content, manifest)
+## Join sequence (over DTLS; the SceneMultiplayer auth step first checks the protocol version and
+## pins the server certificate, see _on_auth_message):
+##   c_hello(protocol, name, public key) -> s_challenge(nonce) -> c_auth(signature)
+##   -> s_server_info(info, content, manifest)
 ##   c_request_assets(missing hashes) -> s_asset_piece(...)*
 ##   c_ready() -> s_welcome, s_inventory, s_chunk*, s_snapshot* ...
 
 const MOVEMENT_CHANNEL := 1
+const Protocol = preload("res://engine/shared/protocol.gd")
+const KnownServers = preload("res://engine/net/known_servers.gd")
+## Common name in server certificates; clients verify against a pinned certificate, not a CA.
+const CERT_COMMON_NAME := "voxelcraft-server"
+
+## Emitted on clients when the connection handshake refuses to continue (version mismatch, changed
+## server identity). The peer is closed afterwards.
+signal handshake_failed(reason: String)
 
 ## Set by GameServer when running as a server.
 var server: Node = null
 ## Set by GameClient when running as a client.
 var client: Node = null
+## Server: certificate PEM handed to clients so they can pin it.
+var _server_cert_pem := ""
+## Client: where the server identity is pinned ("host:port") and the protocol version announced.
+var _client_endpoint := ""
+var _client_protocol := Protocol.VERSION
+## Client: pin server certificates (load-test bots turn this off).
+var pin_servers := true
 
 
-func create_server(port: int, max_players: int) -> Error:
+func _ready() -> void:
+	_configure_auth()
+
+
+## The handshake runs through SceneMultiplayer's authentication step, which exchanges raw bytes
+## before any RPC. RPC ids depend on each build's RPC list, so versions must match before RPCs flow.
+func _configure_auth() -> void:
+	var scene_multiplayer := multiplayer as SceneMultiplayer
+	scene_multiplayer.auth_timeout = 10.0
+	scene_multiplayer.auth_callback = _on_auth_message
+	scene_multiplayer.peer_authenticating.connect(_on_peer_authenticating)
+
+
+## `tls_key`/`tls_cert`: the server's identity. Traffic is always encrypted with DTLS.
+func create_server(port: int, max_players: int, tls_key: CryptoKey, tls_cert: X509Certificate, cert_pem: String) -> Error:
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_server(port, max_players)
 	if err != OK:
 		return err
+	err = peer.host.dtls_server_setup(TLSOptions.server(tls_key, tls_cert))
+	if err != OK:
+		peer.close()
+		return err
+	# The PEM text is passed in: X509Certificate.save_to_string() appends a NUL character.
+	_server_cert_pem = cert_pem
 	multiplayer.multiplayer_peer = peer
 	# Clients may only talk to the server, never relay RPCs to each other.
 	(multiplayer as SceneMultiplayer).server_relay = false
 	return OK
 
 
-func create_client(address: String, port: int) -> Error:
+## Connects over DTLS. If this server's certificate was seen before, the DTLS handshake verifies it,
+## so an impostor cannot complete the connection; the first connection trusts and pins it.
+func create_client(address: String, port: int, protocol_override := -1) -> Error:
+	_client_endpoint = "%s:%d" % [address, port]
+	_client_protocol = protocol_override if protocol_override >= 0 else Protocol.VERSION
 	var peer := ENetMultiplayerPeer.new()
 	var err := peer.create_client(address, port)
 	if err != OK:
 		return err
+	var pinned := KnownServers.load_certificate(_client_endpoint) if pin_servers else null
+	var options := TLSOptions.client(pinned, CERT_COMMON_NAME) if pinned != null else TLSOptions.client_unsafe()
+	err = peer.host.dtls_client_setup(CERT_COMMON_NAME, options)
+	if err != OK:
+		peer.close()
+		return err
 	multiplayer.multiplayer_peer = peer
 	return OK
+
+
+func has_pinned_identity(address: String, port: int) -> bool:
+	return KnownServers.load_certificate("%s:%d" % [address, port]) != null
+
+
+## Loads the server's DTLS identity from `dir`, creating a self-signed one on first start.
+## Returns [CryptoKey, X509Certificate, certificate PEM text].
+static func load_or_create_server_identity(dir: String) -> Array:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var key_path := dir.path_join("server.key")
+	var cert_path := dir.path_join("server.crt")
+	var key := CryptoKey.new()
+	var cert := X509Certificate.new()
+	if FileAccess.file_exists(key_path) and FileAccess.file_exists(cert_path) \
+			and key.load(key_path) == OK and cert.load(cert_path) == OK:
+		return [key, cert, FileAccess.get_file_as_string(cert_path)]
+	var crypto := Crypto.new()
+	key = crypto.generate_rsa(2048)
+	cert = crypto.generate_self_signed_certificate(key, "CN=%s,O=VoxelCraft" % CERT_COMMON_NAME, "20250101000000", "21000101000000")
+	key.save(key_path)
+	cert.save(cert_path)
+	print("[server] Generated server identity in %s" % ProjectSettings.globalize_path(dir))
+	return [key, cert, FileAccess.get_file_as_string(cert_path)]
+
+
+func _on_peer_authenticating(peer_id: int) -> void:
+	if multiplayer.is_server():
+		return
+	var hello := {"protocol": _client_protocol, "game_version": Protocol.GAME_VERSION}
+	(multiplayer as SceneMultiplayer).send_auth(peer_id, JSON.stringify(hello).to_utf8_buffer())
+
+
+func _on_auth_message(peer_id: int, data: PackedByteArray) -> void:
+	var scene_multiplayer := multiplayer as SceneMultiplayer
+	if data.is_empty() or data[0] == 0:
+		return  # Completion marker from the other side, not a handshake message.
+	var message = JSON.parse_string(data.get_string_from_utf8()) if data.size() < 16384 else null
+	if not (message is Dictionary):
+		scene_multiplayer.disconnect_peer(peer_id)
+		return
+	if multiplayer.is_server():
+		var protocol := int(message.get("protocol", -1))
+		if protocol != Protocol.VERSION:
+			var newer := protocol < Protocol.VERSION
+			var reason := "This server runs %s version %s (protocol %d). %s" % [
+				Protocol.GAME_NAME, Protocol.GAME_VERSION, Protocol.VERSION,
+				"Please update your client." if newer else "The server needs updating to support your newer client."]
+			scene_multiplayer.send_auth(peer_id, JSON.stringify({"ok": false, "reason": reason}).to_utf8_buffer())
+			# Give the refusal time to arrive before dropping the peer.
+			get_tree().create_timer(0.5).timeout.connect(func():
+				if scene_multiplayer.get_authenticating_peers().has(peer_id):
+					scene_multiplayer.disconnect_peer(peer_id))
+			return
+		var reply := {"ok": true, "certificate": _server_cert_pem, "game_version": Protocol.GAME_VERSION}
+		scene_multiplayer.send_auth(peer_id, JSON.stringify(reply).to_utf8_buffer())
+		scene_multiplayer.complete_auth(peer_id)
+		return
+	# Client side.
+	if not message.get("ok", false):
+		_fail_handshake(String(message.get("reason", "The server refused the connection.")))
+		return
+	var certificate := String(message.get("certificate", ""))
+	var pin := KnownServers.check_and_pin(_client_endpoint, certificate) if pin_servers else ""
+	if pin != "":
+		_fail_handshake(pin)
+		return
+	scene_multiplayer.complete_auth(peer_id)
+
+
+func _fail_handshake(reason: String) -> void:
+	handshake_failed.emit(reason)
+	close()
 
 
 func close() -> void:
@@ -61,9 +181,21 @@ func _sender() -> int:
 # --- Client -> server -------------------------------------------------------------------------
 
 @rpc("any_peer", "call_remote", "reliable")
-func c_hello(protocol: int, player_name: String) -> void:
+func c_hello(protocol: int, player_name: String, public_key: String) -> void:
 	if server:
-		server.on_hello(_sender(), protocol, player_name)
+		server.on_hello(_sender(), protocol, player_name, public_key)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func c_auth(signature: PackedByteArray) -> void:
+	if server:
+		server.on_auth(_sender(), signature)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func c_claim_admin(token: String) -> void:
+	if server:
+		server.on_claim_admin(_sender(), token)
 
 
 @rpc("any_peer", "call_remote", "reliable")
@@ -146,6 +278,12 @@ func c_shutdown(token: String) -> void:
 func s_kick(reason: String) -> void:
 	if client:
 		client.on_kick(reason)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_challenge(nonce: PackedByteArray) -> void:
+	if client:
+		client.on_challenge(nonce)
 
 
 @rpc("authority", "call_remote", "reliable")

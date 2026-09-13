@@ -4,6 +4,7 @@ extends Node
 
 const BlockRegistry = preload("res://engine/shared/block_registry.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
+const WorldBackups = preload("res://engine/server/world_backups.gd")
 const VoxelWorld = preload("res://engine/shared/voxel_world.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
@@ -11,6 +12,7 @@ const ServerPlayer = preload("res://engine/server/server_player.gd")
 const ModApi = preload("res://engine/server/mod_api.gd")
 const ModLoader = preload("res://engine/server/mod_loader.gd")
 const JsMod = preload("res://engine/server/js_mod.gd")
+const Identity = preload("res://engine/shared/identity.gd")
 const Native = preload("res://engine/shared/native.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const ItemRegistry = preload("res://engine/shared/item_registry.gd")
@@ -74,24 +76,53 @@ var _time_of_day := 0.5
 var _day_length := 0.0
 var _time_sync_timer := 0.0
 var _admin_token := ""
+## Lower-case names or player ids granted admin by configuration (VOXEL_ADMINS).
+var _config_admins := {}
 var _save_timer := 0.0
 var _unload_timer := 0.0
 var _view_offsets: Array[Vector2i] = []
 var _started := false
 var _metrics_interval := 0.0
 var _metrics := {}
+var _backup_dir := ""
+var _backup_interval := 0.0  # seconds, 0 = no automatic backups
+var _backup_keep := 24
+var _backup_timer := 0.0
+var _backup_task := -1
+var _backup_job := {}  # shared with the worker: {path, error, pruned, requester}
+## Automatic backups are skipped while nothing happens in the world.
+var _activity_since_backup := false
 
 
 ## config keys:
 ##   port, max_players, world, seed, admin_token, mods (PackedStringArray), mod_dirs (PackedStringArray, searched
 ##   before res://mods), data_dir (default user://worlds), metrics (seconds between reports, 0 = off),
-##   offline (true = load mods and world without opening a socket, for benchmarks)
+##   offline (true = load mods and world without opening a socket, for benchmarks),
+##   backup_interval (minutes between automatic backups, 0 = off), backup_keep (archives kept),
+##   restore ("latest", a backup file name or an archive path to restore before loading)
 func start(config: Dictionary) -> Error:
 	_admin_token = config.get("admin_token", "")
+	for entry in String(config.get("admins", "")).split(",", false):
+		_config_admins[entry.strip_edges().to_lower()] = true
 	_metrics_interval = float(config.get("metrics", 0.0))
 	Engine.max_fps = 60
 	var data_dir := String(config.get("data_dir", "user://worlds"))
-	_save_dir = data_dir.path_join(String(config.get("world", "world")).validate_filename())
+	var world_name := String(config.get("world", "world")).validate_filename()
+	_save_dir = data_dir.path_join(world_name)
+	_backup_dir = data_dir.path_join("backups").path_join(world_name)
+	_backup_interval = float(config.get("backup_interval", 0.0)) * 60.0
+	_backup_keep = maxi(1, int(config.get("backup_keep", 24)))
+	var restore := String(config.get("restore", ""))
+	if not restore.is_empty():
+		var archive := WorldBackups.resolve(_backup_dir, restore)
+		if archive.is_empty():
+			printerr("[server] No backup '%s' in %s" % [restore, ProjectSettings.globalize_path(_backup_dir)])
+			return ERR_FILE_NOT_FOUND
+		var restore_error := WorldBackups.restore(archive, _save_dir)
+		if not restore_error.is_empty():
+			printerr("[server] Restore failed: %s" % restore_error)
+			return FAILED
+		print("[server] Restored world '%s' from %s" % [world_name, archive.get_file()])
 	DirAccess.make_dir_recursive_absolute(_save_dir + "/chunks")
 	_load_meta(int(config.get("seed", -1)))
 	world_seed = int(_meta.seed)
@@ -110,7 +141,8 @@ func start(config: Dictionary) -> Error:
 
 	if config.get("offline", false):
 		return OK
-	err = Net.create_server(int(config.get("port", 24565)), int(config.get("max_players", DEFAULT_MAX_PLAYERS)))
+	var tls: Array = Net.load_or_create_server_identity(data_dir.path_join("identity"))
+	err = Net.create_server(int(config.get("port", 24565)), int(config.get("max_players", DEFAULT_MAX_PLAYERS)), tls[0], tls[1], tls[2])
 	if err != OK:
 		printerr("[server] Failed to listen on port %d: %s" % [config.get("port"), error_string(err)])
 		return err
@@ -128,6 +160,9 @@ func _exit_tree() -> void:
 	_chunk_jobs.clear()
 	if not _save_dir.is_empty():
 		_save_all(true)
+	if _backup_task != -1:
+		WorkerThreadPool.wait_for_task_completion(_backup_task)
+		_backup_task = -1
 	if Net.server == self:
 		Net.server = null
 
@@ -136,7 +171,7 @@ func _exit_tree() -> void:
 
 func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> Error:
 	# External folders come first so a deployment can override bundled mods.
-	var dirs := extra_dirs + PackedStringArray(["res://mods"])
+	var dirs := ModLoader.search_dirs(extra_dirs)
 	var available := ModLoader.discover(dirs)
 	if requested.is_empty():
 		printerr("[server] No mods requested. Available: %s" % ", ".join(available.keys()))
@@ -239,8 +274,17 @@ func emit(event: String, payload: Dictionary) -> Dictionary:
 	return payload
 
 
-func add_command(command: String, description: String, handler: Callable, mod_id: String) -> void:
-	_commands[command.to_lower()] = {"description": description, "handler": handler, "mod": mod_id}
+## permission: "" (everyone) or "admin".
+func add_command(command: String, description: String, handler: Callable, mod_id: String, permission := "") -> void:
+	_commands[command.to_lower()] = {"description": description, "handler": handler, "mod": mod_id, "permission": permission}
+
+
+func is_admin(p) -> bool:
+	return p != null and (_meta.admins.has(p.player_id) or _config_admins.has(p.player_id) or _config_admins.has(p.name.to_lower()))
+
+
+func _permitted(p, command: Dictionary) -> bool:
+	return command.get("permission", "") != "admin" or is_admin(p)
 
 
 func schedule(seconds: float, callback: Callable, interval: float) -> int:
@@ -269,13 +313,112 @@ func _run_tasks() -> void:
 func _register_builtin_commands() -> void:
 	add_command("help", "List commands", _cmd_help, "engine")
 	add_command("players", "List online players", _cmd_players, "engine")
+	add_command("op", "<player> - grant admin", _cmd_op.bind(true), "engine", "admin")
+	add_command("deop", "<player> - revoke admin", _cmd_op.bind(false), "engine", "admin")
+	add_command("kick", "<player> [reason] - disconnect a player", _cmd_kick, "engine", "admin")
+	add_command("whoami", "Show your player id and permissions", _cmd_whoami, "engine")
+	add_command("backup", "Back up the world now", _cmd_backup, "engine", "admin")
+	add_command("backups", "List world backups", _cmd_backups, "engine", "admin")
 
 
 func _cmd_help(player, _args: PackedStringArray) -> void:
 	var names := _commands.keys()
 	names.sort()
 	for n in names:
-		player.send_message("/%s - %s" % [n, _commands[n].description])
+		if _permitted(player, _commands[n]):
+			player.send_message("/%s - %s" % [n, _commands[n].description])
+
+
+func _cmd_op(player, args: PackedStringArray, grant: bool) -> void:
+	var target = _find_online(args[0] if args.size() > 0 else "")
+	if target == null:
+		player.send_message("No online player named '%s'" % (args[0] if args.size() > 0 else ""))
+		return
+	if grant and not _meta.admins.has(target.player_id):
+		_meta.admins.append(target.player_id)
+	elif not grant:
+		_meta.admins.erase(target.player_id)
+	broadcast_chat("%s %s admin rights for %s" % [player.name, "granted" if grant else "revoked", target.name])
+
+
+func _cmd_kick(player, args: PackedStringArray) -> void:
+	var target = _find_online(args[0] if args.size() > 0 else "")
+	if target == null:
+		player.send_message("No online player named '%s'" % (args[0] if args.size() > 0 else ""))
+		return
+	kick(target.peer_id, " ".join(args.slice(1)) if args.size() > 1 else "Kicked by %s" % player.name)
+
+
+func _cmd_whoami(player, _args: PackedStringArray) -> void:
+	player.send_message("%s: player id %s%s" % [player.name, player.player_id, " (admin)" if is_admin(player) else ""])
+
+
+func _cmd_backup(player, _args: PackedStringArray) -> void:
+	if backup_now(player.peer_id):
+		player.send_message("Backup started")
+	else:
+		player.send_message("A backup is already running")
+
+
+func _cmd_backups(player, _args: PackedStringArray) -> void:
+	var backups := WorldBackups.list(_backup_dir)
+	player.send_message("%d backups in %s (keeping %d)" % [backups.size(), ProjectSettings.globalize_path(_backup_dir), _backup_keep])
+	for i in mini(backups.size(), 10):
+		player.send_message("  %s  %s" % [backups[i].name, String.humanize_size(backups[i].size)])
+
+
+## Flushes pending saves, then archives the world on a worker thread. `requester` (peer id) is told
+## when it finishes. Returns false if a backup is already running.
+func backup_now(requester := 0) -> bool:
+	if _backup_task != -1 or _save_dir.is_empty():
+		return false
+	_save_all(true)
+	_activity_since_backup = false
+	_backup_timer = 0.0
+	var world_name := _save_dir.get_file()
+	_backup_job = {"path": _backup_dir.path_join("%s-%s%s" % [world_name, WorldBackups.timestamp(), WorldBackups.EXTENSION]),
+		"error": "", "pruned": 0, "requester": requester, "started": Time.get_ticks_msec()}
+	_backup_task = WorkerThreadPool.add_task(_run_backup.bind(_save_dir, _backup_dir, _backup_keep, _backup_job), false, "world backup")
+	return true
+
+
+static func _run_backup(world_dir: String, backup_dir: String, keep: int, job: Dictionary) -> void:
+	job.error = WorldBackups.create(world_dir, job.path)
+	if job.error.is_empty():
+		job.pruned = WorldBackups.prune(backup_dir, keep)
+
+
+func _poll_backup(delta: float) -> void:
+	if _backup_task == -1:
+		_backup_timer += delta
+		if _backup_interval > 0.0 and _backup_timer >= _backup_interval:
+			_backup_timer = 0.0
+			if _activity_since_backup or not players.is_empty():
+				backup_now()
+		return
+	if not WorkerThreadPool.is_task_completed(_backup_task):
+		return
+	WorkerThreadPool.wait_for_task_completion(_backup_task)
+	_backup_task = -1
+	var job := _backup_job
+	var message: String
+	if job.error.is_empty():
+		message = "Backup saved: %s (%s, %dms)" % [String(job.path).get_file(),
+			String.humanize_size(FileAccess.open(job.path, FileAccess.READ).get_length()), Time.get_ticks_msec() - int(job.started)]
+	else:
+		message = "Backup failed: %s" % job.error
+	print("[server] " + message)
+	var requester: ServerPlayer = players.get(int(job.requester))
+	if requester:
+		requester.send_message(message)
+	emit("backup", {"path": job.path, "error": job.error})
+
+
+func _find_online(player_name: String):
+	for p: ServerPlayer in players.values():
+		if p.name.to_lower() == player_name.to_lower():
+			return p
+	return null
 
 
 func _cmd_players(player, _args: PackedStringArray) -> void:
@@ -313,6 +456,7 @@ func _physics_process(delta: float) -> void:
 		_send_snapshots()
 	var t3 := Time.get_ticks_usec()
 
+	_poll_backup(delta)
 	_save_timer += delta
 	if _save_timer >= SAVE_INTERVAL:
 		_save_timer = 0.0
@@ -462,20 +606,48 @@ func _broadcast_time() -> void:
 
 # --- Joining & content delivery -----------------------------------------------------------------
 
-func on_hello(peer_id: int, protocol: int, player_name: String) -> void:
+func on_hello(peer_id: int, protocol: int, player_name: String, public_key: String) -> void:
 	if players.has(peer_id) or _joining.has(peer_id):
 		return
 	if protocol != Protocol.VERSION:
 		kick(peer_id, "Protocol mismatch: server %d, client %d" % [Protocol.VERSION, protocol])
 		return
+	var key := Identity.parse_public_key(public_key)
+	if key == null:
+		kick(peer_id, "Invalid identity key")
+		return
+	var player_id := Identity.player_id(key)
 	var clean_name := player_name.strip_edges().left(16)
 	if clean_name.is_empty():
 		clean_name = "Player%d" % (peer_id % 1000)
 	for p: ServerPlayer in players.values():
+		if p.player_id == player_id:
+			kick(peer_id, "You are already connected")
+			return
 		if p.name.to_lower() == clean_name.to_lower():
 			kick(peer_id, "The name '%s' is already in use" % clean_name)
 			return
-	_joining[peer_id] = {"name": clean_name, "queue": [], "offset": 0, "requested": false}
+	var owner := String(_meta.names.get(clean_name.to_lower(), ""))
+	if not owner.is_empty() and owner != player_id:
+		kick(peer_id, "The name '%s' belongs to another player on this server" % clean_name)
+		return
+	var nonce := Identity.new_nonce()
+	_joining[peer_id] = {"name": clean_name, "player_id": player_id, "key": key, "nonce": nonce,
+		"authenticated": false, "queue": [], "offset": 0, "requested": false}
+	Net.s_challenge.rpc_id(peer_id, nonce)
+
+
+## The client proves it holds the private key for the identity it presented.
+func on_auth(peer_id: int, signature: PackedByteArray) -> void:
+	var j: Dictionary = _joining.get(peer_id, {})
+	if j.is_empty() or j.authenticated:
+		return
+	if not Identity.verify(j.key, j.nonce, signature):
+		_joining.erase(peer_id)
+		kick(peer_id, "Authentication failed")
+		return
+	j.authenticated = true
+	_meta.names[String(j.name).to_lower()] = j.player_id
 	var manifest := []
 	for asset_name: String in _assets:
 		var a: Dictionary = _assets[asset_name]
@@ -485,9 +657,19 @@ func on_hello(peer_id: int, protocol: int, player_name: String) -> void:
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
+## The local host proves it launched this server and becomes a permanent admin.
+func on_claim_admin(peer_id: int, token: String) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or _admin_token.is_empty() or token != _admin_token:
+		return
+	if not _meta.admins.has(p.player_id):
+		_meta.admins.append(p.player_id)
+	p.send_message("You are an admin on this server.")
+
+
 func on_request_assets(peer_id: int, hashes: PackedStringArray) -> void:
 	var j: Dictionary = _joining.get(peer_id, {})
-	if j.is_empty() or j.requested:
+	if j.is_empty() or j.requested or not j.authenticated:
 		return
 	j.requested = true
 	for hash in hashes.slice(0, Protocol.MAX_ASSETS):
@@ -516,13 +698,14 @@ func on_client_ready(peer_id: int) -> void:
 	if j.is_empty() or not j.requested or not j.queue.is_empty():
 		return
 	_joining.erase(peer_id)
-	_spawn_player(peer_id, j.name)
+	_spawn_player(peer_id, j.name, j.player_id)
 
 
-func _spawn_player(peer_id: int, player_name: String) -> void:
+func _spawn_player(peer_id: int, player_name: String, player_id: String) -> void:
 	var p := ServerPlayer.new(self, peer_id, player_name)
+	p.player_id = player_id
 	p.edit_tokens = EDITS_PER_SECOND
-	var saved = _meta.players.get(player_name)
+	var saved = _meta.players.get(player_id)
 	var first_time := not (saved is Dictionary)
 	if not first_time:
 		var pos = saved.get("position")
@@ -546,7 +729,7 @@ func _spawn_player(peer_id: int, player_name: String) -> void:
 	if not server_info.motd.is_empty():
 		p.send_message(server_info.motd)
 	broadcast_chat("%s joined the game" % player_name)
-	print("[server] %s joined (peer %d)" % [player_name, peer_id])
+	print("[server] %s joined (peer %d, player id %s%s)" % [player_name, peer_id, player_id, ", admin" if is_admin(p) else ""])
 	emit("player_join", {"player": p, "first_time": first_time})
 
 
@@ -581,7 +764,7 @@ func kick(peer_id: int, reason: String) -> void:
 
 func _disconnect_peer(peer_id: int) -> void:
 	var peer := multiplayer.multiplayer_peer as ENetMultiplayerPeer
-	if peer and peer.get_peer(peer_id):
+	if peer and multiplayer.get_peers().has(peer_id):
 		peer.disconnect_peer(peer_id)
 
 
@@ -666,8 +849,8 @@ func _run_chunk_job(job: Dictionary) -> void:
 				var id := registry.id_of(String(palette[name_index]))
 				if id < 0:
 					continue  # block from a removed mod: keep generated terrain
-				blocks[index] = id
-				if id != generated[index]:
+				blocks.encode_u16(index << 1, id)
+				if id != generated.decode_u16(index << 1):
 					deltas[index] = id
 			chunk.blocks = blocks
 			var saved_states = saved.get("states", [])
@@ -873,7 +1056,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 	var block := p.inventory.selected_block()
 	var current := world.get_block_v(pos)
 	var valid := _can_edit(p, pos) and block > 0 and registry.placeable_lut[block] == 1 \
-		and (current == BlockRegistry.AIR or registry.liquid_lut[current & 255] == 1) and _has_solid_neighbor(pos)
+		and (current == BlockRegistry.AIR or registry.liquid_lut[current] == 1) and _has_solid_neighbor(pos)
 	if valid:
 		for other: ServerPlayer in players.values():
 			if registry.solid_lut[block] == 1 and PlayerPhysics.overlaps_block(other.state.position, pos):
@@ -923,6 +1106,8 @@ func on_chat(peer_id: int, text: String) -> void:
 		var command: Dictionary = _commands.get(parts[0].to_lower(), {})
 		if command.is_empty():
 			p.send_message("Unknown command /%s. Try /help" % parts[0])
+		elif not _permitted(p, command):
+			p.send_message("You don't have permission to use /%s" % parts[0])
 		else:
 			command.handler.call(p, parts.slice(1))
 		return
@@ -1045,7 +1230,7 @@ func _can_edit(p: ServerPlayer, pos: Vector3i) -> bool:
 
 func _has_solid_neighbor(pos: Vector3i) -> bool:
 	for dir in [Vector3i.UP, Vector3i.DOWN, Vector3i.LEFT, Vector3i.RIGHT, Vector3i.FORWARD, Vector3i.BACK]:
-		if registry.solid_lut[world.get_block_v(pos + dir) & 255] == 1 and world.get_block_v(pos + dir) != BlockRegistry.UNLOADED:
+		if registry.solid_lut[world.get_block_v(pos + dir)] == 1 and world.get_block_v(pos + dir) != BlockRegistry.UNLOADED:
 			return true
 	return false
 
@@ -1062,7 +1247,7 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0) -> 
 	var index := Chunk.index(pos.x & 15, pos.y, pos.z & 15)
 	if not _deltas.has(coord):
 		_deltas[coord] = {}
-	if _generated[coord][index] == block:
+	if _generated[coord].decode_u16(index << 1) == block:
 		_deltas[coord].erase(index)
 	else:
 		_deltas[coord][index] = block
@@ -1103,9 +1288,11 @@ func _load_meta(seed_override: int) -> void:
 			_meta = parsed
 	if not _meta.has("seed"):
 		_meta.seed = seed_override if seed_override >= 0 else randi()
-	for key in ["players", "mod_storage"]:
+	for key in ["players", "mod_storage", "names"]:
 		if not (_meta.get(key) is Dictionary):
 			_meta[key] = {}
+	if not (_meta.get("admins") is Array):
+		_meta.admins = []
 	if _meta.get("time") is Array and _meta.time.size() == 2:
 		_time_of_day = float(_meta.time[0])
 		_day_length = float(_meta.time[1])
@@ -1135,7 +1322,8 @@ func _serialize_chunk(coord: Vector2i) -> Array:
 	return [_chunk_path(coord), JSON.stringify({"version": 1, "palette": palette, "blocks": edits, "states": Array(states), "data": data})]
 
 func _store_player(p: ServerPlayer) -> void:
-	_meta.players[p.name] = {
+	_meta.players[p.player_id] = {
+		"name": p.name,
 		"position": [p.state.position.x, p.state.position.y, p.state.position.z],
 		"inventory": Array(p.inventory.to_packed()),
 		"creative": p.inventory.creative,
@@ -1155,6 +1343,8 @@ func _save_all(wait := false) -> void:
 		if world.chunks.has(coord):
 			writes.append(_serialize_chunk(coord))
 	_save_dirty.clear()
+	if not coords.is_empty():
+		_activity_since_backup = true
 	for p: ServerPlayer in players.values():
 		_store_player(p)
 	_meta.time = [_time_of_day, _day_length]

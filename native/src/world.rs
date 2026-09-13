@@ -6,23 +6,23 @@ use std::collections::HashMap;
 use godot::prelude::*;
 
 use crate::physics::{self, Body, Input, Rules};
-use crate::{SIZE_Y, UNLOADED, VOLUME};
+use crate::{CHUNK_BYTES, LUT_SIZE, SIZE_Y, UNLOADED, VOLUME};
 
 #[derive(GodotClass)]
 #[class(base = RefCounted, init)]
 pub struct NativeVoxelWorld {
-    chunks: HashMap<(i32, i32), Box<[u8]>>,
+    chunks: HashMap<(i32, i32), Box<[u16]>>,
     void_below: bool,
     solid: Lut,
     liquid: Lut,
 }
 
-/// 256-entry lookup table indexed by block id.
-pub struct Lut(pub [u8; 256]);
+/// Lookup table indexed by block id (LUT_SIZE entries).
+pub struct Lut(pub Box<[u8]>);
 
 impl Default for Lut {
     fn default() -> Self {
-        let mut lut = [0u8; 256];
+        let mut lut = vec![0u8; LUT_SIZE].into_boxed_slice();
         lut[UNLOADED as usize] = 1;
         Lut(lut)
     }
@@ -30,7 +30,7 @@ impl Default for Lut {
 
 impl NativeVoxelWorld {
     #[inline]
-    pub fn block(&self, x: i32, y: i32, z: i32) -> u8 {
+    pub fn block(&self, x: i32, y: i32, z: i32) -> u16 {
         if y < 0 {
             return if self.void_below { 0 } else { UNLOADED };
         }
@@ -59,10 +59,10 @@ impl NativeVoxelWorld {
     /// Stores a copy of the chunk's blocks. Returns false if the data has the wrong size.
     #[func]
     fn set_chunk(&mut self, coord: Vector2i, blocks: PackedByteArray) -> bool {
-        if blocks.len() != VOLUME {
+        if blocks.len() != CHUNK_BYTES {
             return false;
         }
-        self.chunks.insert((coord.x, coord.y), blocks.as_slice().into());
+        self.chunks.insert((coord.x, coord.y), decode_ids(blocks.as_slice()));
         true
     }
 
@@ -88,7 +88,7 @@ impl NativeVoxelWorld {
         }
         match self.chunks.get_mut(&(x >> 4, z >> 4)) {
             Some(chunk) => {
-                chunk[((x & 15) + ((z & 15) << 4) + (y << 8)) as usize] = id as u8;
+                chunk[((x & 15) + ((z & 15) << 4) + (y << 8)) as usize] = id as u16;
                 true
             }
             None => false,
@@ -133,6 +133,15 @@ impl NativeVoxelWorld {
             if body.on_ground { 1.0 } else { 0.0 },
         ][..])
     }
+}
+
+/// Little-endian u16 ids from a chunk payload.
+pub fn decode_ids(bytes: &[u8]) -> Box<[u16]> {
+    let mut ids = vec![0u16; VOLUME].into_boxed_slice();
+    for (i, pair) in bytes.chunks_exact(2).take(VOLUME).enumerate() {
+        ids[i] = u16::from_le_bytes([pair[0], pair[1]]);
+    }
+    ids
 }
 
 fn copy_lut(target: &mut Lut, source: &PackedByteArray) {

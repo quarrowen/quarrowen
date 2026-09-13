@@ -77,7 +77,7 @@ func generate(chunk) -> void:
 					id = b.sand if beach else (b.stone if rocky else b.dirt)
 				else:
 					id = b.stone
-				blocks[Chunk.index(x, y, z)] = id
+				blocks.encode_u16(Chunk.index(x, y, z) << 1, id)
 
 	_place_ores(blocks, heights, rng, b.coal_ore, 12, 8)
 	_place_ores(blocks, heights, rng, b.iron_ore, 7, 5)
@@ -87,7 +87,7 @@ func generate(chunk) -> void:
 		var tx := rng.randi_range(2, 13)
 		var tz := rng.randi_range(2, 13)
 		var th := heights[tx + tz * Chunk.SIZE_X]
-		if blocks[Chunk.index(tx, th, tz)] == b.grass and th + 9 < Chunk.SIZE_Y:
+		if blocks.decode_u16(Chunk.index(tx, th, tz) << 1) == b.grass and th + 9 < Chunk.SIZE_Y:
 			_place_tree(blocks, tx, th + 1, tz, rng)
 
 	chunk.blocks = blocks
@@ -105,8 +105,8 @@ func _place_ores(blocks: PackedByteArray, heights: PackedInt32Array, rng: Random
 		for n in rng.randi_range(2, vein_size):
 			if x >= 0 and x < 16 and z >= 0 and z < 16 and y > 0 and y < Chunk.SIZE_Y:
 				var idx := Chunk.index(x, y, z)
-				if blocks[idx] == b.stone:
-					blocks[idx] = ore
+				if blocks.decode_u16(idx << 1) == b.stone:
+					blocks.encode_u16(idx << 1, ore)
 			match rng.randi_range(0, 5):
 				0: x += 1
 				1: x -= 1
@@ -127,7 +127,7 @@ func _place_tree(blocks: PackedByteArray, x: int, y: int, z: int, rng: RandomNum
 				if absi(dx) == r and absi(dz) == r and (ly >= top or rng.randf() < 0.5):
 					continue
 				var idx := Chunk.index(x + dx, ly, z + dz)
-				if blocks[idx] == 0:
-					blocks[idx] = b.leaves
+				if blocks.decode_u16(idx << 1) == 0:
+					blocks.encode_u16(idx << 1, b.leaves)
 	for dy in trunk:
-		blocks[Chunk.index(x, y + dy, z)] = b.log
+		blocks.encode_u16(Chunk.index(x, y + dy, z) << 1, b.log)

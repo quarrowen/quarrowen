@@ -6,6 +6,7 @@ extends Node
 
 const GameClient = preload("res://engine/client/game_client.gd")
 const BlockRegistry = preload("res://engine/shared/block_registry.gd")
+const Chunk = preload("res://engine/shared/chunk.gd")
 
 var _client
 var _game := "vanilla"
@@ -22,6 +23,7 @@ func _ready() -> void:
 	_client = GameClient.new()
 	_client.server_port = port
 	_client.player_name = "Bot_%s" % _game
+	_client.identity_name = "bot_%s" % _game
 	_client.ignore_mouse_capture = true
 	_client.exited.connect(func(msg): _fail("client exited: %s" % msg); _finish())
 	add_child(_client)
@@ -215,10 +217,10 @@ func _arcana(c) -> void:
 	var light_wand: int = c.items.id_of("arcana:wand_of_light")
 	var crystal: int = c.registry.id_of("arcana:mana_crystal_ore")
 	var orb: int = c.registry.id_of("arcana:light_orb")
-	_check(shard >= 256 and c.items.is_usable(blink), "items replicated (shard %d, usable wand)" % shard)
+	_check(shard >= 65536 and c.items.is_usable(blink), "items replicated (shard %d, usable wand)" % shard)
 	var found := 0
 	for chunk in c.world.chunks.values():
-		if chunk.blocks.find(crystal) != -1:
+		if Chunk.contains(chunk.blocks, crystal):
 			found += 1
 	_check(found > 0, "generation pass placed mana crystals in %d chunks" % found)
 	await _wait_until(func(): return c._server_ui._panels.has("arcana:mana"), 3.0)
@@ -256,10 +258,10 @@ func _guild(c) -> void:
 	var coin: int = c.items.id_of("guild:gold_coin")
 	var gold_ore: int = c.registry.id_of("guild:gold_ore")
 	var meteorite: int = c.registry.id_of("guild:meteorite")
-	_check(board > 0 and coin >= 256 and c.registry.defs[meteorite].light == 13, "JavaScript mod registered blocks, items and light")
+	_check(board > 0 and coin >= 65536 and c.registry.defs[meteorite].light == 13, "JavaScript mod registered blocks, items and light")
 	var ore_chunks := 0
 	for chunk in c.world.chunks.values():
-		if chunk.blocks.find(gold_ore) != -1:
+		if Chunk.contains(chunk.blocks, gold_ore):
 			ore_chunks += 1
 	_check(ore_chunks > 0, "JavaScript ore pass generated gold ore in %d chunks" % ore_chunks)
 
@@ -310,7 +312,7 @@ func _guild(c) -> void:
 	Net.c_chat.rpc_id(1, "/guild meteor")
 	var landed := await _wait_until(func():
 		for chunk in c.world.chunks.values():
-			if chunk.blocks.find(meteorite) != -1:
+			if Chunk.contains(chunk.blocks, meteorite):
 				return true
 		return false, 4.0)
 	_check(landed, "meteor landed (JavaScript world edits replicated)")

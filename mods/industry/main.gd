@@ -333,6 +333,10 @@ func _show_panel(player, pos: Vector3i) -> void:
 
 func _cmd_industry(player, args: PackedStringArray) -> void:
 	var sub := args[0] if args.size() > 0 else "kit"
+	# Free machines are fine in creative; in survival they would be a cheat.
+	if not (player.is_admin() or (sub == "kit" and player.is_creative())):
+		player.send_message("Only admins can use /industry %s here." % sub)
+		return
 	if sub == "demo":
 		_build_demo(player)
 		return

@@ -2,9 +2,11 @@
 .godot/
 .git/
 native/target/
+native/bin/
+build/
+.github/
 assets/
 tests/
-tools/
 **/*.import
 **/.DS_Store
 Dockerfile

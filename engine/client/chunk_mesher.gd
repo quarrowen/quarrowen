@@ -73,9 +73,7 @@ static func make_context(registry, atlas_uv: Dictionary) -> Dictionary:
 	for d in registry.defs:
 		for tex: String in d.textures:
 			face_uvs.append(atlas_uv.get(tex, atlas_uv[""]))
-	# Cover every byte value so unknown ids from a bad server render as "missing" instead of crashing.
-	while face_uvs.size() < 256 * 6:
-		face_uvs.append(atlas_uv[""])
+	var missing: Rect2 = atlas_uv[""]
 	var emissive := PackedInt32Array()
 	for d in registry.defs:
 		if d.light > 0:
@@ -83,6 +81,8 @@ static func make_context(registry, atlas_uv: Dictionary) -> Dictionary:
 	var packed_uvs := PackedFloat32Array()
 	for uv in face_uvs:
 		packed_uvs.append_array([uv.position.x, uv.position.y, uv.size.x, uv.size.y])
+	# Trailing "missing" tile for ids without an entry (e.g. from a misbehaving server).
+	packed_uvs.append_array([missing.position.x, missing.position.y, missing.size.x, missing.size.y])
 	return {
 		"native": Native.enabled(),
 		"packed_uvs": packed_uvs,
@@ -95,6 +95,7 @@ static func make_context(registry, atlas_uv: Dictionary) -> Dictionary:
 		"sway": registry.sway_lut,
 		"ambient_occlusion": true,
 		"face_uvs": face_uvs,
+		"missing_uv": missing,
 	}
 
 
@@ -129,9 +130,9 @@ static func build(chunks: Array, ctx: Dictionary) -> Array:
 	const TOP := Chunk.SIZE_Y - 1
 
 	var empty_layer := PackedByteArray()
-	empty_layer.resize(256)
+	empty_layer.resize(512)
 	var top := TOP
-	while top >= 0 and blocks.slice(top << 8, (top + 1) << 8) == empty_layer:
+	while top >= 0 and blocks.slice(top << 9, (top + 1) << 9) == empty_layer:
 		top -= 1
 
 	var light := ApproxLight.new(chunks, opaque_lut, ctx.emission, ctx.emissive_ids)
@@ -142,7 +143,7 @@ static func build(chunks: Array, ctx: Dictionary) -> Array:
 		for z in 16:
 			for x in 16:
 				var i := x + (z << 4) + (y << 8)
-				var b := blocks[i]
+				var b := blocks.decode_u16(i << 1)
 				var render := render_lut[b]
 				if render == 0:
 					continue
@@ -150,12 +151,12 @@ static func build(chunks: Array, ctx: Dictionary) -> Array:
 					var model_light := light.at(x, y, z)
 					models.append_array([b, x, y, z, model_light[0], model_light[1]])
 					continue
-				neighbors[0] = blocks[i + 1] if x < 15 else (pos_x[i - 15] if has_pos_x else UNLOADED)
-				neighbors[1] = blocks[i - 1] if x > 0 else (neg_x[i + 15] if has_neg_x else UNLOADED)
-				neighbors[2] = blocks[i + 256] if y < TOP else 0
-				neighbors[3] = blocks[i - 256] if y > 0 else UNLOADED
-				neighbors[4] = blocks[i + 16] if z < 15 else (pos_z[i - 240] if has_pos_z else UNLOADED)
-				neighbors[5] = blocks[i - 16] if z > 0 else (neg_z[i + 240] if has_neg_z else UNLOADED)
+				neighbors[0] = blocks.decode_u16((i + 1) << 1) if x < 15 else (pos_x.decode_u16((i - 15) << 1) if has_pos_x else UNLOADED)
+				neighbors[1] = blocks.decode_u16((i - 1) << 1) if x > 0 else (neg_x.decode_u16((i + 15) << 1) if has_neg_x else UNLOADED)
+				neighbors[2] = blocks.decode_u16((i + 256) << 1) if y < TOP else 0
+				neighbors[3] = blocks.decode_u16((i - 256) << 1) if y > 0 else UNLOADED
+				neighbors[4] = blocks.decode_u16((i + 16) << 1) if z < 15 else (pos_z.decode_u16((i - 240) << 1) if has_pos_z else UNLOADED)
+				neighbors[5] = blocks.decode_u16((i - 16) << 1) if z > 0 else (neg_z.decode_u16((i + 240) << 1) if has_neg_z else UNLOADED)
 				var origin := Vector3(x, y, z)
 				var uv_base := b * 6
 				var flags := float(int(ctx.sway[b] != 0) | (int(liquid_lut[b] != 0) << 1) | (int(ctx.emission[b] != 0) << 2))
@@ -164,7 +165,7 @@ static func build(chunks: Array, ctx: Dictionary) -> Array:
 					for f in 6:
 						if opaque_lut[neighbors[f]] == 0:
 							var l := light.at(x + OFFSETS[f].x, y + OFFSETS[f].y, z + OFFSETS[f].z)
-							solid.add_face(origin, f, face_uvs[uv_base + f], false, l[0], l[1], flags)
+							solid.add_face(origin, f, face_uvs[uv_base + f] if uv_base + f < face_uvs.size() else ctx.missing_uv, false, l[0], l[1], flags)
 				else:
 					var cull_same := cull_same_lut[b] == 1
 					var target := translucent if render == TRANSLUCENT else solid
@@ -173,7 +174,7 @@ static func build(chunks: Array, ctx: Dictionary) -> Array:
 						var n := neighbors[f]
 						if opaque_lut[n] == 0 and not (cull_same and n == b):
 							var l := light.at(x + OFFSETS[f].x, y + OFFSETS[f].y, z + OFFSETS[f].z)
-							target.add_face(origin, f, face_uvs[uv_base + f], lower, l[0], l[1], flags)
+							target.add_face(origin, f, face_uvs[uv_base + f] if uv_base + f < face_uvs.size() else ctx.missing_uv, lower, l[0], l[1], flags)
 	return [solid.to_arrays(), translucent.to_arrays(), models]
 
 
@@ -195,12 +196,15 @@ class ApproxLight:
 				if data.is_empty():
 					continue
 				for id in emissive_ids:
-					var i := data.find(id)
-					while i != -1:
-						var pos := Vector3i((i & 15) + (cx - 1) * 16, i >> 8, ((i >> 4) & 15) + (cz - 1) * 16)
-						if absi(pos.x - 8) < 24 and absi(pos.z - 8) < 24:
-							emitters.append([pos, emission[id]])
-						i = data.find(id, i + 1)
+					# Byte search for the low byte, confirmed at cell boundaries.
+					var b := data.find(id & 255)
+					while b != -1:
+						if b % 2 == 0 and data.decode_u16(b) == id:
+							var i := b >> 1
+							var pos := Vector3i((i & 15) + (cx - 1) * 16, i >> 8, ((i >> 4) & 15) + (cz - 1) * 16)
+							if absi(pos.x - 8) < 24 and absi(pos.z - 8) < 24:
+								emitters.append([pos, emission[id]])
+						b = data.find(id & 255, b + 1)
 
 	func height(x: int, z: int) -> int:
 		var key := Vector2i(x, z)
@@ -214,7 +218,7 @@ class ApproxLight:
 			var lx := clampi(x - (cx - 1) * 16, 0, 15)
 			var lz := clampi(z - (cz - 1) * 16, 0, 15)
 			for y in range(127, -1, -1):
-				if opaque[data[lx + (lz << 4) + (y << 8)]] == 1:
+				if opaque[data.decode_u16((lx + (lz << 4) + (y << 8)) << 1)] == 1:
 					top = y
 					break
 		heights[key] = top

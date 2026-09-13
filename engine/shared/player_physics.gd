@@ -117,7 +117,7 @@ static func step(s: State, input: PlayerInput, world, rules: Rules) -> void:
 	var forward := Vector3(-sin(input.yaw), 0.0, -cos(input.yaw))
 	var right := Vector3(cos(input.yaw), 0.0, -sin(input.yaw))
 	var wish := right * move.x + forward * move.y
-	var in_liquid := rules.liquid_lut[world.get_block(floori(s.position.x), floori(s.position.y + 0.4), floori(s.position.z)) & 255] == 1
+	var in_liquid := rules.liquid_lut[world.get_block(floori(s.position.x), floori(s.position.y + 0.4), floori(s.position.z))] == 1
 
 	var speed := rules.sprint_speed if input.sprint and move.y > 0.0 else rules.walk_speed
 	if in_liquid:
@@ -189,7 +189,7 @@ static func _collides(p: Vector3, world, solid: PackedByteArray) -> bool:
 	for y in range(y0, y1 + 1):
 		for z in range(z0, z1 + 1):
 			for x in range(x0, x1 + 1):
-				if solid[world.get_block(x, y, z) & 255] == 1:
+				if solid[world.get_block(x, y, z)] == 1:
 					return true
 	return false
 

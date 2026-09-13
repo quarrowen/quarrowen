@@ -22,6 +22,7 @@ const ModelLibrary = preload("res://engine/client/model_library.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const ItemRegistry = preload("res://engine/shared/item_registry.gd")
 const GraphicsSettings = preload("res://engine/client/graphics_settings.gd")
+const Identity = preload("res://engine/shared/identity.gd")
 
 const MAX_CONNECT_ATTEMPTS := 20
 const MESH_WORKERS := 4
@@ -42,6 +43,12 @@ var server_port := 24565
 var player_name := "Player"
 ## Passed by the menu when this client launched a local server it should stop on exit.
 var admin_token := ""
+## Which saved identity (user://identity/<name>.pem) to log in with.
+var identity_name := "default"
+## Tests only: sign challenges with this key instead of the identity (must fail authentication).
+var test_signing_key: CryptoKey = null
+## Tests: announce this protocol version instead of the real one.
+var test_protocol := -1
 ## Accept gameplay input without a captured mouse (headless bots / tests).
 var ignore_mouse_capture := false
 
@@ -58,6 +65,7 @@ var state := PlayerPhysics.State.new()
 var yaw := 0.0
 var pitch := 0.0
 
+var _identity: CryptoKey
 var _welcomed := false
 var _connect_attempts := 0
 var _exiting := false
@@ -122,6 +130,7 @@ func _ready() -> void:
 	multiplayer.connected_to_server.connect(_on_connected)
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
+	Net.handshake_failed.connect(_on_handshake_failed)
 	_connect()
 
 
@@ -131,22 +140,31 @@ func _exit_tree() -> void:
 	_mesh_jobs.clear()
 	if Net.client == self:
 		Net.client = null
+	if Net.handshake_failed.is_connected(_on_handshake_failed):
+		Net.handshake_failed.disconnect(_on_handshake_failed)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
 # --- Connection ---------------------------------------------------------------------------------
 
 func _connect() -> void:
+	if _identity == null:
+		_identity = Identity.load_or_create(identity_name)
 	_connect_attempts += 1
 	_set_status("Connecting to %s:%d..." % [server_address, server_port])
-	var err := Net.create_client(server_address, server_port)
+	var err := Net.create_client(server_address, server_port, test_protocol)
 	if err != OK:
 		_leave("Could not start client: %s" % error_string(err))
 
 
 func _on_connected() -> void:
 	_set_status("Handshaking...")
-	Net.c_hello.rpc_id(1, Protocol.VERSION, player_name)
+	Net.c_hello.rpc_id(1, Protocol.VERSION, player_name, Identity.public_pem(_identity))
+
+
+func on_challenge(nonce: PackedByteArray) -> void:
+	_set_status("Authenticating...")
+	Net.c_auth.rpc_id(1, Identity.sign(test_signing_key if test_signing_key != null else _identity, nonce))
 
 
 func _on_connection_failed() -> void:
@@ -156,7 +174,14 @@ func _on_connection_failed() -> void:
 		if not _exiting:
 			_connect()
 		return
-	_leave("Could not connect to %s:%d" % [server_address, server_port])
+	var message := "Could not connect to %s:%d" % [server_address, server_port]
+	if Net.has_pinned_identity(server_address, server_port):
+		message += ". If the server is up, its identity may have changed since your last visit (reinstalled, or someone impersonating it)."
+	_leave(message)
+
+
+func _on_handshake_failed(reason: String) -> void:
+	_leave(reason)
 
 
 func _on_server_disconnected() -> void:
@@ -313,6 +338,8 @@ func on_welcome(peer_id: int, spawn: Vector3, spawn_yaw: float) -> void:
 	yaw = spawn_yaw
 	_welcomed = true
 	phase = Phase.PLAYING
+	if not admin_token.is_empty():
+		Net.c_claim_admin.rpc_id(1, admin_token)
 	_set_status("Loading terrain...")
 	print("[client] Joined as peer %d at %s" % [peer_id, spawn])
 
@@ -589,7 +616,7 @@ func request_place(pos: Vector3i) -> void:
 	if block <= 0 or registry.placeable_lut[block] == 0:
 		return
 	var current := world.get_block_v(pos)
-	if current != BlockRegistry.AIR and registry.liquid_lut[current & 255] == 0:
+	if current != BlockRegistry.AIR and registry.liquid_lut[current] == 0:
 		return
 	if registry.solid_lut[block] == 1:
 		if PlayerPhysics.overlaps_block(state.position, pos):

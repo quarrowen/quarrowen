@@ -7,9 +7,13 @@ extends Node
 ##   --connect=1.2.3.4     skip the menu and join a server
 ##   --host=skyblock       skip the menu, start a local server for that game and join it
 ##   --name=Steve          player name for --connect / --host
+##   --export-identity=file.json   write your identity, encrypted, and quit
+##   --import-identity=file.json   replace your identity with an exported one and quit
+##                         both read the passphrase from VOXEL_IDENTITY_PASSPHRASE (or --passphrase=)
 
 const GameClient = preload("res://engine/client/game_client.gd")
 const ModLoader = preload("res://engine/server/mod_loader.gd")
+const Identity = preload("res://engine/shared/identity.gd")
 
 const DEFAULT_PORT := 24565
 const DEFAULT_GAME := "vanilla"
@@ -24,12 +28,17 @@ var _port_edit: SpinBox
 var _game_select: OptionButton
 var _message_label: Label
 var _games: Array = []
+var _identity_label: Label
+var _passphrase_edit: LineEdit
 
 
 func _ready() -> void:
 	_args = _parse_args()
 	if _args.has("server"):
 		_run_dedicated_server()
+		return
+	if _args.has("export-identity") or _args.has("import-identity"):
+		get_tree().quit(_identity_cli())
 		return
 	get_tree().auto_accept_quit = false
 	_build_menu()
@@ -55,6 +64,43 @@ static func _parse_args() -> Dictionary:
 			var parts := arg.substr(2).split("=", true, 1)
 			out[parts[0]] = parts[1] if parts.size() > 1 else "true"
 	return out
+
+
+func _identity_cli() -> int:
+	var passphrase := OS.get_environment("VOXEL_IDENTITY_PASSPHRASE")
+	passphrase = _args.get("passphrase", passphrase)
+	var result := export_identity(_args["export-identity"], passphrase) if _args.has("export-identity") \
+		else import_identity(_args["import-identity"], passphrase)
+	if result.begins_with("Error"):
+		printerr(result)
+		return 1
+	print(result)
+	return 0
+
+
+## Returns a status message; failures start with "Error".
+static func export_identity(path: String, passphrase: String) -> String:
+	if passphrase.length() < Identity.MIN_PASSPHRASE_LENGTH:
+		return "Error: the passphrase must be at least %d characters" % Identity.MIN_PASSPHRASE_LENGTH
+	var key := Identity.load_or_create()
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return "Error: cannot write %s (%s)" % [path, error_string(FileAccess.get_open_error())]
+	file.store_string(Identity.export_encrypted(key, passphrase))
+	file.close()
+	return "Exported identity %s to %s" % [Identity.player_id(key), path]
+
+
+static func import_identity(path: String, passphrase: String) -> String:
+	if not FileAccess.file_exists(path):
+		return "Error: %s does not exist" % path
+	var result := Identity.import_encrypted(FileAccess.get_file_as_string(path), passphrase)
+	if result.has("error"):
+		return "Error: %s" % result.error
+	var err := Identity.install(result.key)
+	if err != OK:
+		return "Error: could not save the identity (%s)" % error_string(err)
+	return "Imported identity %s (any different previous identity was kept as a .bak file)" % result.player_id
 
 
 func _run_dedicated_server() -> void:
@@ -150,7 +196,7 @@ func _build_menu() -> void:
 
 	box.add_child(HSeparator.new())
 	_game_select = _labeled(box, "Game", OptionButton.new())
-	var available := ModLoader.discover(PackedStringArray(["res://mods"]))
+	var available := ModLoader.discover(ModLoader.search_dirs(PackedStringArray()))
 	for id: String in available:
 		if available[id].game:
 			_games.append(available[id])
@@ -172,6 +218,25 @@ func _build_menu() -> void:
 		description.text = _games[0].description
 
 	box.add_child(HSeparator.new())
+	_identity_label = Label.new()
+	_identity_label.modulate = Color(1, 1, 1, 0.7)
+	_identity_label.tooltip_text = "Your identity key is your account on every server. Export it to play from another computer."
+	_identity_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	box.add_child(_identity_label)
+	_refresh_identity_label()
+	_passphrase_edit = _labeled(box, "Passphrase", LineEdit.new())
+	_passphrase_edit.secret = true
+	_passphrase_edit.placeholder_text = "for identity export / import"
+	var identity_row := HBoxContainer.new()
+	box.add_child(identity_row)
+	for mode in ["Export identity...", "Import identity..."]:
+		var button := Button.new()
+		button.text = mode
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(_pick_identity_file.bind(mode.begins_with("Export")))
+		identity_row.add_child(button)
+
+	box.add_child(HSeparator.new())
 	var quit_button := Button.new()
 	quit_button.text = "Quit"
 	quit_button.custom_minimum_size.y = 44
@@ -183,6 +248,33 @@ func _build_menu() -> void:
 	_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_message_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.6))
 	box.add_child(_message_label)
+
+
+func _refresh_identity_label() -> void:
+	var exists := FileAccess.file_exists(Identity.path_for())
+	_identity_label.text = "Identity: %s" % (Identity.player_id(Identity.load_or_create()) if exists else "created when you first join")
+
+
+func _pick_identity_file(exporting: bool) -> void:
+	if _passphrase_edit.text.length() < Identity.MIN_PASSPHRASE_LENGTH:
+		_message_label.text = "Enter a passphrase of at least %d characters first" % Identity.MIN_PASSPHRASE_LENGTH
+		return
+	var dialog := FileDialog.new()
+	dialog.use_native_dialog = true
+	dialog.access = FileDialog.ACCESS_FILESYSTEM
+	dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE if exporting else FileDialog.FILE_MODE_OPEN_FILE
+	dialog.filters = PackedStringArray(["*.json ; VoxelCraft identity"])
+	dialog.current_file = "voxelcraft-identity.json"
+	dialog.file_selected.connect(func(path: String):
+		_message_label.text = "Working..."
+		await get_tree().process_frame
+		_message_label.text = export_identity(path, _passphrase_edit.text) if exporting else import_identity(path, _passphrase_edit.text)
+		_passphrase_edit.text = ""
+		_refresh_identity_label()
+		dialog.queue_free())
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered_ratio(0.6)
 
 
 func _labeled(parent: Control, label_text: String, control: Control) -> Control:

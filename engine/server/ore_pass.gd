@@ -35,9 +35,9 @@ func decorate(chunk, world_seed: int) -> void:
 		var z := rng.randi_range(0, 15)
 		for n in rng.randi_range(1, vein_size):
 			if x >= 0 and x < 16 and z >= 0 and z < 16 and y > 0 and y < 127:
-				var i := x + (z << 4) + (y << 8)
-				if blocks[i] == replace:
-					blocks[i] = ore
+				var at := (x + (z << 4) + (y << 8)) << 1
+				if blocks.decode_u16(at) == replace:
+					blocks.encode_u16(at, ore)
 			match rng.randi_range(0, 5):
 				0: x += 1
 				1: x -= 1

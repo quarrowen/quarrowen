@@ -62,6 +62,7 @@
     showUi(id, spec) { host("player.showUi", this.id, id, spec); }
     hideUi(id) { host("player.hideUi", this.id, id); }
     isCreative() { return host("player.isCreative", this.id); }
+    isAdmin() { return host("player.isAdmin", this.id); }
     setCreative(enabled) { host("player.setCreative", this.id, !!enabled); }
     setHotbar(items) { host("player.setHotbar", this.id, items); }
     /** Persistent per-player data, namespaced to this mod. */
@@ -110,7 +111,8 @@
     showCrafting: (player) => host("showCrafting", player),
     // Events, commands, timers
     on: (event, handler, priority = 0) => host("on", event, register(handler), priority),
-    command: (name, description, handler) => host("command", name, description, register(handler)),
+    command: (name, description, handler, { admin = false } = {}) =>
+      host("command", name, description, register(handler), admin ? "admin" : ""),
     after: (seconds, fn) => host("after", seconds, register(fn)),
     every: (seconds, fn) => host("every", seconds, register(fn)),
     cancel: (taskId) => host("cancel", taskId),

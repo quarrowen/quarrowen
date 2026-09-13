@@ -1,8 +1,8 @@
 extends RefCounted
-## Items. Every block id (0-254) is implicitly also the item that places it; non-block items (coal,
+## Items. Every block id (1-65534) is implicitly also the item that places it; non-block items (coal,
 ## wands, ...) get ids from FIRST_ITEM upward. Inventories store these ids.
 
-const FIRST_ITEM := 256
+const FIRST_ITEM := 65536
 const MAX_ITEMS := 4096
 const NETWORK_FIELDS := ["name", "display_name", "icon", "max_stack", "usable"]
 

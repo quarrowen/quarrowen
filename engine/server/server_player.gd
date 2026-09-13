@@ -7,6 +7,8 @@ const Inventory = preload("res://engine/shared/inventory.gd")
 
 var peer_id := 0
 var name := ""
+## Permanent id derived from the player's identity key.
+var player_id := ""
 var state := PlayerPhysics.State.new()
 var inventory := Inventory.new()
 var yaw := 0.0
@@ -112,6 +114,10 @@ func set_hotbar(blocks: Array, count := 1) -> void:
 
 func sync_inventory() -> void:
 	Net.s_inventory.rpc_id(peer_id, inventory.to_packed(), inventory.selected, inventory.creative)
+
+
+func is_admin() -> bool:
+	return _server.is_admin(self)
 
 
 func kick(reason: String) -> void:

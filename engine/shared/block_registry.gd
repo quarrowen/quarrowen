@@ -1,10 +1,12 @@
 extends RefCounted
 ## Runtime block table. The server builds it from mod registrations; clients rebuild it from the
-## plain-data copy the server sends. Block ids are bytes: 0 is air, 255 marks unloaded chunks.
+## plain-data copy the server sends. Block ids are u16: 0 is air, 65535 marks unloaded chunks.
 
 const AIR := 0
-const UNLOADED := 255
-const MAX_BLOCKS := 255
+const UNLOADED := 65535
+const MAX_BLOCKS := 65535
+## Lookup tables are indexed directly by block id.
+const LUT_SIZE := 65536
 const MAX_NAME_LENGTH := 64
 
 enum Render { INVISIBLE, OPAQUE, CUTOUT, TRANSLUCENT, MODEL }
@@ -162,7 +164,7 @@ func _rebuild_luts() -> void:
 	var luts: Array[PackedByteArray] = []
 	for i in 11:
 		var lut := PackedByteArray()
-		lut.resize(256)
+		lut.resize(LUT_SIZE)
 		luts.append(lut)
 	for d in defs:
 		var id: int = d.id

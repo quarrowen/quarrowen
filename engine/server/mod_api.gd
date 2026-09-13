@@ -265,7 +265,7 @@ func get_daylight() -> float:
 func sees_sky(pos: Vector3i) -> bool:
 	for y in range(pos.y + 1, Chunk.SIZE_Y):
 		var id := get_block(Vector3i(pos.x, y, pos.z))
-		if _server.registry.opaque_lut[id & 255] == 1 or _server.registry.solid_lut[id & 255] == 1:
+		if _server.registry.opaque_lut[id] == 1 or _server.registry.solid_lut[id] == 1:
 			return false
 	return true
 
@@ -309,9 +309,10 @@ func on(event: String, handler: Callable, priority := 0) -> void:
 	_server.add_handler(event, handler, priority)
 
 
-## `handler(player, args: PackedStringArray)` runs for "/name args...".
-func register_command(command: String, description: String, handler: Callable) -> void:
-	_server.add_command(command, description, handler, mod_id)
+## `handler(player, args: PackedStringArray)` runs for "/name args...". permission "admin" restricts
+## it to server admins (VOXEL_ADMINS, /op, or the local host).
+func register_command(command: String, description: String, handler: Callable, permission := "") -> void:
+	_server.add_command(command, description, handler, mod_id, permission)
 
 
 ## Runs `callback` once after `seconds`. Returns a task id for `cancel`.

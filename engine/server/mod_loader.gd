@@ -2,6 +2,22 @@ extends RefCounted
 ## Finds mods on disk and resolves load order from their dependencies.
 
 
+## Where mods are searched, highest priority first: configured folders, a `mods` folder next to the
+## executable (exported builds ship mods there as plain files, since exports would otherwise repack
+## the raw textures and models the server streams to clients), then the project's own res://mods.
+static func search_dirs(configured: PackedStringArray) -> PackedStringArray:
+	var dirs := PackedStringArray()
+	for dir in configured:
+		if not dir.strip_edges().is_empty():
+			dirs.append(dir.strip_edges())
+	var exe_dir := OS.get_executable_path().get_base_dir()
+	for candidate in [exe_dir.path_join("mods"), exe_dir.path_join("../Resources/mods").simplify_path()]:
+		if DirAccess.dir_exists_absolute(candidate) and not dirs.has(candidate):
+			dirs.append(candidate)
+	dirs.append("res://mods")
+	return dirs
+
+
 ## Returns id -> manifest for every valid mod folder in `dirs`. Manifests gain a `dir` key.
 static func discover(dirs: PackedStringArray) -> Dictionary:
 	var found := {}

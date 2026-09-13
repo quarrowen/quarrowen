@@ -51,7 +51,7 @@ func get_block(x: int, y: int, z: int) -> int:
 	var chunk = chunks.get(Vector2i(x >> 4, z >> 4))
 	if chunk == null:
 		return BlockRegistry.UNLOADED
-	return chunk.blocks[(x & 15) + ((z & 15) << 4) + (y << 8)]
+	return chunk.blocks.decode_u16(((x & 15) + ((z & 15) << 4) + (y << 8)) << 1)
 
 
 func get_block_v(p: Vector3i) -> int:
@@ -65,7 +65,7 @@ func set_block(x: int, y: int, z: int, id: int) -> bool:
 	var chunk = chunks.get(Vector2i(x >> 4, z >> 4))
 	if chunk == null:
 		return false
-	chunk.blocks[(x & 15) + ((z & 15) << 4) + (y << 8)] = id
+	chunk.blocks.encode_u16(((x & 15) + ((z & 15) << 4) + (y << 8)) << 1, id)
 	chunk.dirty = true
 	if native:
 		native.set_block(x, y, z, id)

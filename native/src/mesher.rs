@@ -11,7 +11,7 @@
 use godot::classes::mesh::ArrayType;
 use godot::prelude::*;
 
-use crate::{SIZE_X, SIZE_Y, SIZE_Z, UNLOADED, VOLUME};
+use crate::{CHUNK_BYTES, LUT_SIZE, SIZE_Y, UNLOADED};
 
 const RENDER_OPAQUE: u8 = 1;
 const RENDER_TRANSLUCENT: u8 = 3;
@@ -116,9 +116,9 @@ pub struct NativeMesher {}
 
 #[godot_api]
 impl NativeMesher {
-    /// `chunks`: 9 PackedByteArrays for the 3x3 neighbourhood, index (dx + 1) + (dz + 1) * 3, with an
-    /// empty array for chunks that are not loaded. `face_uvs`: 4 floats per block id per face for all
-    /// 256 ids. Returns [solid_arrays, translucent_arrays, models] where either arrays may be empty and
+    /// `chunks`: 9 PackedByteArrays (u16 ids) for the 3x3 neighbourhood, index (dx + 1) + (dz + 1) * 3,
+    /// with an empty array for chunks that are not loaded. Lookup tables have LUT_SIZE entries.
+    /// `face_uvs`: 4 floats per registered block per face, followed by 4 floats for the "missing" tile. Returns [solid_arrays, translucent_arrays, models] where either arrays may be empty and
     /// `models` is a PackedInt32Array of (block id, x, y, z, sky light, block light) per model block.
     #[func]
     #[allow(clippy::too_many_arguments)]
@@ -149,9 +149,9 @@ impl NativeMesher {
         let byte_arrays: Vec<PackedByteArray> =
             (0..9).map(|i| chunks.get(i).and_then(|v| v.try_to::<PackedByteArray>().ok()).unwrap_or_default()).collect();
         if chunks.len() != 9
-            || byte_arrays[4].len() != VOLUME
-            || [tables.opaque, tables.render, tables.cull_same, tables.liquid, tables.emission, tables.sway].iter().any(|t| t.len() < 256)
-            || tables.uvs.len() < 256 * 24
+            || byte_arrays[4].len() != CHUNK_BYTES
+            || [tables.opaque, tables.render, tables.cull_same, tables.liquid, tables.emission, tables.sway].iter().any(|t| t.len() < LUT_SIZE)
+            || tables.uvs.len() < 4
         {
             out.push(&empty());
             out.push(&empty());
@@ -170,24 +170,32 @@ impl NativeMesher {
 }
 
 /// Copies the 3x3 chunks into one 48 x 128 x 48 volume; missing chunks are filled with UNLOADED.
-fn fill_region(chunks: &[PackedByteArray]) -> Vec<u8> {
+fn fill_region(chunks: &[PackedByteArray]) -> Vec<u16> {
     let mut region = vec![UNLOADED; REGION];
     for cz in 0..3 {
         for cx in 0..3 {
             let data = chunks[cx + cz * 3].as_slice();
-            if data.len() != VOLUME {
+            if data.len() != CHUNK_BYTES {
                 continue;
             }
             for y in 0..RY {
-                for z in 0..SIZE_Z as usize {
-                    let src = z * SIZE_X as usize + y * (SIZE_X * SIZE_Z) as usize;
+                for z in 0..16usize {
+                    let src = (z * 16 + y * 256) * 2;
                     let dst = ridx(cx * 16, y, cz * 16 + z);
-                    region[dst..dst + 16].copy_from_slice(&data[src..src + 16]);
+                    for x in 0..16usize {
+                        region[dst + x] = u16::from_le_bytes([data[src + x * 2], data[src + x * 2 + 1]]);
+                    }
                 }
             }
         }
     }
     region
+}
+
+/// Atlas rect for a block face; ids without an entry get the trailing "missing" tile.
+fn tile(uvs: &[f32], id: u16, face: usize) -> &[f32] {
+    let start = id as usize * 24 + face * 4;
+    if start + 4 <= uvs.len() - 4 { &uvs[start..start + 4] } else { &uvs[uvs.len() - 4..] }
 }
 
 fn full_bright() -> (Vec<u8>, Vec<u8>) {
@@ -196,8 +204,8 @@ fn full_bright() -> (Vec<u8>, Vec<u8>) {
 
 /// Sky light falls straight down until blocked, then both sky and block light spread with a falloff
 /// of one per block through non-opaque cells. Unloaded chunks are treated as open sky.
-fn compute_light(region: &[u8], t: &Tables) -> (Vec<u8>, Vec<u8>) {
-    let blocks_light = |b: u8| b != UNLOADED && t.opaque[b as usize] == 1;
+fn compute_light(region: &[u16], t: &Tables) -> (Vec<u8>, Vec<u8>) {
+    let blocks_light = |b: u16| b != UNLOADED && t.opaque[b as usize] == 1;
     let mut sky = vec![0u8; REGION];
     let mut block = vec![0u8; REGION];
     for z in 0..RZ {
@@ -242,7 +250,7 @@ fn compute_light(region: &[u8], t: &Tables) -> (Vec<u8>, Vec<u8>) {
     (sky, block)
 }
 
-fn spread(light: &mut [u8], queue: &mut Vec<u32>, region: &[u8], blocks_light: &dyn Fn(u8) -> bool) {
+fn spread(light: &mut [u8], queue: &mut Vec<u32>, region: &[u16], blocks_light: &dyn Fn(u16) -> bool) {
     let mut head = 0;
     let layer = RX * RZ;
     while head < queue.len() {
@@ -270,7 +278,7 @@ fn spread(light: &mut [u8], queue: &mut Vec<u32>, region: &[u8], blocks_light: &
 }
 
 /// Visible faces of the center chunk, merged into the largest rectangles sharing tile and light.
-fn mesh_center(region: &[u8], sky: &[u8], block_light: &[u8], t: &Tables) -> (Surface, Surface) {
+fn mesh_center(region: &[u16], sky: &[u8], block_light: &[u8], t: &Tables) -> (Surface, Surface) {
     let mut solid = Surface::default();
     let mut translucent = Surface::default();
 
@@ -312,7 +320,7 @@ fn mesh_center(region: &[u8], sky: &[u8], block_light: &[u8], t: &Tables) -> (Su
                     }
                     let ny = p[1] as i32 + normal[1];
                     let n_id = if ny >= RY as i32 {
-                        0u8
+                        0u16
                     } else if ny < 0 {
                         UNLOADED
                     } else {
@@ -331,8 +339,7 @@ fn mesh_center(region: &[u8], sky: &[u8], block_light: &[u8], t: &Tables) -> (Su
                     let is_liquid = t.liquid[id as usize] == 1;
                     let above = if p[1] + 1 < RY { region[ridx(OFFSET + p[0], p[1] + 1, OFFSET + p[2])] } else { 0 };
                     let lower = mode != RENDER_OPAQUE && is_liquid && above != id;
-                    let tile_start = id as usize * 24 + face * 4;
-                    let tile = &t.uvs[tile_start..tile_start + 4];
+                    let tile = tile(t.uvs, id, face);
                     // Liquids stay flat-lit; everything else gets per-corner smooth light and occlusion.
                     let corners = corner_light(region, sky, block_light, t, p, face, !is_liquid && t.ambient_occlusion);
                     if lower && face != 2 {
@@ -346,7 +353,7 @@ fn mesh_center(region: &[u8], sky: &[u8], block_light: &[u8], t: &Tables) -> (Su
                         packed |= ((c[0] as u64) | (c[1] as u64) << 4 | (c[2] as u64) << 8) << (k * 10);
                     }
                     let translucent_bit = u64::from(mode == RENDER_TRANSLUCENT);
-                    mask[u + v * u_len] = 1 | (id as u64) << 1 | u64::from(lower) << 9 | translucent_bit << 10 | packed << 11;
+                    mask[u + v * u_len] = 1 | (id as u64) << 1 | u64::from(lower) << 17 | translucent_bit << 18 | packed << 19;
                 }
             }
             greedy(&mut mask, u_len, v_len, |u, v, w, h, key| {
@@ -357,30 +364,29 @@ fn mesh_center(region: &[u8], sky: &[u8], block_light: &[u8], t: &Tables) -> (Su
                 let mut size = [1usize; 3];
                 size[u_axis] = w;
                 size[v_axis] = h;
-                let id = ((key >> 1) & 0xff) as usize;
-                let lower = (key >> 9) & 1 == 1;
+                let id = ((key >> 1) & 0xffff) as u16;
+                let lower = (key >> 17) & 1 == 1;
                 let mut corners = [[0u8; 3]; 4];
                 for (k, c) in corners.iter_mut().enumerate() {
-                    let bits = key >> (11 + k * 10);
+                    let bits = key >> (19 + k * 10);
                     *c = [(bits & 0xf) as u8, ((bits >> 4) & 0xf) as u8, ((bits >> 8) & 0x3) as u8];
                 }
-                let tile_start = id * 24 + face * 4;
-                let target = if (key >> 10) & 1 == 1 { &mut translucent } else { &mut solid };
-                target.add_quad(quad_sized(face, p, size, lower), face, &t.uvs[tile_start..tile_start + 4], corners, face_flags(t, id as u8));
+                let target = if (key >> 18) & 1 == 1 { &mut translucent } else { &mut solid };
+                target.add_quad(quad_sized(face, p, size, lower), face, tile(t.uvs, id, face), corners, face_flags(t, id));
             });
         }
     }
     (solid, translucent)
 }
 
-fn face_flags(t: &Tables, id: u8) -> f32 {
+fn face_flags(t: &Tables, id: u16) -> f32 {
     let i = id as usize;
     (u32::from(t.sway[i] != 0) | u32::from(t.liquid[i] != 0) << 1 | u32::from(t.emission[i] != 0) << 2) as f32
 }
 
 /// Per corner of a face: [sky, block, ao]. Light is averaged over the open cells around the corner in
 /// front of the face ("smooth lighting"); ao counts the solid cells there (0 = most occluded, 3 = open).
-fn corner_light(region: &[u8], sky: &[u8], block_light: &[u8], t: &Tables, p: [usize; 3], face: usize, smooth: bool) -> [[u8; 3]; 4] {
+fn corner_light(region: &[u16], sky: &[u8], block_light: &[u8], t: &Tables, p: [usize; 3], face: usize, smooth: bool) -> [[u8; 3]; 4] {
     let normal = NORMALS[face];
     let (_, u_axis, v_axis) = AXES[face];
     let front = [OFFSET as i32 + p[0] as i32 + normal[0], p[1] as i32 + normal[1], OFFSET as i32 + p[2] as i32 + normal[2]];
@@ -462,7 +468,7 @@ fn greedy(mask: &mut [u64], u_len: usize, v_len: usize, mut emit: impl FnMut(usi
     }
 }
 
-fn model_instances(region: &[u8], sky: &[u8], block_light: &[u8], t: &Tables) -> Vec<i32> {
+fn model_instances(region: &[u16], sky: &[u8], block_light: &[u8], t: &Tables) -> Vec<i32> {
     let mut out = Vec::new();
     for y in 0..RY {
         for z in 0..16 {
