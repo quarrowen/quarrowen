@@ -23,6 +23,7 @@ func _ready() -> void:
 	_client = GameClient.new()
 	_client.server_port = port
 	_client.player_name = "Bot_%s" % _game
+	_client.identity_name = "bot_%s" % _game
 	_client.ignore_mouse_capture = true
 	_client.exited.connect(func(msg): _fail("client exited: %s" % msg); _finish())
 	add_child(_client)

@@ -27,6 +27,7 @@ echo "logs:  $WORK"
 
 start_server() { # name mods port
   VOXEL_DATA_DIR="$WORK/data" VOXEL_MODS="$2" VOXEL_WORLD="$1" VOXEL_PORT="$3" VOXEL_SEED=42 VOXEL_MAX_PLAYERS=16 \
+    VOXEL_ADMINS="Admin,Bot_guild,Bot_industry,Bot_vanilla" \
     "$GODOT" --headless --path . res://scenes/server.tscn >"$WORK/server_$1.log" 2>&1 &
   SERVERS+=($!)
 }
@@ -59,6 +60,7 @@ for game in vanilla industry arcana guild; do
   run_scene "e2e:$game" "$WORK/test_$game.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 1)) --game=$game
 done
 run_scene "e2e:skyblock" "$WORK/test_skyblock.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 2)) --game=skyblock
+run_scene "auth" "$WORK/test_auth.log" res://tests/auth_test.tscn --port=$((PORT_BASE + 1))
 if [ -f tests/multiplayer_test.tscn ]; then
   run_scene "multiplayer" "$WORK/test_multiplayer.log" res://tests/multiplayer_test.tscn --port=$((PORT_BASE + 1))
 fi
@@ -73,7 +75,7 @@ run_scene "persistence" "$WORK/persistence.log" res://tests/persistence_test.tsc
 if [ "${VOXEL_NATIVE:-1}" != "0" ]; then
   run_scene "js-sandbox" "$WORK/js_sandbox.log" res://tests/js_sandbox_test.tscn
 fi
-for extra in tests/auth_test.tscn tests/host_flow_test.tscn; do
+for extra in tests/host_flow_test.tscn; do
   [ -f "$extra" ] && run_scene "$(basename "$extra" .tscn)" "$WORK/$(basename "$extra" .tscn).log" "res://$extra"
 done
 
