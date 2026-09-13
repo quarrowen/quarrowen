@@ -57,6 +57,23 @@ func setup(id: int, player_name: String) -> void:
 	add_child(label)
 
 
+## Lies down while dead (until the respawn event).
+func set_dead(dead: bool) -> void:
+	rotation.z = PI * 0.5 if dead else 0.0
+
+
+func hurt() -> void:
+	for child in find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		var original := mesh.material_override
+		var tint: StandardMaterial3D = original.duplicate()
+		tint.albedo_color = tint.albedo_color.lerp(Color(1, 0.1, 0.1), 0.6)
+		mesh.material_override = tint
+		get_tree().create_timer(0.3).timeout.connect(func():
+			if is_instance_valid(mesh):
+				mesh.material_override = original)
+
+
 func push_state(time: float, pos: Vector3, yaw: float, pitch: float) -> void:
 	if _buffer.is_empty():
 		position = pos

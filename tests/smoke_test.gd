@@ -52,6 +52,8 @@ func _run() -> void:
 			await _arcana(c)
 		"guild":
 			await _guild(c)
+		"combat":
+			await _combat(c)
 
 	# Engine-level authority: an edit far out of reach must be rolled back.
 	var far := Vector3i(floori(c.state.position.x) + 40, floori(c.state.position.y) - 1, floori(c.state.position.z))
@@ -321,6 +323,252 @@ func _guild(c) -> void:
 	var board_panel: Control = c._server_ui._panels.get("guild:leaderboard")
 	var first_line: String = board_panel.get_child(0).get_child(1).text if board_panel else ""
 	_check(first_line.contains("Bot_guild - 1"), "leaderboard from mod storage (%s)" % first_line)
+
+
+func _combat(c) -> void:
+	# Other tests build and dig around the shared spawn; fight on untouched, dry, open ground.
+	var arena := _find_open_ground(c, Vector2i(40, 8))
+	Net.c_chat.rpc_id(1, "/tp %.1f %.1f %.1f" % [arena.x, arena.y, arena.z])
+	await _wait_until(func(): return c.state.position.distance_to(arena) < 1.0 and c.state.on_ground, 5.0)
+	Net.c_chat.rpc_id(1, "/gameplay mob_spawning false")
+	Net.c_chat.rpc_id(1, "/time midnight")  # zombies burn in daylight
+	Net.c_chat.rpc_id(1, "/gamemode survival")
+	var sword: int = c.items.id_of("base:stone_sword")
+	await _wait_until(func(): return not c.inventory.creative and c.inventory.count_of(sword) == 1, 3.0)
+	_check(not c.inventory.creative and c.inventory.count_of(sword) == 1, "switched to survival with a sword")
+	_check(c.health == 20.0 and c._hearts.visible, "health HUD shows 20 (%.1f)" % c.health)
+	_check(c.entity_types.id_of("vanilla:pig") > 0 and c._entity_parts.get(c.entity_types.id_of("vanilla:pig"), []).size() == 6,
+		"entity types and animated model parts replicated")
+	_select_item(c, sword)
+
+	# A pig: chase it, kill it, pick up what it drops.
+	var sounds_before: int = c._sounds.played
+	Net.c_chat.rpc_id(1, "/summon vanilla:pig")
+	var pig := await _wait_for_entity(c, "vanilla:pig", 4.0)
+	_check(pig >= 0, "summoned pig replicated to the client")
+	if pig >= 0:
+		_check(await _fight(c, pig, 15.0), "killed the pig with the sword")
+		var porkchop: int = c.items.id_of("vanilla:porkchop")
+		_check(await _collect(c, porkchop, 10.0), "picked up the porkchop the pig dropped")
+		_check(c._sounds.played > sounds_before, "combat played sounds (%d)" % (c._sounds.played - sounds_before))
+
+	# A bounty zombie from the JavaScript guild mod: it attacks us; killing it pays coins.
+	var coin: int = c.items.id_of("guild:gold_coin")
+	var coins_before: int = c.inventory.count_of(coin)
+	Net.c_chat.rpc_id(1, "/guild bounty")
+	var zombie := await _wait_for_entity(c, "vanilla:zombie", 4.0)
+	_check(zombie >= 0, "bounty zombie spawned by JavaScript")
+	if zombie >= 0:
+		var hurt := await _wait_until(func(): return c.health < 20.0, 4.0)
+		if not hurt and c._entities.has(zombie):
+			_teleport_near(c._entities[zombie].position)  # it may have got stuck on terrain
+			hurt = await _wait_until(func(): return c.health < 20.0, 6.0)
+		_check(hurt, "the zombie attacked (health %.1f)" % c.health)
+		_check(await _fight(c, zombie, 15.0), "killed the zombie")
+		var paid := await _wait_until(func(): return c.inventory.count_of(coin) >= coins_before + 5, 3.0)
+		_check(paid, "bounty paid 5 coins via JavaScript entity_death")
+
+	# Eat the porkchop to heal.
+	var porkchop: int = c.items.id_of("vanilla:porkchop")
+	if c.health < 20.0 and c.inventory.count_of(porkchop) > 0:
+		var before: float = c.health
+		_select_item(c, porkchop)
+		await get_tree().create_timer(0.2).timeout
+		c.use_selected_item()
+		_check(await _wait_until(func(): return c.health >= minf(before + 5.0, 20.0), 2.0), "eating healed (%.1f -> %.1f)" % [before, c.health])
+
+	# Fall damage.
+	Net.c_chat.rpc_id(1, "/heal")
+	await _wait_until(func(): return c.health == 20.0, 2.0)
+	await _wait_until(func(): return c.state.on_ground, 3.0)
+	var ground: Vector3 = c.state.position
+	var top := 127
+	while top > 0 and c.world.get_block(floori(ground.x), top, floori(ground.z)) == 0:
+		top -= 1  # land on the highest block in the column (trees included), 12 blocks down
+	Net.c_chat.rpc_id(1, "/tp %.2f %d %.2f" % [ground.x, top + 13, ground.z])
+	var fell := await _wait_until(func(): return c.health <= 17.0, 5.0)
+	_check(fell, "fell 12 blocks and took fall damage (health %.1f)" % c.health)
+
+	# Drop the sword with Q, then pick it back up.
+	_select_item(c, sword)
+	await get_tree().create_timer(0.3).timeout
+	c.drop_selected()
+	_check(await _wait_until(func(): return c.inventory.count_of(sword) == 0, 2.0), "dropped the sword")
+	_check(await _collect(c, sword, 10.0), "picked the dropped sword back up")
+
+	# Inventory screen: move a stack from the hotbar into the main inventory.
+	var from_slot: int = c.inventory.ids.find(sword)
+	c._set_inventory_open(true)
+	_check(c._inventory_screen.visible and not c._gameplay_input_enabled(), "inventory screen open")
+	c.inventory_click(from_slot)
+	await _wait_until(func(): return c.inventory.cursor_id == sword, 2.0)
+	c.inventory_click(20)
+	var moved := await _wait_until(func(): return c.inventory.ids[20] == sword and c.inventory.cursor_count == 0, 2.0)
+	_check(moved, "moved the sword from hotbar slot %d to inventory slot 20" % from_slot)
+	c.inventory_click(20, 1, true)
+	_check(await _wait_until(func(): return c.inventory.ids[20] == 0 and c.inventory.count_of(sword) == 1, 2.0), "shift-click moved it back to the hotbar")
+	c._set_inventory_open(false)
+
+	# Wand of Sparks (arcana): a projectile that damages mobs.
+	Net.c_chat.rpc_id(1, "/give arcana:wand_of_sparks")
+	var wand: int = c.items.id_of("arcana:wand_of_sparks")
+	await _wait_until(func(): return c.inventory.count_of(wand) == 1, 2.0)
+	Net.c_chat.rpc_id(1, "/summon vanilla:zombie")
+	var target := await _wait_for_entity(c, "vanilla:zombie", 4.0)
+	if target >= 0:
+		_select_item(c, wand)
+		var shot := false
+		for attempt in 6:
+			var view = c._entities.get(target)
+			if view == null:
+				break
+			_aim_at(c, view.position + Vector3(0, 1.0, 0))
+			await get_tree().process_frame
+			c.use_selected_item()
+			if await _wait_until(func(): return c._entities.get(target) == null or c._entities[target]._hurt_until > 0.0 or c._entities[target].dying, 0.8):
+				shot = true
+				break
+		_check(shot, "Wand of Sparks projectile hit the zombie")
+		Net.c_chat.rpc_id(1, "/heal")
+		_select_item(c, sword)
+		await _fight(c, target, 12.0)
+
+	# Death and respawn.
+	Net.c_chat.rpc_id(1, "/kill")
+	_check(await _wait_until(func(): return c.dead and c._death_panel.visible, 3.0), "/kill shows the death screen")
+	c.respawn()
+	_check(await _wait_until(func(): return not c.dead and c.health == 20.0, 3.0), "respawned with full health")
+	Net.c_chat.rpc_id(1, "/gameplay mob_spawning true")
+	Net.c_chat.rpc_id(1, "/gamemode creative")
+	await get_tree().create_timer(0.5).timeout
+
+
+## Feet position on the surface near `around` where a 7x7 area is flat-ish, dry and has open sky.
+func _find_open_ground(c, around: Vector2i) -> Vector3:
+	var best := Vector3(around.x + 0.5, 80, around.y + 0.5)
+	var best_score := INF
+	for ox in range(-12, 13, 3):
+		for oz in range(-12, 13, 3):
+			var heights := []
+			var ok := true
+			for dx in range(-3, 4):
+				for dz in range(-3, 4):
+					var x := around.x + ox + dx
+					var z := around.y + oz + dz
+					var y := 127
+					while y > 0 and c.world.get_block(x, y, z) == 0:
+						y -= 1
+					var top: int = c.world.get_block(x, y, z)
+					if top == 65535 or c.registry.liquid_lut[top] == 1 or c.registry.render_lut[top] == c.registry.Render.CUTOUT:
+						ok = false  # unloaded, water or tree canopy
+					heights.append(y)
+			if not ok:
+				continue
+			var score: float = heights.max() - heights.min()
+			if score < best_score:
+				best_score = score
+				best = Vector3(around.x + ox + 0.5, heights[24] + 1, around.y + oz + 0.5)
+	return best
+
+
+func _select_item(c, item: int) -> void:
+	var slot: int = c.inventory.ids.find(item)
+	if slot >= 0 and slot < 9:
+		c.select_slot(slot)
+
+
+func _aim_at(c, target: Vector3) -> void:
+	var d: Vector3 = target - (c.state.position + Vector3(0, 1.62, 0))
+	c.yaw = atan2(-d.x, -d.z)
+	c.pitch = clampf(atan2(d.y, Vector2(d.x, d.z).length()), -PI * 0.49, PI * 0.49)
+
+
+## Id of the first replicated entity of `type_name`, or -1.
+func _wait_for_entity(c, type_name: String, timeout: float) -> int:
+	var found := [-1]
+	await _wait_until(func():
+		for id in c._entities:
+			if c._entities[id].type_def.name == type_name and not c._entities[id].dying:
+				found[0] = id
+				return true
+		return false, timeout)
+	return found[0]
+
+
+## Chases and attacks an entity until it dies. Returns true if it did.
+func _fight(c, entity_id: int, timeout: float) -> bool:
+	var deadline := Time.get_ticks_msec() + int(timeout * 1000)
+	var won := false
+	var last_close := Time.get_ticks_msec()
+	while Time.get_ticks_msec() < deadline:
+		var view = c._entities.get(entity_id)
+		if view == null or view.dying:
+			won = true
+			break
+		_aim_at(c, view.position + Vector3(0, view.height * 0.5, 0))
+		var flat := Vector2(view.position.x - c.state.position.x, view.position.z - c.state.position.z).length()
+		if flat < 3.0:
+			last_close = Time.get_ticks_msec()
+		elif Time.get_ticks_msec() - last_close > 3000:
+			# Chasing is best effort (slow CI machines, smart fleeing mobs): step next to it.
+			_teleport_near(view.position)
+			last_close = Time.get_ticks_msec()
+		if flat > 2.2:
+			Input.action_press("move_forward")
+		else:
+			Input.action_release("move_forward")
+		if c.state.on_ground and flat > 2.2 and Vector2(c.state.velocity.x, c.state.velocity.z).length() < 0.5:
+			Input.action_press("jump")
+		else:
+			Input.action_release("jump")
+		if not c._entity_target.is_empty() and c._entity_target.id == entity_id and c._attack_timer <= 0.0:
+			c.attack_target()
+		await get_tree().process_frame
+	Input.action_release("move_forward")
+	Input.action_release("jump")
+	print("[test] fight over (won %s) at %d fps, entity target %s" % [won, Engine.get_frames_per_second(), c._entity_target])
+	return won
+
+
+func _teleport_near(target: Vector3) -> void:
+	var offset := Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized() * 1.8
+	Net.c_chat.rpc_id(1, "/tp %.2f %.2f %.2f" % [target.x + offset.x, target.y + 0.5, target.z + offset.z])
+
+
+## Walks to the nearest dropped stack of `item` until it is in the inventory.
+func _collect(c, item: int, timeout: float) -> bool:
+	var start_count: int = c.inventory.count_of(item)
+	var started := Time.get_ticks_msec()
+	var deadline := started + int(timeout * 1000)
+	var teleported := false
+	var got := false
+	while Time.get_ticks_msec() < deadline:
+		if c.inventory.count_of(item) > start_count:
+			got = true
+			break
+		if not teleported and Time.get_ticks_msec() - started > 4000:
+			# Walking is best effort (the stack may have rolled into a hole); go straight to it.
+			for id in c._entities:
+				if c._entities[id].item_id == item:
+					var at: Vector3 = c._entities[id].position
+					Net.c_chat.rpc_id(1, "/tp %.2f %.2f %.2f" % [at.x, at.y + 0.2, at.z])
+					teleported = true
+					break
+		var nearest = null
+		for id in c._entities:
+			var view = c._entities[id]
+			if view.item_id == item and (nearest == null or view.position.distance_to(c.state.position) < nearest.position.distance_to(c.state.position)):
+				nearest = view
+		if nearest != null:
+			_aim_at(c, nearest.position)
+			var flat := Vector2(nearest.position.x - c.state.position.x, nearest.position.z - c.state.position.z).length()
+			if flat > 0.6:
+				Input.action_press("move_forward")
+			else:
+				Input.action_release("move_forward")
+		await get_tree().process_frame
+	Input.action_release("move_forward")
+	return got
 
 
 ## `length` air cells in a straight line with solid ground under each, within reach of the player

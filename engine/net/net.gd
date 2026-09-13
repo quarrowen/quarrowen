@@ -266,6 +266,45 @@ func c_ui_action(ui_id: String, action: String) -> void:
 		server.on_ui_action(_sender(), ui_id, action)
 
 
+## Left-click on an entity (kind 0) or another player (kind 1).
+@rpc("any_peer", "call_remote", "reliable")
+func c_attack(kind: int, target_id: int) -> void:
+	if server:
+		server.on_attack(_sender(), kind, target_id)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func c_interact_entity(target_id: int) -> void:
+	if server:
+		server.on_interact_entity(_sender(), target_id)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func c_respawn() -> void:
+	if server:
+		server.on_respawn(_sender())
+
+
+## Inventory screen click: slot 0-35 (-1 = outside, drops the cursor stack), button 1 left, 2 right,
+## 3 middle.
+@rpc("any_peer", "call_remote", "reliable")
+func c_inventory_click(slot: int, button: int, shift: bool) -> void:
+	if server:
+		server.on_inventory_click(_sender(), slot, button, shift)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func c_inventory_closed() -> void:
+	if server:
+		server.on_inventory_closed(_sender())
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func c_drop_item(whole_stack: bool) -> void:
+	if server:
+		server.on_drop_item(_sender(), whole_stack)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func c_shutdown(token: String) -> void:
 	if server:
@@ -380,3 +419,48 @@ func s_ui_hide(ui_id: String) -> void:
 func s_title(text: String, subtitle: String, seconds: float) -> void:
 	if client:
 		client.on_title(text, subtitle, seconds)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_health(health: float, max_health: float, dead: bool, hurt: bool) -> void:
+	if client:
+		client.on_health(health, max_health, dead, hurt)
+
+
+## Entities entering view: [[id, type, position, yaw, item id, item count], ...]
+@rpc("authority", "call_remote", "reliable")
+func s_entity_spawn(records: Array) -> void:
+	if client:
+		client.on_entity_spawn(records)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_entity_despawn(ids: PackedInt32Array) -> void:
+	if client:
+		client.on_entity_despawn(ids)
+
+
+## Compact position updates for visible entities (see Entities.replicate).
+@rpc("authority", "call_remote", "unreliable_ordered", MOVEMENT_CHANNEL)
+func s_entities(tick: int, payload: PackedByteArray) -> void:
+	if client:
+		client.on_entities(tick, payload)
+
+
+## kind: Entities.Event (0 hurt, 1 death, 2 pickup by peer `arg`, 3 attack)
+@rpc("authority", "call_remote", "reliable")
+func s_entity_event(entity_id: int, kind: int, arg: int) -> void:
+	if client:
+		client.on_entity_event(entity_id, kind, arg)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_player_event(peer_id: int, kind: int) -> void:
+	if client:
+		client.on_player_event(peer_id, kind)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_sound(sound_id: int, position: Vector3, volume: float, pitch: float, positional: bool) -> void:
+	if client:
+		client.on_sound(sound_id, position, volume, pitch, positional)

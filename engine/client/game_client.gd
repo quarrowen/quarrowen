@@ -23,6 +23,11 @@ const WorldTime = preload("res://engine/shared/world_time.gd")
 const ItemRegistry = preload("res://engine/shared/item_registry.gd")
 const GraphicsSettings = preload("res://engine/client/graphics_settings.gd")
 const Identity = preload("res://engine/shared/identity.gd")
+const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
+const EntityView = preload("res://engine/client/entity_view.gd")
+const EntityPhysics = preload("res://engine/shared/entity_physics.gd")
+const SoundPlayer = preload("res://engine/client/sound_player.gd")
+const InventoryScreen = preload("res://engine/client/inventory_screen.gd")
 
 const MAX_CONNECT_ATTEMPTS := 20
 const MESH_WORKERS := 4
@@ -35,6 +40,9 @@ const TELEPORT_DISTANCE := 3.0
 const RENDER_DISTANCE := 8 * 16
 const CHAT_LINES := 8
 const CHAT_LINE_LIFETIME := 10.0
+const ATTACK_REACH := 4.5
+const ATTACK_REPEAT := 0.3
+const STEP_DISTANCE := 1.7
 
 enum Phase { CONNECTING, DOWNLOADING, JOINING, PLAYING }
 
@@ -59,6 +67,10 @@ var items := ItemRegistry.new(registry)
 var rules := PlayerPhysics.Rules.new()
 var world := VoxelWorld.new()
 var inventory := Inventory.new()
+var entity_types := EntityRegistry.new()
+var health := 20.0
+var max_health := 20.0
+var dead := false
 var graphics := GraphicsSettings.new()
 var my_id := 0
 var state := PlayerPhysics.State.new()
@@ -88,6 +100,13 @@ var _mesh_dirty := {}  # Vector2i -> true
 var _mesh_urgent := {}  # Vector2i -> true
 var _mesh_jobs := {}  # Vector2i -> Dictionary
 var _remote_players := {}  # peer_id -> RemotePlayer
+var _entities := {}  # entity id -> EntityView
+var _entity_parts := {}  # type id -> Array of model parts
+var _entity_sprites := {}  # type id -> Texture2D
+var _entity_target := {}  # {kind: 0 entity / 1 player, id, distance} or empty
+var _attack_timer := 0.0
+var _step_distance := 0.0
+var _sounds: SoundPlayer
 
 var _edit_timer := 0.0
 var _target := {}
@@ -118,6 +137,13 @@ var _hotbar_slots: Array[Panel] = []
 var _chat_log: VBoxContainer
 var _chat_input: LineEdit
 var _pause_panel: PanelContainer
+var _hearts: HBoxContainer
+var _heart_textures := []  # [full, half, empty]
+var _hurt_flash: ColorRect
+var _death_panel: Control
+var _death_label: Label
+var _inventory_screen: InventoryScreen
+var _volume_slider: HSlider
 
 
 func _ready() -> void:
@@ -220,6 +246,9 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 		return
 	if content.get("rules") is Dictionary:
 		on_rules(content.rules)
+	if not entity_types.load_network(content.get("entities", [])) or not _sounds.registry.load_network(content.get("sounds", [])):
+		_leave("Server sent invalid entity or sound definitions")
+		return
 
 	var total_size := 0
 	var missing := PackedStringArray()
@@ -307,6 +336,16 @@ func _finish_content() -> void:
 				_arm_meshes[d.id] = arm
 		if not d.connect_group.is_empty():
 			_connect_groups[d.id] = d.connect_group
+	for d in entity_types.defs:
+		if not String(d.model).is_empty() and _manifest.has(d.model):
+			var parts := ModelLibrary.load_parts(ContentCache.read(_manifest[d.model].hash))
+			if parts.is_empty():
+				push_warning("[client] Could not load entity model %s" % d.model)
+			_entity_parts[d.id] = parts
+		if _asset_textures.has(d.sprite):
+			_entity_sprites[d.id] = _asset_textures[d.sprite]
+	_sounds.manifest = _manifest
+	_inventory_screen.atlas = _atlas
 	_mesh_context = ChunkMesher.make_context(registry, _atlas.uv)
 	_apply_graphics(false)
 	_server_ui.textures = _asset_textures
@@ -400,8 +439,9 @@ func on_inventory(slots: PackedInt32Array, selected: int, creative: bool) -> voi
 	inventory.creative = creative
 	if selected != inventory.selected:
 		# The server may pick the slot (e.g. mods resetting the hotbar); follow it.
-		inventory.selected = clampi(selected, 0, Inventory.SIZE - 1)
+		inventory.selected = clampi(selected, 0, Inventory.HOTBAR - 1)
 	_refresh_hotbar()
+	_inventory_screen.refresh()
 
 
 func on_player_joined(peer_id: int, remote_name: String) -> void:
@@ -411,6 +451,104 @@ func on_player_joined(peer_id: int, remote_name: String) -> void:
 	remote.setup(peer_id, remote_name)
 	add_child(remote)
 	_remote_players[peer_id] = remote
+
+
+func on_health(value: float, max_value: float, is_dead: bool, hurt: bool) -> void:
+	var was_dead := dead
+	health = value
+	max_health = maxf(max_value, 1.0)
+	dead = is_dead
+	if hurt:
+		_hurt_flash.color.a = 0.45
+	if dead and not was_dead:
+		_death_panel.visible = true
+		_set_inventory_open(false)
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	elif not dead and was_dead:
+		_death_panel.visible = false
+		if not ignore_mouse_capture:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_refresh_hearts()
+
+
+func respawn() -> void:
+	if dead:
+		Net.c_respawn.rpc_id(1)
+
+
+func on_entity_spawn(records: Array) -> void:
+	for r in records:
+		if not (r is Array) or r.size() != 6 or not entity_types.is_valid(int(r[1])) or not (r[2] is Vector3):
+			continue
+		var id := int(r[0])
+		var existing: Node = _entities.get(id)
+		if existing:
+			existing.queue_free()
+		var type_id := int(r[1])
+		var view := EntityView.new()
+		view.item_id = int(r[4])
+		view.item_count = int(r[5])
+		var sprite: Texture2D = _entity_sprites.get(type_id)
+		if type_id == EntityRegistry.ITEM and items.is_valid(view.item_id) and not _atlas.is_empty():
+			var icon := AtlasTexture.new()
+			icon.atlas = _atlas.texture
+			icon.region = _atlas.pixels.get(items.icon_of(view.item_id), _atlas.pixels[""])
+			sprite = icon
+		view.setup(id, entity_types.defs[type_id], _entity_parts.get(type_id, []), sprite, r[2], float(r[3]))
+		add_child(view)
+		_entities[id] = view
+
+
+func on_entity_despawn(ids: PackedInt32Array) -> void:
+	for id in ids:
+		var view: EntityView = _entities.get(id)
+		if view:
+			_entities.erase(id)
+			view.despawn()
+
+
+func on_entities(_tick: int, payload: PackedByteArray) -> void:
+	if payload.size() < 2:
+		return
+	var buf := StreamPeerBuffer.new()
+	buf.data_array = payload
+	var now := Time.get_ticks_msec() / 1000.0
+	var count := mini(buf.get_u16(), (payload.size() - 2) / 19)
+	for i in count:
+		var id := buf.get_u32()
+		var pos := Vector3(buf.get_float(), buf.get_float(), buf.get_float())
+		var entity_yaw := buf.get_u16() / 65535.0 * TAU
+		buf.get_u8()
+		var view: EntityView = _entities.get(id)
+		if view and not view.dying:
+			view.push_state(now, pos, entity_yaw)
+
+
+func on_entity_event(entity_id: int, kind: int, arg: int) -> void:
+	var view: EntityView = _entities.get(entity_id)
+	if view == null:
+		return
+	match kind:
+		0: view.hurt()
+		1: view.die()
+		2:
+			var collector: Node3D = _camera if arg == my_id else _remote_players.get(arg)
+			if collector:
+				view.picked_up_by(collector)
+
+
+func on_player_event(peer_id: int, kind: int) -> void:
+	var remote = _remote_players.get(peer_id)
+	if remote == null:
+		return
+	match kind:
+		0: remote.hurt()
+		1: remote.set_dead(true)
+		4: remote.set_dead(false)
+
+
+func on_sound(sound_id: int, pos: Vector3, volume: float, pitch: float, positional: bool) -> void:
+	_sounds.play(sound_id, pos, volume, pitch, positional)
 
 
 func on_player_left(peer_id: int) -> void:
@@ -559,20 +697,58 @@ func _process(delta: float) -> void:
 	_update_time(delta)
 	_update_target()
 	_handle_edits(delta)
+	_update_footsteps(render_position)
 	_update_hud()
+	_hurt_flash.color.a = move_toward(_hurt_flash.color.a, 0.0, delta * 1.2)
 
 
 func _update_target() -> void:
-	_target = VoxelRaycast.cast(world, registry.targetable_lut, _camera.position, -_camera.basis.z, REACH)
-	_highlight.visible = _target.hit
+	var origin := _camera.position
+	var direction := -_camera.basis.z
+	_target = VoxelRaycast.cast(world, registry.targetable_lut, origin, direction, REACH)
+	var block_distance := INF
+	if _target.hit:
+		var cell := Vector3(_target.position)
+		block_distance = maxf(EntityPhysics.segment_hits_box(origin, direction, REACH + 1.0, cell, cell + Vector3.ONE), 0.0)
+	_entity_target = {}
+	var best := minf(block_distance, ATTACK_REACH)
+	for id: int in _entities:
+		var view: EntityView = _entities[id]
+		if view.dying or String(view.type_def.get("kind", "")) != "mob":
+			continue
+		var box := view.aabb()
+		var t := EntityPhysics.segment_hits_box(origin, direction, best, box.position, box.end)
+		if t >= 0.0 and t < best:
+			best = t
+			_entity_target = {"kind": 0, "id": id, "distance": t}
+	for peer_id: int in _remote_players:
+		var remote: Node3D = _remote_players[peer_id]
+		if not remote.visible:
+			continue
+		var box := AABB(remote.position - Vector3(0.3, 0, 0.3), Vector3(0.6, 1.8, 0.6))
+		var t := EntityPhysics.segment_hits_box(origin, direction, best, box.position, box.end)
+		if t >= 0.0 and t < best:
+			best = t
+			_entity_target = {"kind": 1, "id": peer_id, "distance": t}
+	_highlight.visible = _target.hit and _entity_target.is_empty()
 	if _target.hit:
 		_highlight.position = Vector3(_target.position) + Vector3(0.5, 0.5, 0.5)
 
 
 func _handle_edits(delta: float) -> void:
 	_edit_timer -= delta
+	_attack_timer -= delta
 	if not _gameplay_input_enabled():
 		return
+	if not _entity_target.is_empty():
+		if Input.is_action_just_pressed("break") or (Input.is_action_pressed("break") and _attack_timer <= 0.0):
+			attack_target()
+			_edit_timer = EDIT_REPEAT_DELAY
+			return
+		if Input.is_action_just_pressed("place") and _entity_target.kind == 0:
+			Net.c_interact_entity.rpc_id(1, _entity_target.id)
+			_edit_timer = EDIT_REPEAT_DELAY
+			return
 	if Input.is_action_just_pressed("place") and use_selected_item():
 		_edit_timer = EDIT_REPEAT_DELAY
 		return
@@ -591,6 +767,30 @@ func _handle_edits(delta: float) -> void:
 		request_place(_target.position + _target.normal)
 
 
+## Attacks the entity or player under the crosshair. Returns false if nothing is targeted.
+func attack_target() -> bool:
+	if _entity_target.is_empty() or dead:
+		return false
+	_attack_timer = ATTACK_REPEAT
+	Net.c_attack.rpc_id(1, _entity_target.kind, _entity_target.id)
+	_sounds.play_name("engine:swing", _camera.position, 0.7, randf_range(0.9, 1.1))
+	return true
+
+
+## Plays the "step" sound of the block underfoot as the player walks.
+func _update_footsteps(render_position: Vector3) -> void:
+	if not state.on_ground or dead:
+		return
+	var horizontal := Vector2(state.velocity.x, state.velocity.z).length()
+	_step_distance += horizontal * get_process_delta_time()
+	if _step_distance < STEP_DISTANCE:
+		return
+	_step_distance = 0.0
+	var below := world.get_block(floori(render_position.x), floori(render_position.y - 0.2), floori(render_position.z))
+	if registry.is_valid(below):
+		_sounds.play_name(String(registry.defs[below].sounds.get("step", "")), render_position, 0.35, randf_range(0.9, 1.1))
+
+
 ## Uses the held item on the current target (or on nothing). Returns false if it is not usable.
 func use_selected_item() -> bool:
 	var item := inventory.selected_item()
@@ -607,6 +807,7 @@ func request_break(pos: Vector3i) -> void:
 		return
 	world.set_block(pos.x, pos.y, pos.z, BlockRegistry.AIR)
 	_on_block_modified(pos)
+	_sounds.play_name(String(registry.defs[current].sounds.get("break", "")), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1))
 	Net.c_break_block.rpc_id(1, pos)
 
 
@@ -629,11 +830,12 @@ func request_place(pos: Vector3i) -> void:
 	_on_block_modified(pos)
 	inventory.consume_selected()
 	_refresh_hotbar()
+	_sounds.play_name(String(registry.defs[block].sounds.get("place", "")), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1))
 	Net.c_place_block.rpc_id(1, pos, yaw)
 
 
 func select_slot(index: int) -> void:
-	inventory.selected = wrapi(index, 0, Inventory.SIZE)
+	inventory.selected = wrapi(index, 0, Inventory.HOTBAR)
 	_refresh_hotbar()
 	if _welcomed:
 		Net.c_select_slot.rpc_id(1, inventory.selected)
@@ -844,12 +1046,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		yaw = wrapf(yaw - event.relative.x * MOUSE_SENSITIVITY, -PI, PI)
 		pitch = clampf(pitch - event.relative.y * MOUSE_SENSITIVITY, -PI * 0.49, PI * 0.49)
+	elif event.is_action_pressed("pause") and _inventory_screen.visible:
+		_set_inventory_open(false)
+	elif event.is_action_pressed("inventory") and _welcomed and not dead and (_inventory_screen.visible or _gameplay_input_enabled()):
+		_set_inventory_open(not _inventory_screen.visible)
+		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("pause"):
 		_set_paused(not _pause_panel.visible)
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED \
-			and not _pause_panel.visible and not _server_ui.has_modal():
+			and not _pause_panel.visible and not _server_ui.has_modal() and not _inventory_screen.visible and not dead:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("drop") and _welcomed and _gameplay_input_enabled():
+		drop_selected(event.ctrl_pressed or event.meta_pressed)
 	elif event.is_action_pressed("chat") and _welcomed:
 		_open_chat()
 		get_viewport().set_input_as_handled()
@@ -871,7 +1080,32 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _gameplay_input_enabled() -> bool:
 	var captured := ignore_mouse_capture or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
-	return captured and not _chat_input.visible and not _pause_panel.visible and not _server_ui.has_modal()
+	return captured and not _chat_input.visible and not _pause_panel.visible and not _server_ui.has_modal() \
+		and not _inventory_screen.visible and not dead
+
+
+func drop_selected(whole_stack := false) -> void:
+	if inventory.selected_item() > 0 and not dead:
+		Net.c_drop_item.rpc_id(1, whole_stack)
+
+
+func _set_inventory_open(open: bool) -> void:
+	if _inventory_screen.visible == open:
+		return
+	_inventory_screen.visible = open
+	if open:
+		_inventory_screen.refresh()
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	else:
+		if _welcomed:
+			Net.c_inventory_closed.rpc_id(1)
+		if not ignore_mouse_capture and not dead:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func inventory_click(slot: int, button := 1, shift := false) -> void:
+	Net.c_inventory_click.rpc_id(1, slot, button, shift)
+	_sounds.play_name("engine:ui_click", Vector3.ZERO, 0.4, 1.0, false)
 
 
 func _set_paused(paused: bool) -> void:
@@ -911,6 +1145,7 @@ static func _register_input_actions() -> void:
 		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE], "sprint": [KEY_SHIFT, KEY_CTRL],
 		"chat": [KEY_T, KEY_ENTER], "toggle_debug": [KEY_F3], "pause": [KEY_ESCAPE], "crafting": [KEY_C], "graphics": [KEY_F4],
+		"inventory": [KEY_E, KEY_TAB], "drop": [KEY_Q],
 	}
 	for action: String in keys:
 		if InputMap.has_action(action):
@@ -992,6 +1227,11 @@ func _build_scene() -> void:
 	_camera.far = RENDER_DISTANCE * 1.5
 	add_child(_camera)
 	_camera.make_current()
+	var listener := AudioListener3D.new()
+	_camera.add_child(listener)
+	listener.make_current()
+	_sounds = SoundPlayer.new()
+	add_child(_sounds)
 
 	_highlight = MeshInstance3D.new()
 	var box := BoxMesh.new()
@@ -1051,6 +1291,29 @@ func _build_hud() -> void:
 	_hotbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud_root.add_child(_hotbar)
 
+	_heart_textures = [_heart_image(1.0), _heart_image(0.5), _heart_image(0.0)]
+	_hearts = HBoxContainer.new()
+	_hearts.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_hearts.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_hearts.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_hearts.position.y -= 74
+	_hearts.add_theme_constant_override("separation", 2)
+	_hearts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_root.add_child(_hearts)
+	for i in 10:
+		var heart := TextureRect.new()
+		heart.custom_minimum_size = Vector2(22, 22)
+		heart.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		heart.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		heart.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hearts.add_child(heart)
+
+	_hurt_flash = ColorRect.new()
+	_hurt_flash.color = Color(0.8, 0.0, 0.0, 0.0)
+	_hurt_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_hurt_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_root.add_child(_hurt_flash)
+
 	_chat_log = VBoxContainer.new()
 	_chat_log.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	_chat_log.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -1088,13 +1351,59 @@ func _build_hud() -> void:
 	quit.custom_minimum_size = Vector2(240, 44)
 	quit.pressed.connect(disconnect_from_server)
 	pause_box.add_child(quit)
+	var volume_row := HBoxContainer.new()
+	var volume_label := Label.new()
+	volume_label.text = "Volume"
+	volume_row.add_child(volume_label)
+	_volume_slider = HSlider.new()
+	_volume_slider.min_value = 0.0
+	_volume_slider.max_value = 1.0
+	_volume_slider.step = 0.05
+	_volume_slider.value = _sounds.volume
+	_volume_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_volume_slider.value_changed.connect(func(v): _sounds.volume = v)
+	_volume_slider.drag_ended.connect(func(_changed): _sounds.save_volume())
+	volume_row.add_child(_volume_slider)
+	pause_box.add_child(volume_row)
+
+	_inventory_screen = InventoryScreen.new()
+	_inventory_screen.inventory = inventory
+	_inventory_screen.items = items
+	_inventory_screen.visible = false
+	_inventory_screen.slot_clicked.connect(inventory_click)
+	_hud_root.add_child(_inventory_screen)
+
+	_death_panel = Control.new()
+	_death_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_death_panel.visible = false
+	_hud_root.add_child(_death_panel)
+	var death_bg := ColorRect.new()
+	death_bg.color = Color(0.45, 0.0, 0.0, 0.45)
+	death_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_death_panel.add_child(death_bg)
+	var death_box := VBoxContainer.new()
+	death_box.set_anchors_preset(Control.PRESET_CENTER)
+	death_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	death_box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	death_box.add_theme_constant_override("separation", 16)
+	_death_panel.add_child(death_box)
+	_death_label = _shadow_label()
+	_death_label.text = "You died!"
+	_death_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_death_label.add_theme_font_size_override("font_size", 56)
+	death_box.add_child(_death_label)
+	var respawn_button := Button.new()
+	respawn_button.text = "Respawn"
+	respawn_button.custom_minimum_size = Vector2(240, 48)
+	respawn_button.pressed.connect(respawn)
+	death_box.add_child(respawn_button)
 
 
 func _rebuild_hotbar() -> void:
 	for slot in _hotbar_slots:
 		slot.queue_free()
 	_hotbar_slots.clear()
-	for i in Inventory.SIZE:
+	for i in Inventory.HOTBAR:
 		var slot := Panel.new()
 		slot.custom_minimum_size = Vector2(52, 52)
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1121,9 +1430,10 @@ func _rebuild_hotbar() -> void:
 
 
 func _refresh_hotbar() -> void:
+	_refresh_hearts()
 	if _hotbar_slots.is_empty() or _atlas.is_empty():
 		return
-	for i in Inventory.SIZE:
+	for i in Inventory.HOTBAR:
 		var slot := _hotbar_slots[i]
 		var style: StyleBoxFlat = slot.get_theme_stylebox("panel")
 		style.border_color = Color.WHITE if i == inventory.selected else Color(0, 0, 0, 0.6)
@@ -1139,6 +1449,29 @@ func _refresh_hotbar() -> void:
 		else:
 			icon.texture = null
 		count.text = str(inventory.counts[i]) if has_item and not inventory.creative and inventory.counts[i] > 1 else ""
+
+
+func _refresh_hearts() -> void:
+	if _hearts == null:
+		return
+	_hearts.visible = _welcomed and not inventory.creative
+	var per_heart := max_health / 10.0
+	for i in 10:
+		var fill := clampf((health - i * per_heart) / per_heart, 0.0, 1.0)
+		_hearts.get_child(i).texture = _heart_textures[0 if fill > 0.75 else (1 if fill > 0.25 else 2)]
+
+
+## 9x9 pixel heart: `fill` 1 = full, 0.5 = left half, 0 = empty outline.
+static func _heart_image(fill: float) -> ImageTexture:
+	var rows := ["01100110", "11111111", "11111111", "11111111", "01111110", "00111100", "00011000"]
+	var img := Image.create(9, 8, false, Image.FORMAT_RGBA8)
+	for y in rows.size():
+		for x in 8:
+			if rows[y][x] != "1":
+				continue
+			var red := fill >= 1.0 or (fill > 0.0 and x < 4)
+			img.set_pixel(x, y + 1, Color(0.9, 0.1, 0.15) if red else Color(0.18, 0.05, 0.06, 0.85))
+	return ImageTexture.create_from_image(img)
 
 
 func _shadow_label() -> Label:
@@ -1176,6 +1509,7 @@ func _update_hud() -> void:
 		"Chunks %d   meshed %d   mesh queue %d (+%d running)" % [world.chunks.size(), _chunk_nodes.size(), _mesh_dirty.size(), _mesh_jobs.size()],
 		"Players %d   %s   holding %s   target %s" % [_remote_players.size() + 1, "creative" if inventory.creative else "survival",
 			items.display_name(selected) if selected > 0 else "nothing", target_text],
+		"Entities %d   health %.1f / %.0f   sounds played %d" % [_entities.size(), health, max_health, _sounds.played],
 		"Graphics: %s (%d%% render scale)   [F4] change" % [graphics.preset, roundi(graphics.value("render_scale") * 100)],
-		"[F3] debug  [T] chat  [C] crafting  [Esc] menu  [1-9 / wheel] slot",
+		"[F3] debug  [T] chat  [E] inventory  [Q] drop  [C] crafting  [Esc] menu  [1-9 / wheel] slot",
 	])

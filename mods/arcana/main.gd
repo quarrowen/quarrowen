@@ -6,7 +6,8 @@ extends "res://engine/server/mod.gd"
 ## - Every player has a mana pool shown in a HUD panel; it regenerates slowly, and quickly near a
 ##   mana pylon (a model block that emits light).
 ## - Wands are usable items: Wand of Blink teleports you forward, Wand of Light conjures a
-##   temporary light orb. Craft them with C. /arcana kit gives a starter set.
+##   temporary light orb, Wand of Sparks fires a magic projectile that hurts mobs. Craft them with C.
+##   /arcana kit gives a starter set.
 
 const MAX_MANA := 100.0
 const REGEN := 2.0  # mana per second
@@ -19,6 +20,8 @@ const BLINK_RANGE := 8.0
 const LIGHT_COST := 10.0
 const LIGHT_SECONDS := 30.0
 const HUD_ID := "arcana:mana"
+const SPARK_COST := 8.0
+const SPARK_SPEED := 26.0
 
 var api
 var ids := {}
@@ -56,6 +59,11 @@ func setup(mod_api) -> void:
 	ids.shard = api.register_item("mana_shard", {"display_name": "Mana Shard", "icon": "textures/mana_shard.png", "usable": true})
 	ids.blink = api.register_item("wand_of_blink", {"display_name": "Wand of Blink", "icon": "textures/wand_of_blink.png", "usable": true, "max_stack": 1})
 	ids.light = api.register_item("wand_of_light", {"display_name": "Wand of Light", "icon": "textures/wand_of_light.png", "usable": true, "max_stack": 1})
+	ids.sparks = api.register_item("wand_of_sparks", {"display_name": "Wand of Sparks", "icon": "textures/wand_of_sparks.png", "usable": true, "max_stack": 1})
+	api.register_sound("spark_cast", "sounds/spark_cast.wav", {"pitch_variance": 0.15})
+	api.register_sound("spark_hit", "sounds/spark_hit.wav")
+	ids.spark = api.register_entity("spark", {"kind": "projectile", "sprite": "textures/spark.png", "glow": true,
+		"width": 0.3, "height": 0.3, "damage": 6, "gravity": 1.5, "lifetime": 3.0})
 	ids.crystal = api.register_block("mana_crystal_ore", {"display_name": "Mana Crystal Ore", "textures": "textures/mana_crystal_ore.png",
 		"light": 7, "drops": [[ids.shard, 2]]})
 	ids.pylon = api.register_block("mana_pylon", {"display_name": "Mana Pylon", "model": "models/mana_pylon.glb",
@@ -67,6 +75,10 @@ func setup(mod_api) -> void:
 	api.register_recipe({"base:log": 1, "arcana:mana_shard": 3}, "arcana:wand_of_blink")
 	api.register_recipe({"base:log": 1, "arcana:mana_shard": 2, "base:glass": 1}, "arcana:wand_of_light")
 	api.register_recipe({"arcana:mana_shard": 6, "base:cobblestone": 2}, "arcana:mana_pylon")
+	api.register_recipe({"base:log": 1, "arcana:mana_shard": 4}, "arcana:wand_of_sparks")
+	api.on("projectile_hit", func(ev):
+		if ev.entity.type == ids.spark:
+			api.play_sound("spark_hit", ev.position))
 
 	api.on("player_join", _on_join)
 	api.on("player_leave", func(ev): _hud_shown.erase(ev.player.peer_id))
@@ -146,6 +158,11 @@ func _on_item_use(ev: Dictionary) -> void:
 			_blink(player, ev.direction)
 		ids.light:
 			_conjure_light(player, ev)
+		ids.sparks:
+			if _spend(player, SPARK_COST):
+				var eye: Vector3 = player.get_eye_position()
+				api.spawn_projectile("spark", eye + ev.direction * 0.6 - Vector3(0, 0.15, 0), ev.direction * SPARK_SPEED, player)
+				api.play_sound("spark_cast", eye)
 
 
 ## Teleports up to BLINK_RANGE blocks along the view direction to the furthest spot with room to stand.
@@ -191,11 +208,12 @@ func _cmd_arcana(player, _args: PackedStringArray) -> void:
 		player.send_message("Only admins can hand out Arcana kits in survival.")
 		return
 	if player.is_creative():
-		player.set_hotbar([ids.shard, ids.blink, ids.light, ids.pylon, api.block("base:stone")])
-		player.send_message("Arcana kit in your hotbar: shard, Wand of Blink, Wand of Light, Mana Pylon.")
+		player.set_hotbar([ids.shard, ids.blink, ids.light, ids.pylon, api.block("base:stone"), ids.sparks])
+		player.send_message("Arcana kit in your hotbar: shard, Wand of Blink, Wand of Light, Mana Pylon, Wand of Sparks.")
 		return
 	player.give(ids.shard, 16)
 	player.give(ids.blink, 1)
 	player.give(ids.light, 1)
 	player.give(ids.pylon, 1)
+	player.give(ids.sparks, 1)
 	player.send_message("Arcana kit: shards (right-click to restore mana), Wand of Blink, Wand of Light and a Mana Pylon.")

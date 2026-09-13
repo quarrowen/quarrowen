@@ -65,6 +65,23 @@ func _init() -> void:
 	_save(_meteorite(true), guild + "meteorite.png")
 	_save(_meteorite(false), guild + "meteorite_cooled.png")
 	_save(_icon(Color(0.45, 0.32, 0.2), Color(0.95, 0.85, 0.6), "grid"), guild + "quest_board_icon.png")
+
+	# Gameplay items (appended last so the random sequence for earlier textures is unchanged).
+	_save(_item(Color(0.62, 0.45, 0.25), "sword"), base + "wooden_sword.png")
+	_save(_item(Color(0.6, 0.6, 0.63), "sword"), base + "stone_sword.png")
+	_save(_item(Color(0.85, 0.15, 0.15), "apple"), base + "apple.png")
+	var vanilla := "res://mods/vanilla/textures/"
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(vanilla))
+	_save(_item(Color(0.95, 0.55, 0.55), "meat"), vanilla + "porkchop.png")
+	_save(_item(Color(0.35, 0.9, 1.0), "wand"), arcana + "wand_of_sparks.png")
+	var spark := _blank()
+	for y in TILE:
+		for x in TILE:
+			var d := Vector2(x - 7.5, y - 7.5)
+			var star := minf(absf(d.x), absf(d.y)) < 1.0 and d.length() < 7.0
+			if d.length() < 3.0 or star:
+				spark.set_pixel(x, y, Color(0.75, 0.95, 1.0) if d.length() < 2.0 else Color(0.35, 0.8, 1.0, 0.9))
+	_save(spark, arcana + "spark.png")
 	quit()
 
 
@@ -91,10 +108,19 @@ func _item(color: Color, glyph: String) -> Image:
 				"shard": on = absf(x - 7.5) + absf(y - 7.5) * 0.45 < 3.2
 				"wand": on = absi(x - (15 - y)) <= 0 and y > 3 or (Vector2(x - 11.5, y - 3.5).length() < 2.0)
 				"coin": on = Vector2(x - 7.5, y - 7.5).length() < 5.5 and not (Vector2(x - 7.5, y - 7.5).length() < 3.5 and x == 7)
+				"sword": on = (absi(x - (15 - y)) <= 1 and y < 11) or (absi(x - y) <= 0 and y > 8 and y < 13) or (x < 4 and y > 11)
+				"apple": on = Vector2(x - 7.5, y - 9.0).length() < 5.0 or (x == 8 and y > 2 and y < 5)
+				"meat": on = Vector2((x - 7.0) * 0.8, y - 8.0).length() < 5.0 or (x > 10 and absi(y - 12) <= 1)
 			if on:
 				var c := color if glyph != "wand" or y > 5 else color.lightened(0.4)
 				if glyph == "wand" and y > 5:
 					c = Color(0.45, 0.3, 0.18)
+				if glyph == "sword" and y > 9:
+					c = Color(0.4, 0.26, 0.14)  # hilt
+				if glyph == "apple" and y < 5:
+					c = Color(0.4, 0.26, 0.14)
+				if glyph == "meat" and x > 10 and absi(y - 12) <= 1:
+					c = Color(0.95, 0.92, 0.85)  # bone
 				img.set_pixel(x, y, _vary(c, 0.06))
 	return img
 

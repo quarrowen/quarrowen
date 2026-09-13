@@ -29,7 +29,7 @@ echo "logs:  $WORK"
 
 start_server() { # name mods port
   VOXEL_DATA_DIR="$WORK/data" VOXEL_MODS="$2" VOXEL_WORLD="$1" VOXEL_PORT="$3" VOXEL_SEED=42 VOXEL_MAX_PLAYERS=16 \
-    VOXEL_ADMINS="Admin,Bot_guild,Bot_industry,Bot_vanilla" \
+    VOXEL_ADMINS="Admin,Bot_guild,Bot_industry,Bot_vanilla,Bot_combat" \
     "$GODOT" --headless --path . res://scenes/server.tscn >"$WORK/server_$1.log" 2>&1 &
   SERVERS+=($!)
 }
@@ -58,7 +58,7 @@ start_server all "vanilla,industry,arcana,guild" $((PORT_BASE + 1))
 start_server sky "skyblock" $((PORT_BASE + 2))
 wait_for_server all && wait_for_server sky || { echo "servers failed to start"; exit 1; }
 
-for game in vanilla industry arcana guild; do
+for game in vanilla industry arcana guild combat; do
   run_scene "e2e:$game" "$WORK/test_$game.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 1)) --game=$game
 done
 run_scene "e2e:skyblock" "$WORK/test_skyblock.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 2)) --game=skyblock
@@ -75,6 +75,7 @@ done
 
 run_scene "persistence" "$WORK/persistence.log" res://tests/persistence_test.tscn
 run_scene "identity" "$WORK/identity.log" res://tests/identity_test.tscn
+run_scene "gameplay" "$WORK/gameplay.log" res://tests/gameplay_test.tscn
 if [ "${VOXEL_NATIVE:-1}" != "0" ]; then
   run_scene "js-sandbox" "$WORK/js_sandbox.log" res://tests/js_sandbox_test.tscn
 fi

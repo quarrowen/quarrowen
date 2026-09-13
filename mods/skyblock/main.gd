@@ -29,6 +29,9 @@ func setup(mod_api) -> void:
 	})
 	api.set_server_info({"name": "Skyblock", "motd": "Your island awaits. /island to go home, /island reset to start over."})
 	api.set_physics({"void_below": true})
+	# Anything dropped on a small island would roll into the void, so mined blocks go straight to the
+	# inventory, and dying keeps it.
+	api.set_gameplay({"item_drops": "inventory", "keep_inventory": true})
 	api.set_world_generator(VoidGenerator.new())
 	api.set_spawn_handler(func(player): return _island_spawn(player))
 

@@ -15,6 +15,11 @@ var yaw := 0.0
 var pitch := 0.0
 ## Free-form per-player data owned by mods; persisted with the world. Namespace your keys.
 var data := {}
+var health := 20.0
+var max_health := 20.0
+var dead := false
+## Where the player respawns; Vector3.INF uses the game's spawn handler.
+var spawn_point := Vector3.INF
 
 # Engine bookkeeping.
 var input_queue: Array = []
@@ -25,6 +30,15 @@ var pending_chunks: Array[Vector2i] = []
 var stream_center := Vector2i(1 << 30, 0)
 var edit_tokens := 0.0
 var ui_ids := {}
+var known_entities := {}  # entity id -> true (replicated to this player)
+var known_entities_stale := true
+var last_damage_time := -100.0
+var hurt_timer := 0.0
+var regen_timer := 0.0
+var void_timer := 0.0
+var last_attack_time := -100.0
+var fall_velocity := 0.0
+var inventory_open := false
 
 var _server
 
@@ -49,7 +63,46 @@ func get_eye_position() -> Vector3:
 func teleport(pos: Vector3) -> void:
 	state.position = pos
 	state.velocity = Vector3.ZERO
+	fall_velocity = 0.0
+	known_entities_stale = true
 	_server.ensure_area_loaded(pos)
+
+
+## Deals damage from `attacker` (player, entity or null). Creative players are unaffected. Returns
+## true if damage applied. `cause`: "attack", "mob", "projectile", "fall", "void", "magic", ...
+func damage(amount: float, cause := "magic", attacker = null) -> bool:
+	return _server.damage_player(self, amount, cause, attacker)
+
+
+func heal(amount: float) -> void:
+	_server.heal_player(self, amount)
+
+
+func set_health(value: float) -> void:
+	health = clampf(value, 0.0, max_health)
+	_server.sync_health(self)
+	if health <= 0.0 and not dead:
+		_server.kill_player(self, "magic", null)
+
+
+func set_max_health(value: float) -> void:
+	max_health = clampf(value, 1.0, 1000.0)
+	health = minf(health, max_health)
+	_server.sync_health(self)
+
+
+func kill(cause := "magic") -> void:
+	_server.kill_player(self, cause, null)
+
+
+## Adds velocity (knockback, launch pads). The client is corrected by the next snapshot.
+func push(impulse: Vector3) -> void:
+	state.velocity += impulse
+
+
+## Plays a sound only this player hears, not positioned in the world.
+func play_sound(sound_name: String, volume := 1.0, pitch := 1.0) -> void:
+	_server.play_sound_to(self, sound_name, volume, pitch)
 
 
 func send_message(text: String) -> void:
@@ -102,6 +155,12 @@ func count_of(block: int) -> int:
 func clear_inventory() -> void:
 	inventory.clear()
 	sync_inventory()
+
+
+## Drops items as an entity in front of the player.
+func drop(item: int, count := 1) -> void:
+	_server.entities.drop_item(item, count, get_eye_position() - Vector3(0, 0.3, 0),
+		PlayerPhysics.look_direction(yaw, pitch) * 5.0 + Vector3(0, 1.5, 0), 1.5)
 
 
 ## Fills hotbar slots in order with the given block ids.
