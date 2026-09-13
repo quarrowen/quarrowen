@@ -1,6 +1,6 @@
 # VoxelCraft — progress and resume notes
 
-Last updated: 2026-09-13. Read this first when resuming.
+Last updated: 2026-09-13 (after the Claude Code restart). Read this first when resuming.
 
 ## Repository and branches
 
@@ -10,8 +10,8 @@ Branches stack on each other; nothing is merged to `master` yet.
 | Branch | PR | Contents | CI |
 |---|---|---|---|
 | `hardening` | #1 (draft, base `master`) | tests + CI, 16-bit block ids, identity/auth, permissions, exports, DTLS + version handshake + server pinning, backups, identity export/import | green |
-| `gameplay` | #2 (draft, base `hardening`) | entities, health/combat, 36-slot inventory, audio | **red**: `e2e:combat` flaky on the GitHub runner (bot chasing pig/zombie) |
-| `mob-ai` | not opened yet (base `gameplay`) | engine mob AI (this session's work) | not run |
+| `gameplay` | #2 (draft, base `hardening`) | entities, health/combat, 36-slot inventory, audio | combat test hardened (teleport when the chase stalls, looser fall check); re-run pending |
+| `mob-ai` | #3 (draft, base `gameplay`) | engine mob AI + README docs | native suite green on CI; fallback fall-damage check fixed; re-run pending |
 
 Local test commands: `tools/run_tests.sh` (native) and `VOXEL_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh`
 (GDScript fallbacks). Both pass locally on `mob-ai` (14 and 13 suites). Rebuild native after Rust
@@ -57,16 +57,13 @@ changes with `tools/build_native.sh`.
 
 ## Pending (next steps, in order)
 
-1. Commit/push `mob-ai` (committed at the end of this session — verify with `git log`), open a
-   draft PR based on `gameplay`.
-2. Fix the flaky `e2e:combat` on CI (PR #2 is red). Likely the headless runner is slower: the bot's
-   chase/aim loop misses. Options: make the test drive attacks more robustly (teleport next to
-   the mob before attacking, longer timeouts), or verify with `gh run view --log-failed`.
-   Cherry-pick the fix into `gameplay` so #2 turns green.
-3. README: document the mob AI (config keys, presets, attacks, phases, custom behaviors, events,
-   JS API, performance numbers). Not written yet.
-4. AI performance: move perception LOS batching and steering to native if mob counts grow; path
+1. Confirm CI is green on #2 and #3 (`gh run list --branch gameplay|mob-ai`).
+2. Equipment system (below): agree on the design with the user, then build it on a new branch off
+   `mob-ai`.
+3. AI performance, if mob counts grow: move perception LOS batching and steering to native; path
    budget is 8/tick native, 2/tick fallback.
+4. The Godot MCP editor plugin lives in `addons/godot_mcp/` locally; it is git-ignored and excluded
+   from exports on `mob-ai` (not on `gameplay`/`hardening`, where it just shows as untracked).
 
 ## Next feature discussed: equipment (user request, not started)
 
@@ -90,7 +87,7 @@ progression (items that level up with use), upgrades, and engine-provided visual
 
 ## Environment notes
 
-- User installed the Godot MCP server (https://godot-mcp.abyo.net/) and has the editor open; its
-  tools were not available in the previous session (MCP servers load at session start). Check the
-  tool list after restart.
+- Godot MCP Pro (`mcp__godot-mcp-pro__*` tools) works when the editor is open: project info, editor
+  errors, scene tree, screenshots, running scenes, input simulation. Headless CLI testing still
+  works without it.
 - macOS; Godot at `/Applications/Godot.app/Contents/MacOS/Godot`; Docker via OrbStack.
