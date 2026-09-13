@@ -83,6 +83,20 @@ changes with `tools/build_native.sh`.
   Guild gold burst + pick shimmer + quest sparkle + meteor explosion, Colossus stomp dust, iron sword
   trails. Protocol 11 / 0.11.0. `tools/run_tests.sh` now also fails on SCRIPT ERROR in test logs.
 
+## Roadmap (milestones, agreed 2026-09-13)
+
+1. **Vanilla survival loop** (current): chests and storage, furnace/smelting, hunger and food,
+   farming, beds and spawn points, biomes, caves and structures. Each is built as an engine
+   capability mods can use (containers, block ticking, processing recipes, world structures), then
+   used by vanilla.
+2. **Creator platform** (follow-up): hot-reload mods on a running server, in-game script console, mod
+   packaging with versions/dependencies, generated API docs site, starter templates.
+3. **Player-made content / UGC** (follow-up): uploads of skins, cosmetics and later items/models;
+   validation, content hashing, per-server approval, reporting/moderation hooks, shared catalog.
+4. **Multiplayer network** (follow-up): server browser/discovery, server-to-server portals/transfer
+   with the same identity, profiles, friends/parties, roles/permissions, anti-cheat checks, 100+ player
+   scaling tests.
+
 ## Pending (next steps, in order)
 
 1. Player-made content imports (skins, cosmetics uploads) were deferred by the user ("need to explore
