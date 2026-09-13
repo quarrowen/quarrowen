@@ -1,25 +1,19 @@
 # VoxelCraft — progress and resume notes
 
-Last updated: 2026-09-13 (visuals phase 2 complete: avatars, cosmetics, effects). Read this first when resuming.
+Last updated: 2026-09-13 (everything merged to master). Read this first when resuming.
 
 ## Repository and branches
 
 Remote: `git@github.com:omnivoxel-game/voxelcraft.git` (private, default branch `master`).
-Branches stack on each other; nothing is merged to `master` yet.
-
-| Branch | PR | Contents | CI |
-|---|---|---|---|
-| `hardening` | #1 (draft, base `master`) | tests + CI, 16-bit block ids, identity/auth, permissions, exports, DTLS + version handshake + server pinning, backups, identity export/import | green |
-| `gameplay` | #2 (draft, base `hardening`) | entities, health/combat, 36-slot inventory, audio | combat test hardened (teleport when the chase stalls, looser fall check); re-run pending |
-| `mob-ai` | #3 (draft, base `gameplay`) | engine mob AI + README docs | green |
-| `equipment` | #4 (draft, base `mob-ai`) | phase 1 equipment: item data, slots, stats, timed mining, durability, progression examples | green |
-| `visuals` | #5 (draft, base `equipment`) | avatars (rig, animation, held items, worn armor, F5 camera, first-person arm), cosmetics, effects | local suites pass |
+All work so far is merged to `master` (2026-09-13) through PRs #1-#5, in order: hardening,
+gameplay foundation, engine mob AI, equipment core, visuals (avatars, cosmetics, effects). The
+feature branches were deleted after merging. Start new work on a branch from `master`.
 
 Local test commands: `tools/run_tests.sh` (native) and `VOXEL_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh`
-(GDScript fallbacks). Both pass locally on `mob-ai` (14 and 13 suites). Rebuild native after Rust
+(GDScript fallbacks). Both pass locally (14 and 13 suites). Rebuild native after Rust
 changes with `tools/build_native.sh`.
 
-## Done on `mob-ai` (engine mob AI)
+## Engine mob AI (PR #3)
 
 - `native/src/pathfind.rs`: size-aware voxel A* (width x height footprint, step_up, max_drop,
   swimming, hazard blocks, edge avoidance, partial paths), walkable-line and line-of-sight checks;
@@ -57,7 +51,7 @@ changes with `tools/build_native.sh`.
 - Benchmark (`tests/bench.tscn`): 300 mobs (≈130 hunting 10 players) + 200 items ≈ 3.5 ms/tick
   native, ≈ 9.3 ms/tick GDScript fallback.
 
-## Done on `visuals` (phase 2 steps 1-4)
+## Visuals: avatars, cosmetics, effects (PR #5)
 
 - Step 1, avatars: `engine/shared/player_rig.gd` (10-part rig as data, 64x64 skin layout regions,
   attachment points, `api.set_player_rig`), `engine/client/avatar/` (`avatar.gd` procedural animation,
@@ -96,7 +90,7 @@ changes with `tools/build_native.sh`.
 2. AI performance, if mob counts grow: move perception LOS batching and steering to native; path
    budget is 8/tick native, 2/tick fallback.
 3. The Godot MCP editor plugin lives in `addons/godot_mcp/` locally; it is git-ignored and excluded
-   from exports on `mob-ai` (not on `gameplay`/`hardening`, where it just shows as untracked).
+   from exports.
 
 ## Equipment decisions (user, 2026-09-13)
 
