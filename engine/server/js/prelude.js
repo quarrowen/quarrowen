@@ -154,7 +154,23 @@
     // Content
     registerBlock: (name, def) => host("registerBlock", name, def),
     registerItem: (name, def) => host("registerItem", name, def),
-    registerRecipe: (inputs, output, count = 1) => host("registerRecipe", inputs, output, count),
+    /** options: {station: "crafting_table"} to require a station block. */
+    registerRecipe: (inputs, output, count = 1, options = {}) => host("registerRecipe", inputs, output, count, options),
+    /** {title, groups: [{name, count, columns, label, take_only, accepts: [items] | "fuel"}], progress: [{name, label, color}]} */
+    registerContainer: (name, def) => host("registerContainer", name, def),
+    openContainer: (player, position) => host("openContainer", player, position),
+    /** [{item, count, data}] per slot. */
+    containerItems: (position) => host("containerItems", position),
+    setContainerItem: (position, slot, item, count, data = {}) => host("setContainerItem", position, slot, item, count, data),
+    /** Returns how many did not fit. */
+    addToContainer: (position, item, count, data = {}, group = "") => host("addToContainer", position, item, count, data, group),
+    containerState: (position) => host("containerState", position),
+    setContainerState: (position, state) => host("setContainerState", position, state),
+    setContainerProgress: (position, bar, value) => host("setContainerProgress", position, bar, value),
+    setFuel: (item, seconds) => host("setFuel", item, seconds),
+    getFuel: (item) => host("getFuel", item),
+    registerProcess: (kind, input, output, count = 1, seconds = 10) => host("registerProcess", kind, input, output, count, seconds),
+    getProcess: (kind, item) => host("getProcess", kind, item),
     block: (name) => host("block", name),
     item: (name) => host("item", name),
     itemName: (id) => host("itemName", id),

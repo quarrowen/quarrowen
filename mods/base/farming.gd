@@ -49,7 +49,7 @@ func setup(mod_api, sounds: Dictionary) -> void:
 			"icon": "textures/%s_hoe.png" % m.name, "durability": m.durability, "usable": true,
 			"tool": {"type": "hoe", "tier": m.tier, "speed": 1.0 + m.tier}, "weapon": {"damage": 1.0, "cooldown": 0.4}})
 		ids.hoes[hoe] = true
-		api.register_recipe({m.input: 2, "base:stick": 2}, "base:%s_hoe" % m.name)
+		api.register_recipe({m.input: 2, "base:stick": 2}, "base:%s_hoe" % m.name, 1, {"station": "crafting_table"})
 
 	for stage in WHEAT_STAGES - 1:
 		api.register_block_tick("base:wheat_%d" % stage, _grow_wheat, {"interval": WHEAT_INTERVAL})
@@ -85,9 +85,13 @@ func _on_item_use(ev: Dictionary) -> void:
 			player.heal(BREAD_HEAL)
 			api.play_sound("base:eat", player.get_eye_position())
 		return
-	if not ev.has_target or ev.normal != Vector3i.UP:
+	if not ev.has_target:
 		return
 	var pos: Vector3i = ev.position
+	if api.get_block(pos) == ids.tall_grass:
+		pos += Vector3i.DOWN  # aiming at tall grass means the ground under it
+	elif ev.normal != Vector3i.UP:
+		return
 	var above := pos + Vector3i.UP
 	if api.get_block(above) != 0 and api.get_block(above) != ids.tall_grass:
 		return

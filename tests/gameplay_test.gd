@@ -25,6 +25,8 @@ func _ready() -> void:
 	await _cosmetics()
 	await _effects()
 	await _farming()
+	await _containers()
+	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -511,6 +513,129 @@ func _farming() -> void:
 	_check(server.world.get_block_v(tree_spot + Vector3i.UP) == sapling, "a scheduled tick waits until it is due")
 	ticks.update(0.6)
 	_check(server.world.get_block_v(tree_spot + Vector3i.UP) == reg.id_of("base:log"), "the scheduled tick grew the sapling into a tree")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _containers() -> void:
+	var server = _start("containers_%d" % Time.get_ticks_msec())
+	var reg = server.registry
+	var items = server.items
+	var p := ServerPlayer.new(server, 81, "Keeper")
+	p.player_id = "keeper"
+	server.players[81] = p
+	var y: int = server.surface_height(8, 8)
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	p.edit_tokens = 100.0
+	var chest_pos := Vector3i(10, y + 1, 8)
+	server.set_block_authoritative(chest_pos, reg.id_of("base:chest"))
+	var cobble: int = items.id_of("base:cobblestone")
+	var coal: int = items.id_of("base:coal")
+	p.inventory.set_slot(0, cobble, 40)
+	_check(server.containers.open(p, chest_pos) and p.open_container == chest_pos, "a chest opens for a nearby player")
+	server.on_inventory_click(81, 0, 1, true)
+	var chest = server.containers.get_container(chest_pos)
+	_check(chest.get_item(0).item == cobble and chest.get_item(0).count == 40 and p.inventory.ids[0] == 0, "shift-click moves a stack into the chest")
+	server.on_inventory_click(81, 1000, 2, false)
+	_check(p.inventory.cursor_count == 20 and chest.get_item(0).count == 20, "right-clicking a chest slot picks up half")
+	server.on_inventory_click(81, 1005, 1, false)
+	_check(chest.get_item(5).count == 20 and p.inventory.cursor_count == 0, "clicking an empty chest slot puts the stack down")
+	var stored: Dictionary = server.get_block_data(chest_pos)
+	_check(stored.slots[5][0] == "base:cobblestone", "contents are stored by item name in block data")
+	server.on_inventory_click(81, 1005, 1, true)
+	_check(p.inventory.count_of(cobble) == 20, "shift-click takes a stack back into the backpack")
+	var entities_before: int = server.entities.entities.size()
+	server.break_block(chest_pos, false)
+	_check(server.entities.entities.size() == entities_before + 1 and p.open_container == null, "breaking a chest spills its contents and closes the screen")
+
+	# Furnace: fuel filter, take-only output, smelting over world time, lights while burning.
+	var furnace_pos := Vector3i(10, y + 1, 10)
+	var furnace: int = reg.id_of("base:furnace")
+	var furnace_lit: int = reg.id_of("base:furnace_lit")
+	var ore: int = items.id_of("base:iron_ore")
+	var ingot: int = items.id_of("base:iron_ingot")
+	server.set_block_authoritative(furnace_pos, furnace)
+	server.containers.open(p, furnace_pos)
+	p.inventory.set_slot(1, ore, 3)
+	p.inventory.set_slot(2, coal, 1)
+	server.on_inventory_click(81, 0, 1, false)  # pick up the cobblestone
+	server.on_inventory_click(81, 1001, 1, false)
+	var box = server.containers.get_container(furnace_pos)
+	_check(box.get_item(1).item == 0 and p.inventory.cursor_id == cobble, "the fuel slot refuses cobblestone")
+	server.on_inventory_click(81, 1002, 1, false)
+	_check(box.get_item(2).item == 0, "players cannot put items into the output slot")
+	server.on_inventory_closed(81)
+	server.containers.open(p, furnace_pos)
+	server.on_inventory_click(81, 2, 1, true)  # coal -> fuel slot
+	server.on_inventory_click(81, 1, 1, true)  # ore -> input slot
+	_check(box.get_item(0).count == 3 and box.get_item(1).item == 0 and server.world.get_block_v(furnace_pos) == furnace_lit,
+		"loading ore and coal lights the furnace and burns the coal")
+	server.block_ticks.clock += 25.0
+	server.block_ticks.update(0.6)
+	_check(box.get_item(2).item == ingot and box.get_item(2).count == 2 and box.get_item(0).count == 1, "25 seconds smelted two ingots (%s)" % box.get_item(2))
+	_check(box.get_progress("burn") > 0.0 and box.get_progress("cook") > 0.0, "progress bars follow fuel and smelting")
+	server.block_ticks.clock += 500.0
+	server.block_ticks.update(0.6)
+	_check(box.get_item(2).count == 3 and server.world.get_block_v(furnace_pos) == furnace, "it finished the ore, burned out and went dark")
+	server.on_inventory_click(81, 1002, 1, false)
+	_check(p.inventory.cursor_id == ingot and p.inventory.cursor_count == 3, "the output slot can be emptied")
+	server.on_inventory_closed(81)
+
+	# Stations: recipes that need a crafting table.
+	var pick: int = items.id_of("base:wooden_pickaxe")
+	var recipe: Dictionary = server._recipes.filter(func(r): return r.output == pick)[0]
+	p.inventory.clear()
+	p.inventory.set_slot(0, items.id_of("base:planks"), 8)
+	p.inventory.set_slot(1, items.id_of("base:stick"), 4)
+	_check(recipe.station == "crafting_table" and not server._can_craft(p, recipe), "a pickaxe needs a crafting table")
+	var table_pos := Vector3i(8, y + 1, 10)
+	server.set_block_authoritative(table_pos, reg.id_of("base:crafting_table"))
+	p.hurt_timer = 0.0
+	server.on_interact(81, table_pos)
+	_check(p.crafting_station.get("name") == "crafting_table" and p.ui_ids.has("engine:crafting") and server._can_craft(p, recipe),
+		"right-clicking the table opens station crafting")
+	server._on_crafting_action(p, "craft:%d" % server._recipes.find(recipe))
+	_check(p.inventory.count_of(pick) == 1, "crafted a pickaxe at the table")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _js_blocks() -> void:
+	if not ClassDB.class_exists(&"NativeJsRuntime"):
+		return  # JavaScript mods need the native extension
+	var server := GameServer.new()
+	add_child(server)
+	var err: Error = server.start({"mods": PackedStringArray(["js_blocks"]), "mod_dirs": PackedStringArray(["res://tests/mods"]),
+		"world": "js_blocks_%d" % Time.get_ticks_msec(), "data_dir": DATA_DIR, "seed": 42, "offline": true})
+	_check(err == OK, "JavaScript block test mod loaded")
+	if err != OK:
+		server.queue_free()
+		return
+	server.set_physics_process(false)
+	var p := ServerPlayer.new(server, 82, "Scripter")
+	p.player_id = "scripter"
+	server.players[82] = p
+	var y: int = server.surface_height(8, 8)
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	p.edit_tokens = 100.0
+	var crate_pos := Vector3i(9, y + 1, 8)
+	server.set_block_authoritative(crate_pos, server.registry.id_of("js_blocks:crate"))
+	var gravel: int = server.items.id_of("base:gravel")
+	_check(server.get_fuel(gravel) == 7.0 and server.get_process("pressing", gravel).count == 2, "JavaScript set fuel and processing recipes")
+	_check(server.containers.open(p, crate_pos), "a JavaScript container opens")
+	p.inventory.set_slot(0, gravel, 3)
+	server.on_inventory_click(82, 0, 1, true)
+	var crate = server.containers.get_container(crate_pos)
+	_check(crate.get_item(4).item == gravel, "shift-click sends fuel to the JavaScript fuel slot")
+	_check(crate.state.get("filled") == 1 and is_equal_approx(crate.get_progress("fill"), 0.2) and crate.state.press.count == 2,
+		"container_changed ran in JavaScript (%s)" % crate.state)
+	server.block_ticks._call(crate_pos, 3, "random", {})
+	crate = server.containers.get_container(crate_pos)
+	_check(crate.get_item(0).item == server.items.id_of("base:coal") and crate.get_item(0).count == 3 and crate.state.reason == "random"
+		and crate.state.fuel == 7.0, "a JavaScript block tick filled the crate (%s)" % crate.state)
+	var stick_recipe: Dictionary = server._recipes.filter(func(r): return r.station == "workbench")[0]
+	p.inventory.set_slot(1, server.items.id_of("base:planks"), 2)
+	_check(not server._can_craft(p, stick_recipe), "a JavaScript station recipe needs its station")
 	server.queue_free()
 	await get_tree().process_frame
 

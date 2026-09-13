@@ -407,6 +407,26 @@ func s_effect(effect_id: int, position: Vector3, options: Dictionary) -> void:
 		client.on_effect(effect_id, position, options)
 
 
+## A container screen opened: {title, size, groups, bars, slots, data, progress} (see Containers).
+@rpc("authority", "call_remote", "reliable")
+func s_container_open(view: Dictionary) -> void:
+	if client:
+		client.on_container_open(view)
+
+
+## New contents of the open container: {slots, data, progress}.
+@rpc("authority", "call_remote", "reliable")
+func s_container_update(view: Dictionary) -> void:
+	if client:
+		client.on_container_update(view)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_container_close() -> void:
+	if client:
+		client.on_container_close()
+
+
 ## Server cosmetics you own here and the server's cosmetics policy (see Cosmetics).
 @rpc("authority", "call_remote", "reliable")
 func s_cosmetics(owned: PackedStringArray, policy: Dictionary) -> void:

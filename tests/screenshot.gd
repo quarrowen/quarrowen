@@ -10,7 +10,7 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -47,6 +47,29 @@ func _ready() -> void:
 		await get_tree().create_timer(1.0).timeout
 		client._set_inventory_open(true)
 		client._inventory_screen._hovered = int(options.hover)
+	if not String(options.open).is_empty():
+		# Place a container block in front and open it: --open=base:furnace (fill it with --commands first).
+		var id: int = client.items.id_of(options.open)
+		Net.c_chat.rpc_id(1, "/give %s" % options.open)
+		await get_tree().create_timer(0.8).timeout
+		var slot: int = client.inventory.ids.find(id)
+		if slot >= 9:
+			for s in [slot, 8, slot]:
+				client.inventory_click(s)
+				await get_tree().create_timer(0.3).timeout
+			slot = 8
+		client.select_slot(slot)
+		await get_tree().create_timer(0.4).timeout
+		# Two blocks ahead on the ground, clear of the player.
+		var ahead: Vector3 = client.state.position + Vector3(-sin(client.yaw), 0.0, -cos(client.yaw)) * 2.0
+		var spot := Vector3i(floori(ahead.x), int(client.state.position.y) + 2, floori(ahead.z))
+		while spot.y > 1 and client.registry.solid_lut[client.world.get_block_v(spot + Vector3i.DOWN)] == 0:
+			spot.y -= 1
+		if true:
+			client.request_place(spot)
+			await get_tree().create_timer(0.8).timeout
+			Net.c_interact.rpc_id(1, spot)
+			await get_tree().create_timer(0.8).timeout
 	if not String(options.wear).is_empty():
 		Net.c_set_avatar.rpc_id(1, JSON.parse_string(options.wear))  # in game, so server cosmetics apply too
 		await get_tree().create_timer(0.5).timeout

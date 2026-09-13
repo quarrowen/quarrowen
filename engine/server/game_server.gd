@@ -28,6 +28,7 @@ const PlayerRig = preload("res://engine/shared/player_rig.gd")
 const Cosmetics = preload("res://engine/shared/cosmetics.gd")
 const EffectRegistry = preload("res://engine/shared/effect_registry.gd")
 const BlockTicks = preload("res://engine/server/block_ticks.gd")
+const Containers = preload("res://engine/server/containers.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -75,6 +76,8 @@ var cosmetics := Cosmetics.new()
 var effects := EffectRegistry.new()
 ## Random and scheduled block ticks, the world clock and server-side light (see BlockTicks).
 var block_ticks := BlockTicks.new(self)
+## Container types and open container screens (chests, furnaces, machines).
+var containers := Containers.new(self)
 ## Game-wide rules mods can change with set_gameplay.
 var gameplay := {
 	"item_drops": "entity",  # "entity": broken blocks drop items to pick up; "inventory": straight into the inventory
@@ -115,6 +118,8 @@ var _js_mods: Array = []  # keeps JavaScript runtimes alive
 var _recipes: Array = []  # {inputs: {item id: count}, output: item id, count}
 var _snapshot_round := 0
 var _support_rules := {}  # block id -> null (none) | true (solid below) | {block id: true}
+var _fuels := {}  # item id -> seconds it burns
+var _processes := {}  # kind -> {input item id: {output, count, seconds}}
 var _time_of_day := 0.5
 var _day_length := 0.0
 var _time_sync_timer := 0.0
@@ -583,6 +588,7 @@ func _physics_process(delta: float) -> void:
 	_poll_chunk_jobs()
 	_advance_time(delta)
 	block_ticks.update(delta)
+	containers.update(delta)
 	var sim_usec := 0
 	var stream_usec := 0
 	for p: ServerPlayer in players.values():
@@ -1122,6 +1128,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	if p == null:
 		return
 	emit("player_leave", {"player": p})
+	containers.close(p, false)
 	_store_player(p)
 	players.erase(peer_id)
 	for other: ServerPlayer in players.values():
@@ -1343,11 +1350,13 @@ func set_block_authoritative(pos: Vector3i, id: int, keep_data := false, state :
 		_apply_block(pos, id, keep_data, state)
 
 
-## Y of the highest non-air block in the column (loading it if needed), or -1.
+## Y of the highest solid or liquid block in the column (loading it if needed), or -1. Plants and
+## other non-solid decorations are skipped, so things placed on the surface stand on the ground.
 func surface_height(x: int, z: int) -> int:
 	_ensure_chunk(VoxelWorld.chunk_coord_at(x, z))
 	for y in range(Chunk.SIZE_Y - 1, -1, -1):
-		if world.get_block(x, y, z) != BlockRegistry.AIR:
+		var block := world.get_block(x, y, z)
+		if block != BlockRegistry.AIR and (registry.solid_lut[block] == 1 or registry.liquid_lut[block] == 1):
 			return y
 	return -1
 
@@ -1507,7 +1516,14 @@ func on_interact(peer_id: int, pos: Vector3i) -> void:
 	var block := world.get_block_v(pos)
 	if block == BlockRegistry.UNLOADED or registry.interactive_lut[block] == 0 or not _can_edit(p, pos):
 		return
-	emit("block_interact", {"player": p, "position": pos, "block": block})
+	var ev := emit("block_interact", {"player": p, "position": pos, "block": block, "cancelled": false})
+	if ev.cancelled:
+		return
+	if not containers.type_of_block(block).is_empty():
+		containers.open(p, pos)
+	elif not String(registry.defs[block].get("station", "")).is_empty():
+		p.crafting_station = {"name": String(registry.defs[block].station), "position": pos, "title": registry.defs[block].display_name}
+		show_crafting(p)
 
 
 func on_select_slot(peer_id: int, slot: int) -> void:
@@ -1568,6 +1584,7 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 func on_open_menu(peer_id: int, menu: String) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p and menu == "crafting":
+		p.crafting_station = {}
 		show_crafting(p)
 
 
@@ -1658,6 +1675,12 @@ func on_inventory_click(peer_id: int, slot: int, button: int, shift: bool) -> vo
 			p.inventory.cursor_id = p.inventory.ids[slot]
 			p.inventory.cursor_count = items.max_stack(p.inventory.ids[slot])
 			p.inventory.cursor_data = p.inventory.data[slot].duplicate(true)
+	elif slot >= Containers.SLOT_BASE:
+		containers.click(p, slot - Containers.SLOT_BASE, button, shift)
+		return
+	elif shift and p.open_container != null and slot < Inventory.SIZE:
+		containers.quick_move_in(p, slot)
+		return
 	else:
 		p.inventory.click(slot, button, shift, items.max_stack, _slot_accepts.bind(p))
 	p.sync_inventory()
@@ -1665,6 +1688,8 @@ func on_inventory_click(peer_id: int, slot: int, button: int, shift: bool) -> vo
 
 func on_inventory_closed(peer_id: int) -> void:
 	var p: ServerPlayer = players.get(peer_id)
+	if p != null:
+		containers.close(p, false)
 	if p == null or p.inventory.cursor_count <= 0:
 		return
 	var left := p.inventory.add(p.inventory.cursor_id, p.inventory.cursor_count, items.max_stack(p.inventory.cursor_id), p.inventory.cursor_data)
@@ -1932,11 +1957,47 @@ func _update_player_rules(p: ServerPlayer) -> void:
 
 # --- Crafting -----------------------------------------------------------------------------------
 
-func add_recipe(inputs: Dictionary, output: int, count: int) -> void:
-	_recipes.append({"inputs": inputs, "output": output, "count": count})
+## `station`: "" (crafted anywhere) or a station name blocks declare with `station` (e.g. a crafting table).
+func add_recipe(inputs: Dictionary, output: int, count: int, station := "") -> void:
+	_recipes.append({"inputs": inputs, "output": output, "count": count, "station": station})
+
+
+## How long an item burns as fuel (seconds; 0 = not fuel).
+func get_fuel(item: int) -> float:
+	return float(_fuels.get(item, 0.0))
+
+
+func set_fuel(item: int, seconds: float) -> void:
+	if seconds > 0.0:
+		_fuels[item] = seconds
+	else:
+		_fuels.erase(item)
+
+
+## Processing recipes machines look up: kind ("smelting", "grinding", ...) -> input -> result.
+func add_process(kind: String, input: int, output: int, count: int, seconds: float) -> void:
+	if not _processes.has(kind):
+		_processes[kind] = {}
+	_processes[kind][input] = {"output": output, "count": count, "seconds": seconds}
+
+
+func get_process(kind: String, input: int) -> Dictionary:
+	return _processes.get(kind, {}).get(input, {})
+
+
+## Whether the player is at the station a recipe needs (creative players craft anything anywhere).
+func _at_station(p: ServerPlayer, recipe: Dictionary) -> bool:
+	if recipe.station.is_empty() or p.inventory.creative:
+		return true
+	var s: Dictionary = p.crafting_station
+	if s.is_empty() or s.name != recipe.station or String(registry.defs[world.get_block_v(s.position)].get("station", "")) != s.name:
+		return false
+	return p.get_eye_position().distance_to(Vector3(s.position) + Vector3.ONE * 0.5) <= Containers.MAX_DISTANCE
 
 
 func _can_craft(p: ServerPlayer, recipe: Dictionary) -> bool:
+	if not _at_station(p, recipe):
+		return false
 	if p.inventory.creative:
 		return true
 	for id: int in recipe.inputs:
@@ -1946,10 +2007,14 @@ func _can_craft(p: ServerPlayer, recipe: Dictionary) -> bool:
 
 
 func show_crafting(p: ServerPlayer) -> void:
-	var children := [{"type": "label", "text": "Crafting", "size": 22, "color": "#ffd166"}]
+	if not p.crafting_station.is_empty() and not _at_station(p, {"station": p.crafting_station.name}):
+		p.crafting_station = {}
+	var title: String = p.crafting_station.get("title", "Crafting")
+	var children := [{"type": "label", "text": title, "size": 22, "color": "#ffd166"}]
 	if _recipes.is_empty():
 		children.append({"type": "label", "text": "This server has no recipes."})
-	var order := range(_recipes.size())
+	var order := range(_recipes.size()).filter(func(i): return _at_station(p, _recipes[i]))
+	var elsewhere := _recipes.size() - order.size()
 	order.sort_custom(func(a, b): return _can_craft(p, _recipes[a]) and not _can_craft(p, _recipes[b]))
 	for i in order.slice(0, 20):
 		var recipe: Dictionary = _recipes[i]
@@ -1963,6 +2028,8 @@ func show_crafting(p: ServerPlayer) -> void:
 				"color": "#ffffff" if can else "#8a8a8a"},
 			{"type": "button", "text": "Craft", "action": "craft:%d" % i, "disabled": not can},
 		]})
+	if elsewhere > 0:
+		children.append({"type": "label", "text": "%d more recipes need a crafting station" % elsewhere, "color": "#9a9a9a"})
 	children.append({"type": "button", "text": "Close", "action": "close"})
 	p.show_ui("engine:crafting", {"anchor": "center", "modal": true, "children": children})
 
@@ -1970,6 +2037,7 @@ func show_crafting(p: ServerPlayer) -> void:
 func _on_crafting_action(p: ServerPlayer, action: String) -> void:
 	if action == "close":
 		p.hide_ui("engine:crafting")
+		p.crafting_station = {}
 		return
 	var index := int(action.trim_prefix("craft:"))
 	if not action.begins_with("craft:") or index < 0 or index >= _recipes.size():
@@ -2053,6 +2121,8 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0) -> 
 		chunk.states.erase(index)
 	_save_dirty[coord] = true
 	if old != block and not keep_data:
+		if not containers.type_of_block(old).is_empty():
+			containers.block_removed(pos, get_block_data(pos), old)
 		clear_block_data(pos)
 	block_ticks.block_changed(pos, old, block)
 	for p: ServerPlayer in players.values():

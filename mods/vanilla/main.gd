@@ -2,7 +2,8 @@ extends "res://engine/server/mod.gd"
 ## Classic creative sandbox on generated terrain.
 
 const Terrain = preload("terrain.gd")
-const PORKCHOP_HEAL := 6.0
+const PORKCHOP_HEAL := 3.0
+const COOKED_PORKCHOP_HEAL := 8.0
 const APPLE_CHANCE := 0.12
 
 const HOTBAR := ["base:grass", "base:dirt", "base:stone", "base:cobblestone", "base:planks",
@@ -69,8 +70,10 @@ func _setup_mobs() -> void:
 	for piece in [["helmet", "head", 1.0, 5], ["chestplate", "chest", 3.0, 8], ["leggings", "legs", 2.0, 7], ["boots", "feet", 1.0, 4]]:
 		api.register_item("leather_%s" % piece[0], {"display_name": "Leather %s" % String(piece[0]).capitalize(),
 			"icon": "textures/leather_%s.png" % piece[0], "equip_slot": piece[1], "durability": 80, "armor": {"armor": piece[2]}, "armor_texture": "textures/leather_armor.png"})
-		api.register_recipe({"vanilla:leather": piece[3]}, "vanilla:leather_%s" % piece[0])
-	ids.porkchop = api.register_item("porkchop", {"display_name": "Porkchop", "icon": "textures/porkchop.png", "usable": true})
+		api.register_recipe({"vanilla:leather": piece[3]}, "vanilla:leather_%s" % piece[0], 1, {"station": "crafting_table"})
+	ids.porkchop = api.register_item("porkchop", {"display_name": "Raw Porkchop", "icon": "textures/porkchop.png", "usable": true})
+	ids.cooked_porkchop = api.register_item("cooked_porkchop", {"display_name": "Cooked Porkchop", "icon": "textures/cooked_porkchop.png", "usable": true})
+	api.register_process("smelting", "vanilla:porkchop", "vanilla:cooked_porkchop", 1, 8.0)
 	api.register_entity("arrow", {"kind": "projectile", "sprite": "textures/arrow.png", "width": 0.25, "height": 0.25,
 		"damage": 4, "gravity": 14.0, "lifetime": 4.0})
 
@@ -147,10 +150,12 @@ func _setup_mobs() -> void:
 	api.add_spawn_rule({"entity": "pig", "time": "day", "on": ["base:grass"], "max_nearby": 4, "max_total": 30, "chance": 0.08})
 	api.on("item_use", func(ev):
 		if ev.item == ids.porkchop:
-			_eat(ev.player, ids.porkchop, PORKCHOP_HEAL))
+			_eat(ev.player, ids.porkchop, PORKCHOP_HEAL)
+		elif ev.item == ids.cooked_porkchop:
+			_eat(ev.player, ids.cooked_porkchop, COOKED_PORKCHOP_HEAL))
 	api.on("block_break", func(ev):
 		if ev.block == api.block("base:leaves") and randf() < APPLE_CHANCE:
-			ev.drops = [[api.item("base:apple"), 1]])
+			ev.drops.append([api.item("base:apple"), 1]))
 	api.every(4.0, _mob_tick)
 
 

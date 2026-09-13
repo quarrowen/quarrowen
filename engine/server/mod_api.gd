@@ -9,11 +9,13 @@ extends RefCounted
 ##   block_break    {player, position, block, drops: [[id, count]...], cancelled}
 ##   block_broken   {player, position, block}
 ##   block_destroyed {position, block, drops}                broken without a player (support lost, break_block)
+##   container_open {player, position, container, cancelled} container_close {player, position}
+##   container_changed {player, position, container, slot}  a player moved items in or out
 ##   block_place    {player, position, block, cancelled}
 ##   block_placed   {player, position, block}
 ##   chat           {player, text, cancelled}
 ##   ui_action      {player, ui_id, action}
-##   block_interact {player, position, block}   right-click on a block registered "interactive"
+##   block_interact {player, position, block, cancelled}   right-click on an "interactive" block (cancel stops containers and stations opening)
 ##   item_use       {player, item, has_target, position, normal, direction}   right-click holding a usable item
 ##   item_crafted   {player, item, count}
 ##   item_durability {player, slot, item, data, amount, reason ("mine" | "attack" | "armor" | ...), cancelled}
@@ -107,6 +109,11 @@ func register_block(block_name: String, def: Dictionary) -> int:
 		d.sounds = {}
 		for action in def.sounds:
 			d.sounds[action] = _qualify_ref(String(def.sounds[action]))
+	if def.has("container"):
+		d.container = _qualify_ref(String(def.container))
+		d.interactive = true
+	if def.has("station"):
+		d.interactive = true
 	return _server.registry.register(d)
 
 
@@ -355,12 +362,18 @@ func item_name(id: int) -> String:
 	return _server.items.name_of(id)
 
 
+func item_max_stack(id: int) -> int:
+	return _server.items.max_stack(id)
+
+
 func item_display_name(id: int) -> String:
 	return _server.items.display_name(id)
 
 
 ## Shapeless recipe: `inputs` maps item names to counts. Appears in the engine crafting menu (C key).
-func register_recipe(inputs: Dictionary, output: String, count := 1) -> void:
+## options: station (name of the crafting station block needed, e.g. "crafting_table"; blocks declare
+## `station: "<name>"`). Without a station the recipe is crafted anywhere (C).
+func register_recipe(inputs: Dictionary, output: String, count := 1, options := {}) -> void:
 	var resolved := {}
 	for input_name: String in inputs:
 		var id := item(input_name)
@@ -372,7 +385,55 @@ func register_recipe(inputs: Dictionary, output: String, count := 1) -> void:
 	if out <= 0:
 		push_error("[%s] Recipe output '%s' is unknown" % [mod_id, output])
 		return
-	_server.add_recipe(resolved, out, count)
+	_server.add_recipe(resolved, out, count, String(options.get("station", "")))
+
+
+## Registers a container type (see engine/server/containers.gd): {title, groups: [{name, count,
+## columns, label, take_only, accepts}], progress: [{name, label, color}]}. Blocks use it with
+## `container: "<name>"` and open it on right-click. Names without ":" are this mod's.
+func register_container(container_name: String, def: Dictionary) -> bool:
+	var d := def.duplicate(true)
+	for g in (d.get("groups") if d.get("groups") is Array else []):
+		if g is Dictionary and g.get("accepts") is Array:
+			g.accepts = (g.accepts as Array).map(func(n): return _qualify_ref(String(n)))
+	return _server.containers.register(_qualify(container_name), d)
+
+
+## The container at a position (engine/server/container.gd), or null.
+func get_container(position: Vector3i):
+	return _server.containers.get_container(position)
+
+
+## Opens a container's screen for a player (as if they right-clicked it).
+func open_container(player, position: Vector3i) -> bool:
+	return _server.containers.open(player, position)
+
+
+## Makes an item burn in fuel slots for `seconds`.
+func set_fuel(item_name: String, seconds: float) -> void:
+	var id := item(item_name)
+	if id > 0:
+		_server.set_fuel(id, seconds)
+
+
+func get_fuel(item_id: int) -> float:
+	return _server.get_fuel(item_id)
+
+
+## A processing recipe machines look up by kind: register_process("smelting", "base:iron_ore",
+## "base:iron_ingot", 1, 10.0).
+func register_process(kind: String, input: String, output: String, count := 1, seconds := 10.0) -> void:
+	var input_id := item(input)
+	var output_id := item(output)
+	if input_id <= 0 or output_id <= 0:
+		push_error("[%s] Process '%s': unknown item '%s' or '%s'" % [mod_id, kind, input, output])
+		return
+	_server.add_process(kind, input_id, output_id, count, seconds)
+
+
+## {output, count, seconds} for an input, or {} when that kind of machine cannot process it.
+func get_process(kind: String, item_id: int) -> Dictionary:
+	return _server.get_process(kind, item_id)
 
 
 ## Makes a file from this mod's folder downloadable by clients. Returns its asset name.
@@ -535,10 +596,7 @@ func fill(from: Vector3i, to: Vector3i, id: int) -> void:
 
 ## Y of the highest non-air block in the column, or -1.
 func surface_y(x: int, z: int) -> int:
-	for y in range(Chunk.SIZE_Y - 1, -1, -1):
-		if get_block(Vector3i(x, y, z)) != BlockRegistry.AIR:
-			return y
-	return -1
+	return _server.surface_height(x, z)
 
 
 # --- Players ------------------------------------------------------------------------------------

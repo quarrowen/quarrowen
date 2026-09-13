@@ -6,6 +6,7 @@ extends RefCounted
 const ModApi = preload("res://engine/server/mod_api.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
 const Entity = preload("res://engine/server/entity.gd")
+const ContainerView = preload("res://engine/server/container.gd")
 
 const PRELUDE := "res://engine/server/js/prelude.js"
 ## Milliseconds a single callback may run before QuickJS interrupts it.
@@ -127,7 +128,37 @@ func _call_host(method: String, a: Array):
 		"info": api.info(_str(a, 0))
 		"registerBlock": return api.register_block(_str(a, 0), _dict(a, 1))
 		"registerItem": return api.register_item(_str(a, 0), _dict(a, 1))
-		"registerRecipe": api.register_recipe(_dict(a, 0), _str(a, 1), _int(a, 2, 1))
+		"registerRecipe": api.register_recipe(_dict(a, 0), _str(a, 1), _int(a, 2, 1), _dict(a, 3))
+		"registerContainer": return api.register_container(_str(a, 0), _dict(a, 1))
+		"openContainer":
+			var viewer = _any_ref(a, 0)
+			return api.open_container(viewer, _block_pos(a, 1)) if viewer != null else false
+		"containerItems":
+			var c = api.get_container(_block_pos(a, 0))
+			return [] if c == null else range(c.size()).map(func(i): return c.get_item(i))
+		"setContainerItem":
+			var c = api.get_container(_block_pos(a, 0))
+			if c != null:
+				c.set_item(_int(a, 1), _int(a, 2), _int(a, 3), _dict(a, 4))
+		"addToContainer":
+			var c = api.get_container(_block_pos(a, 0))
+			return _int(a, 2) if c == null else c.add(_int(a, 1), _int(a, 2), _dict(a, 3), _str(a, 4) if a.size() > 4 else "")
+		"containerState":
+			var c = api.get_container(_block_pos(a, 0))
+			return {} if c == null else c.state
+		"setContainerState":
+			var c = api.get_container(_block_pos(a, 0))
+			if c != null:
+				c.state.clear()
+				c.state.merge(_dict(a, 1))
+		"setContainerProgress":
+			var c = api.get_container(_block_pos(a, 0))
+			if c != null:
+				c.set_progress(_str(a, 1), float(a[2]) if a.size() > 2 else 0.0)
+		"setFuel": api.set_fuel(_str(a, 0), float(a[1]) if a.size() > 1 else 0.0)
+		"getFuel": return api.get_fuel(_int(a, 0))
+		"registerProcess": api.register_process(_str(a, 0), _str(a, 1), _str(a, 2), _int(a, 3, 1), float(a[4]) if a.size() > 4 else 10.0)
+		"getProcess": return api.get_process(_str(a, 0), _int(a, 1))
 		"block": return api.block(_str(a, 0))
 		"item": return api.item(_str(a, 0))
 		"itemName": return api.item_name(_int(a, 0))
@@ -367,6 +398,8 @@ func to_js(value):
 		return {"x": value.x, "y": value.y, "z": value.z}
 	if value is Object and value.get_script() == ServerPlayer:
 		return {"__player": value.peer_id, "name": value.name}
+	if value is Object and value.get_script() == ContainerView:
+		return {"position": to_js(value.position), "type": value.type.name, "size": value.size()}
 	if value is Object and value.get_script() == Entity:
 		return {"__entity": value.id, "type": value.type_name, "kind": value.def.kind, "item": value.item_id, "count": value.item_count}
 	if value is Dictionary:

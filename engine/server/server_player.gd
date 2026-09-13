@@ -58,6 +58,10 @@ var avatar_override := {}
 ## Server cosmetics granted to this player: name -> true.
 var owned_cosmetics := {}
 var avatar_changed_at := -100.0
+## Position of the container whose screen is open (null when none).
+var open_container = null
+## {name, position, title} of the crafting station in use ({} = crafting by hand).
+var crafting_station := {}
 var _stats := {}
 var _stats_dirty := true
 var _sent_stats := {}

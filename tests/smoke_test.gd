@@ -116,6 +116,27 @@ func _vanilla(c) -> void:
 		_check(await _wait_until(func(): return c.world.get_block_v(soil + Vector3i.UP) == wheat, 3.0) \
 			and c.registry.defs[wheat].render == c.BlockRegistry.Render.PLANT, "seeds planted wheat (a plant block)")
 
+	# Containers: place a chest, open it, shift-click a stack in, see it in the container screen.
+	Net.c_chat.rpc_id(1, "/give base:chest")
+	var chest: int = c.items.id_of("base:chest")
+	await _wait_until(func(): return c.inventory.count_of(chest) >= 1, 3.0)
+	await _select_item(c, chest)
+	await _wait_until(func(): return c.state.on_ground, 3.0)
+	var chest_spot := _find_place_spot(c)
+	c.request_place(chest_spot)
+	_check(await _wait_until(func(): return c.world.get_block_v(chest_spot) == chest, 3.0), "placed a chest")
+	Net.c_interact.rpc_id(1, chest_spot)
+	_check(await _wait_until(func(): return c._inventory_screen.visible and c._inventory_screen.container.get("size", 0) == 27, 3.0),
+		"right-clicking the chest opened its 27-slot screen")
+	var stone_slot: int = c.inventory.ids.find(c.registry.id_of("base:stone"))
+	if stone_slot >= 0:
+		c.inventory_click(stone_slot, 1, true)
+		_check(await _wait_until(func():
+			var packed: PackedInt32Array = c._inventory_screen.container.get("slots", PackedInt32Array())
+			return packed.size() == 54 and packed[0] == c.registry.id_of("base:stone"), 3.0), "shift-click moved stone into the chest")
+	c._set_inventory_open(false)
+	await get_tree().create_timer(0.3).timeout
+
 
 func _skyblock(c) -> void:
 	_check(not c.inventory.creative, "skyblock puts players in survival")
@@ -406,7 +427,7 @@ func _combat(c) -> void:
 		await _select_item(c, porkchop)
 		await get_tree().create_timer(0.2).timeout
 		c.use_selected_item()
-		_check(await _wait_until(func(): return c.health >= minf(before + 5.0, 20.0), 2.0), "eating healed (%.1f -> %.1f)" % [before, c.health])
+		_check(await _wait_until(func(): return c.health >= minf(before + 2.5, 20.0), 2.0), "eating healed (%.1f -> %.1f)" % [before, c.health])
 
 	# Fall damage.
 	Net.c_chat.rpc_id(1, "/heal")

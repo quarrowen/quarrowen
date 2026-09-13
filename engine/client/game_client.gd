@@ -935,7 +935,7 @@ func _update_target() -> void:
 	var direction := -_camera.basis.z
 	_target = VoxelRaycast.cast(world, registry.targetable_lut, origin, direction, REACH)
 	var block_distance := INF
-	if _target.hit:
+	if _target.hit and registry.solid_lut[_target.block] == 1:  # plants do not shield mobs from hits
 		var cell := Vector3(_target.position)
 		block_distance = maxf(EntityPhysics.segment_hits_box(origin, direction, REACH + 1.0, cell, cell + Vector3.ONE), 0.0)
 	_entity_target = {}
@@ -999,7 +999,7 @@ func _handle_edits(delta: float) -> void:
 		Net.c_interact.rpc_id(1, _target.position)
 	elif placing:
 		_edit_timer = EDIT_REPEAT_DELAY
-		request_place(_target.position + _target.normal)
+		request_place(placement_spot(_target))
 
 
 func _self_swing() -> void:
@@ -1133,6 +1133,13 @@ func request_break(pos: Vector3i) -> void:
 
 
 ## Places the selected hotbar block, predicting the result.
+## Where a block goes when placing against a target: into replaceable blocks (tall grass) themselves,
+## otherwise against the face that was hit.
+func placement_spot(target: Dictionary) -> Vector3i:
+	var block := world.get_block_v(target.position)
+	return target.position if registry.is_valid(block) and registry.defs[block].replaceable else target.position + target.normal
+
+
 func request_place(pos: Vector3i) -> void:
 	var block := inventory.selected_block()
 	if block <= 0 or registry.placeable_lut[block] == 0:
@@ -1423,6 +1430,8 @@ func _set_inventory_open(open: bool) -> void:
 	if _inventory_screen.visible == open:
 		return
 	_inventory_screen.visible = open
+	if not open and not _inventory_screen.container.is_empty():
+		_inventory_screen.set_container({})
 	if open:
 		_inventory_screen.refresh()
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -1431,6 +1440,21 @@ func _set_inventory_open(open: bool) -> void:
 			Net.c_inventory_closed.rpc_id(1)
 		if not ignore_mouse_capture and not dead:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func on_container_open(view: Dictionary) -> void:
+	_inventory_screen.set_container(view)
+	_set_inventory_open(true)
+
+
+func on_container_update(view: Dictionary) -> void:
+	_inventory_screen.update_container(view)
+
+
+func on_container_close() -> void:
+	if not _inventory_screen.container.is_empty():
+		_inventory_screen.set_container({})
+		_set_inventory_open(false)
 
 
 func inventory_click(slot: int, button := 1, shift := false) -> void:

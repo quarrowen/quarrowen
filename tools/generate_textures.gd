@@ -124,7 +124,76 @@ func _init() -> void:
 	_save(_bread(), base + "bread.png")
 	for material in materials:
 		_save(_hoe(materials[material]), base + "%s_hoe.png" % material)
+
+	# Stations and containers (appended last so earlier textures keep their random sequence).
+	_save(_crafting_table_top(), base + "crafting_table_top.png")
+	_save(_crafting_table_side(), base + "crafting_table_side.png")
+	_save(_chest(false), base + "chest_side.png")
+	_save(_chest(true), base + "chest_top.png")
+	_save(_furnace(0), base + "furnace_side.png")
+	_save(_furnace(1), base + "furnace_front.png")
+	_save(_furnace(2), base + "furnace_front_lit.png")
+	_save(_item(Color(0.2, 0.17, 0.15), "lump"), base + "charcoal.png")
+	_save(_item(Color(0.72, 0.42, 0.25), "meat"), vanilla + "cooked_porkchop.png")
 	quit()
+
+
+func _crafting_table_top() -> Image:
+	var img := _planks()
+	for y in TILE:
+		for x in TILE:
+			if (x == 2 or x == 7 or x == 13 or y == 2 or y == 7 or y == 13) and x >= 2 and x <= 13 and y >= 2 and y <= 13:
+				img.set_pixel(x, y, Color(0.36, 0.25, 0.14))
+	return img
+
+
+func _crafting_table_side() -> Image:
+	var img := _planks()
+	for x in TILE:
+		img.set_pixel(x, 0, Color(0.36, 0.25, 0.14))
+		img.set_pixel(x, 1, Color(0.45, 0.32, 0.18))
+	# A saw and a hammer hanging on the side.
+	for x in range(3, 8):
+		img.set_pixel(x, 6, Color(0.75, 0.75, 0.78))
+		img.set_pixel(x, 7, Color(0.62, 0.62, 0.66))
+	img.set_pixel(8, 6, Color(0.4, 0.27, 0.15))
+	img.set_pixel(8, 7, Color(0.4, 0.27, 0.15))
+	for y in range(5, 12):
+		img.set_pixel(11, y, Color(0.4, 0.27, 0.15))
+	for x in range(10, 13):
+		img.set_pixel(x, 5, Color(0.55, 0.55, 0.58))
+	return img
+
+
+func _chest(top: bool) -> Image:
+	var img := _blank()
+	var wood := Color(0.62, 0.43, 0.22)
+	for y in TILE:
+		for x in TILE:
+			var rim := x == 0 or x == TILE - 1 or y == 0 or y == TILE - 1 or (not top and y == 6)
+			img.set_pixel(x, y, wood.darkened(0.4) if rim else _vary(wood, 0.05))
+	if not top:
+		for y in range(5, 9):
+			for x in range(7, 9):
+				img.set_pixel(x, y, Color(0.8, 0.8, 0.82))
+	return img
+
+
+func _furnace(kind: int) -> Image:
+	var stone := Color(0.52, 0.52, 0.54)
+	var img := _noise(stone, 0.06)
+	for x in TILE:
+		img.set_pixel(x, 0, stone.darkened(0.3))
+		img.set_pixel(x, TILE - 1, stone.darkened(0.3))
+	if kind == 0:
+		return img
+	for y in range(8, 14):
+		for x in range(4, 12):
+			var fire := Color(1.0, 0.55 + 0.3 * rng.randf(), 0.15) if kind == 2 and y >= 10 else Color(0.08, 0.07, 0.07)
+			img.set_pixel(x, y, fire)
+	for x in range(3, 13):
+		img.set_pixel(x, 7, stone.darkened(0.45))
+	return img
 
 
 func _farmland() -> Image:

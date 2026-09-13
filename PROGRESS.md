@@ -88,9 +88,10 @@ changes with `tools/build_native.sh`.
 1. **Vanilla survival loop** (current, branch `survival`). Each step adds an engine capability, then
    vanilla/base content:
    1. Block ticks (random, scheduled, catch-up), server light, `plant` render mode, support and
-      replaceable blocks -> farming (hoes, farmland, wheat, bread), saplings, tall grass and flowers.
+      replaceable blocks -> farming (hoes, farmland, wheat, bread), saplings, tall grass and flowers. (done)
    2. Containers and stations: slot-based container screen -> chest, furnace (fuel, smelting),
-      crafting table (station recipes).
+      crafting table (station recipes). (done: `engine/server/containers.gd`, `container.gd`,
+      `mods/base/stations.gd`; JS bindings tested by `tests/mods/js_blocks`)
    3. Hunger and food: hunger stat, food values, regeneration tied to hunger, starvation.
    4. Beds and spawn points: bed block, sleeping skips the night, respawn at a valid bed.
    5. Mobs and spawning: light-level spawn rules, breeding, climbing, explosions that break terrain ->

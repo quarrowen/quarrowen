@@ -277,6 +277,37 @@ api.register_block("my_mod:mushroom", {"textures": "textures/mushroom.png", "ren
   farmland dries back to dirt when bare and dry; saplings (from leaves) grow into trees. Vanilla
   terrain grows tall grass and flowers.
 
+### Containers, crafting stations and smelting
+
+Container blocks (chests, furnaces, machines) keep their slots in block data, so contents are saved
+with the world and spill out when the block breaks. Right-clicking one opens it beside the inventory
+with the usual click rules; shift-click moves stacks between the container and the backpack, and
+everyone viewing sees changes live.
+
+```gdscript
+api.register_container("kiln", {"title": "Kiln", "groups": [
+	{"name": "input", "count": 2, "label": "Clay"},
+	{"name": "fuel", "count": 1, "label": "Fuel", "accepts": "fuel"},        # or [item names] / Callable
+	{"name": "output", "count": 2, "label": "Pots", "take_only": true}],   # players can only take
+	"progress": [{"name": "fire", "label": "Firing", "color": "#ff8a3c"}]})
+api.register_block("kiln", {"textures": "textures/kiln.png", "container": "kiln"})
+api.on("container_changed", func(ev):                  # a player moved items in or out
+	var c = ev.container                               # get_item, set_item, add, take, group, state
+	c.set_progress("fire", 0.5))
+api.register_block("anvil", {"textures": "textures/anvil.png", "station": "anvil"})
+api.register_recipe({"base:iron_ingot": 3}, "my_mod:blade", 1, {"station": "anvil"})
+api.register_process("firing", "my_mod:clay", "my_mod:pot", 1, 12.0)   # api.get_process("firing", id)
+api.set_fuel("my_mod:peat", 40.0)                                        # api.get_fuel(id)
+```
+
+- **Stations:** blocks with `station: "<name>"` open the crafting menu for recipes that need that
+  station (plus the ones crafted anywhere). Creative players craft everything anywhere.
+- **Bundled (base):** crafting table (tools, weapons, armor, hoes, chests and furnaces need one), chest
+  (27 slots) and furnace. The furnace smelts ore into ingots, sand into glass, cobblestone into stone,
+  logs into charcoal and (vanilla) raw into cooked porkchops; it glows while burning and keeps
+  smelting while nobody watches, catching up after its chunk was unloaded. Coal, charcoal, wood and
+  wooden tools are fuel.
+
 ### Effects: glows, trails and particles
 
 Effects are data the server names and clients draw, so mods never ship client code. An effect mixes
