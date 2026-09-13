@@ -117,6 +117,9 @@ func register_item(item_name: String, def: Dictionary) -> int:
 	for key in ["icon", "model", "armor_texture"]:
 		if not String(def.get(key, "")).is_empty():
 			d[key] = register_asset(def[key])
+	if def.get("effects") is Dictionary:
+		for hook in def.effects:
+			d.effects[hook] = _qualify_ref(String(def.effects[hook]))
 	return _server.items.register(d)
 
 
@@ -146,6 +149,29 @@ func register_sound(sound_name: String, files, options := {}) -> int:
 		assets.append(register_asset(String(f)))
 	d.files = assets
 	return _server.sounds.register(d)
+
+
+## Registers a visual effect: particle emitters, light flash, camera shake and sound (see
+## engine/shared/effect_registry.gd). Emitter textures are paths in this mod or "soft", "spark",
+## "star", "square". Returns the effect id, or -1.
+func register_effect(effect_name: String, def: Dictionary) -> int:
+	var d := def.duplicate(true)
+	d.name = _qualify(effect_name)
+	if def.get("sound") is String:
+		d.sound = _qualify_ref(def.sound)
+	if def.get("emitters") is Array:
+		for e in d.emitters:
+			if e is Dictionary and e.get("texture") is String and not e.texture in ["soft", "spark", "star", "square"]:
+				e.texture = register_asset(e.texture)
+	return _server.effects.register(d)
+
+
+## Plays an effect for everyone in range. options: color ("#rrggbb", tints it), scale, direction
+## (Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).
+## Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,
+## engine:dust, engine:explosion.
+func play_effect(effect_name: String, position: Vector3, options := {}) -> void:
+	_server.play_effect(_qualify_ref(effect_name), position, options)
 
 
 ## Plays a sound at a world position for everyone in range.

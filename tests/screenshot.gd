@@ -4,13 +4,13 @@ extends Node
 ##   godot --path . res://tests/screenshot.tscn -- --port=24600 --out=/tmp/shot.png \
 ##     [--yaw=0.8] [--pitch=-0.25] [--commands="/industry demo|/time night"] [--wait=3] [--menu=crafting]
 ##     [--camera=0|1|2] [--avatar='{"wear": {...}}' (join with) | --wear='{...}' (change in game)]
-##     [--editor=hat (opens the avatar editor on a category)]
+##     [--editor=hat (opens the avatar editor on a category)] [--swing=0.12 (capture that long into a swing)]
 
 const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -68,6 +68,9 @@ func _ready() -> void:
 	var size := get_viewport().get_texture().get_size()
 	print("[screenshot] %dx%d render scale %.2f: fps %d, render cpu %.2f ms, gpu %.2f ms" % [size.x, size.y,
 		get_viewport().scaling_3d_scale, Engine.get_frames_per_second(), cpu / 120.0, gpu / 120.0])
+	if not String(options.swing).is_empty():
+		client._self_swing()  # capture mid-swing to show trails
+		await get_tree().create_timer(float(options.swing)).timeout
 	get_viewport().get_texture().get_image().save_png(options.out)
 	print("[screenshot] saved %s" % options.out)
 	get_tree().quit()

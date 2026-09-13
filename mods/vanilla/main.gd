@@ -119,13 +119,15 @@ func _setup_mobs() -> void:
 			"preset": "boss", "group": "undead", "boss": {"name": "Ancient Colossus", "bar_range": 64},
 			"sight_range": 40, "leash": 48, "step_up": 2, "max_drop": 4, "attack_interval": 1.2,
 			"attacks": [
-				{"name": "stomp", "type": "slam", "damage": 9, "radius": 5, "windup": 1.1, "cooldown": 5, "knockback": 12, "sound": "vanilla:colossus_stomp"},
+				{"name": "stomp", "type": "slam", "damage": 9, "radius": 5, "windup": 1.1, "cooldown": 5, "knockback": 12, "sound": "vanilla:colossus_stomp",
+					"effect": "engine:dust"},
 				{"name": "punch", "type": "melee", "damage": 11, "range": 2.2, "arc": 120, "windup": 0.7, "cooldown": 2.2, "knockback": 10},
 			],
 			"phases": [{
 				"health_below": 0.5, "message": "The Ancient Colossus roars in fury!", "speed_multiplier": 1.35, "aggression": 1.0,
 				"add_attacks": [
-					{"name": "charge", "type": "charge", "damage": 14, "min_range": 6, "range": 24, "speed": 13, "duration": 1.5, "windup": 0.9, "cooldown": 9, "knockback": 14, "sound": "vanilla:colossus_roar"},
+					{"name": "charge", "type": "charge", "damage": 14, "min_range": 6, "range": 24, "speed": 13, "duration": 1.5, "windup": 0.9, "cooldown": 9, "knockback": 14, "sound": "vanilla:colossus_roar",
+						"windup_effect": "engine:smoke"},
 					{"name": "raise_dead", "type": "summon", "entity": "vanilla:zombie", "count": 3, "max_summons": 4, "range": 40, "windup": 1.2, "cooldown": 18, "weight": 0.8},
 				],
 			}],

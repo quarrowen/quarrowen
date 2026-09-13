@@ -5,6 +5,7 @@ extends Node3D
 
 const PlayerRig = preload("res://engine/shared/player_rig.gd")
 const Avatar = preload("res://engine/client/avatar/avatar.gd")
+const SwingTrail = preload("res://engine/client/effects/swing_trail.gd")
 
 ## Laid out at body scale (the arm is as long as on the avatar), then shrunk towards the camera so the
 ## arm and item stay closer than any wall the player can stand against.
@@ -22,6 +23,8 @@ var _skin_material := StandardMaterial3D.new()
 var _armor_material := StandardMaterial3D.new()
 var _held: Node3D
 var _held_id := -1
+var _held_look := {}
+var _trail := SwingTrail.new()
 var _swing_at := -10.0
 var _equip_at := -10.0
 var _bob := 0.0
@@ -62,22 +65,29 @@ func _ready() -> void:
 	_arm.add_child(_item_root)
 	scale = Vector3.ONE * SCALE
 	position = REST * SCALE
+	get_parent().add_child.call_deferred(_trail)  # trail points live in camera space
 
 
 func set_skin(texture: Texture2D) -> void:
 	_skin_material.albedo_texture = texture
 
 
-func set_armor(texture: Texture2D) -> void:
+func set_armor(texture: Texture2D, glow := {}) -> void:
 	_armor_material.albedo_texture = texture
 	_armor_mesh.visible = texture != null
+	_armor_material.emission_enabled = not glow.is_empty()
+	if not glow.is_empty():
+		_armor_material.emission = Color.html(String(glow.color))
+		_armor_material.emission_energy_multiplier = float(glow.energy)
+		_armor_material.emission_texture = texture
 
 
 ## `node` shows the held item; `id` lets the arm dip and come back up when the item changes.
-func set_held(id: int, node: Node3D) -> void:
+func set_held(id: int, node: Node3D, look := {}) -> void:
 	if _held != null:
 		_held.queue_free()
 	_held = node
+	_held_look = look
 	if node != null:
 		_item_root.add_child(node)
 	if id != _held_id:
@@ -89,6 +99,9 @@ func swing() -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	if now - _swing_at > SWING_SECONDS * 0.6:
 		_swing_at = now
+		if _held != null and not _held_look.get("trail", {}).is_empty() and _held.get_child_count() > 0:
+			var mesh := _held.get_child(0)
+			_trail.start(mesh.get_node_or_null("grip"), mesh.get_node_or_null("tip"), _held_look.trail, SWING_SECONDS, get_parent(), true)
 
 
 ## `speed`: horizontal speed in blocks/s; `look_delta`: mouse movement this frame (pixels).

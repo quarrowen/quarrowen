@@ -80,6 +80,8 @@ static func begin(brain, a: Dictionary, target) -> void:
 	ai.server.broadcast_entity_event(e, Event.WINDUP, brain.config.attacks.find(a))
 	if not String(a.sound).is_empty():
 		ai.server.play_sound_at(String(a.sound), e.body.position + Vector3(0, e.def.height * 0.5, 0))
+	if not String(a.windup_effect).is_empty():
+		ai.server.play_effect(String(a.windup_effect), e.body.position + Vector3(0, e.def.height * 0.5, 0), {"follow": e, "scale": maxf(e.def.width, 0.5)})
 
 
 static func interrupt(brain) -> void:
@@ -148,6 +150,12 @@ static func _execute(brain) -> void:
 		_finish(brain)
 		return
 	ai.server.broadcast_entity_event(e, Event.ATTACK, brain.config.attacks.find(a))
+	if not String(a.effect).is_empty():
+		# Melee and ranged effects play at the mob's front, area attacks at its feet, scaled to its size.
+		var front: Vector3 = e.body.position + Vector3(-sin(e.yaw), 0.0, -cos(e.yaw)) * (e.def.width * 0.5 + 0.4) + Vector3(0, e.def.height * 0.5, 0)
+		var at_feet: bool = a.type in ["slam", "summon"]
+		ai.server.play_effect(String(a.effect), e.body.position if at_feet else front,
+			{"scale": maxf(float(a.radius) / 3.0, 0.5) if at_feet else maxf(e.def.width, 0.5), "direction": Vector3(-sin(e.yaw), 0.3, -cos(e.yaw))})
 	match a.type:
 		"melee":
 			var edge: float = ai.edge_distance(e, target)

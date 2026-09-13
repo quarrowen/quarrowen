@@ -52,6 +52,15 @@ func node_for(id: int, first_person := false) -> Node3D:
 	holder.add_child(instance)
 	var def: Dictionary = items.get_def(id)
 	var kind := "block" if id < 65536 else ("model" if not String(def.get("model", "")).is_empty() else "icon")
+	# Grip and tip markers in the mesh's own space: swing trails run between them, held effects sit at the tip.
+	var ends: Array = {"block": [Vector3(0, -BLOCK_SIZE * 0.5, 0), Vector3(0, BLOCK_SIZE * 0.5, 0)],
+		"model": [Vector3.ZERO, Vector3(0, 1, 0)],
+		"icon": [Vector3(-ITEM_SIZE * 0.2, -ITEM_SIZE * 0.2, 0), Vector3(ITEM_SIZE * 0.42, ITEM_SIZE * 0.42, 0)]}[kind]
+	for i in 2:
+		var marker := Node3D.new()
+		marker.name = ["grip", "tip"][i]
+		marker.position = ends[i]
+		instance.add_child(marker)
 	if first_person:
 		match kind:
 			"block":
@@ -78,6 +87,34 @@ func node_for(id: int, first_person := false) -> Node3D:
 			instance.rotation_degrees = Vector3(0, 90, 45)
 			instance.position = Vector3(0, ITEM_SIZE * 0.36, 0)
 	return holder
+
+
+## Makes a held item node glow: {color, energy, light}. Additive, so pixels glow in their own colors.
+func apply_glow(node: Node3D, glow: Dictionary) -> void:
+	if node == null or glow.is_empty() or node.get_child_count() == 0:
+		return
+	var instance := node.get_child(0) as MeshInstance3D
+	var overlay := StandardMaterial3D.new()
+	overlay.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	overlay.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	overlay.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	overlay.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	var model := instance.mesh != null and not (instance.mesh.surface_get_material(0) == _material)
+	if not model:
+		overlay.albedo_texture = atlas.get("texture")
+	var color := Color.html(String(glow.color))
+	var strength := clampf(float(glow.energy), 0.0, 8.0) * 0.45
+	overlay.albedo_color = Color(color.r * strength, color.g * strength, color.b * strength)
+	instance.material_overlay = overlay
+	if float(glow.get("light", 0.0)) > 0.0:
+		var light := OmniLight3D.new()
+		light.name = "glow_light"
+		light.light_color = color
+		light.light_energy = clampf(float(glow.energy), 0.2, 4.0)
+		light.omni_range = float(glow.light)
+		light.shadow_enabled = false
+		var tip := instance.get_node_or_null("tip")
+		(tip if tip != null else node).add_child(light)
 
 
 func mesh_for(id: int) -> Mesh:

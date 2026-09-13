@@ -216,11 +216,11 @@ static func is_builtin(cosmetic_name: String) -> bool:
 ## def: name, display_name, attach (attachment point for boxes/models), covers (armor slots its
 ## cosmetics replace by default). Returns false when invalid or full.
 func register_category(def: Dictionary) -> bool:
-	var cat_name := String(def.get("name", "")).left(32)
+	var cat_name := str(def.get("name", "")).left(32)
 	if cat_name.is_empty() or categories.size() >= MAX_CATEGORIES or category(cat_name) != {}:
 		return false
-	categories.append({"name": cat_name, "display_name": String(def.get("display_name", cat_name.capitalize())).left(32),
-		"attach": String(def.get("attach", "")).left(32), "covers": _slots(def.get("covers", []))})
+	categories.append({"name": cat_name, "display_name": str(def.get("display_name", cat_name.capitalize())).left(32),
+		"attach": str(def.get("attach", "")).left(32), "covers": _slots(def.get("covers", []))})
 	return true
 
 
@@ -233,21 +233,21 @@ func category(cat_name: String) -> Dictionary:
 
 ## Registers (or replaces) a cosmetic. Returns its name, or "" when invalid.
 func register(def: Dictionary) -> String:
-	var cosmetic_name := String(def.get("name", "")).left(96)
-	var cat := category(String(def.get("category", "")))
+	var cosmetic_name := str(def.get("name", "")).left(96)
+	var cat := category(str(def.get("category", "")))
 	if cosmetic_name.is_empty() or not cosmetic_name.contains(":") or cat.is_empty() or (defs.size() >= MAX_COSMETICS and not defs.has(cosmetic_name)):
 		return ""
 	var d := {
 		"name": cosmetic_name,
 		"category": cat.name,
-		"display_name": String(def.get("display_name", cosmetic_name.get_slice(":", 1).capitalize())).left(48),
-		"description": String(def.get("description", "")).left(160),
+		"display_name": str(def.get("display_name", cosmetic_name.get_slice(":", 1).capitalize())).left(48),
+		"description": str(def.get("description", "")).left(160),
 		"color": clean_color(def.get("color"), "#ffffff"),
 		"tint": bool(def.get("tint", true)),
 		"covers": _slots(def.get("covers")) if def.get("covers") is Array else cat.covers.duplicate(),
 		"unlocked": bool(def.get("unlocked", true)),
-		"texture": String(def.get("texture", "")).left(256),
-		"model": String(def.get("model", "")).left(256),
+		"texture": str(def.get("texture", "")).left(256),
+		"model": str(def.get("model", "")).left(256),
 		"model_transform": _transform(def.get("model_transform")),
 		"paint": _paint(def.get("paint")),
 		"pixels": _pixels(def.get("pixels")),
@@ -274,7 +274,7 @@ func set_policy(values: Dictionary) -> void:
 			"armor":
 				policy.armor = values.armor if values.armor in ["player", "armor", "cosmetics"] else "player"
 			"blocked":
-				policy.blocked = (values.blocked as Array).map(func(v): return String(v)).slice(0, 256) if values.blocked is Array else []
+				policy.blocked = (values.blocked as Array).map(func(v): return str(v)).slice(0, 256) if values.blocked is Array else []
 			"uniform":
 				policy.uniform = sanitize_avatar(values.uniform, Callable(), true) if values.uniform is Dictionary else {}
 			_:
@@ -310,7 +310,7 @@ func sanitize_avatar(avatar, can_wear := Callable(), keep_removals := false) -> 
 			var entry = avatar.wear[cat_name]
 			if not (cat_name is String) or category(cat_name).is_empty() or not (entry is Dictionary):
 				continue
-			var id := String(entry.get("id", ""))
+			var id := str(entry.get("id", ""))
 			if id.is_empty():
 				if keep_removals:
 					wear[cat_name] = {"id": ""}
@@ -346,7 +346,7 @@ static func merge(base: Dictionary, top: Dictionary) -> Dictionary:
 	if top.get("wear") is Dictionary:
 		var wear: Dictionary = out.get("wear", {})
 		for cat_name in top.wear:
-			if String(top.wear[cat_name].get("id", "")).is_empty():
+			if str(top.wear[cat_name].get("id", "")).is_empty():
 				wear.erase(cat_name)
 			else:
 				wear[cat_name] = top.wear[cat_name].duplicate()
@@ -378,7 +378,7 @@ func visible_armor(armor: Dictionary, avatar: Dictionary) -> Dictionary:
 		return armor.duplicate()
 	var covered := {}
 	for cat_name in avatar.get("wear", {}):
-		for slot in get_def(String(avatar.wear[cat_name].get("id", ""))).get("covers", []):
+		for slot in get_def(str(avatar.wear[cat_name].get("id", ""))).get("covers", []):
 			covered[slot] = true
 	var out := {}
 	for slot in armor:
@@ -408,7 +408,7 @@ func load_network(data) -> bool:
 				register_category(c)
 	if data.get("cosmetics") is Array:
 		for d in data.cosmetics.slice(0, MAX_COSMETICS):
-			if d is Dictionary and not is_builtin(String(d.get("name", ""))):
+			if d is Dictionary and not is_builtin(str(d.get("name", ""))):
 				register(d)
 	if data.get("policy") is Dictionary:
 		set_policy(data.policy)
@@ -428,8 +428,8 @@ static func clean_color(value, fallback: String) -> String:
 static func _slots(value) -> Array:
 	var out := []
 	for s in (value if value is Array else []):
-		if String(s) in ARMOR_SLOTS and not out.has(String(s)):
-			out.append(String(s))
+		if str(s) in ARMOR_SLOTS and not out.has(str(s)):
+			out.append(str(s))
 	return out
 
 
@@ -450,15 +450,15 @@ static func _op_color(value) -> String:
 static func _paint(value) -> Array:
 	var out := []
 	for op in (value if value is Array else []).slice(0, MAX_OPS):
-		if not (op is Dictionary) or not (String(op.get("region", "")) in PAINT_REGIONS):
+		if not (op is Dictionary) or not (str(op.get("region", "")) in PAINT_REGIONS):
 			continue
 		var rows = op.get("rows", [0, 64])
-		var clean := {"region": String(op.region), "rows": [0, 64], "color": _op_color(op.get("color")),
+		var clean := {"region": str(op.region), "rows": [0, 64], "color": _op_color(op.get("color")),
 			"shade": clampf(_num(op.get("shade"), 1.0, 4.0), 0.0, 4.0)}
 		if rows is Array and rows.size() == 2:
 			clean.rows = [clampi(int(rows[0]), 0, 64), clampi(int(rows[1]), 0, 64)]
 		if op.get("sides") is Array:
-			clean.sides = (op.sides as Array).filter(func(s): return String(s) in SIDES).map(func(s): return String(s))
+			clean.sides = (op.sides as Array).filter(func(s): return str(s) in SIDES).map(func(s): return str(s))
 		out.append(clean)
 	return out
 
@@ -468,13 +468,13 @@ static func _pixels(value) -> Dictionary:
 		return {}
 	var rows := []
 	for row in value.rows:
-		rows.append(String(row).rpad(8, ".").left(8))
+		rows.append(str(row).rpad(8, ".").left(8))
 	var palette := _FACE_PALETTE.duplicate()
 	if value.get("palette") is Dictionary:
 		for key in value.palette:
-			var v := String(value.palette[key])
-			if String(key).length() == 1 and (v in ["tint", "skin"] or is_color(v)):
-				palette[String(key)] = v if not is_color(v) else clean_color(v, "")
+			var v := str(value.palette[key])
+			if str(key).length() == 1 and (v in ["tint", "skin"] or is_color(v)):
+				palette[str(key)] = v if not is_color(v) else clean_color(v, "")
 	return {"rows": rows, "palette": palette}
 
 

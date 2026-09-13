@@ -9,7 +9,9 @@ extends RefCounted
 const FIRST_ITEM := 65536
 const MAX_ITEMS := 4096
 const NETWORK_FIELDS := ["name", "display_name", "icon", "max_stack", "usable", "durability", "tool", "weapon",
-	"armor", "equip_slot", "modifiers", "model", "lore", "armor_texture"]
+	"armor", "equip_slot", "modifiers", "model", "lore", "armor_texture", "glow", "trail", "effects"]
+## Item effect hooks: effect names played by the engine (see EffectRegistry).
+const EFFECT_HOOKS := ["swing", "hit", "use", "held", "break"]
 const DEFAULT_SLOTS := ["head", "chest", "legs", "feet", "offhand"]
 const MAX_SLOTS := 16
 
@@ -59,6 +61,12 @@ static func is_block_item(id: int) -> bool:
 ##   modifiers: [{stat, amount, op}] applied while equipped, or while held for tools and weapons
 ##   model: glTF asset for held rendering; lore: tooltip lines
 ##   armor_texture: worn look in the 64x64 skin layout (the slot picks which regions show)
+##   glow: {color, energy, light} emissive glow when held or worn (light: radius in blocks, 0 = none)
+##   trail: {color, width, seconds} a ribbon behind the item while swinging; width is the part of the
+##          item it covers, from the tip (0.1-1, default 0.5)
+##   effects: {swing, hit, use, held, break} effect names: on swings, on hits (at the target), on use,
+##            continuously while held, and when it wears out
+##   Item data may override glow, trail and effects per stack (e.g. a sword that glows as it levels).
 ##   attack_damage (legacy shorthand for weapon.damage)
 ## Returns the item id or -1.
 func register(def: Dictionary) -> int:
@@ -82,6 +90,9 @@ func register(def: Dictionary) -> int:
 	d.modifiers = clean_modifiers(def.get("modifiers", []))
 	d.model = String(def.get("model", "")).left(256)
 	d.armor_texture = String(def.get("armor_texture", "")).left(256)
+	d.glow = clean_glow(def.get("glow"))
+	d.trail = clean_trail(def.get("trail"))
+	d.effects = clean_effects(def.get("effects"))
 	d.lore = (def.get("lore") as Array).map(func(l): return String(l).left(120)).slice(0, 8) if def.get("lore") is Array else []
 	var id := FIRST_ITEM + defs.size()
 	d.id = id
@@ -218,6 +229,55 @@ func load_network(data, slot_data = null, stat_data = null) -> bool:
 		if register(clean) < 0:
 			return false
 	return true
+
+
+## The look of one stack: {glow, trail, effects} from the definition, overridden by item data.
+func visuals(id: int, item_data := {}) -> Dictionary:
+	var d := get_def(id)
+	var out := {"glow": d.get("glow", {}), "trail": d.get("trail", {}), "effects": d.get("effects", {})}
+	if item_data is Dictionary:
+		if item_data.has("glow"):
+			out.glow = clean_glow(item_data.glow)
+		if item_data.has("trail"):
+			out.trail = clean_trail(item_data.trail)
+		if item_data.get("effects") is Dictionary:
+			var merged: Dictionary = out.effects.duplicate()
+			merged.merge(clean_effects(item_data.effects), true)
+			out.effects = merged
+	return out
+
+
+static func clean_glow(value) -> Dictionary:
+	if not (value is Dictionary) or value.is_empty():
+		return {}
+	return {"color": _color(value.get("color"), "#ffffff"), "energy": clampf(_f(value.get("energy"), 1.0), 0.0, 8.0),
+		"light": clampf(_f(value.get("light"), 0.0), 0.0, 16.0)}
+
+
+static func clean_trail(value) -> Dictionary:
+	if not (value is Dictionary) or value.is_empty():
+		return {}
+	return {"color": _color(value.get("color"), "#ffffffb0"), "width": clampf(_f(value.get("width"), 0.5), 0.1, 1.0),
+		"seconds": clampf(_f(value.get("seconds"), 0.18), 0.05, 1.0)}
+
+
+static func clean_effects(value) -> Dictionary:
+	var out := {}
+	if value is Dictionary:
+		for hook in EFFECT_HOOKS:
+			if value.get(hook) is String and not value[hook].is_empty():
+				out[hook] = String(value[hook]).left(128)
+	return out
+
+
+static func _f(value, fallback: float) -> float:
+	return float(value) if value is float or value is int else fallback
+
+
+static func _color(value, fallback: String) -> String:
+	if value is String and value.begins_with("#") and Color.html_is_valid(value):
+		return "#" + Color.html(value).to_html(true)
+	return fallback
 
 
 static func clean_modifiers(list) -> Array:

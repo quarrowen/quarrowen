@@ -246,6 +246,7 @@ func _arcana(c) -> void:
 	c.use_selected_item()
 	var moved := await _wait_until(func(): return c.state.position.distance_to(before) > 2.5, 3.0)
 	_check(moved, "Wand of Blink teleported the player %.1f blocks" % c.state.position.distance_to(before))
+	_check(await _wait_until(func(): return c.effects_seen.get("arcana:blink", 0) >= 2, 2.0), "blink effects played where you left and arrived")
 	var label: Label = c._server_ui._panels["arcana:mana"].get_child(0).get_child(0)
 	_check(label.text.contains("80") or label.text.contains("81") or label.text.contains("82"), "blink cost mana (%s)" % label.text)
 
@@ -460,9 +461,13 @@ func _combat(c) -> void:
 				shot = true
 				break
 		_check(shot, "Wand of Sparks projectile hit the zombie")
+		var burst := await _wait_until(func(): return c.effects_seen.has("arcana:spark_burst"), 2.0)
+		_check(burst and c.effects_seen.has("arcana:cast"), "the wand's cast and impact effects played (%s)" % str(c.effects_seen.keys()))
+		_check(c._view_model._held != null and c._view_model._held.get_child(0).material_overlay != null, "the wand glows in your hand")
 		Net.c_chat.rpc_id(1, "/heal")
 		await _select_item(c, sword)
 		await _fight(c, target, 12.0)
+		_check(c.effects_seen.has("engine:hit"), "sword hits made hit sparks")
 
 	# Death and respawn.
 	Net.c_chat.rpc_id(1, "/kill")

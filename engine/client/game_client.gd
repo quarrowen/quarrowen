@@ -37,6 +37,7 @@ const Cosmetics = preload("res://engine/shared/cosmetics.gd")
 const LookBuilder = preload("res://engine/client/avatar/look_builder.gd")
 const AvatarStore = preload("res://engine/client/avatar/avatar_store.gd")
 const AvatarEditor = preload("res://engine/client/avatar/avatar_editor.gd")
+const EffectPlayer = preload("res://engine/client/effects/effect_player.gd")
 const ItemMesh = preload("res://engine/client/avatar/item_mesh.gd")
 const ViewModel = preload("res://engine/client/avatar/view_model.gd")
 
@@ -85,6 +86,8 @@ var inventory := Inventory.new()
 var cosmetics := Cosmetics.new()
 ## Server cosmetics you own on this server.
 var owned_cosmetics := PackedStringArray()
+## Effect name -> times the server played it for us (debug overlay and tests).
+var effects_seen := {}
 var entity_types := EntityRegistry.new()
 var health := 20.0
 var max_health := 20.0
@@ -139,6 +142,11 @@ var _appearances := {}  # peer id -> appearance from the server
 var _look_cache := {}  # key -> ImageTexture (players sharing armor share textures)
 var _looks: LookBuilder
 var _avatar_editor: AvatarEditor
+var _effects: EffectPlayer
+## Follows your own body so effects can follow you even while the avatar is hidden in first person.
+var _self_anchor := Node3D.new()
+var _view_model_look := ""
+var _held_effect: Node3D
 var _self_avatar: Avatar
 var camera_mode := CameraMode.FIRST_PERSON
 var _view_model: ViewModel
@@ -286,6 +294,9 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	inventory.set_equipment_slots(items.slot_names())
 	_player_rig = PlayerRig.sanitize(content.get("player_rig"))
 	cosmetics.load_network(content.get("cosmetics"))
+	if not _effects.registry.load_network(content.get("effects", [])):
+		_leave("Server sent invalid effect definitions")
+		return
 	Net.c_set_avatar.rpc_id(1, avatar)
 	stats = items.stats.duplicate()
 	if content.get("rules") is Dictionary:
@@ -397,6 +408,8 @@ func _finish_content() -> void:
 		if _asset_textures.has(d.sprite):
 			_entity_sprites[d.id] = _asset_textures[d.sprite]
 	_sounds.manifest = _manifest
+	_effects.textures = _asset_textures
+	_effects.play_sound = func(sound_name: String, at: Vector3): _sounds.play_name(sound_name, at)
 	_inventory_screen.atlas = _atlas
 	_inventory_screen.build_equipment(items.slots)
 	_item_meshes = ItemMesh.new(items, registry, _atlas, func(asset: String) -> PackedByteArray:
@@ -483,9 +496,21 @@ func on_unload_chunk(coord: Vector2i) -> void:
 func on_block_changed(pos: Vector3i, block: int, state: int) -> void:
 	if not registry.is_valid(block) or (world.get_block_v(pos) == block and get_block_state(pos) == state):
 		return
+	var previous := world.get_block_v(pos)
 	if world.set_block(pos.x, pos.y, pos.z, block):
 		_set_state(pos, state)
 		_on_block_modified(pos)
+		if block == BlockRegistry.AIR:
+			_block_debris(pos, previous)
+
+
+func _block_debris(pos: Vector3i, block: int) -> void:
+	if not registry.is_valid(block) or block == BlockRegistry.AIR or registry.liquid_lut[block] == 1 or _atlas.is_empty() \
+			or _camera.global_position.distance_to(Vector3(pos)) > 32.0:
+		return
+	var face := String(registry.defs[block].textures[0]) if not registry.defs[block].textures.is_empty() else ""
+	if _atlas.uv.has(face):
+		_effects.block_break(Vector3(pos) + Vector3.ONE * 0.5, _atlas.texture, _atlas.uv[face], 0.4 + 0.6 * maxf(_applied_daylight, 0.35))
 
 
 func get_block_state(pos: Vector3i) -> int:
@@ -558,10 +583,40 @@ func _apply_look(target: Avatar, name_text: String, appearance: Dictionary) -> v
 		if not _look_cache.has(armor_key):
 			_look_cache[armor_key] = ImageTexture.create_from_image(SkinCompositor.compose_armor(pieces))
 		target.set_armor(_look_cache[armor_key])
-	target.set_held(_item_meshes.node_for(int(appearance.get("held", 0))))
+	target.set_armor_glow(appearance.get("armor_glow", {}) if appearance.get("armor_glow") is Dictionary else {})
+	var held_look: Dictionary = appearance.get("held_look", {}) if appearance.get("held_look") is Dictionary else {}
+	var held_node := _item_meshes.node_for(int(appearance.get("held", 0)))
+	_dress_held(held_node, held_look)
+	target.set_held(held_node, held_look)
 	if target == _self_avatar:
 		_view_model.set_skin(target._skin_material.albedo_texture)
-		_view_model.set_armor(target._armor_material.albedo_texture)
+		_view_model.set_armor(target._armor_material.albedo_texture, appearance.get("armor_glow", {}) if appearance.get("armor_glow") is Dictionary else {})
+
+
+## Glow and the continuous "held" effect on a held item node.
+func _dress_held(node: Node3D, look: Dictionary) -> void:
+	if node == null or look.is_empty():
+		return
+	_item_meshes.apply_glow(node, look.get("glow", {}))
+	var held_effect := _effects.registry.id_of(String(look.get("held", "")))
+	if held_effect >= 0:
+		var tip: Node3D = node.get_child(0).get_node_or_null("tip")
+		_effects.play(held_effect, Vector3.ZERO, {"duration": -1, "scale": 0.5}, tip if tip != null else node)
+
+
+func on_effect(effect_id: int, pos: Vector3, options: Dictionary) -> void:
+	if _effects.registry.is_valid(effect_id):
+		var effect_name: String = _effects.registry.defs[effect_id].name
+		effects_seen[effect_name] = int(effects_seen.get(effect_name, 0)) + 1
+	var parent: Node3D = null
+	if options.get("follow_entity") is int:
+		parent = _entities.get(options.follow_entity)
+	elif options.get("follow_player") is int:
+		parent = _self_anchor if options.follow_player == my_id else _remote_players.get(options.follow_player)
+	if parent != null:
+		options = options.duplicate()
+		options.erase("direction")
+	_effects.play(effect_id, pos, options, parent, _camera.global_position)
 
 
 func on_health(value: float, max_value: float, is_dead: bool, hurt: bool) -> void:
@@ -825,6 +880,7 @@ func _process(delta: float) -> void:
 	_camera.position = render_position + Vector3(0.0, PlayerPhysics.EYE_HEIGHT, 0.0)
 	_camera.rotation = Vector3(pitch, yaw, 0.0)
 	_update_self_avatar(delta, render_position)
+	_camera.position += _effects.shake_offset
 
 	_update_time(delta)
 	_update_target()
@@ -847,8 +903,18 @@ func _update_self_avatar(delta: float, render_position: Vector3) -> void:
 	_self_avatar.animate(delta, state.velocity, state.on_ground, pitch)
 	_view_model.visible = camera_mode == CameraMode.FIRST_PERSON and not dead
 	var held := inventory.selected_item()
-	if held != _view_model._held_id:
-		_view_model.set_held(held, _item_meshes.node_for(held, true))  # follow the hotbar immediately, not the server echo
+	var look: Dictionary = {}
+	if held >= ItemRegistry.FIRST_ITEM:
+		var visuals := items.visuals(held, inventory.data[inventory.selected])
+		look = {"glow": visuals.glow, "trail": visuals.trail, "held": visuals.effects.get("held", "")}
+	var look_key := "%d|%s" % [held, str(look)]
+	if look_key != _view_model_look:
+		# Follow the hotbar immediately, not the server echo; rebuild when the stack's look changes.
+		_view_model_look = look_key
+		var node := _item_meshes.node_for(held, true)
+		_dress_held(node, look)
+		_view_model.set_held(held, node, look)
+	_self_anchor.position = render_position
 	_view_model.animate(delta, Vector2(state.velocity.x, state.velocity.z).length(), state.on_ground, _look_delta)
 	_look_delta = Vector2.ZERO
 	if camera_mode == CameraMode.FIRST_PERSON:
@@ -938,8 +1004,10 @@ func _handle_edits(delta: float) -> void:
 
 func _self_swing() -> void:
 	if _self_avatar != null:
-		_self_avatar.swing()
-		_view_model.swing()
+		# In first person the arm in view swings with its own trail; the hidden body must not draw one.
+		_self_avatar.swing(camera_mode != CameraMode.FIRST_PERSON)
+		if camera_mode == CameraMode.FIRST_PERSON:
+			_view_model.swing()
 
 
 ## Survival breaking: hold on a block until its break time passes (see Mining), with a crack overlay.
@@ -1059,6 +1127,7 @@ func request_break(pos: Vector3i) -> void:
 		return
 	world.set_block(pos.x, pos.y, pos.z, BlockRegistry.AIR)
 	_on_block_modified(pos)
+	_block_debris(pos, current)
 	_sounds.play_name(String(registry.defs[current].sounds.get("break", "")), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1))
 	Net.c_break_block.rpc_id(1, pos)
 
@@ -1471,6 +1540,7 @@ static func _register_input_actions() -> void:
 ## Pushes the current graphics preset into post-processing, materials and (when AO changes) meshes.
 func _apply_graphics(announce: bool) -> void:
 	graphics.apply_environment(_environment, get_viewport())
+	_effects.quality = 0.5 if graphics.preset == "fast" else 1.0
 	if _solid_material != null:
 		for material in [_solid_material, _translucent_material]:
 			material.set_shader_parameter("enable_sway", graphics.value("sway"))
@@ -1525,6 +1595,9 @@ func _build_scene() -> void:
 	_sun = sun
 	add_child(sun)
 
+	_effects = EffectPlayer.new()
+	add_child(_effects)
+	add_child(_self_anchor)
 	_camera = Camera3D.new()
 	_camera.fov = 75.0
 	_camera.near = 0.05

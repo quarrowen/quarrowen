@@ -26,6 +26,7 @@ const Mining = preload("res://engine/shared/mining.gd")
 const PlayerStats = preload("res://engine/server/player_stats.gd")
 const PlayerRig = preload("res://engine/shared/player_rig.gd")
 const Cosmetics = preload("res://engine/shared/cosmetics.gd")
+const EffectRegistry = preload("res://engine/shared/effect_registry.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -69,6 +70,8 @@ var sounds := SoundRegistry.new()
 var player_rig := PlayerRig.default_rig()
 ## Built-in and server cosmetics, categories and this server's cosmetics policy.
 var cosmetics := Cosmetics.new()
+## Named visual effects clients render on request (see EffectRegistry).
+var effects := EffectRegistry.new()
 ## Game-wide rules mods can change with set_gameplay.
 var gameplay := {
 	"item_drops": "entity",  # "entity": broken blocks drop items to pick up; "inventory": straight into the inventory
@@ -819,6 +822,24 @@ func play_sound_at(sound_name: String, pos: Vector3, volume := 1.0, pitch := 1.0
 			Net.s_sound.rpc_id(p.peer_id, id, pos, volume, pitch, true)
 
 
+## Plays a registered effect at a position for players in range. options: see EffectRegistry
+## (color, scale, direction, duration, follow: an entity or player).
+func play_effect(effect_name: String, pos: Vector3, options := {}, exclude := 0) -> void:
+	var id := effects.id_of(effect_name)
+	if id < 0 or not _started:
+		return
+	var follow = options.get("follow")
+	var clean := EffectRegistry.clean_options(options)
+	if follow is ServerPlayer:
+		clean.follow_player = follow.peer_id
+	elif follow != null and follow is Object and follow.get("id") is int:
+		clean.follow_entity = follow.id
+	var reach: float = effects.defs[id].range
+	for p: ServerPlayer in players.values():
+		if p.peer_id != exclude and p.state.position.distance_to(pos) <= reach:
+			Net.s_effect.rpc_id(p.peer_id, id, pos, clean)
+
+
 func play_sound_to(p: ServerPlayer, sound_name: String, volume := 1.0, pitch := 1.0) -> void:
 	var id := sounds.id_of(sound_name)
 	if id >= 0 and _started:
@@ -989,7 +1010,7 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 	var content := {"blocks": registry.to_network(), "items": items.to_network(), "rules": rules.to_dict(),
 		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
 		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
-		"player_rig": player_rig, "cosmetics": cosmetics.to_network()}
+		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
@@ -1525,6 +1546,10 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 			or p.get_eye_position().distance_to(Vector3(target) + Vector3.ONE * 0.5) > REACH + 0.87):
 		has_target = false
 	_broadcast_player_event(p, Entities.Event.SWING)
+	var use_effect := String(items.visuals(item, p.inventory.data[p.inventory.selected]).effects.get("use", ""))
+	if not use_effect.is_empty():
+		var look_dir := PlayerPhysics.look_direction(p.yaw, p.pitch)
+		play_effect(use_effect, p.get_eye_position() + look_dir * 0.8, {"direction": look_dir})
 	emit("item_use", {"player": p, "item": item, "has_target": has_target, "position": target,
 		"normal": normal.clamp(-Vector3i.ONE, Vector3i.ONE), "direction": PlayerPhysics.look_direction(p.yaw, p.pitch)})
 
@@ -1566,6 +1591,10 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 		return
 	play_sound_at("engine:swing", eye, 0.7, randf_range(0.9, 1.1), peer_id)
 	_broadcast_player_event(p, Entities.Event.SWING)
+	var look := items.visuals(item, p.inventory.data[p.inventory.selected]) if item >= ItemRegistry.FIRST_ITEM else {"effects": {}}
+	var direction3 := PlayerPhysics.look_direction(p.yaw, p.pitch)
+	if look.effects.has("swing"):
+		play_effect(look.effects.swing, eye + direction3 * 0.9, {"direction": direction3})
 	entities.ai.make_noise(eye, 14.0, p, true)
 	var direction := PlayerPhysics.look_direction(p.yaw, 0.0)
 	var landed := false
@@ -1579,6 +1608,11 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 					entities.damage(other, float(ev.damage) * sweep, "attack", p, other.body.position - p.state.position)
 	elif gameplay.pvp:
 		landed = damage_player(target, float(ev.damage), "attack", p, direction, false, 6.0 * float(stats.knockback))
+	if landed:
+		var impact := eye.clamp(box.position, box.end).lerp(center, 0.5)
+		play_effect(String(look.effects.get("hit", "engine:hit")), impact, {"direction": -direction3})
+		if critical:
+			play_effect("engine:crit", impact + Vector3(0, 0.3, 0))
 	if landed and items.max_durability(item) > 0:
 		damage_item(p, p.inventory.selected, 1 if not items.weapon_of(item).is_empty() else 2, "attack")
 
@@ -1726,6 +1760,7 @@ func damage_item(p: ServerPlayer, slot: int, amount: int, reason := "use") -> vo
 		p.inventory.clear_slot(slot)
 		emit("item_break", {"player": p, "slot": slot, "item": id, "data": item_data})
 		play_sound_at("engine:item_break", p.get_eye_position())
+		play_effect(String(items.visuals(id, item_data).effects.get("break", "engine:smoke")), p.get_eye_position() + PlayerPhysics.look_direction(p.yaw, p.pitch) * 0.6, {"scale": 0.4})
 		p.send_message("Your %s broke" % items.display_name(id))
 	else:
 		p.inventory.data[slot] = item_data
@@ -1767,7 +1802,19 @@ func refresh_appearance(p: ServerPlayer) -> void:
 		var slot_name: String = p.inventory.equipment_slots[i]
 		if slot_name != "offhand" and p.inventory.ids[index] > 0:
 			armor[slot_name] = p.inventory.ids[index]
-	var appearance := {"held": p.inventory.selected_item(), "armor": cosmetics.visible_armor(armor, p.avatar), "avatar": p.avatar}
+	var visible := cosmetics.visible_armor(armor, p.avatar)
+	var appearance := {"held": p.inventory.selected_item(), "armor": visible, "avatar": p.avatar}
+	var held := p.inventory.selected_item()
+	if held >= ItemRegistry.FIRST_ITEM:
+		var look := items.visuals(held, p.inventory.data[p.inventory.selected])
+		if not look.glow.is_empty() or not look.trail.is_empty() or look.effects.has("held"):
+			appearance.held_look = {"glow": look.glow, "trail": look.trail, "held": look.effects.get("held", "")}
+	# The brightest glow among visible armor lights the whole armor texture.
+	for slot_name in visible:
+		var slot_index := p.inventory.equipment_index(slot_name)
+		var glow: Dictionary = items.visuals(visible[slot_name], p.inventory.data[slot_index] if slot_index >= 0 else {}).glow
+		if not glow.is_empty() and float(glow.energy) > float(appearance.get("armor_glow", {}).get("energy", 0.0)):
+			appearance.armor_glow = glow
 	var ev := emit("player_appearance", {"player": p, "appearance": appearance})
 	appearance = ev.appearance
 	if appearance == p.appearance or not _started:

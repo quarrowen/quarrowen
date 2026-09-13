@@ -1,6 +1,6 @@
 # VoxelCraft — progress and resume notes
 
-Last updated: 2026-09-13 (visuals phase 2: avatars and cosmetics). Read this first when resuming.
+Last updated: 2026-09-13 (visuals phase 2 complete: avatars, cosmetics, effects). Read this first when resuming.
 
 ## Repository and branches
 
@@ -13,7 +13,7 @@ Branches stack on each other; nothing is merged to `master` yet.
 | `gameplay` | #2 (draft, base `hardening`) | entities, health/combat, 36-slot inventory, audio | combat test hardened (teleport when the chase stalls, looser fall check); re-run pending |
 | `mob-ai` | #3 (draft, base `gameplay`) | engine mob AI + README docs | green |
 | `equipment` | #4 (draft, base `mob-ai`) | phase 1 equipment: item data, slots, stats, timed mining, durability, progression examples | green |
-| `visuals` | #5 (draft, base `equipment`) | avatars (rig, animation, held items, worn armor, F5 camera, first-person arm) and cosmetics | local suites pass |
+| `visuals` | #5 (draft, base `equipment`) | avatars (rig, animation, held items, worn armor, F5 camera, first-person arm), cosmetics, effects | local suites pass |
 
 Local test commands: `tools/run_tests.sh` (native) and `VOXEL_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh`
 (GDScript fallbacks). Both pass locally on `mob-ai` (14 and 13 suites). Rebuild native after Rust
@@ -57,7 +57,7 @@ changes with `tools/build_native.sh`.
 - Benchmark (`tests/bench.tscn`): 300 mobs (≈130 hunting 10 players) + 200 items ≈ 3.5 ms/tick
   native, ≈ 9.3 ms/tick GDScript fallback.
 
-## Done on `visuals` (phase 2 steps 1-3)
+## Done on `visuals` (phase 2 steps 1-4)
 
 - Step 1, avatars: `engine/shared/player_rig.gd` (10-part rig as data, 64x64 skin layout regions,
   attachment points, `api.set_player_rig`), `engine/client/avatar/` (`avatar.gd` procedural animation,
@@ -78,16 +78,24 @@ changes with `tools/build_native.sh`.
 - Tests: gameplay_test `_cosmetics`, multiplayer test (Bob's crown -> top hat seen by Alice);
   screenshot options `--avatar`, `--wear`, `--editor`, `--camera`, `--equip`, `--select`.
 
+- Step 4, effects: `engine/shared/effect_registry.gd` (emitters, light flash, shake, sound; 8
+  `engine:*` built-ins; `s_effect(id, position, options)` with follow entity/player),
+  `engine/client/effects/effect_player.gd` (CPUParticles3D, procedural sprites, block-break debris,
+  quality scaling) and `swing_trail.gd` (ribbon between item grip/tip markers; subtle in first
+  person). Items: `glow`, `trail`, `effects` {swing, hit, use, held, break}, overridable per stack in
+  item data (`ItemRegistry.visuals`); appearance carries `held_look` and `armor_glow`. Mob attacks:
+  `windup_effect`, `effect`. API: `register_effect`, `play_effect` (+ JS). Content: Soul Blade
+  glow/trail/aura by level (`/arcana blade <level>`), blink/cast/spark effects, Crystal Helmet,
+  Guild gold burst + pick shimmer + quest sparkle + meteor explosion, Colossus stomp dust, iron sword
+  trails. Protocol 11 / 0.11.0. `tools/run_tests.sh` now also fails on SCRIPT ERROR in test logs.
+
 ## Pending (next steps, in order)
 
-1. Phase 2 step 4, effects: data-driven effects registry (particles, light flash, screen shake),
-   `api.play_effect` + JS, item fields for glow / trail / effects / sounds, content (Soul Blade glow
-   by level, sword trails, spark hit effects, wand casts).
-2. Player-made content imports (skins, cosmetics uploads) were deferred by the user ("need to explore
+1. Player-made content imports (skins, cosmetics uploads) were deferred by the user ("need to explore
    more"); cosmetics reference assets by name/hash so uploads can be added later. No layered 3D clothing.
-3. AI performance, if mob counts grow: move perception LOS batching and steering to native; path
+2. AI performance, if mob counts grow: move perception LOS batching and steering to native; path
    budget is 8/tick native, 2/tick fallback.
-4. The Godot MCP editor plugin lives in `addons/godot_mcp/` locally; it is git-ignored and excluded
+3. The Godot MCP editor plugin lives in `addons/godot_mcp/` locally; it is git-ignored and excluded
    from exports on `mob-ai` (not on `gameplay`/`hardening`, where it just shows as untracked).
 
 ## Equipment decisions (user, 2026-09-13)

@@ -182,6 +182,14 @@ func _call_host(method: String, a: Array):
 		"registerCosmetic": return api.register_cosmetic(_str(a, 0), _dict(a, 1))
 		"registerCosmeticCategory": return api.register_cosmetic_category(_str(a, 0), _dict(a, 1))
 		"setCosmeticsPolicy": api.set_cosmetics_policy(_dict(a, 0))
+		"registerEffect": return api.register_effect(_str(a, 0), _dict(a, 1))
+		"playEffect":
+			var options := _dict(a, 2)
+			if options.has("follow"):
+				options.follow = _any_ref([options.follow], 0)
+			if options.get("direction") is Dictionary:
+				options.direction = _vec3([options.direction], 0)
+			api.play_effect(_str(a, 0), _vec3(a, 1), options)
 		"makeNoise": api.make_noise(_vec3(a, 0), float(a[1]) if a.size() > 1 else 8.0, _any_ref(a, 2))
 		"registerMobBehavior":
 			var score_id := _int(a, 1, -1)

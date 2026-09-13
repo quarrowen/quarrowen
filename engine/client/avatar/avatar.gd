@@ -5,6 +5,7 @@ extends Node3D
 ## getting hurt and lying down when dead.
 
 const PlayerRig = preload("res://engine/shared/player_rig.gd")
+const SwingTrail = preload("res://engine/client/effects/swing_trail.gd")
 
 const OVERLAY_INFLATE := 0.5  # pixels: second skin layer (jackets, hats)
 const ARMOR_INFLATE := 1.0  # pixels: armor shell
@@ -30,6 +31,8 @@ var _swing_at := -10.0
 var _hurt_until := 0.0
 var _dead := false
 var _holding := false
+var _held_look := {}
+var _trail: SwingTrail
 
 
 func build(rig_def: Dictionary) -> void:
@@ -78,6 +81,8 @@ func build(rig_def: Dictionary) -> void:
 		attachments[key] = node
 	for m in _armor_meshes:
 		m.visible = false
+	_trail = SwingTrail.new()
+	add_child(_trail)
 
 
 func set_skin(texture: Texture2D) -> void:
@@ -92,11 +97,12 @@ func set_armor(texture: Texture2D) -> void:
 		m.visible = texture != null
 
 
-## Replaces the item in the right hand (null = empty hand).
-func set_held(node: Node3D) -> void:
+## Replaces the item in the right hand (null = empty hand). `look`: {glow, trail, held} of the stack.
+func set_held(node: Node3D, look := {}) -> void:
 	if _held != null:
 		_held.queue_free()
 	_held = node
+	_held_look = look
 	_holding = node != null
 	if node != null and attachments.has("hand_r"):
 		attachments.hand_r.add_child(node)
@@ -113,8 +119,20 @@ func set_accessories(list: Array) -> void:
 			_accessories.append(entry.node)
 
 
-func swing() -> void:
+func swing(with_trail := true) -> void:
 	_swing_at = Time.get_ticks_msec() / 1000.0
+	if with_trail and _held != null and not _held_look.get("trail", {}).is_empty() and _held.get_child_count() > 0:
+		var mesh := _held.get_child(0)
+		_trail.start(mesh.get_node_or_null("grip"), mesh.get_node_or_null("tip"), _held_look.trail, SWING_SECONDS)
+
+
+## Glowing armor: {color, energy} lights up the armor texture in its own colors; {} turns it off.
+func set_armor_glow(glow: Dictionary) -> void:
+	_armor_material.emission_enabled = not glow.is_empty()
+	if not glow.is_empty():
+		_armor_material.emission = Color.html(String(glow.color))
+		_armor_material.emission_energy_multiplier = float(glow.energy)
+		_armor_material.emission_texture = _armor_material.albedo_texture
 
 
 func hurt() -> void:

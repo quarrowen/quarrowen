@@ -22,6 +22,7 @@ func _ready() -> void:
 	await _equipment()
 	await _progression()
 	await _cosmetics()
+	await _effects()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -373,6 +374,59 @@ func _cosmetics() -> void:
 	server.add_handler("avatar_change", func(ev): ev.avatar.skin = "#00ff00", 0)
 	p.set_avatar_override({})
 	_check(p.avatar.skin == "#00ff00" and not p.avatar.get("wear", {}).has("glasses"), "avatar_change handlers can change the look")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _effects() -> void:
+	const EffectRegistry = preload("res://engine/shared/effect_registry.gd")
+	const EffectPlayer = preload("res://engine/client/effects/effect_player.gd")
+	var registry := EffectRegistry.new()
+	_check(registry.id_of("engine:explosion") >= 0 and registry.id_of("engine:hit") >= 0, "built-in effects exist")
+	var id := registry.register({"name": "test:wild", "duration": 99999, "emitters": [
+		{"amount": 100000, "lifetime": -3, "speed": "fast", "colors": ["#ff000080", "nope"], "shape": "cube", "texture": 5}, "junk"],
+		"light": {"energy": 500}, "shake": {"strength": 9}})
+	var d: Dictionary = registry.defs[id]
+	_check(d.emitters.size() == 1 and d.emitters[0].amount == 256 and d.emitters[0].lifetime == 0.05 and d.emitters[0].speed == [1.0, 2.0],
+		"emitter values are clamped and defaulted")
+	_check(d.emitters[0].colors == ["#ff000080"] and d.emitters[0].shape == "point" and d.duration == 600.0 and d.light.energy == 16.0 and d.shake.strength == 3.0,
+		"colors, shapes, duration, light and shake are cleaned")
+	_check(EffectRegistry.clean_options({"color": "#00ff00", "scale": 99, "direction": [0, 0, -1], "evil": true}) == {"color": "#00ff00ff", "scale": 20.0, "direction": Vector3(0, 0, -1)},
+		"play options are cleaned")
+
+	# Client: effects become particles, a light and shake, and clean themselves up.
+	var player := EffectPlayer.new()
+	add_child(player)
+	var root := player.play(registry.id_of("engine:explosion"), Vector3(0, 60, 0), {"scale": 2.0}, null, Vector3(0, 60, 3))
+	var particles := root.get_children().filter(func(n): return n is CPUParticles3D)
+	_check(particles.size() == 2 and root.get_children().any(func(n): return n is OmniLight3D), "explosion builds two emitters and a light flash")
+	_check(is_equal_approx((particles[0] as CPUParticles3D).initial_velocity_max, 18.0), "scale multiplies particle speed")
+	await get_tree().process_frame
+	_check(player.shake_offset.length() > 0.0, "a nearby explosion shakes the camera")
+	var held := player.play_def(registry.defs[id], Vector3.ZERO, {"duration": -1}, player)
+	await get_tree().create_timer(1.8).timeout
+	_check(not is_instance_valid(root) and is_instance_valid(held), "one-shot effects free themselves; held effects stay until removed")
+	player.queue_free()
+
+	# Server: item looks come from definitions and item data, and reach the appearance.
+	var server = _start("effects_%d" % Time.get_ticks_msec(), ["vanilla", "arcana"])
+	var items = server.items
+	var blade: int = items.id_of("arcana:soul_blade")
+	_check(items.visuals(blade).trail.color == "#a060ff90" and items.visuals(blade).effects.hit == "arcana:soul_hit", "item defs carry trails and qualified effect names")
+	var levelled: Dictionary = items.visuals(blade, {"glow": {"color": "#b070ff", "energy": 1.4}, "effects": {"held": "arcana:soul_aura"}})
+	_check(levelled.glow.energy == 1.4 and levelled.effects.held == "arcana:soul_aura" and levelled.effects.hit == "arcana:soul_hit",
+		"item data overrides glow and adds effects")
+	var p := ServerPlayer.new(server, 79, "Glimmer")
+	p.player_id = "glimmer"
+	server.players[79] = p
+	p.inventory.set_slot(0, blade, 1, {"glow": {"color": "#b070ff", "energy": 1.0}})
+	p.inventory.set_slot(p.equipment_slot("head"), items.id_of("arcana:crystal_helmet"), 1)
+	server.refresh_appearance(p)
+	_check(p.appearance.get("held_look", {}).get("glow", {}).get("energy") == 1.0 and p.appearance.held_look.trail.width == 0.5,
+		"the appearance carries the held stack's glow and trail")
+	_check(p.appearance.get("armor_glow", {}).get("color") == "#60e0ffff", "glowing armor reaches the appearance")
+	var stomp: Array = server.entities.ai.config_for(server.entities.registry.id_of("vanilla:colossus")).attacks.filter(func(a): return a.name == "stomp")
+	_check(stomp.size() == 1 and stomp[0].effect == "engine:dust", "mob attacks carry effects")
 	server.queue_free()
 	await get_tree().process_frame
 

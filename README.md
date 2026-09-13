@@ -248,6 +248,38 @@ api.on("entity_death", func(ev):
   armor from pigs (vanilla), the Soul Blade that levels with kills (Arcana, GDScript) and the
   Prospector's Pick that mines faster as it gains experience (Guild, JavaScript).
 
+### Effects: glows, trails and particles
+
+Effects are data the server names and clients draw, so mods never ship client code. An effect mixes
+particle emitters, a light flash, camera shake and a sound (see `engine/shared/effect_registry.gd`).
+Built in: `engine:hit`, `engine:crit`, `engine:smoke`, `engine:sparkle`, `engine:magic`, `engine:heal`,
+`engine:dust`, `engine:explosion`.
+
+```gdscript
+api.register_effect("frost_burst", {
+	"emitters": [{"amount": 30, "lifetime": 0.8, "speed": [1, 4], "spread": 180, "gravity": 2, "drag": 2,
+		"size": [0.15, 0.0], "colors": ["#ffffff", "#80d0ff", "#2060ff00"], "texture": "star"}],
+	"light": {"color": "#80d0ff", "energy": 3, "range": 6, "seconds": 0.4},
+	"shake": {"strength": 0.3, "seconds": 0.3, "radius": 8}})
+api.play_effect("frost_burst", position, {"scale": 1.5, "follow": entity})
+
+api.register_item("frost_blade", {"icon": "textures/frost_blade.png", "weapon": {"damage": 7},
+	"glow": {"color": "#80d0ff", "energy": 0.8, "light": 3},        # emissive, lights its surroundings
+	"trail": {"color": "#80d0ffa0", "seconds": 0.25},                 # ribbon while swinging
+	"effects": {"hit": "frost_burst", "held": "engine:sparkle"}})     # swing, hit, use, held, break
+```
+
+- **Items:** `glow` (held items; armor lights up its texture), `trail`, and `effects` played on swing,
+  hit (at the target; default `engine:hit`), use, while held and when the item breaks. Item data can
+  override `glow`, `trail` and `effects` per stack, so progression can change looks (the Soul Blade glows
+  brighter each level and trails wisps at level 4).
+- **Mob attacks:** `windup_effect` (follows the mob while it telegraphs) and `effect` (when the attack
+  lands); the Colossus stomp raises dust and shakes the camera.
+- **Engine:** critical hits sparkle, broken blocks scatter debris from their texture, and the "fast"
+  graphics preset halves particle counts.
+- **Bundled:** Arcana blink, cast, spark impacts, Soul Blade glow/trail/aura and a glowing Crystal Helmet;
+  Guild gold bursts, a shimmering levelled pick, quest sparkles and meteor explosions; iron swords trail.
+
 ### Avatars and cosmetics
 
 Players are drawn with a rig of 10 boxes (head, torso, upper and lower arms and legs) textured in the

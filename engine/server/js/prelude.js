@@ -205,6 +205,10 @@
     registerCosmeticCategory: (name, def = {}) => host("registerCosmeticCategory", name, def),
     /** {allow_builtin, allow_colors, armor: "player" | "armor" | "cosmetics", blocked, uniform} */
     setCosmeticsPolicy: (values) => host("setCosmeticsPolicy", values),
+    /** Particles, light flash, shake and sound as data; see EffectDef. Returns the id or -1. */
+    registerEffect: (name, def) => host("registerEffect", name, def),
+    /** options: {color, scale, direction: {x,y,z} | [x,y,z], duration, follow: entity | player} */
+    playEffect: (name, position, options = {}) => host("playEffect", name, position, options),
     /** A mob behaviour for mobs listing it in ai.behaviors. score(mob, ctx) -> number each think;
      *  update(mob, ctx) while it runs. ctx: {target, can_see_target, target_distance, health, behavior, arrived}. */
     registerMobBehavior: (name, { score, update, stop } = {}) =>
