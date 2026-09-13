@@ -58,20 +58,85 @@ func _setup_mobs() -> void:
 	api.register_sound("pig_ambient", "sounds/pig_ambient.wav", {"range": 16.0})
 	api.register_sound("pig_hurt", "sounds/pig_hurt.wav")
 	api.register_sound("pig_death", "sounds/pig_death.wav")
+	api.register_sound("skeleton_hurt", "sounds/skeleton_hurt.wav")
+	api.register_sound("skeleton_death", "sounds/skeleton_death.wav")
+	api.register_sound("bow", "sounds/bow.wav", {"pitch_variance": 0.15})
+	api.register_sound("colossus_stomp", "sounds/colossus_stomp.wav", {"range": 48.0})
+	api.register_sound("colossus_roar", "sounds/colossus_roar.wav", {"range": 64.0})
+	api.register_sound("colossus_hurt", "sounds/colossus_hurt.wav", {"range": 32.0})
+	api.register_item("bone", {"display_name": "Bone", "icon": "textures/bone.png"})
 	ids.porkchop = api.register_item("porkchop", {"display_name": "Porkchop", "icon": "textures/porkchop.png", "usable": true})
+	api.register_entity("arrow", {"kind": "projectile", "sprite": "textures/arrow.png", "width": 0.25, "height": 0.25,
+		"damage": 4, "gravity": 14.0, "lifetime": 4.0})
+
+	# Zombies hunt in packs: they hear fighting and digging, call each other in, spread out around
+	# their prey and circle while their claws recharge.
 	ids.zombie = api.register_entity("zombie", {
 		"kind": "mob", "model": "models/zombie.glb", "width": 0.6, "height": 1.85,
-		"health": 20, "speed": 3.0, "ai": "hostile", "attack_damage": 3, "attack_range": 1.3, "attack_cooldown": 1.0,
-		"sight_range": 20, "drops": [["base:coal", 1, 0.5]],
+		"health": 20, "speed": 3.0, "drops": [["base:coal", 1, 0.5]],
 		"sounds": {"hurt": "zombie_hurt", "death": "zombie_death", "ambient": "zombie_ambient"},
+		"ai": {
+			"preset": "hostile", "group": "undead", "aggression": 0.65, "intelligence": 0.55, "courage": 1.0,
+			"sight_range": 20, "hearing_range": 18, "memory": 15, "alert_radius": 18,
+			"attacks": [
+				{"name": "claw", "type": "melee", "damage": 3, "range": 0.9, "windup": 0.35, "cooldown": 0.9},
+				{"name": "lunge", "type": "leap", "damage": 4, "min_range": 2.5, "range": 5.0, "radius": 1.5, "windup": 0.5, "cooldown": 6.0, "weight": 0.6},
+			],
+		},
 	})
+	# Skeletons are careful archers: they keep their distance, strafe, lead their shots, dodge arrows
+	# and back off when hurt.
+	ids.skeleton = api.register_entity("skeleton", {
+		"kind": "mob", "model": "models/skeleton.glb", "width": 0.6, "height": 1.8,
+		"health": 16, "speed": 3.2, "drops": [["vanilla:bone", 2], ["vanilla:bone", 1, 0.5]],
+		"sounds": {"hurt": "skeleton_hurt", "death": "skeleton_death"},
+		"ai": {
+			"preset": "archer", "group": "undead", "aggression": 0.6, "intelligence": 0.8, "agility": 0.55, "courage": 0.35,
+			"sight_range": 24, "preferred_range": [7, 14],
+			"attacks": [{"name": "shoot", "type": "ranged", "projectile": "vanilla:arrow", "damage": 4, "range": 18,
+				"min_range": 1.5, "windup": 0.7, "cooldown": 1.8, "projectile_speed": 24, "spread": 3, "sound": "vanilla:bow"}],
+		},
+	})
+	# Pigs graze in herds; hurting one makes the whole herd scatter.
 	ids.pig = api.register_entity("pig", {
 		"kind": "mob", "model": "models/pig.glb", "width": 0.9, "height": 0.9,
-		"health": 10, "speed": 2.2, "ai": "passive", "persistent": true, "drops": [["vanilla:porkchop", 1], ["vanilla:porkchop", 1, 0.5]],
+		"health": 10, "speed": 2.2, "persistent": true, "drops": [["vanilla:porkchop", 1], ["vanilla:porkchop", 1, 0.5]],
 		"sounds": {"hurt": "pig_hurt", "death": "pig_death", "ambient": "pig_ambient"},
+		"ai": {"preset": "passive", "group": "pigs", "alert_radius": 12, "wander_radius": 8},
+	})
+	# The Ancient Colossus: a boss 4x taller and 2x wider than a zombie, with telegraphed stomps and
+	# punches, and a second phase that charges and raises undead.
+	ids.colossus = api.register_entity("colossus", {
+		"kind": "mob", "model": "models/colossus.glb", "width": 1.2, "height": 7.2,
+		"health": 400, "speed": 2.4, "knockback_resistance": 0.95, "drops": [["base:iron_ore", 16], ["base:coal", 32]],
+		"sounds": {"hurt": "colossus_hurt", "death": "colossus_roar"},
+		"ai": {
+			"preset": "boss", "group": "undead", "boss": {"name": "Ancient Colossus", "bar_range": 64},
+			"sight_range": 40, "leash": 48, "step_up": 2, "max_drop": 4, "attack_interval": 1.2,
+			"attacks": [
+				{"name": "stomp", "type": "slam", "damage": 9, "radius": 5, "windup": 1.1, "cooldown": 5, "knockback": 12, "sound": "vanilla:colossus_stomp"},
+				{"name": "punch", "type": "melee", "damage": 11, "range": 2.2, "arc": 120, "windup": 0.7, "cooldown": 2.2, "knockback": 10},
+			],
+			"phases": [{
+				"health_below": 0.5, "message": "The Ancient Colossus roars in fury!", "speed_multiplier": 1.35, "aggression": 1.0,
+				"add_attacks": [
+					{"name": "charge", "type": "charge", "damage": 14, "min_range": 6, "range": 24, "speed": 13, "duration": 1.5, "windup": 0.9, "cooldown": 9, "knockback": 14, "sound": "vanilla:colossus_roar"},
+					{"name": "raise_dead", "type": "summon", "entity": "vanilla:zombie", "count": 3, "max_summons": 4, "range": 40, "windup": 1.2, "cooldown": 18, "weight": 0.8},
+				],
+			}],
+		},
 	})
 	api.add_spawn_rule({"entity": "zombie", "time": "night", "on": ["base:grass", "base:dirt", "base:sand", "base:snow", "base:stone"],
 		"max_nearby": 5, "max_total": 40, "chance": 0.25})
+	api.add_spawn_rule({"entity": "skeleton", "time": "night", "on": ["base:grass", "base:stone", "base:snow"],
+		"max_nearby": 2, "max_total": 16, "chance": 0.1})
+	api.register_command("colossus", "Summon the Ancient Colossus nearby (admin)", func(player, _args):
+		var forward := Vector3(-sin(player.yaw), 0.0, -cos(player.yaw))
+		var boss = api.spawn_entity("colossus", player.position + forward * 12.0 + Vector3(0, 1, 0), {"yaw": player.yaw + PI})
+		if boss != null:
+			boss.set_home(boss.position)
+			api.play_sound("colossus_roar", boss.position)
+			api.broadcast("The Ancient Colossus awakens!"), "admin")
 	api.add_spawn_rule({"entity": "pig", "time": "day", "on": ["base:grass"], "max_nearby": 4, "max_total": 30, "chance": 0.08})
 	api.on("item_use", func(ev):
 		if ev.item == ids.porkchop:
@@ -97,7 +162,7 @@ func _mob_tick() -> void:
 		for mob in api.get_entities(player.position, 32.0):
 			if randf() < 0.25 and mob.def.sounds.has("ambient"):
 				api.play_sound(mob.def.sounds.ambient, mob.position + Vector3(0, 1, 0))
-			if mob.type == ids.zombie and daylight > 0.75 and api.sees_sky(Vector3i(mob.position.floor()) + Vector3i.UP):
+			if mob.type in [ids.zombie, ids.skeleton] and daylight > 0.75 and api.sees_sky(Vector3i(mob.position.floor()) + Vector3i.UP):
 				mob.damage(4.0, null, "sun")
 
 

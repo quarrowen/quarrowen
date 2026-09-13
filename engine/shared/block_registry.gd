@@ -40,6 +40,8 @@ var targetable_lut := PackedByteArray()
 var emission_lut := PackedByteArray()
 var interactive_lut := PackedByteArray()
 var sway_lut := PackedByteArray()
+## Blocks mobs never path into or onto (e.g. lava, spikes). Server-side only.
+var hazard_lut := PackedByteArray()
 
 
 func _init() -> void:
@@ -83,6 +85,7 @@ func register(def: Dictionary) -> int:
 	d.model_arm = String(def.get("model_arm", "")).left(256)
 	## Foliage that sways in the wind (visual only).
 	d.sway = bool(def.get("sway", false))
+	d.hazard = bool(def.get("hazard", false))
 	## Sound names per action: {"break": "base:stone", "place": ..., "step": ...}.
 	d.sounds = {}
 	if def.get("sounds") is Dictionary:
@@ -168,7 +171,7 @@ func load_network(data) -> bool:
 
 func _rebuild_luts() -> void:
 	var luts: Array[PackedByteArray] = []
-	for i in 11:
+	for i in 12:
 		var lut := PackedByteArray()
 		lut.resize(LUT_SIZE)
 		luts.append(lut)
@@ -185,6 +188,7 @@ func _rebuild_luts() -> void:
 		luts[8][id] = d.light
 		luts[9][id] = 1 if d.interactive else 0
 		luts[10][id] = 1 if d.sway else 0
+		luts[11][id] = 1 if d.get("hazard", false) else 0
 	luts[0][UNLOADED] = 1
 	luts[1][UNLOADED] = 1
 	solid_lut = luts[0]
@@ -198,3 +202,4 @@ func _rebuild_luts() -> void:
 	emission_lut = luts[8]
 	interactive_lut = luts[9]
 	sway_lut = luts[10]
+	hazard_lut = luts[11]

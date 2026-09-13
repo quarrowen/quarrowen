@@ -119,6 +119,16 @@ def main():
     write("mods/vanilla/sounds/pig_hurt.wav", tone(0.22, 700, 420, shape="square", gain=0.3, vibrato=0.2))
     write("mods/vanilla/sounds/pig_death.wav", tone(0.5, 600, 180, shape="square", gain=0.3, curve=1.5, vibrato=0.2))
 
+    rattle = []
+    for k in range(5):
+        rattle = mix(rattle, [0.0] * n(0.035 * k) + resonant_knock(0.05, [900 + rng.uniform(-150, 250), 1700], 80))
+    write("mods/vanilla/sounds/skeleton_hurt.wav", rattle)
+    write("mods/vanilla/sounds/skeleton_death.wav", mix(rattle, [0.0] * n(0.15) + rattle, [0.0] * n(0.3) + noise_burst(0.2, 0.3, gain=0.3)))
+    write("mods/vanilla/sounds/bow.wav", mix(tone(0.18, 520, 380, gain=0.35, curve=3.0), noise_burst(0.08, 0.5, gain=0.25)))
+    write("mods/vanilla/sounds/colossus_stomp.wav", mix(tone(0.9, 70, 35, gain=0.7, curve=2.0), noise_burst(0.5, 0.04, curve=2.0, gain=0.8)))
+    write("mods/vanilla/sounds/colossus_roar.wav", mix(tone(1.4, 95, 70, shape="saw", gain=0.45, curve=1.2, vibrato=0.08), noise_burst(1.2, 0.06, curve=1.5, gain=0.3)))
+    write("mods/vanilla/sounds/colossus_hurt.wav", mix(resonant_knock(0.4, [110, 160, 240], 9), noise_burst(0.25, 0.2, gain=0.3)))
+
     # --- arcana & guild ---
     write("mods/arcana/sounds/spark_cast.wav", mix(tone(0.25, 600, 2400, gain=0.35, curve=1.5), noise_burst(0.2, 0.7, gain=0.15)))
     write("mods/arcana/sounds/spark_hit.wav", mix(tone(0.2, 1800, 500, gain=0.3), noise_burst(0.15, 0.5, gain=0.35)))

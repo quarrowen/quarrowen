@@ -86,7 +86,7 @@ func _on_event(ev: Dictionary, callback_id: int) -> void:
 	for key in ["keep_inventory", "keep"]:
 		if ev.has(key) and changed.get(key) is bool:
 			ev[key] = changed[key]
-	if ev.has("message") and changed.get("message") is String:
+	if ev.has("message") and changed.get("message") is String and ev.message is String:
 		ev.message = changed.message
 	if ev.has("position") and ev.position is Vector3 and changed.get("position") is Dictionary:
 		ev.position = _vec3([changed.position], 0)
@@ -171,6 +171,16 @@ func _call_host(method: String, a: Array):
 		"entities": return api.get_entities(_vec3(a, 0), float(a[1]) if a.size() > 1 else 16.0, _str(a, 2))
 		"addSpawnRule": api.add_spawn_rule(_dict(a, 0))
 		"setGameplay": api.set_gameplay(_dict(a, 0))
+		"makeNoise": api.make_noise(_vec3(a, 0), float(a[1]) if a.size() > 1 else 8.0, _any_ref(a, 2))
+		"registerMobBehavior":
+			var score_id := _int(a, 1, -1)
+			var update_id := _int(a, 2, -1)
+			var stop_id := _int(a, 3, -1)
+			api.register_mob_behavior(_str(a, 0), {
+				"score": func(brain): return _behavior_call(score_id, brain, 0.0),
+				"update": func(brain, delta): _behavior_call(update_id, brain, delta),
+				"stop": (func(brain): _behavior_call(stop_id, brain, 0.0)) if stop_id >= 0 else Callable(),
+			})
 		"getGameplay": return api.get_gameplay(_str(a, 0))
 		_: return HostError.new("unknown API method '%s'" % method)
 	return null
@@ -240,6 +250,23 @@ func _call_entity(method: String, a: Array):
 		"heal": e.heal(float(a[1]) if a.size() > 1 else 1.0)
 		"remove": e.remove()
 		"setGoal": e.set_goal(_vec3(a, 1) if a.size() > 1 and a[1] != null else Vector3.INF)
+		"target": return e.get_target()
+		"setTarget": e.set_target(_any_ref(a, 1))
+		"addThreat": e.add_threat(_any_ref(a, 1), float(a[2]) if a.size() > 2 else 1.0)
+		"tune": e.tune(_dict(a, 1))
+		"alert": e.alert(_vec3(a, 1))
+		"setHome": e.set_home(_vec3(a, 1), float(a[2]) if a.size() > 2 else -1.0)
+		"attack": return e.perform_attack(_str(a, 1))
+		"behavior": return e.get_behavior()
+		"moveTo":
+			if e.brain != null:
+				e.brain.move_to(_vec3(a, 1), float(a[2]) if a.size() > 2 else 1.0, float(a[3]) if a.size() > 3 else 0.8)
+		"stop":
+			if e.brain != null:
+				e.brain.stop()
+		"lookAt":
+			if e.brain != null:
+				e.brain.look_at(_vec3(a, 1))
 		"getData":
 			var own: Dictionary = e.data.get(manifest.id, {})
 			return own.get(_str(a, 1), a[2] if a.size() > 2 else null)
@@ -249,6 +276,17 @@ func _call_entity(method: String, a: Array):
 			e.data[manifest.id][_str(a, 1)] = a[2] if a.size() > 2 else null
 		_: return HostError.new("unknown entity method '%s'" % method)
 	return null
+
+
+## JS mob behaviour callbacks run at the mob's think rate with (mob, context).
+func _behavior_call(callback_id: int, brain, delta: float):
+	if callback_id < 0:
+		return 0.0
+	var context := {"target": brain.target, "can_see_target": brain.can_see_target(),
+		"target_distance": brain.distance_to_target() if brain.target != null else -1.0,
+		"health": brain.health_fraction(), "behavior": brain.behavior, "arrived": brain.arrived(), "delta": delta}
+	var reply = _invoke(callback_id, [brain.entity, context])
+	return float(reply.get("value", 0.0)) if reply is Dictionary and (reply.get("value") is float or reply.get("value") is int) else 0.0
 
 
 func _entity_ref(a: Array, i: int):

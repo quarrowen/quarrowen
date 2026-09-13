@@ -82,6 +82,15 @@ func _init() -> void:
 			if d.length() < 3.0 or star:
 				spark.set_pixel(x, y, Color(0.75, 0.95, 1.0) if d.length() < 2.0 else Color(0.35, 0.8, 1.0, 0.9))
 	_save(spark, arcana + "spark.png")
+	var arrow := _blank()
+	for i in range(3, 13):
+		arrow.set_pixel(i, 15 - i, Color(0.55, 0.4, 0.25))
+	for d in [Vector2i(12, 3), Vector2i(13, 2), Vector2i(12, 2), Vector2i(13, 3), Vector2i(11, 3), Vector2i(12, 4)]:
+		arrow.set_pixel(d.x, d.y, Color(0.75, 0.75, 0.78))
+	for d in [Vector2i(2, 12), Vector2i(3, 13), Vector2i(2, 13), Vector2i(4, 13), Vector2i(2, 11)]:
+		arrow.set_pixel(d.x, d.y, Color(0.95, 0.95, 0.95))
+	_save(arrow, vanilla + "arrow.png")
+	_save(_item(Color(0.9, 0.88, 0.8), "shard"), vanilla + "bone.png")
 	quit()
 
 

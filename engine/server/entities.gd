@@ -1,6 +1,6 @@
 extends RefCounted
-## Server entity system: spawning, simple AI (wander / passive / hostile), projectiles, dropped item
-## stacks (pickup and merging), natural spawn rules, damage and death, replication to players and
+## Server entity system: spawning, mob brains (engine/server/ai), projectiles, dropped item stacks
+## (pickup and merging), natural spawn rules, damage and death, replication to players and
 ## persistence of persistent entities inside chunk saves.
 
 const Entity = preload("res://engine/server/entity.gd")
@@ -11,6 +11,7 @@ const VoxelWorld = preload("res://engine/shared/voxel_world.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
+const MobAI = preload("res://engine/server/ai/mob_ai.gd")
 
 const MAX_ENTITIES := 2000
 ## Entities are replicated to players within this distance (blocks).
@@ -31,9 +32,12 @@ const SLEEP_AFTER_TICKS := 20
 const SLEEPING_STEP_INTERVAL := 15
 const PROJECTILE_OWNER_GRACE := 0.25
 
-enum Event { HURT, DEATH, PICKUP, ATTACK, RESPAWN }
+enum Event { HURT, DEATH, PICKUP, ATTACK, RESPAWN, WINDUP }
 
 var registry := EntityRegistry.new()
+var ai: MobAI
+## Live projectiles (mobs watch these to dodge).
+var projectiles: Array = []
 var entities := {}  # id -> Entity
 var spawn_rules: Array[Dictionary] = []
 
@@ -47,6 +51,7 @@ var _removed_ids := PackedInt32Array()
 
 func _init(server) -> void:
 	_server = server
+	ai = MobAI.new(server, self)
 
 
 # --- Spawning & removal -------------------------------------------------------------------------
@@ -69,6 +74,10 @@ func spawn(type_id: int, pos: Vector3, options := {}) -> Entity:
 		e.pickup_delay = float(options.get("pickup_delay", ITEM_PICKUP_DELAY))
 		if not _server.items.is_valid(e.item_id) or e.item_count <= 0:
 			return null
+	if e.def.kind == "mob":
+		e.brain = ai.attach(e)
+	elif e.def.kind == "projectile":
+		projectiles.append(e)
 	entities[e.id] = e
 	_server.emit("entity_spawned", {"entity": e})
 	return e
@@ -94,6 +103,10 @@ func remove(e: Entity) -> void:
 		return
 	e.removed = true
 	entities.erase(e.id)
+	if e.brain != null:
+		ai.detach(e)
+	elif e.def.kind == "projectile":
+		projectiles.erase(e)
 	_removed_ids.append(e.id)
 	_server.emit("entity_removed", {"entity": e})
 
@@ -111,6 +124,7 @@ func in_radius(center: Vector3, radius: float, type_id := -1) -> Array:
 
 func tick(delta: float) -> void:
 	var world = _server.world
+	ai.tick(delta)
 	var moving: Array[Entity] = []
 	for e: Entity in entities.values():
 		if e.removed:
@@ -126,12 +140,9 @@ func tick(delta: float) -> void:
 			continue
 		if not world.has_chunk(VoxelWorld.chunk_coord_of(e.body.position)):
 			continue  # frozen until its chunk is loaded again
-		match e.def.kind:
-			"projectile":
-				_step_projectile(e, delta)
-				continue
-			"mob":
-				_think(e, delta)
+		if e.def.kind == "projectile":
+			_step_projectile(e, delta)
+			continue
 		if _needs_step(e):
 			moving.append(e)
 	_step_bodies(moving, delta)
@@ -210,88 +221,6 @@ func _step_bodies(list: Array[Entity], delta: float) -> void:
 			e.dirty = true
 
 
-# --- AI -----------------------------------------------------------------------------------------
-
-func _think(e: Entity, delta: float) -> void:
-	if e.dying:
-		e.body.velocity.x = 0.0
-		e.body.velocity.z = 0.0
-		return
-	var d := e.def
-	var desired := Vector2.ZERO
-	var speed: float = d.speed
-	e.think_timer -= delta
-	var rethink := e.think_timer <= 0.0
-	if rethink:
-		e.think_timer = 0.5
-	if e.goal != Vector3.INF:
-		var to_goal := Vector2(e.goal.x - e.body.position.x, e.goal.z - e.body.position.z)
-		if to_goal.length() < 0.6:
-			e.goal = Vector3.INF
-		else:
-			desired = to_goal.normalized()
-	elif d.ai == "hostile":
-		if rethink:
-			e.target = _nearest_target(e)
-		if e.target != null and not e.target.dead and _server.players.has(e.target.peer_id):
-			var to_target: Vector3 = e.target.state.position - e.body.position
-			var flat := Vector2(to_target.x, to_target.z)
-			if flat.length() > d.attack_range * 0.7:
-				desired = flat.normalized()
-			if flat.length() <= d.attack_range and absf(to_target.y) < 2.0 and e.attack_timer <= 0.0:
-				e.attack_timer = d.attack_cooldown
-				_server.broadcast_entity_event(e, Event.ATTACK, 0)
-				play_sound(e, d.sounds.get("attack", ""))
-				_server.damage_player(e.target, d.attack_damage, "mob", e)
-			if flat.length() > 0.01:
-				e.yaw = atan2(-flat.x, -flat.y)
-		else:
-			e.target = null
-	elif d.ai == "passive" and e.flee_timer > 0.0:
-		e.flee_timer -= delta
-		var away := Vector2(e.body.position.x - e.flee_from.x, e.body.position.z - e.flee_from.z)
-		desired = away.normalized() if away.length() > 0.01 else Vector2.RIGHT.rotated(randf() * TAU)
-		speed *= 1.6
-	if desired == Vector2.ZERO and d.ai in ["wander", "passive", "hostile"]:
-		e.wander_timer -= delta
-		if e.wander_timer <= 0.0:
-			e.wander_timer = randf_range(2.0, 6.0)
-			e.wander_direction = Vector2.RIGHT.rotated(randf() * TAU) if randf() < 0.55 else Vector2.ZERO
-		desired = e.wander_direction
-		speed *= 0.5
-	if desired != Vector2.ZERO:
-		e.yaw = lerp_angle(e.yaw, atan2(-desired.x, -desired.y), minf(1.0, 10.0 * delta))
-		var b := e.body
-		var wish := desired * speed
-		var accel := 30.0 if b.on_ground else 6.0
-		var horizontal := Vector2(b.velocity.x, b.velocity.z).move_toward(wish, accel * delta)
-		b.velocity.x = horizontal.x
-		b.velocity.z = horizontal.y
-		if b.blocked and b.on_ground:
-			b.velocity.y = 8.5  # hop up one block
-		elif b.in_liquid:
-			b.velocity.y = 2.5
-		e.sleep_ticks = 0
-	elif e.body.on_ground:
-		var b := e.body
-		var horizontal := Vector2(b.velocity.x, b.velocity.z).move_toward(Vector2.ZERO, 30.0 * delta)
-		b.velocity.x = horizontal.x
-		b.velocity.z = horizontal.y
-
-
-func _nearest_target(e: Entity):
-	var best = null
-	var best_d: float = e.def.sight_range * e.def.sight_range
-	for p in _server.players.values():
-		if p.dead or p.inventory.creative:
-			continue
-		var dist: float = p.state.position.distance_squared_to(e.body.position)
-		if dist < best_d:
-			best_d = dist
-			best = p
-	return best
-
-
 # --- Projectiles --------------------------------------------------------------------------------
 
 func _step_projectile(e: Entity, delta: float) -> void:
@@ -320,9 +249,12 @@ func _step_projectile(e: Entity, delta: float) -> void:
 		var t := EntityPhysics.segment_hits_box(from, dir, distance, box.position, box.end)
 		if t >= 0.0 and t < hit.t:
 			hit = {"t": t, "kind": "player", "target": p}
+	var owner_brain = e.owner.brain if e.owner != null and e.owner.get("brain") != null else null
 	for other: Entity in entities.values():
 		if other == e or other.def.kind != "mob" or not other.is_alive() or (skip_owner and other == e.owner):
 			continue
+		if owner_brain != null and other.brain != null and ai.allied(owner_brain, other.brain):
+			continue  # no friendly fire between allied mobs
 		var box := other.aabb()
 		var t := EntityPhysics.segment_hits_box(from, dir, distance, box.position, box.end)
 		if t >= 0.0 and t < hit.t:
@@ -333,6 +265,7 @@ func _step_projectile(e: Entity, delta: float) -> void:
 			e.yaw = atan2(-dir.x, -dir.z)
 		return
 	b.position = from + dir * hit.t
+	ai.make_noise(b.position, 8.0, e.owner, hit.kind != "block")
 	var ev: Dictionary = _server.emit("projectile_hit", {"entity": e, "owner": e.owner, "hit": hit.kind,
 		"target": hit.get("target"), "position": b.position, "block": hit.get("block", Vector3i.ZERO),
 		"damage": e.def.damage, "cancelled": false, "keep": false})
@@ -419,11 +352,8 @@ func damage(e: Entity, amount: float, cause: String, attacker = null, direction 
 		var strength: float = KNOCKBACK * (1.0 - e.def.knockback_resistance)
 		e.body.velocity = direction.normalized() * strength + Vector3(0, 5.5 * (1.0 - e.def.knockback_resistance), 0)
 	e.wake()
-	if e.def.ai == "passive":
-		e.flee_timer = 4.0
-		e.flee_from = source if source != Vector3.INF else e.body.position - e.body.velocity
-	elif e.def.ai == "hostile" and attacker != null and attacker.get("peer_id") != null and not attacker.inventory.creative:
-		e.target = attacker
+	if e.brain != null:
+		e.brain.on_hurt(attacker, float(ev.amount))
 	_server.broadcast_entity_event(e, Event.HURT, 0)
 	play_sound(e, e.def.sounds.get("hurt", ""))
 	if e.health <= 0.0:

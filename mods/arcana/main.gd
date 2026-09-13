@@ -132,7 +132,7 @@ func _refresh_hud(player) -> void:
 		"anchor": "bottom_right",
 		"children": [
 			{"type": "label", "text": "Mana  %d / %d" % [whole, MAX_MANA], "color": "#c792ff"},
-			{"type": "progress", "value": mana, "max": MAX_MANA},
+			{"type": "progress", "value": mana, "max": MAX_MANA, "color": "#b18cff"},
 		],
 	})
 

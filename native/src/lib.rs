@@ -5,6 +5,7 @@ use godot::prelude::*;
 
 mod js;
 mod mesher;
+mod pathfind;
 mod physics;
 mod process;
 mod snapshot;

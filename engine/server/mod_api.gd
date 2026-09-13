@@ -27,6 +27,9 @@ extends RefCounted
 ##   entity_death   {entity, cause, attacker, drops: [[id, count]...]}   drops may be changed
 ##   entity_interact {player, entity, item}                   right-click on an entity
 ##   entity_natural_spawn {type, position, cancelled}         from spawn rules
+##   mob_target     {entity, target, previous, reason, cancelled}   a mob picks a new enemy
+##   mob_attack     {entity, attack: {name, type, damage}, target, cancelled}   an attack lands (custom attacks act here)
+##   mob_phase      {entity, phase, message}                  a boss crosses a phase threshold; message may be changed
 ##   projectile_hit {entity, owner, hit ("block" | "entity" | "player"), target, position, block, damage,
 ##                  cancelled (no damage), keep (do not remove the projectile)}
 
@@ -170,6 +173,23 @@ func get_entities(center: Vector3, radius: float, entity_name := "") -> Array:
 
 func get_entity(entity_id: int):
 	return _server.entities.entities.get(entity_id)
+
+
+## Registers a mob behaviour that mobs listing it in ai.behaviors can choose. `def`:
+##   score:  Callable(brain) -> float   utility each think; the highest scoring behaviour runs.
+##           Engine scores: idle 0.05, wander 0.1, investigate 0.4, search <= 0.65, engage 0.7-0.9,
+##           return_home 0.95+, flee 1.05, scripted 1.2
+##   update: Callable(brain, delta)     called each think while it runs; use brain.move_to / stop /
+##           look_at, brain.target, brain.entity, brain.can_see_target(), brain.health_fraction()
+##   stop:   Callable(brain)            optional, when another behaviour takes over
+func register_mob_behavior(behavior_name: String, def: Dictionary) -> void:
+	_server.entities.ai.custom_behaviors[_qualify_ref(behavior_name) if behavior_name.contains(":") else _qualify(behavior_name)] = {
+		"score": def.get("score", Callable()), "update": def.get("update", Callable()), "stop": def.get("stop", Callable())}
+
+
+## Lets mobs hear something at `position` (they come to investigate). `source` may be a player.
+func make_noise(position: Vector3, radius: float, source = null) -> void:
+	_server.entities.ai.make_noise(position, radius, source)
 
 
 ## Natural spawning. def: entity (name), time ("night" | "day" | "any"), on (block names the mob may

@@ -1,0 +1,8 @@
+{
+	"id": "ai_arena",
+	"name": "AI Arena (tests)",
+	"version": "1.0.0",
+	"description": "Flat test world and test mobs for tests/ai_test.tscn.",
+	"depends": ["base"],
+	"game": false
+}
