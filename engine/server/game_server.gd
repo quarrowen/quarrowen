@@ -141,7 +141,7 @@ func _exit_tree() -> void:
 
 func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> Error:
 	# External folders come first so a deployment can override bundled mods.
-	var dirs := extra_dirs + PackedStringArray(["res://mods"])
+	var dirs := ModLoader.search_dirs(extra_dirs)
 	var available := ModLoader.discover(dirs)
 	if requested.is_empty():
 		printerr("[server] No mods requested. Available: %s" % ", ".join(available.keys()))

@@ -14,7 +14,8 @@ func _ready() -> void:
 
 func _run() -> void:
 	# Keep the hosted world out of the real user data folder.
-	OS.set_environment("VOXEL_DATA_DIR", ProjectSettings.globalize_path("user://host_flow_test_%d" % Time.get_ticks_msec()))
+	var data_dir := ProjectSettings.globalize_path("user://host_flow_test_%d" % Time.get_ticks_msec())
+	OS.set_environment("VOXEL_DATA_DIR", data_dir)
 	var main := Node.new()
 	main.set_script(Main)
 	add_child(main)
@@ -38,6 +39,7 @@ func _run() -> void:
 		_check(stopped, "leaving stopped the hosted server")
 	elif server_pid > 0:
 		OS.kill(server_pid)
+	_remove_tree(data_dir)
 	print("[host] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
 
@@ -55,3 +57,14 @@ func _check(ok: bool, what: String) -> void:
 	print("[host] %s %s" % ["ok  " if ok else "FAIL", what])
 	if not ok:
 		_failures += 1
+
+
+static func _remove_tree(path: String) -> void:
+	var dir := DirAccess.open(path)
+	if dir == null:
+		return
+	for sub in dir.get_directories():
+		_remove_tree(path.path_join(sub))
+	for file in dir.get_files():
+		DirAccess.remove_absolute(path.path_join(file))
+	DirAccess.remove_absolute(path)

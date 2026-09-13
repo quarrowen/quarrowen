@@ -6,7 +6,7 @@ extends Node
 ##   --port=24565          VOXEL_PORT
 ##   --max-players=64      VOXEL_MAX_PLAYERS
 ##   --mods=vanilla        VOXEL_MODS          comma-separated; dependencies load automatically
-##   --mods-dir=/mods      VOXEL_MODS_DIR      searched before bundled res://mods
+##   --mods-dir=/mods      VOXEL_MODS_DIR      comma-separated folders searched before bundled mods
 ##   --data-dir=/data      VOXEL_DATA_DIR      world saves (default user://worlds)
 ##   --world=name          VOXEL_WORLD         defaults to the first mod id
 ##   --seed=123            VOXEL_SEED          seed for a new world
@@ -56,7 +56,7 @@ func _ready() -> void:
 		"port": int(options.port),
 		"max_players": int(options["max-players"]),
 		"mods": mods,
-		"mod_dirs": PackedStringArray([options["mods-dir"]]) if not options["mods-dir"].is_empty() else PackedStringArray(),
+		"mod_dirs": String(options["mods-dir"]).replace(";", ",").split(",", false),
 		"data_dir": options["data-dir"],
 		"world": options.world if not options.world.is_empty() else mods[0],
 		"seed": int(options.seed),

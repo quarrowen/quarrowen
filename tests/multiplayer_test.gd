@@ -64,6 +64,7 @@ func _alice() -> void:
 	await _wait(func(): return not OS.is_process_running(bob_pid), 10.0)
 	var gone := await _wait(func(): return _remote("Bob") == null or not _remote("Bob").visible, 10.0)
 	_check(gone, "Bob's avatar removed after he left")
+	DirAccess.remove_absolute(_result_path)
 	_finish()
 
 

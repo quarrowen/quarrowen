@@ -2,3 +2,5 @@
 *.tmp
 .DS_Store
 native/target/
+native/bin/
+build/

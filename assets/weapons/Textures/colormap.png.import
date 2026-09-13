@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://br8r5woasigls"
 path.s3tc="res://.godot/imported/colormap.png-06b8ed926ece3120f7d5e058ee3d01ac.s3tc.ctex"
+path.etc2="res://.godot/imported/colormap.png-06b8ed926ece3120f7d5e058ee3d01ac.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/weapons/Textures/colormap.png"
-dest_files=["res://.godot/imported/colormap.png-06b8ed926ece3120f7d5e058ee3d01ac.s3tc.ctex"]
+dest_files=["res://.godot/imported/colormap.png-06b8ed926ece3120f7d5e058ee3d01ac.s3tc.ctex", "res://.godot/imported/colormap.png-06b8ed926ece3120f7d5e058ee3d01ac.etc2.ctex"]
 
 [params]
 

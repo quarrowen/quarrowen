@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://deriwtkwo17dv"
 path.s3tc="res://.godot/imported/colormap.png-7e051fee11b0aabdcd0aca708236164a.s3tc.ctex"
+path.etc2="res://.godot/imported/colormap.png-7e051fee11b0aabdcd0aca708236164a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/survival/Textures/colormap.png"
-dest_files=["res://.godot/imported/colormap.png-7e051fee11b0aabdcd0aca708236164a.s3tc.ctex"]
+dest_files=["res://.godot/imported/colormap.png-7e051fee11b0aabdcd0aca708236164a.s3tc.ctex", "res://.godot/imported/colormap.png-7e051fee11b0aabdcd0aca708236164a.etc2.ctex"]
 
 [params]
 

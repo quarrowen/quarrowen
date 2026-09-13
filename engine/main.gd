@@ -150,7 +150,7 @@ func _build_menu() -> void:
 
 	box.add_child(HSeparator.new())
 	_game_select = _labeled(box, "Game", OptionButton.new())
-	var available := ModLoader.discover(PackedStringArray(["res://mods"]))
+	var available := ModLoader.discover(ModLoader.search_dirs(PackedStringArray()))
 	for id: String in available:
 		if available[id].game:
 			_games.append(available[id])

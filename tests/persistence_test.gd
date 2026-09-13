@@ -43,6 +43,8 @@ func _ready() -> void:
 	_check(not FileAccess.file_exists(dir + "/chunks/0_0.json") or JSON.parse_string(FileAccess.get_file_as_string(dir + "/chunks/0_0.json")).blocks.size() == 2,
 		"removing the only machine leaves just the air edit")
 	second.queue_free()
+	await get_tree().process_frame
+	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[persistence] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
 
@@ -60,3 +62,14 @@ func _check(ok: bool, what: String) -> void:
 	print("[persistence] %s %s" % ["ok  " if ok else "FAIL", what])
 	if not ok:
 		_failures += 1
+
+
+static func _remove_tree(path: String) -> void:
+	var dir := DirAccess.open(path)
+	if dir == null:
+		return
+	for sub in dir.get_directories():
+		_remove_tree(path.path_join(sub))
+	for file in dir.get_files():
+		DirAccess.remove_absolute(path.path_join(file))
+	DirAccess.remove_absolute(path)

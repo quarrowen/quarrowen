@@ -81,6 +81,8 @@ func _ready() -> void:
 	_report("player physics step", Time.get_ticks_usec() - t, steps, "step")
 	print("[bench] physics ended at %s (sanity check)" % state.position)
 	server.queue_free()
+	await get_tree().process_frame
+	_remove_tree(ProjectSettings.globalize_path("user://bench"))
 	get_tree().quit()
 
 
@@ -91,3 +93,14 @@ func _bytes(world, coord: Vector2i) -> PackedByteArray:
 
 func _report(what: String, usec: int, count: int, unit: String) -> void:
 	print("[bench] %-40s %8.3f ms/%s  (%d in %.2f s)" % [what, usec / 1000.0 / count, unit, count, usec / 1e6])
+
+
+static func _remove_tree(path: String) -> void:
+	var dir := DirAccess.open(path)
+	if dir == null:
+		return
+	for sub in dir.get_directories():
+		_remove_tree(path.path_join(sub))
+	for file in dir.get_files():
+		DirAccess.remove_absolute(path.path_join(file))
+	DirAccess.remove_absolute(path)

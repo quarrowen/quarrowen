@@ -8,20 +8,22 @@ tech-modded world.
 
 ## Running
 
-Open the folder in Godot and press Play. **Host game** starts a local server for the selected game
+Build the native extension once (`tools/build_native.sh`), then open the folder in Godot and press
+Play. **Host game** starts a local server for the selected game
 and joins it; **Join server** connects to an address.
 
 ```sh
 # Dedicated server (mods are comma-separated; dependencies load automatically)
 godot --headless --path . res://scenes/server.tscn -- --mods=vanilla,industry --metrics=10
-godot --headless --path . res://scenes/server.tscn -- --mods=skyblock --world=myworld --mods-dir=/srv/mods
+godot --headless --path . res://scenes/server.tscn -- --mods=skyblock --world=myworld --mods-dir=/srv/mods --admins=Steve
 
 # Client straight into a server / host from the command line
 godot --path . -- --connect=127.0.0.1 --name=Steve
 godot --path . -- --host=skyblock --name=Steve
 ```
 
-Worlds save to `user://worlds/<world>` and downloaded assets to `user://cache/assets`
+Worlds save to `user://worlds/<world>`, downloaded assets to `user://cache/assets` and the player's
+identity key to `user://identity/`
 (on macOS under `~/Library/Application Support/Godot/app_userdata/VoxelCraft/`).
 
 **Controls:** WASD move, Space jump/swim, Shift sprint, LMB break, RMB place / use a machine / use
@@ -38,17 +40,19 @@ engine/
     block_registry.gd       runtime block table (built from mods, replicated as data)
     player_physics.gd       deterministic movement; tunables come from the server
     world_time.gd           day/night curve
-    inventory.gd chunk.gd voxel_world.gd voxel_raycast.gd protocol.gd native.gd
+    identity.gd             RSA identity keys, login challenge signing and verification
+    inventory.gd item_registry.gd chunk.gd voxel_world.gd voxel_raycast.gd protocol.gd native.gd
   server/
     game_server.gd          tick, content delivery, validation, events, chunk jobs, delta saves
-    mod_loader.gd mod_api.gd server_player.gd mod.gd
+    mod_loader.gd mod_api.gd server_player.gd mod.gd ore_pass.gd
+    js_mod.gd js/            JavaScript mod host, prelude and TypeScript declarations
   client/
     game_client.gd          download → build content → play; prediction, meshing, models, HUD
     chunk_mesher.gd         mesh jobs (native lit greedy mesher, GDScript fallback)
     voxel_material.gd       block shader: tiling across merged quads, sky/block light, daylight
     model_library.gd        glTF block models → MultiMesh-ready meshes
     content_cache.gd texture_atlas.gd server_ui.gd remote_player.gd
-native/                     Rust GDExtension (meshing + lighting, physics, snapshots, signals)
+native/                     Rust GDExtension (meshing + lighting, physics, snapshots, signals, JS)
 mods/
   base/                     shared blocks + textures (not a game)
   vanilla/                  generated terrain, creative building, day/night, /time
@@ -56,20 +60,23 @@ mods/
   industry/                 power networks: generators, solar, cables, batteries, lamps, auto-miner
   arcana/                   mana: crystal ore generation pass, mana pool HUD, pylons, spell wands
   guild/                    JavaScript mod: quest boards, coins, shop, gold ore, meteors, leaderboard
-tests/                      end-to-end, persistence, benchmark, bot swarm, screenshot tools
-tools/                      texture generator, glTF model baker, box model generator
+tests/                      end-to-end, auth, multiplayer, host flow, persistence, sandbox, benchmarks
+tools/                      run_tests.sh, build_native.sh, export.sh, texture/model generators
+export_presets.cfg          macOS / Windows / Linux clients, Linux dedicated servers (x86_64, arm64)
+.github/workflows/ci.yml    native builds, tests, exports and the server image
 ```
 
 ## How a join works
 
-1. `c_hello(protocol, name)`: version checked, name validated.
-2. `s_server_info(info, content, manifest)`: server name/game, block definitions, physics rules,
+1. `c_hello(protocol, name, public key)`: version checked, name checked against this server's claims.
+2. `s_challenge(nonce)` / `c_auth(signature)`: the client proves it holds the private key.
+3. `s_server_info(info, content, manifest)`: server name/game, block definitions, physics rules,
    and `[asset name, sha256, size]` for every asset (textures and models).
-3. `c_request_assets(missing)`: the client asks only for hashes it has not cached. Pieces stream at a
+4. `c_request_assets(missing)`: the client asks only for hashes it has not cached. Pieces stream at a
    capped rate; each file is verified against its hash before it is cached. Assets shared between
    servers (for example, the `base` textures) download once.
-4. The client builds its registry, texture atlas, materials and models, then sends `c_ready`.
-5. `s_welcome`, `s_time`, `s_inventory`, chunks and snapshots follow; mod `player_join` handlers run.
+5. The client builds its registry, texture atlas, materials and models, then sends `c_ready`.
+6. `s_welcome`, `s_time`, `s_inventory`, chunks and snapshots follow; mod `player_join` handlers run.
 
 **Why the client is safe to point at any server:** servers send data only: block definitions,
 PNG and glTF files, numbers and UI trees made of a fixed set of element types (label, button,
@@ -194,11 +201,23 @@ the generated block is dropped, and changing world generation or mods flows into
 (edits referring to blocks from removed mods fall back to the generated terrain). Saves are
 serialized on the main thread and written by a worker, atomically via rename.
 
+## Identity and permissions
+
+Every client has an RSA key (`user://identity/default.pem`, created on first launch). Its hash is the
+player id: saved inventory, position and mod data follow the key, not the name. Each name belongs to
+the first key that claims it on a server, so nobody can take over someone else's player by typing
+their name.
+
+Admins come from `VOXEL_ADMINS` (player ids from `/whoami`, or names), `/op <player>`, or the local
+host via the token the menu's Host button passes to its server. Mods mark commands as admin-only
+(`register_command(..., "admin")`, or `{ admin: true }` in JavaScript) or check `player.is_admin()`.
+Built-in admin commands: `/op`, `/deop`, `/kick`; everyone has `/help`, `/players`, `/whoami`.
+
 ## Dedicated server & Docker
 
 `scenes/server.tscn` (`engine/server_main.gd`) loads no client code. Every option is a CLI arg or an
 environment variable: `VOXEL_PORT`, `VOXEL_MODS`, `VOXEL_MODS_DIR`, `VOXEL_DATA_DIR`, `VOXEL_WORLD`,
-`VOXEL_SEED`, `VOXEL_MAX_PLAYERS`, `VOXEL_METRICS`, `VOXEL_ADMIN_TOKEN`.
+`VOXEL_SEED`, `VOXEL_MAX_PLAYERS`, `VOXEL_METRICS`, `VOXEL_ADMINS`, `VOXEL_ADMIN_TOKEN`.
 
 ```sh
 docker build -t voxelcraft-server .
@@ -206,9 +225,28 @@ docker run -p 24565:24565/udp -v voxel-data:/data -e VOXEL_MODS=vanilla,industry
 docker compose up        # vanilla on 24565, skyblock on 24566
 ```
 
-The image builds the Rust extension for Linux, adds the official headless Godot binary, and bundles
-`mods/`. Mount extra or overriding mods at `/mods`; worlds live in the `/data` volume. SIGTERM and
-SIGINT trigger a save before exit (via the native extension), so `docker stop` is safe.
+The image compiles the Rust extension for the target architecture, exports the "Linux Server" preset
+and ships only the exported server (about 250 MB). Mods are plain files beside the binary
+(`/opt/voxelcraft/mods`); mount extra or overriding mods at `/mods`; worlds live in the `/data`
+volume. SIGTERM and SIGINT trigger a save before exit, so `docker stop` is safe.
+
+## Builds and CI
+
+```sh
+tools/build_native.sh            # native library for this machine -> native/bin/<platform>/
+tools/run_tests.sh               # full test suite (VOXEL_NATIVE=0 for the GDScript fallbacks)
+tools/export.sh                  # every preset -> build/ (needs Godot export templates)
+tools/export.sh "Linux Server arm64" macOS
+```
+
+Exports keep mods out of the `.pck` and copy `mods/` beside each build: the server streams the raw
+PNG and glTF files to clients, which an export would otherwise convert. The engine searches configured
+mod folders, then a `mods` folder next to the executable (or in a macOS app's `Resources`), then the
+project's `res://mods`.
+
+`.github/workflows/ci.yml` builds the native library for Linux x86_64/arm64, Windows and macOS
+(universal), runs the full suite (native and fallback) on Linux, exports all presets, and pushes a
+multi-arch server image to GitHub Container Registry on pushes to the default branch.
 
 ## Graphics
 
@@ -241,15 +279,20 @@ automatically when the library is missing; `VOXEL_NATIVE=0` forces the fallbacks
 | JavaScript mods | `NativeJsRuntime` | not available | QuickJS-NG, sandboxed |
 
 ```sh
-cd native && cargo build --release    # then open/import the project once to register it
+tools/build_native.sh    # then open/import the project once to register it
 ```
 
 ## Tests & tooling
 
+`tools/run_tests.sh` starts the servers and runs everything below. Individually:
+
 ```sh
-# End-to-end against a running server (--game = vanilla | skyblock | industry)
+# End-to-end against a running server (--game = vanilla | skyblock | industry | arcana | guild)
 godot --headless --path . res://scenes/server.tscn -- --mods=vanilla,industry --port=24603 &
 godot --headless --path . res://tests/smoke_test.tscn -- --port=24603 --game=industry
+godot --headless --path . res://tests/auth_test.tscn -- --port=24603          # needs --admins=Admin
+godot --headless --path . res://tests/multiplayer_test.tscn -- --port=24603   # launches a 2nd client
+godot --headless --path . res://tests/host_flow_test.tscn                     # menu Host flow
 
 godot --headless --path . res://tests/persistence_test.tscn   # delta saves + block data
 godot --headless --path . res://tests/js_sandbox_test.tscn    # JavaScript limits
@@ -266,4 +309,7 @@ godot --path . res://tests/screenshot.tscn -- --port=24603 --commands="/industry
 - **guild** (JavaScript): ore pass, quest board UI, quest progress from crafting, coin payout, shop,
   meteor event, leaderboard from mod storage.
 - **skyblock** also chops a log and crafts planks in survival.
-- **All three:** server rollback of an invalid edit.
+- **All games:** server rollback of an invalid edit.
+- **auth:** permissions, name claims, key-bound saved data, tampered signatures.
+- **multiplayer:** two client processes see each other join, move, build, chat and leave.
+- **host_flow:** Host launches a server, the host becomes admin, leaving stops the server.
