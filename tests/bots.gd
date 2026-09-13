@@ -33,6 +33,7 @@ class Bot:
 		net = NetScript.new()
 		net.name = "Net"
 		net.client = self
+		net.pin_servers = false
 		add_child(net)
 		# Bots use small throwaway keys; real clients keep a 2048-bit identity on disk.
 		key = Crypto.new().generate_rsa(1024)

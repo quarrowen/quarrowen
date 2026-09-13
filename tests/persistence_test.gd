@@ -4,6 +4,7 @@ extends Node
 
 const GameServer = preload("res://engine/server/game_server.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
+const WorldBackups = preload("res://engine/server/world_backups.gd")
 
 const DATA_DIR := "user://persistence_test"
 var _failures := 0
@@ -44,15 +45,47 @@ func _ready() -> void:
 		"removing the only machine leaves just the air edit")
 	second.queue_free()
 	await get_tree().process_frame
+
+	# Backups: archive, change the world, restore the archive at startup, prune old archives.
+	var third = _start(world, {"backup_keep": 2})
+	var brick: int = third.registry.id_of("base:brick")
+	third.set_block_authoritative(pos, brick)
+	for i in 3:
+		_check(third.backup_now(), "backup %d started" % (i + 1))
+		_check(not third.backup_now(), "second concurrent backup refused")
+		while third._backup_task != -1:
+			third._poll_backup(0.0)
+			await get_tree().process_frame
+		_check(third._backup_job.error == "", "backup %d written %s" % [i + 1, third._backup_job.error])
+		await get_tree().create_timer(1.1).timeout  # distinct timestamps in names
+	var backups := WorldBackups.list(third._backup_dir)
+	_check(backups.size() == 2, "old backups pruned to backup_keep (%d)" % backups.size())
+	third.set_block_authoritative(pos, 0)
+	third.queue_free()
+	await get_tree().process_frame
+	var restored = _start(world, {"restore": "latest"})
+	_check(restored.world.get_block_v(pos) == brick, "restoring the latest backup brings the block back")
+	var aside := Array(DirAccess.get_directories_at(DATA_DIR)).filter(func(d): return d.begins_with(world + ".before-restore-"))
+	_check(aside.size() == 1, "previous world kept aside (%s)" % str(aside))
+	restored.queue_free()
+	await get_tree().process_frame
+	var missing = GameServer.new()
+	add_child(missing)
+	_check(missing.start({"mods": PackedStringArray(["vanilla"]), "world": world, "data_dir": DATA_DIR, "offline": true, "restore": "nope.zip"}) != OK,
+		"restoring a missing backup refuses to start")
+	missing.queue_free()
+	await get_tree().process_frame
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[persistence] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
 
 
-func _start(world: String):
+func _start(world: String, extra := {}):
 	var server := GameServer.new()
 	add_child(server)
-	var err: Error = server.start({"mods": PackedStringArray(["vanilla", "industry"]), "world": world, "data_dir": DATA_DIR, "seed": 42, "offline": true})
+	var config := {"mods": PackedStringArray(["vanilla", "industry"]), "world": world, "data_dir": DATA_DIR, "seed": 42, "offline": true}
+	config.merge(extra, true)
+	var err: Error = server.start(config)
 	if err != OK:
 		_check(false, "server start: %s" % error_string(err))
 	return server

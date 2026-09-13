@@ -47,6 +47,8 @@ var admin_token := ""
 var identity_name := "default"
 ## Tests only: sign challenges with this key instead of the identity (must fail authentication).
 var test_signing_key: CryptoKey = null
+## Tests: announce this protocol version instead of the real one.
+var test_protocol := -1
 ## Accept gameplay input without a captured mouse (headless bots / tests).
 var ignore_mouse_capture := false
 
@@ -128,6 +130,7 @@ func _ready() -> void:
 	multiplayer.connected_to_server.connect(_on_connected)
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
+	Net.handshake_failed.connect(_on_handshake_failed)
 	_connect()
 
 
@@ -137,6 +140,8 @@ func _exit_tree() -> void:
 	_mesh_jobs.clear()
 	if Net.client == self:
 		Net.client = null
+	if Net.handshake_failed.is_connected(_on_handshake_failed):
+		Net.handshake_failed.disconnect(_on_handshake_failed)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
@@ -147,7 +152,7 @@ func _connect() -> void:
 		_identity = Identity.load_or_create(identity_name)
 	_connect_attempts += 1
 	_set_status("Connecting to %s:%d..." % [server_address, server_port])
-	var err := Net.create_client(server_address, server_port)
+	var err := Net.create_client(server_address, server_port, test_protocol)
 	if err != OK:
 		_leave("Could not start client: %s" % error_string(err))
 
@@ -169,7 +174,14 @@ func _on_connection_failed() -> void:
 		if not _exiting:
 			_connect()
 		return
-	_leave("Could not connect to %s:%d" % [server_address, server_port])
+	var message := "Could not connect to %s:%d" % [server_address, server_port]
+	if Net.has_pinned_identity(server_address, server_port):
+		message += ". If the server is up, its identity may have changed since your last visit (reinstalled, or someone impersonating it)."
+	_leave(message)
+
+
+func _on_handshake_failed(reason: String) -> void:
+	_leave(reason)
 
 
 func _on_server_disconnected() -> void:

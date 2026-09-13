@@ -60,7 +60,7 @@ mods/
   industry/                 power networks: generators, solar, cables, batteries, lamps, auto-miner
   arcana/                   mana: crystal ore generation pass, mana pool HUD, pylons, spell wands
   guild/                    JavaScript mod: quest boards, coins, shop, gold ore, meteors, leaderboard
-tests/                      end-to-end, auth, multiplayer, host flow, persistence, sandbox, benchmarks
+tests/                      end-to-end, auth, multiplayer, host flow, persistence, identity, sandbox, benchmarks
 tools/                      run_tests.sh, build_native.sh, export.sh, texture/model generators
 export_presets.cfg          macOS / Windows / Linux clients, Linux dedicated servers (x86_64, arm64)
 .github/workflows/ci.yml    native builds, tests, exports and the server image
@@ -68,7 +68,12 @@ export_presets.cfg          macOS / Windows / Linux clients, Linux dedicated ser
 
 ## How a join works
 
-1. `c_hello(protocol, name, public key)`: version checked, name checked against this server's claims.
+0. Connection: ENet traffic is encrypted with DTLS. Before any RPC, SceneMultiplayer's auth step
+   exchanges versions: a client with a different protocol gets a readable "please update" message
+   instead of mismatched RPCs. The server also sends its certificate, which the client pins
+   (trust on first use, like SSH `known_hosts`, in `user://known_servers`); on later connections the
+   DTLS handshake verifies the server against that pin, so an impostor cannot complete a connection.
+1. `c_hello(protocol, name, public key)`: name checked against this server's claims.
 2. `s_challenge(nonce)` / `c_auth(signature)`: the client proves it holds the private key.
 3. `s_server_info(info, content, manifest)`: server name/game, block definitions, physics rules,
    and `[asset name, sha256, size]` for every asset (textures and models).
@@ -201,6 +206,15 @@ the generated block is dropped, and changing world generation or mods flows into
 (edits referring to blocks from removed mods fall back to the generated terrain). Saves are
 serialized on the main thread and written by a worker, atomically via rename.
 
+### Backups
+
+Every `VOXEL_BACKUP_INTERVAL` minutes (default 60; 0 turns it off; skipped while the world is idle)
+the server flushes pending saves and zips the world on a worker thread into
+`<data dir>/backups/<world>/<world>-<UTC timestamp>.zip`, keeping the newest `VOXEL_BACKUP_KEEP` (24).
+Admins can run `/backup` and `/backups`. To restore, start with `--restore=latest` (or a file name or
+path, `VOXEL_RESTORE`): the current world folder is moved aside to `<world>.before-restore-<time>`, never
+deleted, and the archive is unpacked in its place.
+
 ## Identity and permissions
 
 Every client has an RSA key (`user://identity/default.pem`, created on first launch). Its hash is the
@@ -211,13 +225,28 @@ their name.
 Admins come from `VOXEL_ADMINS` (player ids from `/whoami`, or names), `/op <player>`, or the local
 host via the token the menu's Host button passes to its server. Mods mark commands as admin-only
 (`register_command(..., "admin")`, or `{ admin: true }` in JavaScript) or check `player.is_admin()`.
-Built-in admin commands: `/op`, `/deop`, `/kick`; everyone has `/help`, `/players`, `/whoami`.
+Built-in admin commands: `/op`, `/deop`, `/kick`, `/backup`, `/backups`; everyone has `/help`,
+`/players`, `/whoami`.
+
+**Moving your identity to another computer:** the key is your account, so it is exported encrypted
+(PBKDF2-HMAC-SHA256 with 210k iterations, AES-256-CBC, HMAC-SHA256 over the ciphertext). Use the menu's
+Export/Import identity buttons with a passphrase, or:
+
+```sh
+VOXEL_IDENTITY_PASSPHRASE='...' VoxelCraft -- --export-identity=my-identity.json
+VOXEL_IDENTITY_PASSPHRASE='...' VoxelCraft -- --import-identity=my-identity.json   # old key kept as .bak
+```
+
+**Server identity:** each data dir holds `identity/server.key` and `server.crt` (self-signed, created
+on first start). Keep them with the world (the Docker `/data` volume does): a server that loses them
+looks like an impostor to returning players, who then have to delete the pin from `known_servers`.
 
 ## Dedicated server & Docker
 
 `scenes/server.tscn` (`engine/server_main.gd`) loads no client code. Every option is a CLI arg or an
 environment variable: `VOXEL_PORT`, `VOXEL_MODS`, `VOXEL_MODS_DIR`, `VOXEL_DATA_DIR`, `VOXEL_WORLD`,
-`VOXEL_SEED`, `VOXEL_MAX_PLAYERS`, `VOXEL_METRICS`, `VOXEL_ADMINS`, `VOXEL_ADMIN_TOKEN`.
+`VOXEL_SEED`, `VOXEL_MAX_PLAYERS`, `VOXEL_METRICS`, `VOXEL_ADMINS`, `VOXEL_ADMIN_TOKEN`,
+`VOXEL_BACKUP_INTERVAL`, `VOXEL_BACKUP_KEEP`, `VOXEL_RESTORE`.
 
 ```sh
 docker build -t voxelcraft-server .
@@ -290,11 +319,12 @@ tools/build_native.sh    # then open/import the project once to register it
 # End-to-end against a running server (--game = vanilla | skyblock | industry | arcana | guild)
 godot --headless --path . res://scenes/server.tscn -- --mods=vanilla,industry --port=24603 &
 godot --headless --path . res://tests/smoke_test.tscn -- --port=24603 --game=industry
-godot --headless --path . res://tests/auth_test.tscn -- --port=24603          # needs --admins=Admin
+godot --headless --path . res://tests/auth_test.tscn -- --port=24603          # needs --admins=Admin; also version + pinning
 godot --headless --path . res://tests/multiplayer_test.tscn -- --port=24603   # launches a 2nd client
 godot --headless --path . res://tests/host_flow_test.tscn                     # menu Host flow
 
-godot --headless --path . res://tests/persistence_test.tscn   # delta saves + block data
+godot --headless --path . res://tests/persistence_test.tscn   # delta saves, block data, backups + restore
+godot --headless --path . res://tests/identity_test.tscn      # encrypted identity export / import
 godot --headless --path . res://tests/js_sandbox_test.tscn    # JavaScript limits
 godot --headless --path . res://tests/bench.tscn              # worldgen, meshing, snapshots, physics
 godot --headless --path . res://tests/bots.tscn -- --port=24603 --bots=100

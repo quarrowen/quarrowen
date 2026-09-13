@@ -4,6 +4,8 @@ extends Node
 ## Clients connect one after another with different identities.
 
 const GameClient = preload("res://engine/client/game_client.gd")
+const Protocol = preload("res://engine/shared/protocol.gd")
+const KnownServers = preload("res://engine/net/known_servers.gd")
 
 var _port := 25601
 var _failures := 0
@@ -53,12 +55,37 @@ func _run() -> void:
 	# 5. A tampered signature is rejected.
 	var tampered = await _join("auth_tampered", "Tampered", true, true)
 	_check(tampered is String and tampered.contains("Authentication failed"), "bad signature rejected (%s)" % str(tampered))
+
+	# 6. The server identity was pinned on first contact.
+	var endpoint := "127.0.0.1:%d" % _port
+	_check(KnownServers.load_certificate(endpoint) != null, "server certificate pinned at %s" % KnownServers.path_for(endpoint))
+
+	# 7. An older client is refused before any RPC with a readable message.
+	var outdated = await _join("auth_guest", "Guest", true, false, Protocol.VERSION - 1)
+	_check(outdated is String and outdated.contains("update your client"), "old protocol refused (%s)" % str(outdated))
+
+	# 8. A server whose identity differs from the pin is refused (simulated by pinning another cert).
+	var real_pin := FileAccess.get_file_as_string(KnownServers.path_for(endpoint))
+	var crypto := Crypto.new()
+	var fake_key := crypto.generate_rsa(1024)
+	crypto.generate_self_signed_certificate(fake_key, "CN=voxelcraft-server").save(KnownServers.path_for(endpoint))
+	var started := Time.get_ticks_msec()
+	var impersonated = await _join("auth_guest", "Guest", true)
+	_check(impersonated is String and impersonated.contains("identity may have changed"), "changed server identity refused in %dms (%s)" % [Time.get_ticks_msec() - started, str(impersonated)])
+	var restore := FileAccess.open(KnownServers.path_for(endpoint), FileAccess.WRITE)
+	restore.store_string(real_pin)
+	restore.close()
+	guest = await _join("auth_guest", "Guest")
+	_check(guest != null, "restored pin connects again")
+	if guest != null:
+		await _leave(guest)
 	_finish()
 
 
 ## Returns the client once in-game, or the exit message String when `expect_failure`.
-func _join(identity: String, player_name: String, expect_failure := false, tamper := false):
+func _join(identity: String, player_name: String, expect_failure := false, tamper := false, protocol := -1):
 	var client = GameClient.new()
+	client.test_protocol = protocol
 	client.server_port = _port
 	client.player_name = player_name
 	client.identity_name = identity

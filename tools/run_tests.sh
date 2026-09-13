@@ -21,6 +21,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Pin server certificates in a throwaway folder instead of the user's real known servers.
+export VOXEL_KNOWN_SERVERS_DIR="$WORK/known_servers"
 echo "godot: $GODOT"
 echo "logs:  $WORK"
 "$GODOT" --headless --path . --import >"$WORK/import.log" 2>&1
@@ -72,6 +74,7 @@ for log in "$WORK"/server_*.log; do
 done
 
 run_scene "persistence" "$WORK/persistence.log" res://tests/persistence_test.tscn
+run_scene "identity" "$WORK/identity.log" res://tests/identity_test.tscn
 if [ "${VOXEL_NATIVE:-1}" != "0" ]; then
   run_scene "js-sandbox" "$WORK/js_sandbox.log" res://tests/js_sandbox_test.tscn
 fi

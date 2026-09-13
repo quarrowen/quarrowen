@@ -4,6 +4,7 @@ extends Node
 
 const BlockRegistry = preload("res://engine/shared/block_registry.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
+const WorldBackups = preload("res://engine/server/world_backups.gd")
 const VoxelWorld = preload("res://engine/shared/voxel_world.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
@@ -83,12 +84,22 @@ var _view_offsets: Array[Vector2i] = []
 var _started := false
 var _metrics_interval := 0.0
 var _metrics := {}
+var _backup_dir := ""
+var _backup_interval := 0.0  # seconds, 0 = no automatic backups
+var _backup_keep := 24
+var _backup_timer := 0.0
+var _backup_task := -1
+var _backup_job := {}  # shared with the worker: {path, error, pruned, requester}
+## Automatic backups are skipped while nothing happens in the world.
+var _activity_since_backup := false
 
 
 ## config keys:
 ##   port, max_players, world, seed, admin_token, mods (PackedStringArray), mod_dirs (PackedStringArray, searched
 ##   before res://mods), data_dir (default user://worlds), metrics (seconds between reports, 0 = off),
-##   offline (true = load mods and world without opening a socket, for benchmarks)
+##   offline (true = load mods and world without opening a socket, for benchmarks),
+##   backup_interval (minutes between automatic backups, 0 = off), backup_keep (archives kept),
+##   restore ("latest", a backup file name or an archive path to restore before loading)
 func start(config: Dictionary) -> Error:
 	_admin_token = config.get("admin_token", "")
 	for entry in String(config.get("admins", "")).split(",", false):
@@ -96,7 +107,22 @@ func start(config: Dictionary) -> Error:
 	_metrics_interval = float(config.get("metrics", 0.0))
 	Engine.max_fps = 60
 	var data_dir := String(config.get("data_dir", "user://worlds"))
-	_save_dir = data_dir.path_join(String(config.get("world", "world")).validate_filename())
+	var world_name := String(config.get("world", "world")).validate_filename()
+	_save_dir = data_dir.path_join(world_name)
+	_backup_dir = data_dir.path_join("backups").path_join(world_name)
+	_backup_interval = float(config.get("backup_interval", 0.0)) * 60.0
+	_backup_keep = maxi(1, int(config.get("backup_keep", 24)))
+	var restore := String(config.get("restore", ""))
+	if not restore.is_empty():
+		var archive := WorldBackups.resolve(_backup_dir, restore)
+		if archive.is_empty():
+			printerr("[server] No backup '%s' in %s" % [restore, ProjectSettings.globalize_path(_backup_dir)])
+			return ERR_FILE_NOT_FOUND
+		var restore_error := WorldBackups.restore(archive, _save_dir)
+		if not restore_error.is_empty():
+			printerr("[server] Restore failed: %s" % restore_error)
+			return FAILED
+		print("[server] Restored world '%s' from %s" % [world_name, archive.get_file()])
 	DirAccess.make_dir_recursive_absolute(_save_dir + "/chunks")
 	_load_meta(int(config.get("seed", -1)))
 	world_seed = int(_meta.seed)
@@ -115,7 +141,8 @@ func start(config: Dictionary) -> Error:
 
 	if config.get("offline", false):
 		return OK
-	err = Net.create_server(int(config.get("port", 24565)), int(config.get("max_players", DEFAULT_MAX_PLAYERS)))
+	var tls: Array = Net.load_or_create_server_identity(data_dir.path_join("identity"))
+	err = Net.create_server(int(config.get("port", 24565)), int(config.get("max_players", DEFAULT_MAX_PLAYERS)), tls[0], tls[1], tls[2])
 	if err != OK:
 		printerr("[server] Failed to listen on port %d: %s" % [config.get("port"), error_string(err)])
 		return err
@@ -133,6 +160,9 @@ func _exit_tree() -> void:
 	_chunk_jobs.clear()
 	if not _save_dir.is_empty():
 		_save_all(true)
+	if _backup_task != -1:
+		WorkerThreadPool.wait_for_task_completion(_backup_task)
+		_backup_task = -1
 	if Net.server == self:
 		Net.server = null
 
@@ -287,6 +317,8 @@ func _register_builtin_commands() -> void:
 	add_command("deop", "<player> - revoke admin", _cmd_op.bind(false), "engine", "admin")
 	add_command("kick", "<player> [reason] - disconnect a player", _cmd_kick, "engine", "admin")
 	add_command("whoami", "Show your player id and permissions", _cmd_whoami, "engine")
+	add_command("backup", "Back up the world now", _cmd_backup, "engine", "admin")
+	add_command("backups", "List world backups", _cmd_backups, "engine", "admin")
 
 
 func _cmd_help(player, _args: PackedStringArray) -> void:
@@ -319,6 +351,67 @@ func _cmd_kick(player, args: PackedStringArray) -> void:
 
 func _cmd_whoami(player, _args: PackedStringArray) -> void:
 	player.send_message("%s: player id %s%s" % [player.name, player.player_id, " (admin)" if is_admin(player) else ""])
+
+
+func _cmd_backup(player, _args: PackedStringArray) -> void:
+	if backup_now(player.peer_id):
+		player.send_message("Backup started")
+	else:
+		player.send_message("A backup is already running")
+
+
+func _cmd_backups(player, _args: PackedStringArray) -> void:
+	var backups := WorldBackups.list(_backup_dir)
+	player.send_message("%d backups in %s (keeping %d)" % [backups.size(), ProjectSettings.globalize_path(_backup_dir), _backup_keep])
+	for i in mini(backups.size(), 10):
+		player.send_message("  %s  %s" % [backups[i].name, String.humanize_size(backups[i].size)])
+
+
+## Flushes pending saves, then archives the world on a worker thread. `requester` (peer id) is told
+## when it finishes. Returns false if a backup is already running.
+func backup_now(requester := 0) -> bool:
+	if _backup_task != -1 or _save_dir.is_empty():
+		return false
+	_save_all(true)
+	_activity_since_backup = false
+	_backup_timer = 0.0
+	var world_name := _save_dir.get_file()
+	_backup_job = {"path": _backup_dir.path_join("%s-%s%s" % [world_name, WorldBackups.timestamp(), WorldBackups.EXTENSION]),
+		"error": "", "pruned": 0, "requester": requester, "started": Time.get_ticks_msec()}
+	_backup_task = WorkerThreadPool.add_task(_run_backup.bind(_save_dir, _backup_dir, _backup_keep, _backup_job), false, "world backup")
+	return true
+
+
+static func _run_backup(world_dir: String, backup_dir: String, keep: int, job: Dictionary) -> void:
+	job.error = WorldBackups.create(world_dir, job.path)
+	if job.error.is_empty():
+		job.pruned = WorldBackups.prune(backup_dir, keep)
+
+
+func _poll_backup(delta: float) -> void:
+	if _backup_task == -1:
+		_backup_timer += delta
+		if _backup_interval > 0.0 and _backup_timer >= _backup_interval:
+			_backup_timer = 0.0
+			if _activity_since_backup or not players.is_empty():
+				backup_now()
+		return
+	if not WorkerThreadPool.is_task_completed(_backup_task):
+		return
+	WorkerThreadPool.wait_for_task_completion(_backup_task)
+	_backup_task = -1
+	var job := _backup_job
+	var message: String
+	if job.error.is_empty():
+		message = "Backup saved: %s (%s, %dms)" % [String(job.path).get_file(),
+			String.humanize_size(FileAccess.open(job.path, FileAccess.READ).get_length()), Time.get_ticks_msec() - int(job.started)]
+	else:
+		message = "Backup failed: %s" % job.error
+	print("[server] " + message)
+	var requester: ServerPlayer = players.get(int(job.requester))
+	if requester:
+		requester.send_message(message)
+	emit("backup", {"path": job.path, "error": job.error})
 
 
 func _find_online(player_name: String):
@@ -363,6 +456,7 @@ func _physics_process(delta: float) -> void:
 		_send_snapshots()
 	var t3 := Time.get_ticks_usec()
 
+	_poll_backup(delta)
 	_save_timer += delta
 	if _save_timer >= SAVE_INTERVAL:
 		_save_timer = 0.0
@@ -670,7 +764,7 @@ func kick(peer_id: int, reason: String) -> void:
 
 func _disconnect_peer(peer_id: int) -> void:
 	var peer := multiplayer.multiplayer_peer as ENetMultiplayerPeer
-	if peer and peer.get_peer(peer_id):
+	if peer and multiplayer.get_peers().has(peer_id):
 		peer.disconnect_peer(peer_id)
 
 
@@ -1249,6 +1343,8 @@ func _save_all(wait := false) -> void:
 		if world.chunks.has(coord):
 			writes.append(_serialize_chunk(coord))
 	_save_dirty.clear()
+	if not coords.is_empty():
+		_activity_since_backup = true
 	for p: ServerPlayer in players.values():
 		_store_player(p)
 	_meta.time = [_time_of_day, _day_length]
