@@ -726,6 +726,21 @@ func s_tutorial_event(kind: String, title: String) -> void:
 		client.on_tutorial_event(kind, title)
 
 
+## New definitions after a mod reloaded: {blocks, items, entities, recipes, processes, stations, assembly,
+## minigames, guide, tutorials}.
+@rpc("authority", "call_remote", "reliable")
+func s_content_update(content: Dictionary) -> void:
+	if client:
+		client.on_content_update(content)
+
+
+## The server is about to restart for a full reload: reconnect when it is back.
+@rpc("authority", "call_remote", "reliable")
+func s_reloading(message: String) -> void:
+	if client:
+		client.on_server_reloading(message)
+
+
 ## Dev overlay requests (see GameServer.on_dev).
 @rpc("any_peer", "call_remote", "reliable")
 func c_dev(action: String, args: Dictionary) -> void:

@@ -74,6 +74,10 @@ const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 var mod_id: String
 var mod_dir: String
 var manifest: Dictionary
+## True while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,
+## items and entities that exist update in place; things that cannot change live are skipped and noted.
+var reloading := false
+var reload_notes: Array[String] = []
 
 var _server
 
@@ -195,6 +199,11 @@ func register_block(block_name: String, def: Dictionary) -> int:
 		d.interactive = true
 	if def.get("pair") is Dictionary:
 		d.pair = {"block": _qualify_ref(str(def.pair.get("block", ""))), "direction": str(def.pair.get("direction", "back"))}
+	if reloading:
+		if _server.registry.id_of(d.name) < 0:
+			reload_notes.append("new block %s needs a full reload (/reload full)" % d.name)
+			return -1
+		return _server.registry.register(d, true)
 	return _server.registry.register(d)
 
 
@@ -209,6 +218,11 @@ func register_item(item_name: String, def: Dictionary) -> int:
 	if def.get("effects") is Dictionary:
 		for hook in def.effects:
 			d.effects[hook] = _qualify_ref(String(def.effects[hook]))
+	if reloading:
+		if _server.items.id_of(d.name) < 0:
+			reload_notes.append("new item %s needs a full reload (/reload full)" % d.name)
+			return -1
+		return _server.items.register(d, true)
 	return _server.items.register(d)
 
 
@@ -225,12 +239,21 @@ func register_entity(entity_name: String, def: Dictionary) -> int:
 		d.sounds = {}
 		for action in def.sounds:
 			d.sounds[action] = _qualify_ref(String(def.sounds[action]))
+	if reloading:
+		if _server.entities.registry.id_of(d.name) < 0:
+			reload_notes.append("new entity %s needs a full reload (/reload full)" % d.name)
+			return -1
+		return _server.entities.registry.register(d, true)
 	return _server.entities.registry.register(d)
 
 
 ## Registers a sound from one or more audio files in the mod folder (.ogg or .wav; a random one plays
 ## each time). options: volume (0-2), pitch, pitch_variance, range (blocks). Returns the sound id.
 func register_sound(sound_name: String, files, options := {}) -> int:
+	if reloading and _server.sounds.id_of(_qualify(sound_name)) >= 0:
+		return _server.sounds.id_of(_qualify(sound_name))
+	if _static_during_reload("sound", _qualify(sound_name)):
+		return -1
 	var d := options.duplicate()
 	d.name = _qualify(sound_name)
 	var assets := []
@@ -244,6 +267,10 @@ func register_sound(sound_name: String, files, options := {}) -> int:
 ## engine/shared/effect_registry.gd). Emitter textures are paths in this mod or "soft", "spark",
 ## "star", "square". Returns the effect id, or -1.
 func register_effect(effect_name: String, def: Dictionary) -> int:
+	if reloading and _server.effects.id_of(_qualify(effect_name)) >= 0:
+		return _server.effects.id_of(_qualify(effect_name))
+	if _static_during_reload("effect", _qualify(effect_name)):
+		return -1
 	var d := def.duplicate(true)
 	d.name = _qualify(effect_name)
 	if def.get("sound") is String:
@@ -345,6 +372,8 @@ func get_entity(entity_id: int):
 
 ## Replaces the player character rig for this server (see engine/shared/player_rig.gd).
 func set_player_rig(def: Dictionary) -> void:
+	if _static_during_reload("player rig", "", true):
+		return
 	_server.set_player_rig(def)
 
 
@@ -353,6 +382,8 @@ func set_player_rig(def: Dictionary) -> void:
 ## `model` are paths in this mod. `unlocked: false` makes it wearable only after player.grant_cosmetic.
 ## Returns the cosmetic's full name ("mod:name"), or "" when invalid.
 func register_cosmetic(cosmetic_name: String, def: Dictionary) -> String:
+	if _static_during_reload("cosmetic", _qualify(cosmetic_name), true):
+		return _qualify(cosmetic_name)
 	var d := def.duplicate(true)
 	d.name = _qualify(cosmetic_name)
 	for key in ["texture", "model"]:
@@ -364,6 +395,8 @@ func register_cosmetic(cosmetic_name: String, def: Dictionary) -> String:
 ## Adds a cosmetic category. def: display_name, attach (rig attachment point for boxes and models),
 ## covers (armor slots its cosmetics replace by default).
 func register_cosmetic_category(category_name: String, def := {}) -> bool:
+	if reloading:
+		return false
 	var d := def.duplicate()
 	d.name = category_name
 	return _server.cosmetics.register_category(d)
@@ -383,6 +416,8 @@ func set_cosmetics_policy(values: Dictionary) -> void:
 ## Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching
 ## `equip_slot` go in it; its modifiers apply while worn. def: display_name.
 func register_equipment_slot(slot_name: String, def := {}) -> void:
+	if reloading:
+		return
 	var d := def.duplicate()
 	d.name = slot_name
 	_server.items.register_slot(d)
@@ -391,6 +426,8 @@ func register_equipment_slot(slot_name: String, def := {}) -> void:
 ## Adds a player stat with a base value. Items and effects change it with modifiers; read it with
 ## player.get_stat(name). Engine stats: see ItemRegistry.BASE_STATS.
 func register_stat(stat_name: String, base: float) -> void:
+	if reloading:
+		return
 	_server.items.register_stat(stat_name, base)
 
 
@@ -430,6 +467,7 @@ func add_spawn_rule(def: Dictionary) -> void:
 		if id > 0:
 			on.append(id)
 	rule.on = on
+	rule.owner = mod_id
 	_server.entities.add_spawn_rule(rule)
 
 
@@ -511,7 +549,7 @@ func register_recipe(inputs: Dictionary, output: String, count := 1, options := 
 		{"category": str(options.get("category", "")), "id": recipe_id if recipe_id.contains(":") else _qualify(recipe_id),
 			"tier": int(options.get("tier", 0)), "needs": options.get("needs", []), "time": float(options.get("time", 0.0)),
 			"project": bool(options.get("project", false)), "unlock": str(options.get("unlock", "pickup")), "hint": str(options.get("hint", "")),
-			"pattern": pattern, "skill": _qualify_ref(str(options.get("skill", ""))) if not str(options.get("skill", "")).is_empty() else ""})
+			"pattern": pattern, "owner": mod_id, "skill": _qualify_ref(str(options.get("skill", ""))) if not str(options.get("skill", "")).is_empty() else ""})
 
 
 ## A material parts can be made of: {display_name, item (raw material item name), color, tier, speed,
@@ -635,6 +673,8 @@ func get_process(kind: String, item_id: int) -> Dictionary:
 
 ## Makes a file from this mod's folder downloadable by clients. Returns its asset name.
 func register_asset(relative_path: String) -> String:
+	if reloading and not relative_path.contains(":") and not _server._assets.has("%s:%s" % [mod_id, relative_path]):
+		reload_notes.append("new file %s needs a full reload (/reload full)" % relative_path)
 	if relative_path.contains(":"):
 		return relative_path  # already an asset name from another mod
 	var asset_name := "%s:%s" % [mod_id, relative_path]
@@ -660,12 +700,16 @@ func block_display_name(id: int) -> String:
 ## `generator` must implement `generate(chunk)`; write into a local copy of `chunk.blocks`
 ## (index with Chunk.index(x, y, z)) and assign it back for speed.
 func set_world_generator(generator: Object) -> void:
+	if _static_during_reload("world generator", "", true):
+		return
 	_server.generator = generator
 
 
 ## Turns on the engine biome generator (engine/server/worldgen/biome_generator.gd) for this world.
 ## options: sea_level, snow_level. Register biomes and features before or after; returns the generator.
 func use_biome_generator(options := {}) -> Object:
+	if reloading and _server.biome_generator != null:
+		return _server.biome_generator
 	var gen = biome_generator()
 	gen.sea_level = int(options.get("sea_level", gen.sea_level))
 	gen.snow_level = int(options.get("snow_level", gen.snow_level))
@@ -682,6 +726,8 @@ func biome_generator() -> Object:
 
 ## A biome for the biome generator: {climate, ocean, height, surface, features, plants}. See BiomeGenerator.
 func register_biome(biome_name: String, def: Dictionary) -> void:
+	if reloading:
+		return  # world generation is fixed once the world runs (a full reload applies changes)
 	var d := def.duplicate(true)
 	d.features = (def.get("features", []) as Array).map(func(f): return f.merged({"feature": _qualify_ref(str(f.get("feature", "")))}, true) if f is Dictionary else f) \
 		if def.get("features") is Array else []
@@ -692,12 +738,16 @@ func register_biome(biome_name: String, def: Dictionary) -> void:
 ## options: tunnels, caverns, ravines (bools), lava (block name), lava_level, water_level, min_y,
 ## entrance_chance.
 func add_cave_carver(options := {}) -> void:
+	if reloading:
+		return
 	biome_generator().carvers.append(CaveCarver.new(_server.world_seed, func(n: String) -> int: return block(n), _server.registry, options))
 
 
 ## A structure template: a JSON file in this mod (e.g. "structures/tower.json", saved with /struct save)
 ## or a template dictionary. Names without ":" are this mod's.
 func register_structure_template(template_name: String, source) -> bool:
+	if reloading:
+		return true
 	var doc = source
 	if source is String:
 		var path := mod_dir.path_join(source)
@@ -711,6 +761,8 @@ func register_structure_template(template_name: String, source) -> bool:
 ## Generated structures (see worldgen/structures.gd): {templates: [{template, weight}] or generator
 ## (GDScript Callable), spacing, separation, biomes, place, y, sink, foundation, swaps, reach, chance}.
 func register_structure(structure_name: String, def: Dictionary) -> void:
+	if reloading:
+		return  # world generation is fixed once the world runs (a full reload applies changes)
 	var d := def.duplicate(true)
 	if def.get("templates") is Array:
 		d.templates = (def.templates as Array).map(func(t): return t.merged({"template": _qualify_ref(str(t.get("template", "")))}, true) if t is Dictionary else t)
@@ -727,6 +779,7 @@ func register_loot_table(table_name: String, def: Dictionary) -> void:
 func register_guide_chapter(chapter_name: String, def := {}) -> bool:
 	var d := def.duplicate(true)
 	d.id = _qualify_ref(chapter_name)
+	d.owner = mod_id
 	if def.get("icon") is String and not def.icon.is_empty():
 		d.icon = _qualify_ref(def.icon)
 	return _server.guide.registry.add_chapter(d)
@@ -739,6 +792,7 @@ func register_guide_chapter(chapter_name: String, def := {}) -> bool:
 func register_guide_page(page_name: String, def: Dictionary) -> bool:
 	var d := def.duplicate(true)
 	d.id = _qualify_ref(page_name)
+	d.owner = mod_id
 	d.chapter = _qualify_ref(str(def.get("chapter", "")))
 	if def.get("icon") is String and not def.icon.is_empty():
 		d.icon = _qualify_ref(def.icon)
@@ -792,12 +846,12 @@ func is_guide_page_unlocked(player, page: String) -> bool:
 ## target, count, ...}, hint: {block | entity | position} or false, page, reward}]}. Names without ":" are
 ## this mod's.
 func register_tutorial(tutorial_name: String, def: Dictionary) -> bool:
-	return _server.tutorials.register_tutorial(_qualify_ref(tutorial_name), def, _qualify_ref)
+	return _server.tutorials.register_tutorial(_qualify_ref(tutorial_name), def.merged({"owner": mod_id}), _qualify_ref)
 
 
 ## A one-time contextual tip: {text, icon, page (guide page to read more), trigger: a goal}.
 func register_tip(tip_name: String, def: Dictionary) -> bool:
-	return _server.tutorials.register_tip(_qualify_ref(tip_name), def, _qualify_ref)
+	return _server.tutorials.register_tip(_qualify_ref(tip_name), def.merged({"owner": mod_id}), _qualify_ref)
 
 
 func start_tutorial(player, tutorial_name: String) -> bool:
@@ -827,6 +881,8 @@ func show_tip(player, tip_name: String) -> bool:
 ## A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from
 ## GDScript, a Callable(writer, origin: Vector3i, rng) run on worker threads. See worldgen/features.gd.
 func register_feature(feature_name: String, def) -> void:
+	if reloading:
+		return  # world generation is fixed once the world runs (a full reload applies changes)
 	biome_generator().add_feature(_qualify(feature_name), def)
 
 
@@ -843,12 +899,16 @@ func set_spawn_handler(handler: Callable) -> void:
 ## Adds a pass run after the world generator for every new chunk, on worker threads:
 ## `pass_object.decorate(chunk, world_seed)`. Lets add-on mods put ores or structures in any game.
 func add_generation_pass(pass_object: Object) -> void:
+	if reloading:
+		return
 	_server.generation_passes.append(pass_object)
 
 
 ## Scatters veins of `ore` inside `replace` in every new chunk. def: ore, replace (block names),
 ## veins (per chunk), size (blocks per vein), min_y, max_y, chance (per vein, 0-1).
 func add_ore_pass(def: Dictionary) -> void:
+	if reloading:
+		return
 	var ore := block(String(def.get("ore", "")))
 	var replace := block(String(def.get("replace", "base:stone")))
 	if ore <= 0 or replace <= 0:
@@ -1010,6 +1070,16 @@ func every(seconds: float, callback: Callable) -> int:
 
 func cancel(task_id: int) -> void:
 	_server.cancel_task(task_id)
+
+
+## During a quick reload: true (skip the call) for registrations that cannot change live; new names
+## are noted so the author knows to do a full reload.
+func _static_during_reload(kind: String, full_name: String, quiet := false) -> bool:
+	if not reloading:
+		return false
+	if not quiet:
+		reload_notes.append("new %s %s needs a full reload (/reload full)" % [kind, full_name])
+	return true
 
 
 func _qualify(local_name: String) -> String:

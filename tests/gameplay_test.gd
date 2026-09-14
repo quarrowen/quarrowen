@@ -50,6 +50,7 @@ func _ready() -> void:
 	await _dev_log()
 	await _dev_tools()
 	await _dev_web()
+	await _mod_reload()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -2075,6 +2076,10 @@ func _dev_log() -> void:
 		_check(not log.recent(20, "buggy_js").any(func(e): return e.message.begins_with("hello from js")), "JavaScript info lines follow the default level (warn)")
 		var js: Array = log.sorted_errors().filter(func(e): return e.source == "buggy_js")
 		_check(js.size() == 1 and js[0].file.ends_with("main.js") and js[0].line == 5, "JavaScript errors are caught with file and line")
+		var commands: int = server._commands.size()
+		var reloaded: Dictionary = server.mod_reload.reload("buggy_js")
+		_check(reloaded.ok and server._commands.size() == commands and server._commands.has("jslog") and server.mod_instances.buggy_js.runtime != null,
+			"JavaScript mods reload in a fresh runtime")
 	server._exit_tree()
 	var text := FileAccess.get_file_as_string(DATA_DIR.path_join(world).path_join("logs/latest.log"))
 	_check(text.contains("[buggy] hello from buggy") and text.contains("ERROR [buggy]"), "the log is written to the world's logs/latest.log")
@@ -2208,6 +2213,114 @@ func _http_get(server, port: int, path: String) -> Array:
 			break
 		await get_tree().process_frame
 	return [http.get_response_code(), body.get_string_from_utf8()]
+
+
+const RELOAD_MOD_A := """extends "res://engine/server/mod.gd"
+const Helper = preload("helper.gd")
+var api
+var calls := 0
+
+func setup(mod_api) -> void:
+	api = mod_api
+	api.register_block("thing", {"textures": "", "hardness": 1.0, "drops": "base:dirt"})
+	api.register_recipe({"base:planks": 1}, "reloadme:thing", 1, {"unlock": "known"})
+	api.register_recipe({"base:planks": 2}, "base:stick", 1, {"id": "extra", "unlock": "known"})
+	api.register_command("hello", "Say hello", func(player, _args): player.data["hello"] = Helper.greeting())
+	api.on("tester_signal", func(ev): ev.count = int(ev.get("count", 0)) + 1)
+	api.every(1.0, func(): calls += 1)
+	api.register_guide_chapter("notes", {"title": "Notes"})
+	api.register_guide_page("page", {"chapter": "notes", "title": "Version A", "blocks": [{"type": "text", "text": "a"}]})
+	api.register_tutorial("tour", {"title": "Tour", "steps": [{"title": "One", "goal": {"type": "manual"}}, {"title": "Two", "goal": {"type": "manual"}}]})
+"""
+const RELOAD_MOD_B := """extends "res://engine/server/mod.gd"
+const Helper = preload("helper.gd")
+var api
+
+func setup(mod_api) -> void:
+	api = mod_api
+	api.register_block("thing", {"textures": "", "hardness": 5.0, "drops": "base:dirt"})
+	api.register_block("newthing", {"textures": ""})
+	api.register_recipe({"base:planks": 3}, "reloadme:thing", 1, {"unlock": "known"})
+	api.register_command("hello", "Say hello", func(player, _args): player.data["hello"] = Helper.greeting())
+	api.on("tester_signal", func(ev): ev.count = int(ev.get("count", 0)) + 10)
+	api.register_guide_chapter("notes", {"title": "Notes"})
+	api.register_guide_page("page", {"chapter": "notes", "title": "Version B", "blocks": [{"type": "text", "text": "b"}]})
+	api.register_tutorial("tour", {"title": "Tour", "steps": [{"title": "Only", "goal": {"type": "manual"}}]})
+"""
+
+
+func _write_reload_mod(dir: String, main: String, greeting: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var files := {"mod.json": JSON.stringify({"id": "reloadme", "name": "Reload me", "version": "1.0.0", "depends": ["base"]}),
+		"main.gd": main, "helper.gd": "extends RefCounted\n\nstatic func greeting() -> String:\n\treturn \"%s\"\n" % greeting}
+	for name in files:
+		var f := FileAccess.open(dir.path_join(name), FileAccess.WRITE)
+		f.store_string(files[name])
+		f.close()
+
+
+func _mod_reload() -> void:
+	var mods_dir := DATA_DIR.path_join("reload_mods_%d" % Time.get_ticks_msec())
+	var mod_dir := mods_dir.path_join("reloadme")
+	_write_reload_mod(mod_dir, RELOAD_MOD_A, "hello A")
+	var server := GameServer.new()
+	add_child(server)
+	var err: Error = server.start({"mods": PackedStringArray(["vanilla", "reloadme"]), "mod_dirs": PackedStringArray([mods_dir]),
+		"world": "reload_%d" % Time.get_ticks_msec(), "data_dir": DATA_DIR, "seed": 42, "offline": true})
+	_check(err == OK, "the reload test mod loads")
+	if err != OK:
+		server.queue_free()
+		return
+	server.set_physics_process(false)
+	var p := ServerPlayer.new(server, 99, "Author")
+	p.player_id = "author"
+	server.players[99] = p
+	var thing: int = server.registry.id_of("reloadme:thing")
+	var extra: int = server.recipes.index_of("reloadme:extra")
+	var thing_recipe: int = server.recipes.index_of("reloadme:thing")
+	var handlers_before: int = server._handlers.get("tester_signal", []).size()
+	server._commands["hello"].handler.call(p, PackedStringArray())
+	_check(p.data.hello == "hello A" and server.emit("tester_signal", {"count": 0}).count == 1, "version A runs")
+	server.tutorials.start(p, "reloadme:tour")
+	server.tutorials.advance(p)
+	# Version B on disk, then a quick reload.
+	_write_reload_mod(mod_dir, RELOAD_MOD_B, "hello B")
+	var result: Dictionary = server.mod_reload.reload("reloadme")
+	_check(result.ok, "the mod reloads: %s" % result.get("error", ""))
+	server._commands["hello"].handler.call(p, PackedStringArray())
+	_check(p.data.hello == "hello B", "reloaded commands run the new code, including preloaded helper scripts")
+	_check(server.emit("tester_signal", {"count": 0}).count == 10 and server._handlers["tester_signal"].size() == handlers_before,
+		"old event handlers are replaced, not added to")
+	_check(not server._tasks.values().any(func(t): return t.owner == "reloadme"), "timers the new version no longer starts are gone")
+	_check(server.registry.id_of("reloadme:thing") == thing and server.registry.defs[thing].hardness == 5.0, "blocks keep their id and take the new definition")
+	_check(server.registry.id_of("reloadme:newthing") < 0 and result.notes.any(func(n): return n.contains("newthing")), "new blocks are refused with a full reload note")
+	_check(server.recipes.index_of("reloadme:thing") == thing_recipe and server.recipes.recipes[thing_recipe].inputs.values() == [3],
+		"recipes keep their index and take new ingredients")
+	_check(server.recipes.recipes[extra].get("removed", false) and server.craft(p, extra) == 0, "recipes no longer registered are removed")
+	_check(server.guide.registry.get_page("reloadme:page").title == "Version B", "guide pages are replaced")
+	_check(server.tutorials.state_of(p).active == "", "a tutorial that no longer has the player's step stops")
+	_check(server.mod_instances["reloadme"].get("calls") == null, "the mod runs as a fresh instance")
+	# A syntax error keeps the old version running.
+	_write_reload_mod(mod_dir, RELOAD_MOD_B.replace("func setup(mod_api) -> void:", "func setup(mod_api) -> void:\n\tthis is not gdscript"), "hello C")
+	result = server.mod_reload.reload("reloadme")
+	_check(not result.ok and server._commands.has("hello"), "a mod that does not compile keeps its old version")
+	# Watching files: a change schedules a reload.
+	_write_reload_mod(mod_dir, RELOAD_MOD_B, "hello B")
+	server.mod_reload.set_watching(true)
+	var main_path := mod_dir.path_join("main.gd")
+	server.mod_reload._mtimes["reloadme"][main_path] = 0
+	server.mod_reload.update(1.5)
+	_check(server.mod_reload._pending.has("reloadme") and server.mod_reload._pending.reloadme.scripts, "the file watcher notices changed scripts")
+	server.mod_reload._pending.reloadme.due = 0.0
+	server.mod_reload.update(0.0)
+	_check(not server.mod_reload._pending.has("reloadme"), "the watcher reloads the mod after the debounce")
+	# Vanilla reloads cleanly too (a big mod with worldgen, mobs, guide and tutorials).
+	var before_blocks: int = server.registry.defs.size()
+	result = server.mod_reload.reload("vanilla")
+	_check(result.ok and server.registry.defs.size() == before_blocks and server._commands.has("spawn") and server.tutorials.tutorials.has("vanilla:survival"),
+		"vanilla reloads without new ids, keeping its commands and tutorial: %s" % str(result.notes.slice(0, 3)))
+	server.queue_free()
+	await get_tree().process_frame
 
 
 func _js_blocks() -> void:

@@ -41,6 +41,7 @@ const Tutorials = preload("res://engine/server/tutorials.gd")
 const DevLog = preload("res://engine/server/dev_log.gd")
 const DevTools = preload("res://engine/server/dev_tools.gd")
 const DevWeb = preload("res://engine/server/dev_web.gd")
+const ModReload = preload("res://engine/server/mod_reload.gd")
 const Explosions = preload("res://engine/server/explosions.gd")
 const Loot = preload("res://engine/server/loot.gd")
 const Spawners = preload("res://engine/server/spawners.gd")
@@ -169,6 +170,14 @@ var dev_tools := DevTools.new(self)
 var dev_mode := false
 ## The dev dashboard web server (--dev-web=port).
 var dev_web := DevWeb.new(self)
+## Quick reloads, the file watcher and full reloads (see engine/server/mod_reload.gd).
+var mod_reload := ModReload.new(self)
+## Loaded mods: id -> manifest, in load order, and id -> the running mod (GDScript instance or JsMod).
+var mod_manifests := {}
+var mod_order: Array = []
+var mod_instances := {}
+## Emitted by /reload full: the owner (server_main) saves, restarts the server and clients reconnect.
+signal full_reload_requested
 var explosions := Explosions.new(self)
 var loot := Loot.new(self)
 var spawners := Spawners.new(self)
@@ -274,7 +283,9 @@ func start(config: Dictionary) -> Error:
 	if web_port == 0 and dev_mode:
 		web_port = int(config.get("port", 24565)) + 15
 	if web_port > 0:
-		dev_web.start(web_port, str(config.get("dev_web_host", "127.0.0.1")))
+		dev_web.start(web_port, str(config.get("dev_web_host", "127.0.0.1")), str(config.get("dev_web_token", "")))
+	if dev_mode:
+		mod_reload.set_watching(true)
 	_started = true
 	print("[server] '%s' running game '%s' with mods %s, %d blocks, %d assets, seed %d, port %d" % [
 		server_info.name, server_info.game, server_info.mods, registry.defs.size(), _assets.size(), world_seed, config.get("port")])
@@ -309,8 +320,10 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 	var order := ModLoader.resolve(requested, available)
 	if order.is_empty():
 		return ERR_CANT_RESOLVE
+	mod_order = order
 	for manifest in order:
 		dev_log.add_mod_dir(manifest.id, manifest.dir)
+		mod_manifests[manifest.id] = manifest
 	for manifest in order:
 		if String(manifest.main).get_extension() == "js":
 			var js_mod := JsMod.new(self, manifest)
@@ -318,6 +331,7 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 			if js_error != OK:
 				return js_error
 			_js_mods.append(js_mod)
+			mod_instances[manifest.id] = js_mod
 			server_info.mods.append("%s@%s" % [manifest.id, manifest.version])
 			print("[server] Loaded JavaScript mod %s %s" % [manifest.id, manifest.version])
 			continue
@@ -331,6 +345,7 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 			return ERR_INVALID_DATA
 		instance.setup(ModApi.new(self, manifest))
 		_mods.append(instance)
+		mod_instances[manifest.id] = instance
 		server_info.mods.append("%s@%s" % [manifest.id, manifest.version])
 		print("[server] Loaded mod %s %s" % [manifest.id, manifest.version])
 	# The game is the first requested mod marked as one; add-ons like industry follow it.
@@ -451,6 +466,7 @@ func _register_builtin_commands() -> void:
 	add_command("help", "List commands", _cmd_help, "engine")
 	add_command("log", "[mod] [count] | level <mod|all> <debug|info|warn|error> - recent log lines", _cmd_log, "engine", "admin")
 	add_command("errors", "[clear [mod] | mute | unmute] - script errors by mod", _cmd_errors, "engine", "admin")
+	add_command("reload", "<mod> | all | full | watch on|off - reload mods while the server runs", _cmd_reload, "engine", "admin")
 	add_command("devweb", "- the dev dashboard's address", func(player, _args):
 		if dev_web.running():
 			player.send_message("Dev dashboard: %s" % dev_web.url())
@@ -536,6 +552,61 @@ func _cmd_errors(player, args: PackedStringArray) -> void:
 				player.send_message("No script errors")
 			for e in list.slice(0, 10):
 				player.send_message("[%s] x%d %s%s" % [e.source, e.count, e.message.left(200), " (%s:%d)" % [e.file.get_file(), e.line] if not e.file.is_empty() else ""])
+
+
+func _cmd_reload(player, args: PackedStringArray) -> void:
+	var what := args[0] if args.size() > 0 else ""
+	match what:
+		"":
+			player.send_message("Usage: /reload <mod> | all | full | watch on|off   (mods: %s)" % ", ".join(mod_manifests.keys()))
+		"full":
+			request_full_reload()
+		"watch":
+			mod_reload.set_watching(args.size() < 2 or args[1] != "off")
+			player.send_message("File watcher %s" % ("on: saving a mod's scripts reloads it" if mod_reload.watching else "off"))
+		"all":
+			for result in mod_reload.reload_all():
+				player.send_message(ModReload._summary(result))
+		_:
+			player.send_message(ModReload._summary(mod_reload.reload(what)))
+
+
+## After a quick reload: clients get the new definitions, recipe book, guide and tutorials.
+func after_mod_reload() -> void:
+	tutorials.revalidate()
+	var content := {"blocks": registry.to_network(), "items": items.to_network(), "entities": entities.registry.to_network(),
+		"recipes": recipes.to_network(), "processes": _processes, "stations": stations.to_network(), "assembly": assembly.to_network(),
+		"minigames": skill.to_network(), "guide": guide.registry.to_network(), "tutorials": tutorials.to_network()}
+	for p: ServerPlayer in players.values():
+		if p._online():
+			Net.s_content_update.rpc_id(p.peer_id, content)
+			open_crafting_refresh(p)
+		guide.sync(p)
+
+
+## Refreshes a player's open crafting screen (the recipe book may have changed).
+func open_crafting_refresh(p: ServerPlayer) -> void:
+	Net.s_known_recipes.rpc_id(p.peer_id, PackedStringArray(p.known_recipes.keys()), gameplay.recipe_discovery)
+
+
+func tell_admins(text: String) -> void:
+	dev_log.add("info", "server", text)
+	for p: ServerPlayer in players.values():
+		if dev_tools.allowed(p):
+			p.send_message(text)
+
+
+## Saves and asks the owner to restart the server with the same settings; clients are told to reconnect.
+func request_full_reload() -> void:
+	if not full_reload_requested.get_connections().size():
+		tell_admins("Full reload needs the dedicated server (or the Host menu); restart the server instead")
+		return
+	for p: ServerPlayer in players.values():
+		if p._online():
+			Net.s_reloading.rpc_id(p.peer_id, "Reloading mods…")
+	dev_log.add("info", "server", "Full reload: saving and restarting")
+	_save_all(true)
+	full_reload_requested.emit()
 
 
 ## New and repeating errors go to online admins (unless they muted alerts).
@@ -765,6 +836,7 @@ func _physics_process(delta: float) -> void:
 	guide.update(delta)
 	dev_tools.update(delta)
 	dev_web.update()
+	mod_reload.update(delta)
 	tutorials.update(delta)
 	var sim_usec := 0
 	var stream_usec := 0
@@ -2329,7 +2401,7 @@ func add_recipe(inputs: Dictionary, output: int, count: int, station := "", opti
 		"category": options.get("category", ""), "id": options.get("id", ""), "tier": options.get("tier", 0),
 		"needs": options.get("needs", []), "time": options.get("time", 0.0), "project": options.get("project", false),
 		"unlock": options.get("unlock", "pickup"), "hint": options.get("hint", ""), "pattern": options.get("pattern", []),
-		"output_data": options.get("output_data", {}), "skill": options.get("skill", "")}, items)
+		"output_data": options.get("output_data", {}), "skill": options.get("skill", ""), "owner": options.get("owner", "")}, items)
 
 
 ## How long an item burns as fuel (seconds; 0 = not fuel).
@@ -2512,6 +2584,8 @@ func craft(p: ServerPlayer, index: int, times := 1) -> int:
 	if index < 0 or index >= recipes.recipes.size() or p.dead:
 		return 0
 	var recipe: Dictionary = recipes.recipes[index]
+	if recipe.get("removed", false):
+		return 0
 	if p.crafting_station.has("position") and _station_valid(p):
 		p.crafting_station = stations.evaluate(p.crafting_station.position)  # workshop blocks may have changed
 	if recipe.get("project", false):
@@ -2575,7 +2649,7 @@ func take_recipe_inputs(p: ServerPlayer, index: int) -> Dictionary:
 	var recipe: Dictionary = recipes.recipes[index]
 	if p.crafting_station.has("position") and _station_valid(p):
 		p.crafting_station = stations.evaluate(p.crafting_station.position)
-	if recipe.get("project", false) or craftable_times(p, recipe, 1) < 1:
+	if recipe.get("removed", false) or recipe.get("project", false) or craftable_times(p, recipe, 1) < 1:
 		return {}
 	_consume_inputs(p, recipe, 1)
 	p.sync_inventory()

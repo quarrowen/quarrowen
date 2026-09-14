@@ -149,6 +149,14 @@
   </section>
 
   <section id="tab-server" class="tab">
+    <div class="bar">
+      <span class="muted">Reload mods while the server runs:</span>
+      <select id="reload-mod"></select>
+      <button class="btn" id="reload-one">Quick reload</button>
+      <button class="btn" id="reload-all">Reload all</button>
+      <button class="btn" id="reload-full">Full reload (restart)</button>
+      <span id="reload-result" class="muted"></span>
+    </div>
     <div class="split">
       <div class="detail" id="server-detail"></div>
       <div class="detail" id="players-detail"></div>
@@ -286,6 +294,24 @@ $("inspect-self").addEventListener("click", () => $("inspect-player").value && i
 $("inspect-block").addEventListener("click", () => inspect({ x: $("ix").value, y: $("iy").value, z: $("iz").value }));
 $("inspect-entity").addEventListener("click", () => inspect({ entity: $("ientity").value }));
 
+async function reload(mod) {
+  $("reload-result").textContent = "reloading…";
+  try {
+    const r = await api("/api/reload", { mod });
+    if (r.full) { $("reload-result").textContent = "restarting the server — this page reconnects by itself"; return; }
+    $("reload-result").textContent = r.results.map((x) => x.ok ? `${x.mod} reloaded (${x.ms} ms)${x.notes.length ? " — " + x.notes.join("; ") : ""}` : `${x.mod}: ${x.error}`).join(" · ");
+  } catch (e) { $("reload-result").textContent = `failed: ${e.message}`; }
+}
+$("reload-one").addEventListener("click", () => $("reload-mod").value && reload($("reload-mod").value));
+$("reload-all").addEventListener("click", () => reload("all"));
+$("reload-full").addEventListener("click", () => confirm("Save and restart the server? Players reconnect automatically.") && reload("full"));
+
+function renderMods(mods) {
+  const select = $("reload-mod"), current = select.value;
+  const html = mods.map((m) => `<option value="${esc(m.id)}">${esc(m.name)} (${esc(m.id)} ${esc(m.version)}, ${esc(m.language)})</option>`).join("");
+  if (select.dataset.html !== html) { select.innerHTML = html; select.dataset.html = html; if (current) select.value = current; }
+}
+
 function renderPlayers(server) {
   const select = $("inspect-player"), current = select.value;
   select.innerHTML = state.players.map((p) => `<option value="${p.peer}">${esc(p.name)}</option>`).join("") || `<option value="">No players online</option>`;
@@ -324,7 +350,7 @@ async function poll() {
       renderEvents();
     }
     state.perf = s.perf; renderPerf();
-    state.players = s.players; renderPlayers(s.server);
+    state.players = s.players; renderPlayers(s.server); renderMods(s.mods || []);
     if (state.tab === "inspect" && state.inspect && $("inspect-live").checked) inspect(state.inspect);
   } catch (e) {
     $("status").textContent = token ? `disconnected (${e.message}) — retrying` : "no token in the URL";

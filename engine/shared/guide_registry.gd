@@ -31,7 +31,7 @@ func add_chapter(def: Dictionary) -> bool:
 	var id := str(def.get("id", ""))
 	if id.is_empty():
 		return false
-	var c := {"id": id, "title": str(def.get("title", id.get_slice(":", 1).capitalize())).left(64), "icon": str(def.get("icon", "")).left(128),
+	var c := {"id": id, "owner": str(def.get("owner", "")), "title": str(def.get("title", id.get_slice(":", 1).capitalize())).left(64), "icon": str(def.get("icon", "")).left(128),
 		"order": float(def.get("order", 100.0)), "description": str(def.get("description", "")).left(300)}
 	if _chapter_index.has(id):
 		chapters[_chapter_index[id]] = c
@@ -59,7 +59,7 @@ func add_page(def: Dictionary) -> bool:
 			if def.unlock.has(key):
 				unlock = {key: str(def.unlock[key])}
 				break
-	var p := {"id": id, "chapter": str(def.get("chapter", "")), "title": str(def.get("title", id.get_slice(":", 1).capitalize())).left(64),
+	var p := {"id": id, "owner": str(def.get("owner", "")), "chapter": str(def.get("chapter", "")), "title": str(def.get("title", id.get_slice(":", 1).capitalize())).left(64),
 		"icon": str(def.get("icon", "")).left(128), "order": float(def.get("order", 100.0)), "unlock": unlock, "hint": str(def.get("hint", "")).left(200), "blocks": blocks,
 		"keywords": str(def.get("keywords", "")).left(300)}
 	if _page_index.has(id):
@@ -68,6 +68,26 @@ func add_page(def: Dictionary) -> bool:
 		_page_index[id] = pages.size()
 		pages.append(p)
 	return true
+
+
+## Drops everything a mod registered (before it registers again on reload).
+func remove_owner(owner: String) -> void:
+	var keep_chapters := chapters.filter(func(c): return c.get("owner", "") != owner)
+	var keep_pages := pages.filter(func(p): return p.get("owner", "") != owner)
+	clear()
+	for c in keep_chapters:
+		_chapter_index[c.id] = chapters.size()
+		chapters.append(c)
+	for p in keep_pages:
+		_page_index[p.id] = pages.size()
+		pages.append(p)
+
+
+func clear() -> void:
+	chapters.clear()
+	pages.clear()
+	_chapter_index.clear()
+	_page_index.clear()
 
 
 func get_page(id: String) -> Dictionary:

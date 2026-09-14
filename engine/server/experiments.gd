@@ -33,7 +33,7 @@ func experiment(p, grid: Array) -> Dictionary:
 	var best_hint := ""
 	for index in _server.recipes.recipes.size():
 		var r: Dictionary = _server.recipes.recipes[index]
-		if r.get("project", false) or not _server._at_station(p, r):
+		if r.get("removed", false) or r.get("project", false) or not _server._at_station(p, r):
 			continue
 		var shaped_ok: bool = r.pattern.is_empty() or _shape_matches(cells, r.pattern)
 		if counts == _int_keys(r.inputs):

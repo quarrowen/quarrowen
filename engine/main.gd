@@ -112,7 +112,8 @@ func _run_dedicated_server() -> void:
 	get_tree().change_scene_to_file.call_deferred("res://scenes/server.tscn")
 
 
-func _host(game: String, port: int, player_name: String) -> void:
+## `extra`: more server arguments (e.g. --dev, --mods-dir=...).
+func _host(game: String, port: int, player_name: String, extra := PackedStringArray()) -> void:
 	_stop_local_server()
 	var token := "%x%x" % [randi(), randi()]
 	var args := PackedStringArray()
@@ -120,6 +121,7 @@ func _host(game: String, port: int, player_name: String) -> void:
 		# Running from the editor binary: point it at this project.
 		args.append_array(["--path", ProjectSettings.globalize_path("res://")])
 	args.append_array(["--headless", "res://scenes/server.tscn", "--", "--mods=%s" % game, "--port=%d" % port, "--admin-token=%s" % token])
+	args.append_array(extra)
 	_server_pid = OS.create_process(OS.get_executable_path(), args)
 	if _server_pid <= 0:
 		_show_menu("Failed to launch local server process")
@@ -147,9 +149,18 @@ func _start_client(address: String, port: int, player_name: String, token: Strin
 
 
 func _on_client_exited(message: String) -> void:
+	var reconnect: Dictionary = {}
 	if _client:
+		if _client.reload_pending:
+			reconnect = {"address": _client.server_address, "port": _client.server_port, "name": _client.player_name, "token": _client.admin_token}
 		_client.queue_free()
 		_client = null
+	if not reconnect.is_empty():
+		# A full reload: the server is restarting; the new client retries until it is back.
+		_show_menu("Reloading mods… reconnecting")
+		await get_tree().create_timer(2.0).timeout
+		_start_client(reconnect.address, reconnect.port, reconnect.name, reconnect.token)
+		return
 	if _server_pid > 0:
 		# The host asked the server to save and quit; kill it only if it is still around.
 		await get_tree().create_timer(1.0).timeout

@@ -85,7 +85,7 @@ func register_tutorial(id: String, def: Dictionary, qualify: Callable) -> bool:
 			_listen(step.goal.event)
 	tutorials[id] = {"id": id, "title": str(def.get("title", id.get_slice(":", 1).capitalize())).left(64),
 		"description": str(def.get("description", "")).left(300), "order": float(def.get("order", 100.0)),
-		"auto_start": bool(def.get("auto_start", false)), "reward": _clean_rewards(def.get("reward"), qualify), "steps": steps}
+		"auto_start": bool(def.get("auto_start", false)), "owner": str(def.get("owner", "")), "reward": _clean_rewards(def.get("reward"), qualify), "steps": steps}
 	return true
 
 
@@ -94,7 +94,7 @@ func register_tip(id: String, def: Dictionary, qualify: Callable) -> bool:
 	if trigger.is_empty() or str(def.get("text", "")).is_empty():
 		return false
 	tips[id] = {"id": id, "text": str(def.text).left(400), "icon": qualify.call(str(def.get("icon", ""))),
-		"page": qualify.call(str(def.get("page", ""))), "trigger": trigger}
+		"page": qualify.call(str(def.get("page", ""))), "trigger": trigger, "owner": str(def.get("owner", ""))}
 	if trigger.has("event"):
 		_listen(trigger.event)
 	return true
@@ -168,6 +168,26 @@ func _listen(event: String) -> void:
 	_listening[event] = true
 	# Lowest priority: mods have had their say (a cancelled break never counts).
 	_server.add_handler(event, _on_event.bind(event), -1000000)
+
+
+## Drops a mod's tutorials and tips (before it registers them again on reload). Players in one of its
+## tutorials keep their place if the tutorial comes back with enough steps.
+func remove_owner(owner: String) -> void:
+	for id in tutorials.keys():
+		if tutorials[id].owner == owner:
+			tutorials.erase(id)
+	for id in tips.keys():
+		if tips[id].owner == owner:
+			tips.erase(id)
+
+
+## Checks players' tutorial progress after a reload, and resends their trackers.
+func revalidate() -> void:
+	for p in _server.players.values():
+		var s := state_of(p)
+		if not s.active.is_empty() and (not tutorials.has(s.active) or s.step >= tutorials[s.active].steps.size()):
+			s.active = ""
+		sync(p)
 
 
 ## Tutorials in order: [{id, title, description, steps}] for clients.

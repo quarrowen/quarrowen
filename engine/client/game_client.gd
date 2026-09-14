@@ -5,6 +5,9 @@ extends Node3D
 
 signal exited(message: String)
 
+## Set when the server announced a full reload: whoever owns the client should reconnect (see main.gd).
+var reload_pending := false
+
 const BlockRegistry = preload("res://engine/shared/block_registry.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 const VoxelWorld = preload("res://engine/shared/voxel_world.gd")
@@ -315,6 +318,47 @@ func _leave(message: String) -> void:
 	_exiting = true
 	Net.close()
 	exited.emit(message)
+
+
+# --- Mod reloads -----------------------------------------------------------------------------------
+
+## A mod was reloaded: take the new definitions, recipe book, guide and tutorials (ids are unchanged).
+func on_content_update(content: Dictionary) -> void:
+	_update_defs(content.get("blocks"), BlockRegistry.NETWORK_FIELDS, func(n): return registry.id_of(n) > 0, func(d): registry.register(d, true))
+	_update_defs(content.get("items"), ItemRegistry.NETWORK_FIELDS, func(n): return items.id_of(n) > 0, func(d): items.register(d, true))
+	_update_defs(content.get("entities"), EntityRegistry.NETWORK_FIELDS, func(n): return entity_types.id_of(n) >= 0, func(d): entity_types.register(d, true))
+	if content.get("recipes") is Dictionary:
+		recipes.clear()
+		recipes.load_network(content.recipes)
+	_crafting_screen.processes = content.get("processes", {}) if content.get("processes") is Dictionary else _crafting_screen.processes
+	_crafting_screen.stations = content.get("stations", {}) if content.get("stations") is Dictionary else _crafting_screen.stations
+	_crafting_screen.assembly.load_network(content.get("assembly"))
+	_crafting_screen.minigames = content.get("minigames", {}) if content.get("minigames") is Dictionary else _crafting_screen.minigames
+	if content.get("guide") is Dictionary:
+		_guide_screen.registry.clear()
+		_guide_screen.registry.load_network(content.guide)
+		if _guide_screen.visible:
+			_guide_screen.open(_guide_screen.current)
+	if content.get("tutorials") is Array:
+		_tutorial_hud.tutorials = content.tutorials
+	_crafting_screen.refresh()
+	_refresh_pin()
+
+
+func _update_defs(data, fields: Array, exists: Callable, apply: Callable) -> void:
+	for entry in (data if data is Array else []):
+		if not (entry is Dictionary) or not (entry.get("name") is String) or not exists.call(entry.name):
+			continue
+		var clean := {}
+		for field in fields:
+			if entry.has(field):
+				clean[field] = entry[field]
+		apply.call(clean)
+
+
+func on_server_reloading(message: String) -> void:
+	reload_pending = true
+	_server_ui.show_title(message, "The server restarts with the new mods; you will be back in a moment", 10.0)
 
 
 func on_kick(reason: String) -> void:

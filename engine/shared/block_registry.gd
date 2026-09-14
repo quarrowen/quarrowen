@@ -60,9 +60,10 @@ func _init() -> void:
 ## model faces the player), connect_group and model_arm (a model with an arm is centred on the block
 ## and draws the arm toward each neighbour sharing its connect_group, e.g. cables into machines).
 ## Returns the id, or -1 on error.
-func register(def: Dictionary) -> int:
+## `replace`: an existing block of that name gets the new definition in place (same id; mod reloads).
+func register(def: Dictionary, replace := false) -> int:
 	var block_name := String(def.get("name", ""))
-	if block_name.is_empty() or block_name.length() > MAX_NAME_LENGTH or ids.has(block_name):
+	if block_name.is_empty() or block_name.length() > MAX_NAME_LENGTH or (ids.has(block_name) and not replace):
 		push_error("Invalid or duplicate block name '%s'" % block_name)
 		return -1
 	if defs.size() >= MAX_BLOCKS:
@@ -101,6 +102,13 @@ func register(def: Dictionary) -> int:
 		for action in ["break", "place", "step"]:
 			if def.sounds.get(action) is String:
 				d.sounds[action] = String(def.sounds[action]).left(128)
+	if ids.has(block_name):
+		var existing: int = ids[block_name]
+		d.id = existing
+		defs[existing].clear()
+		defs[existing].merge(d)  # in place: whoever holds the old definition sees the new one
+		_rebuild_luts()
+		return existing
 	var id := defs.size()
 	d.id = id
 	defs.append(d)

@@ -28,6 +28,10 @@ const DEFAULT_CATEGORIES := [
 var recipes: Array[Dictionary] = []
 var categories: Array[Dictionary] = []
 var _ids := {}  # recipe id -> index
+## While a mod reloads: its recipes re-registered by id replace themselves at the same index (indices
+## stay valid everywhere); those it no longer registers are marked `removed` at end_reload.
+var _reloading_owner := ""
+var _reloaded := {}
 
 
 func _init() -> void:
@@ -57,7 +61,10 @@ func add(def: Dictionary, items = null) -> int:
 	if inputs.is_empty() or output <= 0:
 		return -1
 	var recipe_id := str(def.get("id", ""))
-	if recipe_id.is_empty() or _ids.has(recipe_id):
+	var replace_at := -1
+	if not _reloading_owner.is_empty() and _ids.has(recipe_id) and recipes[_ids[recipe_id]].get("owner", "") == _reloading_owner:
+		replace_at = _ids[recipe_id]
+	elif recipe_id.is_empty() or _ids.has(recipe_id):
 		recipe_id = "recipe:%d" % recipes.size()
 	var category := str(def.get("category", ""))
 	if category.is_empty() or not categories.any(func(c): return c.name == category):
@@ -71,7 +78,14 @@ func add(def: Dictionary, items = null) -> int:
 		"hint": str(def.get("hint", "")).left(160),
 		"skill": str(def.get("skill", "")).left(64),
 		"pattern": _clean_pattern(def.get("pattern")),
-		"output_data": def.get("output_data", {}) if def.get("output_data") is Dictionary else {}}
+		"output_data": def.get("output_data", {}) if def.get("output_data") is Dictionary else {},
+		"owner": str(def.get("owner", "")), "removed": bool(def.get("removed", false))}
+	if replace_at >= 0:
+		recipes[replace_at] = r
+		_reloaded[recipe_id] = true
+		return replace_at
+	if not _reloading_owner.is_empty():
+		_reloaded[recipe_id] = true
 	_ids[recipe_id] = recipes.size()
 	recipes.append(r)
 	return recipes.size() - 1
@@ -83,6 +97,29 @@ static func _clean_pattern(value) -> Array:
 		if row is Array:
 			rows.append((row as Array).slice(0, 3).map(func(v): return int(v) if v is int or v is float else 0))
 	return rows
+
+
+func begin_reload(owner: String) -> void:
+	_reloading_owner = owner
+	_reloaded = {}
+
+
+## Marks the owner's recipes that were not registered again as removed. Returns how many changed.
+func end_reload() -> int:
+	var removed := 0
+	for r in recipes:
+		if r.get("owner", "") == _reloading_owner and not _reloaded.has(r.id) and not r.get("removed", false):
+			r.removed = true
+			removed += 1
+	_reloading_owner = ""
+	_reloaded = {}
+	return removed
+
+
+## Forgets every recipe (clients rebuild the book from a content update).
+func clear() -> void:
+	recipes.clear()
+	_ids.clear()
 
 
 func index_of(recipe_id: String) -> int:

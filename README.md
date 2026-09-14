@@ -818,6 +818,24 @@ Inspect (a player, what they look at, a block by coordinates or an entity id, li
 players). `#perf`-style links open a tab. JSON API: `/api/state`, `/api/inspect`, `/api/clear_errors`
 (see `engine/server/dev_web.gd`).
 
+### Reloading mods
+
+- **Quick reload** (`/reload <mod>` or `all`, or the dashboard's Server tab): the mod's scripts are
+  recompiled and its `setup` runs again. Event handlers, commands, timers, block tick handlers, mob
+  behaviours, spawn rules, recipes, guide pages, tutorials and tips are replaced; blocks, items and
+  entities it registers again update in place with the same ids; recipes keep their places (ones it no
+  longer registers are hidden); players see the new definitions, recipe book, guide and tutorials at
+  once. A script that does not compile leaves the old version running. Anything that cannot change live
+  (a new block, item, entity, sound, effect or file, and world generation) is skipped with a note to do
+  a full reload. Keep state that must survive in `api.storage`, player or entity data.
+- **File watcher:** on with `--dev` (or `/reload watch on`): saving a `.gd`, `.js` or `.json` file in a
+  mod folder reloads that mod half a second later and tells admins the result; changed textures,
+  models, sounds or `mod.json` ask for a full reload.
+- **Full reload** (`/reload full`): the server saves, restarts in place with the same settings and reads
+  every mod again (new blocks, textures, models); players get a "Reloading mods…" notice and the game
+  reconnects them automatically. Needs the dedicated server scene or the Host menu (both are). Event
+  `mod_reloaded {mod, ok, notes, error}`.
+
 ## World saves (delta model)
 
 Chunks are always regenerated from the seed, then saved edits are applied on top.

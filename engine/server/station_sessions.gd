@@ -179,6 +179,8 @@ func consume_tray(p, pos: Vector3i, item: int, count: int) -> int:
 
 func add_job(p, pos: Vector3i, index: int, times: int) -> void:
 	var r: Dictionary = _server.recipes.recipes[index]
+	if r.get("removed", false):
+		return
 	var c := coop(pos)
 	c.jobs.append({"recipe": r.id, "times": times, "by": p.player_id, "by_name": p.name, "done": 0.0,
 		"total": float(r.get("time", 0.0)) * times})
@@ -244,7 +246,7 @@ func start_project(p, pos: Vector3i, index: int) -> bool:
 	if not c.project.is_empty() or index < 0 or index >= _server.recipes.recipes.size():
 		return false
 	var r: Dictionary = _server.recipes.recipes[index]
-	if not r.get("project", false):
+	if not r.get("project", false) or r.get("removed", false):
 		return false
 	c.project = {"recipe": r.id, "delivered": {}, "contributors": {}, "started_by": p.name}
 	_dirty[pos] = true

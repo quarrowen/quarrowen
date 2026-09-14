@@ -46,6 +46,7 @@ const DEFAULTS := {
 
 var _server: Node
 var _signals := false
+var _config := {}
 
 
 func _ready() -> void:
@@ -63,10 +64,7 @@ func _ready() -> void:
 	print("[server] native extension %s, graceful signal shutdown %s" % [
 		"loaded" if Native.enabled() else "not loaded (GDScript fallbacks)", "on" if _signals else "off"])
 
-	_server = GameServer.new()
-	_server.name = "GameServer"
-	add_child(_server)
-	var err: Error = _server.start({
+	_config = {
 		"port": int(options.port),
 		"max_players": int(options["max-players"]),
 		"mods": mods,
@@ -84,9 +82,38 @@ func _ready() -> void:
 		"dev": options.dev == "true" or options.dev == "1",
 		"dev_web": int(options["dev-web"]),
 		"dev_web_host": options["dev-web-host"],
-	})
+	}
+	var err := _start_server()
 	if err != OK:
 		printerr("[server] Startup failed: %s" % error_string(err))
+		get_tree().quit(1)
+
+
+func _start_server() -> Error:
+	_server = GameServer.new()
+	_server.name = "GameServer"
+	add_child(_server)
+	var err: Error = _server.start(_config)
+	_config.restore = ""  # a backup is restored once, not again on a full reload
+	_config.dev_web_token = _server.dev_web.token  # open dashboards keep working after a full reload
+	_server.full_reload_requested.connect(_full_reload, CONNECT_DEFERRED)
+	return err
+
+
+## /reload full: the old server saves (in _exit_tree) and closes its port, then a new one starts with
+## the same settings, reading every mod again. Clients were told to reconnect.
+func _full_reload() -> void:
+	print("[server] Full reload")
+	await get_tree().create_timer(0.3).timeout  # let the reloading notice reach clients
+	var old := _server
+	_server = null
+	remove_child(old)
+	old.free()
+	Net.close()
+	await get_tree().create_timer(0.5).timeout
+	var err := _start_server()
+	if err != OK:
+		printerr("[server] Full reload failed to start: %s" % error_string(err))
 		get_tree().quit(1)
 
 

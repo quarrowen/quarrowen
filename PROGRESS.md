@@ -189,7 +189,7 @@ changes with `tools/build_native.sh`.
      cancellations), per-mod profiler (handlers, ticks, commands), debug-draw API (boxes, lines, labels,
      paths); an in-game dev overlay (Logs, Errors, Inspect, Events, Perf tabs) for admins / dev mode.
    - C3 Web dashboard (done: engine/server/dev_web.gd + dev_web/index.html, --dev-web, /devweb): the server serves the same tools on a local web page (token protected).
-   - C4 Reloading: quick reload (re-run a mod's scripts: handlers, commands, timers, recipes, guide,
+   - C4 Reloading (done: engine/server/mod_reload.gd, /reload, dashboard buttons, tests/reload_test.tscn): quick reload (re-run a mod's scripts: handlers, commands, timers, recipes, guide,
      tutorials, definition changes in place) with a dev-mode file watcher; full reload (save and restart
      in place, players reconnect automatically) for new blocks, textures and models.
    - C5 Packages and validation: .zip mod packages, semantic versions, dependency ranges, engine API

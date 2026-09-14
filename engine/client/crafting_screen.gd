@@ -997,6 +997,8 @@ func _visible_recipes() -> Array:
 	var out := []
 	for i in recipes.recipes.size():
 		var r: Dictionary = recipes.recipes[i]
+		if r.get("removed", false):
+			continue
 		if not _lookup.is_empty() and ((_lookup.mode == "make" and r.output != _lookup.item) or (_lookup.mode == "use" and not r.inputs.has(_lookup.item))):
 			continue
 		if not _category.is_empty() and r.category != _category:

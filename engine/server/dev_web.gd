@@ -11,6 +11,7 @@ extends RefCounted
 ##   /api/state?logs_after=N&events_after=N&events=0|1&filter=...   everything new since the last poll
 ##   /api/inspect?player=<peer>  |  &look=1 (what that player looks at)  |  entity=<id>  |  x=&y=&z=
 ##   /api/clear_errors[?source=mod]
+##   /api/reload?mod=<id> | mod=all | mod=full
 ## A dashboard that polls within VIEWER_TIMEOUT seconds counts as a dev tools viewer (so events are traced).
 
 const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
@@ -34,10 +35,11 @@ func _init(game_server) -> void:
 	_server = game_server
 
 
-func start(listen_port: int, bind_host := "127.0.0.1") -> Error:
+## `keep_token`: reuse a token (a full reload keeps open dashboards working).
+func start(listen_port: int, bind_host := "127.0.0.1", keep_token := "") -> Error:
 	port = listen_port
 	host = bind_host
-	token = Crypto.new().generate_random_bytes(12).hex_encode()
+	token = keep_token if not keep_token.is_empty() else Crypto.new().generate_random_bytes(12).hex_encode()
 	_tcp = TCPServer.new()
 	var err := _tcp.listen(port, host)
 	if err != OK:
@@ -122,6 +124,15 @@ func _handle(peer: StreamPeerTCP, request_line: String) -> void:
 	match path:
 		"/api/state": result = _state(query)
 		"/api/inspect": result = _inspect(query)
+		"/api/reload":
+			var what := str(query.get("mod", ""))
+			if what == "full":
+				_server.request_full_reload.call_deferred()
+				result = {"ok": true, "full": true}
+			elif what == "all":
+				result = {"results": _server.mod_reload.reload_all()}
+			else:
+				result = {"results": [_server.mod_reload.reload(what)]}
 		"/api/clear_errors":
 			_server.dev_log.clear_errors(query.get("source", ""))
 			result = {"ok": true}
@@ -154,7 +165,8 @@ func _state(query: Dictionary) -> Dictionary:
 	return {
 		"server": {"name": _server.server_info.name, "game": _server.server_info.game, "mods": _server.server_info.mods,
 			"tick": _server.tick, "time_of_day": snappedf(_server.get_time_of_day(), 0.001), "entities": _server.entities.entities.size(),
-			"chunks": _server.world.chunks.size(), "dev_mode": _server.dev_mode},
+			"chunks": _server.world.chunks.size(), "dev_mode": _server.dev_mode, "watching": _server.mod_reload.watching},
+		"mods": _server.mod_order.map(func(m): return {"id": m.id, "name": m.name, "version": m.version, "language": "JavaScript" if str(m.main).ends_with(".js") else "GDScript"}),
 		"players": players,
 		"logs": _server.dev_log.entries.filter(func(e): return e.id > logs_after).slice(-500),
 		"errors": _server.dev_log.sorted_errors().slice(0, 100),

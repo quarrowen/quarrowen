@@ -80,7 +80,7 @@ run_scene "ai" "$WORK/ai.log" res://tests/ai_test.tscn
 if [ "${VOXEL_NATIVE:-1}" != "0" ]; then
   run_scene "js-sandbox" "$WORK/js_sandbox.log" res://tests/js_sandbox_test.tscn
 fi
-for extra in tests/host_flow_test.tscn; do
+for extra in tests/host_flow_test.tscn tests/reload_test.tscn; do
   [ -f "$extra" ] && run_scene "$(basename "$extra" .tscn)" "$WORK/$(basename "$extra" .tscn).log" "res://$extra"
 done
 
@@ -88,7 +88,7 @@ done
 for log in "$WORK"/*.log; do
   case "$(basename "$log")" in server_*|import.log) continue ;; esac
   # tests/mods/buggy fails on purpose (the dev log tests); any other script error counts.
-  if grep -A1 "SCRIPT ERROR" "$log" | grep "at:" | grep -qv "tests/mods/buggy"; then FAILED+=("clean-test-log:$(basename "$log")"); grep -h "SCRIPT ERROR" -A2 "$log" | head -6; fi
+  if grep -A1 "SCRIPT ERROR" "$log" | grep "at:" | grep -v "tests/mods/buggy" | grep -qv "reload_mods\|__reload_probe"; then FAILED+=("clean-test-log:$(basename "$log")"); grep -h "SCRIPT ERROR" -A2 "$log" | head -6; fi
 done
 
 echo

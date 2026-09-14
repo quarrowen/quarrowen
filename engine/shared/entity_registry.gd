@@ -27,9 +27,10 @@ func _init() -> void:
 ##   damage (projectiles: damage dealt on hit), lifetime (seconds, 0 = forever)
 ##   drops: [[item name or id, count], ...] on death; sounds: {hurt, death, ambient, attack}
 ##   persistent: saved with the chunk it is in (otherwise despawns when no player is near)
-func register(def: Dictionary) -> int:
+## `replace`: an existing type of that name gets the new definition in place (same id; mod reloads).
+func register(def: Dictionary, replace := false) -> int:
 	var type_name := String(def.get("name", ""))
-	if type_name.is_empty() or ids.has(type_name) or defs.size() >= MAX_TYPES:
+	if type_name.is_empty() or (ids.has(type_name) and not replace) or (defs.size() >= MAX_TYPES and not ids.has(type_name)):
 		push_error("Invalid or duplicate entity type '%s'" % type_name)
 		return -1
 	var d := def.duplicate(true)
@@ -53,6 +54,12 @@ func register(def: Dictionary) -> int:
 	d.persistent = bool(def.get("persistent", false))
 	d.sounds = def.get("sounds", {}) if def.get("sounds") is Dictionary else {}
 	d.drops = def.get("drops", []) if def.get("drops") is Array else []
+	if ids.has(type_name):
+		var existing: int = ids[type_name]
+		d.id = existing
+		defs[existing].clear()
+		defs[existing].merge(d)
+		return existing
 	var id := defs.size()
 	d.id = id
 	defs.append(d)

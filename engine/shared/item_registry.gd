@@ -76,9 +76,10 @@ static func is_block_item(id: int) -> bool:
 ##   Item data may override glow, trail and effects per stack (e.g. a sword that glows as it levels).
 ##   attack_damage (legacy shorthand for weapon.damage)
 ## Returns the item id or -1.
-func register(def: Dictionary) -> int:
+## `replace`: an existing item of that name gets the new definition in place (same id; mod reloads).
+func register(def: Dictionary, replace := false) -> int:
 	var item_name := String(def.get("name", ""))
-	if item_name.is_empty() or ids.has(item_name) or blocks.ids.has(item_name) or defs.size() >= MAX_ITEMS:
+	if item_name.is_empty() or (ids.has(item_name) and not replace) or blocks.ids.has(item_name) or (defs.size() >= MAX_ITEMS and not ids.has(item_name)):
 		push_error("Invalid or duplicate item '%s'" % item_name)
 		return -1
 	var d := def.duplicate(true)
@@ -107,6 +108,12 @@ func register(def: Dictionary) -> int:
 	if not d.food.is_empty():
 		d.usable = true
 	d.lore = (def.get("lore") as Array).map(func(l): return String(l).left(120)).slice(0, 8) if def.get("lore") is Array else []
+	if ids.has(item_name):
+		var existing: int = ids[item_name]
+		d.id = existing
+		defs[existing - FIRST_ITEM].clear()
+		defs[existing - FIRST_ITEM].merge(d)
+		return existing
 	var id := FIRST_ITEM + defs.size()
 	d.id = id
 	defs.append(d)
