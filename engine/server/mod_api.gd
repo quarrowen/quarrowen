@@ -26,6 +26,8 @@ extends RefCounted
 ##   ui_action      {player, ui_id, action}
 ##   block_interact {player, position, block, cancelled}   right-click on an "interactive" block (cancel stops containers and stations opening)
 ##   item_use       {player, item, has_target, position, normal, direction}   right-click holding a usable item
+##   player_eat     {player, item, hunger, saturation, heal, effects, cancelled}   a meal is finished; values may be changed
+##   skill_crafted  {player, item, count, quality, score, names, data, product}   crafted by hand; data may be changed
 ##   item_crafted   {player, item, count}
 ##   item_durability {player, slot, item, data, amount, reason ("mine" | "attack" | "armor" | ...), cancelled}
 ##   item_break     {player, slot, item, data}                an item wore out
@@ -38,7 +40,7 @@ extends RefCounted
 ##   item_pickup    {player, entity, item, count, cancelled}
 ##   player_attack  {player, target, target_kind ("entity" | "player"), item, damage, cancelled}   damage may be changed
 ##   player_damage  {player, amount, cause, attacker, cancelled}   amount may be changed; cause: attack, mob,
-##                  projectile, fall, void, magic, ...
+##                  projectile, fall, void, starvation, magic, ...
 ##   player_death   {player, cause, attacker, keep_inventory, message}   keep_inventory and message may be changed
 ##   player_respawn {player, position}                        position may be changed
 ##   entity_spawned {entity}          entity_removed {entity}

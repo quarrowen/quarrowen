@@ -34,6 +34,7 @@ const Stations = preload("res://engine/server/stations.gd")
 const StationSessions = preload("res://engine/server/station_sessions.gd")
 const Experiments = preload("res://engine/server/experiments.gd")
 const SkillCrafting = preload("res://engine/server/skill_crafting.gd")
+const Hunger = preload("res://engine/server/hunger.gd")
 const Assembly = preload("res://engine/shared/assembly.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
@@ -93,6 +94,8 @@ var gameplay := {
 	"pvp": false,
 	"fall_damage": true,
 	"natural_regeneration": true,
+	"hunger": true,  # survival players get hungry (see engine/server/hunger.gd)
+	"starvation_min_health": 1.0,  # starvation stops at this health (0 = players can starve to death)
 	"mob_spawning": true,
 	"durability": true,  # tools, weapons and armor wear out
 	"tray_access": "contributors",  # station trays: "contributors" (plus owner and team) | "anyone"
@@ -135,6 +138,7 @@ var sessions := StationSessions.new(self)
 ## The experimentation grid (discovering recipes by arranging items).
 var experiments := Experiments.new(self)
 var skill := SkillCrafting.new(self)
+var hunger := Hunger.new(self)
 ## Materials, parts and tools built from parts (see Assembly).
 var assembly := Assembly.new()
 var _snapshot_round := 0
@@ -397,6 +401,16 @@ func _register_builtin_commands() -> void:
 	add_command("tp", "<x> <y> <z> | <player> - teleport", _cmd_tp, "engine", "admin")
 	add_command("summon", "<entity> [count] - spawn entities in front of you", _cmd_summon, "engine", "admin")
 	add_command("heal", "[player] - restore health", _cmd_heal, "engine", "admin")
+	add_command("feed", "[player] - restore hunger", func(player, args):
+		var target = _target_player(player, args, 0)
+		if target != null:
+			hunger.set_hunger(target, Hunger.MAX, Hunger.MAX), "engine", "admin")
+	add_command("hunger", "<0-20> [player] - set hunger", func(player, args):
+		var target = _target_player(player, args, 1)
+		if args.is_empty() or not args[0].is_valid_float():
+			player.send_message("Usage: /hunger <0-20> [player]")
+		elif target != null:
+			hunger.set_hunger(target, float(args[0]), 0.0), "engine", "admin")
 	add_command("gamemode", "survival | creative [player]", _cmd_gamemode, "engine", "admin")
 	add_command("kill", "Die and respawn", func(p, _args): kill_player(p, "command", null), "engine")
 	add_command("gameplay", "[rule value] - show or change gameplay rules", _cmd_gameplay, "engine", "admin")
@@ -684,13 +698,19 @@ func _simulate_player(p: ServerPlayer) -> void:
 		return
 	# Normally one input per tick; consume two when the client is ahead to drain jitter backlog.
 	var budget := 2 if p.input_queue.size() > 3 else 1
+	var start := p.state.position
+	var was_on_ground := p.state.on_ground
+	var steps := 0
 	while budget > 0 and not p.input_queue.is_empty():
 		var input = p.input_queue.pop_front()
 		var falling_speed := -p.state.velocity.y
 		PlayerPhysics.step(p.state, input, world, p.physics_rules if p.physics_rules != null else rules)
 		p.last_processed_seq = input.seq
 		budget -= 1
+		steps += 1
 		_track_fall(p, falling_speed)
+	var tick_time := 1.0 / Engine.physics_ticks_per_second
+	hunger.update(p, tick_time, p.state.position - start, steps * tick_time, was_on_ground)
 	if tick % 15 == 0 and p.state.on_ground and Vector2(p.state.velocity.x, p.state.velocity.z).length() > rules.walk_speed + 0.5:
 		entities.ai.make_noise(p.state.position, 7.0, p)  # sprinting footsteps
 
@@ -727,11 +747,13 @@ func _update_health(p: ServerPlayer, delta: float) -> void:
 		if p.void_timer >= 0.5:
 			p.void_timer = 0.0
 			damage_player(p, 4.0, "void", null, Vector3.ZERO, true)
-	if gameplay.natural_regeneration and p.health < p.max_health and _time - p.last_damage_time > REGEN_DELAY:
+	var regen_interval := hunger.regen_interval(p, REGEN_INTERVAL)
+	if gameplay.natural_regeneration and regen_interval > 0.0 and p.health < p.max_health and _time - p.last_damage_time > REGEN_DELAY:
 		p.regen_timer += delta
-		if p.regen_timer >= REGEN_INTERVAL:
+		if p.regen_timer >= regen_interval:
 			p.regen_timer = 0.0
 			heal_player(p, 1.0)
+			hunger.healed(p, 1.0)
 
 
 ## Returns true if damage applied. `direction` sets the knockback direction (defaults to away from
@@ -764,6 +786,8 @@ func damage_player(p: ServerPlayer, amount: float, cause: String, attacker = nul
 	if direction.length_squared() > 0.0001:
 		p.state.velocity += direction.normalized() * knockback + Vector3(0, minf(4.5, knockback * 0.75), 0)
 	entities.ai.make_noise(p.state.position, 12.0, p, true)
+	if cause != "starvation":
+		hunger.add_exhaustion(p, Hunger.DAMAGED)
 	sync_health(p, true)
 	play_sound_at("engine:hurt", p.get_eye_position(), 1.0, randf_range(0.9, 1.1))
 	_broadcast_player_event(p, Entities.Event.HURT)
@@ -792,7 +816,7 @@ func kill_player(p: ServerPlayer, cause: String, attacker) -> void:
 		attacker_name = String(attacker.name)
 	elif attacker != null and attacker.get("def") != null:
 		attacker_name = String(attacker.def.display_name)
-	var messages := {"fall": "%s fell from a high place", "void": "%s fell out of the world",
+	var messages := {"fall": "%s fell from a high place", "void": "%s fell out of the world", "starvation": "%s starved to death",
 		"attack": "%s was slain by %s", "mob": "%s was slain by %s", "projectile": "%s was shot by %s"}
 	var message := "%s died" % p.name
 	if messages.has(cause) and (not attacker_name.is_empty() or String(messages[cause]).count("%s") == 1):
@@ -828,6 +852,8 @@ func on_respawn(peer_id: int) -> void:
 	var ev := emit("player_respawn", {"player": p, "position": spawn})
 	p.dead = false
 	p.health = p.max_health
+	p.exhaustion = 0.0
+	hunger.set_hunger(p, Hunger.MAX, 5.0)
 	p.hurt_timer = 1.0
 	p.last_damage_time = _time
 	p.teleport(ev.position if ev.position is Vector3 else spawn)
@@ -1115,6 +1141,9 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 		for item_name in (saved.get("seen_items") if saved.get("seen_items") is Array else []):
 			p.seen_items[str(item_name)] = true
 		p.health = clampf(float(saved.get("health", p.max_health)), 1.0, p.max_health)
+		p.hunger = clampf(float(saved.get("hunger", Hunger.MAX)), 0.0, Hunger.MAX)
+		p.saturation = clampf(float(saved.get("saturation", 5.0)), 0.0, p.hunger)
+		p.exhaustion = clampf(float(saved.get("exhaustion", 0.0)), 0.0, Hunger.EXHAUSTION_PER_POINT)
 		var spawn_point = saved.get("spawn_point")
 		if spawn_point is Array and spawn_point.size() == 3:
 			p.spawn_point = Vector3(spawn_point[0], spawn_point[1], spawn_point[2])
@@ -1131,6 +1160,8 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	p.sync_inventory()
 	refresh_stats(p)
 	sync_health(p)
+	hunger.set_hunger(p, p.hunger)  # applies the no-sprint modifier when starving
+	hunger.sync(p, true)
 	for other: ServerPlayer in players.values():
 		if other != p:
 			Net.s_player_joined.rpc_id(peer_id, other.peer_id, other.name)
@@ -1508,6 +1539,7 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 				p.inventory.add(int(drop[0]), int(drop[1]), items.max_stack(int(drop[0])))
 		if registry.defs[current].hardness > 0.0 and items.max_durability(held, held_data) > 0:
 			damage_item(p, p.inventory.selected, 1, "mine")
+		hunger.add_exhaustion(p, Hunger.BREAK_BLOCK)
 		p.sync_inventory()
 	emit("block_broken", {"player": p, "position": pos, "block": current, "item": held, "slot": p.inventory.selected, "harvested": harvest})
 
@@ -1603,6 +1635,9 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 	if item < ItemRegistry.FIRST_ITEM or not items.is_usable(item) or p.edit_tokens < 1.0:
 		return
 	p.edit_tokens -= 1.0
+	if not items.get_def(item).get("food", {}).is_empty():
+		hunger.start_eating(p)  # finishes while use is held (see Hunger)
+		return
 	var teaches: Array = p.inventory.data[p.inventory.selected].get("teaches", items.get_def(item).get("teaches", []))
 	if teaches is Array and not teaches.is_empty():
 		_read_blueprint(p, teaches)
@@ -1617,6 +1652,12 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 		play_effect(use_effect, p.get_eye_position() + look_dir * 0.8, {"direction": look_dir})
 	emit("item_use", {"player": p, "item": item, "has_target": has_target, "position": target,
 		"normal": normal.clamp(-Vector3i.ONE, Vector3i.ONE), "direction": PlayerPhysics.look_direction(p.yaw, p.pitch)})
+
+
+func on_stop_using(peer_id: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p != null:
+		hunger.stop_eating(p)
 
 
 func on_open_menu(peer_id: int, menu: String) -> void:
@@ -1646,6 +1687,7 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 	if ray.hit and eye.distance_to(Vector3(ray.position) + Vector3.ONE * 0.5) < distance - 0.5:
 		return  # a wall is in the way
 	p.last_attack_time = _time
+	hunger.add_exhaustion(p, Hunger.ATTACK)
 	var item := p.inventory.selected_item()
 	# Critical hits: attacking while falling (a jump attack) or by the crit_chance stat.
 	var critical: bool = (not p.state.on_ground and p.state.velocity.y < -1.0) or randf() < float(stats.crit_chance)
@@ -1984,13 +2026,14 @@ func set_cosmetics_policy(values: Dictionary) -> void:
 
 func _update_player_rules(p: ServerPlayer) -> void:
 	var speed := float(p._stats.get("move_speed", 1.0)) if not p._stats.is_empty() else 1.0
-	if is_equal_approx(speed, 1.0):
+	var sprint := clampf(float(p._stats.get("sprint", 1.0)), 0.0, 1.0) if not p._stats.is_empty() else 1.0
+	if is_equal_approx(speed, 1.0) and is_equal_approx(sprint, 1.0):
 		p.physics_rules = null
 		return
 	p.physics_rules = PlayerPhysics.Rules.new()
 	var values := rules.to_dict()
 	values.walk_speed = rules.walk_speed * speed
-	values.sprint_speed = rules.sprint_speed * speed
+	values.sprint_speed = (rules.walk_speed + (rules.sprint_speed - rules.walk_speed) * sprint) * speed
 	p.physics_rules.apply_dict(values)
 	p.physics_rules.solid_lut = rules.solid_lut
 	p.physics_rules.liquid_lut = rules.liquid_lut
@@ -2624,6 +2667,9 @@ func _store_player(p: ServerPlayer) -> void:
 		"recipes": p.known_recipes.keys(),
 		"seen_items": p.seen_items.keys(),
 		"health": maxf(p.health, 1.0) if not p.dead else p.max_health,
+		"hunger": p.hunger if not p.dead else Hunger.MAX,
+		"saturation": p.saturation,
+		"exhaustion": p.exhaustion,
 		"spawn_point": [p.spawn_point.x, p.spawn_point.y, p.spawn_point.z] if p.spawn_point != Vector3.INF else null,
 	}
 

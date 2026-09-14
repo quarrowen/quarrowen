@@ -31,6 +31,9 @@ static func tooltip_lines(items, id: int, item_data: Dictionary) -> PackedString
 				var amount := float(m.get("amount", 0.0))
 				var text := ("%+d%%" % roundi(amount * 100.0)) if m.get("op") == "multiply" else ("%+s" % _number(amount))
 				lines.append("%s %s" % [text, String(m.stat).replace("_", " ")])
+	var food: Dictionary = def.get("food", {})
+	if not food.is_empty():
+		lines.append("Restores %s hunger (hold use to eat)" % _number(food.hunger))
 	var teaches = item_data.get("teaches", def.get("teaches", []))
 	if teaches is Array and not teaches.is_empty():
 		lines.append("Blueprint: right-click to learn %d recipe%s" % [teaches.size(), "" if teaches.size() == 1 else "s"])

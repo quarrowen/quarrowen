@@ -28,6 +28,10 @@ const BOUNTY_MOB = "vanilla:zombie";
 export function setup(api) {
   const ids = {
     coin: api.registerItem("gold_coin", { display_name: "Gold Coin", icon: "textures/gold_coin.png" }),
+    // Food from JavaScript: a filling ration that also speeds you up for a minute.
+    ration: api.registerItem("trail_ration", { display_name: "Trail Ration", icon: "textures/trail_ration.png",
+      food: { hunger: 6, saturation: 9.6, eat_time: 1.6, color: "#c8a070",
+        effects: [{ stat: "move_speed", amount: 0.1, op: "multiply", seconds: 60, message: "Ready for the trail" }] } }),
     goldOre: api.registerBlock("gold_ore", { display_name: "Gold Ore", textures: "textures/gold_ore.png", drops: "guild:gold_coin" }),
     board: api.registerBlock("quest_board", {
       display_name: "Quest Board",
@@ -137,6 +141,7 @@ export function setup(api) {
     { item: "industry:battery", count: 1, price: 4 },
     { item: "arcana:mana_shard", count: 4, price: 3 },
     { item: "arcana:wand_of_blink", count: 1, price: 12 },
+    { item: "guild:trail_ration", count: 3, price: 2 },
   ]
     .map((entry) => ({ ...entry, id: api.item(entry.item) }))
     .filter((entry) => entry.id > 0);

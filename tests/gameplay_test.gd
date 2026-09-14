@@ -34,6 +34,7 @@ func _ready() -> void:
 	await _assembly()
 	_minigames()
 	await _skill_crafting()
+	await _hunger()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -1085,6 +1086,125 @@ func _skill_crafting() -> void:
 	var quality: Dictionary = skill.apply_quality(items.id_of("base:iron_chestplate"), {}, Minigame.QUALITIES[2], ["A"])
 	_check(quality.modifiers[0].stat == "armor" and quality.modifiers[0].amount > 0.0 and quality.name.begins_with("Superior"), "quality adds armor to armor")
 	_check(server.assembly.assemblies["base:forged_pickaxe"].skill == "base:forging", "assemblies name their minigame")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _hunger() -> void:
+	var server = _start("hunger_%d" % Time.get_ticks_msec())
+	var items = server.items
+	var h = server.hunger
+	var p := ServerPlayer.new(server, 101, "Hungry")
+	p.player_id = "hungry"
+	server.players[101] = p
+	var y: int = server.surface_height(8, 8)
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	p.edit_tokens = 100.0
+	server.refresh_stats(p)
+	_check(p.hunger == 20.0 and p.saturation == 5.0, "players start full")
+	# Exhaustion uses saturation first, then hunger.
+	h.add_exhaustion(p, 4.0 * 5.0)
+	_check(p.hunger == 20.0 and p.saturation == 0.0, "exhaustion uses up saturation first")
+	h.add_exhaustion(p, 8.0)
+	_check(p.hunger == 18.0, "then hunger (4 exhaustion per point)")
+	# Sprinting and jumping cost exhaustion; walking does not.
+	var before: float = p.exhaustion
+	h.update(p, 1.0 / 60.0, Vector3(server.rules.walk_speed / 60.0, 0, 0), 1.0 / 60.0, true)
+	_check(is_equal_approx(p.exhaustion, before), "walking is free")
+	h.update(p, 1.0 / 60.0, Vector3(server.rules.sprint_speed / 60.0, 0, 0), 1.0 / 60.0, true)
+	_check(p.exhaustion > before, "sprinting costs exhaustion")
+	# Regeneration needs 18+ hunger and costs exhaustion.
+	_check(h.regen_interval(p, 2.5) == 2.5, "regenerates at 18 hunger")
+	h.set_hunger(p, 17.0)
+	_check(h.regen_interval(p, 2.5) == 0.0, "no regeneration below 18 hunger")
+	h.set_hunger(p, 20.0, 5.0)
+	_check(h.regen_interval(p, 2.5) < 2.5, "faster regeneration when full and saturated")
+	var sat: float = p.saturation
+	h.healed(p, 1.0)
+	_check(p.saturation < sat, "healing costs saturation")
+	# Low hunger stops sprinting (in the player's physics rules).
+	h.set_hunger(p, 6.0, 0.0)
+	_check(p.get_stats().sprint == 0.0 and p.physics_rules != null and is_equal_approx(p.physics_rules.sprint_speed, server.rules.walk_speed),
+		"at 6 hunger you cannot sprint")
+	h.set_hunger(p, 7.0)
+	_check(p.get_stats().sprint == 1.0 and p.physics_rules == null, "eating above 6 lets you sprint again")
+	# Starvation hurts down to 1 health by default.
+	h.set_hunger(p, 0.0)
+	p.health = 3.0
+	for i in 20:
+		p.hurt_timer = 0.0
+		h.update(p, 1.0, Vector3.ZERO, 0.0, true)
+	_check(p.health == 1.0 and not p.dead, "starvation stops at 1 health")
+	server.gameplay.starvation_min_health = 0.0
+	for i in 8:
+		h.update(p, 1.0, Vector3.ZERO, 0.0, true)
+	_check(p.dead, "with starvation_min_health 0 players can starve to death")
+	server.on_respawn(101)
+	_check(p.hunger == 20.0 and not p.dead, "respawning restores hunger")
+	# Eating: hold use for eat_time.
+	var bread: int = items.id_of("base:bread")
+	_check(items.get_def(bread).food.hunger == 5.0 and items.is_usable(bread), "bread is food")
+	p.inventory.set_slot(0, bread, 3)
+	p.inventory.selected = 0
+	_check(not h.start_eating(p), "you cannot eat when full")
+	h.set_hunger(p, 10.0, 0.0)
+	server.on_use_item(101, false, Vector3i.ZERO, Vector3i.ZERO)
+	_check(not p.eating.is_empty(), "using food starts eating")
+	server._time += 0.5
+	h.update(p, 0.5, Vector3.ZERO, 0.0, true)
+	_check(p.hunger == 10.0 and p.inventory.counts[0] == 3, "not eaten before eat_time")
+	server._time += 1.0
+	h.update(p, 1.0, Vector3.ZERO, 0.0, true)
+	_check(p.hunger == 15.0 and p.saturation == 6.0 and p.inventory.counts[0] == 2, "bread restores 5 hunger and 6 saturation")
+	server.on_use_item(101, false, Vector3i.ZERO, Vector3i.ZERO)
+	server.on_stop_using(101)
+	server._time += 2.0
+	h.update(p, 2.0, Vector3.ZERO, 0.0, true)
+	_check(p.inventory.counts[0] == 2, "releasing use stops eating")
+	server.on_use_item(101, false, Vector3i.ZERO, Vector3i.ZERO)
+	p.inventory.selected = 1
+	server._time += 2.0
+	h.update(p, 2.0, Vector3.ZERO, 0.0, true)
+	_check(p.inventory.counts[0] == 2 and p.eating.is_empty(), "switching items stops eating")
+	p.inventory.selected = 0
+	# Quality food fills more; rotten flesh can poison.
+	p.inventory.set_slot(2, bread, 1, {"quality": 3})
+	h.set_hunger(p, 0.0, 0.0)
+	h.finish_eating(p, 2)
+	_check(is_equal_approx(p.hunger, 6.5), "Masterwork bread restores 30% more")
+	var flesh: int = items.id_of("vanilla:rotten_flesh")
+	p.inventory.set_slot(3, flesh, 20)
+	var poisoned := false
+	for i in 10:
+		h.set_hunger(p, 0.0, 0.0)
+		h.finish_eating(p, 3)
+		if p.get_stats().hunger_drain > 0.0:
+			poisoned = true
+			break
+	_check(poisoned, "rotten flesh can give food poisoning")
+	var hunger_before: float = p.hunger
+	for i in 20:
+		h.update(p, 1.0, Vector3.ZERO, 0.0, true)
+	_check(p.hunger < hunger_before, "food poisoning drains hunger over time")
+	# Leftovers: a food with a remainder gives it back.
+	var stew: int = items.register({"name": "test:stew", "food": {"hunger": 6, "saturation": 7, "remainder": "base:stick"}})
+	p.inventory.set_slot(4, stew, 1)
+	h.set_hunger(p, 0.0, 0.0)
+	h.finish_eating(p, 4)
+	_check(p.inventory.count_of(items.id_of("base:stick")) == 1, "eating a stew leaves the bowl (remainder)")
+	# Rule off and creative: no hunger.
+	h.set_hunger(p, 10.0)
+	p.inventory.creative = true
+	h.add_exhaustion(p, 40.0)
+	_check(p.hunger == 10.0, "creative players do not get hungry")
+	p.inventory.creative = false
+	server.gameplay.hunger = false
+	h.add_exhaustion(p, 40.0)
+	_check(p.hunger == 10.0 and h.regen_interval(p, 2.5) == 2.5, "the hunger rule turns hunger off")
+	server.gameplay.hunger = true
+	# Saved with the player.
+	server._store_player(p)
+	_check(server._meta.players["hungry"].hunger == 10.0, "hunger is saved with the player")
 	server.queue_free()
 	await get_tree().process_frame
 

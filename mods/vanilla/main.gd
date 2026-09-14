@@ -2,8 +2,6 @@ extends "res://engine/server/mod.gd"
 ## Classic creative sandbox on generated terrain.
 
 const Terrain = preload("terrain.gd")
-const PORKCHOP_HEAL := 3.0
-const COOKED_PORKCHOP_HEAL := 8.0
 const APPLE_CHANCE := 0.12
 
 const HOTBAR := ["base:grass", "base:dirt", "base:stone", "base:cobblestone", "base:planks",
@@ -76,8 +74,14 @@ func _setup_mobs() -> void:
 		api.register_item("leather_%s" % piece[0], {"display_name": "Leather %s" % String(piece[0]).capitalize(),
 			"icon": "textures/leather_%s.png" % piece[0], "equip_slot": piece[1], "durability": 80, "armor": {"armor": piece[2]}, "armor_texture": "textures/leather_armor.png"})
 		api.register_recipe({"vanilla:leather": piece[3]}, "vanilla:leather_%s" % piece[0], 1, {"station": "crafting_table", "skill": "vanilla:stitching"})
-	ids.porkchop = api.register_item("porkchop", {"display_name": "Raw Porkchop", "icon": "textures/porkchop.png", "usable": true})
-	ids.cooked_porkchop = api.register_item("cooked_porkchop", {"display_name": "Cooked Porkchop", "icon": "textures/cooked_porkchop.png", "usable": true})
+	ids.porkchop = api.register_item("porkchop", {"display_name": "Raw Porkchop", "icon": "textures/porkchop.png",
+		"food": {"hunger": 3, "saturation": 1.8, "color": "#f0a0a0"}})
+	ids.cooked_porkchop = api.register_item("cooked_porkchop", {"display_name": "Cooked Porkchop", "icon": "textures/cooked_porkchop.png",
+		"food": {"hunger": 8, "saturation": 12.8, "color": "#b87040"}})
+	# Zombies drop rotten flesh: filling in a pinch, but it usually gives food poisoning (hunger drains faster).
+	api.register_item("rotten_flesh", {"display_name": "Rotten Flesh", "icon": "textures/rotten_flesh.png",
+		"food": {"hunger": 4, "saturation": 0.8, "color": "#7a8a40",
+			"effects": [{"stat": "hunger_drain", "amount": 0.5, "seconds": 30, "chance": 0.8, "message": "Food poisoning!"}]}})
 	api.register_process("smelting", "vanilla:porkchop", "vanilla:cooked_porkchop", 1, 8.0)
 	api.register_entity("arrow", {"kind": "projectile", "sprite": "textures/arrow.png", "width": 0.25, "height": 0.25,
 		"damage": 4, "gravity": 14.0, "lifetime": 4.0})
@@ -86,7 +90,7 @@ func _setup_mobs() -> void:
 	# their prey and circle while their claws recharge.
 	ids.zombie = api.register_entity("zombie", {
 		"kind": "mob", "model": "models/zombie.glb", "width": 0.6, "height": 1.85,
-		"health": 20, "speed": 3.0, "drops": [["base:coal", 1, 0.5], ["base:workbench_plans", 1, 0.03]],
+		"health": 20, "speed": 3.0, "drops": [["vanilla:rotten_flesh", 1, 0.8], ["base:coal", 1, 0.5], ["base:workbench_plans", 1, 0.03]],
 		"sounds": {"hurt": "zombie_hurt", "death": "zombie_death", "ambient": "zombie_ambient"},
 		"ai": {
 			"preset": "hostile", "group": "undead", "aggression": 0.65, "intelligence": 0.55, "courage": 1.0,
@@ -153,23 +157,10 @@ func _setup_mobs() -> void:
 			api.play_sound("colossus_roar", boss.position)
 			api.broadcast("The Ancient Colossus awakens!"), "admin")
 	api.add_spawn_rule({"entity": "pig", "time": "day", "on": ["base:grass"], "max_nearby": 4, "max_total": 30, "chance": 0.08})
-	api.on("item_use", func(ev):
-		if ev.item == ids.porkchop:
-			_eat(ev.player, ids.porkchop, PORKCHOP_HEAL)
-		elif ev.item == ids.cooked_porkchop:
-			_eat(ev.player, ids.cooked_porkchop, COOKED_PORKCHOP_HEAL))
 	api.on("block_break", func(ev):
 		if ev.block == api.block("base:leaves") and randf() < APPLE_CHANCE:
 			ev.drops.append([api.item("base:apple"), 1]))
 	api.every(4.0, _mob_tick)
-
-
-func _eat(player, item: int, amount: float) -> void:
-	if player.health >= player.max_health:
-		player.show_title("", "You are not hungry", 1.0)
-	elif player.is_creative() or player.take(item, 1):
-		player.heal(amount)
-		api.play_sound("base:eat", player.get_eye_position())
 
 
 ## Occasional mob noises, and zombies burn in daylight.

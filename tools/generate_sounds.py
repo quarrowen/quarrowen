@@ -138,6 +138,13 @@ def main():
     write("mods/guild/sounds/coin.wav", mix(tone(0.12, 1568, 1568, gain=0.35, curve=2.0), [0.0] * n(0.09) + tone(0.3, 2093, 2093, gain=0.35, curve=2.5)))
 
     crafting_sounds()
+    hunger_sounds()
+
+
+def hunger_sounds():
+    # --- Engine: eating (a separate function so it can be regenerated alone) ---
+    write("engine/client/sounds/munch.wav", mix(noise_burst(0.07, 0.25, curve=3.0, gain=0.55), noise_burst(0.05, 0.08, gain=0.35)))
+    write("engine/client/sounds/burp.wav", tone(0.32, 180, 120, shape="saw", gain=0.35, curve=1.8, vibrato=0.25))
 
 
 def crafting_sounds():

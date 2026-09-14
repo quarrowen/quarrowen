@@ -508,9 +508,26 @@ api.on("entity_death", func(ev):
   a few seconds without damage. Death shows a respawn screen and optionally drops the inventory.
   Left-click attacks the mob or player under the crosshair (server-checked reach, line of sight and
   cooldown; damage from the held item's `attack_damage`).
+- **Hunger and food:** survival players have hunger (0-20, drumsticks beside the hearts) and hidden
+  saturation that is used up first. Sprinting, jumping, swimming, mining, fighting, taking damage and
+  healing add exhaustion (4 exhaustion = 1 point). Natural regeneration needs 18+ hunger (faster when
+  full and saturated); at 6 or less you cannot sprint; at 0 you starve down to
+  `starvation_min_health` (default 1, 0 lets players starve to death). Items with `food` are eaten by
+  holding use: `{hunger, saturation, eat_time, always, heal, remainder, color, effects}` where effects
+  are timed stat modifiers with a chance (rotten flesh's food poisoning raises `hunger_drain`). Crafting
+  quality makes food up to 30% more filling. Stats `exhaustion` and `hunger_drain` let gear and
+  effects change hunger; the `player_eat` event can change or cancel a meal; players have
+  `set_hunger`, `add_exhaustion` and `feed`; commands `/feed` and `/hunger <0-20>`. Bundled food:
+  apple 4, bread 5, raw/cooked porkchop 3/8, rotten flesh 4 (vanilla), trail ration 6 plus a speed
+  boost (Guild, JavaScript).
+
+```gdscript
+api.register_item("bread", {"icon": "textures/bread.png", "food": {"hunger": 5, "saturation": 6.0}})
+```
+
 - **Gameplay rules** (`set_gameplay`, or `/gameplay rule value`): `item_drops` ("entity" or
   "inventory"; Skyblock uses inventory so drops don't fall into the void), `keep_inventory`, `pvp`,
-  `fall_damage`, `natural_regeneration`, `mob_spawning`.
+  `fall_damage`, `natural_regeneration`, `hunger`, `starvation_min_health`, `mob_spawning`.
 - **Inventory:** 36 slots. E opens the inventory screen (left click moves stacks, right click
   splits or places one, shift-click moves between hotbar and inventory, clicking outside drops); Q
   drops the held item (Ctrl+Q the whole stack). All clicks are resolved on the server.

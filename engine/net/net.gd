@@ -250,6 +250,13 @@ func c_use_item(has_target: bool, target: Vector3i, normal: Vector3i) -> void:
 		server.on_use_item(_sender(), has_target, target, normal)
 
 
+## Use was released (stops eating).
+@rpc("any_peer", "call_remote", "reliable")
+func c_stop_using() -> void:
+	if server:
+		server.on_stop_using(_sender())
+
+
 ## Opens an engine menu ("crafting").
 @rpc("any_peer", "call_remote", "reliable")
 func c_open_menu(menu: String) -> void:
@@ -653,6 +660,13 @@ func s_ui_hide(ui_id: String) -> void:
 func s_title(text: String, subtitle: String, seconds: float) -> void:
 	if client:
 		client.on_title(text, subtitle, seconds)
+
+
+## Hunger 0-20 and saturation.
+@rpc("authority", "call_remote", "reliable")
+func s_hunger(hunger: float, saturation: float) -> void:
+	if client:
+		client.on_hunger(hunger, saturation)
 
 
 @rpc("authority", "call_remote", "reliable")

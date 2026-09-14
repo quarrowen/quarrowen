@@ -2,7 +2,6 @@ extends "res://engine/server/mod.gd"
 ## Registers the shared block set, material sounds, basic tools and food. Other mods refer to these
 ## as "base:<name>".
 
-const APPLE_HEAL := 4.0
 const Farming = preload("farming.gd")
 const Stations = preload("stations.gd")
 const Forging = preload("forging.gd")
@@ -63,7 +62,8 @@ func setup(api) -> void:
 	api.register_block("water", {"textures": "textures/water.png", "render": "translucent", "liquid": true})
 	api.register_block("bedrock", {"textures": "textures/bedrock.png", "breakable": false, "placeable": false, "sounds": stone})
 
-	var apple: int = api.register_item("apple", {"display_name": "Apple", "icon": "textures/apple.png", "usable": true})
+	# Food: hold use to eat (hunger points out of 20; saturation keeps you full for longer).
+	api.register_item("apple", {"display_name": "Apple", "icon": "textures/apple.png", "food": {"hunger": 4, "saturation": 2.4, "color": "#d83030"}})
 
 	api.register_recipe({"base:log": 1}, "base:planks", 4, {"unlock": "known"})
 	api.register_recipe({"base:gravel": 2, "base:coal": 1}, "base:brick", 4)
@@ -72,10 +72,6 @@ func setup(api) -> void:
 	farming.setup(api, {"dirt": dirt, "grass": grass})
 	stations.setup(api, {"wood": wood, "stone": stone})
 	forging.setup(api, {"stone": stone})
-
-	api.on("item_use", func(ev):
-		if ev.item == apple:
-			_eat(api, ev.player, apple))
 
 
 ## Basic tiered tools, swords and iron armor. Tiers: 1 wood, 2 stone, 3 iron (stone needs tier 1,
@@ -106,10 +102,3 @@ func _register_tools(api) -> void:
 			"equip_slot": piece[1], "durability": 180, "armor": {"armor": piece[2]}, "armor_texture": "textures/iron_armor.png"})
 		api.register_recipe({"base:iron_ingot": piece[3]}, "base:iron_%s" % piece[0], 1, ARMORY)
 
-
-func _eat(api, player, item: int) -> void:
-	if player.health >= player.max_health:
-		player.show_title("", "You are not hungry", 1.0)
-	elif player.is_creative() or player.take(item, 1):
-		player.heal(APPLE_HEAL)
-		api.play_sound("eat", player.get_eye_position())

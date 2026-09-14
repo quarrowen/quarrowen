@@ -9,7 +9,7 @@ extends RefCounted
 const FIRST_ITEM := 65536
 const MAX_ITEMS := 4096
 const NETWORK_FIELDS := ["name", "display_name", "icon", "max_stack", "usable", "durability", "tool", "weapon",
-	"armor", "equip_slot", "modifiers", "model", "lore", "armor_texture", "glow", "trail", "effects", "teaches"]
+	"armor", "equip_slot", "modifiers", "model", "lore", "armor_texture", "glow", "trail", "effects", "teaches", "food"]
 ## Item effect hooks: effect names played by the engine (see EffectRegistry).
 const EFFECT_HOOKS := ["swing", "hit", "use", "held", "break"]
 const DEFAULT_SLOTS := ["head", "chest", "legs", "feet", "offhand"]
@@ -30,6 +30,9 @@ const BASE_STATS := {
 	"knockback_resistance": 0.0,
 	"mining_speed": 1.0,
 	"move_speed": 1.0,
+	"sprint": 1.0,  # 0 = cannot sprint (hunger sets this when starving)
+	"exhaustion": 1.0,  # multiplier on hunger exhaustion from activity
+	"hunger_drain": 0.0,  # exhaustion per second (food poisoning)
 }
 
 var blocks  # BlockRegistry
@@ -99,6 +102,9 @@ func register(def: Dictionary) -> int:
 	d.effects = clean_effects(def.get("effects"))
 	d.teaches = (def.get("teaches") as Array).map(func(t): return str(t).left(128)).slice(0, 32) if def.get("teaches") is Array else []
 	if not d.teaches.is_empty() or bool(def.get("blueprint", false)):
+		d.usable = true
+	d.food = clean_food(def.get("food"))
+	if not d.food.is_empty():
 		d.usable = true
 	d.lore = (def.get("lore") as Array).map(func(l): return String(l).left(120)).slice(0, 8) if def.get("lore") is Array else []
 	var id := FIRST_ITEM + defs.size()
@@ -198,6 +204,24 @@ func weapon_of(id: int, item_data := {}) -> Dictionary:
 func attack_damage(id: int, item_data := {}) -> float:
 	var weapon := weapon_of(id, item_data)
 	return float(weapon.damage) if not weapon.is_empty() else 1.0
+
+
+## food: {hunger (points, 20 = full), saturation, eat_time (seconds holding use), always (edible when
+## full), heal (health), remainder (item left over, e.g. a bowl), color (crumbs), effects: [{stat,
+## amount, op, seconds, chance, message}]}.
+static func clean_food(value) -> Dictionary:
+	if not (value is Dictionary) or value.is_empty():
+		return {}
+	var effects := []
+	for e in (value.get("effects") if value.get("effects") is Array else []).slice(0, 8):
+		if e is Dictionary and e.get("stat") is String:
+			effects.append({"stat": str(e.stat).left(32), "amount": float(e.get("amount", 0.0)), "op": "multiply" if e.get("op") == "multiply" else "add",
+				"seconds": clampf(float(e.get("seconds", 30.0)), 0.1, 3600.0), "chance": clampf(float(e.get("chance", 1.0)), 0.0, 1.0),
+				"message": str(e.get("message", "")).left(80)})
+	return {"hunger": clampf(float(value.get("hunger", 1.0)), 0.0, 20.0), "saturation": clampf(float(value.get("saturation", 0.0)), 0.0, 20.0),
+		"eat_time": clampf(float(value.get("eat_time", 1.2)), 0.1, 10.0), "always": bool(value.get("always", false)),
+		"heal": clampf(float(value.get("heal", 0.0)), 0.0, 1000.0), "remainder": str(value.get("remainder", "")).left(128),
+		"color": str(value.get("color", "#c8a060")).left(16), "effects": effects}
 
 
 func is_usable(id: int) -> bool:

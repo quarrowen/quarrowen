@@ -18,6 +18,10 @@ var pitch := 0.0
 var data := {}
 var health := 20.0
 var max_health := 20.0
+## Hunger 0-20 and hidden saturation (see engine/server/hunger.gd).
+var hunger := 20.0
+var saturation := 5.0
+var exhaustion := 0.0
 var dead := false
 ## Where the player respawns; Vector3.INF uses the game's spawn handler.
 var spawn_point := Vector3.INF
@@ -38,6 +42,9 @@ var known_entities_stale := true
 var last_damage_time := -100.0
 var hurt_timer := 0.0
 var regen_timer := 0.0
+var starve_timer := 0.0
+var eating := {}  # {slot, item, started, sound} while holding use on food
+var _sent_hunger := Vector2(-1, -1)
 var void_timer := 0.0
 var last_attack_time := -100.0
 var fall_velocity := 0.0
@@ -119,6 +126,21 @@ func damage(amount: float, cause := "magic", attacker = null) -> bool:
 
 func heal(amount: float) -> void:
 	_server.heal_player(self, amount)
+
+
+## Sets hunger (0-20) and optionally saturation.
+func set_hunger(value: float, new_saturation := -1.0) -> void:
+	_server.hunger.set_hunger(self, value, new_saturation)
+
+
+## Adds hunger exhaustion (4 = one point of saturation or hunger).
+func add_exhaustion(amount: float) -> void:
+	_server.hunger.add_exhaustion(self, amount)
+
+
+## Restores hunger and saturation as if eating.
+func feed(hunger_points: float, saturation_points := 0.0) -> void:
+	_server.hunger.set_hunger(self, hunger + hunger_points, minf(saturation + saturation_points, hunger + hunger_points))
 
 
 func set_health(value: float) -> void:

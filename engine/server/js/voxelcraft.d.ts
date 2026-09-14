@@ -47,6 +47,10 @@ declare module "voxelcraft" {
     durability?: number;
     tool?: { type: string; tier?: number; speed?: number };
     weapon?: { damage?: number; cooldown?: number; reach?: number; crit_chance?: number; knockback?: number; sweep?: number };
+    /** Hold use to eat: hunger points (20 = full), saturation, eat_time seconds, always (edible when full), heal,
+     *  remainder item, crumb color, effects (timed stat modifiers with a chance). */
+    food?: { hunger: number; saturation?: number; eat_time?: number; always?: boolean; heal?: number; remainder?: string; color?: string;
+      effects?: { stat: string; amount: number; op?: "add" | "multiply"; seconds?: number; chance?: number; message?: string }[] };
     armor?: { armor?: number; toughness?: number; knockback_resistance?: number };
     equip_slot?: string;
     modifiers?: StatModifier[];

@@ -473,6 +473,22 @@ func _combat(c) -> void:
 	await _wait_until(func(): return not c.inventory.creative and c.inventory.count_of(sword) == 1, 3.0)
 	_check(not c.inventory.creative and c.inventory.count_of(sword) == 1, "switched to survival with a sword")
 	_check(c.health == 20.0 and c._hearts.visible, "health HUD shows 20 (%.1f)" % c.health)
+	_check(await _wait_until(func(): return c.hunger == 20.0 and c._hunger_bar.visible, 3.0), "hunger HUD shows 20 (%.1f)" % c.hunger)
+
+	# Hunger: eat an apple by holding use.
+	Net.c_chat.rpc_id(1, "/hunger 10")
+	Net.c_chat.rpc_id(1, "/give base:apple")
+	var apple: int = c.items.id_of("base:apple")
+	await _wait_until(func(): return c.hunger == 10.0 and c.inventory.count_of(apple) >= 1, 3.0)
+	var apples: int = c.inventory.count_of(apple)
+	await _select_item(c, apple)
+	await get_tree().create_timer(0.3).timeout
+	Input.action_press("place")
+	c.use_selected_item()
+	_check(await _wait_until(func(): return c.hunger == 14.0 and c.inventory.count_of(apple) == apples - 1, 3.0),
+		"holding use ate the apple (hunger %.1f, apples %d -> %d)" % [c.hunger, apples, c.inventory.count_of(apple)])
+	Input.action_release("place")
+	Net.c_chat.rpc_id(1, "/feed")
 	_check(c.entity_types.id_of("vanilla:pig") > 0 and c._entity_parts.get(c.entity_types.id_of("vanilla:pig"), []).size() == 6,
 		"entity types and animated model parts replicated")
 	await _select_item(c, sword)
@@ -504,14 +520,17 @@ func _combat(c) -> void:
 		var paid := await _wait_until(func(): return c.inventory.count_of(coin) >= coins_before + 5, 3.0)
 		_check(paid, "bounty paid 5 coins via JavaScript entity_death")
 
-	# Eat the porkchop to heal.
+	# Eat the pig's porkchop.
 	var porkchop: int = c.items.id_of("vanilla:porkchop")
-	if c.health < 20.0 and c.inventory.count_of(porkchop) > 0:
-		var before: float = c.health
+	if c.inventory.count_of(porkchop) > 0:
+		Net.c_chat.rpc_id(1, "/hunger 12")
+		await _wait_until(func(): return c.hunger == 12.0, 3.0)
 		await _select_item(c, porkchop)
 		await get_tree().create_timer(0.2).timeout
+		Input.action_press("place")
 		c.use_selected_item()
-		_check(await _wait_until(func(): return c.health >= minf(before + 2.5, 20.0), 2.0), "eating healed (%.1f -> %.1f)" % [before, c.health])
+		_check(await _wait_until(func(): return c.hunger == 15.0, 3.0), "eating the porkchop restored hunger (%.1f)" % c.hunger)
+		Input.action_release("place")
 
 	# Fall damage.
 	Net.c_chat.rpc_id(1, "/heal")

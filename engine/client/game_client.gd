@@ -98,6 +98,8 @@ var effects_seen := {}
 var entity_types := EntityRegistry.new()
 var health := 20.0
 var max_health := 20.0
+var hunger := 20.0
+var saturation := 5.0
 var dead := false
 ## Stats the server computed for this player (reach, attack_cooldown, mining_speed, armor, ...).
 var stats := {}
@@ -200,6 +202,9 @@ var _chat_input: LineEdit
 var _pause_panel: PanelContainer
 var _hearts: HBoxContainer
 var _heart_textures := []  # [full, half, empty]
+var _hunger_bar: HBoxContainer
+var _hunger_textures := []  # [full, half, empty]
+var _eating := {}  # {item, next_chomp} while holding use on food
 var _hurt_flash: ColorRect
 var _death_panel: Control
 var _death_label: Label
@@ -473,7 +478,9 @@ func on_rules(values: Dictionary) -> void:
 	if adjusted.has("walk_speed"):
 		adjusted.walk_speed = float(adjusted.walk_speed) * speed
 	if adjusted.has("sprint_speed"):
-		adjusted.sprint_speed = float(adjusted.sprint_speed) * speed
+		var sprint := clampf(float(stats.get("sprint", 1.0)), 0.0, 1.0)
+		var walk := float(values.get("walk_speed", adjusted.sprint_speed))
+		adjusted.sprint_speed = (walk + (float(adjusted.sprint_speed) - walk) * sprint) * speed
 	rules.apply_dict(adjusted)
 	rules.solid_lut = registry.solid_lut
 	rules.liquid_lut = registry.liquid_lut
@@ -668,10 +675,12 @@ func on_health(value: float, max_value: float, is_dead: bool, hurt: bool) -> voi
 		if not ignore_mouse_capture:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	_refresh_hearts()
+	_refresh_hunger()
 
 
 func on_player_stats(values: Dictionary) -> void:
-	var moved: bool = float(values.get("move_speed", 1.0)) != float(stats.get("move_speed", 1.0))
+	var moved: bool = float(values.get("move_speed", 1.0)) != float(stats.get("move_speed", 1.0)) \
+		or float(values.get("sprint", 1.0)) != float(stats.get("sprint", 1.0))
 	for key in values:
 		if key is String and (values[key] is float or values[key] is int):
 			stats[key] = float(values[key])
@@ -1011,6 +1020,9 @@ func _handle_edits(delta: float) -> void:
 			Net.c_interact_entity.rpc_id(1, _entity_target.id)
 			_edit_timer = EDIT_REPEAT_DELAY
 			return
+	if not _eating.is_empty():
+		_update_eating()
+		return
 	if Input.is_action_just_pressed("place") and use_selected_item():
 		_edit_timer = EDIT_REPEAT_DELAY
 		return
@@ -1150,8 +1162,25 @@ func use_selected_item() -> bool:
 	if item < ItemRegistry.FIRST_ITEM or not (items.is_usable(item) or wearable):
 		return false
 	Net.c_use_item.rpc_id(1, _target.hit, _target.get("position", Vector3i.ZERO), _target.get("normal", Vector3i.ZERO))
+	var food: Dictionary = items.get_def(item).get("food", {})
+	if not food.is_empty():
+		# Food is eaten while use is held; the server finishes it after eat_time.
+		if hunger < 20.0 or food.get("always", false) or inventory.creative:
+			_eating = {"item": item, "slot": inventory.selected, "next_chomp": 0.0}
+		return true
 	_self_swing()
 	return true
+
+
+func _update_eating() -> void:
+	if not Input.is_action_pressed("place") or inventory.selected != int(_eating.slot) or inventory.selected_item() != int(_eating.item):
+		_eating = {}
+		Net.c_stop_using.rpc_id(1)
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if now >= float(_eating.next_chomp):
+		_eating.next_chomp = now + 0.28
+		_self_swing()  # a quick chomp of the held item
 
 
 ## Predicts the edit locally and asks the server to apply it.
@@ -2035,6 +2064,7 @@ func _build_hud() -> void:
 	_hearts.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_hearts.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_hearts.position.y -= 74
+	_hearts.position.x -= 132  # left of center; hunger is on the right
 	_hearts.add_theme_constant_override("separation", 2)
 	_hearts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud_root.add_child(_hearts)
@@ -2046,12 +2076,32 @@ func _build_hud() -> void:
 		heart.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_hearts.add_child(heart)
 
+	_hunger_textures = [_drumstick_image(1.0), _drumstick_image(0.5), _drumstick_image(0.0)]
+	_hunger_bar = HBoxContainer.new()
+	_hunger_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_hunger_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_hunger_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_hunger_bar.position.y -= 74
+	_hunger_bar.position.x += 132
+	_hunger_bar.add_theme_constant_override("separation", 2)
+	_hunger_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hunger_bar.alignment = BoxContainer.ALIGNMENT_END
+	_hud_root.add_child(_hunger_bar)
+	for i in 10:
+		var drumstick := TextureRect.new()
+		drumstick.custom_minimum_size = Vector2(22, 22)
+		drumstick.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		drumstick.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		drumstick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hunger_bar.add_child(drumstick)
+
 	_armor_textures = [ItemVisuals.shield_icon(1.0), ItemVisuals.shield_icon(0.5), ItemVisuals.shield_icon(0.0)]
 	_armor_bar = HBoxContainer.new()
 	_armor_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_armor_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_armor_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_armor_bar.position.y -= 100
+	_armor_bar.position.x -= 132
 	_armor_bar.add_theme_constant_override("separation", 2)
 	_armor_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_armor_bar.visible = false
@@ -2218,6 +2268,7 @@ func _rebuild_hotbar() -> void:
 
 func _refresh_hotbar() -> void:
 	_refresh_hearts()
+	_refresh_hunger()
 	if _hotbar_slots.is_empty() or _atlas.is_empty():
 		return
 	for i in Inventory.HOTBAR:
@@ -2244,6 +2295,42 @@ func _refresh_armor() -> void:
 	for i in 10:
 		var fill := clampf((armor - i * 2.0) / 2.0, 0.0, 1.0)
 		_armor_bar.get_child(i).texture = _armor_textures[0 if fill > 0.75 else (1 if fill > 0.25 else 2)]
+
+
+## Drumsticks fill from the right (like hunger draining toward the hotbar's center).
+func _refresh_hunger() -> void:
+	if _hunger_bar == null:
+		return
+	_hunger_bar.visible = _welcomed and not inventory.creative and hunger >= 0.0
+	var now := Time.get_ticks_msec() / 1000.0
+	for i in 10:
+		var fill := clampf((hunger - i * 2.0) / 2.0, 0.0, 1.0)
+		var icon: TextureRect = _hunger_bar.get_child(9 - i)
+		icon.texture = _hunger_textures[0 if fill > 0.75 else (1 if fill > 0.25 else 2)]
+		# Shake when starving; saturation shows as a faint golden tint.
+		icon.position.y = sin(now * 30.0 + i * 1.7) * 1.5 if hunger <= 6.0 and hunger >= 0.0 else 0.0
+		icon.modulate = Color(1.0, 0.95, 0.75) if saturation > float(i) * 2.0 else Color.WHITE
+
+
+## 9x8 pixel drumstick: `fill` 1 = full, 0.5 = half, 0 = empty outline.
+static func _drumstick_image(fill: float) -> ImageTexture:
+	var rows := ["00011100", "00111110", "00111110", "00111110", "01011100", "01100000", "11000000"]
+	var img := Image.create(9, 8, false, Image.FORMAT_RGBA8)
+	for y in rows.size():
+		for x in 8:
+			if rows[y][x] != "1":
+				continue
+			var bone := x < 3 and y >= 4
+			var filled := fill >= 1.0 or (fill > 0.0 and x >= 4)
+			var color := Color(0.92, 0.88, 0.8) if bone else Color(0.72, 0.42, 0.18)
+			img.set_pixel(x, y + 1, color if filled else Color(0.12, 0.08, 0.05, 0.85))
+	return ImageTexture.create_from_image(img)
+
+
+func on_hunger(value: float, sat: float) -> void:
+	hunger = value
+	saturation = sat
+	_refresh_hunger()
 
 
 func _refresh_hearts() -> void:
@@ -2284,6 +2371,8 @@ func _set_status(text: String) -> void:
 
 
 func _update_hud() -> void:
+	if hunger <= 6.0 and hunger >= 0.0:
+		_refresh_hunger()  # the drumsticks shake
 	var now := Time.get_ticks_msec() / 1000.0
 	for line in _chat_log.get_children():
 		var age: float = now - float(line.get_meta("born", now))

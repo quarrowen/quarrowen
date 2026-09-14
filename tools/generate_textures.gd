@@ -154,6 +154,10 @@ func _init() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(base + "parts"))
 	for part in ["pickaxe_head", "axe_head", "shovel_head", "sword_blade", "tool_handle", "binding", "sword_grip", "guard"]:
 		_save(_part(part), base + "parts/%s.png" % part)
+
+	# Food (appended last so earlier textures keep their random sequence).
+	_save(_item(Color(0.5, 0.58, 0.3), "meat"), vanilla + "rotten_flesh.png")
+	_save(_item(Color(0.78, 0.62, 0.4), "lump"), guild + "trail_ration.png")
 	quit()
 
 

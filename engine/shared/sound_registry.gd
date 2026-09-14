@@ -7,7 +7,7 @@ extends RefCounted
 const MAX_SOUNDS := 4096
 const MAX_FILES := 8
 const BUILTIN := ["engine:hurt", "engine:pickup", "engine:swing", "engine:death", "engine:ui_click", "engine:drop",
-	"engine:equip", "engine:item_break", "engine:crit", "engine:craft", "engine:discover"]
+	"engine:equip", "engine:item_break", "engine:crit", "engine:craft", "engine:discover", "engine:munch", "engine:burp"]
 const NETWORK_FIELDS := ["name", "files", "volume", "pitch", "pitch_variance", "range"]
 
 var defs: Array[Dictionary] = []

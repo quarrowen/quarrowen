@@ -11,7 +11,6 @@ const MIN_GROW_LIGHT := 9
 const WATER_RANGE := 4
 const SEED_CHANCE := 0.15
 const SAPLING_CHANCE := 0.06
-const BREAD_HEAL := 5.0
 
 var api
 var ids := {}
@@ -39,7 +38,7 @@ func setup(mod_api, sounds: Dictionary) -> void:
 
 	ids.seeds = api.register_item("wheat_seeds", {"display_name": "Wheat Seeds", "icon": "textures/wheat_seeds.png", "usable": true})
 	ids.wheat = api.register_item("wheat", {"display_name": "Wheat", "icon": "textures/wheat.png"})
-	ids.bread = api.register_item("bread", {"display_name": "Bread", "icon": "textures/bread.png", "usable": true})
+	ids.bread = api.register_item("bread", {"display_name": "Bread", "icon": "textures/bread.png", "food": {"hunger": 5, "saturation": 6.0, "color": "#c89040"}})
 	api.register_recipe({"base:wheat": 3}, "base:bread", 1, {"category": "food"})
 
 	# Found by experimenting: arranged in the crafting grid (see the recipe patterns).
@@ -88,13 +87,6 @@ func _plant_drops(block: int, drops) -> Array:
 
 func _on_item_use(ev: Dictionary) -> void:
 	var player = ev.player
-	if ev.item == ids.bread:
-		if player.health >= player.max_health:
-			player.show_title("", "You are not hungry", 1.0)
-		elif player.is_creative() or player.take(ids.bread, 1):
-			player.heal(BREAD_HEAL)
-			api.play_sound("base:eat", player.get_eye_position())
-		return
 	if not ev.has_target:
 		return
 	var pos: Vector3i = ev.position

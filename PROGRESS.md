@@ -124,7 +124,10 @@ changes with `tools/build_native.sh`.
      tables, cauldrons), radial quick-craft wheel.
    - Follow-up (user, 2026-09-14): in-game help for all these mechanics; recommendation is both a short
      interactive tutorial (first table, discovery, grid, stations) and a browsable guidebook.
-   3. Hunger and food: hunger stat, food values, regeneration tied to hunger, starvation.
+   3. Hunger and food (done): hunger stat, food values, regeneration tied to hunger, starvation.
+      Hold-to-eat with `food` item definitions, saturation and exhaustion, no sprinting when starving,
+      food poisoning via timed stats, quality food fills more. Not done: more foods (they arrive with
+      step 5's animals and farming crops), eating animation for other players (they hear and see crumbs).
    4. Beds and spawn points: bed block, sleeping skips the night, respawn at a valid bed.
    5. Mobs and spawning: light-level spawn rules, breeding, climbing, explosions that break terrain ->
       cow, sheep (wool for beds), chicken, spider, an exploding mob.
