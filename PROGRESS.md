@@ -92,6 +92,22 @@ changes with `tools/build_native.sh`.
    2. Containers and stations: slot-based container screen -> chest, furnace (fuel, smelting),
       crafting table (station recipes). (done: `engine/server/containers.gd`, `container.gd`,
       `mods/base/stations.gd`; JS bindings tested by `tests/mods/js_blocks`)
+   Crafting experience (inserted before step 3, user decisions 2026-09-14):
+   - C1 Foundation: client crafting screen with searchable recipe book, categories, craftable filter,
+     missing ingredients, "how to make" / "used in" lookup from any item, pinned-recipe HUD tracker,
+     craft one / craft max, stations pull from nearby chests, stat preview, result effects and toasts.
+   - C2 Discovery, layered: basics known; everyday recipes unlock when an ingredient is first picked
+     up (silhouettes with hints until then); advanced/special need blueprints (loot) or
+     experimentation; recipe journal; per-server/mod configurable.
+   - C3 Experimentation grid: book for crafting plus an optional freeform grid; arranging items can
+     discover unknown recipes; near-miss hints.
+   - C4 Part-based tools, both basic + forged: fixed wooden/stone/iron tools stay; a Tool Forge
+     station assembles tools from parts (head, handle, binding) whose materials contribute stats and
+     traits; icons composed from tinted part sprites.
+   - C5 Skill minigame and quality, optional bonus: recipes marked by mods can be crafted normally
+     (standard quality) or through a short timing minigame (anvil strikes) for better quality.
+   - Ideas not chosen (keep for later): property-based alchemy, crafting in the world (items on
+     tables, cauldrons), upgradeable multi-block stations, co-op crafting, radial quick-craft wheel.
    3. Hunger and food: hunger stat, food values, regeneration tied to hunger, starvation.
    4. Beds and spawn points: bed block, sleeping skips the night, respawn at a valid bed.
    5. Mobs and spawning: light-level spawn rules, breeding, climbing, explosions that break terrain ->
