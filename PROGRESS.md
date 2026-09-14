@@ -194,7 +194,7 @@ changes with `tools/build_native.sh`.
      in place, players reconnect automatically) for new blocks, textures and models.
    - C5 Packages and validation (done: engine/shared/semver.gd, mod_loader.gd, mod_validator.gd, tools/mod_tool.tscn, /validate): .zip mod packages, semantic versions, dependency ranges, engine API
      version check; a validator/linter (manifest, missing assets, unknown names) with file hints.
-   - C6 Templates and docs: new-mod wizard (Host menu + CLI) for GDScript/JS starters; generated API docs
+   - C6 Templates and docs (done: engine/server/mod_templates.gd, menu Create a mod + Developer mode, mod_tool new/docs, docs/api/index.html): new-mod wizard (Host menu + CLI) for GDScript/JS starters; generated API docs
      site from mod_api.gd doc comments and the TypeScript declarations.
 3. **Player-made content / UGC** (follow-up): uploads of skins, cosmetics and later items/models;
    validation, content hashing, per-server approval, reporting/moderation hooks, shared catalog.

@@ -146,7 +146,8 @@ static func check_files(mod_dir: String, manifest: Dictionary) -> Array:
 		var size := FileAccess.get_file_as_bytes(path).size() if FileAccess.file_exists(path) else 0
 		if size > Protocol.MAX_ASSET_SIZE:
 			issues.append(_issue("error", "%s is %d MB; files sent to players must be under %d MB" % [rel, size / 1048576, Protocol.MAX_ASSET_SIZE / 1048576], path))
-		if rel != rel.to_lower() or rel.contains(" "):
+		var conventional: bool = rel.get_file().begins_with("README") or rel.get_file().begins_with("LICENSE") or rel.get_file().begins_with("CHANGELOG")
+		if (rel != rel.to_lower() and not conventional) or rel.contains(" "):
 			issues.append(_issue("hint", "%s: lowercase names without spaces avoid case problems on Linux servers" % rel, path))
 		if path.get_extension().to_lower() in TEXTURE_EXTENSIONS and Image.load_from_file(path) == null:
 			issues.append(_issue("error", "%s is not a readable image" % rel, path))

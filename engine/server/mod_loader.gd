@@ -19,6 +19,7 @@ const Semver = preload("res://engine/shared/semver.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
 const PACKAGE_EXTENSIONS := ["zip", "vcmod"]
 const CACHE_DIR := "user://mod_cache"
+const USER_MODS := "user://mods"
 ## Manifest keys the engine reads (others are reported by the validator as possible typos).
 const KNOWN_KEYS := ["id", "name", "version", "description", "authors", "author", "license", "homepage", "game", "main", "engine",
 	"depends", "optional_depends", "conflicts", "tags", "icon"]
@@ -29,7 +30,8 @@ static var last_errors: Array = []
 
 ## Where mods are searched, highest priority first: configured folders, a `mods` folder next to the
 ## executable (exported builds ship mods there as plain files, since exports would otherwise repack
-## the raw textures and models the server streams to clients), then the project's own res://mods.
+## the raw textures and models the server streams to clients), mods created in game (user://mods), then
+## the project's own res://mods.
 static func search_dirs(configured: PackedStringArray) -> PackedStringArray:
 	var dirs := PackedStringArray()
 	for dir in configured:
@@ -39,8 +41,16 @@ static func search_dirs(configured: PackedStringArray) -> PackedStringArray:
 	for candidate in [exe_dir.path_join("mods"), exe_dir.path_join("../Resources/mods").simplify_path()]:
 		if DirAccess.dir_exists_absolute(candidate) and not dirs.has(candidate):
 			dirs.append(candidate)
+	if DirAccess.dir_exists_absolute(USER_MODS):
+		dirs.append(USER_MODS)
 	dirs.append("res://mods")
 	return dirs
+
+
+## Where the game's "Create a mod" puts new mods: the project's mods folder when running from the editor
+## or source, otherwise user://mods.
+static func creation_dir() -> String:
+	return ProjectSettings.globalize_path("res://mods") if not OS.has_feature("template") else ProjectSettings.globalize_path(USER_MODS)
 
 
 ## Returns id -> manifest for every valid mod folder or package in `dirs`. Manifests gain `dir` (and

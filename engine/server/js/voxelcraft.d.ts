@@ -415,6 +415,7 @@ declare module "voxelcraft" {
     entities(center: Vec3, radius: number, type?: string): Entity[];
     addSpawnRule(rule: SpawnRule): void;
     /** Biome generator: data-driven biomes and features (see engine/server/worldgen). */
+    useBiomeGenerator(options?: { sea_level?: number; snow_level?: number }): void;
     registerBiome(name: string, def: Record<string, unknown>): void;
     registerFeature(name: string, def: Record<string, unknown>): void;
     registerStructureTemplate(name: string, source: string | Record<string, unknown>): boolean;

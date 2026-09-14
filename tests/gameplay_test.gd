@@ -53,6 +53,8 @@ func _ready() -> void:
 	await _mod_reload()
 	_semver()
 	await _mod_packages()
+	await _mod_templates()
+	_api_docs()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -2399,6 +2401,67 @@ func _mod_packages() -> void:
 	_check(not result.ok and missing.is_empty(), "the validator reports manifest, asset and reference mistakes (missing: %s)" % str(missing))
 	var clean: Dictionary = preload("res://engine/server/mod_validator.gd").validate(ProjectSettings.globalize_path("res://mods/vanilla"), self)
 	_check(clean.ok and clean.counts.warning == 0, "the bundled vanilla mod validates cleanly")
+
+
+func _mod_templates() -> void:
+	var Templates = preload("res://engine/server/mod_templates.gd")
+	var root := DATA_DIR.path_join("templates_%d" % Time.get_ticks_msec())
+	_check(Templates.id_from_name("My Cool Mod!") == "my_cool_mod" and Templates.id_from_name("3D Stuff") == "mod_3d_stuff", "ids are made from display names")
+	_check(not Templates.create(root, {"id": "vanilla"}).ok and not Templates.create(root, {"id": "Bad Id"}).ok, "taken or invalid ids are refused")
+	var languages := ["gdscript"]
+	if ClassDB.class_exists(&"NativeJsRuntime"):
+		languages.append("javascript")
+	for language in languages:
+		for kind in ["addon", "game"]:
+			var id := "t_%s_%s" % [language.left(2), kind]
+			var created: Dictionary = Templates.create(root, {"id": id, "name": "Test %s %s" % [language, kind], "language": language, "kind": kind, "author": "Tester"})
+			if not created.ok:
+				_check(false, "template %s %s: %s" % [language, kind, created.error])
+				continue
+			var mods := [id] if kind == "game" else ["vanilla", id]
+			var server := GameServer.new()
+			add_child(server)
+			var err: Error = server.start({"mods": PackedStringArray(mods), "mod_dirs": PackedStringArray([root]), "world": "%s_%d" % [id, Time.get_ticks_msec()],
+				"data_dir": DATA_DIR, "seed": 42, "offline": true})
+			server.dev_log.drain()
+			var errors: Array = server.dev_log.sorted_errors().filter(func(e): return e.source == id)
+			_check(err == OK and errors.is_empty(), "the %s %s template loads without errors %s" % [language, kind, str(errors.map(func(e): return e.message))])
+			if err != OK:
+				server.queue_free()
+				continue
+			server.set_physics_process(false)
+			var p := ServerPlayer.new(server, 130, "Maker")
+			p.player_id = "maker"
+			server.players[130] = p
+			var gem: int = server.items.id_of(id + ":gem")
+			server._commands[id].handler.call(p, PackedStringArray())
+			var crate: int = server.registry.id_of(id + ":crate")
+			_check(gem > 0 and crate > 0 and p.inventory.count_of(gem) == 1 and server.recipes.index_of(id + ":crate") >= 0,
+				"the %s %s template registers its block, item, recipe and command" % [language, kind])
+			_check(not server.guide.registry.get_page(id + ":crates").is_empty() and server.tutorials.tutorials.has(id + ":first_gem"),
+				"the %s %s template adds a guide page and a tutorial" % [language, kind])
+			if kind == "game":
+				_check(server.biome_generator != null and server.generator == server.biome_generator and server.surface_height(8, 8) > 40,
+					"the %s game template generates its own world" % language)
+			var drops := 0
+			for i in 20:
+				var before: int = server.entities.entities.size()
+				server.emit("block_broken", {"player": p, "position": Vector3i(8, 60, 8), "block": crate, "item": 0, "slot": 0, "harvested": true})
+				drops += server.entities.entities.size() - before
+			_check(drops > 0, "breaking the %s template's crate drops gems" % language)
+			var validation: Dictionary = preload("res://engine/server/mod_validator.gd").check_running(server, id)
+			_check(validation.ok and validation.counts.warning == 0, "the %s %s template passes the validator %s" % [language, kind, str(validation.issues.slice(0, 3))])
+			server.queue_free()
+			await get_tree().process_frame
+
+
+func _api_docs() -> void:
+	var Docs = preload("res://tools/docs_generator.gd")
+	var html: String = Docs.build()
+	_check(html.contains("api.register_block(") and html.contains("JS registerBlock") and html.contains("player.teleport(") and html.contains("id=\"events\""),
+		"the API reference covers the mod API, JavaScript names, players and events")
+	_check(FileAccess.get_file_as_string("res://docs/api/index.html") == html,
+		"docs/api/index.html is up to date (regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)")
 
 
 func _js_blocks() -> void:

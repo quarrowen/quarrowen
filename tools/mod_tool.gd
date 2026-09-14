@@ -2,11 +2,16 @@ extends Node
 ## Mod author tools (run headless):
 ##   godot --headless --path . res://tools/mod_tool.tscn -- validate mods/my_mod [--mods-dir=dir] [--json]
 ##   godot --headless --path . res://tools/mod_tool.tscn -- pack mods/my_mod [--out=build/mods] [--skip-validate]
+##   godot --headless --path . res://tools/mod_tool.tscn -- new my_mod [--name="My Mod"] [--lang=gdscript|js] [--kind=addon|game]
+##                                                                     [--author=Name] [--dir=mods]
+##   godot --headless --path . res://tools/mod_tool.tscn -- docs [--out=docs/api]
 ## validate: checks the manifest, files, scripts, a real load and every reference (exit code 1 on errors).
 ## pack: validates, then writes <out>/<id>-<version>.zip, which servers load from any mods folder.
 
 const ModValidator = preload("res://engine/server/mod_validator.gd")
 const ModLoader = preload("res://engine/server/mod_loader.gd")
+const ModTemplates = preload("res://engine/server/mod_templates.gd")
+const DocsGenerator = preload("res://tools/docs_generator.gd")
 
 
 func _ready() -> void:
@@ -21,8 +26,28 @@ func _run() -> void:
 		if a.begins_with("--"):
 			var kv := a.substr(2).split("=", true, 1)
 			options[kv[0]] = kv[1] if kv.size() > 1 else "true"
+	if positional.size() >= 1 and positional[0] == "docs":
+		var out := ProjectSettings.globalize_path(str(options.get("out", "res://docs/api")))
+		var written := DocsGenerator.write(out)
+		_out("wrote %s" % written)
+		get_tree().quit(0)
+		return
+	if positional.size() >= 2 and positional[0] == "new":
+		var parent := ProjectSettings.globalize_path(str(options.get("dir", "res://mods")))
+		var created := ModTemplates.create(parent, {"id": str(positional[1]), "name": options.get("name", ""), "language": options.get("lang", "gdscript"),
+			"kind": options.get("kind", "addon"), "author": options.get("author", "")})
+		if not created.ok:
+			_out("error: %s" % created.error)
+			get_tree().quit(1)
+			return
+		_out("created %s (%s %s):" % [created.dir, created.language, "game" if created.game else "add-on"])
+		for f in created.files:
+			_out("  " + f)
+		_out("next: godot --path . -- --host=%s --dev" % (positional[1] if created.game else "vanilla," + positional[1]))
+		get_tree().quit(0)
+		return
 	if positional.size() < 2 or not positional[0] in ["validate", "pack"]:
-		_out("usage: mod_tool.tscn -- validate <mod folder> [--mods-dir=dir] [--json]\n       mod_tool.tscn -- pack <mod folder> [--out=build/mods] [--skip-validate]")
+		_out("usage: mod_tool.tscn -- validate <mod folder> [--mods-dir=dir] [--json]\n       mod_tool.tscn -- pack <mod folder> [--out=build/mods] [--skip-validate]\n       mod_tool.tscn -- new <id> [--name=] [--lang=gdscript|js] [--kind=addon|game] [--dir=mods]\n       mod_tool.tscn -- docs [--out=docs/api]")
 		get_tree().quit(2)
 		return
 	var mod_dir := _resolve(str(positional[1]))

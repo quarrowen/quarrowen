@@ -101,10 +101,12 @@ func set_look(values: Dictionary) -> void:
 	_manager.look_changed(self)
 
 
+## False once the entity died or was removed.
 func is_alive() -> bool:
 	return not removed and not dying
 
 
+## Removes the entity from the world (no death, no drops).
 func remove() -> void:
 	_manager.remove(self)
 
@@ -114,6 +116,7 @@ func damage(amount: float, attacker = null, cause := "magic") -> bool:
 	return _manager.damage(self, amount, cause, attacker)
 
 
+## Gives back health, up to the type's maximum.
 func heal(amount: float) -> void:
 	if def.health > 0.0 and is_alive():
 		health = minf(health + amount, def.health)
@@ -185,6 +188,7 @@ func push(impulse: Vector3) -> void:
 	wake()
 
 
+## Makes a resting entity simulate again right away (after moving it from a mod).
 func wake() -> void:
 	sleep_ticks = 0
 	dirty = true

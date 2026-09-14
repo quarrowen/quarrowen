@@ -115,10 +115,12 @@ var selected_slot: int:
 		return inventory.selected
 
 
+## Where the player's eyes are (for aiming and line of sight).
 func get_eye_position() -> Vector3:
 	return PlayerPhysics.eye_position(state)
 
 
+## Moves the player to a position and stops their fall.
 func teleport(pos: Vector3) -> void:
 	state.position = pos
 	state.velocity = Vector3.ZERO
@@ -133,6 +135,7 @@ func damage(amount: float, cause := "magic", attacker = null) -> bool:
 	return _server.damage_player(self, amount, cause, attacker)
 
 
+## Gives back health, up to max_health.
 func heal(amount: float) -> void:
 	_server.heal_player(self, amount)
 
@@ -152,6 +155,7 @@ func feed(hunger_points: float, saturation_points := 0.0) -> void:
 	_server.hunger.set_hunger(self, hunger + hunger_points, minf(saturation + saturation_points, hunger + hunger_points))
 
 
+## Sets health (0 kills).
 func set_health(value: float) -> void:
 	health = clampf(value, 0.0, max_health)
 	_server.sync_health(self)
@@ -164,6 +168,7 @@ func set_max_health(value: float) -> void:
 	add_modifier("engine:max_health", "max_health", clampf(value, 1.0, 1000.0) - float(_server.items.stats.max_health))
 
 
+## Kills the player with a cause (shown in the death message).
 func kill(cause := "magic") -> void:
 	_server.kill_player(self, cause, null)
 
@@ -178,11 +183,13 @@ func play_sound(sound_name: String, volume := 1.0, pitch := 1.0) -> void:
 	_server.play_sound_to(self, sound_name, volume, pitch)
 
 
+## A chat message only this player sees.
 func send_message(text: String) -> void:
 	if _online():
 		Net.s_chat.rpc_id(peer_id, text)
 
 
+## Big text in the middle of the player's screen for a few seconds.
 func show_title(text: String, subtitle := "", seconds := 3.0) -> void:
 	if _online():
 		Net.s_title.rpc_id(peer_id, text, subtitle, seconds)
@@ -195,16 +202,19 @@ func show_ui(ui_id: String, spec: Dictionary) -> void:
 		Net.s_ui_show.rpc_id(peer_id, ui_id, spec)
 
 
+## Closes a server UI panel shown with show_ui.
 func hide_ui(ui_id: String) -> void:
 	ui_ids.erase(ui_id)
 	if _online():
 		Net.s_ui_hide.rpc_id(peer_id, ui_id)
 
 
+## Whether the player is in creative mode.
 func is_creative() -> bool:
 	return inventory.creative
 
 
+## Switches the player between creative (true) and survival (false).
 func set_creative(enabled: bool) -> void:
 	var was := inventory.creative
 	inventory.creative = enabled
@@ -228,10 +238,12 @@ func take(block: int, count := 1) -> bool:
 	return ok
 
 
+## How many of a block or item the player carries.
 func count_of(block: int) -> int:
 	return inventory.count_of(block)
 
 
+## Empties the player's inventory.
 func clear_inventory() -> void:
 	inventory.clear()
 	sync_inventory()
@@ -287,6 +299,7 @@ func get_stats() -> Dictionary:
 	return _stats
 
 
+## One stat's current value (see get_stats).
 func get_stat(stat_name: String) -> float:
 	return float(get_stats().get(stat_name, 0.0))
 
@@ -299,6 +312,7 @@ func add_modifier(id: String, stat: String, amount: float, op := "add", seconds 
 	refresh_stats()
 
 
+## Removes a stat modifier added with add_modifier.
 func remove_modifier(id: String) -> void:
 	if modifiers.erase(id):
 		refresh_stats()
@@ -310,6 +324,7 @@ func refresh_stats() -> void:
 	_server.refresh_stats(self)
 
 
+## Sends the inventory to the player after changing it directly (give and take do this for you).
 func sync_inventory() -> void:
 	_stats_dirty = true
 	_server.check_discoveries(self)
@@ -323,10 +338,12 @@ func grant_cosmetic(cosmetic_name: String) -> void:
 	_server.grant_cosmetic(self, cosmetic_name, true)
 
 
+## Takes back a server cosmetic granted with grant_cosmetic.
 func revoke_cosmetic(cosmetic_name: String) -> void:
 	_server.grant_cosmetic(self, cosmetic_name, false)
 
 
+## Whether the player may wear a server cosmetic.
 func has_cosmetic(cosmetic_name: String) -> bool:
 	return owned_cosmetics.has(cosmetic_name)
 
@@ -338,6 +355,7 @@ func set_avatar_override(values: Dictionary) -> void:
 	_server.refresh_avatar(self)
 
 
+## Whether the player can craft a recipe (discovered, or discovery is off).
 func knows_recipe(recipe_id: String) -> bool:
 	return _server.knows_recipe(self, recipe_id)
 
@@ -347,16 +365,19 @@ func learn_recipe(recipe_id: String, source := "mod") -> bool:
 	return _server.learn_recipe(self, recipe_id, source)
 
 
+## Whether the player is a server admin.
 func is_admin() -> bool:
 	return _server.is_admin(self)
 
 
+## Disconnects the player with a reason.
 func kick(reason: String) -> void:
 	_server.kick(peer_id, reason)
 
 
 # --- Persistence --------------------------------------------------------------------------------
 
+## The inventory, equipment and item data as saved with the world.
 func save_inventory() -> Dictionary:
 	var backpack := PackedInt32Array()
 	backpack.append_array(inventory.ids.slice(0, Inventory.SIZE))
@@ -373,6 +394,7 @@ func save_inventory() -> Dictionary:
 	return {"inventory": Array(backpack), "item_data": item_data, "equipment": equipment}
 
 
+## Restores an inventory saved by save_inventory.
 func load_inventory(saved: Dictionary) -> void:
 	inventory.load_packed(PackedInt32Array(saved.get("inventory", [])))
 	var item_data = saved.get("item_data", {})

@@ -5,7 +5,8 @@ extends Node
 ##   --server              run the dedicated server instead (same options as engine/server_main.gd)
 ##   --port=24565          port to connect to / host on
 ##   --connect=1.2.3.4     skip the menu and join a server
-##   --host=skyblock       skip the menu, start a local server for that game and join it
+##   --host=skyblock       skip the menu, start a local server for that game and join it (vanilla,my_mod: with add-ons)
+##   --dev                 with --host: developer mode (dev tools for everyone, reload mods on save)
 ##   --name=Steve          player name for --connect / --host
 ##   --export-identity=file.json   write your identity, encrypted, and quit
 ##   --import-identity=file.json   replace your identity with an exported one and quit
@@ -19,6 +20,7 @@ const PlayerRig = preload("res://engine/shared/player_rig.gd")
 const LookBuilder = preload("res://engine/client/avatar/look_builder.gd")
 const AvatarStore = preload("res://engine/client/avatar/avatar_store.gd")
 const AvatarEditor = preload("res://engine/client/avatar/avatar_editor.gd")
+const ModTemplates = preload("res://engine/server/mod_templates.gd")
 
 const DEFAULT_PORT := 24565
 const DEFAULT_GAME := "vanilla"
@@ -32,6 +34,7 @@ var _address_edit: LineEdit
 var _port_edit: SpinBox
 var _game_select: OptionButton
 var _message_label: Label
+var _dev_check: CheckBox
 var _games: Array = []
 var _identity_label: Label
 var _passphrase_edit: LineEdit
@@ -51,7 +54,7 @@ func _ready() -> void:
 		_start_client(_args.connect, int(_args.get("port", DEFAULT_PORT)), _args.get("name", "Player"), "")
 	elif _args.has("host"):
 		var game: String = _args.host if _args.host != "true" else DEFAULT_GAME
-		_host(game, int(_args.get("port", DEFAULT_PORT)), _args.get("name", "Player"))
+		_host(game, int(_args.get("port", DEFAULT_PORT)), _args.get("name", "Player"), PackedStringArray(["--dev"]) if _args.has("dev") else PackedStringArray())
 
 
 func _notification(what: int) -> void:
@@ -228,8 +231,17 @@ func _build_menu() -> void:
 	host_button.text = "Host game (local server)"
 	host_button.custom_minimum_size.y = 44
 	host_button.disabled = _games.is_empty()
-	host_button.pressed.connect(func(): _host(_games[_game_select.selected].id, int(_port_edit.value), _name_edit.text))
+	host_button.pressed.connect(func(): _host(_games[_game_select.selected].id, int(_port_edit.value), _name_edit.text,
+		PackedStringArray(["--dev"]) if _dev_check.button_pressed else PackedStringArray()))
 	box.add_child(host_button)
+	_dev_check = CheckBox.new()
+	_dev_check.text = "Developer mode (dev tools with F8, reload mods on save)"
+	box.add_child(_dev_check)
+	var create_button := Button.new()
+	create_button.text = "Create a mod…"
+	create_button.custom_minimum_size.y = 36
+	create_button.pressed.connect(_open_mod_wizard)
+	box.add_child(create_button)
 	var description := Label.new()
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	description.modulate = Color(1, 1, 1, 0.7)
@@ -281,6 +293,83 @@ func _open_avatar_editor() -> void:
 		editor.queue_free())
 	editor.cancelled.connect(editor.queue_free)
 	add_child(editor)
+
+
+## "Create a mod": name, language and kind; writes a starter mod and offers to host it in developer mode.
+func _open_mod_wizard() -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "Create a mod"
+	dialog.ok_button_text = "Create"
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	box.custom_minimum_size = Vector2(540, 0)  # wrapping labels need a width, or the dialog grows very tall
+	dialog.add_child(box)
+	var intro := Label.new()
+	intro.text = "A starter mod with a block, an item, recipes, a command,\na guide page and a tutorial, ready to edit."
+	box.add_child(intro)
+	var name_edit: LineEdit = _labeled(box, "Name", LineEdit.new())
+	name_edit.placeholder_text = "My Cool Mod"
+	var id_edit: LineEdit = _labeled(box, "Id", LineEdit.new())
+	id_edit.placeholder_text = "my_cool_mod"
+	var id_touched := [false]
+	name_edit.text_changed.connect(func(t):
+		if not id_touched[0]:
+			id_edit.text = ModTemplates.id_from_name(t))
+	id_edit.text_changed.connect(func(_t): id_touched[0] = true)
+	var language: OptionButton = _labeled(box, "Language", OptionButton.new())
+	language.add_item("GDScript")
+	language.add_item("JavaScript")
+	var kind: OptionButton = _labeled(box, "Kind", OptionButton.new())
+	kind.add_item("Add-on (play it with Vanilla)")
+	kind.add_item("Game (its own world)")
+	var author: LineEdit = _labeled(box, "Author", LineEdit.new())
+	author.text = _name_edit.text
+	var where := Label.new()
+	where.text = "Saved in %s" % ModLoader.creation_dir()
+	where.modulate = Color(1, 1, 1, 0.6)
+	where.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	where.tooltip_text = ModLoader.creation_dir()
+	box.add_child(where)
+	var status := Label.new()
+	status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	status.add_theme_color_override("font_color", Color(1.0, 0.7, 0.6))
+	box.add_child(status)
+	dialog.dialog_hide_on_ok = false
+	dialog.confirmed.connect(func():
+		var result := ModTemplates.create(ModLoader.creation_dir(), {"id": id_edit.text.strip_edges(), "name": name_edit.text,
+			"language": "javascript" if language.selected == 1 else "gdscript", "kind": "game" if kind.selected == 1 else "addon", "author": author.text})
+		if not result.ok:
+			status.text = result.error
+			return
+		dialog.queue_free()
+		_mod_created(result, id_edit.text.strip_edges()))
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
+	name_edit.grab_focus()
+
+
+func _mod_created(result: Dictionary, id: String) -> void:
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "Mod created"
+	dialog.dialog_text = "%s\n\n%d files, including %s and README.md. Host it now with developer mode: edit and save to reload, F8 for the dev tools." % [
+		result.dir, result.files.size(), "main.js" if result.language == "javascript" else "main.gd"]
+	dialog.dialog_autowrap = true
+	dialog.min_size = Vector2i(560, 0)
+	dialog.size = Vector2i(560, 200)
+	dialog.ok_button_text = "Host with dev tools"
+	dialog.cancel_button_text = "Later"
+	dialog.add_button("Open folder", false, "open")
+	dialog.custom_action.connect(func(action):
+		if action == "open":
+			OS.shell_open(ProjectSettings.globalize_path(result.dir)))
+	dialog.confirmed.connect(func():
+		dialog.queue_free()
+		var mods := id if result.game else "vanilla,%s" % id
+		_host(mods, int(_port_edit.value), _name_edit.text, PackedStringArray(["--dev"])))
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
 
 
 func _refresh_identity_label() -> void:

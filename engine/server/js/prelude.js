@@ -251,6 +251,8 @@
     dropItem: (item, count, position) => host("dropItem", item, count, position),
     entities: (center, radius, type = "") => host("entities", center, radius, type),
     addSpawnRule: (rule) => host("addSpawnRule", rule),
+    /** Makes this game's world from registered biomes: options {sea_level, snow_level}. */
+    useBiomeGenerator: (options = {}) => host("useBiomeGenerator", options),
     registerBiome: (name, def) => host("registerBiome", name, def),
     registerFeature: (name, def) => host("registerFeature", name, def),
     /** Structures: a template file in the mod (saved with /struct save) or template data, structure sets, loot tables. */

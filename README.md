@@ -101,6 +101,15 @@ validates every payload.
 
 ## Writing a mod
 
+**Quick start:** the menu's **Create a mod…** (or `godot --headless --path . res://tools/mod_tool.tscn -- new
+my_mod [--lang=js] [--kind=game]`) writes a starter mod: a block, an item, recipes, an event handler with
+logging and debug drawing, a command, a guide page, a tutorial, generated textures and a README, then
+offers to host it in developer mode. Add-ons play with Vanilla; games generate their own world. The full
+API reference is **docs/api/index.html**, generated from the engine's doc comments and TypeScript
+declarations (`mod_tool.tscn -- docs`; a test fails if it is stale). The menu's **Developer mode** box
+hosts any game with the dev tools and the file watcher on (`--host=vanilla,my_mod --dev` from the
+command line). Mods created from an exported game go to `user://mods`, which servers search by default.
+
 Mods are GDScript (`main.gd`) or JavaScript (`main.js`); both use the same API and can depend on and
 interoperate with each other.
 

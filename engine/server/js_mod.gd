@@ -240,6 +240,7 @@ func _call_host(method: String, a: Array):
 		"dropItem": return api.drop_item(_int(a, 0), _int(a, 1, 1), _vec3(a, 2))
 		"entities": return api.get_entities(_vec3(a, 0), float(a[1]) if a.size() > 1 else 16.0, _str(a, 2))
 		"addSpawnRule": api.add_spawn_rule(_dict(a, 0))
+		"useBiomeGenerator": api.use_biome_generator(_dict(a, 0))
 		"registerBiome": api.register_biome(_str(a, 0), _dict(a, 1))
 		"registerFeature": api.register_feature(_str(a, 0), _dict(a, 1))
 		"registerStructureTemplate": return api.register_structure_template(_str(a, 0), a[1] if a.size() > 1 and (a[1] is String or a[1] is Dictionary) else "")

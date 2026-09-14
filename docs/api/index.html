@@ -1,0 +1,1448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VoxelCraft Mod API 1.0.0</title>
+<style>
+:root { --bg: #fbfaf7; --panel: #ffffff; --line: #e6e2d8; --text: #25231f; --muted: #7a7466; --accent: #2f6fd0; --code: #f3f0e8; --tag: #e7f0ff; }
+@media (prefers-color-scheme: dark) { :root { --bg: #111317; --panel: #171a20; --line: #2a2f38; --text: #dde1e7; --muted: #8b919c; --accent: #7fb0ff; --code: #1f232b; --tag: #1d2a40; } }
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+.layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+@media (max-width: 800px) { .layout { grid-template-columns: 1fr; } nav { position: static !important; height: auto !important; } }
+nav { position: sticky; top: 0; height: 100vh; overflow: auto; padding: 16px; border-right: 1px solid var(--line); background: var(--panel); }
+nav a { display: block; padding: 3px 6px; color: var(--text); text-decoration: none; border-radius: 4px; font-size: 14px; }
+nav a:hover { background: var(--code); }
+nav .group { margin: 14px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+#search { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+main { padding: 24px clamp(16px, 4vw, 48px); max-width: 1100px; }
+h1 { margin-top: 0; } h2 { margin-top: 40px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.lead { color: var(--muted); }
+code { background: var(--code); padding: 1px 5px; border-radius: 4px; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; overflow-x: auto; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin: 10px 0; }
+.card p { margin: 6px 0 0; }
+.sig { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.sig code { background: none; padding: 0; font-size: 14px; font-weight: 600; white-space: pre-wrap; word-break: break-word; }
+.tag { font-size: 12px; padding: 1px 7px; border-radius: 10px; background: var(--tag); color: var(--accent); cursor: help; }
+.muted { color: var(--muted); }
+.file { font-size: 13px; font-weight: normal; color: var(--muted); }
+.hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+<input id="search" type="search" placeholder="Search functions…" autocomplete="off">
+<a href="#start">Getting started</a>
+<div class="group">Mod API (api.*)</div>
+<a href="#api-logging-and-debugging">Logging and debugging</a>
+<a href="#api-events--commands-and-timers">Events, commands and timers</a>
+<a href="#api-guidebook-and-tutorials">Guidebook and tutorials</a>
+<a href="#api-crafting">Crafting</a>
+<a href="#api-items">Items</a>
+<a href="#api-mobs-and-entities">Mobs and entities</a>
+<a href="#api-world-generation">World generation</a>
+<a href="#api-blocks-and-the-world">Blocks and the world</a>
+<a href="#api-players-and-gameplay">Players and gameplay</a>
+<a href="#api-sounds--effects-and-assets">Sounds, effects and assets</a>
+<a href="#api-server">Server</a>
+<a href="#api-other">Other</a>
+<div class="group">Events</div><a href="#events">All events</a>
+<div class="group">Objects</div>
+<a href="#obj-player">Player</a>
+<a href="#obj-entity">Entity</a>
+<div class="group">JavaScript</div><a href="#js-api">Api members</a><a href="#js-types">voxelcraft.d.ts</a>
+<div class="group">Reference</div>
+<a href="#ref-mod-json-and-load-order">mod.json and load order</a>
+<a href="#ref-mod-script">Mod script</a>
+<a href="#ref-version-ranges">Version ranges</a>
+<a href="#ref-blocks">Blocks</a>
+<a href="#ref-items">Items</a>
+<a href="#ref-entities">Entities</a>
+<a href="#ref-mob-ai-settings">Mob AI settings</a>
+<a href="#ref-recipes">Recipes</a>
+<a href="#ref-effects">Effects</a>
+<a href="#ref-cosmetics">Cosmetics</a>
+<a href="#ref-biomes">Biomes</a>
+<a href="#ref-world-features">World features</a>
+<a href="#ref-caves">Caves</a>
+<a href="#ref-structures">Structures</a>
+<a href="#ref-loot-tables">Loot tables</a>
+<a href="#ref-guidebook">Guidebook</a>
+<a href="#ref-tutorials-and-tips">Tutorials and tips</a>
+<a href="#ref-crafting-minigames">Crafting minigames</a>
+<a href="#ref-stations">Stations</a>
+<a href="#ref-spawning">Spawning</a>
+<a href="#ref-explosions">Explosions</a>
+<a href="#ref-sleep">Sleep</a>
+<a href="#ref-hunger">Hunger</a>
+<a href="#ref-logs-and-errors">Logs and errors</a>
+<a href="#ref-dev-tools">Dev tools</a>
+<a href="#ref-dev-dashboard">Dev dashboard</a>
+<a href="#ref-reloading">Reloading</a>
+<a href="#ref-validator">Validator</a>
+</nav>
+<main>
+<section id="start"><h1>VoxelCraft mod API</h1>
+<p class="lead">Mod API 1.0.0 · game 0.33.0. Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>
+<h3>Make a mod in a minute</h3>
+<ol>
+<li>In the game menu choose <b>Create a mod</b>, or run <code>godot --headless --path . res://tools/mod_tool.tscn -- new my_mod [--lang=js] [--kind=game]</code>.</li>
+<li>Host it with developer tools: <code>godot --path . -- --host=vanilla,my_mod --dev</code>.</li>
+<li>Edit <code>main.gd</code> or <code>main.js</code> and save: the server reloads the mod. Press <b>F8</b> for logs, errors, the inspector, the event trace and the profiler.</li>
+<li>Check it with <code>mod_tool.tscn -- validate my_mod</code> and share it with <code>mod_tool.tscn -- pack my_mod</code>.</li>
+</ol>
+<p>A GDScript mod is a folder with <code>mod.json</code> and <code>main.gd</code> (<code>extends "res://engine/server/mod.gd"</code>, <code>func setup(api)</code>); a JavaScript mod exports <code>setup(api)</code> from <code>main.js</code>. Names without a colon are your mod's own (<code>"crate"</code> means <code>"my_mod:crate"</code>).</p>
+</section>
+<section id="api-logging-and-debugging"><h2>Logging and debugging</h2>
+<div class="card" id="api-info" data-search="info info logs a line from this mod (console, &lt;world&gt;/logs/latest.log and the dev tools)."><div class="sig"><code>api.info(message) -&gt; void</code><span class="tag js" title="info(...parts: unknown[]): void">JS info</span></div><p>Logs a line from this mod (console, &lt;world&gt;/logs/latest.log and the dev tools).</p></div>
+<div class="card" id="api-debug-box" data-search="debug_box  debug drawing for developers (shown to admins with the dev overlay's draw toggle on; cheap when
+nobody watches). shapes expire after `seconds`. colors are &quot;#rrggbb&quot; or &quot;#rrggbbaa&quot;."><div class="sig"><code>api.debug_box(from: Vector3, to: Vector3, color := &quot;#ffcc00&quot;, seconds := 2.0, label := &quot;&quot;) -&gt; void</code></div><p>Debug drawing for developers (shown to admins with the dev overlay's Draw toggle on; cheap when<br>nobody watches). Shapes expire after `seconds`. Colors are &quot;#rrggbb&quot; or &quot;#rrggbbaa&quot;.</p></div>
+<div class="card" id="api-debug-line" data-search="debug_line  a debug line between two points (see debug_box)."><div class="sig"><code>api.debug_line(from: Vector3, to: Vector3, color := &quot;#ffcc00&quot;, seconds := 2.0) -&gt; void</code></div><p>A debug line between two points (see debug_box).</p></div>
+<div class="card" id="api-debug-text" data-search="debug_text  a debug label floating at a position, always facing the camera (see debug_box)."><div class="sig"><code>api.debug_text(position: Vector3, text: String, color := &quot;#ffffff&quot;, seconds := 2.0) -&gt; void</code></div><p>A debug label floating at a position, always facing the camera (see debug_box).</p></div>
+<div class="card" id="api-debug-path" data-search="debug_path  a debug path through a list of points (vector3 or [x, y, z]), with a dot at each (see debug_box)."><div class="sig"><code>api.debug_path(points: Array, color := &quot;#60ff90&quot;, seconds := 2.0) -&gt; void</code></div><p>A debug path through a list of points (Vector3 or [x, y, z]), with a dot at each (see debug_box).</p></div>
+<div class="card" id="api-debug-sphere" data-search="debug_sphere  a debug wire sphere (see debug_box)."><div class="sig"><code>api.debug_sphere(center: Vector3, radius := 0.5, color := &quot;#6090ff&quot;, seconds := 2.0) -&gt; void</code></div><p>A debug wire sphere (see debug_box).</p></div>
+<div class="card" id="api-debug" data-search="debug debug log levels for authors: debug lines only appear with `/log level &lt;mod&gt; debug` (or --log-level).
+messages go to the server console, &lt;world&gt;/logs/latest.log and the dev tools."><div class="sig"><code>api.debug(message) -&gt; void</code><span class="tag js" title="debug(...parts: unknown[]): void">JS debug</span></div><p>Log levels for authors: debug lines only appear with `/log level &lt;mod&gt; debug` (or --log-level).<br>Messages go to the server console, &lt;world&gt;/logs/latest.log and the dev tools.</p></div>
+<div class="card" id="api-warn" data-search="warn warn logs a warning from this mod (shown in yellow in the dev tools)."><div class="sig"><code>api.warn(message) -&gt; void</code><span class="tag js" title="warn(...parts: unknown[]): void">JS warn</span></div><p>Logs a warning from this mod (shown in yellow in the dev tools).</p></div>
+<div class="card" id="api-error" data-search="error error logs an error from the mod (grouped like script errors and shown to admins)."><div class="sig"><code>api.error(message) -&gt; void</code><span class="tag js" title="error(...parts: unknown[]): void">JS error</span></div><p>Logs an error from the mod (grouped like script errors and shown to admins).</p></div>
+<div class="card" id="api-set-server-info" data-search="set_server_info setserverinfo sets the server name/description shown to connecting clients."><div class="sig"><code>api.set_server_info(values: Dictionary) -&gt; void</code><span class="tag js" title="setServerInfo(values: { name?: string; description?: string; motd?: string }): void">JS setServerInfo</span></div><p>Sets the server name/description shown to connecting clients.</p></div>
+</section>
+<section id="api-events--commands-and-timers"><h2>Events, commands and timers</h2>
+<div class="card" id="api-on" data-search="on on higher priority runs first."><div class="sig"><code>api.on(event: String, handler: Callable, priority := 0) -&gt; void</code><span class="tag js" title="on">JS on</span></div><p>Higher priority runs first.</p></div>
+<div class="card" id="api-register-command" data-search="register_command  `handler(player, args: packedstringarray)` runs for &quot;/name args...&quot;. permission &quot;admin&quot; restricts
+it to server admins (voxel_admins, /op, or the local host)."><div class="sig"><code>api.register_command(command: String, description: String, handler: Callable, permission := &quot;&quot;) -&gt; void</code></div><p>`handler(player, args: PackedStringArray)` runs for &quot;/name args...&quot;. permission &quot;admin&quot; restricts<br>it to server admins (VOXEL_ADMINS, /op, or the local host).</p></div>
+<div class="card" id="api-after" data-search="after after runs `callback` once after `seconds`. returns a task id for `cancel`."><div class="sig"><code>api.after(seconds: float, callback: Callable) -&gt; int</code><span class="tag js" title="after">JS after</span></div><p>Runs `callback` once after `seconds`. Returns a task id for `cancel`.</p></div>
+<div class="card" id="api-every" data-search="every every runs `callback` every `seconds`. returns a task id for `cancel`."><div class="sig"><code>api.every(seconds: float, callback: Callable) -&gt; int</code><span class="tag js" title="every">JS every</span></div><p>Runs `callback` every `seconds`. Returns a task id for `cancel`.</p></div>
+<div class="card" id="api-cancel" data-search="cancel cancel stops a timer started with after or every."><div class="sig"><code>api.cancel(task_id: int) -&gt; void</code><span class="tag js" title="cancel">JS cancel</span></div><p>Stops a timer started with after or every.</p></div>
+</section>
+<section id="api-guidebook-and-tutorials"><h2>Guidebook and tutorials</h2>
+<div class="card" id="api-register-guide-chapter" data-search="register_guide_chapter registerguidechapter a guidebook chapter: {title, icon (item name), order, description}. names without &quot;:&quot; are this mod's."><div class="sig"><code>api.register_guide_chapter(chapter_name: String, def := {}) -&gt; bool</code><span class="tag js" title="registerGuideChapter(name: string, def?: { title?: string; icon?: string; order?: number; description?: string }): boolean">JS registerGuideChapter</span></div><p>A guidebook chapter: {title, icon (item name), order, description}. Names without &quot;:&quot; are this mod's.</p></div>
+<div class="card" id="api-register-guide-page" data-search="register_guide_page registerguidepage a guidebook page (see engine/shared/guide_registry.gd): {chapter, title, icon, order, unlock: {item |
+recipe | entity | flag | page}, hint, keywords, blocks: [{type: text | heading | items | recipe |
+entity | image | tip | link | keys, ...}]}. item, entity, page and flag names without &quot;:&quot; are this
+mod's; image blocks take a texture path in this mod."><div class="sig"><code>api.register_guide_page(page_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerGuidePage(name: string, def: GuidePage): boolean">JS registerGuidePage</span></div><p>A guidebook page (see engine/shared/guide_registry.gd): {chapter, title, icon, order, unlock: {item |<br>recipe | entity | flag | page}, hint, keywords, blocks: [{type: text | heading | items | recipe |<br>entity | image | tip | link | keys, ...}]}. Item, entity, page and flag names without &quot;:&quot; are this<br>mod's; image blocks take a texture path in this mod.</p></div>
+<div class="card" id="api-open-guide" data-search="open_guide openguide opens the guidebook for a player at a page (&quot;&quot; = where they left off)."><div class="sig"><code>api.open_guide(player, page := &quot;&quot;) -&gt; void</code><span class="tag js" title="openGuide">JS openGuide</span></div><p>Opens the guidebook for a player at a page (&quot;&quot; = where they left off).</p></div>
+<div class="card" id="api-set-guide-flag" data-search="set_guide_flag setguideflag guide flags unlock pages with `unlock: {flag}` (names without &quot;:&quot; are this mod's). saved per player."><div class="sig"><code>api.set_guide_flag(player, flag: String, on := true) -&gt; void</code><span class="tag js" title="setGuideFlag">JS setGuideFlag</span></div><p>Guide flags unlock pages with `unlock: {flag}` (names without &quot;:&quot; are this mod's). Saved per player.</p></div>
+<div class="card" id="api-has-guide-flag" data-search="has_guide_flag hasguideflag whether a player has a guide flag (see set_guide_flag)."><div class="sig"><code>api.has_guide_flag(player, flag: String) -&gt; bool</code><span class="tag js" title="hasGuideFlag">JS hasGuideFlag</span></div><p>Whether a player has a guide flag (see set_guide_flag).</p></div>
+<div class="card" id="api-unlock-guide-page" data-search="unlock_guide_page unlockguidepage unlocks a guide page for a player whatever its condition. returns true if it was locked."><div class="sig"><code>api.unlock_guide_page(player, page: String, notify := true) -&gt; bool</code><span class="tag js" title="unlockGuidePage">JS unlockGuidePage</span></div><p>Unlocks a guide page for a player whatever its condition. Returns true if it was locked.</p></div>
+<div class="card" id="api-is-guide-page-unlocked" data-search="is_guide_page_unlocked  whether a guide page is open to a player."><div class="sig"><code>api.is_guide_page_unlocked(player, page: String) -&gt; bool</code></div><p>Whether a guide page is open to a player.</p></div>
+<div class="card" id="api-register-tutorial" data-search="register_tutorial registertutorial a tutorial: guided goals completed by real actions (see engine/server/tutorials.gd for goal types):
+{title, description, order, auto_start, reward: [[item, count]], steps: [{title, text, icon, goal: {type,
+target, count, ...}, hint: {block | entity | position} or false, page, reward}]}. names without &quot;:&quot; are
+this mod's."><div class="sig"><code>api.register_tutorial(tutorial_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerTutorial(name: string, def: Tutorial): boolean">JS registerTutorial</span></div><p>A tutorial: guided goals completed by real actions (see engine/server/tutorials.gd for goal types):<br>{title, description, order, auto_start, reward: [[item, count]], steps: [{title, text, icon, goal: {type,<br>target, count, ...}, hint: {block | entity | position} or false, page, reward}]}. Names without &quot;:&quot; are<br>this mod's.</p></div>
+<div class="card" id="api-register-tip" data-search="register_tip registertip a one-time contextual tip: {text, icon, page (guide page to read more), trigger: a goal}."><div class="sig"><code>api.register_tip(tip_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerTip(name: string, def: { text: string; icon?: string; page?: string; trigger: TutorialGoal }): boolean">JS registerTip</span></div><p>A one-time contextual tip: {text, icon, page (guide page to read more), trigger: a goal}.</p></div>
+<div class="card" id="api-start-tutorial" data-search="start_tutorial starttutorial starts (or restarts) a tutorial for a player. returns false if it does not exist."><div class="sig"><code>api.start_tutorial(player, tutorial_name: String) -&gt; bool</code><span class="tag js" title="startTutorial">JS startTutorial</span></div><p>Starts (or restarts) a tutorial for a player. Returns false if it does not exist.</p></div>
+<div class="card" id="api-stop-tutorial" data-search="stop_tutorial stoptutorial stops the player's running tutorial; it will not start by itself again."><div class="sig"><code>api.stop_tutorial(player) -&gt; void</code><span class="tag js" title="stopTutorial">JS stopTutorial</span></div><p>Stops the player's running tutorial; it will not start by itself again.</p></div>
+<div class="card" id="api-advance-tutorial" data-search="advance_tutorial advancetutorial completes the player's current tutorial step (for &quot;manual&quot; goals)."><div class="sig"><code>api.advance_tutorial(player) -&gt; void</code><span class="tag js" title="advanceTutorial">JS advanceTutorial</span></div><p>Completes the player's current tutorial step (for &quot;manual&quot; goals).</p></div>
+<div class="card" id="api-get-tutorial-state" data-search="get_tutorial_state  {active, step, progress, done: [ids]} for a player."><div class="sig"><code>api.get_tutorial_state(player) -&gt; Dictionary</code></div><p>{active, step, progress, done: [ids]} for a player.</p></div>
+<div class="card" id="api-show-tip" data-search="show_tip showtip shows a registered tip now (even if seen before)."><div class="sig"><code>api.show_tip(player, tip_name: String) -&gt; bool</code><span class="tag js" title="showTip">JS showTip</span></div><p>Shows a registered tip now (even if seen before).</p></div>
+</section>
+<section id="api-crafting"><h2>Crafting</h2>
+<div class="card" id="api-register-recipe" data-search="register_recipe registerrecipe shapeless recipe: `inputs` maps item names to counts. appears in the engine crafting menu (c key).
+options: pattern ([&quot;c&quot;, &quot;s&quot;]) with key ({&quot;c&quot;: &quot;base:coal&quot;, &quot;s&quot;: &quot;base:stick&quot;}) makes the recipe shaped for
+the experimentation grid (its inputs are counted from the pattern; pass {} as inputs), unlock (&quot;known&quot; | &quot;pickup&quot; (default) | &quot;blueprint&quot; | &quot;experiment&quot; | &quot;secret&quot;) and hint (text
+shown while undiscovered) for recipe discovery, time (seconds in the station's queue; more players there craft faster), project (built
+together: players contribute ingredients over time, see project_completed), tier (minimum station
+tier), needs ([station features]), station (name of the crafting station block needed, e.g. &quot;crafting_table&quot;; blocks declare
+`station: &quot;&lt;name&gt;&quot;`; without one it is crafted anywhere), category (recipe book tab: tools, weapons,
+armor, blocks, food, materials, misc or one from register_recipe_category), id (defaults to
+&quot;&lt;mod&gt;:&lt;output name&gt;&quot;)."><div class="sig"><code>api.register_recipe(inputs: Dictionary, output: String, count := 1, options := {}) -&gt; void</code><span class="tag js" title="registerRecipe(inputs: Record&lt;string, number&gt;, output: string, count?: number, options?: { station?: string; tier?: number; needs?: string[]; category?: string; id?: string; time?: number; project?: boolean; unlock?: &quot;known&quot; | &quot;pickup&quot; | &quot;blueprint&quot; | &quot;experiment&quot; | &quot;secret&quot;; hint?: string; skill?: string }): void">JS registerRecipe</span></div><p>Shapeless recipe: `inputs` maps item names to counts. Appears in the engine crafting menu (C key).<br>options: pattern ([&quot;C&quot;, &quot;S&quot;]) with key ({&quot;C&quot;: &quot;base:coal&quot;, &quot;S&quot;: &quot;base:stick&quot;}) makes the recipe shaped for<br>the experimentation grid (its inputs are counted from the pattern; pass {} as inputs), unlock (&quot;known&quot; | &quot;pickup&quot; (default) | &quot;blueprint&quot; | &quot;experiment&quot; | &quot;secret&quot;) and hint (text<br>shown while undiscovered) for recipe discovery, time (seconds in the station's queue; more players there craft faster), project (built<br>together: players contribute ingredients over time, see project_completed), tier (minimum station<br>tier), needs ([station features]), station (name of the crafting station block needed, e.g. &quot;crafting_table&quot;; blocks declare<br>`station: &quot;&lt;name&gt;&quot;`; without one it is crafted anywhere), category (recipe book tab: tools, weapons,<br>armor, blocks, food, materials, misc or one from register_recipe_category), id (defaults to<br>&quot;&lt;mod&gt;:&lt;output name&gt;&quot;).</p></div>
+<div class="card" id="api-register-material" data-search="register_material registermaterial a material parts can be made of: {display_name, item (raw material item name), color, tier, speed,
+durability, damage, handle (durability multiplier as a handle), trait: {name, description, modifiers,
+durability_mult, speed_mult, damage_add, glow}}. every part type gets a recipe for it."><div class="sig"><code>api.register_material(material_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="registerMaterial(name: string, def: { display_name?: string; item: string; color?: string; tier?: number; speed?: number; durability?: number; damage?: number; handle?: number; trait?: { name: string; description?: string; modifiers?: StatModifier[]; durability_mult?: number; speed_mult?: number; damage_add?: number; glow?: ItemDef[&quot;glow&quot;] } }): void">JS registerMaterial</span></div><p>A material parts can be made of: {display_name, item (raw material item name), color, tier, speed,<br>durability, damage, handle (durability multiplier as a handle), trait: {name, description, modifiers,<br>durability_mult, speed_mult, damage_add, glow}}. Every part type gets a recipe for it.</p></div>
+<div class="card" id="api-register-part-type" data-search="register_part_type registerparttype a kind of part (registers the part item): {display_name, sprite (grayscale 16x16 image tinted by the
+material), cost (material per part), station (where parts are made)}."><div class="sig"><code>api.register_part_type(part_name: String, def: Dictionary) -&gt; int</code><span class="tag js" title="registerPartType(name: string, def: { display_name?: string; sprite: string; cost?: number; station?: string }): number">JS registerPartType</span></div><p>A kind of part (registers the part item): {display_name, sprite (grayscale 16x16 image tinted by the<br>material), cost (material per part), station (where parts are made)}.</p></div>
+<div class="card" id="api-register-assembly" data-search="register_assembly registerassembly a tool or weapon built from parts (registers its item): {display_name, icon (shown for plain
+stacks), slots: [{name, part, label}], tool_type, damage, cooldown, reach, sweep, station}. the
+first slot is the head. part names without &quot;:&quot; are this mod's."><div class="sig"><code>api.register_assembly(assembly_name: String, def: Dictionary) -&gt; int</code><span class="tag js" title="registerAssembly(name: string, def: { display_name?: string; icon?: string; slots: { name: string; part: string; label?: string }[]; tool_type?: string; damage?: number; cooldown?: number; reach?: number; sweep?: number; station?: string; skill?: string }): number">JS registerAssembly</span></div><p>A tool or weapon built from parts (registers its item): {display_name, icon (shown for plain<br>stacks), slots: [{name, part, label}], tool_type, damage, cooldown, reach, sweep, station}. The<br>first slot is the head. Part names without &quot;:&quot; are this mod's.</p></div>
+<div class="card" id="api-register-minigame" data-search="register_minigame registerminigame a crafting minigame recipes and assemblies can name as their `skill` (crafting by hand for better
+quality; see engine/shared/minigame.gd): {title, type: &quot;timing&quot; | &quot;hold&quot; | &quot;sequence&quot;, verb, rounds,
+speed, zone, cool, team (bellows + hammer), duration, window}."><div class="sig"><code>api.register_minigame(minigame_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="registerMinigame(name: string, def: { title?: string; type?: &quot;timing&quot; | &quot;hold&quot; | &quot;sequence&quot;; verb?: string; rounds?: number; speed?: number; zone?: number; cool?: number; team?: boolean; duration?: number; window?: number }): void">JS registerMinigame</span></div><p>A crafting minigame recipes and assemblies can name as their `skill` (crafting by hand for better<br>quality; see engine/shared/minigame.gd): {title, type: &quot;timing&quot; | &quot;hold&quot; | &quot;sequence&quot;, verb, rounds,<br>speed, zone, cool, team (bellows + hammer), duration, window}.</p></div>
+<div class="card" id="api-register-station" data-search="register_station registerstation makes a station upgradable (see engine/server/stations.gd): tiers [{block, title, kit, grants}],
+workshop {radius, upgrades: [{block, title, max, grants}]}, multiblock {core, pattern, legend,
+title}. grants: {features, tier, speed, quality, pull_radius, hints}. blocks involved still declare
+`station: &quot;&lt;name&gt;&quot;`. recipes then ask for `tier` and `needs` (features)."><div class="sig"><code>api.register_station(station_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="registerStation(name: string, def: StationDef): void">JS registerStation</span></div><p>Makes a station upgradable (see engine/server/stations.gd): tiers [{block, title, kit, grants}],<br>workshop {radius, upgrades: [{block, title, max, grants}]}, multiblock {core, pattern, legend,<br>title}. grants: {features, tier, speed, quality, pull_radius, hints}. Blocks involved still declare<br>`station: &quot;&lt;name&gt;&quot;`. Recipes then ask for `tier` and `needs` (features).</p></div>
+<div class="card" id="api-get-station" data-search="get_station getstation the station at a position: {name, title, tier, tier_title, features, speed, quality, pull_radius,
+hints, detected, available, next, structure}, or {}."><div class="sig"><code>api.get_station(position: Vector3i) -&gt; Dictionary</code><span class="tag js" title="getStation(position: Vec3): Record&lt;string, unknown&gt;">JS getStation</span></div><p>The station at a position: {name, title, tier, tier_title, features, speed, quality, pull_radius,<br>hints, detected, available, next, structure}, or {}.</p></div>
+<div class="card" id="api-register-recipe-category" data-search="register_recipe_category  adds a recipe book tab. def: display_name, icon (item name shown on the tab)."><div class="sig"><code>api.register_recipe_category(category_name: String, def := {}) -&gt; bool</code></div><p>Adds a recipe book tab. def: display_name, icon (item name shown on the tab).</p></div>
+<div class="card" id="api-register-container" data-search="register_container registercontainer registers a container type (see engine/server/containers.gd): {title, groups: [{name, count,
+columns, label, take_only, accepts}], progress: [{name, label, color}]}. blocks use it with
+`container: &quot;&lt;name&gt;&quot;` and open it on right-click. names without &quot;:&quot; are this mod's."><div class="sig"><code>api.register_container(container_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerContainer(name: string, def: { title?: string; groups: { name: string; count: number; columns?: number; label?: string; take_only?: boolean; accepts?: string[] | &quot;fuel&quot; }[]; progress?: { name: string; label?: string; color?: string }[] }): boolean">JS registerContainer</span></div><p>Registers a container type (see engine/server/containers.gd): {title, groups: [{name, count,<br>columns, label, take_only, accepts}], progress: [{name, label, color}]}. Blocks use it with<br>`container: &quot;&lt;name&gt;&quot;` and open it on right-click. Names without &quot;:&quot; are this mod's.</p></div>
+<div class="card" id="api-get-container" data-search="get_container  the container at a position (engine/server/container.gd), or null."><div class="sig"><code>api.get_container(position: Vector3i)</code></div><p>The container at a position (engine/server/container.gd), or null.</p></div>
+<div class="card" id="api-open-container" data-search="open_container opencontainer opens a container's screen for a player (as if they right-clicked it)."><div class="sig"><code>api.open_container(player, position: Vector3i) -&gt; bool</code><span class="tag js" title="openContainer(player: Player, position: Vec3): boolean">JS openContainer</span></div><p>Opens a container's screen for a player (as if they right-clicked it).</p></div>
+<div class="card" id="api-set-fuel" data-search="set_fuel setfuel makes an item burn in fuel slots for `seconds`."><div class="sig"><code>api.set_fuel(item_name: String, seconds: float) -&gt; void</code><span class="tag js" title="setFuel(item: string, seconds: number): void">JS setFuel</span></div><p>Makes an item burn in fuel slots for `seconds`.</p></div>
+<div class="card" id="api-get-fuel" data-search="get_fuel getfuel how many seconds an item burns in a furnace (0 = not fuel)."><div class="sig"><code>api.get_fuel(item_id: int) -&gt; float</code><span class="tag js" title="getFuel(item: ItemId): number">JS getFuel</span></div><p>How many seconds an item burns in a furnace (0 = not fuel).</p></div>
+<div class="card" id="api-register-process" data-search="register_process registerprocess a processing recipe machines look up by kind: register_process(&quot;smelting&quot;, &quot;base:iron_ore&quot;,
+&quot;base:iron_ingot&quot;, 1, 10.0)."><div class="sig"><code>api.register_process(kind: String, input: String, output: String, count := 1, seconds := 10.0) -&gt; void</code><span class="tag js" title="registerProcess(kind: string, input: string, output: string, count?: number, seconds?: number): void">JS registerProcess</span></div><p>A processing recipe machines look up by kind: register_process(&quot;smelting&quot;, &quot;base:iron_ore&quot;,<br>&quot;base:iron_ingot&quot;, 1, 10.0).</p></div>
+<div class="card" id="api-get-process" data-search="get_process getprocess {output, count, seconds} for an input, or {} when that kind of machine cannot process it."><div class="sig"><code>api.get_process(kind: String, item_id: int) -&gt; Dictionary</code><span class="tag js" title="getProcess(kind: string, item: ItemId): { output: ItemId; count: number; seconds: number } | Record&lt;string, never&gt;">JS getProcess</span></div><p>{output, count, seconds} for an input, or {} when that kind of machine cannot process it.</p></div>
+<div class="card" id="api-show-crafting" data-search="show_crafting showcrafting opens the crafting screen for a player, crafting by hand."><div class="sig"><code>api.show_crafting(player) -&gt; void</code><span class="tag js" title="showCrafting(player: Player): void">JS showCrafting</span></div><p>Opens the crafting screen for a player, crafting by hand.</p></div>
+</section>
+<section id="api-items"><h2>Items</h2>
+<div class="card" id="api-register-item" data-search="register_item registeritem registers a non-block item. `icon` is a texture path; `usable` makes right-click fire item_use.
+returns the item id (&gt;= 256), or -1."><div class="sig"><code>api.register_item(item_name: String, def: Dictionary) -&gt; int</code><span class="tag js" title="registerItem(name: string, def: ItemDef): ItemId">JS registerItem</span></div><p>Registers a non-block item. `icon` is a texture path; `usable` makes right-click fire item_use.<br>Returns the item id (&gt;= 256), or -1.</p></div>
+<div class="card" id="api-drop-item" data-search="drop_item dropitem drops an item stack entity (players walk over it to pick it up)."><div class="sig"><code>api.drop_item(item_id: int, count: int, position: Vector3)</code><span class="tag js" title="dropItem(item: ItemId, count: number, position: Vec3): Entity | null">JS dropItem</span></div><p>Drops an item stack entity (players walk over it to pick it up).</p></div>
+<div class="card" id="api-item" data-search="item item looks up any block or item id by name (&quot;base:coal&quot;, or a local name). -1 if unknown."><div class="sig"><code>api.item(item_name: String) -&gt; int</code><span class="tag js" title="item(name: string): ItemId">JS item</span></div><p>Looks up any block or item id by name (&quot;base:coal&quot;, or a local name). -1 if unknown.</p></div>
+<div class="card" id="api-item-name" data-search="item_name itemname the full name (&quot;mod:name&quot;) of a block or item id, or &quot;&quot;."><div class="sig"><code>api.item_name(id: int) -&gt; String</code><span class="tag js" title="itemName(id: ItemId): string">JS itemName</span></div><p>The full name (&quot;mod:name&quot;) of a block or item id, or &quot;&quot;.</p></div>
+<div class="card" id="api-items-name" data-search="items_name  same as item_name (kept for older mods)."><div class="sig"><code>api.items_name(id: int) -&gt; String</code></div><p>Same as item_name (kept for older mods).</p></div>
+<div class="card" id="api-item-max-stack" data-search="item_max_stack  how many of this item fit in one slot."><div class="sig"><code>api.item_max_stack(id: int) -&gt; int</code></div><p>How many of this item fit in one slot.</p></div>
+<div class="card" id="api-item-display-name" data-search="item_display_name itemdisplayname the name players see for a block or item id."><div class="sig"><code>api.item_display_name(id: int) -&gt; String</code><span class="tag js" title="itemDisplayName(id: ItemId): string">JS itemDisplayName</span></div><p>The name players see for a block or item id.</p></div>
+</section>
+<section id="api-mobs-and-entities"><h2>Mobs and entities</h2>
+<div class="card" id="api-register-entity" data-search="register_entity registerentity registers an entity type (mob, projectile, object). see entityregistry.register for keys. model and
+sprite paths are relative to the mod folder; sound names without a &quot;:&quot; are this mod's.
+returns the type id, or -1."><div class="sig"><code>api.register_entity(entity_name: String, def: Dictionary) -&gt; int</code><span class="tag js" title="registerEntity(name: string, def: EntityDef): number">JS registerEntity</span></div><p>Registers an entity type (mob, projectile, object). See EntityRegistry.register for keys. Model and<br>sprite paths are relative to the mod folder; sound names without a &quot;:&quot; are this mod's.<br>Returns the type id, or -1.</p></div>
+<div class="card" id="api-explode" data-search="explode explode sets off an explosion (see engine/server/explosions.gd): power ~3 is a mob blast. options: source,
+break_blocks, drop_chance, damage (multiplier), effect, sound. returns the explosion event."><div class="sig"><code>api.explode(position: Vector3, power: float, options := {}) -&gt; Dictionary</code><span class="tag js" title="explode">JS explode</span></div><p>Sets off an explosion (see engine/server/explosions.gd): power ~3 is a mob blast. options: source,<br>break_blocks, drop_chance, damage (multiplier), effect, sound. Returns the explosion event.</p></div>
+<div class="card" id="api-entity-type" data-search="entity_type  entity type id by name (&quot;vanilla:zombie&quot;, or a local name). -1 if unknown."><div class="sig"><code>api.entity_type(entity_name: String) -&gt; int</code></div><p>Entity type id by name (&quot;vanilla:zombie&quot;, or a local name). -1 if unknown.</p></div>
+<div class="card" id="api-spawn-entity" data-search="spawn_entity spawnentity spawns an entity. options: yaw, velocity (vector3), data (dictionary), owner (player or entity,
+for projectiles). returns the entity or null."><div class="sig"><code>api.spawn_entity(entity_name: String, position: Vector3, options := {})</code><span class="tag js" title="spawnEntity(type: string, position: Vec3, options?: { yaw?: number; velocity?: Vec3; data?: Record&lt;string, unknown&gt; }): Entity | null">JS spawnEntity</span></div><p>Spawns an entity. options: yaw, velocity (Vector3), data (Dictionary), owner (player or entity,<br>for projectiles). Returns the entity or null.</p></div>
+<div class="card" id="api-spawn-projectile" data-search="spawn_projectile spawnprojectile fires a projectile entity from `from` with `velocity`, credited to `owner` (player or entity)."><div class="sig"><code>api.spawn_projectile(entity_name: String, from: Vector3, velocity: Vector3, owner = null)</code><span class="tag js" title="spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner?: Player | Entity | null): Entity | null">JS spawnProjectile</span></div><p>Fires a projectile entity from `from` with `velocity`, credited to `owner` (player or entity).</p></div>
+<div class="card" id="api-get-entities" data-search="get_entities  living entities within `radius` of `center`, optionally only of one type."><div class="sig"><code>api.get_entities(center: Vector3, radius: float, entity_name := &quot;&quot;) -&gt; Array</code></div><p>Living entities within `radius` of `center`, optionally only of one type.</p></div>
+<div class="card" id="api-get-entity" data-search="get_entity  the entity with this id, or null if it is gone."><div class="sig"><code>api.get_entity(entity_id: int)</code></div><p>The entity with this id, or null if it is gone.</p></div>
+<div class="card" id="api-register-mob-behavior" data-search="register_mob_behavior registermobbehavior registers a mob behaviour that mobs listing it in ai.behaviors can choose. `def`:
+score:  callable(brain) -&gt; float   utility each think; the highest scoring behaviour runs.
+engine scores: idle 0.05, wander 0.1, investigate 0.4, search &lt;= 0.65, engage 0.7-0.9,
+return_home 0.95+, flee 1.05, scripted 1.2
+update: callable(brain, delta)     called each think while it runs; use brain.move_to / stop /
+look_at, brain.target, brain.entity, brain.can_see_target(), brain.health_fraction()
+stop:   callable(brain)            optional, when another behaviour takes over"><div class="sig"><code>api.register_mob_behavior(behavior_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="registerMobBehavior">JS registerMobBehavior</span></div><p>Registers a mob behaviour that mobs listing it in ai.behaviors can choose. `def`:<br>score:  Callable(brain) -&gt; float   utility each think; the highest scoring behaviour runs.<br>Engine scores: idle 0.05, wander 0.1, investigate 0.4, search &lt;= 0.65, engage 0.7-0.9,<br>return_home 0.95+, flee 1.05, scripted 1.2<br>update: Callable(brain, delta)     called each think while it runs; use brain.move_to / stop /<br>look_at, brain.target, brain.entity, brain.can_see_target(), brain.health_fraction()<br>stop:   Callable(brain)            optional, when another behaviour takes over</p></div>
+<div class="card" id="api-make-noise" data-search="make_noise makenoise lets mobs hear something at `position` (they come to investigate). `source` may be a player."><div class="sig"><code>api.make_noise(position: Vector3, radius: float, source = null) -&gt; void</code><span class="tag js" title="makeNoise(position: Vec3, radius: number, source?: Player | Entity | null): void">JS makeNoise</span></div><p>Lets mobs hear something at `position` (they come to investigate). `source` may be a player.</p></div>
+<div class="card" id="api-add-spawn-rule" data-search="add_spawn_rule addspawnrule natural spawning. def: entity (name), category (&quot;monster&quot; | &quot;animal&quot; | &quot;ambient&quot; | &quot;misc&quot;; default
+from the mob's ai), light [min, max] (0-15; monsters default to [0, 7] so torches keep them away,
+animals to [9, 15]), place (&quot;any&quot; | &quot;surface&quot; | &quot;underground&quot;), time (&quot;night&quot; | &quot;day&quot; | &quot;any&quot;), on
+(block names the mob may stand on; default any), group [min, max] (pack size), max_nearby (per
+player), max_total, chance (per player per second), min_distance, max_distance. see
+engine/server/spawning.gd for caps and despawning."><div class="sig"><code>api.add_spawn_rule(def: Dictionary) -&gt; void</code><span class="tag js" title="addSpawnRule(rule: SpawnRule): void">JS addSpawnRule</span></div><p>Natural spawning. def: entity (name), category (&quot;monster&quot; | &quot;animal&quot; | &quot;ambient&quot; | &quot;misc&quot;; default<br>from the mob's AI), light [min, max] (0-15; monsters default to [0, 7] so torches keep them away,<br>animals to [9, 15]), place (&quot;any&quot; | &quot;surface&quot; | &quot;underground&quot;), time (&quot;night&quot; | &quot;day&quot; | &quot;any&quot;), on<br>(block names the mob may stand on; default any), group [min, max] (pack size), max_nearby (per<br>player), max_total, chance (per player per second), min_distance, max_distance. See<br>engine/server/spawning.gd for caps and despawning.</p></div>
+<div class="card" id="api-set-spawn-caps" data-search="set_spawn_caps setspawncaps how many mobs of each category may be around each player: {monster, animal, ambient, misc}."><div class="sig"><code>api.set_spawn_caps(caps: Dictionary) -&gt; void</code><span class="tag js" title="setSpawnCaps(caps: { monster?: number; animal?: number; ambient?: number; misc?: number }): void">JS setSpawnCaps</span></div><p>How many mobs of each category may be around each player: {monster, animal, ambient, misc}.</p></div>
+<div class="card" id="api-set-spawn-handler" data-search="set_spawn_handler  `handler(player) -&gt; vector3` picks the spawn position for players without a saved position."><div class="sig"><code>api.set_spawn_handler(handler: Callable) -&gt; void</code></div><p>`handler(player) -&gt; Vector3` picks the spawn position for players without a saved position.</p></div>
+</section>
+<section id="api-world-generation"><h2>World generation</h2>
+<div class="card" id="api-set-world-generator" data-search="set_world_generator  `generator` must implement `generate(chunk)`; write into a local copy of `chunk.blocks`
+(index with chunk.index(x, y, z)) and assign it back for speed."><div class="sig"><code>api.set_world_generator(generator: Object) -&gt; void</code></div><p>`generator` must implement `generate(chunk)`; write into a local copy of `chunk.blocks`<br>(index with Chunk.index(x, y, z)) and assign it back for speed.</p></div>
+<div class="card" id="api-use-biome-generator" data-search="use_biome_generator usebiomegenerator turns on the engine biome generator (engine/server/worldgen/biome_generator.gd) for this world.
+options: sea_level, snow_level. register biomes and features before or after; returns the generator."><div class="sig"><code>api.use_biome_generator(options := {}) -&gt; Object</code><span class="tag js" title="useBiomeGenerator(options?: { sea_level?: number; snow_level?: number }): void">JS useBiomeGenerator</span></div><p>Turns on the engine biome generator (engine/server/worldgen/biome_generator.gd) for this world.<br>options: sea_level, snow_level. Register biomes and features before or after; returns the generator.</p></div>
+<div class="card" id="api-biome-generator" data-search="biome_generator  the shared biome generator (created on first use, even if the game uses its own generator)."><div class="sig"><code>api.biome_generator() -&gt; Object</code></div><p>The shared biome generator (created on first use, even if the game uses its own generator).</p></div>
+<div class="card" id="api-register-biome" data-search="register_biome registerbiome a biome for the biome generator: {climate, ocean, height, surface, features, plants}. see biomegenerator."><div class="sig"><code>api.register_biome(biome_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="registerBiome(name: string, def: Record&lt;string, unknown&gt;): void">JS registerBiome</span></div><p>A biome for the biome generator: {climate, ocean, height, surface, features, plants}. See BiomeGenerator.</p></div>
+<div class="card" id="api-add-cave-carver" data-search="add_cave_carver  carves caves, caverns and ravines into the biome generator's terrain (see worldgen/cave_carver.gd).
+options: tunnels, caverns, ravines (bools), lava (block name), lava_level, water_level, min_y,
+entrance_chance."><div class="sig"><code>api.add_cave_carver(options := {}) -&gt; void</code></div><p>Carves caves, caverns and ravines into the biome generator's terrain (see worldgen/cave_carver.gd).<br>options: tunnels, caverns, ravines (bools), lava (block name), lava_level, water_level, min_y,<br>entrance_chance.</p></div>
+<div class="card" id="api-register-structure-template" data-search="register_structure_template registerstructuretemplate a structure template: a json file in this mod (e.g. &quot;structures/tower.json&quot;, saved with /struct save)
+or a template dictionary. names without &quot;:&quot; are this mod's."><div class="sig"><code>api.register_structure_template(template_name: String, source) -&gt; bool</code><span class="tag js" title="registerStructureTemplate(name: string, source: string | Record&lt;string, unknown&gt;): boolean">JS registerStructureTemplate</span></div><p>A structure template: a JSON file in this mod (e.g. &quot;structures/tower.json&quot;, saved with /struct save)<br>or a template dictionary. Names without &quot;:&quot; are this mod's.</p></div>
+<div class="card" id="api-register-structure" data-search="register_structure registerstructure generated structures (see worldgen/structures.gd): {templates: [{template, weight}] or generator
+(gdscript callable), spacing, separation, biomes, place, y, sink, foundation, swaps, reach, chance}."><div class="sig"><code>api.register_structure(structure_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="registerStructure(name: string, def: Record&lt;string, unknown&gt;): void">JS registerStructure</span></div><p>Generated structures (see worldgen/structures.gd): {templates: [{template, weight}] or generator<br>(GDScript Callable), spacing, separation, biomes, place, y, sink, foundation, swaps, reach, chance}.</p></div>
+<div class="card" id="api-register-loot-table" data-search="register_loot_table registerloottable loot table: {rolls: [min, max], entries: [{item, count: [min, max], weight, data}]}. containers with
+block data {loot: &quot;&lt;table&gt;&quot;} fill from it the first time they are opened."><div class="sig"><code>api.register_loot_table(table_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="registerLootTable(name: string, def: { rolls?: [number, number]; entries: { item: string; count?: [number, number]; weight?: number }[] }): void">JS registerLootTable</span></div><p>Loot table: {rolls: [min, max], entries: [{item, count: [min, max], weight, data}]}. Containers with<br>block data {loot: &quot;&lt;table&gt;&quot;} fill from it the first time they are opened.</p></div>
+<div class="card" id="api-register-feature" data-search="register_feature registerfeature a world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from
+gdscript, a callable(writer, origin: vector3i, rng) run on worker threads. see worldgen/features.gd."><div class="sig"><code>api.register_feature(feature_name: String, def) -&gt; void</code><span class="tag js" title="registerFeature(name: string, def: Record&lt;string, unknown&gt;): void">JS registerFeature</span></div><p>A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from<br>GDScript, a Callable(writer, origin: Vector3i, rng) run on worker threads. See worldgen/features.gd.</p></div>
+<div class="card" id="api-get-biome" data-search="get_biome getbiome name of the biome at a column (&quot;&quot; without the biome generator)."><div class="sig"><code>api.get_biome(position: Vector3) -&gt; String</code><span class="tag js" title="getBiome(position: Vec3): string">JS getBiome</span></div><p>Name of the biome at a column (&quot;&quot; without the biome generator).</p></div>
+<div class="card" id="api-add-generation-pass" data-search="add_generation_pass  adds a pass run after the world generator for every new chunk, on worker threads:
+`pass_object.decorate(chunk, world_seed)`. lets add-on mods put ores or structures in any game."><div class="sig"><code>api.add_generation_pass(pass_object: Object) -&gt; void</code></div><p>Adds a pass run after the world generator for every new chunk, on worker threads:<br>`pass_object.decorate(chunk, world_seed)`. Lets add-on mods put ores or structures in any game.</p></div>
+<div class="card" id="api-add-ore-pass" data-search="add_ore_pass addorepass scatters veins of `ore` inside `replace` in every new chunk. def: ore, replace (block names),
+veins (per chunk), size (blocks per vein), min_y, max_y, chance (per vein, 0-1)."><div class="sig"><code>api.add_ore_pass(def: Dictionary) -&gt; void</code><span class="tag js" title="addOrePass(def: OrePassDef): void">JS addOrePass</span></div><p>Scatters veins of `ore` inside `replace` in every new chunk. def: ore, replace (block names),<br>veins (per chunk), size (blocks per vein), min_y, max_y, chance (per vein, 0-1).</p></div>
+</section>
+<section id="api-blocks-and-the-world"><h2>Blocks and the world</h2>
+<div class="card" id="api-register-block" data-search="register_block registerblock registers a block. `name` is namespaced to this mod. texture and model paths are relative to the
+mod folder. see blockregistry.register for keys (render, light, interactive, model, ...). extra keys
+(e.g. `drops`: &quot;base:cobblestone&quot; or &quot;&quot;) are kept server-side.
+returns the runtime block id, or -1 on error.
+beds: `bed: true` (right-click sets the respawn point and sleeps at night). two-block pieces:
+`pair: {block, direction: &quot;back&quot; | &quot;front&quot; | &quot;up&quot; | &quot;down&quot;}` places `block` next to it (relative to
+the facing of an `orientation: &quot;horizontal&quot;` block) and removes both together; give the second half
+the opposite direction and `placeable: false`.
+`contact_damage: {amount, interval, cause}` hurts players and mobs whose body is inside the block
+(lava)."><div class="sig"><code>api.register_block(block_name: String, def: Dictionary) -&gt; int</code><span class="tag js" title="registerBlock(name: string, def: BlockDef): BlockId">JS registerBlock</span></div><p>Registers a block. `name` is namespaced to this mod. Texture and model paths are relative to the<br>mod folder. See BlockRegistry.register for keys (render, light, interactive, model, ...). Extra keys<br>(e.g. `drops`: &quot;base:cobblestone&quot; or &quot;&quot;) are kept server-side.<br>Returns the runtime block id, or -1 on error.<br>Beds: `bed: true` (right-click sets the respawn point and sleeps at night). Two-block pieces:<br>`pair: {block, direction: &quot;back&quot; | &quot;front&quot; | &quot;up&quot; | &quot;down&quot;}` places `block` next to it (relative to<br>the facing of an `orientation: &quot;horizontal&quot;` block) and removes both together; give the second half<br>the opposite direction and `placeable: false`.<br>`contact_damage: {amount, interval, cause}` hurts players and mobs whose body is inside the block<br>(lava).</p></div>
+<div class="card" id="api-register-block-tick" data-search="register_block_tick registerblocktick makes blocks of a type change over time. `handler(ctx)` gets {position, block, state, ticks, reason,
+payload}: &quot;random&quot; ticks come about every options.interval seconds (default 30) per block, and a
+chunk that was unloaded hands each block the ticks it missed at once (`ticks` &gt; 1) unless
+options.catch_up is false; &quot;scheduled&quot; ticks come from schedule_block_tick."><div class="sig"><code>api.register_block_tick(block_name: String, handler: Callable, options := {}) -&gt; void</code><span class="tag js" title="registerBlockTick">JS registerBlockTick</span></div><p>Makes blocks of a type change over time. `handler(ctx)` gets {position, block, state, ticks, reason,<br>payload}: &quot;random&quot; ticks come about every options.interval seconds (default 30) per block, and a<br>chunk that was unloaded hands each block the ticks it missed at once (`ticks` &gt; 1) unless<br>options.catch_up is false; &quot;scheduled&quot; ticks come from schedule_block_tick.</p></div>
+<div class="card" id="api-schedule-block-tick" data-search="schedule_block_tick scheduleblocktick calls the tick handler of the block at `position` after `seconds`, with `payload` (saved with the world)."><div class="sig"><code>api.schedule_block_tick(position: Vector3i, seconds: float, payload := {}) -&gt; void</code><span class="tag js" title="scheduleBlockTick">JS scheduleBlockTick</span></div><p>Calls the tick handler of the block at `position` after `seconds`, with `payload` (saved with the world).</p></div>
+<div class="card" id="api-get-light" data-search="get_light getlight light level 0-15 at a position right now: block light or sky light scaled by daylight, whichever is
+brighter. an estimate (no occlusion) meant for growth and spawning rules."><div class="sig"><code>api.get_light(position: Vector3i) -&gt; int</code><span class="tag js" title="getLight">JS getLight</span></div><p>Light level 0-15 at a position right now: block light or sky light scaled by daylight, whichever is<br>brighter. An estimate (no occlusion) meant for growth and spawning rules.</p></div>
+<div class="card" id="api-get-light-levels" data-search="get_light_levels getlightlevels {sky, block} light levels 0-15 (sky not scaled by the time of day)."><div class="sig"><code>api.get_light_levels(position: Vector3i) -&gt; Dictionary</code><span class="tag js" title="getLightLevels">JS getLightLevels</span></div><p>{sky, block} light levels 0-15 (sky not scaled by the time of day).</p></div>
+<div class="card" id="api-get-world-clock" data-search="get_world_clock  seconds of world time that have passed (keeps counting across restarts, not while stopped)."><div class="sig"><code>api.get_world_clock() -&gt; float</code></div><p>Seconds of world time that have passed (keeps counting across restarts, not while stopped).</p></div>
+<div class="card" id="api-break-block" data-search="break_block breakblock breaks a block as if mined without a player: drops its items (when `drop`) and plays its sound.
+fires block_destroyed {position, block, drops} (drops may be changed)."><div class="sig"><code>api.break_block(position: Vector3i, drop := true) -&gt; void</code><span class="tag js" title="breakBlock">JS breakBlock</span></div><p>Breaks a block as if mined without a player: drops its items (when `drop`) and plays its sound.<br>Fires block_destroyed {position, block, drops} (drops may be changed).</p></div>
+<div class="card" id="api-block" data-search="block block looks up a block id by name (&quot;base:stone&quot;, or &quot;stone&quot; for this mod's own). -1 if unknown."><div class="sig"><code>api.block(block_name: String) -&gt; int</code><span class="tag js" title="block(name: string): BlockId">JS block</span></div><p>Looks up a block id by name (&quot;base:stone&quot;, or &quot;stone&quot; for this mod's own). -1 if unknown.</p></div>
+<div class="card" id="api-block-name" data-search="block_name blockname the full name (&quot;mod:name&quot;) of a block id, or &quot;&quot;."><div class="sig"><code>api.block_name(id: int) -&gt; String</code><span class="tag js" title="blockName(id: BlockId): string">JS blockName</span></div><p>The full name (&quot;mod:name&quot;) of a block id, or &quot;&quot;.</p></div>
+<div class="card" id="api-block-display-name" data-search="block_display_name  the name players see for a block id."><div class="sig"><code>api.block_display_name(id: int) -&gt; String</code></div><p>The name players see for a block id.</p></div>
+<div class="card" id="api-get-block" data-search="get_block getblock loads the chunk if needed. use get_loaded_block when scanning large areas."><div class="sig"><code>api.get_block(pos: Vector3i) -&gt; int</code><span class="tag js" title="getBlock(position: Vec3): BlockId">JS getBlock</span></div><p>Loads the chunk if needed. Use get_loaded_block when scanning large areas.</p></div>
+<div class="card" id="api-get-loaded-block" data-search="get_loaded_block getloadedblock block id without loading anything; blockregistry.unloaded (255) if the chunk is not in memory."><div class="sig"><code>api.get_loaded_block(pos: Vector3i) -&gt; int</code><span class="tag js" title="getLoadedBlock(position: Vec3): BlockId">JS getLoadedBlock</span></div><p>Block id without loading anything; BlockRegistry.UNLOADED (255) if the chunk is not in memory.</p></div>
+<div class="card" id="api-is-solid" data-search="is_solid issolid whether a block id collides (unloaded space counts as solid)."><div class="sig"><code>api.is_solid(block: int) -&gt; bool</code><span class="tag js" title="isSolid(id: BlockId): boolean">JS isSolid</span></div><p>Whether a block id collides (unloaded space counts as solid).</p></div>
+<div class="card" id="api-is-breakable" data-search="is_breakable  whether players can break a block id."><div class="sig"><code>api.is_breakable(block: int) -&gt; bool</code></div><p>Whether players can break a block id.</p></div>
+<div class="card" id="api-get-drops" data-search="get_drops getdrops what breaking this block yields by default: [[item id, count], ...]."><div class="sig"><code>api.get_drops(block: int) -&gt; Array</code><span class="tag js" title="getDrops(id: BlockId): [ItemId, number][]">JS getDrops</span></div><p>What breaking this block yields by default: [[item id, count], ...].</p></div>
+<div class="card" id="api-set-block" data-search="set_block setblock sets a block authoritatively (loading its chunk if needed) and replicates it to players. block
+data at the position is cleared when the block type changes unless `keep_data` is true."><div class="sig"><code>api.set_block(pos: Vector3i, id: int, keep_data := false, state := 0) -&gt; void</code><span class="tag js" title="setBlock(position: Vec3, id: BlockId, options?: { keepData?: boolean; state?: number }): void">JS setBlock</span></div><p>Sets a block authoritatively (loading its chunk if needed) and replicates it to players. Block<br>data at the position is cleared when the block type changes unless `keep_data` is true.</p></div>
+<div class="card" id="api-get-block-state" data-search="get_block_state getblockstate per-block state byte (e.g. facing 0-3 for &quot;orientation&quot;: &quot;horizontal&quot; blocks)."><div class="sig"><code>api.get_block_state(pos: Vector3i) -&gt; int</code><span class="tag js" title="getBlockState(position: Vec3): number">JS getBlockState</span></div><p>Per-block state byte (e.g. facing 0-3 for &quot;orientation&quot;: &quot;horizontal&quot; blocks).</p></div>
+<div class="card" id="api-facing-from-yaw" data-search="facing_from_yaw facingfromyaw facing (0-3) an oriented block gets when placed by someone looking along `yaw`."><div class="sig"><code>api.facing_from_yaw(yaw: float) -&gt; int</code><span class="tag js" title="facingFromYaw(yaw: number): number">JS facingFromYaw</span></div><p>Facing (0-3) an oriented block gets when placed by someone looking along `yaw`.</p></div>
+<div class="card" id="api-facing-direction" data-search="facing_direction  front direction of an oriented block (+z/+x/-z/-x for facing 0-3)."><div class="sig"><code>api.facing_direction(state: int) -&gt; Vector3i</code></div><p>Front direction of an oriented block (+Z/+X/-Z/-X for facing 0-3).</p></div>
+<div class="card" id="api-get-block-data" data-search="get_block_data getblockdata block data (&quot;block entities&quot;): a dictionary of json-compatible values stored with the world and
+removed automatically when the block is broken or replaced."><div class="sig"><code>api.get_block_data(pos: Vector3i) -&gt; Dictionary</code><span class="tag js" title="getBlockData&lt;T = Record&lt;string, unknown&gt;&gt;(position: Vec3): T">JS getBlockData</span></div><p>Block data (&quot;block entities&quot;): a Dictionary of JSON-compatible values stored with the world and<br>removed automatically when the block is broken or replaced.</p></div>
+<div class="card" id="api-set-block-data" data-search="set_block_data setblockdata replaces the data dictionary stored with the block at a position (saved with the world)."><div class="sig"><code>api.set_block_data(pos: Vector3i, data: Dictionary) -&gt; void</code><span class="tag js" title="setBlockData(position: Vec3, data: Record&lt;string, unknown&gt;): void">JS setBlockData</span></div><p>Replaces the data dictionary stored with the block at a position (saved with the world).</p></div>
+<div class="card" id="api-clear-block-data" data-search="clear_block_data clearblockdata removes the data stored with the block at a position."><div class="sig"><code>api.clear_block_data(pos: Vector3i) -&gt; void</code><span class="tag js" title="clearBlockData(position: Vec3): void">JS clearBlockData</span></div><p>Removes the data stored with the block at a position.</p></div>
+<div class="card" id="api-find-block-data" data-search="find_block_data findblockdata loaded positions that carry block data, optionally filtered to one block id."><div class="sig"><code>api.find_block_data(block := -1) -&gt; Array[Vector3i]</code><span class="tag js" title="findBlockData(block?: BlockId): Vec3[]">JS findBlockData</span></div><p>Loaded positions that carry block data, optionally filtered to one block id.</p></div>
+<div class="card" id="api-set-world-time" data-search="set_world_time setworldtime time_of_day: 0 = midnight, 0.25 = sunrise, 0.5 = noon. day_length in seconds (0 freezes time)."><div class="sig"><code>api.set_world_time(time_of_day: float, day_length := -1.0) -&gt; void</code><span class="tag js" title="setWorldTime(timeOfDay: number, dayLength?: number): void">JS setWorldTime</span></div><p>time_of_day: 0 = midnight, 0.25 = sunrise, 0.5 = noon. day_length in seconds (0 freezes time).</p></div>
+<div class="card" id="api-get-time-of-day" data-search="get_time_of_day  the time of day from 0 to 1 (0 midnight, 0.25 sunrise, 0.5 noon, 0.75 sunset)."><div class="sig"><code>api.get_time_of_day() -&gt; float</code></div><p>The time of day from 0 to 1 (0 midnight, 0.25 sunrise, 0.5 noon, 0.75 sunset).</p></div>
+<div class="card" id="api-get-daylight" data-search="get_daylight  sky brightness in [0.12, 1] for the current time of day."><div class="sig"><code>api.get_daylight() -&gt; float</code></div><p>Sky brightness in [0.12, 1] for the current time of day.</p></div>
+<div class="card" id="api-sees-sky" data-search="sees_sky seessky true if nothing opaque or solid is above the block (it can see the sky)."><div class="sig"><code>api.sees_sky(pos: Vector3i) -&gt; bool</code><span class="tag js" title="seesSky(position: Vec3): boolean">JS seesSky</span></div><p>True if nothing opaque or solid is above the block (it can see the sky).</p></div>
+<div class="card" id="api-fill" data-search="fill fill sets every block in the box between two corners (inclusive) to a block id."><div class="sig"><code>api.fill(from: Vector3i, to: Vector3i, id: int) -&gt; void</code><span class="tag js" title="fill(from: Vec3, to: Vec3, id: BlockId): void">JS fill</span></div><p>Sets every block in the box between two corners (inclusive) to a block id.</p></div>
+<div class="card" id="api-surface-y" data-search="surface_y surfacey y of the highest non-air block in the column, or -1."><div class="sig"><code>api.surface_y(x: int, z: int) -&gt; int</code><span class="tag js" title="surfaceY(x: number, z: number): number">JS surfaceY</span></div><p>Y of the highest non-air block in the column, or -1.</p></div>
+</section>
+<section id="api-players-and-gameplay"><h2>Players and gameplay</h2>
+<div class="card" id="api-set-player-rig" data-search="set_player_rig  replaces the player character rig for this server (see engine/shared/player_rig.gd)."><div class="sig"><code>api.set_player_rig(def: Dictionary) -&gt; void</code></div><p>Replaces the player character rig for this server (see engine/shared/player_rig.gd).</p></div>
+<div class="card" id="api-register-cosmetic" data-search="register_cosmetic registercosmetic registers a server cosmetic players can wear on this server (see engine/shared/cosmetics.gd for
+the def: category, paint, pixels, boxes, texture, model, color, covers, unlocked...). `texture` and
+`model` are paths in this mod. `unlocked: false` makes it wearable only after player.grant_cosmetic.
+returns the cosmetic's full name (&quot;mod:name&quot;), or &quot;&quot; when invalid."><div class="sig"><code>api.register_cosmetic(cosmetic_name: String, def: Dictionary) -&gt; String</code><span class="tag js" title="registerCosmetic(name: string, def: CosmeticDef): string">JS registerCosmetic</span></div><p>Registers a server cosmetic players can wear on this server (see engine/shared/cosmetics.gd for<br>the def: category, paint, pixels, boxes, texture, model, color, covers, unlocked...). `texture` and<br>`model` are paths in this mod. `unlocked: false` makes it wearable only after player.grant_cosmetic.<br>Returns the cosmetic's full name (&quot;mod:name&quot;), or &quot;&quot; when invalid.</p></div>
+<div class="card" id="api-register-cosmetic-category" data-search="register_cosmetic_category registercosmeticcategory adds a cosmetic category. def: display_name, attach (rig attachment point for boxes and models),
+covers (armor slots its cosmetics replace by default)."><div class="sig"><code>api.register_cosmetic_category(category_name: String, def := {}) -&gt; bool</code><span class="tag js" title="registerCosmeticCategory">JS registerCosmeticCategory</span></div><p>Adds a cosmetic category. def: display_name, attach (rig attachment point for boxes and models),<br>covers (armor slots its cosmetics replace by default).</p></div>
+<div class="card" id="api-set-cosmetics-policy" data-search="set_cosmetics_policy setcosmeticspolicy sets how cosmetics work on this server. values (any subset):
+allow_builtin: players may wear built-in cosmetics (their own look from other servers)
+allow_colors:  players may recolor cosmetics and choose skin colors
+armor: &quot;player&quot; (each player chooses per slot), &quot;armor&quot; (armor always shows), &quot;cosmetics&quot;
+blocked: [cosmetic names or categories]
+uniform: avatar data laid over every player, e.g. {wear: {shirt: {id: &quot;builtin:tshirt&quot;, color: &quot;#d94c4c&quot;}}}
+for per-player looks (teams, disguises) use player.set_avatar_override or the avatar_change event."><div class="sig"><code>api.set_cosmetics_policy(values: Dictionary) -&gt; void</code><span class="tag js" title="setCosmeticsPolicy">JS setCosmeticsPolicy</span></div><p>Sets how cosmetics work on this server. values (any subset):<br>allow_builtin: players may wear built-in cosmetics (their own look from other servers)<br>allow_colors:  players may recolor cosmetics and choose skin colors<br>armor: &quot;player&quot; (each player chooses per slot), &quot;armor&quot; (armor always shows), &quot;cosmetics&quot;<br>blocked: [cosmetic names or categories]<br>uniform: avatar data laid over every player, e.g. {wear: {shirt: {id: &quot;builtin:tshirt&quot;, color: &quot;#d94c4c&quot;}}}<br>For per-player looks (teams, disguises) use player.set_avatar_override or the avatar_change event.</p></div>
+<div class="card" id="api-register-equipment-slot" data-search="register_equipment_slot registerequipmentslot adds an equipment slot (after head, chest, legs, feet, offhand). items with a matching
+`equip_slot` go in it; its modifiers apply while worn. def: display_name."><div class="sig"><code>api.register_equipment_slot(slot_name: String, def := {}) -&gt; void</code><span class="tag js" title="registerEquipmentSlot(name: string, def?: { display_name?: string }): void">JS registerEquipmentSlot</span></div><p>Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching<br>`equip_slot` go in it; its modifiers apply while worn. def: display_name.</p></div>
+<div class="card" id="api-register-stat" data-search="register_stat registerstat adds a player stat with a base value. items and effects change it with modifiers; read it with
+player.get_stat(name). engine stats: see itemregistry.base_stats."><div class="sig"><code>api.register_stat(stat_name: String, base: float) -&gt; void</code><span class="tag js" title="registerStat(name: string, base: number): void">JS registerStat</span></div><p>Adds a player stat with a base value. Items and effects change it with modifiers; read it with<br>player.get_stat(name). Engine stats: see ItemRegistry.BASE_STATS.</p></div>
+<div class="card" id="api-set-gameplay" data-search="set_gameplay setgameplay game-wide rules: item_drops (&quot;entity&quot; | &quot;inventory&quot;), keep_inventory, pvp, fall_damage,
+natural_regeneration, mob_spawning."><div class="sig"><code>api.set_gameplay(values: Dictionary) -&gt; void</code><span class="tag js" title="setGameplay(values: Gameplay): void">JS setGameplay</span></div><p>Game-wide rules: item_drops (&quot;entity&quot; | &quot;inventory&quot;), keep_inventory, pvp, fall_damage,<br>natural_regeneration, mob_spawning.</p></div>
+<div class="card" id="api-get-gameplay" data-search="get_gameplay getgameplay a gameplay rule's current value (see set_gameplay), or null."><div class="sig"><code>api.get_gameplay(rule: String)</code><span class="tag js" title="getGameplay&lt;K extends keyof Gameplay&gt;(rule: K): Gameplay[K]">JS getGameplay</span></div><p>A gameplay rule's current value (see set_gameplay), or null.</p></div>
+<div class="card" id="api-set-physics" data-search="set_physics setphysics movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`."><div class="sig"><code>api.set_physics(values: Dictionary) -&gt; void</code><span class="tag js" title="setPhysics(values: Record&lt;string, number | boolean&gt;): void">JS setPhysics</span></div><p>Movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`.</p></div>
+<div class="card" id="api-get-players" data-search="get_players  everyone online (player objects)."><div class="sig"><code>api.get_players() -&gt; Array</code></div><p>Everyone online (player objects).</p></div>
+<div class="card" id="api-find-player" data-search="find_player findplayer the online player with this name (any case), or null."><div class="sig"><code>api.find_player(player_name: String)</code><span class="tag js" title="findPlayer(name: string): Player | null">JS findPlayer</span></div><p>The online player with this name (any case), or null.</p></div>
+<div class="card" id="api-broadcast" data-search="broadcast broadcast sends a chat message to everyone."><div class="sig"><code>api.broadcast(text: String) -&gt; void</code><span class="tag js" title="broadcast(text: string): void">JS broadcast</span></div><p>Sends a chat message to everyone.</p></div>
+</section>
+<section id="api-sounds--effects-and-assets"><h2>Sounds, effects and assets</h2>
+<div class="card" id="api-register-sound" data-search="register_sound registersound registers a sound from one or more audio files in the mod folder (.ogg or .wav; a random one plays
+each time). options: volume (0-2), pitch, pitch_variance, range (blocks). returns the sound id."><div class="sig"><code>api.register_sound(sound_name: String, files, options := {}) -&gt; int</code><span class="tag js" title="registerSound(name: string, files: string | string[], options?: { volume?: number; pitch?: number; pitch_variance?: number; range?: number }): number">JS registerSound</span></div><p>Registers a sound from one or more audio files in the mod folder (.ogg or .wav; a random one plays<br>each time). options: volume (0-2), pitch, pitch_variance, range (blocks). Returns the sound id.</p></div>
+<div class="card" id="api-register-effect" data-search="register_effect registereffect registers a visual effect: particle emitters, light flash, camera shake and sound (see
+engine/shared/effect_registry.gd). emitter textures are paths in this mod or &quot;soft&quot;, &quot;spark&quot;,
+&quot;star&quot;, &quot;square&quot;. returns the effect id, or -1."><div class="sig"><code>api.register_effect(effect_name: String, def: Dictionary) -&gt; int</code><span class="tag js" title="registerEffect(name: string, def: EffectDef): number">JS registerEffect</span></div><p>Registers a visual effect: particle emitters, light flash, camera shake and sound (see<br>engine/shared/effect_registry.gd). Emitter textures are paths in this mod or &quot;soft&quot;, &quot;spark&quot;,<br>&quot;star&quot;, &quot;square&quot;. Returns the effect id, or -1.</p></div>
+<div class="card" id="api-play-effect" data-search="play_effect playeffect plays an effect for everyone in range. options: color (&quot;#rrggbb&quot;, tints it), scale, direction
+(vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).
+built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,
+engine:dust, engine:explosion."><div class="sig"><code>api.play_effect(effect_name: String, position: Vector3, options := {}) -&gt; void</code><span class="tag js" title="playEffect">JS playEffect</span></div><p>Plays an effect for everyone in range. options: color (&quot;#rrggbb&quot;, tints it), scale, direction<br>(Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).<br>Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,<br>engine:dust, engine:explosion.</p></div>
+<div class="card" id="api-play-sound" data-search="play_sound playsound plays a sound at a world position for everyone in range."><div class="sig"><code>api.play_sound(sound_name: String, position: Vector3, volume := 1.0, pitch := 1.0) -&gt; void</code><span class="tag js" title="playSound(name: string, position: Vec3, volume?: number, pitch?: number): void">JS playSound</span></div><p>Plays a sound at a world position for everyone in range.</p></div>
+<div class="card" id="api-register-asset" data-search="register_asset  makes a file from this mod's folder downloadable by clients. returns its asset name."><div class="sig"><code>api.register_asset(relative_path: String) -&gt; String</code></div><p>Makes a file from this mod's folder downloadable by clients. Returns its asset name.</p></div>
+</section>
+<section id="api-server"><h2>Server</h2>
+<div class="card" id="api-storage" data-search="storage storage persistent dictionary owned by this mod, saved with the world."><div class="sig"><code>api.storage: Dictionary  (property)</code><span class="tag js" title="storage">JS storage</span></div><p>Persistent Dictionary owned by this mod, saved with the world.</p></div>
+</section>
+<section id="api-other"><h2>Other</h2>
+<div class="card" id="api-reloading" data-search="reloading  true while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,
+items and entities that exist update in place; things that cannot change live are skipped and noted."><div class="sig"><code>api.reloading := false  (property)</code></div><p>True while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,<br>items and entities that exist update in place; things that cannot change live are skipped and noted.</p></div>
+</section>
+<section id="events"><h2>Events</h2><p>Register with <code>api.on(event, handler, priority)</code> (JS: <code>api.on</code>). Handlers get one dictionary; set <code>cancelled = true</code> where noted.</p><pre class="block">  player_join    {player, first_time}
+  player_leave   {player}
+  tick           {delta, tick}
+  block_break    {player, position, block, drops: [[id, count]...], cancelled}
+  block_broken   {player, position, block}
+  block_destroyed {position, block, drops}                broken without a player (support lost, break_block)
+  container_open {player, position, container, cancelled} container_close {player, position}
+  container_changed {player, position, container, slot}  a player moved items in or out
+  station_upgraded {player, position, station, tier}      a kit upgraded a station
+  craft_job_started {player, position, recipe, times}     a timed recipe joined a station's queue
+  craft_job_finished {player_id, position, recipe, times, helpers}
+  project_contributed {player, position, recipe, item, count}
+  project_completed {position, recipe, item, contributors: {player id: {name, items}}}   reward them here
+  recipe_learned {player, recipe, source (&quot;pickup&quot; | &quot;blueprint&quot; | &quot;experiment&quot; | &quot;mod&quot;)}
+  tool_assembled {player, assembly, parts: {slot: material}, data}   data (the tool's item data) may be changed
+  recipe_experimented {player, recipe}                    discovered at the experimentation grid
+  item_crafted also carries {recipe, helpers}; its player is null when a job finished for someone offline
+  block_place    {player, position, block, cancelled}
+  block_placed   {player, position, block}
+  chat           {player, text, cancelled}
+  ui_action      {player, ui_id, action}
+  block_interact {player, position, block, cancelled}   right-click on an &quot;interactive&quot; block (cancel stops containers and stations opening)
+  item_use       {player, item, has_target, position, normal, direction}   right-click holding a usable item
+  player_eat     {player, item, hunger, saturation, heal, effects, cancelled}   a meal is finished; values may be changed
+  player_sleep   {player, position, cancelled}             lying down in a bed (position: the bed's foot)
+  player_wake    {player, reason (&quot;moved&quot; | &quot;left bed&quot; | &quot;hurt&quot; | &quot;bed&quot; | &quot;day&quot; | &quot;morning&quot; | &quot;left&quot;)}
+  guide_page_unlocked {player, page}                      a guidebook page unlocked for a player
+  guide_page_read {player, page}                          a page read for the first time
+  tutorial_started {player, tutorial}   tutorial_step {player, tutorial, step, index, skipped}
+  tutorial_completed {player, tutorial}   tip_shown {player, tip}
+  night_skipped  {sleepers}                                enough players slept; it is morning now
+  skill_crafted  {player, item, count, quality, score, names, data, product}   crafted by hand; data may be changed
+  item_crafted   {player, item, count}
+  item_durability {player, slot, item, data, amount, reason (&quot;mine&quot; | &quot;attack&quot; | &quot;armor&quot; | ...), cancelled}
+  item_break     {player, slot, item, data}                an item wore out
+  equipment_changed {player, slot, old_item, item}
+  player_appearance {player, appearance}                    what others see; may be changed
+  avatar_change  {player, avatar}                          the player's look was recomputed; avatar may be changed
+  player_stats   {player, stats}                           stats may be changed (see ItemRegistry.BASE_STATS)
+  block_break / block_broken also carry {item, slot} (the held tool) and block_broken {harvested}
+  item_drop      {player, item, count, cancelled}          Q key
+  item_pickup    {player, entity, item, count, cancelled}
+  player_attack  {player, target, target_kind (&quot;entity&quot; | &quot;player&quot;), item, damage, cancelled}   damage may be changed
+  player_damage  {player, amount, cause, attacker, cancelled}   amount may be changed; cause: attack, mob,
+                 projectile, fall, void, starvation, magic, ...
+  player_death   {player, cause, attacker, keep_inventory, message}   keep_inventory and message may be changed
+  player_respawn {player, position}                        position may be changed
+  entity_spawned {entity}          entity_removed {entity}
+  entity_damage  {entity, amount, cause, attacker, cancelled}
+  entity_death   {entity, cause, attacker, drops: [[id, count]...]}   drops may be changed
+  entity_interact {player, entity, item, cancelled}        right-click on an entity (cancel stops feeding it)
+  entity_fed     {player, entity, item, cancelled}         breeding food given (see engine/server/breeding.gd)
+  entity_bred    {parents, baby, player}   entity_grew {entity}
+  entity_natural_spawn {type, position, cancelled}         from spawn rules
+  mob_target     {entity, target, previous, reason, cancelled}   a mob picks a new enemy
+  mob_attack     {entity, attack: {name, type, damage}, target, cancelled}   an attack lands (custom attacks act here)
+  mob_phase      {entity, phase, message}                  a boss crosses a phase threshold; message may be changed
+  projectile_hit {entity, owner, hit (&quot;block&quot; | &quot;entity&quot; | &quot;player&quot;), target, position, block, damage,
+                 cancelled (no damage), keep (do not remove the projectile)}</pre></section>
+<section id="obj-player"><h2>Player</h2><p>A connected, in-game player. Mods receive these in events; public members and methods below the
+&quot;Mod API&quot; line are the supported surface. Underscore-free engine fields are read-only for mods.</p>
+<div class="card" id="player-selected-slot" data-search="selected_slot  index of the selected hotbar slot."><div class="sig"><code>player.selected_slot: int  (property)</code></div><p>Index of the selected hotbar slot.</p></div>
+<div class="card" id="player-get-eye-position" data-search="get_eye_position  where the player's eyes are (for aiming and line of sight)."><div class="sig"><code>player.get_eye_position() -&gt; Vector3</code></div><p>Where the player's eyes are (for aiming and line of sight).</p></div>
+<div class="card" id="player-teleport" data-search="teleport  moves the player to a position and stops their fall."><div class="sig"><code>player.teleport(pos: Vector3) -&gt; void</code></div><p>Moves the player to a position and stops their fall.</p></div>
+<div class="card" id="player-damage" data-search="damage  deals damage from `attacker` (player, entity or null). creative players are unaffected. returns
+true if damage applied. `cause`: &quot;attack&quot;, &quot;mob&quot;, &quot;projectile&quot;, &quot;fall&quot;, &quot;void&quot;, &quot;magic&quot;, ..."><div class="sig"><code>player.damage(amount: float, cause := &quot;magic&quot;, attacker = null) -&gt; bool</code></div><p>Deals damage from `attacker` (player, entity or null). Creative players are unaffected. Returns<br>true if damage applied. `cause`: &quot;attack&quot;, &quot;mob&quot;, &quot;projectile&quot;, &quot;fall&quot;, &quot;void&quot;, &quot;magic&quot;, ...</p></div>
+<div class="card" id="player-heal" data-search="heal  gives back health, up to max_health."><div class="sig"><code>player.heal(amount: float) -&gt; void</code></div><p>Gives back health, up to max_health.</p></div>
+<div class="card" id="player-set-hunger" data-search="set_hunger  sets hunger (0-20) and optionally saturation."><div class="sig"><code>player.set_hunger(value: float, new_saturation := -1.0) -&gt; void</code></div><p>Sets hunger (0-20) and optionally saturation.</p></div>
+<div class="card" id="player-add-exhaustion" data-search="add_exhaustion  adds hunger exhaustion (4 = one point of saturation or hunger)."><div class="sig"><code>player.add_exhaustion(amount: float) -&gt; void</code></div><p>Adds hunger exhaustion (4 = one point of saturation or hunger).</p></div>
+<div class="card" id="player-feed" data-search="feed  restores hunger and saturation as if eating."><div class="sig"><code>player.feed(hunger_points: float, saturation_points := 0.0) -&gt; void</code></div><p>Restores hunger and saturation as if eating.</p></div>
+<div class="card" id="player-set-health" data-search="set_health  sets health (0 kills)."><div class="sig"><code>player.set_health(value: float) -&gt; void</code></div><p>Sets health (0 kills).</p></div>
+<div class="card" id="player-set-max-health" data-search="set_max_health  sets the base max health for this player (items and effects still modify it)."><div class="sig"><code>player.set_max_health(value: float) -&gt; void</code></div><p>Sets the base max health for this player (items and effects still modify it).</p></div>
+<div class="card" id="player-kill" data-search="kill  kills the player with a cause (shown in the death message)."><div class="sig"><code>player.kill(cause := &quot;magic&quot;) -&gt; void</code></div><p>Kills the player with a cause (shown in the death message).</p></div>
+<div class="card" id="player-push" data-search="push  adds velocity (knockback, launch pads). the client is corrected by the next snapshot."><div class="sig"><code>player.push(impulse: Vector3) -&gt; void</code></div><p>Adds velocity (knockback, launch pads). The client is corrected by the next snapshot.</p></div>
+<div class="card" id="player-play-sound" data-search="play_sound  plays a sound only this player hears, not positioned in the world."><div class="sig"><code>player.play_sound(sound_name: String, volume := 1.0, pitch := 1.0) -&gt; void</code></div><p>Plays a sound only this player hears, not positioned in the world.</p></div>
+<div class="card" id="player-send-message" data-search="send_message  a chat message only this player sees."><div class="sig"><code>player.send_message(text: String) -&gt; void</code></div><p>A chat message only this player sees.</p></div>
+<div class="card" id="player-show-title" data-search="show_title  big text in the middle of the player's screen for a few seconds."><div class="sig"><code>player.show_title(text: String, subtitle := &quot;&quot;, seconds := 3.0) -&gt; void</code></div><p>Big text in the middle of the player's screen for a few seconds.</p></div>
+<div class="card" id="player-show-ui" data-search="show_ui  shows or replaces a server-defined ui panel. see engine/client/server_ui.gd for the spec format."><div class="sig"><code>player.show_ui(ui_id: String, spec: Dictionary) -&gt; void</code></div><p>Shows or replaces a server-defined UI panel. See engine/client/server_ui.gd for the spec format.</p></div>
+<div class="card" id="player-hide-ui" data-search="hide_ui  closes a server ui panel shown with show_ui."><div class="sig"><code>player.hide_ui(ui_id: String) -&gt; void</code></div><p>Closes a server UI panel shown with show_ui.</p></div>
+<div class="card" id="player-is-creative" data-search="is_creative  whether the player is in creative mode."><div class="sig"><code>player.is_creative() -&gt; bool</code></div><p>Whether the player is in creative mode.</p></div>
+<div class="card" id="player-set-creative" data-search="set_creative  switches the player between creative (true) and survival (false)."><div class="sig"><code>player.set_creative(enabled: bool) -&gt; void</code></div><p>Switches the player between creative (true) and survival (false).</p></div>
+<div class="card" id="player-give" data-search="give  adds blocks or items (optionally with item data); returns how many did not fit."><div class="sig"><code>player.give(item: int, count := 1, item_data := {}) -&gt; int</code></div><p>Adds blocks or items (optionally with item data); returns how many did not fit.</p></div>
+<div class="card" id="player-take" data-search="take  removes items if the player has enough; returns false otherwise."><div class="sig"><code>player.take(block: int, count := 1) -&gt; bool</code></div><p>Removes items if the player has enough; returns false otherwise.</p></div>
+<div class="card" id="player-count-of" data-search="count_of  how many of a block or item the player carries."><div class="sig"><code>player.count_of(block: int) -&gt; int</code></div><p>How many of a block or item the player carries.</p></div>
+<div class="card" id="player-clear-inventory" data-search="clear_inventory  empties the player's inventory."><div class="sig"><code>player.clear_inventory() -&gt; void</code></div><p>Empties the player's inventory.</p></div>
+<div class="card" id="player-drop" data-search="drop  drops items as an entity in front of the player."><div class="sig"><code>player.drop(item: int, count := 1, item_data := {}) -&gt; void</code></div><p>Drops items as an entity in front of the player.</p></div>
+<div class="card" id="player-set-hotbar" data-search="set_hotbar  fills hotbar slots in order with the given block ids."><div class="sig"><code>player.set_hotbar(blocks: Array, count := 1) -&gt; void</code></div><p>Fills hotbar slots in order with the given block ids.</p></div>
+<div class="card" id="player-get-item" data-search="get_item  {item, count, data} in a slot (0-35 backpack, then equipment; see equipment_slot)."><div class="sig"><code>player.get_item(slot: int) -&gt; Dictionary</code></div><p>{item, count, data} in a slot (0-35 backpack, then equipment; see equipment_slot).</p></div>
+<div class="card" id="player-set-item-data" data-search="set_item_data  replaces the item data of a slot (a copy is stored). use it for wear, experience, levels,
+upgrades, custom names (&quot;name&quot;), tooltip lines (&quot;lore&quot;) and per-item stat &quot;modifiers&quot;."><div class="sig"><code>player.set_item_data(slot: int, item_data: Dictionary) -&gt; void</code></div><p>Replaces the item data of a slot (a copy is stored). Use it for wear, experience, levels,<br>upgrades, custom names (&quot;name&quot;), tooltip lines (&quot;lore&quot;) and per-item stat &quot;modifiers&quot;.</p></div>
+<div class="card" id="player-equipment-slot" data-search="equipment_slot  inventory index of a named equipment slot (&quot;head&quot;, &quot;chest&quot;, ...), or -1."><div class="sig"><code>player.equipment_slot(slot_name: String) -&gt; int</code></div><p>Inventory index of a named equipment slot (&quot;head&quot;, &quot;chest&quot;, ...), or -1.</p></div>
+<div class="card" id="player-damage-item" data-search="damage_item  wears down the item in a slot (respects the durability gameplay rule and item_durability event)."><div class="sig"><code>player.damage_item(slot: int, amount := 1, reason := &quot;use&quot;) -&gt; void</code></div><p>Wears down the item in a slot (respects the durability gameplay rule and item_durability event).</p></div>
+<div class="card" id="player-get-stats" data-search="get_stats  current stats (see itemregistry.base_stats and register_stat)."><div class="sig"><code>player.get_stats() -&gt; Dictionary</code></div><p>Current stats (see ItemRegistry.BASE_STATS and register_stat).</p></div>
+<div class="card" id="player-get-stat" data-search="get_stat  one stat's current value (see get_stats)."><div class="sig"><code>player.get_stat(stat_name: String) -&gt; float</code></div><p>One stat's current value (see get_stats).</p></div>
+<div class="card" id="player-add-modifier" data-search="add_modifier  adds or replaces a stat modifier. `op`: &quot;add&quot; or &quot;multiply&quot; (amount 0.2 = +20%); `seconds` 0 = until
+removed. use ids like &quot;my_mod:haste&quot;."><div class="sig"><code>player.add_modifier(id: String, stat: String, amount: float, op := &quot;add&quot;, seconds := 0.0) -&gt; void</code></div><p>Adds or replaces a stat modifier. `op`: &quot;add&quot; or &quot;multiply&quot; (amount 0.2 = +20%); `seconds` 0 = until<br>removed. Use ids like &quot;my_mod:haste&quot;.</p></div>
+<div class="card" id="player-remove-modifier" data-search="remove_modifier  removes a stat modifier added with add_modifier."><div class="sig"><code>player.remove_modifier(id: String) -&gt; void</code></div><p>Removes a stat modifier added with add_modifier.</p></div>
+<div class="card" id="player-refresh-stats" data-search="refresh_stats  recomputes stats now (after changing item data or modifiers outside the api)."><div class="sig"><code>player.refresh_stats() -&gt; void</code></div><p>Recomputes stats now (after changing item data or modifiers outside the API).</p></div>
+<div class="card" id="player-sync-inventory" data-search="sync_inventory  sends the inventory to the player after changing it directly (give and take do this for you)."><div class="sig"><code>player.sync_inventory() -&gt; void</code></div><p>Sends the inventory to the player after changing it directly (give and take do this for you).</p></div>
+<div class="card" id="player-grant-cosmetic" data-search="grant_cosmetic  lets the player wear a server cosmetic registered with `unlocked: false`. saved with the world."><div class="sig"><code>player.grant_cosmetic(cosmetic_name: String) -&gt; void</code></div><p>Lets the player wear a server cosmetic registered with `unlocked: false`. Saved with the world.</p></div>
+<div class="card" id="player-revoke-cosmetic" data-search="revoke_cosmetic  takes back a server cosmetic granted with grant_cosmetic."><div class="sig"><code>player.revoke_cosmetic(cosmetic_name: String) -&gt; void</code></div><p>Takes back a server cosmetic granted with grant_cosmetic.</p></div>
+<div class="card" id="player-has-cosmetic" data-search="has_cosmetic  whether the player may wear a server cosmetic."><div class="sig"><code>player.has_cosmetic(cosmetic_name: String) -&gt; bool</code></div><p>Whether the player may wear a server cosmetic.</p></div>
+<div class="card" id="player-set-avatar-override" data-search="set_avatar_override  avatar data laid over this player's look, e.g. a team uniform: {wear: {shirt: {id, color}}}; an
+empty id takes a category off. pass {} to clear. not saved."><div class="sig"><code>player.set_avatar_override(values: Dictionary) -&gt; void</code></div><p>Avatar data laid over this player's look, e.g. a team uniform: {wear: {shirt: {id, color}}}; an<br>empty id takes a category off. Pass {} to clear. Not saved.</p></div>
+<div class="card" id="player-knows-recipe" data-search="knows_recipe  whether the player can craft a recipe (discovered, or discovery is off)."><div class="sig"><code>player.knows_recipe(recipe_id: String) -&gt; bool</code></div><p>Whether the player can craft a recipe (discovered, or discovery is off).</p></div>
+<div class="card" id="player-learn-recipe" data-search="learn_recipe  teaches a recipe (source is passed to recipe_learned). returns true if it was new."><div class="sig"><code>player.learn_recipe(recipe_id: String, source := &quot;mod&quot;) -&gt; bool</code></div><p>Teaches a recipe (source is passed to recipe_learned). Returns true if it was new.</p></div>
+<div class="card" id="player-is-admin" data-search="is_admin  whether the player is a server admin."><div class="sig"><code>player.is_admin() -&gt; bool</code></div><p>Whether the player is a server admin.</p></div>
+<div class="card" id="player-kick" data-search="kick  disconnects the player with a reason."><div class="sig"><code>player.kick(reason: String) -&gt; void</code></div><p>Disconnects the player with a reason.</p></div>
+<div class="card" id="player-save-inventory" data-search="save_inventory  the inventory, equipment and item data as saved with the world."><div class="sig"><code>player.save_inventory() -&gt; Dictionary</code></div><p>The inventory, equipment and item data as saved with the world.</p></div>
+<div class="card" id="player-load-inventory" data-search="load_inventory  restores an inventory saved by save_inventory."><div class="sig"><code>player.load_inventory(saved: Dictionary) -&gt; void</code></div><p>Restores an inventory saved by save_inventory.</p></div>
+</section>
+<section id="obj-entity"><h2>Entity</h2><p>A server-side entity: mob, projectile, dropped item stack or mod object. Mods receive these in
+events and from spawn_entity; members above &quot;Engine bookkeeping&quot; are the supported surface.</p>
+<div class="card" id="entity-set-look" data-search="set_look  how clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
+prefixes to hide, e.g. &quot;wool&quot; once sheared], tint: {part prefix: &quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. merged into the current
+look and saved in data.look."><div class="sig"><code>entity.set_look(values: Dictionary) -&gt; void</code></div><p>How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name<br>prefixes to hide, e.g. &quot;wool&quot; once sheared], tint: {part prefix: &quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. Merged into the current<br>look and saved in data.look.</p></div>
+<div class="card" id="entity-is-alive" data-search="is_alive  false once the entity died or was removed."><div class="sig"><code>entity.is_alive() -&gt; bool</code></div><p>False once the entity died or was removed.</p></div>
+<div class="card" id="entity-remove" data-search="remove  removes the entity from the world (no death, no drops)."><div class="sig"><code>entity.remove() -&gt; void</code></div><p>Removes the entity from the world (no death, no drops).</p></div>
+<div class="card" id="entity-damage" data-search="damage  deals damage as if from `attacker` (a serverplayer, entity or null). returns true if it applied."><div class="sig"><code>entity.damage(amount: float, attacker = null, cause := &quot;magic&quot;) -&gt; bool</code></div><p>Deals damage as if from `attacker` (a ServerPlayer, entity or null). Returns true if it applied.</p></div>
+<div class="card" id="entity-heal" data-search="heal  gives back health, up to the type's maximum."><div class="sig"><code>entity.heal(amount: float) -&gt; void</code></div><p>Gives back health, up to the type's maximum.</p></div>
+<div class="card" id="entity-set-goal" data-search="set_goal  makes a mob walk to `pos`, overriding its behaviour until it arrives; vector3.inf clears it."><div class="sig"><code>entity.set_goal(pos: Vector3) -&gt; void</code></div><p>Makes a mob walk to `pos`, overriding its behaviour until it arrives; Vector3.INF clears it.</p></div>
+<div class="card" id="entity-get-target" data-search="get_target  mobs: the current enemy (a player or entity), or null."><div class="sig"><code>entity.get_target()</code></div><p>Mobs: the current enemy (a player or entity), or null.</p></div>
+<div class="card" id="entity-set-target" data-search="set_target  mobs: attack this player or entity now (null forgets the current target)."><div class="sig"><code>entity.set_target(new_target) -&gt; void</code></div><p>Mobs: attack this player or entity now (null forgets the current target).</p></div>
+<div class="card" id="entity-add-threat" data-search="add_threat  mobs: makes `source` more (or less) hated; the highest threat becomes the target."><div class="sig"><code>entity.add_threat(source, amount: float) -&gt; void</code></div><p>Mobs: makes `source` more (or less) hated; the highest threat becomes the target.</p></div>
+<div class="card" id="entity-tune" data-search="tune  mobs: overrides ai settings for this mob only (see engine/server/ai/mob_config.gd)."><div class="sig"><code>entity.tune(values: Dictionary) -&gt; void</code></div><p>Mobs: overrides AI settings for this mob only (see engine/server/ai/mob_config.gd).</p></div>
+<div class="card" id="entity-alert" data-search="alert  mobs: investigate a position as if it heard something there."><div class="sig"><code>entity.alert(pos: Vector3) -&gt; void</code></div><p>Mobs: investigate a position as if it heard something there.</p></div>
+<div class="card" id="entity-set-home" data-search="set_home  mobs: the home it returns to when it strays beyond its leash."><div class="sig"><code>entity.set_home(pos: Vector3, leash := -1.0) -&gt; void</code></div><p>Mobs: the home it returns to when it strays beyond its leash.</p></div>
+<div class="card" id="entity-perform-attack" data-search="perform_attack  mobs: starts the named attack against the current target right away (ignores range and cooldown)."><div class="sig"><code>entity.perform_attack(attack_name: String) -&gt; bool</code></div><p>Mobs: starts the named attack against the current target right away (ignores range and cooldown).</p></div>
+<div class="card" id="entity-get-behavior" data-search="get_behavior  mobs: name of the running behaviour (&quot;wander&quot;, &quot;engage&quot;, &quot;flee&quot;, ...)."><div class="sig"><code>entity.get_behavior() -&gt; String</code></div><p>Mobs: name of the running behaviour (&quot;wander&quot;, &quot;engage&quot;, &quot;flee&quot;, ...).</p></div>
+<div class="card" id="entity-push" data-search="push  adds velocity (e.g. knockback, launch pads)."><div class="sig"><code>entity.push(impulse: Vector3) -&gt; void</code></div><p>Adds velocity (e.g. knockback, launch pads).</p></div>
+<div class="card" id="entity-wake" data-search="wake  makes a resting entity simulate again right away (after moving it from a mod)."><div class="sig"><code>entity.wake() -&gt; void</code></div><p>Makes a resting entity simulate again right away (after moving it from a mod).</p></div>
+<div class="card" id="entity-aabb" data-search="aabb  box enclosing the entity, for hit tests."><div class="sig"><code>entity.aabb() -&gt; AABB</code></div><p>Box enclosing the entity, for hit tests.</p></div>
+</section>
+<section id="js-api"><h2>JavaScript: Api members</h2><p>JavaScript mods export <code>setup(api)</code>. Every GDScript function above has a camelCase twin where marked <span class="tag js">JS</span>. The full declarations:</p>
+<div class="card" data-search="info"><div class="sig"><code>api.info(...parts: unknown[]): void</code></div></div>
+<div class="card" data-search="registerblock"><div class="sig"><code>api.registerBlock(name: string, def: BlockDef): BlockId</code></div></div>
+<div class="card" data-search="registeritem"><div class="sig"><code>api.registerItem(name: string, def: ItemDef): ItemId</code></div></div>
+<div class="card" data-search="registerrecipe"><div class="sig"><code>api.registerRecipe(inputs: Record&lt;string, number&gt;, output: string, count?: number, options?: { station?: string; tier?: number; needs?: string[]; category?: string; id?: string; time?: number; project?: boolean; unlock?: &quot;known&quot; | &quot;pickup&quot; | &quot;blueprint&quot; | &quot;experiment&quot; | &quot;secret&quot;; hint?: string; skill?: string }): void</code></div></div>
+<div class="card" data-search="registerstation"><div class="sig"><code>api.registerStation(name: string, def: StationDef): void</code></div></div>
+<div class="card" data-search="registerminigame"><div class="sig"><code>api.registerMinigame(name: string, def: { title?: string; type?: &quot;timing&quot; | &quot;hold&quot; | &quot;sequence&quot;; verb?: string; rounds?: number; speed?: number; zone?: number; cool?: number; team?: boolean; duration?: number; window?: number }): void</code></div></div>
+<div class="card" data-search="registermaterial"><div class="sig"><code>api.registerMaterial(name: string, def: { display_name?: string; item: string; color?: string; tier?: number; speed?: number; durability?: number; damage?: number; handle?: number; trait?: { name: string; description?: string; modifiers?: StatModifier[]; durability_mult?: number; speed_mult?: number; damage_add?: number; glow?: ItemDef[&quot;glow&quot;] } }): void</code></div></div>
+<div class="card" data-search="registerparttype"><div class="sig"><code>api.registerPartType(name: string, def: { display_name?: string; sprite: string; cost?: number; station?: string }): number</code></div></div>
+<div class="card" data-search="registerassembly"><div class="sig"><code>api.registerAssembly(name: string, def: { display_name?: string; icon?: string; slots: { name: string; part: string; label?: string }[]; tool_type?: string; damage?: number; cooldown?: number; reach?: number; sweep?: number; station?: string; skill?: string }): number</code></div></div>
+<div class="card" data-search="getstation"><div class="sig"><code>api.getStation(position: Vec3): Record&lt;string, unknown&gt;</code></div></div>
+<div class="card" data-search="registercontainer"><div class="sig"><code>api.registerContainer(name: string, def: { title?: string; groups: { name: string; count: number; columns?: number; label?: string; take_only?: boolean; accepts?: string[] | &quot;fuel&quot; }[]; progress?: { name: string; label?: string; color?: string }[] }): boolean</code></div></div>
+<div class="card" data-search="opencontainer"><div class="sig"><code>api.openContainer(player: Player, position: Vec3): boolean</code></div></div>
+<div class="card" data-search="containeritems"><div class="sig"><code>api.containerItems(position: Vec3): ItemStack[]</code></div></div>
+<div class="card" data-search="setcontaineritem"><div class="sig"><code>api.setContainerItem(position: Vec3, slot: number, item: ItemId, count: number, data?: ItemData): void</code></div></div>
+<div class="card" data-search="addtocontainer"><div class="sig"><code>api.addToContainer(position: Vec3, item: ItemId, count: number, data?: ItemData, group?: string): number</code></div></div>
+<div class="card" data-search="containerstate"><div class="sig"><code>api.containerState(position: Vec3): Record&lt;string, unknown&gt;</code></div></div>
+<div class="card" data-search="setcontainerstate"><div class="sig"><code>api.setContainerState(position: Vec3, state: Record&lt;string, unknown&gt;): void</code></div></div>
+<div class="card" data-search="setcontainerprogress"><div class="sig"><code>api.setContainerProgress(position: Vec3, bar: string, value: number): void</code></div></div>
+<div class="card" data-search="setfuel"><div class="sig"><code>api.setFuel(item: string, seconds: number): void</code></div></div>
+<div class="card" data-search="getfuel"><div class="sig"><code>api.getFuel(item: ItemId): number</code></div></div>
+<div class="card" data-search="registerprocess"><div class="sig"><code>api.registerProcess(kind: string, input: string, output: string, count?: number, seconds?: number): void</code></div></div>
+<div class="card" data-search="getprocess"><div class="sig"><code>api.getProcess(kind: string, item: ItemId): { output: ItemId; count: number; seconds: number } | Record&lt;string, never&gt;</code></div></div>
+<div class="card" data-search="block"><div class="sig"><code>api.block(name: string): BlockId</code></div></div>
+<div class="card" data-search="item"><div class="sig"><code>api.item(name: string): ItemId</code></div></div>
+<div class="card" data-search="itemname"><div class="sig"><code>api.itemName(id: ItemId): string</code></div></div>
+<div class="card" data-search="itemdisplayname"><div class="sig"><code>api.itemDisplayName(id: ItemId): string</code></div></div>
+<div class="card" data-search="blockname"><div class="sig"><code>api.blockName(id: BlockId): string</code></div></div>
+<div class="card" data-search="issolid"><div class="sig"><code>api.isSolid(id: BlockId): boolean</code></div></div>
+<div class="card" data-search="getdrops"><div class="sig"><code>api.getDrops(id: BlockId): [ItemId, number][]</code></div></div>
+<div class="card" data-search="addorepass"><div class="sig"><code>api.addOrePass(def: OrePassDef): void</code></div><p>World generation hook for JavaScript mods (scripts cannot run on generation threads).</p></div>
+<div class="card" data-search="getblock"><div class="sig"><code>api.getBlock(position: Vec3): BlockId</code></div></div>
+<div class="card" data-search="getloadedblock"><div class="sig"><code>api.getLoadedBlock(position: Vec3): BlockId</code></div></div>
+<div class="card" data-search="setblock"><div class="sig"><code>api.setBlock(position: Vec3, id: BlockId, options?: { keepData?: boolean; state?: number }): void</code></div></div>
+<div class="card" data-search="fill"><div class="sig"><code>api.fill(from: Vec3, to: Vec3, id: BlockId): void</code></div></div>
+<div class="card" data-search="getblockstate"><div class="sig"><code>api.getBlockState(position: Vec3): number</code></div></div>
+<div class="card" data-search="getblockdata"><div class="sig"><code>api.getBlockData&lt;T = Record&lt;string, unknown&gt;&gt;(position: Vec3): T</code></div><p>Returns a copy: call setBlockData to save changes.</p></div>
+<div class="card" data-search="setblockdata"><div class="sig"><code>api.setBlockData(position: Vec3, data: Record&lt;string, unknown&gt;): void</code></div></div>
+<div class="card" data-search="clearblockdata"><div class="sig"><code>api.clearBlockData(position: Vec3): void</code></div></div>
+<div class="card" data-search="findblockdata"><div class="sig"><code>api.findBlockData(block?: BlockId): Vec3[]</code></div></div>
+<div class="card" data-search="surfacey"><div class="sig"><code>api.surfaceY(x: number, z: number): number</code></div></div>
+<div class="card" data-search="seessky"><div class="sig"><code>api.seesSky(position: Vec3): boolean</code></div></div>
+<div class="card" data-search="setphysics"><div class="sig"><code>api.setPhysics(values: Record&lt;string, number | boolean&gt;): void</code></div></div>
+<div class="card" data-search="setworldtime"><div class="sig"><code>api.setWorldTime(timeOfDay: number, dayLength?: number): void</code></div></div>
+<div class="card" data-search="timeofday"><div class="sig"><code>api.timeOfDay(): number</code></div></div>
+<div class="card" data-search="daylight"><div class="sig"><code>api.daylight(): number</code></div></div>
+<div class="card" data-search="facingfromyaw"><div class="sig"><code>api.facingFromYaw(yaw: number): number</code></div></div>
+<div class="card" data-search="players"><div class="sig"><code>api.players(): Player[]</code></div></div>
+<div class="card" data-search="findplayer"><div class="sig"><code>api.findPlayer(name: string): Player | null</code></div></div>
+<div class="card" data-search="broadcast"><div class="sig"><code>api.broadcast(text: string): void</code></div></div>
+<div class="card" data-search="setserverinfo"><div class="sig"><code>api.setServerInfo(values: { name?: string; description?: string; motd?: string }): void</code></div></div>
+<div class="card" data-search="showcrafting"><div class="sig"><code>api.showCrafting(player: Player): void</code></div></div>
+<div class="card" data-search="registerentity"><div class="sig"><code>api.registerEntity(name: string, def: EntityDef): number</code></div></div>
+<div class="card" data-search="registersound"><div class="sig"><code>api.registerSound(name: string, files: string | string[], options?: { volume?: number; pitch?: number; pitch_variance?: number; range?: number }): number</code></div></div>
+<div class="card" data-search="playsound"><div class="sig"><code>api.playSound(name: string, position: Vec3, volume?: number, pitch?: number): void</code></div></div>
+<div class="card" data-search="spawnentity"><div class="sig"><code>api.spawnEntity(type: string, position: Vec3, options?: { yaw?: number; velocity?: Vec3; data?: Record&lt;string, unknown&gt; }): Entity | null</code></div></div>
+<div class="card" data-search="spawnprojectile"><div class="sig"><code>api.spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner?: Player | Entity | null): Entity | null</code></div></div>
+<div class="card" data-search="dropitem"><div class="sig"><code>api.dropItem(item: ItemId, count: number, position: Vec3): Entity | null</code></div></div>
+<div class="card" data-search="entities"><div class="sig"><code>api.entities(center: Vec3, radius: number, type?: string): Entity[]</code></div></div>
+<div class="card" data-search="addspawnrule"><div class="sig"><code>api.addSpawnRule(rule: SpawnRule): void</code></div></div>
+<div class="card" data-search="usebiomegenerator"><div class="sig"><code>api.useBiomeGenerator(options?: { sea_level?: number; snow_level?: number }): void</code></div><p>Biome generator: data-driven biomes and features (see engine/server/worldgen).</p></div>
+<div class="card" data-search="registerbiome"><div class="sig"><code>api.registerBiome(name: string, def: Record&lt;string, unknown&gt;): void</code></div></div>
+<div class="card" data-search="registerfeature"><div class="sig"><code>api.registerFeature(name: string, def: Record&lt;string, unknown&gt;): void</code></div></div>
+<div class="card" data-search="registerstructuretemplate"><div class="sig"><code>api.registerStructureTemplate(name: string, source: string | Record&lt;string, unknown&gt;): boolean</code></div></div>
+<div class="card" data-search="registerstructure"><div class="sig"><code>api.registerStructure(name: string, def: Record&lt;string, unknown&gt;): void</code></div></div>
+<div class="card" data-search="registerloottable"><div class="sig"><code>api.registerLootTable(name: string, def: { rolls?: [number, number]; entries: { item: string; count?: [number, number]; weight?: number }[] }): void</code></div></div>
+<div class="card" data-search="draw"><div class="sig"><code>api.draw: { box(min: Vec3, max: Vec3, color?: string, seconds?: number, label?: string): void; line(from: Vec3, to: Vec3, color?: string, seconds?: number): void; text(position: Vec3, text: string, color?: string, seconds?: number): void; path(points: Vec3[], color?: string, seconds?: number): void; sphere(center: Vec3, radius?: number, color?: string, seconds?: number): void; }</code></div><p>Debug drawing shown to admins with the dev overlay's Draw toggle on (F8).</p></div>
+<div class="card" data-search="debug"><div class="sig"><code>api.debug(...parts: unknown[]): void</code></div></div>
+<div class="card" data-search="warn"><div class="sig"><code>api.warn(...parts: unknown[]): void</code></div></div>
+<div class="card" data-search="error"><div class="sig"><code>api.error(...parts: unknown[]): void</code></div></div>
+<div class="card" data-search="registerguidechapter"><div class="sig"><code>api.registerGuideChapter(name: string, def?: { title?: string; icon?: string; order?: number; description?: string }): boolean</code></div></div>
+<div class="card" data-search="registerguidepage"><div class="sig"><code>api.registerGuidePage(name: string, def: GuidePage): boolean</code></div></div>
+<div class="card" data-search="registertutorial"><div class="sig"><code>api.registerTutorial(name: string, def: Tutorial): boolean</code></div></div>
+<div class="card" data-search="registertip"><div class="sig"><code>api.registerTip(name: string, def: { text: string; icon?: string; page?: string; trigger: TutorialGoal }): boolean</code></div></div>
+<div class="card" data-search="getbiome"><div class="sig"><code>api.getBiome(position: Vec3): string</code></div></div>
+<div class="card" data-search="setspawncaps"><div class="sig"><code>api.setSpawnCaps(caps: { monster?: number; animal?: number; ambient?: number; misc?: number }): void</code></div></div>
+<div class="card" data-search="setgameplay"><div class="sig"><code>api.setGameplay(values: Gameplay): void</code></div></div>
+<div class="card" data-search="getgameplay"><div class="sig"><code>api.getGameplay&lt;K extends keyof Gameplay&gt;(rule: K): Gameplay[K]</code></div></div>
+<div class="card" data-search="makenoise"><div class="sig"><code>api.makeNoise(position: Vec3, radius: number, source?: Player | Entity | null): void</code></div></div>
+<div class="card" data-search="registerequipmentslot"><div class="sig"><code>api.registerEquipmentSlot(name: string, def?: { display_name?: string }): void</code></div></div>
+<div class="card" data-search="registerstat"><div class="sig"><code>api.registerStat(name: string, base: number): void</code></div></div>
+<div class="card" data-search="registercosmetic"><div class="sig"><code>api.registerCosmetic(name: string, def: CosmeticDef): string</code></div></div>
+<div class="card" data-search="registereffect"><div class="sig"><code>api.registerEffect(name: string, def: EffectDef): number</code></div></div>
+</section>
+<section id="js-types"><h2>voxelcraft.d.ts</h2><p>Copy it next to your mod (new mods get it in <code>types/</code>) for editor autocomplete.</p><pre class="block">// Type declarations for VoxelCraft JavaScript mods. Reference from a mod for editor autocomplete:
+//   /// &lt;reference path=&quot;../../engine/server/js/voxelcraft.d.ts&quot; /&gt;
+//   /** @param {import(&quot;voxelcraft&quot;).Api} api */
+//   export function setup(api) { ... }
+// or author in TypeScript and compile to main.js.
+
+declare module &quot;voxelcraft&quot; {
+  export interface Vec3 { x: number; y: number; z: number; }
+
+  export type BlockId = number;
+  /** Block ids (1-65534) double as their items; other items start at 65536. */
+  export type ItemId = number;
+
+  export interface BlockDef {
+    display_name?: string;
+    /** One texture for all faces, or per-face paths relative to the mod folder. */
+    textures?: string | { all?: string; side?: string; top?: string; bottom?: string } | string[];
+    render?: &quot;opaque&quot; | &quot;cutout&quot; | &quot;translucent&quot; | &quot;invisible&quot; | &quot;model&quot;;
+    solid?: boolean;
+    liquid?: boolean;
+    breakable?: boolean;
+    placeable?: boolean;
+    /** Light emitted, 0-15. */
+    light?: number;
+    /** Right-click fires block_interact instead of placing. */
+    interactive?: boolean;
+    /** glTF (.glb) model path; the block renders as that model. */
+    model?: string;
+    orientation?: &quot;none&quot; | &quot;horizontal&quot;;
+    connect_group?: string;
+    model_arm?: string;
+    sway?: boolean;
+    /** Item name dropped when broken, &quot;&quot; for nothing, or [[itemId, count], ...]. */
+    drops?: string | [ItemId, number][];
+    /** Sound names (&quot;base:stone&quot;, or this mod's) for breaking, placing and walking on the block. */
+    sounds?: { break?: string; place?: string; step?: string };
+    /** Mining: seconds by hand ~ hardness * 1.5; tier of tool needed for drops; effective tool type. */
+    hardness?: number; tier?: number; tool?: string;
+    hazard?: boolean;
+  }
+
+  export interface StatModifier { stat: string; amount: number; op?: &quot;add&quot; | &quot;multiply&quot; }
+
+  export interface ItemDef {
+    display_name?: string; icon?: string; max_stack?: number; usable?: boolean;
+    /** Uses before it breaks (0 = never). Wear is item data `damage`. */
+    durability?: number;
+    tool?: { type: string; tier?: number; speed?: number };
+    weapon?: { damage?: number; cooldown?: number; reach?: number; crit_chance?: number; knockback?: number; sweep?: number };
+    /** Hold use to eat: hunger points (20 = full), saturation, eat_time seconds, always (edible when full), heal,
+     *  remainder item, crumb color, effects (timed stat modifiers with a chance). */
+    food?: { hunger: number; saturation?: number; eat_time?: number; always?: boolean; heal?: number; remainder?: string; color?: string;
+      effects?: { stat: string; amount: number; op?: &quot;add&quot; | &quot;multiply&quot;; seconds?: number; chance?: number; message?: string }[] };
+    armor?: { armor?: number; toughness?: number; knockback_resistance?: number };
+    equip_slot?: string;
+    modifiers?: StatModifier[];
+    model?: string;
+    lore?: string[];
+    /** Emissive glow when held or worn; light = radius in blocks. Item data may override glow, trail and effects. */
+    glow?: { color?: string; energy?: number; light?: number };
+    /** Ribbon behind the item while swinging. */
+    trail?: { color?: string; width?: number; seconds?: number };
+    /** Effect names: swing, hit (at the target), use, held (continuous), break. */
+    effects?: { swing?: string; hit?: string; use?: string; held?: string; break?: string };
+    /** Legacy shorthand for weapon.damage. */
+    attack_damage?: number;
+  }
+
+  /** Colors are &quot;#rrggbb&quot;. An empty id in overrides and uniforms takes a category off. */
+  export interface Avatar {
+    skin?: string;
+    body?: { head?: string; torso?: string; arms?: string; legs?: string };
+    wear?: Record&lt;string, { id: string; color?: string }&gt;;
+    show_armor?: { head?: boolean; chest?: boolean; legs?: boolean; feet?: boolean };
+  }
+
+  /** A cosmetic, drawn from data (see engine/shared/cosmetics.gd). Regions use the 64x64 skin layout;
+   *  boxes are in skin pixels at the category's attachment point (+y up, -z forward). */
+  export interface CosmeticDef {
+    category: &quot;face&quot; | &quot;pants&quot; | &quot;shoes&quot; | &quot;shirt&quot; | &quot;jacket&quot; | &quot;hair&quot; | &quot;hat&quot; | &quot;glasses&quot; | &quot;back&quot; | string;
+    display_name?: string; description?: string;
+    /** Default tint; paint/boxes/pixels without a color use the tint. */
+    color?: string; tint?: boolean;
+    paint?: { region: string; rows?: [number, number]; sides?: (&quot;front&quot; | &quot;back&quot; | &quot;left&quot; | &quot;right&quot; | &quot;top&quot; | &quot;bottom&quot;)[]; color?: string; shade?: number }[];
+    pixels?: { rows: string[]; palette?: Record&lt;string, string&gt; };
+    boxes?: { from: Vec3Array; size: Vec3Array; color?: string; shade?: number }[];
+    texture?: string; model?: string;
+    model_transform?: { position?: Vec3Array; rotation?: Vec3Array; scale?: number };
+    /** Armor slots it replaces when shown (hats: [&quot;head&quot;]). */
+    covers?: (&quot;head&quot; | &quot;chest&quot; | &quot;legs&quot; | &quot;feet&quot;)[];
+    /** false: only players granted it may wear it. */
+    unlocked?: boolean;
+  }
+  export type Vec3Array = [number, number, number];
+  export interface StationGrants { features?: string[]; tier?: number; speed?: number; quality?: number; pull_radius?: number; hints?: number }
+  export interface StationDef {
+    title?: string; grants?: StationGrants;
+    tiers?: { block: string; title?: string; kit?: string; grants?: StationGrants }[];
+    workshop?: { radius?: number; upgrades: { block: string; title?: string; max?: number; grants?: StationGrants }[] };
+    /** Layers bottom to top, rows separated by &quot;|&quot;; &quot;C&quot; core, &quot;.&quot; any block, &quot; &quot; air. */
+    multiblock?: { core: string; pattern: string[]; legend: Record&lt;string, string&gt;; title?: string };
+  }
+
+  /** See engine/shared/effect_registry.gd. Colors &quot;#rrggbb&quot; or &quot;#rrggbbaa&quot;. */
+  export interface EffectDef {
+    emitters?: {
+      amount?: number; burst?: boolean; lifetime?: number; speed?: [number, number]; direction?: Vec3Array;
+      spread?: number; gravity?: number; drag?: number; size?: [number, number]; colors?: string[];
+      shape?: &quot;point&quot; | &quot;sphere&quot; | &quot;box&quot;; radius?: number; extents?: Vec3Array;
+      texture?: &quot;soft&quot; | &quot;spark&quot; | &quot;star&quot; | &quot;square&quot; | string; blend?: &quot;add&quot; | &quot;mix&quot;;
+    }[];
+    light?: { color?: string; energy?: number; range?: number; seconds?: number };
+    shake?: { strength?: number; seconds?: number; radius?: number };
+    sound?: string;
+    /** Seconds continuous emitters run (0 = one burst, -1 = until stopped). */
+    duration?: number;
+    range?: number;
+  }
+  export interface EffectOptions { color?: string; scale?: number; direction?: Vec3 | Vec3Array; duration?: number; follow?: Entity | Player }
+
+  /** Per-item data (engine keys; mods add their own). */
+  export interface ItemData { damage?: number; name?: string; lore?: string[]; modifiers?: StatModifier[]; glow?: ItemDef[&quot;glow&quot;]; trail?: ItemDef[&quot;trail&quot;]; effects?: ItemDef[&quot;effects&quot;]; [key: string]: unknown }
+  export interface ItemStack { item: ItemId; count: number; data: ItemData }
+
+  export interface EntityDef {
+    display_name?: string;
+    kind?: &quot;mob&quot; | &quot;projectile&quot; | &quot;object&quot;;
+    /** glTF model; parts named leg_a/leg_b/arm_a/arm_b swing while walking. Faces -Z. */
+    model?: string;
+    /** Billboard texture when there is no model (projectiles). */
+    sprite?: string;
+    glow?: boolean;
+    width?: number; height?: number; scale?: number;
+    health?: number; speed?: number; gravity?: number; drag?: number; knockback_resistance?: number;
+    ai?: MobAi[&quot;preset&quot;] | MobAi;
+    /** Projectile damage on hit. */
+    damage?: number;
+    lifetime?: number;
+    /** [[item name, count, chance?], ...] dropped on death. */
+    drops?: [string, number, number?][];
+    sounds?: { hurt?: string; death?: string; ambient?: string; attack?: string };
+    /** Saved with the world (otherwise despawns when no player is near). */
+    persistent?: boolean;
+  }
+
+  export interface SpawnRule {
+    entity: string; time?: &quot;night&quot; | &quot;day&quot; | &quot;any&quot;; on?: string[];
+    category?: &quot;monster&quot; | &quot;animal&quot; | &quot;ambient&quot; | &quot;misc&quot;; light?: [number, number]; place?: &quot;any&quot; | &quot;surface&quot; | &quot;underground&quot;;
+    group?: [number, number]; biomes?: string[];
+    max_nearby?: number; max_total?: number; chance?: number; min_distance?: number; max_distance?: number;
+  }
+
+  export interface Gameplay {
+    item_drops?: &quot;entity&quot; | &quot;inventory&quot;; keep_inventory?: boolean; pvp?: boolean;
+    fall_damage?: boolean; natural_regeneration?: boolean; mob_spawning?: boolean;
+  }
+
+  export class Entity {
+    readonly id: number;
+    readonly type: string;
+    readonly kind: string;
+    /** Dropped item stacks: the item and count. */
+    readonly item: ItemId;
+    readonly count: number;
+    readonly alive: boolean;
+    position: Vec3;
+    velocity: Vec3;
+    readonly health: number;
+    readonly maxHealth: number;
+    push(impulse: Vec3): void;
+    damage(amount: number, attacker?: Player | Entity | null, cause?: string): boolean;
+    heal(amount: number): void;
+    remove(): void;
+    setGoal(position: Vec3 | null): void;
+    getData&lt;T = unknown&gt;(key: string, fallback?: T): T;
+    setData(key: string, value: unknown): void;
+    readonly target: Player | Entity | null;
+    setTarget(target: Player | Entity | null): void;
+    addThreat(source: Player | Entity, amount: number): void;
+    tune(values: MobAi): void;
+    alert(position: Vec3): void;
+    setHome(position: Vec3, leash?: number): void;
+    attack(name: string): boolean;
+    readonly behavior: string;
+    moveTo(position: Vec3, speed?: number, radius?: number): void;
+    stop(): void;
+    lookAt(position: Vec3): void;
+  }
+
+  export interface MobAttack {
+    name?: string;
+    type?: &quot;melee&quot; | &quot;ranged&quot; | &quot;leap&quot; | &quot;charge&quot; | &quot;slam&quot; | &quot;summon&quot; | &quot;custom&quot;;
+    damage?: number; range?: number; min_range?: number; cooldown?: number; windup?: number; recovery?: number;
+    knockback?: number; weight?: number; arc?: number; radius?: number;
+    projectile?: string; projectile_speed?: number; spread?: number; count?: number;
+    entity?: string; max_summons?: number; speed?: number; duration?: number;
+    health_below?: number; health_above?: number; sound?: string;
+    /** Full effect names: during the wind-up (follows the mob) and when the attack lands. */
+    windup_effect?: string; effect?: string;
+  }
+
+  /** Engine mob AI settings; see engine/server/ai/mob_config.gd. */
+  export interface MobAi {
+    preset?: &quot;hostile&quot; | &quot;neutral&quot; | &quot;passive&quot; | &quot;archer&quot; | &quot;boss&quot; | &quot;wander&quot; | &quot;none&quot;;
+    temperament?: &quot;hostile&quot; | &quot;neutral&quot; | &quot;passive&quot; | &quot;none&quot;;
+    aggression?: number; courage?: number; intelligence?: number; agility?: number;
+    sight_range?: number; fov?: number; hearing_range?: number; memory?: number; reaction_time?: number;
+    group?: string; enemy_groups?: string[]; alert_radius?: number; chase_speed?: number;
+    wander_speed?: number; wander_radius?: number; preferred_range?: [number, number]; skittish?: number;
+    leash?: number; reset_on_leash?: boolean; regen?: number; step_up?: number; max_drop?: number; can_swim?: boolean;
+    attack_interval?: number; attacks?: MobAttack[];
+    phases?: { health_below: number; message?: string; speed_multiplier?: number; aggression?: number; attacks?: MobAttack[]; add_attacks?: MobAttack[] }[];
+    boss?: { name?: string; bar_range?: number };
+    behaviors?: string[];
+  }
+
+  export interface MobContext {
+    target: Player | Entity | null; can_see_target: boolean; target_distance: number;
+    health: number; behavior: string; arrived: boolean;
+  }
+
+  export interface OrePassDef {
+    ore: string; replace?: string; veins?: number; size?: number; min_y?: number; max_y?: number; chance?: number;
+  }
+
+  export type UiElement =
+    | { type: &quot;label&quot;; text: string; size?: number; color?: string }
+    | { type: &quot;button&quot;; text: string; action: string; disabled?: boolean }
+    | { type: &quot;progress&quot;; value: number; max: number }
+    | { type: &quot;image&quot;; asset: string; size?: number }
+    | { type: &quot;vbox&quot; | &quot;hbox&quot;; children: UiElement[] }
+    | { type: &quot;spacer&quot;; size?: number };
+
+  export interface UiSpec {
+    anchor?: &quot;top_left&quot; | &quot;top_right&quot; | &quot;bottom_left&quot; | &quot;bottom_right&quot; | &quot;center&quot; | &quot;center_top&quot; | &quot;center_left&quot; | &quot;center_right&quot;;
+    modal?: boolean;
+    children: UiElement[];
+  }
+
+  export class Player {
+    readonly id: number;
+    readonly name: string;
+    readonly position: Vec3;
+    readonly eyePosition: Vec3;
+    readonly yaw: number;
+    readonly lookDirection: Vec3;
+    readonly online: boolean;
+    give(item: ItemId, count?: number, data?: ItemData): number;
+    getItem(slot: number): ItemStack;
+    setItemData(slot: number, data: ItemData): void;
+    readonly selectedSlot: number;
+    equipmentSlot(name: string): number;
+    damageItem(slot: number, amount?: number, reason?: string): void;
+    readonly stats: Record&lt;string, number&gt;;
+    getStat(name: string): number;
+    addModifier(id: string, stat: string, amount: number, op?: &quot;add&quot; | &quot;multiply&quot;, seconds?: number): void;
+    removeModifier(id: string): void;
+    setTeam(name: string): void;
+    knowsRecipe(id: string): boolean;
+    learnRecipe(id: string): boolean;
+    openGuide(page?: string): void;
+    startTutorial(name: string): boolean;
+    stopTutorial(): void;
+    advanceTutorial(): void;
+    tutorialState(): { active: string; step: number; progress: number; done: string[] };
+    showTip(name: string): boolean;
+    setGuideFlag(flag: string, on?: boolean): void;
+    hasGuideFlag(flag: string): boolean;
+    unlockGuidePage(page: string, notify?: boolean): boolean;
+    team(): string;
+    grantCosmetic(name: string): void;
+    revokeCosmetic(name: string): void;
+    hasCosmetic(name: string): boolean;
+    cosmetics(): string[];
+    avatar(): Avatar;
+    setAvatarOverride(values: Avatar): void;
+    refreshStats(): void;
+    take(item: ItemId, count?: number): boolean;
+    countOf(item: ItemId): number;
+    teleport(position: Vec3): void;
+    sendMessage(text: string): void;
+    showTitle(text: string, subtitle?: string, seconds?: number): void;
+    /** UI ids are namespaced to the mod automatically (&quot;board&quot; -&gt; &quot;guild:board&quot;). */
+    showUi(id: string, spec: UiSpec): void;
+    hideUi(id: string): void;
+    isCreative(): boolean;
+    isAdmin(): boolean;
+    setCreative(enabled: boolean): void;
+    setHotbar(items: ItemId[]): void;
+    getData&lt;T = unknown&gt;(key: string, fallback?: T): T;
+    setData(key: string, value: unknown): void;
+    kick(reason: string): void;
+    readonly health: number;
+    readonly maxHealth: number;
+    readonly dead: boolean;
+    setHealth(value: number): void;
+    heal(amount: number): void;
+    damage(amount: number, cause?: string, attacker?: Player | Entity | null): boolean;
+    playSound(name: string, volume?: number, pitch?: number): void;
+    drop(item: ItemId, count?: number): void;
+    push(impulse: Vec3): void;
+    setSpawnPoint(position: Vec3 | null): void;
+  }
+
+  export interface Events {
+    player_join: { player: Player; first_time: boolean };
+    player_leave: { player: Player };
+    tick: { delta: number; tick: number };
+    block_break: { player: Player; position: Vec3; block: BlockId; drops: [ItemId, number][]; cancelled: boolean };
+    block_broken: { player: Player; position: Vec3; block: BlockId; item: ItemId; slot: number; harvested: boolean };
+    block_destroyed: { position: Vec3; block: BlockId; drops: [ItemId, number][] };
+    block_place: { player: Player; position: Vec3; block: BlockId; cancelled: boolean };
+    block_placed: { player: Player; position: Vec3; block: BlockId };
+    block_interact: { player: Player; position: Vec3; block: BlockId; cancelled: boolean };
+    container_open: { player: Player; position: Vec3; container: { position: Vec3; type: string; size: number }; cancelled: boolean };
+    container_changed: { player: Player; position: Vec3; container: { position: Vec3; type: string; size: number }; slot: number };
+    container_close: { player: Player; position: Vec3 };
+    item_use: { player: Player; item: ItemId; has_target: boolean; position: Vec3; normal: Vec3; direction: Vec3 };
+    item_crafted: { player: Player; item: ItemId; count: number };
+    chat: { player: Player; text: string; cancelled: boolean };
+    ui_action: { player: Player; ui_id: string; action: string };
+    item_drop: { player: Player; item: ItemId; count: number; cancelled: boolean };
+    item_pickup: { player: Player; entity: Entity; item: ItemId; count: number; cancelled: boolean };
+    player_attack: { player: Player; target: Entity | Player; target_kind: &quot;entity&quot; | &quot;player&quot;; item: ItemId; slot: number; damage: number; critical: boolean; cancelled: boolean };
+    player_damage: { player: Player; amount: number; cause: string; attacker: Player | Entity | null; cancelled: boolean };
+    player_death: { player: Player; cause: string; attacker: Player | Entity | null; keep_inventory: boolean; message: string };
+    player_respawn: { player: Player; position: Vec3 };
+    entity_spawned: { entity: Entity };
+    entity_removed: { entity: Entity };
+    entity_damage: { entity: Entity; amount: number; cause: string; attacker: Player | Entity | null; cancelled: boolean };
+    entity_death: { entity: Entity; cause: string; attacker: Player | Entity | null; drops: [ItemId, number][] };
+    entity_interact: { player: Player; entity: Entity; item: ItemId };
+    entity_natural_spawn: { type: string; position: Vec3; cancelled: boolean };
+    item_durability: { player: Player; slot: number; item: ItemId; data: ItemData; amount: number; reason: string; cancelled: boolean };
+    item_break: { player: Player; slot: number; item: ItemId; data: ItemData };
+    equipment_changed: { player: Player; slot: string; old_item: ItemId; item: ItemId };
+    avatar_change: { player: Player; avatar: Avatar };
+    player_stats: { player: Player; stats: Record&lt;string, number&gt; };
+    mob_target: { entity: Entity; target: Player | Entity; previous: Player | Entity | null; reason: string; cancelled: boolean };
+    mob_attack: { entity: Entity; attack: { name: string; type: string; damage: number }; target: Player | Entity; cancelled: boolean };
+    mob_phase: { entity: Entity; phase: number; message: string };
+    projectile_hit: { entity: Entity; owner: Player | Entity | null; hit: &quot;block&quot; | &quot;entity&quot; | &quot;player&quot;; target: Player | Entity | null;
+      position: Vec3; block: Vec3; damage: number; cancelled: boolean; keep: boolean };
+  }
+
+  export interface Api {
+    info(...parts: unknown[]): void;
+    registerBlock(name: string, def: BlockDef): BlockId;
+    registerItem(name: string, def: ItemDef): ItemId;
+    registerRecipe(inputs: Record&lt;string, number&gt;, output: string, count?: number, options?: { station?: string; tier?: number; needs?: string[]; category?: string; id?: string;
+      time?: number; project?: boolean; unlock?: &quot;known&quot; | &quot;pickup&quot; | &quot;blueprint&quot; | &quot;experiment&quot; | &quot;secret&quot;; hint?: string; skill?: string }): void;
+    registerStation(name: string, def: StationDef): void;
+    registerMinigame(name: string, def: { title?: string; type?: &quot;timing&quot; | &quot;hold&quot; | &quot;sequence&quot;; verb?: string; rounds?: number;
+      speed?: number; zone?: number; cool?: number; team?: boolean; duration?: number; window?: number }): void;
+    registerMaterial(name: string, def: { display_name?: string; item: string; color?: string; tier?: number; speed?: number; durability?: number;
+      damage?: number; handle?: number; trait?: { name: string; description?: string; modifiers?: StatModifier[]; durability_mult?: number;
+      speed_mult?: number; damage_add?: number; glow?: ItemDef[&quot;glow&quot;] } }): void;
+    registerPartType(name: string, def: { display_name?: string; sprite: string; cost?: number; station?: string }): number;
+    registerAssembly(name: string, def: { display_name?: string; icon?: string; slots: { name: string; part: string; label?: string }[];
+      tool_type?: string; damage?: number; cooldown?: number; reach?: number; sweep?: number; station?: string; skill?: string }): number;
+    getStation(position: Vec3): Record&lt;string, unknown&gt;;
+    registerContainer(name: string, def: { title?: string; groups: { name: string; count: number; columns?: number; label?: string; take_only?: boolean; accepts?: string[] | &quot;fuel&quot; }[];
+      progress?: { name: string; label?: string; color?: string }[] }): boolean;
+    openContainer(player: Player, position: Vec3): boolean;
+    containerItems(position: Vec3): ItemStack[];
+    setContainerItem(position: Vec3, slot: number, item: ItemId, count: number, data?: ItemData): void;
+    addToContainer(position: Vec3, item: ItemId, count: number, data?: ItemData, group?: string): number;
+    containerState(position: Vec3): Record&lt;string, unknown&gt;;
+    setContainerState(position: Vec3, state: Record&lt;string, unknown&gt;): void;
+    setContainerProgress(position: Vec3, bar: string, value: number): void;
+    setFuel(item: string, seconds: number): void;
+    getFuel(item: ItemId): number;
+    registerProcess(kind: string, input: string, output: string, count?: number, seconds?: number): void;
+    getProcess(kind: string, item: ItemId): { output: ItemId; count: number; seconds: number } | Record&lt;string, never&gt;;
+    block(name: string): BlockId;
+    item(name: string): ItemId;
+    itemName(id: ItemId): string;
+    itemDisplayName(id: ItemId): string;
+    blockName(id: BlockId): string;
+    isSolid(id: BlockId): boolean;
+    getDrops(id: BlockId): [ItemId, number][];
+    /** World generation hook for JavaScript mods (scripts cannot run on generation threads). */
+    addOrePass(def: OrePassDef): void;
+
+    getBlock(position: Vec3): BlockId;
+    getLoadedBlock(position: Vec3): BlockId;
+    setBlock(position: Vec3, id: BlockId, options?: { keepData?: boolean; state?: number }): void;
+    fill(from: Vec3, to: Vec3, id: BlockId): void;
+    getBlockState(position: Vec3): number;
+    /** Returns a copy: call setBlockData to save changes. */
+    getBlockData&lt;T = Record&lt;string, unknown&gt;&gt;(position: Vec3): T;
+    setBlockData(position: Vec3, data: Record&lt;string, unknown&gt;): void;
+    clearBlockData(position: Vec3): void;
+    findBlockData(block?: BlockId): Vec3[];
+    surfaceY(x: number, z: number): number;
+    seesSky(position: Vec3): boolean;
+    setPhysics(values: Record&lt;string, number | boolean&gt;): void;
+    setWorldTime(timeOfDay: number, dayLength?: number): void;
+    timeOfDay(): number;
+    daylight(): number;
+    facingFromYaw(yaw: number): number;
+
+    players(): Player[];
+    findPlayer(name: string): Player | null;
+    broadcast(text: string): void;
+    setServerInfo(values: { name?: string; description?: string; motd?: string }): void;
+    showCrafting(player: Player): void;
+
+    registerEntity(name: string, def: EntityDef): number;
+    registerSound(name: string, files: string | string[], options?: { volume?: number; pitch?: number; pitch_variance?: number; range?: number }): number;
+    playSound(name: string, position: Vec3, volume?: number, pitch?: number): void;
+    spawnEntity(type: string, position: Vec3, options?: { yaw?: number; velocity?: Vec3; data?: Record&lt;string, unknown&gt; }): Entity | null;
+    spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner?: Player | Entity | null): Entity | null;
+    dropItem(item: ItemId, count: number, position: Vec3): Entity | null;
+    entities(center: Vec3, radius: number, type?: string): Entity[];
+    addSpawnRule(rule: SpawnRule): void;
+    /** Biome generator: data-driven biomes and features (see engine/server/worldgen). */
+    useBiomeGenerator(options?: { sea_level?: number; snow_level?: number }): void;
+    registerBiome(name: string, def: Record&lt;string, unknown&gt;): void;
+    registerFeature(name: string, def: Record&lt;string, unknown&gt;): void;
+    registerStructureTemplate(name: string, source: string | Record&lt;string, unknown&gt;): boolean;
+    registerStructure(name: string, def: Record&lt;string, unknown&gt;): void;
+    registerLootTable(name: string, def: { rolls?: [number, number]; entries: { item: string; count?: [number, number]; weight?: number }[] }): void;
+    /** Debug drawing shown to admins with the dev overlay's Draw toggle on (F8). */
+    draw: {
+      box(min: Vec3, max: Vec3, color?: string, seconds?: number, label?: string): void;
+      line(from: Vec3, to: Vec3, color?: string, seconds?: number): void;
+      text(position: Vec3, text: string, color?: string, seconds?: number): void;
+      path(points: Vec3[], color?: string, seconds?: number): void;
+      sphere(center: Vec3, radius?: number, color?: string, seconds?: number): void;
+    };
+    debug(...parts: unknown[]): void;
+    warn(...parts: unknown[]): void;
+    error(...parts: unknown[]): void;
+    registerGuideChapter(name: string, def?: { title?: string; icon?: string; order?: number; description?: string }): boolean;
+    registerGuidePage(name: string, def: GuidePage): boolean;
+    registerTutorial(name: string, def: Tutorial): boolean;
+    registerTip(name: string, def: { text: string; icon?: string; page?: string; trigger: TutorialGoal }): boolean;
+    getBiome(position: Vec3): string;
+    setSpawnCaps(caps: { monster?: number; animal?: number; ambient?: number; misc?: number }): void;
+    setGameplay(values: Gameplay): void;
+    getGameplay&lt;K extends keyof Gameplay&gt;(rule: K): Gameplay[K];
+    makeNoise(position: Vec3, radius: number, source?: Player | Entity | null): void;
+    registerEquipmentSlot(name: string, def?: { display_name?: string }): void;
+    registerStat(name: string, base: number): void;
+    registerCosmetic(name: string, def: CosmeticDef): string;
+    registerEffect(name: string, def: EffectDef): number;
+    registerBlockTick(block: string, handler: (ctx: { position: Vec3; block: BlockId; state: number; ticks: number; reason: &quot;random&quot; | &quot;scheduled&quot;; payload: Record&lt;string, unknown&gt; }) =&gt; void,
+      options?: { interval?: number; catch_up?: boolean }): void;
+    scheduleBlockTick(position: Vec3, seconds: number, payload?: Record&lt;string, unknown&gt;): void;
+    getLight(position: Vec3): number;
+    getLightLevels(position: Vec3): { sky: number; block: number };
+    worldClock(): number;
+    breakBlock(position: Vec3, drop?: boolean): void;
+    playEffect(name: string, position: Vec3, options?: EffectOptions): void;
+    explode(position: Vec3, power: number, options?: { source?: unknown; break_blocks?: boolean; drop_chance?: number; damage?: number; effect?: string; sound?: string }): void;
+    registerCosmeticCategory(name: string, def?: { display_name?: string; attach?: string; covers?: string[] }): boolean;
+    setCosmeticsPolicy(values: { allow_builtin?: boolean; allow_colors?: boolean; armor?: &quot;player&quot; | &quot;armor&quot; | &quot;cosmetics&quot;; blocked?: string[]; uniform?: Avatar }): void;
+    registerMobBehavior(name: string, def: { score: (mob: Entity, ctx: MobContext) =&gt; number; update: (mob: Entity, ctx: MobContext) =&gt; void; stop?: (mob: Entity) =&gt; void }): void;
+
+    on&lt;E extends keyof Events&gt;(event: E, handler: (event: Events[E]) =&gt; void, priority?: number): void;
+    command(name: string, description: string, handler: (player: Player, args: string[]) =&gt; void, options?: { admin?: boolean }): void;
+    after(seconds: number, fn: () =&gt; void): number;
+    every(seconds: number, fn: () =&gt; void): number;
+    cancel(taskId: number): void;
+    storage: { get&lt;T = unknown&gt;(key: string, fallback?: T): T; set(key: string, value: unknown): void };
+  }
+
+  export type GuideBlock =
+      | { type: &quot;text&quot; | &quot;heading&quot; | &quot;tip&quot;; text: string }
+      | { type: &quot;items&quot;; items: string[] }
+      | { type: &quot;recipe&quot;; output: string }
+      | { type: &quot;entity&quot;; entity: string }
+      | { type: &quot;image&quot;; asset: string }
+      | { type: &quot;link&quot;; page: string; text?: string }
+      | { type: &quot;keys&quot;; action: string; text: string };
+
+  export interface TutorialGoal {
+      type: &quot;break&quot; | &quot;place&quot; | &quot;craft&quot; | &quot;pickup&quot; | &quot;eat&quot; | &quot;use_item&quot; | &quot;use_block&quot; | &quot;equip&quot; | &quot;kill&quot; | &quot;breed&quot; | &quot;tame&quot;
+          | &quot;learn&quot; | &quot;read&quot; | &quot;unlock_page&quot; | &quot;sleep&quot; | &quot;respawn&quot; | &quot;death&quot; | &quot;damage&quot; | &quot;upgrade&quot; | &quot;assemble&quot; | &quot;event&quot;
+          | &quot;have&quot; | &quot;depth&quot; | &quot;reach&quot; | &quot;biome&quot; | &quot;hunger_below&quot; | &quot;health_below&quot; | &quot;night&quot; | &quot;flag&quot; | &quot;manual&quot;;
+      target?: string | string[];
+      count?: number;
+      event?: string; who?: string; field?: string;
+      below?: number; position?: [number, number, number]; radius?: number; value?: number;
+  }
+
+  export interface Tutorial {
+      title?: string;
+      description?: string;
+      order?: number;
+      auto_start?: boolean;
+      reward?: [string, number][];
+      steps: { title: string; text?: string; icon?: string; goal: TutorialGoal;
+          hint?: false | { block?: string | string[]; entity?: string | string[]; position?: [number, number, number] };
+          page?: string; reward?: [string, number][] }[];
+  }
+
+  export interface GuidePage {
+      chapter: string;
+      title?: string;
+      icon?: string;
+      order?: number;
+      unlock?: { item?: string; recipe?: string; entity?: string; biome?: string; flag?: string; page?: string };
+      hint?: string;
+      keywords?: string;
+      blocks: GuideBlock[];
+  }
+}
+</pre></section>
+<section id="ref-mod-json-and-load-order" class="ref"><h2>mod.json and load order <span class="file">engine/server/mod_loader.gd</span></h2><pre class="block">Finds mods on disk (folders and .zip packages) and resolves load order from their dependencies,
+checking versions.
+
+mod.json:
+  id, name, version (&quot;1.2.0&quot;, semantic), description, authors [..], license, homepage,
+  game (listed as a playable game), main (main.gd or main.js),
+  engine: &quot;^1.0&quot;                       the mod API versions it works with (see Protocol.MOD_API_VERSION)
+  depends: [&quot;base&quot;, &quot;arcana@^1.2&quot;, {&quot;id&quot;: &quot;guild&quot;, &quot;version&quot;: &quot;&gt;=1.0 &lt;2&quot;}]   or {&quot;base&quot;: &quot;^1.0&quot;}
+  optional_depends: [...]              loaded first when installed, not required
+  conflicts: [&quot;other_mod&quot;, &quot;old_mod@&lt;2&quot;]
+Version ranges: engine/shared/semver.gd.
+
+Packages: a .zip (or .vcmod) holding mod.json at its root (or inside a single top folder) is unpacked
+once into user://mod_cache/&lt;id&gt;-&lt;version&gt;-&lt;hash&gt;/&lt;id&gt; and loaded like a folder. A folder with the same
+id in the same search directory wins over a package.</pre></section>
+<section id="ref-mod-script" class="ref"><h2>Mod script <span class="file">engine/server/mod.gd</span></h2><pre class="block">Base class for server mods. A mod is a folder containing `mod.json` and a script that does
+`extends &quot;res://engine/server/mod.gd&quot;` and overrides `setup`.
+
+mod.json:
+  {
+    &quot;id&quot;: &quot;my_mod&quot;,              lowercase letters, digits, underscores; must match the folder
+    &quot;name&quot;: &quot;My Mod&quot;,
+    &quot;version&quot;: &quot;1.0.0&quot;,
+    &quot;description&quot;: &quot;...&quot;,
+    &quot;depends&quot;: [&quot;base&quot;],         loaded first, in order
+    &quot;game&quot;: true,                listed as a playable game in the Host menu
+    &quot;main&quot;: &quot;main.gd&quot;            optional; main.gd, or main.js for JavaScript mods (see js/prelude.js)
+  }</pre></section>
+<section id="ref-version-ranges" class="ref"><h2>Version ranges <span class="file">engine/shared/semver.gd</span></h2><pre class="block">Semantic versions (&quot;1.4.2&quot;, &quot;2.0.0-beta.1&quot;) and version ranges for mod dependencies.
+
+Ranges (npm-style, the common subset):
+  &quot;1.2.3&quot; or &quot;=1.2.3&quot;   exactly          &quot;*&quot; or &quot;&quot;        anything
+  &quot;^1.2.3&quot;              &gt;=1.2.3 &lt;2.0.0 (for 0.x: &gt;=0.2.3 &lt;0.3.0)
+  &quot;~1.2.3&quot;              &gt;=1.2.3 &lt;1.3.0
+  &quot;&gt;=1.2&quot; &quot;&lt;2&quot; &quot;&gt;1.0.0&quot; &quot;&lt;=1.9&quot;           comparisons (missing parts are 0)
+  &quot;1.x&quot; &quot;1.2.x&quot;         wildcards
+  &quot;&gt;=1.2 &lt;2&quot;            space = and       &quot;^1.0 || ^2.0&quot;   || = or
+Pre-releases sort before their release (1.0.0-beta &lt; 1.0.0).</pre></section>
+<section id="ref-blocks" class="ref"><h2>Blocks <span class="file">engine/shared/block_registry.gd</span></h2><pre class="block">Runtime block table. The server builds it from mod registrations; clients rebuild it from the
+plain-data copy the server sends. Block ids are u16: 0 is air, 65535 marks unloaded chunks.</pre></section>
+<section id="ref-items" class="ref"><h2>Items <span class="file">engine/shared/item_registry.gd</span></h2><pre class="block">Items. Every block id (1-65534) is implicitly also the item that places it; non-block items (coal,
+tools, armor, wands, ...) get ids from FIRST_ITEM upward. Inventories store these ids.
+
+Item definitions describe what an item *is*; what happens to one particular item (wear, experience,
+upgrades, a custom name) lives in its item data (see Inventory). Equipment slots and player stats
+are registered here too so the client can show them.</pre></section>
+<section id="ref-entities" class="ref"><h2>Entities <span class="file">engine/shared/entity_registry.gd</span></h2><pre class="block">Entity types (mobs, projectiles, dropped items) registered by mods. The server keeps the whole
+definition (AI, drops, damage); clients get only what they need to draw and animate them.
+Type ids are indexes into `defs`; &quot;engine:item&quot; (dropped item stacks) is always id 0.</pre></section>
+<section id="ref-mob-ai-settings" class="ref"><h2>Mob AI settings <span class="file">engine/server/ai/mob_config.gd</span></h2><pre class="block">Resolves a mob's `ai` definition into a complete, validated config. Mods write a preset name
+(&quot;hostile&quot;) or a Dictionary that starts from a preset and overrides any field:
+
+  &quot;ai&quot;: {
+    &quot;preset&quot;: &quot;hostile&quot;,        hostile | neutral | passive | archer | boss | wander | none
+    &quot;aggression&quot;: 0.8,          0-1: how far it engages from, how often it attacks, how long it pursues
+    &quot;courage&quot;: 0.4,             0-1: flees below (1 - courage) / 2 health; 1 never flees
+    &quot;intelligence&quot;: 0.9,        0-1: flanking/surrounding, leading shots, predicting movement, dodging
+    &quot;agility&quot;: 0.5,             0-1: chance to sidestep incoming projectiles
+    &quot;sight_range&quot;: 24, &quot;fov&quot;: 140, &quot;hearing_range&quot;: 16, &quot;memory&quot;: 12, &quot;reaction_time&quot;: 0.3,
+    &quot;group&quot;: &quot;undead&quot;,          allies share alerts and never fight each other
+    &quot;enemy_groups&quot;: [&quot;villager&quot;], other mob groups it attacks (players are always enemies of hostile mobs)
+    &quot;alert_radius&quot;: 16,         allies within this distance join the fight
+    &quot;chase_speed&quot;: 1.3,         speed multiplier while engaging
+    &quot;preferred_range&quot;: [6, 12], ranged mobs keep this distance (defaults from their attacks)
+    &quot;skittish&quot;: 0,              passive mobs flee from players closer than this
+    &quot;leash&quot;: 0,                 return home when further than this (0 = roam); &quot;reset_on_leash&quot; heals
+    &quot;step_up&quot;: 1, &quot;max_drop&quot;: 3, &quot;can_swim&quot;: false,
+    &quot;attack_interval&quot;: 1.0,     minimum seconds between any two attacks (scaled by aggression)
+    &quot;attacks&quot;: [ {...} ],       see ATTACK_DEFAULTS
+    &quot;phases&quot;: [ {&quot;health_below&quot;: 0.5, &quot;message&quot;: &quot;...&quot;, &quot;speed_multiplier&quot;: 1.3, &quot;aggression&quot;: 1,
+                 &quot;add_attacks&quot;: [...], &quot;attacks&quot;: [...]} ],
+    &quot;boss&quot;: {&quot;name&quot;: &quot;Ancient Colossus&quot;, &quot;bar_range&quot;: 48},
+    &quot;behaviors&quot;: [&quot;my_mod:guard&quot;],   extra behaviors registered with register_mob_behavior
+    &quot;climb&quot;: false,             walks up walls when blocked (spiders; pair with a high step_up)
+    &quot;hop&quot;: {&quot;interval&quot;: 1.0, &quot;height&quot;: 1.2},   moves only in hops (slimes)
+    &quot;day_temperament&quot;: &quot;neutral&quot;,  temperament while it stands in bright daylight (spiders)
+    &quot;fear_light&quot;: 9,            flees to darkness when the light where it stands (or a torch held
+                                nearby) reaches this level; 0 = no fear
+  }</pre></section>
+<section id="ref-recipes" class="ref"><h2>Recipes <span class="file">engine/shared/recipe_registry.gd</span></h2><pre class="block">Crafting recipes and their categories, sent to clients so the crafting screen can show the recipe
+book, what you are missing and what an item is used for. The server stays the authority on crafting.
+
+Recipe: {id (&quot;mod:name&quot;), inputs: {item id: count}, output, count, station (&quot;&quot; = anywhere), tier
+(minimum station tier), needs ([station features, e.g. &quot;metalwork&quot;]), category, time (seconds crafted in
+the station's queue, 0 = instant), project (built together: players contribute ingredients over time),
+unlock (how players learn it when discovery is on: &quot;known&quot; from the start, &quot;pickup&quot; when they first
+hold an ingredient, &quot;blueprint&quot; from a blueprint item, &quot;experiment&quot; at the crafting grid, &quot;secret&quot;
+hidden until taught), hint (text shown while undiscovered), pattern (optional arrangement for the
+experimentation grid: rows of item ids, 0 = empty, e.g. [[coal], [stick]])}
+Categories group the recipe book; recipes without one get a category from their output (tools,
+weapons, armor, food, blocks, materials).</pre></section>
+<section id="ref-effects" class="ref"><h2>Effects <span class="file">engine/shared/effect_registry.gd</span></h2><pre class="block">Visual effects as data: particle emitters, a light flash, camera shake and a sound, played at a
+position or following a mob or player. The server only sends &quot;play effect N here&quot;; clients build
+and render everything, so mods need no client code. &quot;engine:*&quot; effects are built in.
+
+Effect def:
+  emitters: [{
+    amount: particles (1-256), burst: true (all at once) | false (continuous while the effect plays)
+    lifetime: seconds, speed: [min, max] blocks/s, direction: [x,y,z], spread: degrees (0-180)
+    gravity: blocks/s^2 (negative rises), drag: velocity damping
+    size: [start, end] blocks, colors: [&quot;#rrggbb&quot; or &quot;#rrggbbaa&quot;, ...] over the particle's life
+    shape: &quot;point&quot; | &quot;sphere&quot; | &quot;box&quot;, radius (sphere), extents [x,y,z] (box)
+    texture: &quot;soft&quot; | &quot;spark&quot; | &quot;star&quot; | &quot;square&quot; or an asset from the mod, blend: &quot;add&quot; | &quot;mix&quot;
+  }]
+  light: {color, energy, range, seconds}      a brief light flash
+  shake: {strength, seconds, radius}          camera shake for players within radius
+  sound: sound name
+  duration: seconds continuous emitters run (0 = one burst; -1 = until stopped, for held effects)
+  range: blocks within which players receive it
+Play options: color (tints), scale (size, speed and area), direction ([x,y,z], turns emitters),
+follow (a mob or player; engine sends its id), duration (overrides the def).</pre></section>
+<section id="ref-cosmetics" class="ref"><h2>Cosmetics <span class="file">engine/shared/cosmetics.gd</span></h2><pre class="block">Cosmetics: how a player looks, separate from what they wear for protection.
+
+A player's avatar is plain data:
+  {skin: &quot;#rrggbb&quot;, body: {head, torso, arms, legs: &quot;#rrggbb&quot;} (optional per-part colors),
+   wear: {category: {id, color}}, show_armor: {head|chest|legs|feet: bool}}
+An empty avatar means &quot;the default look for this name&quot; (see default_avatar).
+
+Cosmetics are data too, so they can be made without art tools, and they come from two places:
+  built-in (&quot;builtin:*&quot;): part of the engine, usable on any server that allows them (portable)
+  server cosmetics: registered by mods with api.register_cosmetic, owned per player on that server
+A cosmetic def draws with any mix of:
+  paint:  [{region, rows [from, to], sides [...], color, shade}] fills areas of the 64x64 skin layout
+          region: head, torso, arm_r, arm_l, leg_r, leg_l or their *_overlay (the outer layer)
+          sides: any of front, back, left, right, top, bottom (default: all); color &quot;&quot; = the tint
+  pixels: {rows: 8 strings of 8 characters, palette: {char: &quot;#rrggbb&quot; | &quot;tint&quot; | &quot;skin&quot;}} the face
+  texture: a 64x64 skin-layout layer (asset), multiplied by the tint when `tint` is true
+  boxes:  [{from [x,y,z], size [w,h,d], color, shade}] a voxel accessory in skin pixels, placed at the
+          category's attachment point (+y up, -z forward)
+  model:  a glTF accessory (asset) with model_transform {position, rotation, scale}
+plus: category, display_name, color (default tint), covers (armor slots it replaces when shown),
+unlocked (server cosmetics: false = only players granted it may wear it), description.
+
+Armor versus cosmetics, per armor slot: a worn cosmetic that covers the slot hides that armor piece
+unless the player turned show_armor on for the slot. Servers can force either way (policy.armor).</pre></section>
+<section id="ref-biomes" class="ref"><h2>Biomes <span class="file">engine/server/worldgen/biome_generator.gd</span></h2><pre class="block">The engine's biome world generator. Games and add-on mods register biomes (ModApi.register_biome)
+and features (ModApi.register_feature); a game turns the generator on with ModApi.use_biome_generator.
+
+Climate: four smooth noise fields pick biomes everywhere: temperature, humidity, weirdness (a biome
+with a weirdness value only appears where the noise goes past it: rare fantasy biomes) and peaks. Continentalness decides land and ocean.
+Each biome says where it sits in that climate space; every column blends the heights of nearby
+biomes (so borders are smooth) and takes blocks, plants and features from the closest one.
+
+Biome def:
+  climate: {temperature, humidity, weirdness, peaks} (-1..1, defaults 0), ocean: bool
+  height: {base, variation (hills), peaks (extra mountain height)}
+  surface: {top, filler, depth, underwater, beach, stone, water (the biome's lakes and seas)}
+  features: [{feature: name, per_chunk: float}]    trees, cacti, boulders...
+  plants: [{block, chance, on: [blocks]}]          per surface column
+  ores, spawn tags and anything else are free for mods
+Runs on worker threads: definitions are frozen once the world starts generating.</pre></section>
+<section id="ref-world-features" class="ref"><h2>World features <span class="file">engine/server/worldgen/features.gd</span></h2><pre class="block">World generation features: things placed on the ground (trees, cacti, boulders, crystal spikes,
+huge mushrooms). A feature is data {type, ...block names} or a Callable(writer, origin, rng) from a
+GDScript mod. Features may reach past their chunk: the generator places every feature whose origin
+lies within one chunk of the chunk being generated, and the Writer keeps only the blocks inside it.
+
+Built-in types:
+  tree:     trunk, leaves, height [min, max], shape &quot;round&quot; | &quot;cone&quot; | &quot;tall&quot; | &quot;flat&quot; | &quot;blob&quot;,
+            fruit (a block hung under the canopy, e.g. glowing pods), fruit_chance
+  column:   block, height [min, max]                      (cacti, bamboo-like stalks)
+  boulder:  block, radius [min, max]
+  spike:    block, height [min, max], radius, glow_block  (crystal spires)
+  mushroom: stem, cap, height [min, max], radius, light_block (huge mushrooms)
+  patch:    block, radius, count, on                      (a scatter of plants/blocks on the surface)</pre></section>
+<section id="ref-caves" class="ref"><h2>Caves <span class="file">engine/server/worldgen/cave_carver.gd</span></h2><pre class="block">Carves caves out of generated terrain (a biome generator carver, see ModApi.add_cave_carver):
+- tunnels: long winding &quot;spaghetti&quot; passages where two 3D noise fields are both near zero
+- caverns: big open chambers deeper down where a slow 3D noise is high
+- ravines: deep narrow canyons along the zero line of a 2D noise, only where a mask allows
+- below `lava_level`, carved space fills with lava; in big caverns, lakes of water sit low
+Tunnels stay a few blocks under the ground except at rare entrances, and nothing is carved under
+oceans or rivers within reach of the water. Noise is sampled every 4 blocks and interpolated.
+
+options: tunnels (bool), caverns (bool), ravines (bool), lava (block name, &quot;&quot; = none), lava_level,
+water_level (cavern lakes), min_y, entrance_chance (0-1 share of the map with tunnel openings)</pre></section>
+<section id="ref-structures" class="ref"><h2>Structures <span class="file">engine/server/worldgen/structures.gd</span></h2><pre class="block">Structures for the biome generator: templates (saved builds) and code-built layouts placed across
+chunks with rotation, per-biome material swaps, loot and spawner data.
+
+Template (JSON, e.g. saved with /struct save): {size: [x, y, z], palette: [block names], blocks:
+[[x, y, z, palette index, state], ...], data: {&quot;x,y,z&quot;: {...}}} where data holds block data such as
+{&quot;loot&quot;: &quot;vanilla:dungeon&quot;} for chests or {&quot;spawner&quot;: {...}} for spawners. Palette entries that are
+&quot;engine:air&quot; clear terrain; cells not listed keep whatever was there.
+
+Structure (register_structure): {templates: [{template, weight}] or generator: Callable(origin,
+rng, structures) -&gt; [{template, position, rotation}] (GDScript), spacing (region size in chunks,
+one structure at most per region), separation (chunks kept free at the region edge), salt, biomes,
+place: &quot;surface&quot; | &quot;underground&quot;, y: [min, max] (underground), sink (blocks into the ground),
+foundation (block filling down to the ground under surface structures), swaps: {biome: {block:
+block}}, reach (chunks the structure may extend from its start; default from its size)}.
+Everything is computed from the world seed and the region, so every chunk agrees.</pre></section>
+<section id="ref-loot-tables" class="ref"><h2>Loot tables <span class="file">engine/server/loot.gd</span></h2><pre class="block">Loot tables: {rolls: [min, max], entries: [{item, count: [min, max], weight, data}]}. A container
+whose block data has `loot: &quot;&lt;table&gt;&quot;` (structure chests) is filled the first time it is opened, from
+the data's `structure_seed` so the same chest always holds the same loot.</pre></section>
+<section id="ref-guidebook" class="ref"><h2>Guidebook <span class="file">engine/shared/guide_registry.gd</span></h2><pre class="block">The in-game guidebook: chapters and pages registered by mods, sent to clients with the content.
+
+Chapter: {id, title, icon (item name), order, description}
+Page: {id, chapter, title, icon (item name), order, unlock, hint, blocks, keywords}
+  unlock: {} (always) or one of {item: name} (picked up or held), {recipe: id} (known),
+          {entity: name} (seen nearby), {biome: name} (visited), {flag: name} (set by mods or tutorials), {page: id} (after
+          another page); locked pages show their title as &quot;???&quot; with `hint` (or a hint made from the
+          condition) saying what reveals them.
+  blocks, drawn top to bottom:
+    {type: &quot;text&quot;, text}              paragraphs; [b]bold[/b], [i]italic[/i], [color=#hex] work
+    {type: &quot;heading&quot;, text}
+    {type: &quot;items&quot;, items: [names]}   a row of item icons with names (click one to look up recipes)
+    {type: &quot;recipe&quot;, output: name}    the live recipe card(s) that make an item
+    {type: &quot;entity&quot;, entity: name}    a turning 3D portrait of a mob
+    {type: &quot;image&quot;, asset}            a picture (texture asset name)
+    {type: &quot;tip&quot;, text}               a highlighted tip box
+    {type: &quot;link&quot;, page, text}        a button to another page
+    {type: &quot;keys&quot;, action, text}      &quot;Press &lt;key&gt; to ...&quot; using the player's key binding</pre></section>
+<section id="ref-tutorials-and-tips" class="ref"><h2>Tutorials and tips <span class="file">engine/server/tutorials.gd</span></h2><pre class="block">Tutorials (guided goals in the player's own world) and contextual tips.
+
+Tutorial: {title, description, order, auto_start (start for new survival players), reward: [[item, count]],
+  steps: [{title, text, icon (item), goal, hint, page (guide page), reward: [[item, count]]}]}
+Tip: {text, icon, page, trigger (a goal)}. Each tip shows once per player, at most one every TIP_GAP seconds.
+
+Goals are completed by real actions. Event goals count matching events; `target` is a name or a
+list of names (&quot;*&quot; wildcards, e.g. &quot;base:*log&quot;) and `count` how many are needed (default 1):
+  break {target: block}   place {target: block}   craft {target: item} (counts items made)
+  pickup {target: item}   eat {target: item}      use_item {target: item}   use_block {target: block}
+  equip {target: item}    kill {target: entity}   breed {target: entity}    tame {target: entity}
+  learn {target: recipe}  read {target: page}     unlock_page {target: page}
+  sleep  respawn  death {target: cause}  damage {target: cause}  upgrade {target: station}
+  assemble {target: assembly}
+  event {event, who (&quot;player&quot;), field, target}   any engine or mod event
+Goals checked twice a second:
+  have {target: item, count}   depth {below: y}   reach {position: [x, y, z], radius}
+  biome {target}   hunger_below {value}   health_below {value}   night   flag {target: guide flag}
+  manual   (only api.advance_tutorial completes it)
+Hints point players at something: {block: name(s)} | {entity: name(s)} | {position: [x, y, z]};
+break/use_block, kill/breed/tame and reach goals get one automatically (hint: false turns it off).
+Events: tutorial_started {player, tutorial}, tutorial_step {player, tutorial, step, index},
+  tutorial_completed {player, tutorial}, tip_shown {player, tip}</pre></section>
+<section id="ref-crafting-minigames" class="ref"><h2>Crafting minigames <span class="file">engine/shared/minigame.gd</span></h2><pre class="block">Skill crafting minigames. Deterministic, so the server scores exactly what the client drew: a game
+is a dictionary {def, seed, assist, bonus, team, strikes: [t...], holds: [[t, down]...],
+keys: [[t, key]...]} with times in seconds since the game started.
+
+Types (mods pick one per minigame and tune it):
+  timing:   a marker sweeps a bar; strike while it is inside the zone (`rounds` strikes). With
+            `cool` the work cools and the marker speeds up. With `team`, a second player works
+            the bellows: heat must stay in the band (too cold shrinks the zone, too hot ruins a
+            strike) and pumping just before a strike gives a sync bonus.
+  hold:     keep a gauge inside a drifting band by holding and releasing for `duration` seconds.
+  sequence: press the prompted directions in order (`rounds` prompts, `window` seconds each).
+Every result is at least Standard: minigames are an optional bonus.</pre></section>
+<section id="ref-stations" class="ref"><h2>Stations <span class="file">engine/server/stations.gd</span></h2><pre class="block">Crafting stations that grow: tiers upgraded with kits, workshop blocks placed nearby, and
+multiblock structures.
+
+Station def (api.register_station):
+  title
+  tiers: [{block, title, kit}]   the station's blocks by tier (1, 2, ...); `kit` is the item that
+         upgrades the previous tier into this one (used on the station screen)
+  workshop: {radius, upgrades: [{block, title, max, grants}]}   blocks near the station add grants
+  grants (base, per tier or per upgrade): {features: [...], tier, speed, quality, pull_radius, hints}
+  multiblock: {core, pattern: [layers bottom to top, rows separated by &quot;|&quot;], legend: {char: block}, title}
+         the core block must sit in a structure matching the pattern (rotated in any of four
+         directions); &quot;C&quot; marks the core, &quot;.&quot; any block, &quot; &quot; air
+Recipes ask for stations with `station`, `tier` (minimum) and `needs` ([features]).</pre></section>
+<section id="ref-spawning" class="ref"><h2>Spawning <span class="file">engine/server/spawning.gd</span></h2><pre class="block">Natural spawning and despawning of mobs.
+
+Spawn rules (ModApi.add_spawn_rule): entity, category (&quot;monster&quot; | &quot;animal&quot; | &quot;ambient&quot; | &quot;misc&quot;;
+default from the entity's `category` or its AI: hostile mobs are monsters, passive ones animals),
+light [min, max] (0-15 at the spawn spot: block light or daylight-scaled sky light; monsters default
+to [0, 7], animals to [9, 15]), place (&quot;any&quot; | &quot;surface&quot; | &quot;underground&quot;), time (&quot;any&quot; | &quot;day&quot; |
+&quot;night&quot;), on (block names to stand on), group [min, max] (pack size), chance (per player per second),
+max_nearby (this type within 48 blocks of a player), max_total, min_distance, max_distance, biomes
+(biome names where it may spawn; needs the biome generator).
+
+Categories cap how many of their mobs may be near each player (`caps`, changeable with
+set_spawn_caps). Monsters and ambient mobs despawn: at once beyond 96 blocks from every player, and
+now and then beyond 32. Animals stay (so farms keep their animals); so do persistent entities and any
+entity with data `no_despawn` (named, tamed, bred, ...).</pre></section>
+<section id="ref-explosions" class="ref"><h2>Explosions <span class="file">engine/server/explosions.gd</span></h2><pre class="block">Explosions: `explode(center, power, options)`.
+
+Blocks: rays go out from the center losing strength with distance and with each block's blast
+resistance (`blast_resistance` in the block definition; default from hardness; unbreakable blocks and
+liquids stop the blast). Blocks the rays get through are destroyed and drop their items with a chance
+of 1 / power. Mob explosions only break blocks when the `mob_griefing` rule is on; any explosion can
+pass `break_blocks: false`.
+Players and entities within 2 x power blocks take damage and knockback that fall off with distance
+and cover (armor protects against &quot;explosion&quot;), then the `explosion` effect and sound play.
+options: source (the entity or player responsible), break_blocks (bool), drop_chance (0-1),
+damage (multiplier), effect, sound.
+Event: explosion {position, power, source, blocks: [Vector3i], cancelled}; mods may change blocks.</pre></section>
+<section id="ref-sleep" class="ref"><h2>Sleep <span class="file">engine/server/sleep.gd</span></h2><pre class="block">Beds, sleeping and respawn points. Blocks with `bed: true` (usually a two-block `pair`) can be
+right-clicked:
+- it becomes the player's respawn point (checked on respawn: a missing or blocked bed falls back to
+  the world spawn);
+- at night, with no hostile mobs close by and the bed free, the player lies down. When enough
+  players are asleep (the `sleep_percentage` rule, default 100% of online players) for SLEEP_SECONDS,
+  the night is skipped to morning and everyone wakes up.
+Sleepers wake when they move, press Leave bed, take damage, the bed breaks or day comes.</pre></section>
+<section id="ref-hunger" class="ref"><h2>Hunger <span class="file">engine/server/hunger.gd</span></h2><pre class="block">Hunger and food. Every survival player has hunger (0-20, shown as ten drumsticks) and hidden
+saturation (0-hunger), which is used up before hunger. Activity adds exhaustion; every 4 points
+of exhaustion cost 1 saturation, or 1 hunger once saturation is empty.
+
+- Natural regeneration needs hunger 18+ (faster while saturated at full hunger) and each point of
+  health healed adds exhaustion.
+- At hunger 6 or less you cannot sprint.
+- At hunger 0 you take starvation damage down to the `starvation_min_health` rule (0 = can starve).
+- Food items (`food` in the item definition) are eaten by holding use for `eat_time` seconds.
+
+Stats: `exhaustion` multiplies exhaustion gained; `hunger_drain` adds exhaustion per second (food
+poisoning). The `hunger` gameplay rule turns all of this off; creative players never get hungry.</pre></section>
+<section id="ref-logs-and-errors" class="ref"><h2>Logs and errors <span class="file">engine/server/dev_log.gd</span></h2><pre class="block">The server log for mod authors: every message with a level and a source (a mod id, &quot;engine&quot; or
+&quot;server&quot;), a ring buffer the dev tools read, a log file per world, and script errors caught with
+file, line and stack, attributed to the mod whose code was running and de-duplicated.
+
+- Mods log with api.debug / api.info / api.warn / api.error (JS: console.debug/log/warn/error).
+  Messages below a source's level are dropped (default &quot;info&quot;; `/log level &lt;mod&gt; debug`).
+- GDScript runtime errors and warnings come from Godot's Logger with script backtraces; the first
+  frame inside a mod folder names the mod. JavaScript errors come from js_mod with their JS stack.
+- Lines everything else prints (&quot;[server] ...&quot;, &quot;[arcana] ...&quot;) are kept too, tagged by their prefix.
+- Errors are grouped by source, file, line and message with a count; new ones (and repeats at most
+  once every REPEAT_NOTIFY seconds) are sent to the `error_added` listeners (admins' alerts).
+Files: &lt;world&gt;/logs/latest.log, rotated to &lt;date&gt;.log on start, KEEP_FILES kept.</pre></section>
+<section id="ref-dev-tools" class="ref"><h2>Dev tools <span class="file">engine/server/dev_tools.gd</span></h2><pre class="block">Developer tools behind the dev overlay (and the web dashboard): a per-mod profiler, a live event
+tracer, an inspector for blocks, entities and players, and debug drawing. Available to admins, or to
+everyone when the server runs with --dev.
+
+- Profiler: event handlers, scheduled tasks, commands, block ticks and mob behaviours are timed per
+  owner (mod id or &quot;engine&quot;) and category (&quot;event:block_broken&quot;, &quot;task&quot;, &quot;command:/x&quot;, ...). Totals
+  roll into one-second windows; `perf()` reports the last WINDOWS seconds.
+- Tracer: while someone traces, each emitted event is recorded with its payload (players, entities,
+  blocks and items shown by name), each handler's owner and time, and which handler cancelled it.
+- Inspector: `inspect(player, target)` describes a block {pos}, an entity {entity} or a player {player}.
+- Debug draw: `draw(owner, shape)` queues boxes, lines, labels and paths that expire; watchers get them
+  each tick. `ai_debug` draws mob paths, targets and homes near watchers.
+Viewers subscribe with a set of channels: logs, errors, perf, events, draw, ai, inspect.</pre></section>
+<section id="ref-dev-dashboard" class="ref"><h2>Dev dashboard <span class="file">engine/server/dev_web.gd</span></h2><pre class="block">The dev dashboard: a tiny HTTP server on the game server that serves engine/server/dev_web/index.html
+and a JSON API over the same data as the F8 overlay (logs, errors, event trace, profiler, inspector),
+for a browser next to the game or on a headless server.
+
+Off unless configured: --dev-web=24580 (or on by default with --dev). It binds 127.0.0.1 unless
+--dev-web-host says otherwise, and every request needs the token printed at start (also shown to
+admins by /devweb). One request per connection, no keep-alive; requests are small GETs.
+
+API (all GET, ?token=...):
+  /api/state?logs_after=N&amp;events_after=N&amp;events=0|1&amp;filter=...   everything new since the last poll
+  /api/inspect?player=&lt;peer&gt;  |  &amp;look=1 (what that player looks at)  |  entity=&lt;id&gt;  |  x=&amp;y=&amp;z=
+  /api/clear_errors[?source=mod]
+  /api/reload?mod=&lt;id&gt; | mod=all | mod=full
+A dashboard that polls within VIEWER_TIMEOUT seconds counts as a dev tools viewer (so events are traced).</pre></section>
+<section id="ref-reloading" class="ref"><h2>Reloading <span class="file">engine/server/mod_reload.gd</span></h2><pre class="block">Reloading mods while the server runs.
+
+Quick reload (`reload(mod_id)`, /reload &lt;mod&gt;): forgets what the mod hooked in live (event handlers,
+commands, timers, block tick handlers, mob behaviours, spawn rules, recipes, guide pages, tutorials
+and tips) and runs its setup again from fresh copies of its scripts. Blocks, items and entities it
+registers again update in place (same ids); recipes keep their indices (dropped ones are marked
+removed). What cannot change live (new blocks/items/entities/sounds/effects, new files, world
+generation) is skipped and listed as needing a full reload. Clients get the new definitions, recipe
+book, guide and tutorials. Mod state kept in api.storage, player and entity data survives; plain
+script variables start over.
+
+File watcher (on with --dev, or /reload watch on): scripts and JSON changed in a mod folder reload
+that mod about half a second after the last change; changed textures, models, sounds or mod.json
+tell admins to run /reload full.
+
+Full reload (/reload full): see GameServer.request_full_reload (save, restart in place, clients
+reconnect).</pre></section>
+<section id="ref-validator" class="ref"><h2>Validator <span class="file">engine/server/mod_validator.gd</span></h2><pre class="block">Checks a mod before it ships: the manifest, its files, that its scripts compile, that it loads, and
+that everything it registered refers to things that exist. Each issue is
+{level: &quot;error&quot; | &quot;warning&quot; | &quot;hint&quot;, message, file, line}.
+
+- `validate(mod_dir, parent, search_dirs)`: everything, loading the mod (and its dependencies) in a
+  throwaway offline server added under `parent`. Used by tools/mod_tool.tscn (validate, pack).
+- `check_running(server, mod_id)`: the checks that need no load, against a running server (/validate).</pre></section>
+</main>
+</div>
+<script>
+const search = document.getElementById("search");
+search.addEventListener("input", () => {
+  const q = search.value.trim().toLowerCase();
+  document.querySelectorAll(".card").forEach((c) => c.classList.toggle("hidden", q !== "" && !c.dataset.search.includes(q)));
+  document.querySelectorAll("section").forEach((s) => {
+    const cards = s.querySelectorAll(".card");
+    s.classList.toggle("hidden", q !== "" && (cards.length === 0 || [...cards].every((c) => c.classList.contains("hidden"))));
+  });
+});
+</script>
+</body>
+</html>

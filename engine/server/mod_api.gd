@@ -91,6 +91,7 @@ func _init(server, mod_manifest: Dictionary) -> void:
 
 # --- General ------------------------------------------------------------------------------------
 
+## Logs a line from this mod (console, <world>/logs/latest.log and the dev tools).
 func info(message) -> void:
 	_server.dev_log.add("info", mod_id, str(message))
 
@@ -103,18 +104,22 @@ func debug_box(from: Vector3, to: Vector3, color := "#ffcc00", seconds := 2.0, l
 		debug_text((from + to) * 0.5 + Vector3(0, absf(to.y - from.y) * 0.5 + 0.3, 0), label, color, seconds)
 
 
+## A debug line between two points (see debug_box).
 func debug_line(from: Vector3, to: Vector3, color := "#ffcc00", seconds := 2.0) -> void:
 	_server.dev_tools.draw(mod_id, {"type": "line", "from": from, "to": to, "color": color, "seconds": seconds})
 
 
+## A debug label floating at a position, always facing the camera (see debug_box).
 func debug_text(position: Vector3, text: String, color := "#ffffff", seconds := 2.0) -> void:
 	_server.dev_tools.draw(mod_id, {"type": "text", "position": position, "text": text, "color": color, "seconds": seconds})
 
 
+## A debug path through a list of points (Vector3 or [x, y, z]), with a dot at each (see debug_box).
 func debug_path(points: Array, color := "#60ff90", seconds := 2.0) -> void:
 	_server.dev_tools.draw(mod_id, {"type": "path", "points": points, "color": color, "seconds": seconds})
 
 
+## A debug wire sphere (see debug_box).
 func debug_sphere(center: Vector3, radius := 0.5, color := "#6090ff", seconds := 2.0) -> void:
 	_server.dev_tools.draw(mod_id, {"type": "sphere", "center": center, "radius": radius, "color": color, "seconds": seconds})
 
@@ -125,6 +130,7 @@ func debug(message) -> void:
 	_server.dev_log.add("debug", mod_id, str(message))
 
 
+## Logs a warning from this mod (shown in yellow in the dev tools).
 func warn(message) -> void:
 	_server.dev_log.add("warn", mod_id, str(message))
 
@@ -282,16 +288,16 @@ func register_effect(effect_name: String, def: Dictionary) -> int:
 	return _server.effects.register(d)
 
 
-## Plays an effect for everyone in range. options: color ("#rrggbb", tints it), scale, direction
-## (Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).
-## Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,
-## engine:dust, engine:explosion.
 ## Sets off an explosion (see engine/server/explosions.gd): power ~3 is a mob blast. options: source,
 ## break_blocks, drop_chance, damage (multiplier), effect, sound. Returns the explosion event.
 func explode(position: Vector3, power: float, options := {}) -> Dictionary:
 	return _server.explosions.explode(position, power, options)
 
 
+## Plays an effect for everyone in range. options: color ("#rrggbb", tints it), scale, direction
+## (Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).
+## Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,
+## engine:dust, engine:explosion.
 func play_effect(effect_name: String, position: Vector3, options := {}) -> void:
 	_server.play_effect(_qualify_ref(effect_name), position, options)
 
@@ -366,6 +372,7 @@ func get_entities(center: Vector3, radius: float, entity_name := "") -> Array:
 	return _server.entities.in_radius(center, radius, entity_type(entity_name) if not entity_name.is_empty() else -1)
 
 
+## The entity with this id, or null if it is gone.
 func get_entity(entity_id: int):
 	return _server.entities.entities.get(entity_id)
 
@@ -482,6 +489,7 @@ func set_gameplay(values: Dictionary) -> void:
 	_server.set_gameplay(values)
 
 
+## A gameplay rule's current value (see set_gameplay), or null.
 func get_gameplay(rule: String):
 	return _server.gameplay.get(rule)
 
@@ -491,18 +499,22 @@ func item(item_name: String) -> int:
 	return _server.items.id_of(item_name if item_name.contains(":") else _qualify(item_name))
 
 
+## The full name ("mod:name") of a block or item id, or "".
 func item_name(id: int) -> String:
 	return _server.items.name_of(id)
 
 
+## Same as item_name (kept for older mods).
 func items_name(id: int) -> String:
 	return _server.items.name_of(id)
 
 
+## How many of this item fit in one slot.
 func item_max_stack(id: int) -> int:
 	return _server.items.max_stack(id)
 
 
+## The name players see for a block or item id.
 func item_display_name(id: int) -> String:
 	return _server.items.display_name(id)
 
@@ -651,6 +663,7 @@ func set_fuel(item_name: String, seconds: float) -> void:
 		_server.set_fuel(id, seconds)
 
 
+## How many seconds an item burns in a furnace (0 = not fuel).
 func get_fuel(item_id: int) -> float:
 	return _server.get_fuel(item_id)
 
@@ -687,10 +700,12 @@ func block(block_name: String) -> int:
 	return _server.registry.id_of(block_name if block_name.contains(":") else _qualify(block_name))
 
 
+## The full name ("mod:name") of a block id, or "".
 func block_name(id: int) -> String:
 	return _server.registry.defs[id].name if _server.registry.is_valid(id) else ""
 
 
+## The name players see for a block id.
 func block_display_name(id: int) -> String:
 	return _server.registry.display_name(id)
 
@@ -828,6 +843,7 @@ func set_guide_flag(player, flag: String, on := true) -> void:
 	_server.guide.set_flag(player, _qualify_ref(flag), on)
 
 
+## Whether a player has a guide flag (see set_guide_flag).
 func has_guide_flag(player, flag: String) -> bool:
 	return _server.guide.has_flag(player, _qualify_ref(flag))
 
@@ -837,6 +853,7 @@ func unlock_guide_page(player, page: String, notify := true) -> bool:
 	return _server.guide.unlock(player, _qualify_ref(page), notify)
 
 
+## Whether a guide page is open to a player.
 func is_guide_page_unlocked(player, page: String) -> bool:
 	return _server.guide.is_unlocked(player, _qualify_ref(page))
 
@@ -854,10 +871,12 @@ func register_tip(tip_name: String, def: Dictionary) -> bool:
 	return _server.tutorials.register_tip(_qualify_ref(tip_name), def.merged({"owner": mod_id}), _qualify_ref)
 
 
+## Starts (or restarts) a tutorial for a player. Returns false if it does not exist.
 func start_tutorial(player, tutorial_name: String) -> bool:
 	return _server.tutorials.start(player, _qualify_ref(tutorial_name))
 
 
+## Stops the player's running tutorial; it will not start by itself again.
 func stop_tutorial(player) -> void:
 	_server.tutorials.stop(player)
 
@@ -936,10 +955,12 @@ func get_loaded_block(pos: Vector3i) -> int:
 	return _server.world.get_block_v(pos)
 
 
+## Whether a block id collides (unloaded space counts as solid).
 func is_solid(block: int) -> bool:
 	return block == BlockRegistry.UNLOADED or (_server.registry.is_valid(block) and _server.registry.solid_lut[block] == 1)
 
 
+## Whether players can break a block id.
 func is_breakable(block: int) -> bool:
 	return _server.registry.is_valid(block) and _server.registry.breakable_lut[block] == 1
 
@@ -970,6 +991,7 @@ func facing_direction(state: int) -> Vector3i:
 	return BlockRegistry.facing_direction(state)
 
 
+## Opens the crafting screen for a player, crafting by hand.
 func show_crafting(player) -> void:
 	_server.show_crafting(player)
 
@@ -980,10 +1002,12 @@ func get_block_data(pos: Vector3i) -> Dictionary:
 	return _server.get_block_data(pos)
 
 
+## Replaces the data dictionary stored with the block at a position (saved with the world).
 func set_block_data(pos: Vector3i, data: Dictionary) -> void:
 	_server.set_block_data(pos, data)
 
 
+## Removes the data stored with the block at a position.
 func clear_block_data(pos: Vector3i) -> void:
 	_server.clear_block_data(pos)
 
@@ -998,6 +1022,7 @@ func set_world_time(time_of_day: float, day_length := -1.0) -> void:
 	_server.set_world_time(time_of_day, _server.get_day_length() if day_length < 0.0 else day_length)
 
 
+## The time of day from 0 to 1 (0 midnight, 0.25 sunrise, 0.5 noon, 0.75 sunset).
 func get_time_of_day() -> float:
 	return _server.get_time_of_day()
 
@@ -1016,6 +1041,7 @@ func sees_sky(pos: Vector3i) -> bool:
 	return true
 
 
+## Sets every block in the box between two corners (inclusive) to a block id.
 func fill(from: Vector3i, to: Vector3i, id: int) -> void:
 	for x in range(mini(from.x, to.x), maxi(from.x, to.x) + 1):
 		for y in range(mini(from.y, to.y), maxi(from.y, to.y) + 1):
@@ -1030,10 +1056,12 @@ func surface_y(x: int, z: int) -> int:
 
 # --- Players ------------------------------------------------------------------------------------
 
+## Everyone online (player objects).
 func get_players() -> Array:
 	return _server.players.values()
 
 
+## The online player with this name (any case), or null.
 func find_player(player_name: String):
 	for p in _server.players.values():
 		if p.name.to_lower() == player_name.to_lower():
@@ -1041,6 +1069,7 @@ func find_player(player_name: String):
 	return null
 
 
+## Sends a chat message to everyone.
 func broadcast(text: String) -> void:
 	_server.broadcast_chat(text)
 
@@ -1068,6 +1097,7 @@ func every(seconds: float, callback: Callable) -> int:
 	return _server.schedule(seconds, callback, seconds, mod_id)
 
 
+## Stops a timer started with after or every.
 func cancel(task_id: int) -> void:
 	_server.cancel_task(task_id)
 
