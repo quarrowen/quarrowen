@@ -127,7 +127,9 @@ changes with `tools/build_native.sh`.
    3. Hunger and food (done): hunger stat, food values, regeneration tied to hunger, starvation.
       Hold-to-eat with `food` item definitions, saturation and exhaustion, no sprinting when starving,
       food poisoning via timed stats, quality food fills more. Not done: more foods (they arrive with
-      step 5's animals and farming crops), eating animation for other players (they hear and see crumbs).
+      step 5's animals and farming crops).
+      Eating animation (user, 2026-09-14, inspired by Eco): plate or hand for food, swig for drinks and
+      potions, bites from the icon, crumbs, avatars for other players, hunger bar pop.
    4. Beds and spawn points: bed block, sleeping skips the night, respawn at a valid bed.
    5. Mobs and spawning: light-level spawn rules, breeding, climbing, explosions that break terrain ->
       cow, sheep (wool for beds), chicken, spider, an exploding mob.

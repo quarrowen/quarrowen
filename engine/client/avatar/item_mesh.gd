@@ -178,6 +178,70 @@ func _cube(textures: Array) -> Mesh:
 	return st.commit()
 
 
+## The item's 2D icon as an image (composed icons included), or null for blocks and models.
+func icon_image(id: int, item_data := {}) -> Image:
+	var layers = item_data.get("icon_layers") if item_data is Dictionary else null
+	if layers is Array and not layers.is_empty() and icons != null:
+		return icons.composed(layers)
+	if id < 65536 or atlas.is_empty() or not String(items.get_def(id).get("model", "")).is_empty():
+		return null
+	var rect: Rect2 = atlas.pixels.get(items.icon_of(id), atlas.pixels[""])
+	return atlas_image.get_region(Rect2i(rect))
+
+
+## The icon extruded with `bites` (0-3) bites taken out of its top-right edge, for eating. Falls back
+## to the normal mesh for blocks and models.
+func bitten_mesh(id: int, item_data: Dictionary, bites: int) -> Mesh:
+	var img := icon_image(id, item_data)
+	if bites <= 0 or img == null:
+		return mesh_for(id, item_data)
+	var key := "bitten|%d|%s|%d" % [id, str(item_data.get("icon_layers", "")), bites]
+	if _cache.has(key):
+		return _cache[key]
+	img = img.duplicate()
+	img.convert(Image.FORMAT_RGBA8)
+	var size := img.get_size()
+	var lo := Vector2(size)
+	var hi := Vector2(-1, -1)
+	for y in size.y:
+		for x in size.x:
+			if img.get_pixel(x, y).a > 0.5:
+				lo = lo.min(Vector2(x, y))
+				hi = hi.max(Vector2(x, y))
+	if hi.x < 0:
+		return mesh_for(id, item_data)
+	var extent := (hi - lo + Vector2.ONE)
+	var radius := maxf(extent.x, extent.y) * 0.27
+	# Each bite is a circle nibbling inwards from the top-right, with a scalloped (toothy) edge.
+	var centers := [Vector2(hi.x - extent.x * 0.02, lo.y + extent.y * 0.18), Vector2(hi.x - extent.x * 0.42, lo.y + extent.y * 0.02),
+		Vector2(hi.x - extent.x * 0.05, lo.y + extent.y * 0.6)]
+	for b in mini(bites, centers.size()):
+		for y in size.y:
+			for x in size.x:
+				var d := Vector2(x, y).distance_to(centers[b])
+				var teeth := 0.6 if (x + y) % 2 == 0 else 0.0
+				if d < radius + teeth:
+					img.set_pixel(x, y, Color(0, 0, 0, 0))
+	_cache[key] = _extruded_image(img)
+	return _cache[key]
+
+
+## A round plate to serve food on (lies in the XY plane like an icon; turn it flat where it is used).
+func plate_mesh() -> Mesh:
+	if _cache.has("plate"):
+		return _cache.plate
+	var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	for y in 16:
+		for x in 16:
+			var d := Vector2(x - 7.5, y - 7.5).length()
+			if d < 7.6:
+				var rim := d > 5.8
+				var shade := 0.93 + 0.04 * float((x * 7 + y * 3) % 3) / 2.0
+				img.set_pixel(x, y, Color(0.72, 0.8, 0.9) * (1.0 if y < 8 else 0.9) if rim else Color(0.96, 0.94, 0.88) * shade)
+	_cache.plate = _extruded_image(img)
+	return _cache.plate
+
+
 ## Extrudes a standalone icon image (composed icons) with its own material.
 func _extruded_image(img: Image) -> Mesh:
 	var tile := img.get_width()

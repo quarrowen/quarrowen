@@ -15,6 +15,7 @@ const PYLON_REGEN := 10.0
 const PYLON_RANGE := 6.0
 const TICK := 0.5
 const SHARD_MANA := 25.0
+const POTION_MANA := 60.0
 const BLINK_COST := 20.0
 const BLINK_RANGE := 8.0
 const LIGHT_COST := 10.0
@@ -59,6 +60,10 @@ class CrystalPass:
 func setup(mod_api) -> void:
 	api = mod_api
 	ids.shard = api.register_item("mana_shard", {"display_name": "Mana Shard", "icon": "textures/mana_shard.png", "usable": true})
+	# A potion is swigged like any drink (the engine's food system) and restores mana in player_eat below.
+	ids.potion = api.register_item("mana_potion", {"display_name": "Mana Potion", "icon": "textures/mana_potion.png", "max_stack": 16,
+		"food": {"hunger": 0, "saturation": 0, "eat_time": 0.9, "always": true, "style": "drink", "color": "#b070ff", "remainder": "base:glass_bottle"}})
+	api.register_recipe({"arcana:mana_shard": 2, "base:glass_bottle": 1}, "arcana:mana_potion", 1, {"category": "food"})
 	api.register_material("mana", {"display_name": "Mana Crystal", "item": "arcana:mana_shard", "color": "#b98cff", "tier": 3, "speed": 7.0,
 		"durability": 180, "damage": 2.5, "handle": 1.0,
 		"trait": {"name": "Arcane", "description": "glows and hits harder", "damage_add": 1.0,
@@ -148,6 +153,10 @@ func setup(mod_api) -> void:
 	api.on("player_join", _on_join)
 	api.on("player_leave", func(ev): _hud_shown.erase(ev.player.peer_id))
 	api.on("item_use", _on_item_use)
+	api.on("player_eat", func(ev):
+		if ev.item == ids.potion:
+			_set_mana(ev.player, _mana(ev.player) + POTION_MANA)
+			api.play_effect("engine:magic", ev.player.get_eye_position(), {"scale": 0.6}))
 	api.on("block_placed", func(ev):
 		if ev.block == ids.pylon:
 			api.set_block_data(ev.position, {}))

@@ -40,6 +40,12 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	ids.wheat = api.register_item("wheat", {"display_name": "Wheat", "icon": "textures/wheat.png"})
 	ids.bread = api.register_item("bread", {"display_name": "Bread", "icon": "textures/bread.png", "food": {"hunger": 5, "saturation": 6.0, "color": "#c89040"}})
 	api.register_recipe({"base:wheat": 3}, "base:bread", 1, {"category": "food"})
+	# Drinks are swigged straight from the bottle and give it back.
+	api.register_item("glass_bottle", {"display_name": "Glass Bottle", "icon": "textures/glass_bottle.png"})
+	api.register_recipe({"base:glass": 3}, "base:glass_bottle", 3, {"category": "materials"})
+	api.register_item("apple_juice", {"display_name": "Apple Juice", "icon": "textures/apple_juice.png", "max_stack": 16,
+		"food": {"hunger": 4, "saturation": 4.0, "eat_time": 1.4, "style": "drink", "color": "#f0b040", "remainder": "base:glass_bottle"}})
+	api.register_recipe({"base:apple": 2, "base:glass_bottle": 1}, "base:apple_juice", 1, {"category": "food"})
 
 	# Found by experimenting: arranged in the crafting grid (see the recipe patterns).
 	api.register_block("torch", {"display_name": "Torch", "textures": "textures/torch.png", "render": "plant", "light": 14,

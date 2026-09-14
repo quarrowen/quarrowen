@@ -207,8 +207,9 @@ func attack_damage(id: int, item_data := {}) -> float:
 
 
 ## food: {hunger (points, 20 = full), saturation, eat_time (seconds holding use), always (edible when
-## full), heal (health), remainder (item left over, e.g. a bowl), color (crumbs), effects: [{stat,
-## amount, op, seconds, chance, message}]}.
+## full), heal (health), remainder (item left over, e.g. a bottle), color (crumbs), style ("plate":
+## served on a plate, "hand": eaten from the hand, "drink": swigged from the item), sound (played per
+## bite or gulp; default engine:munch or engine:gulp), effects: [{stat, amount, op, seconds, chance, message}]}.
 static func clean_food(value) -> Dictionary:
 	if not (value is Dictionary) or value.is_empty():
 		return {}
@@ -221,7 +222,9 @@ static func clean_food(value) -> Dictionary:
 	return {"hunger": clampf(float(value.get("hunger", 1.0)), 0.0, 20.0), "saturation": clampf(float(value.get("saturation", 0.0)), 0.0, 20.0),
 		"eat_time": clampf(float(value.get("eat_time", 1.2)), 0.1, 10.0), "always": bool(value.get("always", false)),
 		"heal": clampf(float(value.get("heal", 0.0)), 0.0, 1000.0), "remainder": str(value.get("remainder", "")).left(128),
-		"color": str(value.get("color", "#c8a060")).left(16), "effects": effects}
+		"color": str(value.get("color", "#c8a060")).left(16), "effects": effects,
+		"style": str(value.get("style", "plate")) if str(value.get("style", "plate")) in ["plate", "hand", "drink"] else "plate",
+		"sound": str(value.get("sound", "")).left(64)}
 
 
 func is_usable(id: int) -> bool:

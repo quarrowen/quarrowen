@@ -1192,6 +1192,14 @@ func _hunger() -> void:
 	h.set_hunger(p, 0.0, 0.0)
 	h.finish_eating(p, 4)
 	_check(p.inventory.count_of(items.id_of("base:stick")) == 1, "eating a stew leaves the bowl (remainder)")
+	# Drinks are swigged and give the bottle back.
+	var juice: int = items.id_of("base:apple_juice")
+	_check(items.get_def(juice).food.style == "drink" and items.get_def(bread).food.style == "plate", "drinks and plated food have their serving styles")
+	p.inventory.set_slot(5, juice, 1)
+	var bottles: int = p.inventory.count_of(items.id_of("base:glass_bottle"))
+	h.set_hunger(p, 0.0, 0.0)
+	h.finish_eating(p, 5)
+	_check(p.hunger == 4.0 and p.inventory.count_of(items.id_of("base:glass_bottle")) == bottles + 1, "apple juice restores hunger and returns the bottle")
 	# Rule off and creative: no hunger.
 	h.set_hunger(p, 10.0)
 	p.inventory.creative = true

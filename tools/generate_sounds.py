@@ -145,6 +145,7 @@ def hunger_sounds():
     # --- Engine: eating (a separate function so it can be regenerated alone) ---
     write("engine/client/sounds/munch.wav", mix(noise_burst(0.07, 0.25, curve=3.0, gain=0.55), noise_burst(0.05, 0.08, gain=0.35)))
     write("engine/client/sounds/burp.wav", tone(0.32, 180, 120, shape="saw", gain=0.35, curve=1.8, vibrato=0.25))
+    write("engine/client/sounds/gulp.wav", mix(tone(0.12, 220, 420, gain=0.4, curve=2.5), noise_burst(0.08, 0.05, gain=0.25)))
 
 
 def crafting_sounds():

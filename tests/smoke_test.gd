@@ -443,6 +443,9 @@ func _guild(c) -> void:
 	_check(paid, "turning in paid 4 gold coins (%d)" % c.inventory.count_of(coin))
 	c._on_ui_action("guild:board", "buy:0")
 	var bought := await _wait_until(func(): return c.inventory.count_of(coin) == 3, 3.0)
+	if not bought:  # the click can land while the board is being redrawn after the turn-in; try once more
+		c._on_ui_action("guild:board", "buy:0")
+		bought = await _wait_until(func(): return c.inventory.count_of(coin) == 3, 3.0)
 	_check(bought and c.inventory.count_of(c.registry.id_of("base:glass")) >= 8, "shop sold glass for a coin")
 	c._on_ui_action("guild:board", "close")
 	await get_tree().create_timer(0.3).timeout
@@ -485,8 +488,10 @@ func _combat(c) -> void:
 	await get_tree().create_timer(0.3).timeout
 	Input.action_press("place")
 	c.use_selected_item()
+	_check(c._view_model.eating(), "eating starts the plate animation")
 	_check(await _wait_until(func(): return c.hunger == 14.0 and c.inventory.count_of(apple) == apples - 1, 3.0),
 		"holding use ate the apple (hunger %.1f, apples %d -> %d)" % [c.hunger, apples, c.inventory.count_of(apple)])
+	_check(await _wait_until(func(): return not c._view_model.eating(), 2.0), "the eating animation ends with the meal")
 	Input.action_release("place")
 	Net.c_chat.rpc_id(1, "/feed")
 	_check(c.entity_types.id_of("vanilla:pig") > 0 and c._entity_parts.get(c.entity_types.id_of("vanilla:pig"), []).size() == 6,

@@ -40,6 +40,7 @@ const AvatarEditor = preload("res://engine/client/avatar/avatar_editor.gd")
 const EffectPlayer = preload("res://engine/client/effects/effect_player.gd")
 const CraftingScreen = preload("res://engine/client/crafting_screen.gd")
 const MinigameScreen = preload("res://engine/client/minigame_screen.gd")
+const EatingVisuals = preload("res://engine/client/eating_visuals.gd")
 const ItemIcons = preload("res://engine/client/item_icons.gd")
 const Assembly = preload("res://engine/shared/assembly.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
@@ -1166,21 +1167,62 @@ func use_selected_item() -> bool:
 	if not food.is_empty():
 		# Food is eaten while use is held; the server finishes it after eat_time.
 		if hunger < 20.0 or food.get("always", false) or inventory.creative:
-			_eating = {"item": item, "slot": inventory.selected, "next_chomp": 0.0}
+			var meal := _meal_for(item, inventory.data[inventory.selected], Time.get_ticks_msec() / 1000.0)
+			_eating = {"item": item, "slot": inventory.selected, "meal": meal}
+			if not meal.is_empty():
+				_view_model.start_meal(meal)
+				if _self_avatar != null:
+					_self_avatar.start_meal(meal)
 		return true
 	_self_swing()
 	return true
 
 
 func _update_eating() -> void:
-	if not Input.is_action_pressed("place") or inventory.selected != int(_eating.slot) or inventory.selected_item() != int(_eating.item):
-		_eating = {}
+	var meal: Dictionary = _eating.get("meal", {})
+	var overdue: bool = not meal.is_empty() and Time.get_ticks_msec() / 1000.0 - float(meal.started) > float(meal.duration) + 1.5
+	if not Input.is_action_pressed("place") or inventory.selected != int(_eating.slot) or inventory.selected_item() != int(_eating.item) or overdue:
 		Net.c_stop_using.rpc_id(1)
+		_end_local_meal()
+
+
+func _end_local_meal() -> void:
+	_eating = {}
+	_view_model.stop_meal()
+	if _self_avatar != null:
+		_self_avatar.stop_meal()
+
+
+## Animation data for eating an item: {style, duration, started, color, meshes (0-2 bites), plate, crumbs}.
+func _meal_for(item: int, item_data: Dictionary, started: float) -> Dictionary:
+	var food: Dictionary = items.get_def(item).get("food", {})
+	if food.is_empty() or _item_meshes == null:
+		return {}
+	var style := str(food.get("style", "plate"))
+	var meshes := []
+	for bites in 3:
+		meshes.append(_item_meshes.mesh_for(item, item_data) if style == "drink" else _item_meshes.bitten_mesh(item, item_data, bites))
+	var color_text := str(food.get("color", "#c8a060"))
+	return {"style": style, "duration": float(food.get("eat_time", 1.2)), "started": started, "meshes": meshes,
+		"color": Color.html(color_text) if Color.html_is_valid(color_text) else Color(0.8, 0.6, 0.4),
+		"plate": _item_meshes.plate_mesh() if style == "plate" else null,
+		"crumbs": func(at: Vector3, color: Color, amount: int, size: float): EatingVisuals.crumbs(self, at, color, amount, size)}
+
+
+func on_player_eating(peer_id: int, item: int) -> void:
+	if peer_id == my_id:
+		if item == 0 and not _eating.is_empty():
+			_end_local_meal()  # finished (or refused) on the server
 		return
-	var now := Time.get_ticks_msec() / 1000.0
-	if now >= float(_eating.next_chomp):
-		_eating.next_chomp = now + 0.28
-		_self_swing()  # a quick chomp of the held item
+	var remote = _remote_players.get(peer_id)
+	if remote == null:
+		return
+	if item == 0:
+		remote.avatar.stop_meal()
+	else:
+		var meal := _meal_for(item, {}, Time.get_ticks_msec() / 1000.0)
+		if not meal.is_empty():
+			remote.avatar.start_meal(meal)
 
 
 ## Predicts the edit locally and asks the server to apply it.
@@ -2328,9 +2370,23 @@ static func _drumstick_image(fill: float) -> ImageTexture:
 
 
 func on_hunger(value: float, sat: float) -> void:
+	var before := hunger
 	hunger = value
 	saturation = sat
 	_refresh_hunger()
+	if value > before and before >= 0.0 and _hunger_bar != null and _hunger_bar.visible:
+		# A meal landed: the drumsticks that filled pop one after another with a warm flash.
+		var first := floori(before / 2.0)
+		var last := mini(ceili(value / 2.0), 10)
+		for i in range(first, last):
+			var icon: TextureRect = _hunger_bar.get_child(9 - i)
+			icon.pivot_offset = icon.size * 0.5
+			var tween := icon.create_tween()
+			tween.tween_interval(0.05 * (i - first))
+			tween.tween_property(icon, "scale", Vector2.ONE * 1.45, 0.08)
+			tween.parallel().tween_property(icon, "self_modulate", Color(1.6, 1.3, 0.7), 0.08)
+			tween.tween_property(icon, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tween.parallel().tween_property(icon, "self_modulate", Color.WHITE, 0.25)
 
 
 func _refresh_hearts() -> void:

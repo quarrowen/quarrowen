@@ -11,7 +11,7 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0"}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -123,6 +123,18 @@ func _ready() -> void:
 				Input.parse_input_event(key)
 				await get_tree().create_timer(0.1).timeout
 			await get_tree().create_timer(0.6).timeout
+	if not String(options.meal).is_empty():
+		# A meal frozen mid-animation: --meal=base:bread:0.55 (item, then the moment as a fraction of eat_time).
+		var parts := String(options.meal).rsplit(":", true, 1)
+		var meal_item: int = client.items.id_of(parts[0])
+		Net.c_chat.rpc_id(1, "/give %s" % parts[0])
+		await get_tree().create_timer(0.8).timeout
+		client.select_slot(client.inventory.ids.find(meal_item))
+		await get_tree().create_timer(0.5).timeout
+		var meal: Dictionary = client._meal_for(meal_item, {}, 0.0)
+		meal.freeze = float(parts[1]) * float(meal.duration)
+		client._view_model.start_meal(meal)
+		client._self_avatar.start_meal(meal)
 	if not String(options.wear).is_empty():
 		Net.c_set_avatar.rpc_id(1, JSON.parse_string(options.wear))  # in game, so server cosmetics apply too
 		await get_tree().create_timer(0.5).timeout

@@ -520,6 +520,14 @@ api.on("entity_death", func(ev):
   `set_hunger`, `add_exhaustion` and `feed`; commands `/feed` and `/hunger <0-20>`. Bundled food:
   apple 4, bread 5, raw/cooked porkchop 3/8, rotten flesh 4 (vanilla), trail ration 6 plus a speed
   boost (Guild, JavaScript).
+- **Eating animation:** food is served on a plate (`style: "plate"`, the default) or eaten from the
+  hand (`"hand"`): your arm brings it to your mouth chomp by chomp, it loses a bite at each third of
+  `eat_time` (bites are cut out of the item's own icon, so mod foods work too), pixel crumbs in the
+  food's `color` fall, and the plate empties. Drinks and potions (`"drink"`) are swigged straight from
+  the bottle with gulp sounds and give back their `remainder`. Other players see the same: the left
+  hand holds the plate, the right lifts the food, the head tips back for drinks. The hunger bar pops
+  as a meal lands. Bundled drinks: apple juice (base, bottles from glass) and mana potions (Arcana,
+  restore mana through `player_eat`).
 
 ```gdscript
 api.register_item("bread", {"icon": "textures/bread.png", "food": {"hunger": 5, "saturation": 6.0}})

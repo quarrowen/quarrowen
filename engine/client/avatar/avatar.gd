@@ -6,6 +6,7 @@ extends Node3D
 
 const PlayerRig = preload("res://engine/shared/player_rig.gd")
 const SwingTrail = preload("res://engine/client/effects/swing_trail.gd")
+const EatingVisuals = preload("res://engine/client/eating_visuals.gd")
 
 const OVERLAY_INFLATE := 0.5  # pixels: second skin layer (jackets, hats)
 const ARMOR_INFLATE := 1.0  # pixels: armor shell
@@ -33,6 +34,12 @@ var _dead := false
 var _holding := false
 var _held_look := {}
 var _trail: SwingTrail
+## The current meal (see ViewModel.start_meal): the right hand brings the held food to the mouth, the
+## left holds the plate; drinks are tipped back with the head raised.
+var _meal := {}
+var _meal_plate: MeshInstance3D
+var _meal_food: MeshInstance3D
+var _meal_bites := 0
 
 
 func build(rig_def: Dictionary) -> void:
@@ -106,6 +113,7 @@ func set_held(node: Node3D, look := {}) -> void:
 	_holding = node != null
 	if node != null and attachments.has("hand_r"):
 		attachments.hand_r.add_child(node)
+		node.visible = _meal.is_empty()
 
 
 ## Adds accessory nodes at attachment points: [{attach, node}]. Replaces previous accessories.
@@ -117,6 +125,69 @@ func set_accessories(list: Array) -> void:
 		if attachments.has(entry.attach):
 			attachments[entry.attach].add_child(entry.node)
 			_accessories.append(entry.node)
+
+
+func start_meal(meal: Dictionary) -> void:
+	stop_meal()
+	_meal = meal
+	_meal_bites = 0
+	if str(meal.style) == "plate" and meal.get("plate") != null and attachments.has("hand_l"):
+		_meal_plate = MeshInstance3D.new()
+		_meal_plate.mesh = meal.plate
+		_meal_plate.scale = Vector3.ONE * 0.55
+		_meal_plate.position = Vector3(0, 0.03, 0)
+		_meal_plate.rotation_degrees = Vector3(90, 0, 0)  # flat on the palm
+		_meal_plate.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		attachments.hand_l.add_child(_meal_plate)
+	# The food (or bottle) itself, independent of the held-item appearance which may lag behind.
+	if attachments.has("hand_r"):
+		_meal_food = MeshInstance3D.new()
+		_meal_food.mesh = meal.meshes[0]
+		_meal_food.scale = Vector3.ONE * 0.8
+		_meal_food.position = Vector3(0, 0.12, 0)
+		_meal_food.rotation_degrees = Vector3(-90, 0, 0)  # face forward, upright in the fist
+		_meal_food.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		attachments.hand_r.add_child(_meal_food)
+	if _held != null:
+		_held.visible = false
+
+
+func stop_meal() -> void:
+	for node in [_meal_plate, _meal_food]:
+		if node != null:
+			node.queue_free()
+	_meal_plate = null
+	_meal_food = null
+	if _held != null:
+		_held.visible = true
+	_meal = {}
+
+
+func _meal_pose(pose: Dictionary, now: float) -> float:
+	var t := float(_meal.freeze) if _meal.has("freeze") else now - float(_meal.started)
+	var head_pitch := 0.0
+	if str(_meal.style) == "drink":
+		var g := EatingVisuals.gulp(t)
+		pose.arm_r_upper = Vector3(2.45 + 0.08 * g, 0, -0.35)
+		pose.arm_r_lower = Vector3(1.35, 0, 0)
+		head_pitch = 0.35 + 0.05 * g
+	else:
+		var lift := EatingVisuals.lift(t)
+		pose.arm_r_upper = Vector3(lerpf(1.0, 2.2, lift), 0, lerpf(-0.1, -0.45, lift))
+		pose.arm_r_lower = Vector3(lerpf(0.6, 1.6, lift), 0, 0)
+		if _meal_plate != null:
+			pose.arm_l_upper = Vector3(1.05, 0, 0.2)
+			pose.arm_l_lower = Vector3(0.55, 0, 0)
+		var bites := EatingVisuals.bites(t, float(_meal.duration))
+		if _meal_food != null and bites != _meal_bites:
+			_meal_bites = bites
+			var crumbs: Callable = _meal.get("crumbs", Callable())
+			if crumbs.is_valid() and is_inside_tree():
+				crumbs.call(_meal_food.global_position, _meal.color, 10 if bites >= 3 else 5, 0.03)
+			_meal_food.visible = bites < 3
+			if bites < 3:
+				_meal_food.mesh = _meal.meshes[bites]
+	return head_pitch
 
 
 func swing(with_trail := true) -> void:
@@ -179,6 +250,9 @@ func animate(delta: float, velocity: Vector3, on_ground: bool, pitch: float) -> 
 	if _holding:
 		pose.arm_r_upper.x = pose.arm_r_upper.x * 0.4 + 0.3
 		pose.arm_r_lower.x = 0.5
+	var head_pitch := 0.0
+	if not _meal.is_empty():
+		head_pitch = _meal_pose(pose, now)
 	var since_swing := now - _swing_at
 	if since_swing < SWING_SECONDS:
 		var t := since_swing / SWING_SECONDS
@@ -189,7 +263,7 @@ func animate(delta: float, velocity: Vector3, on_ground: bool, pitch: float) -> 
 		if parts.has(key):
 			parts[key].rotation = pose[key]
 	if parts.has("head"):
-		parts.head.rotation = Vector3(clampf(pitch, -1.3, 1.3), 0, 0)
+		parts.head.rotation = Vector3(clampf(pitch + head_pitch, -1.3, 1.3), 0, 0)
 	_scale_root.rotation.z = lerpf(_scale_root.rotation.z, PI * 0.5 if _dead else 0.0, minf(1.0, delta * 10.0))
 	_scale_root.position.y = 0.15 if _dead else 0.0
 	var flash := now < _hurt_until

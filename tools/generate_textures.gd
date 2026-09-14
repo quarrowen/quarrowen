@@ -158,6 +158,9 @@ func _init() -> void:
 	# Food (appended last so earlier textures keep their random sequence).
 	_save(_item(Color(0.5, 0.58, 0.3), "meat"), vanilla + "rotten_flesh.png")
 	_save(_item(Color(0.78, 0.62, 0.4), "lump"), guild + "trail_ration.png")
+	_save(_bottle(Color(0, 0, 0, 0)), base + "glass_bottle.png")
+	_save(_bottle(Color(0.95, 0.72, 0.25)), base + "apple_juice.png")
+	_save(_bottle(Color(0.65, 0.35, 1.0)), arcana + "mana_potion.png")
 	quit()
 
 
@@ -179,6 +182,28 @@ func _part(part: String) -> Image:
 			if on:
 				var shade := 0.95 - 0.05 * ((x + y) % 3) - (0.15 if part in ["binding", "guard"] and (x + y) % 2 == 0 else 0.0)
 				img.set_pixel(x, y, Color(shade, shade, shade))
+	return img
+
+
+## A glass bottle with a cork, filled with `liquid` (alpha 0 = empty).
+func _bottle(liquid: Color) -> Image:
+	var img := _blank()
+	var glass := Color(0.78, 0.9, 0.95, 0.75)
+	for y in TILE:
+		for x in TILE:
+			var neck := x >= 6 and x <= 9 and y >= 2 and y <= 5
+			var body := Vector2((x - 7.5) * 0.9, (y - 10.0) * 1.05).length() < 4.6 and y >= 5
+			if y <= 2 and x >= 6 and x <= 9:
+				img.set_pixel(x, y, Color(0.6, 0.42, 0.25))  # cork
+			elif neck or body:
+				var edge := not (Vector2((x - 7.5) * 0.9, (y - 10.0) * 1.05).length() < 3.6 and y >= 6) and not (neck and x >= 7 and x <= 8)
+				var fill := liquid.a > 0.0 and y >= 7 and not edge
+				var c := liquid.darkened(0.12 * float(y - 7) / 7.0) if fill else glass
+				if not fill and not edge:
+					c = Color(0.85, 0.95, 1.0, 0.35)
+				if x == 5 and y >= 8 and y <= 11:
+					c = Color(1, 1, 1, 0.9)  # highlight
+				img.set_pixel(x, y, c)
 	return img
 
 

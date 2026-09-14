@@ -662,6 +662,13 @@ func s_title(text: String, subtitle: String, seconds: float) -> void:
 		client.on_title(text, subtitle, seconds)
 
 
+## A player started eating an item (0 = stopped or finished), for the eating animation.
+@rpc("authority", "call_remote", "reliable")
+func s_player_eating(peer_id: int, item: int) -> void:
+	if client:
+		client.on_player_eating(peer_id, item)
+
+
 ## Hunger 0-20 and saturation.
 @rpc("authority", "call_remote", "reliable")
 func s_hunger(hunger: float, saturation: float) -> void:

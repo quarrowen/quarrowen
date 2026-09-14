@@ -27,9 +27,9 @@ const SPRINT_JUMP := 0.2
 const BREAK_BLOCK := 0.005
 const ATTACK := 0.1
 const DAMAGED := 0.1
-const EAT_SOUND_INTERVAL := 0.28
+const EAT_SOUND_INTERVAL := 0.4  # one munch per chomp of the animation
+const GULP_SOUND_INTERVAL := 0.45
 
-const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
 var _server
 
@@ -87,7 +87,7 @@ func sync(p, force := false) -> void:
 ## `moved`: how far the player's inputs moved them this tick, over `move_time` seconds of simulation.
 func update(p, delta: float, moved: Vector3, move_time: float, was_on_ground: bool) -> void:
 	if p.dead:
-		p.eating = {}
+		stop_eating(p)
 		return
 	_update_eating(p)
 	if not enabled(p):
@@ -149,11 +149,21 @@ func start_eating(p) -> bool:
 		p.show_title("", "You are not hungry", 1.0)
 		return false
 	p.eating = {"slot": p.inventory.selected, "item": item, "started": _server._time, "sound": _server._time}
+	_broadcast(p, item)
 	return true
 
 
 func stop_eating(p) -> void:
-	p.eating = {}
+	if not p.eating.is_empty():
+		p.eating = {}
+		_broadcast(p, 0)
+
+
+## Tells every client who is eating what (0 = stopped), for the eating animation.
+func _broadcast(p, item: int) -> void:
+	for other in _server.players.values():
+		if other._online():
+			Net.s_player_eating.rpc_id(other.peer_id, p.peer_id, item)
 
 
 func _update_eating(p) -> void:
@@ -161,17 +171,17 @@ func _update_eating(p) -> void:
 		return
 	var slot: int = p.eating.slot
 	if p.inventory.selected != slot or p.inventory.ids[slot] != int(p.eating.item) or p.inventory.counts[slot] <= 0:
-		p.eating = {}
+		stop_eating(p)
 		return
 	var food: Dictionary = _server.items.get_def(int(p.eating.item)).get("food", {})
 	var now: float = _server._time
-	if now - float(p.eating.sound) >= EAT_SOUND_INTERVAL:
+	var drink: bool = food.get("style", "plate") == "drink"
+	if now - float(p.eating.sound) >= (GULP_SOUND_INTERVAL if drink else EAT_SOUND_INTERVAL):
 		p.eating.sound = now
-		_server.play_sound_at("engine:munch", p.get_eye_position(), 0.8, randf_range(0.85, 1.15))
-		_server.play_effect("engine:smoke", p.get_eye_position() + PlayerPhysics.look_direction(p.yaw, p.pitch) * 0.4 + Vector3(0, -0.2, 0),
-			{"scale": 0.25, "color": str(food.get("color", "#c8a060"))})
+		var sound := str(food.get("sound", ""))
+		_server.play_sound_at(sound if not sound.is_empty() else ("engine:gulp" if drink else "engine:munch"), p.get_eye_position(), 0.8, randf_range(0.85, 1.15))
 	if now - float(p.eating.started) >= float(food.get("eat_time", 1.2)):
-		p.eating = {}
+		stop_eating(p)
 		finish_eating(p, slot)
 
 
@@ -210,5 +220,6 @@ func finish_eating(p, slot: int) -> bool:
 				float(e.get("amount", 0.0)), str(e.get("op", "add")), float(e.get("seconds", 30.0)))
 			if not str(e.get("message", "")).is_empty():
 				p.show_title("", str(e.message), 1.5)
-	_server.play_sound_at("engine:burp", p.get_eye_position(), 0.7, randf_range(0.9, 1.1))
+	if food.get("style", "plate") != "drink":
+		_server.play_sound_at("engine:burp", p.get_eye_position(), 0.7, randf_range(0.9, 1.1))
 	return true
