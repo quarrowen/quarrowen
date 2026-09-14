@@ -7,7 +7,8 @@ extends RefCounted
 ## the station's queue, 0 = instant), project (built together: players contribute ingredients over time),
 ## unlock (how players learn it when discovery is on: "known" from the start, "pickup" when they first
 ## hold an ingredient, "blueprint" from a blueprint item, "experiment" at the crafting grid, "secret"
-## hidden until taught), hint (text shown while undiscovered)}
+## hidden until taught), hint (text shown while undiscovered), pattern (optional arrangement for the
+## experimentation grid: rows of item ids, 0 = empty, e.g. [[coal], [stick]])}
 ## Categories group the recipe book; recipes without one get a category from their output (tools,
 ## weapons, armor, food, blocks, materials).
 
@@ -66,10 +67,19 @@ func add(def: Dictionary, items = null) -> int:
 		"time": clampf(float(def.get("time", 0.0)) if def.get("time") is float or def.get("time") is int else 0.0, 0.0, 3600.0),
 		"project": bool(def.get("project", false)),
 		"unlock": str(def.get("unlock", "pickup")) if str(def.get("unlock", "pickup")) in UNLOCKS else "pickup",
-		"hint": str(def.get("hint", "")).left(160)}
+		"hint": str(def.get("hint", "")).left(160),
+		"pattern": _clean_pattern(def.get("pattern"))}
 	_ids[recipe_id] = recipes.size()
 	recipes.append(r)
 	return recipes.size() - 1
+
+
+static func _clean_pattern(value) -> Array:
+	var rows := []
+	for row in (value if value is Array else []).slice(0, 3):
+		if row is Array:
+			rows.append((row as Array).slice(0, 3).map(func(v): return int(v) if v is int or v is float else 0))
+	return rows
 
 
 func index_of(recipe_id: String) -> int:

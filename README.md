@@ -319,6 +319,14 @@ api.set_fuel("my_mod:peat", 40.0)                                        # api.g
   plans (skeletons, Guild shop) teach the forge and anvil, workbench plans (zombies, shop) the
   reinforced frame. (Clients receive every recipe so the book works offline of the server; a modified
   client could read undiscovered ones.)
+- **Experimentation grid:** the crafting screen's Experiment tab has a 3x3 grid. Players arrange items
+  they hold (nothing is used up) and Try: a recipe with exactly those ingredients (and, for recipes
+  with a `pattern`, that arrangement, shifted or mirrored) is discovered if its unlock is "experiment"
+  or "pickup", can be crafted right away if known, and blueprint recipes say plans are needed. Near
+  misses hint: wrong arrangement, amounts off, something missing (bookshelves name it), something
+  extra. Experiments are rate-limited and need the items in hand. Shaped recipes:
+  `register_recipe({}, "base:torch", 4, {"pattern": ["C", "S"], "key": {"C": "base:coal", "S": "base:stick"}, "unlock": "experiment"})`.
+  Bundled: torches (coal or charcoal over a stick) and hay bales (a grid of wheat).
 - **Upgradable stations:** `register_station(name, def)` adds tiers (blocks upgraded in place with a kit
   item), workshop upgrades (blocks within a radius grant features, tier, speed, quality, chest reach,
   hints) and multiblock structures (a pattern around a core block, any rotation). Recipes ask for

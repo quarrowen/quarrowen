@@ -17,6 +17,7 @@ extends RefCounted
 ##   project_contributed {player, position, recipe, item, count}
 ##   project_completed {position, recipe, item, contributors: {player id: {name, items}}}   reward them here
 ##   recipe_learned {player, recipe, source ("pickup" | "blueprint" | "experiment" | "mod")}
+##   recipe_experimented {player, recipe}                    discovered at the experimentation grid
 ##   item_crafted also carries {recipe, helpers}; its player is null when a job finished for someone offline
 ##   block_place    {player, position, block, cancelled}
 ##   block_placed   {player, position, block}
@@ -369,6 +370,10 @@ func item_name(id: int) -> String:
 	return _server.items.name_of(id)
 
 
+func items_name(id: int) -> String:
+	return _server.items.name_of(id)
+
+
 func item_max_stack(id: int) -> int:
 	return _server.items.max_stack(id)
 
@@ -378,7 +383,8 @@ func item_display_name(id: int) -> String:
 
 
 ## Shapeless recipe: `inputs` maps item names to counts. Appears in the engine crafting menu (C key).
-## options: unlock ("known" | "pickup" (default) | "blueprint" | "experiment" | "secret") and hint (text
+## options: pattern (["C", "S"]) with key ({"C": "base:coal", "S": "base:stick"}) makes the recipe shaped for
+## the experimentation grid (its inputs are counted from the pattern; pass {} as inputs), unlock ("known" | "pickup" (default) | "blueprint" | "experiment" | "secret") and hint (text
 ## shown while undiscovered) for recipe discovery, time (seconds in the station's queue; more players there craft faster), project (built
 ## together: players contribute ingredients over time, see project_completed), tier (minimum station
 ## tier), needs ([station features]), station (name of the crafting station block needed, e.g. "crafting_table"; blocks declare
@@ -387,6 +393,22 @@ func item_display_name(id: int) -> String:
 ## "<mod>:<output name>").
 func register_recipe(inputs: Dictionary, output: String, count := 1, options := {}) -> void:
 	var resolved := {}
+	var pattern := []
+	if options.get("pattern") is Array and options.get("key") is Dictionary:
+		# Shaped: rows of characters, the key maps characters to items; inputs are counted from it.
+		inputs = {}
+		for row in (options.pattern as Array).slice(0, 3):
+			var ids := []
+			for ch in str(row).left(3):
+				var id := item(str(options.key.get(ch, ""))) if ch != " " else 0
+				if ch != " " and id <= 0:
+					push_error("[%s] Recipe pattern key '%s' is unknown" % [mod_id, ch])
+					return
+				ids.append(id)
+				if id > 0:
+					var item_name := items_name(id)
+					inputs[item_name] = int(inputs.get(item_name, 0)) + 1
+			pattern.append(ids)
 	for input_name: String in inputs:
 		var id := item(input_name)
 		if id <= 0:
@@ -401,7 +423,8 @@ func register_recipe(inputs: Dictionary, output: String, count := 1, options := 
 	_server.add_recipe(resolved, out, count, String(options.get("station", "")),
 		{"category": str(options.get("category", "")), "id": recipe_id if recipe_id.contains(":") else _qualify(recipe_id),
 			"tier": int(options.get("tier", 0)), "needs": options.get("needs", []), "time": float(options.get("time", 0.0)),
-			"project": bool(options.get("project", false)), "unlock": str(options.get("unlock", "pickup")), "hint": str(options.get("hint", ""))})
+			"project": bool(options.get("project", false)), "unlock": str(options.get("unlock", "pickup")), "hint": str(options.get("hint", "")),
+			"pattern": pattern})
 
 
 ## Makes a station upgradable (see engine/server/stations.gd): tiers [{block, title, kit, grants}],

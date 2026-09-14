@@ -108,7 +108,7 @@ changes with `tools/build_native.sh`.
    - C4 Discovery (done), layered: basics known; everyday recipes unlock when an ingredient is first picked
      up (silhouettes with hints until then); advanced/special need blueprints (loot) or
      experimentation; recipe journal; per-server/mod configurable.
-   - C5 Experimentation grid: book for crafting plus an optional freeform grid; arranging items can
+   - C5 Experimentation grid (done): book for crafting plus an optional freeform grid; arranging items can
      discover unknown recipes; near-miss hints.
    - C6 Part-based tools, both basic + forged: fixed wooden/stone/iron tools stay; a Tool Forge
      station assembles tools from parts (head, handle, binding) whose materials contribute stats and

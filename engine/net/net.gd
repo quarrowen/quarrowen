@@ -339,6 +339,13 @@ func c_station_coop(action: String, arg: int) -> void:
 		server.on_station_coop(_sender(), action, arg)
 
 
+## Tries the experimentation grid: 9 item ids row by row (0 = empty).
+@rpc("any_peer", "call_remote", "reliable")
+func c_experiment(grid: PackedInt32Array) -> void:
+	if server:
+		server.on_experiment(_sender(), grid)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func c_crafting_closed() -> void:
 	if server:
@@ -448,6 +455,14 @@ func s_crafting_open(station: Dictionary, stock: Dictionary) -> void:
 func s_structure_guide(missing: Array) -> void:
 	if client:
 		client.on_structure_guide(missing)
+
+
+## What an experiment did: {status: "discovered" | "known" | "blueprint" | "close" | "nothing" | "invalid",
+## recipe (index or -1), hint}.
+@rpc("authority", "call_remote", "reliable")
+func s_experiment_result(result: Dictionary) -> void:
+	if client:
+		client.on_experiment_result(result)
 
 
 ## Recipes you know (ids) and whether discovery is on for this server.

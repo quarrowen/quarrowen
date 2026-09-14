@@ -30,6 +30,7 @@ func _ready() -> void:
 	await _stations()
 	await _coop()
 	await _discovery()
+	await _experiments()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -795,6 +796,56 @@ func _discovery() -> void:
 	_check(server._meta.players.scholar.recipes.has("base:forge") and server._meta.players.scholar.seen_items.has("base:brick"), "discoveries are saved")
 	p.inventory.creative = true
 	_check(p.knows_recipe("base:reinforced_frame"), "creative players know every recipe")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _experiments() -> void:
+	var server = _start("experiments_%d" % Time.get_ticks_msec())
+	server.gameplay.recipe_discovery = true
+	var items = server.items
+	var reg = server.registry
+	var p := ServerPlayer.new(server, 96, "Tinkerer")
+	p.player_id = "tinkerer"
+	server.players[96] = p
+	var y: int = server.surface_height(8, 8)
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	p.edit_tokens = 100.0
+	var coal: int = items.id_of("base:coal")
+	var stick: int = items.id_of("base:stick")
+	var wheat: int = items.id_of("base:wheat")
+	p.inventory.set_slot(0, coal, 2)
+	p.inventory.set_slot(1, stick, 2)
+	p.inventory.set_slot(2, wheat, 9)
+	var lab = server.experiments
+	var attempt := func(grid: Array) -> Dictionary:
+		lab._last.clear()
+		return lab.experiment(p, grid)
+	var result: Dictionary = attempt.call([stick, 0, 0, coal, 0, 0, 0, 0, 0])
+	_check(result.status == "close" and result.hint.contains("arranged"), "the right items in the wrong arrangement get a hint (%s)" % result.hint)
+	result = attempt.call([0, coal, 0, 0, stick, 0, 0, 0, 0])
+	_check(result.status == "discovered" and p.knows_recipe("base:torch") and server.recipes.recipes[result.recipe].output == reg.id_of("base:torch"),
+		"coal above a stick (anywhere in the grid) discovers torches")
+	result = attempt.call([0, 0, 0, 0, 0, coal, 0, 0, stick])
+	_check(result.status == "known", "trying a known recipe says so and allows crafting it")
+	result = attempt.call([wheat, wheat, wheat, wheat, wheat, wheat, wheat, wheat, 0])
+	_check(result.status == "close" and result.hint.contains("amounts"), "eight wheat hints that the amounts are off (%s)" % result.hint)
+	result = attempt.call([wheat, wheat, wheat, wheat, wheat, wheat, wheat, wheat, wheat])
+	_check(result.status == "discovered" and p.knows_recipe("base:hay_bale"), "nine wheat discovers the hay bale")
+	result = attempt.call([items.id_of("base:iron_ingot"), 0, 0, 0, 0, 0, 0, 0, 0])
+	_check(result.status == "invalid", "you cannot experiment with items you do not hold")
+	lab._last.clear()
+	lab.experiment(p, [coal, 0, 0, stick, 0, 0, 0, 0, 0])
+	_check(lab.experiment(p, [coal, 0, 0, stick, 0, 0, 0, 0, 0]).status == "invalid", "experiments have a short cooldown")
+	# Blueprint recipes cannot be experimented into existence.
+	var table := Vector3i(10, y + 1, 8)
+	server.set_block_authoritative(table, reg.id_of("base:crafting_table"))
+	server.on_interact(96, table)
+	p.inventory.set_slot(3, items.id_of("base:brick"), 6)
+	p.inventory.set_slot(4, items.id_of("base:furnace"), 1)
+	var brick: int = items.id_of("base:brick")
+	result = attempt.call([brick, brick, brick, brick, items.id_of("base:furnace"), brick, brick, 0, 0])
+	_check(result.status == "blueprint" and not p.knows_recipe("base:forge"), "matching a blueprint recipe says plans are needed")
 	server.queue_free()
 	await get_tree().process_frame
 

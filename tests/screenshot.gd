@@ -11,7 +11,7 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -90,6 +90,20 @@ func _ready() -> void:
 		var index: int = client.recipes.index_of(options.craft)
 		if index >= 0:
 			client._crafting_screen._select(index)
+	if not String(options.lab).is_empty():
+		# Experimentation grid: --lab=base:coal,-,-,base:stick (up to 9 cells, "-" empty), then Try.
+		if not client._crafting_screen.visible:
+			client._set_crafting_open(true)
+			await get_tree().create_timer(0.8).timeout
+		client._crafting_screen.set_lab_mode(true)
+		var cells := PackedInt32Array([0, 0, 0, 0, 0, 0, 0, 0, 0])
+		var names := String(options.lab).split(",")
+		for i in mini(names.size(), 9):
+			cells[i] = maxi(client.items.id_of(names[i]), 0) if names[i] != "-" else 0
+		client._crafting_screen._grid_items = cells
+		client._crafting_screen._palette_item = cells[0]
+		client._crafting_screen.experiment_requested.emit(cells)
+		await get_tree().create_timer(0.8).timeout
 	if not String(options.wear).is_empty():
 		Net.c_set_avatar.rpc_id(1, JSON.parse_string(options.wear))  # in game, so server cosmetics apply too
 		await get_tree().create_timer(0.5).timeout

@@ -32,6 +32,7 @@ const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 const Stations = preload("res://engine/server/stations.gd")
 const StationSessions = preload("res://engine/server/station_sessions.gd")
+const Experiments = preload("res://engine/server/experiments.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -128,6 +129,8 @@ var recipes := RecipeRegistry.new()
 var stations := Stations.new(self)
 ## Co-op crafting at stations: presence, shared trays, timed jobs and projects.
 var sessions := StationSessions.new(self)
+## The experimentation grid (discovering recipes by arranging items).
+var experiments := Experiments.new(self)
 var _snapshot_round := 0
 var _support_rules := {}  # block id -> null (none) | true (solid below) | {block id: true}
 var _fuels := {}  # item id -> seconds it burns
@@ -1987,7 +1990,7 @@ func add_recipe(inputs: Dictionary, output: int, count: int, station := "", opti
 	return recipes.add({"inputs": inputs, "output": output, "count": count, "station": station,
 		"category": options.get("category", ""), "id": options.get("id", ""), "tier": options.get("tier", 0),
 		"needs": options.get("needs", []), "time": options.get("time", 0.0), "project": options.get("project", false),
-		"unlock": options.get("unlock", "pickup"), "hint": options.get("hint", "")}, items)
+		"unlock": options.get("unlock", "pickup"), "hint": options.get("hint", ""), "pattern": options.get("pattern", [])}, items)
 
 
 ## How long an item burns as fuel (seconds; 0 = not fuel).
@@ -2222,6 +2225,15 @@ func on_craft(peer_id: int, index: int, times: int) -> void:
 		return
 	p.edit_tokens -= 1.0
 	craft(p, index, times)
+
+
+func on_experiment(peer_id: int, grid: PackedInt32Array) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or p.dead:
+		return
+	var result := experiments.experiment(p, Array(grid))
+	if p._online():
+		Net.s_experiment_result.rpc_id(p.peer_id, result)
 
 
 func on_crafting_closed(peer_id: int) -> void:

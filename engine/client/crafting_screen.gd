@@ -11,6 +11,8 @@ signal pin_requested(index: int)
 signal station_action(action: String)
 ## Co-op actions: "view" | "deposit" | "take" | "start_project" | "contribute" | "cancel_project".
 signal coop_action(action: String, arg: int)
+## The experimentation grid's "Try": 9 item ids row by row (0 = empty).
+signal experiment_requested(grid: PackedInt32Array)
 signal closed
 
 const Inventory = preload("res://engine/shared/inventory.gd")
@@ -58,6 +60,18 @@ var _ingredients: VBoxContainer
 var _craft_button: Button
 var _craft_all_button: Button
 var _pin_button: Button
+var _book: VBoxContainer
+var _lab: VBoxContainer
+var _mode_book: Button
+var _mode_lab: Button
+var _grid_items := PackedInt32Array([0, 0, 0, 0, 0, 0, 0, 0, 0])
+var _grid_buttons: Array[Button] = []
+var _palette: GridContainer
+var _palette_item := 0
+var _lab_result_icon: TextureRect
+var _lab_hint: Label
+var _lab_craft: Button
+var _lab_recipe := -1
 var _station_panel: VBoxContainer
 var _coop_panel: VBoxContainer
 var _side_scroll: ScrollContainer
@@ -94,6 +108,17 @@ func _ready() -> void:
 	_title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4))
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(_title)
+	for mode in [["Recipe book", false], ["Experiment", true]]:
+		var tab := Button.new()
+		tab.text = mode[0]
+		tab.toggle_mode = true
+		tab.button_pressed = not mode[1]
+		tab.pressed.connect(set_lab_mode.bind(mode[1]))
+		header.add_child(tab)
+		if mode[1]:
+			_mode_lab = tab
+		else:
+			_mode_book = tab
 	var close := Button.new()
 	close.text = "✕"
 	close.flat = true
@@ -106,9 +131,11 @@ func _ready() -> void:
 
 	# Recipe book.
 	var book := VBoxContainer.new()
+	_book = book
 	book.custom_minimum_size = Vector2(COLUMNS * (CELL + 4), 460)
 	book.add_theme_constant_override("separation", 6)
 	body.add_child(book)
+	_build_lab(body)
 	var search_row := HBoxContainer.new()
 	book.add_child(search_row)
 	_search = LineEdit.new()
@@ -243,6 +270,161 @@ func _ready() -> void:
 	root.add_child(hint)
 
 
+## The experimentation grid: pick an item from your inventory below, click cells to place it (right-click
+## clears a cell), then Try. Nothing is used up by experimenting.
+func _build_lab(body: HBoxContainer) -> void:
+	_lab = VBoxContainer.new()
+	_lab.custom_minimum_size = _book.custom_minimum_size
+	_lab.add_theme_constant_override("separation", 8)
+	_lab.visible = false
+	body.add_child(_lab)
+	body.move_child(_lab, 1)
+	_lab.add_child(_small("Arrange items you hold and try them. Nothing is used up. Some recipes care how things are arranged.", Color(1, 1, 1, 0.6)))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 18)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_lab.add_child(row)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	row.add_child(grid)
+	for i in 9:
+		var cell := _slot_button(0, 0)
+		cell.custom_minimum_size = Vector2(CELL, CELL)
+		cell.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton and event.pressed:
+				if event.button_index == MOUSE_BUTTON_RIGHT or _palette_item <= 0:
+					_grid_items[i] = 0
+				elif _placed(_palette_item) < _held(_palette_item) or _grid_items[i] == _palette_item:
+					_grid_items[i] = _palette_item if _grid_items[i] != _palette_item else 0
+				_redraw_lab()
+				accept_event())
+		grid.add_child(cell)
+		_grid_buttons.append(cell)
+	var arrow := Label.new()
+	arrow.text = "→"
+	arrow.add_theme_font_size_override("font_size", 36)
+	row.add_child(arrow)
+	var result_frame := PanelContainer.new()
+	result_frame.add_theme_stylebox_override("panel", _box(Color(0.12, 0.12, 0.15), 6))
+	row.add_child(result_frame)
+	_lab_result_icon = TextureRect.new()
+	_lab_result_icon.custom_minimum_size = Vector2(72, 72)
+	_lab_result_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_lab_result_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_lab_result_icon.pivot_offset = Vector2(36, 36)
+	result_frame.add_child(_lab_result_icon)
+	_lab_hint = Label.new()
+	_lab_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lab_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_lab_hint.custom_minimum_size = Vector2(380, 44)
+	_lab_hint.add_theme_color_override("font_color", Color(0.8, 0.85, 1.0))
+	_lab.add_child(_lab_hint)
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 8)
+	_lab.add_child(buttons)
+	var try := Button.new()
+	try.text = "Try"
+	try.custom_minimum_size = Vector2(110, 40)
+	try.pressed.connect(func(): experiment_requested.emit(_grid_items))
+	buttons.add_child(try)
+	var clear := Button.new()
+	clear.text = "Clear"
+	clear.custom_minimum_size = Vector2(90, 40)
+	clear.pressed.connect(func():
+		_grid_items = PackedInt32Array([0, 0, 0, 0, 0, 0, 0, 0, 0])
+		_lab_recipe = -1
+		_lab_hint.text = ""
+		_redraw_lab())
+	buttons.add_child(clear)
+	_lab_craft = Button.new()
+	_lab_craft.text = "Craft it"
+	_lab_craft.custom_minimum_size = Vector2(110, 40)
+	_lab_craft.pressed.connect(func():
+		if _lab_recipe >= 0:
+			craft_requested.emit(_lab_recipe, 1))
+	buttons.add_child(_lab_craft)
+	_lab.add_child(_section("Your items"))
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_lab.add_child(scroll)
+	_palette = GridContainer.new()
+	_palette.columns = COLUMNS
+	scroll.add_child(_palette)
+
+
+func set_lab_mode(lab: bool) -> void:
+	_lab.visible = lab
+	_book.visible = not lab
+	_mode_lab.button_pressed = lab
+	_mode_book.button_pressed = not lab
+	if lab:
+		_redraw_lab()
+
+
+## Shows what an experiment did: the discovered or known result, or a hint.
+func set_experiment_result(result: Dictionary) -> void:
+	_lab_hint.text = String(result.get("hint", ""))
+	_lab_recipe = int(result.get("recipe", -1)) if String(result.get("status", "")) in ["discovered", "known"] else -1
+	var color: Color = {"discovered": Color(1.0, 0.85, 0.4), "known": Color(0.6, 0.9, 0.6), "close": Color(0.75, 0.8, 1.0),
+		"blueprint": Color(0.7, 0.8, 1.0)}.get(String(result.get("status", "")), Color(1, 1, 1, 0.6))
+	_lab_hint.add_theme_color_override("font_color", color)
+	if _lab_recipe >= 0:
+		_select(_lab_recipe)  # show the discovered or known recipe beside the grid
+	_redraw_lab()
+	if String(result.get("status", "")) == "discovered":
+		var tween := _lab_result_icon.create_tween()
+		_lab_result_icon.scale = Vector2(0.4, 0.4)
+		tween.tween_property(_lab_result_icon, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
+
+func _held(item: int) -> int:
+	return 99 if inventory.creative else inventory.count_of(item)
+
+
+func _placed(item: int) -> int:
+	return Array(_grid_items).count(item)
+
+
+func _redraw_lab() -> void:
+	if _lab == null or not _lab.visible:
+		return
+	for i in 9:
+		var id := _grid_items[i]
+		if id > 0 and _placed(id) > _held(id):
+			_grid_items[i] = 0  # used up or dropped since it was placed
+			id = 0
+		var icon: TextureRect = _grid_buttons[i].get_child(0)
+		icon.texture = _icon(id) if id > 0 else null
+	var r: Dictionary = recipes.recipes[_lab_recipe] if _lab_recipe >= 0 and _lab_recipe < recipes.recipes.size() else {}
+	_lab_result_icon.texture = _icon(r.output) if not r.is_empty() else null
+	_lab_craft.disabled = r.is_empty() or craftable_times(_lab_recipe) <= 0
+	for child in _palette.get_children():
+		child.queue_free()
+	var seen := {}
+	for i in inventory.SIZE:
+		var id := inventory.ids[i]
+		if id <= 0 or inventory.counts[i] <= 0 or seen.has(id):
+			continue
+		seen[id] = true
+		var left := _held(id) - _placed(id)
+		var b := _slot_button(id, left if not inventory.creative else 0)
+		b.tooltip_text = items.display_name(id)
+		if id == _palette_item:
+			var style := _box(Color(0.25, 0.22, 0.1), 0)
+			style.border_color = Color(1.0, 0.8, 0.35)
+			style.set_border_width_all(2)
+			for state in ["normal", "hover", "pressed"]:
+				b.add_theme_stylebox_override(state, style)
+		b.pressed.connect(func():
+			_palette_item = id
+			_redraw_lab())
+		_palette.add_child(b)
+
+
 ## Opens (or refreshes) the book for a station and its stock.
 func open(station_info: Dictionary, station_stock: Dictionary) -> void:
 	station = station_info
@@ -269,6 +451,7 @@ func show_lookup(item: int, mode: String) -> void:
 func refresh() -> void:
 	if not visible or recipes == null:
 		return
+	_redraw_lab()
 	if not session.is_empty():
 		set_session(session)
 	for index: int in _cells:

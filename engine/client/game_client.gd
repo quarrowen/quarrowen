@@ -1529,6 +1529,12 @@ func _announce_learned(source: String) -> void:
 	_sounds.play_name("engine:discover", Vector3.ZERO, 0.8, 1.0, false)
 
 
+func on_experiment_result(result: Dictionary) -> void:
+	_crafting_screen.set_experiment_result(result)
+	if String(result.get("status", "")) == "close":
+		_sounds.play_name("engine:ui_click", Vector3.ZERO, 0.6, 0.7, false)
+
+
 func on_station_session(view: Dictionary) -> void:
 	_crafting_screen.set_session(view)
 
@@ -2084,6 +2090,7 @@ func _build_hud() -> void:
 	_crafting_screen.closed.connect(_set_crafting_open.bind(false))
 	_crafting_screen.station_action.connect(func(action): Net.c_station_action.rpc_id(1, action))
 	_crafting_screen.coop_action.connect(func(action, arg): Net.c_station_coop.rpc_id(1, action, arg))
+	_crafting_screen.experiment_requested.connect(func(grid): Net.c_experiment.rpc_id(1, grid))
 	_hud_root.add_child(_crafting_screen)
 	_build_pin_panel()
 

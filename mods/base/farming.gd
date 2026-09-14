@@ -41,6 +41,15 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	ids.wheat = api.register_item("wheat", {"display_name": "Wheat", "icon": "textures/wheat.png"})
 	ids.bread = api.register_item("bread", {"display_name": "Bread", "icon": "textures/bread.png", "usable": true})
 	api.register_recipe({"base:wheat": 3}, "base:bread", 1, {"category": "food"})
+
+	# Found by experimenting: arranged in the crafting grid (see the recipe patterns).
+	api.register_block("torch", {"display_name": "Torch", "textures": "textures/torch.png", "render": "plant", "light": 14,
+		"hardness": 0.0, "support": "solid", "sounds": sounds.grass})
+	api.register_block("hay_bale", {"display_name": "Hay Bale", "sounds": sounds.grass, "hardness": 0.5,
+		"textures": {"top": "textures/hay_bale_top.png", "bottom": "textures/hay_bale_top.png", "side": "textures/hay_bale_side.png"}})
+	api.register_recipe({}, "base:hay_bale", 1, {"pattern": ["WWW", "WWW", "WWW"], "key": {"W": "base:wheat"}, "unlock": "experiment",
+		"category": "blocks", "hint": "A whole grid of the harvest, bundled."})
+	api.register_recipe({"base:hay_bale": 1}, "base:wheat", 9, {"id": "wheat_from_hay"})
 	ids.hoes = {}
 	for m in [{"name": "wooden", "input": "base:planks", "tier": 1, "durability": 60},
 			{"name": "stone", "input": "base:cobblestone", "tier": 2, "durability": 130},

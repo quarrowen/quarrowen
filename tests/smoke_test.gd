@@ -530,6 +530,21 @@ func _combat(c) -> void:
 	_check(await _wait_until(func(): return c._crafting_screen.known.has("base:forge") and c.inventory.count_of(plans) == 0, 3.0),
 		"reading forge plans taught the forge")
 
+	# Experimentation grid: coal above a stick discovers torches.
+	Net.c_chat.rpc_id(1, "/give base:coal 2")
+	Net.c_chat.rpc_id(1, "/give base:stick 2")
+	var coal: int = c.items.id_of("base:coal")
+	var stick: int = c.items.id_of("base:stick")
+	await _wait_until(func(): return c.inventory.count_of(coal) >= 1 and c.inventory.count_of(stick) >= 1, 3.0)
+	c._set_crafting_open(true)
+	await _wait_until(func(): return c._crafting_screen.visible, 3.0)
+	c._crafting_screen.set_lab_mode(true)
+	c._crafting_screen._grid_items = PackedInt32Array([coal, 0, 0, stick, 0, 0, 0, 0, 0])
+	c._crafting_screen.experiment_requested.emit(c._crafting_screen._grid_items)
+	_check(await _wait_until(func(): return c._crafting_screen.known.has("base:torch") and c._crafting_screen._lab_recipe >= 0, 3.0),
+		"experimenting with coal over a stick discovered torches (%s)" % c._crafting_screen._lab_hint.text)
+	c._set_crafting_open(false)
+
 	# Wand of Sparks (arcana): a projectile that damages mobs.
 	Net.c_chat.rpc_id(1, "/give arcana:wand_of_sparks")
 	var wand: int = c.items.id_of("arcana:wand_of_sparks")

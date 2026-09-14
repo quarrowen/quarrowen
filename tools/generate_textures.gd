@@ -147,7 +147,34 @@ func _init() -> void:
 	_save(_reinforced_frame(), base + "reinforced_frame.png")
 	_save(_banner(), guild + "guild_banner.png")
 	_save(_blueprint(), base + "blueprint.png")
+	_save(_torch(), base + "torch.png")
+	_save(_hay(true), base + "hay_bale_top.png")
+	_save(_hay(false), base + "hay_bale_side.png")
 	quit()
+
+
+func _torch() -> Image:
+	var img := _blank()
+	for y in range(7, 16):
+		img.set_pixel(7, y, Color(0.45, 0.3, 0.16))
+		img.set_pixel(8, y, Color(0.38, 0.25, 0.13))
+	for y in range(3, 7):
+		for x in range(6, 10):
+			var hot := y >= 5
+			img.set_pixel(x, y, Color(1.0, 0.9, 0.45) if hot and (x == 7 or x == 8) else Color(1.0, 0.55 + 0.1 * rng.randf(), 0.12))
+	img.set_pixel(7, 2, Color(1.0, 0.75, 0.2))
+	return img
+
+
+func _hay(top: bool) -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var straw := Color(0.82, 0.7, 0.3) if (x + (y if top else 0)) % 3 != 0 else Color(0.72, 0.58, 0.22)
+			if not top and (y == 3 or y == 12):
+				straw = Color(0.5, 0.33, 0.15)  # binding
+			img.set_pixel(x, y, _vary(straw, 0.05))
+	return img
 
 
 func _blueprint() -> Image:

@@ -70,6 +70,10 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	api.register_recipe({"base:cobblestone": 8}, "base:furnace", 1, {"station": TABLE})
 
 	api.register_item("charcoal", {"icon": "textures/charcoal.png"})
+	for fuel in ["base:coal", "base:charcoal"]:
+		api.register_recipe({}, "base:torch", 4, {"pattern": ["F", "S"], "key": {"F": fuel, "S": "base:stick"}, "unlock": "experiment",
+			"id": "torch" if fuel == "base:coal" else "torch_from_charcoal", "category": "blocks",
+			"hint": "Something that burns, held up by something to hold it."})
 	for fuel in [["base:coal", 80.0], ["base:charcoal", 80.0], ["base:log", 15.0], ["base:planks", 15.0], ["base:crafting_table", 15.0],
 			["base:chest", 15.0], ["base:stick", 5.0], ["base:sapling", 5.0], ["base:wooden_pickaxe", 10.0], ["base:wooden_axe", 10.0],
 			["base:wooden_shovel", 10.0], ["base:wooden_sword", 10.0], ["base:wooden_hoe", 10.0]]:
