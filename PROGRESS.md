@@ -7,8 +7,7 @@ Last updated: 2026-09-14. Read this first when resuming.
 Remote: `git@github.com:omnivoxel-game/voxelcraft.git` (private, default branch `master`). The repo
 was recreated on 2026-09-14 with rewritten history (attribution lines and `.mcp.json` removed), so
 the old PR pages (#1-#5: hardening, gameplay foundation, engine mob AI, equipment core, visuals) no
-longer exist; their work is on `master`. Current work: branch `survival` (crafting milestone and
-survival steps, not yet merged). If SSH to GitHub times out, push over HTTPS with
+longer exist; their work is on `master`. The crafting milestone and the survival loop were merged into `master` on 2026-09-14. If SSH to GitHub times out, push over HTTPS with
 `git -c credential.helper='!gh auth git-credential' push https://github.com/omnivoxel-game/voxelcraft.git <branch>`.
 
 Local test commands: `tools/run_tests.sh` (native) and `VOXEL_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh`
@@ -87,7 +86,7 @@ changes with `tools/build_native.sh`.
 
 ## Roadmap (milestones, agreed 2026-09-13)
 
-1. **Vanilla survival loop** (done 2026-09-14 on branch `survival`, not yet merged). Each step adds an engine capability, then
+1. **Vanilla survival loop** (done and merged to `master` 2026-09-14). Each step adds an engine capability, then
    vanilla/base content:
    1. Block ticks (random, scheduled, catch-up), server light, `plant` render mode, support and
       replaceable blocks -> farming (hoes, farmland, wheat, bread), saplings, tall grass and flowers. (done)
