@@ -62,7 +62,7 @@ func setup(api) -> void:
 
 	var apple: int = api.register_item("apple", {"display_name": "Apple", "icon": "textures/apple.png", "usable": true})
 
-	api.register_recipe({"base:log": 1}, "base:planks", 4)
+	api.register_recipe({"base:log": 1}, "base:planks", 4, {"unlock": "known"})
 	api.register_recipe({"base:gravel": 2, "base:coal": 1}, "base:brick", 4)
 	api.register_recipe({"base:cobblestone": 1}, "base:gravel", 1)
 	_register_tools(api)
@@ -79,7 +79,7 @@ func setup(api) -> void:
 func _register_tools(api) -> void:
 	api.register_item("stick", {"icon": "textures/stick.png"})
 	api.register_item("iron_ingot", {"display_name": "Iron Ingot", "icon": "textures/iron_ingot.png"})
-	api.register_recipe({"base:planks": 2}, "base:stick", 4)
+	api.register_recipe({"base:planks": 2}, "base:stick", 4, {"unlock": "known"})
 	var materials := [
 		{"name": "wooden", "display": "Wooden", "tier": 1, "speed": 2.0, "durability": 60, "damage": 4.0, "input": "base:planks"},
 		{"name": "stone", "display": "Stone", "tier": 2, "speed": 4.0, "durability": 130, "damage": 5.0, "input": "base:cobblestone"},

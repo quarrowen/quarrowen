@@ -226,6 +226,10 @@ func _skyblock(c) -> void:
 		_check(c._pin_panel.visible and c._pin_rows.get_child_count() >= 3, "pinning a recipe shows its ingredients on the HUD")
 		c.pin_recipe(-1)
 		c._set_crafting_open(false)
+		# Discovery: mining cobblestone taught gravel (blueprints are checked in the combat test).
+		_check(c._crafting_screen.discovery and c._crafting_screen.known.has("base:gravel") and not c._crafting_screen.known.has("base:forge"),
+			"picking up cobblestone discovered its recipes, blueprint ones stay hidden")
+
 		await get_tree().create_timer(0.4).timeout
 	else:
 		_fail("no log found near spawn")
@@ -515,6 +519,16 @@ func _combat(c) -> void:
 	_check(c._cracks.has(0), "mining shows the crack overlay")
 	_check(await _wait_until(func(): return c.world.get_block_v(mine_target) == 0, 4.0), "survival mining broke the block")
 	_check(await _wait_until(func(): return c.inventory.data[c.inventory.ids.find(pickaxe)].get("damage", 0) >= 1, 3.0), "breaking a block wore the pickaxe")
+
+	# Blueprints: reading forge plans teaches the forge and uses them up.
+	Net.c_chat.rpc_id(1, "/give base:forge_plans")
+	var plans: int = c.items.id_of("base:forge_plans")
+	await _wait_until(func(): return c.inventory.count_of(plans) == 1, 3.0)
+	await _select_item(c, plans)
+	await get_tree().create_timer(0.3).timeout
+	c.use_selected_item()
+	_check(await _wait_until(func(): return c._crafting_screen.known.has("base:forge") and c.inventory.count_of(plans) == 0, 3.0),
+		"reading forge plans taught the forge")
 
 	# Wand of Sparks (arcana): a projectile that damages mobs.
 	Net.c_chat.rpc_id(1, "/give arcana:wand_of_sparks")

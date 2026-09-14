@@ -450,6 +450,20 @@ func s_structure_guide(missing: Array) -> void:
 		client.on_structure_guide(missing)
 
 
+## Recipes you know (ids) and whether discovery is on for this server.
+@rpc("authority", "call_remote", "reliable")
+func s_known_recipes(known: PackedStringArray, discovery: bool) -> void:
+	if client:
+		client.on_known_recipes(known, discovery)
+
+
+## You learned recipe `index`: source "pickup" | "blueprint" | "experiment" | "mod".
+@rpc("authority", "call_remote", "reliable")
+func s_recipe_learned(index: int, source: String) -> void:
+	if client:
+		client.on_recipe_learned(index, source)
+
+
 ## The shared state of the station you are at: {players, tray, jobs, project, owner, speedup}.
 @rpc("authority", "call_remote", "reliable")
 func s_station_session(session: Dictionary) -> void:

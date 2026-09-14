@@ -250,6 +250,8 @@ declare module "voxelcraft" {
     addModifier(id: string, stat: string, amount: number, op?: "add" | "multiply", seconds?: number): void;
     removeModifier(id: string): void;
     setTeam(name: string): void;
+    knowsRecipe(id: string): boolean;
+    learnRecipe(id: string): boolean;
     team(): string;
     grantCosmetic(name: string): void;
     revokeCosmetic(name: string): void;
@@ -330,7 +332,8 @@ declare module "voxelcraft" {
     info(...parts: unknown[]): void;
     registerBlock(name: string, def: BlockDef): BlockId;
     registerItem(name: string, def: ItemDef): ItemId;
-    registerRecipe(inputs: Record<string, number>, output: string, count?: number, options?: { station?: string; tier?: number; needs?: string[]; category?: string; id?: string }): void;
+    registerRecipe(inputs: Record<string, number>, output: string, count?: number, options?: { station?: string; tier?: number; needs?: string[]; category?: string; id?: string;
+      time?: number; project?: boolean; unlock?: "known" | "pickup" | "blueprint" | "experiment" | "secret"; hint?: string }): void;
     registerStation(name: string, def: StationDef): void;
     getStation(position: Vec3): Record<string, unknown>;
     registerContainer(name: string, def: { title?: string; groups: { name: string; count: number; columns?: number; label?: string; take_only?: boolean; accepts?: string[] | "fuel" }[];

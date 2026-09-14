@@ -154,6 +154,7 @@ var _toast: PanelContainer
 var _pending_lookup := {}
 var _guide_root: Node3D
 var _station_labels := {}  # Vector3i -> Label3D
+var _learned_batch: Array = []
 ## Follows your own body so effects can follow you even while the avatar is hidden in first person.
 var _self_anchor := Node3D.new()
 var _view_model_look := ""
@@ -1492,6 +1493,40 @@ func on_crafted(index: int, times: int, stock: Dictionary) -> void:
 	if index >= 0 and index < recipes.recipes.size():
 		var r: Dictionary = recipes.recipes[index]
 		_show_toast(r.output, "Crafted %d x %s" % [r.count * times, items.display_name(r.output)])
+
+
+func on_known_recipes(known: PackedStringArray, discovery: bool) -> void:
+	_crafting_screen.known.clear()
+	for recipe_id in known:
+		_crafting_screen.known[recipe_id] = true
+	_crafting_screen.discovery = discovery
+	_crafting_screen.refresh()
+
+
+## A new recipe: remember it and celebrate (several at once are grouped into one toast).
+func on_recipe_learned(index: int, source: String) -> void:
+	if index < 0 or index >= recipes.recipes.size():
+		return
+	var r: Dictionary = recipes.recipes[index]
+	_crafting_screen.known[r.id] = true
+	_learned_batch.append(index)
+	if _learned_batch.size() == 1:
+		get_tree().create_timer(0.35).timeout.connect(_announce_learned.bind(source))
+	if _crafting_screen.visible:
+		_crafting_screen.open(_crafting_screen.station, _crafting_screen.stock)
+
+
+func _announce_learned(source: String) -> void:
+	var batch := _learned_batch
+	_learned_batch = []
+	if batch.is_empty():
+		return
+	var first: Dictionary = recipes.recipes[batch[0]]
+	var text := "New recipe: %s" % items.display_name(first.output) if batch.size() == 1 else "%d new recipes (%s, ...)" % [batch.size(), items.display_name(first.output)]
+	if source == "blueprint":
+		text += "  (blueprint)"
+	_show_toast(first.output, text)
+	_sounds.play_name("engine:discover", Vector3.ZERO, 0.8, 1.0, false)
 
 
 func on_station_session(view: Dictionary) -> void:

@@ -303,6 +303,8 @@ func _call_player(method: String, a: Array):
 		"drop": player.drop(_int(a, 1), _int(a, 2, 1))
 		"push": player.push(_vec3(a, 1))
 		"setTeam": player.team = _str(a, 1)
+		"knowsRecipe": return player.knows_recipe(api._qualify_ref(_str(a, 1)))
+		"learnRecipe": return player.learn_recipe(api._qualify_ref(_str(a, 1)), "mod")
 		"team": return player.team
 		"setSpawnPoint": player.spawn_point = _vec3(a, 1) if a.size() > 1 and a[1] != null else Vector3.INF
 		_: return HostError.new("unknown player method '%s'" % method)

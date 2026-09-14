@@ -93,6 +93,7 @@ var gameplay := {
 	"mob_spawning": true,
 	"durability": true,  # tools, weapons and armor wear out
 	"tray_access": "contributors",  # station trays: "contributors" (plus owner and team) | "anyone"
+	"recipe_discovery": true,  # players learn recipes (see RecipeRegistry unlock rules); false = all known
 }
 var server_info := {"name": "VoxelCraft Server", "game": "", "description": "", "motd": "", "mods": []}
 var generator: Object = null
@@ -1098,6 +1099,10 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 		for id in (saved.get("cosmetics") if saved.get("cosmetics") is Array else []):
 			p.owned_cosmetics[String(id)] = true
 		p.server_wear = saved.get("server_wear") if saved.get("server_wear") is Dictionary else {}
+		for recipe_id in (saved.get("recipes") if saved.get("recipes") is Array else []):
+			p.known_recipes[str(recipe_id)] = true
+		for item_name in (saved.get("seen_items") if saved.get("seen_items") is Array else []):
+			p.seen_items[str(item_name)] = true
 		p.health = clampf(float(saved.get("health", p.max_health)), 1.0, p.max_health)
 		var spawn_point = saved.get("spawn_point")
 		if spawn_point is Array and spawn_point.size() == 3:
@@ -1110,6 +1115,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	Net.s_welcome.rpc_id(peer_id, peer_id, p.state.position, 0.0)
 	_set_client_avatar(p, avatar, true)
 	Net.s_cosmetics.rpc_id(peer_id, PackedStringArray(p.owned_cosmetics.keys()), cosmetics.policy)
+	Net.s_known_recipes.rpc_id(peer_id, PackedStringArray(p.known_recipes.keys()), gameplay.recipe_discovery)
 	Net.s_time.rpc_id(peer_id, _time_of_day, _day_length)
 	p.sync_inventory()
 	refresh_stats(p)
@@ -1584,6 +1590,10 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 	if item < ItemRegistry.FIRST_ITEM or not items.is_usable(item) or p.edit_tokens < 1.0:
 		return
 	p.edit_tokens -= 1.0
+	var teaches: Array = p.inventory.data[p.inventory.selected].get("teaches", items.get_def(item).get("teaches", []))
+	if teaches is Array and not teaches.is_empty():
+		_read_blueprint(p, teaches)
+		return
 	if has_target and (not world.has_chunk(VoxelWorld.chunk_coord_at(target.x, target.z)) \
 			or p.get_eye_position().distance_to(Vector3(target) + Vector3.ONE * 0.5) > REACH + 0.87):
 		has_target = false
@@ -1976,7 +1986,8 @@ func _update_player_rules(p: ServerPlayer) -> void:
 func add_recipe(inputs: Dictionary, output: int, count: int, station := "", options := {}) -> int:
 	return recipes.add({"inputs": inputs, "output": output, "count": count, "station": station,
 		"category": options.get("category", ""), "id": options.get("id", ""), "tier": options.get("tier", 0),
-		"needs": options.get("needs", []), "time": options.get("time", 0.0), "project": options.get("project", false)}, items)
+		"needs": options.get("needs", []), "time": options.get("time", 0.0), "project": options.get("project", false),
+		"unlock": options.get("unlock", "pickup"), "hint": options.get("hint", "")}, items)
 
 
 ## How long an item burns as fuel (seconds; 0 = not fuel).
@@ -2046,7 +2057,7 @@ func _stock_containers(p: ServerPlayer) -> Array:
 
 ## How many times the player can craft a recipe right now (inventory plus the station's nearby chests).
 func craftable_times(p: ServerPlayer, recipe: Dictionary, limit := 999) -> int:
-	if not _at_station(p, recipe):
+	if not _at_station(p, recipe) or not knows_recipe(p, recipe.id):
 		return 0
 	if p.inventory.creative:
 		return limit
@@ -2059,6 +2070,61 @@ func craftable_times(p: ServerPlayer, recipe: Dictionary, limit := 999) -> int:
 
 func _can_craft(p: ServerPlayer, recipe: Dictionary) -> bool:
 	return craftable_times(p, recipe, 1) > 0
+
+
+# --- Discovery ------------------------------------------------------------------------------------
+
+func knows_recipe(p: ServerPlayer, recipe_id: String) -> bool:
+	if not gameplay.recipe_discovery or p.inventory.creative or p.known_recipes.has(recipe_id):
+		return true
+	var index := recipes.index_of(recipe_id)
+	return index >= 0 and recipes.recipes[index].unlock == "known"
+
+
+## Teaches a recipe. Returns true if the player did not know it (creative players still learn it).
+func learn_recipe(p: ServerPlayer, recipe_id: String, source := "mod") -> bool:
+	var index := recipes.index_of(recipe_id)
+	if index < 0 or p.known_recipes.has(recipe_id):
+		return false
+	p.known_recipes[recipe_id] = true
+	if p._online():
+		Net.s_recipe_learned.rpc_id(p.peer_id, index, source)
+	emit("recipe_learned", {"player": p, "recipe": recipe_id, "source": source})
+	return true
+
+
+## "pickup" recipes unlock the first time a player holds one of their ingredients.
+func check_discoveries(p: ServerPlayer) -> void:
+	var fresh := []
+	for i in p.inventory.total():
+		var id := p.inventory.ids[i]
+		if id > 0 and p.inventory.counts[i] > 0:
+			var item_name := items.name_of(id)
+			if not p.seen_items.has(item_name):
+				p.seen_items[item_name] = true
+				fresh.append(id)
+	if fresh.is_empty() or not gameplay.recipe_discovery:
+		return
+	for id in fresh:
+		for index in recipes.using(id):
+			var r: Dictionary = recipes.recipes[index]
+			if r.unlock == "pickup":
+				learn_recipe(p, r.id, "pickup")
+
+
+func _read_blueprint(p: ServerPlayer, teaches: Array) -> void:
+	var learned := 0
+	for recipe_id in teaches:
+		if learn_recipe(p, str(recipe_id), "blueprint"):
+			learned += 1
+	if learned == 0:
+		p.show_title("", "You already know everything on this blueprint", 1.5)
+		return
+	if not p.inventory.creative:
+		p.inventory.consume_selected()
+		p.sync_inventory()
+	play_sound_to(p, "engine:discover")
+	play_effect("engine:sparkle", p.get_eye_position() + PlayerPhysics.look_direction(p.yaw, p.pitch) * 0.6, {"scale": 0.6, "color": "#a8d8ff"})
 
 
 ## Opens the crafting screen for a player: by hand ({}) or at a station {name, position, title}.
@@ -2389,6 +2455,8 @@ func _store_player(p: ServerPlayer) -> void:
 		"data": p.data,
 		"cosmetics": p.owned_cosmetics.keys(),
 		"server_wear": p.server_wear,
+		"recipes": p.known_recipes.keys(),
+		"seen_items": p.seen_items.keys(),
 		"health": maxf(p.health, 1.0) if not p.dead else p.max_health,
 		"spawn_point": [p.spawn_point.x, p.spawn_point.y, p.spawn_point.z] if p.spawn_point != Vector3.INF else null,
 	}

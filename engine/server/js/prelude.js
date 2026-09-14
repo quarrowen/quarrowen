@@ -70,6 +70,9 @@
     removeModifier(id) { host("player.removeModifier", this.id, id); }
     /** Teams share station trays and projects ("" = no team). */
     setTeam(name) { host("player.setTeam", this.id, String(name)); }
+    knowsRecipe(id) { return host("player.knowsRecipe", this.id, id); }
+    /** Teaches a recipe id ("mod:name"); returns true if it was new. */
+    learnRecipe(id) { return host("player.learnRecipe", this.id, id); }
     team() { return host("player.team", this.id); }
     /** Server cosmetics: names without a ":" are this mod's. */
     grantCosmetic(name) { host("player.grantCosmetic", this.id, name); }

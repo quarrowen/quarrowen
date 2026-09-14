@@ -62,6 +62,10 @@ var avatar_changed_at := -100.0
 var open_container = null
 ## {name, position, title} of the crafting station in use ({} = crafting by hand).
 var crafting_station := {}
+## Recipes this player has discovered: recipe id -> true (see RecipeRegistry unlock rules).
+var known_recipes := {}
+## Items this player has held at least once: item name -> true (drives "pickup" discoveries).
+var seen_items := {}
 ## Team name ("" = none). Teams share station trays and projects; mods decide who is on which team.
 var team := ""
 var _stats := {}
@@ -274,6 +278,7 @@ func refresh_stats() -> void:
 
 func sync_inventory() -> void:
 	_stats_dirty = true
+	_server.check_discoveries(self)
 	if _online():
 		Net.s_inventory.rpc_id(peer_id, inventory.to_packed(), inventory.selected, inventory.creative, inventory.data_to_network())
 		_server.refresh_stats(self)
@@ -297,6 +302,15 @@ func has_cosmetic(cosmetic_name: String) -> bool:
 func set_avatar_override(values: Dictionary) -> void:
 	avatar_override = _server.cosmetics.sanitize_avatar(values, Callable(), true)
 	_server.refresh_avatar(self)
+
+
+func knows_recipe(recipe_id: String) -> bool:
+	return _server.knows_recipe(self, recipe_id)
+
+
+## Teaches a recipe (source is passed to recipe_learned). Returns true if it was new.
+func learn_recipe(recipe_id: String, source := "mod") -> bool:
+	return _server.learn_recipe(self, recipe_id, source)
 
 
 func is_admin() -> bool:

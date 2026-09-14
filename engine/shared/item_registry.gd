@@ -9,7 +9,7 @@ extends RefCounted
 const FIRST_ITEM := 65536
 const MAX_ITEMS := 4096
 const NETWORK_FIELDS := ["name", "display_name", "icon", "max_stack", "usable", "durability", "tool", "weapon",
-	"armor", "equip_slot", "modifiers", "model", "lore", "armor_texture", "glow", "trail", "effects"]
+	"armor", "equip_slot", "modifiers", "model", "lore", "armor_texture", "glow", "trail", "effects", "teaches"]
 ## Item effect hooks: effect names played by the engine (see EffectRegistry).
 const EFFECT_HOOKS := ["swing", "hit", "use", "held", "break"]
 const DEFAULT_SLOTS := ["head", "chest", "legs", "feet", "offhand"]
@@ -66,6 +66,8 @@ static func is_block_item(id: int) -> bool:
 ##          item it covers, from the tip (0.1-1, default 0.5)
 ##   effects: {swing, hit, use, held, break} effect names: on swings, on hits (at the target), on use,
 ##            continuously while held, and when it wears out
+##   teaches: [recipe ids] a blueprint: using it teaches those recipes and uses it up (item data
+##            `teaches` works too, so one generic blueprint item can carry any recipe)
 ##   Item data may override glow, trail and effects per stack (e.g. a sword that glows as it levels).
 ##   attack_damage (legacy shorthand for weapon.damage)
 ## Returns the item id or -1.
@@ -93,6 +95,9 @@ func register(def: Dictionary) -> int:
 	d.glow = clean_glow(def.get("glow"))
 	d.trail = clean_trail(def.get("trail"))
 	d.effects = clean_effects(def.get("effects"))
+	d.teaches = (def.get("teaches") as Array).map(func(t): return str(t).left(128)).slice(0, 32) if def.get("teaches") is Array else []
+	if not d.teaches.is_empty() or bool(def.get("blueprint", false)):
+		d.usable = true
 	d.lore = (def.get("lore") as Array).map(func(l): return String(l).left(120)).slice(0, 8) if def.get("lore") is Array else []
 	var id := FIRST_ITEM + defs.size()
 	d.id = id

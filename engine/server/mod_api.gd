@@ -16,6 +16,7 @@ extends RefCounted
 ##   craft_job_finished {player_id, position, recipe, times, helpers}
 ##   project_contributed {player, position, recipe, item, count}
 ##   project_completed {position, recipe, item, contributors: {player id: {name, items}}}   reward them here
+##   recipe_learned {player, recipe, source ("pickup" | "blueprint" | "experiment" | "mod")}
 ##   item_crafted also carries {recipe, helpers}; its player is null when a job finished for someone offline
 ##   block_place    {player, position, block, cancelled}
 ##   block_placed   {player, position, block}
@@ -377,7 +378,8 @@ func item_display_name(id: int) -> String:
 
 
 ## Shapeless recipe: `inputs` maps item names to counts. Appears in the engine crafting menu (C key).
-## options: time (seconds in the station's queue; more players there craft faster), project (built
+## options: unlock ("known" | "pickup" (default) | "blueprint" | "experiment" | "secret") and hint (text
+## shown while undiscovered) for recipe discovery, time (seconds in the station's queue; more players there craft faster), project (built
 ## together: players contribute ingredients over time, see project_completed), tier (minimum station
 ## tier), needs ([station features]), station (name of the crafting station block needed, e.g. "crafting_table"; blocks declare
 ## `station: "<name>"`; without one it is crafted anywhere), category (recipe book tab: tools, weapons,
@@ -399,7 +401,7 @@ func register_recipe(inputs: Dictionary, output: String, count := 1, options := 
 	_server.add_recipe(resolved, out, count, String(options.get("station", "")),
 		{"category": str(options.get("category", "")), "id": recipe_id if recipe_id.contains(":") else _qualify(recipe_id),
 			"tier": int(options.get("tier", 0)), "needs": options.get("needs", []), "time": float(options.get("time", 0.0)),
-			"project": bool(options.get("project", false))})
+			"project": bool(options.get("project", false)), "unlock": str(options.get("unlock", "pickup")), "hint": str(options.get("hint", ""))})
 
 
 ## Makes a station upgradable (see engine/server/stations.gd): tiers [{block, title, kit, grants}],

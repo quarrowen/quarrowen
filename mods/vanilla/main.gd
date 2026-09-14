@@ -81,7 +81,7 @@ func _setup_mobs() -> void:
 	# their prey and circle while their claws recharge.
 	ids.zombie = api.register_entity("zombie", {
 		"kind": "mob", "model": "models/zombie.glb", "width": 0.6, "height": 1.85,
-		"health": 20, "speed": 3.0, "drops": [["base:coal", 1, 0.5]],
+		"health": 20, "speed": 3.0, "drops": [["base:coal", 1, 0.5], ["base:workbench_plans", 1, 0.03]],
 		"sounds": {"hurt": "zombie_hurt", "death": "zombie_death", "ambient": "zombie_ambient"},
 		"ai": {
 			"preset": "hostile", "group": "undead", "aggression": 0.65, "intelligence": 0.55, "courage": 1.0,
@@ -96,7 +96,7 @@ func _setup_mobs() -> void:
 	# and back off when hurt.
 	ids.skeleton = api.register_entity("skeleton", {
 		"kind": "mob", "model": "models/skeleton.glb", "width": 0.6, "height": 1.8,
-		"health": 16, "speed": 3.2, "drops": [["vanilla:bone", 2], ["vanilla:bone", 1, 0.5]],
+		"health": 16, "speed": 3.2, "drops": [["vanilla:bone", 2], ["vanilla:bone", 1, 0.5], ["base:forge_plans", 1, 0.05]],
 		"sounds": {"hurt": "skeleton_hurt", "death": "skeleton_death"},
 		"ai": {
 			"preset": "archer", "group": "undead", "aggression": 0.6, "intelligence": 0.8, "agility": 0.55, "courage": 0.35,

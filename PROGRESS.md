@@ -105,7 +105,7 @@ changes with `tools/build_native.sh`.
      construction site), helping hands (more players = faster timed crafts, capped). Default access:
      contributors take back their own, station owner and team use everything, others contribute;
      needs a small engine team concept (`player.team`) mods drive; servers/mods can change rules.
-   - C4 Discovery, layered: basics known; everyday recipes unlock when an ingredient is first picked
+   - C4 Discovery (done), layered: basics known; everyday recipes unlock when an ingredient is first picked
      up (silhouettes with hints until then); advanced/special need blueprints (loot) or
      experimentation; recipe journal; per-server/mod configurable.
    - C5 Experimentation grid: book for crafting plus an optional freeform grid; arranging items can

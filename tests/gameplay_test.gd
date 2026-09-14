@@ -29,6 +29,7 @@ func _ready() -> void:
 	await _containers()
 	await _stations()
 	await _coop()
+	await _discovery()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -758,6 +759,46 @@ func _coop() -> void:
 	await get_tree().process_frame
 
 
+func _discovery() -> void:
+	var server = _start("discovery_%d" % Time.get_ticks_msec())
+	server.gameplay.recipe_discovery = true
+	var items = server.items
+	var p := ServerPlayer.new(server, 95, "Scholar")
+	p.player_id = "scholar"
+	server.players[95] = p
+	p.state.position = Vector3(8.5, server.surface_height(8, 8) + 1, 8.5)
+	p.edit_tokens = 100.0
+	var learned := []
+	server.add_handler("recipe_learned", func(ev): learned.append([ev.recipe, ev.source]), 0)
+	_check(p.knows_recipe("base:planks") and p.knows_recipe("base:crafting_table") and not p.knows_recipe("base:chest"),
+		"basics are known from the start, the rest is not")
+	var gravel_recipe: Dictionary = server.recipes.recipes[server.recipes.index_of("base:gravel")]
+	p.inventory.set_slot(0, items.id_of("base:cobblestone"), 4)
+	_check(server.craftable_times(p, gravel_recipe) == 0, "an undiscovered recipe cannot be crafted even with the ingredients")
+	p.sync_inventory()
+	_check(p.knows_recipe("base:gravel") and learned.has(["base:gravel", "pickup"]) and server.craftable_times(p, gravel_recipe) == 4,
+		"holding cobblestone discovered what it makes")
+	p.inventory.set_slot(1, items.id_of("base:brick"), 6)
+	p.inventory.set_slot(2, items.id_of("base:furnace"), 1)
+	p.sync_inventory()
+	_check(not p.knows_recipe("base:forge"), "blueprint recipes are not discovered by picking up ingredients")
+	p.inventory.set_slot(3, items.id_of("base:forge_plans"), 1)
+	p.inventory.selected = 3
+	server.on_use_item(95, false, Vector3i.ZERO, Vector3i.ZERO)
+	_check(p.knows_recipe("base:forge") and p.knows_recipe("base:anvil") and p.inventory.count_of(items.id_of("base:forge_plans")) == 0,
+		"reading forge plans taught the forge and the anvil and used them up")
+	# A generic blueprint: any item with `teaches` in its item data.
+	p.inventory.set_slot(3, items.id_of("base:workbench_plans"), 1, {"teaches": ["base:iron_chestplate"], "name": "Armorer's Notes"})
+	server.on_use_item(95, false, Vector3i.ZERO, Vector3i.ZERO)
+	_check(p.knows_recipe("base:iron_chestplate") and not p.knows_recipe("base:reinforced_frame"), "item data can carry which recipes a blueprint teaches")
+	server._store_player(p)
+	_check(server._meta.players.scholar.recipes.has("base:forge") and server._meta.players.scholar.seen_items.has("base:brick"), "discoveries are saved")
+	p.inventory.creative = true
+	_check(p.knows_recipe("base:reinforced_frame"), "creative players know every recipe")
+	server.queue_free()
+	await get_tree().process_frame
+
+
 func _js_blocks() -> void:
 	if not ClassDB.class_exists(&"NativeJsRuntime"):
 		return  # JavaScript mods need the native extension
@@ -770,6 +811,7 @@ func _js_blocks() -> void:
 		server.queue_free()
 		return
 	server.set_physics_process(false)
+	server.gameplay.recipe_discovery = false
 	var p := ServerPlayer.new(server, 82, "Scripter")
 	p.player_id = "scripter"
 	server.players[82] = p
@@ -810,6 +852,7 @@ func _start(world: String, mods := ["vanilla"]):
 	if err != OK:
 		_check(false, "server start: %s" % error_string(err))
 	server.set_physics_process(false)  # the test drives ticks itself
+	server.gameplay.recipe_discovery = false  # tests of crafting rules do not need to discover recipes first
 	return server
 
 

@@ -146,7 +146,20 @@ func _init() -> void:
 	_save(_forge_front(), base + "forge_front.png")
 	_save(_reinforced_frame(), base + "reinforced_frame.png")
 	_save(_banner(), guild + "guild_banner.png")
+	_save(_blueprint(), base + "blueprint.png")
 	quit()
+
+
+func _blueprint() -> Image:
+	var img := _blank()
+	for y in range(2, 14):
+		for x in range(2, 14):
+			var line := (x == 5 or y == 6 or (x >= 8 and x <= 11 and y == 10) or (x == 11 and y >= 8 and y <= 10))
+			img.set_pixel(x, y, Color(0.85, 0.92, 1.0) if line else _vary(Color(0.18, 0.36, 0.72), 0.04))
+	for x in range(2, 14):
+		img.set_pixel(x, 2, Color(0.12, 0.25, 0.55))
+		img.set_pixel(x, 13, Color(0.12, 0.25, 0.55))
+	return img
 
 
 func _banner() -> Image:

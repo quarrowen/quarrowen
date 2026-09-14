@@ -127,6 +127,8 @@ export function setup(api) {
   const shop = [
     { item: "base:glass", count: 8, price: 1 },
     { item: "base:coal", count: 8, price: 1 },
+    { item: "base:forge_plans", count: 1, price: 6 },
+    { item: "base:workbench_plans", count: 1, price: 10 },
     { item: "industry:cable", count: 16, price: 2 },
     { item: "industry:battery", count: 1, price: 4 },
     { item: "arcana:mana_shard", count: 4, price: 3 },

@@ -33,6 +33,9 @@ var processes := {}
 var stations := {}
 ## The shared state at this station: {players, tray, jobs, project, owner, speedup}.
 var session := {}
+## Recipe ids this player has discovered, and whether the server uses discovery at all.
+var known := {}
+var discovery := false
 var pinned := -1
 var selected := -1
 
@@ -41,6 +44,8 @@ var _title: Label
 var _search: LineEdit
 var _tabs: HFlowContainer
 var _craftable_only: Button
+var _journal: Label
+var _undiscovered: Button
 var _lookup_bar: HBoxContainer
 var _lookup_label: Label
 var _grid: GridContainer
@@ -117,6 +122,18 @@ func _ready() -> void:
 	_craftable_only.text = "Craftable only"
 	_craftable_only.toggled.connect(func(_on): _rebuild_grid())
 	search_row.add_child(_craftable_only)
+	var journal_row := HBoxContainer.new()
+	book.add_child(journal_row)
+	_journal = Label.new()
+	_journal.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
+	_journal.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	journal_row.add_child(_journal)
+	_undiscovered = Button.new()
+	_undiscovered.toggle_mode = true
+	_undiscovered.text = "Show undiscovered"
+	_undiscovered.button_pressed = true
+	_undiscovered.toggled.connect(func(_on): _rebuild_grid())
+	journal_row.add_child(_undiscovered)
 	_tabs = HFlowContainer.new()
 	book.add_child(_tabs)
 	_lookup_bar = HBoxContainer.new()
@@ -264,7 +281,7 @@ func craftable_times(index: int) -> int:
 	if index < 0 or index >= recipes.recipes.size():
 		return 0
 	var r: Dictionary = recipes.recipes[index]
-	if not at_station(r):
+	if not at_station(r) or not is_known(r):
 		return 0
 	if inventory.creative:
 		return 64
@@ -272,6 +289,16 @@ func craftable_times(index: int) -> int:
 	for id: int in r.inputs:
 		times = mini(times, have(id) / int(r.inputs[id]))
 	return times
+
+
+func is_known(r: Dictionary) -> bool:
+	return not discovery or inventory.creative or known.has(r.id) or r.get("unlock", "pickup") == "known"
+
+
+## How much an undiscovered recipe reveals: 0 nothing, 1 one ingredient, 2 all ingredients, 3 the
+## result too. Bookshelves (station hints) reveal more.
+func _reveal(r: Dictionary) -> int:
+	return 99 if is_known(r) else clampi(int(station.get("hints", 0)), 0, 3)
 
 
 ## Whether you hold every ingredient (ignoring where the recipe must be crafted).
@@ -416,7 +443,8 @@ func _rebuild_coop_panel() -> void:
 	for entry in players:
 		var looking := ""
 		if int(entry.recipe) >= 0 and int(entry.recipe) < recipes.recipes.size():
-			looking = "  → %s" % items.display_name(recipes.recipes[int(entry.recipe)].output)
+			var seen: Dictionary = recipes.recipes[int(entry.recipe)]
+			looking = "  → %s" % (items.display_name(seen.output) if _reveal(seen) >= 3 else "an undiscovered recipe")
 		_coop_panel.add_child(_small("● %s%s" % [entry.name, looking], Color(0.75, 0.9, 1.0)))
 	if players.size() > 1:
 		_coop_panel.add_child(_small("Timed crafts go %s× faster together" % _num(float(session.get("speedup", 1.0))), Color(0.55, 0.9, 0.5)))
@@ -602,7 +630,10 @@ func _visible_recipes() -> Array:
 			continue
 		if not _category.is_empty() and r.category != _category:
 			continue
-		if not query.is_empty() and not items.display_name(r.output).to_lower().contains(query):
+		var visible_name := is_known(r) or _reveal(r) >= 3
+		if not is_known(r) and (r.get("unlock", "") == "secret" or not _undiscovered.button_pressed):
+			continue
+		if not query.is_empty() and (not visible_name or not items.display_name(r.output).to_lower().contains(query)):
 			continue
 		if _craftable_only.button_pressed and craftable_times(i) <= 0:
 			continue
@@ -624,6 +655,15 @@ func _rebuild_grid() -> void:
 		var cell := _make_cell(index)
 		_grid.add_child(cell)
 		_cells[index] = cell
+	var total := 0
+	var found := 0
+	for r in recipes.recipes:
+		if r.get("unlock", "") != "secret" or known.has(r.id):
+			total += 1
+			if is_known(r):
+				found += 1
+	_journal.text = "Discovered %d / %d recipes" % [found, total] if discovery and not inventory.creative else "%d recipes" % total
+	_undiscovered.visible = discovery and not inventory.creative
 	_empty_label.visible = shown.is_empty()
 	_empty_label.text = "No recipes match." if recipes.recipes.size() > 0 else "This server has no recipes."
 	if not _lookup.is_empty() and _lookup.mode == "make" and shown.is_empty():
@@ -635,7 +675,7 @@ func _make_cell(index: int) -> Button:
 	var r: Dictionary = recipes.recipes[index]
 	var cell := Button.new()
 	cell.custom_minimum_size = Vector2(CELL, CELL)
-	cell.tooltip_text = items.display_name(r.output)
+	cell.tooltip_text = items.display_name(r.output) if _reveal(r) >= 3 else "Undiscovered recipe"
 	var icon := TextureRect.new()
 	icon.name = "Icon"
 	icon.texture = _icon(r.output)
@@ -674,6 +714,8 @@ func _style_cell(cell: Button, index: int) -> void:
 		cell.add_theme_stylebox_override(state, style)
 	var icon: TextureRect = cell.get_node("Icon")
 	icon.modulate = Color.WHITE if craftable else (Color(0.55, 0.55, 0.55) if at_station(r) else Color(0.35, 0.35, 0.38))
+	if _reveal(r) < 3:
+		icon.modulate = Color(0.0, 0.0, 0.0, 0.75)  # a silhouette until discovered
 
 
 func _select(index: int) -> void:
@@ -708,6 +750,10 @@ func _show_details() -> void:
 		_stats.text = ""
 		return
 	var r: Dictionary = recipes.recipes[selected]
+	if not is_known(r):
+		_show_undiscovered(r)
+		return
+	_detail_icon.modulate = Color.WHITE
 	_detail_icon.texture = _icon(r.output)
 	_detail_name.text = ("%d x %s" % [r.count, items.display_name(r.output)]) if r.count > 1 else items.display_name(r.output)
 	var where := requirement_text(r)
@@ -739,6 +785,35 @@ func _show_details() -> void:
 			_craft_button.text = "Another project is underway"
 			_craft_button.disabled = true
 	_pin_button.text = "Unpin" if pinned == selected else "Pin"
+
+
+## Details of a recipe you have not discovered: how to discover it, plus what bookshelves reveal.
+func _show_undiscovered(r: Dictionary) -> void:
+	var reveal := _reveal(r)
+	_detail_icon.texture = _icon(r.output)
+	_detail_icon.modulate = Color.WHITE if reveal >= 3 else Color(0, 0, 0, 0.8)
+	_detail_name.text = items.display_name(r.output) if reveal >= 3 else "Undiscovered recipe"
+	var how: String = {"pickup": "Discovered by picking up one of its ingredients.", "blueprint": "Learned from a blueprint.",
+		"experiment": "Discovered by experimenting at a crafting grid.", "secret": "A secret."}.get(r.get("unlock", "pickup"), "")
+	_detail_info.text = "%s  ·  %s" % [_category_name(r.category), requirement_text(r)]
+	var lines := PackedStringArray([how])
+	if not String(r.get("hint", "")).is_empty():
+		lines.append("[color=#c8b8ff][i]%s[/i][/color]" % r.hint)
+	if reveal == 0:
+		lines.append("[color=#9a9a9a]Bookshelves around a station reveal more about undiscovered recipes.[/color]")
+	_stats.text = "\n".join(lines)
+	var ingredient_ids: Array = r.inputs.keys()
+	for i in ingredient_ids.size():
+		if reveal >= 2 or (reveal == 1 and i == 0):
+			_ingredients.add_child(_ingredient_row(ingredient_ids[i], int(r.inputs[ingredient_ids[i]])))
+		else:
+			_ingredients.add_child(_small("??? ingredient", Color(1, 1, 1, 0.45)))
+	_pin_button.disabled = true
+	_craft_button.text = "Craft"
+	_craft_button.disabled = true
+	_craft_all_button.text = "Craft all"
+	_craft_all_button.disabled = true
+	_craft_all_button.visible = true
 
 
 func _ingredient_row(id: int, need: int) -> Control:

@@ -23,7 +23,7 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	ids.table = api.register_block("crafting_table", {"display_name": "Crafting Table", "station": TABLE, "sounds": sounds.wood,
 		"textures": {"top": "textures/crafting_table_top.png", "side": "textures/crafting_table_side.png", "bottom": "textures/planks.png"},
 		"hardness": 2.5, "tool": "axe"})
-	api.register_recipe({"base:planks": 4}, "base:crafting_table")
+	api.register_recipe({"base:planks": 4}, "base:crafting_table", 1, {"unlock": "known"})
 	ids.sturdy = api.register_block("sturdy_workbench", {"display_name": "Sturdy Workbench", "station": TABLE, "sounds": sounds.wood,
 		"textures": {"top": "textures/sturdy_workbench_top.png", "side": "textures/sturdy_workbench_side.png", "bottom": "textures/planks.png"},
 		"drops": "base:crafting_table", "placeable": false, "hardness": 3.0, "tool": "axe"})
@@ -79,11 +79,18 @@ func setup(mod_api, sounds: Dictionary) -> void:
 		if api.item(recipe[0]) > 0:
 			api.register_process("smelting", recipe[0], recipe[1], 1, 10.0)
 
-	api.register_recipe({"base:brick": 6, "base:furnace": 1}, "base:forge", 1, {"station": TABLE})
+	# Blueprints teach the forge line; they drop from monsters and are sold by traders.
+	api.register_item("forge_plans", {"display_name": "Forge Plans", "icon": "textures/blueprint.png",
+		"teaches": ["base:forge", "base:anvil"], "lore": ["Bricks around a forge core, and how to cast an anvil."]})
+	api.register_item("workbench_plans", {"display_name": "Workbench Plans", "icon": "textures/blueprint.png",
+		"teaches": ["base:reinforced_frame"], "lore": ["How to reinforce a crafting table."]})
+	var plans := "Plans for this are carried by skeletons and sold by traders."
+	api.register_recipe({"base:brick": 6, "base:furnace": 1}, "base:forge", 1, {"station": TABLE, "unlock": "blueprint", "hint": plans})
 	api.register_recipe({"base:planks": 3, "base:stick": 4}, "base:tool_rack", 1, {"station": TABLE})
 	api.register_recipe({"base:planks": 6, "base:wheat": 3}, "base:bookshelf", 1, {"station": TABLE})
-	api.register_recipe({"base:iron_ingot": 5}, "base:anvil", 1, {"station": "forge", "time": 8.0})
-	api.register_recipe({"base:iron_ingot": 3, "base:planks": 4}, "base:reinforced_frame", 1, {"station": "forge", "time": 5.0})
+	api.register_recipe({"base:iron_ingot": 5}, "base:anvil", 1, {"station": "forge", "time": 8.0, "unlock": "blueprint", "hint": plans})
+	api.register_recipe({"base:iron_ingot": 3, "base:planks": 4}, "base:reinforced_frame", 1, {"station": "forge", "time": 5.0,
+		"unlock": "blueprint", "hint": "Workbench plans turn up on zombies and at traders."})
 
 	api.on("container_changed", func(ev):
 		if ev.container.type.name == "base:furnace":

@@ -4,11 +4,15 @@ extends RefCounted
 ##
 ## Recipe: {id ("mod:name"), inputs: {item id: count}, output, count, station ("" = anywhere), tier
 ## (minimum station tier), needs ([station features, e.g. "metalwork"]), category, time (seconds crafted in
-## the station's queue, 0 = instant), project (built together: players contribute ingredients over time)}
+## the station's queue, 0 = instant), project (built together: players contribute ingredients over time),
+## unlock (how players learn it when discovery is on: "known" from the start, "pickup" when they first
+## hold an ingredient, "blueprint" from a blueprint item, "experiment" at the crafting grid, "secret"
+## hidden until taught), hint (text shown while undiscovered)}
 ## Categories group the recipe book; recipes without one get a category from their output (tools,
 ## weapons, armor, food, blocks, materials).
 
 const MAX_RECIPES := 8192
+const UNLOCKS := ["known", "pickup", "blueprint", "experiment", "secret"]
 const DEFAULT_CATEGORIES := [
 	{"name": "tools", "display_name": "Tools"},
 	{"name": "weapons", "display_name": "Weapons"},
@@ -60,7 +64,9 @@ func add(def: Dictionary, items = null) -> int:
 		"station": str(def.get("station", "")).left(64), "category": category, "tier": clampi(int(def.get("tier", 0)), 0, 99),
 		"needs": (def.get("needs") as Array).map(func(f): return str(f).left(32)).slice(0, 8) if def.get("needs") is Array else [],
 		"time": clampf(float(def.get("time", 0.0)) if def.get("time") is float or def.get("time") is int else 0.0, 0.0, 3600.0),
-		"project": bool(def.get("project", false))}
+		"project": bool(def.get("project", false)),
+		"unlock": str(def.get("unlock", "pickup")) if str(def.get("unlock", "pickup")) in UNLOCKS else "pickup",
+		"hint": str(def.get("hint", "")).left(160)}
 	_ids[recipe_id] = recipes.size()
 	recipes.append(r)
 	return recipes.size() - 1
