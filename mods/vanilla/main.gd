@@ -145,9 +145,10 @@ func _setup_mobs() -> void:
 			}],
 		},
 	})
-	api.add_spawn_rule({"entity": "zombie", "time": "night", "on": ["base:grass", "base:dirt", "base:sand", "base:snow", "base:stone"],
-		"max_nearby": 5, "max_total": 40, "chance": 0.25})
-	api.add_spawn_rule({"entity": "skeleton", "time": "night", "on": ["base:grass", "base:stone", "base:snow"],
+	# Monsters spawn in darkness (light 7 or less): the night surface, caves and unlit rooms. Torches keep them away.
+	api.add_spawn_rule({"entity": "zombie", "category": "monster", "light": [0, 7], "on": ["base:grass", "base:dirt", "base:sand", "base:snow", "base:stone"],
+		"max_nearby": 5, "max_total": 40, "chance": 0.25, "group": [1, 2]})
+	api.add_spawn_rule({"entity": "skeleton", "category": "monster", "light": [0, 7], "on": ["base:grass", "base:stone", "base:snow"],
 		"max_nearby": 2, "max_total": 16, "chance": 0.1})
 	api.register_command("colossus", "Summon the Ancient Colossus nearby (admin)", func(player, _args):
 		var forward := Vector3(-sin(player.yaw), 0.0, -cos(player.yaw))
@@ -156,7 +157,9 @@ func _setup_mobs() -> void:
 			boss.set_home(boss.position)
 			api.play_sound("colossus_roar", boss.position)
 			api.broadcast("The Ancient Colossus awakens!"), "admin")
-	api.add_spawn_rule({"entity": "pig", "time": "day", "on": ["base:grass"], "max_nearby": 4, "max_total": 30, "chance": 0.08})
+	# Animals appear on sunny grass, a few at a time, and stay.
+	api.add_spawn_rule({"entity": "pig", "category": "animal", "light": [9, 15], "place": "surface", "on": ["base:grass"],
+		"max_nearby": 4, "max_total": 30, "chance": 0.08, "group": [1, 3]})
 	api.on("block_break", func(ev):
 		if ev.block == api.block("base:leaves") and randf() < APPLE_CHANCE:
 			ev.drops.append([api.item("base:apple"), 1]))

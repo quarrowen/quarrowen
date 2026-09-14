@@ -37,6 +37,7 @@ func _ready() -> void:
 	await _skill_crafting()
 	await _hunger()
 	await _beds()
+	await _spawning()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -1304,6 +1305,66 @@ func _beds() -> void:
 	p.dead = true
 	server.on_respawn(102)
 	_check(p.spawn_bed == null, "a missing bed clears the respawn point")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _spawning() -> void:
+	var server = _start("spawning_%d" % Time.get_ticks_msec())
+	var reg = server.registry
+	var entities = server.entities
+	var spawning = entities.spawning
+	var p := ServerPlayer.new(server, 104, "Watcher")
+	p.player_id = "watcher"
+	server.players[104] = p
+	var zombie: int = entities.registry.id_of("vanilla:zombie")
+	var pig: int = entities.registry.id_of("vanilla:pig")
+	_check(spawning.category_of_type(zombie) == "monster" and spawning.category_of_type(pig) == "animal", "mobs get spawn categories from their AI")
+	var zombie_rule: Dictionary = spawning.rules.filter(func(r): return int(r.entity) == zombie)[0]
+	_check(zombie_rule.light == [0, 7] and zombie_rule.category == "monster", "vanilla zombies spawn in darkness")
+	# A sealed dark room and a lit one, far below the surface.
+	var stone: int = reg.id_of("base:stone")
+	var y := 20
+	for x in range(0, 40):
+		for z in range(0, 12):
+			for dy in range(-1, 4):
+				var edge: bool = dy == -1 or dy == 3 or x == 0 or x == 39 or z == 0 or z == 11 or x == 20
+				server.set_block_authoritative(Vector3i(x, y + dy, z), stone if edge else 0)
+	var dark := Vector3(10.5, y, 5.5)
+	var lit := Vector3(30.5, y, 3.5)
+	server.set_block_authoritative(Vector3i(30, y, 2), reg.id_of("base:torch"))
+	var night := 0.12
+	var rule := zombie_rule.duplicate()
+	rule.on = []
+	var found_dark: Vector3 = spawning.find_spot(dark, rule, night, 1.0, 6.0)
+	_check(found_dark != Vector3.INF and found_dark.y == y, "monsters find spots in a dark cave room (%s)" % found_dark)
+	_check(server.block_ticks.block_light(Vector3i(30, y, 4)) >= 10, "the torch lights the room (%d)" % server.block_ticks.block_light(Vector3i(30, y, 4)))
+	var lit_spots := 0
+	for i in 20:
+		if spawning.find_spot(lit, rule, night, 1.0, 2.5) != Vector3.INF:
+			lit_spots += 1
+	_check(lit_spots == 0, "no monster spawns next to a torch (%d)" % lit_spots)
+	var pig_rule: Dictionary = spawning.rules.filter(func(r): return int(r.entity) == pig)[0].duplicate()
+	pig_rule.on = []
+	_check(spawning.find_spot(dark, pig_rule, 1.0, 1.0, 6.0) == Vector3.INF, "animals need light and open sky")
+	# Caps per category.
+	p.state.position = dark
+	spawning.caps.monster = 2
+	for i in 3:
+		entities.spawn(zombie, dark + Vector3(i, 0, 0))
+	_check(spawning.count_near(dark, "monster") == 3, "counts mobs by category near a player")
+	server.set_world_time(0.0, 1200.0)
+	for i in 10:
+		spawning.run()
+	_check(entities.in_radius(dark, 64.0, zombie).size() == 3, "no more monsters spawn past the cap")
+	# Despawning: monsters far from everyone go, animals stay.
+	var far_zombie = entities.spawn(zombie, dark + Vector3(200, 0, 0))
+	var far_pig = entities.spawn(pig, dark + Vector3(200, 0, 3))
+	spawning.despawn()
+	_check(far_zombie.removed and not far_pig.removed, "far monsters despawn, animals stay")
+	var named = entities.spawn(zombie, dark + Vector3(150, 0, 0), {"data": {"no_despawn": true}})
+	spawning.despawn()
+	_check(not named.removed, "mobs marked no_despawn stay")
 	server.queue_free()
 	await get_tree().process_frame
 

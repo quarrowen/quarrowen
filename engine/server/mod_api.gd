@@ -344,9 +344,12 @@ func make_noise(position: Vector3, radius: float, source = null) -> void:
 	_server.entities.ai.make_noise(position, radius, source)
 
 
-## Natural spawning. def: entity (name), time ("night" | "day" | "any"), on (block names the mob may
-## stand on; default any), max_nearby (per player), max_total, chance (per player per second),
-## min_distance, max_distance.
+## Natural spawning. def: entity (name), category ("monster" | "animal" | "ambient" | "misc"; default
+## from the mob's AI), light [min, max] (0-15; monsters default to [0, 7] so torches keep them away,
+## animals to [9, 15]), place ("any" | "surface" | "underground"), time ("night" | "day" | "any"), on
+## (block names the mob may stand on; default any), group [min, max] (pack size), max_nearby (per
+## player), max_total, chance (per player per second), min_distance, max_distance. See
+## engine/server/spawning.gd for caps and despawning.
 func add_spawn_rule(def: Dictionary) -> void:
 	var type_id := entity_type(String(def.get("entity", "")))
 	if type_id < 0:
@@ -361,6 +364,11 @@ func add_spawn_rule(def: Dictionary) -> void:
 			on.append(id)
 	rule.on = on
 	_server.entities.add_spawn_rule(rule)
+
+
+## How many mobs of each category may be around each player: {monster, animal, ambient, misc}.
+func set_spawn_caps(caps: Dictionary) -> void:
+	_server.entities.spawning.set_caps(caps)
 
 
 ## Game-wide rules: item_drops ("entity" | "inventory"), keep_inventory, pvp, fall_damage,

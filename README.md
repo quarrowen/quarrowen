@@ -174,7 +174,7 @@ The API (`engine/server/mod_api.gd`, `server_player.gd`) covers:
   `send_message`, `show_title`, `show_ui` / `hide_ui`, `data` (persisted), `kick`, `health` /
   `max_health` / `damage` / `heal` / `set_health` / `kill`, `spawn_point`, `push`, `play_sound`.
 - **Entities, combat & sound:** `register_entity`, `spawn_entity`, `spawn_projectile`, `drop_item`,
-  `get_entities`, `add_spawn_rule`, `register_sound`, `play_sound`, `set_gameplay` (see below).
+  `get_entities`, `add_spawn_rule`, `set_spawn_caps`, `register_sound`, `play_sound`, `set_gameplay` (see below).
 - **Events:** `player_join`, `player_leave`, `tick`, `block_break` (cancellable, editable drops),
   `block_broken`, `block_place` (cancellable), `block_placed`, `block_interact`, `item_use`,
   `item_crafted`, `chat` (cancellable), `ui_action`, `item_drop`, `item_pickup`, `player_attack`,
@@ -488,7 +488,7 @@ api.register_entity("wolf", {
 	"sounds": {"hurt": "growl", "ambient": "growl"},
 	"persistent": false,              # true: saved with its chunk (animals); false: despawns far from players
 })
-api.add_spawn_rule({"entity": "wolf", "time": "night", "on": ["base:grass", "base:snow"], "max_nearby": 3})
+api.add_spawn_rule({"entity": "wolf", "category": "monster", "light": [0, 7], "on": ["base:grass", "base:snow"], "max_nearby": 3, "group": [2, 4]})
 api.register_item("club", {"icon": "textures/club.png", "max_stack": 1, "attack_damage": 6})
 api.on("entity_death", func(ev):
 	if ev.attacker != null and ev.entity.type_name == "my_mod:wolf":
@@ -532,6 +532,14 @@ api.on("entity_death", func(ev):
 ```gdscript
 api.register_item("bread", {"icon": "textures/bread.png", "food": {"hunger": 5, "saturation": 6.0}})
 ```
+
+- **Natural spawning:** spawn rules pick spots on the surface and in caves near each player and check
+  the light there (block light or daylight-scaled sky light, 0-15). Monsters default to light 0-7, so
+  night, caves and unlit rooms spawn them and torches keep an area safe; animals default to 9-15 on
+  sunny ground. Rules add `category`, `light`, `place` (surface/underground), `group` (pack size), and
+  categories cap mobs around each player (`set_spawn_caps`). Monsters despawn far from everyone (at
+  once beyond 96 blocks, now and then beyond 32); animals, persistent mobs and mobs with data
+  `no_despawn` stay. `/mobs` shows counts and caps.
 
 - **Beds and respawning:** a bed is a two-block piece (the foot where you click, the head behind it;
   breaking either half removes both). Right-clicking one sets your respawn point; at night, with no

@@ -405,6 +405,12 @@ func _register_builtin_commands() -> void:
 	add_command("tp", "<x> <y> <z> | <player> - teleport", _cmd_tp, "engine", "admin")
 	add_command("summon", "<entity> [count] - spawn entities in front of you", _cmd_summon, "engine", "admin")
 	add_command("heal", "[player] - restore health", _cmd_heal, "engine", "admin")
+	add_command("mobs", "- mobs near you by spawn category, and the caps", func(player, _args):
+		var summary: Dictionary = entities.spawning.summary(player.state.position)
+		var parts := PackedStringArray()
+		for category in summary:
+			parts.append("%s %d/%d" % [category, summary[category].near, summary[category].cap])
+		player.send_message("Mobs nearby: " + ", ".join(parts)), "engine", "admin")
 	add_command("feed", "[player] - restore hunger", func(player, args):
 		var target = _target_player(player, args, 0)
 		if target != null:

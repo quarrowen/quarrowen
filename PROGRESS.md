@@ -134,8 +134,17 @@ changes with `tools/build_native.sh`.
       sleeping at night with monster and occupancy checks, `sleep_percentage` skip, respawn at a valid
       bed with fallback, lying avatars. Not done: beds keep full-block collision (you stand on top),
       colored wool beds (with sheep in step 5).
-   5. Mobs and spawning: light-level spawn rules, breeding, climbing, explosions that break terrain ->
-      cow, sheep (wool for beds), chicken, spider, an exploding mob.
+   5. Mobs and spawning (user decisions 2026-09-14), in order:
+      - M1 Spawning (done): light-level rules (monsters in darkness, animals in daylight), surface and cave
+        spots, categories with per-player caps, packs, despawning far monsters (animals stay), /mobs.
+      - M2 Farm animals: cows (beef, leather, milk in a bucket as a drink), sheep (shearing, wool regrows,
+        dyes and colored wool, colored beds), chickens (feathers, eggs over time); breeding with food and
+        babies that grow up (engine breeding capability).
+      - M3 Tameable wolf: tame with bones, follows, fights with you, sits on command (engine owner/follow).
+      - M4 Hostiles: spider (engine wall climbing, leaps, neutral by day), slime (splits on death), night
+        stalker (fast rare night hunter that avoids light and flees torches).
+      - M5 Explosions: engine explosion system (blast resistance, drops, damage and knockback falloff,
+        `mob_griefing` rule and per-explosion option) and an exploding mob.
    6. World generation: biomes, caves, cross-chunk structures (dungeons, ruins with loot chests).
 2. **Creator platform** (follow-up): hot-reload mods on a running server, in-game script console, mod
    packaging with versions/dependencies, generated API docs site, starter templates.

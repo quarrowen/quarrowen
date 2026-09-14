@@ -12,6 +12,7 @@ const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const MobAI = preload("res://engine/server/ai/mob_ai.gd")
+const Spawning = preload("res://engine/server/spawning.gd")
 
 const MAX_ENTITIES := 2000
 ## Entities are replicated to players within this distance (blocks).
@@ -39,7 +40,8 @@ var ai: MobAI
 ## Live projectiles (mobs watch these to dodge).
 var projectiles: Array = []
 var entities := {}  # id -> Entity
-var spawn_rules: Array[Dictionary] = []
+## Natural spawning rules, category caps and despawning.
+var spawning
 
 var _server
 var _next_id := 1
@@ -52,6 +54,7 @@ var _removed_ids := PackedInt32Array()
 func _init(server) -> void:
 	_server = server
 	ai = MobAI.new(server, self)
+	spawning = Spawning.new(self)
 
 
 # --- Spawning & removal -------------------------------------------------------------------------
@@ -154,11 +157,11 @@ func tick(delta: float) -> void:
 	if _merge_timer >= 1.0:
 		_merge_timer = 0.0
 		_merge_items()
-		_despawn_far()
+		spawning.despawn()
 	_spawn_timer += delta
 	if _spawn_timer >= 1.0:
 		_spawn_timer = 0.0
-		_run_spawn_rules()
+		spawning.run()
 
 
 ## Resting bodies (on the ground, not moving) only re-check their support every few ticks.
@@ -401,79 +404,9 @@ func play_sound(e: Entity, sound_name: String) -> void:
 
 # --- Natural spawning ---------------------------------------------------------------------------
 
-## rule: entity (type id), max_nearby (per player, within 48 blocks), time ("night" | "day" | "any"),
-## on (Array of block ids the mob may stand on; empty = any solid), min_distance, max_distance,
-## chance (per player per second), max_total
+## See engine/server/spawning.gd for rule keys.
 func add_spawn_rule(rule: Dictionary) -> void:
-	spawn_rules.append(rule)
-
-
-func _run_spawn_rules() -> void:
-	if spawn_rules.is_empty() or not _server.gameplay.get("mob_spawning", true) or _server.players.is_empty():
-		return
-	var daylight: float = WorldTime.daylight(_server.get_time_of_day())
-	for rule in spawn_rules:
-		var time := String(rule.get("time", "any"))
-		if time == "night" and daylight > 0.45 or time == "day" and daylight < 0.6:
-			continue
-		var type_id := int(rule.entity)
-		var total := 0
-		for e: Entity in entities.values():
-			if e.type == type_id:
-				total += 1
-		if total >= int(rule.get("max_total", 40)):
-			continue
-		for p in _server.players.values():
-			if randf() > float(rule.get("chance", 0.3)):
-				continue
-			if in_radius(p.state.position, 48.0, type_id).size() >= int(rule.get("max_nearby", 4)):
-				continue
-			var pos := _find_spawn_spot(p.state.position, rule)
-			if pos != Vector3.INF:
-				var ev: Dictionary = _server.emit("entity_natural_spawn", {"type": registry.defs[type_id].name, "position": pos, "cancelled": false})
-				if not ev.cancelled:
-					spawn(type_id, pos)
-
-
-func _find_spawn_spot(center: Vector3, rule: Dictionary) -> Vector3:
-	var world = _server.world
-	var solid: PackedByteArray = _server.registry.solid_lut
-	var liquid: PackedByteArray = _server.registry.liquid_lut
-	var allowed: Array = rule.get("on", [])
-	var def: Dictionary = registry.defs[int(rule.entity)]
-	for attempt in 4:
-		var angle := randf() * TAU
-		var dist := randf_range(float(rule.get("min_distance", 20.0)), float(rule.get("max_distance", 44.0)))
-		var x := floori(center.x + cos(angle) * dist)
-		var z := floori(center.z + sin(angle) * dist)
-		if not world.has_chunk(VoxelWorld.chunk_coord_at(x, z)):
-			continue
-		var top := mini(Chunk.SIZE_Y - 3, floori(center.y) + 24)
-		for y in range(top, maxi(floori(center.y) - 24, 1), -1):
-			var ground: int = world.get_block(x, y - 1, z)
-			if solid[ground] == 1 and liquid[ground] == 0 and ground != 65535 \
-					and solid[world.get_block(x, y, z)] == 0 and liquid[world.get_block(x, y, z)] == 0 \
-					and solid[world.get_block(x, y + 1, z)] == 0:
-				if not allowed.is_empty() and not allowed.has(ground):
-					break
-				var pos := Vector3(x + 0.5, y, z + 0.5)
-				if not EntityPhysics.collides(pos, def.width * 0.5, def.height, world, solid):
-					return pos
-				break
-	return Vector3.INF
-
-
-func _despawn_far() -> void:
-	for e: Entity in entities.values():
-		if e.def.persistent or e.def.kind != "mob" or e.data.get("no_despawn", false):
-			continue
-		var near := false
-		for p in _server.players.values():
-			if p.state.position.distance_to(e.body.position) < DESPAWN_DISTANCE:
-				near = true
-				break
-		if not near:
-			remove(e)
+	spawning.add_rule(rule)
 
 
 # --- Replication --------------------------------------------------------------------------------
