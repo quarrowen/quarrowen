@@ -533,9 +533,18 @@ api.on("entity_death", func(ev):
 api.register_item("bread", {"icon": "textures/bread.png", "food": {"hunger": 5, "saturation": 6.0}})
 ```
 
+- **Beds and respawning:** a bed is a two-block piece (the foot where you click, the head behind it;
+  breaking either half removes both). Right-clicking one sets your respawn point; at night, with no
+  hostile mobs within 8 blocks and the bed free, you lie down (the screen dims, "Leave bed" or any
+  movement gets you up; damage wakes you). When `sleep_percentage` of online players (default 100) have
+  slept for 5 seconds, the night skips to morning. Respawning uses your bed if it still stands with room
+  beside it, otherwise the world spawn with a message. Others see you lying on the bed. Engine keys:
+  `bed: true` and `pair` on blocks; events `player_sleep`, `player_wake`, `night_skipped`; rules
+  `sleeping`, `sleep_percentage`. Bundled: a straw bed (3 planks + hay bale).
+
 - **Gameplay rules** (`set_gameplay`, or `/gameplay rule value`): `item_drops` ("entity" or
   "inventory"; Skyblock uses inventory so drops don't fall into the void), `keep_inventory`, `pvp`,
-  `fall_damage`, `natural_regeneration`, `hunger`, `starvation_min_health`, `mob_spawning`.
+  `fall_damage`, `natural_regeneration`, `hunger`, `starvation_min_health`, `sleeping`, `sleep_percentage`, `mob_spawning`.
 - **Inventory:** 36 slots. E opens the inventory screen (left click moves stacks, right click
   splits or places one, shift-click moves between hotbar and inventory, clicking outside drops); Q
   drops the held item (Ctrl+Q the whole stack). All clicks are resolved on the server.

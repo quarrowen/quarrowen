@@ -27,6 +27,9 @@ extends RefCounted
 ##   block_interact {player, position, block, cancelled}   right-click on an "interactive" block (cancel stops containers and stations opening)
 ##   item_use       {player, item, has_target, position, normal, direction}   right-click holding a usable item
 ##   player_eat     {player, item, hunger, saturation, heal, effects, cancelled}   a meal is finished; values may be changed
+##   player_sleep   {player, position, cancelled}             lying down in a bed (position: the bed's foot)
+##   player_wake    {player, reason ("moved" | "left bed" | "hurt" | "bed" | "day" | "morning" | "left")}
+##   night_skipped  {sleepers}                                enough players slept; it is morning now
 ##   skill_crafted  {player, item, count, quality, score, names, data, product}   crafted by hand; data may be changed
 ##   item_crafted   {player, item, count}
 ##   item_durability {player, slot, item, data, amount, reason ("mine" | "attack" | "armor" | ...), cancelled}
@@ -104,6 +107,10 @@ func set_server_info(values: Dictionary) -> void:
 ## mod folder. See BlockRegistry.register for keys (render, light, interactive, model, ...). Extra keys
 ## (e.g. `drops`: "base:cobblestone" or "") are kept server-side.
 ## Returns the runtime block id, or -1 on error.
+## Beds: `bed: true` (right-click sets the respawn point and sleeps at night). Two-block pieces:
+## `pair: {block, direction: "back" | "front" | "up" | "down"}` places `block` next to it (relative to
+## the facing of an `orientation: "horizontal"` block) and removes both together; give the second half
+## the opposite direction and `placeable: false`.
 func register_block(block_name: String, def: Dictionary) -> int:
 	var d := def.duplicate(true)
 	d.name = _qualify(block_name)
@@ -123,8 +130,10 @@ func register_block(block_name: String, def: Dictionary) -> int:
 	if def.has("container"):
 		d.container = _qualify_ref(String(def.container))
 		d.interactive = true
-	if def.has("station"):
+	if def.has("station") or bool(def.get("bed", false)):
 		d.interactive = true
+	if def.get("pair") is Dictionary:
+		d.pair = {"block": _qualify_ref(str(def.pair.get("block", ""))), "direction": str(def.pair.get("direction", "back"))}
 	return _server.registry.register(d)
 
 

@@ -130,7 +130,10 @@ changes with `tools/build_native.sh`.
       step 5's animals and farming crops).
       Eating animation (user, 2026-09-14, inspired by Eco): plate or hand for food, swig for drinks and
       potions, bites from the icon, crumbs, avatars for other players, hunger bar pop.
-   4. Beds and spawn points: bed block, sleeping skips the night, respawn at a valid bed.
+   4. Beds and spawn points (done): two-block bed (engine `pair` pieces), right-click sets respawn,
+      sleeping at night with monster and occupancy checks, `sleep_percentage` skip, respawn at a valid
+      bed with fallback, lying avatars. Not done: beds keep full-block collision (you stand on top),
+      colored wool beds (with sheep in step 5).
    5. Mobs and spawning: light-level spawn rules, breeding, climbing, explosions that break terrain ->
       cow, sheep (wool for beds), chicken, spider, an exploding mob.
    6. World generation: biomes, caves, cross-chunk structures (dungeons, ruins with loot chests).

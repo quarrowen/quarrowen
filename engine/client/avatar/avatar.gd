@@ -37,6 +37,8 @@ var _trail: SwingTrail
 ## The current meal (see ViewModel.start_meal): the right hand brings the held food to the mouth, the
 ## left holds the plate; drinks are tipped back with the head raised.
 var _meal := {}
+## Yaw (radians) while lying in a bed with the head that way, or null when not sleeping.
+var sleep_yaw = null
 var _meal_plate: MeshInstance3D
 var _meal_food: MeshInstance3D
 var _meal_bites := 0
@@ -113,7 +115,7 @@ func set_held(node: Node3D, look := {}) -> void:
 	_holding = node != null
 	if node != null and attachments.has("hand_r"):
 		attachments.hand_r.add_child(node)
-		node.visible = _meal.is_empty()
+		node.visible = _meal.is_empty() and sleep_yaw == null
 
 
 ## Adds accessory nodes at attachment points: [{attach, node}]. Replaces previous accessories.
@@ -125,6 +127,13 @@ func set_accessories(list: Array) -> void:
 		if attachments.has(entry.attach):
 			attachments[entry.attach].add_child(entry.node)
 			_accessories.append(entry.node)
+
+
+## Lies down in a bed: `head` is the [x, z] direction from the feet to the pillow, or [] to get up.
+func set_sleeping(head: Array) -> void:
+	sleep_yaw = atan2(float(head[0]), float(head[1])) if head.size() == 2 else null
+	if _held != null:
+		_held.visible = sleep_yaw == null and _meal.is_empty()
 
 
 func start_meal(meal: Dictionary) -> void:
@@ -266,6 +275,21 @@ func animate(delta: float, velocity: Vector3, on_ground: bool, pitch: float) -> 
 		parts.head.rotation = Vector3(clampf(pitch + head_pitch, -1.3, 1.3), 0, 0)
 	_scale_root.rotation.z = lerpf(_scale_root.rotation.z, PI * 0.5 if _dead else 0.0, minf(1.0, delta * 10.0))
 	_scale_root.position.y = 0.15 if _dead else 0.0
+	if sleep_yaw != null:
+		# On your back along +Z (the avatar node is turned towards the pillow), limbs at rest.
+		for key in ["leg_r_upper", "leg_l_upper", "leg_r_lower", "leg_l_lower", "arm_r_lower", "arm_l_lower", "torso"]:
+			if parts.has(key):
+				parts[key].rotation = Vector3.ZERO
+		if parts.has("arm_r_upper"):
+			parts.arm_r_upper.rotation = Vector3(0, 0, 0.08)
+			parts.arm_l_upper.rotation = Vector3(0, 0, -0.08)
+		if parts.has("head"):
+			parts.head.rotation = Vector3.ZERO
+		_scale_root.rotation = Vector3(PI * 0.5, 0, 0)
+		_scale_root.position = Vector3(0, -0.36, -0.85)
+	elif _scale_root.rotation.x != 0.0:
+		_scale_root.rotation.x = 0.0
+		_scale_root.position.z = 0.0
 	var flash := now < _hurt_until
 	var tint := Color(1.0, 0.45, 0.45) if flash else Color.WHITE
 	_skin_material.albedo_color = tint

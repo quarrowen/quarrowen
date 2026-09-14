@@ -23,8 +23,12 @@ var hunger := 20.0
 var saturation := 5.0
 var exhaustion := 0.0
 var dead := false
-## Where the player respawns; Vector3.INF uses the game's spawn handler.
+## Where the player respawns; Vector3.INF uses their bed, then the game's spawn handler.
 var spawn_point := Vector3.INF
+## The bed they last used (Vector3i, foot) or null; checked when respawning.
+var spawn_bed = null
+## {bed, since, head_dir, return} while asleep in a bed.
+var sleeping := {}
 ## Timed stat modifiers: id -> {stat, amount, op, expires (server time, 0 = permanent)}.
 var modifiers := {}
 

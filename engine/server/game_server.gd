@@ -35,6 +35,7 @@ const StationSessions = preload("res://engine/server/station_sessions.gd")
 const Experiments = preload("res://engine/server/experiments.gd")
 const SkillCrafting = preload("res://engine/server/skill_crafting.gd")
 const Hunger = preload("res://engine/server/hunger.gd")
+const Sleep = preload("res://engine/server/sleep.gd")
 const Assembly = preload("res://engine/shared/assembly.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
@@ -96,6 +97,8 @@ var gameplay := {
 	"natural_regeneration": true,
 	"hunger": true,  # survival players get hungry (see engine/server/hunger.gd)
 	"starvation_min_health": 1.0,  # starvation stops at this health (0 = players can starve to death)
+	"sleeping": true,  # beds let players sleep through the night (they always set the respawn point)
+	"sleep_percentage": 100,  # percent of online players who must sleep to skip the night
 	"mob_spawning": true,
 	"durability": true,  # tools, weapons and armor wear out
 	"tray_access": "contributors",  # station trays: "contributors" (plus owner and team) | "anyone"
@@ -139,6 +142,7 @@ var sessions := StationSessions.new(self)
 var experiments := Experiments.new(self)
 var skill := SkillCrafting.new(self)
 var hunger := Hunger.new(self)
+var sleep := Sleep.new(self)
 ## Materials, parts and tools built from parts (see Assembly).
 var assembly := Assembly.new()
 var _snapshot_round := 0
@@ -627,6 +631,7 @@ func _physics_process(delta: float) -> void:
 	containers.update(delta)
 	sessions.update(delta)
 	skill.update()
+	sleep.update(delta)
 	var sim_usec := 0
 	var stream_usec := 0
 	for p: ServerPlayer in players.values():
@@ -697,6 +702,17 @@ func _simulate_player(p: ServerPlayer) -> void:
 			p.input_queue.clear()
 		return
 	# Normally one input per tick; consume two when the client is ahead to drain jitter backlog.
+	if not p.sleeping.is_empty():
+		# Sleepers stay in bed; moving or jumping gets them up.
+		var getting_up := false
+		for input in p.input_queue:
+			getting_up = getting_up or input.jump or input.move.length() > 0.2
+		if not p.input_queue.is_empty():
+			p.last_processed_seq = p.input_queue.back().seq
+			p.input_queue.clear()
+		if getting_up:
+			sleep.wake(p, "moved")
+		return
 	var budget := 2 if p.input_queue.size() > 3 else 1
 	var start := p.state.position
 	var was_on_ground := p.state.on_ground
@@ -788,6 +804,7 @@ func damage_player(p: ServerPlayer, amount: float, cause: String, attacker = nul
 	entities.ai.make_noise(p.state.position, 12.0, p, true)
 	if cause != "starvation":
 		hunger.add_exhaustion(p, Hunger.DAMAGED)
+	sleep.wake(p, "hurt")
 	sync_health(p, true)
 	play_sound_at("engine:hurt", p.get_eye_position(), 1.0, randf_range(0.9, 1.1))
 	_broadcast_player_event(p, Entities.Event.HURT)
@@ -847,6 +864,8 @@ func on_respawn(peer_id: int) -> void:
 	if p == null or not p.dead:
 		return
 	var spawn := p.spawn_point
+	if spawn == Vector3.INF:
+		spawn = sleep.respawn_position(p)
 	if spawn == Vector3.INF:
 		spawn = spawn_handler.call(p) if spawn_handler.is_valid() else _default_spawn()
 	var ev := emit("player_respawn", {"player": p, "position": spawn})
@@ -1016,7 +1035,8 @@ func get_day_length() -> float:
 
 func _broadcast_time() -> void:
 	for p: ServerPlayer in players.values():
-		Net.s_time.rpc_id(p.peer_id, _time_of_day, _day_length)
+		if p._online():
+			Net.s_time.rpc_id(p.peer_id, _time_of_day, _day_length)
 
 
 # --- Joining & content delivery -----------------------------------------------------------------
@@ -1144,6 +1164,8 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 		p.hunger = clampf(float(saved.get("hunger", Hunger.MAX)), 0.0, Hunger.MAX)
 		p.saturation = clampf(float(saved.get("saturation", 5.0)), 0.0, p.hunger)
 		p.exhaustion = clampf(float(saved.get("exhaustion", 0.0)), 0.0, Hunger.EXHAUSTION_PER_POINT)
+		if saved.get("spawn_bed") is Array and saved.spawn_bed.size() == 3:
+			p.spawn_bed = Vector3i(int(saved.spawn_bed[0]), int(saved.spawn_bed[1]), int(saved.spawn_bed[2]))
 		var spawn_point = saved.get("spawn_point")
 		if spawn_point is Array and spawn_point.size() == 3:
 			p.spawn_point = Vector3(spawn_point[0], spawn_point[1], spawn_point[2])
@@ -1190,6 +1212,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		return
 	emit("player_leave", {"player": p})
 	containers.close(p, false)
+	sleep.wake(p, "left")
 	skill.player_left(p)
 	sessions.leave(p)
 	_store_player(p)
@@ -1551,13 +1574,21 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 	var block := p.inventory.selected_block()
 	var current := world.get_block_v(pos)
 	var valid: bool = _can_edit(p, pos) and block > 0 and registry.placeable_lut[block] == 1 \
-		and (current == BlockRegistry.AIR or registry.liquid_lut[current] == 1 or registry.defs[current].replaceable) \
-		and _has_solid_neighbor(pos) and is_supported(pos, block)
+		and _can_replace(current) and _has_solid_neighbor(pos) and is_supported(pos, block)
+	var state := BlockRegistry.facing_from_yaw(yaw) if valid and registry.defs[block].orientation == 1 and is_finite(yaw) else 0
+	# Two-block pieces (beds) also need room for their other half.
+	var pair = registry.defs[block].get("pair") if valid else null
+	var pair_pos := pos
+	var pair_block := 0
+	if pair is Dictionary:
+		pair_pos = pos + pair_offset(pair, state)
+		pair_block = registry.id_of(str(pair.block))
+		valid = pair_block > 0 and _can_edit(p, pair_pos) and _can_replace(world.get_block_v(pair_pos)) and is_supported(pair_pos, pair_block)
 	if valid:
 		for other: ServerPlayer in players.values():
-			if registry.solid_lut[block] == 1 and PlayerPhysics.overlaps_block(other.state.position, pos) and not other.dead:
-				valid = false
-				break
+			for cell in ([pos, pair_pos] if pair_block > 0 else [pos]):
+				if registry.solid_lut[block] == 1 and PlayerPhysics.overlaps_block(other.state.position, cell) and not other.dead:
+					valid = false
 	if valid:
 		valid = not emit("block_place", {"player": p, "position": pos, "block": block, "cancelled": false}).cancelled
 	if not valid:
@@ -1566,8 +1597,9 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 	p.inventory.consume_selected()
 	if not p.inventory.creative:
 		p.sync_inventory()
-	var state := BlockRegistry.facing_from_yaw(yaw) if registry.defs[block].orientation == 1 and is_finite(yaw) else 0
 	_apply_block(pos, block, false, state)
+	if pair_block > 0:
+		_apply_block(pair_pos, pair_block, false, state)
 	if not str(registry.defs[block].get("station", "")).is_empty():
 		sessions.claim(pos, p)
 	entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 8.0, p)
@@ -1586,7 +1618,9 @@ func on_interact(peer_id: int, pos: Vector3i) -> void:
 	var ev := emit("block_interact", {"player": p, "position": pos, "block": block, "cancelled": false})
 	if ev.cancelled:
 		return
-	if not containers.type_of_block(block).is_empty():
+	if sleep.is_bed(block):
+		sleep.use_bed(p, pos)
+	elif not containers.type_of_block(block).is_empty():
 		containers.open(p, pos)
 	elif not String(registry.defs[block].get("station", "")).is_empty():
 		open_crafting(p, {"position": pos})
@@ -1652,6 +1686,12 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 		play_effect(use_effect, p.get_eye_position() + look_dir * 0.8, {"direction": look_dir})
 	emit("item_use", {"player": p, "item": item, "has_target": has_target, "position": target,
 		"normal": normal.clamp(-Vector3i.ONE, Vector3i.ONE), "direction": PlayerPhysics.look_direction(p.yaw, p.pitch)})
+
+
+func on_leave_bed(peer_id: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p != null:
+		sleep.wake(p, "left bed")
 
 
 func on_stop_using(peer_id: int) -> void:
@@ -1920,6 +1960,8 @@ func refresh_appearance(p: ServerPlayer) -> void:
 			armor[slot_name] = p.inventory.ids[index]
 	var visible := cosmetics.visible_armor(armor, p.avatar)
 	var appearance := {"held": p.inventory.selected_item(), "armor": visible, "avatar": p.avatar}
+	if not p.sleeping.is_empty():
+		appearance.sleeping = {"head": [p.sleeping.head_dir.x, p.sleeping.head_dir.z]}  # lies down, head towards the pillow
 	var held := p.inventory.selected_item()
 	if held >= ItemRegistry.FIRST_ITEM:
 		var held_data: Dictionary = p.inventory.data[p.inventory.selected]
@@ -2522,6 +2564,7 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0) -> 
 	if not _generated.has(coord):
 		_generated[coord] = chunk.blocks.duplicate()
 	var old := world.get_block_v(pos)
+	var old_state := get_block_state(pos)
 	world.set_block(pos.x, pos.y, pos.z, block)
 	var index := Chunk.index(pos.x & 15, pos.y, pos.z & 15)
 	if not _deltas.has(coord):
@@ -2540,6 +2583,11 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0) -> 
 			containers.block_removed(pos, get_block_data(pos), old)
 		clear_block_data(pos)
 	block_ticks.block_changed(pos, old, block)
+	# Removing one half of a two-block piece removes the other (its drops come from the half broken).
+	if old != block and registry.defs[old].get("pair") is Dictionary:
+		var other: Vector3i = pos + pair_offset(registry.defs[old].pair, old_state)
+		if world.get_block_v(other) == registry.id_of(str(registry.defs[old].pair.block)):
+			_apply_block(other, BlockRegistry.AIR)
 	for p: ServerPlayer in players.values():
 		if p.sent_chunks.has(coord):
 			Net.s_block_changed.rpc_id(p.peer_id, pos, block, state & 255)
@@ -2548,6 +2596,34 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0) -> 
 		var above := world.get_block_v(pos + Vector3i.UP)
 		if above != BlockRegistry.AIR and above != BlockRegistry.UNLOADED and not is_supported(pos + Vector3i.UP, above):
 			break_block(pos + Vector3i.UP, true)
+
+
+func _can_replace(current: int) -> bool:
+	return current == BlockRegistry.AIR or (current != BlockRegistry.UNLOADED and (registry.liquid_lut[current] == 1 or registry.defs[current].replaceable))
+
+
+## Offset from one half of a two-block piece to the other: `pair.direction` is "back" (away from the
+## player who placed it), "front", "up" or "down".
+static func pair_offset(pair: Dictionary, state: int) -> Vector3i:
+	var front := BlockRegistry.facing_direction(state)
+	match str(pair.get("direction", "back")):
+		"front":
+			return front
+		"up":
+			return Vector3i.UP
+		"down":
+			return Vector3i.DOWN
+	return -front
+
+
+## The other half of a two-block piece at `pos`, or `pos` itself.
+func pair_position(pos: Vector3i) -> Vector3i:
+	var block := world.get_block_v(pos)
+	if not registry.is_valid(block) or not (registry.defs[block].get("pair") is Dictionary):
+		return pos
+	var pair: Dictionary = registry.defs[block].pair
+	var other := pos + pair_offset(pair, get_block_state(pos))
+	return other if world.get_block_v(other) == registry.id_of(str(pair.block)) else pos
 
 
 ## Whether `block` may stand at `pos`: its `support` rule ("solid" or [block names]) must accept the block
@@ -2671,6 +2747,7 @@ func _store_player(p: ServerPlayer) -> void:
 		"saturation": p.saturation,
 		"exhaustion": p.exhaustion,
 		"spawn_point": [p.spawn_point.x, p.spawn_point.y, p.spawn_point.z] if p.spawn_point != Vector3.INF else null,
+		"spawn_bed": [p.spawn_bed.x, p.spawn_bed.y, p.spawn_bed.z] if p.spawn_bed != null else null,
 	}
 
 

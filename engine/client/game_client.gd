@@ -208,6 +208,12 @@ var _hunger_textures := []  # [full, half, empty]
 var _eating := {}  # {item, next_chomp} while holding use on food
 var _hurt_flash: ColorRect
 var _death_panel: Control
+## {sleeping, since, asleep, needed, seconds, head_dir, started (local)} while in bed.
+var _sleep := {}
+var _sleep_panel: Control
+var _sleep_fade: ColorRect
+var _sleep_label: Label
+var _leave_bed_sent := 0.0
 var _death_label: Label
 var _inventory_screen: InventoryScreen
 var _minigame_screen: MinigameScreen
@@ -625,6 +631,8 @@ func _apply_look(target: Avatar, name_text: String, appearance: Dictionary) -> v
 			_look_cache[armor_key] = ImageTexture.create_from_image(SkinCompositor.compose_armor(pieces))
 		target.set_armor(_look_cache[armor_key])
 	target.set_armor_glow(appearance.get("armor_glow", {}) if appearance.get("armor_glow") is Dictionary else {})
+	var sleeping = appearance.get("sleeping")
+	target.set_sleeping(sleeping.get("head", []) if sleeping is Dictionary and sleeping.get("head") is Array else [])
 	var held_look: Dictionary = appearance.get("held_look", {}) if appearance.get("held_look") is Dictionary else {}
 	var held_node := _item_meshes.node_for(int(appearance.get("held", 0)), false, held_look)
 	_dress_held(held_node, held_look)
@@ -844,7 +852,12 @@ func _physics_process(_delta: float) -> void:
 	var input := PlayerPhysics.PlayerInput.new()
 	_input_seq += 1
 	input.seq = _input_seq
-	if _gameplay_input_enabled():
+	if not _sleep.is_empty():
+		# In bed: movement keys get you up instead of moving.
+		var wants_up := Input.get_vector("move_left", "move_right", "move_back", "move_forward").length() > 0.2 or Input.is_action_pressed("jump")
+		if wants_up and not _chat_input.visible:
+			leave_bed()
+	elif _gameplay_input_enabled():
 		input.move = Input.get_vector("move_left", "move_right", "move_back", "move_forward")
 		input.jump = Input.is_action_pressed("jump")
 		input.sprint = Input.is_action_pressed("sprint")
@@ -920,7 +933,9 @@ func _process(delta: float) -> void:
 	var fraction := Engine.get_physics_interpolation_fraction()
 	_render_offset = _render_offset.lerp(Vector3.ZERO, 1.0 - exp(-delta * 15.0))
 	var render_position := _prev_position.lerp(state.position, fraction) + _render_offset
-	_camera.position = render_position + Vector3(0.0, PlayerPhysics.EYE_HEIGHT, 0.0)
+	_camera.position = render_position + Vector3(0.0, PlayerPhysics.EYE_HEIGHT if _sleep.is_empty() else 0.1, 0.0)
+	if not _sleep.is_empty():
+		_update_sleep()
 	_camera.rotation = Vector3(pitch, yaw, 0.0)
 	_update_self_avatar(delta, render_position)
 	_camera.position += _effects.shake_offset
@@ -941,10 +956,10 @@ func _update_self_avatar(delta: float, render_position: Vector3) -> void:
 		return
 	_self_avatar.visible = camera_mode != CameraMode.FIRST_PERSON
 	_self_avatar.position = render_position
-	_self_avatar.rotation.y = yaw
+	_self_avatar.rotation.y = _self_avatar.sleep_yaw if _self_avatar.sleep_yaw != null else yaw
 	_self_avatar.set_dead(dead)
 	_self_avatar.animate(delta, state.velocity, state.on_ground, pitch)
-	_view_model.visible = camera_mode == CameraMode.FIRST_PERSON and not dead
+	_view_model.visible = camera_mode == CameraMode.FIRST_PERSON and not dead and _sleep.is_empty()
 	var held := inventory.selected_item()
 	var look: Dictionary = {}
 	if held >= ItemRegistry.FIRST_ITEM:
@@ -2271,11 +2286,77 @@ func _build_hud() -> void:
 	_death_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_death_label.add_theme_font_size_override("font_size", 56)
 	death_box.add_child(_death_label)
+	_build_sleep_panel()
 	var respawn_button := Button.new()
 	respawn_button.text = "Respawn"
 	respawn_button.custom_minimum_size = Vector2(240, 48)
 	respawn_button.pressed.connect(respawn)
 	death_box.add_child(respawn_button)
+
+
+func _build_sleep_panel() -> void:
+	_sleep_panel = Control.new()
+	_sleep_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_sleep_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sleep_panel.visible = false
+	_hud_root.add_child(_sleep_panel)
+	_sleep_fade = ColorRect.new()
+	_sleep_fade.color = Color(0.02, 0.02, 0.06, 0.0)
+	_sleep_fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_sleep_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sleep_panel.add_child(_sleep_fade)
+	var box := VBoxContainer.new()
+	box.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	box.position.y -= 140
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 12)
+	_sleep_panel.add_child(box)
+	_sleep_label = _shadow_label()
+	_sleep_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_sleep_label.add_theme_font_size_override("font_size", 22)
+	box.add_child(_sleep_label)
+	var leave := Button.new()
+	leave.text = "Leave bed"
+	leave.custom_minimum_size = Vector2(200, 44)
+	leave.pressed.connect(leave_bed)
+	box.add_child(leave)
+
+
+func leave_bed() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - _leave_bed_sent > 0.5:
+		_leave_bed_sent = now
+		Net.c_leave_bed.rpc_id(1)
+
+
+func on_sleep(state_info: Dictionary) -> void:
+	var was := not _sleep.is_empty()
+	if bool(state_info.get("sleeping", false)):
+		var started: float = _sleep.get("started", Time.get_ticks_msec() / 1000.0 - float(state_info.get("since", 0.0)))
+		_sleep = state_info.duplicate()
+		_sleep.started = started
+		_sleep_panel.visible = true
+		if not was:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_update_sleep()
+	else:
+		_sleep = {}
+		_sleep_panel.visible = false
+		_sleep_fade.color.a = 0.0
+		if was and not dead and not _inventory_screen.visible and not _crafting_screen.visible:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+## Darkens the screen while asleep and shows who else is in bed.
+func _update_sleep() -> void:
+	var t := Time.get_ticks_msec() / 1000.0 - float(_sleep.get("started", 0.0))
+	_sleep_fade.color.a = clampf(t / maxf(float(_sleep.get("seconds", 3.0)), 0.1), 0.0, 1.0) * 0.85
+	var asleep := int(_sleep.get("asleep", 1))
+	var needed := int(_sleep.get("needed", 1))
+	var dots := ".".repeat(1 + int(t * 2.0) % 3)
+	_sleep_label.text = "Sleeping%s" % dots if asleep >= needed else "Sleeping%s  %d / %d players in bed" % [dots, asleep, needed]
 
 
 func _rebuild_hotbar() -> void:

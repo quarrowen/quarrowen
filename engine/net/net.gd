@@ -250,6 +250,13 @@ func c_use_item(has_target: bool, target: Vector3i, normal: Vector3i) -> void:
 		server.on_use_item(_sender(), has_target, target, normal)
 
 
+## Get out of bed.
+@rpc("any_peer", "call_remote", "reliable")
+func c_leave_bed() -> void:
+	if server:
+		server.on_leave_bed(_sender())
+
+
 ## Use was released (stops eating).
 @rpc("any_peer", "call_remote", "reliable")
 func c_stop_using() -> void:
@@ -660,6 +667,13 @@ func s_ui_hide(ui_id: String) -> void:
 func s_title(text: String, subtitle: String, seconds: float) -> void:
 	if client:
 		client.on_title(text, subtitle, seconds)
+
+
+## Sleeping state for this player: {sleeping, since, asleep, needed, seconds, head_dir}.
+@rpc("authority", "call_remote", "reliable")
+func s_sleep(state: Dictionary) -> void:
+	if client:
+		client.on_sleep(state)
 
 
 ## A player started eating an item (0 = stopped or finished), for the eating animation.

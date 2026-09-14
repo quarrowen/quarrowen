@@ -81,5 +81,5 @@ func _process(delta: float) -> void:
 
 func _apply(pos: Vector3, yaw: float, pitch: float) -> void:
 	position = pos
-	rotation.y = yaw
+	rotation.y = avatar.sleep_yaw if avatar.sleep_yaw != null else yaw
 	_pitch = pitch

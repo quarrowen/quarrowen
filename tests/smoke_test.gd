@@ -525,6 +525,41 @@ func _combat(c) -> void:
 		var paid := await _wait_until(func(): return c.inventory.count_of(coin) >= coins_before + 5, 3.0)
 		_check(paid, "bounty paid 5 coins via JavaScript entity_death")
 
+	# Beds: set the respawn point by day, sleep through the night.
+	Net.c_chat.rpc_id(1, "/give base:bed")
+	var bed: int = c.items.id_of("base:bed")
+	await _wait_until(func(): return c.inventory.count_of(bed) >= 1, 3.0)
+	await _select_item(c, bed)
+	await _wait_until(func(): return c.state.on_ground, 3.0)
+	# Face an open two-block strip so the head has room behind the foot.
+	var bed_spot := Vector3i(0, -999, 0)
+	var base := Vector3i(floori(c.state.position.x), floori(c.state.position.y), floori(c.state.position.z))
+	for dy in [0, 1, -1]:
+		for d in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]:
+			var foot: Vector3i = base + d * 2 + Vector3i(0, dy, 0)
+			var free := true
+			for cell in [foot, foot + d]:
+				var id: int = c.world.get_block_v(cell)
+				free = free and (id == 0 or c.registry.defs[id].replaceable) and c.registry.solid_lut[c.world.get_block_v(cell + Vector3i.DOWN)] == 1
+			if free and bed_spot.y == -999:
+				bed_spot = foot
+				c.yaw = atan2(-float(d.x), -float(d.z))
+	c.request_place(bed_spot)
+	var head_block: int = c.registry.id_of("base:bed_head")
+	if await _wait_until(func(): return c.world.get_block_v(bed_spot) == bed and head_block in [
+			c.world.get_block_v(bed_spot + Vector3i(1, 0, 0)), c.world.get_block_v(bed_spot + Vector3i(-1, 0, 0)),
+			c.world.get_block_v(bed_spot + Vector3i(0, 0, 1)), c.world.get_block_v(bed_spot + Vector3i(0, 0, -1))], 3.0):
+		Net.c_chat.rpc_id(1, "/time midnight")
+		await get_tree().create_timer(0.5).timeout
+		Net.c_interact.rpc_id(1, bed_spot)
+		_check(await _wait_until(func(): return not c._sleep.is_empty() and c._sleep_panel.visible, 3.0),
+			"lay down in a bed at night (%s)" % c._server_ui._subtitle.text)
+		_check(await _wait_until(func(): return c._sleep.is_empty(), 8.0), "slept through the night and woke up")
+		_check(c._time_of_day > 0.2 and c._time_of_day < 0.4, "it is morning after sleeping (%.2f)" % c._time_of_day)
+		Net.c_chat.rpc_id(1, "/time midnight")  # zombies burn in daylight
+	else:
+		_fail("could not place a bed")
+
 	# Eat the pig's porkchop.
 	var porkchop: int = c.items.id_of("vanilla:porkchop")
 	if c.inventory.count_of(porkchop) > 0:

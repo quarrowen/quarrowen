@@ -161,6 +161,7 @@ func _init() -> void:
 	_save(_bottle(Color(0, 0, 0, 0)), base + "glass_bottle.png")
 	_save(_bottle(Color(0.95, 0.72, 0.25)), base + "apple_juice.png")
 	_save(_bottle(Color(0.65, 0.35, 1.0)), arcana + "mana_potion.png")
+	_save(_bed_icon(), base + "bed_icon.png")
 	quit()
 
 
@@ -182,6 +183,27 @@ func _part(part: String) -> Image:
 			if on:
 				var shade := 0.95 - 0.05 * ((x + y) % 3) - (0.15 if part in ["binding", "guard"] and (x + y) % 2 == 0 else 0.0)
 				img.set_pixel(x, y, Color(shade, shade, shade))
+	return img
+
+
+## A bed seen from the side: wooden frame and legs, red blanket, white pillow and a headboard.
+func _bed_icon() -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var c := Color(0, 0, 0, 0)
+			if x <= 2 and y >= 4 and y <= 12:
+				c = Color(0.54, 0.35, 0.2)  # headboard
+			elif y >= 11 and y <= 12 and x >= 1 and x <= 15:
+				c = Color(0.54, 0.35, 0.2)  # frame
+			elif y >= 13 and y <= 14 and (x in [2, 3, 13, 14]):
+				c = Color(0.42, 0.27, 0.14)  # legs
+			elif y >= 7 and y <= 10 and x >= 3 and x <= 5:
+				c = Color(0.97, 0.96, 0.92)  # pillow
+			elif y >= 8 and y <= 10 and x >= 6 and x <= 15:
+				c = Color(0.75, 0.22, 0.17) if y > 8 else Color(0.85, 0.33, 0.31)  # blanket
+			if c.a > 0.0:
+				img.set_pixel(x, y, c)
 	return img
 
 

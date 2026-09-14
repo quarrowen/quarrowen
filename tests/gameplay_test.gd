@@ -11,6 +11,7 @@ const SoundRegistry = preload("res://engine/shared/sound_registry.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 const StationSessions = preload("res://engine/server/station_sessions.gd")
+const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
 const DATA_DIR := "user://gameplay_test"
 var _failures := 0
@@ -35,6 +36,7 @@ func _ready() -> void:
 	_minigames()
 	await _skill_crafting()
 	await _hunger()
+	await _beds()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -1213,6 +1215,95 @@ func _hunger() -> void:
 	# Saved with the player.
 	server._store_player(p)
 	_check(server._meta.players["hungry"].hunger == 10.0, "hunger is saved with the player")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _beds() -> void:
+	var server = _start("beds_%d" % Time.get_ticks_msec())
+	var reg = server.registry
+	var p := ServerPlayer.new(server, 102, "Sleepy")
+	p.player_id = "sleepy"
+	server.players[102] = p
+	var other := ServerPlayer.new(server, 103, "Owl")
+	other.player_id = "owl"
+	server.players[103] = other
+	var y: int = server.surface_height(8, 8)
+	for x in range(2, 16):
+		for z in range(2, 16):
+			for dy in range(1, 5):
+				server.set_block_authoritative(Vector3i(x, y + dy, z), 0)
+			server.set_block_authoritative(Vector3i(x, y, z), reg.id_of("base:stone"))
+	p.state.position = Vector3(8.5, y + 1, 12.5)
+	other.state.position = Vector3(4.5, y + 1, 4.5)
+	p.edit_tokens = 100.0
+	var bed: int = reg.id_of("base:bed")
+	var head: int = reg.id_of("base:bed_head")
+	p.inventory.set_slot(0, bed, 2)
+	p.inventory.selected = 0
+	# Facing the player (yaw 0 looks along -Z, so the bed's front points +Z back at them).
+	var foot := Vector3i(8, y + 1, 10)
+	server.on_place_block(102, foot, 0.0)
+	var head_pos: Vector3i = foot + Vector3i(0, 0, -1)
+	_check(server.world.get_block_v(foot) == bed and server.world.get_block_v(head_pos) == head, "a bed places its head behind the foot")
+	_check(server.pair_position(foot) == head_pos and server.pair_position(head_pos) == foot, "the two halves know each other")
+	server.on_place_block(102, Vector3i(8, y + 1, 6), PI)
+	_check(server.world.get_block_v(Vector3i(8, y + 1, 6)) == 0 or server.world.get_block_v(Vector3i(8, y + 1, 7)) == head,
+		"placing needs room for both halves")
+	server.set_block_authoritative(Vector3i(8, y + 1, 6), 0)
+	server.set_block_authoritative(Vector3i(8, y + 1, 7), 0)
+	# Using a bed by day sets the spawn but does not sleep.
+	server.set_world_time(0.5, 1200.0)
+	server.on_interact(102, head_pos)
+	_check(p.spawn_bed == foot and p.sleeping.is_empty(), "a bed by day sets your respawn point")
+	# At night you lie down; the night passes once everyone is asleep.
+	server.set_world_time(0.0, 1200.0)
+	server.on_interact(102, foot)
+	_check(not p.sleeping.is_empty() and p.state.position.distance_to(Vector3(8.5, y + 2, 10.0)) < 0.01, "at night you lie down in the bed")
+	_check(p.appearance.get("sleeping", {}).get("head", []) == [0, -1], "others see you lying with your head on the pillow")
+	server.on_interact(103, foot)
+	_check(other.sleeping.is_empty(), "an occupied bed cannot be shared")
+	server._time += 5.0
+	server.sleep.update(0.1)
+	_check(not p.sleeping.is_empty() and server.get_time_of_day() == 0.0, "the night is not skipped while others are awake")
+	server.gameplay.sleep_percentage = 50
+	server.sleep.update(0.1)
+	_check(p.sleeping.is_empty() and is_equal_approx(server.get_time_of_day(), server.sleep.MORNING), "with half the players asleep the night is skipped")
+	_check(PlayerPhysics.overlaps_block(p.state.position, foot) == false and p.state.position.y >= y + 1, "waking up stands you next to the bed")
+	server.gameplay.sleep_percentage = 100
+	# Getting up early: moving, damage.
+	server.set_world_time(0.0, 1200.0)
+	server.on_interact(102, foot)
+	var input := PlayerPhysics.PlayerInput.new()
+	input.seq = 1
+	input.move = Vector2(0, 1)
+	p.input_queue.append(input)
+	server._simulate_player(p)
+	_check(p.sleeping.is_empty(), "moving gets you out of bed")
+	server.on_interact(102, foot)
+	p.hurt_timer = 0.0
+	p.inventory.creative = false
+	server.damage_player(p, 1.0, "magic")
+	_check(p.sleeping.is_empty(), "damage wakes you")
+	# Monsters nearby keep you awake.
+	var zombie = server.entities.spawn(server.entities.registry.id_of("vanilla:zombie"), Vector3(10.5, y + 1, 10.5))
+	server.on_interact(102, foot)
+	_check(p.sleeping.is_empty(), "you cannot sleep with monsters nearby")
+	if zombie != null:
+		server.entities.remove(zombie)
+	# Respawning at the bed, and falling back when it is gone.
+	p.dead = true
+	server.on_respawn(102)
+	var spot: Vector3 = p.state.position
+	_check(Vector2(spot.x, spot.z).distance_to(Vector2(8.5, 9.5)) < 2.5 and absf(spot.y - (y + 1)) < 1.1, "you respawn next to your bed (%s)" % spot)
+	server._store_player(p)
+	_check(server._meta.players["sleepy"].spawn_bed == [foot.x, foot.y, foot.z], "the bed spawn is saved")
+	p.inventory.creative = true  # instant breaking
+	server.on_break_block(102, head_pos)
+	_check(server.world.get_block_v(foot) == 0 and server.world.get_block_v(head_pos) == 0, "breaking one half removes the whole bed")
+	p.dead = true
+	server.on_respawn(102)
+	_check(p.spawn_bed == null, "a missing bed clears the respawn point")
 	server.queue_free()
 	await get_tree().process_frame
 

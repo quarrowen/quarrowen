@@ -5,6 +5,7 @@ extends "res://engine/server/mod.gd"
 const Farming = preload("farming.gd")
 const Stations = preload("stations.gd")
 const Forging = preload("forging.gd")
+const Beds = preload("beds.gd")
 const TABLE := {"station": "crafting_table"}
 ## Iron gear needs an anvil beside the table; iron armor also needs a Sturdy Workbench.
 ## Iron gear can also be forged by hand at the anvil for better quality (the "forging" minigame).
@@ -14,6 +15,7 @@ const ARMORY := {"station": "crafting_table", "needs": ["metalwork"], "tier": 2,
 var farming := Farming.new()
 var stations := Stations.new()
 var forging := Forging.new()
+var beds := Beds.new()
 
 
 func setup(api) -> void:
@@ -72,6 +74,7 @@ func setup(api) -> void:
 	farming.setup(api, {"dirt": dirt, "grass": grass})
 	stations.setup(api, {"wood": wood, "stone": stone})
 	forging.setup(api, {"stone": stone})
+	beds.setup(api, {"wood": wood})
 
 
 ## Basic tiered tools, swords and iron armor. Tiers: 1 wood, 2 stone, 3 iron (stone needs tier 1,
