@@ -47,6 +47,7 @@ func _ready() -> void:
 	await _biomes()
 	await _structures()
 	await _js_blocks()
+	await _dev_log()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -2021,6 +2022,60 @@ func _structures() -> void:
 	server.set_world_time(0.0, 1200.0)
 	server.spawners._tick({"position": sp})
 	_check(server.entities.in_radius(Vector3(sp), 8.0, server.entities.registry.id_of("vanilla:zombie")).size() >= 1, "a spawner makes its mobs when a player is near")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _dev_log() -> void:
+	var mods := ["buggy"]
+	if ClassDB.class_exists(&"NativeJsRuntime"):
+		mods.append("buggy_js")
+	var server := GameServer.new()
+	add_child(server)
+	var world := "dev_log_%d" % Time.get_ticks_msec()
+	var err: Error = server.start({"mods": PackedStringArray(mods), "mod_dirs": PackedStringArray(["res://tests/mods"]),
+		"world": world, "data_dir": DATA_DIR, "seed": 42, "offline": true, "log_level": "warn,buggy:info"})
+	_check(err == OK, "buggy test mods load")
+	if err != OK:
+		server.queue_free()
+		return
+	server.set_physics_process(false)
+	var log = server.dev_log
+	var p := ServerPlayer.new(server, 90, "Author")
+	server.players[90] = p
+	server._commands["complain"].handler.call(p, PackedStringArray())
+	log.drain()
+	var buggy: Array = log.recent(20, "buggy")
+	_check(buggy.any(func(e): return e.message == "hello from buggy" and e.level == "info"), "mods log info lines")
+	_check(not buggy.any(func(e): return e.message == "quiet detail"), "debug lines are dropped below the mod's level")
+	_check(buggy.any(func(e): return e.level == "warn" and e.message == "running low"), "warnings are kept")
+	var reported: Array = log.sorted_errors().filter(func(e): return e.source == "buggy" and e.message == "something broke")
+	_check(reported.size() == 1 and reported[0].file.ends_with("tests/mods/buggy/main.gd") and reported[0].line == 14,
+		"api.error records the mod's file and line")
+	log.set_level("buggy", "debug")
+	server._commands["complain"].handler.call(p, PackedStringArray())
+	_check(log.recent(30, "buggy").any(func(e): return e.message == "quiet detail"), "/log level turns debug lines on")
+	_check(log.errors.values().filter(func(e): return e.message == "something broke")[0].count == 2, "repeated errors are grouped with a count")
+	# A real script error inside a mod.
+	var alerts := []
+	log.error_added.connect(func(e, first): alerts.append([e.source, first]))
+	server._commands["crash"].handler.call(p, PackedStringArray())
+	log.drain()
+	var crash: Array = log.sorted_errors().filter(func(e): return e.source == "buggy" and e.message.contains("volume"))
+	_check(crash.size() == 1 and crash[0].line == 19 and crash[0].file.ends_with("buggy/main.gd") and not crash[0].stack.is_empty(),
+		"GDScript runtime errors are caught with the mod, file, line and stack")
+	_check(alerts.has(["buggy", true]), "new errors notify listeners (admin alerts)")
+	if mods.has("buggy_js"):
+		server._commands["jslog"].handler.call(p, PackedStringArray())
+		server._commands["jscrash"].handler.call(p, PackedStringArray())
+		log.drain()
+		_check(log.recent(20, "buggy_js", "warn").any(func(e): return e.message == "js running low"), "console.warn logs a warning from JavaScript")
+		_check(not log.recent(20, "buggy_js").any(func(e): return e.message.begins_with("hello from js")), "JavaScript info lines follow the default level (warn)")
+		var js: Array = log.sorted_errors().filter(func(e): return e.source == "buggy_js")
+		_check(js.size() == 1 and js[0].file.ends_with("main.js") and js[0].line == 5, "JavaScript errors are caught with file and line")
+	server._exit_tree()
+	var text := FileAccess.get_file_as_string(DATA_DIR.path_join(world).path_join("logs/latest.log"))
+	_check(text.contains("[buggy] hello from buggy") and text.contains("ERROR [buggy]"), "the log is written to the world's logs/latest.log")
 	server.queue_free()
 	await get_tree().process_frame
 

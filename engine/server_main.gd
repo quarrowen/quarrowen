@@ -16,6 +16,7 @@ extends Node
 ##   --backup-interval=60  VOXEL_BACKUP_INTERVAL  minutes between automatic world backups (0 = off)
 ##   --backup-keep=24      VOXEL_BACKUP_KEEP   backups kept per world (oldest deleted)
 ##   --restore=latest      VOXEL_RESTORE       restore a backup (latest, file name or path) before starting
+##   --log-level=info      VOXEL_LOG_LEVEL     debug | info | warn | error, or per mod: all:warn,my_mod:debug
 
 const GameServer = preload("res://engine/server/game_server.gd")
 const Native = preload("res://engine/shared/native.gd")
@@ -34,6 +35,7 @@ const DEFAULTS := {
 	"backup-interval": "60",
 	"backup-keep": "24",
 	"restore": "",
+	"log-level": "",
 }
 
 var _server: Node
@@ -72,6 +74,7 @@ func _ready() -> void:
 		"backup_interval": float(options["backup-interval"]),
 		"backup_keep": int(options["backup-keep"]),
 		"restore": options.restore,
+		"log_level": options["log-level"],
 	})
 	if err != OK:
 		printerr("[server] Startup failed: %s" % error_string(err))

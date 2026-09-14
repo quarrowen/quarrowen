@@ -30,6 +30,12 @@
     return revive(reply?.value ?? null);
   };
 
+  const format = (value) => {
+    if (typeof value === "string") return value;
+    if (value instanceof Error) return `${value.message}\n${value.stack ?? ""}`;
+    try { return JSON.stringify(value, toHost) ?? String(value); } catch { return String(value); }
+  };
+
   const toHost = (_key, value) =>
     value instanceof Player ? { __player: value.id } : value instanceof Entity ? { __entity: value.id } : value;
 
@@ -168,7 +174,11 @@
   const api = {
     Player,
     Entity,
-    info: (...parts) => host("info", parts.map(String).join(" ")),
+    info: (...parts) => host("info", parts.map(format).join(" ")),
+    /** Log levels: debug lines appear with `/log level <mod> debug`; errors are grouped and shown to admins. */
+    debug: (...parts) => host("debug", parts.map(format).join(" ")),
+    warn: (...parts) => host("warn", parts.map(format).join(" ")),
+    error: (...parts) => host("error", parts.map(format).join(" "), new Error().stack ?? ""),
     // Content
     registerBlock: (name, def) => host("registerBlock", name, def),
     registerItem: (name, def) => host("registerItem", name, def),
@@ -301,15 +311,21 @@
 
   globalThis.console = {
     log: (...parts) => api.info(...parts),
-    warn: (...parts) => api.info("warning:", ...parts),
-    error: (...parts) => api.info("error:", ...parts),
+    info: (...parts) => api.info(...parts),
+    debug: (...parts) => api.debug(...parts),
+    warn: (...parts) => api.warn(...parts),
+    error: (...parts) => api.error(...parts),
   };
 
   globalThis.__setup = (_json) => {
     const exports = globalThis.__exports ?? {};
     const setup = exports.setup ?? exports.default;
     if (typeof setup !== "function") throw new Error("a JavaScript mod must export function setup(api)");
-    setup(api);
+    try {
+      setup(api);
+    } catch (e) {
+      return JSON.stringify({ __error: String(e?.message ?? e), stack: String(e?.stack ?? "") });
+    }
     return "null";
   };
 
@@ -320,7 +336,12 @@
     const fn = callbacks.get(id);
     if (!fn) return JSON.stringify({ value: null });
     const revived = revive(args);
-    const result = fn(...revived);
+    let result;
+    try {
+      result = fn(...revived);
+    } catch (e) {
+      return JSON.stringify({ __error: String(e?.message ?? e), stack: String(e?.stack ?? "") });
+    }
     const first = revived[0];
     const event = first !== null && typeof first === "object" && !(first instanceof Player) && !Array.isArray(first)
       ? { cancelled: first.cancelled, drops: first.drops, amount: first.amount, damage: first.damage,

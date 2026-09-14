@@ -772,6 +772,19 @@ Mana Pylon. Usable items: shards restore mana, the Wand of Blink teleports you u
 Wand of Light conjures a temporary light orb, the Wand of Sparks shoots a glowing projectile that
 hurts mobs. Craft wands and pylons with C, or `/arcana kit`.
 
+## Logs and errors (for mod authors)
+
+- **Logging:** `api.debug / info / warn / error(message)` in GDScript, `console.debug / log / warn / error`
+  (or `api.debug` ...) in JavaScript. Lines go to the console, `<world>/logs/latest.log` (the last five
+  runs are kept) and the dev tools. Debug lines are hidden until you raise a mod's level:
+  `/log level my_mod debug`, or start the server with `--log-level=warn,my_mod:debug`. `/log [mod] [count]`
+  shows recent lines in chat.
+- **Script errors are caught:** GDScript runtime errors (through Godot's Logger with script backtraces)
+  and JavaScript exceptions (with their JS stack) are attributed to the mod whose code was running, with
+  file, line and stack, and grouped with a count. `api.error` reports the same way. Admins get a red card
+  in game for each new error ("Error in my_mod main.gd:42"); `/errors` lists them, `/errors clear [mod]`,
+  `/errors mute | unmute`.
+
 ## World saves (delta model)
 
 Chunks are always regenerated from the seed, then saved edits are applied on top.

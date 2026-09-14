@@ -38,6 +38,7 @@ const Hunger = preload("res://engine/server/hunger.gd")
 const Sleep = preload("res://engine/server/sleep.gd")
 const Guide = preload("res://engine/server/guide.gd")
 const Tutorials = preload("res://engine/server/tutorials.gd")
+const DevLog = preload("res://engine/server/dev_log.gd")
 const Explosions = preload("res://engine/server/explosions.gd")
 const Loot = preload("res://engine/server/loot.gd")
 const Spawners = preload("res://engine/server/spawners.gd")
@@ -158,6 +159,8 @@ var sleep := Sleep.new(self)
 var guide := Guide.new(self)
 ## Tutorials and contextual tips.
 var tutorials := Tutorials.new(self)
+## Logs and script errors for mod authors (see engine/server/dev_log.gd).
+var dev_log := DevLog.new()
 var explosions := Explosions.new(self)
 var loot := Loot.new(self)
 var spawners := Spawners.new(self)
@@ -207,6 +210,10 @@ func start(config: Dictionary) -> Error:
 	var data_dir := String(config.get("data_dir", "user://worlds"))
 	var world_name := String(config.get("world", "world")).validate_filename()
 	_save_dir = data_dir.path_join(world_name)
+	for entry in String(config.get("log_level", "")).split(",", false):
+		var parts := entry.strip_edges().split(":")
+		dev_log.set_level(parts[0] if parts.size() == 2 else "all", parts[parts.size() - 1])
+	dev_log.error_added.connect(_on_dev_error)
 	_backup_dir = data_dir.path_join("backups").path_join(world_name)
 	_backup_interval = float(config.get("backup_interval", 0.0)) * 60.0
 	_backup_keep = maxi(1, int(config.get("backup_keep", 24)))
@@ -222,11 +229,13 @@ func start(config: Dictionary) -> Error:
 			return FAILED
 		print("[server] Restored world '%s' from %s" % [world_name, archive.get_file()])
 	DirAccess.make_dir_recursive_absolute(_save_dir + "/chunks")
+	dev_log.open_file(_save_dir)
 	_load_meta(int(config.get("seed", -1)))
 	world_seed = int(_meta.seed)
 	_register_builtin_commands()
 
 	var err := _load_mods(config.get("mods", PackedStringArray()), config.get("mod_dirs", PackedStringArray()))
+	dev_log.drain()  # script parse errors from loading, so they reach the log file
 	if err != OK:
 		return err
 	_add_part_recipes()
@@ -258,6 +267,8 @@ func start(config: Dictionary) -> Error:
 
 
 func _exit_tree() -> void:
+	dev_log.drain()
+	dev_log.close()
 	for job: Dictionary in _chunk_jobs.values():
 		WorkerThreadPool.wait_for_task_completion(job.task_id)
 	_chunk_jobs.clear()
@@ -282,6 +293,8 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 	var order := ModLoader.resolve(requested, available)
 	if order.is_empty():
 		return ERR_CANT_RESOLVE
+	for manifest in order:
+		dev_log.add_mod_dir(manifest.id, manifest.dir)
 	for manifest in order:
 		if String(manifest.main).get_extension() == "js":
 			var js_mod := JsMod.new(self, manifest)
@@ -418,6 +431,8 @@ func _run_tasks() -> void:
 
 func _register_builtin_commands() -> void:
 	add_command("help", "List commands", _cmd_help, "engine")
+	add_command("log", "[mod] [count] | level <mod|all> <debug|info|warn|error> - recent log lines", _cmd_log, "engine", "admin")
+	add_command("errors", "[clear [mod] | mute | unmute] - script errors by mod", _cmd_errors, "engine", "admin")
 	add_command("players", "List online players", _cmd_players, "engine")
 	add_command("op", "<player> - grant admin", _cmd_op.bind(true), "engine", "admin")
 	add_command("deop", "<player> - revoke admin", _cmd_op.bind(false), "engine", "admin")
@@ -464,6 +479,51 @@ func _register_builtin_commands() -> void:
 	add_command("gamemode", "survival | creative [player]", _cmd_gamemode, "engine", "admin")
 	add_command("kill", "Die and respawn", func(p, _args): kill_player(p, "command", null), "engine")
 	add_command("gameplay", "[rule value] - show or change gameplay rules", _cmd_gameplay, "engine", "admin")
+
+
+# --- Logs and errors ------------------------------------------------------------------------------
+
+func _cmd_log(player, args: PackedStringArray) -> void:
+	if args.size() >= 1 and args[0] == "level":
+		if args.size() == 3 and dev_log.set_level(args[1], args[2]):
+			player.send_message("Log level for %s: %s" % [args[1], args[2]])
+		else:
+			var parts := PackedStringArray(["default %s" % dev_log.default_level])
+			for source in dev_log.levels:
+				parts.append("%s %s" % [source, dev_log.levels[source]])
+			player.send_message("Usage: /log level <mod|all> <debug|info|warn|error>  (now: %s)" % ", ".join(parts))
+		return
+	var source := args[0] if args.size() >= 1 and not args[0].is_valid_int() else ""
+	var count := int(args[args.size() - 1]) if args.size() >= 1 and args[args.size() - 1].is_valid_int() else 10
+	for e in dev_log.recent(clampi(count, 1, 50), source):
+		player.send_message("%s[%s] %s" % ["" if e.level == "info" else e.level.to_upper() + " ", e.source, e.message.left(300)])
+
+
+func _cmd_errors(player, args: PackedStringArray) -> void:
+	match args[0] if args.size() > 0 else "":
+		"clear":
+			dev_log.clear_errors(args[1] if args.size() > 1 else "")
+			player.send_message("Errors cleared")
+		"mute", "unmute":
+			player.data["dev_alerts_muted"] = args[0] == "mute"
+			player.send_message("Error alerts %s" % ("muted" if args[0] == "mute" else "on"))
+		_:
+			var list := dev_log.sorted_errors()
+			if list.is_empty():
+				player.send_message("No script errors")
+			for e in list.slice(0, 10):
+				player.send_message("[%s] x%d %s%s" % [e.source, e.count, e.message.left(200), " (%s:%d)" % [e.file.get_file(), e.line] if not e.file.is_empty() else ""])
+
+
+## New and repeating errors go to online admins (unless they muted alerts).
+func _on_dev_error(e: Dictionary, first: bool) -> void:
+	if not _started:
+		return
+	var alert := {"id": e.id, "source": e.source, "level": e.level, "message": e.message.left(300), "file": e.file.get_file(),
+		"line": e.line, "count": e.count, "first": first}
+	for p: ServerPlayer in players.values():
+		if is_admin(p) and not p.data.get("dev_alerts_muted", false):
+			Net.s_dev_error.rpc_id(p.peer_id, alert)
 
 
 func _cmd_help(player, _args: PackedStringArray) -> void:
@@ -669,6 +729,7 @@ func _cmd_players(player, _args: PackedStringArray) -> void:
 func _physics_process(delta: float) -> void:
 	var t0 := Time.get_ticks_usec()
 	tick += 1
+	dev_log.drain()
 	_time += delta
 	_stream_assets()
 	_poll_chunk_jobs()

@@ -1,0 +1,8 @@
+{
+	"id": "buggy",
+	"name": "Buggy (tests)",
+	"version": "1.0.0",
+	"description": "Logs and fails on purpose, for the dev log tests in tests/gameplay_test.tscn.",
+	"depends": ["base"],
+	"game": false
+}

@@ -181,8 +181,21 @@ changes with `tools/build_native.sh`.
      experiments, forging and minigames, farming, food, beds, animals, monsters, biomes and caves,
      structures and loot, co-op), the vanilla survival tutorial path and tips; Arcana, Industry and Guild
      chapters.
-2. **Creator platform** (follow-up): hot-reload mods on a running server, in-game script console, mod
-   packaging with versions/dependencies, generated API docs site, starter templates.
+2. **Creator platform** (current, branch `creator`; user decisions 2026-09-14). Guide milestone merged to
+   master. No live script console (user skipped it). In order:
+   - C1 Logging and error reports (done: engine/server/dev_log.gd, /log, /errors, admin error cards, tests/mods/buggy*): per-mod log levels, log files per world, GDScript errors (via Godot's
+     Logger with backtraces) and JS errors with file:line attributed to mods, deduplicated, shown to admins.
+   - C2 Dev tools: inspect the looked-at block/entity/player, live event tracer (payloads, handlers,
+     cancellations), per-mod profiler (handlers, ticks, commands), debug-draw API (boxes, lines, labels,
+     paths); an in-game dev overlay (Logs, Errors, Inspect, Events, Perf tabs) for admins / dev mode.
+   - C3 Web dashboard: the server serves the same tools on a local web page (token protected).
+   - C4 Reloading: quick reload (re-run a mod's scripts: handlers, commands, timers, recipes, guide,
+     tutorials, definition changes in place) with a dev-mode file watcher; full reload (save and restart
+     in place, players reconnect automatically) for new blocks, textures and models.
+   - C5 Packages and validation: .zip mod packages, semantic versions, dependency ranges, engine API
+     version check; a validator/linter (manifest, missing assets, unknown names) with file hints.
+   - C6 Templates and docs: new-mod wizard (Host menu + CLI) for GDScript/JS starters; generated API docs
+     site from mod_api.gd doc comments and the TypeScript declarations.
 3. **Player-made content / UGC** (follow-up): uploads of skins, cosmetics and later items/models;
    validation, content hashing, per-server approval, reporting/moderation hooks, shared catalog.
 4. **Multiplayer network** (follow-up): server browser/discovery, server-to-server portals/transfer

@@ -726,6 +726,13 @@ func s_tutorial_event(kind: String, title: String) -> void:
 		client.on_tutorial_event(kind, title)
 
 
+## A script error for admins: {id, source, level, message, file, line, count, first}.
+@rpc("authority", "call_remote", "reliable")
+func s_dev_error(error: Dictionary) -> void:
+	if client:
+		client.on_dev_error(error)
+
+
 ## A contextual tip: {id, text, icon, page, seconds}.
 @rpc("authority", "call_remote", "reliable")
 func s_tip(tip: Dictionary) -> void:

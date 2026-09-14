@@ -87,8 +87,35 @@ func _init(server, mod_manifest: Dictionary) -> void:
 
 # --- General ------------------------------------------------------------------------------------
 
-func info(message: String) -> void:
-	print("[%s] %s" % [mod_id, message])
+func info(message) -> void:
+	_server.dev_log.add("info", mod_id, str(message))
+
+
+## Log levels for authors: debug lines only appear with `/log level <mod> debug` (or --log-level).
+## Messages go to the server console, <world>/logs/latest.log and the dev tools.
+func debug(message) -> void:
+	_server.dev_log.add("debug", mod_id, str(message))
+
+
+func warn(message) -> void:
+	_server.dev_log.add("warn", mod_id, str(message))
+
+
+## Logs an error from the mod (grouped like script errors and shown to admins).
+func error(message) -> void:
+	var stack := []
+	var file := ""
+	var line := 0
+	for bt in Engine.capture_script_backtraces():
+		for i in bt.get_frame_count():
+			if bt.get_frame_file(i).ends_with("engine/server/mod_api.gd"):
+				continue
+			if file.is_empty():
+				file = bt.get_frame_file(i)
+				line = bt.get_frame_line(i)
+			stack.append("%s:%d in %s()" % [bt.get_frame_file(i), bt.get_frame_line(i), bt.get_frame_function(i)])
+		break
+	_server.dev_log.report_error(mod_id, str(message), file, line, stack)
 
 
 var world_seed: int:

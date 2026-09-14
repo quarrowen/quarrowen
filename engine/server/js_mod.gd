@@ -48,9 +48,11 @@ func load() -> Error:
 	if error.is_empty():
 		var reply = _parse(runtime.call_function("__setup", "{}"))
 		if reply is Dictionary and reply.has("__error"):
-			error = reply.__error
+			var at := _js_location(str(reply.get("stack", "")))
+			_server.dev_log.report_error(manifest.id, "setup failed: %s" % reply.__error, at.file, at.line, at.stack)
+			return ERR_SCRIPT_FAILED
 	if not error.is_empty():
-		printerr("[%s] %s" % [manifest.id, error])
+		_server.dev_log.report_error(manifest.id, "failed to load: %s" % error, manifest.main)
 		return ERR_SCRIPT_FAILED
 	return OK
 
@@ -60,9 +62,29 @@ func load() -> Error:
 func _invoke(callback_id: int, args: Array):
 	var reply = _parse(runtime.call_function("__dispatch", JSON.stringify({"id": callback_id, "args": to_js(args)})))
 	if reply is Dictionary and reply.has("__error"):
-		printerr("[%s] script error: %s" % [manifest.id, reply.__error])
+		var at := _js_location(str(reply.get("stack", "")))
+		_server.dev_log.report_error(manifest.id, str(reply.__error), at.file, at.line, at.stack)
 		return null
 	return reply
+
+
+## File, line and frames from a QuickJS stack ("    at handler (guild/main.js:42:7)"); prelude frames
+## are skipped so the location is in the mod's own code.
+func _js_location(stack: String) -> Dictionary:
+	var out := {"file": "", "line": 0, "stack": []}
+	var re := RegEx.create_from_string("at (?:(\\S+) )?\\(?([^()\\s]+?):(\\d+)(?::\\d+)?\\)?\\s*$")
+	for raw in stack.split("\n", false):
+		var m := re.search(raw.strip_edges())
+		if m == null:
+			continue
+		var file := m.get_string(2)
+		if file.begins_with("eval_script") or file.begins_with("prelude"):
+			continue  # the engine's prelude, not the mod
+		out.stack.append("%s:%s in %s()" % [file, m.get_string(3), m.get_string(1) if not m.get_string(1).is_empty() else "<anonymous>"])
+		if out.file.is_empty():
+			out.file = file
+			out.line = int(m.get_string(3))
+	return out
 
 
 func _on_event(ev: Dictionary, callback_id: int) -> void:
@@ -126,6 +148,11 @@ func _call_host(method: String, a: Array):
 		return _call_entity(method.substr(7), a)
 	match method:
 		"info": api.info(_str(a, 0))
+		"debug": api.debug(_str(a, 0))
+		"warn": api.warn(_str(a, 0))
+		"error":
+			var at := _js_location(_str(a, 1))
+			_server.dev_log.report_error(manifest.id, _str(a, 0), at.file, at.line, at.stack)
 		"registerBlock": return api.register_block(_str(a, 0), _dict(a, 1))
 		"registerItem": return api.register_item(_str(a, 0), _dict(a, 1))
 		"registerRecipe": api.register_recipe(_dict(a, 0), _str(a, 1), _int(a, 2, 1), _dict(a, 3))

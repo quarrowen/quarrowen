@@ -1,0 +1,9 @@
+{
+	"id": "buggy_js",
+	"name": "Buggy JavaScript (tests)",
+	"version": "1.0.0",
+	"description": "Throws on purpose, for the dev log tests in tests/gameplay_test.tscn.",
+	"depends": ["base"],
+	"game": false,
+	"main": "main.js"
+}

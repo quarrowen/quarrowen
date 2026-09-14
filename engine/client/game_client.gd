@@ -222,6 +222,7 @@ var _minigame_screen: MinigameScreen
 var _guide_screen: GuideScreen
 var _guide_badge: Label
 var _tutorial_hud: TutorialHud
+var _dev_alerts: VBoxContainer
 var _volume_slider: HSlider
 
 
@@ -1750,6 +1751,46 @@ func on_tutorial_event(kind: String, title: String) -> void:
 		_server_ui.show_title("Tutorial complete!", title, 3.0)
 
 
+## Script errors on the server, for admins: a red card per error (repeats update its count).
+func on_dev_error(e: Dictionary) -> void:
+	var key := str(e.get("id", 0))
+	var card: PanelContainer = _dev_alerts.get_node_or_null(key)
+	if card == null:
+		card = PanelContainer.new()
+		card.name = key
+		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.16, 0.04, 0.04, 0.88) if e.get("level") == "error" else Color(0.16, 0.12, 0.02, 0.88)
+		style.border_color = Color(0.95, 0.3, 0.25) if e.get("level") == "error" else Color(0.95, 0.75, 0.25)
+		style.border_width_left = 3
+		style.set_content_margin_all(8)
+		style.set_corner_radius_all(4)
+		card.add_theme_stylebox_override("panel", style)
+		var label := RichTextLabel.new()
+		label.name = "Text"
+		label.bbcode_enabled = true
+		label.fit_content = true
+		label.scroll_active = false
+		label.custom_minimum_size = Vector2(420, 0)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.add_theme_font_size_override("normal_font_size", 13)
+		label.add_theme_font_size_override("bold_font_size", 13)
+		card.add_child(label)
+		_dev_alerts.add_child(card)
+		_dev_alerts.move_child(card, 0)
+		while _dev_alerts.get_child_count() > 4:
+			_dev_alerts.get_child(_dev_alerts.get_child_count() - 1).free()
+	var where := " [color=#aaaaaa]%s:%d[/color]" % [e.file, int(e.line)] if not str(e.get("file", "")).is_empty() else ""
+	var times := "  [color=#ffcc66]×%d[/color]" % int(e.count) if int(e.get("count", 1)) > 1 else ""
+	(card.get_node("Text") as RichTextLabel).text = "[b]%s %s[/b]%s%s\n%s\n[color=#888888]/errors for the list[/color]" % [
+		"Error in" if e.get("level") == "error" else "Warning in", e.source, where, times, str(e.message).left(240).replace("[", "[lb]")]
+	card.modulate.a = 1.0
+	var tween := card.create_tween()
+	tween.tween_interval(10.0)
+	tween.tween_property(card, "modulate:a", 0.0, 1.0)
+	tween.tween_callback(card.queue_free)
+
+
 func on_tip(tip: Dictionary) -> void:
 	_tutorial_hud.show_tip(tip)
 	_sounds.play_name("engine:page", Vector3.ZERO, 0.5, 1.2, false)
@@ -2420,6 +2461,13 @@ func _build_hud() -> void:
 	_guide_badge.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	_guide_badge.add_theme_constant_override("outline_size", 5)
 	_hud_root.add_child(_guide_badge)
+	_dev_alerts = VBoxContainer.new()
+	_dev_alerts.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_dev_alerts.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_dev_alerts.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_dev_alerts.position = Vector2(-16, -150)
+	_dev_alerts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_root.add_child(_dev_alerts)
 	_tutorial_hud = TutorialHud.new()
 	_tutorial_hud.client = self
 	_tutorial_hud.action_requested.connect(func(action, arg): Net.c_tutorial.rpc_id(1, action, arg))

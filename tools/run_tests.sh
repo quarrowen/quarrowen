@@ -87,7 +87,8 @@ done
 # A script error inside a test can abort its remaining checks without failing it; treat it as a failure.
 for log in "$WORK"/*.log; do
   case "$(basename "$log")" in server_*|import.log) continue ;; esac
-  if grep -q "SCRIPT ERROR" "$log"; then FAILED+=("clean-test-log:$(basename "$log")"); grep -h "SCRIPT ERROR" -A2 "$log" | head -6; fi
+  # tests/mods/buggy fails on purpose (the dev log tests); any other script error counts.
+  if grep -A1 "SCRIPT ERROR" "$log" | grep "at:" | grep -qv "tests/mods/buggy"; then FAILED+=("clean-test-log:$(basename "$log")"); grep -h "SCRIPT ERROR" -A2 "$log" | head -6; fi
 done
 
 echo
