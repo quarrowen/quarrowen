@@ -5,3 +5,4 @@ native/target/
 native/bin/
 build/
 addons/godot_mcp/
+.mcp.json
