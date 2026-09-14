@@ -807,6 +807,17 @@ running beside it (click the world to play, F8 to get the mouse back, F8 again t
   `debug_path`, `debug_sphere` (JS: `api.draw.box / line / text / path / sphere`). Nothing is sent or
   queued while nobody watches.
 
+### Dev dashboard (web)
+
+The same tools in a browser, handy on a second screen or for a headless server. Start the server with
+`--dev-web=24580` (or `--dev`, which serves it on the game port + 15); it prints
+`Dev dashboard: http://127.0.0.1:24580/?token=...` and admins can get the address with `/devweb`.
+It listens on 127.0.0.1 unless `--dev-web-host` says otherwise, and every request needs the token.
+Tabs: Logs (filters, follow), Errors (stacks), Events (live trace with a filter), Perf (sortable),
+Inspect (a player, what they look at, a block by coordinates or an entity id, live) and Server (mods,
+players). `#perf`-style links open a tab. JSON API: `/api/state`, `/api/inspect`, `/api/clear_errors`
+(see `engine/server/dev_web.gd`).
+
 ## World saves (delta model)
 
 Chunks are always regenerated from the seed, then saved edits are applied on top.

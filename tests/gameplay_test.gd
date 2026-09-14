@@ -49,6 +49,7 @@ func _ready() -> void:
 	await _js_blocks()
 	await _dev_log()
 	await _dev_tools()
+	await _dev_web()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -2150,6 +2151,63 @@ func _dev_tools() -> void:
 	_check(tools._shapes.any(func(sh): return sh.owner == "engine:ai" and sh.type == "text"), "the AI view labels mobs near the watcher")
 	server.queue_free()
 	await get_tree().process_frame
+
+
+func _dev_web() -> void:
+	var server = _start("dev_web_%d" % Time.get_ticks_msec())
+	var web = server.dev_web
+	var port := 25990 + randi() % 40
+	_check(web.start(port) == OK and web.url().contains("token="), "the dev dashboard starts with a token")
+	var p := ServerPlayer.new(server, 97, "Watcher")
+	p.player_id = "watcher"
+	server.players[97] = p
+	server.dev_log.add("info", "tester", "hello dashboard")
+	var page: Array = await _http_get(server, port, "/?token=" + web.token)
+	_check(page[0] == 200 and page[1].contains("VoxelCraft Dev Dashboard"), "the dashboard page is served with the token")
+	var denied: Array = await _http_get(server, port, "/api/state?token=wrong")
+	_check(denied[0] == 403, "the API refuses a wrong token")
+	var state: Array = await _http_get(server, port, "/api/state?token=%s&events=1&filter=tester_*" % web.token)
+	var json = JSON.parse_string(state[1])
+	_check(state[0] == 200 and json is Dictionary and json.logs.any(func(e): return e.message == "hello dashboard") and json.players.size() == 1,
+		"the state endpoint returns logs and players")
+	_check(server.dev_tools.tracing, "a polling dashboard turns event tracing on")
+	server.emit("tester_signal", {"player": p})
+	state = await _http_get(server, port, "/api/state?token=%s&events=1&filter=tester_*&events_after=0" % web.token)
+	json = JSON.parse_string(state[1])
+	_check(json.events.any(func(ev): return ev.event == "tester_signal" and ev.payload.player == "player Watcher"), "traced events reach the dashboard")
+	var info: Array = await _http_get(server, port, "/api/inspect?token=%s&player=97" % web.token)
+	_check(info[0] == 200 and JSON.parse_string(info[1]).fields.name == "Watcher", "the dashboard inspects players")
+	web.stop()
+	_check(not server.dev_tools.viewers.has(web.VIEWER_ID), "stopping the dashboard removes its viewer")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## [status, body] of a GET to the dev dashboard, pumping the server while waiting.
+func _http_get(server, port: int, path: String) -> Array:
+	var http := HTTPClient.new()
+	http.connect_to_host("127.0.0.1", port)
+	var deadline := Time.get_ticks_msec() + 5000
+	while http.get_status() in [HTTPClient.STATUS_CONNECTING, HTTPClient.STATUS_RESOLVING] and Time.get_ticks_msec() < deadline:
+		http.poll()
+		server.dev_web.update()
+		await get_tree().process_frame
+	if http.get_status() != HTTPClient.STATUS_CONNECTED:
+		return [0, ""]
+	http.request(HTTPClient.METHOD_GET, path, [])
+	var body := PackedByteArray()
+	while Time.get_ticks_msec() < deadline:
+		http.poll()
+		server.dev_web.update()
+		var status := http.get_status()
+		if status == HTTPClient.STATUS_BODY:
+			body.append_array(http.read_response_body_chunk())
+		elif status != HTTPClient.STATUS_REQUESTING and http.has_response() and status != HTTPClient.STATUS_BODY:
+			break
+		elif status in [HTTPClient.STATUS_DISCONNECTED, HTTPClient.STATUS_CONNECTION_ERROR]:
+			break
+		await get_tree().process_frame
+	return [http.get_response_code(), body.get_string_from_utf8()]
 
 
 func _js_blocks() -> void:

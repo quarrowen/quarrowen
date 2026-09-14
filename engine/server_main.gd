@@ -17,7 +17,9 @@ extends Node
 ##   --backup-keep=24      VOXEL_BACKUP_KEEP   backups kept per world (oldest deleted)
 ##   --restore=latest      VOXEL_RESTORE       restore a backup (latest, file name or path) before starting
 ##   --log-level=info      VOXEL_LOG_LEVEL     debug | info | warn | error, or per mod: all:warn,my_mod:debug
-##   --dev                 VOXEL_DEV           developer mode: every player gets the dev tools (F8)
+##   --dev                 VOXEL_DEV           developer mode: every player gets the dev tools (F8), dashboard on
+##   --dev-web=24580       VOXEL_DEV_WEB       serve the dev dashboard on this port (default with --dev: port + 15)
+##   --dev-web-host=127.0.0.1 VOXEL_DEV_WEB_HOST address the dashboard listens on (token protected)
 
 const GameServer = preload("res://engine/server/game_server.gd")
 const Native = preload("res://engine/shared/native.gd")
@@ -38,6 +40,8 @@ const DEFAULTS := {
 	"restore": "",
 	"log-level": "",
 	"dev": "",
+	"dev-web": "0",
+	"dev-web-host": "127.0.0.1",
 }
 
 var _server: Node
@@ -78,6 +82,8 @@ func _ready() -> void:
 		"restore": options.restore,
 		"log_level": options["log-level"],
 		"dev": options.dev == "true" or options.dev == "1",
+		"dev_web": int(options["dev-web"]),
+		"dev_web_host": options["dev-web-host"],
 	})
 	if err != OK:
 		printerr("[server] Startup failed: %s" % error_string(err))

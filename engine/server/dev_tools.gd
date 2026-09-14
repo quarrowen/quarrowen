@@ -274,7 +274,7 @@ func _inspect_player(p) -> Dictionary:
 ## shape: {type: box | line | text | path | sphere, color, seconds, ...}; box {min, max} or {center, size},
 ## line {from, to}, text {position, text}, path {points}, sphere {center, radius}.
 func draw(owner: String, shape: Dictionary) -> void:
-	if not SHAPES.has(str(shape.get("type", ""))) or not viewers.values().any(func(v): return v.channels.has("draw")):
+	if not SHAPES.has(str(shape.get("type", ""))) or not viewers.values().any(func(v): return v.channels.has("draw") and not v.get("web", false)):
 		return
 	if _shapes.size() >= MAX_SHAPES:
 		return
@@ -372,6 +372,8 @@ func update(delta: float) -> void:
 	if ai_round:
 		_ai_timer = 0.0
 	for peer_id in viewers.keys():
+		if viewers[peer_id].get("web", false):
+			continue  # the dashboard polls instead (see dev_web.gd)
 		var p = _server.players.get(peer_id)
 		if p == null or not allowed(p):
 			viewers.erase(peer_id)
@@ -382,6 +384,8 @@ func update(delta: float) -> void:
 	if not _shapes.is_empty():
 		for peer_id in viewers:
 			var v: Dictionary = viewers[peer_id]
+			if v.get("web", false):
+				continue
 			var mine := _shapes.filter(func(s): return s.get("to_peer", peer_id) == peer_id and (v.channels.has("draw") or s.owner == "engine:ai"))
 			if not mine.is_empty():
 				_send(_server.players[peer_id], "draw", mine)
@@ -395,6 +399,8 @@ func update(delta: float) -> void:
 	var rows := perf() if perf_round else []
 	for peer_id in viewers:
 		var v: Dictionary = viewers[peer_id]
+		if v.get("web", false):
+			continue
 		var p = _server.players[peer_id]
 		if v.channels.has("logs"):
 			var fresh: Array = _server.dev_log.entries.filter(func(e): return e.id > v.log_after)
@@ -414,5 +420,5 @@ func update(delta: float) -> void:
 
 func on_error(e: Dictionary) -> void:
 	for peer_id in viewers:
-		if viewers[peer_id].channels.has("errors"):
+		if viewers[peer_id].channels.has("errors") and not viewers[peer_id].get("web", false):
 			_send(_server.players[peer_id], "error", e)

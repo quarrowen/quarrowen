@@ -40,6 +40,7 @@ const Guide = preload("res://engine/server/guide.gd")
 const Tutorials = preload("res://engine/server/tutorials.gd")
 const DevLog = preload("res://engine/server/dev_log.gd")
 const DevTools = preload("res://engine/server/dev_tools.gd")
+const DevWeb = preload("res://engine/server/dev_web.gd")
 const Explosions = preload("res://engine/server/explosions.gd")
 const Loot = preload("res://engine/server/loot.gd")
 const Spawners = preload("res://engine/server/spawners.gd")
@@ -166,6 +167,8 @@ var dev_log := DevLog.new()
 var dev_tools := DevTools.new(self)
 ## --dev: every player gets the developer tools (local development).
 var dev_mode := false
+## The dev dashboard web server (--dev-web=port).
+var dev_web := DevWeb.new(self)
 var explosions := Explosions.new(self)
 var loot := Loot.new(self)
 var spawners := Spawners.new(self)
@@ -267,6 +270,11 @@ func start(config: Dictionary) -> Error:
 		return err
 	Net.server = self
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	var web_port := int(config.get("dev_web", 0))
+	if web_port == 0 and dev_mode:
+		web_port = int(config.get("port", 24565)) + 15
+	if web_port > 0:
+		dev_web.start(web_port, str(config.get("dev_web_host", "127.0.0.1")))
 	_started = true
 	print("[server] '%s' running game '%s' with mods %s, %d blocks, %d assets, seed %d, port %d" % [
 		server_info.name, server_info.game, server_info.mods, registry.defs.size(), _assets.size(), world_seed, config.get("port")])
@@ -274,6 +282,7 @@ func start(config: Dictionary) -> Error:
 
 
 func _exit_tree() -> void:
+	dev_web.stop()
 	dev_log.drain()
 	dev_log.close()
 	for job: Dictionary in _chunk_jobs.values():
@@ -442,6 +451,11 @@ func _register_builtin_commands() -> void:
 	add_command("help", "List commands", _cmd_help, "engine")
 	add_command("log", "[mod] [count] | level <mod|all> <debug|info|warn|error> - recent log lines", _cmd_log, "engine", "admin")
 	add_command("errors", "[clear [mod] | mute | unmute] - script errors by mod", _cmd_errors, "engine", "admin")
+	add_command("devweb", "- the dev dashboard's address", func(player, _args):
+		if dev_web.running():
+			player.send_message("Dev dashboard: %s" % dev_web.url())
+		else:
+			player.send_message("The dev dashboard is off. Start the server with --dev-web=24580 (or --dev)."), "engine", "admin")
 	add_command("players", "List online players", _cmd_players, "engine")
 	add_command("op", "<player> - grant admin", _cmd_op.bind(true), "engine", "admin")
 	add_command("deop", "<player> - revoke admin", _cmd_op.bind(false), "engine", "admin")
@@ -750,6 +764,7 @@ func _physics_process(delta: float) -> void:
 	sleep.update(delta)
 	guide.update(delta)
 	dev_tools.update(delta)
+	dev_web.update()
 	tutorials.update(delta)
 	var sim_usec := 0
 	var stream_usec := 0
