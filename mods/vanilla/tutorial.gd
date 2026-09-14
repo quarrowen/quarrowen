@@ -40,3 +40,13 @@ func setup(api) -> void:
 		"icon": "base:iron_ore", "page": "base:stone_tools", "trigger": {"type": "depth", "below": 30}})
 	api.register_tip("first_iron", {"text": "Iron ore! Smelt it in a furnace with coal to get ingots.",
 		"icon": "base:iron_ore", "trigger": {"type": "pickup", "target": "base:iron_ore"}})
+	api.register_tip("plans", {"text": "Plans teach you recipes. Right-click them to learn how to build a Forge.",
+		"icon": "base:forge_plans", "page": "base:forge", "trigger": {"type": "pickup", "target": "base:forge_plans"}})
+	api.register_tip("bones", {"text": "Wolves love bones. Right-click one with a bone to tame it.",
+		"icon": "vanilla:bone", "page": "vanilla:wolf", "trigger": {"type": "pickup", "target": "vanilla:bone"}})
+	api.register_tip("blast", {"text": "That was a boomshroom! When you hear the hiss, get a few blocks away and it fizzles out.",
+		"icon": "vanilla:boom_spores", "page": "vanilla:boomshroom", "trigger": {"type": "damage", "target": "explosion"}})
+	api.register_tip("died", {"text": "You died. Sleep in a bed (or just right-click one) to respawn next to it.",
+		"icon": "base:bed", "page": "base:beds", "trigger": {"type": "respawn"}})
+	api.register_tip("iron_tools", {"text": "Iron tools need an anvil next to your crafting table. Forge them by hand for better quality.",
+		"icon": "base:iron_ingot", "page": "base:workshop", "trigger": {"type": "pickup", "target": "base:iron_ingot"}})

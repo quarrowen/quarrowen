@@ -4,7 +4,7 @@ extends RefCounted
 ## Chapter: {id, title, icon (item name), order, description}
 ## Page: {id, chapter, title, icon (item name), order, unlock, hint, blocks, keywords}
 ##   unlock: {} (always) or one of {item: name} (picked up or held), {recipe: id} (known),
-##           {entity: name} (seen nearby), {flag: name} (set by mods or tutorials), {page: id} (after
+##           {entity: name} (seen nearby), {biome: name} (visited), {flag: name} (set by mods or tutorials), {page: id} (after
 ##           another page); locked pages show their title as "???" with `hint` (or a hint made from the
 ##           condition) saying what reveals them.
 ##   blocks, drawn top to bottom:
@@ -55,7 +55,7 @@ func add_page(def: Dictionary) -> bool:
 			blocks.append(clean)
 	var unlock: Dictionary = {}
 	if def.get("unlock") is Dictionary:
-		for key in ["item", "recipe", "entity", "flag", "page"]:
+		for key in ["item", "recipe", "entity", "biome", "flag", "page"]:
 			if def.unlock.has(key):
 				unlock = {key: str(def.unlock[key])}
 				break

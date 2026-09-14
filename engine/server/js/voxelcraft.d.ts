@@ -489,7 +489,7 @@ declare module "voxelcraft" {
       title?: string;
       icon?: string;
       order?: number;
-      unlock?: { item?: string; recipe?: string; entity?: string; flag?: string; page?: string };
+      unlock?: { item?: string; recipe?: string; entity?: string; biome?: string; flag?: string; page?: string };
       hint?: string;
       keywords?: string;
       blocks: GuideBlock[];

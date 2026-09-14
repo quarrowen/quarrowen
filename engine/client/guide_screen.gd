@@ -251,6 +251,8 @@ func lock_hint(page: Dictionary) -> String:
 		return "Learn to make [b]%s[/b] to fill in this page." % what
 	if u.has("entity"):
 		return "Meet a [b]%s[/b] to fill in this page." % _entity_title(u.entity)
+	if u.has("biome"):
+		return "Explore a [b]%s[/b] to fill in this page." % str(u.biome).get_slice(":", 1).replace("_", " ").capitalize()
 	if u.has("page"):
 		return "Read [b]%s[/b] first." % str(registry.get_page(u.page).get("title", "another page"))
 	return "Keep playing to fill in this page."
@@ -405,7 +407,7 @@ func _block(b: Dictionary) -> Control:
 			var link := Button.new()
 			link.flat = true
 			link.alignment = HORIZONTAL_ALIGNMENT_LEFT
-			var title := str(registry.get_page(target).get("title", target)) if unlocked.has(target) else "???"
+			var title := str(registry.get_page(target).get("title", target)) if unlocked.has(target) else "??? (not found yet)"
 			link.text = "→ %s" % str(b.get("text", title))
 			_color_button(link, ACCENT)
 			link.pressed.connect(show_page.bind(target))
@@ -538,7 +540,33 @@ func _recipe_cards(output_name: String) -> Control:
 		_color_button(more, ACCENT)
 		more.pressed.connect(func(): lookup_requested.emit(out_id, "make"))
 		box.add_child(more)
-	if matching.is_empty():
+	# Smelting and other processes that turn something into it.
+	var processes: Dictionary = crafting.processes if crafting != null else {}
+	var processed := false
+	for kind in processes:
+		for input in processes[kind]:
+			var proc: Dictionary = processes[kind][input]
+			if int(proc.get("output", 0)) != out_id:
+				continue
+			processed = true
+			var card := PanelContainer.new()
+			card.add_theme_stylebox_override("panel", _style(Color(0.86, 0.72, 0.6), 10, Color(0.6, 0.35, 0.2), 2, 6))
+			box.add_child(card)
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 6)
+			card.add_child(row)
+			row.add_child(_stack(int(input), 1, true))
+			var arrow := Label.new()
+			arrow.text = "→"
+			arrow.add_theme_font_size_override("font_size", 26)
+			arrow.add_theme_color_override("font_color", INK)
+			row.add_child(arrow)
+			row.add_child(_stack(out_id, int(proc.get("count", 1)), true))
+			var how := Label.new()
+			how.text = "  %s · %d s" % [str(kind).capitalize(), ceili(float(proc.get("seconds", 0.0)))]
+			how.add_theme_color_override("font_color", INK_SOFT)
+			row.add_child(how)
+	if matching.is_empty() and not processed:
 		var none := _paragraph("[i]%s is not crafted; it is found in the world.[/i]" % items.display_name(out_id))
 		box.add_child(none)
 	return box

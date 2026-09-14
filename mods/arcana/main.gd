@@ -163,6 +163,7 @@ func setup(mod_api) -> void:
 			api.set_block_data(ev.position, {}))
 	api.every(TICK, _tick)
 	api.register_command("arcana", "kit - shards, wands and a pylon | blade <level> (admins)", _cmd_arcana)
+	preload("guide.gd").new().setup(api)
 
 
 ## Crystal highlands: a rare biome of pale crystal stone and glowing spires, added to whatever world uses

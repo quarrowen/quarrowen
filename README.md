@@ -715,8 +715,11 @@ An illustrated book players open with **G**, from the pause menu or by using a *
   mod), `link` (another page) and `keys` (the player's current key for an action).
 - **Unlocks** keep spoilers hidden: `{item}` once held, `{recipe}` once known, `{entity}` once seen within
   12 blocks, `{flag}` set by a mod (`api.set_guide_flag(player, flag)`, JS `player.setGuideFlag`), or
-  `{page}` after reading another page. Locked pages show "???" and a hint. `api.unlock_guide_page`
+  `{biome}` once visited, `{page}` after reading another page. Locked pages show "???" and a hint. `api.unlock_guide_page`
   and `api.open_guide(player, page)` (JS `player.unlockGuidePage` / `openGuide`) do it directly.
+- Bundled chapters: First Steps, Survival, Crafting and Smithing (base), Animals, Monsters and The World
+  (vanilla), Arcana, Industry, and the Adventurers' Guild (written in JavaScript). Recipe blocks also
+  show smelting. `tests/gameplay_test.gd` checks that every item, mob, page and recipe they name exists.
 - Unlocks, reads, flags and the last open page are saved per player. New pages pop up a note and a
   "Guide · N new" badge; the book has search, back/forward and previous/next page, and reopens where
   you left off. Event `guide_page_unlocked {player, page}`.

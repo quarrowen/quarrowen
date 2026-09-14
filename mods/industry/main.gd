@@ -58,6 +58,7 @@ func setup(mod_api) -> void:
 	api.on("player_leave", func(ev): _ui_viewers.erase(ev.player.peer_id))
 	api.on("player_join", func(ev): ev.player.send_message("Industry is installed: /industry kit for machines, /industry demo for a showcase."))
 	api.every(TICK, _tick)
+	preload("guide.gd").new().setup(api)
 	api.register_command("industry", "kit | demo - machines and a showcase build", _cmd_industry)
 
 

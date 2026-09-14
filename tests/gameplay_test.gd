@@ -39,6 +39,7 @@ func _ready() -> void:
 	await _beds()
 	await _guide()
 	await _tutorials()
+	await _guide_content()
 	await _spawning()
 	await _animals()
 	await _taming()
@@ -1336,7 +1337,7 @@ func _guide() -> void:
 	guide.sync(p)
 	_check(guide.is_unlocked(p, "base:welcome") and guide.is_unlocked(p, "base:wood"), "pages without conditions start unlocked")
 	_check(not guide.is_unlocked(p, "base:crafting_table") and not guide.is_unlocked(p, "base:food"), "locked pages wait for their condition")
-	_check(not guide.is_unlocked(p, "base:beds"), "recipe pages stay locked while the recipe is unknown")
+	_check(not guide.is_unlocked(p, "base:forge"), "recipe pages stay locked while the recipe is unknown")
 	var unlocked := []
 	api.on("guide_page_unlocked", func(ev): unlocked.append(ev.page))
 	p.inventory.set_slot(0, server.items.id_of("base:planks"), 4)
@@ -1348,7 +1349,9 @@ func _guide() -> void:
 	_check(guide.state_of(p).last == "base:crafting_table" and not guide.state_of(p).read.has("tester:secret"), "reading remembers the page; locked pages cannot be read")
 	guide.on_read(p, "base:wood")
 	_check(guide.is_unlocked(p, "base:food"), "reading a page unlocks pages that follow it")
-	_check(guide.is_unlocked(p, "base:beds") and server.knows_recipe(p, "base:bed"), "learning a recipe (planks teach the bed) unlocks its page")
+	server.learn_recipe(p, "base:forge")
+	guide.update(2.0)
+	_check(guide.is_unlocked(p, "base:forge"), "learning a recipe unlocks its page")
 	api.set_guide_flag(p, "found_it")
 	_check(guide.is_unlocked(p, "tester:secret") and api.has_guide_flag(p, "found_it"), "mod flags unlock pages")
 	var cow = server.entities.spawn(server.entities.registry.id_of("vanilla:cow"), p.state.position + Vector3(3, 0, 0))
@@ -1368,6 +1371,53 @@ func _guide() -> void:
 	_check(copy.pages.size() == reg.pages.size() and copy.get_page("base:wood").blocks.size() == reg.get_page("base:wood").blocks.size(),
 		"the guide reaches clients intact")
 	_check(preload("res://engine/shared/guide_registry.gd").page_text(reg.get_page("base:wood")).contains("sticks"), "page text is searchable")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Every name the bundled guide pages, tutorials and tips refer to exists.
+func _guide_content() -> void:
+	var server = _start("guide_content_%d" % Time.get_ticks_msec(), ["vanilla", "industry", "arcana", "guild"])
+	var reg = server.guide.registry
+	var bad := PackedStringArray()
+	var item_ok := func(n: String) -> bool: return server.items.id_of(n) > 0
+	for c in reg.chapters:
+		if not c.icon.is_empty() and not item_ok.call(c.icon):
+			bad.append("%s icon %s" % [c.id, c.icon])
+	for page in reg.pages:
+		if reg.get_chapter(page.chapter).is_empty():
+			bad.append("%s chapter %s" % [page.id, page.chapter])
+		if not page.icon.is_empty() and not item_ok.call(page.icon):
+			bad.append("%s icon %s" % [page.id, page.icon])
+		var u: Dictionary = page.unlock
+		if u.has("item") and not item_ok.call(u.item) or u.has("recipe") and server.recipes.index_of(u.recipe) < 0 \
+				or u.has("entity") and server.entities.registry.id_of(u.entity) < 0 or u.has("page") and reg.get_page(u.page).is_empty():
+			bad.append("%s unlock %s" % [page.id, u])
+		for b in page.blocks:
+			for n in (b.get("items") if b.get("items") is Array else []):
+				if not item_ok.call(n):
+					bad.append("%s item %s" % [page.id, n])
+			if b.has("output") and not item_ok.call(b.output):
+				bad.append("%s recipe %s" % [page.id, b.output])
+			if b.has("entity") and server.entities.registry.id_of(b.entity) < 0:
+				bad.append("%s entity %s" % [page.id, b.entity])
+			if b.type == "link" and reg.get_page(b.page).is_empty():
+				bad.append("%s link %s" % [page.id, b.page])
+			if b.type == "keys" and not b.action in ["guide", "inventory", "crafting", "break", "place", "drop", "sprint", "jump", "chat"]:
+				bad.append("%s key %s" % [page.id, b.action])
+	for t in server.tutorials.tutorials.values():
+		for step in t.steps:
+			if not step.page.is_empty() and reg.get_page(step.page).is_empty():
+				bad.append("%s page %s" % [t.id, step.page])
+			if not step.icon.is_empty() and not item_ok.call(step.icon):
+				bad.append("%s icon %s" % [t.id, step.icon])
+	for tip in server.tutorials.tips.values():
+		if not tip.page.is_empty() and reg.get_page(tip.page).is_empty():
+			bad.append("%s page %s" % [tip.id, tip.page])
+		if not tip.icon.is_empty() and not item_ok.call(tip.icon):
+			bad.append("%s icon %s" % [tip.id, tip.icon])
+	_check(bad.is_empty(), "guide, tutorial and tip references exist %s" % ", ".join(bad))
+	_check(reg.chapters.size() >= 10 and reg.pages.size() >= 45 and not reg.get_page("guild:quests").is_empty(), "the bundled games write the guide (%d chapters, %d pages)" % [reg.chapters.size(), reg.pages.size()])
 	server.queue_free()
 	await get_tree().process_frame
 

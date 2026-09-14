@@ -2,7 +2,7 @@ extends RefCounted
 ## The guidebook on the server: registered chapters and pages (see engine/shared/guide_registry.gd)
 ## and what each player has unlocked and read. Unlocks only ever grow and are saved with the world.
 ## Checked about once a second per player: held items (`seen_items`), known recipes, mobs seen within
-## SEE_RADIUS blocks, flags set by mods, and pages read.
+## SEE_RADIUS blocks, biomes visited, flags set by mods, and pages read.
 ## Events: guide_page_unlocked {player, page}, guide_page_read {player, page} (the first time)
 
 const GuideRegistry = preload("res://engine/shared/guide_registry.gd")
@@ -22,7 +22,7 @@ func _init(game_server) -> void:
 ## Per-player guide state: {flags, entities, read, unlocked (page id -> true), last}.
 static func state_of(p) -> Dictionary:
 	if p.guide.is_empty():
-		p.guide = {"flags": {}, "entities": {}, "read": {}, "unlocked": {}, "last": ""}
+		p.guide = {"flags": {}, "entities": {}, "biomes": {}, "read": {}, "unlocked": {}, "last": ""}
 	return p.guide
 
 
@@ -30,7 +30,7 @@ func load_player(p, saved) -> void:
 	var s := state_of(p)
 	if not (saved is Dictionary):
 		return
-	for key in ["flags", "entities", "read", "unlocked"]:
+	for key in ["flags", "entities", "biomes", "read", "unlocked"]:
 		for id in (saved.get(key) if saved.get(key) is Array else []):
 			s[key][str(id)] = true
 	s.last = str(saved.get("last", ""))
@@ -38,7 +38,7 @@ func load_player(p, saved) -> void:
 
 func save_player(p) -> Dictionary:
 	var s := state_of(p)
-	return {"flags": s.flags.keys(), "entities": s.entities.keys(), "read": s.read.keys(), "unlocked": s.unlocked.keys(), "last": s.last}
+	return {"flags": s.flags.keys(), "entities": s.entities.keys(), "biomes": s.biomes.keys(), "read": s.read.keys(), "unlocked": s.unlocked.keys(), "last": s.last}
 
 
 ## Whether a page's unlock condition holds right now (ignores pages unlocked before).
@@ -53,6 +53,8 @@ func condition_met(p, page: Dictionary) -> bool:
 		return _server.knows_recipe(p, unlock.recipe)
 	if unlock.has("entity"):
 		return s.entities.has(unlock.entity)
+	if unlock.has("biome"):
+		return s.biomes.has(unlock.biome)
 	if unlock.has("flag"):
 		return s.flags.has(unlock.flag)
 	if unlock.has("page"):
@@ -144,4 +146,6 @@ func update(delta: float) -> void:
 		for e in _server.entities.in_radius(p.state.position, SEE_RADIUS):
 			if e.def.kind == "mob" and e.is_alive():
 				s.entities[e.def.name] = true
+		if _server.biome_generator != null:
+			s.biomes[_server.biome_generator.biome_at(floori(p.state.position.x), floori(p.state.position.z))] = true
 		refresh(p)

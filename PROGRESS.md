@@ -175,7 +175,9 @@ changes with `tools/build_native.sh`.
      Survival Basics tutorial and five tips (mods/vanilla/tutorial.gd). Guided goals in the player's own world (HUD tracker, steps completed by real
      actions via events, hints that point at what to do), contextual one-time tips linking to guide
      pages, skip and replay, progress saved per player.
-   - G3 Content: base and vanilla chapters (getting started, crafting and stations, discovery and
+   - G3 Content (done): 10 chapters / 50+ pages (base: First Steps, Survival, Crafting, Smithing; vanilla:
+     Animals, Monsters, The World; Arcana; Industry; Guild in JavaScript), vanilla tips, {biome} unlocks,
+     smelting cards in recipe blocks, and a test that every guide/tutorial/tip reference exists. Planned: base and vanilla chapters (getting started, crafting and stations, discovery and
      experiments, forging and minigames, farming, food, beds, animals, monsters, biomes and caves,
      structures and loot, co-op), the vanilla survival tutorial path and tips; Arcana, Industry and Guild
      chapters.

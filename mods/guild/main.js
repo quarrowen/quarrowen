@@ -475,4 +475,43 @@ export function setup(api) {
         player.sendMessage("Usage: /guild kit | meteor | top | coins | bounty | goblin");
     }
   });
+
+  // --- Guidebook chapter (the engine guide, written from JavaScript) ------------------------------
+  api.registerGuideChapter("guild", { title: "Adventurers' Guild", icon: "guild:gold_coin", order: 50,
+    description: "Quests, gold coins, meteors and the guild shop." });
+  api.registerGuidePage("quests", { chapter: "guild", title: "Quests", icon: "guild:quest_board", order: 0,
+    keywords: "quest board coins reward cape guild",
+    blocks: [
+      { type: "text", text: "Right-click a [b]Quest Board[/b] to take a quest: craft, build, mine, travel, hunt monsters or find a meteorite. Your progress shows on screen; hand it in at a board for gold coins." },
+      { type: "recipe", output: "guild:quest_board" },
+      { type: "tip", text: "Complete three quests to earn the guild cape for your avatar." },
+      { type: "link", page: "shop" },
+    ] });
+  api.registerGuidePage("shop", { chapter: "guild", title: "Coins and the Shop", icon: "guild:gold_coin", order: 1,
+    unlock: { item: "guild:gold_coin" }, keywords: "gold coin shop buy plans ore",
+    blocks: [
+      { type: "text", text: "Gold coins come from quests, bounties, meteorites and [b]gold ore[/b]. Spend them at a quest board's shop on glass, coal, plans, trail rations and goods from other installed mods." },
+      { type: "items", items: ["guild:gold_coin", "guild:gold_ore", "guild:trail_ration", "base:forge_plans"] },
+      { type: "heading", text: "Prospector's Pick" },
+      { type: "text", text: "A pickaxe that learns the rock: every level mines 20% faster, and at level 3 gold ore can drop double." },
+      { type: "recipe", output: "guild:prospector_pick" },
+    ] });
+  api.registerGuidePage("meteors", { chapter: "guild", title: "Meteors", icon: "guild:meteorite", order: 2,
+    unlock: { page: "guild:quests" }, keywords: "meteor meteorite stardust sky event",
+    blocks: [
+      { type: "text", text: "Every few minutes a meteor falls somewhere near a player, and everyone hears where. Race there: the first to right-click the glowing meteorite gets its stardust coins, and then it cools." },
+      { type: "items", items: ["guild:meteorite", "guild:cooled_meteorite"] },
+    ] });
+  api.registerGuidePage("banner", { chapter: "guild", title: "The Guild Banner", icon: "guild:guild_banner", order: 3,
+    unlock: { item: "guild:gold_coin" }, keywords: "banner project together contribute",
+    blocks: [
+      { type: "text", text: "The Guild Banner is a project built together at a crafting table: anyone can add coins, planks and glass over time. When it is raised, everyone who helped gets coins back for what they gave." },
+      { type: "recipe", output: "guild:guild_banner" },
+    ] });
+  api.registerGuidePage("goblins", { chapter: "guild", title: "Treasure Goblins", icon: "guild:gold_coin", order: 4,
+    unlock: { entity: "guild:goblin" }, keywords: "goblin thief coins steal",
+    blocks: [
+      { type: "entity", entity: "guild:goblin", text: "A quick little thief that grabs coins lying on the ground and runs." },
+      { type: "text", text: "Catch it before it gets away: it drops twice the coins it stole." },
+    ] });
 }
