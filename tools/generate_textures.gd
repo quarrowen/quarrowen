@@ -227,6 +227,7 @@ func _init() -> void:
 	_save(_noise(Color(0.1, 0.1, 0.18, 0.82), 0.03), vanilla + "gloom_water.png")
 	_save(_pod(), vanilla + "shadow_pod.png")
 	_save(_noise(Color(0.7, 0.45, 1.0, 0.7), 0.05), arcana + "mana_spring.png")
+	_save(_cage(), base + "spawner.png")
 	quit()
 
 
@@ -868,6 +869,15 @@ func _foliage(c: Color) -> Image:
 	for y in TILE:
 		for x in TILE:
 			img.set_pixel(x, y, Color(0, 0, 0, 0) if rng.randf() < 0.18 else _vary(c, 0.1))
+	return img
+
+
+func _cage() -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			if x % 5 == 0 or y % 5 == 0 or x == TILE - 1 or y == TILE - 1:
+				img.set_pixel(x, y, _vary(Color(0.2, 0.22, 0.26), 0.05))
 	return img
 
 

@@ -37,6 +37,9 @@ const SkillCrafting = preload("res://engine/server/skill_crafting.gd")
 const Hunger = preload("res://engine/server/hunger.gd")
 const Sleep = preload("res://engine/server/sleep.gd")
 const Explosions = preload("res://engine/server/explosions.gd")
+const Loot = preload("res://engine/server/loot.gd")
+const Spawners = preload("res://engine/server/spawners.gd")
+const StructureTools = preload("res://engine/server/structure_tools.gd")
 const Assembly = preload("res://engine/shared/assembly.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
@@ -149,6 +152,9 @@ var hunger := Hunger.new(self)
 var _mods: Array = []  # loaded GDScript mod instances
 var sleep := Sleep.new(self)
 var explosions := Explosions.new(self)
+var loot := Loot.new(self)
+var spawners := Spawners.new(self)
+var structure_tools := StructureTools.new(self)
 ## Materials, parts and tools built from parts (see Assembly).
 var assembly := Assembly.new()
 var _snapshot_round := 0
@@ -219,6 +225,8 @@ func start(config: Dictionary) -> Error:
 	_add_part_recipes()
 	if biome_generator != null:
 		biome_generator.freeze()
+		structure_tools.load_saved()
+	spawners.setup()
 	_hash_assets()
 	_apply_rules_to_world()
 	_build_view_offsets()
@@ -414,6 +422,7 @@ func _register_builtin_commands() -> void:
 	add_command("tp", "<x> <y> <z> | <player> - teleport", _cmd_tp, "engine", "admin")
 	add_command("summon", "<entity> [count] - spawn entities in front of you", _cmd_summon, "engine", "admin")
 	add_command("heal", "[player] - restore health", _cmd_heal, "engine", "admin")
+	add_command("struct", "pos1 | pos2 | save <name> [keep_air] | place <name> [rotation] | list - build structures", structure_tools.command, "engine", "admin")
 	add_command("biome", "- the biome you are standing in", func(player, _args):
 		if biome_generator == null:
 			player.send_message("This world has no biomes")
@@ -1349,7 +1358,7 @@ func _run_chunk_job(job: Dictionary) -> void:
 		pass_object.decorate(chunk, job.seed)
 	var generated: PackedByteArray = chunk.blocks
 	var deltas := {}
-	var data := {}
+	var data: Dictionary = chunk.generated_data.duplicate(true)  # saved data below replaces it
 	if FileAccess.file_exists(job.path):
 		var saved = JSON.parse_string(FileAccess.get_file_as_string(job.path))
 		if saved is Dictionary:

@@ -72,7 +72,10 @@ func get_container(pos: Vector3i):
 	if store.is_empty():
 		_server.set_block_data(pos, store)
 		store = _server.get_block_data(pos)
-	return ContainerView.new(_server, pos, t, store)
+	var view := ContainerView.new(_server, pos, t, store)
+	if store.has("loot"):
+		_server.loot.fill(view)  # structure chests roll their loot on first use
+	return view
 
 
 func open(p, pos: Vector3i) -> bool:

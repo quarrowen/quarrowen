@@ -161,7 +161,7 @@ changes with `tools/build_native.sh`.
       - W3 Underground (done): tunnels + caverns, ravines, cave lakes and lava pools (new lava block), ores by
         depth with a new deep ore (cobalt). Also per-biome water (glowing pools, gloom water, mana springs)
         and glowing shadow pods (user request). Not done: flowing liquids, extra ore in cave walls.
-      - W4 Structure engine: build in creative, select and save as a template; generation places
+      - W4 Structure engine (done): build in creative, select and save as a template; generation places
         templates across chunks with rotation, variants and loot tables; mob spawner block; code pieces.
       - W5 Structures: dungeons, ruins and watchtowers in biome materials, mineshafts, Colossus arena.
 2. **Creator platform** (follow-up): hot-reload mods on a running server, in-game script console, mod

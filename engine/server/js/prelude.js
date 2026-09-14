@@ -231,6 +231,10 @@
     addSpawnRule: (rule) => host("addSpawnRule", rule),
     registerBiome: (name, def) => host("registerBiome", name, def),
     registerFeature: (name, def) => host("registerFeature", name, def),
+    /** Structures: a template file in the mod (saved with /struct save) or template data, structure sets, loot tables. */
+    registerStructureTemplate: (name, source) => host("registerStructureTemplate", name, source),
+    registerStructure: (name, def) => host("registerStructure", name, def),
+    registerLootTable: (name, def) => host("registerLootTable", name, def),
     getBiome: (position) => host("getBiome", position),
     /** Mobs of each spawn category allowed around each player: { monster, animal, ambient, misc }. */
     setSpawnCaps: (caps) => host("setSpawnCaps", caps),

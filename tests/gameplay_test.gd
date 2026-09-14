@@ -42,6 +42,7 @@ func _ready() -> void:
 	await _taming()
 	await _explosions()
 	await _biomes()
+	await _structures()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -1683,6 +1684,96 @@ func _biomes() -> void:
 		server._ensure_chunk(Vector2i(floori(f.x / 16.0), floori(f.y / 16.0)))
 		var spot: Vector3 = server.entities.spawning.find_spot(Vector3(f.x, gen.surface_height(f.x, f.y) + 1, f.y), added, 1.0, 1.0, 6.0)
 		_check(spot == Vector3.INF, "a desert-only mob does not spawn in a forest")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _structures() -> void:
+	var server = _start("structures_%d" % Time.get_ticks_msec())
+	var gen = server.biome_generator
+	var reg = server.registry
+	var st = gen.structures
+	var stone: int = reg.id_of("base:cobblestone")
+	var chest: int = reg.id_of("base:chest")
+	# A 5x4x3 hut: walls, a chest with loot in one corner, air inside.
+	var doc := {"size": [5, 4, 3], "palette": ["base:cobblestone", "engine:air", "base:chest"], "blocks": [], "data": {"1,1,1": {"loot": "test:hut"}}}
+	for y in 4:
+		for z in 3:
+			for x in 5:
+				var wall: bool = y == 0 or y == 3 or x == 0 or x == 4 or z == 0 or z == 2
+				doc.blocks.append([x, y, z, 0 if wall else 1])
+	doc.blocks.append([1, 1, 1, 2])
+	_check(st.add_template("test:hut", doc), "a template loads from JSON data")
+	server.loot.register("test:hut", {"rolls": [2, 2], "entries": [{"item": "base:iron_ingot", "count": [3, 3]}]})
+	st.add_set("test:huts", {"templates": [{"template": "test:hut"}], "spacing": 3, "separation": 0, "place": "surface"})
+	st.freeze(reg)
+	# Generate a block of chunks and count hut walls: every hut must be whole, even across chunk borders.
+	var Chunk = load("res://engine/shared/chunk.gd")
+	var starts := []
+	for rz in range(0, 3):
+		for rx in range(0, 3):
+			var start: Dictionary = st.start_for(st.sets.back(), Vector2i(rx, rz), gen)
+			if not start.is_empty():
+				starts.append(start)
+	_check(not starts.is_empty(), "structure regions pick starts (%d)" % starts.size())
+	var chunks := {}
+	for cz in range(-1, 10):
+		for cx in range(-1, 10):
+			var c = Chunk.new(Vector2i(cx, cz))
+			gen.generate(c)
+			chunks[Vector2i(cx, cz)] = c
+	var whole := 0
+	var loot_chests := 0
+	for start in starts:
+		var piece: Dictionary = start.pieces[0]
+		var walls := 0
+		for b in st.templates["test:hut"].blocks:
+			if b[3] != stone:
+				continue
+			var p: Vector3i = piece.position + st.rotate(Vector3i(b[0], b[1], b[2]), Vector3i(5, 4, 3), piece.rotation)
+			var c = chunks.get(Vector2i(floori(p.x / 16.0), floori(p.z / 16.0)))
+			if c != null and c.blocks.decode_u16(Chunk.index(p.x & 15, p.y, p.z & 15) << 1) == stone:
+				walls += 1
+		if walls == st.templates["test:hut"].blocks.filter(func(b): return b[3] == stone).size():
+			whole += 1
+		var chest_pos: Vector3i = piece.position + st.rotate(Vector3i(1, 1, 1), Vector3i(5, 4, 3), piece.rotation)
+		var cc = chunks.get(Vector2i(floori(chest_pos.x / 16.0), floori(chest_pos.z / 16.0)))
+		if cc != null and cc.generated_data.has(chest_pos) and cc.generated_data[chest_pos].loot == "test:hut":
+			loot_chests += 1
+	_check(whole == starts.size(), "every generated hut is whole across chunk borders (%d of %d)" % [whole, starts.size()])
+	_check(loot_chests == starts.size(), "hut chests carry their loot table")
+	# Loot fills on first open.
+	var p := ServerPlayer.new(server, 110, "Builder")
+	p.player_id = "builder"
+	server.players[110] = p
+	var y: int = server.surface_height(8, 8) + 3
+	var at := Vector3i(4, y, 4)
+	server.structure_tools.place("test:hut", at, 1)
+	var placed_chest: Vector3i = at + st.rotate(Vector3i(1, 1, 1), Vector3i(5, 4, 3), 1)
+	_check(server.world.get_block_v(placed_chest) == chest, "a template places with rotation")
+	var container = server.containers.get_container(placed_chest)
+	var iron := 0
+	for i in container.size():
+		if container.get_item(i).item == server.items.id_of("base:iron_ingot"):
+			iron += int(container.get_item(i).count)
+	_check(iron == 6 and not server.get_block_data(placed_chest).has("loot"), "the chest fills from its loot table once (%d iron)" % iron)
+	# Capture and place back.
+	var captured: Dictionary = st.capture(server, at, at + Vector3i(2, 3, 4))
+	_check(captured.size == [3, 4, 5] and captured.blocks.size() == 60, "a selection captures into a template")
+	# Spawners.
+	var spawner: int = reg.id_of("base:spawner")
+	var sp := Vector3i(20, y, 20)
+	for dx in range(-3, 4):
+		for dz in range(-3, 4):
+			server.set_block_authoritative(sp + Vector3i(dx, -1, dz), stone)
+			for dy in range(0, 3):
+				server.set_block_authoritative(sp + Vector3i(dx, dy, dz), 0)
+	server.set_block_authoritative(sp, spawner)
+	server.set_block_data(sp, {"spawner": {"entity": ["vanilla:zombie"], "count": [2, 2]}})
+	p.state.position = Vector3(sp) + Vector3(4, 0, 4)
+	server.set_world_time(0.0, 1200.0)
+	server.spawners._tick({"position": sp})
+	_check(server.entities.in_radius(Vector3(sp), 8.0, server.entities.registry.id_of("vanilla:zombie")).size() >= 1, "a spawner makes its mobs when a player is near")
 	server.queue_free()
 	await get_tree().process_frame
 

@@ -408,6 +408,9 @@ declare module "voxelcraft" {
     /** Biome generator: data-driven biomes and features (see engine/server/worldgen). */
     registerBiome(name: string, def: Record<string, unknown>): void;
     registerFeature(name: string, def: Record<string, unknown>): void;
+    registerStructureTemplate(name: string, source: string | Record<string, unknown>): boolean;
+    registerStructure(name: string, def: Record<string, unknown>): void;
+    registerLootTable(name: string, def: { rolls?: [number, number]; entries: { item: string; count?: [number, number]; weight?: number }[] }): void;
     getBiome(position: Vec3): string;
     setSpawnCaps(caps: { monster?: number; animal?: number; ambient?: number; misc?: number }): void;
     setGameplay(values: Gameplay): void;

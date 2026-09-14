@@ -556,6 +556,18 @@ api.register_item("bread", {"icon": "textures/bread.png", "food": {"hunger": 5, 
   (shadowwood's glowing pods). Blocks with `contact_damage: {amount, interval, cause}` hurt players
   and mobs inside them (lava). Vanilla ores are placed by depth: coal high, iron in the middle and the
   new cobalt ore (smelts into cobalt ingots) deep near the lava.
+- **Structures:** build something in creative, then `/struct pos1` and `/struct pos2` (on the blocks
+  you look at; a box outline shows the selection) and `/struct save <name> [keep_air]` to write a JSON
+  template to the world's `structures/` folder (`/struct place <name> [rotation]` and `/struct list`).
+  Copy the file into a mod and `register_structure_template(name, "structures/x.json")`. Templates keep
+  block states and block data, so a chest can carry `{loot: "<table>"}` and a spawner `{spawner:
+  {entity, count, range}}`. `register_structure(name, {templates or generator, spacing, separation,
+  biomes, place: surface | underground, y, sink, foundation, swaps: {biome: {block: block}}, reach,
+  chance})` places at most one per region of `spacing` chunks, rotated, with per-biome material swaps,
+  deterministically so pieces line up across chunk borders; GDScript generators return pieces for
+  code-built layouts. `register_loot_table(name, {rolls, entries})` fills structure chests the first
+  time they are opened. Blocks with `spawner: true` (base's monster spawner) spawn mobs in the dark
+  near players.
 
 - **Natural spawning:** spawn rules pick spots on the surface and in caves near each player and check
   the light there (block light or daylight-scaled sky light, 0-15). Monsters default to light 0-7, so

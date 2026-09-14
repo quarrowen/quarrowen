@@ -18,6 +18,7 @@ extends RefCounted
 
 const Chunk = preload("res://engine/shared/chunk.gd")
 const Features = preload("res://engine/server/worldgen/features.gd")
+const Structures = preload("res://engine/server/worldgen/structures.gd")
 
 var sea_level := 46
 var snow_level := 92
@@ -27,6 +28,8 @@ var biome_ids := {}  # name -> index
 var features := {}  # name -> resolved def or Callable
 ## Carvers and other passes: objects with carve(chunk, generator) run after terrain, before features.
 var carvers: Array = []
+## Templates and structure sets placed after features (see worldgen/structures.gd).
+var structures: Structures
 
 var _block_id: Callable
 var _registry
@@ -50,6 +53,7 @@ func _init(seed_value: int, block_id: Callable, registry, options := {}) -> void
 	sea_level = int(options.get("sea_level", 46))
 	snow_level = int(options.get("snow_level", 92))
 	_registry = registry
+	structures = Structures.new(seed_value, block_id)
 	_configure(_continent, seed_value, 0.0025, 4)
 	_configure(_hills, seed_value + 1, 0.02, 3)
 	_configure(_peaks, seed_value + 2, 0.004, 5)
@@ -77,6 +81,7 @@ func freeze() -> void:
 	for i in _registry.defs.size():
 		var d: Dictionary = _registry.defs[i]
 		_replaceable[i] = 1 if d.replaceable or String(d.name).ends_with("leaves") or d.render == 5 else 0
+	structures.freeze(_registry)
 
 
 func add_biome(biome_name: String, def: Dictionary) -> void:
@@ -247,9 +252,11 @@ func generate(chunk) -> void:
 	writer.origin_z = oz
 	writer.solid = _solid
 	writer.replaceable = _replaceable
+	writer.states = chunk.states
 	for ncz in range(-1, 2):
 		for ncx in range(-1, 2):
 			_place_features(writer, coord + Vector2i(ncx, ncz), ncx == 0 and ncz == 0, heights, column_biomes)
+	structures.place_in_chunk(chunk, self, writer, chunk.generated_data)
 	blocks = writer.blocks
 	# Plants on open surface columns.
 	for z in Chunk.SIZE_Z:

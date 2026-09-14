@@ -24,5 +24,8 @@ func setup(api, sounds: Dictionary) -> void:
 	api.register_block("cobalt_ore", {"display_name": "Cobalt Ore", "textures": "textures/cobalt_ore.png", "sounds": sounds.stone, "hardness": 4.5,
 		"tier": 3, "tool": "pickaxe"})
 	api.register_item("cobalt_ingot", {"display_name": "Cobalt Ingot", "icon": "textures/cobalt_ingot.png"})
+	# Mob spawners (placed by structures; set what they spawn in block data, see engine/server/spawners.gd).
+	api.register_block("spawner", {"display_name": "Monster Spawner", "textures": "textures/spawner.png", "render": "cutout", "spawner": true,
+		"hardness": 5.0, "tier": 1, "tool": "pickaxe", "drops": "", "sounds": sounds.stone})
 	api.register_block("fern", {"display_name": "Fern", "textures": "textures/fern.png", "render": "plant", "replaceable": true, "sway": true,
 		"hardness": 0.0, "drops": "", "support": "solid", "sounds": sounds.grass})

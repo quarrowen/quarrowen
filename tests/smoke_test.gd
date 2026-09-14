@@ -218,6 +218,20 @@ func _vanilla(c) -> void:
 	c._set_crafting_open(false)
 	await get_tree().create_timer(0.3).timeout
 
+	# Structures: select a box, save it as a template and place it again.
+	Net.c_chat.rpc_id(1, "/struct pos1")
+	await get_tree().create_timer(0.3).timeout
+	c.yaw += 0.6
+	await get_tree().create_timer(0.3).timeout
+	Net.c_chat.rpc_id(1, "/struct pos2")
+	_check(await _wait_until(func(): return c._selection_box != null and c._selection_box.visible, 3.0), "the structure selection box shows")
+	Net.c_chat.rpc_id(1, "/struct save smoke_test_hut")
+	_check(await _wait_until(func():
+		for line in c._chat_log.get_children():
+			if line.text.contains("Saved template world:smoke_test_hut"):
+				return true
+		return false, 3.0), "a selection saves as a template")
+
 	# Farm animals: dyeing a sheep reaches other clients as a tinted wool part.
 	Net.c_chat.rpc_id(1, "/give vanilla:dye_red")
 	var red_dye: int = c.items.id_of("vanilla:dye_red")

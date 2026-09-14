@@ -669,6 +669,13 @@ func s_title(text: String, subtitle: String, seconds: float) -> void:
 		client.on_title(text, subtitle, seconds)
 
 
+## Structure selection box to show (or hide) for a builder.
+@rpc("authority", "call_remote", "reliable")
+func s_selection(a: Vector3i, b: Vector3i, visible: bool) -> void:
+	if client:
+		client.on_selection(a, b, visible)
+
+
 ## Sleeping state for this player: {sleeping, since, asleep, needed, seconds, head_dir}.
 @rpc("authority", "call_remote", "reliable")
 func s_sleep(state: Dictionary) -> void:

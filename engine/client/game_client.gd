@@ -1232,6 +1232,38 @@ func _meal_for(item: int, item_data: Dictionary, started: float) -> Dictionary:
 		"crumbs": func(at: Vector3, color: Color, amount: int, size: float): EatingVisuals.crumbs(self, at, color, amount, size)}
 
 
+var _selection_box: MeshInstance3D
+
+
+## Outline of a structure selection (/struct pos1, pos2).
+func on_selection(a: Vector3i, b: Vector3i, show: bool) -> void:
+	if _selection_box == null:
+		_selection_box = MeshInstance3D.new()
+		var material := StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.albedo_color = Color(1.0, 0.85, 0.2)
+		material.no_depth_test = true
+		_selection_box.material_override = material
+		add_child(_selection_box)
+	_selection_box.visible = show
+	if not show:
+		return
+	var lo := Vector3(mini(a.x, b.x), mini(a.y, b.y), mini(a.z, b.z))
+	var hi := Vector3(maxi(a.x, b.x), maxi(a.y, b.y), maxi(a.z, b.z)) + Vector3.ONE
+	var mesh := ImmediateMesh.new()
+	mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+	var corners := []
+	for i in 8:
+		corners.append(Vector3(hi.x if i & 1 else lo.x, hi.y if i & 2 else lo.y, hi.z if i & 4 else lo.z))
+	for i in 8:
+		for bit in [1, 2, 4]:
+			if i & bit == 0:
+				mesh.surface_add_vertex(corners[i])
+				mesh.surface_add_vertex(corners[i | bit])
+	mesh.surface_end()
+	_selection_box.mesh = mesh
+
+
 func on_player_eating(peer_id: int, item: int) -> void:
 	if peer_id == my_id:
 		if item == 0 and not _eating.is_empty():

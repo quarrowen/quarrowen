@@ -640,6 +640,34 @@ func add_cave_carver(options := {}) -> void:
 	biome_generator().carvers.append(CaveCarver.new(_server.world_seed, func(n: String) -> int: return block(n), _server.registry, options))
 
 
+## A structure template: a JSON file in this mod (e.g. "structures/tower.json", saved with /struct save)
+## or a template dictionary. Names without ":" are this mod's.
+func register_structure_template(template_name: String, source) -> bool:
+	var doc = source
+	if source is String:
+		var path := mod_dir.path_join(source)
+		doc = JSON.parse_string(FileAccess.get_file_as_string(path)) if FileAccess.file_exists(path) else null
+	if not (doc is Dictionary) or not biome_generator().structures.add_template(_qualify(template_name), doc):
+		push_error("[%s] register_structure_template: invalid template %s" % [mod_id, template_name])
+		return false
+	return true
+
+
+## Generated structures (see worldgen/structures.gd): {templates: [{template, weight}] or generator
+## (GDScript Callable), spacing, separation, biomes, place, y, sink, foundation, swaps, reach, chance}.
+func register_structure(structure_name: String, def: Dictionary) -> void:
+	var d := def.duplicate(true)
+	if def.get("templates") is Array:
+		d.templates = (def.templates as Array).map(func(t): return t.merged({"template": _qualify_ref(str(t.get("template", "")))}, true) if t is Dictionary else t)
+	biome_generator().structures.add_set(_qualify(structure_name), d)
+
+
+## Loot table: {rolls: [min, max], entries: [{item, count: [min, max], weight, data}]}. Containers with
+## block data {loot: "<table>"} fill from it the first time they are opened.
+func register_loot_table(table_name: String, def: Dictionary) -> void:
+	_server.loot.register(_qualify(table_name), def)
+
+
 ## A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from
 ## GDScript, a Callable(writer, origin: Vector3i, rng) run on worker threads. See worldgen/features.gd.
 func register_feature(feature_name: String, def) -> void:

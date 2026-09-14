@@ -16,6 +16,8 @@ var blocks: PackedByteArray
 var states := {}
 ## Server only: modified since last save.
 var dirty := false
+## Server only: block data written by world generation (structure chests, spawners): Vector3i -> Dictionary.
+var generated_data := {}
 
 
 func _init(chunk_coord: Vector2i, data: PackedByteArray = PackedByteArray()) -> void:

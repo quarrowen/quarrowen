@@ -25,6 +25,7 @@ class Writer:
 	var origin_z := 0
 	var solid: PackedByteArray
 	var replaceable: PackedByteArray  # blocks features may overwrite (air, plants, leaves)
+	var states := {}  # the chunk's sparse block states
 
 	func get_block(x: int, y: int, z: int) -> int:
 		var lx := x - origin_x
@@ -43,6 +44,16 @@ class Writer:
 		var current := blocks.decode_u16(index)
 		if force or current == 0 or (current < replaceable.size() and replaceable[current] == 1):
 			blocks.encode_u16(index, id)
+
+	func set_state(x: int, y: int, z: int, state: int) -> void:
+		var lx := x - origin_x
+		var lz := z - origin_z
+		if lx < 0 or lz < 0 or lx >= Chunk.SIZE_X or lz >= Chunk.SIZE_Z or y < 0 or y >= Chunk.SIZE_Y:
+			return
+		if state > 0:
+			states[Chunk.index(lx, y, lz)] = state & 255
+		else:
+			states.erase(Chunk.index(lx, y, lz))
 
 
 ## Resolves block names in a data feature to ids. Returns {} if the feature is invalid.
