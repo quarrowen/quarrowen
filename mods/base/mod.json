@@ -3,6 +3,10 @@
 	"name": "Base Blocks",
 	"version": "1.0.0",
 	"description": "Common terrain and building blocks shared by other mods. Not a game on its own.",
+	"authors": [
+		"VoxelCraft"
+	],
+	"engine": "^1.0",
 	"depends": [],
 	"game": false
 }

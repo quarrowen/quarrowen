@@ -3,6 +3,12 @@
 	"name": "Vanilla Sandbox",
 	"version": "1.0.0",
 	"description": "Endless generated terrain with mountains, oceans and forests. Creative building.",
-	"depends": ["base"],
+	"authors": [
+		"VoxelCraft"
+	],
+	"engine": "^1.0",
+	"depends": [
+		"base@^1.0"
+	],
 	"game": true
 }

@@ -73,6 +73,15 @@ for log in "$WORK"/server_*.log; do
   if grep -qE "SCRIPT ERROR|script error" "$log"; then FAILED+=("clean-server-log:$(basename "$log")"); grep -hE "SCRIPT ERROR|script error" "$log" | head -5; fi
 done
 
+# Every bundled mod must pass the validator (errors fail; warnings and hints are printed).
+for mod_dir in mods/*/; do
+  mod="$(basename "$mod_dir")"
+  timeout 240 "$GODOT" --headless --path . res://tools/mod_tool.tscn -- validate "mods/$mod" >"$WORK/validate_$mod.log" 2>&1
+  code=$?
+  grep -h "^\[mod_tool\] \(ERROR\|WARNING\)" "$WORK/validate_$mod.log" | head -5
+  record "validate:$mod" $code "$WORK/validate_$mod.log"
+done
+
 run_scene "persistence" "$WORK/persistence.log" res://tests/persistence_test.tscn
 run_scene "identity" "$WORK/identity.log" res://tests/identity_test.tscn
 run_scene "gameplay" "$WORK/gameplay.log" res://tests/gameplay_test.tscn

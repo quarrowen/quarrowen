@@ -42,6 +42,7 @@ const DevLog = preload("res://engine/server/dev_log.gd")
 const DevTools = preload("res://engine/server/dev_tools.gd")
 const DevWeb = preload("res://engine/server/dev_web.gd")
 const ModReload = preload("res://engine/server/mod_reload.gd")
+const ModValidator = preload("res://engine/server/mod_validator.gd")
 const Explosions = preload("res://engine/server/explosions.gd")
 const Loot = preload("res://engine/server/loot.gd")
 const Spawners = preload("res://engine/server/spawners.gd")
@@ -466,6 +467,13 @@ func _register_builtin_commands() -> void:
 	add_command("help", "List commands", _cmd_help, "engine")
 	add_command("log", "[mod] [count] | level <mod|all> <debug|info|warn|error> - recent log lines", _cmd_log, "engine", "admin")
 	add_command("errors", "[clear [mod] | mute | unmute] - script errors by mod", _cmd_errors, "engine", "admin")
+	add_command("validate", "<mod> - check a loaded mod's manifest, files and references", func(player, args):
+		if args.is_empty():
+			player.send_message("Usage: /validate <mod>   (mods: %s)" % ", ".join(mod_manifests.keys()))
+			return
+		var result := ModValidator.check_running(self, args[0])
+		for line in ModValidator.report(result).slice(-12):
+			player.send_message(line), "engine", "admin")
 	add_command("reload", "<mod> | all | full | watch on|off - reload mods while the server runs", _cmd_reload, "engine", "admin")
 	add_command("devweb", "- the dev dashboard's address", func(player, _args):
 		if dev_web.running():

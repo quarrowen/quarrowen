@@ -6,6 +6,9 @@ const VERSION := 33
 ## Human-readable release shown in version mismatch messages.
 const GAME_NAME := "VoxelCraft"
 const GAME_VERSION := "0.33.0"
+## The mod API's semantic version: mods declare what they work with in mod.json ("engine": "^1.0").
+## Bump the minor version when the API gains things, the major when something mods use changes.
+const MOD_API_VERSION := "1.0.0"
 
 const MAX_ASSET_SIZE := 16 * 1024 * 1024
 const MAX_TOTAL_ASSET_SIZE := 256 * 1024 * 1024

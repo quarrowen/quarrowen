@@ -51,6 +51,8 @@ func _ready() -> void:
 	await _dev_tools()
 	await _dev_web()
 	await _mod_reload()
+	_semver()
+	await _mod_packages()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -2321,6 +2323,82 @@ func _mod_reload() -> void:
 		"vanilla reloads without new ids, keeping its commands and tutorial: %s" % str(result.notes.slice(0, 3)))
 	server.queue_free()
 	await get_tree().process_frame
+
+
+func _semver() -> void:
+	var S = preload("res://engine/shared/semver.gd")
+	_check(S.compare("1.2.10", "1.2.9") == 1 and S.compare("1.0.0-beta", "1.0.0") == -1 and S.compare("2.0.0", "2.0.0") == 0, "versions compare numerically, pre-releases first")
+	var cases := [["1.4.2", "^1.2", true], ["2.0.0", "^1.2", false], ["0.3.1", "^0.3.0", true], ["0.4.0", "^0.3.0", false],
+		["1.2.9", "~1.2.3", true], ["1.3.0", "~1.2.3", false], ["1.5.0", ">=1.2 <2", true], ["2.1.0", ">=1.2 <2", false],
+		["2.5.0", "^1.0 || ^2.0", true], ["1.7.3", "1.x", true], ["1.7.3", "1.6.x", false], ["3.0.0", "*", true], ["1.2.3", "1.2.3", true], ["1.2.4", "=1.2.3", false]]
+	var wrong := cases.filter(func(c): return S.satisfies(c[0], c[1]) != c[2])
+	_check(wrong.is_empty(), "version ranges (^, ~, comparisons, ||, x): %s" % str(wrong))
+	_check(S.range_error(">=1.0 <two") != "" and S.range_error("^1.2 || ~2.0") == "" and not S.is_valid("1.2") and S.is_valid("1.2.3-rc.1"),
+		"bad ranges and versions are recognized")
+
+
+func _write_mod(dir: String, manifest: Dictionary, main := "extends \"res://engine/server/mod.gd\"\n\nfunc setup(_api) -> void:\n\tpass\n") -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var f := FileAccess.open(dir.path_join("mod.json"), FileAccess.WRITE)
+	f.store_string(JSON.stringify(manifest))
+	f.close()
+	f = FileAccess.open(dir.path_join("main.gd"), FileAccess.WRITE)
+	f.store_string(main)
+	f.close()
+
+
+func _mod_packages() -> void:
+	var Loader = preload("res://engine/server/mod_loader.gd")
+	var root := DATA_DIR.path_join("packages_%d" % Time.get_ticks_msec())
+	var mods := root.path_join("mods")
+	_write_mod(mods.path_join("lib"), {"id": "lib", "version": "1.4.0", "engine": "^1.0"})
+	_write_mod(mods.path_join("needs_new"), {"id": "needs_new", "version": "1.0.0", "depends": ["lib@^2.0"]})
+	_write_mod(mods.path_join("needs_ok"), {"id": "needs_ok", "version": "1.0.0", "depends": {"lib": ">=1.2 <2"}, "optional_depends": ["extra", "absent"]})
+	_write_mod(mods.path_join("extra"), {"id": "extra", "version": "0.1.0"})
+	_write_mod(mods.path_join("rival"), {"id": "rival", "version": "1.0.0", "conflicts": ["lib@<2"]})
+	_write_mod(mods.path_join("future"), {"id": "future", "version": "1.0.0", "engine": "^9.0"})
+	var available: Dictionary = Loader.discover(PackedStringArray([mods]))
+	_check(Loader.resolve(PackedStringArray(["needs_new"]), available).is_empty() and Loader.last_errors[0].message.contains("needs lib ^2.0, but lib 1.4.0 is installed"),
+		"a dependency outside the version range is refused with a clear message")
+	var order: Array = Loader.resolve(PackedStringArray(["needs_ok"]), available)
+	_check(order.map(func(m): return m.id) == ["lib", "extra", "needs_ok"], "version ranges pass and installed optional dependencies load first")
+	_check(Loader.resolve(PackedStringArray(["lib", "rival"]), available).is_empty() and Loader.last_errors[0].message.contains("conflicts"), "conflicting mods are refused")
+	_check(Loader.resolve(PackedStringArray(["future"]), available).is_empty() and Loader.last_errors[0].message.contains("mod API"), "mods for another engine API version are refused")
+	# Packages: pack a mod folder, load it from a .zip.
+	var src := root.path_join("src/zipped")
+	_write_mod(src, {"id": "zipped", "version": "2.1.0", "depends": ["base@^1.0"]},
+		"extends \"res://engine/server/mod.gd\"\nconst Helper = preload(\"helper.gd\")\n\nfunc setup(api) -> void:\n\tapi.register_item(\"gem\", {\"display_name\": Helper.NAME, \"icon\": \"gem.png\"})\n")
+	var helper := FileAccess.open(src.path_join("helper.gd"), FileAccess.WRITE)
+	helper.store_string("extends RefCounted\nconst NAME := \"Zip Gem\"\n")
+	helper.close()
+	var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	img.fill(Color.MAGENTA)
+	img.save_png(src.path_join("gem.png"))
+	var zip_path := root.path_join("packaged/zipped-2.1.0.zip")
+	_check(Loader.pack(src, zip_path) == OK and FileAccess.file_exists(zip_path), "a mod folder packs into a zip")
+	var server := GameServer.new()
+	add_child(server)
+	var err: Error = server.start({"mods": PackedStringArray(["zipped"]), "mod_dirs": PackedStringArray([root.path_join("packaged")]),
+		"world": "zip_%d" % Time.get_ticks_msec(), "data_dir": DATA_DIR, "seed": 42, "offline": true})
+	var gem: int = server.items.id_of("zipped:gem") if err == OK else -1
+	_check(err == OK and gem > 0 and server.items.display_name(gem) == "Zip Gem" and server._assets.has("zipped:gem.png") and server._assets["zipped:gem.png"].has("hash"),
+		"servers load mods from zip packages, with their scripts and assets")
+	server.queue_free()
+	await get_tree().process_frame
+	# The validator finds typical mistakes.
+	var bad := root.path_join("check/sloppy")
+	_write_mod(bad, {"id": "sloppy", "version": "1.0", "dependencies": ["base"], "depends": ["base"]},
+		"extends \"res://engine/server/mod.gd\"\n\nfunc setup(api) -> void:\n\tapi.register_block(\"crate\", {\"textures\": \"textures/missing.png\", \"drops\": \"sloppy:nothing\"})\n" +
+		"\tapi.register_guide_chapter(\"notes\", {\"title\": \"Notes\"})\n" +
+		"\tapi.register_guide_page(\"page\", {\"chapter\": \"notes\", \"unlock\": {\"item\": \"sloppy:ghost\"}, \"blocks\": [{\"type\": \"items\", \"items\": [\"base:nope\"]}]})\n")
+	var result: Dictionary = preload("res://engine/server/mod_validator.gd").validate(bad, self)
+	var text := "\n".join(result.issues.map(func(i): return "%s %s" % [i.level, i.message]))
+	var expected := ["unknown key \"dependencies\"", "not a semantic version", "no \"engine\" range", "Asset not found", "drops 'sloppy:nothing'",
+		"unlocks with", "shows item 'base:nope'"]
+	var missing := expected.filter(func(e): return not text.contains(e))
+	_check(not result.ok and missing.is_empty(), "the validator reports manifest, asset and reference mistakes (missing: %s)" % str(missing))
+	var clean: Dictionary = preload("res://engine/server/mod_validator.gd").validate(ProjectSettings.globalize_path("res://mods/vanilla"), self)
+	_check(clean.ok and clean.counts.warning == 0, "the bundled vanilla mod validates cleanly")
 
 
 func _js_blocks() -> void:

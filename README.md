@@ -836,6 +836,26 @@ players). `#perf`-style links open a tab. JSON API: `/api/state`, `/api/inspect`
   reconnects them automatically. Needs the dedicated server scene or the Host menu (both are). Event
   `mod_reloaded {mod, ok, notes, error}`.
 
+### Mod packages, versions and validation
+
+- **mod.json** gains `engine` (the mod API range it works with, e.g. `"^1.0"`; this engine is
+  `Protocol.MOD_API_VERSION` 1.0.0), dependency ranges (`"depends": ["base@^1.0", {"id": "arcana",
+  "version": ">=1.2 <2"}]` or `{"base": "^1.0"}`), `optional_depends` (loaded first when installed),
+  `conflicts`, `authors`, `license` and `homepage`. Ranges: `^`, `~`, `>=`/`<`..., `1.x`, spaces for
+  "and", `||` for "or" (`engine/shared/semver.gd`). Load errors say exactly what is wrong ("arcana needs
+  base ^2.0, but base 1.4.0 is installed").
+- **Packages:** `godot --headless --path . res://tools/mod_tool.tscn -- pack mods/my_mod` validates the mod
+  and writes `build/mods/my_mod-1.2.0.zip`. Drop the zip into any mods folder (`--mods-dir`); the server
+  unpacks it once into `user://mod_cache/` and loads it like a folder (a folder with the same id wins).
+- **Validator:** `mod_tool.tscn -- validate mods/my_mod [--json]` (exit code 1 on errors), or `/validate
+  my_mod` in game. It checks the manifest (typos like "dependencies", versions, ranges, engine range,
+  main script), files (unreadable images, oversized files, textures over 256 px that players download,
+  files nothing uses), that every GDScript compiles, a real load in a throwaway server (errors and
+  warnings with file:line, missing assets), and references in what the mod registered: block drops,
+  sounds, containers and pairs; item teaches and food remainders; entity drops and sounds; guide page
+  icons, unlocks, items, recipes, entities, links and keys; tutorial and tip goal targets and pages.
+  `tools/run_tests.sh` validates every bundled mod.
+
 ## World saves (delta model)
 
 Chunks are always regenerated from the seed, then saved edits are applied on top.

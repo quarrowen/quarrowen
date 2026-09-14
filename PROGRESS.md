@@ -192,7 +192,7 @@ changes with `tools/build_native.sh`.
    - C4 Reloading (done: engine/server/mod_reload.gd, /reload, dashboard buttons, tests/reload_test.tscn): quick reload (re-run a mod's scripts: handlers, commands, timers, recipes, guide,
      tutorials, definition changes in place) with a dev-mode file watcher; full reload (save and restart
      in place, players reconnect automatically) for new blocks, textures and models.
-   - C5 Packages and validation: .zip mod packages, semantic versions, dependency ranges, engine API
+   - C5 Packages and validation (done: engine/shared/semver.gd, mod_loader.gd, mod_validator.gd, tools/mod_tool.tscn, /validate): .zip mod packages, semantic versions, dependency ranges, engine API
      version check; a validator/linter (manifest, missing assets, unknown names) with file hints.
    - C6 Templates and docs: new-mod wizard (Host menu + CLI) for GDScript/JS starters; generated API docs
      site from mod_api.gd doc comments and the TypeScript declarations.

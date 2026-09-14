@@ -15,6 +15,8 @@ func _init(game_server) -> void:
 func register(table_name: String, def: Dictionary) -> void:
 	var entries := []
 	for e in (def.get("entries") if def.get("entries") is Array else []):
+		if e is Dictionary and _server.items.id_of(str(e.get("item", ""))) <= 0:
+			push_warning("[loot] %s: unknown item '%s' left out" % [table_name, e.get("item", "")])
 		if e is Dictionary and _server.items.id_of(str(e.get("item", ""))) > 0:
 			var count: Array = e.get("count", [1, 1]) if e.get("count") is Array and e.count.size() == 2 else [int(e.get("count", 1)), int(e.get("count", 1))]
 			entries.append({"item": str(e.item), "count": [int(count[0]), int(count[1])], "weight": maxf(float(e.get("weight", 1.0)), 0.0),

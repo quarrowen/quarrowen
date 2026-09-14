@@ -34,6 +34,8 @@ func setup(api) -> void:
 			{"type": "recipe", "output": "arcana:crystal_helmet"},
 			{"type": "link", "page": "base:by_hand"},
 		]})
+	if api.block("crystal_block") <= 0:
+		return  # the crystal highlands only exist in games that generate biomes
 	api.register_guide_page("crystal_highlands", {"chapter": "arcana", "title": "Crystal Highlands", "icon": "arcana:crystal_block", "order": 4,
 		"unlock": {"biome": "arcana:crystal_highlands"}, "keywords": "crystal highlands biome spire spring", "blocks": [
 			{"type": "text", "text": "A rare land of pale crystal stone and tall glowing spires, with mana springs that shine through the night."},

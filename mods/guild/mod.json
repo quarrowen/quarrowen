@@ -3,7 +3,13 @@
 	"name": "Adventurers' Guild",
 	"version": "1.0.0",
 	"description": "A JavaScript mod: quest boards, gold coins, a shop that sells other mods' items, gold ore, meteor showers and a guild leaderboard. Add to any game, e.g. --mods=vanilla,guild",
-	"depends": ["base"],
+	"authors": [
+		"VoxelCraft"
+	],
+	"engine": "^1.0",
+	"depends": [
+		"base@^1.0"
+	],
 	"game": false,
 	"main": "main.js"
 }
