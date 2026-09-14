@@ -13,6 +13,7 @@ const Chunk = preload("res://engine/shared/chunk.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const MobAI = preload("res://engine/server/ai/mob_ai.gd")
 const Spawning = preload("res://engine/server/spawning.gd")
+const Breeding = preload("res://engine/server/breeding.gd")
 
 const MAX_ENTITIES := 2000
 ## Entities are replicated to players within this distance (blocks).
@@ -42,6 +43,8 @@ var projectiles: Array = []
 var entities := {}  # id -> Entity
 ## Natural spawning rules, category caps and despawning.
 var spawning
+## Feeding, love, babies and growing up (see engine/server/breeding.gd).
+var breeding
 
 var _server
 var _next_id := 1
@@ -55,6 +58,7 @@ func _init(server) -> void:
 	_server = server
 	ai = MobAI.new(server, self)
 	spawning = Spawning.new(self)
+	breeding = Breeding.new(self)
 
 
 # --- Spawning & removal -------------------------------------------------------------------------
@@ -158,6 +162,7 @@ func tick(delta: float) -> void:
 		_merge_timer = 0.0
 		_merge_items()
 		spawning.despawn()
+		breeding.update(1.0)
 	_spawn_timer += delta
 	if _spawn_timer >= 1.0:
 		_spawn_timer = 0.0
@@ -369,7 +374,7 @@ func kill(e: Entity, cause := "magic", attacker = null) -> void:
 	if not e.is_alive():
 		return
 	var drops := []
-	for drop in e.def.drops:
+	for drop in (e.def.drops if not e.data.get("baby", false) else []):
 		if drop is Array and drop.size() >= 2:
 			var item: int = int(drop[0]) if (drop[0] is int or drop[0] is float) else _server.items.id_of(String(drop[0]))
 			var chance := float(drop[2]) if drop.size() > 2 else 1.0
@@ -433,7 +438,7 @@ func replicate(players: Array) -> void:
 				var inside: bool = e.body.position.distance_squared_to(p.state.position) <= r2
 				if inside and not known.has(e.id):
 					known[e.id] = true
-					spawns.append([e.id, e.type, e.body.position, e.yaw, e.item_id, e.item_count])
+					spawns.append([e.id, e.type, e.body.position, e.yaw, e.item_id, e.item_count, e.data.get("look", {})])
 				elif not inside and known.has(e.id):
 					known.erase(e.id)
 					gone.append(e.id)
@@ -463,6 +468,13 @@ func replicate(players: Array) -> void:
 			Net.s_entities.rpc_id(p.peer_id, _server.tick, buf.data_array)
 	for e: Entity in entities.values():
 		e.dirty = false
+
+
+## An entity's look changed (Entity.set_look): tell players who can see it.
+func look_changed(e: Entity) -> void:
+	for p in _server.players.values():
+		if p.known_entities.has(e.id) and p._online():
+			Net.s_entity_look.rpc_id(p.peer_id, e.id, e.data.get("look", {}))
 
 
 # --- Persistence --------------------------------------------------------------------------------

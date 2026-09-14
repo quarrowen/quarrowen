@@ -49,7 +49,9 @@ extends RefCounted
 ##   entity_spawned {entity}          entity_removed {entity}
 ##   entity_damage  {entity, amount, cause, attacker, cancelled}
 ##   entity_death   {entity, cause, attacker, drops: [[id, count]...]}   drops may be changed
-##   entity_interact {player, entity, item}                   right-click on an entity
+##   entity_interact {player, entity, item, cancelled}        right-click on an entity (cancel stops feeding it)
+##   entity_fed     {player, entity, item, cancelled}         breeding food given (see engine/server/breeding.gd)
+##   entity_bred    {parents, baby, player}   entity_grew {entity}
 ##   entity_natural_spawn {type, position, cancelled}         from spawn rules
 ##   mob_target     {entity, target, previous, reason, cancelled}   a mob picks a new enemy
 ##   mob_attack     {entity, attack: {name, type, damage}, target, cancelled}   an attack lands (custom attacks act here)

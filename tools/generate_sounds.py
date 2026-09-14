@@ -139,6 +139,20 @@ def main():
 
     crafting_sounds()
     hunger_sounds()
+    animal_sounds()
+
+
+def animal_sounds():
+    # --- Vanilla farm animals (a separate function so it can be regenerated alone) ---
+    write("mods/vanilla/sounds/cow_ambient.wav", tone(0.9, 150, 115, shape="saw", gain=0.35, curve=1.2, vibrato=0.06))
+    write("mods/vanilla/sounds/cow_hurt.wav", tone(0.35, 190, 140, shape="saw", gain=0.4, curve=1.8, vibrato=0.1))
+    write("mods/vanilla/sounds/sheep_ambient.wav", tone(0.55, 420, 360, shape="square", gain=0.22, curve=1.5, vibrato=0.35))
+    write("mods/vanilla/sounds/sheep_hurt.wav", tone(0.25, 480, 380, shape="square", gain=0.28, curve=2.0, vibrato=0.3))
+    write("mods/vanilla/sounds/chicken_ambient.wav", mix(tone(0.07, 900, 700, shape="square", gain=0.2), [0.0] * n(0.11) + tone(0.07, 950, 750, shape="square", gain=0.2),
+                                                         [0.0] * n(0.22) + tone(0.14, 1000, 650, shape="square", gain=0.22)))
+    write("mods/vanilla/sounds/chicken_hurt.wav", tone(0.18, 1200, 700, shape="square", gain=0.3, curve=2.0))
+    write("mods/vanilla/sounds/shear.wav", mix(noise_burst(0.06, 0.7, gain=0.4), [0.0] * n(0.09) + noise_burst(0.06, 0.7, gain=0.35)))
+    write("mods/vanilla/sounds/milk.wav", mix(noise_burst(0.2, 0.15, curve=2.0, gain=0.3), tone(0.2, 300, 500, gain=0.12)))
 
 
 def hunger_sounds():

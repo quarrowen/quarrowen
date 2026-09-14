@@ -21,6 +21,9 @@ var _buffer: Array = []  # [{time, position, yaw}]
 var _root: Node3D  # rotated by yaw
 var _parts := {}  # animation key (leg_a, leg_b, arm_a, arm_b, head) -> Array of Node3D pivots
 var _meshes: Array[GeometryInstance3D] = []
+var _holder: Node3D
+var _model_scale := 1.0
+var _part_meshes := {}  # lowercased part name -> MeshInstance3D
 var _walk_phase := 0.0
 var _last_position := Vector3.INF
 var _hurt_until := 0.0
@@ -53,6 +56,8 @@ func setup(id: int, def: Dictionary, parts: Array, sprite: Texture2D, pos: Vecto
 	if not parts.is_empty():
 		var holder := Node3D.new()
 		holder.scale = Vector3.ONE * model_scale
+		_holder = holder
+		_model_scale = model_scale
 		_root.add_child(holder)
 		for part in parts:
 			var pivot := Node3D.new()
@@ -64,6 +69,7 @@ func setup(id: int, def: Dictionary, parts: Array, sprite: Texture2D, pos: Vecto
 			pivot.add_child(mesh)
 			_meshes.append(mesh)
 			var part_name := String(part.name).to_lower()
+			_part_meshes[part_name] = mesh
 			for key in ["leg_a", "leg_b", "arm_a", "arm_b", "head"]:
 				if part_name.begins_with(key):
 					if not _parts.has(key):
@@ -94,6 +100,34 @@ func setup(id: int, def: Dictionary, parts: Array, sprite: Texture2D, pos: Vecto
 		_root.add_child(box)
 		_meshes.append(box)
 	push_state(Time.get_ticks_msec() / 1000.0, pos, yaw)
+
+
+## {scale, hide: [part prefixes], tint: {part prefix: "#rrggbb"}} from the server (babies, sheared or
+## dyed sheep, ...).
+func set_look(look: Dictionary) -> void:
+	if _holder != null:
+		_holder.scale = Vector3.ONE * _model_scale * clampf(float(look.get("scale", 1.0)), 0.05, 10.0)
+	elif not _meshes.is_empty() and _meshes[0] is Node3D:
+		_root.scale = Vector3.ONE * clampf(float(look.get("scale", 1.0)), 0.05, 10.0)
+	var hide: Array = look.get("hide", []) if look.get("hide") is Array else []
+	var tint: Dictionary = look.get("tint", {}) if look.get("tint") is Dictionary else {}
+	for part_name: String in _part_meshes:
+		var mesh: MeshInstance3D = _part_meshes[part_name]
+		mesh.visible = not hide.any(func(prefix): return part_name.begins_with(str(prefix).to_lower()))
+		var color := Color.WHITE
+		for prefix in tint:
+			if part_name.begins_with(str(prefix).to_lower()) and Color.html_is_valid(str(tint[prefix])):
+				color = Color.html(str(tint[prefix]))
+		for s in mesh.mesh.get_surface_count():
+			if color == Color.WHITE:
+				mesh.set_surface_override_material(s, null)
+				continue
+			var base := mesh.mesh.surface_get_material(s) as StandardMaterial3D
+			if base == null:
+				continue
+			var tinted := base.duplicate() as StandardMaterial3D
+			tinted.albedo_color = base.albedo_color * color
+			mesh.set_surface_override_material(s, tinted)
 
 
 func push_state(time: float, pos: Vector3, yaw: float) -> void:

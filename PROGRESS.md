@@ -137,9 +137,10 @@ changes with `tools/build_native.sh`.
    5. Mobs and spawning (user decisions 2026-09-14), in order:
       - M1 Spawning (done): light-level rules (monsters in darkness, animals in daylight), surface and cave
         spots, categories with per-player caps, packs, despawning far monsters (animals stay), /mobs.
-      - M2 Farm animals: cows (beef, leather, milk in a bucket as a drink), sheep (shearing, wool regrows,
+      - M2 Farm animals (done): cows (beef, leather, milk in a bucket as a drink), sheep (shearing, wool regrows,
         dyes and colored wool, colored beds), chickens (feathers, eggs over time); breeding with food and
-        babies that grow up (engine breeding capability).
+        babies that grow up (engine breeding capability, replicated entity looks). Not done: throwing
+        eggs, sheep eating grass to regrow, baby hitboxes stay adult-sized.
       - M3 Tameable wolf: tame with bones, follows, fights with you, sits on command (engine owner/follow).
       - M4 Hostiles: spider (engine wall climbing, leaps, neutral by day), slime (splits on death), night
         stalker (fast rare night hunter that avoids light and flees torches).

@@ -58,6 +58,11 @@ func config_for(type_id: int) -> Dictionary:
 	if not _configs.has(type_id):
 		var def: Dictionary = entities.registry.defs[type_id]
 		_configs[type_id] = MobConfig.resolve(def.get("ai", "wander"), def, resolve_entity)
+		if def.get("breeding") is Dictionary:
+			# Animals that breed follow their food and seek partners (engine/server/breeding.gd).
+			for behavior in ["engine:breed", "engine:tempt"]:
+				if not _configs[type_id].behaviors.has(behavior):
+					_configs[type_id].behaviors.append(behavior)
 		if not _configs[type_id].enemy_groups.is_empty():
 			_mob_rivalries = true
 	return _configs[type_id]

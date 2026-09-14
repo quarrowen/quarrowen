@@ -696,11 +696,18 @@ func s_health(health: float, max_health: float, dead: bool, hurt: bool) -> void:
 		client.on_health(health, max_health, dead, hurt)
 
 
-## Entities entering view: [[id, type, position, yaw, item id, item count], ...]
+## Entities entering view: [[id, type, position, yaw, item id, item count, look], ...]
 @rpc("authority", "call_remote", "reliable")
 func s_entity_spawn(records: Array) -> void:
 	if client:
 		client.on_entity_spawn(records)
+
+
+## An entity's look changed: {scale, hide, tint}.
+@rpc("authority", "call_remote", "reliable")
+func s_entity_look(entity_id: int, look: Dictionary) -> void:
+	if client:
+		client.on_entity_look(entity_id, look)
 
 
 @rpc("authority", "call_remote", "reliable")

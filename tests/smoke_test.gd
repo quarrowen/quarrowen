@@ -210,6 +210,22 @@ func _vanilla(c) -> void:
 	c._set_crafting_open(false)
 	await get_tree().create_timer(0.3).timeout
 
+	# Farm animals: dyeing a sheep reaches other clients as a tinted wool part.
+	Net.c_chat.rpc_id(1, "/give vanilla:dye_red")
+	var red_dye: int = c.items.id_of("vanilla:dye_red")
+	await _wait_until(func(): return c.inventory.count_of(red_dye) >= 1, 3.0)
+	await _select_item(c, red_dye)
+	Net.c_chat.rpc_id(1, "/summon vanilla:sheep")
+	var sheep_id := await _wait_for_entity(c, "vanilla:sheep", 4.0)
+	_check(sheep_id >= 0, "a sheep appeared")
+	if sheep_id >= 0:
+		await get_tree().create_timer(0.3).timeout
+		Net.c_interact_entity.rpc_id(1, sheep_id)
+		_check(await _wait_until(func():
+			var view = c._entities.get(sheep_id)
+			return view != null and view._part_meshes.has("wool") and view._part_meshes.wool.get_surface_override_material(0) != null, 3.0),
+			"the dyed sheep's wool is tinted on the client")
+
 
 func _skyblock(c) -> void:
 	_check(not c.inventory.creative, "skyblock puts players in survival")

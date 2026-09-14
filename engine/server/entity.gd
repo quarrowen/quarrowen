@@ -78,6 +78,27 @@ var on_ground: bool:
 		return body.on_ground
 
 
+## How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
+## prefixes to hide, e.g. "wool" once sheared], tint: {part prefix: "#rrggbb"}}. Merged into the current
+## look and saved in data.look.
+func set_look(values: Dictionary) -> void:
+	var look: Dictionary = data.get("look", {}).duplicate() if data.get("look") is Dictionary else {}
+	if values.has("scale"):
+		look.scale = clampf(float(values.scale), 0.05, 10.0)
+	if values.get("hide") is Array:
+		look.hide = (values.hide as Array).slice(0, 16).map(func(h): return str(h).left(32))
+	if values.get("tint") is Dictionary:
+		var tint := {}
+		for key in values.tint:
+			if Color.html_is_valid(str(values.tint[key])):
+				tint[str(key).left(32)] = str(values.tint[key])
+		look.tint = tint
+	if look == data.get("look"):
+		return
+	data.look = look
+	_manager.look_changed(self)
+
+
 func is_alive() -> bool:
 	return not removed and not dying
 

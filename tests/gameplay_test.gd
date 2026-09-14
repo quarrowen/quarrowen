@@ -38,6 +38,7 @@ func _ready() -> void:
 	await _hunger()
 	await _beds()
 	await _spawning()
+	await _animals()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -1365,6 +1366,91 @@ func _spawning() -> void:
 	var named = entities.spawn(zombie, dark + Vector3(150, 0, 0), {"data": {"no_despawn": true}})
 	spawning.despawn()
 	_check(not named.removed, "mobs marked no_despawn stay")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _animals() -> void:
+	var server = _start("animals_%d" % Time.get_ticks_msec())
+	var items = server.items
+	var entities = server.entities
+	var breeding = entities.breeding
+	var p := ServerPlayer.new(server, 105, "Farmer")
+	p.player_id = "farmer"
+	server.players[105] = p
+	var y: int = server.surface_height(8, 8)
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	p.edit_tokens = 1000.0
+	var types = entities.registry
+	var at := Vector3(9.5, y + 1, 8.5)
+	# Breeding cows with wheat.
+	var cow_a = entities.spawn(types.id_of("vanilla:cow"), at)
+	var cow_b = entities.spawn(types.id_of("vanilla:cow"), at + Vector3(0.8, 0, 0))
+	p.inventory.set_slot(0, items.id_of("base:wheat"), 10)
+	p.inventory.selected = 0
+	_check(breeding._tempt_score(cow_a.brain) > 0.0, "cows follow a player holding wheat")
+	server.on_interact_entity(105, cow_a.id)
+	_check(breeding.in_love(cow_a) and p.inventory.counts[0] == 9, "feeding a cow wheat makes it fall in love")
+	server.on_interact_entity(105, cow_a.id)
+	_check(p.inventory.counts[0] == 9, "a cow in love will not eat more")
+	server.on_interact_entity(105, cow_b.id)
+	_check(breeding.partner_for(cow_a) == cow_b and breeding._breed_score(cow_a.brain) > 0.0, "two cows in love find each other")
+	var calf = breeding.mate(cow_a, cow_b)
+	_check(calf != null and calf.data.get("baby", false) and calf.data.look.scale == 0.5, "they have a small calf")
+	_check(not breeding.in_love(cow_a) and float(cow_a.data.breed_cooldown) > 0.0, "parents rest before breeding again")
+	var grow: float = float(calf.data.grow_left)
+	server.on_interact_entity(105, calf.id)
+	_check(float(calf.data.grow_left) < grow, "feeding a calf helps it grow")
+	breeding.update(10000.0)
+	_check(not calf.data.get("baby", false) and calf.data.look.scale == 1.0, "the calf grows up")
+	# Milk from a bucket.
+	p.inventory.set_slot(1, items.id_of("vanilla:bucket"), 1)
+	p.inventory.selected = 1
+	server.on_interact_entity(105, cow_a.id)
+	_check(p.inventory.count_of(items.id_of("vanilla:milk_bucket")) == 1 and p.inventory.count_of(items.id_of("vanilla:bucket")) == 0, "a bucket milks a cow")
+	p.add_modifier("food:vanilla:rotten_flesh:1", "hunger_drain", 0.5, "add", 30.0)
+	server.hunger.set_hunger(p, 10.0)
+	server.hunger.finish_eating(p, p.inventory.ids.find(items.id_of("vanilla:milk_bucket")))
+	_check(not p.modifiers.has("food:vanilla:rotten_flesh:1") and p.inventory.count_of(items.id_of("vanilla:bucket")) == 1, "milk cures food poisoning and gives the bucket back")
+	# Sheep: colors, shearing, regrowth, dyeing, lambs.
+	var sheep = entities.spawn(types.id_of("vanilla:sheep"), at + Vector3(0, 0, 0.8))
+	_check(sheep.data.get("color") is String and sheep.data.look.tint.has("wool"), "sheep get a natural wool color")
+	var white: int = items.id_of("vanilla:wool_white")
+	sheep.data.color = "white"
+	p.inventory.set_slot(2, items.id_of("vanilla:shears"), 1)
+	p.inventory.selected = 2
+	var drops_before: int = entities.in_radius(at, 5.0, 0).size()
+	server.on_interact_entity(105, sheep.id)
+	_check(sheep.data.get("sheared", false) and sheep.data.look.hide == ["wool"] and entities.in_radius(at, 5.0, 0).size() > drops_before, "shears take the wool")
+	_check(int(p.inventory.data[2].get("damage", 0)) == 1, "shearing wears the shears")
+	var mod_animals = null
+	for m in server._mods:
+		if m.get("animals") != null:
+			mod_animals = m.animals
+	if mod_animals != null:
+		sheep.data.regrow_left = 1.0
+		mod_animals._tick()
+		_check(not sheep.data.get("sheared", false) and sheep.data.look.hide == [], "the wool grows back")
+	p.inventory.set_slot(3, items.id_of("vanilla:dye_red"), 2)
+	p.inventory.selected = 3
+	server.on_interact_entity(105, sheep.id)
+	_check(sheep.data.color == "red" and sheep.data.look.tint.wool == "#b83030", "dye turns a sheep red")
+	var other_sheep = entities.spawn(types.id_of("vanilla:sheep"), at + Vector3(0.8, 0, 0.8))
+	if mod_animals != null:
+		mod_animals._set_color(other_sheep, "white")
+	var lamb = breeding.mate(sheep, other_sheep)
+	_check(lamb.data.get("color") == "pink", "a red and a white sheep have a pink lamb (%s)" % lamb.data.get("color"))
+	entities.kill(lamb)
+	_check(not entities.in_radius(lamb.body.position, 3.0, 0).any(func(d): return d.item_id == items.id_of("vanilla:wool_pink")), "lambs drop nothing")
+	_check(server.recipes.index_of("vanilla:bed_pink") >= 0 or server.recipes.recipes.any(func(r): return r.output == items.id_of("vanilla:bed_pink")), "pink wool makes a pink bed")
+	# Chickens lay eggs.
+	var chicken = entities.spawn(types.id_of("vanilla:chicken"), at + Vector3(-1, 0, 0))
+	_check(float(chicken.data.get("next_egg", 0.0)) > 0.0, "hens count down to their next egg")
+	if mod_animals != null:
+		chicken.data.next_egg = 1.0
+		mod_animals._tick()
+		_check(entities.in_radius(chicken.body.position, 2.0, 0).any(func(d): return d.item_id == items.id_of("vanilla:egg")), "a hen lays an egg")
+	_check(mod_animals != null, "found the vanilla animals module")
 	server.queue_free()
 	await get_tree().process_frame
 

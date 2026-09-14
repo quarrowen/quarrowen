@@ -2,6 +2,7 @@ extends "res://engine/server/mod.gd"
 ## Classic creative sandbox on generated terrain.
 
 const Terrain = preload("terrain.gd")
+const Animals = preload("animals.gd")
 const APPLE_CHANCE := 0.12
 
 const HOTBAR := ["base:grass", "base:dirt", "base:stone", "base:cobblestone", "base:planks",
@@ -9,6 +10,7 @@ const HOTBAR := ["base:grass", "base:dirt", "base:stone", "base:cobblestone", "b
 
 var api
 var terrain
+var animals := Animals.new()
 var ids := {}
 
 
@@ -120,6 +122,7 @@ func _setup_mobs() -> void:
 		"health": 10, "speed": 2.2, "persistent": true, "drops": [["vanilla:porkchop", 1], ["vanilla:porkchop", 1, 0.5], ["vanilla:leather", 1, 0.6]],
 		"sounds": {"hurt": "pig_hurt", "death": "pig_death", "ambient": "pig_ambient"},
 		"ai": {"preset": "passive", "group": "pigs", "alert_radius": 12, "wander_radius": 8},
+		"breeding": {"food": ["base:apple"], "cooldown": 300, "grow_seconds": 600},  # pigs love apples
 	})
 	# The Ancient Colossus: a boss 4x taller and 2x wider than a zombie, with telegraphed stomps and
 	# punches, and a second phase that charges and raises undead.
@@ -163,6 +166,7 @@ func _setup_mobs() -> void:
 	api.on("block_break", func(ev):
 		if ev.block == api.block("base:leaves") and randf() < APPLE_CHANCE:
 			ev.drops.append([api.item("base:apple"), 1]))
+	animals.setup(api)
 	api.every(4.0, _mob_tick)
 
 

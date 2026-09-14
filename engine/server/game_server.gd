@@ -142,6 +142,7 @@ var sessions := StationSessions.new(self)
 var experiments := Experiments.new(self)
 var skill := SkillCrafting.new(self)
 var hunger := Hunger.new(self)
+var _mods: Array = []  # loaded GDScript mod instances
 var sleep := Sleep.new(self)
 ## Materials, parts and tools built from parts (see Assembly).
 var assembly := Assembly.new()
@@ -278,6 +279,7 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 			printerr("[server] Mod '%s' has no setup(api) method" % manifest.id)
 			return ERR_INVALID_DATA
 		instance.setup(ModApi.new(self, manifest))
+		_mods.append(instance)
 		server_info.mods.append("%s@%s" % [manifest.id, manifest.version])
 		print("[server] Loaded mod %s %s" % [manifest.id, manifest.version])
 	# The game is the first requested mod marked as one; add-ons like industry follow it.
@@ -1779,7 +1781,9 @@ func on_interact_entity(peer_id: int, target_id: int) -> void:
 	p.edit_tokens -= 1.0
 	if p.get_eye_position().distance_to(e.aabb().get_center()) > ATTACK_REACH + e.def.width:
 		return
-	emit("entity_interact", {"player": p, "entity": e, "item": p.inventory.selected_item()})
+	var ev := emit("entity_interact", {"player": p, "entity": e, "item": p.inventory.selected_item(), "cancelled": false})
+	if not ev.cancelled:
+		entities.breeding.feed(p, e)
 
 
 func on_inventory_click(peer_id: int, slot: int, button: int, shift: bool) -> void:

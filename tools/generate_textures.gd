@@ -162,6 +162,23 @@ func _init() -> void:
 	_save(_bottle(Color(0.95, 0.72, 0.25)), base + "apple_juice.png")
 	_save(_bottle(Color(0.65, 0.35, 1.0)), arcana + "mana_potion.png")
 	_save(_bed_icon(), base + "bed_icon.png")
+
+	# Farm animals (appended last so earlier textures keep their random sequence).
+	_save(_item(Color(0.78, 0.25, 0.22), "meat"), vanilla + "raw_beef.png")
+	_save(_item(Color(0.5, 0.3, 0.18), "meat"), vanilla + "steak.png")
+	_save(_item(Color(0.95, 0.72, 0.62), "meat"), vanilla + "raw_chicken.png")
+	_save(_item(Color(0.82, 0.58, 0.32), "meat"), vanilla + "cooked_chicken.png")
+	_save(_feather(), vanilla + "feather.png")
+	_save(_egg(), vanilla + "egg.png")
+	_save(_bucket(Color(0, 0, 0, 0)), vanilla + "bucket.png")
+	_save(_bucket(Color(0.97, 0.97, 0.95)), vanilla + "milk_bucket.png")
+	_save(_shears(), vanilla + "shears.png")
+	for color_name in WOOL_COLORS:
+		var c: Color = WOOL_COLORS[color_name]
+		_save(_wool(c), vanilla + "wool_%s.png" % color_name)
+		_save(_bed_icon(c), vanilla + "bed_%s_icon.png" % color_name)
+		if color_name != "brown":
+			_save(_item(c, "shard"), vanilla + "dye_%s.png" % color_name)
 	quit()
 
 
@@ -186,8 +203,75 @@ func _part(part: String) -> Image:
 	return img
 
 
-## A bed seen from the side: wooden frame and legs, red blanket, white pillow and a headboard.
-func _bed_icon() -> Image:
+const WOOL_COLORS := {"white": Color(0.95, 0.95, 0.94), "gray": Color(0.54, 0.54, 0.55), "black": Color(0.15, 0.15, 0.16),
+	"brown": Color(0.48, 0.32, 0.19), "red": Color(0.72, 0.19, 0.19), "orange": Color(0.91, 0.52, 0.16),
+	"yellow": Color(0.94, 0.8, 0.25), "green": Color(0.36, 0.6, 0.17), "pink": Color(0.94, 0.6, 0.69)}
+
+
+func _wool(c: Color) -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var curl := 0.06 * sin(x * 1.7 + y * 0.9) + 0.05 * cos(y * 2.1 - x * 0.6)
+			img.set_pixel(x, y, _vary(c.lightened(curl) if curl > 0 else c.darkened(-curl), 0.03))
+	return img
+
+
+func _feather() -> Image:
+	var img := _blank()
+	for i in range(2, 14):
+		img.set_pixel(i, 15 - i, Color(0.75, 0.72, 0.65))  # quill
+	for i in range(4, 13):
+		for w in range(1, 3 if i < 11 else 2):
+			img.set_pixel(clampi(i - w, 0, 15), 15 - i - w, Color(0.97, 0.97, 0.95))
+			img.set_pixel(clampi(i + w, 0, 15), 15 - i + w, Color(0.9, 0.9, 0.88))
+	return img
+
+
+func _egg() -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var d := Vector2((x - 7.5) / 4.6, (y - 8.5) / (5.8 if y > 8 else 4.8)).length()
+			if d < 1.0:
+				img.set_pixel(x, y, Color(0.96, 0.9, 0.78) if not (x < 7 and y < 7) else Color(1.0, 0.97, 0.9))
+	return img
+
+
+func _bucket(fill: Color) -> Image:
+	var img := _blank()
+	var metal := Color(0.72, 0.73, 0.76)
+	for y in range(4, 14):
+		var half := 5 - (y - 4) / 3
+		for x in range(8 - half - 1, 8 + half + 1):
+			var edge: bool = x == 8 - half - 1 or x == 8 + half or y == 13
+			img.set_pixel(x, y, metal.darkened(0.25) if edge else (fill if fill.a > 0.0 and y <= 6 else metal))
+	for x in range(3, 13):
+		img.set_pixel(x, 3, metal.darkened(0.15))
+	for i in range(4):
+		img.set_pixel(3 + i / 2, 3 - i, metal.darkened(0.3))
+		img.set_pixel(12 - i / 2, 3 - i, metal.darkened(0.3))
+	for x in range(5, 11):
+		img.set_pixel(x, 0, metal.darkened(0.3))
+	return img
+
+
+func _shears() -> Image:
+	var img := _blank()
+	var blade := Color(0.82, 0.83, 0.86)
+	for i in range(1, 9):
+		img.set_pixel(6 + i, 9 - i, blade)
+		img.set_pixel(6 + i, 8 - i, blade.darkened(0.2))
+		img.set_pixel(9 - i, 6 + i, blade.darkened(0.1))
+	for y in range(9, 14):
+		for x in range(2, 7):
+			if Vector2(x - 4, y - 11.5).length() < 2.0 and not Vector2(x - 4, y - 11.5).length() < 1.0:
+				img.set_pixel(x, y, Color(0.3, 0.3, 0.32))
+	return img
+
+
+## A bed seen from the side: wooden frame and legs, a blanket (red by default), white pillow and a headboard.
+func _bed_icon(blanket := Color(0.75, 0.22, 0.17)) -> Image:
 	var img := _blank()
 	for y in TILE:
 		for x in TILE:
@@ -201,7 +285,7 @@ func _bed_icon() -> Image:
 			elif y >= 7 and y <= 10 and x >= 3 and x <= 5:
 				c = Color(0.97, 0.96, 0.92)  # pillow
 			elif y >= 8 and y <= 10 and x >= 6 and x <= 15:
-				c = Color(0.75, 0.22, 0.17) if y > 8 else Color(0.85, 0.33, 0.31)  # blanket
+				c = blanket if y > 8 else blanket.lightened(0.15)  # blanket
 			if c.a > 0.0:
 				img.set_pixel(x, y, c)
 	return img

@@ -712,7 +712,7 @@ func respawn() -> void:
 
 func on_entity_spawn(records: Array) -> void:
 	for r in records:
-		if not (r is Array) or r.size() != 6 or not entity_types.is_valid(int(r[1])) or not (r[2] is Vector3):
+		if not (r is Array) or r.size() < 6 or not entity_types.is_valid(int(r[1])) or not (r[2] is Vector3):
 			continue
 		var id := int(r[0])
 		var existing: Node = _entities.get(id)
@@ -731,6 +731,14 @@ func on_entity_spawn(records: Array) -> void:
 		view.setup(id, entity_types.defs[type_id], _entity_parts.get(type_id, []), sprite, r[2], float(r[3]))
 		add_child(view)
 		_entities[id] = view
+		if r.size() > 6 and r[6] is Dictionary and not r[6].is_empty():
+			view.set_look(r[6])
+
+
+func on_entity_look(entity_id: int, look: Dictionary) -> void:
+	var view: EntityView = _entities.get(entity_id)
+	if view != null:
+		view.set_look(look)
 
 
 func on_entity_despawn(ids: PackedInt32Array) -> void:
