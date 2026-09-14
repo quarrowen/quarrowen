@@ -93,7 +93,7 @@ changes with `tools/build_native.sh`.
       crafting table (station recipes). (done: `engine/server/containers.gd`, `container.gd`,
       `mods/base/stations.gd`; JS bindings tested by `tests/mods/js_blocks`)
    Crafting experience (inserted before step 3, user decisions 2026-09-14), in order:
-   - C1 Foundation: client crafting screen with searchable recipe book, categories, craftable filter,
+   - C1 Foundation (done): client crafting screen with searchable recipe book, categories, craftable filter,
      missing ingredients, "how to make" / "used in" lookup from any item, pinned-recipe HUD tracker,
      craft one / craft max, stations pull from nearby chests, stat preview, result effects and toasts.
    - C2 Upgradable stations, all three styles: workshop upgrades (nearby blocks add tier, categories,

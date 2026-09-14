@@ -5,6 +5,8 @@ extends Control
 ##   shift+click: move between hotbar and main          click outside the panel: drop the held stack
 
 signal slot_clicked(slot: int, button: int, shift: bool)
+## R / U over an item: show how it is made or what it is used for.
+signal lookup_requested(item: int, mode: String)
 
 const Inventory = preload("res://engine/shared/inventory.gd")
 const ItemVisuals = preload("res://engine/client/item_visuals.gd")
@@ -82,7 +84,7 @@ func _ready() -> void:
 	_tooltip_label = Label.new()
 	_tooltip.add_child(_tooltip_label)
 	var hint := Label.new()
-	hint.text = "Left: move stack   Right: split / place one   Shift: quick move   Outside: drop"
+	hint.text = "Left: move stack   Right: split / place one   Shift: quick move   Outside: drop   R / U: recipe / uses"
 	hint.modulate = Color(1, 1, 1, 0.6)
 	hint.add_theme_font_size_override("font_size", 12)
 	box.add_child(hint)
@@ -287,6 +289,23 @@ func _draw_stack(icon: TextureRect, count: Label, id: int, amount: int, exact :=
 	else:
 		icon.texture = null
 	count.text = str(amount) if has_item and amount > 1 else ""
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not visible or not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	if event.physical_keycode != KEY_R and event.physical_keycode != KEY_U:
+		return
+	var item := 0
+	if _hovered >= 0 and _hovered < inventory.total() and inventory.counts[_hovered] > 0:
+		item = inventory.ids[_hovered]
+	var packed: PackedInt32Array = container.get("slots", PackedInt32Array())
+	var c := _hovered - CONTAINER_BASE
+	if c >= 0 and c < _container_slots.size() and packed.size() >= _container_slots.size() * 2 and packed[_container_slots.size() + c] > 0:
+		item = packed[c]
+	if item > 0:
+		lookup_requested.emit(item, "make" if event.physical_keycode == KEY_R else "use")
+		get_viewport().set_input_as_handled()
 
 
 func _process(_delta: float) -> void:

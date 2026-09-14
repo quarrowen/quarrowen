@@ -583,7 +583,7 @@ func _containers() -> void:
 
 	# Stations: recipes that need a crafting table.
 	var pick: int = items.id_of("base:wooden_pickaxe")
-	var recipe: Dictionary = server._recipes.filter(func(r): return r.output == pick)[0]
+	var recipe: Dictionary = server.recipes.recipes.filter(func(r): return r.output == pick)[0]
 	p.inventory.clear()
 	p.inventory.set_slot(0, items.id_of("base:planks"), 8)
 	p.inventory.set_slot(1, items.id_of("base:stick"), 4)
@@ -592,10 +592,23 @@ func _containers() -> void:
 	server.set_block_authoritative(table_pos, reg.id_of("base:crafting_table"))
 	p.hurt_timer = 0.0
 	server.on_interact(81, table_pos)
-	_check(p.crafting_station.get("name") == "crafting_table" and p.ui_ids.has("engine:crafting") and server._can_craft(p, recipe),
+	_check(p.crafting_station.get("name") == "crafting_table" and server._can_craft(p, recipe),
 		"right-clicking the table opens station crafting")
-	server._on_crafting_action(p, "craft:%d" % server._recipes.find(recipe))
+	server.craft(p, server.recipes.recipes.find(recipe))
 	_check(p.inventory.count_of(pick) == 1, "crafted a pickaxe at the table")
+	# The table draws ingredients from a chest beside it; craft-all makes as many as it can.
+	p.inventory.clear()
+	var chest_near := table_pos + Vector3i(1, 0, 0)
+	server.set_block_authoritative(chest_near, reg.id_of("base:chest"))
+	var near_chest = server.containers.get_container(chest_near)
+	near_chest.set_item(0, items.id_of("base:planks"), 9)
+	near_chest.set_item(1, items.id_of("base:stick"), 10)
+	_check(server.crafting_stock(p).get(items.id_of("base:planks")) == 9, "station stock counts the nearby chest")
+	_check(server.craftable_times(p, recipe) == 3, "three pickaxes' worth of planks nearby")
+	_check(server.craft(p, server.recipes.recipes.find(recipe), 64) == 3 and p.inventory.count_of(pick) == 3
+		and near_chest.get_item(0).item == 0 and near_chest.get_item(1).count == 4, "craft-all took ingredients from the chest")
+	_check(server.recipes.recipes.find(recipe) == server.recipes.index_of("base:wooden_pickaxe") and recipe.category == "tools",
+		"recipes get ids and categories")
 	server.queue_free()
 	await get_tree().process_frame
 
@@ -633,7 +646,7 @@ func _js_blocks() -> void:
 	crate = server.containers.get_container(crate_pos)
 	_check(crate.get_item(0).item == server.items.id_of("base:coal") and crate.get_item(0).count == 3 and crate.state.reason == "random"
 		and crate.state.fuel == 7.0, "a JavaScript block tick filled the crate (%s)" % crate.state)
-	var stick_recipe: Dictionary = server._recipes.filter(func(r): return r.station == "workbench")[0]
+	var stick_recipe: Dictionary = server.recipes.recipes.filter(func(r): return r.station == "workbench")[0]
 	p.inventory.set_slot(1, server.items.id_of("base:planks"), 2)
 	_check(not server._can_craft(p, stick_recipe), "a JavaScript station recipe needs its station")
 	server.queue_free()

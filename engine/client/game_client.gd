@@ -38,6 +38,9 @@ const LookBuilder = preload("res://engine/client/avatar/look_builder.gd")
 const AvatarStore = preload("res://engine/client/avatar/avatar_store.gd")
 const AvatarEditor = preload("res://engine/client/avatar/avatar_editor.gd")
 const EffectPlayer = preload("res://engine/client/effects/effect_player.gd")
+const CraftingScreen = preload("res://engine/client/crafting_screen.gd")
+const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
+const PINS_PATH := "user://crafting_pins.cfg"
 const ItemMesh = preload("res://engine/client/avatar/item_mesh.gd")
 const ViewModel = preload("res://engine/client/avatar/view_model.gd")
 
@@ -84,6 +87,7 @@ var rules := PlayerPhysics.Rules.new()
 var world := VoxelWorld.new()
 var inventory := Inventory.new()
 var cosmetics := Cosmetics.new()
+var recipes := RecipeRegistry.new()
 ## Server cosmetics you own on this server.
 var owned_cosmetics := PackedStringArray()
 ## Effect name -> times the server played it for us (debug overlay and tests).
@@ -143,6 +147,11 @@ var _look_cache := {}  # key -> ImageTexture (players sharing armor share textur
 var _looks: LookBuilder
 var _avatar_editor: AvatarEditor
 var _effects: EffectPlayer
+var _crafting_screen: CraftingScreen
+var _pin_panel: PanelContainer
+var _pin_rows: VBoxContainer
+var _toast: PanelContainer
+var _pending_lookup := {}
 ## Follows your own body so effects can follow you even while the avatar is hidden in first person.
 var _self_anchor := Node3D.new()
 var _view_model_look := ""
@@ -294,6 +303,8 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	inventory.set_equipment_slots(items.slot_names())
 	_player_rig = PlayerRig.sanitize(content.get("player_rig"))
 	cosmetics.load_network(content.get("cosmetics"))
+	recipes.load_network(content.get("recipes"))
+	_crafting_screen.processes = content.get("processes", {}) if content.get("processes") is Dictionary else {}
 	if not _effects.registry.load_network(content.get("effects", [])):
 		_leave("Server sent invalid effect definitions")
 		return
@@ -408,6 +419,8 @@ func _finish_content() -> void:
 		if _asset_textures.has(d.sprite):
 			_entity_sprites[d.id] = _asset_textures[d.sprite]
 	_sounds.manifest = _manifest
+	_crafting_screen.atlas = _atlas
+	_load_pin()
 	_effects.textures = _asset_textures
 	_effects.play_sound = func(sound_name: String, at: Vector3): _sounds.play_name(sound_name, at)
 	_inventory_screen.atlas = _atlas
@@ -539,6 +552,8 @@ func on_inventory(slots: PackedInt32Array, selected: int, creative: bool, item_d
 		inventory.selected = clampi(selected, 0, Inventory.HOTBAR - 1)
 	_refresh_hotbar()
 	_inventory_screen.refresh()
+	_crafting_screen.refresh()
+	_refresh_pin()
 
 
 func on_player_joined(peer_id: int, remote_name: String) -> void:
@@ -1381,6 +1396,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("pause"):
 			_close_avatar_editor()
 		return
+	elif _crafting_screen.visible:
+		if event.is_action_pressed("pause") or event.is_action_pressed("crafting") or event.is_action_pressed("inventory"):
+			_set_crafting_open(false)
+			get_viewport().set_input_as_handled()
+		return
 	elif event.is_action_pressed("pause") and _inventory_screen.visible:
 		_set_inventory_open(false)
 	elif event.is_action_pressed("inventory") and _welcomed and not dead and (_inventory_screen.visible or _gameplay_input_enabled()):
@@ -1418,7 +1438,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _gameplay_input_enabled() -> bool:
 	var captured := ignore_mouse_capture or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	return captured and not _chat_input.visible and not _pause_panel.visible and not _server_ui.has_modal() \
-		and not _inventory_screen.visible and not dead and _avatar_editor == null
+		and not _inventory_screen.visible and not dead and _avatar_editor == null and not _crafting_screen.visible
 
 
 func drop_selected(whole_stack := false) -> void:
@@ -1429,6 +1449,8 @@ func drop_selected(whole_stack := false) -> void:
 func _set_inventory_open(open: bool) -> void:
 	if _inventory_screen.visible == open:
 		return
+	if open:
+		_set_crafting_open(false)
 	_inventory_screen.visible = open
 	if not open and not _inventory_screen.container.is_empty():
 		_inventory_screen.set_container({})
@@ -1442,7 +1464,160 @@ func _set_inventory_open(open: bool) -> void:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
+# --- Crafting -------------------------------------------------------------------------------------
+
+func on_crafting_open(station: Dictionary, stock: Dictionary) -> void:
+	_set_inventory_open(false)
+	_crafting_screen.visible = true
+	_crafting_screen.open(station, stock)
+	if not _pending_lookup.is_empty():
+		_crafting_screen.show_lookup(_pending_lookup.item, _pending_lookup.mode)
+		_pending_lookup = {}
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func on_crafting_stock(stock: Dictionary) -> void:
+	_crafting_screen.stock = stock
+	_crafting_screen.refresh()
+	_refresh_pin()
+
+
+func on_crafted(index: int, times: int, stock: Dictionary) -> void:
+	_crafting_screen.stock = stock
+	_crafting_screen.refresh()
+	_refresh_pin()
+	if index >= 0 and index < recipes.recipes.size():
+		var r: Dictionary = recipes.recipes[index]
+		_show_toast(r.output, "Crafted %d x %s" % [r.count * times, items.display_name(r.output)])
+
+
+## Asks the server to craft a recipe (see RecipeRegistry indices).
+func craft_recipe(index: int, times := 1) -> void:
+	if index >= 0 and times > 0:
+		Net.c_craft.rpc_id(1, index, times)
+
+
+func _set_crafting_open(open: bool) -> void:
+	if open:
+		Net.c_open_menu.rpc_id(1, "crafting")
+		return
+	if not _crafting_screen.visible:
+		return
+	_crafting_screen.visible = false
+	if _welcomed:
+		Net.c_crafting_closed.rpc_id(1)
+	if not ignore_mouse_capture and not dead:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+## Opens the recipe book filtered to what makes (`mode` "make") or uses ("use") an item.
+func lookup_recipes(item: int, mode: String) -> void:
+	if _crafting_screen.visible:
+		_crafting_screen.show_lookup(item, mode)
+		return
+	_pending_lookup = {"item": item, "mode": mode}
+	_set_crafting_open(true)
+
+
+## Pins a recipe to the HUD (-1 unpins). Saved per server.
+func pin_recipe(index: int) -> void:
+	_crafting_screen.pinned = index
+	var cfg := ConfigFile.new()
+	cfg.load(PINS_PATH)
+	cfg.set_value("pins", "%s:%d" % [server_address, server_port], recipes.recipes[index].id if index >= 0 else "")
+	cfg.save(PINS_PATH)
+	_crafting_screen.refresh()
+	_refresh_pin()
+
+
+func _load_pin() -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(PINS_PATH)
+	_crafting_screen.pinned = recipes.index_of(String(cfg.get_value("pins", "%s:%d" % [server_address, server_port], "")))
+	_refresh_pin()
+
+
+func _build_pin_panel() -> void:
+	_pin_panel = PanelContainer.new()
+	_pin_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_pin_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_pin_panel.position = Vector2(-16, 110)
+	_pin_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pin_panel.add_theme_stylebox_override("panel", CraftingScreen._box(Color(0.05, 0.05, 0.07, 0.7), 8))
+	_pin_panel.visible = false
+	_hud_root.add_child(_pin_panel)
+	_pin_rows = VBoxContainer.new()
+	_pin_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pin_panel.add_child(_pin_rows)
+	_toast = PanelContainer.new()
+	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_toast.position.y = 70
+	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toast.add_theme_stylebox_override("panel", CraftingScreen._box(Color(0.08, 0.07, 0.04, 0.9), 10))
+	_toast.modulate.a = 0.0
+	_hud_root.add_child(_toast)
+
+
+## The pinned recipe's ingredients with what you have, updated as you gather.
+func _refresh_pin() -> void:
+	if _pin_panel == null:
+		return
+	var index := _crafting_screen.pinned
+	_pin_panel.visible = index >= 0 and index < recipes.recipes.size() and _item_meshes != null
+	if not _pin_panel.visible:
+		return
+	for child in _pin_rows.get_children():
+		child.queue_free()
+	var r: Dictionary = recipes.recipes[index]
+	var ready: bool = _crafting_screen.craftable_times(index) > 0 or (r.station != "" and _crafting_screen.have_all(index))
+	_pin_rows.add_child(_pin_row(r.output, "%s%s" % [items.display_name(r.output), "  ✓" if ready else ""], Color(1.0, 0.82, 0.4)))
+	for id: int in r.inputs:
+		var got := _crafting_screen.have(id)
+		var need := int(r.inputs[id])
+		_pin_rows.add_child(_pin_row(id, "%d / %d  %s" % [mini(got, 999), need, items.display_name(id)],
+			Color(0.55, 0.9, 0.5) if got >= need else Color(1, 1, 1, 0.85)))
+	if r.station != "":
+		var hint := Label.new()
+		hint.text = "at a %s" % CraftingScreen.station_title(r.station)
+		hint.add_theme_font_size_override("font_size", 12)
+		hint.modulate = Color(1, 1, 1, 0.55)
+		_pin_rows.add_child(hint)
+
+
+func _pin_row(item: int, text: String, color: Color) -> Control:
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon := TextureRect.new()
+	icon.texture = _crafting_screen._icon(item)
+	icon.custom_minimum_size = Vector2(22, 22)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	row.add_child(icon)
+	var label := _shadow_label()
+	label.text = text
+	label.add_theme_color_override("font_color", color)
+	row.add_child(label)
+	return row
+
+
+## A short popup with an item icon ("Crafted 4 x Planks"), also used for discoveries.
+func _show_toast(item: int, text: String) -> void:
+	for child in _toast.get_children():
+		child.queue_free()
+	_toast.add_child(_pin_row(item, text, Color(1.0, 0.9, 0.6)))
+	_toast.reset_size()
+	_toast.pivot_offset = _toast.size * 0.5
+	var tween := _toast.create_tween()
+	_toast.modulate.a = 1.0
+	_toast.scale = Vector2(0.8, 0.8)
+	tween.tween_property(_toast, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_interval(1.6)
+	tween.tween_property(_toast, "modulate:a", 0.0, 0.5)
+
+
 func on_container_open(view: Dictionary) -> void:
+	_set_crafting_open(false)
 	_inventory_screen.set_container(view)
 	_set_inventory_open(true)
 
@@ -1792,11 +1967,23 @@ func _build_hud() -> void:
 	volume_row.add_child(_volume_slider)
 	pause_box.add_child(volume_row)
 
+	_crafting_screen = CraftingScreen.new()
+	_crafting_screen.items = items
+	_crafting_screen.recipes = recipes
+	_crafting_screen.inventory = inventory
+	_crafting_screen.visible = false
+	_crafting_screen.craft_requested.connect(craft_recipe)
+	_crafting_screen.pin_requested.connect(func(index): pin_recipe(-1 if index == _crafting_screen.pinned else index))
+	_crafting_screen.closed.connect(_set_crafting_open.bind(false))
+	_hud_root.add_child(_crafting_screen)
+	_build_pin_panel()
+
 	_inventory_screen = InventoryScreen.new()
 	_inventory_screen.inventory = inventory
 	_inventory_screen.items = items
 	_inventory_screen.visible = false
 	_inventory_screen.slot_clicked.connect(inventory_click)
+	_inventory_screen.lookup_requested.connect(lookup_recipes)
 	_hud_root.add_child(_inventory_screen)
 
 	_death_panel = Control.new()

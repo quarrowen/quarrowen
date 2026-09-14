@@ -21,6 +21,7 @@ var types := {}  # type name -> def
 var _server
 var _viewers := {}  # Vector3i -> {peer id: true}
 var _dirty := {}  # Vector3i -> true (send to viewers this tick)
+var _stock_dirty := {}  # Vector3i -> true (crafting stations nearby need new stock)
 var _check_timer := 0.0
 
 
@@ -108,6 +109,7 @@ func close(p, tell_client := true) -> void:
 func mark_changed(pos: Vector3i) -> void:
 	if _viewers.has(pos):
 		_dirty[pos] = true
+	_stock_dirty[pos] = true
 
 
 ## Sends changed contents to viewers and closes screens players walked away from.
@@ -120,6 +122,9 @@ func update(delta: float) -> void:
 			if p != null and p._online() and c != null:
 				Net.s_container_update.rpc_id(peer_id, view)
 	_dirty.clear()
+	for pos: Vector3i in _stock_dirty:
+		_server._refresh_crafting_stock(pos)
+	_stock_dirty.clear()
 	_check_timer += delta
 	if _check_timer < 0.5:
 		return

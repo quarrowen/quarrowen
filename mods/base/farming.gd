@@ -40,7 +40,7 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	ids.seeds = api.register_item("wheat_seeds", {"display_name": "Wheat Seeds", "icon": "textures/wheat_seeds.png", "usable": true})
 	ids.wheat = api.register_item("wheat", {"display_name": "Wheat", "icon": "textures/wheat.png"})
 	ids.bread = api.register_item("bread", {"display_name": "Bread", "icon": "textures/bread.png", "usable": true})
-	api.register_recipe({"base:wheat": 3}, "base:bread")
+	api.register_recipe({"base:wheat": 3}, "base:bread", 1, {"category": "food"})
 	ids.hoes = {}
 	for m in [{"name": "wooden", "input": "base:planks", "tier": 1, "durability": 60},
 			{"name": "stone", "input": "base:cobblestone", "tier": 2, "durability": 130},

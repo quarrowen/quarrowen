@@ -5,12 +5,13 @@ extends Node
 ##     [--yaw=0.8] [--pitch=-0.25] [--commands="/industry demo|/time night"] [--wait=3] [--menu=crafting]
 ##     [--camera=0|1|2] [--avatar='{"wear": {...}}' (join with) | --wear='{...}' (change in game)]
 ##     [--editor=hat (opens the avatar editor on a category)] [--swing=0.12 (capture that long into a swing)]
+##     [--open=base:chest (place and open a block)] [--craft=base:wooden_pickaxe (recipe book on a recipe)]
 
 const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -70,6 +71,14 @@ func _ready() -> void:
 			await get_tree().create_timer(0.8).timeout
 			Net.c_interact.rpc_id(1, spot)
 			await get_tree().create_timer(0.8).timeout
+	if not String(options.craft).is_empty():
+		# Open the recipe book on a recipe: --craft=base:wooden_pickaxe (or "book").
+		if not client._crafting_screen.visible:
+			client._set_crafting_open(true)
+			await get_tree().create_timer(0.8).timeout
+		var index: int = client.recipes.index_of(options.craft)
+		if index >= 0:
+			client._crafting_screen._select(index)
 	if not String(options.wear).is_empty():
 		Net.c_set_avatar.rpc_id(1, JSON.parse_string(options.wear))  # in game, so server cosmetics apply too
 		await get_tree().create_timer(0.5).timeout

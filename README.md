@@ -300,8 +300,14 @@ api.register_process("firing", "my_mod:clay", "my_mod:pot", 1, 12.0)   # api.get
 api.set_fuel("my_mod:peat", 40.0)                                        # api.get_fuel(id)
 ```
 
-- **Stations:** blocks with `station: "<name>"` open the crafting menu for recipes that need that
-  station (plus the ones crafted anywhere). Creative players craft everything anywhere.
+- **Crafting screen:** C (or right-clicking a station) opens a recipe book with search, category tabs,
+  a craftable filter, what you have and still need (including items in chests within 4 blocks of a
+  station, which crafting draws from), stats compared with what you hold or wear, Craft / Craft all and
+  Pin (a HUD tracker that updates as you gather). R / U over any item opens how it is made / what it
+  is used in; ingredients link to their own recipes. `register_recipe(..., {station, category, id})`,
+  `register_recipe_category(name, {display_name, icon})`, event `item_crafted {player, item, count, recipe}`.
+- **Stations:** blocks with `station: "<name>"` unlock recipes that need that station (plus the ones
+  crafted anywhere). Creative players craft everything anywhere.
 - **Bundled (base):** crafting table (tools, weapons, armor, hoes, chests and furnaces need one), chest
   (27 slots) and furnace. The furnace smelts ore into ingots, sand into glass, cobblestone into stone,
   logs into charcoal and (vanilla) raw into cooked porkchops; it glows while burning and keeps

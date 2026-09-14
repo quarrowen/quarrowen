@@ -318,6 +318,19 @@ func c_drop_item(whole_stack: bool) -> void:
 		server.on_drop_item(_sender(), whole_stack)
 
 
+## Crafts recipe `index` (see RecipeRegistry) up to `times` times.
+@rpc("any_peer", "call_remote", "reliable")
+func c_craft(index: int, times: int) -> void:
+	if server:
+		server.on_craft(_sender(), index, times)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func c_crafting_closed() -> void:
+	if server:
+		server.on_crafting_closed(_sender())
+
+
 ## The player's avatar (Cosmetics data): on join their portable look, in game any change.
 @rpc("any_peer", "call_remote", "reliable")
 func c_set_avatar(avatar: Dictionary) -> void:
@@ -405,6 +418,27 @@ func s_inventory(slots: PackedInt32Array, selected: int, creative: bool, item_da
 func s_effect(effect_id: int, position: Vector3, options: Dictionary) -> void:
 	if client:
 		client.on_effect(effect_id, position, options)
+
+
+## Opens the crafting screen: station {name ("" = by hand), title, position}, and the items the
+## station can draw from nearby chests {item id: count}.
+@rpc("authority", "call_remote", "reliable")
+func s_crafting_open(station: Dictionary, stock: Dictionary) -> void:
+	if client:
+		client.on_crafting_open(station, stock)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_crafting_stock(stock: Dictionary) -> void:
+	if client:
+		client.on_crafting_stock(stock)
+
+
+## A craft succeeded: recipe index, times crafted, the station's remaining stock.
+@rpc("authority", "call_remote", "reliable")
+func s_crafted(index: int, times: int, stock: Dictionary) -> void:
+	if client:
+		client.on_crafted(index, times, stock)
 
 
 ## A container screen opened: {title, size, groups, bars, slots, data, progress} (see Containers).

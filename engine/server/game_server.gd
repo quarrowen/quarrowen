@@ -29,6 +29,7 @@ const Cosmetics = preload("res://engine/shared/cosmetics.gd")
 const EffectRegistry = preload("res://engine/shared/effect_registry.gd")
 const BlockTicks = preload("res://engine/server/block_ticks.gd")
 const Containers = preload("res://engine/server/containers.gd")
+const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -58,6 +59,8 @@ const REGEN_INTERVAL := 2.5
 const VOID_DAMAGE_Y := -32.0
 ## Landing as fast as a fall from higher than this (blocks) hurts: 1 damage per extra block.
 const SAFE_FALL_HEIGHT := 3.2
+## Blocks around a crafting station whose chests it can draw ingredients from.
+const STATION_PULL_RADIUS := 4
 ## Minimum seconds between avatar changes from a client.
 const AVATAR_CHANGE_INTERVAL := 0.2
 
@@ -115,7 +118,8 @@ var _generated := {}  # Vector2i chunk -> PackedByteArray as generated (kept whi
 var _block_data := {}  # Vector2i chunk -> {Vector3i: Dictionary}
 var _save_dirty := {}  # Vector2i chunk -> true
 var _js_mods: Array = []  # keeps JavaScript runtimes alive
-var _recipes: Array = []  # {inputs: {item id: count}, output: item id, count}
+## Crafting recipes and categories (sent to clients for the recipe book).
+var recipes := RecipeRegistry.new()
 var _snapshot_round := 0
 var _support_rules := {}  # block id -> null (none) | true (solid below) | {block id: true}
 var _fuels := {}  # item id -> seconds it burns
@@ -1021,7 +1025,7 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 	var content := {"blocks": registry.to_network(), "items": items.to_network(), "rules": rules.to_dict(),
 		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
 		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
-		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network()}
+		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network(), "recipes": recipes.to_network(), "processes": _processes}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
@@ -1522,8 +1526,7 @@ func on_interact(peer_id: int, pos: Vector3i) -> void:
 	if not containers.type_of_block(block).is_empty():
 		containers.open(p, pos)
 	elif not String(registry.defs[block].get("station", "")).is_empty():
-		p.crafting_station = {"name": String(registry.defs[block].station), "position": pos, "title": registry.defs[block].display_name}
-		show_crafting(p)
+		open_crafting(p, {"name": String(registry.defs[block].station), "position": pos, "title": registry.defs[block].display_name})
 
 
 func on_select_slot(peer_id: int, slot: int) -> void:
@@ -1584,8 +1587,7 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 func on_open_menu(peer_id: int, menu: String) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p and menu == "crafting":
-		p.crafting_station = {}
-		show_crafting(p)
+		open_crafting(p, {})
 
 
 func on_attack(peer_id: int, kind: int, target_id: int) -> void:
@@ -1958,8 +1960,10 @@ func _update_player_rules(p: ServerPlayer) -> void:
 # --- Crafting -----------------------------------------------------------------------------------
 
 ## `station`: "" (crafted anywhere) or a station name blocks declare with `station` (e.g. a crafting table).
-func add_recipe(inputs: Dictionary, output: int, count: int, station := "") -> void:
-	_recipes.append({"inputs": inputs, "output": output, "count": count, "station": station})
+## options: category, id. Returns the recipe index.
+func add_recipe(inputs: Dictionary, output: int, count: int, station := "", options := {}) -> int:
+	return recipes.add({"inputs": inputs, "output": output, "count": count, "station": station,
+		"category": options.get("category", ""), "id": options.get("id", "")}, items)
 
 
 ## How long an item burns as fuel (seconds; 0 = not fuel).
@@ -1989,78 +1993,138 @@ func get_process(kind: String, input: int) -> Dictionary:
 func _at_station(p: ServerPlayer, recipe: Dictionary) -> bool:
 	if recipe.station.is_empty() or p.inventory.creative:
 		return true
+	return _station_valid(p) and p.crafting_station.name == recipe.station
+
+
+## The player's crafting station still exists and is within reach.
+func _station_valid(p: ServerPlayer) -> bool:
 	var s: Dictionary = p.crafting_station
-	if s.is_empty() or s.name != recipe.station or String(registry.defs[world.get_block_v(s.position)].get("station", "")) != s.name:
+	if s.is_empty() or str(registry.defs[world.get_block_v(s.position)].get("station", "")) != s.name:
 		return false
 	return p.get_eye_position().distance_to(Vector3(s.position) + Vector3.ONE * 0.5) <= Containers.MAX_DISTANCE
 
 
-func _can_craft(p: ServerPlayer, recipe: Dictionary) -> bool:
+## Items a station can draw from containers around it: {item id: count}. Empty when crafting by hand.
+func crafting_stock(p: ServerPlayer) -> Dictionary:
+	var stock := {}
+	for c in _stock_containers(p):
+		for i in c.size():
+			var s: Dictionary = c.get_item(i)
+			if s.item > 0 and s.data.is_empty():
+				stock[s.item] = int(stock.get(s.item, 0)) + s.count
+	return stock
+
+
+func _stock_containers(p: ServerPlayer) -> Array:
+	var out := []
+	if not _station_valid(p):
+		return out
+	var center: Vector3i = p.crafting_station.position
+	var r := STATION_PULL_RADIUS
+	for pos: Vector3i in find_block_data():
+		if absi(pos.x - center.x) <= r and absi(pos.y - center.y) <= r and absi(pos.z - center.z) <= r:
+			var c = containers.get_container(pos)
+			if c != null:
+				out.append(c)
+	return out
+
+
+## How many times the player can craft a recipe right now (inventory plus the station's nearby chests).
+func craftable_times(p: ServerPlayer, recipe: Dictionary, limit := 999) -> int:
 	if not _at_station(p, recipe):
-		return false
+		return 0
 	if p.inventory.creative:
-		return true
+		return limit
+	var stock := crafting_stock(p)
+	var times := limit
 	for id: int in recipe.inputs:
-		if p.inventory.count_of(id) < recipe.inputs[id]:
-			return false
-	return true
+		times = mini(times, (p.inventory.count_of(id) + int(stock.get(id, 0))) / int(recipe.inputs[id]))
+	return times
 
 
+func _can_craft(p: ServerPlayer, recipe: Dictionary) -> bool:
+	return craftable_times(p, recipe, 1) > 0
+
+
+## Opens the crafting screen for a player: by hand ({}) or at a station {name, position, title}.
+func open_crafting(p: ServerPlayer, station := {}) -> void:
+	p.crafting_station = station
+	if p._online():
+		var info := {"name": station.get("name", ""), "title": station.get("title", "Crafting")}
+		if station.has("position"):
+			info.position = station.position
+		Net.s_crafting_open.rpc_id(p.peer_id, info, crafting_stock(p))
+
+
+## Mods: opens the crafting screen for a player as if they pressed the crafting key.
 func show_crafting(p: ServerPlayer) -> void:
-	if not p.crafting_station.is_empty() and not _at_station(p, {"station": p.crafting_station.name}):
-		p.crafting_station = {}
-	var title: String = p.crafting_station.get("title", "Crafting")
-	var children := [{"type": "label", "text": title, "size": 22, "color": "#ffd166"}]
-	if _recipes.is_empty():
-		children.append({"type": "label", "text": "This server has no recipes."})
-	var order := range(_recipes.size()).filter(func(i): return _at_station(p, _recipes[i]))
-	var elsewhere := _recipes.size() - order.size()
-	order.sort_custom(func(a, b): return _can_craft(p, _recipes[a]) and not _can_craft(p, _recipes[b]))
-	for i in order.slice(0, 20):
-		var recipe: Dictionary = _recipes[i]
-		var parts := PackedStringArray()
-		for id: int in recipe.inputs:
-			parts.append("%d %s" % [recipe.inputs[id], items.display_name(id)])
-		var can := _can_craft(p, recipe)
-		children.append({"type": "hbox", "children": [
-			{"type": "image", "asset": items.icon_of(recipe.output), "size": 24},
-			{"type": "label", "text": "%d x %s  <-  %s" % [recipe.count, items.display_name(recipe.output), ", ".join(parts)],
-				"color": "#ffffff" if can else "#8a8a8a"},
-			{"type": "button", "text": "Craft", "action": "craft:%d" % i, "disabled": not can},
-		]})
-	if elsewhere > 0:
-		children.append({"type": "label", "text": "%d more recipes need a crafting station" % elsewhere, "color": "#9a9a9a"})
-	children.append({"type": "button", "text": "Close", "action": "close"})
-	p.show_ui("engine:crafting", {"anchor": "center", "modal": true, "children": children})
+	open_crafting(p, {})
 
 
-func _on_crafting_action(p: ServerPlayer, action: String) -> void:
-	if action == "close":
-		p.hide_ui("engine:crafting")
-		p.crafting_station = {}
-		return
-	var index := int(action.trim_prefix("craft:"))
-	if not action.begins_with("craft:") or index < 0 or index >= _recipes.size():
-		return
-	var recipe: Dictionary = _recipes[index]
-	if not _can_craft(p, recipe):
-		return
+## Crafts a recipe up to `times` times, taking ingredients from the inventory first and then from the
+## station's nearby chests. Returns how many times it crafted.
+func craft(p: ServerPlayer, index: int, times := 1) -> int:
+	if index < 0 or index >= recipes.recipes.size() or p.dead:
+		return 0
+	var recipe: Dictionary = recipes.recipes[index]
+	var n := craftable_times(p, recipe, clampi(times, 1, 64))
+	if n <= 0:
+		return 0
 	if not p.inventory.creative:
+		var sources := _stock_containers(p)
 		for id: int in recipe.inputs:
-			p.inventory.remove(id, recipe.inputs[id])
-	var left := p.inventory.add(recipe.output, recipe.count, items.max_stack(recipe.output))
-	p.sync_inventory()
+			var needed: int = int(recipe.inputs[id]) * n
+			var from_inventory := mini(needed, p.inventory.count_of(id))
+			p.inventory.remove(id, from_inventory)
+			needed -= from_inventory
+			for c in sources:
+				for i in c.size():
+					if needed <= 0:
+						break
+					var s: Dictionary = c.get_item(i)
+					if s.item == id and s.data.is_empty():
+						needed -= int(c.take(i, needed).count)
+	var total: int = recipe.count * n
+	var left := p.inventory.add(recipe.output, total, items.max_stack(recipe.output))
 	if left > 0:
-		p.send_message("Inventory full: %d %s lost" % [left, items.display_name(recipe.output)])
-	emit("item_crafted", {"player": p, "item": recipe.output, "count": recipe.count})
-	show_crafting(p)
+		p.drop(recipe.output, left)
+	p.sync_inventory()
+	emit("item_crafted", {"player": p, "item": recipe.output, "count": total, "recipe": recipe.id})
+	var at: Vector3 = Vector3(p.crafting_station.position) + Vector3(0.5, 1.1, 0.5) if _station_valid(p) \
+		else p.get_eye_position() + PlayerPhysics.look_direction(p.yaw, p.pitch) * 0.7
+	play_effect("engine:craft", at, {"scale": 0.6})
+	play_sound_at("engine:craft", at, 0.8, randf_range(0.95, 1.1))
+	if p._online():
+		Net.s_crafted.rpc_id(p.peer_id, index, n, crafting_stock(p))
+	return n
+
+
+func on_craft(peer_id: int, index: int, times: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or p.edit_tokens < 1.0:
+		return
+	p.edit_tokens -= 1.0
+	craft(p, index, times)
+
+
+func on_crafting_closed(peer_id: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p != null:
+		p.crafting_station = {}
+
+
+## Tells players crafting near a changed container what their station can draw from now.
+func _refresh_crafting_stock(pos: Vector3i) -> void:
+	for p: ServerPlayer in players.values():
+		if not p.crafting_station.has("position") or not p._online():
+			continue
+		var d: Vector3i = p.crafting_station.position - pos
+		if absi(d.x) <= STATION_PULL_RADIUS and absi(d.y) <= STATION_PULL_RADIUS and absi(d.z) <= STATION_PULL_RADIUS:
+			Net.s_crafting_stock.rpc_id(p.peer_id, crafting_stock(p))
 
 
 func on_ui_action(peer_id: int, ui_id: String, action: String) -> void:
 	var p: ServerPlayer = players.get(peer_id)
-	if p and ui_id == "engine:crafting" and p.ui_ids.has(ui_id):
-		_on_crafting_action(p, action.left(64))
-		return
 	if p and p.ui_ids.has(ui_id):
 		emit("ui_action", {"player": p, "ui_id": ui_id.left(64), "action": action.left(64)})
 

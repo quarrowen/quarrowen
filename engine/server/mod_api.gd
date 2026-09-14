@@ -372,7 +372,9 @@ func item_display_name(id: int) -> String:
 
 ## Shapeless recipe: `inputs` maps item names to counts. Appears in the engine crafting menu (C key).
 ## options: station (name of the crafting station block needed, e.g. "crafting_table"; blocks declare
-## `station: "<name>"`). Without a station the recipe is crafted anywhere (C).
+## `station: "<name>"`; without one it is crafted anywhere), category (recipe book tab: tools, weapons,
+## armor, blocks, food, materials, misc or one from register_recipe_category), id (defaults to
+## "<mod>:<output name>").
 func register_recipe(inputs: Dictionary, output: String, count := 1, options := {}) -> void:
 	var resolved := {}
 	for input_name: String in inputs:
@@ -385,7 +387,18 @@ func register_recipe(inputs: Dictionary, output: String, count := 1, options := 
 	if out <= 0:
 		push_error("[%s] Recipe output '%s' is unknown" % [mod_id, output])
 		return
-	_server.add_recipe(resolved, out, count, String(options.get("station", "")))
+	var recipe_id := str(options.get("id", output.get_slice(":", 1) if output.contains(":") else output))
+	_server.add_recipe(resolved, out, count, String(options.get("station", "")),
+		{"category": str(options.get("category", "")), "id": recipe_id if recipe_id.contains(":") else _qualify(recipe_id)})
+
+
+## Adds a recipe book tab. def: display_name, icon (item name shown on the tab).
+func register_recipe_category(category_name: String, def := {}) -> bool:
+	var d := def.duplicate()
+	d.name = category_name
+	if def.get("icon") is String:
+		d.icon = item(def.icon)
+	return _server.recipes.register_category(d)
 
 
 ## Registers a container type (see engine/server/containers.gd): {title, groups: [{name, count,

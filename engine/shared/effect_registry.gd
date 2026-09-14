@@ -43,6 +43,8 @@ const BUILTIN := {
 	"engine:dust": {"emitters": [{"amount": 30, "lifetime": 0.9, "speed": [2.0, 5.0], "direction": [0, 0.2, 0], "spread": 90,
 		"gravity": 2.0, "drag": 3.0, "size": [0.3, 0.8], "colors": ["#a08a6acc", "#7a6a5000"], "blend": "mix"}],
 		"shake": {"strength": 0.5, "seconds": 0.45, "radius": 12.0}},
+	"engine:craft": {"emitters": [{"amount": 16, "lifetime": 0.6, "speed": [1.0, 2.5], "direction": [0, 1, 0], "spread": 70,
+		"gravity": 2.0, "drag": 2.5, "size": [0.1, 0.0], "colors": ["#ffffff", "#ffe6a0", "#ffc04000"], "texture": "star"}]},
 	"engine:explosion": {"emitters": [
 		{"amount": 40, "lifetime": 0.5, "speed": [4.0, 9.0], "spread": 180, "gravity": 3, "drag": 4.0, "size": [0.35, 0.05],
 			"colors": ["#ffffff", "#ffc040", "#ff402000"]},

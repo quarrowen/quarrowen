@@ -187,14 +187,21 @@ func _skyblock(c) -> void:
 		await c.mine_block(log_pos)
 		await _wait_until(func(): return c.inventory.count_of(log_id) == 1, 3.0)
 		_check(c.inventory.count_of(log_id) == 1, "chopped a log")
-		Net.c_open_menu.rpc_id(1, "crafting")
-		await _wait_until(func(): return c._server_ui._panels.has("engine:crafting"), 3.0)
-		_check(c._server_ui._panels.has("engine:crafting"), "crafting menu opened")
-		c._on_ui_action("engine:crafting", "craft:0")
+		c._set_crafting_open(true)
+		_check(await _wait_until(func(): return c._crafting_screen.visible, 3.0), "crafting screen opened")
+		var planks_recipe: int = c.recipes.index_of("base:planks")
+		_check(planks_recipe >= 0 and c._crafting_screen.craftable_times(planks_recipe) == 1, "the recipe book knows a log makes planks once")
+		var table_recipe: int = c.recipes.index_of("base:wooden_pickaxe")
+		_check(c._crafting_screen.at_station(c.recipes.recipes[table_recipe]) == false, "pickaxes are marked as needing a crafting table")
+		c.craft_recipe(planks_recipe)
 		var planks: int = c.registry.id_of("base:planks")
 		await _wait_until(func(): return c.inventory.count_of(planks) == 4, 3.0)
 		_check(c.inventory.count_of(planks) == 4 and c.inventory.count_of(log_id) == 0, "crafted 4 planks from the log")
-		c._on_ui_action("engine:crafting", "close")
+		_check(await _wait_until(func(): return c._toast.modulate.a > 0.5, 2.0), "a crafted toast popped up")
+		c.pin_recipe(table_recipe)
+		_check(c._pin_panel.visible and c._pin_rows.get_child_count() >= 3, "pinning a recipe shows its ingredients on the HUD")
+		c.pin_recipe(-1)
+		c._set_crafting_open(false)
 		await get_tree().create_timer(0.4).timeout
 	else:
 		_fail("no log found near spawn")
@@ -341,12 +348,12 @@ func _guild(c) -> void:
 	c._on_ui_action("guild:board", "close")
 	await get_tree().create_timer(0.3).timeout
 
-	Net.c_open_menu.rpc_id(1, "crafting")
-	await _wait_until(func(): return c._server_ui._panels.has("engine:crafting"), 3.0)
+	c._set_crafting_open(true)
+	await _wait_until(func(): return c._crafting_screen.visible, 3.0)
 	for i in 3:
-		c._on_ui_action("engine:crafting", "craft:0")
+		c.craft_recipe(c.recipes.index_of("base:planks"))
 		await get_tree().create_timer(0.3).timeout
-	c._on_ui_action("engine:crafting", "close")
+	c._set_crafting_open(false)
 	await get_tree().create_timer(0.5).timeout
 	var tracker: Control = c._server_ui._panels.get("guild:tracker")
 	var tracker_text: String = tracker.get_child(0).get_child(1).text if tracker else ""

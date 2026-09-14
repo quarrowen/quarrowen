@@ -137,6 +137,16 @@ def main():
     write("mods/arcana/sounds/spark_hit.wav", mix(tone(0.2, 1800, 500, gain=0.3), noise_burst(0.15, 0.5, gain=0.35)))
     write("mods/guild/sounds/coin.wav", mix(tone(0.12, 1568, 1568, gain=0.35, curve=2.0), [0.0] * n(0.09) + tone(0.3, 2093, 2093, gain=0.35, curve=2.5)))
 
+    crafting_sounds()
+
+
+def crafting_sounds():
+    # --- Engine: crafting (a separate function so it can be regenerated alone) ---
+    chime = mix(tone(0.18, 1046, 1046, gain=0.3, curve=3.0), [0.0] * n(0.07) + tone(0.22, 1318, 1318, gain=0.28, curve=3.0),
+                [0.0] * n(0.14) + tone(0.35, 1568, 1568, gain=0.25, curve=3.0))
+    write("engine/client/sounds/craft.wav", mix(resonant_knock(0.14, [520, 780], 30), noise_burst(0.08, 0.3, gain=0.2), [0.0] * n(0.06) + chime))
+    write("engine/client/sounds/discover.wav", mix(tone(0.5, 784, 1568, gain=0.3, curve=2.0), [0.0] * n(0.12) + tone(0.45, 1175, 2349, gain=0.22, curve=2.5)))
+
 
 if __name__ == "__main__":
     main()
