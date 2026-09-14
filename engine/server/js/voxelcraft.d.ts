@@ -421,6 +421,7 @@ declare module "voxelcraft" {
     worldClock(): number;
     breakBlock(position: Vec3, drop?: boolean): void;
     playEffect(name: string, position: Vec3, options?: EffectOptions): void;
+    explode(position: Vec3, power: number, options?: { source?: unknown; break_blocks?: boolean; drop_chance?: number; damage?: number; effect?: string; sound?: string }): void;
     registerCosmeticCategory(name: string, def?: { display_name?: string; attach?: string; covers?: string[] }): boolean;
     setCosmeticsPolicy(values: { allow_builtin?: boolean; allow_colors?: boolean; armor?: "player" | "armor" | "cosmetics"; blocked?: string[]; uniform?: Avatar }): void;
     registerMobBehavior(name: string, def: { score: (mob: Entity, ctx: MobContext) => number; update: (mob: Entity, ctx: MobContext) => void; stop?: (mob: Entity) => void }): void;

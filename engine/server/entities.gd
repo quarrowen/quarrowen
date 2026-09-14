@@ -386,6 +386,13 @@ func kill(e: Entity, cause := "magic", attacker = null) -> void:
 			if item > 0 and randf() <= chance:
 				drops.append([item, int(drop[1])])
 	var ev: Dictionary = _server.emit("entity_death", {"entity": e, "cause": cause, "attacker": attacker, "drops": drops})
+	# Splitters (slimes) break into smaller mobs: split: {entity, count: [min, max]}.
+	var split = e.def.get("split")
+	if split is Dictionary and registry.ids.has(str(split.get("entity", ""))):
+		var range_: Array = split.get("count", [2, 2]) if split.get("count") is Array and split.count.size() == 2 else [2, 2]
+		for i in randi_range(int(range_[0]), int(range_[1])):
+			var offset := Vector3(randf_range(-0.4, 0.4), 0.1, randf_range(-0.4, 0.4))
+			spawn(registry.id_of(str(split.entity)), e.body.position + offset, {"velocity": offset * 6.0 + Vector3(0, 3, 0)})
 	e.dying = true
 	e.health = 0.0
 	_server.broadcast_entity_event(e, Event.DEATH, 0)

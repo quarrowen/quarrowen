@@ -45,6 +45,11 @@ func _ready() -> void:
 	_giant()
 	_custom_behavior_and_tuning()
 	_dodging()
+	_climbing()
+	_hopping_and_splitting()
+	_daylight_temperament()
+	_fear_of_light()
+	_exploding_mob()
 	if server.entities.registry.id_of("guild:goblin") > 0:
 		_javascript_behavior()
 	_finish()
@@ -334,6 +339,132 @@ func _javascript_behavior() -> void:
 
 
 # --- Helpers -------------------------------------------------------------------------------------
+
+func _climbing() -> void:
+	var o := Vector3i(1300, Y, 0)
+	_load(o, 2)
+	server.set_world_time(0.0, 0.0)
+	for x in range(-10, 11):
+		for hgt in 5:
+			_put(o + Vector3i(x, hgt, 4), stone)  # a 5-high wall with no way around nearby
+	var player := _player(Vector3(o) + Vector3(0.5, 0, 8.5))
+	player.set_max_health(1000.0)
+	player.health = 1000.0
+	var climber = _spawn("ai_arena:climber", Vector3(o) + Vector3(0.5, 0, 0.5))
+	climber.set_target(player)
+	var highest := [0.0]
+	var crossed := _run_until(func():
+		highest[0] = maxf(highest[0], climber.position.y - Y)
+		return climber.position.z > o.z + 5.0, 20.0)
+	_check(highest[0] > 3.0, "the climber went up the wall (%.1f blocks)" % highest[0])
+	_check(crossed, "and over it to reach the player")
+	_remove(climber, player)
+	for x in range(-10, 11):
+		for hgt in 5:
+			_put(o + Vector3i(x, hgt, 4), 0)
+
+
+func _hopping_and_splitting() -> void:
+	var o := Vector3i(1400, Y, 0)
+	_load(o, 2)
+	var player := _player(Vector3(o) + Vector3(0.5, 0, 8.5))
+	player.set_max_health(1000.0)
+	player.health = 1000.0
+	var hopper = _spawn("ai_arena:hopper", Vector3(o) + Vector3(0.5, 0, 0.5))
+	hopper.set_target(player)
+	var grounded_moving := [0]
+	var airborne := [0]
+	_run_until(func():
+		var flat := Vector2(hopper.body.velocity.x, hopper.body.velocity.z).length()
+		if hopper.body.on_ground and hopper.body.velocity.y <= 0.0 and flat > 0.5:
+			grounded_moving[0] += 1
+		if not hopper.body.on_ground:
+			airborne[0] += 1
+		return false, 3.0)
+	_check(airborne[0] > 30 and grounded_moving[0] < 10, "the hopper moves in hops (%d airborne ticks, %d sliding)" % [airborne[0], grounded_moving[0]])
+	_check(hopper.position.distance_to(player.state.position) < 7.0, "and still closes in (%.1f)" % hopper.position.distance_to(player.state.position))
+	var before: int = server.entities.in_radius(hopper.position, 4.0, server.entities.registry.id_of("ai_arena:hoplet")).size()
+	server.entities.kill(hopper)
+	var hoplets: Array = server.entities.in_radius(hopper.position, 4.0, server.entities.registry.id_of("ai_arena:hoplet"))
+	_check(hoplets.size() - before >= 2, "it splits into smaller hoppers when killed (%d)" % hoplets.size())
+	for h in hoplets:
+		h.remove()
+	server.players.erase(player.peer_id)
+
+
+func _daylight_temperament() -> void:
+	var o := Vector3i(1500, Y, 0)
+	_load(o, 2)
+	var player := _player(Vector3(o) + Vector3(0.5, 0, 4.5))
+	player.set_max_health(1000.0)
+	player.health = 1000.0
+	var climber = _spawn("ai_arena:climber", Vector3(o) + Vector3(0.5, 0, 0.5))
+	server.set_world_time(0.5, 0.0)  # noon
+	_run(2.0)
+	_check(climber.get_target() == null and climber.brain.config.temperament == "neutral", "in daylight it ignores players")
+	server.entities.damage(climber, 1.0, "attack", player)
+	_check(_run_until(func(): return climber.get_target() == player, 2.0), "until one hits it")
+	climber.remove()
+	var night_climber = _spawn("ai_arena:climber", Vector3(o) + Vector3(0.5, 0, 0.5))
+	server.set_world_time(0.0, 0.0)  # midnight
+	_run(0.6)
+	server.entities.ai.make_noise(player.state.position, 12.0, player)  # it spawned facing away
+	_check(_run_until(func(): return night_climber.get_target() == player, 3.0), "at night it hunts")
+	_remove(night_climber, player)
+
+
+func _fear_of_light() -> void:
+	var o := Vector3i(1600, Y, 0)
+	_load(o, 2)
+	server.set_world_time(0.0, 0.0)
+	var player := _player(Vector3(o) + Vector3(0.5, 0, 6.5))
+	player.set_max_health(1000.0)
+	player.health = 1000.0
+	var torch: int = server.registry.id_of("base:torch")
+	var shade = _spawn("ai_arena:shade", Vector3(o) + Vector3(0.5, 0, 0.5))
+	_put(o + Vector3i(1, 0, 0), torch)
+	_run(1.0)
+	_check(shade.get_behavior() == "avoid_light", "it flees a lit spot (%s)" % shade.get_behavior())
+	_run(3.0)
+	_check(shade.position.distance_to(Vector3(o) + Vector3(1.5, 0, 0.5)) > 5.0, "into the dark (%.1f blocks from the torch)" % shade.position.distance_to(Vector3(o) + Vector3(1.5, 0, 0.5)))
+	_put(o + Vector3i(1, 0, 0), 0)
+	player.inventory.set_slot(0, torch, 1)
+	player.inventory.selected = 0
+	player.state.position = shade.position + Vector3(2, 0, 0)
+	_run(1.0)
+	var d0: float = shade.position.distance_to(player.state.position)
+	_check(_run_until(func(): return shade.position.distance_to(player.state.position) > d0 + 2.0, 3.0),
+		"and backs away from a player holding a torch (%.1f -> %.1f)" % [d0, shade.position.distance_to(player.state.position)])
+	_remove(shade, player)
+
+
+func _exploding_mob() -> void:
+	var o := Vector3i(1700, Y, 0)
+	_load(o, 2)
+	server.set_world_time(0.0, 0.0)
+	var player := _player(Vector3(o) + Vector3(0.5, 0, 3.5))
+	player.set_max_health(1000.0)
+	player.health = 1000.0
+	var boomer = _spawn("ai_arena:boomer", Vector3(o) + Vector3(0.5, 0, 0.5))
+	boomer.set_target(player)
+	var exploded := _run_until(func(): return boomer.removed, 8.0)
+	_check(exploded and player.health < 1000.0, "the boomer walked up and exploded (health %.1f)" % player.health)
+	var floor_hole: bool = server.world.get_block_v(Vector3i(floori(boomer.position.x), Y - 1, floori(boomer.position.z))) == 0
+	_check(floor_hole, "the blast broke the floor")
+	# Running away before the fuse ends makes it fizzle.
+	var runner := _player(Vector3(o) + Vector3(20.5, 0, 0.5))
+	runner.set_max_health(1000.0)
+	runner.health = 1000.0
+	var second = _spawn("ai_arena:boomer", Vector3(o) + Vector3(18.5, 0, 0.5))
+	second.set_target(runner)
+	var fused := _run_until(func(): return second.get_behavior() == "engage" and not second.brain.attack.is_empty(), 6.0)
+	runner.state.position += Vector3(10, 0, 0)
+	_run(1.5)
+	_check(fused and not second.removed and runner.health == 1000.0, "running away makes the fuse fizzle")
+	second.remove()
+	server.players.erase(player.peer_id)
+	server.players.erase(runner.peer_id)
+
 
 func _load(center: Vector3i, radius: int) -> void:
 	for x in range(-radius, radius + 1):

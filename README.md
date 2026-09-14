@@ -560,6 +560,23 @@ api.register_item("bread", {"icon": "textures/bread.png", "food": {"hunger": 5, 
   `sitting`. Vanilla wolves are neutral pack animals tamed with bones, wear a red collar once tamed
   and breed on meat.
 
+- **Monster traits:** mob AI configs add `climb` (walks up walls when blocked; pair with a high
+  `step_up`), `hop: {interval, height}` (moves only in hops), `day_temperament` (e.g. "neutral" while
+  standing in bright daylight) and `fear_light` (flees to darkness when its spot, or a torch held
+  nearby, reaches that light level); entity definitions add `split: {entity, count}` (breaks into
+  smaller mobs on death). Vanilla spiders climb, pounce and ignore players by day unless hit (string);
+  slimes hop around caves and split large -> medium -> small (slimeballs); rare night stalkers hunt
+  the darkest nights and caves, fast and clever, but flee light and torches (shadow essence).
+
+- **Explosions:** `api.explode(position, power, options)` casts rays that lose strength with distance
+  and each block's `blast_resistance` (default from hardness; unbreakable blocks and liquids stop the
+  blast), destroys what they get through (drops with a 1 / power chance), and hurts and knocks back
+  players and mobs by distance and cover (armor helps). Mob explosions only break blocks while the
+  `mob_griefing` rule is on; any explosion can pass `break_blocks: false`. The `explosion` event lists
+  the blocks and can change or cancel them. Mob attacks gain `type: "explode"` (a fuse wind-up; it
+  fizzles if the target gets `fuse_escape` blocks away). Vanilla's boomshroom is a walking mushroom
+  that sneaks up, hisses and explodes (boom spores when killed).
+
 - **Beds and respawning:** a bed is a two-block piece (the foot where you click, the head behind it;
   breaking either half removes both). Right-clicking one sets your respawn point; at night, with no
   hostile mobs within 8 blocks and the bed free, you lie down (the screen dims, "Leave bed" or any
@@ -571,7 +588,7 @@ api.register_item("bread", {"icon": "textures/bread.png", "food": {"hunger": 5, 
 
 - **Gameplay rules** (`set_gameplay`, or `/gameplay rule value`): `item_drops` ("entity" or
   "inventory"; Skyblock uses inventory so drops don't fall into the void), `keep_inventory`, `pvp`,
-  `fall_damage`, `natural_regeneration`, `hunger`, `starvation_min_health`, `sleeping`, `sleep_percentage`, `mob_spawning`.
+  `fall_damage`, `natural_regeneration`, `hunger`, `starvation_min_health`, `sleeping`, `sleep_percentage`, `mob_spawning`, `mob_griefing`.
 - **Inventory:** 36 slots. E opens the inventory screen (left click moves stacks, right click
   splits or places one, shift-click moves between hotbar and inventory, clicking outside drops); Q
   drops the held item (Ctrl+Q the whole stack). All clicks are resolved on the server.

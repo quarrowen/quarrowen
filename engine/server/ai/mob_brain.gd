@@ -20,6 +20,7 @@ extends RefCounted
 const Pathfinder = preload("res://engine/server/ai/pathfinder.gd")
 const MobConfig = preload("res://engine/server/ai/mob_config.gd")
 const Attacks = preload("res://engine/server/ai/mob_attacks.gd")
+const WorldTime = preload("res://engine/shared/world_time.gd")
 
 const NO_NODE := Vector3i(0, -9999, 0)
 const SLOW_THINK_DISTANCE := 64.0
@@ -86,6 +87,10 @@ var _dodged := {}
 var _owns_config := false
 var _strafe_sign := 1.0
 var _strafe_until := 0.0
+var _next_hop := 0.0
+var _night_temperament := ""
+var _light_check := 0.0
+var _lit := false
 
 
 func _init(mob, manager, resolved: Dictionary) -> void:
@@ -217,6 +222,7 @@ func think() -> void:
 		entity.heal(config.regen * config.think_interval)
 	if now - last_hurt_time > RECOVER_AFTER and health_fraction() < 1.0:
 		entity.heal(entity.def.health * RECOVER_RATE * config.think_interval)
+	_check_light(now)
 	_perceive(now)
 	_choose_target(now)
 	_choose_behavior(now)
@@ -317,8 +323,65 @@ func _switch_target(new_target, reason: String) -> void:
 		ai.alert_allies(self, new_target, ai.position_of(new_target))
 
 
+## Daylight temperament and fear of light (checked every half second).
+func _check_light(now: float) -> void:
+	if config.day_temperament.is_empty() and config.fear_light <= 0:
+		return
+	if now - _light_check < 0.5:
+		return
+	_light_check = now
+	var server = ai.server
+	var cell := Vector3i(floori(entity.body.position.x), floori(entity.body.position.y + 0.5), floori(entity.body.position.z))
+	var daylight: float = WorldTime.daylight(server.get_time_of_day())
+	var light: int = server.block_ticks.light_at(cell, daylight)
+	if not config.day_temperament.is_empty():
+		if _night_temperament.is_empty():
+			_night_temperament = config.temperament
+		var wanted: String = config.day_temperament if daylight > 0.6 and light >= 12 else _night_temperament
+		if wanted != config.temperament:
+			tune({"temperament": wanted})
+	if config.fear_light > 0:
+		_lit = light >= config.fear_light or _torch_near(3.0 + config.fear_light * 0.4) != null
+
+
+## A player within `radius` holding a light-giving block (a torch), or null.
+func _torch_near(radius: float):
+	for p in ai.server.players.values():
+		if p.dead or p.state.position.distance_to(entity.body.position) > radius:
+			continue
+		var held: int = p.inventory.selected_item()
+		if held > 0 and held < 65536 and ai.server.registry.is_valid(held) and int(ai.server.registry.defs[held].light) >= 10:
+			return p
+	return null
+
+
+## Heads for the darkest nearby spot, away from any torch-bearer.
+func _avoid_light(now: float) -> void:
+	if now < behavior_state.get("until", 0.0) and not arrived():
+		return
+	var server = ai.server
+	var daylight: float = WorldTime.daylight(server.get_time_of_day())
+	var pos: Vector3 = entity.body.position
+	var bearer = _torch_near(12.0)
+	var best := pos
+	var best_score := INF
+	for i in 8:
+		var dir := Vector3.RIGHT.rotated(Vector3.UP, i * TAU / 8.0)
+		var spot := pos + dir * 7.0
+		var score := float(server.block_ticks.light_at(Vector3i(floori(spot.x), floori(spot.y + 0.5), floori(spot.z)), daylight))
+		if bearer != null:
+			score -= spot.distance_to(bearer.state.position) * 0.8
+		if score < best_score:
+			best_score = score
+			best = spot
+	behavior_state.until = now + 1.5
+	move_to(best, 1.3, 1.0)
+
+
 func _choose_behavior(now: float) -> void:
 	var scores := {"idle": 0.05}
+	if _lit:
+		scores.avoid_light = 1.1
 	if config.wander_radius > 0.0 and config.wander_speed > 0.0:
 		scores.wander = 0.1
 	if not stimulus.is_empty() and now - stimulus.time < config.memory and target == null and config.temperament in ["hostile", "neutral"]:
@@ -406,6 +469,8 @@ func _run_behavior(now: float) -> void:
 			if config.reset_on_leash:
 				entity.heal(entity.def.health * 0.1)
 			move_to(home, 1.0, 1.5)
+		"avoid_light":
+			_avoid_light(now)
 		"scripted":
 			move_to(scripted_goal, 1.0, 0.6)
 			if arrived():
@@ -660,6 +725,21 @@ func _steer(delta: float) -> void:
 			_check_progress(now, pos)
 	if separation != Vector3.ZERO:
 		desired += separation * maxf(speed, entity.def.speed * 0.6) * 0.6
+	if config.climb and b.blocked and desired != Vector3.ZERO:
+		b.velocity.y = maxf(b.velocity.y, 3.2)  # up the wall
+	if not config.hop.is_empty() and not b.in_liquid:
+		# Hoppers stand still on the ground and move only in jumps.
+		if b.on_ground:
+			if desired != Vector3.ZERO and now >= _next_hop:
+				_next_hop = now + float(config.hop.interval) * randf_range(0.8, 1.2)
+				b.velocity = Vector3(desired.x, sqrt(2.0 * entity.def.gravity * float(config.hop.height)), desired.z)
+				entity.wake()
+			elif b.velocity.y <= 0.0:
+				b.velocity.x = 0.0
+				b.velocity.z = 0.0
+		if desired.length() > 0.1:
+			entity.yaw = lerp_angle(entity.yaw, atan2(-desired.x, -desired.z), minf(1.0, 10.0 * delta))
+		return
 	var accel := 30.0 if b.on_ground else 8.0
 	if b.in_liquid:
 		accel = 12.0

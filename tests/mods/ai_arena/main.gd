@@ -38,6 +38,15 @@ func setup(mod_api) -> void:
 			"attacks": [{"name": "slam", "type": "slam", "radius": 4, "damage": 5, "windup": 0.5, "cooldown": 0.5}],
 			"phases": [{"health_below": 0.5, "message": "Phase two", "speed_multiplier": 1.5,
 				"add_attacks": [{"name": "summon", "type": "summon", "entity": "ai_arena:grunt", "count": 2, "max_summons": 2, "range": 30, "windup": 0.2}]}]}})
+	api.register_entity("climber", {"health": 20, "speed": 3.0, "width": 0.9, "height": 0.8, "ai": {"preset": "hostile", "group": "climbers",
+		"climb": true, "step_up": 8, "max_drop": 8, "day_temperament": "neutral", "attacks": [{"name": "bite", "damage": 1, "range": 0.8}]}})
+	api.register_entity("hopper", {"health": 10, "speed": 3.0, "width": 0.8, "height": 0.8, "split": {"entity": "ai_arena:hoplet", "count": [2, 3]},
+		"ai": {"preset": "hostile", "group": "hoppers", "hop": {"interval": 0.8, "height": 1.0}, "attacks": [{"name": "squish", "damage": 1, "range": 0.4}]}})
+	api.register_entity("hoplet", {"health": 2, "speed": 3.0, "width": 0.4, "height": 0.4, "ai": {"preset": "wander", "hop": {"interval": 0.8, "height": 0.6}}})
+	api.register_entity("shade", {"health": 20, "speed": 4.0, "ai": {"preset": "hostile", "group": "shades", "fear_light": 9,
+		"attacks": [{"name": "rend", "damage": 1, "range": 0.8}]}})
+	api.register_entity("boomer", {"health": 10, "speed": 3.0, "ai": {"preset": "hostile", "group": "boomers",
+		"attacks": [{"name": "burst", "type": "explode", "range": 1.0, "windup": 1.0, "power": 2.0, "fuse_escape": 2.0}]}})
 	api.register_entity("guard", {"health": 20, "speed": 4.0, "ai": {"preset": "neutral", "group": "guards", "behaviors": ["ai_arena:patrol"]}})
 	api.register_mob_behavior("patrol", {
 		"score": func(brain): return 2.0 if brain.entity.data.has("patrol_to") else 0.0,

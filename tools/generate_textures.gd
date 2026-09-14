@@ -179,6 +179,12 @@ func _init() -> void:
 		_save(_bed_icon(c), vanilla + "bed_%s_icon.png" % color_name)
 		if color_name != "brown":
 			_save(_item(c, "shard"), vanilla + "dye_%s.png" % color_name)
+
+	# Monsters (appended last so earlier textures keep their random sequence).
+	_save(_string_icon(), vanilla + "string.png")
+	_save(_item(Color(0.45, 0.8, 0.35), "lump"), vanilla + "slimeball.png")
+	_save(_item(Color(0.22, 0.16, 0.32), "shard"), vanilla + "shadow_essence.png")
+	_save(_item(Color(0.78, 0.3, 0.25), "lump"), vanilla + "boom_spores.png")
 	quit()
 
 
@@ -214,6 +220,15 @@ func _wool(c: Color) -> Image:
 		for x in TILE:
 			var curl := 0.06 * sin(x * 1.7 + y * 0.9) + 0.05 * cos(y * 2.1 - x * 0.6)
 			img.set_pixel(x, y, _vary(c.lightened(curl) if curl > 0 else c.darkened(-curl), 0.03))
+	return img
+
+
+func _string_icon() -> Image:
+	var img := _blank()
+	for i in range(1, 15):
+		var x := 4 + int(round(sin(i * 0.8) * 1.5)) + i / 2
+		img.set_pixel(clampi(x, 0, 15), i, Color(0.92, 0.92, 0.9))
+		img.set_pixel(clampi(x + 3, 0, 15), 15 - i, Color(0.85, 0.85, 0.83))
 	return img
 
 

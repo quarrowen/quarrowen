@@ -23,10 +23,15 @@ extends RefCounted
 ##                  "add_attacks": [...], "attacks": [...]} ],
 ##     "boss": {"name": "Ancient Colossus", "bar_range": 48},
 ##     "behaviors": ["my_mod:guard"],   extra behaviors registered with register_mob_behavior
+##     "climb": false,             walks up walls when blocked (spiders; pair with a high step_up)
+##     "hop": {"interval": 1.0, "height": 1.2},   moves only in hops (slimes)
+##     "day_temperament": "neutral",  temperament while it stands in bright daylight (spiders)
+##     "fear_light": 9,            flees to darkness when the light where it stands (or a torch held
+##                                 nearby) reaches this level; 0 = no fear
 ##   }
 
 const TEMPERAMENTS := ["hostile", "neutral", "passive", "none"]
-const ATTACK_TYPES := ["melee", "ranged", "leap", "charge", "slam", "summon", "custom"]
+const ATTACK_TYPES := ["melee", "ranged", "leap", "charge", "slam", "summon", "explode", "custom"]
 
 const BASE := {
 	"temperament": "hostile",
@@ -59,6 +64,10 @@ const BASE := {
 	"phases": [],
 	"boss": {},
 	"behaviors": [],
+	"climb": false,
+	"hop": {},
+	"day_temperament": "",
+	"fear_light": 0,
 }
 
 const PRESETS := {
@@ -102,6 +111,8 @@ const ATTACK_DEFAULTS := {
 	"sound": "",          # played when the wind-up starts
 	"windup_effect": "",  # effect name (full, e.g. "engine:magic") following the mob during the wind-up
 	"effect": "",         # effect when the attack lands: at the mob's front, or its feet for slam / summon
+	"power": 3.0,         # explode: blast power; the mob is used up. Fizzles if the target got `fuse_escape` blocks away
+	"fuse_escape": 2.5,
 }
 
 
@@ -151,6 +162,11 @@ static func sanitize(config: Dictionary, resolve_entity: Callable) -> Dictionary
 	c.max_drop = clampi(int(c.max_drop), 0, 32)
 	c.can_swim = bool(c.can_swim)
 	c.attack_interval = clampf(float(c.attack_interval), 0.0, 60.0)
+	c.climb = bool(c.climb)
+	c.hop = {"interval": clampf(float(c.hop.get("interval", 1.0)), 0.2, 10.0), "height": clampf(float(c.hop.get("height", 1.2)), 0.2, 6.0)} \
+		if c.hop is Dictionary and not c.hop.is_empty() else {}
+	c.day_temperament = String(c.day_temperament) if String(c.day_temperament) in TEMPERAMENTS else ""
+	c.fear_light = clampi(int(c.fear_light), 0, 15)
 	c.attacks = _attacks(c.attacks, resolve_entity)
 	var phases := []
 	for phase in (c.phases if c.phases is Array else []):

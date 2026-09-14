@@ -190,6 +190,14 @@ static func _execute(brain) -> void:
 			return
 		"summon":
 			_summon(brain, a, target)
+		"explode":
+			# Blows up if the target is still close when the fuse runs out; otherwise it fizzles.
+			if ai.is_alive(target) and ai.edge_distance(e, target) <= a.range + float(a.get("fuse_escape", 2.5)):
+				var at: Vector3 = e.body.position + Vector3(0, e.def.height * 0.5, 0)
+				_finish(brain)
+				e.remove()
+				ai.server.explosions.explode(at, float(a.get("power", 3.0)), {"source": e})
+				return
 	_finish(brain)
 
 

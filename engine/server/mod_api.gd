@@ -200,6 +200,12 @@ func register_effect(effect_name: String, def: Dictionary) -> int:
 ## (Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).
 ## Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,
 ## engine:dust, engine:explosion.
+## Sets off an explosion (see engine/server/explosions.gd): power ~3 is a mob blast. options: source,
+## break_blocks, drop_chance, damage (multiplier), effect, sound. Returns the explosion event.
+func explode(position: Vector3, power: float, options := {}) -> Dictionary:
+	return _server.explosions.explode(position, power, options)
+
+
 func play_effect(effect_name: String, position: Vector3, options := {}) -> void:
 	_server.play_effect(_qualify_ref(effect_name), position, options)
 

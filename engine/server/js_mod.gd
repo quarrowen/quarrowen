@@ -236,6 +236,11 @@ func _call_host(method: String, a: Array):
 			if options.get("direction") is Dictionary:
 				options.direction = _vec3([options.direction], 0)
 			api.play_effect(_str(a, 0), _vec3(a, 1), options)
+		"explode":
+			var blast := _dict(a, 2)
+			if blast.has("source"):
+				blast.source = _any_ref([blast.source], 0)
+			api.explode(_vec3(a, 0), float(a[1]) if a.size() > 1 else 3.0, blast)
 		"makeNoise": api.make_noise(_vec3(a, 0), float(a[1]) if a.size() > 1 else 8.0, _any_ref(a, 2))
 		"registerMobBehavior":
 			var score_id := _int(a, 1, -1)

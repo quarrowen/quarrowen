@@ -36,6 +36,7 @@ const Experiments = preload("res://engine/server/experiments.gd")
 const SkillCrafting = preload("res://engine/server/skill_crafting.gd")
 const Hunger = preload("res://engine/server/hunger.gd")
 const Sleep = preload("res://engine/server/sleep.gd")
+const Explosions = preload("res://engine/server/explosions.gd")
 const Assembly = preload("res://engine/shared/assembly.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
@@ -100,6 +101,7 @@ var gameplay := {
 	"sleeping": true,  # beds let players sleep through the night (they always set the respawn point)
 	"sleep_percentage": 100,  # percent of online players who must sleep to skip the night
 	"mob_spawning": true,
+	"mob_griefing": true,  # explosions caused by mobs break blocks
 	"durability": true,  # tools, weapons and armor wear out
 	"tray_access": "contributors",  # station trays: "contributors" (plus owner and team) | "anyone"
 	"recipe_discovery": true,  # players learn recipes (see RecipeRegistry unlock rules); false = all known
@@ -144,6 +146,7 @@ var skill := SkillCrafting.new(self)
 var hunger := Hunger.new(self)
 var _mods: Array = []  # loaded GDScript mod instances
 var sleep := Sleep.new(self)
+var explosions := Explosions.new(self)
 ## Materials, parts and tools built from parts (see Assembly).
 var assembly := Assembly.new()
 var _snapshot_round := 0

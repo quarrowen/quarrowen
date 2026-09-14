@@ -155,6 +155,12 @@ def animal_sounds():
     write("mods/vanilla/sounds/wolf_ambient.wav", mix(tone(0.12, 520, 380, shape="saw", gain=0.3, curve=2.5), [0.0] * n(0.2) + tone(0.14, 560, 360, shape="saw", gain=0.3, curve=2.5)))
     write("mods/vanilla/sounds/wolf_hurt.wav", tone(0.3, 900, 500, shape="square", gain=0.25, curve=2.0, vibrato=0.2))
     write("mods/vanilla/sounds/wolf_growl.wav", tone(0.6, 110, 90, shape="saw", gain=0.35, curve=1.2, vibrato=0.4))
+    write("mods/vanilla/sounds/spider_ambient.wav", mix(noise_burst(0.3, 0.6, curve=1.5, gain=0.25), [0.0] * n(0.05) + resonant_knock(0.05, [2400], 60), [0.0] * n(0.15) + resonant_knock(0.05, [2600], 60)))
+    write("mods/vanilla/sounds/spider_hurt.wav", mix(noise_burst(0.2, 0.8, gain=0.4), tone(0.15, 1500, 900, shape="square", gain=0.15)))
+    write("mods/vanilla/sounds/slime_hop.wav", mix(tone(0.14, 180, 420, gain=0.35, curve=2.0), noise_burst(0.08, 0.1, gain=0.2)))
+    write("mods/vanilla/sounds/slime_hurt.wav", tone(0.2, 420, 160, gain=0.35, curve=2.0, vibrato=0.2))
+    write("mods/vanilla/sounds/stalker_ambient.wav", mix(noise_burst(0.9, 0.05, curve=1.0, gain=0.25), tone(0.9, 90, 70, shape="saw", gain=0.12, curve=1.0, vibrato=0.5)))
+    write("mods/vanilla/sounds/stalker_screech.wav", mix(tone(0.5, 1400, 700, shape="saw", gain=0.25, curve=1.5, vibrato=0.6), noise_burst(0.4, 0.5, gain=0.25)))
     write("mods/vanilla/sounds/milk.wav", mix(noise_burst(0.2, 0.15, curve=2.0, gain=0.3), tone(0.2, 300, 500, gain=0.12)))
 
 
@@ -162,6 +168,8 @@ def hunger_sounds():
     # --- Engine: eating (a separate function so it can be regenerated alone) ---
     write("engine/client/sounds/munch.wav", mix(noise_burst(0.07, 0.25, curve=3.0, gain=0.55), noise_burst(0.05, 0.08, gain=0.35)))
     write("engine/client/sounds/burp.wav", tone(0.32, 180, 120, shape="saw", gain=0.35, curve=1.8, vibrato=0.25))
+    write("engine/client/sounds/explosion.wav", mix(noise_burst(1.2, 0.08, curve=1.6, gain=1.0), noise_burst(0.3, 0.5, curve=3.0, gain=0.6), tone(0.8, 90, 35, gain=0.6, curve=1.5)))
+    write("engine/client/sounds/fuse.wav", noise_burst(1.4, 0.9, curve=0.3, gain=0.35))
     write("engine/client/sounds/gulp.wav", mix(tone(0.12, 220, 420, gain=0.4, curve=2.5), noise_burst(0.08, 0.05, gain=0.25)))
 
 

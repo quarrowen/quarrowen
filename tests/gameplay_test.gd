@@ -40,6 +40,7 @@ func _ready() -> void:
 	await _spawning()
 	await _animals()
 	await _taming()
+	await _explosions()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -1516,6 +1517,58 @@ func _taming() -> void:
 	_check(float(wolf.brain.threat.get(entities.ai.key_of(zombie), 0.0)) == threat_before, "sitting wolves stay put")
 	entities.spawning.despawn()
 	_check(not wolf.removed, "tamed wolves stay loaded")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _explosions() -> void:
+	var server = _start("explosions_%d" % Time.get_ticks_msec())
+	var reg = server.registry
+	var stone: int = reg.id_of("base:stone")
+	var bedrock: int = reg.id_of("base:bedrock")
+	var y: int = server.surface_height(8, 8) + 1
+	for x in range(0, 16):
+		for z in range(0, 16):
+			for dy in range(0, 16):
+				server.set_block_authoritative(Vector3i(x, y + dy, z), stone if dy < 8 else 0)
+	server.set_block_authoritative(Vector3i(8, y + 3, 9), bedrock)
+	var p := ServerPlayer.new(server, 108, "Miner")
+	p.player_id = "miner"
+	server.players[108] = p
+	p.inventory.creative = false
+	var center := Vector3(8.5, y + 4.5, 8.5)
+	server.set_block_authoritative(Vector3i(8, y + 4, 8), 0)
+	var drops_before: int = server.entities.in_radius(center, 8.0, 0).size()
+	var ev: Dictionary = server.explosions.explode(center, 3.0)
+	var broken := 0
+	for x in range(4, 13):
+		for z in range(4, 13):
+			for dy in range(0, 8):
+				if server.world.get_block_v(Vector3i(x, y + dy, z)) == 0:
+					broken += 1
+	_check(broken > 15 and ev.blocks.size() > 15, "a power-3 blast carves out stone (%d blocks)" % broken)
+	_check(server.world.get_block_v(Vector3i(8, y + 3, 9)) == bedrock, "bedrock survives")
+	_check(server.entities.in_radius(center, 8.0, 0).size() > drops_before, "some broken blocks drop items")
+	# Damage falls off with distance and cover.
+	p.state.position = Vector3(8.5, y + 8, 10.5)
+	p.health = 20.0
+	p.hurt_timer = 0.0
+	server.explosions.explode(Vector3(8.5, y + 8.5, 8.5), 3.0, {"break_blocks": false})
+	var near_damage: float = 20.0 - p.health
+	_check(near_damage > 3.0, "a player next to a blast is badly hurt (%.1f)" % near_damage)
+	p.health = 20.0
+	p.hurt_timer = 0.0
+	p.state.position = Vector3(8.5, y + 8, 14.5)
+	server.explosions.explode(Vector3(8.5, y + 8.5, 8.5), 3.0, {"break_blocks": false})
+	var far_damage: float = 20.0 - p.health
+	_check(far_damage < near_damage, "further away hurts less (%.1f)" % far_damage)
+	# Mob griefing off: a mob's blast leaves blocks alone.
+	server.gameplay.mob_griefing = false
+	var zombie = server.entities.spawn(server.entities.registry.id_of("vanilla:zombie"), Vector3(3.5, y + 8, 3.5))
+	var solid_before: int = server.world.get_block_v(Vector3i(3, y + 7, 3))
+	var mob_ev: Dictionary = server.explosions.explode(Vector3(3.5, y + 8.2, 3.5), 3.0, {"source": zombie})
+	_check(mob_ev.blocks.is_empty() and server.world.get_block_v(Vector3i(3, y + 7, 3)) == solid_before, "mob_griefing off keeps mob blasts from breaking blocks")
+	server.gameplay.mob_griefing = true
 	server.queue_free()
 	await get_tree().process_frame
 

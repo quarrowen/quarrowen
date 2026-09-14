@@ -136,7 +136,7 @@ changes with `tools/build_native.sh`.
       sleeping at night with monster and occupancy checks, `sleep_percentage` skip, respawn at a valid
       bed with fallback, lying avatars. Not done: beds keep full-block collision (you stand on top),
       colored wool beds (with sheep in step 5).
-   5. Mobs and spawning (user decisions 2026-09-14), in order:
+   5. Mobs and spawning (done; user decisions 2026-09-14), in order:
       - M1 Spawning (done): light-level rules (monsters in darkness, animals in daylight), surface and cave
         spots, categories with per-player caps, packs, despawning far monsters (animals stay), /mobs.
       - M2 Farm animals (done): cows (beef, leather, milk in a bucket as a drink), sheep (shearing, wool regrows,
@@ -145,10 +145,12 @@ changes with `tools/build_native.sh`.
         eggs, sheep eating grass to regrow, baby hitboxes stay adult-sized.
       - M3 Tameable wolf (done): tame with bones, follows (teleports when far), defends and assists its owner,
         sits on command with a sitting pose (engine taming capability). Not done: leashes, naming.
-      - M4 Hostiles: spider (engine wall climbing, leaps, neutral by day), slime (splits on death), night
-        stalker (fast rare night hunter that avoids light and flees torches).
-      - M5 Explosions: engine explosion system (blast resistance, drops, damage and knockback falloff,
-        `mob_griefing` rule and per-explosion option) and an exploding mob.
+      - M4 Hostiles (done): spider (engine wall climbing, leaps, neutral by day), slime (splits on death), night
+        stalker (fast rare night hunter that avoids light and flees torches). Engine traits climb, hop,
+        day_temperament, fear_light, split. Not done: spider jockeys, slime bounce on landing.
+      - M5 Explosions (done): engine explosion system (blast resistance, drops, damage and knockback falloff,
+        `mob_griefing` rule and per-explosion option) and an exploding mob (boomshroom). Not done: TNT,
+        fire from explosions, chain reactions.
    6. World generation: biomes, caves, cross-chunk structures (dungeons, ruins with loot chests).
 2. **Creator platform** (follow-up): hot-reload mods on a running server, in-game script console, mod
    packaging with versions/dependencies, generated API docs site, starter templates.

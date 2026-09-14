@@ -3,6 +3,7 @@ extends "res://engine/server/mod.gd"
 
 const Terrain = preload("terrain.gd")
 const Animals = preload("animals.gd")
+const Monsters = preload("monsters.gd")
 const APPLE_CHANCE := 0.12
 
 const HOTBAR := ["base:grass", "base:dirt", "base:stone", "base:cobblestone", "base:planks",
@@ -11,6 +12,7 @@ const HOTBAR := ["base:grass", "base:dirt", "base:stone", "base:cobblestone", "b
 var api
 var terrain
 var animals := Animals.new()
+var monsters := Monsters.new()
 var ids := {}
 
 
@@ -167,6 +169,7 @@ func _setup_mobs() -> void:
 		if ev.block == api.block("base:leaves") and randf() < APPLE_CHANCE:
 			ev.drops.append([api.item("base:apple"), 1]))
 	animals.setup(api)
+	monsters.setup(api)
 	api.every(4.0, _mob_tick)
 
 

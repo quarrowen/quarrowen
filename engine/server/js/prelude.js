@@ -254,6 +254,8 @@
     breakBlock: (position, drop = true) => host("breakBlock", position, drop),
     /** options: {color, scale, direction: {x,y,z} | [x,y,z], duration, follow: entity | player} */
     playEffect: (name, position, options = {}) => host("playEffect", name, position, options),
+    /** An explosion: power ~3 is a mob blast. options: { source, break_blocks, drop_chance, damage, effect, sound }. */
+    explode: (position, power, options = {}) => host("explode", position, power, options),
     /** A mob behaviour for mobs listing it in ai.behaviors. score(mob, ctx) -> number each think;
      *  update(mob, ctx) while it runs. ctx: {target, can_see_target, target_distance, health, behavior, arrived}. */
     registerMobBehavior: (name, { score, update, stop } = {}) =>
