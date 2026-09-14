@@ -249,6 +249,8 @@ declare module "voxelcraft" {
     getStat(name: string): number;
     addModifier(id: string, stat: string, amount: number, op?: "add" | "multiply", seconds?: number): void;
     removeModifier(id: string): void;
+    setTeam(name: string): void;
+    team(): string;
     grantCosmetic(name: string): void;
     revokeCosmetic(name: string): void;
     hasCosmetic(name: string): boolean;

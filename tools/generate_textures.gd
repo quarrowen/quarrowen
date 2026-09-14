@@ -145,7 +145,23 @@ func _init() -> void:
 	_save(_sturdy_side(), base + "sturdy_workbench_side.png")
 	_save(_forge_front(), base + "forge_front.png")
 	_save(_reinforced_frame(), base + "reinforced_frame.png")
+	_save(_banner(), guild + "guild_banner.png")
 	quit()
+
+
+func _banner() -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			if y <= 1:
+				img.set_pixel(x, y, Color(0.45, 0.3, 0.16))
+			elif x >= 2 and x <= 13 and y < 13 + (1 if x % 3 == 0 else 0):
+				img.set_pixel(x, y, _vary(Color(0.18, 0.4, 0.2), 0.04))
+	for y in range(4, 10):
+		for x in range(5, 11):
+			if Vector2(x - 7.5, y - 6.5).length() < 3.2:
+				img.set_pixel(x, y, Color(1.0, 0.82, 0.25))
+	return img
 
 
 func _anvil(top: bool) -> Image:

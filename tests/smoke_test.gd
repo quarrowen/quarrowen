@@ -137,6 +137,30 @@ func _vanilla(c) -> void:
 	c._set_inventory_open(false)
 	await get_tree().create_timer(0.3).timeout
 
+	# Co-op station: place a crafting table (you own it), open it, put a stack in its shared tray.
+	Net.c_chat.rpc_id(1, "/give base:crafting_table")
+	var table_item: int = c.items.id_of("base:crafting_table")
+	await _wait_until(func(): return c.inventory.count_of(table_item) >= 1, 3.0)
+	await _select_item(c, table_item)
+	var table_spot := _find_place_spot(c)
+	c.request_place(table_spot)
+	await _wait_until(func(): return c.world.get_block_v(table_spot) == table_item, 3.0)
+	Net.c_interact.rpc_id(1, table_spot)
+	_check(await _wait_until(func(): return c._crafting_screen.visible and c._crafting_screen.station.get("name") == "crafting_table", 3.0),
+		"right-clicking a crafting table opens its station screen")
+	_check(await _wait_until(func(): return c._crafting_screen.session.get("players", []).size() == 1, 3.0) \
+		and c._crafting_screen.session.owner == c.player_name, "the station session lists you as present and as its owner")
+	var deposit_slot := -1
+	for i in 9:
+		if c.inventory.ids[i] > 0 and c.inventory.counts[i] > 0:
+			deposit_slot = i
+			break
+	Net.c_station_coop.rpc_id(1, "deposit", deposit_slot)
+	_check(await _wait_until(func(): return c._crafting_screen.session.get("tray", []).size() == 1, 3.0), "a stack went into the shared tray")
+	_check(c._crafting_screen.session.tray[0].by_name == c.player_name, "the tray remembers who contributed it")
+	c._set_crafting_open(false)
+	await get_tree().create_timer(0.3).timeout
+
 
 func _skyblock(c) -> void:
 	_check(not c.inventory.creative, "skyblock puts players in survival")

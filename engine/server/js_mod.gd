@@ -302,6 +302,8 @@ func _call_player(method: String, a: Array):
 		"playSound": player.play_sound(_str(a, 1), float(a[2]) if a.size() > 2 else 1.0, float(a[3]) if a.size() > 3 else 1.0)
 		"drop": player.drop(_int(a, 1), _int(a, 2, 1))
 		"push": player.push(_vec3(a, 1))
+		"setTeam": player.team = _str(a, 1)
+		"team": return player.team
 		"setSpawnPoint": player.spawn_point = _vec3(a, 1) if a.size() > 1 and a[1] != null else Vector3.INF
 		_: return HostError.new("unknown player method '%s'" % method)
 	return null

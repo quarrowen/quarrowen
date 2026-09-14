@@ -9,6 +9,8 @@ signal craft_requested(index: int, times: int)
 signal pin_requested(index: int)
 ## Station panel buttons: "upgrade" or "guide".
 signal station_action(action: String)
+## Co-op actions: "view" | "deposit" | "take" | "start_project" | "contribute" | "cancel_project".
+signal coop_action(action: String, arg: int)
 signal closed
 
 const Inventory = preload("res://engine/shared/inventory.gd")
@@ -29,6 +31,8 @@ var stock := {}
 var processes := {}
 ## Every station's titles, tiers and upgrades (from the server) to explain recipe requirements.
 var stations := {}
+## The shared state at this station: {players, tray, jobs, project, owner, speedup}.
+var session := {}
 var pinned := -1
 var selected := -1
 
@@ -50,6 +54,11 @@ var _craft_button: Button
 var _craft_all_button: Button
 var _pin_button: Button
 var _station_panel: VBoxContainer
+var _coop_panel: VBoxContainer
+var _side_scroll: ScrollContainer
+var _coop_key := ""
+var _job_bars: Array[ProgressBar] = []
+var _project_bar: ProgressBar
 var _category := ""
 var _lookup := {}  # {item, mode: "make" | "use"}
 var _cells := {}  # recipe index -> Button
@@ -182,16 +191,33 @@ func _ready() -> void:
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 8)
 	detail.add_child(buttons)
-	_craft_button = _action_button("Craft", func(): craft_requested.emit(selected, 1))
+	_craft_button = _action_button("Craft", func():
+		var r: Dictionary = recipes.recipes[selected]
+		if r.get("project", false):
+			coop_action.emit("contribute" if not session.get("project", {}).is_empty() else "start_project", selected)
+		else:
+			craft_requested.emit(selected, 1))
 	buttons.add_child(_craft_button)
 	_craft_all_button = _action_button("Craft all", func(): craft_requested.emit(selected, craftable_times(selected)))
 	buttons.add_child(_craft_all_button)
 	_pin_button = _action_button("Pin", func(): pin_requested.emit(selected))
 	buttons.add_child(_pin_button)
+	var side_scroll := ScrollContainer.new()
+	_side_scroll = side_scroll
+	side_scroll.custom_minimum_size = Vector2(290, 460)
+	side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	body.add_child(side_scroll)
+	var side := VBoxContainer.new()
+	side.add_theme_constant_override("separation", 10)
+	side_scroll.add_child(side)
 	_station_panel = VBoxContainer.new()
 	_station_panel.custom_minimum_size = Vector2(270, 0)
 	_station_panel.add_theme_constant_override("separation", 6)
-	body.add_child(_station_panel)
+	side.add_child(_station_panel)
+	_coop_panel = VBoxContainer.new()
+	_coop_panel.add_theme_constant_override("separation", 6)
+	side.add_child(_coop_panel)
+	side_scroll.visible = false
 
 	var hint := Label.new()
 	hint.text = "Click an ingredient to see how it is made.  Shift+click a recipe: craft all.  R / U over items: recipe / uses."
@@ -204,6 +230,8 @@ func _ready() -> void:
 func open(station_info: Dictionary, station_stock: Dictionary) -> void:
 	station = station_info
 	stock = station_stock
+	if not station.has("position"):
+		set_session({})
 	_title.text = String(station.get("tier_title", station.get("title", "Crafting")))
 	_rebuild_station_panel()
 	_rebuild_tabs()
@@ -224,6 +252,8 @@ func show_lookup(item: int, mode: String) -> void:
 func refresh() -> void:
 	if not visible or recipes == null:
 		return
+	if not session.is_empty():
+		set_session(session)
 	for index: int in _cells:
 		_style_cell(_cells[index], index)
 	_show_details()
@@ -294,6 +324,7 @@ func _rebuild_station_panel() -> void:
 	for child in _station_panel.get_children():
 		child.queue_free()
 	_station_panel.visible = station.has("position")
+	_side_scroll.visible = _station_panel.visible
 	if not _station_panel.visible:
 		return
 	_station_panel.add_child(_section("Workshop"))
@@ -349,6 +380,152 @@ func _rebuild_station_panel() -> void:
 			how.flat = true
 			how.pressed.connect(show_lookup.bind(kit, "make"))
 			_station_panel.add_child(how)
+
+
+## Applies a station session update; rebuilds the co-op panel only when more than progress changed.
+func set_session(view: Dictionary) -> void:
+	session = view
+	var shape := view.duplicate(true)
+	for job in shape.get("jobs", []):
+		job.erase("fraction")
+	if shape.get("project") is Dictionary:
+		shape.project.erase("fraction")
+	shape.erase("speedup")
+	var key := str(shape) + str(inventory.ids.slice(0, Inventory.HOTBAR)) + str(inventory.counts.slice(0, Inventory.HOTBAR))
+	if key != _coop_key:
+		_coop_key = key
+		_rebuild_coop_panel()
+	else:
+		for i in mini(_job_bars.size(), view.get("jobs", []).size()):
+			_job_bars[i].value = float(view.jobs[i].fraction)
+		if _project_bar != null and not view.get("project", {}).is_empty():
+			_project_bar.value = float(view.project.fraction)
+	if visible:
+		_show_details()
+
+
+func _rebuild_coop_panel() -> void:
+	for child in _coop_panel.get_children():
+		child.queue_free()
+	_job_bars.clear()
+	_project_bar = null
+	if session.is_empty():
+		return
+	var players: Array = session.get("players", [])
+	_coop_panel.add_child(_section("At this station (%d)" % players.size()))
+	for entry in players:
+		var looking := ""
+		if int(entry.recipe) >= 0 and int(entry.recipe) < recipes.recipes.size():
+			looking = "  → %s" % items.display_name(recipes.recipes[int(entry.recipe)].output)
+		_coop_panel.add_child(_small("● %s%s" % [entry.name, looking], Color(0.75, 0.9, 1.0)))
+	if players.size() > 1:
+		_coop_panel.add_child(_small("Timed crafts go %s× faster together" % _num(float(session.get("speedup", 1.0))), Color(0.55, 0.9, 0.5)))
+
+	_coop_panel.add_child(_section("Shared tray"))
+	var owner := String(session.get("owner", ""))
+	_coop_panel.add_child(_small(("Owner: %s. " % owner if not owner.is_empty() else "") + "Click to take back; crafting here uses tray items you may take.", Color(1, 1, 1, 0.55)))
+	var tray := GridContainer.new()
+	tray.columns = 5
+	_coop_panel.add_child(tray)
+	var tray_items: Array = session.get("tray", [])
+	for i in 9:
+		var entry: Dictionary = tray_items[i] if i < tray_items.size() else {}
+		var b := _slot_button(int(entry.get("item", 0)), int(entry.get("count", 0)))
+		if not entry.is_empty():
+			b.tooltip_text = "%s x%d from %s" % [items.display_name(int(entry.item)), int(entry.count), entry.by_name]
+			b.pressed.connect(func(): coop_action.emit("take", i))
+		tray.add_child(b)
+	_coop_panel.add_child(_small("Your hotbar (click to put in the tray):", Color(1, 1, 1, 0.55)))
+	var hotbar := GridContainer.new()
+	hotbar.columns = 5
+	_coop_panel.add_child(hotbar)
+	for i in Inventory.HOTBAR:
+		var b := _slot_button(inventory.ids[i] if inventory.counts[i] > 0 else 0, inventory.counts[i])
+		if inventory.counts[i] > 0:
+			b.pressed.connect(func(): coop_action.emit("deposit", i))
+		hotbar.add_child(b)
+
+	var jobs: Array = session.get("jobs", [])
+	if not jobs.is_empty():
+		_coop_panel.add_child(_section("Queue"))
+		for job in jobs:
+			var r_index := int(job.recipe)
+			if r_index < 0 or r_index >= recipes.recipes.size():
+				continue
+			var r: Dictionary = recipes.recipes[r_index]
+			_coop_panel.add_child(_small("%d x %s  (%s)" % [int(r.count) * int(job.times), items.display_name(r.output), job.by_name], Color.WHITE))
+			_job_bars.append(_bar(float(job.fraction), Color(0.95, 0.85, 0.4)))
+			_coop_panel.add_child(_job_bars[-1])
+
+	var project: Dictionary = session.get("project", {})
+	if not project.is_empty() and int(project.recipe) >= 0:
+		var r: Dictionary = recipes.recipes[int(project.recipe)]
+		_coop_panel.add_child(_section("Project: %s" % items.display_name(r.output)))
+		_project_bar = _bar(float(project.fraction), Color(0.5, 0.8, 1.0))
+		_coop_panel.add_child(_project_bar)
+		for id: int in r.inputs:
+			var got := int(project.delivered.get(id, 0))
+			_coop_panel.add_child(_small("%s  %d / %d" % [items.display_name(id), got, int(r.inputs[id])],
+				Color(0.55, 0.9, 0.5) if got >= int(r.inputs[id]) else Color(1, 1, 1, 0.8)))
+		var names := PackedStringArray()
+		for c in project.contributors:
+			names.append("%s (%d)" % [c.name, int(c.items)])
+		if not names.is_empty():
+			_coop_panel.add_child(_small("Contributors: " + ", ".join(names), Color(1.0, 0.85, 0.55)))
+		var buttons := HBoxContainer.new()
+		var give := Button.new()
+		give.text = "Contribute"
+		give.pressed.connect(func(): coop_action.emit("contribute", 0))
+		buttons.add_child(give)
+		var open := Button.new()
+		open.text = "View recipe"
+		open.pressed.connect(_select.bind(int(project.recipe)))
+		buttons.add_child(open)
+		var cancel := Button.new()
+		cancel.text = "Cancel"
+		cancel.tooltip_text = "Owner only: delivered items go to the tray"
+		cancel.pressed.connect(func(): coop_action.emit("cancel_project", 0))
+		buttons.add_child(cancel)
+		_coop_panel.add_child(buttons)
+
+
+func _slot_button(item: int, count: int) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(44, 44)
+	var icon := TextureRect.new()
+	icon.texture = _icon(item) if item > 0 else null
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 7)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(icon)
+	if count > 1:
+		var label := Label.new()
+		label.text = str(count)
+		label.add_theme_font_size_override("font_size", 12)
+		label.add_theme_color_override("font_shadow_color", Color.BLACK)
+		label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 2)
+		label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		label.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(label)
+	return b
+
+
+func _bar(value: float, color: Color) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(250, 12)
+	bar.max_value = 1.0
+	bar.step = 0.001
+	bar.value = value
+	bar.show_percentage = false
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = color
+	bar.add_theme_stylebox_override("fill", fill)
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(0.2, 0.2, 0.24)
+	bar.add_theme_stylebox_override("background", track)
+	return bar
 
 
 func _upgrade_row(u: Dictionary, found: bool) -> Control:
@@ -500,6 +677,8 @@ func _style_cell(cell: Button, index: int) -> void:
 
 
 func _select(index: int) -> void:
+	if index != selected and station.has("position"):
+		coop_action.emit("view", index)
 	selected = index
 	for i: int in _cells:
 		_style_cell(_cells[i], i)
@@ -542,6 +721,23 @@ func _show_details() -> void:
 	_craft_button.disabled = times <= 0
 	_craft_all_button.disabled = times <= 1
 	_craft_all_button.text = "Craft all (%d)" % times if times > 1 and not inventory.creative else "Craft all"
+	_craft_all_button.visible = true
+	_craft_button.text = "Craft"
+	if float(r.get("time", 0.0)) > 0.0 and not inventory.creative:
+		var speed := float(session.get("speedup", 1.0))
+		_craft_button.text = "Queue (%s s)" % _num(float(r.time) / maxf(speed, 0.01))
+	if r.get("project", false):
+		var project: Dictionary = session.get("project", {})
+		_craft_all_button.visible = false
+		if project.is_empty():
+			_craft_button.text = "Start project"
+			_craft_button.disabled = not at_station(r) or not station.has("position")
+		elif int(project.recipe) == selected:
+			_craft_button.text = "Contribute"
+			_craft_button.disabled = not r.inputs.keys().any(func(id): return inventory.count_of(id) > 0)
+		else:
+			_craft_button.text = "Another project is underway"
+			_craft_button.disabled = true
 	_pin_button.text = "Unpin" if pinned == selected else "Pin"
 
 

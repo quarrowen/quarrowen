@@ -324,6 +324,16 @@ api.register_station("forge", {"grants": {"features": ["forging"]},
 api.register_recipe({"base:iron_ingot": 8}, "base:iron_chestplate", 1, {"station": "crafting_table", "tier": 2, "needs": ["metalwork"]})
 ```
 
+- **Co-op crafting:** everyone at a station shares a session: the screen lists who is there and which
+  recipe each looks at, a 9-slot shared tray (stacks remember who put them in; you take back your
+  own, the station's owner and their `player.team` take anything; gameplay rule `tray_access` =
+  "anyone" opens it up) that crafting there can draw from, and a job queue. Recipes with `time` are
+  crafted in the queue while players are present; each extra player adds 50% speed (up to 2.5x) on top
+  of the station's workshop speed. Recipes with `project: true` are built together: anyone contributes
+  ingredients over time, progress floats above the station for everyone nearby, and
+  `project_completed {position, recipe, item, contributors}` lets mods reward who helped (the Guild
+  Banner pays coins back to its contributors). Events: `craft_job_started`, `craft_job_finished`,
+  `project_contributed`, `project_completed`.
 - **Bundled progression (base):** crafting table → furnace → iron ingots → bricks → Forge (a brick
   structure) → anvil and reinforced frame. An anvil next to the table unlocks iron tools; the
   reinforced frame upgrades the table to a Sturdy Workbench for iron armor; tool racks speed crafting

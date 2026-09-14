@@ -332,6 +332,13 @@ func c_station_action(action: String) -> void:
 		server.on_station_action(_sender(), action)
 
 
+## Co-op at the open station: "view" | "deposit" | "take" | "start_project" | "contribute" | "cancel_project".
+@rpc("any_peer", "call_remote", "reliable")
+func c_station_coop(action: String, arg: int) -> void:
+	if server:
+		server.on_station_coop(_sender(), action, arg)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func c_crafting_closed() -> void:
 	if server:
@@ -441,6 +448,20 @@ func s_crafting_open(station: Dictionary, stock: Dictionary) -> void:
 func s_structure_guide(missing: Array) -> void:
 	if client:
 		client.on_structure_guide(missing)
+
+
+## The shared state of the station you are at: {players, tray, jobs, project, owner, speedup}.
+@rpc("authority", "call_remote", "reliable")
+func s_station_session(session: Dictionary) -> void:
+	if client:
+		client.on_station_session(session)
+
+
+## Floating text above a station (project or job progress); "" removes it.
+@rpc("authority", "call_remote", "reliable")
+func s_station_label(position: Vector3i, text: String) -> void:
+	if client:
+		client.on_station_label(position, text)
 
 
 @rpc("authority", "call_remote", "reliable")

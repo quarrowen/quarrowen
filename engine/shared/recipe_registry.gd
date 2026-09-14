@@ -3,7 +3,8 @@ extends RefCounted
 ## book, what you are missing and what an item is used for. The server stays the authority on crafting.
 ##
 ## Recipe: {id ("mod:name"), inputs: {item id: count}, output, count, station ("" = anywhere), tier
-## (minimum station tier), needs ([station features, e.g. "metalwork"]), category}
+## (minimum station tier), needs ([station features, e.g. "metalwork"]), category, time (seconds crafted in
+## the station's queue, 0 = instant), project (built together: players contribute ingredients over time)}
 ## Categories group the recipe book; recipes without one get a category from their output (tools,
 ## weapons, armor, food, blocks, materials).
 
@@ -57,7 +58,9 @@ func add(def: Dictionary, items = null) -> int:
 		category = guess_category(output, items)
 	var r := {"id": recipe_id, "inputs": inputs, "output": output, "count": clampi(int(def.get("count", 1)), 1, 999),
 		"station": str(def.get("station", "")).left(64), "category": category, "tier": clampi(int(def.get("tier", 0)), 0, 99),
-		"needs": (def.get("needs") as Array).map(func(f): return str(f).left(32)).slice(0, 8) if def.get("needs") is Array else []}
+		"needs": (def.get("needs") as Array).map(func(f): return str(f).left(32)).slice(0, 8) if def.get("needs") is Array else [],
+		"time": clampf(float(def.get("time", 0.0)) if def.get("time") is float or def.get("time") is int else 0.0, 0.0, 3600.0),
+		"project": bool(def.get("project", false))}
 	_ids[recipe_id] = recipes.size()
 	recipes.append(r)
 	return recipes.size() - 1

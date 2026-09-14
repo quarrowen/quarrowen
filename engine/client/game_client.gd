@@ -153,6 +153,7 @@ var _pin_rows: VBoxContainer
 var _toast: PanelContainer
 var _pending_lookup := {}
 var _guide_root: Node3D
+var _station_labels := {}  # Vector3i -> Label3D
 ## Follows your own body so effects can follow you even while the avatar is hidden in first person.
 var _self_anchor := Node3D.new()
 var _view_model_look := ""
@@ -1493,6 +1494,32 @@ func on_crafted(index: int, times: int, stock: Dictionary) -> void:
 		_show_toast(r.output, "Crafted %d x %s" % [r.count * times, items.display_name(r.output)])
 
 
+func on_station_session(view: Dictionary) -> void:
+	_crafting_screen.set_session(view)
+
+
+## Floating progress text above a station for everyone nearby ("" removes it).
+func on_station_label(pos: Vector3i, text: String) -> void:
+	var label: Label3D = _station_labels.get(pos)
+	if text.is_empty():
+		if label != null:
+			label.queue_free()
+			_station_labels.erase(pos)
+		return
+	if label == null:
+		label = Label3D.new()
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		label.pixel_size = 0.006
+		label.font_size = 42
+		label.outline_size = 10
+		label.modulate = Color(1.0, 0.9, 0.55)
+		label.no_depth_test = false
+		label.position = Vector3(pos) + Vector3(0.5, 1.7, 0.5)
+		add_child(label)
+		_station_labels[pos] = label
+	label.text = text
+
+
 ## Ghost blocks where a structure's missing blocks go (red where a block is in the way). Clears after
 ## a minute or when the guide is requested again.
 func on_structure_guide(missing: Array) -> void:
@@ -2021,6 +2048,7 @@ func _build_hud() -> void:
 	_crafting_screen.pin_requested.connect(func(index): pin_recipe(-1 if index == _crafting_screen.pinned else index))
 	_crafting_screen.closed.connect(_set_crafting_open.bind(false))
 	_crafting_screen.station_action.connect(func(action): Net.c_station_action.rpc_id(1, action))
+	_crafting_screen.coop_action.connect(func(action, arg): Net.c_station_coop.rpc_id(1, action, arg))
 	_hud_root.add_child(_crafting_screen)
 	_build_pin_panel()
 

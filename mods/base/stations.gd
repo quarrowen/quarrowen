@@ -82,8 +82,8 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	api.register_recipe({"base:brick": 6, "base:furnace": 1}, "base:forge", 1, {"station": TABLE})
 	api.register_recipe({"base:planks": 3, "base:stick": 4}, "base:tool_rack", 1, {"station": TABLE})
 	api.register_recipe({"base:planks": 6, "base:wheat": 3}, "base:bookshelf", 1, {"station": TABLE})
-	api.register_recipe({"base:iron_ingot": 5}, "base:anvil", 1, {"station": "forge"})
-	api.register_recipe({"base:iron_ingot": 3, "base:planks": 4}, "base:reinforced_frame", 1, {"station": "forge"})
+	api.register_recipe({"base:iron_ingot": 5}, "base:anvil", 1, {"station": "forge", "time": 8.0})
+	api.register_recipe({"base:iron_ingot": 3, "base:planks": 4}, "base:reinforced_frame", 1, {"station": "forge", "time": 5.0})
 
 	api.on("container_changed", func(ev):
 		if ev.container.type.name == "base:furnace":

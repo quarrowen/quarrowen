@@ -10,6 +10,7 @@ const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const SoundRegistry = preload("res://engine/shared/sound_registry.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
+const StationSessions = preload("res://engine/server/station_sessions.gd")
 
 const DATA_DIR := "user://gameplay_test"
 var _failures := 0
@@ -27,6 +28,7 @@ func _ready() -> void:
 	await _farming()
 	await _containers()
 	await _stations()
+	await _coop()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -675,6 +677,83 @@ func _stations() -> void:
 	server.on_interact(83, core)
 	_check(p.crafting_station.structure.formed and p.crafting_station.features.has("forging") and server._can_craft(p, anvil_recipe),
 		"a rotated forge structure forms and forges anvils")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _coop() -> void:
+	var server = _start("coop_%d" % Time.get_ticks_msec())
+	var reg = server.registry
+	var items = server.items
+	var y: int = server.surface_height(8, 8)
+	for x in range(4, 16):
+		for z in range(4, 16):
+			for dy in range(1, 4):
+				server.set_block_authoritative(Vector3i(x, y + dy, z), 0)
+			server.set_block_authoritative(Vector3i(x, y, z), reg.id_of("base:stone"))
+	var crew := []
+	for i in 3:
+		var p := ServerPlayer.new(server, 90 + i, ["Ada", "Bo", "Cy"][i])
+		p.player_id = "crew%d" % i
+		p.state.position = Vector3(8.5 + i, y + 1, 8.5)
+		p.edit_tokens = 1000.0
+		server.players[90 + i] = p
+		crew.append(p)
+	var ada: ServerPlayer = crew[0]
+	var bo: ServerPlayer = crew[1]
+	var cy: ServerPlayer = crew[2]
+	ada.team = "red"
+	var table := Vector3i(10, y + 1, 10)
+	server.set_block_authoritative(table, reg.id_of("base:sturdy_workbench"))
+	server.set_block_authoritative(table + Vector3i(2, 0, 0), reg.id_of("base:anvil"))
+	server.sessions.claim(table, ada)
+	for p in crew:
+		server.on_interact(p.peer_id, table)
+	_check(server.sessions.view(table).players.size() == 3, "three players share the station session")
+	server.on_station_coop(bo.peer_id, "view", server.recipes.index_of("base:chest"))
+	_check(server.sessions.view(table).players.any(func(e): return e.name == "Bo" and e.recipe == server.recipes.index_of("base:chest")),
+		"the session shows which recipe each player is looking at")
+
+	var planks: int = items.id_of("base:planks")
+	bo.inventory.set_slot(0, planks, 8)
+	server.on_station_coop(bo.peer_id, "deposit", 0)
+	_check(server.sessions.coop(table).tray.size() == 1 and bo.inventory.count_of(planks) == 0, "Bo put planks in the shared tray")
+	_check(not server.sessions.may_take(cy, server.sessions.coop(table), server.sessions.coop(table).tray[0]), "Cy (no team) cannot take Bo's planks")
+	cy.team = "red"
+	_check(server.sessions.may_take(cy, server.sessions.coop(table), server.sessions.coop(table).tray[0]), "the owner's team can use the tray")
+	cy.team = ""
+	server.craft(bo, server.recipes.index_of("base:chest"))
+	_check(bo.inventory.count_of(items.id_of("base:chest")) == 1 and server.sessions.coop(table).tray.is_empty(), "Bo crafted a chest from his tray planks")
+
+	# Timed crafts: helpers speed up the queue.
+	var plate: int = server.recipes.index_of("base:iron_chestplate")
+	ada.inventory.set_slot(0, items.id_of("base:iron_ingot"), 8)
+	server.craft(ada, plate)
+	_check(server.sessions.coop(table).jobs.size() == 1 and ada.inventory.count_of(items.id_of("base:iron_ingot")) == 0
+		and ada.inventory.count_of(items.id_of("base:iron_chestplate")) == 0, "a timed recipe joins the queue and takes its ingredients")
+	_check(is_equal_approx(StationSessions.speedup(3, 0.0), 2.0), "three players craft twice as fast")
+	server.sessions.update(2.5)
+	_check(server.sessions.coop(table).jobs.size() == 1, "not done after 2.5 s with helpers (5 of 6 s)")
+	server.sessions.update(1.0)
+	_check(server.sessions.coop(table).jobs.is_empty() and ada.inventory.count_of(items.id_of("base:iron_chestplate")) == 1,
+		"the chestplate finished early thanks to helpers")
+
+	# Projects: several players contribute; completion lists who helped.
+	var index: int = server.add_recipe({planks: 10, items.id_of("base:cobblestone"): 4}, items.id_of("base:furnace"), 1, "crafting_table", {"project": true, "id": "test:furnace_project"})
+	var completed := []
+	server.add_handler("project_completed", func(ev): completed.append(ev), 0)
+	_check(server.craft(ada, index) == 0, "projects cannot be crafted directly")
+	server.on_station_coop(ada.peer_id, "start_project", index)
+	ada.inventory.set_slot(0, planks, 6)
+	server.on_station_coop(ada.peer_id, "contribute", 0)
+	_check(server.sessions.view(table).project.fraction > 0.4 and completed.is_empty(), "Ada delivered 6 of 14")
+	bo.inventory.set_slot(0, planks, 10)
+	bo.inventory.set_slot(1, items.id_of("base:cobblestone"), 4)
+	var drops_before: int = server.entities.entities.size()
+	server.on_station_coop(bo.peer_id, "contribute", 0)
+	_check(completed.size() == 1 and completed[0].contributors.crew0.items == 6 and completed[0].contributors.crew1.items == 8
+		and bo.inventory.count_of(planks) == 6, "Bo finished it; the project credits both and only took what was needed")
+	_check(server.entities.entities.size() == drops_before + 1 and server.sessions.coop(table).project.is_empty(), "the finished project dropped its result")
 	server.queue_free()
 	await get_tree().process_frame
 

@@ -12,6 +12,11 @@ extends RefCounted
 ##   container_open {player, position, container, cancelled} container_close {player, position}
 ##   container_changed {player, position, container, slot}  a player moved items in or out
 ##   station_upgraded {player, position, station, tier}      a kit upgraded a station
+##   craft_job_started {player, position, recipe, times}     a timed recipe joined a station's queue
+##   craft_job_finished {player_id, position, recipe, times, helpers}
+##   project_contributed {player, position, recipe, item, count}
+##   project_completed {position, recipe, item, contributors: {player id: {name, items}}}   reward them here
+##   item_crafted also carries {recipe, helpers}; its player is null when a job finished for someone offline
 ##   block_place    {player, position, block, cancelled}
 ##   block_placed   {player, position, block}
 ##   chat           {player, text, cancelled}
@@ -372,7 +377,9 @@ func item_display_name(id: int) -> String:
 
 
 ## Shapeless recipe: `inputs` maps item names to counts. Appears in the engine crafting menu (C key).
-## options: tier (minimum station tier), needs ([station features]), station (name of the crafting station block needed, e.g. "crafting_table"; blocks declare
+## options: time (seconds in the station's queue; more players there craft faster), project (built
+## together: players contribute ingredients over time, see project_completed), tier (minimum station
+## tier), needs ([station features]), station (name of the crafting station block needed, e.g. "crafting_table"; blocks declare
 ## `station: "<name>"`; without one it is crafted anywhere), category (recipe book tab: tools, weapons,
 ## armor, blocks, food, materials, misc or one from register_recipe_category), id (defaults to
 ## "<mod>:<output name>").
@@ -391,7 +398,8 @@ func register_recipe(inputs: Dictionary, output: String, count := 1, options := 
 	var recipe_id := str(options.get("id", output.get_slice(":", 1) if output.contains(":") else output))
 	_server.add_recipe(resolved, out, count, String(options.get("station", "")),
 		{"category": str(options.get("category", "")), "id": recipe_id if recipe_id.contains(":") else _qualify(recipe_id),
-			"tier": int(options.get("tier", 0)), "needs": options.get("needs", [])})
+			"tier": int(options.get("tier", 0)), "needs": options.get("needs", []), "time": float(options.get("time", 0.0)),
+			"project": bool(options.get("project", false))})
 
 
 ## Makes a station upgradable (see engine/server/stations.gd): tiers [{block, title, kit, grants}],

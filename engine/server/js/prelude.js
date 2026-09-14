@@ -68,6 +68,9 @@
     /** op "add" or "multiply" (0.2 = +20%); seconds 0 = until removed. */
     addModifier(id, stat, amount, op = "add", seconds = 0) { host("player.addModifier", this.id, id, stat, amount, op, seconds); }
     removeModifier(id) { host("player.removeModifier", this.id, id); }
+    /** Teams share station trays and projects ("" = no team). */
+    setTeam(name) { host("player.setTeam", this.id, String(name)); }
+    team() { return host("player.team", this.id); }
     /** Server cosmetics: names without a ":" are this mod's. */
     grantCosmetic(name) { host("player.grantCosmetic", this.id, name); }
     revokeCosmetic(name) { host("player.revokeCosmetic", this.id, name); }

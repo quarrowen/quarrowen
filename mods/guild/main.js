@@ -106,6 +106,23 @@ export function setup(api) {
   api.addOrePass({ ore: "guild:gold_ore", replace: "base:stone", veins: 3, size: 4, min_y: 5, max_y: 40, chance: 0.7 });
   api.registerRecipe({ "guild:gold_coin": 4, "base:planks": 2 }, "guild:quest_board");
 
+  // --- Co-op project: the Guild Banner ------------------------------------------------------------
+  // Built together at a crafting table: anyone can contribute coins and materials over time. When it
+  // is done, every contributor online gets coins back in proportion to what they gave.
+  api.registerBlock("guild_banner", { display_name: "Guild Banner", textures: "textures/guild_banner.png", light: 8 });
+  api.registerRecipe({ "guild:gold_coin": 30, "base:planks": 20, "base:glass": 4 }, "guild:guild_banner", 1,
+    { station: "crafting_table", project: true, category: "blocks" });
+  api.on("project_completed", ({ recipe, contributors }) => {
+    if (recipe !== "guild:guild_banner") return;
+    for (const { name, items } of Object.values(contributors)) {
+      const player = api.players().find((p) => p.name === name);
+      if (!player) continue;
+      const reward = Math.max(1, Math.round(items / 10));
+      player.give(ids.coin, reward);
+      player.showTitle("Guild Banner raised!", `+${reward} coins for your ${items} contributions`, 3);
+    }
+  });
+
   // The shop only lists goods from mods that are actually installed on this server.
   const shop = [
     { item: "base:glass", count: 8, price: 1 },

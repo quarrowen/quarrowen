@@ -100,7 +100,7 @@ changes with `tools/build_native.sh`.
      speed, quality, pull radius, hints; station panel shows detected upgrades and the next unlock),
      upgrade kits (item turns a station into its next tier), multiblock structures (exact patterns
      form special stations).
-   - C3 Co-op crafting: shared sessions (presence and live actions at a station, shared ingredient
+   - C3 Co-op crafting (done): shared sessions (presence and live actions at a station, shared ingredient
      tray), projects with contribution credit (multi-day recipes, progress board, optional growing
      construction site), helping hands (more players = faster timed crafts, capped). Default access:
      contributors take back their own, station owner and team use everything, others contribute;

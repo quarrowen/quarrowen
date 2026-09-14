@@ -31,6 +31,7 @@ const BlockTicks = preload("res://engine/server/block_ticks.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 const Stations = preload("res://engine/server/stations.gd")
+const StationSessions = preload("res://engine/server/station_sessions.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -91,6 +92,7 @@ var gameplay := {
 	"natural_regeneration": true,
 	"mob_spawning": true,
 	"durability": true,  # tools, weapons and armor wear out
+	"tray_access": "contributors",  # station trays: "contributors" (plus owner and team) | "anyone"
 }
 var server_info := {"name": "VoxelCraft Server", "game": "", "description": "", "motd": "", "mods": []}
 var generator: Object = null
@@ -123,6 +125,8 @@ var _js_mods: Array = []  # keeps JavaScript runtimes alive
 var recipes := RecipeRegistry.new()
 ## Station tiers, workshop upgrades and multiblock structures.
 var stations := Stations.new(self)
+## Co-op crafting at stations: presence, shared trays, timed jobs and projects.
+var sessions := StationSessions.new(self)
 var _snapshot_round := 0
 var _support_rules := {}  # block id -> null (none) | true (solid below) | {block id: true}
 var _fuels := {}  # item id -> seconds it burns
@@ -596,6 +600,7 @@ func _physics_process(delta: float) -> void:
 	_advance_time(delta)
 	block_ticks.update(delta)
 	containers.update(delta)
+	sessions.update(delta)
 	var sim_usec := 0
 	var stream_usec := 0
 	for p: ServerPlayer in players.values():
@@ -1137,6 +1142,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		return
 	emit("player_leave", {"player": p})
 	containers.close(p, false)
+	sessions.leave(p)
 	_store_player(p)
 	players.erase(peer_id)
 	for other: ServerPlayer in players.values():
@@ -1511,6 +1517,8 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 		p.sync_inventory()
 	var state := BlockRegistry.facing_from_yaw(yaw) if registry.defs[block].orientation == 1 and is_finite(yaw) else 0
 	_apply_block(pos, block, false, state)
+	if not str(registry.defs[block].get("station", "")).is_empty():
+		sessions.claim(pos, p)
 	entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 8.0, p)
 	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
 	_broadcast_player_event(p, Entities.Event.SWING)
@@ -1968,7 +1976,7 @@ func _update_player_rules(p: ServerPlayer) -> void:
 func add_recipe(inputs: Dictionary, output: int, count: int, station := "", options := {}) -> int:
 	return recipes.add({"inputs": inputs, "output": output, "count": count, "station": station,
 		"category": options.get("category", ""), "id": options.get("id", ""), "tier": options.get("tier", 0),
-		"needs": options.get("needs", [])}, items)
+		"needs": options.get("needs", []), "time": options.get("time", 0.0), "project": options.get("project", false)}, items)
 
 
 ## How long an item burns as fuel (seconds; 0 = not fuel).
@@ -2013,7 +2021,7 @@ func _station_valid(p: ServerPlayer) -> bool:
 
 ## Items a station can draw from containers around it: {item id: count}. Empty when crafting by hand.
 func crafting_stock(p: ServerPlayer) -> Dictionary:
-	var stock := {}
+	var stock := sessions.usable_tray(p, p.crafting_station.position) if _station_valid(p) else {}
 	for c in _stock_containers(p):
 		for i in c.size():
 			var s: Dictionary = c.get_item(i)
@@ -2058,6 +2066,10 @@ func open_crafting(p: ServerPlayer, station := {}) -> void:
 	if station.has("position"):
 		station = stations.evaluate(station.position)
 	p.crafting_station = station
+	if station.has("position"):
+		sessions.join(p, station.position)
+	else:
+		sessions.leave(p)
 	if p._online():
 		var info: Dictionary = station.duplicate(true) if not station.is_empty() else {"name": "", "title": "Crafting"}
 		info.pull_radius = STATION_PULL_RADIUS + int(station.get("pull_radius", 0))
@@ -2094,16 +2106,21 @@ func craft(p: ServerPlayer, index: int, times := 1) -> int:
 	var recipe: Dictionary = recipes.recipes[index]
 	if p.crafting_station.has("position") and _station_valid(p):
 		p.crafting_station = stations.evaluate(p.crafting_station.position)  # workshop blocks may have changed
+	if recipe.get("project", false):
+		return 0  # projects are built together through the station screen (see StationSessions)
 	var n := craftable_times(p, recipe, clampi(times, 1, 64))
 	if n <= 0:
 		return 0
 	if not p.inventory.creative:
 		var sources := _stock_containers(p)
+		var at_station := _station_valid(p)
 		for id: int in recipe.inputs:
 			var needed: int = int(recipe.inputs[id]) * n
 			var from_inventory := mini(needed, p.inventory.count_of(id))
 			p.inventory.remove(id, from_inventory)
 			needed -= from_inventory
+			if at_station and needed > 0:
+				needed -= sessions.consume_tray(p, p.crafting_station.position, id, needed)
 			for c in sources:
 				for i in c.size():
 					if needed <= 0:
@@ -2111,6 +2128,13 @@ func craft(p: ServerPlayer, index: int, times := 1) -> int:
 					var s: Dictionary = c.get_item(i)
 					if s.item == id and s.data.is_empty():
 						needed -= int(c.take(i, needed).count)
+		if float(recipe.get("time", 0.0)) > 0.0 and at_station:
+			# Timed recipes are crafted in the station's queue; players there speed it up.
+			sessions.add_job(p, p.crafting_station.position, index, n)
+			p.sync_inventory()
+			if p._online():
+				Net.s_crafting_stock.rpc_id(p.peer_id, crafting_stock(p))
+			return n
 	var total: int = recipe.count * n
 	var left := p.inventory.add(recipe.output, total, items.max_stack(recipe.output))
 	if left > 0:
@@ -2138,6 +2162,31 @@ func on_crafting_closed(peer_id: int) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p != null:
 		p.crafting_station = {}
+		sessions.leave(p)
+
+
+## Co-op actions at the player's station: "view" (recipe index), "deposit" (backpack slot), "take" (tray
+## index), "start_project" (recipe index), "contribute", "cancel_project".
+func on_station_coop(peer_id: int, action: String, arg: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or p.dead or not _station_valid(p):
+		return
+	if action != "view":
+		if p.edit_tokens < 1.0:
+			return
+		p.edit_tokens -= 1.0
+	var pos: Vector3i = p.crafting_station.position
+	match action:
+		"view": sessions.viewing(p, arg)
+		"deposit": sessions.deposit(p, pos, arg)
+		"take": sessions.take(p, pos, arg)
+		"start_project":
+			if arg >= 0 and arg < recipes.recipes.size() and _at_station(p, recipes.recipes[arg]):
+				sessions.start_project(p, pos, arg)
+		"contribute": sessions.contribute(p, pos)
+		"cancel_project": sessions.cancel_project(p, pos)
+	if p._online() and action in ["deposit", "take", "contribute", "cancel_project"]:
+		Net.s_crafting_stock.rpc_id(p.peer_id, crafting_stock(p))
 
 
 ## Tells players crafting near a changed container what their station can draw from now.

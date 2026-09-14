@@ -71,7 +71,12 @@ func _ready() -> void:
 			await get_tree().create_timer(0.8).timeout
 			Net.c_interact.rpc_id(1, spot)
 			await get_tree().create_timer(0.8).timeout
-	if not String(options.station).is_empty():
+	if String(options.station).begins_with("deposit"):
+		# --station=deposit puts the first two hotbar stacks into the station's shared tray.
+		for slot in [0, 1]:
+			Net.c_station_coop.rpc_id(1, "deposit", slot)
+			await get_tree().create_timer(0.4).timeout
+	elif not String(options.station).is_empty():
 		# Press a station screen button: --station=guide (then close the screen to see the world).
 		Net.c_station_action.rpc_id(1, options.station)
 		await get_tree().create_timer(0.8).timeout
