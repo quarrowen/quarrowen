@@ -258,6 +258,7 @@ func _call_host(method: String, a: Array):
 		"registerCosmeticCategory": return api.register_cosmetic_category(_str(a, 0), _dict(a, 1))
 		"setCosmeticsPolicy": api.set_cosmetics_policy(_dict(a, 0))
 		"registerEffect": return api.register_effect(_str(a, 0), _dict(a, 1))
+		"debugDraw": api._server.dev_tools.draw(manifest.id, _dict(a, 0))
 		"registerBlockTick":
 			var tick_id := _int(a, 1, -1)
 			api.register_block_tick(_str(a, 0), func(ctx): _invoke(tick_id, [ctx]), _dict(a, 2))

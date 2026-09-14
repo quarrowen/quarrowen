@@ -258,6 +258,17 @@
     registerStructure: (name, def) => host("registerStructure", name, def),
     registerLootTable: (name, def) => host("registerLootTable", name, def),
     /** Guidebook: chapters and pages of blocks (text, heading, items, recipe, entity, image, tip, link, keys). */
+    /** Debug drawing, shown to admins with the dev overlay's Draw toggle on (F8). Shapes expire after `seconds`. */
+    draw: {
+      box: (min, max, color = "#ffcc00", seconds = 2, label = "") => {
+        host("debugDraw", { type: "box", min, max, color, seconds });
+        if (label) host("debugDraw", { type: "text", position: { x: (min.x + max.x) / 2, y: Math.max(min.y, max.y) + 0.3, z: (min.z + max.z) / 2 }, text: label, color, seconds });
+      },
+      line: (from, to, color = "#ffcc00", seconds = 2) => host("debugDraw", { type: "line", from, to, color, seconds }),
+      text: (position, text, color = "#ffffff", seconds = 2) => host("debugDraw", { type: "text", position, text: String(text), color, seconds }),
+      path: (points, color = "#60ff90", seconds = 2) => host("debugDraw", { type: "path", points, color, seconds }),
+      sphere: (center, radius = 0.5, color = "#6090ff", seconds = 2) => host("debugDraw", { type: "sphere", center, radius, color, seconds }),
+    },
     registerGuideChapter: (name, def = {}) => host("registerGuideChapter", name, def),
     registerGuidePage: (name, def) => host("registerGuidePage", name, def),
     /** Tutorials (steps with goals completed by real actions) and one-time contextual tips. */

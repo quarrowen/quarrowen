@@ -413,7 +413,9 @@ func _choose_behavior(now: float) -> void:
 	for behavior_name in config.behaviors:
 		var custom: Dictionary = ai.custom_behaviors.get(behavior_name, {})
 		if not custom.is_empty() and custom.score.is_valid():
+			var t := Time.get_ticks_usec()
 			scores[behavior_name] = float(custom.score.call(self))
+			ai.server.dev_tools.record(custom.get("owner", "engine"), "behavior:" + behavior_name, Time.get_ticks_usec() - t)
 	if scores.has(behavior):
 		scores[behavior] += 0.1
 	var best := "idle"
@@ -478,7 +480,9 @@ func _run_behavior(now: float) -> void:
 		_:
 			var custom: Dictionary = ai.custom_behaviors.get(behavior, {})
 			if not custom.is_empty() and custom.update.is_valid():
+				var t := Time.get_ticks_usec()
 				custom.update.call(self, config.think_interval)
+				ai.server.dev_tools.record(custom.get("owner", "engine"), "behavior:" + behavior, Time.get_ticks_usec() - t)
 
 
 func _wander(now: float) -> void:

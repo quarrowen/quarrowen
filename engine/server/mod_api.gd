@@ -91,6 +91,30 @@ func info(message) -> void:
 	_server.dev_log.add("info", mod_id, str(message))
 
 
+## Debug drawing for developers (shown to admins with the dev overlay's Draw toggle on; cheap when
+## nobody watches). Shapes expire after `seconds`. Colors are "#rrggbb" or "#rrggbbaa".
+func debug_box(from: Vector3, to: Vector3, color := "#ffcc00", seconds := 2.0, label := "") -> void:
+	_server.dev_tools.draw(mod_id, {"type": "box", "min": from, "max": to, "color": color, "seconds": seconds})
+	if not label.is_empty():
+		debug_text((from + to) * 0.5 + Vector3(0, absf(to.y - from.y) * 0.5 + 0.3, 0), label, color, seconds)
+
+
+func debug_line(from: Vector3, to: Vector3, color := "#ffcc00", seconds := 2.0) -> void:
+	_server.dev_tools.draw(mod_id, {"type": "line", "from": from, "to": to, "color": color, "seconds": seconds})
+
+
+func debug_text(position: Vector3, text: String, color := "#ffffff", seconds := 2.0) -> void:
+	_server.dev_tools.draw(mod_id, {"type": "text", "position": position, "text": text, "color": color, "seconds": seconds})
+
+
+func debug_path(points: Array, color := "#60ff90", seconds := 2.0) -> void:
+	_server.dev_tools.draw(mod_id, {"type": "path", "points": points, "color": color, "seconds": seconds})
+
+
+func debug_sphere(center: Vector3, radius := 0.5, color := "#6090ff", seconds := 2.0) -> void:
+	_server.dev_tools.draw(mod_id, {"type": "sphere", "center": center, "radius": radius, "color": color, "seconds": seconds})
+
+
 ## Log levels for authors: debug lines only appear with `/log level <mod> debug` (or --log-level).
 ## Messages go to the server console, <world>/logs/latest.log and the dev tools.
 func debug(message) -> void:
@@ -254,7 +278,7 @@ func register_block_tick(block_name: String, handler: Callable, options := {}) -
 	if id <= 0:
 		push_error("[%s] register_block_tick: unknown block '%s'" % [mod_id, block_name])
 		return
-	_server.block_ticks.register(id, handler, options)
+	_server.block_ticks.register(id, handler, options, mod_id)
 
 
 ## Calls the tick handler of the block at `position` after `seconds`, with `payload` (saved with the world).
@@ -379,7 +403,7 @@ func register_stat(stat_name: String, base: float) -> void:
 ##   stop:   Callable(brain)            optional, when another behaviour takes over
 func register_mob_behavior(behavior_name: String, def: Dictionary) -> void:
 	_server.entities.ai.custom_behaviors[_qualify_ref(behavior_name) if behavior_name.contains(":") else _qualify(behavior_name)] = {
-		"score": def.get("score", Callable()), "update": def.get("update", Callable()), "stop": def.get("stop", Callable())}
+		"score": def.get("score", Callable()), "update": def.get("update", Callable()), "stop": def.get("stop", Callable()), "owner": mod_id}
 
 
 ## Lets mobs hear something at `position` (they come to investigate). `source` may be a player.
@@ -965,7 +989,7 @@ func broadcast(text: String) -> void:
 
 ## Higher priority runs first.
 func on(event: String, handler: Callable, priority := 0) -> void:
-	_server.add_handler(event, handler, priority)
+	_server.add_handler(event, handler, priority, mod_id)
 
 
 ## `handler(player, args: PackedStringArray)` runs for "/name args...". permission "admin" restricts
@@ -976,12 +1000,12 @@ func register_command(command: String, description: String, handler: Callable, p
 
 ## Runs `callback` once after `seconds`. Returns a task id for `cancel`.
 func after(seconds: float, callback: Callable) -> int:
-	return _server.schedule(seconds, callback, 0.0)
+	return _server.schedule(seconds, callback, 0.0, mod_id)
 
 
 ## Runs `callback` every `seconds`. Returns a task id for `cancel`.
 func every(seconds: float, callback: Callable) -> int:
-	return _server.schedule(seconds, callback, seconds)
+	return _server.schedule(seconds, callback, seconds, mod_id)
 
 
 func cancel(task_id: int) -> void:

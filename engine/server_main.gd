@@ -17,6 +17,7 @@ extends Node
 ##   --backup-keep=24      VOXEL_BACKUP_KEEP   backups kept per world (oldest deleted)
 ##   --restore=latest      VOXEL_RESTORE       restore a backup (latest, file name or path) before starting
 ##   --log-level=info      VOXEL_LOG_LEVEL     debug | info | warn | error, or per mod: all:warn,my_mod:debug
+##   --dev                 VOXEL_DEV           developer mode: every player gets the dev tools (F8)
 
 const GameServer = preload("res://engine/server/game_server.gd")
 const Native = preload("res://engine/shared/native.gd")
@@ -36,6 +37,7 @@ const DEFAULTS := {
 	"backup-keep": "24",
 	"restore": "",
 	"log-level": "",
+	"dev": "",
 }
 
 var _server: Node
@@ -75,6 +77,7 @@ func _ready() -> void:
 		"backup_keep": int(options["backup-keep"]),
 		"restore": options.restore,
 		"log_level": options["log-level"],
+		"dev": options.dev == "true" or options.dev == "1",
 	})
 	if err != OK:
 		printerr("[server] Startup failed: %s" % error_string(err))

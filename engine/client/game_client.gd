@@ -41,6 +41,8 @@ const EffectPlayer = preload("res://engine/client/effects/effect_player.gd")
 const CraftingScreen = preload("res://engine/client/crafting_screen.gd")
 const GuideScreen = preload("res://engine/client/guide_screen.gd")
 const TutorialHud = preload("res://engine/client/tutorial_hud.gd")
+const DevOverlay = preload("res://engine/client/dev_overlay.gd")
+const DebugDraw = preload("res://engine/client/debug_draw.gd")
 const MinigameScreen = preload("res://engine/client/minigame_screen.gd")
 const EatingVisuals = preload("res://engine/client/eating_visuals.gd")
 const ItemIcons = preload("res://engine/client/item_icons.gd")
@@ -223,6 +225,8 @@ var _guide_screen: GuideScreen
 var _guide_badge: Label
 var _tutorial_hud: TutorialHud
 var _dev_alerts: VBoxContainer
+var _dev_overlay: DevOverlay
+var _debug_draw: DebugDraw
 var _volume_slider: HSlider
 
 
@@ -1569,6 +1573,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED \
 			and not _pause_panel.visible and not _server_ui.has_modal() and not _inventory_screen.visible and not dead:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		get_viewport().gui_release_focus()  # typing in the dev overlay stops when you go back to playing
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("drop") and _welcomed and _gameplay_input_enabled():
 		drop_selected(event.ctrl_pressed or event.meta_pressed)
@@ -1577,6 +1582,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("crafting") and _welcomed:
 		Net.c_open_menu.rpc_id(1, "crafting")
+	elif event.is_action_pressed("dev") and _welcomed:
+		_toggle_dev_overlay()
+		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("guide") and _welcomed and not dead and _gameplay_input_enabled():
 		_set_guide_open(true)
 		get_viewport().set_input_as_handled()
@@ -1737,6 +1745,69 @@ func on_guide_open(page_id: String) -> void:
 			_guide_screen.show_page(page_id)
 		return
 	_set_guide_open(true, page_id)
+
+
+# --- Dev tools ------------------------------------------------------------------------------------
+
+## F8: open the overlay; with it open, F8 frees the mouse from the game, or closes the overlay.
+func _toggle_dev_overlay() -> void:
+	if not _dev_overlay.visible:
+		_dev_overlay.set_open(true)
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_dev_pick()
+	elif Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not ignore_mouse_capture:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	else:
+		_close_dev_overlay()
+
+
+func _close_dev_overlay() -> void:
+	_dev_overlay.set_open(false)
+	get_viewport().gui_release_focus()
+	if not ignore_mouse_capture and not dead and _gameplay_input_enabled_ignoring_mouse():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _gameplay_input_enabled_ignoring_mouse() -> bool:
+	return not _chat_input.visible and not _pause_panel.visible and not _server_ui.has_modal() and not _inventory_screen.visible \
+		and _avatar_editor == null and not _crafting_screen.visible and not _guide_screen.visible
+
+
+## Inspects what the crosshair points at, up to 64 blocks away: a mob or item, a player, else a block.
+func _dev_pick() -> void:
+	var origin := _camera.global_position
+	var direction := -_camera.global_basis.z
+	var ray := VoxelRaycast.cast(world, registry.targetable_lut, origin, direction, 64.0)
+	var best := origin.distance_to(Vector3(ray.position) + Vector3(0.5, 0.5, 0.5)) if ray.hit else 64.0
+	var args := {"pos": ray.position} if ray.hit else {}
+	for id: int in _entities:
+		var view: EntityView = _entities[id]
+		var box := view.aabb()
+		var t := EntityPhysics.segment_hits_box(origin, direction, best, box.position, box.end)
+		if t >= 0.0 and t < best:
+			best = t
+			args = {"entity": id}
+	for peer_id: int in _remote_players:
+		var remote: Node3D = _remote_players[peer_id]
+		var box := AABB(remote.position - Vector3(0.3, 0, 0.3), Vector3(0.6, 1.8, 0.6))
+		var t := EntityPhysics.segment_hits_box(origin, direction, best, box.position, box.end)
+		if t >= 0.0 and t < best:
+			best = t
+			args = {"player": peer_id}
+	if args.is_empty():
+		args = {"player": multiplayer.get_unique_id()}  # nothing in sight: yourself
+	Net.c_dev.rpc_id(1, "inspect", args)
+
+
+func on_dev(kind: String, data) -> void:
+	match kind:
+		"draw":
+			_debug_draw.add_shapes(data if data is Array else [])
+		"denied":
+			_dev_overlay.set_open(false)
+			_server_ui.show_title("", "Dev tools are for admins (or start the server with --dev)", 3.0)
+		_:
+			_dev_overlay.receive(kind, data)
 
 
 # --- Tutorials ------------------------------------------------------------------------------------
@@ -2146,7 +2217,7 @@ static func _register_input_actions() -> void:
 		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE], "sprint": [KEY_SHIFT, KEY_CTRL],
 		"chat": [KEY_T, KEY_ENTER], "toggle_debug": [KEY_F3], "pause": [KEY_ESCAPE], "crafting": [KEY_C], "graphics": [KEY_F4], "camera": [KEY_F5],
-		"inventory": [KEY_E, KEY_TAB], "drop": [KEY_Q], "guide": [KEY_G],
+		"inventory": [KEY_E, KEY_TAB], "drop": [KEY_Q], "guide": [KEY_G], "dev": [KEY_F8],
 	}
 	for action: String in keys:
 		if InputMap.has_action(action):
@@ -2468,6 +2539,8 @@ func _build_hud() -> void:
 	_dev_alerts.position = Vector2(-16, -150)
 	_dev_alerts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud_root.add_child(_dev_alerts)
+	_debug_draw = DebugDraw.new()
+	add_child(_debug_draw)
 	_tutorial_hud = TutorialHud.new()
 	_tutorial_hud.client = self
 	_tutorial_hud.action_requested.connect(func(action, arg): Net.c_tutorial.rpc_id(1, action, arg))
@@ -2488,6 +2561,12 @@ func _build_hud() -> void:
 		_set_guide_open(false)
 		lookup_recipes(item, mode))
 	_hud_root.add_child(_guide_screen)
+	_dev_overlay = DevOverlay.new()
+	_dev_overlay.visible = false
+	_dev_overlay.request.connect(func(action, args): Net.c_dev.rpc_id(1, action, args))
+	_dev_overlay.pick_requested.connect(_dev_pick)
+	_dev_overlay.closed.connect(_close_dev_overlay)
+	_hud_root.add_child(_dev_overlay)
 	_build_pin_panel()
 
 	_inventory_screen = InventoryScreen.new()

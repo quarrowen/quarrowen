@@ -726,6 +726,20 @@ func s_tutorial_event(kind: String, title: String) -> void:
 		client.on_tutorial_event(kind, title)
 
 
+## Dev overlay requests (see GameServer.on_dev).
+@rpc("any_peer", "call_remote", "reliable")
+func c_dev(action: String, args: Dictionary) -> void:
+	if server:
+		server.on_dev(_sender(), action, args)
+
+
+## Dev tool data: kind logs | errors | error | events | perf | inspect | draw.
+@rpc("authority", "call_remote", "reliable")
+func s_dev(kind: String, data: Variant) -> void:
+	if client:
+		client.on_dev(kind, data)
+
+
 ## A script error for admins: {id, source, level, message, file, line, count, first}.
 @rpc("authority", "call_remote", "reliable")
 func s_dev_error(error: Dictionary) -> void:

@@ -38,8 +38,8 @@ func _init(game_server) -> void:
 	server = game_server
 
 
-func register(block: int, handler: Callable, options := {}) -> void:
-	handlers[block] = {"handler": handler, "interval": clampf(float(options.get("interval", 30.0)), STEP, 86400.0),
+func register(block: int, handler: Callable, options := {}, owner := "engine") -> void:
+	handlers[block] = {"handler": handler, "owner": owner, "interval": clampf(float(options.get("interval", 30.0)), STEP, 86400.0),
 		"catch_up": bool(options.get("catch_up", true))}
 
 
@@ -190,8 +190,10 @@ func _call(pos: Vector3i, ticks: int, reason: String, payload: Dictionary) -> vo
 	var h: Dictionary = handlers.get(block, {})
 	if h.is_empty() or not h.handler.is_valid():
 		return
+	var t := Time.get_ticks_usec()
 	h.handler.call({"position": pos, "block": block, "state": server.get_block_state(pos), "ticks": ticks,
 		"reason": reason, "payload": payload})
+	server.dev_tools.record(h.owner, "block_tick:" + server.registry.defs[block].name, Time.get_ticks_usec() - t)
 
 
 # --- Light --------------------------------------------------------------------------------------

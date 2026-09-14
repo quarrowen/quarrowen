@@ -48,6 +48,7 @@ func _ready() -> void:
 	await _structures()
 	await _js_blocks()
 	await _dev_log()
+	await _dev_tools()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -2076,6 +2077,77 @@ func _dev_log() -> void:
 	server._exit_tree()
 	var text := FileAccess.get_file_as_string(DATA_DIR.path_join(world).path_join("logs/latest.log"))
 	_check(text.contains("[buggy] hello from buggy") and text.contains("ERROR [buggy]"), "the log is written to the world's logs/latest.log")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _dev_tools() -> void:
+	var server = _start("dev_tools_%d" % Time.get_ticks_msec())
+	var tools = server.dev_tools
+	var api = preload("res://engine/server/mod_api.gd").new(server, {"id": "tester", "dir": "res://tests"})
+	var p := ServerPlayer.new(server, 95, "Dev")
+	p.player_id = "dev"
+	server.players[95] = p
+	# Access: admins or --dev.
+	_check(not tools.allowed(p), "dev tools are closed to ordinary players")
+	server.dev_mode = true
+	_check(tools.allowed(p), "--dev opens the dev tools to everyone")
+	# Profiler: handlers, tasks and block ticks are credited to their mod.
+	api.on("tester_ping", func(ev):
+		var x := 0
+		for i in 2000:
+			x += i
+		ev.cancelled = true)
+	api.on("tester_ping", func(_ev): pass, 10)
+	for i in 5:
+		server.emit("tester_ping", {"player": p, "block": server.registry.id_of("base:stone"), "cancelled": false})
+	var ran := [false]
+	api.after(0.0, func(): ran[0] = true)
+	server._time += 1.0
+	server._run_tasks()
+	tools._roll_window()
+	var rows: Array = tools.perf()
+	var ping: Array = rows.filter(func(r): return r.owner == "tester" and r.category == "event:tester_ping")
+	_check(ping.size() == 1 and ping[0].calls == 10 and ping[0].ms_per_s > 0.0, "the profiler times each mod's event handlers")
+	_check(ran[0] and rows.any(func(r): return r.owner == "tester" and r.category == "task"), "scheduled tasks are timed per mod")
+	_check(rows.any(func(r): return r.owner == "tester" and r.category == "total"), "the profiler totals each mod")
+	# Tracer: subscribe to events, emit, read the record.
+	tools.subscribe(p, ["events"])
+	_check(tools.tracing, "subscribing to events turns tracing on")
+	server.emit("tester_ping", {"player": p, "block": server.registry.id_of("base:stone"), "cancelled": false})
+	server.emit("tick", {"delta": 0.016, "tick": 1})
+	var rec: Dictionary = tools.trace.back()
+	_check(rec.event == "tester_ping" and rec.payload.player == "player Dev" and rec.payload.block.begins_with("base:stone"),
+		"traced payloads name players and blocks")
+	_check(rec.handlers.size() == 2 and rec.handlers[0].owner == "tester" and rec.handlers[1].get("cancelled") == true and rec.cancelled,
+		"the trace shows handler order and who cancelled")
+	_check(not tools.trace.any(func(t): return t.event == "tick"), "tick events are left out unless asked for")
+	tools.set_trace_filter(p, "tick")
+	server.emit("tick", {"delta": 0.016, "tick": 2})
+	server.emit("tester_ping", {"player": p, "cancelled": false})
+	_check(tools.trace.back().event == "tick", "a trace filter picks events by name")
+	tools.unsubscribe(95)
+	_check(not tools.tracing, "tracing stops when nobody watches")
+	# Inspector.
+	var y: int = server.surface_height(8, 8)
+	var info: Dictionary = tools.inspect({"pos": Vector3i(8, y, 8)})
+	_check(info.kind == "block" and info.fields.has("definition") and info.fields.has("light"), "blocks can be inspected")
+	var zombie = server.entities.spawn(server.entities.registry.id_of("vanilla:zombie"), Vector3(8.5, y + 1, 8.5))
+	info = tools.inspect({"entity": zombie.id})
+	_check(info.kind == "entity" and info.fields.ai.has("behavior") and info.fields.type == "vanilla:zombie", "mobs can be inspected with their AI state")
+	info = tools.inspect({"player": 95})
+	_check(info.kind == "player" and info.fields.name == "Dev" and info.fields.has("stats"), "players can be inspected")
+	# Debug drawing only queues while someone watches.
+	api.debug_box(Vector3.ZERO, Vector3.ONE, "#ff0000", 1.0, "here")
+	_check(tools._shapes.is_empty(), "debug drawing costs nothing when nobody watches")
+	tools.subscribe(p, ["draw"])
+	api.debug_box(Vector3.ZERO, Vector3.ONE, "#ff0000", 1.0, "here")
+	api.debug_path([Vector3.ZERO, Vector3(1, 0, 0), [2, 0, 0]])
+	_check(tools._shapes.size() == 3 and tools._shapes[0].owner == "tester" and tools._shapes[2].points.size() == 3, "mods draw boxes, labels and paths for watchers")
+	tools.subscribe(p, ["ai"])
+	p.state.position = Vector3(10.5, y + 1, 8.5)
+	tools._draw_ai(p)
+	_check(tools._shapes.any(func(sh): return sh.owner == "engine:ai" and sh.type == "text"), "the AI view labels mobs near the watcher")
 	server.queue_free()
 	await get_tree().process_frame
 

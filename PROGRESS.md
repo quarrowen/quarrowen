@@ -185,7 +185,7 @@ changes with `tools/build_native.sh`.
    master. No live script console (user skipped it). In order:
    - C1 Logging and error reports (done: engine/server/dev_log.gd, /log, /errors, admin error cards, tests/mods/buggy*): per-mod log levels, log files per world, GDScript errors (via Godot's
      Logger with backtraces) and JS errors with file:line attributed to mods, deduplicated, shown to admins.
-   - C2 Dev tools: inspect the looked-at block/entity/player, live event tracer (payloads, handlers,
+   - C2 Dev tools (done: engine/server/dev_tools.gd, engine/client/dev_overlay.gd, debug_draw.gd, F8, --dev): inspect the looked-at block/entity/player, live event tracer (payloads, handlers,
      cancellations), per-mod profiler (handlers, ticks, commands), debug-draw API (boxes, lines, labels,
      paths); an in-game dev overlay (Logs, Errors, Inspect, Events, Perf tabs) for admins / dev mode.
    - C3 Web dashboard: the server serves the same tools on a local web page (token protected).

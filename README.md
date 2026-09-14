@@ -785,6 +785,28 @@ hurts mobs. Craft wands and pylons with C, or `/arcana kit`.
   in game for each new error ("Error in my_mod main.gd:42"); `/errors` lists them, `/errors clear [mod]`,
   `/errors mute | unmute`.
 
+### Dev tools (F8)
+
+Admins (or everyone on a server started with `--dev`) press **F8** for a side panel; the game keeps
+running beside it (click the world to play, F8 to get the mouse back, F8 again to close).
+
+- **Logs:** live server log with source, level and text filters. **Errors:** script errors by mod with
+  counts, file:line and the stack.
+- **Inspect:** what the crosshair points at (up to 64 blocks): a block's name, state, block data, light,
+  biome, definition and station status; a mob's health, data and AI (behaviour, target, threat, path,
+  goal); a player's health, hunger, stats, modifiers, data and tutorial. Refreshes every second.
+- **Events:** a live trace of events (filter by name, `block_*`), each with its payload (players,
+  entities, blocks and items by name), the handlers that ran in order with their mod and time, who
+  cancelled it and what they changed.
+- **Perf:** server time over the last 10 seconds per mod: event handlers, scheduled tasks, commands,
+  block ticks and mob behaviours (ms per second, calls, average and worst), next to the engine's own
+  tick costs.
+- **Draw:** shows mods' debug drawings and the engine's AI view (behaviour labels, target lines, paths
+  and homes of mobs within 32 blocks). Drawings stay on with the panel closed.
+- Debug drawing API: `api.debug_box(from, to, color, seconds, label)`, `debug_line`, `debug_text`,
+  `debug_path`, `debug_sphere` (JS: `api.draw.box / line / text / path / sphere`). Nothing is sent or
+  queued while nobody watches.
+
 ## World saves (delta model)
 
 Chunks are always regenerated from the seed, then saved edits are applied on top.

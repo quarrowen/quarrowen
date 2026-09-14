@@ -420,6 +420,17 @@ declare module "voxelcraft" {
     registerStructureTemplate(name: string, source: string | Record<string, unknown>): boolean;
     registerStructure(name: string, def: Record<string, unknown>): void;
     registerLootTable(name: string, def: { rolls?: [number, number]; entries: { item: string; count?: [number, number]; weight?: number }[] }): void;
+    /** Debug drawing shown to admins with the dev overlay's Draw toggle on (F8). */
+    draw: {
+      box(min: Vec3, max: Vec3, color?: string, seconds?: number, label?: string): void;
+      line(from: Vec3, to: Vec3, color?: string, seconds?: number): void;
+      text(position: Vec3, text: string, color?: string, seconds?: number): void;
+      path(points: Vec3[], color?: string, seconds?: number): void;
+      sphere(center: Vec3, radius?: number, color?: string, seconds?: number): void;
+    };
+    debug(...parts: unknown[]): void;
+    warn(...parts: unknown[]): void;
+    error(...parts: unknown[]): void;
     registerGuideChapter(name: string, def?: { title?: string; icon?: string; order?: number; description?: string }): boolean;
     registerGuidePage(name: string, def: GuidePage): boolean;
     registerTutorial(name: string, def: Tutorial): boolean;

@@ -39,6 +39,7 @@ const Sleep = preload("res://engine/server/sleep.gd")
 const Guide = preload("res://engine/server/guide.gd")
 const Tutorials = preload("res://engine/server/tutorials.gd")
 const DevLog = preload("res://engine/server/dev_log.gd")
+const DevTools = preload("res://engine/server/dev_tools.gd")
 const Explosions = preload("res://engine/server/explosions.gd")
 const Loot = preload("res://engine/server/loot.gd")
 const Spawners = preload("res://engine/server/spawners.gd")
@@ -161,6 +162,10 @@ var guide := Guide.new(self)
 var tutorials := Tutorials.new(self)
 ## Logs and script errors for mod authors (see engine/server/dev_log.gd).
 var dev_log := DevLog.new()
+## Profiler, event tracer, inspector and debug drawing (see engine/server/dev_tools.gd).
+var dev_tools := DevTools.new(self)
+## --dev: every player gets the developer tools (local development).
+var dev_mode := false
 var explosions := Explosions.new(self)
 var loot := Loot.new(self)
 var spawners := Spawners.new(self)
@@ -210,10 +215,12 @@ func start(config: Dictionary) -> Error:
 	var data_dir := String(config.get("data_dir", "user://worlds"))
 	var world_name := String(config.get("world", "world")).validate_filename()
 	_save_dir = data_dir.path_join(world_name)
+	dev_mode = bool(config.get("dev", false))
 	for entry in String(config.get("log_level", "")).split(",", false):
 		var parts := entry.strip_edges().split(":")
 		dev_log.set_level(parts[0] if parts.size() == 2 else "all", parts[parts.size() - 1])
 	dev_log.error_added.connect(_on_dev_error)
+	dev_log.error_added.connect(func(e, _first): dev_tools.on_error(e))
 	_backup_dir = data_dir.path_join("backups").path_join(world_name)
 	_backup_interval = float(config.get("backup_interval", 0.0)) * 60.0
 	_backup_keep = maxi(1, int(config.get("backup_keep", 24)))
@@ -378,19 +385,19 @@ func _apply_rules_to_world() -> void:
 
 # --- Events, commands, scheduler ----------------------------------------------------------------
 
-func add_handler(event: String, handler: Callable, priority: int) -> void:
+## `owner`: the mod id (or "engine") the profiler and tracer credit.
+func add_handler(event: String, handler: Callable, priority: int, owner := "engine") -> void:
 	var list: Array = _handlers.get(event, [])
-	list.append([priority, handler])
+	list.append([priority, handler, owner])
 	list.sort_custom(func(a, b): return a[0] > b[0])
 	_handlers[event] = list
 
 
 func emit(event: String, payload: Dictionary) -> Dictionary:
-	for entry in _handlers.get(event, []):
-		var handler: Callable = entry[1]
-		if handler.is_valid():
-			handler.call(payload)
-	return payload
+	var list: Array = _handlers.get(event, [])
+	if list.is_empty() and not dev_tools.tracing:
+		return payload
+	return dev_tools.dispatch(event, list, payload)
 
 
 ## permission: "" (everyone) or "admin".
@@ -406,9 +413,9 @@ func _permitted(p, command: Dictionary) -> bool:
 	return command.get("permission", "") != "admin" or is_admin(p)
 
 
-func schedule(seconds: float, callback: Callable, interval: float) -> int:
+func schedule(seconds: float, callback: Callable, interval: float, owner := "engine") -> int:
 	_task_seq += 1
-	_tasks[_task_seq] = {"due": _time + maxf(seconds, 0.0), "interval": interval, "callback": callback}
+	_tasks[_task_seq] = {"due": _time + maxf(seconds, 0.0), "interval": interval, "callback": callback, "owner": owner}
 	return _task_seq
 
 
@@ -426,7 +433,9 @@ func _run_tasks() -> void:
 		else:
 			_tasks.erase(id)
 		if task.callback.is_valid():
+			var t := Time.get_ticks_usec()
 			task.callback.call()
+			dev_tools.record(task.owner, "task", Time.get_ticks_usec() - t)
 
 
 func _register_builtin_commands() -> void:
@@ -740,6 +749,7 @@ func _physics_process(delta: float) -> void:
 	skill.update()
 	sleep.update(delta)
 	guide.update(delta)
+	dev_tools.update(delta)
 	tutorials.update(delta)
 	var sim_usec := 0
 	var stream_usec := 0
@@ -751,10 +761,14 @@ func _physics_process(delta: float) -> void:
 		_stream_chunks(p)
 		sim_usec += b - a
 		stream_usec += Time.get_ticks_usec() - b
+	var te := Time.get_ticks_usec()
 	entities.tick(delta)
 	for p: ServerPlayer in players.values():
 		_update_health(p, delta)
 	var t1 := Time.get_ticks_usec()
+	dev_tools.record("engine", "tick:entities and AI", t1 - te)
+	dev_tools.record("engine", "tick:players", sim_usec)
+	dev_tools.record("engine", "tick:chunk streaming", stream_usec)
 	_run_tasks()
 	emit("tick", {"delta": delta, "tick": tick})
 	var t2 := Time.get_ticks_usec()
@@ -763,6 +777,8 @@ func _physics_process(delta: float) -> void:
 		_send_snapshots()
 		entities.replicate(players.values())
 	var t3 := Time.get_ticks_usec()
+	dev_tools.record("engine", "tick:snapshots", t3 - t2)
+	dev_tools.record("engine", "tick:whole server tick", t3 - t0)
 
 	_poll_backup(delta)
 	_save_timer += delta
@@ -1344,6 +1360,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	emit("player_leave", {"player": p})
 	containers.close(p, false)
 	sleep.wake(p, "left")
+	dev_tools.unsubscribe(peer_id)
 	skill.player_left(p)
 	sessions.leave(p)
 	_store_player(p)
@@ -1783,7 +1800,9 @@ func on_chat(peer_id: int, text: String) -> void:
 		elif not _permitted(p, command):
 			p.send_message("You don't have permission to use /%s" % parts[0])
 		else:
+			var t := Time.get_ticks_usec()
 			command.handler.call(p, parts.slice(1))
+			dev_tools.record(command.mod, "command:/" + parts[0].to_lower(), Time.get_ticks_usec() - t)
 		return
 	if not emit("chat", {"player": p, "text": clean, "cancelled": false}).cancelled:
 		broadcast_chat("<%s> %s" % [p.name, clean])
@@ -1868,6 +1887,35 @@ func _cmd_tutorial(player, args: PackedStringArray) -> void:
 			player.send_message("Tips %s" % ("off" if tutorials.state_of(player).tips_off else "on"))
 		_:
 			player.send_message("Usage: /tutorial list | start <id> | skip | stop | tips on|off")
+
+
+## Dev overlay requests: subscribe {channels}, inspect {pos | entity | player}, trace_filter {filter},
+## clear_errors {source}.
+func on_dev(peer_id: int, action: String, args: Dictionary) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null:
+		return
+	if not dev_tools.allowed(p):
+		if action == "subscribe" and not (args.get("channels", []) as Array).is_empty():
+			Net.s_dev.rpc_id(peer_id, "denied", {})
+		return
+	match action:
+		"subscribe":
+			dev_tools.subscribe(p, args.get("channels") if args.get("channels") is Array else [])
+		"inspect":
+			var target := {}
+			if args.get("pos") is Vector3i:
+				target.pos = args.pos
+			elif args.has("entity"):
+				target.entity = int(args.entity)
+			elif args.has("player"):
+				target.player = int(args.player)
+			dev_tools.set_inspect(p, target)
+		"trace_filter":
+			dev_tools.set_trace_filter(p, str(args.get("filter", "")))
+		"clear_errors":
+			dev_log.clear_errors(str(args.get("source", "")))
+			dev_tools.subscribe(p, dev_tools.viewers.get(peer_id, {}).get("channels", {}).keys())
 
 
 func on_guide_read(peer_id: int, page_id: String) -> void:
