@@ -60,6 +60,8 @@ func setup(mod_api) -> void:
 		ids[size[0]] = api.register_entity(size[0], def)
 	api.add_spawn_rule({"entity": "slime", "category": "monster", "light": [0, 7], "place": "underground", "on": ["base:stone"],
 		"max_nearby": 2, "max_total": 6, "chance": 0.03})
+	api.add_spawn_rule({"entity": "slime", "category": "monster", "light": [0, 7], "place": "surface", "on": ["base:grass", "base:dirt"],
+		"biomes": ["vanilla:swamp"], "max_nearby": 2, "max_total": 6, "chance": 0.05})
 
 	ids.stalker = api.register_entity("night_stalker", {"kind": "mob", "model": "models/night_stalker.glb", "display_name": "Night Stalker",
 		"width": 0.6, "height": 2.2, "health": 24, "speed": 4.4, "category": "monster",

@@ -41,6 +41,7 @@ func _ready() -> void:
 	await _animals()
 	await _taming()
 	await _explosions()
+	await _biomes()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -1569,6 +1570,70 @@ func _explosions() -> void:
 	var mob_ev: Dictionary = server.explosions.explode(Vector3(3.5, y + 8.2, 3.5), 3.0, {"source": zombie})
 	_check(mob_ev.blocks.is_empty() and server.world.get_block_v(Vector3i(3, y + 7, 3)) == solid_before, "mob_griefing off keeps mob blasts from breaking blocks")
 	server.gameplay.mob_griefing = true
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _biomes() -> void:
+	var server = _start("biomes_%d" % Time.get_ticks_msec())
+	var gen = server.biome_generator
+	var reg = server.registry
+	_check(gen != null and server.generator == gen and gen.biomes.size() >= 10, "vanilla uses the biome generator with the classic biomes")
+	# Find a forest and a desert near the origin.
+	var spots := {}
+	for r in range(0, 3000, 32):
+		for a in 12:
+			var x := int(cos(a * TAU / 12.0) * r)
+			var z := int(sin(a * TAU / 12.0) * r)
+			var name: String = gen.biome_at(x, z)
+			if not spots.has(name) and gen.biome_at(x + 40, z) == name and gen.biome_at(x - 40, z) == name and gen.biome_at(x, z + 40) == name and gen.biome_at(x, z - 40) == name:
+				spots[name] = Vector2i(x, z)
+	_check(spots.has("vanilla:forest") and spots.has("vanilla:desert") and spots.has("vanilla:ocean"), "forests, deserts and oceans exist (%s)" % str(spots.keys()))
+	var Chunk = load("res://engine/shared/chunk.gd")
+	var count := func(coord: Vector2i, ids: Array) -> int:
+		var c = Chunk.new(coord)
+		gen.generate(c)
+		var n := 0
+		for i in range(0, c.blocks.size(), 2):
+			if ids.has(c.blocks.decode_u16(i)):
+				n += 1
+		return n
+	if spots.has("vanilla:forest"):
+		var fc := Vector2i(floori(spots["vanilla:forest"].x / 16.0), floori(spots["vanilla:forest"].y / 16.0))
+		_check(count.call(fc, [reg.id_of("base:log"), reg.id_of("base:birch_log")]) > 8, "forests grow trees")
+		var a = Chunk.new(fc)
+		var b = Chunk.new(fc)
+		gen.generate(a)
+		gen.generate(b)
+		_check(a.blocks == b.blocks, "generation is deterministic")
+		# Trees near a chunk border spill their leaves into the neighbour.
+		var leaves: int = reg.id_of("base:leaves")
+		var border_leaves := 0
+		for dz in range(0, 6):
+			var c = Chunk.new(fc + Vector2i(1, dz))
+			gen.generate(c)
+			for y in range(40, 90):
+				for z in 16:
+					if c.blocks.decode_u16(Chunk.index(0, y, z) << 1) == leaves:
+						border_leaves += 1
+		_check(border_leaves > 0, "leaves reach across chunk borders")
+	if spots.has("vanilla:desert"):
+		var d: Vector2i = spots["vanilla:desert"]
+		var h: int = gen.surface_height(d.x, d.y)
+		var dc := Vector2i(floori(d.x / 16.0), floori(d.y / 16.0))
+		var c = Chunk.new(dc)
+		gen.generate(c)
+		var top: int = c.blocks.decode_u16(Chunk.index(d.x - dc.x * 16, h, d.y - dc.y * 16) << 1)
+		_check(top == reg.id_of("base:sand") and count.call(dc, [reg.id_of("base:grass")]) == 0, "deserts are sand without grass")
+	# Spawn rules can be limited to biomes.
+	var rule := {"entity": server.entities.registry.id_of("vanilla:cow"), "biomes": ["vanilla:desert"], "light": [0, 15], "on": []}
+	server.entities.spawning.add_rule(rule)
+	var added: Dictionary = server.entities.spawning.rules.back()
+	if spots.has("vanilla:forest"):
+		var f: Vector2i = spots["vanilla:forest"]
+		server._ensure_chunk(Vector2i(floori(f.x / 16.0), floori(f.y / 16.0)))
+		var spot: Vector3 = server.entities.spawning.find_spot(Vector3(f.x, gen.surface_height(f.x, f.y) + 1, f.y), added, 1.0, 1.0, 6.0)
+		_check(spot == Vector3.INF, "a desert-only mob does not spawn in a forest")
 	server.queue_free()
 	await get_tree().process_frame
 

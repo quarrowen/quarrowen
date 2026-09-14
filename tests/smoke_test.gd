@@ -93,6 +93,12 @@ func _vanilla(c) -> void:
 	_check(c.world.get_block_v(spot) == c.registry.id_of("base:planks"), "creative placement confirmed")
 	_check(c.inventory.selected_block() == c.registry.id_of("base:planks"), "creative placement did not consume")
 
+	# The rest works on flat open ground: generated plains roll and are full of tall grass.
+	var yard := _find_open_ground(c, Vector2i(floori(c.state.position.x) + 16, floori(c.state.position.z)))
+	Net.c_chat.rpc_id(1, "/tp %.1f %.1f %.1f" % [yard.x, yard.y, yard.z])
+	await _wait_until(func(): return c.state.position.distance_to(yard) < 1.0 and c.state.on_ground, 5.0)
+	await _clear_plants(c, 5)
+
 	# Farming: till grass with a hoe, plant seeds on the farmland (crossed-quad plant block).
 	Net.c_chat.rpc_id(1, "/give base:wooden_hoe")
 	Net.c_chat.rpc_id(1, "/give base:wheat_seeds 4")
@@ -482,7 +488,7 @@ func _guild(c) -> void:
 
 func _combat(c) -> void:
 	# Other tests build and dig around the shared spawn; fight on untouched, dry, open ground.
-	var arena := _find_open_ground(c, Vector2i(40, 8))
+	var arena := _find_open_ground(c, Vector2i(floori(c.state.position.x) + 32, floori(c.state.position.z)))
 	Net.c_chat.rpc_id(1, "/tp %.1f %.1f %.1f" % [arena.x, arena.y, arena.z])
 	await _wait_until(func(): return c.state.position.distance_to(arena) < 1.0 and c.state.on_ground, 5.0)
 	Net.c_chat.rpc_id(1, "/gameplay mob_spawning false")
@@ -897,6 +903,19 @@ func _find_place_spot(c) -> Vector3i:
 
 
 ## A grass block with air above within reach, preferring ones not under the player.
+func _clear_plants(c, radius: int) -> void:
+	var feet: Vector3 = c.state.position
+	var base := Vector3i(floori(feet.x), floori(feet.y), floori(feet.z))
+	for x in range(-radius, radius + 1):
+		for z in range(-radius, radius + 1):
+			for y in range(-3, 3):
+				var p := base + Vector3i(x, y, z)
+				var id: int = c.world.get_block_v(p)
+				if id > 0 and id != 65535 and c.registry.defs[id].render == c.registry.Render.PLANT:
+					Net.c_break_block.rpc_id(1, p)
+					await get_tree().create_timer(0.08).timeout
+
+
 func _find_open_grass(c) -> Vector3i:
 	var grass: int = c.registry.id_of("base:grass")
 	var tall_grass: int = c.registry.id_of("base:tall_grass")

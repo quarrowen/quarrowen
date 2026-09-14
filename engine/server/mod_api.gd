@@ -63,6 +63,7 @@ const BlockRegistry = preload("res://engine/shared/block_registry.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const OrePass = preload("res://engine/server/ore_pass.gd")
+const BiomeGenerator = preload("res://engine/server/worldgen/biome_generator.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 
 var mod_id: String
@@ -602,6 +603,42 @@ func block_display_name(id: int) -> String:
 ## (index with Chunk.index(x, y, z)) and assign it back for speed.
 func set_world_generator(generator: Object) -> void:
 	_server.generator = generator
+
+
+## Turns on the engine biome generator (engine/server/worldgen/biome_generator.gd) for this world.
+## options: sea_level, snow_level. Register biomes and features before or after; returns the generator.
+func use_biome_generator(options := {}) -> Object:
+	var gen = biome_generator()
+	gen.sea_level = int(options.get("sea_level", gen.sea_level))
+	gen.snow_level = int(options.get("snow_level", gen.snow_level))
+	_server.generator = gen
+	return gen
+
+
+## The shared biome generator (created on first use, even if the game uses its own generator).
+func biome_generator() -> Object:
+	if _server.biome_generator == null:
+		_server.biome_generator = BiomeGenerator.new(_server.world_seed, func(n: String) -> int: return block(n) if n.contains(":") else block(n), _server.registry)
+	return _server.biome_generator
+
+
+## A biome for the biome generator: {climate, ocean, height, surface, features, plants}. See BiomeGenerator.
+func register_biome(biome_name: String, def: Dictionary) -> void:
+	var d := def.duplicate(true)
+	d.features = (def.get("features", []) as Array).map(func(f): return f.merged({"feature": _qualify_ref(str(f.get("feature", "")))}, true) if f is Dictionary else f) \
+		if def.get("features") is Array else []
+	biome_generator().add_biome(_qualify(biome_name), d)
+
+
+## A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from
+## GDScript, a Callable(writer, origin: Vector3i, rng) run on worker threads. See worldgen/features.gd.
+func register_feature(feature_name: String, def) -> void:
+	biome_generator().add_feature(_qualify(feature_name), def)
+
+
+## Name of the biome at a column ("" without the biome generator).
+func get_biome(position: Vector3) -> String:
+	return _server.biome_generator.biome_at(floori(position.x), floori(position.z)) if _server.biome_generator != null else ""
 
 
 ## `handler(player) -> Vector3` picks the spawn position for players without a saved position.

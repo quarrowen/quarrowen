@@ -1,7 +1,7 @@
 extends "res://engine/server/mod.gd"
 ## Classic creative sandbox on generated terrain.
 
-const Terrain = preload("terrain.gd")
+const Biomes = preload("biomes.gd")
 const Animals = preload("animals.gd")
 const Monsters = preload("monsters.gd")
 const APPLE_CHANCE := 0.12
@@ -10,7 +10,7 @@ const HOTBAR := ["base:grass", "base:dirt", "base:stone", "base:cobblestone", "b
 	"base:log", "base:glass", "base:brick", "base:sand"]
 
 var api
-var terrain
+var biomes := Biomes.new()
 var animals := Animals.new()
 var monsters := Monsters.new()
 var ids := {}
@@ -18,9 +18,8 @@ var ids := {}
 
 func setup(mod_api) -> void:
 	api = mod_api
-	terrain = Terrain.new(api)
+	biomes.setup(api)
 	api.set_server_info({"name": "Vanilla Sandbox", "motd": "Welcome! Type /help for commands."})
-	api.set_world_generator(terrain)
 	api.set_spawn_handler(_spawn_position)
 	api.on("player_join", _on_join)
 	api.register_command("spawn", "Teleport to world spawn", func(player, _args): player.teleport(_spawn_position(player)))
@@ -34,9 +33,30 @@ func setup(mod_api) -> void:
 		api.set_world_time(0.3, 1200.0)  # start the morning of a 20-minute day
 
 
+## Players start on open grassland (plains or savanna) near the world origin.
+const SPAWN_BIOMES := ["vanilla:plains", "vanilla:savanna"]
+
+
 func _spawn_position(_player) -> Vector3:
-	var y: int = api.surface_y(8, 8)
-	return Vector3(8.5, y + 1, 8.5)
+	if not api.storage.has("spawn"):
+		var gen = api.biome_generator()
+		var spot := Vector2i(8, 8)
+		var best := -1
+		for r in range(0, 2048, 32):
+			for a in 16:
+				var x := 8 + int(cos(a * TAU / 16.0) * r)
+				var z := 8 + int(sin(a * TAU / 16.0) * r)
+				var biome: String = gen.biome_at(x, z)
+				var score := 2 if SPAWN_BIOMES.has(biome) and gen.biome_at(x + 12, z) == biome and gen.biome_at(x - 12, z) == biome else \
+					(1 if biome != "vanilla:ocean" and gen.surface_height(x, z) > 47 else 0)
+				if score > best:
+					best = score
+					spot = Vector2i(x, z)
+			if best == 2:
+				break
+		api.storage.spawn = [spot.x, spot.y]
+	var at: Array = api.storage.spawn
+	return Vector3(int(at[0]) + 0.5, api.surface_y(int(at[0]), int(at[1])) + 1, int(at[1]) + 0.5)
 
 
 func _on_join(ev: Dictionary) -> void:

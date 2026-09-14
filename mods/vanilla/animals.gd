@@ -135,7 +135,7 @@ func _register_entities() -> void:
 			"cooldown": 300, "grow_seconds": 600, "tempt": false},
 		"taming": {"items": ["vanilla:bone"], "chance": 0.33, "follow_distance": 3.0, "teleport_distance": 16.0}})
 	api.add_spawn_rule({"entity": "wolf", "category": "animal", "light": [9, 15], "place": "surface", "on": ["base:grass", "base:snow"],
-		"max_nearby": 3, "max_total": 8, "chance": 0.015, "group": [2, 4]})
+		"biomes": ["vanilla:taiga", "vanilla:snowy_tundra", "vanilla:forest"], "max_nearby": 3, "max_total": 8, "chance": 0.03, "group": [2, 4]})
 	for animal in ["cow", "sheep", "chicken"]:
 		api.add_spawn_rule({"entity": animal, "category": "animal", "light": [9, 15], "place": "surface", "on": ["base:grass"],
 			"max_nearby": 4, "max_total": 24, "chance": 0.06, "group": [2, 4]})

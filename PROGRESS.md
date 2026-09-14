@@ -151,7 +151,18 @@ changes with `tools/build_native.sh`.
       - M5 Explosions (done): engine explosion system (blast resistance, drops, damage and knockback falloff,
         `mob_griefing` rule and per-explosion option) and an exploding mob (boomshroom). Not done: TNT,
         fire from explosions, chain reactions.
-   6. World generation: biomes, caves, cross-chunk structures (dungeons, ruins with loot chests).
+   6. World generation (user decisions 2026-09-14), in order:
+      - W1 Biome engine + classic biomes (done): data-driven biomes chosen by climate noise (temperature,
+        humidity, weirdness, peaks), blended heights, surface rules, cross-chunk features (trees,
+        cacti, boulders) placed deterministically, biome-aware spawn rules. Plains, forest, birch/flower
+        forest, taiga, snowy tundra, desert, swamp, savanna, mountains, beach, ocean.
+      - W2 Fantasy biomes: glowing mushroom fields, shadowwood (night stalkers at dusk), crystal
+        highlands registered by Arcana (mods add biomes).
+      - W3 Underground: tunnels + caverns, ravines, cave lakes and lava pools (new lava block), ores by
+        depth with a new deep ore.
+      - W4 Structure engine: build in creative, select and save as a template; generation places
+        templates across chunks with rotation, variants and loot tables; mob spawner block; code pieces.
+      - W5 Structures: dungeons, ruins and watchtowers in biome materials, mineshafts, Colossus arena.
 2. **Creator platform** (follow-up): hot-reload mods on a running server, in-game script console, mod
    packaging with versions/dependencies, generated API docs site, starter templates.
 3. **Player-made content / UGC** (follow-up): uploads of skins, cosmetics and later items/models;

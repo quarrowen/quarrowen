@@ -185,6 +185,22 @@ func _init() -> void:
 	_save(_item(Color(0.45, 0.8, 0.35), "lump"), vanilla + "slimeball.png")
 	_save(_item(Color(0.22, 0.16, 0.32), "shard"), vanilla + "shadow_essence.png")
 	_save(_item(Color(0.78, 0.3, 0.25), "lump"), vanilla + "boom_spores.png")
+
+	# Biomes (appended last so earlier textures keep their random sequence).
+	var woods := {"birch": [Color(0.9, 0.89, 0.84), Color(0.2, 0.2, 0.2), Color(0.45, 0.62, 0.3), Color(0.82, 0.74, 0.55)],
+		"spruce": [Color(0.3, 0.21, 0.12), Color(0.22, 0.15, 0.08), Color(0.16, 0.34, 0.2), Color(0.5, 0.38, 0.24)],
+		"acacia": [Color(0.45, 0.42, 0.38), Color(0.32, 0.3, 0.26), Color(0.42, 0.52, 0.18), Color(0.72, 0.42, 0.25)]}
+	for wood_name in woods:
+		var c: Array = woods[wood_name]
+		_save(_bark(c[0], c[1], wood_name == "birch"), base + "%s_log_side.png" % wood_name)
+		_save(_rings(c[0], c[3]), base + "%s_log_top.png" % wood_name)
+		_save(_foliage(c[2]), base + "%s_leaves.png" % wood_name)
+	_save(_cactus(false), base + "cactus_side.png")
+	_save(_cactus(true), base + "cactus_top.png")
+	_save(_sandstone(false), base + "sandstone_side.png")
+	_save(_sandstone(true), base + "sandstone_top.png")
+	_save(_dead_bush(), base + "dead_bush.png")
+	_save(_fern(), base + "fern.png")
 	quit()
 
 
@@ -797,6 +813,84 @@ func _log_top() -> Image:
 			var ring := int(Vector2(x - 7.5, y - 7.5).length()) % 2 == 0
 			var c := Color(0.4, 0.29, 0.16) if edge else (Color(0.62, 0.48, 0.3) if ring else Color(0.7, 0.56, 0.36))
 			img.set_pixel(x, y, _vary(c, 0.03))
+	return img
+
+
+func _bark(c: Color, streak: Color, spotted: bool) -> Image:
+	var img := _blank()
+	for x in TILE:
+		for y in TILE:
+			var p := _vary(c.darkened(0.07 if x % 4 == 1 else 0.0), 0.04)
+			if spotted and rng.randf() < 0.1:
+				p = streak
+			img.set_pixel(x, y, p)
+	return img
+
+
+func _rings(edge: Color, wood: Color) -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var outer := x == 0 or y == 0 or x == TILE - 1 or y == TILE - 1
+			var ring := int(Vector2(x - 7.5, y - 7.5).length()) % 2 == 0
+			img.set_pixel(x, y, _vary(edge if outer else (wood.darkened(0.12) if ring else wood), 0.03))
+	return img
+
+
+func _foliage(c: Color) -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			img.set_pixel(x, y, Color(0, 0, 0, 0) if rng.randf() < 0.18 else _vary(c, 0.1))
+	return img
+
+
+func _cactus(top: bool) -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			if x == 0 or x == TILE - 1 or (top and (y == 0 or y == TILE - 1)):
+				continue
+			var c := _vary(Color(0.3, 0.55, 0.22), 0.05)
+			if not top and x % 3 == 1:
+				c = c.darkened(0.2)
+			if (x + y * 3) % 7 == 0:
+				c = Color(0.85, 0.85, 0.7)  # spines
+			img.set_pixel(x, y, c)
+	return img
+
+
+func _sandstone(top: bool) -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var c := Color(0.86, 0.8, 0.58)
+			if not top and (y == 3 or y == 12):
+				c = c.darkened(0.12)
+			img.set_pixel(x, y, _vary(c, 0.03))
+	return img
+
+
+func _dead_bush() -> Image:
+	var img := _blank()
+	var twig := Color(0.5, 0.36, 0.2)
+	for i in 8:
+		img.set_pixel(7, TILE - 1 - i, twig)
+	for branch in [[7, 10, -1], [7, 8, 1], [7, 6, -1], [7, 5, 1]]:
+		for i in 4:
+			img.set_pixel(clampi(branch[0] + branch[2] * i, 0, TILE - 1), branch[1] - i, twig.darkened(0.1 * i))
+	return img
+
+
+func _fern() -> Image:
+	var img := _blank()
+	for frond in 5:
+		var angle := -1.2 + frond * 0.6
+		for i in 9:
+			var x := 7.5 + sin(angle) * i
+			var y := TILE - 1 - cos(angle) * i
+			if x >= 0 and x < TILE and y >= 0:
+				img.set_pixel(int(x), int(y), _vary(Color(0.26, 0.5, 0.2), 0.08))
 	return img
 
 

@@ -6,7 +6,8 @@ extends RefCounted
 ## light [min, max] (0-15 at the spawn spot: block light or daylight-scaled sky light; monsters default
 ## to [0, 7], animals to [9, 15]), place ("any" | "surface" | "underground"), time ("any" | "day" |
 ## "night"), on (block names to stand on), group [min, max] (pack size), chance (per player per second),
-## max_nearby (this type within 48 blocks of a player), max_total, min_distance, max_distance.
+## max_nearby (this type within 48 blocks of a player), max_total, min_distance, max_distance, biomes
+## (biome names where it may spawn; needs the biome generator).
 ##
 ## Categories cap how many of their mobs may be near each player (`caps`, changeable with
 ## set_spawn_caps). Monsters and ambient mobs despawn: at once beyond 96 blocks from every player, and
@@ -155,6 +156,9 @@ func find_spot(center: Vector3, rule: Dictionary, daylight: float, min_distance 
 			if solid[world.get_block(x, y, z)] == 1 or liquid[world.get_block(x, y, z)] == 1 or solid[world.get_block(x, y + 1, z)] == 1:
 				continue
 			if not allowed.is_empty() and not allowed.has(ground):
+				break
+			if not rule.get("biomes", []).is_empty() and _server.biome_generator != null \
+					and not rule.biomes.has(_server.biome_generator.biome_at(x, z)):
 				break
 			var cell := Vector3i(x, y, z)
 			var open_sky: bool = _server.block_ticks._column_height(x, z) < y

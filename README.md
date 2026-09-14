@@ -533,6 +533,18 @@ api.on("entity_death", func(ev):
 api.register_item("bread", {"icon": "textures/bread.png", "food": {"hunger": 5, "saturation": 6.0}})
 ```
 
+- **Biomes and world generation:** the engine biome generator (`api.use_biome_generator`) picks biomes
+  from smooth climate noise (temperature, humidity, weirdness, peaks) and continentalness (land or
+  ocean), blends biome heights so borders are smooth, and takes surface blocks, plants and features from
+  the closest biome. `register_biome(name, {climate, ocean, height: {base, variation, peaks}, surface:
+  {top, filler, depth, underwater, beach, stone}, features: [{feature, per_chunk}], plants: [{block,
+  chance, on}]})`; `register_feature(name, {type: tree | column | boulder | spike | mushroom | patch,
+  ...})` or a GDScript Callable. Features may cross chunk borders (positions depend only on their own
+  chunk, and each chunk keeps the blocks that fall inside it). Spawn rules take `biomes`; `get_biome`,
+  `/biome`. Vanilla: plains, forest, birch flower forest, taiga, snowy tundra, desert, swamp, savanna,
+  mountains and ocean with oak, birch, spruce, acacia and swamp trees, cacti, boulders, ferns and dead
+  bushes (new base blocks; all logs make planks).
+
 - **Natural spawning:** spawn rules pick spots on the surface and in caves near each player and check
   the light there (block light or daylight-scaled sky light, 0-15). Monsters default to light 0-7, so
   night, caves and unlit rooms spawn them and torches keep an area safe; animals default to 9-15 on

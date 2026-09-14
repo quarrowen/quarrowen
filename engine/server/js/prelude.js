@@ -229,6 +229,9 @@
     dropItem: (item, count, position) => host("dropItem", item, count, position),
     entities: (center, radius, type = "") => host("entities", center, radius, type),
     addSpawnRule: (rule) => host("addSpawnRule", rule),
+    registerBiome: (name, def) => host("registerBiome", name, def),
+    registerFeature: (name, def) => host("registerFeature", name, def),
+    getBiome: (position) => host("getBiome", position),
     /** Mobs of each spawn category allowed around each player: { monster, animal, ambient, misc }. */
     setSpawnCaps: (caps) => host("setSpawnCaps", caps),
     setGameplay: (values) => host("setGameplay", values),

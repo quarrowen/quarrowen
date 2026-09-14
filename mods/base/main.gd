@@ -6,6 +6,7 @@ const Farming = preload("farming.gd")
 const Stations = preload("stations.gd")
 const Forging = preload("forging.gd")
 const Beds = preload("beds.gd")
+const Nature = preload("nature.gd")
 const TABLE := {"station": "crafting_table"}
 ## Iron gear needs an anvil beside the table; iron armor also needs a Sturdy Workbench.
 ## Iron gear can also be forged by hand at the anvil for better quality (the "forging" minigame).
@@ -16,6 +17,7 @@ var farming := Farming.new()
 var stations := Stations.new()
 var forging := Forging.new()
 var beds := Beds.new()
+var nature := Nature.new()
 
 
 func setup(api) -> void:
@@ -72,6 +74,7 @@ func setup(api) -> void:
 	api.register_recipe({"base:cobblestone": 1}, "base:gravel", 1)
 	_register_tools(api)
 	farming.setup(api, {"dirt": dirt, "grass": grass})
+	nature.setup(api, {"wood": wood, "grass": grass, "stone": stone})
 	stations.setup(api, {"wood": wood, "stone": stone})
 	forging.setup(api, {"stone": stone})
 	beds.setup(api, {"wood": wood})

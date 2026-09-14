@@ -146,7 +146,7 @@ declare module "voxelcraft" {
   export interface SpawnRule {
     entity: string; time?: "night" | "day" | "any"; on?: string[];
     category?: "monster" | "animal" | "ambient" | "misc"; light?: [number, number]; place?: "any" | "surface" | "underground";
-    group?: [number, number];
+    group?: [number, number]; biomes?: string[];
     max_nearby?: number; max_total?: number; chance?: number; min_distance?: number; max_distance?: number;
   }
 
@@ -405,6 +405,10 @@ declare module "voxelcraft" {
     dropItem(item: ItemId, count: number, position: Vec3): Entity | null;
     entities(center: Vec3, radius: number, type?: string): Entity[];
     addSpawnRule(rule: SpawnRule): void;
+    /** Biome generator: data-driven biomes and features (see engine/server/worldgen). */
+    registerBiome(name: string, def: Record<string, unknown>): void;
+    registerFeature(name: string, def: Record<string, unknown>): void;
+    getBiome(position: Vec3): string;
     setSpawnCaps(caps: { monster?: number; animal?: number; ambient?: number; misc?: number }): void;
     setGameplay(values: Gameplay): void;
     getGameplay<K extends keyof Gameplay>(rule: K): Gameplay[K];

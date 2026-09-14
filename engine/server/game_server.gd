@@ -111,6 +111,8 @@ var server_info := {"name": "VoxelCraft Server", "game": "", "description": "", 
 var generator: Object = null
 ## Objects with decorate(chunk, world_seed) run after the generator on worker threads (e.g. ores).
 var generation_passes: Array = []
+## The engine biome generator once a mod registers biomes (may also be the world generator).
+var biome_generator = null
 var spawn_handler := Callable()
 var players := {}  # peer_id -> ServerPlayer
 var tick := 0
@@ -215,6 +217,8 @@ func start(config: Dictionary) -> Error:
 	if err != OK:
 		return err
 	_add_part_recipes()
+	if biome_generator != null:
+		biome_generator.freeze()
 	_hash_assets()
 	_apply_rules_to_world()
 	_build_view_offsets()
@@ -410,6 +414,12 @@ func _register_builtin_commands() -> void:
 	add_command("tp", "<x> <y> <z> | <player> - teleport", _cmd_tp, "engine", "admin")
 	add_command("summon", "<entity> [count] - spawn entities in front of you", _cmd_summon, "engine", "admin")
 	add_command("heal", "[player] - restore health", _cmd_heal, "engine", "admin")
+	add_command("biome", "- the biome you are standing in", func(player, _args):
+		if biome_generator == null:
+			player.send_message("This world has no biomes")
+		else:
+			var biome_name: String = biome_generator.biome_at(floori(player.state.position.x), floori(player.state.position.z))
+			player.send_message("Biome: %s" % biome_generator.biomes[biome_generator.biome_ids[biome_name]].display_name), "engine")
 	add_command("mobs", "- mobs near you by spawn category, and the caps", func(player, _args):
 		var summary: Dictionary = entities.spawning.summary(player.state.position)
 		var parts := PackedStringArray()
