@@ -2,8 +2,8 @@ extends RefCounted
 ## The engine's biome world generator. Games and add-on mods register biomes (ModApi.register_biome)
 ## and features (ModApi.register_feature); a game turns the generator on with ModApi.use_biome_generator.
 ##
-## Climate: four smooth noise fields pick biomes everywhere: temperature, humidity, weirdness (rare
-## fantasy biomes live at its extremes) and peaks (mountains). Continentalness decides land and ocean.
+## Climate: four smooth noise fields pick biomes everywhere: temperature, humidity, weirdness (a biome
+## with a weirdness value only appears where the noise goes past it: rare fantasy biomes) and peaks. Continentalness decides land and ocean.
 ## Each biome says where it sits in that climate space; every column blends the heights of nearby
 ## biomes (so borders are smooth) and takes blocks, plants and features from the closest one.
 ##
@@ -136,7 +136,10 @@ func weights(c: Dictionary) -> Dictionary:
 		var b: Dictionary = biomes[i]
 		if b.ocean != ocean:
 			continue
-		var d: float = (c.t - b.t) ** 2 + (c.h - b.h) ** 2 + 2.5 * (c.w - b.w) ** 2 + 2.0 * (peaks - b.p) ** 2
+		# Weird biomes only appear where weirdness passes their value (same sign); the rest ignore it.
+		if b.w != 0.0 and (signf(c.w) != signf(b.w) or absf(c.w) < absf(b.w)):
+			continue
+		var d: float = (c.t - b.t) ** 2 + (c.h - b.h) ** 2 + 2.0 * (peaks - b.p) ** 2 - (0.3 if b.w != 0.0 else 0.0)
 		distances[i] = d
 		nearest = minf(nearest, d)
 	if distances.is_empty():

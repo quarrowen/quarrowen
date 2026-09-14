@@ -1579,6 +1579,13 @@ func _biomes() -> void:
 	var gen = server.biome_generator
 	var reg = server.registry
 	_check(gen != null and server.generator == gen and gen.biomes.size() >= 10, "vanilla uses the biome generator with the classic biomes")
+	_check(gen.biome_ids.has("vanilla:mushroom_fields") and gen.biome_ids.has("vanilla:shadowwood"), "vanilla has its fantasy biomes")
+	var weird := 0
+	for i in 400:
+		var name: String = gen.biome_at(i * 97 - 20000, i * 53 - 11000)
+		if name in ["vanilla:mushroom_fields", "vanilla:shadowwood"]:
+			weird += 1
+	_check(weird > 0 and weird < 60, "fantasy biomes are rare but present (%d of 400 samples)" % weird)
 	# Find a forest and a desert near the origin.
 	var spots := {}
 	for r in range(0, 3000, 32):

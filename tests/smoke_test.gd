@@ -116,8 +116,10 @@ func _vanilla(c) -> void:
 		_check(await _wait_until(func(): return c.world.get_block_v(soil) == farmland, 3.0), "the hoe tilled grass into farmland")
 		await _select_item(c, seeds)
 		_aim_at(c, Vector3(soil) + Vector3(0.5, 0.98, 0.5))
-		await get_tree().create_timer(0.3).timeout
+		await get_tree().create_timer(0.6).timeout  # let the server see the new selection
 		c.use_selected_item()
+		if not await _wait_until(func(): return c.world.get_block_v(soil + Vector3i.UP) == c.registry.id_of("base:wheat_0"), 1.5):
+			c.use_selected_item()  # the first use can race the hotbar change
 		var wheat: int = c.registry.id_of("base:wheat_0")
 		_check(await _wait_until(func(): return c.world.get_block_v(soil + Vector3i.UP) == wheat, 3.0) \
 			and c.registry.defs[wheat].render == c.BlockRegistry.Render.PLANT, "seeds planted wheat (a plant block)")

@@ -1,6 +1,7 @@
 extends RefCounted
 ## Vanilla's world: the engine biome generator with classic biomes. Each biome's place in climate
 ## space (temperature, humidity, peaks) decides where it appears; trees and plants come from features.
+## Rare fantasy biomes sit at the extremes of weirdness: glowing mushroom fields and the dark shadowwood.
 
 var api
 
@@ -8,10 +9,35 @@ var api
 func setup(mod_api) -> void:
 	api = mod_api
 	api.use_biome_generator({"sea_level": 46, "snow_level": 92})
+	_blocks()
 	_features()
 	_biomes()
 	api.add_ore_pass({"ore": "base:coal_ore", "replace": "base:stone", "veins": 12, "size": 8, "min_y": 5, "max_y": 90})
 	api.add_ore_pass({"ore": "base:iron_ore", "replace": "base:stone", "veins": 7, "size": 5, "min_y": 5, "max_y": 60})
+
+
+func _blocks() -> void:
+	var soft := {"break": "base:grass", "place": "base:grass", "step": "base:soft_step"}
+	var wood := {"break": "base:wood", "place": "base:wood", "step": "base:wood_step"}
+	api.register_block("mycelium", {"display_name": "Mycelium", "sounds": soft, "hardness": 0.6, "tool": "shovel", "drops": "base:dirt",
+		"textures": {"all": "textures/mycelium_side.png", "top": "textures/mycelium_top.png", "bottom": "base:textures/dirt.png"}})
+	api.register_block("mushroom_cap", {"display_name": "Mushroom Cap", "textures": "textures/mushroom_cap.png", "sounds": soft, "hardness": 0.3, "drops": "vanilla:red_mushroom"})
+	api.register_block("mushroom_stem", {"display_name": "Mushroom Stem", "textures": "textures/mushroom_stem.png", "sounds": wood, "hardness": 0.3})
+	api.register_block("glowcap", {"display_name": "Glowcap", "textures": "textures/glowcap.png", "sounds": soft, "hardness": 0.3, "light": 11,
+		"drops": "vanilla:glow_mushroom"})
+	api.register_block("red_mushroom", {"display_name": "Red Mushroom", "textures": "textures/red_mushroom.png", "render": "plant", "replaceable": true,
+		"hardness": 0.0, "support": "solid", "sounds": soft})
+	api.register_block("glow_mushroom", {"display_name": "Glow Mushroom", "textures": "textures/glow_mushroom.png", "render": "plant", "replaceable": true,
+		"hardness": 0.0, "support": "solid", "light": 6, "sounds": soft})
+	api.register_block("shadow_log", {"display_name": "Shadowwood Log", "sounds": wood, "hardness": 2.0, "tool": "axe",
+		"textures": {"all": "textures/shadow_log_side.png", "top": "textures/shadow_log_top.png", "bottom": "textures/shadow_log_top.png"}})
+	api.register_block("shadow_leaves", {"display_name": "Shadowwood Leaves", "textures": "textures/shadow_leaves.png", "render": "cutout",
+		"drops": "", "sway": true, "sounds": soft, "hardness": 0.2})
+	api.register_recipe({"vanilla:shadow_log": 1}, "base:planks", 4, {"unlock": "known", "id": "planks_from_shadow"})
+	api.register_block("gloomgrass", {"display_name": "Gloomgrass", "sounds": soft, "hardness": 0.6, "tool": "shovel", "drops": "base:dirt",
+		"textures": {"all": "textures/gloomgrass_side.png", "top": "textures/gloomgrass_top.png", "bottom": "base:textures/dirt.png"}})
+	api.register_block("nightbloom", {"display_name": "Nightbloom", "textures": "textures/nightbloom.png", "render": "plant", "replaceable": true,
+		"hardness": 0.0, "support": "solid", "light": 4, "sway": true, "sounds": soft})
 
 
 func _features() -> void:
@@ -24,6 +50,9 @@ func _features() -> void:
 	api.register_feature("cactus", {"type": "column", "block": "base:cactus", "height": [1, 3]})
 	api.register_feature("boulder", {"type": "boulder", "block": "base:cobblestone", "radius": [1, 2]})
 	api.register_feature("flowers", {"type": "patch", "block": "base:poppy", "radius": [2, 3], "count": 6, "on": ["base:grass"]})
+	api.register_feature("huge_mushroom", {"type": "mushroom", "stem": "vanilla:mushroom_stem", "cap": "vanilla:mushroom_cap", "height": [4, 7], "radius": [2, 3]})
+	api.register_feature("huge_glowcap", {"type": "mushroom", "stem": "vanilla:mushroom_stem", "cap": "vanilla:glowcap", "light_block": "vanilla:glowcap", "height": [5, 8], "radius": [2, 3]})
+	api.register_feature("shadow_tree", {"type": "tree", "trunk": "vanilla:shadow_log", "leaves": "vanilla:shadow_leaves", "height": [7, 10], "shape": "blob"})
 	api.register_feature("dandelions", {"type": "patch", "block": "base:dandelion", "radius": [2, 3], "count": 6, "on": ["base:grass"]})
 
 
@@ -60,5 +89,14 @@ func _biomes() -> void:
 	api.register_biome("mountains", {"climate": {"temperature": -0.1, "humidity": 0.0, "peaks": 0.85}, "height": {"base": 60, "variation": 8, "peaks": 80},
 		"features": [{"feature": "spruce", "per_chunk": 0.6}, {"feature": "boulder", "per_chunk": 0.3}],
 		"plants": [{"block": "base:tall_grass", "chance": 0.05, "on": ["base:grass"]}]})
+	# Fantasy biomes: rare, at the far ends of weirdness.
+	api.register_biome("mushroom_fields", {"display_name": "Glowing Mushroom Fields", "climate": {"temperature": 0.3, "humidity": 0.55, "weirdness": 0.8},
+		"height": {"base": 50, "variation": 5}, "surface": {"top": "vanilla:mycelium", "beach": "vanilla:mycelium"},
+		"features": [{"feature": "huge_mushroom", "per_chunk": 1.2}, {"feature": "huge_glowcap", "per_chunk": 0.8}],
+		"plants": [{"block": "vanilla:red_mushroom", "chance": 0.04, "on": ["vanilla:mycelium"]}, {"block": "vanilla:glow_mushroom", "chance": 0.05, "on": ["vanilla:mycelium"]}]})
+	api.register_biome("shadowwood", {"display_name": "Shadowwood", "climate": {"temperature": -0.15, "humidity": 0.45, "weirdness": -0.8},
+		"height": {"base": 54, "variation": 6}, "surface": {"top": "vanilla:gloomgrass", "beach": ""},
+		"features": [{"feature": "shadow_tree", "per_chunk": 6.0}],
+		"plants": [{"block": "base:fern", "chance": 0.1, "on": ["vanilla:gloomgrass"]}, {"block": "vanilla:nightbloom", "chance": 0.03, "on": ["vanilla:gloomgrass"]}]})
 	api.register_biome("ocean", {"ocean": true, "climate": {}, "height": {"base": 34, "variation": 4},
 		"surface": {"top": "base:sand", "filler": "base:sand", "underwater": "base:gravel"}})

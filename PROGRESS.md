@@ -156,7 +156,7 @@ changes with `tools/build_native.sh`.
         humidity, weirdness, peaks), blended heights, surface rules, cross-chunk features (trees,
         cacti, boulders) placed deterministically, biome-aware spawn rules. Plains, forest, birch/flower
         forest, taiga, snowy tundra, desert, swamp, savanna, mountains, beach, ocean.
-      - W2 Fantasy biomes: glowing mushroom fields, shadowwood (night stalkers at dusk), crystal
+      - W2 Fantasy biomes (done): glowing mushroom fields, shadowwood (night stalkers at dusk), crystal
         highlands registered by Arcana (mods add biomes).
       - W3 Underground: tunnels + caverns, ravines, cave lakes and lava pools (new lava block), ores by
         depth with a new deep ore.

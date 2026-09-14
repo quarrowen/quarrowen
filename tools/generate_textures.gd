@@ -201,6 +201,23 @@ func _init() -> void:
 	_save(_sandstone(true), base + "sandstone_top.png")
 	_save(_dead_bush(), base + "dead_bush.png")
 	_save(_fern(), base + "fern.png")
+
+	# Fantasy biomes (appended last so earlier textures keep their random sequence).
+	_save(_noise(Color(0.46, 0.4, 0.5), 0.08), vanilla + "mycelium_top.png")
+	_save(_cap(_noise(Color(0.47, 0.32, 0.2), 0.07), Color(0.46, 0.4, 0.5), 3), vanilla + "mycelium_side.png")
+	_save(_spotted(Color(0.78, 0.18, 0.16), Color(0.95, 0.92, 0.88)), vanilla + "mushroom_cap.png")
+	_save(_noise(Color(0.88, 0.85, 0.76), 0.04), vanilla + "mushroom_stem.png")
+	_save(_spotted(Color(0.2, 0.62, 0.72), Color(0.6, 0.98, 1.0)), vanilla + "glowcap.png")
+	_save(_small_mushroom(Color(0.8, 0.2, 0.18)), vanilla + "red_mushroom.png")
+	_save(_small_mushroom(Color(0.35, 0.85, 0.95)), vanilla + "glow_mushroom.png")
+	_save(_bark(Color(0.2, 0.15, 0.26), Color(0.12, 0.08, 0.16), false), vanilla + "shadow_log_side.png")
+	_save(_rings(Color(0.2, 0.15, 0.26), Color(0.32, 0.26, 0.4)), vanilla + "shadow_log_top.png")
+	_save(_foliage(Color(0.22, 0.16, 0.34)), vanilla + "shadow_leaves.png")
+	_save(_noise(Color(0.2, 0.3, 0.3), 0.08), vanilla + "gloomgrass_top.png")
+	_save(_cap(_noise(Color(0.3, 0.22, 0.16), 0.07), Color(0.2, 0.3, 0.3), 3), vanilla + "gloomgrass_side.png")
+	_save(_flower(Color(0.7, 0.5, 1.0), Color(0.95, 0.9, 1.0)), vanilla + "nightbloom.png")
+	_save(_crystal(), arcana + "crystal_block.png")
+	_save(_noise(Color(0.55, 0.5, 0.62), 0.06), arcana + "crystal_stone.png")
 	quit()
 
 
@@ -842,6 +859,42 @@ func _foliage(c: Color) -> Image:
 	for y in TILE:
 		for x in TILE:
 			img.set_pixel(x, y, Color(0, 0, 0, 0) if rng.randf() < 0.18 else _vary(c, 0.1))
+	return img
+
+
+func _spotted(c: Color, spot: Color) -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			img.set_pixel(x, y, _vary(c, 0.05))
+	for i in 5:
+		var cx := rng.randi_range(2, 13)
+		var cy := rng.randi_range(2, 13)
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				if absi(dx) + absi(dy) < 2:
+					img.set_pixel(cx + dx, cy + dy, spot)
+	return img
+
+
+func _small_mushroom(cap: Color) -> Image:
+	var img := _blank()
+	for y in range(9, TILE):
+		img.set_pixel(7, y, Color(0.9, 0.87, 0.78))
+		img.set_pixel(8, y, Color(0.84, 0.8, 0.7))
+	for y in range(5, 10):
+		for x in range(3, 13):
+			if Vector2(x - 7.5, (y - 9.0) * 1.6).length() < 5.0:
+				img.set_pixel(x, y, _vary(cap, 0.06))
+	return img
+
+
+func _crystal() -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var facet := (x + y) % 6 < 3
+			img.set_pixel(x, y, _vary(Color(0.62, 0.36, 0.95) if facet else Color(0.78, 0.58, 1.0), 0.05))
 	return img
 
 

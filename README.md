@@ -544,6 +544,10 @@ api.register_item("bread", {"icon": "textures/bread.png", "food": {"hunger": 5, 
   `/biome`. Vanilla: plains, forest, birch flower forest, taiga, snowy tundra, desert, swamp, savanna,
   mountains and ocean with oak, birch, spruce, acacia and swamp trees, cacti, boulders, ferns and dead
   bushes (new base blocks; all logs make planks).
+  Biomes with a `weirdness` value only appear where the weirdness noise passes it, which makes them
+  rare: vanilla's glowing mushroom fields (mycelium, huge red and glowing mushrooms, boomshrooms) and
+  shadowwood (gloomgrass, towering dark trees, nightblooms, night stalkers even at dusk), and Arcana's
+  crystal highlands (crystal stone and glowing mana spires) that Arcana adds to any biome world.
 
 - **Natural spawning:** spawn rules pick spots on the surface and in caves near each player and check
   the light there (block light or daylight-scaled sky light, 0-15). Monsters default to light 0-7, so

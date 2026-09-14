@@ -72,5 +72,10 @@ func setup(mod_api) -> void:
 			"attacks": [{"name": "rend", "type": "melee", "damage": 5.0, "range": 1.0, "windup": 0.35, "cooldown": 1.1}]}})
 	api.add_spawn_rule({"entity": "night_stalker", "category": "monster", "light": [0, 3], "time": "night",
 		"on": ["base:grass", "base:dirt", "base:stone", "base:snow"], "max_nearby": 1, "max_total": 2, "chance": 0.01, "min_distance": 30})
+	# In the shadowwood they already prowl at dusk and under its dark canopy.
+	api.add_spawn_rule({"entity": "night_stalker", "category": "monster", "light": [0, 8], "biomes": ["vanilla:shadowwood"],
+		"on": ["vanilla:gloomgrass", "base:dirt"], "max_nearby": 2, "max_total": 4, "chance": 0.04, "min_distance": 24})
+	api.add_spawn_rule({"entity": "boomshroom", "category": "monster", "light": [0, 9], "biomes": ["vanilla:mushroom_fields"],
+		"on": ["vanilla:mycelium"], "max_nearby": 3, "max_total": 8, "chance": 0.05})
 	api.add_spawn_rule({"entity": "night_stalker", "category": "monster", "light": [0, 3], "place": "underground",
 		"on": ["base:stone"], "max_nearby": 1, "max_total": 2, "chance": 0.005, "min_distance": 30})
