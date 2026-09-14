@@ -568,6 +568,12 @@ api.register_item("bread", {"icon": "textures/bread.png", "food": {"hunger": 5, 
   code-built layouts. `register_loot_table(name, {rolls, entries})` fills structure chests the first
   time they are opened. Blocks with `spawner: true` (base's monster spawner) spawn mobs in the dark
   near players.
+  Vanilla structures (templates in `mods/vanilla/structures/`, written by `tools/generate_structures.py`):
+  underground dungeons with a zombie, skeleton or spider spawner, cobwebs and two loot chests; ruins
+  and watchtowers built from local materials (sandstone in deserts, spruce in taiga, acacia on the
+  savanna); branching mineshafts generated in code from corridor, crossing and room pieces with chests
+  and webs; and rare ancient arenas in plains, savanna and desert whose altar wakes the Colossus when
+  a survival player walks in, guarding cobalt, iron and shadow essence.
 
 - **Natural spawning:** spawn rules pick spots on the surface and in caves near each player and check
   the light there (block light or daylight-scaled sky light, 0-15). Monsters default to light 0-7, so

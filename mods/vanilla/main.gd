@@ -4,6 +4,7 @@ extends "res://engine/server/mod.gd"
 const Biomes = preload("biomes.gd")
 const Animals = preload("animals.gd")
 const Monsters = preload("monsters.gd")
+const VanillaStructures = preload("structures.gd")
 const APPLE_CHANCE := 0.12
 
 const HOTBAR := ["base:grass", "base:dirt", "base:stone", "base:cobblestone", "base:planks",
@@ -13,6 +14,7 @@ var api
 var biomes := Biomes.new()
 var animals := Animals.new()
 var monsters := Monsters.new()
+var structures := VanillaStructures.new()
 var ids := {}
 
 
@@ -190,6 +192,7 @@ func _setup_mobs() -> void:
 			ev.drops.append([api.item("base:apple"), 1]))
 	animals.setup(api)
 	monsters.setup(api)
+	structures.setup(api)
 	api.every(4.0, _mob_tick)
 
 

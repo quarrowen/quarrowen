@@ -1760,6 +1760,43 @@ func _structures() -> void:
 	# Capture and place back.
 	var captured: Dictionary = st.capture(server, at, at + Vector3i(2, 3, 4))
 	_check(captured.size == [3, 4, 5] and captured.blocks.size() == 60, "a selection captures into a template")
+	# Vanilla structures: every kind appears somewhere, dungeons get spawners and chests, mineshafts branch.
+	var found := {}
+	var mineshaft_pieces := 0
+	for s in st.sets:
+		if not String(s.name).begins_with("vanilla:"):
+			continue
+		for rz in range(-6, 7):
+			for rx in range(-6, 7):
+				var start: Dictionary = st.start_for(s, Vector2i(rx, rz), gen)
+				if not start.is_empty():
+					if not found.has(s.name):
+						found[s.name] = start
+					if s.name == "vanilla:mineshaft":
+						mineshaft_pieces = maxi(mineshaft_pieces, start.pieces.size())
+	_check(found.has("vanilla:dungeon") and found.has("vanilla:ruins") and found.has("vanilla:watchtower") and found.has("vanilla:mineshaft"),
+		"dungeons, ruins, watchtowers and mineshafts generate (%s)" % str(found.keys()))
+	_check(mineshaft_pieces > 8, "mineshafts branch into many corridors (%d pieces)" % mineshaft_pieces)
+	if found.has("vanilla:dungeon"):
+		var dungeon: Dictionary = found["vanilla:dungeon"]
+		var spawner_at: Vector3i = dungeon.pieces[0].position + st.rotate(Vector3i(4, 1, 4), Vector3i(9, 6, 9), dungeon.pieces[0].rotation)
+		var dc = Chunk.new(Vector2i(floori(spawner_at.x / 16.0), floori(spawner_at.z / 16.0)))
+		gen.generate(dc)
+		_check(dc.blocks.decode_u16(Chunk.index(spawner_at.x & 15, spawner_at.y, spawner_at.z & 15) << 1) == reg.id_of("base:spawner")
+			and dc.generated_data.get(spawner_at, {}).has("spawner"), "a dungeon has its spawner")
+	var arena_at := Vector3i(40, server.surface_height(40, 40) + 1, 40)
+	server.structure_tools.place("vanilla:colossus_arena", arena_at, 0)
+	var altar := arena_at + Vector3i(12, 2, 12)
+	_check(server.world.get_block_v(altar) == reg.id_of("vanilla:ancient_altar"), "the arena has its altar")
+	p.inventory.creative = false
+	p.state.position = Vector3(altar) + Vector3(3, 0, 3)
+	var mods: Array = server._mods.filter(func(m): return m.get("structures") != null)
+	if not mods.is_empty():
+		mods[0].structures._altar_tick({"position": altar})
+		_check(server.entities.in_radius(Vector3(altar), 12.0, server.entities.registry.id_of("vanilla:colossus")).size() == 1,
+			"stepping into the arena wakes the Colossus")
+		mods[0].structures._altar_tick({"position": altar})
+		_check(server.entities.in_radius(Vector3(altar), 12.0, server.entities.registry.id_of("vanilla:colossus")).size() == 1, "only once")
 	# Spawners.
 	var spawner: int = reg.id_of("base:spawner")
 	var sp := Vector3i(20, y, 20)

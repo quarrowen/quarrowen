@@ -228,6 +228,8 @@ func _init() -> void:
 	_save(_pod(), vanilla + "shadow_pod.png")
 	_save(_noise(Color(0.7, 0.45, 1.0, 0.7), 0.05), arcana + "mana_spring.png")
 	_save(_cage(), base + "spawner.png")
+	_save(_web(), vanilla + "cobweb.png")
+	_save(_altar(), vanilla + "ancient_altar.png")
 	quit()
 
 
@@ -869,6 +871,31 @@ func _foliage(c: Color) -> Image:
 	for y in TILE:
 		for x in TILE:
 			img.set_pixel(x, y, Color(0, 0, 0, 0) if rng.randf() < 0.18 else _vary(c, 0.1))
+	return img
+
+
+func _web() -> Image:
+	var img := _blank()
+	var silk := Color(0.92, 0.92, 0.95, 0.9)
+	for i in TILE:
+		img.set_pixel(i, i, silk)
+		img.set_pixel(TILE - 1 - i, i, silk)
+		img.set_pixel(7, i, silk)
+		img.set_pixel(i, 7, silk)
+	for r in [3, 6]:
+		for a in 24:
+			var x: float = 7.5 + cos(a * TAU / 24.0) * r
+			var y: float = 7.5 + sin(a * TAU / 24.0) * r
+			img.set_pixel(clampi(int(x), 0, TILE - 1), clampi(int(y), 0, TILE - 1), silk)
+	return img
+
+
+func _altar() -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var rune := (x == 7 or x == 8) and y > 2 and y < 13 or (y == 7 or y == 8) and x > 2 and x < 13
+			img.set_pixel(x, y, Color(1.0, 0.7, 0.3) if rune else _vary(Color(0.35, 0.33, 0.36), 0.05))
 	return img
 
 

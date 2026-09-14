@@ -87,7 +87,7 @@ changes with `tools/build_native.sh`.
 
 ## Roadmap (milestones, agreed 2026-09-13)
 
-1. **Vanilla survival loop** (current, branch `survival`). Each step adds an engine capability, then
+1. **Vanilla survival loop** (done 2026-09-14 on branch `survival`, not yet merged). Each step adds an engine capability, then
    vanilla/base content:
    1. Block ticks (random, scheduled, catch-up), server light, `plant` render mode, support and
       replaceable blocks -> farming (hoes, farmland, wheat, bread), saplings, tall grass and flowers. (done)
@@ -151,7 +151,7 @@ changes with `tools/build_native.sh`.
       - M5 Explosions (done): engine explosion system (blast resistance, drops, damage and knockback falloff,
         `mob_griefing` rule and per-explosion option) and an exploding mob (boomshroom). Not done: TNT,
         fire from explosions, chain reactions.
-   6. World generation (user decisions 2026-09-14), in order:
+   6. World generation (done; user decisions 2026-09-14), in order:
       - W1 Biome engine + classic biomes (done): data-driven biomes chosen by climate noise (temperature,
         humidity, weirdness, peaks), blended heights, surface rules, cross-chunk features (trees,
         cacti, boulders) placed deterministically, biome-aware spawn rules. Plains, forest, birch/flower
@@ -163,7 +163,8 @@ changes with `tools/build_native.sh`.
         and glowing shadow pods (user request). Not done: flowing liquids, extra ore in cave walls.
       - W4 Structure engine (done): build in creative, select and save as a template; generation places
         templates across chunks with rotation, variants and loot tables; mob spawner block; code pieces.
-      - W5 Structures: dungeons, ruins and watchtowers in biome materials, mineshafts, Colossus arena.
+      - W5 Structures (done): dungeons, ruins and watchtowers in biome materials, mineshafts, Colossus arena.
+        Not done: rails in mineshafts, villages, structure-aware terrain smoothing.
 2. **Creator platform** (follow-up): hot-reload mods on a running server, in-game script console, mod
    packaging with versions/dependencies, generated API docs site, starter templates.
 3. **Player-made content / UGC** (follow-up): uploads of skins, cosmetics and later items/models;
