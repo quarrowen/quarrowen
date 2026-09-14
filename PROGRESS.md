@@ -181,7 +181,7 @@ changes with `tools/build_native.sh`.
      experiments, forging and minigames, farming, food, beds, animals, monsters, biomes and caves,
      structures and loot, co-op), the vanilla survival tutorial path and tips; Arcana, Industry and Guild
      chapters.
-2. **Creator platform** (current, branch `creator`; user decisions 2026-09-14). Guide milestone merged to
+2. **Creator platform** (done, merged to master 2026-09-14; user decisions 2026-09-14). Guide milestone merged to
    master. No live script console (user skipped it). In order:
    - C1 Logging and error reports (done: engine/server/dev_log.gd, /log, /errors, admin error cards, tests/mods/buggy*): per-mod log levels, log files per world, GDScript errors (via Godot's
      Logger with backtraces) and JS errors with file:line attributed to mods, deduplicated, shown to admins.
