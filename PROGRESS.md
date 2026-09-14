@@ -171,7 +171,8 @@ changes with `tools/build_native.sh`.
      recipe embeds, mob portraits, links, tips), unlock conditions so spoilers stay hidden, search,
      opened with a key and a craftable Survival Guide item, remembers the last page.
      Not done: the book UI does not scale up with high-DPI screens (like the other screens).
-   - G2 Tutorial engine: guided goals in the player's own world (HUD tracker, steps completed by real
+   - G2 Tutorial engine (done): engine/server/tutorials.gd, engine/client/tutorial_hud.gd, vanilla
+     Survival Basics tutorial and five tips (mods/vanilla/tutorial.gd). Guided goals in the player's own world (HUD tracker, steps completed by real
      actions via events, hints that point at what to do), contextual one-time tips linking to guide
      pages, skip and replay, progress saved per player.
    - G3 Content: base and vanilla chapters (getting started, crafting and stations, discovery and

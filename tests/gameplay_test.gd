@@ -38,6 +38,7 @@ func _ready() -> void:
 	await _hunger()
 	await _beds()
 	await _guide()
+	await _tutorials()
 	await _spawning()
 	await _animals()
 	await _taming()
@@ -1367,6 +1368,108 @@ func _guide() -> void:
 	_check(copy.pages.size() == reg.pages.size() and copy.get_page("base:wood").blocks.size() == reg.get_page("base:wood").blocks.size(),
 		"the guide reaches clients intact")
 	_check(preload("res://engine/shared/guide_registry.gd").page_text(reg.get_page("base:wood")).contains("sticks"), "page text is searchable")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _tutorials() -> void:
+	var server = _start("tutorials_%d" % Time.get_ticks_msec())
+	var tut = server.tutorials
+	var reg = server.registry
+	var items = server.items
+	_check(tut.tutorials.has("vanilla:survival") and tut.tutorials["vanilla:survival"].steps[0].goal.target == ["base:*log"], "mods register tutorials")
+	_check(tut.tutorials["vanilla:survival"].steps[0].hint == {"block": ["base:*log"]}, "break goals point at the block by default")
+	var api = preload("res://engine/server/mod_api.gd").new(server, {"id": "tester", "dir": "res://tests"})
+	_check(not api.register_tutorial("broken", {"steps": [{"title": "?", "goal": {"type": "juggle"}}]}), "unknown goals are refused")
+	api.register_tutorial("drill", {"title": "Drill", "reward": [["base:apple", 2]], "steps": [
+		{"title": "Hold planks", "goal": {"type": "have", "target": "base:planks", "count": 4}},
+		{"title": "Break logs", "goal": {"type": "break", "target": ["base:*log"], "count": 2}, "reward": [["base:stick", 1]]},
+		{"title": "Craft sticks", "goal": {"type": "craft", "target": "base:stick", "count": 4}},
+		{"title": "Custom", "goal": {"type": "manual"}},
+		{"title": "Signal", "goal": {"type": "event", "event": "tester_signal", "field": "kind", "target": "go"}},
+	]})
+	api.register_tip("dusk", {"text": "It is dark", "trigger": {"type": "night"}})
+	api.register_tip("logs", {"text": "Logs!", "trigger": {"type": "break", "target": "base:*log"}})
+	var p := ServerPlayer.new(server, 120, "Learner")
+	p.player_id = "learner"
+	server.players[120] = p
+	var shown := []
+	api.on("tip_shown", func(ev): if ev.player.name == "Tipped": shown.append(ev.tip))
+	var finished := []
+	api.on("tutorial_completed", func(ev): finished.append(ev.tutorial))
+	tut.on_join(p)
+	_check(tut.state_of(p).active == "vanilla:survival", "new survival players start the auto-start tutorial")
+	_check(api.start_tutorial(p, "drill") and tut.state_of(p).active == "tester:drill", "a mod can start another tutorial")
+	p.inventory.set_slot(0, items.id_of("base:planks"), 3)
+	tut.update(1.0)
+	_check(tut.state_of(p).step == 0 and tut.state_of(p).progress == 3, "have goals track how many you hold")
+	p.inventory.set_slot(0, items.id_of("base:planks"), 4)
+	tut.update(1.0)
+	_check(tut.state_of(p).step == 1, "holding enough completes a have goal")
+	var birch: int = reg.id_of("base:birch_log")
+	server.emit("block_broken", {"player": p, "position": Vector3i.ZERO, "block": reg.id_of("base:stone")})
+	server.emit("block_broken", {"player": p, "position": Vector3i.ZERO, "block": birch})
+	var other := ServerPlayer.new(server, 121, "Bystander")
+	server.players[121] = other
+	server.emit("block_broken", {"player": other, "position": Vector3i.ZERO, "block": birch})
+	_check(tut.state_of(p).step == 1 and tut.state_of(p).progress == 1, "only matching events by the player count (wildcards match)")
+	var sticks: int = p.inventory.count_of(items.id_of("base:stick"))
+	server.emit("block_break", {"player": p, "position": Vector3i.ZERO, "block": birch, "drops": [], "cancelled": true})
+	server.emit("block_broken", {"player": p, "position": Vector3i.ZERO, "block": reg.id_of("base:log")})
+	_check(tut.state_of(p).step == 2 and p.inventory.count_of(items.id_of("base:stick")) == sticks + 1, "finishing a step gives its reward")
+	server.emit("item_crafted", {"player": p, "item": items.id_of("base:stick"), "count": 4, "recipe": "base:stick"})
+	_check(tut.state_of(p).step == 3, "craft goals count the items made")
+	tut.update(1.0)
+	_check(tut.state_of(p).step == 3, "manual goals wait for the mod")
+	api.advance_tutorial(p)
+	server.emit("tester_signal", {"player": p, "kind": "stop"})
+	_check(tut.state_of(p).step == 4, "generic event goals match their field")
+	var apples: int = p.inventory.count_of(items.id_of("base:apple"))
+	server.emit("tester_signal", {"player": p, "kind": "go"})
+	_check(tut.state_of(p).active == "" and tut.state_of(p).done.has("tester:drill") and finished == ["tester:drill"], "the last step completes the tutorial")
+	_check(p.inventory.count_of(items.id_of("base:apple")) == apples + 2, "completing a tutorial gives its reward")
+	_check(tut.view(p).done.has("tester:drill") and not tut.view(p).has("step"), "the tracker hides when nothing runs")
+	# Skip and stop.
+	tut.start(p, "vanilla:survival")
+	server.on_tutorial_action(120, "skip", "")
+	_check(tut.state_of(p).step == 1, "players can skip a step")
+	server.on_tutorial_action(120, "stop", "")
+	_check(tut.state_of(p).active == "" and tut.state_of(p).stopped.has("vanilla:survival"), "players can stop a tutorial")
+	tut.on_join(p)
+	_check(tut.state_of(p).active == "", "a stopped tutorial does not start again by itself")
+	# Tips: once each, spaced out, off when the player says so.
+	var r := ServerPlayer.new(server, 123, "Tipped")
+	server.players.erase(121)
+	server.players[123] = r
+	r.health = r.max_health
+	r.state.position = Vector3(0, 100, 0)
+	server.set_world_time(0.5, 1200.0)
+	server._time = 1000.0
+	shown.clear()
+	server.emit("block_broken", {"player": r, "position": Vector3i.ZERO, "block": birch})
+	tut.update(1.0)
+	_check(shown == ["tester:logs"], "event tips show")
+	server.set_world_time(0.0, 1200.0)
+	tut.update(1.0)
+	_check(not shown.has("tester:dusk"), "tips wait for the gap after the last one")
+	server._time = 1100.0
+	tut.update(1.0)
+	_check(shown.has("tester:dusk") or shown.has("vanilla:first_night"), "polled tips show when their condition holds")
+	server.emit("block_broken", {"player": r, "position": Vector3i.ZERO, "block": birch})
+	for i in 4:
+		server._time += 100.0
+		tut.update(1.0)
+	_check(shown.count("tester:logs") == 1 and shown.has("tester:dusk") and shown.has("vanilla:first_night"), "a tip shows only once")
+	server.on_tutorial_action(120, "tips_off", "")
+	_check(tut.state_of(p).tips_off, "players can turn tips off")
+	# Saved with the player.
+	tut.start(p, "tester:drill")
+	server._store_player(p)
+	var q := ServerPlayer.new(server, 122, "Learner2")
+	tut.load_player(q, JSON.parse_string(JSON.stringify(server._meta.players.learner.tutorial)))
+	_check(tut.state_of(q).active == "tester:drill" and tut.state_of(q).done.has("tester:drill") and tut.state_of(q).tips.has("tester:dusk")
+		and tut.state_of(q).tips_off, "tutorial progress and tips are saved")
+	_check(tut.to_network().size() == 2 and tut.to_network()[0].id == "vanilla:survival", "clients get the tutorial list in order")
 	server.queue_free()
 	await get_tree().process_frame
 

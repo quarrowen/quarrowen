@@ -3,7 +3,7 @@ extends RefCounted
 ## and what each player has unlocked and read. Unlocks only ever grow and are saved with the world.
 ## Checked about once a second per player: held items (`seen_items`), known recipes, mobs seen within
 ## SEE_RADIUS blocks, flags set by mods, and pages read.
-## Event: guide_page_unlocked {player, page}
+## Events: guide_page_unlocked {player, page}, guide_page_read {player, page} (the first time)
 
 const GuideRegistry = preload("res://engine/shared/guide_registry.gd")
 
@@ -129,6 +129,7 @@ func on_read(p, page_id: String) -> void:
 	if not s.read.has(page_id):
 		s.read[page_id] = true
 		refresh(p)
+		_server.emit("guide_page_read", {"player": p, "page": page_id})
 
 
 func update(delta: float) -> void:

@@ -37,6 +37,7 @@ const SkillCrafting = preload("res://engine/server/skill_crafting.gd")
 const Hunger = preload("res://engine/server/hunger.gd")
 const Sleep = preload("res://engine/server/sleep.gd")
 const Guide = preload("res://engine/server/guide.gd")
+const Tutorials = preload("res://engine/server/tutorials.gd")
 const Explosions = preload("res://engine/server/explosions.gd")
 const Loot = preload("res://engine/server/loot.gd")
 const Spawners = preload("res://engine/server/spawners.gd")
@@ -110,6 +111,7 @@ var gameplay := {
 	"tray_access": "contributors",  # station trays: "contributors" (plus owner and team) | "anyone"
 	"recipe_discovery": true,  # players learn recipes (see RecipeRegistry unlock rules); false = all known
 	"minigame_assist": true,  # players may choose relaxed timing for crafting minigames
+	"tutorials": true,  # auto-start tutorials for new survival players (see engine/server/tutorials.gd)
 }
 var server_info := {"name": "VoxelCraft Server", "game": "", "description": "", "motd": "", "mods": []}
 var generator: Object = null
@@ -154,6 +156,8 @@ var _mods: Array = []  # loaded GDScript mod instances
 var sleep := Sleep.new(self)
 ## The guidebook: registered pages and what each player has unlocked.
 var guide := Guide.new(self)
+## Tutorials and contextual tips.
+var tutorials := Tutorials.new(self)
 var explosions := Explosions.new(self)
 var loot := Loot.new(self)
 var spawners := Spawners.new(self)
@@ -456,6 +460,7 @@ func _register_builtin_commands() -> void:
 			player.send_message("Usage: /hunger <0-20> [player]")
 		elif target != null:
 			hunger.set_hunger(target, float(args[0]), 0.0), "engine", "admin")
+	add_command("tutorial", "list | start <id> | skip | stop | tips on|off", _cmd_tutorial, "engine")
 	add_command("gamemode", "survival | creative [player]", _cmd_gamemode, "engine", "admin")
 	add_command("kill", "Die and respawn", func(p, _args): kill_player(p, "command", null), "engine")
 	add_command("gameplay", "[rule value] - show or change gameplay rules", _cmd_gameplay, "engine", "admin")
@@ -674,6 +679,7 @@ func _physics_process(delta: float) -> void:
 	skill.update()
 	sleep.update(delta)
 	guide.update(delta)
+	tutorials.update(delta)
 	var sim_usec := 0
 	var stream_usec := 0
 	for p: ServerPlayer in players.values():
@@ -1152,7 +1158,7 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
 		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
 		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network(), "recipes": recipes.to_network(), "processes": _processes,
-		"stations": stations.to_network(), "assembly": assembly.to_network(), "minigames": skill.to_network(), "guide": guide.registry.to_network()}
+		"stations": stations.to_network(), "assembly": assembly.to_network(), "minigames": skill.to_network(), "guide": guide.registry.to_network(), "tutorials": tutorials.to_network()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
@@ -1227,6 +1233,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 		if saved.get("spawn_bed") is Array and saved.spawn_bed.size() == 3:
 			p.spawn_bed = Vector3i(int(saved.spawn_bed[0]), int(saved.spawn_bed[1]), int(saved.spawn_bed[2]))
 		guide.load_player(p, saved.get("guide"))
+		tutorials.load_player(p, saved.get("tutorial"))
 		var spawn_point = saved.get("spawn_point")
 		if spawn_point is Array and spawn_point.size() == 3:
 			p.spawn_point = Vector3(spawn_point[0], spawn_point[1], spawn_point[2])
@@ -1257,6 +1264,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	broadcast_chat("%s joined the game" % player_name)
 	print("[server] %s joined (peer %d, player id %s%s)" % [player_name, peer_id, player_id, ", admin" if is_admin(p) else ""])
 	emit("player_join", {"player": p, "first_time": first_time})
+	tutorials.on_join(p)  # after mods pick the game mode
 
 
 func _default_spawn() -> Vector3:
@@ -1766,6 +1774,39 @@ func on_open_menu(peer_id: int, menu: String) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p and menu == "crafting":
 		open_crafting(p, {})
+
+
+## Tutorial buttons: start <id> | skip (the current step) | stop | tips_on | tips_off.
+func on_tutorial_action(peer_id: int, action: String, arg: String) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null:
+		return
+	match action:
+		"start": tutorials.start(p, arg.left(200))
+		"skip": tutorials.advance(p, true)
+		"stop": tutorials.stop(p)
+		"tips_on": tutorials.set_tips(p, true)
+		"tips_off": tutorials.set_tips(p, false)
+
+
+func _cmd_tutorial(player, args: PackedStringArray) -> void:
+	var action := args[0] if args.size() > 0 else "list"
+	match action:
+		"list":
+			var s: Dictionary = tutorials.state_of(player)
+			for t in tutorials.to_network():
+				var status := "active" if s.active == t.id else ("done" if s.done.has(t.id) else "")
+				player.send_message("%s - %s%s" % [t.id, t.title, "  (%s)" % status if not status.is_empty() else ""])
+		"start":
+			if args.size() < 2 or not tutorials.start(player, args[1]):
+				player.send_message("Usage: /tutorial start <id> (see /tutorial list)")
+		"skip": tutorials.advance(player, true)
+		"stop": tutorials.stop(player)
+		"tips":
+			tutorials.set_tips(player, args.size() < 2 or args[1] != "off")
+			player.send_message("Tips %s" % ("off" if tutorials.state_of(player).tips_off else "on"))
+		_:
+			player.send_message("Usage: /tutorial list | start <id> | skip | stop | tips on|off")
 
 
 func on_guide_read(peer_id: int, page_id: String) -> void:
@@ -2822,6 +2863,7 @@ func _store_player(p: ServerPlayer) -> void:
 		"exhaustion": p.exhaustion,
 		"spawn_point": [p.spawn_point.x, p.spawn_point.y, p.spawn_point.z] if p.spawn_point != Vector3.INF else null,
 		"guide": guide.save_player(p),
+		"tutorial": tutorials.save_player(p),
 		"spawn_bed": [p.spawn_bed.x, p.spawn_bed.y, p.spawn_bed.z] if p.spawn_bed != null else null,
 	}
 

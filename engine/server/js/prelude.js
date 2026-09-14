@@ -75,6 +75,12 @@
     learnRecipe(id) { return host("player.learnRecipe", this.id, id); }
     /** Opens the guidebook at a page ("" = where they left off). */
     openGuide(page = "") { host("player.openGuide", this.id, page); }
+    startTutorial(name) { return host("player.startTutorial", this.id, name); }
+    stopTutorial() { host("player.stopTutorial", this.id); }
+    /** Completes the current tutorial step (for "manual" goals). */
+    advanceTutorial() { host("player.advanceTutorial", this.id); }
+    tutorialState() { return host("player.tutorialState", this.id); }
+    showTip(name) { return host("player.showTip", this.id, name); }
     /** Flags unlock guide pages with unlock: {flag}. Saved per player. */
     setGuideFlag(flag, on = true) { host("player.setGuideFlag", this.id, flag, on); }
     hasGuideFlag(flag) { return host("player.hasGuideFlag", this.id, flag); }
@@ -244,6 +250,9 @@
     /** Guidebook: chapters and pages of blocks (text, heading, items, recipe, entity, image, tip, link, keys). */
     registerGuideChapter: (name, def = {}) => host("registerGuideChapter", name, def),
     registerGuidePage: (name, def) => host("registerGuidePage", name, def),
+    /** Tutorials (steps with goals completed by real actions) and one-time contextual tips. */
+    registerTutorial: (name, def) => host("registerTutorial", name, def),
+    registerTip: (name, def) => host("registerTip", name, def),
     getBiome: (position) => host("getBiome", position),
     /** Mobs of each spawn category allowed around each player: { monster, animal, ambient, misc }. */
     setSpawnCaps: (caps) => host("setSpawnCaps", caps),

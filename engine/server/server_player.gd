@@ -82,6 +82,8 @@ var seen_items := {}
 var team := ""
 ## Guidebook progress (see engine/server/guide.gd).
 var guide := {}
+## Tutorial progress and tips seen (see engine/server/tutorials.gd).
+var tutorial := {}
 var _stats := {}
 var _stats_dirty := true
 var _sent_stats := {}
@@ -204,8 +206,11 @@ func is_creative() -> bool:
 
 
 func set_creative(enabled: bool) -> void:
+	var was := inventory.creative
 	inventory.creative = enabled
 	sync_inventory()
+	if was and not enabled and _online():
+		_server.tutorials.on_join(self)  # a sandbox player trying survival gets the first tutorial
 
 
 ## Adds blocks or items (optionally with item data); returns how many did not fit.

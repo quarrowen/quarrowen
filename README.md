@@ -721,6 +721,29 @@ An illustrated book players open with **G**, from the pause menu or by using a *
   "Guide · N new" badge; the book has search, back/forward and previous/next page, and reopens where
   you left off. Event `guide_page_unlocked {player, page}`.
 
+### Tutorials and tips
+
+Guided goals in the player's own world, completed by doing the real thing. A tracker on the left shows
+the current step, its progress and the guide page it links to ([G] opens that page); a bobbing marker
+and a screen-edge arrow point at the nearest matching block or mob. The vanilla **Survival Basics**
+tutorial (logs → planks → table → pickaxe → stone → food → bed → sleep) starts for new survival players
+and for sandbox players who switch to survival.
+
+- `register_tutorial(name, {title, description, order, auto_start, reward: [[item, count]], steps: [{title,
+  text, icon, goal, hint, page, reward}]})` (JS `registerTutorial`). Goals: `break`, `place`, `craft`,
+  `pickup`, `eat`, `use_item`, `use_block`, `equip`, `kill`, `breed`, `tame`, `learn`, `read`,
+  `unlock_page`, `sleep`, `respawn`, `death`, `damage`, `upgrade`, `assemble` with a `target` (names,
+  `*` wildcards, e.g. `base:*log`) and `count`; `event` for any engine or mod event; polled `have`,
+  `depth`, `reach`, `biome`, `hunger_below`, `health_below`, `night`, `flag`; and `manual`
+  (`api.advance_tutorial(player)`). Hints: `{block}`, `{entity}` or `{position}` (break, use_block,
+  kill, breed, tame and reach goals get one automatically).
+- `register_tip(name, {text, icon, page, trigger: goal})` (JS `registerTip`): shown once per player, at
+  most one every 12 seconds, with [G] to read more.
+- Players skip steps, stop or replay tutorials and turn tips off from the pause menu's **Tutorials**
+  panel or `/tutorial list | start <id> | skip | stop | tips on|off`. Progress is saved per player.
+  Rule `tutorials` (auto-start). Events `tutorial_started`, `tutorial_step`, `tutorial_completed`,
+  `tip_shown`. Also `api.start_tutorial`, `stop_tutorial`, `get_tutorial_state`, `show_tip`.
+
 ### Example: the Industry mod
 
 `--mods=vanilla,industry` (or add it to any game). `/industry kit` fills your hotbar,

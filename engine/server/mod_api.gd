@@ -30,6 +30,9 @@ extends RefCounted
 ##   player_sleep   {player, position, cancelled}             lying down in a bed (position: the bed's foot)
 ##   player_wake    {player, reason ("moved" | "left bed" | "hurt" | "bed" | "day" | "morning" | "left")}
 ##   guide_page_unlocked {player, page}                      a guidebook page unlocked for a player
+##   guide_page_read {player, page}                          a page read for the first time
+##   tutorial_started {player, tutorial}   tutorial_step {player, tutorial, step, index, skipped}
+##   tutorial_completed {player, tutorial}   tip_shown {player, tip}
 ##   night_skipped  {sleepers}                                enough players slept; it is morning now
 ##   skill_crafted  {player, item, count, quality, score, names, data, product}   crafted by hand; data may be changed
 ##   item_crafted   {player, item, count}
@@ -731,6 +734,43 @@ func unlock_guide_page(player, page: String, notify := true) -> bool:
 
 func is_guide_page_unlocked(player, page: String) -> bool:
 	return _server.guide.is_unlocked(player, _qualify_ref(page))
+
+
+## A tutorial: guided goals completed by real actions (see engine/server/tutorials.gd for goal types):
+## {title, description, order, auto_start, reward: [[item, count]], steps: [{title, text, icon, goal: {type,
+## target, count, ...}, hint: {block | entity | position} or false, page, reward}]}. Names without ":" are
+## this mod's.
+func register_tutorial(tutorial_name: String, def: Dictionary) -> bool:
+	return _server.tutorials.register_tutorial(_qualify_ref(tutorial_name), def, _qualify_ref)
+
+
+## A one-time contextual tip: {text, icon, page (guide page to read more), trigger: a goal}.
+func register_tip(tip_name: String, def: Dictionary) -> bool:
+	return _server.tutorials.register_tip(_qualify_ref(tip_name), def, _qualify_ref)
+
+
+func start_tutorial(player, tutorial_name: String) -> bool:
+	return _server.tutorials.start(player, _qualify_ref(tutorial_name))
+
+
+func stop_tutorial(player) -> void:
+	_server.tutorials.stop(player)
+
+
+## Completes the player's current tutorial step (for "manual" goals).
+func advance_tutorial(player) -> void:
+	_server.tutorials.advance(player)
+
+
+## {active, step, progress, done: [ids]} for a player.
+func get_tutorial_state(player) -> Dictionary:
+	var s: Dictionary = _server.tutorials.state_of(player)
+	return {"active": s.active, "step": s.step, "progress": s.progress, "done": s.done.keys()}
+
+
+## Shows a registered tip now (even if seen before).
+func show_tip(player, tip_name: String) -> bool:
+	return _server.tutorials.show_tip(player, _qualify_ref(tip_name))
 
 
 ## A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from

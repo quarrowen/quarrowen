@@ -40,6 +40,7 @@ const AvatarEditor = preload("res://engine/client/avatar/avatar_editor.gd")
 const EffectPlayer = preload("res://engine/client/effects/effect_player.gd")
 const CraftingScreen = preload("res://engine/client/crafting_screen.gd")
 const GuideScreen = preload("res://engine/client/guide_screen.gd")
+const TutorialHud = preload("res://engine/client/tutorial_hud.gd")
 const MinigameScreen = preload("res://engine/client/minigame_screen.gd")
 const EatingVisuals = preload("res://engine/client/eating_visuals.gd")
 const ItemIcons = preload("res://engine/client/item_icons.gd")
@@ -220,6 +221,7 @@ var _inventory_screen: InventoryScreen
 var _minigame_screen: MinigameScreen
 var _guide_screen: GuideScreen
 var _guide_badge: Label
+var _tutorial_hud: TutorialHud
 var _volume_slider: HSlider
 
 
@@ -333,6 +335,7 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	_crafting_screen.minigames = content.get("minigames", {}) if content.get("minigames") is Dictionary else {}
 	_crafting_screen.player_name = player_name
 	_guide_screen.registry.load_network(content.get("guide"))
+	_tutorial_hud.tutorials = content.get("tutorials") if content.get("tutorials") is Array else []
 	if not _effects.registry.load_network(content.get("effects", [])):
 		_leave("Server sent invalid effect definitions")
 		return
@@ -1692,6 +1695,9 @@ func _set_guide_open(open: bool, page_id := "") -> void:
 		_set_inventory_open(false)
 		_set_crafting_open(false)
 		_pause_panel.visible = false
+		_tutorial_hud.panel.visible = false
+		if page_id.is_empty():
+			page_id = _tutorial_hud.preferred_page(_guide_screen.read)
 		_guide_screen.open(page_id)
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_sounds.play_name("engine:page", Vector3.ZERO, 0.7, 1.0, false)
@@ -1730,6 +1736,23 @@ func on_guide_open(page_id: String) -> void:
 			_guide_screen.show_page(page_id)
 		return
 	_set_guide_open(true, page_id)
+
+
+# --- Tutorials ------------------------------------------------------------------------------------
+
+func on_tutorial(view: Dictionary) -> void:
+	_tutorial_hud.set_view(view)
+
+
+func on_tutorial_event(kind: String, title: String) -> void:
+	_tutorial_hud.step_done(kind)
+	if kind == "completed":
+		_server_ui.show_title("Tutorial complete!", title, 3.0)
+
+
+func on_tip(tip: Dictionary) -> void:
+	_tutorial_hud.show_tip(tip)
+	_sounds.play_name("engine:page", Vector3.ZERO, 0.5, 1.2, false)
 
 
 ## "G  Guide (3 new)" in the corner while there are unread pages.
@@ -2046,6 +2069,7 @@ func _close_avatar_editor() -> void:
 
 func _set_paused(paused: bool) -> void:
 	_pause_panel.visible = paused
+	_tutorial_hud.panel.visible = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if paused else Input.MOUSE_MODE_CAPTURED
 
 
@@ -2332,6 +2356,13 @@ func _build_hud() -> void:
 	guide_button.custom_minimum_size = Vector2(240, 44)
 	guide_button.pressed.connect(func(): _set_guide_open(true))
 	pause_box.add_child(guide_button)
+	var tutorials_button := Button.new()
+	tutorials_button.text = "Tutorials"
+	tutorials_button.custom_minimum_size = Vector2(240, 44)
+	tutorials_button.pressed.connect(func():
+		_pause_panel.visible = false
+		_tutorial_hud.open_panel())
+	pause_box.add_child(tutorials_button)
 	var customize := Button.new()
 	customize.text = "Customize avatar"
 	customize.custom_minimum_size = Vector2(240, 44)
@@ -2382,15 +2413,17 @@ func _build_hud() -> void:
 	_hud_root.add_child(_minigame_screen)
 	_guide_badge = Label.new()
 	_guide_badge.visible = false
-	_guide_badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	_guide_badge.offset_left = -260
-	_guide_badge.offset_right = -14
-	_guide_badge.offset_top = 40
-	_guide_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	# Left side, above the tutorial tracker.
+	_guide_badge.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+	_guide_badge.position = Vector2(18, -182)
 	_guide_badge.add_theme_color_override("font_color", Color(1.0, 0.86, 0.5))
 	_guide_badge.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	_guide_badge.add_theme_constant_override("outline_size", 5)
 	_hud_root.add_child(_guide_badge)
+	_tutorial_hud = TutorialHud.new()
+	_tutorial_hud.client = self
+	_tutorial_hud.action_requested.connect(func(action, arg): Net.c_tutorial.rpc_id(1, action, arg))
+	_hud_root.add_child(_tutorial_hud)
 	_guide_screen = GuideScreen.new()
 	_guide_screen.items = items
 	_guide_screen.recipes = recipes

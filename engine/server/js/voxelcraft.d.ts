@@ -259,6 +259,11 @@ declare module "voxelcraft" {
     knowsRecipe(id: string): boolean;
     learnRecipe(id: string): boolean;
     openGuide(page?: string): void;
+    startTutorial(name: string): boolean;
+    stopTutorial(): void;
+    advanceTutorial(): void;
+    tutorialState(): { active: string; step: number; progress: number; done: string[] };
+    showTip(name: string): boolean;
     setGuideFlag(flag: string, on?: boolean): void;
     hasGuideFlag(flag: string): boolean;
     unlockGuidePage(page: string, notify?: boolean): boolean;
@@ -417,6 +422,8 @@ declare module "voxelcraft" {
     registerLootTable(name: string, def: { rolls?: [number, number]; entries: { item: string; count?: [number, number]; weight?: number }[] }): void;
     registerGuideChapter(name: string, def?: { title?: string; icon?: string; order?: number; description?: string }): boolean;
     registerGuidePage(name: string, def: GuidePage): boolean;
+    registerTutorial(name: string, def: Tutorial): boolean;
+    registerTip(name: string, def: { text: string; icon?: string; page?: string; trigger: TutorialGoal }): boolean;
     getBiome(position: Vec3): string;
     setSpawnCaps(caps: { monster?: number; animal?: number; ambient?: number; misc?: number }): void;
     setGameplay(values: Gameplay): void;
@@ -455,6 +462,27 @@ declare module "voxelcraft" {
       | { type: "image"; asset: string }
       | { type: "link"; page: string; text?: string }
       | { type: "keys"; action: string; text: string };
+
+  export interface TutorialGoal {
+      type: "break" | "place" | "craft" | "pickup" | "eat" | "use_item" | "use_block" | "equip" | "kill" | "breed" | "tame"
+          | "learn" | "read" | "unlock_page" | "sleep" | "respawn" | "death" | "damage" | "upgrade" | "assemble" | "event"
+          | "have" | "depth" | "reach" | "biome" | "hunger_below" | "health_below" | "night" | "flag" | "manual";
+      target?: string | string[];
+      count?: number;
+      event?: string; who?: string; field?: string;
+      below?: number; position?: [number, number, number]; radius?: number; value?: number;
+  }
+
+  export interface Tutorial {
+      title?: string;
+      description?: string;
+      order?: number;
+      auto_start?: boolean;
+      reward?: [string, number][];
+      steps: { title: string; text?: string; icon?: string; goal: TutorialGoal;
+          hint?: false | { block?: string | string[]; entity?: string | string[]; position?: [number, number, number] };
+          page?: string; reward?: [string, number][] }[];
+  }
 
   export interface GuidePage {
       chapter: string;

@@ -367,11 +367,16 @@ func _industry(c) -> void:
 	_check(c._arm_meshes.has(ids.cable), "cable arm model loaded")
 	await _wait_until(func(): return not c._model_nodes.is_empty(), 3.0)
 	_check(not c._model_nodes.is_empty(), "model blocks rendered as instances")
-	var arm_instances := 0
-	for nodes in c._model_nodes.values():
-		for mmi in nodes:
-			if mmi.multimesh.mesh == c._arm_meshes.get(ids.cable):
-				arm_instances += mmi.multimesh.instance_count
+	var count_arms := func() -> int:
+		var arms := 0
+		for nodes in c._model_nodes.values():
+			for mmi in nodes:
+				if mmi.multimesh.mesh == c._arm_meshes.get(ids.cable):
+					arms += mmi.multimesh.instance_count
+		return arms
+	# The chunk remeshes after each placement; the GDScript mesher can take a moment.
+	await _wait_until(func(): return count_arms.call() == 2, 4.0)
+	var arm_instances: int = count_arms.call()
 	_check(arm_instances == 2, "cable draws arms toward generator and lamp (%d arms)" % arm_instances)
 
 	await get_tree().create_timer(0.6).timeout

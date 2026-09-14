@@ -12,7 +12,7 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -143,6 +143,11 @@ func _ready() -> void:
 		if not String(options.search).is_empty():
 			client._guide_screen._search.text = options.search
 			client._guide_screen._rebuild_contents()
+	if not String(options.tip).is_empty():
+		# A tip card as the server would send it: --tip="Some text"
+		client.on_tip({"id": "shot", "text": options.tip, "icon": "base:apple", "page": "base:food", "seconds": 30.0})
+	if not String(options.tutorials).is_empty():
+		client._tutorial_hud.open_panel()  # --tutorials=1
 	if not String(options.wear).is_empty():
 		Net.c_set_avatar.rpc_id(1, JSON.parse_string(options.wear))  # in game, so server cosmetics apply too
 		await get_tree().create_timer(0.5).timeout

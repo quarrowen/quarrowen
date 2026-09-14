@@ -271,6 +271,13 @@ func c_open_menu(menu: String) -> void:
 		server.on_open_menu(_sender(), menu)
 
 
+## Tutorial controls: start <id> | skip | stop | tips_on | tips_off.
+@rpc("any_peer", "call_remote", "reliable")
+func c_tutorial(action: String, arg: String) -> void:
+	if server:
+		server.on_tutorial_action(_sender(), action, arg)
+
+
 ## The player is looking at a guide page (marks it read and remembers it).
 @rpc("any_peer", "call_remote", "reliable")
 func c_guide_read(page_id: String) -> void:
@@ -702,6 +709,28 @@ func s_guide_unlocked(pages: PackedStringArray, notify: bool) -> void:
 func s_guide_open(page_id: String) -> void:
 	if client:
 		client.on_guide_open(page_id)
+
+
+## The tutorial tracker: {done, tips_off} plus {tutorial, title, index, total, step: {title, text, icon, page,
+## hint, progress, count}} while one runs.
+@rpc("authority", "call_remote", "reliable")
+func s_tutorial(view: Dictionary) -> void:
+	if client:
+		client.on_tutorial(view)
+
+
+## A tutorial step was done ("step" | "skipped") or the tutorial finished ("completed"), for effects.
+@rpc("authority", "call_remote", "reliable")
+func s_tutorial_event(kind: String, title: String) -> void:
+	if client:
+		client.on_tutorial_event(kind, title)
+
+
+## A contextual tip: {id, text, icon, page, seconds}.
+@rpc("authority", "call_remote", "reliable")
+func s_tip(tip: Dictionary) -> void:
+	if client:
+		client.on_tip(tip)
 
 
 ## Sleeping state for this player: {sleeping, since, asleep, needed, seconds, head_dir}.
