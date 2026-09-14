@@ -339,6 +339,13 @@ func c_station_coop(action: String, arg: int) -> void:
 		server.on_station_coop(_sender(), action, arg)
 
 
+## Builds a tool from parts: the assembly's name and a backpack slot per assembly slot.
+@rpc("any_peer", "call_remote", "reliable")
+func c_assemble(assembly_name: String, slots: PackedInt32Array) -> void:
+	if server:
+		server.on_assemble(_sender(), assembly_name, slots)
+
+
 ## Tries the experimentation grid: 9 item ids row by row (0 = empty).
 @rpc("any_peer", "call_remote", "reliable")
 func c_experiment(grid: PackedInt32Array) -> void:
@@ -455,6 +462,13 @@ func s_crafting_open(station: Dictionary, stock: Dictionary) -> void:
 func s_structure_guide(missing: Array) -> void:
 	if client:
 		client.on_structure_guide(missing)
+
+
+## A tool was built from parts: the item and its data.
+@rpc("authority", "call_remote", "reliable")
+func s_assembled(item: int, item_data: Dictionary) -> void:
+	if client:
+		client.on_assembled(item, item_data)
 
 
 ## What an experiment did: {status: "discovered" | "known" | "blueprint" | "close" | "nothing" | "invalid",

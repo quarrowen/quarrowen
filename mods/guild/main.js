@@ -43,6 +43,10 @@ export function setup(api) {
   };
 
   api.registerSound("coin", "sounds/coin.wav", { pitch_variance: 0.05 });
+  // Gold coins melted into tool parts: blazing fast but soft.
+  api.registerMaterial("gold", { display_name: "Gilded", item: "guild:gold_coin", color: "#f2c94c", tier: 2, speed: 10,
+    durability: 45, damage: 0.5, handle: 0.6,
+    trait: { name: "Lucky", description: "+20% mining speed", modifiers: [{ stat: "mining_speed", amount: 0.2, op: "multiply" }] } });
   api.registerEffect("gold_burst", {
     emitters: [{ amount: 18, lifetime: 0.7, speed: [1.5, 3.5], direction: [0, 1, 0], spread: 70, gravity: 9, size: [0.12, 0.06],
       colors: ["#fff8c0", "#ffd040", "#c08000"], texture: "square" }],

@@ -39,10 +39,10 @@ func _init(item_registry, block_registry, atlas_info: Dictionary, read_model: Ca
 ## A node showing the item, oriented for a hand attachment: +Y points out of the fist, -Z runs down
 ## the forearm. With `first_person` it is instead oriented for the view model: origin at the hand in
 ## camera space, the icon's face turned towards the camera. null for nothing.
-func node_for(id: int, first_person := false) -> Node3D:
+func node_for(id: int, first_person := false, item_data := {}) -> Node3D:
 	if id <= 0 or not items.is_valid(id) or atlas.is_empty():
 		return null
-	var mesh := mesh_for(id)
+	var mesh := mesh_for(id, item_data)
 	if mesh == null:
 		return null
 	var holder := Node3D.new()
@@ -117,7 +117,19 @@ func apply_glow(node: Node3D, glow: Dictionary) -> void:
 		(tip if tip != null else node).add_child(light)
 
 
-func mesh_for(id: int) -> Mesh:
+## Composed icons (ItemIcons) for stacks with icon_layers; set by the client.
+var icons
+
+
+func mesh_for(id: int, item_data := {}) -> Mesh:
+	var layers = item_data.get("icon_layers") if item_data is Dictionary else null
+	if layers is Array and not layers.is_empty() and icons != null:
+		var key := str(layers)
+		if not _cache.has(key):
+			var img: Image = icons.composed(layers)
+			_cache[key] = _extruded_image(img) if img != null else null
+		if _cache[key] != null:
+			return _cache[key]
 	if _cache.has(id):
 		return _cache[id]
 	var mesh: Mesh = null
@@ -163,6 +175,40 @@ func _cube(textures: Array) -> Mesh:
 			st.set_normal(faces[i][0])
 			st.set_uv(uvs[k])
 			st.add_vertex(faces[i][1][k])
+	return st.commit()
+
+
+## Extrudes a standalone icon image (composed icons) with its own material.
+func _extruded_image(img: Image) -> Mesh:
+	var tile := img.get_width()
+	var px := ITEM_SIZE / tile
+	var depth := px
+	var material := _material.duplicate() as StandardMaterial3D
+	material.albedo_texture = ImageTexture.create_from_image(img)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_material(material)
+	var opaque := func(x: int, y: int) -> bool:
+		return x >= 0 and y >= 0 and x < tile and y < tile and img.get_pixel(x, y).a > 0.5
+	for y in tile:
+		for x in tile:
+			if not opaque.call(x, y):
+				continue
+			var x0 := (x - tile * 0.5) * px
+			var x1 := x0 + px
+			var y1 := (tile * 0.5 - y) * px
+			var y0 := y1 - px
+			var uv := (Vector2(x, y) + Vector2(0.5, 0.5)) / tile
+			_face(st, [Vector3(x0, y1, depth), Vector3(x1, y1, depth), Vector3(x1, y0, depth), Vector3(x0, y0, depth)], Vector3.BACK, uv, 1.0)
+			_face(st, [Vector3(x1, y1, -depth), Vector3(x0, y1, -depth), Vector3(x0, y0, -depth), Vector3(x1, y0, -depth)], Vector3.FORWARD, uv, 0.85)
+			if not opaque.call(x, y - 1):
+				_face(st, [Vector3(x0, y1, -depth), Vector3(x1, y1, -depth), Vector3(x1, y1, depth), Vector3(x0, y1, depth)], Vector3.UP, uv, 1.0)
+			if not opaque.call(x, y + 1):
+				_face(st, [Vector3(x0, y0, depth), Vector3(x1, y0, depth), Vector3(x1, y0, -depth), Vector3(x0, y0, -depth)], Vector3.DOWN, uv, 0.6)
+			if not opaque.call(x - 1, y):
+				_face(st, [Vector3(x0, y1, -depth), Vector3(x0, y1, depth), Vector3(x0, y0, depth), Vector3(x0, y0, -depth)], Vector3.LEFT, uv, 0.75)
+			if not opaque.call(x + 1, y):
+				_face(st, [Vector3(x1, y1, depth), Vector3(x1, y1, -depth), Vector3(x1, y0, -depth), Vector3(x1, y0, depth)], Vector3.RIGHT, uv, 0.75)
 	return st.commit()
 
 

@@ -150,7 +150,32 @@ func _init() -> void:
 	_save(_torch(), base + "torch.png")
 	_save(_hay(true), base + "hay_bale_top.png")
 	_save(_hay(false), base + "hay_bale_side.png")
+	# Part sprites: light grayscale shapes the client tints with each material's color.
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(base + "parts"))
+	for part in ["pickaxe_head", "axe_head", "shovel_head", "sword_blade", "tool_handle", "binding", "sword_grip", "guard"]:
+		_save(_part(part), base + "parts/%s.png" % part)
 	quit()
+
+
+func _part(part: String) -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var on := false
+			var diagonal := absi(x - (15 - y)) <= 0
+			match part:
+				"pickaxe_head": on = (y >= 2 and y <= 3 and x >= 5 and x <= 14) or (y == 4 and (x == 5 or x == 14))
+				"axe_head": on = x >= 8 and x <= 13 and y >= 1 and y <= 6 and not (x >= 11 and y >= 4)
+				"shovel_head": on = Vector2(x - 11.0, y - 3.5).length() < 2.6
+				"tool_handle": on = diagonal and y > 5
+				"binding": on = (x >= 9 and x <= 11 and y >= 4 and y <= 6) and not (x == 11 and y == 6)
+				"sword_blade": on = absi(x - (15 - y)) <= 1 and y < 10
+				"sword_grip": on = (absi(x - (15 - y)) <= 0 and y >= 10) or (x < 2 and y > 13)
+				"guard": on = (x - (y - 5)) in [0, 1] and y >= 7 and y <= 13
+			if on:
+				var shade := 0.95 - 0.05 * ((x + y) % 3) - (0.15 if part in ["binding", "guard"] and (x + y) % 2 == 0 else 0.0)
+				img.set_pixel(x, y, Color(shade, shade, shade))
+	return img
 
 
 func _torch() -> Image:

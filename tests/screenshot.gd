@@ -11,7 +11,7 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -104,6 +104,13 @@ func _ready() -> void:
 		client._crafting_screen._palette_item = cells[0]
 		client._crafting_screen.experiment_requested.emit(cells)
 		await get_tree().create_timer(0.8).timeout
+	if not String(options.forge).is_empty():
+		# Tools from parts at an open Tool Forge: --forge=base:pickaxe_head/base:iron,base:tool_handle/base:wood,...
+		# crafts each part recipe (give the materials with --commands), then opens the Assemble tab.
+		for recipe_id in String(options.forge).split(","):
+			Net.c_craft.rpc_id(1, client.recipes.index_of(recipe_id), 1)
+			await get_tree().create_timer(0.4).timeout
+		client._crafting_screen.set_forge_mode()
 	if not String(options.wear).is_empty():
 		Net.c_set_avatar.rpc_id(1, JSON.parse_string(options.wear))  # in game, so server cosmetics apply too
 		await get_tree().create_timer(0.5).timeout

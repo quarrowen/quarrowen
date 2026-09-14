@@ -17,6 +17,8 @@ const CONTAINER_BASE := 1000
 var inventory: Inventory
 var items  # ItemRegistry
 var atlas := {}
+## ItemIcons (composed icons for stacks built from parts); set by the client.
+var icons
 
 var _slots: Array[Panel] = []
 var _panel: PanelContainer
@@ -256,11 +258,11 @@ func refresh() -> void:
 	for i in mini(_slots.size(), inventory.total()):
 		if _slots[i] == null:
 			continue
-		_draw_stack(_slots[i].get_node("Icon"), _slots[i].get_node("Count"), inventory.ids[i], inventory.counts[i])
+		_draw_stack(_slots[i].get_node("Icon"), _slots[i].get_node("Count"), inventory.ids[i], inventory.counts[i], false, inventory.data[i])
 		ItemVisuals.update_wear_bar(_slots[i], items, inventory.ids[i] if inventory.counts[i] > 0 else 0, inventory.data[i])
 		var style: StyleBoxFlat = _slots[i].get_theme_stylebox("panel")
 		style.border_color = Color(0.9, 0.9, 0.9) if i == inventory.selected else Color(0.35, 0.35, 0.4)
-	_draw_stack(_cursor_icon, _cursor_count, inventory.cursor_id, inventory.cursor_count)
+	_draw_stack(_cursor_icon, _cursor_count, inventory.cursor_id, inventory.cursor_count, false, inventory.cursor_data)
 	if not container.is_empty():
 		var packed: PackedInt32Array = container.get("slots", PackedInt32Array())
 		var n := _container_slots.size()
@@ -268,7 +270,7 @@ func refresh() -> void:
 			if _container_slots[i] == null or packed.size() < n * 2:
 				continue
 			var id := packed[i] if items.is_valid(packed[i]) else 0
-			_draw_stack(_container_slots[i].get_node("Icon"), _container_slots[i].get_node("Count"), id, packed[n + i], true)
+			_draw_stack(_container_slots[i].get_node("Icon"), _container_slots[i].get_node("Count"), id, packed[n + i], true, _container_data(i))
 			ItemVisuals.update_wear_bar(_container_slots[i], items, id, _container_data(i))
 		for bar_name in _bars:
 			_bars[bar_name].value = float(container.get("progress", {}).get(bar_name, 0.0))
@@ -279,9 +281,11 @@ func _container_data(i: int) -> Dictionary:
 	return value if value is Dictionary and var_to_bytes(value).size() <= Inventory.MAX_DATA_BYTES else {}
 
 
-func _draw_stack(icon: TextureRect, count: Label, id: int, amount: int, exact := false) -> void:
+func _draw_stack(icon: TextureRect, count: Label, id: int, amount: int, exact := false, item_data := {}) -> void:
 	var has_item: bool = items.is_valid(id) and id > 0 and (amount > 0 or (inventory.creative and not exact))
-	if has_item:
+	if has_item and icons != null:
+		icon.texture = icons.texture(id, item_data)
+	elif has_item:
 		var tex := AtlasTexture.new()
 		tex.atlas = atlas.texture
 		tex.region = atlas.pixels.get(items.icon_of(id), atlas.pixels[""])

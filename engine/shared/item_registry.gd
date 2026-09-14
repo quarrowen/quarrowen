@@ -66,6 +66,8 @@ static func is_block_item(id: int) -> bool:
 ##          item it covers, from the tip (0.1-1, default 0.5)
 ##   effects: {swing, hit, use, held, break} effect names: on swings, on hits (at the target), on use,
 ##            continuously while held, and when it wears out
+##   Item data may also override durability, tool and weapon (see tool_of), and set icon_layers:
+##   [{sprite (asset), color}] to draw the stack's icon from tinted layers (tools built from parts).
 ##   teaches: [recipe ids] a blueprint: using it teaches those recipes and uses it up (item data
 ##            `teaches` works too, so one generic blueprint item can carry any recipe)
 ##   Item data may override glow, trail and effects per stack (e.g. a sword that glows as it levels).
@@ -173,21 +175,28 @@ func max_stack(id: int) -> int:
 	return get_def(id).get("max_stack", 64) if id >= FIRST_ITEM else 64
 
 
-func max_durability(id: int) -> int:
+## Item data may override `durability`, `tool` and `weapon` per stack (tools built from parts).
+func max_durability(id: int, item_data := {}) -> int:
+	if item_data is Dictionary and (item_data.get("durability") is int or item_data.get("durability") is float):
+		return clampi(int(item_data.durability), 0, 1000000)
 	return get_def(id).get("durability", 0)
 
 
-func tool_of(id: int) -> Dictionary:
+func tool_of(id: int, item_data := {}) -> Dictionary:
+	if item_data is Dictionary and item_data.get("tool") is Dictionary:
+		return _clean_dict(item_data.tool, {"type": "", "tier": 0, "speed": 1.0})
 	return get_def(id).get("tool", {})
 
 
-func weapon_of(id: int) -> Dictionary:
+func weapon_of(id: int, item_data := {}) -> Dictionary:
+	if item_data is Dictionary and item_data.get("weapon") is Dictionary:
+		return _clean_dict(item_data.weapon, {"damage": 1.0, "cooldown": 0.25, "reach": 4.5, "crit_chance": 0.0, "knockback": 1.0, "sweep": 0.0})
 	return get_def(id).get("weapon", {})
 
 
 ## Damage dealt when attacking while holding this item (bare hand and blocks: 1).
-func attack_damage(id: int) -> float:
-	var weapon := weapon_of(id)
+func attack_damage(id: int, item_data := {}) -> float:
+	var weapon := weapon_of(id, item_data)
 	return float(weapon.damage) if not weapon.is_empty() else 1.0
 
 

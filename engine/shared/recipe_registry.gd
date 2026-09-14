@@ -21,6 +21,7 @@ const DEFAULT_CATEGORIES := [
 	{"name": "blocks", "display_name": "Building"},
 	{"name": "food", "display_name": "Food"},
 	{"name": "materials", "display_name": "Materials"},
+	{"name": "parts", "display_name": "Parts"},
 	{"name": "misc", "display_name": "Other"},
 ]
 
@@ -68,7 +69,8 @@ func add(def: Dictionary, items = null) -> int:
 		"project": bool(def.get("project", false)),
 		"unlock": str(def.get("unlock", "pickup")) if str(def.get("unlock", "pickup")) in UNLOCKS else "pickup",
 		"hint": str(def.get("hint", "")).left(160),
-		"pattern": _clean_pattern(def.get("pattern"))}
+		"pattern": _clean_pattern(def.get("pattern")),
+		"output_data": def.get("output_data", {}) if def.get("output_data") is Dictionary else {}}
 	_ids[recipe_id] = recipes.size()
 	recipes.append(r)
 	return recipes.size() - 1

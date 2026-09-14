@@ -33,6 +33,7 @@ const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 const Stations = preload("res://engine/server/stations.gd")
 const StationSessions = preload("res://engine/server/station_sessions.gd")
 const Experiments = preload("res://engine/server/experiments.gd")
+const Assembly = preload("res://engine/shared/assembly.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -131,6 +132,8 @@ var stations := Stations.new(self)
 var sessions := StationSessions.new(self)
 ## The experimentation grid (discovering recipes by arranging items).
 var experiments := Experiments.new(self)
+## Materials, parts and tools built from parts (see Assembly).
+var assembly := Assembly.new()
 var _snapshot_round := 0
 var _support_rules := {}  # block id -> null (none) | true (solid below) | {block id: true}
 var _fuels := {}  # item id -> seconds it burns
@@ -196,6 +199,7 @@ func start(config: Dictionary) -> Error:
 	var err := _load_mods(config.get("mods", PackedStringArray()), config.get("mod_dirs", PackedStringArray()))
 	if err != OK:
 		return err
+	_add_part_recipes()
 	_hash_assets()
 	_apply_rules_to_world()
 	_build_view_offsets()
@@ -1038,7 +1042,7 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
 		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
 		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network(), "recipes": recipes.to_network(), "processes": _processes,
-		"stations": stations.to_network()}
+		"stations": stations.to_network(), "assembly": assembly.to_network()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
@@ -1468,7 +1472,8 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 		_reject_edit(p, pos)
 		return
 	var held := p.inventory.selected_item()
-	var tool := items.tool_of(held)
+	var held_data: Dictionary = p.inventory.data[p.inventory.selected]
+	var tool := items.tool_of(held, held_data)
 	var harvest := true
 	if not p.inventory.creative:
 		var required := Mining.break_time(registry.defs[current], tool, p.get_stat("mining_speed"))
@@ -1496,7 +1501,7 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 					Vector3(randf_range(-1.0, 1.0), randf_range(2.0, 3.5), randf_range(-1.0, 1.0)), 0.3)
 			else:
 				p.inventory.add(int(drop[0]), int(drop[1]), items.max_stack(int(drop[0])))
-		if registry.defs[current].hardness > 0.0 and items.max_durability(held) > 0:
+		if registry.defs[current].hardness > 0.0 and items.max_durability(held, held_data) > 0:
 			damage_item(p, p.inventory.selected, 1, "mine")
 		p.sync_inventory()
 	emit("block_broken", {"player": p, "position": pos, "block": current, "item": held, "slot": p.inventory.selected, "harvested": harvest})
@@ -1655,7 +1660,7 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 	var landed := false
 	if kind == 0:
 		landed = entities.damage(target, float(ev.damage), "attack", p, direction)
-		var sweep := float(items.weapon_of(item).get("sweep", 0.0))
+		var sweep := float(items.weapon_of(item, p.inventory.data[p.inventory.selected]).get("sweep", 0.0))
 		if landed and sweep > 0.0:
 			for other in entities.in_radius(target.body.position, 1.8):
 				if other != target and other.def.kind == "mob":
@@ -1668,8 +1673,9 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 		play_effect(String(look.effects.get("hit", "engine:hit")), impact, {"direction": -direction3})
 		if critical:
 			play_effect("engine:crit", impact + Vector3(0, 0.3, 0))
-	if landed and items.max_durability(item) > 0:
-		damage_item(p, p.inventory.selected, 1 if not items.weapon_of(item).is_empty() else 2, "attack")
+	var item_data: Dictionary = p.inventory.data[p.inventory.selected]
+	if landed and items.max_durability(item, item_data) > 0:
+		damage_item(p, p.inventory.selected, 1 if not items.weapon_of(item, item_data).is_empty() else 2, "attack")
 
 
 func on_interact_entity(peer_id: int, target_id: int) -> void:
@@ -1778,7 +1784,7 @@ func on_mine_start(peer_id: int, pos: Vector3i) -> void:
 		return
 	p.mining = {"position": pos, "started": _time}
 	_broadcast_player_event(p, Entities.Event.SWING)
-	var seconds := Mining.break_time(registry.defs[block], items.tool_of(p.inventory.selected_item()), p.get_stat("mining_speed"))
+	var seconds := Mining.break_time(registry.defs[block], items.tool_of(p.inventory.selected_item(), p.inventory.data[p.inventory.selected]), p.get_stat("mining_speed"))
 	_broadcast_mining(p, pos, seconds)
 
 
@@ -1810,7 +1816,7 @@ func damage_item(p: ServerPlayer, slot: int, amount: int, reason := "use") -> vo
 	if slot < 0 or slot >= p.inventory.total() or amount <= 0:
 		return
 	var id := p.inventory.ids[slot]
-	var max_durability := items.max_durability(id)
+	var max_durability := items.max_durability(id, p.inventory.data[slot] if slot >= 0 and slot < p.inventory.total() else {})
 	if id <= 0 or max_durability <= 0 or not gameplay.durability or p.inventory.creative:
 		return
 	var ev := emit("item_durability", {"player": p, "slot": slot, "item": id, "data": p.inventory.data[slot],
@@ -1869,9 +1875,12 @@ func refresh_appearance(p: ServerPlayer) -> void:
 	var appearance := {"held": p.inventory.selected_item(), "armor": visible, "avatar": p.avatar}
 	var held := p.inventory.selected_item()
 	if held >= ItemRegistry.FIRST_ITEM:
-		var look := items.visuals(held, p.inventory.data[p.inventory.selected])
-		if not look.glow.is_empty() or not look.trail.is_empty() or look.effects.has("held"):
+		var held_data: Dictionary = p.inventory.data[p.inventory.selected]
+		var look := items.visuals(held, held_data)
+		if not look.glow.is_empty() or not look.trail.is_empty() or look.effects.has("held") or held_data.get("icon_layers") is Array:
 			appearance.held_look = {"glow": look.glow, "trail": look.trail, "held": look.effects.get("held", "")}
+			if held_data.get("icon_layers") is Array:
+				appearance.held_look.icon_layers = held_data.icon_layers  # tools built from parts look like their parts
 	# The brightest glow among visible armor lights the whole armor texture.
 	for slot_name in visible:
 		var slot_index := p.inventory.equipment_index(slot_name)
@@ -1990,7 +1999,8 @@ func add_recipe(inputs: Dictionary, output: int, count: int, station := "", opti
 	return recipes.add({"inputs": inputs, "output": output, "count": count, "station": station,
 		"category": options.get("category", ""), "id": options.get("id", ""), "tier": options.get("tier", 0),
 		"needs": options.get("needs", []), "time": options.get("time", 0.0), "project": options.get("project", false),
-		"unlock": options.get("unlock", "pickup"), "hint": options.get("hint", ""), "pattern": options.get("pattern", [])}, items)
+		"unlock": options.get("unlock", "pickup"), "hint": options.get("hint", ""), "pattern": options.get("pattern", []),
+		"output_data": options.get("output_data", {})}, items)
 
 
 ## How long an item burns as fuel (seconds; 0 = not fuel).
@@ -2205,9 +2215,10 @@ func craft(p: ServerPlayer, index: int, times := 1) -> int:
 				Net.s_crafting_stock.rpc_id(p.peer_id, crafting_stock(p))
 			return n
 	var total: int = recipe.count * n
-	var left := p.inventory.add(recipe.output, total, items.max_stack(recipe.output))
+	var output_data: Dictionary = recipe.get("output_data", {})
+	var left := p.inventory.add(recipe.output, total, items.max_stack(recipe.output), output_data.duplicate(true))
 	if left > 0:
-		p.drop(recipe.output, left)
+		p.drop(recipe.output, left, output_data.duplicate(true))
 	p.sync_inventory()
 	emit("item_crafted", {"player": p, "item": recipe.output, "count": total, "recipe": recipe.id})
 	var at: Vector3 = Vector3(p.crafting_station.position) + Vector3(0.5, 1.1, 0.5) if _station_valid(p) \
@@ -2225,6 +2236,67 @@ func on_craft(peer_id: int, index: int, times: int) -> void:
 		return
 	p.edit_tokens -= 1.0
 	craft(p, index, times)
+
+
+## One recipe per part type and material, made at the part type's station (after all mods registered).
+func _add_part_recipes() -> void:
+	for part_name in assembly.part_types:
+		var part: Dictionary = assembly.part_types[part_name]
+		for material_name in assembly.materials:
+			var m: Dictionary = assembly.materials[material_name]
+			if m.item <= 0 or part.item <= 0:
+				continue
+			add_recipe({m.item: part.cost}, part.item, 1, str(part.get("station", "")), {"category": "parts",
+				"id": "%s/%s" % [part_name, material_name], "output_data": assembly.part_data(part_name, material_name)})
+
+
+## Builds a tool from parts in the player's inventory: `slots` lists a backpack slot per assembly slot.
+func assemble(p: ServerPlayer, assembly_name: String, slots: PackedInt32Array) -> bool:
+	var a: Dictionary = assembly.assemblies.get(assembly_name, {})
+	if a.is_empty() or slots.size() != a.slots.size() or p.dead:
+		return false
+	if not p.inventory.creative and not a.station.is_empty() and not (_station_valid(p) and p.crafting_station.name == a.station):
+		return false
+	var chosen := {}
+	var uses := {}
+	for i in a.slots.size():
+		var slot := slots[i]
+		if slot < 0 or slot >= Inventory.SIZE:
+			return false
+		var id := p.inventory.ids[slot]
+		var data: Dictionary = p.inventory.data[slot]
+		if p.inventory.counts[slot] <= 0 or assembly.part_items.get(id, "") != a.slots[i].part or not assembly.materials.has(str(data.get("material", ""))):
+			return false
+		uses[slot] = int(uses.get(slot, 0)) + 1
+		if uses[slot] > p.inventory.counts[slot]:
+			return false
+		chosen[a.slots[i].name] = str(data.material)
+	var result := assembly.build(assembly_name, chosen)
+	if result.is_empty():
+		return false
+	for slot: int in uses:
+		p.inventory.counts[slot] -= uses[slot]
+		if p.inventory.counts[slot] <= 0:
+			p.inventory.clear_slot(slot)
+	var ev := emit("tool_assembled", {"player": p, "assembly": assembly_name, "parts": chosen, "data": result})
+	var left := p.inventory.add(a.item, 1, 1, ev.data)
+	if left > 0:
+		p.drop(a.item, 1, ev.data)
+	p.sync_inventory()
+	var at: Vector3 = Vector3(p.crafting_station.position) + Vector3(0.5, 1.1, 0.5) if _station_valid(p) else p.get_eye_position()
+	play_effect("engine:crit", at, {"scale": 0.7, "color": "#ffd88a"})
+	play_sound_at("engine:craft", at, 1.0, 0.85)
+	if p._online():
+		Net.s_assembled.rpc_id(p.peer_id, a.item, ev.data)
+	return true
+
+
+func on_assemble(peer_id: int, assembly_name: String, slots: PackedInt32Array) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or p.edit_tokens < 1.0:
+		return
+	p.edit_tokens -= 1.0
+	assemble(p, assembly_name, slots)
 
 
 func on_experiment(peer_id: int, grid: PackedInt32Array) -> void:

@@ -66,6 +66,9 @@ func _setup_mobs() -> void:
 	api.register_sound("colossus_roar", "sounds/colossus_roar.wav", {"range": 64.0})
 	api.register_sound("colossus_hurt", "sounds/colossus_hurt.wav", {"range": 32.0})
 	api.register_item("bone", {"display_name": "Bone", "icon": "textures/bone.png"})
+	api.register_material("bone", {"display_name": "Bone", "item": "vanilla:bone", "color": "#e8e0c8", "tier": 1, "speed": 3.0,
+		"durability": 90, "damage": 1.0, "handle": 1.4,
+		"trait": {"name": "Jagged", "description": "+5% critical chance", "modifiers": [{"stat": "crit_chance", "amount": 0.05}]}})
 	api.register_item("leather", {"icon": "textures/leather.png"})
 	for piece in [["helmet", "head", 1.0, 5], ["chestplate", "chest", 3.0, 8], ["leggings", "legs", 2.0, 7], ["boots", "feet", 1.0, 4]]:
 		api.register_item("leather_%s" % piece[0], {"display_name": "Leather %s" % String(piece[0]).capitalize(),

@@ -110,7 +110,7 @@ changes with `tools/build_native.sh`.
      experimentation; recipe journal; per-server/mod configurable.
    - C5 Experimentation grid (done): book for crafting plus an optional freeform grid; arranging items can
      discover unknown recipes; near-miss hints.
-   - C6 Part-based tools, both basic + forged: fixed wooden/stone/iron tools stay; a Tool Forge
+   - C6 Part-based tools (done), both basic + forged: fixed wooden/stone/iron tools stay; a Tool Forge
      station assembles tools from parts (head, handle, binding) whose materials contribute stats and
      traits; icons composed from tinted part sprites.
    - C7 Skill minigame and quality, optional bonus: recipes marked by mods can be crafted normally
@@ -118,6 +118,8 @@ changes with `tools/build_native.sh`.
      minigame with two roles (bellows + hammer) where syncing gives the best quality.
    - Ideas not chosen yet (keep for later): property-based alchemy, crafting in the world (items on
      tables, cauldrons), radial quick-craft wheel.
+   - Follow-up (user, 2026-09-14): in-game help for all these mechanics; recommendation is both a short
+     interactive tutorial (first table, discovery, grid, stations) and a browsable guidebook.
    3. Hunger and food: hunger stat, food values, regeneration tied to hunger, starvation.
    4. Beds and spawn points: bed block, sleeping skips the night, respawn at a valid bed.
    5. Mobs and spawning: light-level spawn rules, breeding, climbing, explosions that break terrain ->

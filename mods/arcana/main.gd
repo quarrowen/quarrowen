@@ -59,6 +59,10 @@ class CrystalPass:
 func setup(mod_api) -> void:
 	api = mod_api
 	ids.shard = api.register_item("mana_shard", {"display_name": "Mana Shard", "icon": "textures/mana_shard.png", "usable": true})
+	api.register_material("mana", {"display_name": "Mana Crystal", "item": "arcana:mana_shard", "color": "#b98cff", "tier": 3, "speed": 7.0,
+		"durability": 180, "damage": 2.5, "handle": 1.0,
+		"trait": {"name": "Arcane", "description": "glows and hits harder", "damage_add": 1.0,
+			"glow": {"color": "#b070ff", "energy": 0.6}}})
 	ids.blink = api.register_item("wand_of_blink", {"display_name": "Wand of Blink", "icon": "textures/wand_of_blink.png", "usable": true, "max_stack": 1})
 	ids.light = api.register_item("wand_of_light", {"display_name": "Wand of Light", "icon": "textures/wand_of_light.png", "usable": true, "max_stack": 1})
 	ids.sparks = api.register_item("wand_of_sparks", {"display_name": "Wand of Sparks", "icon": "textures/wand_of_sparks.png", "usable": true, "max_stack": 1,

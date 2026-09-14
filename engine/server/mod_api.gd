@@ -17,6 +17,7 @@ extends RefCounted
 ##   project_contributed {player, position, recipe, item, count}
 ##   project_completed {position, recipe, item, contributors: {player id: {name, items}}}   reward them here
 ##   recipe_learned {player, recipe, source ("pickup" | "blueprint" | "experiment" | "mod")}
+##   tool_assembled {player, assembly, parts: {slot: material}, data}   data (the tool's item data) may be changed
 ##   recipe_experimented {player, recipe}                    discovered at the experimentation grid
 ##   item_crafted also carries {recipe, helpers}; its player is null when a job finished for someone offline
 ##   block_place    {player, position, block, cancelled}
@@ -425,6 +426,46 @@ func register_recipe(inputs: Dictionary, output: String, count := 1, options := 
 			"tier": int(options.get("tier", 0)), "needs": options.get("needs", []), "time": float(options.get("time", 0.0)),
 			"project": bool(options.get("project", false)), "unlock": str(options.get("unlock", "pickup")), "hint": str(options.get("hint", "")),
 			"pattern": pattern})
+
+
+## A material parts can be made of: {display_name, item (raw material item name), color, tier, speed,
+## durability, damage, handle (durability multiplier as a handle), trait: {name, description, modifiers,
+## durability_mult, speed_mult, damage_add, glow}}. Every part type gets a recipe for it.
+func register_material(material_name: String, def: Dictionary) -> void:
+	var d := def.duplicate(true)
+	d.item = item(str(def.get("item", "")))
+	_server.assembly.add_material(_qualify_ref(material_name) if material_name.contains(":") else _qualify(material_name), d)
+
+
+## A kind of part (registers the part item): {display_name, sprite (grayscale 16x16 image tinted by the
+## material), cost (material per part), station (where parts are made)}.
+func register_part_type(part_name: String, def: Dictionary) -> int:
+	var sprite := register_asset(str(def.get("sprite", "")))
+	var id := register_item(part_name, {"display_name": def.get("display_name", part_name.capitalize()), "icon": def.get("sprite", "")})
+	var d := def.duplicate(true)
+	d.sprite = sprite
+	d.item = id
+	_server.assembly.add_part_type(_qualify(part_name), d)
+	return id
+
+
+## A tool or weapon built from parts (registers its item): {display_name, icon (shown for plain
+## stacks), slots: [{name, part, label}], tool_type, damage, cooldown, reach, sweep, station}. The
+## first slot is the head. Part names without ":" are this mod's.
+func register_assembly(assembly_name: String, def: Dictionary) -> int:
+	var id := register_item(assembly_name, {"display_name": def.get("display_name", assembly_name.capitalize()), "icon": def.get("icon", ""),
+		"durability": 1, "weapon": {"damage": float(def.get("damage", 1.0)), "cooldown": float(def.get("cooldown", 0.5))},
+		"tool": {"type": str(def.get("tool_type", "")), "tier": 0, "speed": 1.0} if not str(def.get("tool_type", "")).is_empty() else {}})
+	var d := def.duplicate(true)
+	d.item = id
+	var slots := []
+	for s in (def.get("slots") if def.get("slots") is Array else []):
+		var slot: Dictionary = s.duplicate()
+		slot.part = _qualify_ref(str(s.get("part", "")))
+		slots.append(slot)
+	d.slots = slots
+	_server.assembly.add_assembly(_qualify(assembly_name), d)
+	return id
 
 
 ## Makes a station upgradable (see engine/server/stations.gd): tiers [{block, title, kit, grants}],

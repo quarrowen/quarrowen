@@ -167,6 +167,11 @@
     /** {title, tiers: [{block, title, kit, grants}], workshop: {radius, upgrades: [{block, title, max, grants}]},
      *  multiblock: {core, pattern, legend, title}, grants}; grants {features, tier, speed, quality, pull_radius, hints} */
     registerStation: (name, def) => host("registerStation", name, def),
+    /** Tools from parts: materials {display_name, item, color, tier, speed, durability, damage, handle, trait},
+     *  part types {display_name, sprite, cost, station}, assemblies {display_name, icon, slots, tool_type, damage, cooldown, sweep, station}. */
+    registerMaterial: (name, def) => host("registerMaterial", name, def),
+    registerPartType: (name, def) => host("registerPartType", name, def),
+    registerAssembly: (name, def) => host("registerAssembly", name, def),
     getStation: (position) => host("getStation", position),
     openContainer: (player, position) => host("openContainer", player, position),
     /** [{item, count, data}] per slot. */

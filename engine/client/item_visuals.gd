@@ -15,11 +15,11 @@ static func tooltip_lines(items, id: int, item_data: Dictionary) -> PackedString
 	var lines := PackedStringArray()
 	lines.append(String(item_data.get("name", items.display_name(id))))
 	var def: Dictionary = items.get_def(id)
-	var weapon: Dictionary = def.get("weapon", {})
+	var weapon: Dictionary = items.weapon_of(id, item_data)
 	if not weapon.is_empty():
 		lines.append("%s attack damage" % _number(weapon.damage))
 		lines.append("%.2f s attack cooldown" % float(weapon.cooldown))
-	var tool: Dictionary = def.get("tool", {})
+	var tool: Dictionary = items.tool_of(id, item_data)
 	if not tool.is_empty():
 		lines.append("%s, tier %d, speed %s" % [String(tool.type).capitalize(), int(tool.tier), _number(tool.speed)])
 	var armor: Dictionary = def.get("armor", {})
@@ -34,7 +34,7 @@ static func tooltip_lines(items, id: int, item_data: Dictionary) -> PackedString
 	var teaches = item_data.get("teaches", def.get("teaches", []))
 	if teaches is Array and not teaches.is_empty():
 		lines.append("Blueprint: right-click to learn %d recipe%s" % [teaches.size(), "" if teaches.size() == 1 else "s"])
-	var durability := int(def.get("durability", 0))
+	var durability: int = items.max_durability(id, item_data)
 	if durability > 0:
 		lines.append("Durability %d / %d" % [durability - int(item_data.get("damage", 0)), durability])
 	for list in [def.get("lore", []), item_data.get("lore", [])]:
@@ -51,7 +51,7 @@ static func _number(value) -> String:
 ## Adds or updates a thin bar along the bottom of an item slot showing remaining durability.
 static func update_wear_bar(slot: Control, items, id: int, item_data: Dictionary) -> void:
 	var bar: ColorRect = slot.get_node_or_null("Wear")
-	var durability: int = items.max_durability(id) if id > 0 else 0
+	var durability: int = items.max_durability(id, item_data) if id > 0 else 0
 	var damage := int(item_data.get("damage", 0))
 	if durability <= 0 or damage <= 0:
 		if bar:

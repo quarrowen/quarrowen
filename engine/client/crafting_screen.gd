@@ -11,6 +11,8 @@ signal pin_requested(index: int)
 signal station_action(action: String)
 ## Co-op actions: "view" | "deposit" | "take" | "start_project" | "contribute" | "cancel_project".
 signal coop_action(action: String, arg: int)
+## Assemble: an assembly name and a backpack slot per assembly slot.
+signal assemble_requested(assembly_name: String, slots: PackedInt32Array)
 ## The experimentation grid's "Try": 9 item ids row by row (0 = empty).
 signal experiment_requested(grid: PackedInt32Array)
 signal closed
@@ -33,6 +35,8 @@ var stock := {}
 var processes := {}
 ## Every station's titles, tiers and upgrades (from the server) to explain recipe requirements.
 var stations := {}
+## ItemIcons (composed icons for parts and built tools); set by the client.
+var icons
 ## The shared state at this station: {players, tray, jobs, project, owner, speedup}.
 var session := {}
 ## Recipe ids this player has discovered, and whether the server uses discovery at all.
@@ -52,6 +56,7 @@ var _lookup_bar: HBoxContainer
 var _lookup_label: Label
 var _grid: GridContainer
 var _empty_label: Label
+var _detail: VBoxContainer
 var _detail_icon: TextureRect
 var _detail_name: Label
 var _detail_info: Label
@@ -60,6 +65,13 @@ var _ingredients: VBoxContainer
 var _craft_button: Button
 var _craft_all_button: Button
 var _pin_button: Button
+const Assembly = preload("res://engine/shared/assembly.gd")
+## Materials, parts and tools built from parts (shared definitions from the server).
+var assembly := Assembly.new()
+var _forge: VBoxContainer
+var _mode_forge: Button
+var _forge_assembly := ""
+var _forge_choice := {}  # slot name -> backpack slot
 var _book: VBoxContainer
 var _lab: VBoxContainer
 var _mode_book: Button
@@ -119,6 +131,12 @@ func _ready() -> void:
 			_mode_lab = tab
 		else:
 			_mode_book = tab
+	_mode_forge = Button.new()
+	_mode_forge.text = "Assemble"
+	_mode_forge.toggle_mode = true
+	_mode_forge.visible = false
+	_mode_forge.pressed.connect(set_forge_mode)
+	header.add_child(_mode_forge)
 	var close := Button.new()
 	close.text = "✕"
 	close.flat = true
@@ -136,6 +154,12 @@ func _ready() -> void:
 	book.add_theme_constant_override("separation", 6)
 	body.add_child(book)
 	_build_lab(body)
+	_forge = VBoxContainer.new()
+	_forge.custom_minimum_size = _book.custom_minimum_size
+	_forge.add_theme_constant_override("separation", 8)
+	_forge.visible = false
+	body.add_child(_forge)
+	body.move_child(_forge, 2)
 	var search_row := HBoxContainer.new()
 	book.add_child(search_row)
 	_search = LineEdit.new()
@@ -192,6 +216,7 @@ func _ready() -> void:
 
 	# Details.
 	var detail := VBoxContainer.new()
+	_detail = detail
 	detail.custom_minimum_size = Vector2(340, 0)
 	detail.add_theme_constant_override("separation", 8)
 	body.add_child(detail)
@@ -359,10 +384,128 @@ func _build_lab(body: HBoxContainer) -> void:
 func set_lab_mode(lab: bool) -> void:
 	_lab.visible = lab
 	_book.visible = not lab
+	_forge.visible = false
+	_detail.visible = true
+	_mode_forge.button_pressed = false
 	_mode_lab.button_pressed = lab
 	_mode_book.button_pressed = not lab
 	if lab:
 		_redraw_lab()
+
+
+## Assemblies this station builds (all of them in creative).
+func _station_assemblies() -> Array:
+	return assembly.assemblies.values().filter(func(a): return inventory.creative or (not a.station.is_empty() and a.station == station.get("name", "")))
+
+
+func set_forge_mode() -> void:
+	_forge.visible = true
+	_detail.visible = false  # the preview replaces the recipe details
+	_lab.visible = false
+	_book.visible = false
+	_mode_forge.button_pressed = true
+	_mode_lab.button_pressed = false
+	_mode_book.button_pressed = false
+	if _forge_assembly.is_empty() or not assembly.assemblies.has(_forge_assembly):
+		var list := _station_assemblies()
+		_forge_assembly = list[0].name if not list.is_empty() else ""
+		for a in list:  # start on something the player holds every part for
+			if a.slots.all(func(s): return inventory.count_of(int(assembly.part_types[s.part].item)) > 0):
+				_forge_assembly = a.name
+				break
+	_rebuild_forge()
+
+
+## Pick what to build, then a part for each slot from your backpack; the preview shows the result.
+func _rebuild_forge() -> void:
+	for child in _forge.get_children():
+		child.queue_free()
+	if not _forge.visible:
+		return
+	_forge.add_child(_small("Build a tool from parts made at this station. Each material changes its stats and adds a trait.", Color(1, 1, 1, 0.6)))
+	var kinds := HFlowContainer.new()
+	_forge.add_child(kinds)
+	for a in _station_assemblies():
+		var b := Button.new()
+		b.text = a.display_name
+		b.toggle_mode = true
+		b.button_pressed = a.name == _forge_assembly
+		b.pressed.connect(func():
+			_forge_assembly = a.name
+			_forge_choice.clear()
+			_rebuild_forge())
+		kinds.add_child(b)
+	var a: Dictionary = assembly.assemblies.get(_forge_assembly, {})
+	if a.is_empty():
+		_forge.add_child(_small("This station does not build tools from parts.", Color(1, 1, 1, 0.5)))
+		return
+	var chosen := {}
+	var slots := PackedInt32Array()
+	for s in a.slots:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		_forge.add_child(row)
+		var label := Label.new()
+		label.text = s.label
+		label.custom_minimum_size = Vector2(80, 0)
+		row.add_child(label)
+		var picker := OptionButton.new()
+		picker.custom_minimum_size = Vector2(300, 0)
+		var options := []  # backpack slots holding this kind of part
+		var part_item: int = int(assembly.part_types[s.part].item)
+		for i in inventory.SIZE:
+			if inventory.ids[i] == part_item and inventory.counts[i] > 0 and assembly.materials.has(str(inventory.data[i].get("material", ""))):
+				options.append(i)
+				picker.add_icon_item(_icon(part_item, inventory.data[i]), "%s  x%d" % [inventory.data[i].get("name", ""), inventory.counts[i]])
+		if options.is_empty():
+			picker.add_item("No %s in your backpack" % assembly.part_types[s.part].display_name)
+			picker.disabled = true
+		else:
+			var pick: int = options.find(int(_forge_choice.get(s.name, options[0])))
+			pick = maxi(pick, 0)
+			picker.select(pick)
+			_forge_choice[s.name] = options[pick]
+			chosen[s.name] = str(inventory.data[options[pick]].material)
+			slots.append(options[pick])
+			picker.item_selected.connect(func(index):
+				_forge_choice[s.name] = options[index]
+				_rebuild_forge())
+		row.add_child(picker)
+		var how := Button.new()
+		how.text = "?"
+		how.tooltip_text = "How to make %s" % assembly.part_types[s.part].display_name
+		how.pressed.connect(func():
+			set_lab_mode(false)
+			show_lookup(part_item, "make"))
+		row.add_child(how)
+	var result := assembly.build(_forge_assembly, chosen) if chosen.size() == a.slots.size() else {}
+	var preview := HBoxContainer.new()
+	preview.add_theme_constant_override("separation", 12)
+	_forge.add_child(preview)
+	var frame := PanelContainer.new()
+	frame.add_theme_stylebox_override("panel", _box(Color(0.12, 0.12, 0.15), 6))
+	preview.add_child(frame)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(84, 84)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.texture = _icon(int(a.item), result) if not result.is_empty() else null
+	frame.add_child(icon)
+	var text := RichTextLabel.new()
+	text.bbcode_enabled = true
+	text.fit_content = true
+	text.custom_minimum_size = Vector2(330, 0)
+	if result.is_empty():
+		text.text = "[color=#9a9a9a]Choose a part for every slot.[/color]"
+	else:
+		text.text = "\n".join(ItemVisuals.tooltip_lines(items, int(a.item), result))
+	preview.add_child(text)
+	var build := Button.new()
+	build.text = "Assemble %s" % a.display_name
+	build.custom_minimum_size = Vector2(200, 40)
+	build.disabled = result.is_empty()
+	build.pressed.connect(func(): assemble_requested.emit(_forge_assembly, slots))
+	_forge.add_child(build)
 
 
 ## Shows what an experiment did: the discovered or known result, or a hint.
@@ -452,6 +595,11 @@ func refresh() -> void:
 	if not visible or recipes == null:
 		return
 	_redraw_lab()
+	_mode_forge.visible = not _station_assemblies().is_empty()
+	if _forge.visible and not _mode_forge.visible:
+		set_lab_mode(false)  # moved to a station without assemblies
+	elif _forge.visible:
+		_rebuild_forge()
 	if not session.is_empty():
 		set_session(session)
 	for index: int in _cells:
@@ -861,7 +1009,7 @@ func _make_cell(index: int) -> Button:
 	cell.tooltip_text = items.display_name(r.output) if _reveal(r) >= 3 else "Undiscovered recipe"
 	var icon := TextureRect.new()
 	icon.name = "Icon"
-	icon.texture = _icon(r.output)
+	icon.texture = _icon(r.output, r.get("output_data", {}))
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 9)
@@ -937,7 +1085,7 @@ func _show_details() -> void:
 		_show_undiscovered(r)
 		return
 	_detail_icon.modulate = Color.WHITE
-	_detail_icon.texture = _icon(r.output)
+	_detail_icon.texture = _icon(r.output, r.get("output_data", {}))
 	_detail_name.text = ("%d x %s" % [r.count, items.display_name(r.output)]) if r.count > 1 else items.display_name(r.output)
 	var where := requirement_text(r)
 	if not at_station(r) and not r.station.is_empty():
@@ -973,7 +1121,7 @@ func _show_details() -> void:
 ## Details of a recipe you have not discovered: how to discover it, plus what bookshelves reveal.
 func _show_undiscovered(r: Dictionary) -> void:
 	var reveal := _reveal(r)
-	_detail_icon.texture = _icon(r.output)
+	_detail_icon.texture = _icon(r.output, r.get("output_data", {}))
 	_detail_icon.modulate = Color.WHITE if reveal >= 3 else Color(0, 0, 0, 0.8)
 	_detail_name.text = items.display_name(r.output) if reveal >= 3 else "Undiscovered recipe"
 	var how: String = {"pickup": "Discovered by picking up one of its ingredients.", "blueprint": "Learned from a blueprint.",
@@ -1099,9 +1247,11 @@ func _category_name(category: String) -> String:
 	return category.capitalize()
 
 
-func _icon(item: int) -> Texture2D:
+func _icon(item: int, item_data := {}) -> Texture2D:
 	if atlas.is_empty() or not items.is_valid(item):
 		return null
+	if icons != null:
+		return icons.texture(item, item_data)
 	var tex := AtlasTexture.new()
 	tex.atlas = atlas.texture
 	tex.region = atlas.pixels.get(items.icon_of(item), atlas.pixels[""])

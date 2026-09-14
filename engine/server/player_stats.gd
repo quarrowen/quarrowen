@@ -35,7 +35,7 @@ static func compute(p, items) -> Dictionary:
 	var held: int = inv.selected_item()
 	if held > 0:
 		var def: Dictionary = items.get_def(held)
-		var weapon: Dictionary = def.get("weapon", {})
+		var weapon: Dictionary = items.weapon_of(held, inv.data[inv.selected])
 		if not weapon.is_empty():
 			stats.attack_damage = float(weapon.damage)
 			stats.attack_cooldown = float(weapon.cooldown)

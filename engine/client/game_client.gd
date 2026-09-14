@@ -39,6 +39,8 @@ const AvatarStore = preload("res://engine/client/avatar/avatar_store.gd")
 const AvatarEditor = preload("res://engine/client/avatar/avatar_editor.gd")
 const EffectPlayer = preload("res://engine/client/effects/effect_player.gd")
 const CraftingScreen = preload("res://engine/client/crafting_screen.gd")
+const ItemIcons = preload("res://engine/client/item_icons.gd")
+const Assembly = preload("res://engine/shared/assembly.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 const PINS_PATH := "user://crafting_pins.cfg"
 const ItemMesh = preload("res://engine/client/avatar/item_mesh.gd")
@@ -155,6 +157,7 @@ var _pending_lookup := {}
 var _guide_root: Node3D
 var _station_labels := {}  # Vector3i -> Label3D
 var _learned_batch: Array = []
+var _item_icons := ItemIcons.new()
 ## Follows your own body so effects can follow you even while the avatar is hidden in first person.
 var _self_anchor := Node3D.new()
 var _view_model_look := ""
@@ -309,6 +312,7 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	recipes.load_network(content.get("recipes"))
 	_crafting_screen.processes = content.get("processes", {}) if content.get("processes") is Dictionary else {}
 	_crafting_screen.stations = content.get("stations", {}) if content.get("stations") is Dictionary else {}
+	_crafting_screen.assembly.load_network(content.get("assembly"))
 	if not _effects.registry.load_network(content.get("effects", [])):
 		_leave("Server sent invalid effect definitions")
 		return
@@ -424,6 +428,11 @@ func _finish_content() -> void:
 			_entity_sprites[d.id] = _asset_textures[d.sprite]
 	_sounds.manifest = _manifest
 	_crafting_screen.atlas = _atlas
+	_item_icons.items = items
+	_item_icons.atlas = _atlas
+	_item_icons.images = _asset_images
+	_inventory_screen.icons = _item_icons
+	_crafting_screen.icons = _item_icons
 	_load_pin()
 	_effects.textures = _asset_textures
 	_effects.play_sound = func(sound_name: String, at: Vector3): _sounds.play_name(sound_name, at)
@@ -431,6 +440,7 @@ func _finish_content() -> void:
 	_inventory_screen.build_equipment(items.slots)
 	_item_meshes = ItemMesh.new(items, registry, _atlas, func(asset: String) -> PackedByteArray:
 		return ContentCache.read(_manifest[asset].hash) if _manifest.has(asset) else PackedByteArray())
+	_item_meshes.icons = _item_icons
 	_looks = LookBuilder.new(cosmetics, _asset_images, func(asset: String) -> PackedByteArray:
 		return ContentCache.read(_manifest[asset].hash) if _manifest.has(asset) else PackedByteArray())
 	_self_avatar = Avatar.new()
@@ -604,7 +614,7 @@ func _apply_look(target: Avatar, name_text: String, appearance: Dictionary) -> v
 		target.set_armor(_look_cache[armor_key])
 	target.set_armor_glow(appearance.get("armor_glow", {}) if appearance.get("armor_glow") is Dictionary else {})
 	var held_look: Dictionary = appearance.get("held_look", {}) if appearance.get("held_look") is Dictionary else {}
-	var held_node := _item_meshes.node_for(int(appearance.get("held", 0)))
+	var held_node := _item_meshes.node_for(int(appearance.get("held", 0)), false, held_look)
 	_dress_held(held_node, held_look)
 	target.set_held(held_node, held_look)
 	if target == _self_avatar:
@@ -925,12 +935,13 @@ func _update_self_avatar(delta: float, render_position: Vector3) -> void:
 	var look: Dictionary = {}
 	if held >= ItemRegistry.FIRST_ITEM:
 		var visuals := items.visuals(held, inventory.data[inventory.selected])
-		look = {"glow": visuals.glow, "trail": visuals.trail, "held": visuals.effects.get("held", "")}
+		look = {"glow": visuals.glow, "trail": visuals.trail, "held": visuals.effects.get("held", ""),
+			"icon_layers": inventory.data[inventory.selected].get("icon_layers", [])}
 	var look_key := "%d|%s" % [held, str(look)]
 	if look_key != _view_model_look:
 		# Follow the hotbar immediately, not the server echo; rebuild when the stack's look changes.
 		_view_model_look = look_key
-		var node := _item_meshes.node_for(held, true)
+		var node := _item_meshes.node_for(held, true, inventory.data[inventory.selected])
 		_dress_held(node, look)
 		_view_model.set_held(held, node, look)
 	_self_anchor.position = render_position
@@ -1037,7 +1048,7 @@ func _continue_mining(pos: Vector3i) -> void:
 		var block := world.get_block_v(pos)
 		if block == BlockRegistry.UNLOADED or registry.breakable_lut[block] == 0:
 			return
-		var seconds := Mining.break_time(registry.defs[block], items.tool_of(inventory.selected_item()), float(stats.get("mining_speed", 1.0)))
+		var seconds := Mining.break_time(registry.defs[block], items.tool_of(inventory.selected_item(), inventory.data[inventory.selected]), float(stats.get("mining_speed", 1.0)))
 		_mining = {"position": pos, "started": now, "seconds": seconds, "block": block}
 		Net.c_mine_start.rpc_id(1, pos)
 		_show_crack(0, pos, seconds)
@@ -1069,7 +1080,7 @@ func mine_block(pos: Vector3i) -> void:
 		request_break(pos)
 		return
 	var block := world.get_block_v(pos)
-	var seconds := Mining.break_time(registry.defs[block], items.tool_of(inventory.selected_item()), float(stats.get("mining_speed", 1.0)))
+	var seconds := Mining.break_time(registry.defs[block], items.tool_of(inventory.selected_item(), inventory.data[inventory.selected]), float(stats.get("mining_speed", 1.0)))
 	Net.c_mine_start.rpc_id(1, pos)
 	_show_crack(0, pos, seconds)
 	await get_tree().create_timer(seconds + 0.05).timeout
@@ -1527,6 +1538,11 @@ func _announce_learned(source: String) -> void:
 		text += "  (blueprint)"
 	_show_toast(first.output, text)
 	_sounds.play_name("engine:discover", Vector3.ZERO, 0.8, 1.0, false)
+
+
+func on_assembled(item: int, item_data: Dictionary) -> void:
+	_show_toast(item, "Forged: %s" % String(item_data.get("name", items.display_name(item))))
+	_crafting_screen.refresh()
 
 
 func on_experiment_result(result: Dictionary) -> void:
@@ -2091,6 +2107,7 @@ func _build_hud() -> void:
 	_crafting_screen.station_action.connect(func(action): Net.c_station_action.rpc_id(1, action))
 	_crafting_screen.coop_action.connect(func(action, arg): Net.c_station_coop.rpc_id(1, action, arg))
 	_crafting_screen.experiment_requested.connect(func(grid): Net.c_experiment.rpc_id(1, grid))
+	_crafting_screen.assemble_requested.connect(func(assembly_name, slots): Net.c_assemble.rpc_id(1, assembly_name, slots))
 	_hud_root.add_child(_crafting_screen)
 	_build_pin_panel()
 
@@ -2171,10 +2188,7 @@ func _refresh_hotbar() -> void:
 		var icon: TextureRect = slot.get_node("Icon")
 		var count: Label = slot.get_node("Count")
 		if has_item:
-			var tex := AtlasTexture.new()
-			tex.atlas = _atlas.texture
-			tex.region = _atlas.pixels.get(items.icon_of(id), _atlas.pixels[""])
-			icon.texture = tex
+			icon.texture = _item_icons.texture(id, inventory.data[i])
 		else:
 			icon.texture = null
 		count.text = str(inventory.counts[i]) if has_item and not inventory.creative and inventory.counts[i] > 1 else ""

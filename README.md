@@ -327,6 +327,24 @@ api.set_fuel("my_mod:peat", 40.0)                                        # api.g
   extra. Experiments are rate-limited and need the items in hand. Shaped recipes:
   `register_recipe({}, "base:torch", 4, {"pattern": ["C", "S"], "key": {"C": "base:coal", "S": "base:stick"}, "unlock": "experiment"})`.
   Bundled: torches (coal or charcoal over a stick) and hay bales (a grid of wheat).
+- **Tools from parts:** alongside the fixed tools, a Tool Forge makes parts (pickaxe/axe/shovel heads,
+  sword blades, handles, grips, bindings, guards) from any registered material and assembles them in
+  the crafting screen's Assemble tab. The head decides tier, mining speed and damage, the handle's
+  material scales durability, and every material adds its trait (stat modifiers, durability, speed,
+  damage, glow). The result is the tool item with item data (`tool`, `weapon`, `durability`,
+  `modifiers`, `icon_layers`, lore), and its icon and held model are composed from the part sprites
+  tinted by material. Part recipes are generated for every material × part type. Bundled materials:
+  wood, stone, iron (base), bone (vanilla), gold coins (guild, JS) and mana shards (arcana, glows).
+
+```gdscript
+api.register_material("iron", {"item": "base:iron_ingot", "color": "#dcdce2", "tier": 3, "speed": 6.0, "durability": 250,
+	"damage": 2.0, "handle": 1.2, "trait": {"name": "Balanced", "description": "+10% mining speed", "speed_mult": 0.1}})
+api.register_part_type("pickaxe_head", {"sprite": "textures/parts/pickaxe_head.png", "cost": 3, "station": "tool_forge"})
+api.register_assembly("forged_pickaxe", {"display_name": "Pickaxe", "tool_type": "pickaxe", "damage": 2.0, "station": "tool_forge",
+	"slots": [{"name": "head", "part": "pickaxe_head"}, {"name": "handle", "part": "tool_handle"}, {"name": "binding", "part": "binding"}]})
+```
+
+  Any item's data can override its definition's `tool`, `weapon` and `durability`.
 - **Upgradable stations:** `register_station(name, def)` adds tiers (blocks upgraded in place with a kit
   item), workshop upgrades (blocks within a radius grant features, tier, speed, quality, chest reach,
   hints) and multiblock structures (a pattern around a core block, any rotation). Recipes ask for

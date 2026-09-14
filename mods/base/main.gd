@@ -5,6 +5,7 @@ extends "res://engine/server/mod.gd"
 const APPLE_HEAL := 4.0
 const Farming = preload("farming.gd")
 const Stations = preload("stations.gd")
+const Forging = preload("forging.gd")
 const TABLE := {"station": "crafting_table"}
 ## Iron gear needs an anvil beside the table; iron armor also needs a Sturdy Workbench.
 const METALWORK := {"station": "crafting_table", "needs": ["metalwork"]}
@@ -12,6 +13,7 @@ const ARMORY := {"station": "crafting_table", "needs": ["metalwork"], "tier": 2,
 
 var farming := Farming.new()
 var stations := Stations.new()
+var forging := Forging.new()
 
 
 func setup(api) -> void:
@@ -68,6 +70,7 @@ func setup(api) -> void:
 	_register_tools(api)
 	farming.setup(api, {"dirt": dirt, "grass": grass})
 	stations.setup(api, {"wood": wood, "stone": stone})
+	forging.setup(api, {"stone": stone})
 
 	api.on("item_use", func(ev):
 		if ev.item == apple:

@@ -31,6 +31,7 @@ func _ready() -> void:
 	await _coop()
 	await _discovery()
 	await _experiments()
+	await _assembly()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -846,6 +847,61 @@ func _experiments() -> void:
 	var brick: int = items.id_of("base:brick")
 	result = attempt.call([brick, brick, brick, brick, items.id_of("base:furnace"), brick, brick, 0, 0])
 	_check(result.status == "blueprint" and not p.knows_recipe("base:forge"), "matching a blueprint recipe says plans are needed")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _assembly() -> void:
+	var server = _start("assembly_%d" % Time.get_ticks_msec())
+	var items = server.items
+	var reg = server.registry
+	var asm = server.assembly
+	var p := ServerPlayer.new(server, 97, "Smith")
+	p.player_id = "smith"
+	server.players[97] = p
+	var y: int = server.surface_height(8, 8)
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	p.edit_tokens = 100.0
+	_check(asm.materials.has("base:iron") and asm.materials.has("vanilla:bone") and asm.assemblies.has("base:forged_pickaxe"),
+		"materials and assemblies are registered")
+	var head_recipe: int = server.recipes.index_of("base:pickaxe_head/base:iron")
+	_check(head_recipe >= 0 and server.recipes.index_of("base:tool_handle/vanilla:bone") >= 0, "part recipes exist for every material")
+	# Parts need the Tool Forge.
+	p.inventory.set_slot(0, items.id_of("base:iron_ingot"), 5)
+	p.inventory.set_slot(1, items.id_of("vanilla:bone"), 2)
+	server.open_crafting(p, {})
+	_check(server.craft(p, head_recipe) == 0, "parts cannot be made without a Tool Forge")
+	var forge := Vector3i(10, y + 1, 8)
+	server.set_block_authoritative(forge, reg.id_of("base:tool_forge"))
+	server.on_interact(97, forge)
+	_check(p.crafting_station.get("name", "") == "tool_forge", "the Tool Forge opens as a station")
+	_check(server.craft(p, head_recipe) == 1, "an iron pickaxe head is forged")
+	server.craft(p, server.recipes.index_of("base:tool_handle/vanilla:bone"))
+	server.craft(p, server.recipes.index_of("base:binding/base:iron"))
+	var find := func(item_name: String) -> int:
+		for i in 36:
+			if p.inventory.ids[i] == items.id_of(item_name) and p.inventory.counts[i] > 0:
+				return i
+		return -1
+	var head_slot: int = find.call("base:pickaxe_head")
+	var handle_slot: int = find.call("base:tool_handle")
+	var binding_slot: int = find.call("base:binding")
+	_check(head_slot >= 0 and p.inventory.data[head_slot].get("material") == "base:iron" and p.inventory.data[head_slot].has("icon_layers"),
+		"parts carry their material and icon")
+	_check(not server.assemble(p, "base:forged_pickaxe", PackedInt32Array([handle_slot, head_slot, binding_slot])), "parts in the wrong slots are refused")
+	_check(not server.assemble(p, "base:forged_sword", PackedInt32Array([head_slot, handle_slot, binding_slot])), "parts for another assembly are refused")
+	_check(server.assemble(p, "base:forged_pickaxe", PackedInt32Array([head_slot, handle_slot, binding_slot])), "a pickaxe is assembled from parts")
+	var tool_slot: int = find.call("base:forged_pickaxe")
+	_check(tool_slot >= 0 and find.call("base:pickaxe_head") < 0 and find.call("base:tool_handle") < 0, "assembling consumes the parts")
+	if tool_slot >= 0:
+		var id: int = p.inventory.ids[tool_slot]
+		var data: Dictionary = p.inventory.data[tool_slot]
+		var tool: Dictionary = items.tool_of(id, data)
+		_check(tool.type == "pickaxe" and tool.tier == 3 and is_equal_approx(tool.speed, 6.6), "the head decides tier and speed, traits add to it (%s)" % tool)
+		_check(items.max_durability(id, data) == 350, "a bone handle makes it last longer (%d)" % items.max_durability(id, data))
+		_check(is_equal_approx(items.weapon_of(id, data).damage, 4.0), "the head adds damage")
+		_check(data.icon_layers.size() == 3 and data.lore.size() >= 3 and data.name == "Iron Pickaxe", "the tool has layered icon, lore and name")
+		_check(items.tool_of(id).get("tier", 0) == 0 and items.max_durability(id) == 1, "plain stacks keep the item's defaults")
 	server.queue_free()
 	await get_tree().process_frame
 

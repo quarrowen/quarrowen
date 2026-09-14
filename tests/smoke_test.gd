@@ -161,6 +161,38 @@ func _vanilla(c) -> void:
 	c._set_crafting_open(false)
 	await get_tree().create_timer(0.3).timeout
 
+	# Tools from parts: forge an iron head, a bone handle and a binding at a Tool Forge, then assemble.
+	Net.c_chat.rpc_id(1, "/give base:tool_forge")
+	Net.c_chat.rpc_id(1, "/give base:iron_ingot 8")
+	Net.c_chat.rpc_id(1, "/give vanilla:bone 2")
+	var forge_item: int = c.items.id_of("base:tool_forge")
+	await _wait_until(func(): return c.inventory.count_of(forge_item) >= 1 and c.inventory.count_of(c.items.id_of("vanilla:bone")) >= 1, 3.0)
+	await _select_item(c, forge_item)
+	var forge_spot := _find_place_spot(c)
+	c.request_place(forge_spot)
+	await _wait_until(func(): return c.world.get_block_v(forge_spot) == forge_item, 3.0)
+	Net.c_interact.rpc_id(1, forge_spot)
+	_check(await _wait_until(func(): return c._crafting_screen.visible and c._crafting_screen._mode_forge.visible, 3.0),
+		"a Tool Forge offers the Assemble tab")
+	for recipe_id in ["base:pickaxe_head/base:iron", "base:tool_handle/vanilla:bone", "base:binding/base:iron"]:
+		Net.c_craft.rpc_id(1, c.recipes.index_of(recipe_id), 1)
+		await get_tree().create_timer(0.3).timeout
+	var part_items: Array = ["base:pickaxe_head", "base:tool_handle", "base:binding"].map(func(n): return c.items.id_of(n))
+	_check(await _wait_until(func(): return part_items.all(func(id): return c.inventory.count_of(id) >= 1), 3.0), "forged the three pickaxe parts")
+	c._crafting_screen.set_forge_mode()
+	await get_tree().process_frame
+	var forged: int = c.items.id_of("base:forged_pickaxe")
+	var part_slots := PackedInt32Array(part_items.map(func(id): return c.inventory.ids.find(id)))
+	c._crafting_screen.assemble_requested.emit("base:forged_pickaxe", part_slots)
+	_check(await _wait_until(func(): return c.inventory.count_of(forged) >= 1, 3.0), "assembled a pickaxe from parts")
+	var forged_slot: int = c.inventory.ids.find(forged)
+	if forged_slot >= 0:
+		var forged_data: Dictionary = c.inventory.data[forged_slot]
+		_check(forged_data.get("tool", {}).get("tier", 0) == 3 and c._item_icons.texture(forged, forged_data) is ImageTexture,
+			"the forged pickaxe has iron-tier stats and a composed icon")
+	c._set_crafting_open(false)
+	await get_tree().create_timer(0.3).timeout
+
 
 func _skyblock(c) -> void:
 	_check(not c.inventory.creative, "skyblock puts players in survival")
