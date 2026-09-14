@@ -152,6 +152,9 @@ def animal_sounds():
                                                          [0.0] * n(0.22) + tone(0.14, 1000, 650, shape="square", gain=0.22)))
     write("mods/vanilla/sounds/chicken_hurt.wav", tone(0.18, 1200, 700, shape="square", gain=0.3, curve=2.0))
     write("mods/vanilla/sounds/shear.wav", mix(noise_burst(0.06, 0.7, gain=0.4), [0.0] * n(0.09) + noise_burst(0.06, 0.7, gain=0.35)))
+    write("mods/vanilla/sounds/wolf_ambient.wav", mix(tone(0.12, 520, 380, shape="saw", gain=0.3, curve=2.5), [0.0] * n(0.2) + tone(0.14, 560, 360, shape="saw", gain=0.3, curve=2.5)))
+    write("mods/vanilla/sounds/wolf_hurt.wav", tone(0.3, 900, 500, shape="square", gain=0.25, curve=2.0, vibrato=0.2))
+    write("mods/vanilla/sounds/wolf_growl.wav", tone(0.6, 110, 90, shape="saw", gain=0.35, curve=1.2, vibrato=0.4))
     write("mods/vanilla/sounds/milk.wav", mix(noise_burst(0.2, 0.15, curve=2.0, gain=0.3), tone(0.2, 300, 500, gain=0.12)))
 
 

@@ -812,6 +812,7 @@ func damage_player(p: ServerPlayer, amount: float, cause: String, attacker = nul
 	entities.ai.make_noise(p.state.position, 12.0, p, true)
 	if cause != "starvation":
 		hunger.add_exhaustion(p, Hunger.DAMAGED)
+	entities.taming.owner_hurt(p, attacker)
 	sleep.wake(p, "hurt")
 	sync_health(p, true)
 	play_sound_at("engine:hurt", p.get_eye_position(), 1.0, randf_range(0.9, 1.1))
@@ -1755,6 +1756,8 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 	var landed := false
 	if kind == 0:
 		landed = entities.damage(target, float(ev.damage), "attack", p, direction)
+		if landed:
+			entities.taming.owner_attacked(p, target)
 		var sweep := float(items.weapon_of(item, p.inventory.data[p.inventory.selected]).get("sweep", 0.0))
 		if landed and sweep > 0.0:
 			for other in entities.in_radius(target.body.position, 1.8):
@@ -1763,6 +1766,8 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 					entities.damage(other, float(ev.damage) * sweep, "attack", p, other.body.position - p.state.position)
 	elif gameplay.pvp:
 		landed = damage_player(target, float(ev.damage), "attack", p, direction, false, 6.0 * float(stats.knockback))
+		if landed:
+			entities.taming.owner_attacked(p, target)
 	if landed:
 		var impact := eye.clamp(box.position, box.end).lerp(center, 0.5)
 		play_effect(String(look.effects.get("hit", "engine:hit")), impact, {"direction": -direction3})
@@ -1782,7 +1787,7 @@ func on_interact_entity(peer_id: int, target_id: int) -> void:
 	if p.get_eye_position().distance_to(e.aabb().get_center()) > ATTACK_REACH + e.def.width:
 		return
 	var ev := emit("entity_interact", {"player": p, "entity": e, "item": p.inventory.selected_item(), "cancelled": false})
-	if not ev.cancelled:
+	if not ev.cancelled and not entities.taming.interact(p, e):
 		entities.breeding.feed(p, e)
 
 

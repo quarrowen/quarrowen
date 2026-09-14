@@ -544,13 +544,21 @@ api.register_item("bread", {"icon": "textures/bread.png", "food": {"hunger": 5, 
 - **Farm animals and breeding:** mobs with `breeding: {food, love_seconds, cooldown, grow_seconds,
   baby_scale, tempt}` follow players holding their food, fall in love when fed (hearts), pair up with
   another in love nearby and have a baby that is drawn smaller, drops nothing and grows up (feeding
-  speeds it up). Entities have a replicated look (`entity.set_look({scale, hide, tint})`): model parts
+  speeds it up). Entities have a replicated look (`entity.set_look({scale, hide, tint, pose})`): model parts
   can be hidden or tinted by name prefix. Events `entity_fed`, `entity_bred`, `entity_grew`;
   `entity_interact` can be cancelled. Vanilla adds cows (beef, leather, milk with a bucket, which
   cures food poisoning), sheep (shears take wool in the sheep's color and it regrows; nine wool colors
   from dyes made of bone, coal, poppies, dandelions, saplings and mixes; lambs inherit or mix colors;
   wool makes matching beds) and chickens (chicken, feathers, eggs laid every few minutes); cows and
   sheep eat wheat, chickens seeds, pigs apples.
+
+- **Taming:** mobs with `taming: {items, chance, follow_distance, teleport_distance}` are tamed by
+  right-clicking them with one of `items` (each try uses one). A tamed mob belongs to that player: it
+  follows them and teleports to catch up, never targets them, attacks whatever hurts its owner or
+  whatever its owner hits, never despawns, and sits or stands when its owner right-clicks it (a
+  sitting pose on the client). Events `entity_tamed`, `entity_sit`; data `owner`, `owner_name`,
+  `sitting`. Vanilla wolves are neutral pack animals tamed with bones, wear a red collar once tamed
+  and breed on meat.
 
 - **Beds and respawning:** a bed is a two-block piece (the foot where you click, the head behind it;
   breaking either half removes both). Right-clicking one sets your respawn point; at night, with no

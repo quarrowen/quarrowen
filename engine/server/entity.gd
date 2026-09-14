@@ -79,10 +79,12 @@ var on_ground: bool:
 
 
 ## How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
-## prefixes to hide, e.g. "wool" once sheared], tint: {part prefix: "#rrggbb"}}. Merged into the current
+## prefixes to hide, e.g. "wool" once sheared], tint: {part prefix: "#rrggbb"}, pose: "" | "sit"}. Merged into the current
 ## look and saved in data.look.
 func set_look(values: Dictionary) -> void:
 	var look: Dictionary = data.get("look", {}).duplicate() if data.get("look") is Dictionary else {}
+	if values.has("pose"):
+		look.pose = str(values.pose).left(16)
 	if values.has("scale"):
 		look.scale = clampf(float(values.scale), 0.05, 10.0)
 	if values.get("hide") is Array:

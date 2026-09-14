@@ -2,10 +2,10 @@ extends RefCounted
 ## Wire protocol constants and limits shared by client and server.
 
 ## Bump whenever RPC signatures or payload layouts change.
-const VERSION := 24
+const VERSION := 25
 ## Human-readable release shown in version mismatch messages.
 const GAME_NAME := "VoxelCraft"
-const GAME_VERSION := "0.24.0"
+const GAME_VERSION := "0.25.0"
 
 const MAX_ASSET_SIZE := 16 * 1024 * 1024
 const MAX_TOTAL_ASSET_SIZE := 256 * 1024 * 1024

@@ -4,7 +4,9 @@ extends RefCounted
 ## - sheep: shear with shears for wool in the sheep's color (it regrows); dye a sheep to change its
 ##   color; wool comes in nine colors and makes matching beds
 ## - chickens: chicken meat and feathers; hens lay an egg every few minutes
-## All three breed when fed (wheat for cows and sheep, seeds for chickens) and their babies grow up.
+## - wolves: wild ones hunt in packs only when provoked; tame one with bones and it follows you, fights
+##   for you and sits when you right-click it (a red collar shows it is yours)
+## All breed when fed (wheat for cows and sheep, seeds for chickens, meat for wolves) and babies grow up.
 
 const COLORS := {"white": "#f2f2f0", "gray": "#8a8a8c", "black": "#2a2a2c", "brown": "#7a5230", "red": "#b83030",
 	"orange": "#e8862a", "yellow": "#f0cc40", "green": "#5c9a2c", "pink": "#f09ab0"}
@@ -28,6 +30,9 @@ func setup(mod_api) -> void:
 	api.register_sound("chicken_ambient", "sounds/chicken_ambient.wav", {"pitch_variance": 0.12})
 	api.register_sound("chicken_hurt", "sounds/chicken_hurt.wav", {"pitch_variance": 0.1})
 	api.register_sound("shear", "sounds/shear.wav")
+	api.register_sound("wolf_ambient", "sounds/wolf_ambient.wav", {"pitch_variance": 0.1})
+	api.register_sound("wolf_hurt", "sounds/wolf_hurt.wav", {"pitch_variance": 0.1})
+	api.register_sound("wolf_growl", "sounds/wolf_growl.wav", {"pitch_variance": 0.1})
 	api.register_sound("milk", "sounds/milk.wav")
 	_register_items()
 	_register_wool()
@@ -35,6 +40,14 @@ func setup(mod_api) -> void:
 	api.on("entity_spawned", _on_spawned)
 	api.on("entity_interact", _on_interact)
 	api.on("entity_bred", _on_bred)
+	api.on("entity_tamed", func(ev):
+		if ev.entity.type == ids.wolf:
+			ev.entity.set_look({"hide": []})  # the collar appears
+			ev.player.send_message("The wolf is yours! Right-click it to make it sit or stand.")
+			api.play_sound("wolf_ambient", ev.entity.position))
+	api.on("entity_sit", func(ev):
+		if ev.player != null and ev.entity.type == ids.wolf:
+			ev.player.show_title("", "Sit" if ev.sitting else "Follow", 1.0))
 	api.on("entity_death", _on_death)
 	api.on("player_eat", func(ev):
 		if ev.item == ids.milk:
@@ -112,6 +125,17 @@ func _register_entities() -> void:
 		"sounds": {"hurt": "chicken_hurt", "death": "chicken_hurt", "ambient": "chicken_ambient"},
 		"ai": {"preset": "passive", "group": "chickens", "alert_radius": 8, "wander_radius": 6},
 		"breeding": {"food": ["base:wheat_seeds"], "cooldown": 300, "grow_seconds": 600}})
+	# Wolves: neutral pack hunters, tamed with bones.
+	ids.wolf = api.register_entity("wolf", {"kind": "mob", "model": "models/wolf.glb", "width": 0.6, "height": 0.85, "health": 12, "speed": 3.2,
+		"persistent": true, "category": "animal", "drops": [["vanilla:bone", 1, 0.4]],
+		"sounds": {"hurt": "wolf_hurt", "death": "wolf_hurt", "ambient": "wolf_ambient", "attack": "wolf_growl"},
+		"ai": {"preset": "neutral", "group": "wolves", "aggression": 0.75, "courage": 0.8, "intelligence": 0.6, "alert_radius": 16,
+			"chase_speed": 1.4, "wander_radius": 10, "attacks": [{"name": "bite", "type": "melee", "damage": 3.0, "windup": 0.25, "cooldown": 0.8}]},
+		"breeding": {"food": ["vanilla:raw_beef", "vanilla:steak", "vanilla:raw_chicken", "vanilla:cooked_chicken", "vanilla:porkchop", "vanilla:cooked_porkchop"],
+			"cooldown": 300, "grow_seconds": 600, "tempt": false},
+		"taming": {"items": ["vanilla:bone"], "chance": 0.33, "follow_distance": 3.0, "teleport_distance": 16.0}})
+	api.add_spawn_rule({"entity": "wolf", "category": "animal", "light": [9, 15], "place": "surface", "on": ["base:grass", "base:snow"],
+		"max_nearby": 3, "max_total": 8, "chance": 0.015, "group": [2, 4]})
 	for animal in ["cow", "sheep", "chicken"]:
 		api.add_spawn_rule({"entity": animal, "category": "animal", "light": [9, 15], "place": "surface", "on": ["base:grass"],
 			"max_nearby": 4, "max_total": 24, "chance": 0.06, "group": [2, 4]})
@@ -137,6 +161,8 @@ func _on_spawned(ev: Dictionary) -> void:
 				color = entry[0]
 				break
 		_set_color(e, color)
+	elif e.type == ids.wolf and not e.data.has("owner"):
+		e.set_look({"hide": ["collar"]})
 	elif e.type == ids.chicken and not e.data.has("next_egg"):
 		e.data.next_egg = randf_range(EGG_SECONDS[0], EGG_SECONDS[1])
 

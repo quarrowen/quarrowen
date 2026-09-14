@@ -1,13 +1,15 @@
 # VoxelCraft — progress and resume notes
 
-Last updated: 2026-09-13 (everything merged to master). Read this first when resuming.
+Last updated: 2026-09-14. Read this first when resuming.
 
 ## Repository and branches
 
-Remote: `git@github.com:omnivoxel-game/voxelcraft.git` (private, default branch `master`).
-All work so far is merged to `master` (2026-09-13) through PRs #1-#5, in order: hardening,
-gameplay foundation, engine mob AI, equipment core, visuals (avatars, cosmetics, effects). The
-feature branches were deleted after merging. Start new work on a branch from `master`.
+Remote: `git@github.com:omnivoxel-game/voxelcraft.git` (private, default branch `master`). The repo
+was recreated on 2026-09-14 with rewritten history (attribution lines and `.mcp.json` removed), so
+the old PR pages (#1-#5: hardening, gameplay foundation, engine mob AI, equipment core, visuals) no
+longer exist; their work is on `master`. Current work: branch `survival` (crafting milestone and
+survival steps, not yet merged). If SSH to GitHub times out, push over HTTPS with
+`git -c credential.helper='!gh auth git-credential' push https://github.com/omnivoxel-game/voxelcraft.git <branch>`.
 
 Local test commands: `tools/run_tests.sh` (native) and `VOXEL_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh`
 (GDScript fallbacks). Both pass locally (14 and 13 suites). Rebuild native after Rust
@@ -141,7 +143,8 @@ changes with `tools/build_native.sh`.
         dyes and colored wool, colored beds), chickens (feathers, eggs over time); breeding with food and
         babies that grow up (engine breeding capability, replicated entity looks). Not done: throwing
         eggs, sheep eating grass to regrow, baby hitboxes stay adult-sized.
-      - M3 Tameable wolf: tame with bones, follows, fights with you, sits on command (engine owner/follow).
+      - M3 Tameable wolf (done): tame with bones, follows (teleports when far), defends and assists its owner,
+        sits on command with a sitting pose (engine taming capability). Not done: leashes, naming.
       - M4 Hostiles: spider (engine wall climbing, leaps, neutral by day), slime (splits on death), night
         stalker (fast rare night hunter that avoids light and flees torches).
       - M5 Explosions: engine explosion system (blast resistance, drops, damage and knockback falloff,

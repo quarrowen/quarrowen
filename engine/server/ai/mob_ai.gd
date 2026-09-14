@@ -63,6 +63,11 @@ func config_for(type_id: int) -> Dictionary:
 			for behavior in ["engine:breed", "engine:tempt"]:
 				if not _configs[type_id].behaviors.has(behavior):
 					_configs[type_id].behaviors.append(behavior)
+		if def.get("taming") is Dictionary:
+			# Tameable mobs sit and follow their owner (engine/server/taming.gd).
+			for behavior in ["engine:sit", "engine:follow_owner"]:
+				if not _configs[type_id].behaviors.has(behavior):
+					_configs[type_id].behaviors.append(behavior)
 		if not _configs[type_id].enemy_groups.is_empty():
 			_mob_rivalries = true
 	return _configs[type_id]
@@ -229,6 +234,10 @@ func edge_distance(e, t) -> float:
 func is_enemy(brain: MobBrain, other) -> bool:
 	if other == null or other == brain.entity:
 		return false
+	if entities.taming.protects(brain.entity, other):
+		return false  # never its owner
+	if float(brain.threat.get(key_of(other), 0.0)) > 0.0:
+		return true  # anything it holds a grudge against (tamed mobs defending their owner)
 	if other.get("peer_id") != null:
 		return brain.config.temperament != "none" and not other.inventory.creative
 	var other_brain = brains.get(other.id)

@@ -24,6 +24,7 @@ var _meshes: Array[GeometryInstance3D] = []
 var _holder: Node3D
 var _model_scale := 1.0
 var _part_meshes := {}  # lowercased part name -> MeshInstance3D
+var _pose := ""  # "" or "sit"
 var _walk_phase := 0.0
 var _last_position := Vector3.INF
 var _hurt_until := 0.0
@@ -109,6 +110,7 @@ func set_look(look: Dictionary) -> void:
 		_holder.scale = Vector3.ONE * _model_scale * clampf(float(look.get("scale", 1.0)), 0.05, 10.0)
 	elif not _meshes.is_empty() and _meshes[0] is Node3D:
 		_root.scale = Vector3.ONE * clampf(float(look.get("scale", 1.0)), 0.05, 10.0)
+	_pose = str(look.get("pose", ""))
 	var hide: Array = look.get("hide", []) if look.get("hide") is Array else []
 	var tint: Dictionary = look.get("tint", {}) if look.get("tint") is Dictionary else {}
 	for part_name: String in _part_meshes:
@@ -239,9 +241,20 @@ func _animate(delta: float) -> void:
 		var t := (now - _attack_at) / 0.25
 		swings.arm_a = lerpf(-2.2, 0.6, t)  # swing down
 		swings.arm_b = lerpf(-2.2, 0.6, t)
+	if _pose == "sit":
+		# Sitting: body tipped back onto folded hind legs, front legs straight.
+		swings = {"leg_a": 0.0, "leg_b": 0.0, "arm_a": 0.0, "arm_b": 0.0, "head": -0.25}
+		for pivot: Node3D in _parts.get("leg_a", []) + _parts.get("leg_b", []):
+			if pivot.position.z > 0.0:
+				swings[pivot] = -1.4
+	if _holder != null:
+		_holder.rotation.x = lerpf(_holder.rotation.x, -0.45 if _pose == "sit" else 0.0, minf(1.0, delta * 10.0))
+		_holder.position.y = lerpf(_holder.position.y, -0.12 if _pose == "sit" else 0.0, minf(1.0, delta * 10.0))
 	for key in swings:
+		if key is Node3D:
+			continue
 		for pivot: Node3D in _parts.get(key, []):
-			pivot.rotation.x = swings[key]
+			pivot.rotation.x = swings.get(pivot, swings[key])
 
 
 ## Hit box for client-side targeting.

@@ -39,6 +39,7 @@ func _ready() -> void:
 	await _beds()
 	await _spawning()
 	await _animals()
+	await _taming()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -1451,6 +1452,70 @@ func _animals() -> void:
 		mod_animals._tick()
 		_check(entities.in_radius(chicken.body.position, 2.0, 0).any(func(d): return d.item_id == items.id_of("vanilla:egg")), "a hen lays an egg")
 	_check(mod_animals != null, "found the vanilla animals module")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _taming() -> void:
+	var server = _start("taming_%d" % Time.get_ticks_msec())
+	var items = server.items
+	var entities = server.entities
+	var taming = entities.taming
+	var p := ServerPlayer.new(server, 106, "Ranger")
+	p.player_id = "ranger"
+	server.players[106] = p
+	var stranger := ServerPlayer.new(server, 107, "Stranger")
+	stranger.player_id = "stranger"
+	server.players[107] = stranger
+	var y: int = server.surface_height(8, 8)
+	for x in range(-4, 40):
+		for z in range(0, 16):
+			for dy in range(1, 4):
+				server.set_block_authoritative(Vector3i(x, y + dy, z), 0)
+			server.set_block_authoritative(Vector3i(x, y, z), server.registry.id_of("base:stone"))
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	p.state.on_ground = true
+	stranger.state.position = Vector3(12.5, y + 1, 12.5)
+	p.edit_tokens = 1000.0
+	var wolf = entities.spawn(entities.registry.id_of("vanilla:wolf"), Vector3(9.5, y + 1, 8.5))
+	_check(wolf.data.look.hide == ["collar"], "wild wolves have no collar")
+	p.inventory.set_slot(0, items.id_of("vanilla:bone"), 20)
+	p.inventory.selected = 0
+	taming.config_of(wolf).chance = 1.0
+	server.on_interact_entity(106, wolf.id)
+	_check(taming.is_tamed(wolf) and wolf.data.owner == "ranger" and p.inventory.counts[0] == 19, "a bone tames the wolf")
+	_check(wolf.data.look.hide == [] and wolf.data.get("no_despawn", false), "tamed wolves wear a collar and never despawn")
+	_check(not entities.ai.is_enemy(wolf.brain, p), "a tamed wolf never attacks its owner")
+	# Sit and follow.
+	p.inventory.selected = 1
+	server.on_interact_entity(106, wolf.id)
+	_check(wolf.data.get("sitting", false) and taming._sit_score(wolf.brain) > 1.0, "right-click makes it sit")
+	server.on_interact_entity(107, wolf.id)
+	_check(wolf.data.get("sitting", false), "only the owner can make it stand")
+	server.on_interact_entity(106, wolf.id)
+	_check(not wolf.data.get("sitting", false), "right-click again makes it stand")
+	p.state.position = Vector3(16.5, y + 1, 8.5)
+	_check(taming._follow_score(wolf.brain) > 0.0, "it follows its owner")
+	p.state.position = Vector3(35.5, y + 1, 8.5)
+	taming.update()
+	_check(wolf.body.position.distance_to(p.state.position) < 4.0, "a wolf left far behind catches up (%.1f)" % wolf.body.position.distance_to(p.state.position))
+	# Defending.
+	var zombie = entities.spawn(entities.registry.id_of("vanilla:zombie"), p.state.position + Vector3(3, 0, 0))
+	p.hurt_timer = 0.0
+	p.inventory.creative = false
+	server.damage_player(p, 1.0, "mob", zombie)
+	_check(float(wolf.brain.threat.get(entities.ai.key_of(zombie), 0.0)) > 0.0 and entities.ai.is_enemy(wolf.brain, zombie), "it turns on whatever hurts its owner")
+	var pig = entities.spawn(entities.registry.id_of("vanilla:pig"), p.state.position + Vector3(0, 0, 2))
+	taming.owner_attacked(p, pig)
+	_check(float(wolf.brain.threat.get(entities.ai.key_of(pig), 0.0)) > 0.0, "it joins its owner's attacks")
+	entities.damage(wolf, 1.0, "attack", p)
+	_check(float(wolf.brain.threat.get(entities.ai.key_of(p), 0.0)) == 0.0, "the owner hitting it does not make it hostile")
+	taming.set_sitting(wolf, true, p)
+	var threat_before: float = float(wolf.brain.threat.get(entities.ai.key_of(zombie), 0.0))
+	taming.owner_hurt(p, zombie)
+	_check(float(wolf.brain.threat.get(entities.ai.key_of(zombie), 0.0)) == threat_before, "sitting wolves stay put")
+	entities.spawning.despawn()
+	_check(not wolf.removed, "tamed wolves stay loaded")
 	server.queue_free()
 	await get_tree().process_frame
 

@@ -14,6 +14,7 @@ const WorldTime = preload("res://engine/shared/world_time.gd")
 const MobAI = preload("res://engine/server/ai/mob_ai.gd")
 const Spawning = preload("res://engine/server/spawning.gd")
 const Breeding = preload("res://engine/server/breeding.gd")
+const Taming = preload("res://engine/server/taming.gd")
 
 const MAX_ENTITIES := 2000
 ## Entities are replicated to players within this distance (blocks).
@@ -45,6 +46,8 @@ var entities := {}  # id -> Entity
 var spawning
 ## Feeding, love, babies and growing up (see engine/server/breeding.gd).
 var breeding
+## Owners, following, sitting and defending (see engine/server/taming.gd).
+var taming
 
 var _server
 var _next_id := 1
@@ -59,6 +62,7 @@ func _init(server) -> void:
 	ai = MobAI.new(server, self)
 	spawning = Spawning.new(self)
 	breeding = Breeding.new(self)
+	taming = Taming.new(self)
 
 
 # --- Spawning & removal -------------------------------------------------------------------------
@@ -163,6 +167,7 @@ func tick(delta: float) -> void:
 		_merge_items()
 		spawning.despawn()
 		breeding.update(1.0)
+		taming.update()
 	_spawn_timer += delta
 	if _spawn_timer >= 1.0:
 		_spawn_timer = 0.0
