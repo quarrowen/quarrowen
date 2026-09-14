@@ -5,6 +5,7 @@ const Biomes = preload("biomes.gd")
 const Animals = preload("animals.gd")
 const Monsters = preload("monsters.gd")
 const VanillaStructures = preload("structures.gd")
+const Guide = preload("guide.gd")
 const APPLE_CHANCE := 0.12
 
 const HOTBAR := ["base:grass", "base:dirt", "base:stone", "base:cobblestone", "base:planks",
@@ -15,6 +16,7 @@ var biomes := Biomes.new()
 var animals := Animals.new()
 var monsters := Monsters.new()
 var structures := VanillaStructures.new()
+var guide := Guide.new()
 var ids := {}
 
 
@@ -30,6 +32,7 @@ func setup(mod_api) -> void:
 	# Everyone may switch modes in the sandbox (the engine's /gamemode is admin-only).
 	api.register_command("gamemode", "survival | creative - switch your game mode", _cmd_gamemode)
 	_setup_mobs()
+	guide.setup(api)
 	if not api.storage.get("time_initialized", false):
 		api.storage.time_initialized = true
 		api.set_world_time(0.3, 1200.0)  # start the morning of a 20-minute day

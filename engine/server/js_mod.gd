@@ -218,6 +218,8 @@ func _call_host(method: String, a: Array):
 		"registerStructureTemplate": return api.register_structure_template(_str(a, 0), a[1] if a.size() > 1 and (a[1] is String or a[1] is Dictionary) else "")
 		"registerStructure": api.register_structure(_str(a, 0), _dict(a, 1))
 		"registerLootTable": api.register_loot_table(_str(a, 0), _dict(a, 1))
+		"registerGuideChapter": return api.register_guide_chapter(_str(a, 0), _dict(a, 1))
+		"registerGuidePage": return api.register_guide_page(_str(a, 0), _dict(a, 1))
 		"getBiome": return api.get_biome(_vec3(a, 0))
 		"setSpawnCaps": api.set_spawn_caps(_dict(a, 0))
 		"setGameplay": api.set_gameplay(_dict(a, 0))
@@ -321,6 +323,10 @@ func _call_player(method: String, a: Array):
 		"setTeam": player.team = _str(a, 1)
 		"knowsRecipe": return player.knows_recipe(api._qualify_ref(_str(a, 1)))
 		"learnRecipe": return player.learn_recipe(api._qualify_ref(_str(a, 1)), "mod")
+		"openGuide": api.open_guide(player, _str(a, 1) if a.size() > 1 else "")
+		"setGuideFlag": api.set_guide_flag(player, _str(a, 1), a.size() <= 2 or bool(a[2]))
+		"hasGuideFlag": return api.has_guide_flag(player, _str(a, 1))
+		"unlockGuidePage": return api.unlock_guide_page(player, _str(a, 1), a.size() <= 2 or bool(a[2]))
 		"team": return player.team
 		"setSpawnPoint": player.spawn_point = _vec3(a, 1) if a.size() > 1 and a[1] != null else Vector3.INF
 		_: return HostError.new("unknown player method '%s'" % method)

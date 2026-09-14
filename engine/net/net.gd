@@ -271,6 +271,13 @@ func c_open_menu(menu: String) -> void:
 		server.on_open_menu(_sender(), menu)
 
 
+## The player is looking at a guide page (marks it read and remembers it).
+@rpc("any_peer", "call_remote", "reliable")
+func c_guide_read(page_id: String) -> void:
+	if server:
+		server.on_guide_read(_sender(), page_id)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func c_select_slot(slot: int) -> void:
 	if server:
@@ -674,6 +681,27 @@ func s_title(text: String, subtitle: String, seconds: float) -> void:
 func s_selection(a: Vector3i, b: Vector3i, visible: bool) -> void:
 	if client:
 		client.on_selection(a, b, visible)
+
+
+## Guide pages you have unlocked and read, and the page you had open last.
+@rpc("authority", "call_remote", "reliable")
+func s_guide_state(unlocked: PackedStringArray, read: PackedStringArray, last: String) -> void:
+	if client:
+		client.on_guide_state(unlocked, read, last)
+
+
+## New guide pages unlocked (`notify`: show a popup).
+@rpc("authority", "call_remote", "reliable")
+func s_guide_unlocked(pages: PackedStringArray, notify: bool) -> void:
+	if client:
+		client.on_guide_unlocked(pages, notify)
+
+
+## Opens the guidebook at a page ("" = the last page).
+@rpc("authority", "call_remote", "reliable")
+func s_guide_open(page_id: String) -> void:
+	if client:
+		client.on_guide_open(page_id)
 
 
 ## Sleeping state for this player: {sleeping, since, asleep, needed, seconds, head_dir}.

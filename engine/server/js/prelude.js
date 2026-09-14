@@ -73,6 +73,12 @@
     knowsRecipe(id) { return host("player.knowsRecipe", this.id, id); }
     /** Teaches a recipe id ("mod:name"); returns true if it was new. */
     learnRecipe(id) { return host("player.learnRecipe", this.id, id); }
+    /** Opens the guidebook at a page ("" = where they left off). */
+    openGuide(page = "") { host("player.openGuide", this.id, page); }
+    /** Flags unlock guide pages with unlock: {flag}. Saved per player. */
+    setGuideFlag(flag, on = true) { host("player.setGuideFlag", this.id, flag, on); }
+    hasGuideFlag(flag) { return host("player.hasGuideFlag", this.id, flag); }
+    unlockGuidePage(page, notify = true) { return host("player.unlockGuidePage", this.id, page, notify); }
     team() { return host("player.team", this.id); }
     /** Server cosmetics: names without a ":" are this mod's. */
     grantCosmetic(name) { host("player.grantCosmetic", this.id, name); }
@@ -235,6 +241,9 @@
     registerStructureTemplate: (name, source) => host("registerStructureTemplate", name, source),
     registerStructure: (name, def) => host("registerStructure", name, def),
     registerLootTable: (name, def) => host("registerLootTable", name, def),
+    /** Guidebook: chapters and pages of blocks (text, heading, items, recipe, entity, image, tip, link, keys). */
+    registerGuideChapter: (name, def = {}) => host("registerGuideChapter", name, def),
+    registerGuidePage: (name, def) => host("registerGuidePage", name, def),
     getBiome: (position) => host("getBiome", position),
     /** Mobs of each spawn category allowed around each player: { monster, animal, ambient, misc }. */
     setSpawnCaps: (caps) => host("setSpawnCaps", caps),

@@ -702,6 +702,25 @@ boss.set_target(player)
 - **Cost:** 300 mobs with about 130 hunting 10 players, plus 200 item stacks: 3.5 ms per tick with
   the native extension, 9.3 ms with the GDScript fallback (`tests/bench.tscn`).
 
+### Guidebook
+
+An illustrated book players open with **G**, from the pause menu or by using a **Survival Guide** item
+(base: 1 planks + 1 stick). Mods write it; the engine draws it, tracks progress and syncs it.
+
+- **Chapters and pages** (`register_guide_chapter(name, {title, icon, order, description})`,
+  `register_guide_page(name, {chapter, title, icon, order, unlock, hint, keywords, blocks})`; JS
+  `registerGuideChapter` / `registerGuidePage`). Pages are lists of blocks: `text` (BBCode), `heading`,
+  `tip`, `items` (icons you click to open the recipe book), `recipe` (live cards from the real
+  recipes, hidden while undiscovered), `entity` (a turning 3D portrait), `image` (a texture in the
+  mod), `link` (another page) and `keys` (the player's current key for an action).
+- **Unlocks** keep spoilers hidden: `{item}` once held, `{recipe}` once known, `{entity}` once seen within
+  12 blocks, `{flag}` set by a mod (`api.set_guide_flag(player, flag)`, JS `player.setGuideFlag`), or
+  `{page}` after reading another page. Locked pages show "???" and a hint. `api.unlock_guide_page`
+  and `api.open_guide(player, page)` (JS `player.unlockGuidePage` / `openGuide`) do it directly.
+- Unlocks, reads, flags and the last open page are saved per player. New pages pop up a note and a
+  "Guide · N new" badge; the book has search, back/forward and previous/next page, and reopens where
+  you left off. Event `guide_page_unlocked {player, page}`.
+
 ### Example: the Industry mod
 
 `--mods=vanilla,industry` (or add it to any game). `/industry kit` fills your hotbar,

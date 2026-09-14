@@ -36,6 +36,7 @@ const Experiments = preload("res://engine/server/experiments.gd")
 const SkillCrafting = preload("res://engine/server/skill_crafting.gd")
 const Hunger = preload("res://engine/server/hunger.gd")
 const Sleep = preload("res://engine/server/sleep.gd")
+const Guide = preload("res://engine/server/guide.gd")
 const Explosions = preload("res://engine/server/explosions.gd")
 const Loot = preload("res://engine/server/loot.gd")
 const Spawners = preload("res://engine/server/spawners.gd")
@@ -151,6 +152,8 @@ var skill := SkillCrafting.new(self)
 var hunger := Hunger.new(self)
 var _mods: Array = []  # loaded GDScript mod instances
 var sleep := Sleep.new(self)
+## The guidebook: registered pages and what each player has unlocked.
+var guide := Guide.new(self)
 var explosions := Explosions.new(self)
 var loot := Loot.new(self)
 var spawners := Spawners.new(self)
@@ -670,6 +673,7 @@ func _physics_process(delta: float) -> void:
 	sessions.update(delta)
 	skill.update()
 	sleep.update(delta)
+	guide.update(delta)
 	var sim_usec := 0
 	var stream_usec := 0
 	for p: ServerPlayer in players.values():
@@ -1148,7 +1152,7 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
 		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
 		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network(), "recipes": recipes.to_network(), "processes": _processes,
-		"stations": stations.to_network(), "assembly": assembly.to_network(), "minigames": skill.to_network()}
+		"stations": stations.to_network(), "assembly": assembly.to_network(), "minigames": skill.to_network(), "guide": guide.registry.to_network()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
@@ -1222,6 +1226,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 		p.exhaustion = clampf(float(saved.get("exhaustion", 0.0)), 0.0, Hunger.EXHAUSTION_PER_POINT)
 		if saved.get("spawn_bed") is Array and saved.spawn_bed.size() == 3:
 			p.spawn_bed = Vector3i(int(saved.spawn_bed[0]), int(saved.spawn_bed[1]), int(saved.spawn_bed[2]))
+		guide.load_player(p, saved.get("guide"))
 		var spawn_point = saved.get("spawn_point")
 		if spawn_point is Array and spawn_point.size() == 3:
 			p.spawn_point = Vector3(spawn_point[0], spawn_point[1], spawn_point[2])
@@ -1240,6 +1245,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	sync_health(p)
 	hunger.set_hunger(p, p.hunger)  # applies the no-sprint modifier when starving
 	hunger.sync(p, true)
+	guide.sync(p)
 	for other: ServerPlayer in players.values():
 		if other != p:
 			Net.s_player_joined.rpc_id(peer_id, other.peer_id, other.name)
@@ -1760,6 +1766,12 @@ func on_open_menu(peer_id: int, menu: String) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p and menu == "crafting":
 		open_crafting(p, {})
+
+
+func on_guide_read(peer_id: int, page_id: String) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p:
+		guide.on_read(p, page_id.left(200))
 
 
 func on_attack(peer_id: int, kind: int, target_id: int) -> void:
@@ -2809,6 +2821,7 @@ func _store_player(p: ServerPlayer) -> void:
 		"saturation": p.saturation,
 		"exhaustion": p.exhaustion,
 		"spawn_point": [p.spawn_point.x, p.spawn_point.y, p.spawn_point.z] if p.spawn_point != Vector3.INF else null,
+		"guide": guide.save_player(p),
 		"spawn_bed": [p.spawn_bed.x, p.spawn_bed.y, p.spawn_bed.z] if p.spawn_bed != null else null,
 	}
 

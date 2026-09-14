@@ -80,6 +80,8 @@ var known_recipes := {}
 var seen_items := {}
 ## Team name ("" = none). Teams share station trays and projects; mods decide who is on which team.
 var team := ""
+## Guidebook progress (see engine/server/guide.gd).
+var guide := {}
 var _stats := {}
 var _stats_dirty := true
 var _sent_stats := {}

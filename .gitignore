@@ -6,3 +6,4 @@ native/bin/
 build/
 addons/godot_mcp/
 .mcp.json
+__pycache__/

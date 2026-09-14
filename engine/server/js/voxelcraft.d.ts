@@ -258,6 +258,10 @@ declare module "voxelcraft" {
     setTeam(name: string): void;
     knowsRecipe(id: string): boolean;
     learnRecipe(id: string): boolean;
+    openGuide(page?: string): void;
+    setGuideFlag(flag: string, on?: boolean): void;
+    hasGuideFlag(flag: string): boolean;
+    unlockGuidePage(page: string, notify?: boolean): boolean;
     team(): string;
     grantCosmetic(name: string): void;
     revokeCosmetic(name: string): void;
@@ -411,6 +415,8 @@ declare module "voxelcraft" {
     registerStructureTemplate(name: string, source: string | Record<string, unknown>): boolean;
     registerStructure(name: string, def: Record<string, unknown>): void;
     registerLootTable(name: string, def: { rolls?: [number, number]; entries: { item: string; count?: [number, number]; weight?: number }[] }): void;
+    registerGuideChapter(name: string, def?: { title?: string; icon?: string; order?: number; description?: string }): boolean;
+    registerGuidePage(name: string, def: GuidePage): boolean;
     getBiome(position: Vec3): string;
     setSpawnCaps(caps: { monster?: number; animal?: number; ambient?: number; misc?: number }): void;
     setGameplay(values: Gameplay): void;
@@ -439,5 +445,25 @@ declare module "voxelcraft" {
     every(seconds: number, fn: () => void): number;
     cancel(taskId: number): void;
     storage: { get<T = unknown>(key: string, fallback?: T): T; set(key: string, value: unknown): void };
+  }
+
+  export type GuideBlock =
+      | { type: "text" | "heading" | "tip"; text: string }
+      | { type: "items"; items: string[] }
+      | { type: "recipe"; output: string }
+      | { type: "entity"; entity: string }
+      | { type: "image"; asset: string }
+      | { type: "link"; page: string; text?: string }
+      | { type: "keys"; action: string; text: string };
+
+  export interface GuidePage {
+      chapter: string;
+      title?: string;
+      icon?: string;
+      order?: number;
+      unlock?: { item?: string; recipe?: string; entity?: string; flag?: string; page?: string };
+      hint?: string;
+      keywords?: string;
+      blocks: GuideBlock[];
   }
 }

@@ -29,6 +29,7 @@ extends RefCounted
 ##   player_eat     {player, item, hunger, saturation, heal, effects, cancelled}   a meal is finished; values may be changed
 ##   player_sleep   {player, position, cancelled}             lying down in a bed (position: the bed's foot)
 ##   player_wake    {player, reason ("moved" | "left bed" | "hurt" | "bed" | "day" | "morning" | "left")}
+##   guide_page_unlocked {player, page}                      a guidebook page unlocked for a player
 ##   night_skipped  {sleepers}                                enough players slept; it is morning now
 ##   skill_crafted  {player, item, count, quality, score, names, data, product}   crafted by hand; data may be changed
 ##   item_crafted   {player, item, count}
@@ -666,6 +667,70 @@ func register_structure(structure_name: String, def: Dictionary) -> void:
 ## block data {loot: "<table>"} fill from it the first time they are opened.
 func register_loot_table(table_name: String, def: Dictionary) -> void:
 	_server.loot.register(_qualify(table_name), def)
+
+
+## A guidebook chapter: {title, icon (item name), order, description}. Names without ":" are this mod's.
+func register_guide_chapter(chapter_name: String, def := {}) -> bool:
+	var d := def.duplicate(true)
+	d.id = _qualify_ref(chapter_name)
+	if def.get("icon") is String and not def.icon.is_empty():
+		d.icon = _qualify_ref(def.icon)
+	return _server.guide.registry.add_chapter(d)
+
+
+## A guidebook page (see engine/shared/guide_registry.gd): {chapter, title, icon, order, unlock: {item |
+## recipe | entity | flag | page}, hint, keywords, blocks: [{type: text | heading | items | recipe |
+## entity | image | tip | link | keys, ...}]}. Item, entity, page and flag names without ":" are this
+## mod's; image blocks take a texture path in this mod.
+func register_guide_page(page_name: String, def: Dictionary) -> bool:
+	var d := def.duplicate(true)
+	d.id = _qualify_ref(page_name)
+	d.chapter = _qualify_ref(str(def.get("chapter", "")))
+	if def.get("icon") is String and not def.icon.is_empty():
+		d.icon = _qualify_ref(def.icon)
+	if def.get("unlock") is Dictionary:
+		var u := {}
+		for key in def.unlock:
+			u[key] = _qualify_ref(str(def.unlock[key]))
+		d.unlock = u
+	var blocks := []
+	for b in (def.get("blocks") if def.get("blocks") is Array else []):
+		if not (b is Dictionary):
+			continue
+		var c: Dictionary = b.duplicate(true)
+		if c.get("items") is Array:
+			c.items = (c.items as Array).map(func(n): return _qualify_ref(str(n)))
+		for key in ["output", "entity", "page"]:
+			if c.has(key):
+				c[key] = _qualify_ref(str(c[key]))
+		if str(c.get("type", "")) == "image" and c.get("asset") is String:
+			c.asset = register_asset(c.asset)
+		blocks.append(c)
+	d.blocks = blocks
+	return _server.guide.registry.add_page(d)
+
+
+## Opens the guidebook for a player at a page ("" = where they left off).
+func open_guide(player, page := "") -> void:
+	_server.guide.open(player, _qualify_ref(page))
+
+
+## Guide flags unlock pages with `unlock: {flag}` (names without ":" are this mod's). Saved per player.
+func set_guide_flag(player, flag: String, on := true) -> void:
+	_server.guide.set_flag(player, _qualify_ref(flag), on)
+
+
+func has_guide_flag(player, flag: String) -> bool:
+	return _server.guide.has_flag(player, _qualify_ref(flag))
+
+
+## Unlocks a guide page for a player whatever its condition. Returns true if it was locked.
+func unlock_guide_page(player, page: String, notify := true) -> bool:
+	return _server.guide.unlock(player, _qualify_ref(page), notify)
+
+
+func is_guide_page_unlocked(player, page: String) -> bool:
+	return _server.guide.is_unlocked(player, _qualify_ref(page))
 
 
 ## A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from

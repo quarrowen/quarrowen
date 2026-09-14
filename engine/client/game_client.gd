@@ -39,6 +39,7 @@ const AvatarStore = preload("res://engine/client/avatar/avatar_store.gd")
 const AvatarEditor = preload("res://engine/client/avatar/avatar_editor.gd")
 const EffectPlayer = preload("res://engine/client/effects/effect_player.gd")
 const CraftingScreen = preload("res://engine/client/crafting_screen.gd")
+const GuideScreen = preload("res://engine/client/guide_screen.gd")
 const MinigameScreen = preload("res://engine/client/minigame_screen.gd")
 const EatingVisuals = preload("res://engine/client/eating_visuals.gd")
 const ItemIcons = preload("res://engine/client/item_icons.gd")
@@ -217,6 +218,8 @@ var _leave_bed_sent := 0.0
 var _death_label: Label
 var _inventory_screen: InventoryScreen
 var _minigame_screen: MinigameScreen
+var _guide_screen: GuideScreen
+var _guide_badge: Label
 var _volume_slider: HSlider
 
 
@@ -329,6 +332,7 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	_crafting_screen.assembly.load_network(content.get("assembly"))
 	_crafting_screen.minigames = content.get("minigames", {}) if content.get("minigames") is Dictionary else {}
 	_crafting_screen.player_name = player_name
+	_guide_screen.registry.load_network(content.get("guide"))
 	if not _effects.registry.load_network(content.get("effects", [])):
 		_leave("Server sent invalid effect definitions")
 		return
@@ -1541,6 +1545,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.is_action_pressed("pause"):
 			_close_avatar_editor()
 		return
+	elif _guide_screen.visible:
+		if event.is_action_pressed("pause") or event.is_action_pressed("guide"):
+			_set_guide_open(false)
+			get_viewport().set_input_as_handled()
+		return
 	elif _crafting_screen.visible:
 		if event.is_action_pressed("pause") or event.is_action_pressed("crafting") or event.is_action_pressed("inventory"):
 			_set_crafting_open(false)
@@ -1564,6 +1573,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("crafting") and _welcomed:
 		Net.c_open_menu.rpc_id(1, "crafting")
+	elif event.is_action_pressed("guide") and _welcomed and not dead and _gameplay_input_enabled():
+		_set_guide_open(true)
+		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("camera"):
 		camera_mode = (camera_mode + 1) % 3 as CameraMode
 	elif event.is_action_pressed("graphics"):
@@ -1583,7 +1595,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func _gameplay_input_enabled() -> bool:
 	var captured := ignore_mouse_capture or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	return captured and not _chat_input.visible and not _pause_panel.visible and not _server_ui.has_modal() \
-		and not _inventory_screen.visible and not dead and _avatar_editor == null and not _crafting_screen.visible
+		and not _inventory_screen.visible and not dead and _avatar_editor == null and not _crafting_screen.visible \
+		and not _guide_screen.visible
 
 
 func drop_selected(whole_stack := false) -> void:
@@ -1668,6 +1681,71 @@ func _announce_learned(source: String) -> void:
 		text += "  (blueprint)"
 	_show_toast(first.output, text)
 	_sounds.play_name("engine:discover", Vector3.ZERO, 0.8, 1.0, false)
+
+
+# --- Guidebook ------------------------------------------------------------------------------------
+
+func _set_guide_open(open: bool, page_id := "") -> void:
+	if open:
+		if dead or not _welcomed:
+			return
+		_set_inventory_open(false)
+		_set_crafting_open(false)
+		_pause_panel.visible = false
+		_guide_screen.open(page_id)
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_sounds.play_name("engine:page", Vector3.ZERO, 0.7, 1.0, false)
+		return
+	if not _guide_screen.visible:
+		return
+	_guide_screen.visible = false
+	_update_guide_badge()
+	if not ignore_mouse_capture and not dead:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func on_guide_state(unlocked: PackedStringArray, read: PackedStringArray, last: String) -> void:
+	_guide_screen.set_state(unlocked, read, last)
+	_update_guide_badge()
+
+
+func on_guide_unlocked(pages: PackedStringArray, notify: bool) -> void:
+	var fresh := _guide_screen.add_unlocked(pages)
+	_update_guide_badge()
+	if not notify or fresh.is_empty() or _guide_screen.visible:
+		return
+	var page := _guide_screen.registry.get_page(fresh[0])
+	var text := "Guide: %s  [%s]" % [page.title, GuideScreen.key_name("guide")] if fresh.size() == 1 \
+		else "Guide: %d new pages  [%s]" % [fresh.size(), GuideScreen.key_name("guide")]
+	var icon := items.id_of(str(page.icon)) if not str(page.icon).is_empty() else -1
+	# After any recipe popup from the same pickup.
+	get_tree().create_timer(0.9).timeout.connect(func():
+		_show_toast(maxi(icon, 0), text)
+		_sounds.play_name("engine:page", Vector3.ZERO, 0.6, 1.1, false))
+
+
+func on_guide_open(page_id: String) -> void:
+	if _guide_screen.visible:
+		if not page_id.is_empty():
+			_guide_screen.show_page(page_id)
+		return
+	_set_guide_open(true, page_id)
+
+
+## "G  Guide (3 new)" in the corner while there are unread pages.
+func _update_guide_badge() -> void:
+	var count := _guide_screen.unread_count()
+	_guide_badge.visible = count > 0 and not _guide_screen.visible
+	_guide_badge.text = "[%s] Guide · %d new" % [GuideScreen.key_name("guide"), count]
+
+
+func _entity_portrait(entity_name: String) -> Node3D:
+	var type_id := entity_types.id_of(entity_name)
+	if type_id < 0 or (not _entity_parts.has(type_id) and not _entity_sprites.has(type_id)):
+		return null
+	var view := EntityView.new()
+	view.setup(0, entity_types.defs[type_id], _entity_parts.get(type_id, []), _entity_sprites.get(type_id), Vector3.ZERO, 0.0)
+	return view
 
 
 func on_assembled(item: int, item_data: Dictionary) -> void:
@@ -2003,7 +2081,7 @@ static func _register_input_actions() -> void:
 		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE], "sprint": [KEY_SHIFT, KEY_CTRL],
 		"chat": [KEY_T, KEY_ENTER], "toggle_debug": [KEY_F3], "pause": [KEY_ESCAPE], "crafting": [KEY_C], "graphics": [KEY_F4], "camera": [KEY_F5],
-		"inventory": [KEY_E, KEY_TAB], "drop": [KEY_Q],
+		"inventory": [KEY_E, KEY_TAB], "drop": [KEY_Q], "guide": [KEY_G],
 	}
 	for action: String in keys:
 		if InputMap.has_action(action):
@@ -2249,6 +2327,11 @@ func _build_hud() -> void:
 	resume.custom_minimum_size = Vector2(240, 44)
 	resume.pressed.connect(_set_paused.bind(false))
 	pause_box.add_child(resume)
+	var guide_button := Button.new()
+	guide_button.text = "Guidebook"
+	guide_button.custom_minimum_size = Vector2(240, 44)
+	guide_button.pressed.connect(func(): _set_guide_open(true))
+	pause_box.add_child(guide_button)
 	var customize := Button.new()
 	customize.text = "Customize avatar"
 	customize.custom_minimum_size = Vector2(240, 44)
@@ -2297,6 +2380,33 @@ func _build_hud() -> void:
 	_minigame_screen.join_requested.connect(func(game_id): Net.c_minigame_join.rpc_id(1, game_id))
 	_minigame_screen.feedback.connect(_on_minigame_feedback)
 	_hud_root.add_child(_minigame_screen)
+	_guide_badge = Label.new()
+	_guide_badge.visible = false
+	_guide_badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_guide_badge.offset_left = -260
+	_guide_badge.offset_right = -14
+	_guide_badge.offset_top = 40
+	_guide_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_guide_badge.add_theme_color_override("font_color", Color(1.0, 0.86, 0.5))
+	_guide_badge.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	_guide_badge.add_theme_constant_override("outline_size", 5)
+	_hud_root.add_child(_guide_badge)
+	_guide_screen = GuideScreen.new()
+	_guide_screen.items = items
+	_guide_screen.recipes = recipes
+	_guide_screen.entity_types = entity_types
+	_guide_screen.crafting = _crafting_screen
+	_guide_screen.make_entity_view = _entity_portrait
+	_guide_screen.texture_of = func(asset: String) -> Texture2D: return _asset_textures.get(asset)
+	_guide_screen.visible = false
+	_guide_screen.closed.connect(_set_guide_open.bind(false))
+	_guide_screen.page_viewed.connect(func(page_id):
+		Net.c_guide_read.rpc_id(1, page_id)
+		_update_guide_badge())
+	_guide_screen.lookup_requested.connect(func(item, mode):
+		_set_guide_open(false)
+		lookup_recipes(item, mode))
+	_hud_root.add_child(_guide_screen)
 	_build_pin_panel()
 
 	_inventory_screen = InventoryScreen.new()

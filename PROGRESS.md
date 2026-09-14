@@ -164,6 +164,20 @@ changes with `tools/build_native.sh`.
         templates across chunks with rotation, variants and loot tables; mob spawner block; code pieces.
       - W5 Structures (done): dungeons, ruins and watchtowers in biome materials, mineshafts, Colossus arena.
         Not done: rails in mineshafts, villages, structure-aware terrain smoothing.
+1b. **In-game guide and tutorial** (current, branch `guide`; user decisions 2026-09-14): engine capabilities
+   that base, vanilla and every mod (GDScript or JS) fill, plus a server chapter. In order:
+   - G1 Guide engine + book (done): engine/shared/guide_registry.gd, engine/server/guide.gd,
+     engine/client/guide_screen.gd; base "First Steps" chapter and a vanilla Cows page as samples; registered chapters/pages made of blocks (text, headings, item icons, live
+     recipe embeds, mob portraits, links, tips), unlock conditions so spoilers stay hidden, search,
+     opened with a key and a craftable Survival Guide item, remembers the last page.
+     Not done: the book UI does not scale up with high-DPI screens (like the other screens).
+   - G2 Tutorial engine: guided goals in the player's own world (HUD tracker, steps completed by real
+     actions via events, hints that point at what to do), contextual one-time tips linking to guide
+     pages, skip and replay, progress saved per player.
+   - G3 Content: base and vanilla chapters (getting started, crafting and stations, discovery and
+     experiments, forging and minigames, farming, food, beds, animals, monsters, biomes and caves,
+     structures and loot, co-op), the vanilla survival tutorial path and tips; Arcana, Industry and Guild
+     chapters.
 2. **Creator platform** (follow-up): hot-reload mods on a running server, in-game script console, mod
    packaging with versions/dependencies, generated API docs site, starter templates.
 3. **Player-made content / UGC** (follow-up): uploads of skins, cosmetics and later items/models;

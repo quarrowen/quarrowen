@@ -230,6 +230,7 @@ func _init() -> void:
 	_save(_cage(), base + "spawner.png")
 	_save(_web(), vanilla + "cobweb.png")
 	_save(_altar(), vanilla + "ancient_altar.png")
+	_save(_guide_book(), base + "guide_book.png")
 	quit()
 
 
@@ -792,6 +793,29 @@ func _icon(frame: Color, accent: Color, glyph: String) -> Image:
 				"drill": on = absf(x - 7.5) < (12 - y) * 0.35 or (y < 5 and x > 3 and x < 12)
 			if on:
 				img.set_pixel(x, y, _vary(accent, 0.06))
+	return img
+
+
+## A leather-bound book with gold corners and a green bookmark ribbon.
+func _guide_book() -> Image:
+	var img := _blank()
+	var leather := Color(0.52, 0.28, 0.14)
+	for y in range(2, 15):
+		for x in range(3, 13):
+			var edge := x == 3 or x == 12 or y == 2 or y == 14
+			img.set_pixel(x, y, leather.darkened(0.35) if edge else _vary(leather, 0.04))
+	for y in range(3, 14):
+		img.set_pixel(12, y, Color(0.95, 0.9, 0.75))  # page edges
+		img.set_pixel(4, y, leather.darkened(0.2))  # spine line
+	for c in [Vector2i(3, 2), Vector2i(11, 2), Vector2i(3, 14), Vector2i(11, 14)]:
+		img.set_pixel(c.x, c.y, Color(0.95, 0.78, 0.25))
+	for y in range(5, 9):
+		for x in range(6, 11):
+			if y == 5 or y == 8 or x == 6 or x == 10:
+				img.set_pixel(x, y, Color(0.95, 0.78, 0.25))  # title plate
+	img.set_pixel(8, 11, Color(0.95, 0.78, 0.25))
+	for y in range(13, 16):
+		img.set_pixel(9, y, Color(0.3, 0.65, 0.3))  # ribbon
 	return img
 
 

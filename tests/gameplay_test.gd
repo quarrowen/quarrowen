@@ -37,6 +37,7 @@ func _ready() -> void:
 	await _skill_crafting()
 	await _hunger()
 	await _beds()
+	await _guide()
 	await _spawning()
 	await _animals()
 	await _taming()
@@ -1310,6 +1311,62 @@ func _beds() -> void:
 	p.dead = true
 	server.on_respawn(102)
 	_check(p.spawn_bed == null, "a missing bed clears the respawn point")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _guide() -> void:
+	var server = _start("guide_%d" % Time.get_ticks_msec())
+	var guide = server.guide
+	var reg = guide.registry
+	_check(not reg.get_chapter("base:basics").is_empty() and not reg.get_page("base:welcome").is_empty(), "mods register guide chapters and pages")
+	_check(reg.chapter_pages("base:basics")[0].id == "base:welcome", "pages are sorted by order")
+	_check(reg.get_page("base:crafting_table").unlock == {"item": "base:planks"}, "unlock references are qualified")
+	var api = preload("res://engine/server/mod_api.gd").new(server, {"id": "tester", "dir": "res://tests"})
+	api.register_guide_page("secret", {"chapter": "base:basics", "unlock": {"flag": "found_it"},
+		"blocks": [{"type": "items", "items": ["planks", "base:stick"]}, {"type": "bogus"}, {"type": "link", "page": "welcome"}]})
+	var secret: Dictionary = reg.get_page("tester:secret")
+	_check(secret.blocks.size() == 2 and secret.blocks[0].items == ["tester:planks", "base:stick"] and secret.blocks[1].page == "tester:welcome",
+		"page blocks are cleaned and their names qualified")
+	var p := ServerPlayer.new(server, 110, "Reader")
+	p.player_id = "reader"
+	server.players[110] = p
+	server.gameplay.recipe_discovery = true
+	guide.sync(p)
+	_check(guide.is_unlocked(p, "base:welcome") and guide.is_unlocked(p, "base:wood"), "pages without conditions start unlocked")
+	_check(not guide.is_unlocked(p, "base:crafting_table") and not guide.is_unlocked(p, "base:food"), "locked pages wait for their condition")
+	_check(not guide.is_unlocked(p, "base:beds"), "recipe pages stay locked while the recipe is unknown")
+	var unlocked := []
+	api.on("guide_page_unlocked", func(ev): unlocked.append(ev.page))
+	p.inventory.set_slot(0, server.items.id_of("base:planks"), 4)
+	p.sync_inventory()
+	guide.update(2.0)
+	_check(guide.is_unlocked(p, "base:crafting_table") and unlocked.has("base:crafting_table"), "holding an item unlocks its page")
+	guide.on_read(p, "base:crafting_table")
+	guide.on_read(p, "tester:secret")
+	_check(guide.state_of(p).last == "base:crafting_table" and not guide.state_of(p).read.has("tester:secret"), "reading remembers the page; locked pages cannot be read")
+	guide.on_read(p, "base:wood")
+	_check(guide.is_unlocked(p, "base:food"), "reading a page unlocks pages that follow it")
+	_check(guide.is_unlocked(p, "base:beds") and server.knows_recipe(p, "base:bed"), "learning a recipe (planks teach the bed) unlocks its page")
+	api.set_guide_flag(p, "found_it")
+	_check(guide.is_unlocked(p, "tester:secret") and api.has_guide_flag(p, "found_it"), "mod flags unlock pages")
+	var cow = server.entities.spawn(server.entities.registry.id_of("vanilla:cow"), p.state.position + Vector3(3, 0, 0))
+	api.register_guide_page("cows", {"chapter": "base:basics", "unlock": {"entity": "vanilla:cow"}, "blocks": []})
+	guide.update(2.0)
+	_check(cow != null and guide.is_unlocked(p, "tester:cows"), "seeing a mob unlocks its page")
+	_check(api.unlock_guide_page(p, "base:stone_tools", false) and guide.is_unlocked(p, "base:stone_tools"), "mods can unlock pages directly")
+	server._store_player(p)
+	var saved: Dictionary = server._meta.players.reader.guide
+	var q := ServerPlayer.new(server, 111, "Reader2")
+	guide.load_player(q, JSON.parse_string(JSON.stringify(saved)))
+	_check(guide.is_unlocked(q, "tester:secret") and guide.state_of(q).last == "base:wood" and guide.has_flag(q, "tester:found_it"),
+		"guide progress is saved")
+	var net: Dictionary = JSON.parse_string(JSON.stringify(reg.to_network()))
+	var copy = preload("res://engine/shared/guide_registry.gd").new()
+	copy.load_network(net)
+	_check(copy.pages.size() == reg.pages.size() and copy.get_page("base:wood").blocks.size() == reg.get_page("base:wood").blocks.size(),
+		"the guide reaches clients intact")
+	_check(preload("res://engine/shared/guide_registry.gd").page_text(reg.get_page("base:wood")).contains("sticks"), "page text is searchable")
 	server.queue_free()
 	await get_tree().process_frame
 

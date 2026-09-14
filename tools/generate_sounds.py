@@ -139,6 +139,7 @@ def main():
 
     crafting_sounds()
     hunger_sounds()
+    guide_sounds()
     animal_sounds()
 
 
@@ -171,6 +172,12 @@ def hunger_sounds():
     write("engine/client/sounds/explosion.wav", mix(noise_burst(1.2, 0.08, curve=1.6, gain=1.0), noise_burst(0.3, 0.5, curve=3.0, gain=0.6), tone(0.8, 90, 35, gain=0.6, curve=1.5)))
     write("engine/client/sounds/fuse.wav", noise_burst(1.4, 0.9, curve=0.3, gain=0.35))
     write("engine/client/sounds/gulp.wav", mix(tone(0.12, 220, 420, gain=0.4, curve=2.5), noise_burst(0.08, 0.05, gain=0.25)))
+
+
+def guide_sounds():
+    # --- Engine: guidebook page turn (a separate function so it can be regenerated alone) ---
+    swish = [s * math.sin(math.pi * i / n(0.22)) for i, s in enumerate(noise_burst(0.22, 0.35, curve=0.8, gain=0.35))]
+    write("engine/client/sounds/page.wav", mix(swish, [0.0] * n(0.16) + noise_burst(0.05, 0.6, gain=0.25)))
 
 
 def crafting_sounds():
