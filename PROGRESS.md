@@ -172,6 +172,15 @@ changes with `tools/build_native.sh`.
 4. **Multiplayer network** (follow-up): server browser/discovery, server-to-server portals/transfer
    with the same identity, profiles, friends/parties, roles/permissions, anti-cheat checks, 100+ player
    scaling tests.
+5. **Loot and drops system** (follow-up, user 2026-09-14): one engine loot capability behind structure
+   chests, mob drops, block drops, fishing/rewards later. Today these are three separate simple things
+   (loot tables {rolls, entries}, entity `drops` [[item, count, chance]], block `drops`). Ideas: shared
+   loot tables used everywhere (nested tables, pools with their own rolls, guaranteed and bonus rolls,
+   empty weight); conditions (biome, depth, time, weather, killed by player, tool/enchantment, looting
+   level, player luck stat, first open per player); functions (random item data: durability, quality,
+   names/lore, part materials, blueprint recipe picks); per-player loot in shared chests; mods and
+   servers overriding or extending tables (inject entries, replace a mob's drops); loot preview in the
+   recipe book / guide; JS and GDScript APIs; data files so creators edit tables without code.
 
 ## Pending (next steps, in order)
 
