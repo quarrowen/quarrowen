@@ -333,14 +333,16 @@ declare module "voxelcraft" {
     registerBlock(name: string, def: BlockDef): BlockId;
     registerItem(name: string, def: ItemDef): ItemId;
     registerRecipe(inputs: Record<string, number>, output: string, count?: number, options?: { station?: string; tier?: number; needs?: string[]; category?: string; id?: string;
-      time?: number; project?: boolean; unlock?: "known" | "pickup" | "blueprint" | "experiment" | "secret"; hint?: string }): void;
+      time?: number; project?: boolean; unlock?: "known" | "pickup" | "blueprint" | "experiment" | "secret"; hint?: string; skill?: string }): void;
     registerStation(name: string, def: StationDef): void;
+    registerMinigame(name: string, def: { title?: string; type?: "timing" | "hold" | "sequence"; verb?: string; rounds?: number;
+      speed?: number; zone?: number; cool?: number; team?: boolean; duration?: number; window?: number }): void;
     registerMaterial(name: string, def: { display_name?: string; item: string; color?: string; tier?: number; speed?: number; durability?: number;
       damage?: number; handle?: number; trait?: { name: string; description?: string; modifiers?: StatModifier[]; durability_mult?: number;
       speed_mult?: number; damage_add?: number; glow?: ItemDef["glow"] } }): void;
     registerPartType(name: string, def: { display_name?: string; sprite: string; cost?: number; station?: string }): number;
     registerAssembly(name: string, def: { display_name?: string; icon?: string; slots: { name: string; part: string; label?: string }[];
-      tool_type?: string; damage?: number; cooldown?: number; reach?: number; sweep?: number; station?: string }): number;
+      tool_type?: string; damage?: number; cooldown?: number; reach?: number; sweep?: number; station?: string; skill?: string }): number;
     getStation(position: Vec3): Record<string, unknown>;
     registerContainer(name: string, def: { title?: string; groups: { name: string; count: number; columns?: number; label?: string; take_only?: boolean; accepts?: string[] | "fuel" }[];
       progress?: { name: string; label?: string; color?: string }[] }): boolean;

@@ -32,6 +32,8 @@ func _ready() -> void:
 	await _discovery()
 	await _experiments()
 	await _assembly()
+	_minigames()
+	await _skill_crafting()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -902,6 +904,187 @@ func _assembly() -> void:
 		_check(is_equal_approx(items.weapon_of(id, data).damage, 4.0), "the head adds damage")
 		_check(data.icon_layers.size() == 3 and data.lore.size() >= 3 and data.name == "Iron Pickaxe", "the tool has layered icon, lore and name")
 		_check(items.tool_of(id).get("tier", 0) == 0 and items.max_durability(id) == 1, "plain stacks keep the item's defaults")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+const Minigame = preload("res://engine/shared/minigame.gd")
+
+
+## The first time after `after` when the marker sits on strike i's zone center.
+func _perfect_time(g: Dictionary, i: int, after: float) -> float:
+	var t := after + 0.05
+	while t < after + 20.0:
+		if absf(Minigame.marker(g, t) - Minigame.zone_center(g, i)) < 0.004:
+			return t
+		t += 0.001
+	return after
+
+
+func _minigames() -> void:
+	var forging := Minigame.clean_def("test:forging", {"type": "timing", "rounds": 5, "speed": 0.75, "zone": 0.2, "cool": 9.0, "team": true})
+	var g := Minigame.new_game(forging, 1234, false, 0.0, false)
+	var t := 0.0
+	for i in 5:
+		t = _perfect_time(g, i, t)
+		g.strikes.append(t)
+	_check(Minigame.rate_strike(g, 0, g.strikes[0]).grade == "perfect", "a strike on the zone center is perfect")
+	_check(Minigame.quality_for(Minigame.score(g, t)).name == "Masterwork", "five perfect strikes forge a Masterwork")
+	_check(Minigame.marker(g, 3.3) == Minigame.marker(Minigame.new_game(forging, 1234, false, 0.0, false), 3.3), "the marker is the same for the same seed")
+	var slow := Minigame.new_game(forging, 1234, false, 0.0, false)
+	_check(Minigame.quality_for(Minigame.score(slow, 20.0)).name == "Standard", "no strikes is still Standard (never worse)")
+	var off := Minigame.new_game(forging, 1234, false, 0.0, false)
+	for i in 5:
+		var c := Minigame.zone_center(off, i)
+		var miss_t := 0.05
+		while absf(Minigame.marker(off, miss_t) - c) < 0.3:
+			miss_t += 0.01
+		off.strikes.append(miss_t)
+	_check(Minigame.score(off, 20.0) == 0.0, "strikes far from the zone miss")
+	var assisted := Minigame.new_game(forging, 1234, true, 0.1, false)
+	_check(Minigame.zone_width(assisted, 0) > Minigame.zone_width(g, 0) and Minigame.speed(assisted) < Minigame.speed(g),
+		"relaxed timing and station quality widen the zone and slow the marker")
+	_check(Minigame.heat(g, 0.0) == 1.0 and Minigame.heat(g, 9.0) == 0.0 and Minigame.marker(g, 8.5) != Minigame.marker(g, 8.51), "solo work cools over time")
+	# Team: bellows keep the heat in the band and pump before each strike.
+	var team := Minigame.new_game(forging, 99, false, 0.0, true)
+	_check(team.team, "a team game with a partner")
+	t = 0.0
+	for i in 5:
+		t = _perfect_time(team, i, t + 0.6)
+		team.holds.append([t - 0.3, true])
+		team.holds.append([t - 0.1, false])
+		team.strikes.append(t)
+	_check(Minigame.rate_strike(team, 0, team.strikes[0]).synced and Minigame.score(team, t) > 1.0, "pumping just before strikes gives a sync bonus")
+	var burnt := Minigame.new_game(forging, 99, false, 0.0, true)
+	burnt.holds.append([0.0, true])
+	_check(Minigame.rate_strike(burnt, 0, 3.0).grade == "burnt", "holding the bellows too long burns the strike")
+	var cold := Minigame.new_game(forging, 99, false, 0.0, true)
+	_check(Minigame.zone_width(cold, 0, 5.0) < Minigame.zone_width(cold, 0), "cold metal narrows the zone")
+	# Hold: follow the band.
+	var channel := Minigame.clean_def("test:channel", {"type": "hold", "duration": 7.0, "zone": 0.24})
+	var good := Minigame.new_game(channel, 7, false, 0.0, false)
+	var down := false
+	var st := 0.0
+	while st < 7.0:
+		var want: bool = Minigame.gauge(good, st) < Minigame.band_center(good, st)
+		if want != down:
+			good.holds.append([st, want])
+			down = want
+		st += 0.05
+	var idle := Minigame.new_game(channel, 7, false, 0.0, false)
+	_check(Minigame.score(good, 7.0) > 0.85 and Minigame.score(idle, 7.0) < 0.5, "following the band scores well, idling does not (%.2f / %.2f)" % [Minigame.score(good, 7.0), Minigame.score(idle, 7.0)])
+	# Sequence: press the prompts in time.
+	var stitch := Minigame.clean_def("test:stitch", {"type": "sequence", "rounds": 6, "window": 1.4})
+	var right := Minigame.new_game(stitch, 5, false, 0.0, false)
+	var wrong := Minigame.new_game(stitch, 5, false, 0.0, false)
+	var late := Minigame.new_game(stitch, 5, false, 0.0, false)
+	for i in 6:
+		right.keys.append([0.5 * (i + 1), Minigame.prompt(right, i)])
+		wrong.keys.append([0.5 * (i + 1), "up" if Minigame.prompt(wrong, i) != "up" else "down"])
+	late.keys.append([2.0, Minigame.prompt(late, 0)])  # the first prompt timed out; this answers the second
+	_check(Minigame.score(right, 3.0) == 1.0 and Minigame.complete(right, 3.0), "the right keys in time complete the stitching")
+	_check(Minigame.score(wrong, 3.0) == 0.0, "wrong keys score nothing")
+	_check(Minigame.sequence_progress(late).index == 2, "a prompt left too long fails and moves on")
+
+
+func _skill_crafting() -> void:
+	var server = _start("skill_%d" % Time.get_ticks_msec())
+	var reg = server.registry
+	var items = server.items
+	var skill = server.skill
+	var p := ServerPlayer.new(server, 98, "Smith")
+	p.player_id = "smith"
+	server.players[98] = p
+	var helper := ServerPlayer.new(server, 99, "Helper")
+	helper.player_id = "helper"
+	server.players[99] = helper
+	var y: int = server.surface_height(8, 8)
+	for x in range(4, 16):
+		for z in range(4, 16):
+			for dy in range(1, 4):
+				server.set_block_authoritative(Vector3i(x, y + dy, z), 0)
+			server.set_block_authoritative(Vector3i(x, y, z), reg.id_of("base:stone"))
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	helper.state.position = Vector3(9.5, y + 1, 9.5)
+	p.edit_tokens = 100.0
+	var table := Vector3i(10, y + 1, 8)
+	server.set_block_authoritative(table, reg.id_of("base:crafting_table"))
+	server.set_block_authoritative(table + Vector3i(2, 0, 0), reg.id_of("base:anvil"))
+	p.inventory.set_slot(0, items.id_of("base:iron_ingot"), 20)
+	p.inventory.set_slot(1, items.id_of("base:stick"), 32)
+	helper.edit_tokens = 100.0
+	server.on_interact(98, table)
+	var pick_index: int = server.recipes.index_of("base:iron_pickaxe")
+	var pick: int = items.id_of("base:iron_pickaxe")
+	_check(server.recipes.recipes[pick_index].skill == "base:forging" and skill.defs.has("base:forging"), "iron tools can be forged by hand")
+	_check(skill.start(p, {"recipe": server.recipes.index_of("base:stone_pickaxe")}) == 0, "recipes without a minigame cannot be crafted by hand")
+	skill.time_override = 100.0
+	var id: int = skill.start(p, {"recipe": pick_index})
+	_check(id > 0 and p.inventory.count_of(items.id_of("base:iron_ingot")) == 17, "starting takes the ingredients")
+	_check(skill.start(p, {"recipe": pick_index}) == 0, "one minigame at a time")
+	var g: Dictionary = skill.game_of(p)
+	_check(is_equal_approx(g.bonus, 0.1), "the anvil's quality bonus applies")
+	var t := 0.0
+	for i in 5:
+		t = _perfect_time(g, i, t)
+		skill.time_override = g.started + t
+		skill.input(p, "strike", t)
+	_check(skill.game_of(p).is_empty(), "the game ends after the last strike")
+	var slot: int = p.inventory.ids.find(pick)
+	var data: Dictionary = p.inventory.data[slot] if slot >= 0 else {}
+	_check(data.get("quality", 0) == 3 and str(data.get("name", "")) == "Masterwork Iron Pickaxe", "perfect strikes forge a Masterwork pickaxe (%s)" % data.get("name", ""))
+	var base_durability: int = items.max_durability(pick)
+	_check(items.max_durability(pick, data) == roundi(base_durability * 1.3) and items.tool_of(pick, data).speed > items.tool_of(pick).speed,
+		"Masterwork lasts 30% longer and mines faster")
+	_check(str(data.get("lore", [""])[0]).contains("Masterwork") and str(data.lore.back()) == "Crafted by Smith" and data.has("glow"), "Masterwork credits the maker and glows")
+	p.inventory.clear_slot(slot)
+	# Quitting right away still gives a Standard item.
+	skill.time_override = 200.0
+	skill.start(p, {"recipe": pick_index})
+	skill.input(p, "quit", 0.0)
+	slot = p.inventory.ids.find(pick)
+	_check(slot >= 0 and p.inventory.data[slot].is_empty(), "leaving early gives a plain Standard item")
+	p.inventory.clear_slot(slot)
+	# Inputs are clamped to what latency allows.
+	skill.time_override = 300.0
+	skill.start(p, {"recipe": pick_index})
+	g = skill.game_of(p)
+	skill.time_override = g.started + 5.0
+	skill.input(p, "strike", 0.2)
+	_check(float(g.strikes[0]) >= 5.0 - skill.MAX_LAG, "a strike claimed long ago is clamped to the latency window")
+	skill.input(p, "hold", 5.1, 1)
+	_check(g.holds.is_empty(), "the hammer cannot work the bellows")
+	skill.time_override = g.started + 60.0
+	skill.update()
+	_check(skill.game_of(p).is_empty() and p.inventory.count_of(pick) == 1, "an abandoned game finishes on its own")
+	p.inventory.clear_slot(p.inventory.ids.find(pick))
+	# Team: the partner joins from the same station as the bellows.
+	skill.time_override = 400.0
+	id = skill.start(p, {"recipe": pick_index}, false, true)
+	_check(skill.invites_at(table).size() == 1 and server.sessions.view(table).invites.size() == 1, "a team game invites others at the station")
+	_check(not skill.join(helper, id), "a partner must be at the station")
+	server.on_interact(99, table)
+	_check(skill.join(helper, id) and skill.invites_at(table).is_empty(), "the partner joins")
+	g = skill.game_of(p)
+	_check(skill.role_of(g, p) == "hammer" and skill.role_of(g, helper) == "bellows", "starter hammers, partner pumps")
+	skill.time_override = g.started + 0.5
+	skill.input(helper, "strike", 0.5)
+	_check(g.strikes.is_empty(), "the bellows cannot strike")
+	skill.input(helper, "quit", 0.5)
+	_check(skill.game_of(helper).is_empty() and not skill.game_of(p).is_empty(), "the partner can leave; the game goes on")
+	skill.input(p, "quit", 0.6)
+	# Waiting too long starts alone.
+	skill.time_override = 500.0
+	skill.start(p, {"recipe": pick_index}, false, true)
+	skill.time_override = 500.0 + skill.INVITE_SECONDS + 0.1
+	skill.update()
+	g = skill.game_of(p)
+	_check(not g.is_empty() and not g.team and g.started > 0.0, "without a partner the game starts solo")
+	skill.input(p, "quit", 0.0)
+	# Assemblies: forged tools from parts can be forged by hand too.
+	var quality: Dictionary = skill.apply_quality(items.id_of("base:iron_chestplate"), {}, Minigame.QUALITIES[2], ["A"])
+	_check(quality.modifiers[0].stat == "armor" and quality.modifiers[0].amount > 0.0 and quality.name.begins_with("Superior"), "quality adds armor to armor")
+	_check(server.assembly.assemblies["base:forged_pickaxe"].skill == "base:forging", "assemblies name their minigame")
 	server.queue_free()
 	await get_tree().process_frame
 

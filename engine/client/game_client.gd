@@ -39,6 +39,7 @@ const AvatarStore = preload("res://engine/client/avatar/avatar_store.gd")
 const AvatarEditor = preload("res://engine/client/avatar/avatar_editor.gd")
 const EffectPlayer = preload("res://engine/client/effects/effect_player.gd")
 const CraftingScreen = preload("res://engine/client/crafting_screen.gd")
+const MinigameScreen = preload("res://engine/client/minigame_screen.gd")
 const ItemIcons = preload("res://engine/client/item_icons.gd")
 const Assembly = preload("res://engine/shared/assembly.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
@@ -203,6 +204,7 @@ var _hurt_flash: ColorRect
 var _death_panel: Control
 var _death_label: Label
 var _inventory_screen: InventoryScreen
+var _minigame_screen: MinigameScreen
 var _volume_slider: HSlider
 
 
@@ -313,6 +315,8 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	_crafting_screen.processes = content.get("processes", {}) if content.get("processes") is Dictionary else {}
 	_crafting_screen.stations = content.get("stations", {}) if content.get("stations") is Dictionary else {}
 	_crafting_screen.assembly.load_network(content.get("assembly"))
+	_crafting_screen.minigames = content.get("minigames", {}) if content.get("minigames") is Dictionary else {}
+	_crafting_screen.player_name = player_name
 	if not _effects.registry.load_network(content.get("effects", [])):
 		_leave("Server sent invalid effect definitions")
 		return
@@ -1545,6 +1549,33 @@ func on_assembled(item: int, item_data: Dictionary) -> void:
 	_crafting_screen.refresh()
 
 
+func on_minigame(view: Dictionary) -> void:
+	_minigame_screen.set_view(view)
+	if String(view.get("phase", "")) == "done":
+		var result: Dictionary = view.get("result", {})
+		var data: Dictionary = result.get("data", {})
+		_show_toast(int(result.get("item", 0)), "%s: %s" % [String(result.get("name", "")), String(data.get("name", items.display_name(int(result.get("item", 0)))))])
+		if int(result.get("quality", 0)) >= 3:
+			_sounds.play_name("engine:discover", Vector3.ZERO, 0.9, 1.0, false)
+		_crafting_screen.refresh()
+
+
+func on_minigame_event(action: String, t: float, arg: int) -> void:
+	_minigame_screen.partner_event(action, t, arg)
+	if action == "strike":
+		_sounds.play_name("engine:craft", Vector3.ZERO, 0.6, 1.1, false)
+
+
+func _on_minigame_feedback(kind: String) -> void:
+	match kind:
+		"perfect":
+			_sounds.play_name("engine:crit", Vector3.ZERO, 0.9, randf_range(1.0, 1.1), false)
+		"good", "key_hit":
+			_sounds.play_name("engine:craft", Vector3.ZERO, 0.7, randf_range(1.05, 1.2), false)
+		"miss", "burnt", "key_miss":
+			_sounds.play_name("engine:ui_click", Vector3.ZERO, 0.7, 0.6, false)
+
+
 func on_experiment_result(result: Dictionary) -> void:
 	_crafting_screen.set_experiment_result(result)
 	if String(result.get("status", "")) == "close":
@@ -2108,7 +2139,17 @@ func _build_hud() -> void:
 	_crafting_screen.coop_action.connect(func(action, arg): Net.c_station_coop.rpc_id(1, action, arg))
 	_crafting_screen.experiment_requested.connect(func(grid): Net.c_experiment.rpc_id(1, grid))
 	_crafting_screen.assemble_requested.connect(func(assembly_name, slots): Net.c_assemble.rpc_id(1, assembly_name, slots))
+	_crafting_screen.skill_requested.connect(func(product, assist, with_partner): Net.c_skill_craft.rpc_id(1, product, assist, with_partner))
+	_crafting_screen.minigame_join_requested.connect(func(game_id): Net.c_minigame_join.rpc_id(1, game_id))
+	_crafting_screen.load_settings()
 	_hud_root.add_child(_crafting_screen)
+	_minigame_screen = MinigameScreen.new()
+	_minigame_screen.items = items
+	_minigame_screen.visible = false
+	_minigame_screen.input_sent.connect(func(action, t, arg): Net.c_minigame_input.rpc_id(1, action, t, arg))
+	_minigame_screen.join_requested.connect(func(game_id): Net.c_minigame_join.rpc_id(1, game_id))
+	_minigame_screen.feedback.connect(_on_minigame_feedback)
+	_hud_root.add_child(_minigame_screen)
 	_build_pin_panel()
 
 	_inventory_screen = InventoryScreen.new()

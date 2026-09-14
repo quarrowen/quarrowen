@@ -13,6 +13,10 @@ signal station_action(action: String)
 signal coop_action(action: String, arg: int)
 ## Assemble: an assembly name and a backpack slot per assembly slot.
 signal assemble_requested(assembly_name: String, slots: PackedInt32Array)
+## Crafting by hand: product {recipe: index} or {assembly, slots}, relaxed timing, wait for a partner.
+signal skill_requested(product: Dictionary, assist: bool, with_partner: bool)
+## Join a team minigame waiting at this station.
+signal minigame_join_requested(game_id: int)
 ## The experimentation grid's "Try": 9 item ids row by row (0 = empty).
 signal experiment_requested(grid: PackedInt32Array)
 signal closed
@@ -65,6 +69,13 @@ var _ingredients: VBoxContainer
 var _craft_button: Button
 var _craft_all_button: Button
 var _pin_button: Button
+## Crafting minigames by name (from the server) and the player's relaxed-timing choice.
+var minigames := {}
+var relaxed := false
+var player_name := ""
+var _skill_row: HBoxContainer
+var _skill_button: Button
+var _skill_partner: Button
 const Assembly = preload("res://engine/shared/assembly.gd")
 ## Materials, parts and tools built from parts (shared definitions from the server).
 var assembly := Assembly.new()
@@ -271,6 +282,14 @@ func _ready() -> void:
 	buttons.add_child(_craft_all_button)
 	_pin_button = _action_button("Pin", func(): pin_requested.emit(selected))
 	buttons.add_child(_pin_button)
+	_skill_row = HBoxContainer.new()
+	_skill_row.add_theme_constant_override("separation", 8)
+	detail.add_child(_skill_row)
+	_skill_button = _action_button("Craft by hand", func(): skill_requested.emit({"recipe": selected}, relaxed, false))
+	_skill_row.add_child(_skill_button)
+	_skill_partner = _action_button("With a partner", func(): skill_requested.emit({"recipe": selected}, relaxed, true))
+	_skill_row.add_child(_skill_partner)
+	_skill_row.add_child(_relaxed_toggle())
 	var side_scroll := ScrollContainer.new()
 	_side_scroll = side_scroll
 	side_scroll.custom_minimum_size = Vector2(290, 460)
@@ -505,7 +524,21 @@ func _rebuild_forge() -> void:
 	build.custom_minimum_size = Vector2(200, 40)
 	build.disabled = result.is_empty()
 	build.pressed.connect(func(): assemble_requested.emit(_forge_assembly, slots))
-	_forge.add_child(build)
+	var build_row := HBoxContainer.new()
+	build_row.add_theme_constant_override("separation", 8)
+	build_row.add_child(build)
+	_forge.add_child(build_row)
+	var by_hand := HBoxContainer.new()
+	by_hand.add_theme_constant_override("separation", 8)
+	for with_partner in [false, true]:
+		var b := Button.new()
+		b.custom_minimum_size = Vector2(96, 40)
+		b.pressed.connect(func(): skill_requested.emit({"assembly": _forge_assembly, "slots": Array(slots)}, relaxed, with_partner))
+		by_hand.add_child(b)
+	by_hand.add_child(_relaxed_toggle())
+	_forge.add_child(by_hand)
+	_update_skill_row(by_hand, str(a.get("skill", "")), not result.is_empty())
+	(by_hand.get_child(1) as Button).text = "With a partner"
 
 
 ## Shows what an experiment did: the discovered or known result, or a hint.
@@ -779,6 +812,13 @@ func _rebuild_coop_panel() -> void:
 		_coop_panel.add_child(_small("● %s%s" % [entry.name, looking], Color(0.75, 0.9, 1.0)))
 	if players.size() > 1:
 		_coop_panel.add_child(_small("Timed crafts go %s× faster together" % _num(float(session.get("speedup", 1.0))), Color(0.55, 0.9, 0.5)))
+	for invite in session.get("invites", []):
+		if str(invite.get("by_name", "")) == player_name:
+			continue
+		var join := Button.new()
+		join.text = "Help %s: %s (bellows)" % [invite.by_name, str(invite.title).to_lower()]
+		join.pressed.connect(func(): minigame_join_requested.emit(int(invite.id)))
+		_coop_panel.add_child(join)
 
 	_coop_panel.add_child(_section("Shared tray"))
 	var owner := String(session.get("owner", ""))
@@ -1067,10 +1107,49 @@ func _first_visible() -> int:
 	return shown[0] if not shown.is_empty() else -1
 
 
+## A checkbox for relaxed minigame timing (slower marker, bigger zones), remembered between sessions.
+func _relaxed_toggle() -> CheckBox:
+	var box := CheckBox.new()
+	box.text = "Relaxed timing"
+	box.tooltip_text = "Slower markers, bigger zones and longer windows. Every result is still at least Standard."
+	box.button_pressed = relaxed
+	box.focus_mode = Control.FOCUS_NONE
+	box.toggled.connect(func(on):
+		relaxed = on
+		var cfg := ConfigFile.new()
+		cfg.load("user://settings.cfg")
+		cfg.set_value("crafting", "relaxed_timing", on)
+		cfg.save("user://settings.cfg"))
+	return box
+
+
+func load_settings() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load("user://settings.cfg") == OK:
+		relaxed = bool(cfg.get_value("crafting", "relaxed_timing", false))
+
+
+## Shows the "by hand" buttons for something with a minigame.
+func _update_skill_row(row: HBoxContainer, skill_name: String, can_make: bool) -> void:
+	var def: Dictionary = minigames.get(skill_name, {})
+	row.visible = not def.is_empty()
+	if def.is_empty():
+		return
+	var main: Button = row.get_child(0)
+	var partner: Button = row.get_child(1)
+	main.text = str(def.get("title", "Craft by hand"))
+	main.disabled = not can_make
+	main.tooltip_text = "A short minigame for Fine, Superior or Masterwork quality (never worse than crafting normally)."
+	partner.visible = bool(def.get("team", false)) and station.has("position") and session.get("players", []).size() >= 2
+	partner.disabled = not can_make
+	(row.get_child(2) as CheckBox).set_pressed_no_signal(relaxed)
+
+
 func _show_details() -> void:
 	for child in _ingredients.get_children():
 		child.queue_free()
 	var has := selected >= 0 and selected < recipes.recipes.size()
+	_skill_row.visible = false
 	_craft_button.disabled = true
 	_craft_all_button.disabled = true
 	_pin_button.disabled = not has
@@ -1095,6 +1174,7 @@ func _show_details() -> void:
 	for id: int in r.inputs:
 		_ingredients.add_child(_ingredient_row(id, int(r.inputs[id])))
 	var times := craftable_times(selected)
+	_update_skill_row(_skill_row, str(r.get("skill", "")), times > 0 and not r.get("project", false))
 	_craft_button.disabled = times <= 0
 	_craft_all_button.disabled = times <= 1
 	_craft_all_button.text = "Craft all (%d)" % times if times > 1 and not inventory.creative else "Craft all"

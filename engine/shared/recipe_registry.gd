@@ -69,6 +69,7 @@ func add(def: Dictionary, items = null) -> int:
 		"project": bool(def.get("project", false)),
 		"unlock": str(def.get("unlock", "pickup")) if str(def.get("unlock", "pickup")) in UNLOCKS else "pickup",
 		"hint": str(def.get("hint", "")).left(160),
+		"skill": str(def.get("skill", "")).left(64),
 		"pattern": _clean_pattern(def.get("pattern")),
 		"output_data": def.get("output_data", {}) if def.get("output_data") is Dictionary else {}}
 	_ids[recipe_id] = recipes.size()

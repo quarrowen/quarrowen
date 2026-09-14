@@ -190,6 +190,23 @@ func _vanilla(c) -> void:
 		var forged_data: Dictionary = c.inventory.data[forged_slot]
 		_check(forged_data.get("tool", {}).get("tier", 0) == 3 and c._item_icons.texture(forged, forged_data) is ImageTexture,
 			"the forged pickaxe has iron-tier stats and a composed icon")
+
+	# Crafting by hand: stitching a leather helmet starts the minigame; stopping still makes the item.
+	Net.c_chat.rpc_id(1, "/give vanilla:leather 5")
+	var helmet: int = c.items.id_of("vanilla:leather_helmet")
+	var helmets_before: int = c.inventory.count_of(helmet)
+	_check(c._crafting_screen.minigames.has("vanilla:stitching"), "minigames arrive with the content")
+	Net.c_interact.rpc_id(1, table_spot)
+	await _wait_until(func(): return c._crafting_screen.station.get("name") == "crafting_table", 3.0)
+	await _wait_until(func(): return c.inventory.count_of(c.items.id_of("vanilla:leather")) >= 5, 3.0)
+	c._crafting_screen.skill_requested.emit({"recipe": c.recipes.index_of("vanilla:leather_helmet")}, true, false)
+	_check(await _wait_until(func(): return c._minigame_screen.is_active() and c._minigame_screen._phase() == "playing", 3.0),
+		"stitch by hand opens the minigame")
+	await get_tree().create_timer(0.5).timeout
+	c._minigame_screen.input_sent.emit("quit", c._minigame_screen.game_time(), 0)
+	_check(await _wait_until(func(): return c._minigame_screen._phase() == "done" and c.inventory.count_of(helmet) > helmets_before, 3.0),
+		"stopping the minigame still makes a Standard helmet")
+	c._minigame_screen.close()
 	c._set_crafting_open(false)
 	await get_tree().create_timer(0.3).timeout
 

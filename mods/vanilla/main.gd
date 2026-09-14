@@ -70,10 +70,12 @@ func _setup_mobs() -> void:
 		"durability": 90, "damage": 1.0, "handle": 1.4,
 		"trait": {"name": "Jagged", "description": "+5% critical chance", "modifiers": [{"stat": "crit_chance", "amount": 0.05}]}})
 	api.register_item("leather", {"icon": "textures/leather.png"})
+	# Stitching leather armor by hand: follow the prompted directions in time.
+	api.register_minigame("stitching", {"title": "Stitch by hand", "type": "sequence", "verb": "Stitch", "rounds": 6, "window": 1.4})
 	for piece in [["helmet", "head", 1.0, 5], ["chestplate", "chest", 3.0, 8], ["leggings", "legs", 2.0, 7], ["boots", "feet", 1.0, 4]]:
 		api.register_item("leather_%s" % piece[0], {"display_name": "Leather %s" % String(piece[0]).capitalize(),
 			"icon": "textures/leather_%s.png" % piece[0], "equip_slot": piece[1], "durability": 80, "armor": {"armor": piece[2]}, "armor_texture": "textures/leather_armor.png"})
-		api.register_recipe({"vanilla:leather": piece[3]}, "vanilla:leather_%s" % piece[0], 1, {"station": "crafting_table"})
+		api.register_recipe({"vanilla:leather": piece[3]}, "vanilla:leather_%s" % piece[0], 1, {"station": "crafting_table", "skill": "vanilla:stitching"})
 	ids.porkchop = api.register_item("porkchop", {"display_name": "Raw Porkchop", "icon": "textures/porkchop.png", "usable": true})
 	ids.cooked_porkchop = api.register_item("cooked_porkchop", {"display_name": "Cooked Porkchop", "icon": "textures/cooked_porkchop.png", "usable": true})
 	api.register_process("smelting", "vanilla:porkchop", "vanilla:cooked_porkchop", 1, 8.0)

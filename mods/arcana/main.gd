@@ -135,8 +135,10 @@ func setup(mod_api) -> void:
 	api.register_recipe({"base:log": 1, "arcana:mana_shard": 2, "base:glass": 1}, "arcana:wand_of_light")
 	api.register_recipe({"arcana:mana_shard": 6, "base:cobblestone": 2}, "arcana:mana_pylon")
 	api.register_recipe({"base:log": 1, "arcana:mana_shard": 4}, "arcana:wand_of_sparks")
-	api.register_recipe({"base:iron_sword": 1, "arcana:mana_shard": 8}, "arcana:soul_blade")
-	api.register_recipe({"base:iron_helmet": 1, "arcana:mana_shard": 5}, "arcana:crystal_helmet")
+	# Channeling mana by hand: hold to raise the flow and keep it inside the drifting band.
+	api.register_minigame("channeling", {"title": "Channel by hand", "type": "hold", "verb": "Channel", "duration": 7.0, "zone": 0.24})
+	api.register_recipe({"base:iron_sword": 1, "arcana:mana_shard": 8}, "arcana:soul_blade", 1, {"skill": "arcana:channeling"})
+	api.register_recipe({"base:iron_helmet": 1, "arcana:mana_shard": 5}, "arcana:crystal_helmet", 1, {"skill": "arcana:channeling"})
 	api.on("entity_death", _on_soul_harvest)
 	api.on("projectile_hit", func(ev):
 		if ev.entity.type == ids.spark:

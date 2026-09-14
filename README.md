@@ -345,6 +345,26 @@ api.register_assembly("forged_pickaxe", {"display_name": "Pickaxe", "tool_type":
 ```
 
   Any item's data can override its definition's `tool`, `weapon` and `durability`.
+- **Crafting by hand (skill minigames):** recipes and assemblies with a `skill` show a "by hand" button
+  next to Craft. It opens a short minigame and the result gets a quality: Standard (the same as
+  crafting normally, also what you get for stopping early), Fine +10%, Superior +20% or Masterwork
+  +30%. Quality raises durability, mining speed, weapon damage and armor, prefixes the name, adds a
+  star line to the lore, and Masterwork also credits the makers and glows (`skill_crafted` event lets
+  mods change the result). Ingredients are taken when the game starts. Minigame types: `timing` (strike
+  while a marker is inside a shrinking zone; `cool` makes it speed up), `hold` (keep a gauge inside a
+  drifting band) and `sequence` (press prompted directions in time). A station's `quality` grant
+  widens zones. A "Relaxed timing" checkbox (server rule `minigame_assist`) slows markers and widens
+  zones. Team `timing` games: "With a partner" invites others at the station from their co-op panel;
+  the partner works the bellows (keep heat in the green band, pump just before strikes for a sync
+  bonus, too hot burns a strike) while the starter hammers. The server replays inputs with the shared
+  scoring code and clamps each input's time to the connection's latency. Bundled: forging (iron tools,
+  iron armor, forged tools from parts), stitching (vanilla leather armor), channeling (Arcana soul
+  blade and crystal helmet).
+
+```gdscript
+api.register_minigame("forging", {"title": "Forge by hand", "type": "timing", "rounds": 5, "speed": 0.75, "zone": 0.2, "cool": 9.0, "team": true})
+api.register_recipe({"base:iron_ingot": 3, "base:stick": 2}, "base:iron_pickaxe", 1, {"station": "crafting_table", "skill": "base:forging"})
+```
 - **Upgradable stations:** `register_station(name, def)` adds tiers (blocks upgraded in place with a kit
   item), workshop upgrades (blocks within a radius grant features, tier, speed, quality, chest reach,
   hints) and multiblock structures (a pattern around a core block, any rotation). Recipes ask for

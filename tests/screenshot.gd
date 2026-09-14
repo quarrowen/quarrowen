@@ -11,7 +11,7 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0"}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -111,6 +111,18 @@ func _ready() -> void:
 			Net.c_craft.rpc_id(1, client.recipes.index_of(recipe_id), 1)
 			await get_tree().create_timer(0.4).timeout
 		client._crafting_screen.set_forge_mode()
+	if not String(options.skill).is_empty():
+		# Craft by hand: --skill=base:iron_pickaxe (a recipe id) [--presses=3 space presses 0.7 s apart].
+		Net.c_skill_craft.rpc_id(1, {"recipe": client.recipes.index_of(options.skill)}, false, false)
+		await get_tree().create_timer(2.3).timeout
+		for i in int(options.presses):
+			for pressed in [true, false]:
+				var key := InputEventKey.new()
+				key.physical_keycode = KEY_SPACE
+				key.pressed = pressed
+				Input.parse_input_event(key)
+				await get_tree().create_timer(0.1).timeout
+			await get_tree().create_timer(0.6).timeout
 	if not String(options.wear).is_empty():
 		Net.c_set_avatar.rpc_id(1, JSON.parse_string(options.wear))  # in game, so server cosmetics apply too
 		await get_tree().create_timer(0.5).timeout

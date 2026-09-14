@@ -131,6 +131,7 @@ func _call_host(method: String, a: Array):
 		"registerRecipe": api.register_recipe(_dict(a, 0), _str(a, 1), _int(a, 2, 1), _dict(a, 3))
 		"registerContainer": return api.register_container(_str(a, 0), _dict(a, 1))
 		"registerStation": api.register_station(_str(a, 0), _dict(a, 1))
+		"registerMinigame": api.register_minigame(_str(a, 0), _dict(a, 1))
 		"registerMaterial": api.register_material(_str(a, 0), _dict(a, 1))
 		"registerPartType": return api.register_part_type(_str(a, 0), _dict(a, 1))
 		"registerAssembly": return api.register_assembly(_str(a, 0), _dict(a, 1))

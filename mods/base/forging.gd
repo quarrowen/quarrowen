@@ -11,6 +11,10 @@ var api
 
 func setup(mod_api, sounds: Dictionary) -> void:
 	api = mod_api
+	# Crafting by hand: strike while the marker is in the glowing zone; the metal cools and the marker
+	# speeds up. Two players: one works the bellows, the other the hammer.
+	api.register_minigame("forging", {"title": "Forge by hand", "type": "timing", "verb": "Strike", "rounds": 5,
+		"speed": 0.75, "zone": 0.2, "cool": 9.0, "team": true})
 	api.register_block("tool_forge", {"display_name": "Tool Forge", "station": STATION, "sounds": sounds.stone, "hardness": 4.0, "tier": 1,
 		"tool": "pickaxe", "textures": {"top": "textures/anvil_top.png", "side": "textures/tool_rack.png", "bottom": "textures/cobblestone.png"}})
 	api.register_recipe({"base:cobblestone": 4, "base:iron_ingot": 2, "base:planks": 4}, "base:tool_forge", 1, {"station": "crafting_table"})
@@ -34,12 +38,12 @@ func setup(mod_api, sounds: Dictionary) -> void:
 		return [{"name": "head", "part": head, "label": "Head"}, {"name": "handle", "part": "tool_handle", "label": "Handle"},
 			{"name": "binding", "part": "binding", "label": "Binding"}]
 	api.register_assembly("forged_pickaxe", {"display_name": "Pickaxe", "icon": "textures/iron_pickaxe.png", "slots": tool_slots.call("pickaxe_head"),
-		"tool_type": "pickaxe", "damage": 2.0, "cooldown": 0.55, "station": STATION})
+		"tool_type": "pickaxe", "damage": 2.0, "cooldown": 0.55, "station": STATION, "skill": "base:forging"})
 	api.register_assembly("forged_axe", {"display_name": "Axe", "icon": "textures/iron_axe.png", "slots": tool_slots.call("axe_head"),
-		"tool_type": "axe", "damage": 3.0, "cooldown": 0.8, "station": STATION})
+		"tool_type": "axe", "damage": 3.0, "cooldown": 0.8, "station": STATION, "skill": "base:forging"})
 	api.register_assembly("forged_shovel", {"display_name": "Shovel", "icon": "textures/iron_shovel.png", "slots": tool_slots.call("shovel_head"),
-		"tool_type": "shovel", "damage": 1.5, "cooldown": 0.5, "station": STATION})
+		"tool_type": "shovel", "damage": 1.5, "cooldown": 0.5, "station": STATION, "skill": "base:forging"})
 	api.register_assembly("forged_sword", {"display_name": "Sword", "icon": "textures/iron_sword.png", "station": STATION,
 		"slots": [{"name": "blade", "part": "sword_blade", "label": "Blade"}, {"name": "grip", "part": "sword_grip", "label": "Grip"},
 			{"name": "guard", "part": "guard", "label": "Guard"}],
-		"damage": 4.0, "cooldown": 0.6, "sweep": 0.3})
+		"damage": 4.0, "cooldown": 0.6, "sweep": 0.3, "skill": "base:forging"})

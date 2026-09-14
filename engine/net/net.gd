@@ -164,6 +164,15 @@ func close() -> void:
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 
 
+## Server side: a client's round-trip time in milliseconds (0 if unknown).
+func peer_rtt_ms(peer_id: int) -> int:
+	var peer := multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if peer == null or not multiplayer.is_server():
+		return 0
+	var packet_peer := peer.get_peer(peer_id)
+	return int(packet_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME)) if packet_peer != null else 0
+
+
 func get_ping_ms() -> int:
 	var peer := multiplayer.multiplayer_peer as ENetMultiplayerPeer
 	if peer == null or multiplayer.is_server():
@@ -346,6 +355,28 @@ func c_assemble(assembly_name: String, slots: PackedInt32Array) -> void:
 		server.on_assemble(_sender(), assembly_name, slots)
 
 
+## Crafts by hand through the item's minigame: product {recipe: index} or {assembly, slots}; assist =
+## relaxed timing; with_partner waits for a helper at the station.
+@rpc("any_peer", "call_remote", "reliable")
+func c_skill_craft(product: Dictionary, assist: bool, with_partner: bool) -> void:
+	if server:
+		server.on_skill_craft(_sender(), product, assist, with_partner)
+
+
+## A minigame input: "strike", "hold" (arg 1/0), "key" (arg direction) or "quit", at game time t.
+@rpc("any_peer", "call_remote", "reliable")
+func c_minigame_input(action: String, t: float, arg: int) -> void:
+	if server:
+		server.on_minigame_input(_sender(), action, t, arg)
+
+
+## Joins a waiting team minigame (id), or starts your own waiting game alone (id 0).
+@rpc("any_peer", "call_remote", "reliable")
+func c_minigame_join(game_id: int) -> void:
+	if server:
+		server.on_minigame_join(_sender(), game_id)
+
+
 ## Tries the experimentation grid: 9 item ids row by row (0 = empty).
 @rpc("any_peer", "call_remote", "reliable")
 func c_experiment(grid: PackedInt32Array) -> void:
@@ -462,6 +493,21 @@ func s_crafting_open(station: Dictionary, stock: Dictionary) -> void:
 func s_structure_guide(missing: Array) -> void:
 	if client:
 		client.on_structure_guide(missing)
+
+
+## Minigame state: {id, phase: "waiting" | "playing" | "done", def, seed, assist, bonus, team, role,
+## names, countdown, wait, item} or, when done, {id, phase, result: {quality, name, color, score, item, data}}.
+@rpc("authority", "call_remote", "reliable")
+func s_minigame(view: Dictionary) -> void:
+	if client:
+		client.on_minigame(view)
+
+
+## The partner's input in a team minigame.
+@rpc("authority", "call_remote", "reliable")
+func s_minigame_event(action: String, t: float, arg: int) -> void:
+	if client:
+		client.on_minigame_event(action, t, arg)
 
 
 ## A tool was built from parts: the item and its data.

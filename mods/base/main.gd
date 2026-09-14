@@ -8,8 +8,9 @@ const Stations = preload("stations.gd")
 const Forging = preload("forging.gd")
 const TABLE := {"station": "crafting_table"}
 ## Iron gear needs an anvil beside the table; iron armor also needs a Sturdy Workbench.
-const METALWORK := {"station": "crafting_table", "needs": ["metalwork"]}
-const ARMORY := {"station": "crafting_table", "needs": ["metalwork"], "tier": 2, "time": 6.0}
+## Iron gear can also be forged by hand at the anvil for better quality (the "forging" minigame).
+const METALWORK := {"station": "crafting_table", "needs": ["metalwork"], "skill": "base:forging"}
+const ARMORY := {"station": "crafting_table", "needs": ["metalwork"], "tier": 2, "time": 6.0, "skill": "base:forging"}
 
 var farming := Farming.new()
 var stations := Stations.new()

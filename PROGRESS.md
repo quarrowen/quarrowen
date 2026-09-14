@@ -113,9 +113,13 @@ changes with `tools/build_native.sh`.
    - C6 Part-based tools (done), both basic + forged: fixed wooden/stone/iron tools stay; a Tool Forge
      station assembles tools from parts (head, handle, binding) whose materials contribute stats and
      traits; icons composed from tinted part sprites.
-   - C7 Skill minigame and quality, optional bonus: recipes marked by mods can be crafted normally
+   - C7 Skill minigame and quality (done), optional bonus: recipes marked by mods can be crafted normally
      (standard quality) or through a short timing minigame (anvil strikes) for better quality; team
      minigame with two roles (bellows + hammer) where syncing gives the best quality.
+     Decisions (user, 2026-09-14): never worse than Standard; Masterwork possible solo but easier as a
+     team; launch with forged tools, iron gear and armor (plus stitching and channeling to show the other
+     minigame types); relaxed-timing accessibility option. Not done: quality for smelting/food, custom
+     sounds for strikes, gamepad input.
    - Ideas not chosen yet (keep for later): property-based alchemy, crafting in the world (items on
      tables, cauldrons), radial quick-craft wheel.
    - Follow-up (user, 2026-09-14): in-game help for all these mechanics; recommendation is both a short

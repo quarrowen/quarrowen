@@ -356,7 +356,7 @@ func view(pos: Vector3i) -> Dictionary:
 		project = {"recipe": index, "delivered": delivered, "contributors": contributors,
 			"fraction": project_fraction(c.project, _server.recipes.recipes[index]) if index >= 0 else 0.0}
 	return {"position": pos, "players": players, "tray": tray, "jobs": jobs, "project": project,
-		"owner": c.get("owner_name", ""), "speedup": speedup(present.size(), float(c.get("_speed", 0.0)))}
+		"owner": c.get("owner_name", ""), "speedup": speedup(present.size(), float(c.get("_speed", 0.0))), "invites": _server.skill.invites_at(pos)}
 
 
 func mark(pos: Vector3i) -> void:

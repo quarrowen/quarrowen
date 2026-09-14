@@ -167,6 +167,9 @@
     /** {title, tiers: [{block, title, kit, grants}], workshop: {radius, upgrades: [{block, title, max, grants}]},
      *  multiblock: {core, pattern, legend, title}, grants}; grants {features, tier, speed, quality, pull_radius, hints} */
     registerStation: (name, def) => host("registerStation", name, def),
+    /** A crafting minigame recipes and assemblies name as `skill`: {title, type: "timing" | "hold" | "sequence", verb,
+     *  rounds, speed, zone, cool, team, duration, window}. */
+    registerMinigame: (name, def) => host("registerMinigame", name, def),
     /** Tools from parts: materials {display_name, item, color, tier, speed, durability, damage, handle, trait},
      *  part types {display_name, sprite, cost, station}, assemblies {display_name, icon, slots, tool_type, damage, cooldown, sweep, station}. */
     registerMaterial: (name, def) => host("registerMaterial", name, def),

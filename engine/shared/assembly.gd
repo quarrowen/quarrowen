@@ -45,7 +45,7 @@ func add_assembly(assembly_name: String, def: Dictionary) -> void:
 	assemblies[assembly_name] = {"name": assembly_name, "display_name": str(def.get("display_name", assembly_name.get_slice(":", 1).capitalize())),
 		"item": int(def.get("item", 0)), "slots": slots, "tool_type": str(def.get("tool_type", "")), "damage": float(def.get("damage", 1.0)),
 		"cooldown": float(def.get("cooldown", 0.5)), "reach": float(def.get("reach", 4.5)), "sweep": float(def.get("sweep", 0.0)),
-		"station": str(def.get("station", ""))}
+		"station": str(def.get("station", "")), "skill": str(def.get("skill", "")).left(64)}
 
 
 ## Item data for a part made of a material.

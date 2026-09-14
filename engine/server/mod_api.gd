@@ -425,7 +425,7 @@ func register_recipe(inputs: Dictionary, output: String, count := 1, options := 
 		{"category": str(options.get("category", "")), "id": recipe_id if recipe_id.contains(":") else _qualify(recipe_id),
 			"tier": int(options.get("tier", 0)), "needs": options.get("needs", []), "time": float(options.get("time", 0.0)),
 			"project": bool(options.get("project", false)), "unlock": str(options.get("unlock", "pickup")), "hint": str(options.get("hint", "")),
-			"pattern": pattern})
+			"pattern": pattern, "skill": _qualify_ref(str(options.get("skill", ""))) if not str(options.get("skill", "")).is_empty() else ""})
 
 
 ## A material parts can be made of: {display_name, item (raw material item name), color, tier, speed,
@@ -464,8 +464,16 @@ func register_assembly(assembly_name: String, def: Dictionary) -> int:
 		slot.part = _qualify_ref(str(s.get("part", "")))
 		slots.append(slot)
 	d.slots = slots
+	d.skill = _qualify_ref(str(def.get("skill", "")))
 	_server.assembly.add_assembly(_qualify(assembly_name), d)
 	return id
+
+
+## A crafting minigame recipes and assemblies can name as their `skill` (crafting by hand for better
+## quality; see engine/shared/minigame.gd): {title, type: "timing" | "hold" | "sequence", verb, rounds,
+## speed, zone, cool, team (bellows + hammer), duration, window}.
+func register_minigame(minigame_name: String, def: Dictionary) -> void:
+	_server.skill.register(_qualify(minigame_name), def)
 
 
 ## Makes a station upgradable (see engine/server/stations.gd): tiers [{block, title, kit, grants}],

@@ -33,6 +33,7 @@ const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 const Stations = preload("res://engine/server/stations.gd")
 const StationSessions = preload("res://engine/server/station_sessions.gd")
 const Experiments = preload("res://engine/server/experiments.gd")
+const SkillCrafting = preload("res://engine/server/skill_crafting.gd")
 const Assembly = preload("res://engine/shared/assembly.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
@@ -96,6 +97,7 @@ var gameplay := {
 	"durability": true,  # tools, weapons and armor wear out
 	"tray_access": "contributors",  # station trays: "contributors" (plus owner and team) | "anyone"
 	"recipe_discovery": true,  # players learn recipes (see RecipeRegistry unlock rules); false = all known
+	"minigame_assist": true,  # players may choose relaxed timing for crafting minigames
 }
 var server_info := {"name": "VoxelCraft Server", "game": "", "description": "", "motd": "", "mods": []}
 var generator: Object = null
@@ -132,6 +134,7 @@ var stations := Stations.new(self)
 var sessions := StationSessions.new(self)
 ## The experimentation grid (discovering recipes by arranging items).
 var experiments := Experiments.new(self)
+var skill := SkillCrafting.new(self)
 ## Materials, parts and tools built from parts (see Assembly).
 var assembly := Assembly.new()
 var _snapshot_round := 0
@@ -609,6 +612,7 @@ func _physics_process(delta: float) -> void:
 	block_ticks.update(delta)
 	containers.update(delta)
 	sessions.update(delta)
+	skill.update()
 	var sim_usec := 0
 	var stream_usec := 0
 	for p: ServerPlayer in players.values():
@@ -1042,7 +1046,7 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
 		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
 		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network(), "recipes": recipes.to_network(), "processes": _processes,
-		"stations": stations.to_network(), "assembly": assembly.to_network()}
+		"stations": stations.to_network(), "assembly": assembly.to_network(), "minigames": skill.to_network()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
@@ -1155,6 +1159,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		return
 	emit("player_leave", {"player": p})
 	containers.close(p, false)
+	skill.player_left(p)
 	sessions.leave(p)
 	_store_player(p)
 	players.erase(peer_id)
@@ -2000,7 +2005,7 @@ func add_recipe(inputs: Dictionary, output: int, count: int, station := "", opti
 		"category": options.get("category", ""), "id": options.get("id", ""), "tier": options.get("tier", 0),
 		"needs": options.get("needs", []), "time": options.get("time", 0.0), "project": options.get("project", false),
 		"unlock": options.get("unlock", "pickup"), "hint": options.get("hint", ""), "pattern": options.get("pattern", []),
-		"output_data": options.get("output_data", {})}, items)
+		"output_data": options.get("output_data", {}), "skill": options.get("skill", "")}, items)
 
 
 ## How long an item burns as fuel (seconds; 0 = not fuel).
@@ -2191,22 +2196,8 @@ func craft(p: ServerPlayer, index: int, times := 1) -> int:
 	if n <= 0:
 		return 0
 	if not p.inventory.creative:
-		var sources := _stock_containers(p)
 		var at_station := _station_valid(p)
-		for id: int in recipe.inputs:
-			var needed: int = int(recipe.inputs[id]) * n
-			var from_inventory := mini(needed, p.inventory.count_of(id))
-			p.inventory.remove(id, from_inventory)
-			needed -= from_inventory
-			if at_station and needed > 0:
-				needed -= sessions.consume_tray(p, p.crafting_station.position, id, needed)
-			for c in sources:
-				for i in c.size():
-					if needed <= 0:
-						break
-					var s: Dictionary = c.get_item(i)
-					if s.item == id and s.data.is_empty():
-						needed -= int(c.take(i, needed).count)
+		_consume_inputs(p, recipe, n)
 		if float(recipe.get("time", 0.0)) > 0.0 and at_station:
 			# Timed recipes are crafted in the station's queue; players there speed it up.
 			sessions.add_job(p, p.crafting_station.position, index, n)
@@ -2228,6 +2219,94 @@ func craft(p: ServerPlayer, index: int, times := 1) -> int:
 	if p._online():
 		Net.s_crafted.rpc_id(p.peer_id, index, n, crafting_stock(p))
 	return n
+
+
+## Takes a recipe's ingredients from the backpack, the station's tray and nearby chests.
+func _consume_inputs(p: ServerPlayer, recipe: Dictionary, n: int) -> void:
+	if p.inventory.creative:
+		return
+	var sources := _stock_containers(p)
+	var at_station := _station_valid(p)
+	for id: int in recipe.inputs:
+		var needed: int = int(recipe.inputs[id]) * n
+		var from_inventory := mini(needed, p.inventory.count_of(id))
+		p.inventory.remove(id, from_inventory)
+		needed -= from_inventory
+		if at_station and needed > 0:
+			needed -= sessions.consume_tray(p, p.crafting_station.position, id, needed)
+		for c in sources:
+			for i in c.size():
+				if needed <= 0:
+					break
+				var s: Dictionary = c.get_item(i)
+				if s.item == id and s.data.is_empty():
+					needed -= int(c.take(i, needed).count)
+
+
+## Takes one craft's ingredients for crafting by hand: {item, count, data, recipe}, or {} if the
+## recipe cannot be crafted here.
+func take_recipe_inputs(p: ServerPlayer, index: int) -> Dictionary:
+	if index < 0 or index >= recipes.recipes.size() or p.dead:
+		return {}
+	var recipe: Dictionary = recipes.recipes[index]
+	if p.crafting_station.has("position") and _station_valid(p):
+		p.crafting_station = stations.evaluate(p.crafting_station.position)
+	if recipe.get("project", false) or craftable_times(p, recipe, 1) < 1:
+		return {}
+	_consume_inputs(p, recipe, 1)
+	p.sync_inventory()
+	if p._online():
+		Net.s_crafting_stock.rpc_id(p.peer_id, crafting_stock(p))
+	return {"item": recipe.output, "count": recipe.count, "data": recipe.get("output_data", {}).duplicate(true), "recipe": recipe.id}
+
+
+## Gives a finished item (from crafting by hand or assembling) with effects at the station.
+func give_crafted(p: ServerPlayer, item: int, count: int, item_data: Dictionary, forged := false) -> void:
+	var left := p.inventory.add(item, count, items.max_stack(item), item_data.duplicate(true))
+	if left > 0:
+		p.drop(item, left, item_data.duplicate(true))
+	p.sync_inventory()
+	var at: Vector3 = Vector3(p.crafting_station.position) + Vector3(0.5, 1.1, 0.5) if _station_valid(p) else p.get_eye_position()
+	if forged:
+		play_effect("engine:crit", at, {"scale": 0.7, "color": "#ffd88a"})
+	else:
+		play_effect("engine:craft", at, {"scale": 0.6})
+	play_sound_at("engine:craft", at, 1.0, 0.85 if forged else 1.0)
+	if p._online():
+		Net.s_crafting_stock.rpc_id(p.peer_id, crafting_stock(p))
+
+
+func peer_rtt(p: ServerPlayer) -> float:
+	return Net.peer_rtt_ms(p.peer_id) / 1000.0 if p._online() else 0.0
+
+
+func on_skill_craft(peer_id: int, product: Dictionary, assist: bool, with_partner: bool) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or p.edit_tokens < 1.0:
+		return
+	p.edit_tokens -= 1.0
+	var clean := {}
+	if product.get("recipe") is int:
+		clean.recipe = product.recipe
+	elif product.get("assembly") is String and (product.get("slots") is Array or product.get("slots") is PackedInt32Array):
+		clean = {"assembly": product.assembly, "slots": Array(product.slots).slice(0, 8).map(func(v): return int(v) if v is int else -1)}
+	if not clean.is_empty():
+		skill.start(p, clean, assist, with_partner)
+
+
+func on_minigame_input(peer_id: int, action: String, t: float, arg: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p != null:
+		skill.input(p, action, t, arg)
+
+
+func on_minigame_join(peer_id: int, game_id: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p != null:
+		if game_id <= 0:
+			skill.start_alone(p)
+		else:
+			skill.join(p, game_id)
 
 
 func on_craft(peer_id: int, index: int, times: int) -> void:
@@ -2252,43 +2331,46 @@ func _add_part_recipes() -> void:
 
 ## Builds a tool from parts in the player's inventory: `slots` lists a backpack slot per assembly slot.
 func assemble(p: ServerPlayer, assembly_name: String, slots: PackedInt32Array) -> bool:
+	var built := take_assembly_parts(p, assembly_name, slots)
+	if built.is_empty():
+		return false
+	give_crafted(p, built.item, 1, built.data, true)
+	if p._online():
+		Net.s_assembled.rpc_id(p.peer_id, built.item, built.data)
+	return true
+
+
+## Takes the parts for an assembly: {item, count, data}, or {} if they are not valid.
+func take_assembly_parts(p: ServerPlayer, assembly_name: String, slots: PackedInt32Array) -> Dictionary:
 	var a: Dictionary = assembly.assemblies.get(assembly_name, {})
 	if a.is_empty() or slots.size() != a.slots.size() or p.dead:
-		return false
+		return {}
 	if not p.inventory.creative and not a.station.is_empty() and not (_station_valid(p) and p.crafting_station.name == a.station):
-		return false
+		return {}
 	var chosen := {}
 	var uses := {}
 	for i in a.slots.size():
 		var slot := slots[i]
 		if slot < 0 or slot >= Inventory.SIZE:
-			return false
+			return {}
 		var id := p.inventory.ids[slot]
 		var data: Dictionary = p.inventory.data[slot]
 		if p.inventory.counts[slot] <= 0 or assembly.part_items.get(id, "") != a.slots[i].part or not assembly.materials.has(str(data.get("material", ""))):
-			return false
+			return {}
 		uses[slot] = int(uses.get(slot, 0)) + 1
 		if uses[slot] > p.inventory.counts[slot]:
-			return false
+			return {}
 		chosen[a.slots[i].name] = str(data.material)
 	var result := assembly.build(assembly_name, chosen)
 	if result.is_empty():
-		return false
+		return {}
 	for slot: int in uses:
 		p.inventory.counts[slot] -= uses[slot]
 		if p.inventory.counts[slot] <= 0:
 			p.inventory.clear_slot(slot)
 	var ev := emit("tool_assembled", {"player": p, "assembly": assembly_name, "parts": chosen, "data": result})
-	var left := p.inventory.add(a.item, 1, 1, ev.data)
-	if left > 0:
-		p.drop(a.item, 1, ev.data)
 	p.sync_inventory()
-	var at: Vector3 = Vector3(p.crafting_station.position) + Vector3(0.5, 1.1, 0.5) if _station_valid(p) else p.get_eye_position()
-	play_effect("engine:crit", at, {"scale": 0.7, "color": "#ffd88a"})
-	play_sound_at("engine:craft", at, 1.0, 0.85)
-	if p._online():
-		Net.s_assembled.rpc_id(p.peer_id, a.item, ev.data)
-	return true
+	return {"item": a.item, "count": 1, "data": ev.data}
 
 
 func on_assemble(peer_id: int, assembly_name: String, slots: PackedInt32Array) -> void:
