@@ -167,6 +167,7 @@ func tick(delta: float) -> void:
 		_merge_items()
 		spawning.despawn()
 		breeding.update(1.0)
+		_contact_damage()
 		taming.update()
 	_spawn_timer += delta
 	if _spawn_timer >= 1.0:
@@ -480,6 +481,19 @@ func replicate(players: Array) -> void:
 			Net.s_entities.rpc_id(p.peer_id, _server.tick, buf.data_array)
 	for e: Entity in entities.values():
 		e.dirty = false
+
+
+## Once a second: mobs inside blocks with contact_damage (lava) get hurt.
+func _contact_damage() -> void:
+	var registry_blocks = _server.registry
+	for e: Entity in entities.values():
+		if e.def.kind != "mob" or not e.is_alive():
+			continue
+		var p := e.body.position
+		var block: int = _server.world.get_block(floori(p.x), floori(p.y + 0.3), floori(p.z))
+		if registry_blocks.is_valid(block) and registry_blocks.defs[block].get("contact_damage") is Dictionary:
+			var c: Dictionary = registry_blocks.defs[block].contact_damage
+			damage(e, float(c.get("amount", 2.0)) / maxf(float(c.get("interval", 0.5)), 0.1), str(c.get("cause", "contact")))
 
 
 ## An entity's look changed (Entity.set_look): tell players who can see it.

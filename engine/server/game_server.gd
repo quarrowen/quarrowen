@@ -420,6 +420,14 @@ func _register_builtin_commands() -> void:
 		else:
 			var biome_name: String = biome_generator.biome_at(floori(player.state.position.x), floori(player.state.position.z))
 			player.send_message("Biome: %s" % biome_generator.biomes[biome_generator.biome_ids[biome_name]].display_name), "engine")
+	add_command("clearmobs", "[radius] - remove monsters near you", func(player, args):
+		var radius := clampf(float(args[0]) if not args.is_empty() and args[0].is_valid_float() else 64.0, 1.0, 512.0)
+		var removed := 0
+		for e in entities.in_radius(player.state.position, radius):
+			if e.def.kind == "mob" and entities.spawning.category_of(e) == "monster":
+				e.remove()
+				removed += 1
+		player.send_message("Removed %d monsters" % removed), "engine", "admin")
 	add_command("mobs", "- mobs near you by spawn category, and the caps", func(player, _args):
 		var summary: Dictionary = entities.spawning.summary(player.state.position)
 		var parts := PackedStringArray()
@@ -779,6 +787,7 @@ func _update_health(p: ServerPlayer, delta: float) -> void:
 	if p.dead:
 		return
 	p.hurt_timer = maxf(p.hurt_timer - delta, 0.0)
+	_contact_damage(p, delta)
 	if p.state.position.y < VOID_DAMAGE_Y:
 		p.void_timer += delta
 		if p.void_timer >= 0.5:
@@ -791,6 +800,22 @@ func _update_health(p: ServerPlayer, delta: float) -> void:
 			p.regen_timer = 0.0
 			heal_player(p, 1.0)
 			hunger.healed(p, 1.0)
+
+
+## Blocks with `contact_damage: {amount, interval, cause}` (lava) hurt a player standing or swimming in them.
+func _contact_damage(p: ServerPlayer, delta: float) -> void:
+	var worst := {}
+	for dy in [0.2, 1.2]:
+		var block := world.get_block(floori(p.state.position.x), floori(p.state.position.y + dy), floori(p.state.position.z))
+		if registry.is_valid(block) and registry.defs[block].get("contact_damage") is Dictionary:
+			worst = registry.defs[block].contact_damage
+	if worst.is_empty():
+		p.contact_timer = 0.0
+		return
+	p.contact_timer += delta
+	if p.contact_timer >= float(worst.get("interval", 0.5)):
+		p.contact_timer = 0.0
+		damage_player(p, float(worst.get("amount", 2.0)), str(worst.get("cause", "contact")), null, Vector3.ZERO, true, 0.0)
 
 
 ## Returns true if damage applied. `direction` sets the knockback direction (defaults to away from

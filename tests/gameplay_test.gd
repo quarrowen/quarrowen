@@ -1331,8 +1331,8 @@ func _spawning() -> void:
 	var y := 20
 	for x in range(0, 40):
 		for z in range(0, 12):
-			for dy in range(-1, 4):
-				var edge: bool = dy == -1 or dy == 3 or x == 0 or x == 39 or z == 0 or z == 11 or x == 20
+			for dy in range(-30, 31):
+				var edge: bool = dy <= -1 or dy >= 3 or x == 0 or x == 39 or z == 0 or z == 11 or x == 20  # solid around, so caves nearby don't count
 				server.set_block_authoritative(Vector3i(x, y + dy, z), stone if edge else 0)
 	var dark := Vector3(10.5, y, 5.5)
 	var lit := Vector3(30.5, y, 3.5)
@@ -1632,6 +1632,48 @@ func _biomes() -> void:
 		gen.generate(c)
 		var top: int = c.blocks.decode_u16(Chunk.index(d.x - dc.x * 16, h, d.y - dc.y * 16) << 1)
 		_check(top == reg.id_of("base:sand") and count.call(dc, [reg.id_of("base:grass")]) == 0, "deserts are sand without grass")
+	# Caves, lava and deep ore.
+	var lava: int = reg.id_of("base:lava")
+	var cobalt: int = reg.id_of("base:cobalt_ore")
+	var under_air := 0
+	var lava_seen := 0
+	var cobalt_high := 0
+	var cobalt_seen := 0
+	for i in 12:
+		var c = Chunk.new(Vector2i(i * 7 - 40, i * 5 - 30))
+		gen.generate(c)
+		for pass_object in server.generation_passes:
+			pass_object.decorate(c, server.world_seed)
+		for y in range(4, 40):
+			for z in 16:
+				for x in 16:
+					var id: int = c.blocks.decode_u16(Chunk.index(x, y, z) << 1)
+					if id == 0:
+						under_air += 1
+					elif id == lava:
+						lava_seen += 1
+						_check(y <= 10, "lava only fills the deepest caves (y %d)" % y) if lava_seen == 1 else null
+					elif id == cobalt:
+						cobalt_seen += 1
+						if y > 25:
+							cobalt_high += 1
+	_check(under_air > 1000, "caves and caverns are carved underground (%d air blocks)" % under_air)
+	_check(lava_seen > 0 and cobalt_seen > 0 and cobalt_high == 0, "lava pools and cobalt ore appear deep down")
+	# Lava hurts.
+	var swimmer := ServerPlayer.new(server, 109, "Swimmer")
+	swimmer.player_id = "swimmer"
+	server.players[109] = swimmer
+	swimmer.inventory.creative = false
+	var pool := Vector3i(spots.values()[0].x if not spots.is_empty() else 0, 5, spots.values()[0].y if not spots.is_empty() else 0)
+	server._ensure_chunk(Vector2i(floori(pool.x / 16.0), floori(pool.z / 16.0)))
+	server.set_block_authoritative(pool, lava)
+	server.set_block_authoritative(pool + Vector3i.UP, lava)
+	swimmer.state.position = Vector3(pool) + Vector3(0.5, 0.0, 0.5)
+	server._update_health(swimmer, 0.6)
+	_check(swimmer.health < 20.0, "standing in lava burns (%.1f)" % swimmer.health)
+	server.players.erase(109)
+	# Biome water.
+	_check(gen.biomes[gen.biome_ids["vanilla:mushroom_fields"]].water == reg.id_of("vanilla:glowing_water"), "mushroom fields have glowing water")
 	# Spawn rules can be limited to biomes.
 	var rule := {"entity": server.entities.registry.id_of("vanilla:cow"), "biomes": ["vanilla:desert"], "light": [0, 15], "on": []}
 	server.entities.spawning.add_rule(rule)

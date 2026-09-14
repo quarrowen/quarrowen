@@ -12,8 +12,12 @@ func setup(mod_api) -> void:
 	_blocks()
 	_features()
 	_biomes()
-	api.add_ore_pass({"ore": "base:coal_ore", "replace": "base:stone", "veins": 12, "size": 8, "min_y": 5, "max_y": 90})
-	api.add_ore_pass({"ore": "base:iron_ore", "replace": "base:stone", "veins": 7, "size": 5, "min_y": 5, "max_y": 60})
+	# Caves, caverns, ravines, cave lakes and lava down deep.
+	api.add_cave_carver({"tunnels": true, "caverns": true, "ravines": true, "lava": "base:lava", "lava_level": 10, "water_level": 22})
+	# Ores by depth: coal high, iron in the middle, cobalt deep near the lava.
+	api.add_ore_pass({"ore": "base:coal_ore", "replace": "base:stone", "veins": 14, "size": 9, "min_y": 20, "max_y": 110})
+	api.add_ore_pass({"ore": "base:iron_ore", "replace": "base:stone", "veins": 9, "size": 6, "min_y": 5, "max_y": 64})
+	api.add_ore_pass({"ore": "base:cobalt_ore", "replace": "base:stone", "veins": 3, "size": 4, "min_y": 4, "max_y": 24})
 
 
 func _blocks() -> void:
@@ -36,6 +40,11 @@ func _blocks() -> void:
 	api.register_recipe({"vanilla:shadow_log": 1}, "base:planks", 4, {"unlock": "known", "id": "planks_from_shadow"})
 	api.register_block("gloomgrass", {"display_name": "Gloomgrass", "sounds": soft, "hardness": 0.6, "tool": "shovel", "drops": "base:dirt",
 		"textures": {"all": "textures/gloomgrass_side.png", "top": "textures/gloomgrass_top.png", "bottom": "base:textures/dirt.png"}})
+	# Biome waters: glowing pools in the mushroom fields, murky water in the shadowwood.
+	api.register_block("glowing_water", {"display_name": "Glowing Water", "textures": "textures/glowing_water.png", "render": "translucent", "liquid": true, "light": 9})
+	api.register_block("gloom_water", {"display_name": "Gloom Water", "textures": "textures/gloom_water.png", "render": "translucent", "liquid": true})
+	api.register_block("shadow_pod", {"display_name": "Shadow Pod", "textures": "textures/shadow_pod.png", "render": "plant", "solid": false,
+		"hardness": 0.1, "light": 9, "sounds": soft, "drops": ""})
 	api.register_block("nightbloom", {"display_name": "Nightbloom", "textures": "textures/nightbloom.png", "render": "plant", "replaceable": true,
 		"hardness": 0.0, "support": "solid", "light": 4, "sway": true, "sounds": soft})
 
@@ -52,7 +61,8 @@ func _features() -> void:
 	api.register_feature("flowers", {"type": "patch", "block": "base:poppy", "radius": [2, 3], "count": 6, "on": ["base:grass"]})
 	api.register_feature("huge_mushroom", {"type": "mushroom", "stem": "vanilla:mushroom_stem", "cap": "vanilla:mushroom_cap", "height": [4, 7], "radius": [2, 3]})
 	api.register_feature("huge_glowcap", {"type": "mushroom", "stem": "vanilla:mushroom_stem", "cap": "vanilla:glowcap", "light_block": "vanilla:glowcap", "height": [5, 8], "radius": [2, 3]})
-	api.register_feature("shadow_tree", {"type": "tree", "trunk": "vanilla:shadow_log", "leaves": "vanilla:shadow_leaves", "height": [7, 10], "shape": "blob"})
+	api.register_feature("shadow_tree", {"type": "tree", "trunk": "vanilla:shadow_log", "leaves": "vanilla:shadow_leaves", "height": [7, 10], "shape": "blob",
+		"fruit": "vanilla:shadow_pod", "fruit_chance": 0.35})
 	api.register_feature("dandelions", {"type": "patch", "block": "base:dandelion", "radius": [2, 3], "count": 6, "on": ["base:grass"]})
 
 
@@ -91,11 +101,11 @@ func _biomes() -> void:
 		"plants": [{"block": "base:tall_grass", "chance": 0.05, "on": ["base:grass"]}]})
 	# Fantasy biomes: rare, at the far ends of weirdness.
 	api.register_biome("mushroom_fields", {"display_name": "Glowing Mushroom Fields", "climate": {"temperature": 0.3, "humidity": 0.55, "weirdness": 0.8},
-		"height": {"base": 50, "variation": 5}, "surface": {"top": "vanilla:mycelium", "beach": "vanilla:mycelium"},
+		"height": {"base": 50, "variation": 5}, "surface": {"top": "vanilla:mycelium", "beach": "vanilla:mycelium", "water": "vanilla:glowing_water"},
 		"features": [{"feature": "huge_mushroom", "per_chunk": 1.2}, {"feature": "huge_glowcap", "per_chunk": 0.8}],
 		"plants": [{"block": "vanilla:red_mushroom", "chance": 0.04, "on": ["vanilla:mycelium"]}, {"block": "vanilla:glow_mushroom", "chance": 0.05, "on": ["vanilla:mycelium"]}]})
 	api.register_biome("shadowwood", {"display_name": "Shadowwood", "climate": {"temperature": -0.15, "humidity": 0.45, "weirdness": -0.8},
-		"height": {"base": 54, "variation": 6}, "surface": {"top": "vanilla:gloomgrass", "beach": ""},
+		"height": {"base": 54, "variation": 6}, "surface": {"top": "vanilla:gloomgrass", "beach": "", "water": "vanilla:gloom_water"},
 		"features": [{"feature": "shadow_tree", "per_chunk": 6.0}],
 		"plants": [{"block": "base:fern", "chance": 0.1, "on": ["vanilla:gloomgrass"]}, {"block": "vanilla:nightbloom", "chance": 0.03, "on": ["vanilla:gloomgrass"]}]})
 	api.register_biome("ocean", {"ocean": true, "climate": {}, "height": {"base": 34, "variation": 4},

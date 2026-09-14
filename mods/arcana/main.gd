@@ -174,12 +174,13 @@ func _crystal_highlands() -> void:
 	var stone := {"break": "base:stone", "place": "base:stone", "step": "base:stone_step"}
 	api.register_block("crystal_block", {"display_name": "Mana Crystal", "textures": "textures/crystal_block.png", "light": 8, "hardness": 1.5,
 		"tier": 1, "tool": "pickaxe", "sounds": {"break": "base:glass", "place": "base:stone", "step": "base:stone_step"}, "drops": "arcana:mana_shard"})
+	api.register_block("mana_spring", {"display_name": "Mana Spring", "textures": "textures/mana_spring.png", "render": "translucent", "liquid": true, "light": 9})
 	api.register_block("crystal_stone", {"display_name": "Crystal Stone", "textures": "textures/crystal_stone.png", "hardness": 2.0, "tier": 1,
 		"tool": "pickaxe", "sounds": stone})
 	api.register_feature("crystal_spire", {"type": "spike", "block": "arcana:crystal_block", "glow_block": "arcana:mana_crystal_ore", "height": [4, 11], "radius": [1, 2]})
 	api.register_biome("crystal_highlands", {"display_name": "Crystal Highlands", "climate": {"temperature": -0.35, "humidity": -0.45, "weirdness": 0.8, "peaks": 0.4},
 		"height": {"base": 62, "variation": 10, "peaks": 30},
-		"surface": {"top": "arcana:crystal_stone", "filler": "arcana:crystal_stone", "stone": "base:stone", "beach": ""},
+		"surface": {"top": "arcana:crystal_stone", "filler": "arcana:crystal_stone", "stone": "base:stone", "beach": "", "water": "arcana:mana_spring"},
 		"features": [{"feature": "crystal_spire", "per_chunk": 2.0}]})
 
 

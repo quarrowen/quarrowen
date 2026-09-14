@@ -218,6 +218,15 @@ func _init() -> void:
 	_save(_flower(Color(0.7, 0.5, 1.0), Color(0.95, 0.9, 1.0)), vanilla + "nightbloom.png")
 	_save(_crystal(), arcana + "crystal_block.png")
 	_save(_noise(Color(0.55, 0.5, 0.62), 0.06), arcana + "crystal_stone.png")
+
+	# Underground and biome liquids (appended last so earlier textures keep their random sequence).
+	_save(_lava(), base + "lava.png")
+	_save(_ore(stone, Color(0.25, 0.45, 0.95)), base + "cobalt_ore.png")
+	_save(_item(Color(0.3, 0.5, 0.95), "ingot"), base + "cobalt_ingot.png")
+	_save(_noise(Color(0.35, 0.9, 0.95, 0.7), 0.05), vanilla + "glowing_water.png")
+	_save(_noise(Color(0.1, 0.1, 0.18, 0.82), 0.03), vanilla + "gloom_water.png")
+	_save(_pod(), vanilla + "shadow_pod.png")
+	_save(_noise(Color(0.7, 0.45, 1.0, 0.7), 0.05), arcana + "mana_spring.png")
 	quit()
 
 
@@ -859,6 +868,27 @@ func _foliage(c: Color) -> Image:
 	for y in TILE:
 		for x in TILE:
 			img.set_pixel(x, y, Color(0, 0, 0, 0) if rng.randf() < 0.18 else _vary(c, 0.1))
+	return img
+
+
+func _lava() -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var heat := 0.5 + 0.5 * sin(x * 0.9 + y * 0.4) * cos(y * 0.7 - x * 0.3)
+			img.set_pixel(x, y, _vary(Color(0.95, 0.35, 0.05).lerp(Color(1.0, 0.85, 0.2), heat), 0.05))
+	return img
+
+
+func _pod() -> Image:
+	var img := _blank()
+	img.set_pixel(7, 0, Color(0.2, 0.15, 0.26))
+	img.set_pixel(7, 1, Color(0.2, 0.15, 0.26))
+	for y in range(2, 12):
+		for x in range(3, 13):
+			var d := Vector2(x - 7.5, (y - 7.0) * 0.9).length()
+			if d < 4.2:
+				img.set_pixel(x, y, Color(0.85, 0.7, 1.0) if d < 2.0 else _vary(Color(0.6, 0.35, 0.95), 0.06))
 	return img
 
 

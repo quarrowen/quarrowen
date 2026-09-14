@@ -325,6 +325,11 @@ func _industry(c) -> void:
 		ids[n] = r.id_of("industry:" + n)
 	_check(r.defs[ids.lamp_on].light == 15, "lamp_on emits light (registry replicated)")
 	_check(r.defs[ids.coal_generator].render == r.Render.MODEL and r.interactive_lut[ids.coal_generator] == 1, "generator is an interactive model block")
+	# Work on flat open ground away from spawn (plains roll and have tall grass and cave openings).
+	var yard := _find_open_ground(c, Vector2i(floori(c.state.position.x) - 16, floori(c.state.position.z) + 8))
+	Net.c_chat.rpc_id(1, "/tp %.1f %.1f %.1f" % [yard.x, yard.y, yard.z])
+	await _wait_until(func(): return c.state.position.distance_to(yard) < 1.0 and c.state.on_ground, 5.0)
+	await _clear_plants(c, 5)
 	_check(c._model_meshes.has(ids.coal_generator), "generator glTF model downloaded and loaded")
 
 	Net.c_chat.rpc_id(1, "/industry kit")
@@ -494,6 +499,7 @@ func _combat(c) -> void:
 	Net.c_chat.rpc_id(1, "/tp %.1f %.1f %.1f" % [arena.x, arena.y, arena.z])
 	await _wait_until(func(): return c.state.position.distance_to(arena) < 1.0 and c.state.on_ground, 5.0)
 	Net.c_chat.rpc_id(1, "/gameplay mob_spawning false")
+	Net.c_chat.rpc_id(1, "/clearmobs 128")  # cave monsters from earlier tests
 	Net.c_chat.rpc_id(1, "/time midnight")  # zombies burn in daylight
 	Net.c_chat.rpc_id(1, "/gamemode survival")
 	var sword: int = c.items.id_of("base:stone_sword")
@@ -574,6 +580,7 @@ func _combat(c) -> void:
 			c.world.get_block_v(bed_spot + Vector3i(1, 0, 0)), c.world.get_block_v(bed_spot + Vector3i(-1, 0, 0)),
 			c.world.get_block_v(bed_spot + Vector3i(0, 0, 1)), c.world.get_block_v(bed_spot + Vector3i(0, 0, -1))], 3.0):
 		Net.c_chat.rpc_id(1, "/time midnight")
+		Net.c_chat.rpc_id(1, "/clearmobs 32")
 		await get_tree().create_timer(0.5).timeout
 		Net.c_interact.rpc_id(1, bed_spot)
 		_check(await _wait_until(func(): return not c._sleep.is_empty() and c._sleep_panel.visible, 3.0),

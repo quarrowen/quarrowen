@@ -109,7 +109,9 @@ func _bob() -> void:
 	_write_result("placed", "%d,%d,%d" % [target.x, target.y, target.z])
 	_client.yaw = PI * 0.5
 	Input.action_press("move_forward")
-	await get_tree().create_timer(1.5).timeout
+	Input.action_press("jump")  # hop over steps in rolling terrain
+	await get_tree().create_timer(2.0).timeout
+	Input.action_release("jump")
 	Input.action_release("move_forward")
 	var heard := await _wait(func():
 		for line in _client._chat_log.get_children():

@@ -64,6 +64,7 @@ const Chunk = preload("res://engine/shared/chunk.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const OrePass = preload("res://engine/server/ore_pass.gd")
 const BiomeGenerator = preload("res://engine/server/worldgen/biome_generator.gd")
+const CaveCarver = preload("res://engine/server/worldgen/cave_carver.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 
 var mod_id: String
@@ -114,6 +115,8 @@ func set_server_info(values: Dictionary) -> void:
 ## `pair: {block, direction: "back" | "front" | "up" | "down"}` places `block` next to it (relative to
 ## the facing of an `orientation: "horizontal"` block) and removes both together; give the second half
 ## the opposite direction and `placeable: false`.
+## `contact_damage: {amount, interval, cause}` hurts players and mobs whose body is inside the block
+## (lava).
 func register_block(block_name: String, def: Dictionary) -> int:
 	var d := def.duplicate(true)
 	d.name = _qualify(block_name)
@@ -628,6 +631,13 @@ func register_biome(biome_name: String, def: Dictionary) -> void:
 	d.features = (def.get("features", []) as Array).map(func(f): return f.merged({"feature": _qualify_ref(str(f.get("feature", "")))}, true) if f is Dictionary else f) \
 		if def.get("features") is Array else []
 	biome_generator().add_biome(_qualify(biome_name), d)
+
+
+## Carves caves, caverns and ravines into the biome generator's terrain (see worldgen/cave_carver.gd).
+## options: tunnels, caverns, ravines (bools), lava (block name), lava_level, water_level, min_y,
+## entrance_chance.
+func add_cave_carver(options := {}) -> void:
+	biome_generator().carvers.append(CaveCarver.new(_server.world_seed, func(n: String) -> int: return block(n), _server.registry, options))
 
 
 ## A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from

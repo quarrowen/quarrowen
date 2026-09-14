@@ -10,7 +10,7 @@ extends RefCounted
 ## Biome def:
 ##   climate: {temperature, humidity, weirdness, peaks} (-1..1, defaults 0), ocean: bool
 ##   height: {base, variation (hills), peaks (extra mountain height)}
-##   surface: {top, filler, depth, underwater, beach, stone}
+##   surface: {top, filler, depth, underwater, beach, stone, water (the biome's lakes and seas)}
 ##   features: [{feature: name, per_chunk: float}]    trees, cacti, boulders...
 ##   plants: [{block, chance, on: [blocks]}]          per surface column
 ##   ores, spawn tags and anything else are free for mods
@@ -95,6 +95,7 @@ func add_biome(biome_name: String, def: Dictionary) -> void:
 		"underwater": int(_block_id.call(str(surface.get("underwater", "base:gravel")))),
 		"beach": int(_block_id.call(str(surface.get("beach", "base:sand")))) if str(surface.get("beach", "base:sand")) != "" else 0,
 		"stone": int(_block_id.call(str(surface.get("stone", "base:stone")))),
+		"water": maxi(int(_block_id.call(str(surface.get("water", "base:water")))), 0),
 		"features": [], "plants": [], "def": def,
 	}
 	for f in (def.get("features") if def.get("features") is Array else []):
@@ -218,7 +219,7 @@ func generate(chunk) -> void:
 				if y == 0 or (y <= 2 and rng.randf() < 0.5):
 					id = _bedrock
 				elif y > h:
-					id = _water
+					id = b.water if b.water > 0 else _water
 				elif y == h:
 					if h < sea_level - 1:
 						id = b.underwater

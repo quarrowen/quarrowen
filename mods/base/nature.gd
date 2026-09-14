@@ -17,5 +17,12 @@ func setup(api, sounds: Dictionary) -> void:
 	api.register_recipe({"base:sand": 4}, "base:sandstone", 1, {"category": "blocks"})
 	api.register_block("dead_bush", {"display_name": "Dead Bush", "textures": "textures/dead_bush.png", "render": "plant", "replaceable": true,
 		"hardness": 0.0, "drops": "base:stick", "support": ["base:sand"], "sounds": sounds.grass})
+	# Lava: fills the deepest caves; glows and burns.
+	api.register_block("lava", {"display_name": "Lava", "textures": "textures/lava.png", "liquid": true, "light": 15, "hazard": true,
+		"breakable": false, "placeable": false, "contact_damage": {"amount": 4.0, "interval": 0.5, "cause": "lava"}})
+	# Cobalt: a deep ore (below y 24) for later tool tiers; smelts into ingots.
+	api.register_block("cobalt_ore", {"display_name": "Cobalt Ore", "textures": "textures/cobalt_ore.png", "sounds": sounds.stone, "hardness": 4.5,
+		"tier": 3, "tool": "pickaxe"})
+	api.register_item("cobalt_ingot", {"display_name": "Cobalt Ingot", "icon": "textures/cobalt_ingot.png"})
 	api.register_block("fern", {"display_name": "Fern", "textures": "textures/fern.png", "render": "plant", "replaceable": true, "sway": true,
 		"hardness": 0.0, "drops": "", "support": "solid", "sounds": sounds.grass})

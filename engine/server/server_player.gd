@@ -50,6 +50,7 @@ var starve_timer := 0.0
 var eating := {}  # {slot, item, started, sound} while holding use on food
 var _sent_hunger := Vector2(-1, -1)
 var void_timer := 0.0
+var contact_timer := 0.0
 var last_attack_time := -100.0
 var fall_velocity := 0.0
 var inventory_open := false

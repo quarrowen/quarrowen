@@ -5,7 +5,8 @@ extends RefCounted
 ## lies within one chunk of the chunk being generated, and the Writer keeps only the blocks inside it.
 ##
 ## Built-in types:
-##   tree:     trunk, leaves, height [min, max], shape "round" | "cone" | "tall" | "flat" | "blob"
+##   tree:     trunk, leaves, height [min, max], shape "round" | "cone" | "tall" | "flat" | "blob",
+##             fruit (a block hung under the canopy, e.g. glowing pods), fruit_chance
 ##   column:   block, height [min, max]                      (cacti, bamboo-like stalks)
 ##   boulder:  block, radius [min, max]
 ##   spike:    block, height [min, max], radius, glow_block  (crystal spires)
@@ -50,7 +51,7 @@ static func resolve(def: Dictionary, block_id: Callable) -> Dictionary:
 	if not type in TYPES:
 		return {}
 	var d := def.duplicate(true)
-	for key in ["trunk", "leaves", "block", "glow_block", "stem", "cap", "light_block"]:
+	for key in ["trunk", "leaves", "block", "glow_block", "stem", "cap", "light_block", "fruit"]:
 		if d.has(key):
 			d[key] = int(block_id.call(str(d[key])))
 	if d.get("on") is Array:
@@ -178,3 +179,13 @@ static func _tree(def: Dictionary, w: Writer, x: int, y: int, z: int, rng: Rando
 						w.set_block(x + dx, ly, z + dz, def.leaves)
 	for i in trunk_h:
 		w.set_block(x, y + i, z, def.trunk, true)
+	if def.get("fruit", 0) > 0:
+		# Hang fruit under leaves around the lower canopy.
+		for i in 10:
+			var fx := x + rng.randi_range(-3, 3)
+			var fz := z + rng.randi_range(-3, 3)
+			for fy in range(top + 1, top - 5, -1):
+				if w.get_block(fx, fy, fz) == def.leaves and w.get_block(fx, fy - 1, fz) == 0:
+					if rng.randf() < float(def.get("fruit_chance", 0.4)):
+						w.set_block(fx, fy - 1, fz, def.fruit)
+					break

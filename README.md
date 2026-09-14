@@ -548,6 +548,14 @@ api.register_item("bread", {"icon": "textures/bread.png", "food": {"hunger": 5, 
   rare: vanilla's glowing mushroom fields (mycelium, huge red and glowing mushrooms, boomshrooms) and
   shadowwood (gloomgrass, towering dark trees, nightblooms, night stalkers even at dusk), and Arcana's
   crystal highlands (crystal stone and glowing mana spires) that Arcana adds to any biome world.
+  Caves: `add_cave_carver({tunnels, caverns, ravines, lava, lava_level, water_level, entrance_chance})`
+  carves winding tunnels and big caverns from interpolated 3D noise, deep ravines, lava below
+  `lava_level` and water lakes in low caverns, without breaching seas (cells that cannot hold a cave
+  are skipped). Biomes can set their own `surface.water` (vanilla's glowing pools in mushroom fields
+  and murky gloom water in shadowwood; Arcana's glowing mana springs) and trees can hang `fruit`
+  (shadowwood's glowing pods). Blocks with `contact_damage: {amount, interval, cause}` hurt players
+  and mobs inside them (lava). Vanilla ores are placed by depth: coal high, iron in the middle and the
+  new cobalt ore (smelts into cobalt ingots) deep near the lava.
 
 - **Natural spawning:** spawn rules pick spots on the surface and in caves near each player and check
   the light there (block light or daylight-scaled sky light, 0-15). Monsters default to light 0-7, so
