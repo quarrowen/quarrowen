@@ -135,7 +135,111 @@ func _init() -> void:
 	_save(_furnace(2), base + "furnace_front_lit.png")
 	_save(_item(Color(0.2, 0.17, 0.15), "lump"), base + "charcoal.png")
 	_save(_item(Color(0.72, 0.42, 0.25), "meat"), vanilla + "cooked_porkchop.png")
+
+	# Station upgrades (appended last so earlier textures keep their random sequence).
+	_save(_anvil(true), base + "anvil_top.png")
+	_save(_anvil(false), base + "anvil_side.png")
+	_save(_tool_rack(), base + "tool_rack.png")
+	_save(_bookshelf(), base + "bookshelf.png")
+	_save(_sturdy_top(), base + "sturdy_workbench_top.png")
+	_save(_sturdy_side(), base + "sturdy_workbench_side.png")
+	_save(_forge_front(), base + "forge_front.png")
+	_save(_reinforced_frame(), base + "reinforced_frame.png")
 	quit()
+
+
+func _anvil(top: bool) -> Image:
+	var img := _blank()
+	var iron := Color(0.36, 0.37, 0.4)
+	for y in TILE:
+		for x in TILE:
+			var on := true
+			if not top:
+				# Silhouette: wide face, narrow waist, wide foot.
+				var half := 7.5 if y < 5 else (3.5 if y < 11 else 6.5)
+				on = absf(x - 7.5) <= half
+			if on:
+				var c := _vary(iron, 0.05)
+				if (top and (x == 0 or x == TILE - 1 or y == 0 or y == TILE - 1)) or (not top and y == 0):
+					c = iron.lightened(0.35)
+				img.set_pixel(x, y, c)
+	return img
+
+
+func _tool_rack() -> Image:
+	var img := _planks()
+	for x in TILE:
+		img.set_pixel(x, 2, Color(0.35, 0.24, 0.13))
+	for tool in [[3, Color(0.75, 0.75, 0.78)], [8, Color(0.6, 0.6, 0.63)], [13, Color(0.62, 0.45, 0.25)]]:
+		for y in range(3, 13):
+			img.set_pixel(tool[0], y, Color(0.42, 0.29, 0.15))
+		for dx in range(-2, 3):
+			img.set_pixel(clampi(tool[0] + dx, 0, TILE - 1), 3, tool[1])
+			img.set_pixel(clampi(tool[0] + dx, 0, TILE - 1), 4, tool[1].darkened(0.2))
+	return img
+
+
+func _bookshelf() -> Image:
+	var img := _planks()
+	var colors := [Color(0.6, 0.15, 0.12), Color(0.15, 0.3, 0.55), Color(0.2, 0.45, 0.2), Color(0.55, 0.45, 0.15), Color(0.4, 0.2, 0.45)]
+	for shelf in [1, 9]:
+		var x := 1
+		while x < TILE - 1:
+			var w := rng.randi_range(1, 2)
+			var h := rng.randi_range(4, 6)
+			var c: Color = colors[rng.randi_range(0, colors.size() - 1)]
+			for bx in range(x, mini(x + w, TILE - 1)):
+				for by in range(shelf + 6 - h, shelf + 6):
+					img.set_pixel(bx, by, _vary(c, 0.06))
+			x += w + (1 if rng.randf() < 0.3 else 0)
+	return img
+
+
+func _sturdy_top() -> Image:
+	var img := _crafting_table_top()
+	for i in TILE:
+		for band in [0, TILE - 1]:
+			img.set_pixel(i, band, Color(0.62, 0.63, 0.66))
+			img.set_pixel(band, i, Color(0.62, 0.63, 0.66))
+	for corner in [Vector2i(1, 1), Vector2i(14, 1), Vector2i(1, 14), Vector2i(14, 14)]:
+		img.set_pixel(corner.x, corner.y, Color(0.85, 0.85, 0.88))
+	return img
+
+
+func _sturdy_side() -> Image:
+	var img := _crafting_table_side()
+	for x in TILE:
+		img.set_pixel(x, 12, Color(0.55, 0.56, 0.6))
+		img.set_pixel(x, 13, Color(0.45, 0.46, 0.5))
+	for rivet in [2, 7, 12]:
+		img.set_pixel(rivet, 12, Color(0.85, 0.85, 0.88))
+	return img
+
+
+func _forge_front() -> Image:
+	var img := _brick()
+	for y in range(7, 14):
+		for x in range(3, 13):
+			var heat := float(y - 7) / 6.0
+			img.set_pixel(x, y, Color(1.0, 0.35 + 0.45 * heat * rng.randf(), 0.08) if y > 9 else Color(0.1, 0.07, 0.06))
+	return img
+
+
+func _reinforced_frame() -> Image:
+	var img := _blank()
+	var wood := Color(0.62, 0.45, 0.25)
+	var iron := Color(0.8, 0.8, 0.84)
+	for y in range(2, 14):
+		for x in range(2, 14):
+			var edge := x <= 3 or x >= 12 or y <= 3 or y >= 12
+			var diagonal := absi(x - y) <= 0
+			if edge or diagonal:
+				img.set_pixel(x, y, _vary(wood, 0.05))
+	for corner in [Vector2i(2, 2), Vector2i(12, 2), Vector2i(2, 12), Vector2i(12, 12)]:
+		for dy in 2:
+			for dx in 2:
+				img.set_pixel(corner.x + dx, corner.y + dy, iron)
+	return img
 
 
 func _crafting_table_top() -> Image:

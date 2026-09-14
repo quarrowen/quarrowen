@@ -130,6 +130,8 @@ func _call_host(method: String, a: Array):
 		"registerItem": return api.register_item(_str(a, 0), _dict(a, 1))
 		"registerRecipe": api.register_recipe(_dict(a, 0), _str(a, 1), _int(a, 2, 1), _dict(a, 3))
 		"registerContainer": return api.register_container(_str(a, 0), _dict(a, 1))
+		"registerStation": api.register_station(_str(a, 0), _dict(a, 1))
+		"getStation": return api.get_station(_block_pos(a, 0))
 		"openContainer":
 			var viewer = _any_ref(a, 0)
 			return api.open_container(viewer, _block_pos(a, 1)) if viewer != null else false

@@ -11,6 +11,7 @@ extends RefCounted
 ##   block_destroyed {position, block, drops}                broken without a player (support lost, break_block)
 ##   container_open {player, position, container, cancelled} container_close {player, position}
 ##   container_changed {player, position, container, slot}  a player moved items in or out
+##   station_upgraded {player, position, station, tier}      a kit upgraded a station
 ##   block_place    {player, position, block, cancelled}
 ##   block_placed   {player, position, block}
 ##   chat           {player, text, cancelled}
@@ -371,7 +372,7 @@ func item_display_name(id: int) -> String:
 
 
 ## Shapeless recipe: `inputs` maps item names to counts. Appears in the engine crafting menu (C key).
-## options: station (name of the crafting station block needed, e.g. "crafting_table"; blocks declare
+## options: tier (minimum station tier), needs ([station features]), station (name of the crafting station block needed, e.g. "crafting_table"; blocks declare
 ## `station: "<name>"`; without one it is crafted anywhere), category (recipe book tab: tools, weapons,
 ## armor, blocks, food, materials, misc or one from register_recipe_category), id (defaults to
 ## "<mod>:<output name>").
@@ -389,7 +390,22 @@ func register_recipe(inputs: Dictionary, output: String, count := 1, options := 
 		return
 	var recipe_id := str(options.get("id", output.get_slice(":", 1) if output.contains(":") else output))
 	_server.add_recipe(resolved, out, count, String(options.get("station", "")),
-		{"category": str(options.get("category", "")), "id": recipe_id if recipe_id.contains(":") else _qualify(recipe_id)})
+		{"category": str(options.get("category", "")), "id": recipe_id if recipe_id.contains(":") else _qualify(recipe_id),
+			"tier": int(options.get("tier", 0)), "needs": options.get("needs", [])})
+
+
+## Makes a station upgradable (see engine/server/stations.gd): tiers [{block, title, kit, grants}],
+## workshop {radius, upgrades: [{block, title, max, grants}]}, multiblock {core, pattern, legend,
+## title}. grants: {features, tier, speed, quality, pull_radius, hints}. Blocks involved still declare
+## `station: "<name>"`. Recipes then ask for `tier` and `needs` (features).
+func register_station(station_name: String, def: Dictionary) -> void:
+	_server.stations.register(station_name, def)
+
+
+## The station at a position: {name, title, tier, tier_title, features, speed, quality, pull_radius,
+## hints, detected, available, next, structure}, or {}.
+func get_station(position: Vector3i) -> Dictionary:
+	return _server.stations.evaluate(position)
 
 
 ## Adds a recipe book tab. def: display_name, icon (item name shown on the tab).

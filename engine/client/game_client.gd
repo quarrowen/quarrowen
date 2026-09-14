@@ -152,6 +152,7 @@ var _pin_panel: PanelContainer
 var _pin_rows: VBoxContainer
 var _toast: PanelContainer
 var _pending_lookup := {}
+var _guide_root: Node3D
 ## Follows your own body so effects can follow you even while the avatar is hidden in first person.
 var _self_anchor := Node3D.new()
 var _view_model_look := ""
@@ -305,6 +306,7 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	cosmetics.load_network(content.get("cosmetics"))
 	recipes.load_network(content.get("recipes"))
 	_crafting_screen.processes = content.get("processes", {}) if content.get("processes") is Dictionary else {}
+	_crafting_screen.stations = content.get("stations", {}) if content.get("stations") is Dictionary else {}
 	if not _effects.registry.load_network(content.get("effects", [])):
 		_leave("Server sent invalid effect definitions")
 		return
@@ -1491,6 +1493,49 @@ func on_crafted(index: int, times: int, stock: Dictionary) -> void:
 		_show_toast(r.output, "Crafted %d x %s" % [r.count * times, items.display_name(r.output)])
 
 
+## Ghost blocks where a structure's missing blocks go (red where a block is in the way). Clears after
+## a minute or when the guide is requested again.
+func on_structure_guide(missing: Array) -> void:
+	if _guide_root != null:
+		_guide_root.queue_free()
+	_guide_root = Node3D.new()
+	add_child(_guide_root)
+	var root := _guide_root
+	for entry in missing.slice(0, 256):
+		if not (entry is Array) or entry.size() != 2 or not (entry[0] is Vector3i):
+			continue
+		var id := int(entry[1])
+		var ghost := MeshInstance3D.new()
+		var material := StandardMaterial3D.new()
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.no_depth_test = true
+		if id > 0 and registry.is_valid(id):
+			ghost.mesh = _item_meshes.mesh_for(id)
+			ghost.scale = Vector3.ONE * (0.98 / ItemMesh.BLOCK_SIZE)
+			material.albedo_texture = _atlas.texture
+			material.albedo_color = Color(0.7, 0.9, 1.0, 0.45)
+			material.vertex_color_use_as_albedo = true
+			material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		else:
+			var box := BoxMesh.new()
+			box.size = Vector3.ONE * 0.98
+			ghost.mesh = box
+			material.albedo_color = Color(1.0, 0.25, 0.2, 0.35) if id == 0 else Color(1, 1, 1, 0.3)
+		ghost.material_override = material
+		ghost.position = Vector3(entry[0]) + Vector3.ONE * 0.5
+		ghost.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(ghost)
+		var tween := ghost.create_tween().set_loops(30)
+		tween.tween_property(material, "albedo_color:a", material.albedo_color.a * 0.4, 0.8)
+		tween.tween_property(material, "albedo_color:a", material.albedo_color.a, 0.8)
+	get_tree().create_timer(60.0).timeout.connect(func():
+		if is_instance_valid(root):
+			root.queue_free())
+	if not missing.is_empty():
+		_show_toast(0, "Build guide: %d blocks to place" % missing.size())
+
+
 ## Asks the server to craft a recipe (see RecipeRegistry indices).
 func craft_recipe(index: int, times := 1) -> void:
 	if index >= 0 and times > 0:
@@ -1975,6 +2020,7 @@ func _build_hud() -> void:
 	_crafting_screen.craft_requested.connect(craft_recipe)
 	_crafting_screen.pin_requested.connect(func(index): pin_recipe(-1 if index == _crafting_screen.pinned else index))
 	_crafting_screen.closed.connect(_set_crafting_open.bind(false))
+	_crafting_screen.station_action.connect(func(action): Net.c_station_action.rpc_id(1, action))
 	_hud_root.add_child(_crafting_screen)
 	_build_pin_panel()
 

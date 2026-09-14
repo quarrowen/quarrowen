@@ -30,6 +30,7 @@ const EffectRegistry = preload("res://engine/shared/effect_registry.gd")
 const BlockTicks = preload("res://engine/server/block_ticks.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
+const Stations = preload("res://engine/server/stations.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
 ## Other players are replicated only within this distance (blocks) of the recipient...
@@ -120,6 +121,8 @@ var _save_dirty := {}  # Vector2i chunk -> true
 var _js_mods: Array = []  # keeps JavaScript runtimes alive
 ## Crafting recipes and categories (sent to clients for the recipe book).
 var recipes := RecipeRegistry.new()
+## Station tiers, workshop upgrades and multiblock structures.
+var stations := Stations.new(self)
 var _snapshot_round := 0
 var _support_rules := {}  # block id -> null (none) | true (solid below) | {block id: true}
 var _fuels := {}  # item id -> seconds it burns
@@ -1025,7 +1028,8 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 	var content := {"blocks": registry.to_network(), "items": items.to_network(), "rules": rules.to_dict(),
 		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
 		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
-		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network(), "recipes": recipes.to_network(), "processes": _processes}
+		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network(), "recipes": recipes.to_network(), "processes": _processes,
+		"stations": stations.to_network()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
@@ -1526,7 +1530,7 @@ func on_interact(peer_id: int, pos: Vector3i) -> void:
 	if not containers.type_of_block(block).is_empty():
 		containers.open(p, pos)
 	elif not String(registry.defs[block].get("station", "")).is_empty():
-		open_crafting(p, {"name": String(registry.defs[block].station), "position": pos, "title": registry.defs[block].display_name})
+		open_crafting(p, {"position": pos})
 
 
 func on_select_slot(peer_id: int, slot: int) -> void:
@@ -1963,7 +1967,8 @@ func _update_player_rules(p: ServerPlayer) -> void:
 ## options: category, id. Returns the recipe index.
 func add_recipe(inputs: Dictionary, output: int, count: int, station := "", options := {}) -> int:
 	return recipes.add({"inputs": inputs, "output": output, "count": count, "station": station,
-		"category": options.get("category", ""), "id": options.get("id", "")}, items)
+		"category": options.get("category", ""), "id": options.get("id", ""), "tier": options.get("tier", 0),
+		"needs": options.get("needs", [])}, items)
 
 
 ## How long an item burns as fuel (seconds; 0 = not fuel).
@@ -1993,13 +1998,15 @@ func get_process(kind: String, input: int) -> Dictionary:
 func _at_station(p: ServerPlayer, recipe: Dictionary) -> bool:
 	if recipe.station.is_empty() or p.inventory.creative:
 		return true
-	return _station_valid(p) and p.crafting_station.name == recipe.station
+	var s: Dictionary = p.crafting_station
+	return _station_valid(p) and s.name == recipe.station and Stations.usable(s) and int(s.get("tier", 1)) >= int(recipe.get("tier", 0)) \
+		and recipe.get("needs", []).all(func(f): return s.get("features", []).has(f))
 
 
 ## The player's crafting station still exists and is within reach.
 func _station_valid(p: ServerPlayer) -> bool:
 	var s: Dictionary = p.crafting_station
-	if s.is_empty() or str(registry.defs[world.get_block_v(s.position)].get("station", "")) != s.name:
+	if s.is_empty() or not s.has("position") or str(registry.defs[world.get_block_v(s.position)].get("station", "")) != s.name:
 		return false
 	return p.get_eye_position().distance_to(Vector3(s.position) + Vector3.ONE * 0.5) <= Containers.MAX_DISTANCE
 
@@ -2020,7 +2027,7 @@ func _stock_containers(p: ServerPlayer) -> Array:
 	if not _station_valid(p):
 		return out
 	var center: Vector3i = p.crafting_station.position
-	var r := STATION_PULL_RADIUS
+	var r := STATION_PULL_RADIUS + int(p.crafting_station.get("pull_radius", 0))
 	for pos: Vector3i in find_block_data():
 		if absi(pos.x - center.x) <= r and absi(pos.y - center.y) <= r and absi(pos.z - center.z) <= r:
 			var c = containers.get_container(pos)
@@ -2048,12 +2055,30 @@ func _can_craft(p: ServerPlayer, recipe: Dictionary) -> bool:
 
 ## Opens the crafting screen for a player: by hand ({}) or at a station {name, position, title}.
 func open_crafting(p: ServerPlayer, station := {}) -> void:
+	if station.has("position"):
+		station = stations.evaluate(station.position)
 	p.crafting_station = station
 	if p._online():
-		var info := {"name": station.get("name", ""), "title": station.get("title", "Crafting")}
-		if station.has("position"):
-			info.position = station.position
+		var info: Dictionary = station.duplicate(true) if not station.is_empty() else {"name": "", "title": "Crafting"}
+		info.pull_radius = STATION_PULL_RADIUS + int(station.get("pull_radius", 0))
 		Net.s_crafting_open.rpc_id(p.peer_id, info, crafting_stock(p))
+
+
+## Station screen buttons: "upgrade" uses the next tier's kit, "guide" shows a structure's missing blocks.
+func on_station_action(peer_id: int, action: String) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or p.edit_tokens < 1.0 or not _station_valid(p):
+		return
+	p.edit_tokens -= 1.0
+	var pos: Vector3i = p.crafting_station.position
+	match action:
+		"upgrade":
+			if stations.upgrade(p, pos):
+				open_crafting(p, {"position": pos})
+		"guide":
+			var def: Dictionary = stations.defs.get(p.crafting_station.name, {})
+			if not def.get("multiblock", {}).is_empty() and p._online():
+				Net.s_structure_guide.rpc_id(p.peer_id, stations.structure_missing(pos, def.multiblock).slice(0, 256))
 
 
 ## Mods: opens the crafting screen for a player as if they pressed the crafting key.
@@ -2067,6 +2092,8 @@ func craft(p: ServerPlayer, index: int, times := 1) -> int:
 	if index < 0 or index >= recipes.recipes.size() or p.dead:
 		return 0
 	var recipe: Dictionary = recipes.recipes[index]
+	if p.crafting_station.has("position") and _station_valid(p):
+		p.crafting_station = stations.evaluate(p.crafting_station.position)  # workshop blocks may have changed
 	var n := craftable_times(p, recipe, clampi(times, 1, 64))
 	if n <= 0:
 		return 0

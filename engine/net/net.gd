@@ -325,6 +325,13 @@ func c_craft(index: int, times: int) -> void:
 		server.on_craft(_sender(), index, times)
 
 
+## Station screen buttons: "upgrade" (use the next tier's kit), "guide" (show missing structure blocks).
+@rpc("any_peer", "call_remote", "reliable")
+func c_station_action(action: String) -> void:
+	if server:
+		server.on_station_action(_sender(), action)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func c_crafting_closed() -> void:
 	if server:
@@ -426,6 +433,14 @@ func s_effect(effect_id: int, position: Vector3, options: Dictionary) -> void:
 func s_crafting_open(station: Dictionary, stock: Dictionary) -> void:
 	if client:
 		client.on_crafting_open(station, stock)
+
+
+## Ghost blocks showing where a multiblock station's missing blocks go: [[position, block id], ...]
+## (block -1 = any solid block).
+@rpc("authority", "call_remote", "reliable")
+func s_structure_guide(missing: Array) -> void:
+	if client:
+		client.on_structure_guide(missing)
 
 
 @rpc("authority", "call_remote", "reliable")

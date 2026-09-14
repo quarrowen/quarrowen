@@ -7,6 +7,8 @@ extends Control
 
 signal craft_requested(index: int, times: int)
 signal pin_requested(index: int)
+## Station panel buttons: "upgrade" or "guide".
+signal station_action(action: String)
 signal closed
 
 const Inventory = preload("res://engine/shared/inventory.gd")
@@ -25,6 +27,8 @@ var station := {}
 var stock := {}
 ## Smelting and other processes for lookups: {kind: {input id: {output, count, seconds}}}.
 var processes := {}
+## Every station's titles, tiers and upgrades (from the server) to explain recipe requirements.
+var stations := {}
 var pinned := -1
 var selected := -1
 
@@ -45,6 +49,7 @@ var _ingredients: VBoxContainer
 var _craft_button: Button
 var _craft_all_button: Button
 var _pin_button: Button
+var _station_panel: VBoxContainer
 var _category := ""
 var _lookup := {}  # {item, mode: "make" | "use"}
 var _cells := {}  # recipe index -> Button
@@ -183,6 +188,11 @@ func _ready() -> void:
 	buttons.add_child(_craft_all_button)
 	_pin_button = _action_button("Pin", func(): pin_requested.emit(selected))
 	buttons.add_child(_pin_button)
+	_station_panel = VBoxContainer.new()
+	_station_panel.custom_minimum_size = Vector2(270, 0)
+	_station_panel.add_theme_constant_override("separation", 6)
+	body.add_child(_station_panel)
+
 	var hint := Label.new()
 	hint.text = "Click an ingredient to see how it is made.  Shift+click a recipe: craft all.  R / U over items: recipe / uses."
 	hint.modulate = Color(1, 1, 1, 0.5)
@@ -194,7 +204,8 @@ func _ready() -> void:
 func open(station_info: Dictionary, station_stock: Dictionary) -> void:
 	station = station_info
 	stock = station_stock
-	_title.text = String(station.get("title", "Crafting"))
+	_title.text = String(station.get("tier_title", station.get("title", "Crafting")))
+	_rebuild_station_panel()
 	_rebuild_tabs()
 	_rebuild_grid()
 	if selected < 0 or not _cells.has(selected):
@@ -244,7 +255,135 @@ func have(item: int) -> int:
 
 
 func at_station(r: Dictionary) -> bool:
-	return r.station.is_empty() or inventory.creative or r.station == station.get("name", "")
+	if r.station.is_empty() or inventory.creative:
+		return true
+	if r.station != station.get("name", "") or not station.get("structure", {}).get("formed", true):
+		return false
+	return int(station.get("tier", 1)) >= int(r.get("tier", 0)) and r.get("needs", []).all(func(f): return station.get("features", []).has(f))
+
+
+## What a recipe needs, in words: "Needs a Sturdy Workbench with Metalwork (an Anvil nearby)".
+func requirement_text(r: Dictionary) -> String:
+	if r.station.is_empty():
+		return "Crafted anywhere"
+	var s: Dictionary = stations.get(r.station, {})
+	var where := String(s.get("title", station_title(r.station)))
+	var tiers: Array = s.get("tiers", [])
+	if int(r.get("tier", 0)) > 1 and int(r.tier) <= tiers.size() and not String(tiers[int(r.tier) - 1].title).is_empty():
+		where = String(tiers[int(r.tier) - 1].title)
+	elif int(r.get("tier", 0)) > 1:
+		where += " (tier %d)" % int(r.tier)
+	var text := "Needs a %s" % where
+	var needs := PackedStringArray()
+	for feature in r.get("needs", []):
+		var source := ""
+		for u in s.get("upgrades", []):
+			if String(u.grants).to_lower().contains(String(feature).to_lower()):
+				source = u.title
+				break
+		needs.append("%s%s" % [String(feature).capitalize(), " (%s nearby)" % source if not source.is_empty() else ""])
+	if not needs.is_empty():
+		text += " with " + ", ".join(needs)
+	if not String(s.get("structure", "")).is_empty():
+		text += " (build the structure)"
+	return text
+
+
+## The station's tier, workshop upgrades found and still possible, the next tier and structure status.
+func _rebuild_station_panel() -> void:
+	for child in _station_panel.get_children():
+		child.queue_free()
+	_station_panel.visible = station.has("position")
+	if not _station_panel.visible:
+		return
+	_station_panel.add_child(_section("Workshop"))
+	var summary := PackedStringArray(["Tier %d" % int(station.get("tier", 1))])
+	if float(station.get("speed", 0.0)) > 0.0:
+		summary.append("+%d%% speed" % roundi(float(station.speed) * 100))
+	if float(station.get("quality", 0.0)) > 0.0:
+		summary.append("+%d%% quality" % roundi(float(station.quality) * 100))
+	summary.append("chests within %d" % int(station.get("pull_radius", 4)))
+	_station_panel.add_child(_small(" · ".join(summary), Color(1, 1, 1, 0.7)))
+	if not station.get("features", []).is_empty():
+		_station_panel.add_child(_small("Unlocks: " + ", ".join(PackedStringArray(station.features.map(func(f): return String(f).capitalize()))), Color(0.6, 0.85, 1.0)))
+	for u in station.get("detected", []):
+		_station_panel.add_child(_upgrade_row(u, true))
+	for u in station.get("available", []):
+		_station_panel.add_child(_upgrade_row(u, false))
+	var structure: Dictionary = station.get("structure", {})
+	if not structure.is_empty():
+		_station_panel.add_child(_section(String(structure.title)))
+		if structure.formed:
+			_station_panel.add_child(_small("✓ Structure complete", Color(0.55, 0.9, 0.5)))
+		else:
+			_station_panel.add_child(_small("%d blocks missing or in the way" % int(structure.missing), Color(1.0, 0.55, 0.45)))
+			var guide := Button.new()
+			guide.text = "Show build guide"
+			guide.pressed.connect(func(): station_action.emit("guide"))
+			_station_panel.add_child(guide)
+	var next: Dictionary = station.get("next", {})
+	if not next.is_empty():
+		_station_panel.add_child(_section("Next tier: %s" % next.title))
+		if not String(next.grants).is_empty():
+			_station_panel.add_child(_small(String(next.grants), Color(1, 1, 1, 0.7)))
+		var kit := int(next.get("kit", 0))
+		var owned := inventory.count_of(kit) if kit > 0 else 1
+		var row := HBoxContainer.new()
+		if kit > 0:
+			var icon := TextureRect.new()
+			icon.texture = _icon(kit)
+			icon.custom_minimum_size = Vector2(24, 24)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			row.add_child(icon)
+			row.add_child(_small("%s  %d / 1" % [items.display_name(kit), owned], Color(0.55, 0.9, 0.5) if owned > 0 else Color(1.0, 0.55, 0.45)))
+		_station_panel.add_child(row)
+		var upgrade := Button.new()
+		upgrade.text = "Upgrade"
+		upgrade.disabled = owned <= 0 and not inventory.creative
+		upgrade.pressed.connect(func(): station_action.emit("upgrade"))
+		_station_panel.add_child(upgrade)
+		if kit > 0:
+			var how := Button.new()
+			how.text = "How to make the kit"
+			how.flat = true
+			how.pressed.connect(show_lookup.bind(kit, "make"))
+			_station_panel.add_child(how)
+
+
+func _upgrade_row(u: Dictionary, found: bool) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	var icon := TextureRect.new()
+	icon.texture = _icon(int(u.block))
+	icon.custom_minimum_size = Vector2(24, 24)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.modulate = Color.WHITE if found else Color(1, 1, 1, 0.4)
+	row.add_child(icon)
+	var text := "%s %s%s" % ["✓" if found else "○", u.title, " x%d" % int(u.count) if int(u.get("max", 1)) > 1 and found else ""]
+	var label := _small("%s\n%s" % [text, u.grants], Color(0.85, 0.95, 0.8) if found else Color(1, 1, 1, 0.5))
+	label.tooltip_text = "" if found else "Place a %s near the station" % u.title
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.add_child(label)
+	return row
+
+
+func _section(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4))
+	return l
+
+
+func _small(text: String, color: Color) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 13)
+	l.add_theme_color_override("font_color", color)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(250, 0)
+	return l
 
 
 ## Short text for a station name ("crafting_table" -> "Crafting Table").
@@ -392,8 +531,8 @@ func _show_details() -> void:
 	var r: Dictionary = recipes.recipes[selected]
 	_detail_icon.texture = _icon(r.output)
 	_detail_name.text = ("%d x %s" % [r.count, items.display_name(r.output)]) if r.count > 1 else items.display_name(r.output)
-	var where := "Crafted anywhere" if r.station.is_empty() else "Needs a %s" % station_title(r.station)
-	if not at_station(r):
+	var where := requirement_text(r)
+	if not at_station(r) and not r.station.is_empty():
 		where += " (not here)"
 	_detail_info.text = "%s  ·  %s" % [_category_name(r.category), where]
 	_stats.text = "\n".join(stat_preview(r.output))

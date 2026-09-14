@@ -88,6 +88,14 @@ declare module "voxelcraft" {
     unlocked?: boolean;
   }
   export type Vec3Array = [number, number, number];
+  export interface StationGrants { features?: string[]; tier?: number; speed?: number; quality?: number; pull_radius?: number; hints?: number }
+  export interface StationDef {
+    title?: string; grants?: StationGrants;
+    tiers?: { block: string; title?: string; kit?: string; grants?: StationGrants }[];
+    workshop?: { radius?: number; upgrades: { block: string; title?: string; max?: number; grants?: StationGrants }[] };
+    /** Layers bottom to top, rows separated by "|"; "C" core, "." any block, " " air. */
+    multiblock?: { core: string; pattern: string[]; legend: Record<string, string>; title?: string };
+  }
 
   /** See engine/shared/effect_registry.gd. Colors "#rrggbb" or "#rrggbbaa". */
   export interface EffectDef {
@@ -320,7 +328,9 @@ declare module "voxelcraft" {
     info(...parts: unknown[]): void;
     registerBlock(name: string, def: BlockDef): BlockId;
     registerItem(name: string, def: ItemDef): ItemId;
-    registerRecipe(inputs: Record<string, number>, output: string, count?: number, options?: { station?: string }): void;
+    registerRecipe(inputs: Record<string, number>, output: string, count?: number, options?: { station?: string; tier?: number; needs?: string[]; category?: string; id?: string }): void;
+    registerStation(name: string, def: StationDef): void;
+    getStation(position: Vec3): Record<string, unknown>;
     registerContainer(name: string, def: { title?: string; groups: { name: string; count: number; columns?: number; label?: string; take_only?: boolean; accepts?: string[] | "fuel" }[];
       progress?: { name: string; label?: string; color?: string }[] }): boolean;
     openContainer(player: Player, position: Vec3): boolean;

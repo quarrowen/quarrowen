@@ -2,7 +2,8 @@ extends RefCounted
 ## Crafting recipes and their categories, sent to clients so the crafting screen can show the recipe
 ## book, what you are missing and what an item is used for. The server stays the authority on crafting.
 ##
-## Recipe: {id ("mod:name"), inputs: {item id: count}, output, count, station ("" = anywhere), category}
+## Recipe: {id ("mod:name"), inputs: {item id: count}, output, count, station ("" = anywhere), tier
+## (minimum station tier), needs ([station features, e.g. "metalwork"]), category}
 ## Categories group the recipe book; recipes without one get a category from their output (tools,
 ## weapons, armor, food, blocks, materials).
 
@@ -55,7 +56,8 @@ func add(def: Dictionary, items = null) -> int:
 	if category.is_empty() or not categories.any(func(c): return c.name == category):
 		category = guess_category(output, items)
 	var r := {"id": recipe_id, "inputs": inputs, "output": output, "count": clampi(int(def.get("count", 1)), 1, 999),
-		"station": str(def.get("station", "")).left(64), "category": category}
+		"station": str(def.get("station", "")).left(64), "category": category, "tier": clampi(int(def.get("tier", 0)), 0, 99),
+		"needs": (def.get("needs") as Array).map(func(f): return str(f).left(32)).slice(0, 8) if def.get("needs") is Array else []}
 	_ids[recipe_id] = recipes.size()
 	recipes.append(r)
 	return recipes.size() - 1

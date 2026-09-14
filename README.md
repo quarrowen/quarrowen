@@ -308,6 +308,26 @@ api.set_fuel("my_mod:peat", 40.0)                                        # api.g
   `register_recipe_category(name, {display_name, icon})`, event `item_crafted {player, item, count, recipe}`.
 - **Stations:** blocks with `station: "<name>"` unlock recipes that need that station (plus the ones
   crafted anywhere). Creative players craft everything anywhere.
+- **Upgradable stations:** `register_station(name, def)` adds tiers (blocks upgraded in place with a kit
+  item), workshop upgrades (blocks within a radius grant features, tier, speed, quality, chest reach,
+  hints) and multiblock structures (a pattern around a core block, any rotation). Recipes ask for
+  `tier` and `needs` (features). The station screen shows the tier, which workshop blocks were found
+  and what the missing ones would add, the next tier's kit with an Upgrade button, and structure
+  status with a build guide that shows ghost blocks where pieces go.
+
+```gdscript
+api.register_station("crafting_table", {
+	"tiers": [{"block": "base:crafting_table"}, {"block": "base:sturdy_workbench", "kit": "base:reinforced_frame"}],
+	"workshop": {"radius": 4, "upgrades": [{"block": "base:anvil", "grants": {"features": ["metalwork"], "quality": 0.1}}]}})
+api.register_station("forge", {"grants": {"features": ["forging"]},
+	"multiblock": {"core": "base:forge", "legend": {"B": "base:brick"}, "pattern": ["BCB", "BBB", " B "]}})
+api.register_recipe({"base:iron_ingot": 8}, "base:iron_chestplate", 1, {"station": "crafting_table", "tier": 2, "needs": ["metalwork"]})
+```
+
+- **Bundled progression (base):** crafting table → furnace → iron ingots → bricks → Forge (a brick
+  structure) → anvil and reinforced frame. An anvil next to the table unlocks iron tools; the
+  reinforced frame upgrades the table to a Sturdy Workbench for iron armor; tool racks speed crafting
+  and reach chests further away; bookshelves will power recipe hints.
 - **Bundled (base):** crafting table (tools, weapons, armor, hoes, chests and furnaces need one), chest
   (27 slots) and furnace. The furnace smelts ore into ingots, sand into glass, cobblestone into stone,
   logs into charcoal and (vanilla) raw into cooked porkchops; it glows while burning and keeps

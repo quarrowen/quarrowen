@@ -11,7 +11,7 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -71,6 +71,12 @@ func _ready() -> void:
 			await get_tree().create_timer(0.8).timeout
 			Net.c_interact.rpc_id(1, spot)
 			await get_tree().create_timer(0.8).timeout
+	if not String(options.station).is_empty():
+		# Press a station screen button: --station=guide (then close the screen to see the world).
+		Net.c_station_action.rpc_id(1, options.station)
+		await get_tree().create_timer(0.8).timeout
+		if options.station == "guide":
+			client._set_crafting_open(false)
 	if not String(options.craft).is_empty():
 		# Open the recipe book on a recipe: --craft=base:wooden_pickaxe (or "book").
 		if not client._crafting_screen.visible:

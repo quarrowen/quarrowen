@@ -26,6 +26,7 @@ func _ready() -> void:
 	await _effects()
 	await _farming()
 	await _containers()
+	await _stations()
 	await _js_blocks()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -613,6 +614,71 @@ func _containers() -> void:
 	await get_tree().process_frame
 
 
+func _stations() -> void:
+	var server = _start("stations_%d" % Time.get_ticks_msec())
+	var reg = server.registry
+	var items = server.items
+	var p := ServerPlayer.new(server, 83, "Smith")
+	p.player_id = "smith"
+	server.players[83] = p
+	var y: int = server.surface_height(8, 8)
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	p.edit_tokens = 100.0
+	for x in range(4, 20):
+		for z in range(4, 20):
+			for dy in range(1, 5):
+				server.set_block_authoritative(Vector3i(x, y + dy, z), 0)
+			server.set_block_authoritative(Vector3i(x, y, z), reg.id_of("base:stone"))
+	var table := Vector3i(10, y + 1, 8)
+	server.set_block_authoritative(table, reg.id_of("base:crafting_table"))
+	var ingot: int = items.id_of("base:iron_ingot")
+	p.inventory.set_slot(0, ingot, 20)
+	p.inventory.set_slot(1, items.id_of("base:stick"), 8)
+	var iron_pick: Dictionary = server.recipes.recipes[server.recipes.index_of("base:iron_pickaxe")]
+	var chestplate: Dictionary = server.recipes.recipes[server.recipes.index_of("base:iron_chestplate")]
+	server.on_interact(83, table)
+	var info: Dictionary = p.crafting_station
+	_check(info.tier == 1 and info.features.is_empty() and info.available.size() == 3 and info.next.title == "Sturdy Workbench",
+		"a plain crafting table is tier 1 with three possible upgrades")
+	_check(not server._can_craft(p, iron_pick), "iron tools need metalwork")
+	server.set_block_authoritative(table + Vector3i(2, 0, 0), reg.id_of("base:anvil"))
+	server.on_interact(83, table)
+	info = p.crafting_station
+	_check(info.features.has("metalwork") and is_equal_approx(info.quality, 0.1) and info.detected.size() == 1, "an anvil nearby adds metalwork and quality")
+	_check(server._can_craft(p, iron_pick) and not server._can_craft(p, chestplate), "metalwork unlocks iron tools but armor needs tier 2")
+	var far_chest := table + Vector3i(0, 0, 5)
+	server.set_block_authoritative(far_chest, reg.id_of("base:chest"))
+	server.containers.get_container(far_chest).set_item(0, items.id_of("base:planks"), 3)
+	_check(not server.crafting_stock(p).has(items.id_of("base:planks")), "a chest 5 blocks away is out of reach")
+	server.set_block_authoritative(table + Vector3i(-1, 0, 0), reg.id_of("base:tool_rack"))
+	server.on_interact(83, table)
+	_check(server.crafting_stock(p).get(items.id_of("base:planks")) == 3 and p.crafting_station.speed > 0.1, "a tool rack reaches further chests and speeds crafting")
+
+	p.inventory.set_slot(2, items.id_of("base:reinforced_frame"), 1)
+	server.on_station_action(83, "upgrade")
+	_check(server.world.get_block_v(table) == reg.id_of("base:sturdy_workbench") and p.inventory.count_of(items.id_of("base:reinforced_frame")) == 0
+		and p.crafting_station.tier == 2 and p.crafting_station.next.is_empty(), "a reinforced frame upgrades the table to a Sturdy Workbench")
+	_check(server._can_craft(p, chestplate), "the Sturdy Workbench with an anvil makes iron armor")
+
+	# Multiblock: the forge only works once its bricks are in place (any rotation).
+	var anvil_recipe: Dictionary = server.recipes.recipes[server.recipes.index_of("base:anvil")]
+	var brick: int = reg.id_of("base:brick")
+	var core := Vector3i(15, y + 1, 12)
+	server.set_block_authoritative(core, reg.id_of("base:forge"))
+	p.state.position = Vector3(13.5, y + 1, 12.5)
+	server.on_interact(83, core)
+	_check(p.crafting_station.structure.missing == 6 and not server._can_craft(p, anvil_recipe), "an unfinished forge lists 6 missing bricks and cannot forge")
+	var guide: Array = server.stations.structure_missing(core, server.stations.defs.forge.multiblock)
+	_check(guide.size() == 6 and guide.all(func(e): return e[1] == brick), "the build guide says where each brick goes")
+	for offset in [Vector3i(0, 0, -1), Vector3i(0, 0, 1), Vector3i(0, 1, -1), Vector3i(0, 1, 0), Vector3i(0, 1, 1), Vector3i(0, 2, 0)]:
+		server.set_block_authoritative(core + offset, brick)  # the pattern rotated to run along z
+	server.on_interact(83, core)
+	_check(p.crafting_station.structure.formed and p.crafting_station.features.has("forging") and server._can_craft(p, anvil_recipe),
+		"a rotated forge structure forms and forges anvils")
+	server.queue_free()
+	await get_tree().process_frame
+
+
 func _js_blocks() -> void:
 	if not ClassDB.class_exists(&"NativeJsRuntime"):
 		return  # JavaScript mods need the native extension
@@ -649,6 +715,11 @@ func _js_blocks() -> void:
 	var stick_recipe: Dictionary = server.recipes.recipes.filter(func(r): return r.station == "workbench")[0]
 	p.inventory.set_slot(1, server.items.id_of("base:planks"), 2)
 	_check(not server._can_craft(p, stick_recipe), "a JavaScript station recipe needs its station")
+	var bench := Vector3i(8, y + 1, 10)
+	server.set_block_authoritative(bench, server.registry.id_of("js_blocks:workbench"))
+	server.set_block_authoritative(bench + Vector3i(1, 0, 0), server.registry.id_of("base:glass"))
+	server.on_interact(82, bench)
+	_check(p.crafting_station.get("features", []).has("polish") and server._can_craft(p, stick_recipe), "a JavaScript workshop upgrade unlocks its recipe")
 	server.queue_free()
 	await get_tree().process_frame
 

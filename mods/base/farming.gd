@@ -49,7 +49,8 @@ func setup(mod_api, sounds: Dictionary) -> void:
 			"icon": "textures/%s_hoe.png" % m.name, "durability": m.durability, "usable": true,
 			"tool": {"type": "hoe", "tier": m.tier, "speed": 1.0 + m.tier}, "weapon": {"damage": 1.0, "cooldown": 0.4}})
 		ids.hoes[hoe] = true
-		api.register_recipe({m.input: 2, "base:stick": 2}, "base:%s_hoe" % m.name, 1, {"station": "crafting_table"})
+		api.register_recipe({m.input: 2, "base:stick": 2}, "base:%s_hoe" % m.name, 1,
+			{"station": "crafting_table", "needs": ["metalwork"]} if m.name == "iron" else {"station": "crafting_table"})
 
 	for stage in WHEAT_STAGES - 1:
 		api.register_block_tick("base:wheat_%d" % stage, _grow_wheat, {"interval": WHEAT_INTERVAL})

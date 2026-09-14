@@ -7,7 +7,8 @@ api.registerContainer("crate", {
 });
 api.registerBlock("crate", { textures: "base:textures/planks.png", container: "crate" });
 api.registerBlock("workbench", { textures: "base:textures/planks.png", station: "workbench" });
-api.registerRecipe({ "base:planks": 1 }, "base:stick", 8, { station: "workbench" });
+api.registerRecipe({ "base:planks": 1 }, "base:stick", 8, { station: "workbench", needs: ["polish"] });
+api.registerStation("workbench", { workshop: { radius: 2, upgrades: [{ block: "base:glass", grants: { features: ["polish"] } }] } });
 api.setFuel("base:gravel", 7);
 api.registerProcess("pressing", "base:gravel", "base:cobblestone", 2, 4);
 

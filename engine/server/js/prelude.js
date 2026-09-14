@@ -158,6 +158,10 @@
     registerRecipe: (inputs, output, count = 1, options = {}) => host("registerRecipe", inputs, output, count, options),
     /** {title, groups: [{name, count, columns, label, take_only, accepts: [items] | "fuel"}], progress: [{name, label, color}]} */
     registerContainer: (name, def) => host("registerContainer", name, def),
+    /** {title, tiers: [{block, title, kit, grants}], workshop: {radius, upgrades: [{block, title, max, grants}]},
+     *  multiblock: {core, pattern, legend, title}, grants}; grants {features, tier, speed, quality, pull_radius, hints} */
+    registerStation: (name, def) => host("registerStation", name, def),
+    getStation: (position) => host("getStation", position),
     openContainer: (player, position) => host("openContainer", player, position),
     /** [{item, count, data}] per slot. */
     containerItems: (position) => host("containerItems", position),

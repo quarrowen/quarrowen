@@ -96,7 +96,7 @@ changes with `tools/build_native.sh`.
    - C1 Foundation (done): client crafting screen with searchable recipe book, categories, craftable filter,
      missing ingredients, "how to make" / "used in" lookup from any item, pinned-recipe HUD tracker,
      craft one / craft max, stations pull from nearby chests, stat preview, result effects and toasts.
-   - C2 Upgradable stations, all three styles: workshop upgrades (nearby blocks add tier, categories,
+   - C2 Upgradable stations (done), all three styles: workshop upgrades (nearby blocks add tier, categories,
      speed, quality, pull radius, hints; station panel shows detected upgrades and the next unlock),
      upgrade kits (item turns a station into its next tier), multiblock structures (exact patterns
      form special stations).

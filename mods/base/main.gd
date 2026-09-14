@@ -6,6 +6,9 @@ const APPLE_HEAL := 4.0
 const Farming = preload("farming.gd")
 const Stations = preload("stations.gd")
 const TABLE := {"station": "crafting_table"}
+## Iron gear needs an anvil beside the table; iron armor also needs a Sturdy Workbench.
+const METALWORK := {"station": "crafting_table", "needs": ["metalwork"]}
+const ARMORY := {"station": "crafting_table", "needs": ["metalwork"], "tier": 2}
 
 var farming := Farming.new()
 var stations := Stations.new()
@@ -88,16 +91,16 @@ func _register_tools(api) -> void:
 			api.register_item(item_name, {"display_name": "%s %s" % [m.display, String(tool[0]).capitalize()], "icon": "textures/%s.png" % item_name,
 				"durability": m.durability, "tool": {"type": tool[0], "tier": m.tier, "speed": m.speed},
 				"weapon": {"damage": tool[2] + m.tier * 0.5, "cooldown": 0.8 if tool[0] == "axe" else 0.5}})
-			api.register_recipe({m.input: tool[1], "base:stick": 2}, "base:" + item_name, 1, TABLE)
+			api.register_recipe({m.input: tool[1], "base:stick": 2}, "base:" + item_name, 1, METALWORK if m.name == "iron" else TABLE)
 		api.register_item("%s_sword" % m.name, {"display_name": "%s Sword" % m.display, "icon": "textures/%s_sword.png" % m.name,
 			"durability": m.durability, "weapon": {"damage": m.damage, "cooldown": 0.6, "sweep": 0.3},
 			"trail": {"color": "#ffffff60", "width": 0.45}})
-		api.register_recipe({m.input: 2, "base:stick": 1}, "base:%s_sword" % m.name, 1, TABLE)
+		api.register_recipe({m.input: 2, "base:stick": 1}, "base:%s_sword" % m.name, 1, METALWORK if m.name == "iron" else TABLE)
 	var pieces := [["helmet", "head", 2.0, 5], ["chestplate", "chest", 6.0, 8], ["leggings", "legs", 5.0, 7], ["boots", "feet", 2.0, 4]]
 	for piece in pieces:
 		api.register_item("iron_%s" % piece[0], {"display_name": "Iron %s" % String(piece[0]).capitalize(), "icon": "textures/iron_%s.png" % piece[0],
 			"equip_slot": piece[1], "durability": 180, "armor": {"armor": piece[2]}, "armor_texture": "textures/iron_armor.png"})
-		api.register_recipe({"base:iron_ingot": piece[3]}, "base:iron_%s" % piece[0], 1, TABLE)
+		api.register_recipe({"base:iron_ingot": piece[3]}, "base:iron_%s" % piece[0], 1, ARMORY)
 
 
 func _eat(api, player, item: int) -> void:
