@@ -163,7 +163,7 @@ static func _execute(brain) -> void:
 			var facing := Vector3(-sin(e.yaw), 0.0, -cos(e.yaw))
 			var flat := Vector3(to.x, 0.0, to.z)
 			var in_arc: bool = flat.length() < e.def.width or rad_to_deg(facing.angle_to(flat.normalized())) <= a.arc * 0.5
-			if ai.is_alive(target) and edge <= a.range + 0.35 and in_arc:
+			if ai.is_alive(target) and edge <= a.range + 0.35 and in_arc and can_reach(brain, target):
 				_hit(brain, target, a.damage, flat, a.knockback)
 		"ranged":
 			_fire(brain, a, target)
@@ -201,6 +201,20 @@ static func _execute(brain) -> void:
 	_finish(brain)
 
 
+## A melee blow needs an opening: some line from the mob to the target not blocked by blocks (no hits
+## through walls, floors or closed doors).
+static func can_reach(brain, target) -> bool:
+	var ai = brain.ai
+	var e = brain.entity
+	var pf = ai.pathfinder
+	var eye: Vector3 = brain._eye()
+	var chest: Vector3 = e.body.position + Vector3(0, e.def.height * 0.45, 0)
+	var their_eye: Vector3 = ai.eye_of(target)
+	var their_chest: Vector3 = ai.chest_of(target)
+	return pf.line_of_sight(eye, their_eye) or pf.line_of_sight(eye, their_chest) or pf.line_of_sight(chest, their_chest) \
+		or pf.line_of_sight(chest, ai.position_of(target) + Vector3(0, 0.3, 0))
+
+
 static func _finish(brain) -> void:
 	var ai = brain.ai
 	if brain.attack.is_empty():
@@ -230,7 +244,10 @@ static func _fire(brain, a: Dictionary, target) -> void:
 	var speed: float = a.projectile_speed
 	var gravity: float = ai.entities.registry.defs[a.projectile_type].gravity
 	var flight := from.distance_to(aim) / maxf(speed, 0.1)
-	aim += ai.velocity_of(target) * flight * brain.config.intelligence  # lead moving targets
+	# Lead moving targets by where they walk, not where a jump or knockback is carrying them this instant
+	# (aiming at the top of a hop sends the arrow over their head once they land).
+	var moving: Vector3 = ai.velocity_of(target)
+	aim += Vector3(moving.x, 0.0, moving.z) * flight * brain.config.intelligence
 	flight = from.distance_to(aim) / maxf(speed, 0.1)
 	for i in a.count:
 		var velocity := (aim - from) / maxf(flight, 0.01)

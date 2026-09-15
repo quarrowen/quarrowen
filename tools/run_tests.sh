@@ -122,6 +122,8 @@ run_scene "persistence" "$WORK/persistence.log" res://tests/persistence_test.tsc
 run_scene "identity" "$WORK/identity.log" res://tests/identity_test.tscn
 run_scene "gameplay" "$WORK/gameplay.log" res://tests/gameplay_test.tscn
 run_scene "ai" "$WORK/ai.log" res://tests/ai_test.tscn
+# Mob AI on generated terrain: stuck, hopping in place, dithering, blind hits and failed chases stay under limits.
+run_scene "ai-soak" "$WORK/ai_soak.log" res://tests/ai_soak.tscn --seconds=60 --sites=4 --check
 if [ "${VOXEL_NATIVE:-1}" != "0" ]; then
   run_scene "js-sandbox" "$WORK/js_sandbox.log" res://tests/js_sandbox_test.tscn
 fi

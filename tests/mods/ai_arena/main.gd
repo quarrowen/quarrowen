@@ -47,6 +47,7 @@ func setup(mod_api) -> void:
 		"attacks": [{"name": "rend", "damage": 1, "range": 0.8}]}})
 	api.register_entity("boomer", {"health": 10, "speed": 3.0, "ai": {"preset": "hostile", "group": "boomers",
 		"attacks": [{"name": "burst", "type": "explode", "range": 1.0, "windup": 1.0, "power": 2.0, "fuse_escape": 2.0}]}})
+	api.register_entity("grazer", {"health": 10, "speed": 2.0, "width": 0.9, "height": 1.3, "ai": {"preset": "passive", "group": "grazers"}})
 	api.register_entity("guard", {"health": 20, "speed": 4.0, "ai": {"preset": "neutral", "group": "guards", "behaviors": ["ai_arena:patrol"]}})
 	api.register_mob_behavior("patrol", {
 		"score": func(brain): return 2.0 if brain.entity.data.has("patrol_to") else 0.0,

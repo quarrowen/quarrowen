@@ -1148,6 +1148,7 @@ godot --headless --path . res://tests/persistence_test.tscn   # delta saves, blo
 godot --headless --path . res://tests/identity_test.tscn      # encrypted identity export / import
 godot --headless --path . res://tests/gameplay_test.tscn      # inventory, entities, damage, equipment, cosmetics
 godot --headless --path . res://tests/ai_test.tscn            # mob AI in a flat arena (tests/mods/ai_arena)
+godot --headless --path . res://tests/ai_soak.tscn -- --seconds=180 --sites=8   # vanilla mobs on real terrain: stuck, hops, chases
 godot --headless --path . res://tests/js_sandbox_test.tscn    # JavaScript limits
 godot --headless --path . res://tests/bench.tscn              # worldgen, meshing, snapshots, physics
 godot --headless --path . res://tests/bots.tscn -- --port=24603 --bots=100

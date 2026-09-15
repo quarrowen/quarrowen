@@ -160,6 +160,7 @@ var _chunk_nodes := {}  # Vector2i -> MeshInstance3D
 var _mesh_dirty := {}  # Vector2i -> true
 ## Block changes for chunks that have not arrived yet (chunks come on their own channel): coord -> [[pos, block, state]].
 var _early_edits := {}
+var _entity_clock_offset := INF  # local seconds minus server tick seconds, for entity update timestamps
 var _early_edit_count := 0
 const MAX_EARLY_EDITS := 20000
 var _mesh_urgent := {}  # Vector2i -> true
@@ -1036,12 +1037,21 @@ func on_entity_despawn(ids: PackedInt32Array) -> void:
 			view.despawn()
 
 
-func on_entities(_tick: int, payload: PackedByteArray) -> void:
+func on_entities(tick: int, payload: PackedByteArray) -> void:
 	if payload.size() < 2:
 		return
 	var buf := StreamPeerBuffer.new()
 	buf.data_array = payload
-	var now := Time.get_ticks_msec() / 1000.0
+	# Stamp updates by the server tick they describe, not when they happened to arrive, so network jitter
+	# does not make mobs speed up and stall. The offset follows the fastest arrivals and drifts slowly.
+	var local := Time.get_ticks_msec() / 1000.0
+	var server_time := float(tick) / Engine.physics_ticks_per_second
+	var offset := local - server_time
+	if _entity_clock_offset == INF or offset < _entity_clock_offset or offset - _entity_clock_offset > 1.0:
+		_entity_clock_offset = offset
+	else:
+		_entity_clock_offset += (offset - _entity_clock_offset) * 0.02
+	var now := server_time + _entity_clock_offset
 	var count := mini(buf.get_u16(), (payload.size() - 2) / 19)
 	for i in count:
 		var id := buf.get_u32()

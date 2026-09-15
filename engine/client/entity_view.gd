@@ -4,6 +4,9 @@ extends Node3D
 ## flies to the collector when an item is picked up.
 
 const INTERPOLATION_DELAY := 0.1
+## Seconds between entity updates from the server (every third tick), and a gap that means it stood still.
+const UPDATE_INTERVAL := 0.05
+const UPDATE_GAP := 0.12
 const MAX_BUFFER := 20
 const DEATH_SECONDS := 0.7
 const PICKUP_SECONDS := 0.18
@@ -133,6 +136,14 @@ func set_look(look: Dictionary) -> void:
 
 
 func push_state(time: float, pos: Vector3, yaw: float) -> void:
+	if not _buffer.is_empty():
+		var last: Dictionary = _buffer.back()
+		if time <= last.time:
+			return  # older than what we have
+		if time - last.time > UPDATE_GAP:
+			# The server sends nothing while an entity stands still: hold the old spot until just before this
+			# update, so a mob that starts moving walks off instead of jumping ahead.
+			_buffer.append({"time": time - UPDATE_INTERVAL, "position": last.position, "yaw": last.yaw})
 	_buffer.append({"time": time, "position": pos, "yaw": yaw})
 	if _buffer.size() > MAX_BUFFER:
 		_buffer.pop_front()

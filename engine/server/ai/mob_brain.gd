@@ -2,7 +2,7 @@ extends RefCounted
 ## The mind of one mob. Thinks a few times per second (perception, memory, threat, choosing a
 ## behavior) and steers every tick (path following, jumping, separation, dodging, attacks).
 ##
-## Behaviors are chosen by utility score each think (the running one gets +0.1 so mobs don't dither):
+## Behaviors are chosen by utility score each think (the running one, unless idle, gets +0.1 so mobs don't dither):
 ##   idle 0.05, wander 0.1, investigate 0.4, search 0.45-0.65, engage 0.7-0.9, return_home 0.95-1.15,
 ##   flee 1.05, scripted 1.2; custom behaviors return their own score.
 ##   wander / idle     nothing better to do
@@ -189,7 +189,13 @@ func look_at(position: Vector3) -> void:
 
 
 func arrived() -> bool:
-	return move_goal == Vector3.INF or entity.body.position.distance_to(move_goal) <= move_radius + 0.3
+	return move_goal == Vector3.INF or entity.body.position.distance_to(move_goal) <= move_radius + 0.3 or at_path_end()
+
+
+## True when the goal cannot be reached and the mob stands at the end of the best partial path (or found no
+## way at all from where it stands): as close as it can get. Behaviors treat that like arriving instead of pushing against the obstacle.
+func at_path_end() -> bool:
+	return not direct and path_status != Pathfinder.Status.FOUND and not path.is_empty() and path_index >= path.size()
 
 
 # --- Thinking ------------------------------------------------------------------------------------
@@ -416,8 +422,8 @@ func _choose_behavior(now: float) -> void:
 			var t := Time.get_ticks_usec()
 			scores[behavior_name] = float(custom.score.call(self))
 			ai.server.dev_tools.record(custom.get("owner", "engine"), "behavior:" + behavior_name, Time.get_ticks_usec() - t)
-	if scores.has(behavior):
-		scores[behavior] += 0.1
+	if scores.has(behavior) and behavior != "idle":
+		scores[behavior] += 0.1  # idle gets no bonus: at 0.15 it would outscore wander forever
 	var best := "idle"
 	for key in scores:
 		if scores[key] > scores[best]:
@@ -509,7 +515,7 @@ func _look_around_at(where: Vector3, speed: float, now: float, done: Callable) -
 	if not behavior_state.has("arrived"):
 		move_to(where, speed, 1.5)
 		look_target = Vector3.INF
-		if entity.body.position.distance_to(where) < 2.0 or (path_status == Pathfinder.Status.PARTIAL and arrived()):
+		if entity.body.position.distance_to(where) < 2.0 or at_path_end():
 			behavior_state.arrived = now
 		return
 	stop()
@@ -565,7 +571,7 @@ func _engage(now: float) -> void:
 	else:
 		move_to(goal, config.chase_speed, stop_at)
 	# Track whether the target can be reached at all (e.g. it pillared up out of reach).
-	if path_status == Pathfinder.Status.PARTIAL and arrived() and edge > reach + 1.0:
+	if at_path_end() and edge > reach + 1.0:
 		if unreachable_since < 0.0:
 			unreachable_since = now
 	elif edge <= reach + 1.0:
@@ -720,12 +726,20 @@ func _steer(delta: float) -> void:
 		var to := point - pos
 		var flat := Vector3(to.x, 0.0, to.z)
 		var remaining := pos.distance_to(move_goal)
-		if remaining > move_radius or (not direct and path_index < path.size()):
+		if at_path_end():
+			pass  # as close as it gets: stand and wait for a repath instead of shoving into the obstacle
+		elif remaining > move_radius or (not direct and path_index < path.size()):
 			if flat.length() > 0.05:
 				desired = flat.normalized() * speed
-			if b.on_ground and ((to.y > 0.4 and flat.length() < 1.2 + agent[0] * 0.5) or (b.blocked and flat.length() > 0.2)):
-				var rise := clampf(ceilf(to.y) if to.y > 0.4 else 1.0, 1.0, maxf(float(config.step_up), 1.0))
-				b.velocity.y = sqrt(2.0 * entity.def.gravity * (rise + 0.35))
+			if b.on_ground:
+				var following_step: bool = not direct and path_index < path.size() and to.y > 0.4 and to.y <= config.step_up + 0.5 \
+					and flat.length() < 1.2 + agent[0] * 0.5
+				var climb := _step_ahead(flat) if not following_step and b.blocked and flat.length() > 0.2 and not config.climb else 0
+				if following_step or climb > 0:
+					var rise := clampf(ceilf(to.y) if following_step else float(climb), 1.0, maxf(float(config.step_up), 1.0))
+					b.velocity.y = sqrt(2.0 * entity.def.gravity * (rise + 0.35))
+			if b.blocked and desired != Vector3.ZERO:
+				desired += _slide_toward_lane(desired) * speed
 			_check_progress(now, pos)
 	if separation != Vector3.ZERO:
 		desired += separation * maxf(speed, entity.def.speed * 0.6) * 0.6
@@ -741,6 +755,11 @@ func _steer(delta: float) -> void:
 			elif b.velocity.y <= 0.0:
 				b.velocity.x = 0.0
 				b.velocity.z = 0.0
+		elif desired != Vector3.ZERO:
+			# Keep pressing on mid-hop, so a hop that clipped a ledge still lands on top of it.
+			var air := Vector2(b.velocity.x, b.velocity.z).move_toward(Vector2(desired.x, desired.z), 12.0 * delta)
+			b.velocity.x = air.x
+			b.velocity.z = air.y
 		if desired.length() > 0.1:
 			entity.yaw = lerp_angle(entity.yaw, atan2(-desired.x, -desired.z), minf(1.0, 10.0 * delta))
 		return
@@ -749,6 +768,8 @@ func _steer(delta: float) -> void:
 		accel = 12.0
 		if desired != Vector3.ZERO:
 			b.velocity.y = maxf(b.velocity.y, 2.0)
+			if b.blocked:
+				b.velocity.y = maxf(b.velocity.y, 5.5)  # climb out onto the bank
 	var horizontal := Vector2(b.velocity.x, b.velocity.z).move_toward(Vector2(desired.x, desired.z), accel * delta)
 	if desired == Vector3.ZERO and not b.on_ground:
 		horizontal = Vector2(b.velocity.x, b.velocity.z)  # keep momentum (knockback) in the air
@@ -763,6 +784,32 @@ func _steer(delta: float) -> void:
 		var d: Vector3 = face - b.position
 		if Vector2(d.x, d.z).length() > 0.05:
 			entity.yaw = lerp_angle(entity.yaw, atan2(-d.x, -d.z), minf(1.0, 10.0 * delta))
+
+
+## Sideways push (unit length or zero) back to the middle of the mob's lane when it scrapes a corner: a body
+## narrower than its path cell that drifted off-centre catches on blocks beside the route.
+func _slide_toward_lane(desired: Vector3) -> Vector3:
+	var pos: Vector3 = entity.body.position
+	var center := Pathfinder.node_center(Pathfinder.node_of(pos, agent), agent)
+	var offset := Vector3(center.x - pos.x, 0.0, center.z - pos.z)
+	var dir := desired.normalized()
+	var lateral := offset - dir * offset.dot(dir)
+	return lateral.normalized() if lateral.length() > 0.04 else Vector3.ZERO
+
+
+## Blocks the mob must climb to get onto the ground ahead in `direction` (1..step_up), or 0 when that is a
+## wall it cannot get up (jumping would only hop in place).
+func _step_ahead(direction: Vector3) -> int:
+	var pos: Vector3 = entity.body.position
+	var dir := direction.normalized()
+	var here := Pathfinder.node_of(pos, agent)
+	var ahead := Pathfinder.node_of(pos + dir * (entity.def.width * 0.5 + 0.55), agent)
+	if ahead.x == here.x and ahead.z == here.z:
+		ahead += Vector3i(roundi(dir.x), 0, roundi(dir.z))
+	for k in range(1, maxi(config.step_up, 1) + 1):
+		if ai.pathfinder.standable(Vector3i(ahead.x, here.y + k, ahead.z), agent):
+			return k
+	return 0
 
 
 func _check_progress(now: float, pos: Vector3) -> void:

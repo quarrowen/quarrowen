@@ -35,6 +35,7 @@ func _ready() -> void:
 	spikes = server.registry.id_of("ai_arena:spikes")
 	print("[ai] pathfinder: %s" % ("native" if server.world.native else "GDScript"))
 	_pathfinding()
+	_wandering()
 	_perception_and_chase()
 	_windup_can_be_dodged()
 	_surround()
@@ -50,6 +51,11 @@ func _ready() -> void:
 	_daylight_temperament()
 	_fear_of_light()
 	_exploding_mob()
+	_unreachable_target()
+	_no_hits_through_walls()
+	_shooting_a_jumping_player()
+	_out_of_the_water()
+	_sliding_off_corners()
 	if server.entities.registry.id_of("guild:goblin") > 0:
 		_javascript_behavior()
 	_finish()
@@ -120,6 +126,21 @@ func _pathfinding() -> void:
 
 
 # --- Behaviour -----------------------------------------------------------------------------------
+
+func _wandering() -> void:
+	var o := Vector3i(150, Y, 0)
+	_load(o, 2)
+	var player := _player(Vector3(o) + Vector3(0.5, 0, 40.5))  # nearby for despawn rules, out of sight
+	var roamers := []
+	for type_name in ["ai_arena:grunt", "ai_arena:coward"]:
+		roamers.append(_spawn(type_name, Vector3(o) + Vector3(0.5 + roamers.size() * 4.0, 0, 0.5)))
+	var starts := roamers.map(func(m): return m.position)
+	_run(14.0)
+	for i in roamers.size():
+		var moved: float = roamers[i].position.distance_to(starts[i])
+		_check(moved > 2.0, "%s with nothing to do wanders around (moved %.1f blocks, %s)" % [roamers[i].def.name, moved, roamers[i].get_behavior()])
+		roamers[i].remove()
+	server.players.erase(player.peer_id)
 
 func _perception_and_chase() -> void:
 	var o := Vector3i(200, Y, 0)
@@ -464,6 +485,110 @@ func _exploding_mob() -> void:
 	second.remove()
 	server.players.erase(player.peer_id)
 	server.players.erase(runner.peer_id)
+
+
+func _unreachable_target() -> void:
+	var o := Vector3i(1800, Y, 0)
+	_load(o, 2)
+	for hgt in 5:
+		_put(o + Vector3i(0, hgt, 0), stone)  # a pillar the player stands on
+	var player := _player(Vector3(o) + Vector3(0.5, 5, 0.5))
+	player.set_max_health(1000.0)
+	player.health = 1000.0
+	var grunt = _spawn("ai_arena:grunt", Vector3(o) + Vector3(4.5, 0, 0.5))
+	grunt.set_target(player)
+	_run(3.0)
+	var jumps := [0]
+	var was_ground := [true]
+	_run_until(func():
+		if was_ground[0] and not grunt.body.on_ground and grunt.body.velocity.y > 1.0:
+			jumps[0] += 1
+		was_ground[0] = grunt.body.on_ground
+		return false, 6.0)
+	_check(jumps[0] <= 2, "a mob below a player it cannot reach does not hop in place (%d jumps in 6 s)" % jumps[0])
+	_check(player.health == 1000.0, "and cannot hit them up there")
+	_remove(grunt, player)
+	for hgt in 5:
+		_put(o + Vector3i(0, hgt, 0), 0)
+
+
+func _no_hits_through_walls() -> void:
+	var o := Vector3i(1900, Y, 0)
+	_load(o, 2)
+	for x in range(-1, 2):
+		for z in range(1, 4):
+			for hgt in 3:
+				if not (x == 0 and z == 2 and hgt < 2):
+					_put(o + Vector3i(x, hgt, z), stone)  # a closed one-block cell; its wall is one block thick
+	var player := _player(Vector3(o) + Vector3(0.5, 0, 2.35))  # pressed against the near wall inside
+	player.set_max_health(1000.0)
+	player.health = 1000.0
+	var grunt = _spawn("ai_arena:grunt", Vector3(o) + Vector3(0.5, 0, 0.65))  # pressed against the near side
+	grunt.set_target(player)
+	grunt.brain.memory["p%d" % player.peer_id].seen = true
+	_run(5.0)
+	_check(player.health == 1000.0, "a mob cannot claw through a wall (health %.0f)" % player.health)
+	_remove(grunt, player)
+	for x in range(-1, 2):
+		for z in range(1, 4):
+			for hgt in 3:
+				_put(o + Vector3i(x, hgt, z), 0)
+
+
+func _shooting_a_jumping_player() -> void:
+	var o := Vector3i(2000, Y, 0)
+	_load(o, 2)
+	var player := _player(Vector3(o) + Vector3(0.5, 0, 10.5))
+	player.set_max_health(1000.0)
+	player.health = 1000.0
+	var archer = _spawn("ai_arena:archer", Vector3(o) + Vector3(0.5, 0, 0.5))
+	archer.tune({"agility": 0.0})
+	archer.set_target(player)
+	var hits := [0]
+	var last := [player.health]
+	var bounce := [0.0]
+	_run_until(func():
+		# The player hops on the spot: position bobs, velocity says "going up fast" half the time.
+		bounce[0] += DT
+		var phase := fmod(bounce[0], 0.6)
+		player.state.velocity = Vector3(0, 6.0 - phase * 20.0, 0)
+		player.state.position.y = Y + maxf(0.0, 6.0 * phase - 10.0 * phase * phase)
+		player.hurt_timer = 0.0
+		if player.health < last[0]:
+			hits[0] += 1
+			last[0] = player.health
+		return false, 8.0)
+	_check(hits[0] >= 3, "an archer keeps hitting a player who jumps around (%d hits in 8 s)" % hits[0])
+	player.state.velocity = Vector3.ZERO
+	_remove(archer, player)
+
+
+func _out_of_the_water() -> void:
+	var o := Vector3i(2100, Y, 0)
+	_load(o, 2)
+	var water: int = server.registry.id_of("base:water")
+	for x in range(-3, 4):
+		for z in range(-3, 4):
+			_put(o + Vector3i(x, -1, z), water)  # a pool one block deep, its surface a block below the floor
+	var cow = _spawn("ai_arena:grazer", Vector3(o) + Vector3(0.5, -1.0, 0.5))
+	cow.set_goal(Vector3(o) + Vector3(6.5, 0, 0.5))
+	_check(_run_until(func(): return cow.position.distance_to(Vector3(o) + Vector3(6.5, 0, 0.5)) < 1.2, 8.0),
+		"a mob that cannot swim climbs out of a pool onto the bank (%.1f blocks left)" % cow.position.distance_to(Vector3(o) + Vector3(6.5, 0, 0.5)))
+	cow.remove()
+	for x in range(-3, 4):
+		for z in range(-3, 4):
+			_put(o + Vector3i(x, -1, z), stone)
+
+
+func _sliding_off_corners() -> void:
+	var o := Vector3i(2200, Y, 0)
+	_load(o, 2)
+	_put(o + Vector3i(2, 0, 1), stone)  # one block beside the route
+	var cow = _spawn("ai_arena:grazer", Vector3(o) + Vector3(0.5, 0, 0.74))  # off-centre: its side overlaps the block's row
+	cow.set_goal(Vector3(o) + Vector3(6.5, 0, 0.5))
+	_check(_run_until(func(): return cow.position.x > o.x + 5.0, 4.0), "a mob scraping a corner slides free (x %.1f)" % (cow.position.x - o.x))
+	cow.remove()
+	_put(o + Vector3i(2, 0, 1), 0)
 
 
 func _load(center: Vector3i, radius: int) -> void:

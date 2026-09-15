@@ -271,6 +271,15 @@ changes with `tools/build_native.sh`.
      Part 2 (done): chunks and unloads travel on their own reliable channel (Net.BULK_CHANNEL) so terrain bursts no
      longer delay chat, block changes, UI and effects; clients buffer block changes for chunks still on the way
      (GameClient._early_edits, capped) and apply them when the chunk arrives.
+   - Mob AI hardening (user 2026-09-15, "mob ai seems to be iffy"; done): tests/ai_soak.gd runs vanilla mobs around
+     players on generated terrain and measures stuck time, hops in place, dithering, time in water, chases and hits
+     without line of sight (a short --check run is in the suite). Fixed: idle mobs never started wandering (idle's
+     stickiness bonus beat wander), mobs pushed and hopped endlessly at the end of a partial path or under an
+     unreachable player (now they stand at the closest point; jumps only onto a real step), skeletons aimed at the
+     top of a player's jump or knockback (lead horizontally only), melee needs an opening (no hits through walls),
+     mobs scraping a corner slide back to their lane, hoppers steer mid-hop, non-swimmers climb out of pools, the
+     vanilla mob tick visited a mob once per nearby player (zombies burned faster in company). Client: entity updates
+     stamped by server tick (no jitter) and a hold sample so a mob that starts moving walks off instead of jumping.
 5. **Loot and drops system** (follow-up, user 2026-09-14): one engine loot capability behind structure
    chests, mob drops, block drops, fishing/rewards later. Today these are three separate simple things
    (loot tables {rolls, entries}, entity `drops` [[item, count, chance]], block `drops`). Ideas: shared
