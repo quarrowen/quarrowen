@@ -55,13 +55,13 @@ run_scene() { # name log scene [user args...]
 }
 
 start_server all "vanilla,industry,arcana,guild" $((PORT_BASE + 1))
-start_server sky "skyblock" $((PORT_BASE + 2))
+start_server sky "skyblock" $((PORT_BASE + 3))
 wait_for_server all && wait_for_server sky || { echo "servers failed to start"; exit 1; }
 
 for game in vanilla industry arcana guild combat; do
   run_scene "e2e:$game" "$WORK/test_$game.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 1)) --game=$game
 done
-run_scene "e2e:skyblock" "$WORK/test_skyblock.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 2)) --game=skyblock
+run_scene "e2e:skyblock" "$WORK/test_skyblock.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 3)) --game=skyblock
 run_scene "auth" "$WORK/test_auth.log" res://tests/auth_test.tscn --port=$((PORT_BASE + 1))
 if [ -f tests/multiplayer_test.tscn ]; then
   run_scene "multiplayer" "$WORK/test_multiplayer.log" res://tests/multiplayer_test.tscn --port=$((PORT_BASE + 1))

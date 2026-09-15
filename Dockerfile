@@ -71,6 +71,6 @@ ENV VOXEL_DATA_DIR=/data \
     VOXEL_PORT=24565 \
     VOXEL_MODS=vanilla
 VOLUME ["/data"]
-EXPOSE 24565/udp
+EXPOSE 24565/udp 24566/udp
 STOPSIGNAL SIGTERM
 ENTRYPOINT ["/opt/voxelcraft/voxelcraft_server", "--headless"]

@@ -50,6 +50,7 @@ const UgcClient = preload("res://engine/client/ugc_client.gd")
 const CreationLibrary = preload("res://engine/client/creation_library.gd")
 const UgcReview = preload("res://engine/client/ugc_review.gd")
 const Creations = preload("res://engine/shared/creations.gd")
+const InviteCode = preload("res://engine/shared/invite_code.gd")
 const MinigameScreen = preload("res://engine/client/minigame_screen.gd")
 const EatingVisuals = preload("res://engine/client/eating_visuals.gd")
 const ItemIcons = preload("res://engine/client/item_icons.gd")
@@ -719,6 +720,53 @@ func on_ugc_admin_list(items: Array, policy: Dictionary) -> void:
 
 
 ## Report a creation another player is wearing.
+## The invite code for this server. When playing on this computer (a hosted world), people on the same
+## network use this computer's local address; from elsewhere they need its public address and the port
+## forwarded (the hub service will make that easier).
+func invite_text() -> String:
+	var address := server_address
+	if address in ["127.0.0.1", "localhost", "::1"]:
+		address = InviteCode.local_address()
+		if address.is_empty():
+			return ""
+	return InviteCode.share_text(address, server_port)
+
+
+func open_invite_dialog() -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "Invite friends"
+	dialog.ok_button_text = "Close"
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(460, 0)
+	box.add_theme_constant_override("separation", 10)
+	dialog.add_child(box)
+	var text := invite_text()
+	var intro := Label.new()
+	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	intro.custom_minimum_size.x = 460
+	var hosted := server_address in ["127.0.0.1", "localhost", "::1"]
+	intro.text = ("Friends paste this in Multiplayer → Join. Hosting from this computer works for people on the same network; for others, forward port %d (UDP) on your router and share your public address." % server_port) if hosted \
+		else "Friends paste this in Multiplayer → Join."
+	box.add_child(intro)
+	var code := LineEdit.new()
+	code.text = text if not text.is_empty() else "No network address found"
+	code.editable = false
+	code.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	code.add_theme_font_size_override("font_size", 26)
+	box.add_child(code)
+	var copy := Button.new()
+	copy.text = "Copy"
+	copy.disabled = text.is_empty()
+	copy.pressed.connect(func():
+		DisplayServer.clipboard_set(text)
+		copy.text = "Copied")
+	box.add_child(copy)
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	_hud_root.add_child(dialog)
+	dialog.popup_centered()
+
+
 func open_report_dialog() -> void:
 	var choices := []
 	for peer_id in _appearances:
@@ -2624,7 +2672,7 @@ func _build_hud() -> void:
 	guide_button.custom_minimum_size = Vector2(240, 44)
 	guide_button.pressed.connect(func(): _set_guide_open(true))
 	pause_box.add_child(guide_button)
-	for entry in [["Report a creation…", open_report_dialog], ["Review creations (admins)", open_ugc_review]]:
+	for entry in [["Invite friends…", open_invite_dialog], ["Report a creation…", open_report_dialog], ["Review creations (admins)", open_ugc_review]]:
 		var ugc_button := Button.new()
 		ugc_button.text = entry[0]
 		ugc_button.custom_minimum_size = Vector2(240, 44)

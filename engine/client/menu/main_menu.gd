@@ -1,0 +1,837 @@
+extends Control
+## The main menu: a sidebar (Play, Multiplayer, Avatar, Create, Settings, Quit) and one page at a time
+## over the live world backdrop, with a news column on the right. It only gathers choices and emits
+## signals; engine/main.gd launches servers and clients.
+
+signal play_world(world_id: String, mods: Array, dev: bool)
+signal join_server(address: String, port: int, server_name: String)
+signal avatar_requested
+signal mod_wizard_requested
+signal host_mod_requested(mods: String)
+signal identity_file_chosen(path: String, exporting: bool, passphrase: String)
+signal quit_requested
+
+const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
+const WorldList = preload("res://engine/client/menu/world_list.gd")
+const ServerBook = preload("res://engine/client/menu/server_book.gd")
+const ServerPinger = preload("res://engine/client/menu/server_pinger.gd")
+const InviteCode = preload("res://engine/shared/invite_code.gd")
+const ModLoader = preload("res://engine/server/mod_loader.gd")
+const Identity = preload("res://engine/shared/identity.gd")
+const Protocol = preload("res://engine/shared/protocol.gd")
+
+const NEWS := "res://engine/client/menu/news.json"
+const PAGES := ["play", "multiplayer", "create", "settings"]
+const STATUS_REFRESH := 10.0
+
+var player_name := "Player"
+var port := 24565
+
+var _pages := {}
+var _nav := {}
+var _page := "play"
+var _message: Label
+var _name_edit: LineEdit
+var _games: Array = []
+var _addons: Array = []
+# Play
+var _world_rows: VBoxContainer
+var _worlds: Array = []
+var _selected_world := ""
+var _world_buttons: Array[Button] = []
+var _dev_check: CheckBox
+# Multiplayer
+var _book
+var _server_tab: TabBar
+var _server_rows: VBoxContainer
+var _selected_server := ""
+var _server_buttons: Array[Button] = []
+var _direct_edit: LineEdit
+var _statuses := {}  # key -> status entry
+var _pinger: ServerPinger
+var _status_timer := 0.0
+# Settings
+var _identity_label: Label
+var _passphrase_edit: LineEdit
+
+
+func _ready() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	theme = MenuTheme.build()
+	_book = ServerBook.load_book()
+	_pinger = ServerPinger.new()
+	_pinger.result.connect(_on_status)
+	_discover_mods()
+	_build()
+	show_page("play")
+
+
+func _exit_tree() -> void:
+	_pinger.close()
+
+
+func _discover_mods() -> void:
+	var available := ModLoader.discover(ModLoader.search_dirs(PackedStringArray()))
+	for id: String in available:
+		var m: Dictionary = available[id]
+		if m.game:
+			_games.append(m)
+		elif id != "base" and not str(m.dir).begins_with("res://tests"):
+			_addons.append(m)
+	_games.sort_custom(func(a, b): return a.name < b.name)
+	_addons.sort_custom(func(a, b): return a.name < b.name)
+
+
+# --- Layout -------------------------------------------------------------------------------------
+
+func _build() -> void:
+	# Darken the left side so the panels read well over a bright world.
+	var shade := TextureRect.new()
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(0, 0, 0, 0.7))
+	gradient.set_color(1, Color(0, 0, 0, 0))
+	var texture := GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.fill_to = Vector2(1, 0)
+	shade.texture = texture
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	shade.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+	shade.anchor_right = 0.75
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(shade)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 28)
+	add_child(margin)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 22)
+	margin.add_child(row)
+
+	row.add_child(_build_sidebar())
+	var content := PanelContainer.new()
+	content.custom_minimum_size = Vector2(700, 0)
+	row.add_child(content)
+	var stack := Control.new()
+	content.add_child(stack)
+	_pages.play = _build_play()
+	_pages.multiplayer = _build_multiplayer()
+	_pages.create = _build_create()
+	_pages.settings = _build_settings()
+	for page: Control in _pages.values():
+		page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		stack.add_child(page)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
+	row.add_child(_build_news())
+
+	_message = Label.new()
+	_message.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_message.offset_top = -64
+	_message.offset_left = -400
+	_message.offset_right = 400
+	_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_message.add_theme_color_override("font_color", MenuTheme.WARN)
+	_message.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	_message.add_theme_constant_override("outline_size", 6)
+	add_child(_message)
+
+
+func _build_sidebar() -> Control:
+	var side := VBoxContainer.new()
+	side.custom_minimum_size.x = 230
+	side.add_theme_constant_override("separation", 6)
+	var title := Label.new()
+	title.text = "VoxelCraft"
+	title.add_theme_font_size_override("font_size", 46)
+	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
+	title.add_theme_constant_override("outline_size", 10)
+	side.add_child(title)
+	side.add_child(MenuTheme.muted("version %s" % Protocol.GAME_VERSION))
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 26
+	side.add_child(gap)
+	var group := ButtonGroup.new()
+	for entry in [["play", "Play"], ["multiplayer", "Multiplayer"], ["avatar", "Avatar"], ["create", "Create"], ["settings", "Settings"]]:
+		var button := MenuTheme.nav(Button.new())
+		button.text = entry[1]
+		if entry[0] != "avatar":
+			button.button_group = group
+			button.pressed.connect(show_page.bind(entry[0]))
+		else:
+			button.toggle_mode = false
+			button.pressed.connect(func(): avatar_requested.emit())
+		side.add_child(button)
+		_nav[entry[0]] = button
+	var fill := Control.new()
+	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	side.add_child(fill)
+	# The player card: name and short identity.
+	var card := PanelContainer.new()
+	side.add_child(card)
+	var card_box := VBoxContainer.new()
+	card.add_child(card_box)
+	card_box.add_child(MenuTheme.muted("Playing as"))
+	_name_edit = LineEdit.new()
+	_name_edit.text = player_name
+	_name_edit.max_length = 16
+	_name_edit.text_changed.connect(func(t): player_name = t)
+	card_box.add_child(_name_edit)
+	var quit := MenuTheme.nav(Button.new())
+	quit.toggle_mode = false
+	quit.text = "Quit"
+	quit.pressed.connect(func(): quit_requested.emit())
+	side.add_child(quit)
+	return side
+
+
+func _build_news() -> Control:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size.x = 290
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	panel.add_child(box)
+	box.add_child(MenuTheme.heading("What's new", 20))
+	var items = JSON.parse_string(FileAccess.get_file_as_string(NEWS)) if FileAccess.file_exists(NEWS) else []
+	for item in (items if items is Array else []).slice(0, 5):
+		if not (item is Dictionary):
+			continue
+		var title := Label.new()
+		title.text = str(item.get("title", ""))
+		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		title.add_theme_font_size_override("font_size", 16)
+		box.add_child(title)
+		var body := MenuTheme.muted(str(item.get("body", "")), 13)
+		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(body)
+	return panel
+
+
+func show_page(page: String) -> void:
+	_page = page
+	for id: String in _pages:
+		_pages[id].visible = id == page
+	if _nav.has(page):
+		_nav[page].button_pressed = true
+	match page:
+		"play": refresh_worlds()
+		"multiplayer": refresh_servers(true)
+		"settings": _refresh_identity()
+
+
+func show_message(text: String) -> void:
+	_message.text = text
+
+
+func set_player_name(text: String) -> void:
+	player_name = text
+	if _name_edit != null:
+		_name_edit.text = text
+
+
+func _process(delta: float) -> void:
+	_pinger.update()
+	if _page == "multiplayer" and visible:
+		_status_timer += delta
+		if _status_timer >= STATUS_REFRESH:
+			refresh_servers(true)
+
+
+# --- Play ---------------------------------------------------------------------------------------
+
+func _build_play() -> Control:
+	var page := VBoxContainer.new()
+	page.add_theme_constant_override("separation", 12)
+	var header := HBoxContainer.new()
+	page.add_child(header)
+	var title := MenuTheme.heading("Your worlds")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	var new_button := MenuTheme.primary(Button.new())
+	new_button.text = "New world…"
+	new_button.pressed.connect(open_new_world)
+	header.add_child(new_button)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	page.add_child(scroll)
+	_world_rows = VBoxContainer.new()
+	_world_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_world_rows.add_theme_constant_override("separation", 6)
+	scroll.add_child(_world_rows)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	page.add_child(actions)
+	var play := MenuTheme.primary(Button.new())
+	play.text = "Play"
+	play.custom_minimum_size.x = 140
+	play.pressed.connect(play_selected_world)
+	actions.add_child(play)
+	for entry in [["Rename…", _rename_world], ["Delete…", _delete_world], ["Open folder", _open_world_folder]]:
+		var b := Button.new()
+		b.text = entry[0]
+		b.pressed.connect(entry[1])
+		actions.add_child(b)
+		_world_buttons.append(b)
+	_world_buttons.append(play)
+	_dev_check = CheckBox.new()
+	_dev_check.text = "Developer mode: dev tools (F8) and mods reload when you save them"
+	page.add_child(_dev_check)
+	return page
+
+
+func refresh_worlds() -> void:
+	_worlds = WorldList.list()
+	for child in _world_rows.get_children():
+		child.queue_free()
+	if _worlds.is_empty():
+		var empty := VBoxContainer.new()
+		empty.add_theme_constant_override("separation", 10)
+		empty.add_child(MenuTheme.muted("No worlds yet. Create one to start playing.", 16))
+		_world_rows.add_child(empty)
+		_selected_world = ""
+	elif not _worlds.any(func(w): return w.id == _selected_world):
+		_selected_world = _worlds[0].id
+	for w in _worlds:
+		_world_rows.add_child(_world_row(w))
+	for b in _world_buttons:
+		b.disabled = _selected_world.is_empty()
+
+
+func _world_row(w: Dictionary) -> Control:
+	var game_name := str(w.game)
+	for g in _games:
+		if g.id == w.game:
+			game_name = g.name
+	var extras: Array = w.mods.filter(func(m): return m != w.game).map(func(m):
+		for a in _addons:
+			if a.id == m:
+				return a.name
+		return m)
+	var subtitle := "%s%s · %s" % [game_name, " + %s" % ", ".join(extras) if not extras.is_empty() else "",
+		"played %s" % WorldList.describe_time(w.last_played) if w.last_played > 0 else "new world"]
+	return _row(w.id, str(w.title), subtitle, "", _selected_world == w.id,
+		func():
+			_selected_world = w.id
+			refresh_worlds(),
+		func():
+			_selected_world = w.id
+			play_selected_world())
+
+
+func play_selected_world() -> void:
+	for w in _worlds:
+		if w.id == _selected_world:
+			var mods: Array = w.mods if not w.mods.is_empty() else [w.game]
+			if mods.is_empty() or str(mods[0]).is_empty():
+				show_message("This world does not say which game it is")
+				return
+			play_world.emit(w.id, mods, _dev_check.button_pressed)
+			return
+
+
+func open_new_world() -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "New world"
+	dialog.ok_button_text = "Create and play"
+	dialog.dialog_hide_on_ok = false
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(520, 0)
+	box.add_theme_constant_override("separation", 8)
+	dialog.add_child(box)
+	var title: LineEdit = _labeled(box, "Name", LineEdit.new())
+	title.text = "My World"
+	title.max_length = 64
+	var game: OptionButton = _labeled(box, "Game", OptionButton.new())
+	for g in _games:
+		game.add_item(g.name)
+	var description := MenuTheme.muted("", 13)
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	description.custom_minimum_size = Vector2(520, 36)  # wrapping labels need a width, or the dialog grows very tall
+	box.add_child(description)
+	game.item_selected.connect(func(i): description.text = str(_games[i].description))
+	var preferred := _games.map(func(g): return g.id).find("vanilla")
+	if preferred >= 0:
+		game.select(preferred)
+	if not _games.is_empty():
+		description.text = str(_games[maxi(preferred, 0)].description)
+	var checks := []
+	if not _addons.is_empty():
+		box.add_child(MenuTheme.muted("Add-ons"))
+		var flow := HFlowContainer.new()
+		flow.custom_minimum_size = Vector2(520, 40)  # a width, so it does not measure as one item per line
+		box.add_child(flow)
+		for a in _addons:
+			var check := CheckBox.new()
+			check.text = a.name
+			check.tooltip_text = str(a.description)
+			check.set_meta("id", a.id)
+			flow.add_child(check)
+			checks.append(check)
+	var seed_edit: LineEdit = _labeled(box, "Seed", LineEdit.new())
+	seed_edit.placeholder_text = "random (or any word or number)"
+	var status := Label.new()
+	status.add_theme_color_override("font_color", MenuTheme.WARN)
+	box.add_child(status)
+	dialog.confirmed.connect(func():
+		if _games.is_empty():
+			status.text = "No games are installed"
+			return
+		var mods := [_games[game.selected].id]
+		for check in checks:
+			if check.button_pressed:
+				mods.append(check.get_meta("id"))
+		var text := seed_edit.text.strip_edges()
+		var world_seed := -1
+		if not text.is_empty():
+			world_seed = int(text) if text.is_valid_int() else (hash(text) & 0x7fffffff)
+		var id := WorldList.create(title.text, mods, world_seed)
+		dialog.queue_free()
+		_selected_world = id
+		refresh_worlds()
+		play_world.emit(id, mods, _dev_check.button_pressed))
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered(Vector2i(580, 0))
+	title.grab_focus()
+	title.select_all()
+
+
+func _rename_world() -> void:
+	var w := _world(_selected_world)
+	if w.is_empty():
+		return
+	_prompt("Rename world", "Name", str(w.title), func(text):
+		WorldList.rename(w.id, text)
+		refresh_worlds())
+
+
+func _delete_world() -> void:
+	var w := _world(_selected_world)
+	if w.is_empty():
+		return
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "Delete world"
+	dialog.dialog_text = "Delete \"%s\" and its backups? This cannot be undone." % w.title
+	dialog.ok_button_text = "Delete"
+	dialog.confirmed.connect(func():
+		show_message("Deleted \"%s\"" % w.title if WorldList.delete(w.id) else "Could not delete \"%s\"" % w.title)
+		refresh_worlds()
+		dialog.queue_free())
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
+
+
+func _open_world_folder() -> void:
+	var w := _world(_selected_world)
+	if not w.is_empty():
+		OS.shell_open(ProjectSettings.globalize_path(WorldList.dir().path_join(w.id)))
+
+
+func _world(id: String) -> Dictionary:
+	for w in _worlds:
+		if w.id == id:
+			return w
+	return {}
+
+
+# --- Multiplayer --------------------------------------------------------------------------------
+
+func _build_multiplayer() -> Control:
+	var page := VBoxContainer.new()
+	page.add_theme_constant_override("separation", 12)
+	page.add_child(MenuTheme.heading("Multiplayer"))
+	var direct := HBoxContainer.new()
+	page.add_child(direct)
+	_direct_edit = LineEdit.new()
+	_direct_edit.placeholder_text = "Server address or invite code (VC-…)"
+	_direct_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_direct_edit.text_submitted.connect(func(_t): _join_direct())
+	direct.add_child(_direct_edit)
+	var join := MenuTheme.primary(Button.new())
+	join.text = "Join"
+	join.pressed.connect(_join_direct)
+	direct.add_child(join)
+	var tabs_row := HBoxContainer.new()
+	page.add_child(tabs_row)
+	_server_tab = TabBar.new()
+	_server_tab.add_tab("Favorites")
+	_server_tab.add_tab("Recent")
+	_server_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_server_tab.tab_changed.connect(func(_i):
+		_selected_server = ""
+		refresh_servers(true))
+	tabs_row.add_child(_server_tab)
+	var refresh := Button.new()
+	refresh.text = "Refresh"
+	refresh.pressed.connect(refresh_servers.bind(true))
+	tabs_row.add_child(refresh)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	page.add_child(scroll)
+	_server_rows = VBoxContainer.new()
+	_server_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_server_rows.add_theme_constant_override("separation", 6)
+	scroll.add_child(_server_rows)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	page.add_child(actions)
+	var join_selected := MenuTheme.primary(Button.new())
+	join_selected.text = "Join"
+	join_selected.custom_minimum_size.x = 120
+	join_selected.pressed.connect(join_selected_server)
+	actions.add_child(join_selected)
+	_server_buttons.append(join_selected)
+	var add := Button.new()
+	add.text = "Add server…"
+	add.pressed.connect(open_server_editor.bind({}))
+	actions.add_child(add)
+	for entry in [["Edit…", _edit_server], ["Remove", _remove_server], ["Copy invite", _copy_invite]]:
+		var b := Button.new()
+		b.text = entry[0]
+		b.pressed.connect(entry[1])
+		actions.add_child(b)
+		_server_buttons.append(b)
+	return page
+
+
+func _server_list() -> Array:
+	return _book.favorites if _server_tab.current_tab == 0 else _book.recent
+
+
+## Redraws the list; `query` asks every listed server for its status again.
+func refresh_servers(query := false) -> void:
+	var list := _server_list()
+	for child in _server_rows.get_children():
+		child.queue_free()
+	if list.is_empty():
+		_server_rows.add_child(MenuTheme.muted("No favorite servers yet. Add one, or join by address or invite code above." if _server_tab.current_tab == 0
+			else "Servers you join show up here.", 16))
+	var keys := list.map(func(e): return ServerBook.key(e.address, e.port))
+	if not keys.has(_selected_server):
+		_selected_server = keys[0] if not keys.is_empty() else ""
+	for e in list:
+		_server_rows.add_child(_server_row(e))
+	for b in _server_buttons:
+		b.disabled = _selected_server.is_empty()
+	if _server_buttons.size() > 2:
+		_server_buttons[1].disabled = _selected_server.is_empty() or _server_tab.current_tab != 0  # Edit
+	if query:
+		_status_timer = 0.0
+		for e in list:
+			_pinger.ping(ServerBook.key(e.address, e.port), e.address, e.port)
+
+
+func _server_row(e: Dictionary) -> Control:
+	var k := ServerBook.key(e.address, e.port)
+	var s: Dictionary = _statuses.get(k, {})
+	var subtitle := "%s:%d" % [e.address, e.port]
+	var right := "…"
+	var right_color := MenuTheme.MUTED
+	if not s.is_empty():
+		if s.online:
+			var info: Dictionary = s.info
+			subtitle = "%s · %s" % [info.game_name if not info.game_name.is_empty() else info.game, info.motd if not info.motd.is_empty() else subtitle]
+			right = "%d/%d  ·  %d ms" % [info.players, info.max_players, s.ping_ms]
+			right_color = MenuTheme.GOOD if s.ping_ms < 80 else (MenuTheme.WARN if s.ping_ms < 200 else MenuTheme.BAD)
+			if not info.compatible:
+				right = "version %s" % info.version
+				right_color = MenuTheme.BAD
+		else:
+			right = "offline"
+			right_color = MenuTheme.BAD
+	var shown_name := str(e.name)
+	if not s.is_empty() and s.online and (shown_name == e.address or shown_name.is_empty()):
+		shown_name = s.info.name
+	var row := _row(k, shown_name, subtitle, right, _selected_server == k,
+		func():
+			_selected_server = k
+			refresh_servers(),
+		func():
+			_selected_server = k
+			join_selected_server())
+	row.get_meta("right").add_theme_color_override("font_color", right_color)
+	return row
+
+
+func _on_status(k: String, entry: Dictionary) -> void:
+	_statuses[k] = entry
+	if _page == "multiplayer":
+		refresh_servers()
+
+
+func join_selected_server() -> void:
+	for e in _server_list():
+		if ServerBook.key(e.address, e.port) == _selected_server:
+			_join(e.address, e.port, str(e.name))
+			return
+
+
+func _join_direct() -> void:
+	var parsed := InviteCode.parse(_direct_edit.text)
+	if parsed.has("error"):
+		show_message(parsed.error)
+		return
+	_join(parsed.address, parsed.port, "")
+
+
+func _join(address: String, game_port: int, server_name: String) -> void:
+	var s: Dictionary = _statuses.get(ServerBook.key(address, game_port), {})
+	if server_name.is_empty() or server_name == address:
+		server_name = s.info.name if not s.is_empty() and s.online else address
+	_book.note_joined(server_name, address, game_port)
+	join_server.emit(address, game_port, server_name)
+
+
+func open_server_editor(entry: Dictionary) -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "Edit server" if not entry.is_empty() else "Add server"
+	dialog.ok_button_text = "Save"
+	dialog.dialog_hide_on_ok = false
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(460, 0)
+	dialog.add_child(box)
+	var name_edit: LineEdit = _labeled(box, "Name", LineEdit.new())
+	name_edit.text = str(entry.get("name", ""))
+	name_edit.placeholder_text = "shown in your list"
+	var address_edit: LineEdit = _labeled(box, "Address", LineEdit.new())
+	address_edit.placeholder_text = "host, host:port or invite code"
+	if not entry.is_empty():
+		address_edit.text = entry.address if int(entry.port) == InviteCode.DEFAULT_PORT else "%s:%d" % [entry.address, entry.port]
+	var status := Label.new()
+	status.add_theme_color_override("font_color", MenuTheme.WARN)
+	box.add_child(status)
+	dialog.confirmed.connect(func():
+		var parsed := InviteCode.parse(address_edit.text)
+		if parsed.has("error"):
+			status.text = parsed.error
+			return
+		if not entry.is_empty():
+			_book.remove_favorite(entry.address, int(entry.port))
+		if not _book.add_favorite(name_edit.text, parsed.address, parsed.port):
+			status.text = "Your favorites list is full"
+			return
+		_selected_server = ServerBook.key(parsed.address, parsed.port)
+		_server_tab.current_tab = 0
+		dialog.queue_free()
+		refresh_servers(true))
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
+	name_edit.grab_focus()
+
+
+func _selected_entry() -> Dictionary:
+	for e in _server_list():
+		if ServerBook.key(e.address, e.port) == _selected_server:
+			return e
+	return {}
+
+
+func _edit_server() -> void:
+	var e := _selected_entry()
+	if not e.is_empty():
+		open_server_editor(e)
+
+
+func _remove_server() -> void:
+	var e := _selected_entry()
+	if e.is_empty():
+		return
+	if _server_tab.current_tab == 0:
+		_book.remove_favorite(e.address, e.port)
+	else:
+		_book.recent = _book.recent.filter(func(x): return ServerBook.key(x.address, x.port) != _selected_server)
+		_book.save()
+	_selected_server = ""
+	refresh_servers()
+
+
+func _copy_invite() -> void:
+	var e := _selected_entry()
+	if e.is_empty():
+		return
+	var text := InviteCode.share_text(e.address, e.port)
+	DisplayServer.clipboard_set(text)
+	show_message("Copied %s" % text)
+
+
+# --- Create -------------------------------------------------------------------------------------
+
+func _build_create() -> Control:
+	var page := VBoxContainer.new()
+	page.add_theme_constant_override("separation", 12)
+	page.add_child(MenuTheme.heading("Create"))
+	page.add_child(_card("Make a mod", "A starter mod in GDScript or JavaScript with a block, an item, recipes, a command, a guide page and a tutorial.",
+		"Create a mod…", func(): mod_wizard_requested.emit()))
+	page.add_child(_card("Your mods folder", ModLoader.creation_dir(), "Open folder",
+		func(): OS.shell_open(ProjectSettings.globalize_path(ModLoader.creation_dir()))))
+	page.add_child(_card("Mod API reference", "Every function, event and type mods can use.", "Open docs",
+		func(): OS.shell_open(ProjectSettings.globalize_path("res://docs/api/index.html"))))
+	if not _addons.is_empty() or not _games.is_empty():
+		page.add_child(MenuTheme.muted("Try a mod with developer tools (F8, reload on save):"))
+		var flow := HFlowContainer.new()
+		page.add_child(flow)
+		for m in _games + _addons:
+			var b := Button.new()
+			b.text = m.name
+			b.tooltip_text = str(m.description)
+			var mods: String = m.id if m.game else "vanilla,%s" % m.id
+			b.pressed.connect(func(): host_mod_requested.emit(mods))
+			flow.add_child(b)
+	return page
+
+
+func _card(title: String, body: String, action: String, callback: Callable) -> Control:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", MenuTheme.box(MenuTheme.PANEL_LIGHT, 10, 14, 12))
+	var row := HBoxContainer.new()
+	panel.add_child(row)
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text)
+	var heading := Label.new()
+	heading.text = title
+	heading.add_theme_font_size_override("font_size", 18)
+	text.add_child(heading)
+	var description := MenuTheme.muted(body, 13)
+	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text.add_child(description)
+	var button := Button.new()
+	button.text = action
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.pressed.connect(callback)
+	row.add_child(button)
+	return panel
+
+
+# --- Settings -----------------------------------------------------------------------------------
+
+func _build_settings() -> Control:
+	var page := VBoxContainer.new()
+	page.add_theme_constant_override("separation", 12)
+	page.add_child(MenuTheme.heading("Settings"))
+	page.add_child(MenuTheme.muted("Graphics, audio, controls and accessibility settings are coming next. In game, F3 cycles graphics presets."))
+	page.add_child(HSeparator.new())
+	page.add_child(MenuTheme.heading("Identity", 20))
+	_identity_label = MenuTheme.muted("")
+	_identity_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	page.add_child(_identity_label)
+	page.add_child(MenuTheme.muted("Your identity key is your account on every server. Export it (encrypted with a passphrase) to play from another computer.", 13))
+	_passphrase_edit = _labeled(page, "Passphrase", LineEdit.new())
+	_passphrase_edit.secret = true
+	_passphrase_edit.placeholder_text = "at least %d characters" % Identity.MIN_PASSPHRASE_LENGTH
+	var identity_row := HBoxContainer.new()
+	page.add_child(identity_row)
+	for mode in ["Export identity…", "Import identity…"]:
+		var button := Button.new()
+		button.text = mode
+		button.pressed.connect(_pick_identity_file.bind(mode.begins_with("Export")))
+		identity_row.add_child(button)
+	page.add_child(HSeparator.new())
+	page.add_child(MenuTheme.heading("Hosting", 20))
+	var port_edit: SpinBox = _labeled(page, "Port", SpinBox.new())
+	port_edit.min_value = 1024
+	port_edit.max_value = 65534
+	port_edit.value = port
+	port_edit.value_changed.connect(func(v): port = int(v))
+	page.add_child(MenuTheme.muted("Worlds you play are hosted on this port (and the next one answers server list pings).", 13))
+	return page
+
+
+func _refresh_identity() -> void:
+	var exists := FileAccess.file_exists(Identity.path_for())
+	_identity_label.text = "Identity: %s" % (Identity.player_id(Identity.load_or_create()) if exists else "created when you first join")
+
+
+func _pick_identity_file(exporting: bool) -> void:
+	if _passphrase_edit.text.length() < Identity.MIN_PASSPHRASE_LENGTH:
+		show_message("Enter a passphrase of at least %d characters first" % Identity.MIN_PASSPHRASE_LENGTH)
+		return
+	var dialog := FileDialog.new()
+	dialog.use_native_dialog = true
+	dialog.access = FileDialog.ACCESS_FILESYSTEM
+	dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE if exporting else FileDialog.FILE_MODE_OPEN_FILE
+	dialog.filters = PackedStringArray(["*.json ; VoxelCraft identity"])
+	dialog.current_file = "voxelcraft-identity.json"
+	dialog.file_selected.connect(func(path: String):
+		identity_file_chosen.emit(path, exporting, _passphrase_edit.text)
+		_passphrase_edit.text = ""
+		_refresh_identity()
+		dialog.queue_free())
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered_ratio(0.6)
+
+
+# --- Helpers ------------------------------------------------------------------------------------
+
+## A selectable list row: title, subtitle and a right-hand note. Click selects, double click activates.
+func _row(_key: String, title: String, subtitle: String, right: String, selected: bool, on_select: Callable, on_activate: Callable) -> Control:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", MenuTheme.box(MenuTheme.PANEL_SELECTED if selected else MenuTheme.PANEL_LIGHT, 10, 14, 10,
+		MenuTheme.ACCENT if selected else Color(0, 0, 0, 0)))
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			if event.double_click:
+				on_activate.call()
+			else:
+				on_select.call())
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(row)
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text.add_theme_constant_override("separation", 2)
+	row.add_child(text)
+	var t := Label.new()
+	t.text = title
+	t.add_theme_font_size_override("font_size", 18)
+	t.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	text.add_child(t)
+	var s := MenuTheme.muted(subtitle, 13)
+	s.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	text.add_child(s)
+	var r := MenuTheme.muted(right, 14)
+	r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(r)
+	panel.set_meta("right", r)
+	return panel
+
+
+func _labeled(parent: Control, label_text: String, control: Control) -> Control:
+	var row := HBoxContainer.new()
+	var label := Label.new()
+	label.text = label_text
+	label.custom_minimum_size.x = 110
+	row.add_child(label)
+	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(control)
+	parent.add_child(row)
+	return control
+
+
+func _prompt(title: String, label: String, value: String, callback: Callable) -> void:
+	var dialog := ConfirmationDialog.new()
+	dialog.title = title
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(380, 0)
+	dialog.add_child(box)
+	var edit: LineEdit = _labeled(box, label, LineEdit.new())
+	edit.text = value
+	dialog.confirmed.connect(func():
+		callback.call(edit.text)
+		dialog.queue_free())
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered()
+	edit.grab_focus()
+	edit.select_all()

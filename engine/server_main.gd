@@ -4,6 +4,9 @@ extends Node
 ##
 ## Every option can come from a CLI arg (after `--`) or an environment variable; CLI wins.
 ##   --port=24565          VOXEL_PORT
+##   --name="My Server"    VOXEL_NAME          shown in server lists
+##   --motd="Welcome!"     VOXEL_MOTD          message shown in server lists
+##   --query-port=24566    VOXEL_QUERY_PORT    UDP port answering status queries (default port + 1, 0 = off)
 ##   --max-players=64      VOXEL_MAX_PLAYERS
 ##   --mods=vanilla        VOXEL_MODS          comma-separated; dependencies load automatically
 ##   --mods-dir=/mods      VOXEL_MODS_DIR      comma-separated folders searched before bundled mods
@@ -27,6 +30,9 @@ const Native = preload("res://engine/shared/native.gd")
 
 const DEFAULTS := {
 	"port": "24565",
+	"name": "",
+	"motd": "",
+	"query-port": "",
 	"max-players": "64",
 	"mods": "vanilla",
 	"mods-dir": "",
@@ -68,6 +74,9 @@ func _ready() -> void:
 
 	_config = {
 		"port": int(options.port),
+		"name": options.name,
+		"motd": options.motd,
+		"query_port": int(options["query-port"]) if not str(options["query-port"]).is_empty() else int(options.port) + 1,
 		"max_players": int(options["max-players"]),
 		"mods": mods,
 		"mod_dirs": String(options["mods-dir"]).replace(";", ",").split(",", false),

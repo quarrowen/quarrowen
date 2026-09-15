@@ -9,8 +9,21 @@ tech-modded world.
 ## Running
 
 Build the native extension once (`tools/build_native.sh`), then open the folder in Godot and press
-Play. **Host game** starts a local server for the selected game
-and joins it; **Join server** connects to an address.
+Play. The main menu shows a live generated world with your avatar, a sidebar and one page at a time:
+
+- **Play**: your worlds (title, game and add-ons, last played). **New world…** picks a name, game,
+  add-ons and an optional seed (a word or number); Play hosts it on a local server and joins it.
+  Rename, delete (with its backups) and open the folder; Developer mode turns on the dev tools.
+- **Multiplayer**: join by address (`host`, `host:port`) or invite code (`VC-XXXXX-XXXXX-X`), favorite
+  servers (add, edit, remove, copy invite) and recent ones, each with its name, message, game,
+  players, ping and a version warning, refreshed every 10 seconds.
+- **Avatar** opens the avatar editor; **Create** has the mod wizard, your mods folder, the API docs and
+  one-click dev hosting of any installed mod; **Settings** has identity export/import and the hosting
+  port (graphics, audio and controls are coming).
+- **What's new** on the right (`engine/client/menu/news.json`).
+
+In game, the pause menu's **Invite friends…** shows the server's invite code (for a hosted world, the
+computer's local network address). Menus scale up on high-density screens. Code: `engine/client/menu/`.
 
 ```sh
 # Dedicated server (mods are comma-separated; dependencies load automatically)
@@ -22,7 +35,7 @@ godot --path . -- --connect=127.0.0.1 --name=Steve
 godot --path . -- --host=skyblock --name=Steve
 ```
 
-Worlds save to `user://worlds/<world>`, downloaded assets to `user://cache/assets` and the player's
+Worlds save to `user://worlds/<world>` (world.json keeps the title, mods, game, seed and play times), downloaded assets to `user://cache/assets` and the player's
 identity key to `user://identity/`
 (on macOS under `~/Library/Application Support/Godot/app_userdata/VoxelCraft/`).
 
@@ -952,12 +965,14 @@ looks like an impostor to returning players, who then have to delete the pin fro
 `scenes/server.tscn` (`engine/server_main.gd`) loads no client code. Every option is a CLI arg or an
 environment variable: `VOXEL_PORT`, `VOXEL_MODS`, `VOXEL_MODS_DIR`, `VOXEL_DATA_DIR`, `VOXEL_WORLD`,
 `VOXEL_SEED`, `VOXEL_MAX_PLAYERS`, `VOXEL_METRICS`, `VOXEL_ADMINS`, `VOXEL_ADMIN_TOKEN`,
-`VOXEL_BACKUP_INTERVAL`, `VOXEL_BACKUP_KEEP`, `VOXEL_RESTORE`.
+`VOXEL_BACKUP_INTERVAL`, `VOXEL_BACKUP_KEEP`, `VOXEL_RESTORE`, `VOXEL_NAME` and `VOXEL_MOTD` (shown in
+server lists) and `VOXEL_QUERY_PORT`: status queries for menus (name, message, game, players, ping)
+are answered over UDP on the game port + 1 by default (0 turns them off; rate limited per address).
 
 ```sh
 docker build -t voxelcraft-server .
-docker run -p 24565:24565/udp -v voxel-data:/data -e VOXEL_MODS=vanilla,industry voxelcraft-server
-docker compose up        # vanilla on 24565, skyblock on 24566
+docker run -p 24565-24566:24565-24566/udp -v voxel-data:/data -e VOXEL_MODS=vanilla,industry voxelcraft-server
+docker compose up        # vanilla on 24565, skyblock on 24567 (status on the next port)
 ```
 
 The image compiles the Rust extension for the target architecture, exports the "Linux Server" preset

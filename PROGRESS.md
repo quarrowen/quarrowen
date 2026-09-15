@@ -216,14 +216,29 @@ changes with `tools/build_native.sh`.
      keep-alive and concurrent clients on Rust threads; the game thread takes queued requests and answers
      (same routes as the GDScript TCPServer fallback); /api/stream Server-Sent Events push state every 0.5 s.
      Possible later: WebSocket for two-way (a live console was ruled out), gzip for big payloads.
-3b. **Enhanced, more aesthetic player models** (future consideration, user 2026-09-15): beyond the blocky
-   64x64-skin body. Ideas: whole-body GLB models whose parts are named after the rig (head, torso,
-   arm_r_upper, ...) so animations keep working, with height/width, triangle and texture limits, a fallback
-   to the normal body and a server switch; smoother, higher-detail default bodies (rounded parts, finger and
-   face detail, eyes that blink); better animation (walk cycles, idle, emotes, cloth/cape motion).
-4. **Multiplayer network** (follow-up): server browser/discovery, server-to-server portals/transfer
-   with the same identity, profiles, friends/parties, roles/permissions, anti-cheat checks, 100+ player
-   scaling tests.
+4. **Multiplayer network + main menu** (current, branch `network`; user decisions 2026-09-15): discovery
+   through a central server list, LAN, favorites/recent and invite codes; friends and parties on a central
+   service (Rust, next to the server list); server transfers/portals; roles and permissions; anti-cheat
+   checks; 100+ player scale tests. The main menu becomes a hub with a live 3D background, tabs, a
+   settings screen and a news panel. In order:
+   - N1 Main menu hub (done: engine/client/menu/ main_menu, menu_backdrop, menu_theme, world_list, server_book,
+     server_pinger; engine/shared/server_status.gd + invite_code.gd; engine/server/status_query.gd; pause menu
+     Invite friends): live offline-generated world with the avatar, sidebar pages Play (worlds: new/rename/
+     delete/folder), Multiplayer (address or invite code, favorites and recent with UDP status: name, motd,
+     game, players, ping, version), Avatar, Create, Settings (identity, port); --name/--motd/--query-port;
+     menus scale on high-DPI (game screens still do not). Invite links (voxelcraft://) wait for export
+     packaging (URL scheme registration).
+   - N2 Settings screen: graphics, audio, controls/keybinds, accessibility, identity in one place.
+   - N3 Hub service + discovery: Rust service (repo, Docker) with signed server heartbeats and a server
+     browser, news feed for the menu, LAN discovery (broadcast status queries), hub short codes.
+   - N4 Friends and parties: identity-signed hub login, friend requests, presence (online, which server),
+     party invites, join a friend.
+   - N5 Server transfers/portals: signed transfer tickets between trusting servers, carry avatar/party,
+     portal blocks, commands and a mod API.
+   - N6 Roles and permissions: owner/admin/moderator/builder/custom roles for commands and actions, in game
+     and mod API.
+   - N7 Anti-cheat: movement/fly, reach, break speed, rate limits; logs, kicks, admin alerts.
+   - N8 Scale: 100+ bot load tests, interest management and bandwidth budgets.
 5. **Loot and drops system** (follow-up, user 2026-09-14): one engine loot capability behind structure
    chests, mob drops, block drops, fishing/rewards later. Today these are three separate simple things
    (loot tables {rolls, entries}, entity `drops` [[item, count, chance]], block `drops`). Ideas: shared
@@ -233,6 +248,11 @@ changes with `tools/build_native.sh`.
    names/lore, part materials, blueprint recipe picks); per-player loot in shared chests; mods and
    servers overriding or extending tables (inject entries, replace a mob's drops); loot preview in the
    recipe book / guide; JS and GDScript APIs; data files so creators edit tables without code.
+6. **Enhanced, more aesthetic player models** (moved to the end of the roadmap by the user 2026-09-15): beyond the blocky
+   64x64-skin body. Ideas: whole-body GLB models whose parts are named after the rig (head, torso,
+   arm_r_upper, ...) so animations keep working, with height/width, triangle and texture limits, a fallback
+   to the normal body and a server switch; smoother, higher-detail default bodies (rounded parts, finger and
+   face detail, eyes that blink); better animation (walk cycles, idle, emotes, cloth/cape motion).
 
 ## Pending (next steps, in order)
 

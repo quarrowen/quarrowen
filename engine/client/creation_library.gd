@@ -38,6 +38,8 @@ static func save(manifest: Dictionary, payload: PackedByteArray) -> Dictionary:
 ## Manifests of every creation, newest first.
 static func list() -> Array:
 	var out := []
+	if not DirAccess.dir_exists_absolute(dir()):
+		return out
 	for file in DirAccess.get_files_at(dir()):
 		if not file.ends_with(".json") or not file.begins_with("ugc_") or file.count(".") != 1:
 			continue

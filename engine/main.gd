@@ -22,6 +22,9 @@ const AvatarStore = preload("res://engine/client/avatar/avatar_store.gd")
 const AvatarEditor = preload("res://engine/client/avatar/avatar_editor.gd")
 const ModTemplates = preload("res://engine/server/mod_templates.gd")
 const CreationLibrary = preload("res://engine/client/creation_library.gd")
+const MainMenu = preload("res://engine/client/menu/main_menu.gd")
+const MenuBackdrop = preload("res://engine/client/menu/menu_backdrop.gd")
+const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 
 const DEFAULT_PORT := 24565
 const DEFAULT_GAME := "vanilla"
@@ -29,16 +32,9 @@ const DEFAULT_GAME := "vanilla"
 var _args := {}
 var _server_pid := -1
 var _client: Node
-var _menu: Control
-var _name_edit: LineEdit
-var _address_edit: LineEdit
-var _port_edit: SpinBox
-var _game_select: OptionButton
-var _message_label: Label
-var _dev_check: CheckBox
-var _games: Array = []
-var _identity_label: Label
-var _passphrase_edit: LineEdit
+var _menu: MainMenu
+var _backdrop: MenuBackdrop
+var _backdrop_fallback: ColorRect
 
 
 func _ready() -> void:
@@ -143,6 +139,9 @@ func _stop_local_server() -> void:
 
 func _start_client(address: String, port: int, player_name: String, token: String) -> void:
 	_menu.visible = false
+	_backdrop_fallback.visible = false
+	_remove_backdrop()
+	_scale_for_screen(false)
 	_client = GameClient.new()
 	_client.server_address = address
 	_client.server_port = port
@@ -175,113 +174,62 @@ func _on_client_exited(message: String) -> void:
 # --- Menu ---------------------------------------------------------------------------------------
 
 func _build_menu() -> void:
-	_menu = Control.new()
-	_menu.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_scale_for_screen(true)
+	_backdrop_fallback = ColorRect.new()
+	_backdrop_fallback.color = Color(0.1, 0.13, 0.18)
+	_backdrop_fallback.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_backdrop_fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_backdrop_fallback)
+	_menu = MainMenu.new()
+	_menu.player_name = _args.get("name", "Player%d" % (randi() % 1000))
+	_menu.port = int(_args.get("port", DEFAULT_PORT))
 	add_child(_menu)
+	_menu.play_world.connect(func(world_id: String, mods: Array, dev: bool):
+		var extra := PackedStringArray(["--world=%s" % world_id])
+		if dev:
+			extra.append("--dev")
+		_host(",".join(mods), _menu.port, _menu.player_name, extra))
+	_menu.join_server.connect(func(address: String, port: int, _server_name: String):
+		_start_client(address, port, _menu.player_name, ""))
+	_menu.avatar_requested.connect(_open_avatar_editor)
+	_menu.mod_wizard_requested.connect(_open_mod_wizard)
+	_menu.host_mod_requested.connect(func(mods: String):
+		_host(mods, _menu.port, _menu.player_name, PackedStringArray(["--dev", "--world=dev_%s" % mods.replace(",", "_")])))
+	_menu.identity_file_chosen.connect(func(path: String, exporting: bool, passphrase: String):
+		_menu.show_message(export_identity(path, passphrase) if exporting else import_identity(path, passphrase)))
+	_menu.quit_requested.connect(func(): get_tree().root.propagate_notification(NOTIFICATION_WM_CLOSE_REQUEST))
+	_add_backdrop()
 
-	var bg := ColorRect.new()
-	bg.color = Color(0.1, 0.13, 0.18)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_menu.add_child(bg)
 
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_menu.add_child(center)
-	var box := VBoxContainer.new()
-	box.custom_minimum_size = Vector2(400, 0)
-	box.add_theme_constant_override("separation", 10)
-	center.add_child(box)
+## Menus are laid out in logical pixels: on a high-density (Retina) screen they scale up to match.
+## The game's own screens do not scale yet, so it goes back to 1 while playing.
+func _scale_for_screen(menu: bool) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var window := get_window()
+	window.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
+	window.content_scale_factor = maxf(1.0, DisplayServer.screen_get_scale(window.current_screen)) if menu else 1.0
 
-	var title := Label.new()
-	title.text = "VoxelCraft"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 48)
-	box.add_child(title)
 
-	_name_edit = _labeled(box, "Name", LineEdit.new())
-	_name_edit.text = _args.get("name", "Player%d" % (randi() % 1000))
-	var avatar_button := Button.new()
-	avatar_button.text = "Customize avatar"
-	avatar_button.custom_minimum_size.y = 36
-	avatar_button.pressed.connect(_open_avatar_editor)
-	box.add_child(avatar_button)
-	_port_edit = _labeled(box, "Port", SpinBox.new())
-	_port_edit.min_value = 1024
-	_port_edit.max_value = 65535
-	_port_edit.value = int(_args.get("port", DEFAULT_PORT))
+## The live world behind the menu (not in headless runs such as tests).
+func _add_backdrop() -> void:
+	if _backdrop != null or DisplayServer.get_name() == "headless" or OS.get_environment("VOXEL_MENU_BACKDROP") == "0":
+		return
+	_backdrop = MenuBackdrop.new()
+	_backdrop.avatar_look = AvatarStore.load_avatar()
+	_backdrop.player_name = _menu.player_name
+	_backdrop.ready_to_show.connect(func():
+		var tween := create_tween()
+		tween.tween_property(_backdrop_fallback, "modulate:a", 0.0, 0.8)
+		tween.tween_callback(func(): _backdrop_fallback.visible = false))
+	add_child(_backdrop)
+	move_child(_backdrop, 0)
 
-	box.add_child(HSeparator.new())
-	_address_edit = _labeled(box, "Server address", LineEdit.new())
-	_address_edit.text = "127.0.0.1"
-	var join_button := Button.new()
-	join_button.text = "Join server"
-	join_button.custom_minimum_size.y = 44
-	join_button.pressed.connect(func(): _start_client(_address_edit.text.strip_edges(), int(_port_edit.value), _name_edit.text, ""))
-	box.add_child(join_button)
 
-	box.add_child(HSeparator.new())
-	_game_select = _labeled(box, "Game", OptionButton.new())
-	var available := ModLoader.discover(ModLoader.search_dirs(PackedStringArray()))
-	for id: String in available:
-		if available[id].game:
-			_games.append(available[id])
-	_games.sort_custom(func(a, b): return a.name < b.name)
-	for game in _games:
-		_game_select.add_item(game.name)
-	var host_button := Button.new()
-	host_button.text = "Host game (local server)"
-	host_button.custom_minimum_size.y = 44
-	host_button.disabled = _games.is_empty()
-	host_button.pressed.connect(func(): _host(_games[_game_select.selected].id, int(_port_edit.value), _name_edit.text,
-		PackedStringArray(["--dev"]) if _dev_check.button_pressed else PackedStringArray()))
-	box.add_child(host_button)
-	_dev_check = CheckBox.new()
-	_dev_check.text = "Developer mode (dev tools with F8, reload mods on save)"
-	box.add_child(_dev_check)
-	var create_button := Button.new()
-	create_button.text = "Create a mod…"
-	create_button.custom_minimum_size.y = 36
-	create_button.pressed.connect(_open_mod_wizard)
-	box.add_child(create_button)
-	var description := Label.new()
-	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	description.modulate = Color(1, 1, 1, 0.7)
-	box.add_child(description)
-	_game_select.item_selected.connect(func(i): description.text = _games[i].description)
-	if not _games.is_empty():
-		description.text = _games[0].description
-
-	box.add_child(HSeparator.new())
-	_identity_label = Label.new()
-	_identity_label.modulate = Color(1, 1, 1, 0.7)
-	_identity_label.tooltip_text = "Your identity key is your account on every server. Export it to play from another computer."
-	_identity_label.mouse_filter = Control.MOUSE_FILTER_PASS
-	box.add_child(_identity_label)
-	_refresh_identity_label()
-	_passphrase_edit = _labeled(box, "Passphrase", LineEdit.new())
-	_passphrase_edit.secret = true
-	_passphrase_edit.placeholder_text = "for identity export / import"
-	var identity_row := HBoxContainer.new()
-	box.add_child(identity_row)
-	for mode in ["Export identity...", "Import identity..."]:
-		var button := Button.new()
-		button.text = mode
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.pressed.connect(_pick_identity_file.bind(mode.begins_with("Export")))
-		identity_row.add_child(button)
-
-	box.add_child(HSeparator.new())
-	var quit_button := Button.new()
-	quit_button.text = "Quit"
-	quit_button.custom_minimum_size.y = 44
-	quit_button.pressed.connect(func(): get_tree().root.propagate_notification(NOTIFICATION_WM_CLOSE_REQUEST))
-	box.add_child(quit_button)
-
-	_message_label = Label.new()
-	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_message_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.6))
-	box.add_child(_message_label)
+func _remove_backdrop() -> void:
+	if _backdrop != null:
+		_backdrop.queue_free()
+		_backdrop = null
 
 
 ## Your portable look: built-in cosmetics, saved on this computer and shown on every server that allows them.
@@ -290,12 +238,18 @@ func _open_avatar_editor() -> void:
 	var images := {}
 	CreationLibrary.register_all(registry, images)
 	var editor := AvatarEditor.new()
-	editor.setup(registry, LookBuilder.new(registry, images, CreationLibrary.read_model), PlayerRig.default_rig(), _name_edit.text,
+	editor.setup(registry, LookBuilder.new(registry, images, CreationLibrary.read_model), PlayerRig.default_rig(), _menu.player_name,
 		AvatarStore.load_avatar(), {"creations": true, "author": Identity.player_id(Identity.load_or_create())})
 	editor.done.connect(func(edited: Dictionary):
 		AvatarStore.save_avatar(registry.sanitize_avatar(edited))
+		if _backdrop != null:
+			_backdrop.refresh_avatar(AvatarStore.load_avatar(), _menu.player_name)
+		_menu.visible = true
 		editor.queue_free())
-	editor.cancelled.connect(editor.queue_free)
+	editor.cancelled.connect(func():
+		_menu.visible = true
+		editor.queue_free())
+	_menu.visible = false
 	add_child(editor)
 
 
@@ -327,7 +281,7 @@ func _open_mod_wizard() -> void:
 	kind.add_item("Add-on (play it with Vanilla)")
 	kind.add_item("Game (its own world)")
 	var author: LineEdit = _labeled(box, "Author", LineEdit.new())
-	author.text = _name_edit.text
+	author.text = _menu.player_name
 	var where := Label.new()
 	where.text = "Saved in %s" % ModLoader.creation_dir()
 	where.modulate = Color(1, 1, 1, 0.6)
@@ -348,7 +302,7 @@ func _open_mod_wizard() -> void:
 		dialog.queue_free()
 		_mod_created(result, id_edit.text.strip_edges()))
 	dialog.canceled.connect(dialog.queue_free)
-	add_child(dialog)
+	_menu.add_child(dialog)
 	dialog.popup_centered()
 	name_edit.grab_focus()
 
@@ -370,37 +324,10 @@ func _mod_created(result: Dictionary, id: String) -> void:
 	dialog.confirmed.connect(func():
 		dialog.queue_free()
 		var mods := id if result.game else "vanilla,%s" % id
-		_host(mods, int(_port_edit.value), _name_edit.text, PackedStringArray(["--dev"])))
+		_host(mods, _menu.port, _menu.player_name, PackedStringArray(["--dev", "--world=dev_%s" % id])))
 	dialog.canceled.connect(dialog.queue_free)
-	add_child(dialog)
+	_menu.add_child(dialog)
 	dialog.popup_centered()
-
-
-func _refresh_identity_label() -> void:
-	var exists := FileAccess.file_exists(Identity.path_for())
-	_identity_label.text = "Identity: %s" % (Identity.player_id(Identity.load_or_create()) if exists else "created when you first join")
-
-
-func _pick_identity_file(exporting: bool) -> void:
-	if _passphrase_edit.text.length() < Identity.MIN_PASSPHRASE_LENGTH:
-		_message_label.text = "Enter a passphrase of at least %d characters first" % Identity.MIN_PASSPHRASE_LENGTH
-		return
-	var dialog := FileDialog.new()
-	dialog.use_native_dialog = true
-	dialog.access = FileDialog.ACCESS_FILESYSTEM
-	dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE if exporting else FileDialog.FILE_MODE_OPEN_FILE
-	dialog.filters = PackedStringArray(["*.json ; VoxelCraft identity"])
-	dialog.current_file = "voxelcraft-identity.json"
-	dialog.file_selected.connect(func(path: String):
-		_message_label.text = "Working..."
-		await get_tree().process_frame
-		_message_label.text = export_identity(path, _passphrase_edit.text) if exporting else import_identity(path, _passphrase_edit.text)
-		_passphrase_edit.text = ""
-		_refresh_identity_label()
-		dialog.queue_free())
-	dialog.canceled.connect(dialog.queue_free)
-	add_child(dialog)
-	dialog.popup_centered_ratio(0.6)
 
 
 func _labeled(parent: Control, label_text: String, control: Control) -> Control:
@@ -416,5 +343,10 @@ func _labeled(parent: Control, label_text: String, control: Control) -> Control:
 
 
 func _show_menu(message: String) -> void:
+	_scale_for_screen(true)
 	_menu.visible = true
-	_message_label.text = message
+	_backdrop_fallback.visible = true
+	_backdrop_fallback.modulate.a = 1.0
+	_menu.show_message(message)
+	_menu.show_page(_menu._page)
+	_add_backdrop()

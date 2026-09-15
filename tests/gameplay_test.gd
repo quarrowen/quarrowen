@@ -60,6 +60,8 @@ func _ready() -> void:
 	await _accessory_tools()
 	await _ugc_server()
 	await _ugc_moderation()
+	_menu_data()
+	await _status_query()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -2811,6 +2813,92 @@ func _ugc_moderation() -> void:
 	var again = preload("res://engine/server/ugc.gd").new(server)
 	again.load_store(server._save_dir)
 	_check(again.trusted.has("artist_id") and again.store[id].reason == "looks like someone else's", "moderation state is saved")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _menu_data() -> void:
+	var WorldList = preload("res://engine/client/menu/world_list.gd")
+	var ServerBook = preload("res://engine/client/menu/server_book.gd")
+	var InviteCode = preload("res://engine/shared/invite_code.gd")
+	var root := DATA_DIR.path_join("menu_worlds_%d" % Time.get_ticks_msec())
+	DirAccess.make_dir_recursive_absolute(root.path_join("backups"))
+	var a: String = WorldList.create("Sunny Meadows!", ["vanilla", "arcana"], 42, root)
+	var b: String = WorldList.create("Sunny Meadows!", ["skyblock"], -1, root)
+	_check(a == "sunny_meadows" and b == "sunny_meadows_2", "world ids come from titles and stay unique (%s, %s)" % [a, b])
+	var listed: Array = WorldList.list(root)
+	_check(listed.size() == 2 and listed.any(func(w): return w.id == a and w.title == "Sunny Meadows!" and w.game == "vanilla" and w.mods == ["vanilla", "arcana"] and w.seed == 42),
+		"the world list reads titles, games and mods (backups are not worlds)")
+	_check(WorldList.rename(a, "Meadows", root) and WorldList.read_meta(root.path_join(a)).title == "Meadows", "worlds can be renamed")
+	_check(not WorldList.delete("../" + a, root) and not WorldList.delete("backups", root) and WorldList.delete(b, root) and WorldList.list(root).size() == 1,
+		"deleting refuses odd names and removes the world")
+	_check(WorldList.describe_time(int(Time.get_unix_time_from_system()) - 7200) == "2 hours ago" and WorldList.describe_time(0) == "never", "play times read naturally")
+	# Saved servers.
+	OS.set_environment("VOXEL_SERVER_BOOK", root.path_join("servers.json"))
+	var book = ServerBook.load_book()
+	book.add_favorite("Home", "example.org", 24565)
+	book.add_favorite("Home renamed", "Example.org", 24565)
+	book.add_favorite("", "10.0.0.2", 25000)
+	for i in 15:
+		book.note_joined("S%d" % i, "10.1.0.%d" % i, 24565)
+	book.note_joined("S3 again", "10.1.0.3", 24565)
+	var again = ServerBook.load_book()
+	_check(again.favorites.size() == 2 and again.favorites[0].name == "Home renamed" and again.favorites[1].name == "10.0.0.2", "favorites update in place and are saved")
+	_check(again.recent.size() == ServerBook.MAX_RECENT and again.recent[0].name == "S3 again" and again.recent.filter(func(e): return e.address == "10.1.0.3").size() == 1,
+		"recent servers keep the latest joins without repeats")
+	again.move_favorite("10.0.0.2", 25000, -1)
+	_check(ServerBook.load_book().favorites[0].address == "10.0.0.2", "favorites can be reordered")
+	OS.set_environment("VOXEL_SERVER_BOOK", "")
+	# Invite codes.
+	var code: String = InviteCode.encode("192.168.1.42", 24565)
+	var parsed: Dictionary = InviteCode.parse(code.to_lower().replace("-", " "))
+	_check(code.begins_with("VC-") and code.length() == 16 and parsed.address == "192.168.1.42" and parsed.port == 24565, "invite codes round-trip (%s)" % code)
+	var typo := code.substr(0, 4) + ("A" if code[4] != "A" else "B") + code.substr(5)
+	_check(InviteCode.parse(typo).has("error"), "a mistyped invite code is caught")
+	_check(InviteCode.parse("play.example.com:25000") == {"address": "play.example.com", "port": 25000} and InviteCode.parse("[::1]:24570") == {"address": "::1", "port": 24570}
+		and InviteCode.parse("host:abc").has("error") and InviteCode.share_text("play.example.com", 24565) == "play.example.com", "plain addresses work too")
+
+
+func _status_query() -> void:
+	var ServerStatus = preload("res://engine/shared/server_status.gd")
+	var ServerPinger = preload("res://engine/client/menu/server_pinger.gd")
+	var nonce := PackedByteArray([1, 2, 3, 4, 5, 6, 7, 8])
+	_check(ServerStatus.make_request(nonce).size() == ServerStatus.REQUEST_SIZE and ServerStatus.parse_request(ServerStatus.make_request(nonce)) == nonce
+		and ServerStatus.parse_request(PackedByteArray([86, 88, 81, 49])).is_empty(), "status requests are fixed-size and checked")
+	var big := ServerStatus.make_response(nonce, {"name": "x".repeat(2000), "motd": "y".repeat(2000)})
+	_check(big.size() <= ServerStatus.RESPONSE_MAX, "status answers stay small")
+	var server = _start("status_%d" % Time.get_ticks_msec())
+	server.server_info.name = "Status Test"
+	server.server_info.motd = "hello"
+	var port := 26100 + randi() % 200
+	_check(server.status_query.start(port + 1) == OK, "the status responder listens")
+	var pinger = ServerPinger.new()
+	var answers := {}
+	pinger.result.connect(func(k, e): answers[k] = e)
+	pinger.ping("live", "127.0.0.1", port)
+	pinger.ping("dead", "127.0.0.1", port + 50)
+	var deadline := Time.get_ticks_msec() + 4000
+	while answers.size() < 2 and Time.get_ticks_msec() < deadline:
+		server.status_query.update()
+		pinger.update()
+		await get_tree().process_frame
+	var live: Dictionary = answers.get("live", {})
+	_check(live.get("online", false) and live.info.name == "Status Test" and live.info.motd == "hello" and live.info.game == "vanilla"
+		and live.info.compatible and live.info.max_players == server.max_players, "a server answers status queries with its name, game and players")
+	_check(answers.has("dead") and not answers.dead.online, "a server that does not answer shows as offline")
+	# Rate limit: many queries from one address within a second get only a few answers.
+	var flood := PacketPeerUDP.new()
+	flood.bind(0)
+	flood.set_dest_address("127.0.0.1", port + 1)
+	for i in 30:
+		flood.put_packet(ServerStatus.make_request(nonce))
+	await get_tree().process_frame
+	server.status_query.update()
+	await get_tree().process_frame
+	_check(flood.get_available_packet_count() <= server.status_query.PER_ADDRESS_PER_SECOND, "status answers are rate limited per address")
+	flood.close()
+	pinger.close()
+	server.status_query.stop()
 	server.queue_free()
 	await get_tree().process_frame
 

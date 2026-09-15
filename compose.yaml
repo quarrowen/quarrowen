@@ -1,6 +1,7 @@
 # Two different games from one image. Any VoxelCraft client can join either:
 #   vanilla  -> <host>:24565
-#   skyblock -> <host>:24566
+#   skyblock -> <host>:24567
+# Each server answers menu status queries (name, players, ping) on its port + 1.
 # Put extra or overriding mods in ./server-mods/<mod_id>/ (mounted at /mods).
 
 x-server: &server
@@ -19,6 +20,7 @@ services:
       VOXEL_METRICS: "60"
     ports:
       - "24565:24565/udp"
+      - "24566:24566/udp"
     volumes:
       - ./server-mods:/mods:ro
       - vanilla-data:/data
@@ -29,7 +31,8 @@ services:
       VOXEL_MODS: skyblock
       VOXEL_MAX_PLAYERS: "32"
     ports:
-      - "24566:24565/udp"
+      - "24567:24565/udp"
+      - "24568:24566/udp"
     volumes:
       - ./server-mods:/mods:ro
       - skyblock-data:/data

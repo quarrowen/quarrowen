@@ -41,6 +41,7 @@ const Tutorials = preload("res://engine/server/tutorials.gd")
 const DevLog = preload("res://engine/server/dev_log.gd")
 const DevTools = preload("res://engine/server/dev_tools.gd")
 const DevWeb = preload("res://engine/server/dev_web.gd")
+const StatusQuery = preload("res://engine/server/status_query.gd")
 const ModReload = preload("res://engine/server/mod_reload.gd")
 const ModValidator = preload("res://engine/server/mod_validator.gd")
 const Ugc = preload("res://engine/server/ugc.gd")
@@ -173,6 +174,8 @@ var dev_tools := DevTools.new(self)
 var dev_mode := false
 ## The dev dashboard web server (--dev-web=port).
 var dev_web := DevWeb.new(self)
+var status_query := StatusQuery.new(self)
+var max_players := DEFAULT_MAX_PLAYERS
 ## Quick reloads, the file watcher and full reloads (see engine/server/mod_reload.gd).
 var mod_reload := ModReload.new(self)
 ## Player creations: uploads, the server library and serving them (see engine/server/ugc.gd).
@@ -259,6 +262,11 @@ func start(config: Dictionary) -> Error:
 		ugc.set_policy({"accept": str(config.ugc), "enabled": str(config.ugc) != "off"})
 	_load_meta(int(config.get("seed", -1)))
 	world_seed = int(_meta.seed)
+	# What the menu's world list shows (mods to host it with, when it was made and last played).
+	_meta.mods = Array(config.get("mods", PackedStringArray()))
+	if not _meta.has("created_at"):
+		_meta.created_at = int(Time.get_unix_time_from_system())
+	max_players = int(config.get("max_players", DEFAULT_MAX_PLAYERS))
 	_register_builtin_commands()
 
 	var err := _load_mods(config.get("mods", PackedStringArray()), config.get("mod_dirs", PackedStringArray()))
@@ -266,6 +274,10 @@ func start(config: Dictionary) -> Error:
 	if err != OK:
 		return err
 	_add_part_recipes()
+	# The server's own name and message win over what the game mod sets.
+	for key in ["name", "motd"]:
+		if not str(config.get(key, "")).is_empty():
+			server_info[key] = str(config[key]).left(64 if key == "name" else 256)
 	if biome_generator != null:
 		biome_generator.freeze()
 		structure_tools.load_saved()
@@ -287,6 +299,9 @@ func start(config: Dictionary) -> Error:
 		return err
 	Net.server = self
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	var query_port := int(config.get("query_port", int(config.get("port", 24565)) + 1))
+	if query_port > 0:
+		status_query.start(query_port)
 	var web_port := int(config.get("dev_web", 0))
 	if web_port == 0 and dev_mode:
 		web_port = int(config.get("port", 24565)) + 15
@@ -302,6 +317,7 @@ func start(config: Dictionary) -> Error:
 
 func _exit_tree() -> void:
 	dev_web.stop()
+	status_query.stop()
 	dev_log.drain()
 	dev_log.close()
 	for job: Dictionary in _chunk_jobs.values():
@@ -363,6 +379,7 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 			game = available[id]
 			break
 	server_info.game = game.name
+	server_info.game_id = game.id
 	if server_info.description.is_empty():
 		server_info.description = game.description
 	return OK
@@ -862,6 +879,7 @@ func _physics_process(delta: float) -> void:
 	guide.update(delta)
 	dev_tools.update(delta)
 	dev_web.update(delta)
+	status_query.update()
 	mod_reload.update(delta)
 	ugc.update(delta)
 	tutorials.update(delta)
@@ -3244,6 +3262,8 @@ func _save_all(wait := false) -> void:
 	for p: ServerPlayer in players.values():
 		_store_player(p)
 	_meta.time = [_time_of_day, _day_length]
+	_meta.game = server_info.get("game_id", "")
+	_meta.last_played = int(Time.get_unix_time_from_system())
 	_meta.clock = block_ticks.clock
 	writes.append([_save_dir + "/world.json", JSON.stringify(_meta, "\t")])
 	_write_async(writes, wait)
