@@ -38,7 +38,7 @@ func _init(game_server) -> void:
 
 
 func allowed(p) -> bool:
-	return p != null and (_server.dev_mode or _server.is_admin(p))
+	return p != null and (_server.dev_mode or _server.has_permission(p, "dev.tools"))
 
 
 # --- Profiler ---------------------------------------------------------------------------------------

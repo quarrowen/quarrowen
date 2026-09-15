@@ -122,6 +122,11 @@ func get_eye_position() -> Vector3:
 	return PlayerPhysics.eye_position(state)
 
 
+## Whether this player's roles grant a permission ("build", "creative", "ugc.review", a mod's own ...).
+func has_permission(permission: String) -> bool:
+	return _server.has_permission(self, permission)
+
+
 ## Sends the player to another server in this server's network (network.json; see engine/server/transfers.gd).
 ## `arrival`: a named arrival point there; `data`: a small Dictionary mods there receive in player_arrived.
 ## Returns "" or why not.
@@ -387,6 +392,57 @@ func kick(reason: String) -> void:
 # --- Persistence --------------------------------------------------------------------------------
 
 ## The inventory, equipment and item data as saved with the world.
+## The inventory by item name, the saved form since save format 2: ids depend on which blocks and items
+## are registered, so they change between versions and mod sets; names do not.
+## {slots: [[index, name, count, data]], equipment: {slot: [name, count, data]}}
+func save_items() -> Dictionary:
+	var items = _server.items
+	var slots := []
+	for i in Inventory.SIZE:
+		if inventory.ids[i] > 0:
+			slots.append([i, items.name_of(inventory.ids[i]), inventory.counts[i], inventory.data[i]])
+	var equipment := {}
+	for i in inventory.equipment_slots.size():
+		var index := Inventory.SIZE + i
+		if inventory.ids[index] > 0:
+			equipment[inventory.equipment_slots[i]] = [items.name_of(inventory.ids[index]), inventory.counts[index], inventory.data[index]]
+	return {"slots": slots, "equipment": equipment}
+
+
+## Loads save_items() output. Returns the names of items this server does not have (they are left out).
+func load_items(saved) -> Array:
+	var missing := []
+	if not (saved is Dictionary):
+		return missing
+	var items = _server.items
+	inventory.clear()
+	for s in (saved.get("slots", []) as Array).slice(0, 64) if saved.get("slots") is Array else []:
+		if not (s is Array) or s.size() < 3:
+			continue
+		var id: int = items.id_of(str(s[1]))
+		var index := int(s[0])
+		if id <= 0:
+			missing.append(str(s[1]))
+		elif index >= 0 and index < Inventory.SIZE:
+			inventory.set_slot(index, id, clampi(int(s[2]), 1, 9999), s[3] if s.size() > 3 and s[3] is Dictionary else {})
+	var equipment = saved.get("equipment", {})
+	if equipment is Dictionary:
+		for slot_name in equipment:
+			var e = equipment[slot_name]
+			if not (e is Array) or e.size() < 2:
+				continue
+			var id: int = items.id_of(str(e[0]))
+			var index := inventory.equipment_index(str(slot_name))
+			if id <= 0:
+				missing.append(str(e[0]))
+			elif index >= 0:
+				inventory.set_slot(index, id, clampi(int(e[1]), 1, 9999), e[2] if e.size() > 2 and e[2] is Dictionary else {})
+			else:
+				inventory.add(id, int(e[1]), 1, e[2] if e.size() > 2 and e[2] is Dictionary else {})  # slot no longer exists
+	_stats_dirty = true
+	return missing
+
+
 func save_inventory() -> Dictionary:
 	var backpack := PackedInt32Array()
 	backpack.append_array(inventory.ids.slice(0, Inventory.SIZE))

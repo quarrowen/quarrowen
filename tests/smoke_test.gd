@@ -423,9 +423,12 @@ func _arcana(c) -> void:
 	c.use_selected_item()
 	var moved := await _wait_until(func(): return c.state.position.distance_to(before) > 2.5, 3.0)
 	_check(moved, "Wand of Blink teleported the player %.1f blocks" % c.state.position.distance_to(before))
-	_check(await _wait_until(func(): return c.effects_seen.get("arcana:blink", 0) >= 2, 2.0), "blink effects played where you left and arrived")
+	# Effects and the mana HUD come on the reliable channel, which can trail the (unreliable) position update
+	# while the world is still streaming right after joining.
+	_check(await _wait_until(func(): return c.effects_seen.get("arcana:blink", 0) >= 2, 6.0), "blink effects played where you left and arrived")
 	var label: Label = c._server_ui._panels["arcana:mana"].get_child(0).get_child(0)
-	_check(label.text.contains("80") or label.text.contains("81") or label.text.contains("82"), "blink cost mana (%s)" % label.text)
+	await _wait_until(func(): return not label.text.contains("100 /"), 6.0)
+	_check(label.text.contains("80") or label.text.contains("81") or label.text.contains("82") or label.text.contains("83"), "blink cost mana (%s)" % label.text)
 
 	await _wait_until(func(): return c.state.on_ground, 3.0)
 	c.select_slot(2)

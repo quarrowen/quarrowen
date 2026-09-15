@@ -993,6 +993,34 @@ manage it with `/allow list | add <name> | remove <name> | on | off`. A listed n
 identity that joins with it. `--chat-filter=on` (the `chat_filter` gameplay rule) masks common swear words
 and look-alike spellings in chat and refuses such player names; add words in `<world>/chat_filter.txt`.
 
+### Roles and permissions
+
+Every player has the default role (`member`, or `--default-role=visitor` for look-but-don't-build servers) plus
+any roles given to them. Built-in roles, highest first: **owner** (everything; `--admins` names and the local
+host), **admin** (everything but making owners), **moderator** (kick, teleport, review creations, the allowlist,
+alerts; inherits builder), **builder** (structures; inherits member), **member** (build, interact, chat, creative;
+inherits visitor), **visitor** (chat, interact). Permissions are names like `build`, `interact`, `chat`,
+`creative`, `ugc.review`, `allowlist.manage`, `dev.tools`, `roles.manage` and `command.<name>` for admin-only
+commands; `*` and `group.*` match many, `-name` denies (and wins).
+
+In game: `/role list | info <role> | give|take <player> <role> | create <role> [inherits] | delete <role> |
+allow|deny|remove <role> <permission> | tag <role> <tag> [#color] | reset <role>` and `/perms [player]`; `/op`
+and `/deop` give and take admin. Admins also get **Players and roles…** in the pause menu (roles as chips, give a
+role, kick). Managers can only hand out roles below their own; only owners edit roles. Chat shows the highest
+role tag (`[Mod] Leo`, the `role_tags` rule). Mods: `player.has_permission(name)`, `register_permission(name,
+description, roles)`, `player_roles(id)`, `set_player_role(id, role, on)` and the `role_changed` event
+(JavaScript: `hasPermission`, `registerPermission`, `playerRoles`, `setPlayerRole`). Saved in world.json.
+
+### Save compatibility
+
+Worlds must keep working across updates. Chunks save blocks by name, containers and entities by name, and since
+save format 2 (0.36) player inventories and equipment are saved by item name too (`items` in each player
+record). Opening an older world backs it up first (`backups/<world>-before-format2-*.zip`) and converts it.
+`tests/save_compat_test.tscn` loads a world written by each release (`tests/fixtures/saves/<version>/`, made
+with `tools/make_save_fixture.tscn` from that release's checkout) and checks builds, chest contents, animals,
+inventories and worn equipment. Mods: store names (`items.name_of`), never numeric ids, in block data, player
+data and storage.
+
 ### Server networks: transfers and portals
 
 Servers that trust each other send players between them. Each lists the others in `<data dir>/network.json`

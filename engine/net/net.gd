@@ -213,6 +213,19 @@ func c_request_assets(hashes: PackedStringArray) -> void:
 		server.on_request_assets(_sender(), hashes)
 
 
+## The players and roles panel (roles.manage): action list | give {player_id, role} | take {player_id, role} | kick {peer}.
+@rpc("any_peer", "call_remote", "reliable")
+func c_roles_panel(action: String, args: Dictionary) -> void:
+	if server:
+		server.on_roles_panel(_sender(), action, args)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_roles_panel(state: Dictionary) -> void:
+	if client:
+		client.on_roles_panel(state)
+
+
 ## A transfer ticket from the server the player just left (sent right after hello).
 @rpc("any_peer", "call_remote", "reliable")
 func c_transfer_ticket(ticket: String, signature: String) -> void:

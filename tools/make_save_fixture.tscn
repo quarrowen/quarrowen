@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tools/make_save_fixture.gd" id="1"]
+
+[node name="MakeSaveFixture" type="Node"]
+script = ExtResource("1")

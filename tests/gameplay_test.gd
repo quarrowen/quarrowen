@@ -64,6 +64,7 @@ func _ready() -> void:
 	_client_settings()
 	await _private_server()
 	await _transfers()
+	await _roles()
 	await _status_query()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -3090,6 +3091,83 @@ func _transfers() -> void:
 	_check(sent.size() == 1, "players who just arrived are not sent straight back")
 	lobby.queue_free()
 	sky.queue_free()
+	await get_tree().process_frame
+
+
+func _roles() -> void:
+	var Roles = preload("res://engine/server/roles.gd")
+	_check(Roles.allows(["*", "-roles.owner"], "build") and not Roles.allows(["*", "-roles.owner"], "roles.owner") and Roles.allows(["ugc.*"], "ugc.review")
+		and not Roles.allows(["ugc.*"], "ugcx") and not Roles.allows([], "build"), "permission patterns: wildcards, groups and denials")
+	var server = _start("roles_%d" % Time.get_ticks_msec())
+	var said := []
+	server.add_handler("chat", func(ev): said.append(ev.text), 0)
+	var make := func(peer: int, player_name: String) -> ServerPlayer:
+		var p := ServerPlayer.new(server, peer, player_name)
+		p.player_id = player_name.to_lower() + "_id"
+		p.edit_tokens = 100.0
+		server.players[peer] = p
+		server._meta.names[player_name.to_lower()] = p.player_id
+		return p
+	var owner: ServerPlayer = make.call(180, "Mum")
+	var kid: ServerPlayer = make.call(181, "Kid")
+	var helper: ServerPlayer = make.call(182, "Helper")
+	server.roles.give(owner.player_id, "owner")
+	_check(server.roles.roles_of(kid.player_id) == ["member"] and server.has_permission(kid, "build") and not server.is_admin(kid), "new players are members")
+	_check(server.has_permission(owner, "roles.owner") and server.is_admin(owner), "owners have everything")
+	# Commands follow roles.
+	server.on_chat(181, "/kick Helper")
+	_check(server.players.has(182), "members cannot use admin commands")
+	server.on_chat(180, "/role give Helper moderator")
+	_check(server.roles.roles_of(helper.player_id).has("moderator") and server.has_permission(helper, "command.kick") and server.has_permission(helper, "build")
+		and not server.has_permission(helper, "roles.manage"), "a moderator can kick and still builds (inherits builder and member)")
+	server.on_chat(182, "/role give Kid admin")
+	_check(not server.is_admin(kid), "moderators cannot hand out roles")
+	server.roles.give(helper.player_id, "admin")
+	server.on_chat(182, "/role give Kid owner")
+	_check(not server.roles.roles_of(kid.player_id).has("owner"), "admins cannot make owners")
+	# Visitors: no building, still chat.
+	server.roles.default_role = "visitor"
+	var stone: int = server.registry.id_of("base:stone")
+	var spot := Vector3i(8, server.surface_height(8, 8), 8)
+	kid.state.position = Vector3(spot) + Vector3(1.5, 1, 0.5)
+	server.on_break_block(181, spot)
+	_check(server.world.get_block_v(spot) != 0, "visitors cannot break blocks")
+	server.on_chat(181, "hello")
+	_check(said.has("hello"), "visitors can chat")
+	server.roles.default_role = "member"
+	# Custom roles and editing.
+	server.on_chat(180, "/role create muted member")
+	server.on_chat(180, "/role deny muted chat")
+	server.on_chat(180, "/role give Kid muted")
+	said.clear()
+	server.on_chat(181, "still here?")
+	_check(said.is_empty() and server.has_permission(kid, "build"), "a custom role can take one thing away (chat) and keep the rest")
+	server.on_chat(180, "/role take Kid muted")
+	server.on_chat(181, "back")
+	_check(said == ["back"], "taking the role gives chat back")
+	# Tags in chat.
+	server.roles.give(kid.player_id, "builder")
+	_check(server.roles.badge(kid.player_id).tag == "Builder" and server.roles.badge(owner.player_id).tag == "Owner", "the highest tagged role is shown in chat")
+	# The old admin list still counts, and /op gives the admin role.
+	server._meta.admins.append("legacy_id")
+	var legacy: ServerPlayer = make.call(183, "Legacy")
+	legacy.player_id = "legacy_id"
+	_check(server.is_admin(legacy), "players on the old admin list are still admins")
+	server.on_chat(180, "/op Kid")
+	_check(server.roles.roles_of(kid.player_id).has("admin"), "/op gives the admin role")
+	# Mods.
+	var api = preload("res://engine/server/mod_api.gd").new(server, {"id": "tester", "dir": "res://tests"})
+	api.register_permission("tester.fly", "fly around", ["builder"])
+	server.roles.take(kid.player_id, "admin")
+	var visitor: ServerPlayer = make.call(184, "Visitor")
+	server.roles.default_role = "visitor"
+	_check(kid.has_permission("tester.fly") and not visitor.has_permission("tester.fly"), "mods register permissions for the roles they choose")
+	server.roles.default_role = "member"
+	server._save_all(true)
+	var again = _start(server._save_dir.get_file())
+	_check(again.roles.exists("muted") and again.roles.roles_of("kid_id").has("builder"), "roles are saved with the world")
+	server.queue_free()
+	again.queue_free()
 	await get_tree().process_frame
 
 

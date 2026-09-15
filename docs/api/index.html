@@ -312,6 +312,8 @@ player.get_stat(name). engine stats: see itemregistry.base_stats."><div class="s
 <div class="card" id="api-set-gameplay" data-search="set_gameplay setgameplay game-wide rules: item_drops (&quot;entity&quot; | &quot;inventory&quot;), keep_inventory, pvp, fall_damage,
 natural_regeneration, mob_spawning."><div class="sig"><code>api.set_gameplay(values: Dictionary) -&gt; void</code><span class="tag js" title="setGameplay(values: Gameplay): void">JS setGameplay</span></div><p>Game-wide rules: item_drops (&quot;entity&quot; | &quot;inventory&quot;), keep_inventory, pvp, fall_damage,<br>natural_regeneration, mob_spawning.</p></div>
 <div class="card" id="api-get-gameplay" data-search="get_gameplay getgameplay a gameplay rule's current value (see set_gameplay), or null."><div class="sig"><code>api.get_gameplay(rule: String)</code><span class="tag js" title="getGameplay&lt;K extends keyof Gameplay&gt;(rule: K): Gameplay[K]">JS getGameplay</span></div><p>A gameplay rule's current value (see set_gameplay), or null.</p></div>
+<div class="card" id="api-player-roles" data-search="player_roles playerroles a player's roles by player id (the default role included)."><div class="sig"><code>api.player_roles(player_id: String) -&gt; Array</code><span class="tag js" title="playerRoles(playerId: string): string[]">JS playerRoles</span></div><p>A player's roles by player id (the default role included).</p></div>
+<div class="card" id="api-set-player-role" data-search="set_player_role setplayerrole gives (or takes) a role. returns whether anything changed."><div class="sig"><code>api.set_player_role(player_id: String, role: String, on := true) -&gt; bool</code><span class="tag js" title="setPlayerRole(playerId: string, role: string, on?: boolean): boolean">JS setPlayerRole</span></div><p>Gives (or takes) a role. Returns whether anything changed.</p></div>
 <div class="card" id="api-set-physics" data-search="set_physics setphysics movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`."><div class="sig"><code>api.set_physics(values: Dictionary) -&gt; void</code><span class="tag js" title="setPhysics(values: Record&lt;string, number | boolean&gt;): void">JS setPhysics</span></div><p>Movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`.</p></div>
 <div class="card" id="api-get-players" data-search="get_players  everyone online (player objects)."><div class="sig"><code>api.get_players() -&gt; Array</code></div><p>Everyone online (player objects).</p></div>
 <div class="card" id="api-find-player" data-search="find_player findplayer the online player with this name (any case), or null."><div class="sig"><code>api.find_player(player_name: String)</code><span class="tag js" title="findPlayer(name: string): Player | null">JS findPlayer</span></div><p>The online player with this name (any case), or null.</p></div>
@@ -346,6 +348,8 @@ each: {id, manifest {kind, category, name, author, author_name}, status, reason,
 <div class="card" id="api-ugc-report" data-search="ugc_report  files a report as a player (e.g. from a mod's own report button)."><div class="sig"><code>api.ugc_report(player, id: String, reason := &quot;other&quot;, details := &quot;&quot;) -&gt; String</code></div><p>Files a report as a player (e.g. from a mod's own report button).</p></div>
 <div class="card" id="api-ugc-trust" data-search="ugc_trust ugctrust trusted creators' uploads skip the approval queue when the policy accepts &quot;trusted&quot;."><div class="sig"><code>api.ugc_trust(player_id: String, on := true) -&gt; void</code><span class="tag js" title="ugcTrust(playerId: string, on?: boolean): void">JS ugcTrust</span></div><p>Trusted creators' uploads skip the approval queue when the policy accepts &quot;trusted&quot;.</p></div>
 <div class="card" id="api-ugc-ban" data-search="ugc_ban ugcban stops (or allows again) a player uploading creations; banning also hides their creations."><div class="sig"><code>api.ugc_ban(player_id: String, on := true, reason := &quot;&quot;) -&gt; void</code><span class="tag js" title="ugcBan(playerId: string, on?: boolean, reason?: string): void">JS ugcBan</span></div><p>Stops (or allows again) a player uploading creations; banning also hides their creations.</p></div>
+<div class="card" id="api-register-permission" data-search="register_permission registerpermission describes a permission a mod checks with player.has_permission, and which built-in roles get it by
+default (e.g. [&quot;moderator&quot;]; admins and owners have every permission anyway)."><div class="sig"><code>api.register_permission(permission: String, description: String, roles := []) -&gt; void</code><span class="tag js" title="registerPermission(permission: string, description: string, roles?: string[]): void">JS registerPermission</span></div><p>Describes a permission a mod checks with player.has_permission, and which built-in roles get it by<br>default (e.g. [&quot;moderator&quot;]; admins and owners have every permission anyway).</p></div>
 <div class="card" id="api-network-servers" data-search="network_servers networkservers the servers players can travel to from here (network.json): [{key, name, address, port, hop, inventory}]."><div class="sig"><code>api.network_servers() -&gt; Array</code><span class="tag js" title="networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[]">JS networkServers</span></div><p>The servers players can travel to from here (network.json): [{key, name, address, port, hop, inventory}].</p></div>
 <div class="card" id="api-set-arrival-point" data-search="set_arrival_point setarrivalpoint names a spot where players arriving from other servers can appear (tickets name it as their arrival)."><div class="sig"><code>api.set_arrival_point(id: String, position: Vector3) -&gt; void</code><span class="tag js" title="setArrivalPoint(id: string, position: Vec3): void">JS setArrivalPoint</span></div><p>Names a spot where players arriving from other servers can appear (tickets name it as their arrival).</p></div>
 </section>
@@ -381,6 +385,7 @@ each: {id, manifest {kind, category, name, author, author_name}, status, reason,
   tutorial_completed {player, tutorial}   tip_shown {player, tip}
   ugc_uploaded {player, creation, cancelled, reason}   a player creation arrived; cancel to refuse it
   ugc_status {id, status, reason, by}   ugc_reported {player, id, reason, details, reports, cancelled}
+  role_changed {player_id, role, added, by}              a role given or taken
   player_transfer {player, server, arrival, data, cancelled, reason}   leaving for another server (data may be changed)
   player_arrived {player, from, arrival, data}           arrived through a transfer ticket from a trusted server
   night_skipped  {sleepers}                                enough players slept; it is morning now
@@ -416,6 +421,7 @@ each: {id, manifest {kind, category, name, author, author_name}, status, reason,
 &quot;Mod API&quot; line are the supported surface. Underscore-free engine fields are read-only for mods.</p>
 <div class="card" id="player-selected-slot" data-search="selected_slot  index of the selected hotbar slot."><div class="sig"><code>player.selected_slot: int  (property)</code></div><p>Index of the selected hotbar slot.</p></div>
 <div class="card" id="player-get-eye-position" data-search="get_eye_position  where the player's eyes are (for aiming and line of sight)."><div class="sig"><code>player.get_eye_position() -&gt; Vector3</code></div><p>Where the player's eyes are (for aiming and line of sight).</p></div>
+<div class="card" id="player-has-permission" data-search="has_permission  whether this player's roles grant a permission (&quot;build&quot;, &quot;creative&quot;, &quot;ugc.review&quot;, a mod's own ...)."><div class="sig"><code>player.has_permission(permission: String) -&gt; bool</code></div><p>Whether this player's roles grant a permission (&quot;build&quot;, &quot;creative&quot;, &quot;ugc.review&quot;, a mod's own ...).</p></div>
 <div class="card" id="player-transfer-to" data-search="transfer_to  sends the player to another server in this server's network (network.json; see engine/server/transfers.gd).
 `arrival`: a named arrival point there; `data`: a small dictionary mods there receive in player_arrived.
 returns &quot;&quot; or why not."><div class="sig"><code>player.transfer_to(server_name: String, arrival := &quot;&quot;, data := {}) -&gt; String</code></div><p>Sends the player to another server in this server's network (network.json; see engine/server/transfers.gd).<br>`arrival`: a named arrival point there; `data`: a small Dictionary mods there receive in player_arrived.<br>Returns &quot;&quot; or why not.</p></div>
@@ -464,7 +470,12 @@ empty id takes a category off. pass {} to clear. not saved."><div class="sig"><c
 <div class="card" id="player-learn-recipe" data-search="learn_recipe  teaches a recipe (source is passed to recipe_learned). returns true if it was new."><div class="sig"><code>player.learn_recipe(recipe_id: String, source := &quot;mod&quot;) -&gt; bool</code></div><p>Teaches a recipe (source is passed to recipe_learned). Returns true if it was new.</p></div>
 <div class="card" id="player-is-admin" data-search="is_admin  whether the player is a server admin."><div class="sig"><code>player.is_admin() -&gt; bool</code></div><p>Whether the player is a server admin.</p></div>
 <div class="card" id="player-kick" data-search="kick  disconnects the player with a reason."><div class="sig"><code>player.kick(reason: String) -&gt; void</code></div><p>Disconnects the player with a reason.</p></div>
-<div class="card" id="player-save-inventory" data-search="save_inventory  the inventory, equipment and item data as saved with the world."><div class="sig"><code>player.save_inventory() -&gt; Dictionary</code></div><p>The inventory, equipment and item data as saved with the world.</p></div>
+<div class="card" id="player-save-items" data-search="save_items  the inventory, equipment and item data as saved with the world.
+the inventory by item name, the saved form since save format 2: ids depend on which blocks and items
+are registered, so they change between versions and mod sets; names do not.
+{slots: [[index, name, count, data]], equipment: {slot: [name, count, data]}}"><div class="sig"><code>player.save_items() -&gt; Dictionary</code></div><p>The inventory, equipment and item data as saved with the world.<br>The inventory by item name, the saved form since save format 2: ids depend on which blocks and items<br>are registered, so they change between versions and mod sets; names do not.<br>{slots: [[index, name, count, data]], equipment: {slot: [name, count, data]}}</p></div>
+<div class="card" id="player-load-items" data-search="load_items  loads save_items() output. returns the names of items this server does not have (they are left out)."><div class="sig"><code>player.load_items(saved) -&gt; Array</code></div><p>Loads save_items() output. Returns the names of items this server does not have (they are left out).</p></div>
+<div class="card" id="player-save-inventory" data-search="save_inventory  "><div class="sig"><code>player.save_inventory() -&gt; Dictionary</code></div><p class="muted">No description yet.</p></div>
 <div class="card" id="player-load-inventory" data-search="load_inventory  restores an inventory saved by save_inventory."><div class="sig"><code>player.load_inventory(saved: Dictionary) -&gt; void</code></div><p>Restores an inventory saved by save_inventory.</p></div>
 </section>
 <section id="obj-entity"><h2>Entity</h2><p>A server-side entity: mob, projectile, dropped item stack or mod object. Mods receive these in
@@ -561,6 +572,9 @@ look and saved in data.look."><div class="sig"><code>entity.set_look(values: Dic
 <div class="card" data-search="error"><div class="sig"><code>api.error(...parts: unknown[]): void</code></div></div>
 <div class="card" data-search="setugcpolicy"><div class="sig"><code>api.setUgcPolicy(values: { enabled?: boolean; accept?: &quot;auto&quot; | &quot;trusted&quot; | &quot;approval&quot; | &quot;off&quot;; kinds?: (&quot;skin&quot; | &quot;accessory&quot; | &quot;model&quot;)[]; library?: boolean; max_per_player?: number; max_bytes_per_player?: number; report_hide?: number }): void</code></div></div>
 <div class="card" data-search="ugclist"><div class="sig"><code>api.ugcList(filter?: &quot;pending&quot; | &quot;reported&quot; | &quot;approved&quot; | &quot;rejected&quot; | &quot;removed&quot; | &quot;all&quot;): Record&lt;string, unknown&gt;[]</code></div></div>
+<div class="card" data-search="registerpermission"><div class="sig"><code>api.registerPermission(permission: string, description: string, roles?: string[]): void</code></div></div>
+<div class="card" data-search="playerroles"><div class="sig"><code>api.playerRoles(playerId: string): string[]</code></div></div>
+<div class="card" data-search="setplayerrole"><div class="sig"><code>api.setPlayerRole(playerId: string, role: string, on?: boolean): boolean</code></div></div>
 <div class="card" data-search="networkservers"><div class="sig"><code>api.networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[]</code></div></div>
 <div class="card" data-search="setarrivalpoint"><div class="sig"><code>api.setArrivalPoint(id: string, position: Vec3): void</code></div></div>
 <div class="card" data-search="ugcget"><div class="sig"><code>api.ugcGet(id: string): Record&lt;string, unknown&gt;</code></div></div>
@@ -829,6 +843,8 @@ declare module &quot;voxelcraft&quot; {
     readonly lookDirection: Vec3;
     readonly online: boolean;
     give(item: ItemId, count?: number, data?: ItemData): number;
+    /** Whether the player's roles grant a permission (&quot;build&quot;, &quot;creative&quot;, or a mod's own). */
+    hasPermission(permission: string): boolean;
     /** Sends the player to another server in network.json; &quot;&quot; or why not. */
     transferTo(server: string, arrival?: string, data?: Record&lt;string, unknown&gt;): string;
     getItem(slot: number): ItemStack;
@@ -891,6 +907,7 @@ declare module &quot;voxelcraft&quot; {
     player_join: { player: Player; first_time: boolean };
     player_leave: { player: Player };
     player_transfer: { player: Player; server: string; arrival: string; data: Record&lt;string, unknown&gt;; cancelled: boolean; reason: string };
+    role_changed: { player_id: string; role: string; added: boolean; by: string };
     player_arrived: { player: Player; from: string; arrival: string; data: Record&lt;string, unknown&gt; };
     tick: { delta: number; tick: number };
     block_break: { player: Player; position: Vec3; block: BlockId; drops: [ItemId, number][]; cancelled: boolean };
@@ -1022,6 +1039,9 @@ declare module &quot;voxelcraft&quot; {
     setUgcPolicy(values: { enabled?: boolean; accept?: &quot;auto&quot; | &quot;trusted&quot; | &quot;approval&quot; | &quot;off&quot;; kinds?: (&quot;skin&quot; | &quot;accessory&quot; | &quot;model&quot;)[];
       library?: boolean; max_per_player?: number; max_bytes_per_player?: number; report_hide?: number }): void;
     ugcList(filter?: &quot;pending&quot; | &quot;reported&quot; | &quot;approved&quot; | &quot;rejected&quot; | &quot;removed&quot; | &quot;all&quot;): Record&lt;string, unknown&gt;[];
+    registerPermission(permission: string, description: string, roles?: string[]): void;
+    playerRoles(playerId: string): string[];
+    setPlayerRole(playerId: string, role: string, on?: boolean): boolean;
     networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[];
     setArrivalPoint(id: string, position: Vec3): void;
     ugcGet(id: string): Record&lt;string, unknown&gt;;

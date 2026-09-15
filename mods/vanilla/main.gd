@@ -217,6 +217,9 @@ func _cmd_gamemode(player, args: PackedStringArray) -> void:
 	if args.is_empty() or not args[0] in ["survival", "creative"]:
 		player.send_message("Usage: /gamemode survival | creative")
 		return
+	if args[0] == "creative" and not player.has_permission("creative"):
+		player.send_message("Creative mode is not available to you on this server")
+		return
 	if player.is_creative() == (args[0] == "creative"):
 		player.send_message("You are already in %s mode" % args[0])
 		return

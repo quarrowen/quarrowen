@@ -35,6 +35,7 @@ extends RefCounted
 ##   tutorial_completed {player, tutorial}   tip_shown {player, tip}
 ##   ugc_uploaded {player, creation, cancelled, reason}   a player creation arrived; cancel to refuse it
 ##   ugc_status {id, status, reason, by}   ugc_reported {player, id, reason, details, reports, cancelled}
+##   role_changed {player_id, role, added, by}              a role given or taken
 ##   player_transfer {player, server, arrival, data, cancelled, reason}   leaving for another server (data may be changed)
 ##   player_arrived {player, from, arrival, data}           arrived through a transfer ticket from a trusted server
 ##   night_skipped  {sleepers}                                enough players slept; it is morning now
@@ -937,6 +938,31 @@ func ugc_trust(player_id: String, on := true) -> void:
 ## Stops (or allows again) a player uploading creations; banning also hides their creations.
 func ugc_ban(player_id: String, on := true, reason := "") -> void:
 	_server.ugc.set_banned(player_id, on, reason, mod_id)
+
+
+## Describes a permission a mod checks with player.has_permission, and which built-in roles get it by
+## default (e.g. ["moderator"]; admins and owners have every permission anyway).
+func register_permission(permission: String, description: String, roles := []) -> void:
+	_server.roles.descriptions[permission] = description
+	for r in roles:
+		if _server.roles.BUILTIN.has(str(r)) and not _server.roles._meta().roles.get(str(r), {}).has("permissions"):
+			var def: Dictionary = _server.roles.role(str(r))
+			if not def.permissions.has(permission):
+				def.permissions.append(permission)
+				_server.roles._save_role(str(r), {"permissions": def.permissions})
+
+
+## A player's roles by player id (the default role included).
+func player_roles(player_id: String) -> Array:
+	return _server.roles.roles_of(player_id)
+
+
+## Gives (or takes) a role. Returns whether anything changed.
+func set_player_role(player_id: String, role: String, on := true) -> bool:
+	var changed: bool = _server.roles.give(player_id, role) if on else _server.roles.take(player_id, role)
+	if changed:
+		_server.emit("role_changed", {"player_id": player_id, "role": role, "added": on, "by": mod_id})
+	return changed
 
 
 ## The servers players can travel to from here (network.json): [{key, name, address, port, hop, inventory}].

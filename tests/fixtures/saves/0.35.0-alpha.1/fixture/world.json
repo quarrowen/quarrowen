@@ -1,0 +1,156 @@
+{
+	"admins": [],
+	"allowlist": {
+		"enabled": false,
+		"players": {}
+	},
+	"clock": 0.0,
+	"created_at": 1789469244,
+	"game": "vanilla",
+	"last_played": 1789469245,
+	"mod_storage": {
+		"vanilla": {
+			"time_initialized": true
+		}
+	},
+	"mods": [
+		"vanilla",
+		"industry",
+		"arcana",
+		"guild"
+	],
+	"names": {
+		"fixture": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"
+	},
+	"players": {
+		"f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1": {
+			"cosmetics": [],
+			"creative": false,
+			"data": {},
+			"equipment": {
+				"chest": [
+					65553,
+					1,
+					{}
+				]
+			},
+			"exhaustion": 0.0,
+			"guide": {
+				"biomes": [],
+				"entities": [],
+				"flags": [],
+				"last": "",
+				"read": [],
+				"unlocked": []
+			},
+			"health": 20.0,
+			"hunger": 20.0,
+			"inventory": [
+				65547,
+				65544,
+				10,
+				26,
+				65539,
+				65537,
+				0,
+				0,
+				0,
+				65582,
+				65583,
+				65612,
+				95,
+				98,
+				65619,
+				0,
+				0,
+				0,
+				0,
+				0,
+				12,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				65536,
+				1,
+				1,
+				48,
+				16,
+				9,
+				3,
+				0,
+				0,
+				0,
+				4,
+				7,
+				5,
+				32,
+				1,
+				11,
+				0,
+				0,
+				0,
+				0,
+				0,
+				64,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				0,
+				2
+			],
+			"item_data": {
+				"1": {
+					"damage": 12
+				}
+			},
+			"modifiers": {},
+			"name": "Fixture",
+			"position": [
+				20.5,
+				55.0,
+				23.5
+			],
+			"recipes": [],
+			"saturation": 5.0,
+			"seen_items": [],
+			"server_wear": {},
+			"spawn_bed": null,
+			"spawn_point": null,
+			"tutorial": {
+				"active": "",
+				"done": [],
+				"progress": 0,
+				"step": 0,
+				"stopped": [],
+				"tips": [],
+				"tips_off": false
+			}
+		}
+	},
+	"seed": 1234,
+	"time": [
+		0.3,
+		1200.0
+	]
+}

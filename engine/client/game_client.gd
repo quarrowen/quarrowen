@@ -32,6 +32,7 @@ const GraphicsSettings = preload("res://engine/client/graphics_settings.gd")
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 const SettingsScreen = preload("res://engine/client/settings/settings_screen.gd")
 const FriendsPanel = preload("res://engine/client/social/friends_panel.gd")
+const PlayersPanel = preload("res://engine/client/admin/players_panel.gd")
 const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const Identity = preload("res://engine/shared/identity.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
@@ -256,6 +257,7 @@ var ugc := UgcClient.new(self)
 var ugc_models := {}
 var _ugc_review: UgcReview
 var _settings_overlay: Control
+var _players_panel: Control
 ## engine/client/social/social_client.gd when main.gd runs the game (null in tests).
 var social
 var _sprint_on := false  # the sprint key toggles (accessibility setting)
@@ -2539,6 +2541,44 @@ func open_settings() -> void:
 	_settings_overlay = overlay
 
 
+## Players and roles (admins) over the game, in the settings overlay slot.
+func open_players_panel() -> void:
+	var panel := PlayersPanel.new()
+	panel.action_requested.connect(func(action, args): Net.c_roles_panel.rpc_id(1, action, args))
+	panel.closed.connect(close_settings)
+	_open_overlay(panel)
+	_players_panel = panel
+
+
+func on_roles_panel(state: Dictionary) -> void:
+	if _players_panel != null and is_instance_valid(_players_panel):
+		_players_panel.receive(state)
+
+
+## Shows a screen over the game in a centred panel (settings, friends, players).
+func _open_overlay(content: Control) -> void:
+	if _settings_overlay != null:
+		return
+	_pause_panel.visible = false
+	var overlay := Control.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.theme = MenuTheme.build()
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var frame := PanelContainer.new()
+	frame.custom_minimum_size = Vector2(900, 660)
+	center.add_child(frame)
+	frame.add_child(content)
+	_hud_root.add_child(overlay)
+	_settings_overlay = overlay
+
+
 ## Friends and party over the game (from the pause menu), reusing the settings overlay slot.
 func open_friends() -> void:
 	if _settings_overlay != null:
@@ -2817,7 +2857,7 @@ func _build_hud() -> void:
 	guide_button.custom_minimum_size = Vector2(240, 44)
 	guide_button.pressed.connect(func(): _set_guide_open(true))
 	pause_box.add_child(guide_button)
-	for entry in [["Friends…", open_friends], ["Invite friends…", open_invite_dialog], ["Report a creation…", open_report_dialog], ["Review creations (admins)", open_ugc_review]]:
+	for entry in [["Players and roles…", open_players_panel], ["Friends…", open_friends], ["Invite friends…", open_invite_dialog], ["Report a creation…", open_report_dialog], ["Review creations (admins)", open_ugc_review]]:
 		var ugc_button := Button.new()
 		ugc_button.text = entry[0]
 		ugc_button.custom_minimum_size = Vector2(240, 44)

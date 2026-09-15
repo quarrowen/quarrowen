@@ -246,6 +246,8 @@ declare module "voxelcraft" {
     readonly lookDirection: Vec3;
     readonly online: boolean;
     give(item: ItemId, count?: number, data?: ItemData): number;
+    /** Whether the player's roles grant a permission ("build", "creative", or a mod's own). */
+    hasPermission(permission: string): boolean;
     /** Sends the player to another server in network.json; "" or why not. */
     transferTo(server: string, arrival?: string, data?: Record<string, unknown>): string;
     getItem(slot: number): ItemStack;
@@ -308,6 +310,7 @@ declare module "voxelcraft" {
     player_join: { player: Player; first_time: boolean };
     player_leave: { player: Player };
     player_transfer: { player: Player; server: string; arrival: string; data: Record<string, unknown>; cancelled: boolean; reason: string };
+    role_changed: { player_id: string; role: string; added: boolean; by: string };
     player_arrived: { player: Player; from: string; arrival: string; data: Record<string, unknown> };
     tick: { delta: number; tick: number };
     block_break: { player: Player; position: Vec3; block: BlockId; drops: [ItemId, number][]; cancelled: boolean };
@@ -439,6 +442,9 @@ declare module "voxelcraft" {
     setUgcPolicy(values: { enabled?: boolean; accept?: "auto" | "trusted" | "approval" | "off"; kinds?: ("skin" | "accessory" | "model")[];
       library?: boolean; max_per_player?: number; max_bytes_per_player?: number; report_hide?: number }): void;
     ugcList(filter?: "pending" | "reported" | "approved" | "rejected" | "removed" | "all"): Record<string, unknown>[];
+    registerPermission(permission: string, description: string, roles?: string[]): void;
+    playerRoles(playerId: string): string[];
+    setPlayerRole(playerId: string, role: string, on?: boolean): boolean;
     networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[];
     setArrivalPoint(id: string, position: Vec3): void;
     ugcGet(id: string): Record<string, unknown>;

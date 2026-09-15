@@ -320,7 +320,7 @@ func set_status(id: String, status: String, reason := "", by := "") -> bool:
 func fetch(p, ids: PackedStringArray) -> void:
 	var defs := []
 	var queue: Array = _send.get(p.peer_id, [])
-	var moderator: bool = _server.is_admin(p)
+	var moderator: bool = _server.has_permission(p, "ugc.review")
 	for id in ids.slice(0, 32):
 		# Moderators may look at creations waiting for review.
 		if not store.has(id) or blocked.has(id) or not (is_approved(id) or (moderator and store[id].status != "removed")):

@@ -254,10 +254,14 @@ changes with `tools/build_native.sh`.
      destination id; arrival points; inventories by item name with source escrow (restored if the trip never finishes;
      allows copying between two inventory-carrying servers); admit skips the allowlist; portal hold 1.2 s with a 5 s
      arrival grace. Not done: pinning the destination's certificate from the ticket, party follow on transfer.
-   - N6 Roles and permissions: owner/admin/moderator/builder/custom roles for commands and actions, in game
-     and mod API.
+   - N6 Roles and permissions (done: engine/server/roles.gd, /role /perms, pause menu Players and roles panel
+     engine/client/admin/players_panel.gd, chat tags, --default-role, mod + JS API, tests): built-in owner/admin/
+     moderator/builder/member/visitor with inheritance, wildcards and denials, custom roles, permission checks on
+     build/interact/chat/creative/ugc/dev tools/commands; old admin lists and --admins names map to roles.
    - N7 Anti-cheat: movement/fly, reach, break speed, rate limits; logs, kicks, admin alerts.
-   - N8 Scale: 100+ bot load tests, interest management and bandwidth budgets.
+   - N8 Scale: 100+ bot load tests, interest management and bandwidth budgets. Also: gameplay RPCs share reliable
+     channel 0 with chunk streaming, so effects/UI can lag seconds behind movement right after joining (seen in the
+     arcana e2e); give bulk data its own channel with client-side buffering of edits for chunks not yet received.
 5. **Loot and drops system** (follow-up, user 2026-09-14): one engine loot capability behind structure
    chests, mob drops, block drops, fishing/rewards later. Today these are three separate simple things
    (loot tables {rolls, entries}, entity `drops` [[item, count, chance]], block `drops`). Ideas: shared
@@ -267,6 +271,9 @@ changes with `tools/build_native.sh`.
    names/lore, part materials, blueprint recipe picks); per-player loot in shared chests; mods and
    servers overriding or extending tables (inject entries, replace a mob's drops); loot preview in the
    recipe book / guide; JS and GDScript APIs; data files so creators edit tables without code.
+7. **Client auto-update** (future, user 2026-09-15): the Mac app checks for a newer release (GitHub releases or
+   the hub), shows what changed, downloads it, verifies it (hash, later a signature) and replaces itself after
+   asking; servers could advertise the version they need so the menu offers the update before joining.
 6. **Enhanced, more aesthetic player models** (moved to the end of the roadmap by the user 2026-09-15): beyond the blocky
    64x64-skin body. Ideas: whole-body GLB models whose parts are named after the rig (head, torso,
    arm_r_upper, ...) so animations keep working, with height/width, triangle and texture limits, a fallback
@@ -282,6 +289,15 @@ copy without local editor plugins, ad-hoc signed, zipped); hosting from exported
 scene path); stdout flushed on print (docker logs); menu banners (errors red and sticky, others fade; "Trust new
 identity" action when a pinned server identity changed); backdrop spot chosen after the middle of the view has
 generated; docs/playtest.md. Next: N5 server transfers, after the family playtest feedback.
+
+## Save compatibility (2026-09-15, user: "We really need to ensure world and inventories don't break between updates")
+
+Found while planning alpha 2: inventories saved numeric ids, and block item ids shift when a block is added (the
+N5 portal), so kids' inventories would have changed items after an update (worlds, chests and entities were
+already name-based). Fixed with save format 2 (inventories by name), a pre-migration backup and a format-1
+converter; tests/save_compat_test.tscn loads a real 0.35.0-alpha.1 world (tests/fixtures/saves/0.35.0-alpha.1,
+made by tools/make_save_fixture.tscn in a checkout of the tag). **Release rule:** every alpha adds its own
+fixture (check out the tag, run the fixture tool, commit the output) and the suite must pass on all of them.
 
 ## Test stability (2026-09-15)
 

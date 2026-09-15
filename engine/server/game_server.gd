@@ -45,6 +45,7 @@ const StatusQuery = preload("res://engine/server/status_query.gd")
 const HubAnnouncer = preload("res://engine/server/hub_announcer.gd")
 const ChatFilter = preload("res://engine/server/chat_filter.gd")
 const Transfers = preload("res://engine/server/transfers.gd")
+const Roles = preload("res://engine/server/roles.gd")
 const ModReload = preload("res://engine/server/mod_reload.gd")
 const ModValidator = preload("res://engine/server/mod_validator.gd")
 const Ugc = preload("res://engine/server/ugc.gd")
@@ -56,6 +57,11 @@ const StructureTools = preload("res://engine/server/structure_tools.gd")
 const Assembly = preload("res://engine/shared/assembly.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
+## world.json "format": 2 = inventories saved by item name (see _migrate_save_format).
+const SAVE_FORMAT := 2
+## Blocks added after save format 1 (0.35.0-alpha.1), in any mod: format-1 numeric ids are mapped without them.
+## Only needed for format-1 worlds; later formats save names.
+const FORMAT1_ADDED_BLOCKS := ["base:portal"]
 ## Other players are replicated only within this distance (blocks) of the recipient...
 const INTEREST_RADIUS := 96.0
 ## ...and beyond this distance only on every other snapshot.
@@ -124,6 +130,7 @@ var gameplay := {
 	"minigame_assist": true,  # players may choose relaxed timing for crafting minigames
 	"tutorials": true,  # auto-start tutorials for new survival players (see engine/server/tutorials.gd)
 	"chat_filter": false,  # mask swear words in chat and refuse such player names (see engine/server/chat_filter.gd)
+	"role_tags": true,  # show the player's highest role tag in chat ("[Mod] Name")
 }
 var server_info := {"name": "VoxelCraft Server", "game": "", "description": "", "motd": "", "mods": []}
 var generator: Object = null
@@ -183,6 +190,7 @@ var status_query := StatusQuery.new(self)
 var hub: HubAnnouncer
 var chat_filter := ChatFilter.new()
 var transfers := Transfers.new(self)
+var roles := Roles.new(self)
 ## The game port (0 when offline).
 var port := 0
 var max_players := DEFAULT_MAX_PLAYERS
@@ -284,7 +292,11 @@ func start(config: Dictionary) -> Error:
 	if err != OK:
 		return err
 	_add_part_recipes()
+	_migrate_save_format()
 	chat_filter.load_extra(_save_dir)
+	if not str(config.get("default_role", "")).is_empty():
+		roles.default_role = str(config.default_role).to_lower()
+	roles.migrate(_config_admins)
 	if str(config.get("chat_filter", "")) in ["on", "true", "1", "yes"]:
 		gameplay.chat_filter = true
 	# A private server: only listed players (and admins) may join. Names given here are added to the list.
@@ -481,9 +493,10 @@ func emit(event: String, payload: Dictionary) -> Dictionary:
 	return dev_tools.dispatch(event, list, payload)
 
 
-## permission: "" (everyone) or "admin".
+## permission: "" (everyone), "admin" (needs the "command.<name>" permission, which admins have) or any
+## permission name (see engine/server/roles.gd).
 func add_command(command: String, description: String, handler: Callable, mod_id: String, permission := "") -> void:
-	_commands[command.to_lower()] = {"description": description, "handler": handler, "mod": mod_id, "permission": permission}
+	_commands[command.to_lower()] = {"name": command.to_lower(), "description": description, "handler": handler, "mod": mod_id, "permission": permission}
 
 
 ## Whether a player may join: always when the allowlist is off; else admins and listed players (by id, or
@@ -492,7 +505,8 @@ func is_allowed(player_id: String, player_name: String) -> bool:
 	var list: Dictionary = _meta.get("allowlist", {})
 	if not list.get("enabled", false):
 		return true
-	if _meta.admins.has(player_id) or _config_admins.has(player_id) or _config_admins.has(player_name.to_lower()):
+	if _meta.admins.has(player_id) or _config_admins.has(player_id) or _config_admins.has(player_name.to_lower()) \
+			or roles.has(player_id, "admin") or roles.has(player_id, "allowlist.bypass"):
 		return true
 	var players: Dictionary = list.get("players", {})
 	for key: String in players:
@@ -533,11 +547,25 @@ func allowlist_bind(player_id: String, player_name: String) -> void:
 
 
 func is_admin(p) -> bool:
-	return p != null and (_meta.admins.has(p.player_id) or _config_admins.has(p.player_id) or _config_admins.has(p.name.to_lower()))
+	return has_permission(p, "admin")
 
 
 func _permitted(p, command: Dictionary) -> bool:
-	return command.get("permission", "") != "admin" or is_admin(p)
+	var permission: String = command.get("permission", "")
+	if permission.is_empty():
+		return true
+	if permission == "admin":
+		permission = "command." + str(command.get("name", ""))
+	return has_permission(p, permission)
+
+
+## Whether a player's roles grant a permission (legacy admins and config admins have everything).
+func has_permission(p, permission: String) -> bool:
+	if p == null:
+		return false
+	if _meta.admins.has(p.player_id) or _config_admins.has(p.player_id) or _config_admins.has(p.name.to_lower()):
+		return true
+	return roles.has(p.player_id, permission)
 
 
 func schedule(seconds: float, callback: Callable, interval: float, owner := "engine") -> int:
@@ -587,6 +615,8 @@ func _register_builtin_commands() -> void:
 			player.send_message("The dev dashboard is off. Start the server with --dev-web=24580 (or --dev)."), "engine", "admin")
 	add_command("players", "List online players", _cmd_players, "engine")
 	add_command("op", "<player> - grant admin", _cmd_op.bind(true), "engine", "admin")
+	add_command("role", "list | info <role> | give|take <player> <role> | create|delete|allow|deny|tag ... - roles and permissions", _cmd_role, "engine")
+	add_command("perms", "[player] - roles and what they allow", _cmd_perms, "engine")
 	add_command("network", "[list | id | reload | arrival <id> | arrivals] - servers players can travel to", _cmd_network, "engine", "admin")
 	add_command("server", "[name] - list servers you can travel to, or go to one", _cmd_server, "engine")
 	add_command("transfer", "<player> <server> [arrival] - send a player to another server", _cmd_transfer, "engine", "admin")
@@ -711,7 +741,7 @@ func open_crafting_refresh(p: ServerPlayer) -> void:
 func tell_moderators(text: String) -> void:
 	dev_log.add("info", "server", text)
 	for p: ServerPlayer in players.values():
-		if is_admin(p):
+		if has_permission(p, "moderation.alerts"):
 			p.send_message(text)
 
 
@@ -746,6 +776,174 @@ func _on_dev_error(e: Dictionary, first: bool) -> void:
 			Net.s_dev_error.rpc_id(p.peer_id, alert)
 
 
+## Brings an older world save up to SAVE_FORMAT (after mods registered their blocks and items, before anyone
+## joins), backing the world up first. Format 1 (0.35.0-alpha.1 and earlier) kept inventories as numeric ids,
+## which shift whenever a block is added: they are turned into names using that version's block order.
+func _migrate_save_format() -> void:
+	var format := int(_meta.get("format", 1))
+	if format >= SAVE_FORMAT:
+		return
+	if not _meta.players.is_empty() and not _save_dir.is_empty() and not _backup_dir.is_empty():
+		DirAccess.make_dir_recursive_absolute(_backup_dir)
+		var backup := _backup_dir.path_join("%s-before-format%d-%s%s" % [_save_dir.get_file(), SAVE_FORMAT, WorldBackups.timestamp(), WorldBackups.EXTENSION])
+		var error := WorldBackups.create(_save_dir, backup)
+		dev_log.add("info" if error.is_empty() else "error", "server", "Backed up the world before upgrading its save format: %s" % (backup if error.is_empty() else error))
+	var old_names := _format1_block_names()
+	var migrated := 0
+	for id: String in _meta.players:
+		var record = _meta.players[id]
+		if not (record is Dictionary) or record.has("items"):
+			continue
+		record.items = _format1_items(record, old_names)
+		for key in ["inventory", "item_data", "equipment"]:
+			record.erase(key)
+		migrated += 1
+	_meta.format = SAVE_FORMAT
+	if migrated > 0:
+		dev_log.add("info", "server", "Upgraded %d players' inventories to the name-based save format" % migrated)
+
+
+## Block names in the order format-1 saves numbered them: today's order without blocks added since.
+func _format1_block_names() -> Array:
+	var names := []
+	for d in registry.defs:
+		if not FORMAT1_ADDED_BLOCKS.has(str(d.name)):
+			names.append(str(d.name))
+	return names
+
+
+## A format-1 player record's numeric inventory as save_items() form.
+func _format1_items(record: Dictionary, old_block_names: Array) -> Dictionary:
+	var to_name := func(id: int) -> String:
+		if id <= 0:
+			return ""
+		if items.is_block_item(id):
+			return old_block_names[id] if id < old_block_names.size() else ""
+		return items.name_of(id) if items.is_valid(id) else ""  # non-block items did not move
+	var slots := []
+	var packed = record.get("inventory", [])
+	var item_data: Dictionary = record.get("item_data", {}) if record.get("item_data") is Dictionary else {}
+	if packed is Array and packed.size() >= Inventory.SIZE * 2:
+		for i in Inventory.SIZE:
+			var item_name: String = to_name.call(int(packed[i]))
+			if not item_name.is_empty() and int(packed[Inventory.SIZE + i]) > 0:
+				slots.append([i, item_name, int(packed[Inventory.SIZE + i]), item_data.get(str(i), {})])
+	var equipment := {}
+	var worn = record.get("equipment", {})
+	if worn is Dictionary:
+		for slot_name in worn:
+			var e = worn[slot_name]
+			if e is Array and e.size() == 3:
+				var item_name: String = to_name.call(int(e[0]))
+				if not item_name.is_empty():
+					equipment[str(slot_name)] = [item_name, int(e[1]), e[2] if e[2] is Dictionary else {}]
+	return {"slots": slots, "equipment": equipment}
+
+
+## Checks a permission; tells the player (at most every few seconds) when it is missing.
+func _may(p: ServerPlayer, permission: String, message: String) -> bool:
+	if has_permission(p, permission):
+		return true
+	var now := Time.get_ticks_msec()
+	if now - int(p.get_meta("denied_at", -10000)) > 3000:
+		p.set_meta("denied_at", now)
+		p.send_message(message)
+	return false
+
+
+func _cmd_role(player, args: PackedStringArray) -> void:
+	var action := args[0] if args.size() > 0 else "list"
+	var a1 := args[1].to_lower() if args.size() > 1 else ""
+	var a2 := args[2].to_lower() if args.size() > 2 else ""
+	var manage := has_permission(player, "roles.manage")
+	var edit := has_permission(player, "roles.owner")
+	match action:
+		"list":
+			for r in roles.role_names():
+				var def := roles.role(r)
+				player.send_message("%s%s  (priority %d%s)" % [r, " [%s]" % def.tag if not str(def.tag).is_empty() else "", def.priority,
+					", inherits %s" % def.inherits if not str(def.inherits).is_empty() else ""])
+			player.send_message("New players get: %s" % roles.default_role)
+		"info":
+			if not roles.exists(a1):
+				player.send_message("No role called '%s'" % a1)
+				return
+			var def := roles.role(a1)
+			player.send_message("%s: %s%s" % [a1, ", ".join(def.permissions) if not def.permissions.is_empty() else "no permissions of its own",
+				" + everything %s has" % def.inherits if not str(def.inherits).is_empty() else ""])
+		"give", "take":
+			if not manage:
+				player.send_message("You don't have permission to manage roles")
+				return
+			var id := _player_id_for(a1)
+			if id.is_empty() or not roles.exists(a2):
+				player.send_message("Usage: /role %s <player> <role> (known players and roles only)" % action)
+				return
+			if (a2 == "owner" or roles.role(a2).priority >= roles.rank(player.player_id)) and not edit:
+				player.send_message("You can only %s roles below your own" % action)
+				return
+			var changed := roles.give(id, a2) if action == "give" else roles.take(id, a2)
+			if changed:
+				emit("role_changed", {"player_id": id, "role": a2, "added": action == "give", "by": player.name})
+				if action == "give":
+					broadcast_chat("%s gave %s the %s role" % [player.name, _name_for(id), a2])
+				else:
+					player.send_message("%s no longer has the %s role" % [_name_for(id), a2])
+				_save_all()
+			else:
+				player.send_message("Nothing changed (%s %s the %s role)" % [_name_for(id), "already has" if action == "give" else "does not have", a2])
+		"create", "delete", "allow", "deny", "remove", "reset", "tag":
+			if not edit:
+				player.send_message("Only owners can change roles")
+				return
+			var error := ""
+			match action:
+				"create": error = roles.create(a1, a2 if not a2.is_empty() else "member")
+				"delete": error = roles.delete(a1)
+				"allow": error = roles.set_permission(a1, a2)
+				"deny": error = roles.set_permission(a1, "-" + a2.trim_prefix("-"))
+				"remove": error = roles.set_permission(a1, a2, true)
+				"reset": roles.reset(a1)
+				"tag":
+					if not roles.exists(a1):
+						error = "no role called %s" % a1
+					else:
+						roles.set_look(a1, args[2] if args.size() > 2 else "", args[3] if args.size() > 3 else "")
+			player.send_message(error if not error.is_empty() else "Done: /role info %s" % a1)
+			if error.is_empty():
+				_save_all()
+		_:
+			player.send_message("Usage: /role list | info <role> | give|take <player> <role> | create <role> [inherits] | delete <role> | allow|deny|remove <role> <permission> | tag <role> <tag> [#color] | reset <role>")
+
+
+func _cmd_perms(player, args: PackedStringArray) -> void:
+	var id: String = player.player_id if args.is_empty() else _player_id_for(args[0])
+	if id.is_empty():
+		player.send_message("No known player called '%s'" % args[0])
+		return
+	var entries := roles.entries_of(id)
+	player.send_message("%s: roles %s" % [_name_for(id), ", ".join(roles.roles_of(id))])
+	var checks := ["build", "interact", "chat", "creative", "ugc.review", "allowlist.manage", "roles.manage", "admin"]
+	player.send_message("can: %s" % ", ".join(checks.filter(func(c): return Roles.allows(entries, c))))
+
+
+func _player_id_for(player_name: String) -> String:
+	var online = _find_online(player_name)
+	if online != null:
+		return online.player_id
+	return str(_meta.names.get(player_name.to_lower(), ""))
+
+
+func _name_for(player_id: String) -> String:
+	for p: ServerPlayer in players.values():
+		if p.player_id == player_id:
+			return p.name
+	for n: String in _meta.names:
+		if _meta.names[n] == player_id:
+			return n
+	return player_id.left(8)
+
+
 func _cmd_help(player, _args: PackedStringArray) -> void:
 	var names := _commands.keys()
 	names.sort()
@@ -755,15 +953,11 @@ func _cmd_help(player, _args: PackedStringArray) -> void:
 
 
 func _cmd_op(player, args: PackedStringArray, grant: bool) -> void:
-	var target = _find_online(args[0] if args.size() > 0 else "")
-	if target == null:
-		player.send_message("No online player named '%s'" % (args[0] if args.size() > 0 else ""))
-		return
-	if grant and not _meta.admins.has(target.player_id):
-		_meta.admins.append(target.player_id)
-	elif not grant:
-		_meta.admins.erase(target.player_id)
-	broadcast_chat("%s %s admin rights for %s" % [player.name, "granted" if grant else "revoked", target.name])
+	_cmd_role(player, PackedStringArray(["give" if grant else "take", args[0] if args.size() > 0 else "", "admin"]))
+	if not grant and args.size() > 0:
+		var target = _find_online(args[0])
+		if target != null:
+			_meta.admins.erase(target.player_id)  # the old admin list
 
 
 func _cmd_kick(player, args: PackedStringArray) -> void:
@@ -930,7 +1124,7 @@ func _cmd_network(player, args: PackedStringArray) -> void:
 
 
 func _cmd_server(player, args: PackedStringArray) -> void:
-	var allowed: Array = transfers.servers.values().filter(func(e): return e.send and (e.hop or is_admin(player)))
+	var allowed: Array = transfers.servers.values().filter(func(e): return e.send and (e.hop or has_permission(player, "command.transfer")))
 	if args.is_empty():
 		player.send_message("Servers you can go to: %s" % (", ".join(allowed.map(func(e): return "%s (%s)" % [e.key, e.name])) if not allowed.is_empty() else "none"))
 		return
@@ -1578,6 +1772,8 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		return
 	j.authenticated = true
 	_meta.names[String(j.name).to_lower()] = j.player_id
+	if _config_admins.has(String(j.name).to_lower()) or _config_admins.has(j.player_id):
+		roles.give(j.player_id, "owner")  # --admins names become owners once they have joined
 	allowlist_bind(j.player_id, j.name)
 	var manifest := []
 	for asset_name: String in _assets:
@@ -1603,8 +1799,7 @@ func on_claim_admin(peer_id: int, token: String) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null or _admin_token.is_empty() or token != _admin_token:
 		return
-	if not _meta.admins.has(p.player_id):
-		_meta.admins.append(p.player_id)
+	roles.give(p.player_id, "owner")
 	p.send_message("You are an admin on this server.")
 
 
@@ -1654,7 +1849,10 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 		var pos = saved.get("position")
 		if pos is Array and pos.size() == 3:
 			p.state.position = Vector3(pos[0], pos[1], pos[2])
-		p.load_inventory(saved)
+		if saved.has("items"):
+			p.load_items(saved.items)
+		else:
+			p.load_inventory(saved)  # a record still in the numeric form (migrated at start; kept as a fallback)
 		p.inventory.creative = bool(saved.get("creative", false))
 		p.data = saved.get("data", {}) if saved.get("data") is Dictionary else {}
 		for id in (saved.get("cosmetics") if saved.get("cosmetics") is Array else []):
@@ -2046,6 +2244,9 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 	if p == null:
 		return
 	var current := world.get_block_v(pos)
+	if not _may(p, "build", "You can't build on this server"):
+		_reject_edit(p, pos)
+		return
 	if not _can_edit(p, pos) or current == BlockRegistry.UNLOADED or registry.breakable_lut[current] == 0 or p.dead:
 		_reject_edit(p, pos)
 		return
@@ -2092,6 +2293,9 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 		return
 	var block := p.inventory.selected_block()
 	var current := world.get_block_v(pos)
+	if block > 0 and not _may(p, "build", "You can't build on this server"):
+		_reject_edit(p, pos)
+		return
 	var valid: bool = _can_edit(p, pos) and block > 0 and registry.placeable_lut[block] == 1 \
 		and _can_replace(current) and _has_solid_neighbor(pos) and is_supported(pos, block)
 	var state := BlockRegistry.facing_from_yaw(yaw) if valid and registry.defs[block].orientation == 1 and is_finite(yaw) else 0
@@ -2134,6 +2338,8 @@ func on_interact(peer_id: int, pos: Vector3i) -> void:
 	var block := world.get_block_v(pos)
 	if block == BlockRegistry.UNLOADED or registry.interactive_lut[block] == 0 or not _can_edit(p, pos):
 		return
+	if not _may(p, "interact", "You can't use that here"):
+		return
 	var ev := emit("block_interact", {"player": p, "position": pos, "block": block, "cancelled": false})
 	if ev.cancelled:
 		return
@@ -2175,10 +2381,13 @@ func on_chat(peer_id: int, text: String) -> void:
 			command.handler.call(p, parts.slice(1))
 			dev_tools.record(command.mod, "command:/" + parts[0].to_lower(), Time.get_ticks_usec() - t)
 		return
+	if not _may(p, "chat", "You can't chat on this server"):
+		return
 	if gameplay.chat_filter:
 		clean = chat_filter.clean(clean)
 	if not emit("chat", {"player": p, "text": clean, "cancelled": false}).cancelled:
-		broadcast_chat("<%s> %s" % [p.name, clean])
+		var badge := roles.badge(p.player_id)
+		broadcast_chat("<%s%s> %s" % ["[%s] " % badge.tag if gameplay.role_tags and not badge.is_empty() else "", p.name, clean])
 
 
 func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vector3i) -> void:
@@ -2722,13 +2931,51 @@ func on_ugc_report(peer_id: int, id: String, reason: String, details: String) ->
 	p.send_message(error if not error.is_empty() else "Thanks, the report was sent to this server's admins.")
 
 
+## The players and roles panel. Answers with {players, roles, can_kick, denied?}.
+func on_roles_panel(peer_id: int, action: String, args: Dictionary) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null:
+		return
+	if not has_permission(p, "roles.manage"):
+		Net.s_roles_panel.rpc_id(peer_id, {"denied": true})
+		return
+	match action:
+		"give", "take":
+			var id := str(args.get("player_id", ""))
+			var name_for := _name_for(id)
+			_cmd_role(p, PackedStringArray([action, name_for, str(args.get("role", ""))]))
+		"kick":
+			var target: ServerPlayer = players.get(int(args.get("peer", 0)))
+			if target != null and target != p and has_permission(p, "command.kick"):
+				kick(target.peer_id, "Kicked by %s" % p.name)
+	var my_rank := roles.rank(p.player_id)
+	var owner := has_permission(p, "roles.owner")
+	var list := []
+	var online := {}
+	for other: ServerPlayer in players.values():
+		online[other.player_id] = other.peer_id
+	var known: Array = _meta.names.keys()
+	known.sort()
+	for n: String in known.slice(0, 300):
+		var id: String = _meta.names[n]
+		list.append({"id": id, "name": _name_for(id), "online": online.has(id), "peer": online.get(id, 0), "roles": roles.roles_of(id),
+			"assigned": _meta.player_roles.get(id, []) if _meta.get("player_roles") is Dictionary else []})
+	list.sort_custom(func(a, b): return a.online and not b.online if a.online != b.online else a.name.naturalnocasecmp_to(b.name) < 0)
+	var role_list := []
+	for r in roles.role_names():
+		var def := roles.role(r)
+		role_list.append({"name": r, "tag": def.tag, "color": def.color, "priority": def.priority,
+			"manageable": owner or (r != "owner" and int(def.priority) < my_rank), "default": r == roles.default_role})
+	Net.s_roles_panel.rpc_id(peer_id, {"players": list, "roles": role_list, "can_kick": has_permission(p, "command.kick"), "me": p.player_id})
+
+
 ## The creations review panel (admins): list {filter, text} | set_status {id, status, reason} |
 ## trust {player_id, on} | ban {player_id, on, reason} | clear_reports {id}. Answers with the list.
 func on_ugc_admin(peer_id: int, action: String, args: Dictionary) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null:
 		return
-	if not is_admin(p):
+	if not has_permission(p, "ugc.review"):
 		Net.s_ugc_admin_list.rpc_id(peer_id, [], {"denied": true})
 		return
 	match action:
@@ -3457,9 +3704,7 @@ func _store_player(p: ServerPlayer) -> void:
 	_meta.players[p.player_id] = {
 		"name": p.name,
 		"position": [p.state.position.x, p.state.position.y, p.state.position.z],
-		"inventory": p.save_inventory().inventory,
-		"item_data": p.save_inventory().item_data,
-		"equipment": p.save_inventory().equipment,
+		"items": p.save_items(),
 		"modifiers": p.modifiers.duplicate(true),
 		"creative": p.inventory.creative,
 		"data": p.data,

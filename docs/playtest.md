@@ -108,8 +108,11 @@ Press **T**, type a command, press Enter. `/help` lists them all.
 | `/gameplay chat_filter true` | turn the chat filter on or off |
 | `/ugc list` | skins and hats waiting for approval; `/ugc approve <id>`, `/ugc trust Name` to skip approval for someone |
 | `/backup` | save a backup now |
+| `/role give Maya builder` | give someone a role (`/role list` shows them; `/role take` removes) |
+| `/perms Maya` | what someone's roles let them do |
 
-Admins also get **Esc → Review creations** to see and approve painted skins with previews.
+Admins also get **Esc → Review creations** to see and approve painted skins with previews, and **Esc → Players and
+roles** to give roles (builder, moderator, admin) or kick someone, without typing commands.
 
 ## 5. Backups and updates
 
@@ -122,6 +125,12 @@ docker run --rm -v homelab_voxelcraft-data:/data -v "$PWD":/out debian tar czf /
 
 (`docker volume ls` shows the exact volume name.) The volume also holds the server's identity: keep it, or
 every Mac will warn that the server's identity changed.
+
+**Worlds survive updates.** Builds, chests, animals and inventories are kept when you update; the server backs a
+world up before it upgrades the save format. Always update with the *same* Compose project name you started with,
+because the world lives in that project's volume: if you started with plain `docker compose up`, keep using that
+from the same folder; if you used `-p voxelcraft`, keep using it. `docker volume ls` shows the volumes
+(`homelab_voxelcraft-data` or `voxelcraft_voxelcraft-data`).
 
 **Updating.** Server and Macs must run the same version. On the server:
 

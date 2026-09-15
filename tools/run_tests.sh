@@ -125,7 +125,7 @@ run_scene "ai" "$WORK/ai.log" res://tests/ai_test.tscn
 if [ "${VOXEL_NATIVE:-1}" != "0" ]; then
   run_scene "js-sandbox" "$WORK/js_sandbox.log" res://tests/js_sandbox_test.tscn
 fi
-for extra in tests/host_flow_test.tscn tests/reload_test.tscn tests/transfer_test.tscn; do
+for extra in tests/host_flow_test.tscn tests/reload_test.tscn tests/transfer_test.tscn tests/save_compat_test.tscn; do
   [ -f "$extra" ] && run_scene "$(basename "$extra" .tscn)" "$WORK/$(basename "$extra" .tscn).log" "res://$extra"
 done
 # The hub service (Rust) with a real game server; skipped when cargo is not installed.

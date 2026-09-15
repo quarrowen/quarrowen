@@ -131,52 +131,14 @@ func transfer(p, target: String, options := {}) -> String:
 	return ""
 
 
-## Items by name (ids differ between servers): {slots: [[index, name, count, data]], equipment: {slot: [name, count, data]}}.
+## Items by name (ids differ between servers): see ServerPlayer.save_items.
 func pack_inventory(p) -> Dictionary:
-	var items = _server.items
-	var slots := []
-	for i in p.inventory.SIZE:
-		if p.inventory.ids[i] > 0:
-			slots.append([i, items.name_of(p.inventory.ids[i]), p.inventory.counts[i], p.inventory.data[i]])
-	var equipment := {}
-	for i in p.inventory.equipment_slots.size():
-		var index: int = p.inventory.SIZE + i
-		if p.inventory.ids[index] > 0:
-			equipment[p.inventory.equipment_slots[i]] = [items.name_of(p.inventory.ids[index]), p.inventory.counts[index], p.inventory.data[index]]
-	return {"slots": slots, "equipment": equipment}
+	return p.save_items()
 
 
 ## Puts a carried inventory into the player's; returns the names of items this server does not have.
 func unpack_inventory(p, packed) -> Array:
-	var missing := []
-	if not (packed is Dictionary):
-		return missing
-	var items = _server.items
-	p.inventory.clear()
-	for s in (packed.get("slots", []) as Array).slice(0, 64) if packed.get("slots") is Array else []:
-		if not (s is Array) or s.size() != 4:
-			continue
-		var id: int = items.id_of(str(s[1]))
-		var index := int(s[0])
-		if id <= 0:
-			missing.append(str(s[1]))
-		elif index >= 0 and index < p.inventory.SIZE:
-			p.inventory.set_slot(index, id, clampi(int(s[2]), 1, 9999), s[3] if s[3] is Dictionary else {})
-	var equipment = packed.get("equipment", {})
-	if equipment is Dictionary:
-		for slot_name in equipment:
-			var e = equipment[slot_name]
-			var index: int = p.inventory.equipment_index(str(slot_name))
-			if not (e is Array) or e.size() != 3:
-				continue
-			var id: int = items.id_of(str(e[0]))
-			if id <= 0:
-				missing.append(str(e[0]))
-			elif index >= 0:
-				p.inventory.set_slot(index, id, clampi(int(e[1]), 1, 9999), e[2] if e[2] is Dictionary else {})
-			else:
-				p.inventory.add(id, int(e[1]), 1, e[2] if e[2] is Dictionary else {})
-	return missing
+	return p.load_items(packed)
 
 
 # --- Arriving -------------------------------------------------------------------------------------
