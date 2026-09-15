@@ -5,7 +5,13 @@ extends RefCounted
 ##
 ## Off unless configured: --dev-web=24580 (or on by default with --dev). It binds 127.0.0.1 unless
 ## --dev-web-host says otherwise, and every request needs the token printed at start (also shown to
-## admins by /devweb). One request per connection, no keep-alive; requests are small GETs.
+## admins by /devweb).
+##
+## Two transports answer the same routes: with the native extension, NativeHttpServer
+## (native/src/http.rs) parses HTTP on its own threads (keep-alive, many clients) and adds
+## /api/stream, a Server-Sent Events stream the game pushes the state to every PUSH_INTERVAL seconds,
+## so the page need not poll; without it, a small GDScript TCPServer (one request per connection) and
+## the page polls /api/state.
 ##
 ## API (all GET, ?token=...):
 ##   /api/state?logs_after=N&events_after=N&events=0|1&filter=...   everything new since the last poll
@@ -15,6 +21,8 @@ extends RefCounted
 ##   /api/ugc?filter=pending|reported|approved|rejected|removed|all&text=   creations for review
 ##   /api/ugc_action?action=set_status|trust|ban|clear_reports&id=&status=&reason=&player_id=&on=
 ##   /api/ugc_file?id=   a creation's file (skin PNG, accessory JSON, model GLB)
+##   /api/stream   (native only) events: `state` (the /api/state answer with only what is new since the
+##                 last push, using the dashboard's last /api/state parameters)
 ## A dashboard that polls within VIEWER_TIMEOUT seconds counts as a dev tools viewer (so events are traced).
 
 const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
@@ -23,6 +31,8 @@ const PAGE := "res://engine/server/dev_web/index.html"
 const VIEWER_ID := -1000
 const VIEWER_TIMEOUT := 5.0
 const MAX_REQUEST := 16384
+const PUSH_INTERVAL := 0.5
+const Native = preload("res://engine/shared/native.gd")
 
 var token := ""
 var port := 0
@@ -32,6 +42,10 @@ var _tcp: TCPServer
 var _clients: Array[Dictionary] = []  # {peer: StreamPeerTCP, data: PackedByteArray, since}
 var _last_poll := -100.0
 var _page := ""
+var _native: Object  # NativeHttpServer when the extension is loaded
+var _push_timer := 0.0
+var _push_logs_after := 0
+var _push_events_after := 0
 
 
 func _init(game_server) -> void:
@@ -43,12 +57,20 @@ func start(listen_port: int, bind_host := "127.0.0.1", keep_token := "") -> Erro
 	port = listen_port
 	host = bind_host
 	token = keep_token if not keep_token.is_empty() else Crypto.new().generate_random_bytes(12).hex_encode()
-	_tcp = TCPServer.new()
-	var err := _tcp.listen(port, host)
-	if err != OK:
-		_server.dev_log.add("error", "server", "Dev dashboard could not listen on %s:%d (%s)" % [host, port, error_string(err)])
-		_tcp = null
-		return err
+	_native = Native.create(&"NativeHttpServer")
+	if _native != null:
+		var problem: String = _native.listen(host, port, token)
+		if not problem.is_empty():
+			_server.dev_log.add("error", "server", "Dev dashboard could not listen on %s:%d (%s)" % [host, port, problem])
+			_native = null
+			return ERR_CANT_CREATE
+	else:
+		_tcp = TCPServer.new()
+		var err := _tcp.listen(port, host)
+		if err != OK:
+			_server.dev_log.add("error", "server", "Dev dashboard could not listen on %s:%d (%s)" % [host, port, error_string(err)])
+			_tcp = null
+			return err
 	_page = FileAccess.get_file_as_string(PAGE)
 	_server.dev_log.add("info", "server", "Dev dashboard: %s" % url())
 	return OK
@@ -59,7 +81,12 @@ func url() -> String:
 
 
 func running() -> bool:
-	return _tcp != null
+	return _tcp != null or _native != null
+
+
+## True when the native server (with live push) is in use.
+func streaming() -> bool:
+	return _native != null
 
 
 func stop() -> void:
@@ -69,10 +96,16 @@ func stop() -> void:
 	if _tcp != null:
 		_tcp.stop()
 		_tcp = null
+	if _native != null:
+		_native.stop()
+		_native = null
 	_server.dev_tools.unsubscribe(VIEWER_ID)
 
 
-func update() -> void:
+func update(delta := 0.0) -> void:
+	if _native != null:
+		_update_native(delta)
+		return
 	if _tcp == null:
 		return
 	while _tcp.is_connection_available():
@@ -95,34 +128,55 @@ func update() -> void:
 			_respond(peer, 413, "text/plain", "request too large")
 			_clients.erase(c)
 		elif text.contains("\r\n\r\n"):
-			_handle(peer, text.get_slice("\r\n", 0))
+			var parts := text.get_slice("\r\n", 0).split(" ")
+			var target := parts[1] if parts.size() > 1 else ""
+			var answer := _route(parts[0], target.get_slice("?", 0), target.get_slice("?", 1) if target.contains("?") else "")
+			_respond_raw(peer, answer[0], answer[1], answer[2])
 			_clients.erase(c)
+	_expire_viewer()
+
+
+func _update_native(delta: float) -> void:
+	for request in _native.poll():
+		var answer := _route(request.method, request.path, request.query)
+		_native.respond(request.id, answer[0], answer[1], answer[2])
+	_push_timer += delta
+	if _push_timer < PUSH_INTERVAL:
+		return
+	_push_timer = 0.0
+	if _native.stream_count() > 0 and _server.dev_tools.viewers.has(VIEWER_ID):
+		_last_poll = Time.get_unix_time_from_system()  # an open stream keeps the dashboard a viewer
+		var s := _state({"logs_after": str(_push_logs_after), "events_after": str(_push_events_after)}, false)
+		_native.push("state", JSON.stringify(s))
+	# Advance the push cursors even without streams, so a page that polls once when its stream
+	# opens and then follows pushes misses nothing.
+	if not _server.dev_log.entries.is_empty():
+		_push_logs_after = _server.dev_log.entries[-1].id
+	if not _server.dev_tools.trace.is_empty():
+		_push_events_after = _server.dev_tools.trace[-1].id
+	_expire_viewer()
+
+
+func _expire_viewer() -> void:
 	if _last_poll > 0.0 and Time.get_unix_time_from_system() - _last_poll > VIEWER_TIMEOUT:
 		_last_poll = -100.0
 		_server.dev_tools.unsubscribe(VIEWER_ID)
 
 
-func _handle(peer: StreamPeerTCP, request_line: String) -> void:
-	var parts := request_line.split(" ")
-	if parts.size() < 2 or parts[0] != "GET":
-		_respond(peer, 405, "text/plain", "only GET")
-		return
-	var target := parts[1]
-	var path := target.get_slice("?", 0)
-	var query := _query(target.get_slice("?", 1) if target.contains("?") else "")
+## [status, content type, body bytes] for a request, whichever server received it.
+func _route(method: String, path: String, query_text: String) -> Array:
+	if method != "GET":
+		return _text(405, "text/plain", "only GET")
+	var query := _query(query_text)
 	if path == "/" or path == "/index.html":
 		# The page itself asks for the token in the URL; without it, say so.
 		if query.get("token", "") != token:
-			_respond(peer, 403, "text/html", "<h1>Dev dashboard</h1><p>Open the URL with the token printed by the server (or run /devweb in game).</p>")
-		else:
-			_respond(peer, 200, "text/html; charset=utf-8", _page)
-		return
+			return _text(403, "text/html", "<h1>Dev dashboard</h1><p>Open the URL with the token printed by the server (or run /devweb in game).</p>")
+		return _text(200, "text/html; charset=utf-8", _page)
 	if not path.begins_with("/api/"):
-		_respond(peer, 404, "text/plain", "not found")
-		return
+		return _text(404, "text/plain", "not found")
 	if query.get("token", "") != token:
-		_respond(peer, 403, "application/json", JSON.stringify({"error": "bad token"}))
-		return
+		return _text(403, "application/json", JSON.stringify({"error": "bad token"}))
 	var result
 	match path:
 		"/api/state": result = _state(query)
@@ -150,34 +204,31 @@ func _handle(peer: StreamPeerTCP, request_line: String) -> void:
 			var id := str(query.get("id", ""))
 			var bytes: PackedByteArray = _server.ugc.payload(id)
 			if bytes.is_empty():
-				_respond(peer, 404, "application/json", JSON.stringify({"error": "no such creation"}))
-				return
+				return _text(404, "application/json", JSON.stringify({"error": "no such creation"}))
 			var kind: String = _server.ugc.store[id].manifest.kind
-			_respond_bytes(peer, {"skin": "image/png", "accessory": "application/json", "model": "model/gltf-binary"}.get(kind, "application/octet-stream"), bytes)
-			return
+			return [200, {"skin": "image/png", "accessory": "application/json", "model": "model/gltf-binary"}.get(kind, "application/octet-stream"), bytes]
 		"/api/clear_errors":
 			_server.dev_log.clear_errors(query.get("source", ""))
 			result = {"ok": true}
 		_:
-			_respond(peer, 404, "application/json", JSON.stringify({"error": "unknown endpoint"}))
-			return
-	_respond(peer, 200, "application/json", JSON.stringify(result))
+			return _text(404, "application/json", JSON.stringify({"error": "unknown endpoint"}))
+	return _text(200, "application/json", JSON.stringify(result))
 
 
-func _state(query: Dictionary) -> Dictionary:
+## `configure`: a poll sets the dashboard viewer's channels and filter from its query; a push reuses them.
+func _state(query: Dictionary, configure := true) -> Dictionary:
 	var tools = _server.dev_tools
-	_last_poll = Time.get_unix_time_from_system()
-	var channels := ["perf"]
-	if query.get("events", "0") == "1":
-		channels.append("events")
-	# The dashboard is a viewer without a player: tracing follows its filter.
 	var v: Dictionary = tools.viewers.get(VIEWER_ID, {"channels": {}, "inspect": {}, "log_after": 0, "trace_after": 0, "web": true})
-	v.channels = {}
-	for c in channels:
-		v.channels[c] = true
-	v.trace_filter = str(query.get("filter", "")).left(200)
-	tools.viewers[VIEWER_ID] = v
-	tools.set_tracing()
+	if configure:
+		_last_poll = Time.get_unix_time_from_system()
+		# The dashboard is a viewer without a player: tracing follows its filter.
+		v.channels = {"perf": true}
+		if query.get("events", "0") == "1":
+			v.channels["events"] = true
+		v.trace_filter = str(query.get("filter", "")).left(200)
+		tools.viewers[VIEWER_ID] = v
+		tools.set_tracing()
+	var channels: Array = v.channels.keys()
 	var logs_after := int(query.get("logs_after", "0"))
 	var events_after := int(query.get("events_after", "0"))
 	var players := []
@@ -187,7 +238,8 @@ func _state(query: Dictionary) -> Dictionary:
 	return {
 		"server": {"name": _server.server_info.name, "game": _server.server_info.game, "mods": _server.server_info.mods,
 			"tick": _server.tick, "time_of_day": snappedf(_server.get_time_of_day(), 0.001), "entities": _server.entities.entities.size(),
-			"chunks": _server.world.chunks.size(), "dev_mode": _server.dev_mode, "watching": _server.mod_reload.watching},
+			"chunks": _server.world.chunks.size(), "dev_mode": _server.dev_mode, "watching": _server.mod_reload.watching,
+			"stream": _native != null, "ugc_revision": _server.ugc.revision},
 		"mods": _server.mod_order.map(func(m): return {"id": m.id, "name": m.name, "version": m.version, "language": "JavaScript" if str(m.main).ends_with(".js") else "GDScript"}),
 		"players": players,
 		"logs": _server.dev_log.entries.filter(func(e): return e.id > logs_after).slice(-500),
@@ -237,15 +289,15 @@ static func _query(text: String) -> Dictionary:
 	return out
 
 
-static func _respond_bytes(peer: StreamPeerTCP, content_type: String, bytes: PackedByteArray) -> void:
-	var head := "HTTP/1.1 200 OK\r\nContent-Type: %s\r\nContent-Length: %d\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" % [content_type, bytes.size()]
-	peer.put_data(head.to_utf8_buffer())
-	peer.put_data(bytes)
-	peer.disconnect_from_host()
+static func _text(code: int, content_type: String, body: String) -> Array:
+	return [code, content_type, body.to_utf8_buffer()]
 
 
 static func _respond(peer: StreamPeerTCP, code: int, content_type: String, body: String) -> void:
-	var bytes := body.to_utf8_buffer()
+	_respond_raw(peer, code, content_type, body.to_utf8_buffer())
+
+
+static func _respond_raw(peer: StreamPeerTCP, code: int, content_type: String, bytes: PackedByteArray) -> void:
 	var reason: String = {200: "OK", 403: "Forbidden", 404: "Not Found", 405: "Method Not Allowed", 413: "Payload Too Large"}.get(code, "OK")
 	var head := "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %d\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" % [
 		code, reason, content_type, bytes.size()]

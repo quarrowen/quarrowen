@@ -2205,6 +2205,29 @@ func _dev_web() -> void:
 	_check(file[0] == 200 and file[1].contains("PNG"), "the dashboard serves a skin's image")
 	await _http_get(server, port, "/api/ugc_action?token=%s&action=set_status&id=%s&status=approved" % [web.token, m.id])
 	_check(server.ugc.is_approved(m.id), "the dashboard approves creations")
+	if web.streaming():
+		# Live push: a Server-Sent Events stream gets state updates with new log lines.
+		var stream := StreamPeerTCP.new()
+		stream.connect_to_host("127.0.0.1", port)
+		var received := ""
+		var sent := false
+		var deadline := Time.get_ticks_msec() + 5000
+		while Time.get_ticks_msec() < deadline and not received.contains("pushed line"):
+			stream.poll()
+			if stream.get_status() == StreamPeerTCP.STATUS_CONNECTED and not sent:
+				stream.put_data(("GET /api/stream?token=%s HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n" % web.token).to_utf8_buffer())
+				sent = true
+			if stream.get_available_bytes() > 0:
+				received += stream.get_utf8_string(stream.get_available_bytes())
+			if received.contains("text/event-stream") and server.dev_log.entries[-1].message != "pushed line":
+				server.dev_log.add("info", "tester", "pushed line")
+			web.update(0.1)
+			await get_tree().process_frame
+		_check(received.contains("text/event-stream") and received.contains("event: state") and received.contains("pushed line"),
+			"the native dashboard pushes new state over an event stream")
+		stream.disconnect_from_host()
+		var refused: Array = await _http_get(server, port, "/api/stream?token=wrong")
+		_check(refused[0] == 403, "the event stream needs the token")
 	web.stop()
 	_check(not server.dev_tools.viewers.has(web.VIEWER_ID), "stopping the dashboard removes its viewer")
 	server.queue_free()

@@ -390,36 +390,17 @@ document.querySelector('nav button[data-tab="creations"]').addEventListener("cli
 
 // --- Polling ----------------------------------------------------------------------------------------
 let busy = false;
+state.live = false;
+state.ugcRevision = -1;
+let stream = null;
+
+// Polls /api/state (also tells the server which channels and event filter the dashboard wants).
 async function poll() {
   if (busy) return;
   busy = true;
   try {
     const tracing = state.tab === "events" && !$("event-pause").checked;
-    const s = await api("/api/state", { logs_after: state.logsAfter, events_after: state.eventsAfter, events: tracing ? 1 : 0, filter: $("event-filter").value });
-    $("status").textContent = `live · ${new Date().toLocaleTimeString()}`;
-    $("status").classList.remove("bad");
-    $("s-name").textContent = s.server.name; $("s-game").textContent = s.server.game; $("s-tick").textContent = s.server.tick;
-    $("s-entities").textContent = s.server.entities; $("s-chunks").textContent = s.server.chunks; $("s-players").textContent = s.players.length;
-    if (s.logs.length) {
-      state.logsAfter = s.logs[s.logs.length - 1].id;
-      state.logs.push(...s.logs);
-      if (state.logs.length > 5000) state.logs.splice(0, state.logs.length - 5000);
-      for (const e of s.logs) if (!state.sources.has(e.source)) {
-        state.sources.add(e.source);
-        $("log-source").insertAdjacentHTML("beforeend", `<option>${esc(e.source)}</option>`);
-      }
-      renderLogs(s.logs);
-    }
-    state.errors = s.errors; renderErrors();
-    if (s.events.length) {
-      state.eventsAfter = s.events[s.events.length - 1].id;
-      state.events.push(...s.events);
-      if (state.events.length > 500) state.events.splice(0, state.events.length - 500);
-      renderEvents();
-    }
-    state.perf = s.perf; renderPerf();
-    state.players = s.players; renderPlayers(s.server); renderMods(s.mods || []);
-    if (state.tab === "inspect" && state.inspect && $("inspect-live").checked) inspect(state.inspect);
+    applyState(await api("/api/state", { logs_after: state.logsAfter, events_after: state.eventsAfter, events: tracing ? 1 : 0, filter: $("event-filter").value }));
   } catch (e) {
     $("status").textContent = token ? `disconnected (${e.message}) — retrying` : "no token in the URL";
     $("status").classList.add("bad");
@@ -427,10 +408,59 @@ async function poll() {
     busy = false;
   }
 }
+
+// A poll answer or a pushed update. Pushes may repeat lines a poll already delivered, so skip seen ids.
+function applyState(s) {
+  $("status").textContent = `${state.live ? "live (push)" : "live"} · ${new Date().toLocaleTimeString()}`;
+  $("status").classList.remove("bad");
+  $("s-name").textContent = s.server.name; $("s-game").textContent = s.server.game; $("s-tick").textContent = s.server.tick;
+  $("s-entities").textContent = s.server.entities; $("s-chunks").textContent = s.server.chunks; $("s-players").textContent = s.players.length;
+  const logs = s.logs.filter((e) => e.id > state.logsAfter);
+  if (logs.length) {
+    state.logsAfter = logs[logs.length - 1].id;
+    state.logs.push(...logs);
+    if (state.logs.length > 5000) state.logs.splice(0, state.logs.length - 5000);
+    for (const e of logs) if (!state.sources.has(e.source)) {
+      state.sources.add(e.source);
+      $("log-source").insertAdjacentHTML("beforeend", `<option>${esc(e.source)}</option>`);
+    }
+    renderLogs(logs);
+  }
+  state.errors = s.errors; renderErrors();
+  const events = $("event-pause").checked ? [] : s.events.filter((ev) => ev.id > state.eventsAfter);
+  if (events.length) {
+    state.eventsAfter = events[events.length - 1].id;
+    state.events.push(...events);
+    if (state.events.length > 500) state.events.splice(0, state.events.length - 500);
+    renderEvents();
+  }
+  state.perf = s.perf; renderPerf();
+  state.players = s.players; renderPlayers(s.server); renderMods(s.mods || []);
+  if (state.tab === "inspect" && state.inspect && $("inspect-live").checked && Date.now() - (state.inspectedAt || 0) > 900) {
+    state.inspectedAt = Date.now();
+    inspect(state.inspect);
+  }
+  if (s.server.ugc_revision !== state.ugcRevision) {
+    const first = state.ugcRevision === -1;
+    state.ugcRevision = s.server.ugc_revision;
+    if (!first && state.tab === "creations") loadUgc();
+  }
+  if (s.server.stream && !stream && window.EventSource) openStream();
+}
+
+// Servers with the native extension push updates over Server-Sent Events; others are polled.
+function openStream() {
+  stream = new EventSource(`/api/stream?token=${encodeURIComponent(token)}`);
+  stream.addEventListener("state", (ev) => { if (state.live) applyState(JSON.parse(ev.data)); });
+  stream.onopen = () => { state.live = true; poll(); };
+  stream.onerror = () => { state.live = false; };  // EventSource reconnects by itself; poll meanwhile
+}
+$("event-pause").addEventListener("change", poll);
 const initial = document.querySelector(`nav button[data-tab="${location.hash.slice(1)}"]`);
 if (initial) initial.click(); else poll();
 window.addEventListener("hashchange", () => document.querySelector(`nav button[data-tab="${location.hash.slice(1)}"]`)?.click());
-setInterval(poll, 1000);
+// Without a stream, poll every second (changing tabs, the event filter or pause also polls).
+setInterval(() => { if (!state.live) poll(); }, 1000);
 </script>
 </body>
 </html>

@@ -861,7 +861,7 @@ func _physics_process(delta: float) -> void:
 	sleep.update(delta)
 	guide.update(delta)
 	dev_tools.update(delta)
-	dev_web.update()
+	dev_web.update(delta)
 	mod_reload.update(delta)
 	ugc.update(delta)
 	tutorials.update(delta)

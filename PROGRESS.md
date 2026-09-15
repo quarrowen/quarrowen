@@ -209,14 +209,13 @@ changes with `tools/build_native.sh`.
    - U3 Accessory builder (done: accessory_builder.gd, model_importer.gd) (voxel boxes on an attachment point) and GLB model import with checks.
    - U4 Delivery (done: engine/server/ugc.gd, engine/client/ugc_client.gd, library panel, --ugc, e2e in multiplayer_test): offer creations on join and when worn, uploads with limits, the server library (browse
      and wear), clients download them like assets, server policy.
-   - Candidate next step (user idea 2026-09-15): move the dev dashboard's HTTP layer to Rust in the native
-     extension (tiny_http/axum on its own thread: proper parsing, keep-alive, concurrent clients, live push
-     with server-sent events or WebSockets instead of polling), with GDScript still answering requests on
-     the main thread through a queue; keep the GDScript server as a fallback without the extension.
    - U5 Moderation (done: ugc.gd report/review_list/set_trusted/set_banned, engine/client/ugc_review.gd, /ugc and /report,
      dashboard Creations tab, mod + JS API, tests in gameplay_test): reports (hide after N), review panel with previews,
      approve/reject/remove (blocklist), trusted creators, creator bans, events ugc_reported / ugc_status.
-   - Remaining before merging `ugc`: the Rust dashboard HTTP step above if the user wants it now.
+   - U6 Native dashboard server (done, user idea 2026-09-15: native/src/http.rs NativeHttpServer, tiny_http): parsing,
+     keep-alive and concurrent clients on Rust threads; the game thread takes queued requests and answers
+     (same routes as the GDScript TCPServer fallback); /api/stream Server-Sent Events push state every 0.5 s.
+     Possible later: WebSocket for two-way (a live console was ruled out), gzip for big payloads.
 3b. **Enhanced, more aesthetic player models** (future consideration, user 2026-09-15): beyond the blocky
    64x64-skin body. Ideas: whole-body GLB models whose parts are named after the rig (head, torso,
    arm_r_upper, ...) so animations keep working, with height/width, triangle and texture limits, a fallback

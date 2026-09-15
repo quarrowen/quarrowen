@@ -51,6 +51,8 @@ var banned_creators := {}
 ## Player ids whose uploads are approved at once under "trusted".
 var trusted := {}
 
+## Goes up whenever creations, reports, trust or bans change (the dashboard reloads its list).
+var revision := 0
 var _server
 var _dir := ""
 var _uploads := {}  # peer id -> {id -> {manifest, bytes: PackedByteArray, total}}
@@ -83,6 +85,7 @@ func load_store(save_dir: String) -> void:
 
 
 func save_index() -> void:
+	revision += 1
 	if _dir.is_empty():
 		return
 	var f := FileAccess.open(_dir.path_join("index.json"), FileAccess.WRITE)

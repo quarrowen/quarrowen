@@ -856,9 +856,14 @@ The same tools in a browser, handy on a second screen or for a headless server. 
 `Dev dashboard: http://127.0.0.1:24580/?token=...` and admins can get the address with `/devweb`.
 It listens on 127.0.0.1 unless `--dev-web-host` says otherwise, and every request needs the token.
 Tabs: Logs (filters, follow), Errors (stacks), Events (live trace with a filter), Perf (sortable),
-Inspect (a player, what they look at, a block by coordinates or an entity id, live) and Server (mods,
-players). `#perf`-style links open a tab. JSON API: `/api/state`, `/api/inspect`, `/api/clear_errors`
-(see `engine/server/dev_web.gd`).
+Inspect (a player, what they look at, a block by coordinates or an entity id, live), Creations (review
+player creations) and Server (mods, players). `#perf`-style links open a tab. JSON API: `/api/state`,
+`/api/inspect`, `/api/clear_errors`, `/api/reload`, `/api/ugc*` (see `engine/server/dev_web.gd`).
+
+With the native extension the dashboard is served by a Rust HTTP server (`native/src/http.rs`, tiny_http
+on its own threads: keep-alive, many browsers at once) and the page gets live updates pushed twice a
+second over Server-Sent Events (`/api/stream`); the status line says "live (push)". Game data is still
+read on the game thread. Without the extension a small GDScript server answers and the page polls.
 
 ### Reloading mods
 
