@@ -166,7 +166,7 @@ changes with `tools/build_native.sh`.
         templates across chunks with rotation, variants and loot tables; mob spawner block; code pieces.
       - W5 Structures (done): dungeons, ruins and watchtowers in biome materials, mineshafts, Colossus arena.
         Not done: rails in mineshafts, villages, structure-aware terrain smoothing.
-1b. **In-game guide and tutorial** (current, branch `guide`; user decisions 2026-09-14): engine capabilities
+1b. **In-game guide and tutorial** (done, merged to master; user decisions 2026-09-14): engine capabilities
    that base, vanilla and every mod (GDScript or JS) fill, plus a server chapter. In order:
    - G1 Guide engine + book (done): engine/shared/guide_registry.gd, engine/server/guide.gd,
      engine/client/guide_screen.gd; base "First Steps" chapter and a vanilla Cows page as samples; registered chapters/pages made of blocks (text, headings, item icons, live
@@ -198,7 +198,7 @@ changes with `tools/build_native.sh`.
      version check; a validator/linter (manifest, missing assets, unknown names) with file hints.
    - C6 Templates and docs (done: engine/server/mod_templates.gd, menu Create a mod + Developer mode, mod_tool new/docs, docs/api/index.html): new-mod wizard (Host menu + CLI) for GDScript/JS starters; generated API docs
      site from mod_api.gd doc comments and the TypeScript declarations.
-3. **Player-made content / UGC** (current, branch `ugc`; user decisions 2026-09-15): skins, voxel
+3. **Player-made content / UGC** (done, merged to master 2026-09-15; user decisions 2026-09-15): skins, voxel
    accessories and imported models (item/block textures later); in-game editors plus PNG/GLB import;
    creations travel with the player and each server decides what it accepts, plus a server library
    (a cross-server catalog waits for the multiplayer network milestone); moderation with automatic
@@ -236,11 +236,9 @@ changes with `tools/build_native.sh`.
 
 ## Pending (next steps, in order)
 
-1. Player-made content imports (skins, cosmetics uploads) were deferred by the user ("need to explore
-   more"); cosmetics reference assets by name/hash so uploads can be added later. No layered 3D clothing.
-2. AI performance, if mob counts grow: move perception LOS batching and steering to native; path
+1. AI performance, if mob counts grow: move perception LOS batching and steering to native; path
    budget is 8/tick native, 2/tick fallback.
-3. The Godot MCP editor plugin lives in `addons/godot_mcp/` locally; it is git-ignored and excluded
+2. The Godot MCP editor plugin lives in `addons/godot_mcp/` locally; it is git-ignored and excluded
    from exports.
 
 ## Equipment decisions (user, 2026-09-13)
