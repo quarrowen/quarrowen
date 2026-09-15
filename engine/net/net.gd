@@ -222,6 +222,20 @@ func c_request_assets(hashes: PackedStringArray) -> void:
 
 
 ## The players and roles panel (roles.manage): action list | give {player_id, role} | take {player_id, role} | kick {peer}.
+## The worlds this server is linked to: "" asks for the list, "travel" goes to one ({server: key}).
+@rpc("any_peer", "call_remote", "reliable")
+func c_worlds(action: String, args: Dictionary) -> void:
+	if server:
+		server.on_worlds_panel(_sender(), action, args)
+
+
+## The linked worlds and whether this player may travel to each.
+@rpc("authority", "call_remote", "reliable")
+func s_worlds(state: Dictionary) -> void:
+	if client:
+		client.on_worlds(state)
+
+
 ## The admin server settings screen: "set" a gameplay rule, "time", "gamemode", "anticheat", "allowlist",
 ## "save", or "" to just ask for the current state. The server checks every one against the caller's role.
 @rpc("any_peer", "call_remote", "reliable")

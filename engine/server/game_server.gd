@@ -3067,6 +3067,27 @@ func on_ugc_report(peer_id: int, id: String, reason: String, details: String) ->
 
 
 ## The players and roles panel. Answers with {players, roles, can_kick, denied?}.
+## The worlds panel: the servers this one is linked to (network.json), and travel.
+func on_worlds_panel(peer_id: int, action: String, args: Dictionary) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null:
+		return
+	if action == "travel":
+		_cmd_server(p, PackedStringArray([str(args.get("server", ""))]))
+	if not p._online():
+		return
+	var may_send := has_permission(p, "command.transfer")
+	var list := []
+	for entry: Dictionary in transfers.servers.values():
+		if not entry.send:
+			continue
+		list.append({"key": entry.key, "name": entry.name, "carries_inventory": entry.inventory,
+			"allowed": entry.hop or may_send, "here": false})
+	list.sort_custom(func(a, b): return str(a.name).naturalnocasecmp_to(str(b.name)) < 0)
+	list.push_front({"key": "", "name": str(server_info.name), "carries_inventory": false, "allowed": false, "here": true})
+	Net.s_worlds.rpc_id(peer_id, {"worlds": list, "hint": "Portals lead to these too (/portal <world> points one at a world)."})
+
+
 ## Gameplay rules the settings screen offers, in the order they are shown: [key, label, help].
 const PANEL_RULES := [
 	["pvp", "Players can hurt each other", "Off: swings between players do nothing."],

@@ -32,7 +32,8 @@ Play. The main menu shows a live generated world with your avatar, a sidebar and
   second or two and the rest fills in behind the fade; `assets/icon.png` (drawn by `tools/generate_icon.py`)
   is the app icon.
 
-In game, the pause menu's **Invite friends…** shows the server's invite code (for a hosted world, the
+In game, the pause menu has **Worlds…** (the servers this one is linked to, with a Travel button - the
+same trip a portal makes) and, for admins, **Server settings…**. **Invite friends…** shows the server's invite code (for a hosted world, the
 computer's local network address). Menus scale up on high-density screens. Code: `engine/client/menu/`.
 
 ```sh

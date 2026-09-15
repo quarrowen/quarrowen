@@ -53,6 +53,14 @@ func _run() -> void:
 	Net.c_chat.rpc_id(1, "/give base:iron_ingot 7")
 	var iron: int = client.items.id_of("base:iron_ingot")
 	_check(await _wait(func(): return client.inventory.count_of(iron) >= 7, 5.0), "got 7 iron on A")
+	# The worlds panel lists the linked server and travels there with one press.
+	client.open_worlds_panel()
+	var listed := await _wait(func(): return not client._worlds_panel.last_state.is_empty(), 5.0)
+	var state: Dictionary = client._worlds_panel.last_state
+	_check(listed and state.worlds.size() == 2 and state.worlds[0].here, "the worlds panel lists this server and the linked one")
+	_check(listed and state.worlds.any(func(w): return w.key == "b" and w.allowed), "and offers travel to Server B")
+	client.close_settings()
+
 	Net.c_chat.rpc_id(1, "/transfer Traveller b")
 	var on_b := await _wait(func(): return main._client != null and main._client != client and main._client._welcomed and main._client.server_port == port_b, 60.0)
 	_check(on_b, "/transfer moved the player to server B")
