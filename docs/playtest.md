@@ -19,7 +19,7 @@ You need Docker with the Compose plugin (`docker compose version` should work) a
 ```sh
 sudo apt install gh        # or see https://cli.github.com
 gh auth login
-gh repo clone omnivoxel-game/voxelcraft
+gh repo clone omnivoxel-game/voxelcraft -- --branch network   # the branch with the playtest setup (until it is merged)
 cd voxelcraft/deploy/homelab
 ```
 
