@@ -241,6 +241,8 @@ func set_creative(enabled: bool) -> void:
 	var was := inventory.creative
 	inventory.creative = enabled
 	sync_inventory()
+	if not enabled and state.flying and not _server.has_permission(self, "fly"):
+		_server.set_flying(self, false)  # back to survival: the ground comes with it
 	if was and not enabled and _online():
 		_server.tutorials.on_join(self)  # a sandbox player trying survival gets the first tutorial
 

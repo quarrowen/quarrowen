@@ -194,7 +194,14 @@ impl NativeVoxelWorld {
         rules: PackedFloat32Array,
     ) -> PackedFloat32Array {
         let mut body = Body { position, velocity, on_ground };
-        let input = Input { move_input, yaw, jump: flags & 1 != 0, sprint: flags & 2 != 0 };
+        let input = Input {
+            move_input,
+            yaw,
+            jump: flags & 1 != 0,
+            sprint: flags & 2 != 0,
+            sneak: flags & 4 != 0,
+            flying: flags & 8 != 0,
+        };
         physics::step(&mut body, &input, self, &Rules::from_slice(rules.as_slice()));
         PackedFloat32Array::from(&[
             body.position.x,

@@ -13,6 +13,11 @@ const MAX_SUBSTEP: f32 = 0.45;
 const SKIN: f32 = 0.001;
 const EDGE: f32 = 0.0001;
 const LIQUID_ACCEL: f32 = 20.0;
+/// Crouching and flying, mirroring PlayerPhysics.
+const SNEAK_SPEED: f32 = 0.3;
+const FLY_SPEED: f32 = 10.0;
+const FLY_SPRINT: f32 = 1.8;
+const FLY_RISE: f32 = 8.0;
 
 pub struct Body {
     pub position: Vector3,
@@ -25,6 +30,8 @@ pub struct Input {
     pub yaw: f32,
     pub jump: bool,
     pub sprint: bool,
+    pub sneak: bool,
+    pub flying: bool,
 }
 
 pub struct Rules {
@@ -149,10 +156,15 @@ pub fn step(s: &mut Body, input: &Input, world: &NativeVoxelWorld, rules: &Rules
     );
 
     let mut speed = if input.sprint && mv.y > 0.0 { rules.sprint_speed } else { rules.walk_speed };
-    if in_liquid {
+    if input.flying {
+        speed = FLY_SPEED * if input.sprint { FLY_SPRINT } else { 1.0 };
+    } else if input.sneak && s.on_ground {
+        speed *= SNEAK_SPEED;
+    }
+    if in_liquid && !input.flying {
         speed *= 0.5;
     }
-    let accel = if s.on_ground || in_liquid { rules.ground_accel } else { rules.air_accel };
+    let accel = if s.on_ground || in_liquid || input.flying { rules.ground_accel } else { rules.air_accel };
     let horizontal = move_toward2(
         Vector2::new(s.velocity.x, s.velocity.z),
         Vector2::new(wish_x * speed, wish_z * speed),
@@ -161,7 +173,10 @@ pub fn step(s: &mut Body, input: &Input, world: &NativeVoxelWorld, rules: &Rules
     s.velocity.x = horizontal.x;
     s.velocity.z = horizontal.y;
 
-    if in_liquid {
+    if input.flying {
+        let rise = if input.jump { FLY_RISE } else { 0.0 } - if input.sneak { FLY_RISE } else { 0.0 };
+        s.velocity.y = move_toward(s.velocity.y, rise, rules.ground_accel * DT);
+    } else if in_liquid {
         let target = if input.jump { rules.swim_speed } else { -rules.sink_speed };
         s.velocity.y = move_toward(s.velocity.y, target, LIQUID_ACCEL * DT);
     } else {
@@ -175,6 +190,8 @@ pub fn step(s: &mut Body, input: &Input, world: &NativeVoxelWorld, rules: &Rules
     let largest = motion.x.abs().max(motion.y.abs()).max(motion.z.abs());
     let steps = ((largest / MAX_SUBSTEP).ceil() as i32).max(1);
     let mut part = motion / steps as f32;
+    // Crouching on solid ground: a sideways step that would leave nothing underfoot is refused.
+    let edge_guard = input.sneak && s.on_ground && !input.flying && !in_liquid;
     s.on_ground = false;
     for _ in 0..steps {
         if move_axis(s, 1, part.y, PLAYER, world) {
@@ -184,15 +201,42 @@ pub fn step(s: &mut Body, input: &Input, world: &NativeVoxelWorld, rules: &Rules
             s.velocity.y = 0.0;
             part.y = 0.0;
         }
+        let mut before = s.position;
         if move_axis(s, 0, part.x, PLAYER, world) {
             s.velocity.x = 0.0;
             part.x = 0.0;
+        } else if edge_guard && !supported(s.position, world) {
+            s.position = before;
+            s.velocity.x = 0.0;
+            part.x = 0.0;
         }
+        before = s.position;
         if move_axis(s, 2, part.z, PLAYER, world) {
+            s.velocity.z = 0.0;
+            part.z = 0.0;
+        } else if edge_guard && !supported(s.position, world) {
+            s.position = before;
             s.velocity.z = 0.0;
             part.z = 0.0;
         }
     }
+}
+
+/// Solid ground just under the player's box (the crouch edge guard).
+fn supported(position: Vector3, world: &NativeVoxelWorld) -> bool {
+    let y = (position.y - 0.08).floor() as i32;
+    let z0 = (position.z - HALF_WIDTH).floor() as i32;
+    let z1 = (position.z + HALF_WIDTH - EDGE).floor() as i32;
+    let x0 = (position.x - HALF_WIDTH).floor() as i32;
+    let x1 = (position.x + HALF_WIDTH - EDGE).floor() as i32;
+    for z in z0..=z1 {
+        for x in x0..=x1 {
+            if world.is_solid(x, y, z) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 fn axis(v: Vector3, i: usize) -> f32 {

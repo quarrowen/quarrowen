@@ -8,6 +8,14 @@ const HALF_WIDTH := 0.3
 const HEIGHT := 1.8
 const EYE_HEIGHT := 1.62
 
+## Crouching: slower, and the player will not walk off the block they are standing on.
+const SNEAK_SPEED := 0.3
+const SNEAK_EYE_DROP := 0.25
+## Flying (creative): no gravity, jump rises and crouch sinks.
+const FLY_SPEED := 10.0
+const FLY_SPRINT := 1.8
+const FLY_RISE := 8.0
+
 const MAX_SUBSTEP := 0.45
 const SKIN := 0.001
 const EDGE := 0.0001
@@ -56,6 +64,10 @@ class State:
 	var position := Vector3.ZERO
 	var velocity := Vector3.ZERO
 	var on_ground := false
+	## Set by the server (creative or the "fly" permission); the client predicts with the same flag.
+	var flying := false
+	## Whether the last input was crouching (lowers the eye, used for reach and the camera).
+	var sneaking := false
 
 
 class PlayerInput:
@@ -66,6 +78,8 @@ class PlayerInput:
 	var pitch := 0.0
 	var jump := false
 	var sprint := false
+	## Crouch: slower and no stepping off ledges; sinks while flying.
+	var sneak := false
 
 	func write(buf: StreamPeerBuffer) -> void:
 		buf.put_u32(seq)
@@ -73,7 +87,7 @@ class PlayerInput:
 		buf.put_8(clampi(roundi(move.y * 127.0), -127, 127))
 		buf.put_float(yaw)
 		buf.put_float(pitch)
-		buf.put_u8(int(jump) | (int(sprint) << 1))
+		buf.put_u8(int(jump) | (int(sprint) << 1) | (int(sneak) << 2))
 
 	static func read(buf: StreamPeerBuffer) -> PlayerInput:
 		var input := PlayerInput.new()
@@ -84,11 +98,12 @@ class PlayerInput:
 		var flags := buf.get_u8()
 		input.jump = (flags & 1) != 0
 		input.sprint = (flags & 2) != 0
+		input.sneak = (flags & 4) != 0
 		return input
 
 
 static func eye_position(state: State) -> Vector3:
-	return state.position + Vector3(0.0, EYE_HEIGHT, 0.0)
+	return state.position + Vector3(0.0, EYE_HEIGHT - (SNEAK_EYE_DROP if state.sneaking else 0.0), 0.0)
 
 
 static func look_direction(yaw: float, pitch: float) -> Vector3:
@@ -96,9 +111,11 @@ static func look_direction(yaw: float, pitch: float) -> Vector3:
 
 
 static func step(s: State, input: PlayerInput, world, rules: Rules) -> void:
+	s.sneaking = input.sneak
 	if world.native:
+		var flags := int(input.jump) | (int(input.sprint) << 1) | (int(input.sneak) << 2) | (int(s.flying) << 3)
 		var out: PackedFloat32Array = world.native.step_player(s.position, s.velocity, s.on_ground, input.move,
-			input.yaw, int(input.jump) | (int(input.sprint) << 1), rules.packed)
+			input.yaw, flags, rules.packed)
 		s.position = Vector3(out[0], out[1], out[2])
 		s.velocity = Vector3(out[3], out[4], out[5])
 		s.on_ground = out[6] > 0.5
@@ -120,14 +137,22 @@ static func step(s: State, input: PlayerInput, world, rules: Rules) -> void:
 	var in_liquid := rules.liquid_lut[world.get_block(floori(s.position.x), floori(s.position.y + 0.4), floori(s.position.z))] == 1
 
 	var speed := rules.sprint_speed if input.sprint and move.y > 0.0 else rules.walk_speed
-	if in_liquid:
+	if s.flying:
+		speed = FLY_SPEED * (FLY_SPRINT if input.sprint else 1.0)
+	elif input.sneak and s.on_ground:
+		speed *= SNEAK_SPEED
+	if in_liquid and not s.flying:
 		speed *= 0.5
-	var accel := rules.ground_accel if s.on_ground or in_liquid else rules.air_accel
+	var accel := rules.ground_accel if s.on_ground or in_liquid or s.flying else rules.air_accel
 	var horizontal := Vector2(s.velocity.x, s.velocity.z).move_toward(Vector2(wish.x, wish.z) * speed, accel * DT)
 	s.velocity.x = horizontal.x
 	s.velocity.z = horizontal.y
 
-	if in_liquid:
+	if s.flying:
+		# Flying: jump rises, crouch sinks, neither drifts.
+		var rise := (FLY_RISE if input.jump else 0.0) - (FLY_RISE if input.sneak else 0.0)
+		s.velocity.y = move_toward(s.velocity.y, rise, rules.ground_accel * DT)
+	elif in_liquid:
 		var target_vy := rules.swim_speed if input.jump else -rules.sink_speed
 		s.velocity.y = move_toward(s.velocity.y, target_vy, 20.0 * DT)
 	else:
@@ -139,6 +164,8 @@ static func step(s: State, input: PlayerInput, world, rules: Rules) -> void:
 	var largest := maxf(absf(motion.x), maxf(absf(motion.y), absf(motion.z)))
 	var steps := maxi(1, ceili(largest / MAX_SUBSTEP))
 	var part := motion / steps
+	# Crouching on solid ground: a sideways step that would leave nothing underfoot is refused.
+	var edge_guard: bool = input.sneak and s.on_ground and not s.flying and not in_liquid
 	s.on_ground = false
 	for i in steps:
 		if _move_axis(s, 1, part.y, world, solid):
@@ -146,12 +173,32 @@ static func step(s: State, input: PlayerInput, world, rules: Rules) -> void:
 				s.on_ground = true
 			s.velocity.y = 0.0
 			part.y = 0.0
+		var before := s.position
 		if _move_axis(s, 0, part.x, world, solid):
 			s.velocity.x = 0.0
 			part.x = 0.0
+		elif edge_guard and not _supported(s.position, world, solid):
+			s.position = before
+			s.velocity.x = 0.0
+			part.x = 0.0
+		before = s.position
 		if _move_axis(s, 2, part.z, world, solid):
 			s.velocity.z = 0.0
 			part.z = 0.0
+		elif edge_guard and not _supported(s.position, world, solid):
+			s.position = before
+			s.velocity.z = 0.0
+			part.z = 0.0
+
+
+## Whether there is solid ground just under the player's box (used by the crouch edge guard).
+static func _supported(position: Vector3, world, solid: PackedByteArray) -> bool:
+	var y := floori(position.y - 0.08)
+	for z in range(floori(position.z - HALF_WIDTH), floori(position.z + HALF_WIDTH - EDGE) + 1):
+		for x in range(floori(position.x - HALF_WIDTH), floori(position.x + HALF_WIDTH - EDGE) + 1):
+			if solid[world.get_block(x, y, z)] == 1:
+				return true
+	return false
 
 
 ## Moves along one axis; on collision snaps flush against the blocking voxel. Returns true on collision.

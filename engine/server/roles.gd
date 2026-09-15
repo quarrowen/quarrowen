@@ -30,6 +30,7 @@ var descriptions := {
 	"interact": "use doors, chests, stations and other blocks",
 	"chat": "talk in chat",
 	"creative": "switch to creative mode",
+	"fly": "fly in survival (creative mode always allows it)",
 	"structures": "save and place structures",
 	"ugc.review": "review, approve and remove player creations",
 	"allowlist.manage": "add and remove players on the allowlist",

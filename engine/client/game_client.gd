@@ -270,6 +270,7 @@ var _players_panel: Control
 ## engine/client/social/social_client.gd when main.gd runs the game (null in tests).
 var social
 var _sprint_on := false  # the sprint key toggles (accessibility setting)
+var _last_jump_press := 0.0  # for the double-tap that starts flying
 
 
 func _ready() -> void:
@@ -1041,6 +1042,12 @@ func on_entity_despawn(ids: PackedInt32Array) -> void:
 			view.despawn()
 
 
+## The server started or stopped this player's flight.
+func on_flying(enabled: bool) -> void:
+	state.flying = enabled
+	notify("Flying on - jump to rise, crouch to sink" if enabled else "Flying off")
+
+
 func on_entities(tick: int, payload: PackedByteArray) -> void:
 	if payload.size() < 2:
 		return
@@ -1169,6 +1176,15 @@ func _physics_process(_delta: float) -> void:
 	elif _gameplay_input_enabled():
 		input.move = Input.get_vector("move_left", "move_right", "move_back", "move_forward")
 		input.jump = Input.is_action_pressed("jump")
+		input.sneak = Input.is_action_pressed("sneak")
+		if Input.is_action_just_pressed("jump"):
+			# Double-tap jump starts (or stops) flying; the server decides whether it may.
+			var now := Time.get_ticks_msec() / 1000.0
+			if now - _last_jump_press < 0.35 and _welcomed:
+				Net.c_set_flying.rpc_id(1, not state.flying)
+				_last_jump_press = 0.0
+			else:
+				_last_jump_press = now
 		if ClientSettings.shared().get_value("controls/sprint_toggle"):
 			if Input.is_action_just_pressed("sprint"):
 				_sprint_on = not _sprint_on
@@ -1252,7 +1268,8 @@ func _process(delta: float) -> void:
 	var fraction := Engine.get_physics_interpolation_fraction()
 	_render_offset = _render_offset.lerp(Vector3.ZERO, 1.0 - exp(-delta * 15.0))
 	var render_position := _prev_position.lerp(state.position, fraction) + _render_offset
-	_camera.position = render_position + Vector3(0.0, PlayerPhysics.EYE_HEIGHT if _sleep.is_empty() else 0.1, 0.0)
+	var eye := PlayerPhysics.EYE_HEIGHT - (PlayerPhysics.SNEAK_EYE_DROP if state.sneaking else 0.0)
+	_camera.position = render_position + Vector3(0.0, eye if _sleep.is_empty() else 0.1, 0.0)
 	if not _sleep.is_empty():
 		_update_sleep()
 	_camera.rotation = Vector3(pitch, yaw, 0.0)

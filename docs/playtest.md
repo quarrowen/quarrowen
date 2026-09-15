@@ -118,7 +118,8 @@ Press **T**, type a command, press Enter. `/help` lists them all.
 | `/op Name` | make someone an admin (`/deop Name` to undo) |
 | `/time day` | make it day (`/time night`, `/time noon`) |
 | `/tp Name` | go to a player |
-| `/fly` | low gravity for everyone, for big jumps (again to turn it off) |
+| `/fly` | fly (creative mode, or the "fly" permission). Double-tap jump does it too; jump rises, Shift sinks |
+| `/lowgravity` | low gravity for everyone, for big jumps (again to turn it off) |
 | `/gameplay mob_spawning false` | no monsters (`true` to bring them back) |
 | `/gameplay chat_filter true` | turn the chat filter on or off |
 | `/ugc list` | skins and hats waiting for approval; `/ugc approve <id>`, `/ugc trust Name` to skip approval for someone |

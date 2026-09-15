@@ -66,6 +66,7 @@ func _ready() -> void:
 	await _transfers()
 	await _roles()
 	await _playtest_fixes()
+	await _movement()
 	await _anticheat()
 	await _scale()
 	await _status_query()
@@ -138,6 +139,71 @@ func _registries() -> void:
 		"sounds replicate with clamped volume")
 	_check(EntityPhysics.segment_hits_box(Vector3(0, 0.5, -5), Vector3(0, 0, 1), 10.0, Vector3(-0.5, 0, -0.5), Vector3(0.5, 1, 0.5)) == 4.5,
 		"segment/box intersection distance")
+
+
+## Flying (creative) and crouching, run through the same physics the client predicts with.
+func _movement() -> void:
+	var server = _start("movement_%d" % Time.get_ticks_msec())
+	var stone: int = server.registry.id_of("base:stone")
+	var o := Vector3i(40, 80, 40)
+	server._ensure_chunk(Vector2i(2, 2))
+	for x in range(-2, 3):
+		for z in range(-2, 3):
+			server.set_block_authoritative(o + Vector3i(x, 0, z), stone)  # a 5x5 platform in the air
+	var p := ServerPlayer.new(server, 71, "Flyer")
+	p.player_id = "flyer"
+	p.state.position = Vector3(o.x + 0.5, o.y + 1, o.z + 0.5)
+	p.state.on_ground = true
+	server.players[71] = p
+	var rules = server.rules
+	var input := func(forward: float, jump: bool, sneak: bool) -> PlayerPhysics.PlayerInput:
+		var i = PlayerPhysics.PlayerInput.new()
+		i.move = Vector2(0.0, forward)
+		i.jump = jump
+		i.sneak = sneak
+		i.yaw = 0.0
+		return i
+	var run := func(ticks: int, forward: float, jump: bool, sneak: bool) -> void:
+		for t in ticks:
+			PlayerPhysics.step(p.state, input.call(forward, jump, sneak), server.world, rules)
+
+	# Survival: no flying without the permission, and walking off the platform falls.
+	_check(not server.set_flying(p, true) and not p.state.flying, "a survival player without the permission cannot fly")
+	p.set_creative(true)
+	_check(server.set_flying(p, true) and p.state.flying, "a creative player can fly")
+	var start_y: float = p.state.position.y
+	run.call(30, 0.0, false, false)
+	_check(absf(p.state.position.y - start_y) < 0.05, "flying holds height with no input (%.2f)" % (p.state.position.y - start_y))
+	run.call(60, 0.0, true, false)
+	_check(p.state.position.y > start_y + 4.0, "jump rises while flying (%.1f blocks)" % (p.state.position.y - start_y))
+	var high: float = p.state.position.y
+	run.call(45, 0.0, false, true)
+	_check(p.state.position.y < high - 2.5, "crouch sinks while flying (%.1f blocks)" % (high - p.state.position.y))
+	server.set_flying(p, false)
+	run.call(120, 0.0, false, false)
+	_check(p.state.on_ground and absf(p.state.position.y - (o.y + 1)) < 0.05, "stopping flight drops back onto the platform")
+
+	# Crouching: slower, and it will not step off the edge.
+	p.state.position = Vector3(o.x + 0.5, o.y + 1, o.z + 0.5)
+	p.state.velocity = Vector3.ZERO
+	var before: Vector3 = p.state.position
+	run.call(30, 1.0, false, false)
+	var walked: float = before.distance_to(p.state.position)
+	p.state.position = before
+	p.state.velocity = Vector3.ZERO
+	run.call(30, 1.0, false, true)
+	var crouched: float = before.distance_to(p.state.position)
+	_check(crouched < walked * 0.6, "crouching is slower than walking (%.2f vs %.2f blocks)" % [crouched, walked])
+	p.state.position = Vector3(o.x + 0.5, o.y + 1, o.z - 1.1)  # at the north edge, facing off it
+	p.state.velocity = Vector3.ZERO
+	run.call(90, 1.0, false, true)
+	_check(p.state.position.y >= o.y + 1 and p.state.on_ground, "crouching at the edge does not walk off (y %.2f)" % p.state.position.y)
+	p.state.position = Vector3(o.x + 0.5, o.y + 1, o.z - 1.1)
+	p.state.velocity = Vector3.ZERO
+	run.call(90, 1.0, false, false)
+	_check(p.state.position.y < o.y, "walking off the same edge falls (y %.2f)" % p.state.position.y)
+	server.queue_free()
+	await get_tree().process_frame
 
 
 ## Things the family playtest turned up: creative pickup, sparring, zombies burning at dawn.

@@ -676,6 +676,7 @@ func _register_builtin_commands() -> void:
 			hunger.set_hunger(target, float(args[0]), 0.0), "engine", "admin")
 	add_command("tutorial", "list | start <id> | skip | stop | tips on|off", _cmd_tutorial, "engine")
 	add_command("gamemode", "survival | creative [player]", _cmd_gamemode, "engine", "admin")
+	add_command("fly", "Toggle flying (creative, or the \"fly\" permission)", _cmd_fly, "engine")
 	add_command("kill", "Die and respawn", func(p, _args): kill_player(p, "command", null), "engine")
 	add_command("gameplay", "[rule value] - show or change gameplay rules", _cmd_gameplay, "engine", "admin")
 
@@ -1117,6 +1118,40 @@ func _cmd_heal(player, args: PackedStringArray) -> void:
 	var target = _target_player(player, args, 0)
 	if target != null:
 		heal_player(target, target.max_health)
+
+
+## Starts or stops flight for a player, telling their client. Returns false when they may not fly.
+func set_flying(p: ServerPlayer, enabled: bool) -> bool:
+	if enabled and not may_fly(p):
+		return false
+	if p.state.flying == enabled:
+		return true
+	p.state.flying = enabled
+	if not enabled:
+		p.state.velocity.y = minf(p.state.velocity.y, 0.0)
+	if p._online():
+		Net.s_flying.rpc_id(p.peer_id, enabled)
+	return true
+
+
+## Creative players fly; anyone else needs the "fly" permission.
+func may_fly(p: ServerPlayer) -> bool:
+	return p.inventory.creative or has_permission(p, "fly")
+
+
+func on_set_flying(peer_id: int, enabled: bool) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or p.dead:
+		return
+	if not set_flying(p, enabled):
+		p.send_message("Flying is not allowed for you here (creative mode, or ask an admin for the \"fly\" permission)")
+
+
+func _cmd_fly(player, _args: PackedStringArray) -> void:
+	if not set_flying(player, not player.state.flying):
+		player.send_message("Flying is not allowed for you here (creative mode, or ask an admin for the \"fly\" permission)")
+		return
+	player.send_message("Flying: %s (double-tap jump in game; jump rises, crouch sinks)" % ("on" if player.state.flying else "off"))
 
 
 func _cmd_gamemode(player, args: PackedStringArray) -> void:

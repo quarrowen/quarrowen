@@ -29,7 +29,7 @@ func setup(mod_api) -> void:
 	api.set_spawn_handler(_spawn_position)
 	api.on("player_join", _on_join)
 	api.register_command("spawn", "Teleport to world spawn", func(player, _args): player.teleport(_spawn_position(player)))
-	api.register_command("fly", "Toggle low gravity for everyone", _toggle_low_gravity, "admin")
+	api.register_command("lowgravity", "Toggle low gravity for everyone (/fly is real flight)", _toggle_low_gravity, "admin")
 	api.register_command("time", "day | night | noon | midnight | <0-1> | speed <seconds per day>", _cmd_time, "admin")
 	# Everyone may switch modes in the sandbox (the engine's /gamemode is admin-only).
 	api.register_command("gamemode", "survival | creative [player | all] - switch game mode ('all' also sets it for new players)", _cmd_gamemode)

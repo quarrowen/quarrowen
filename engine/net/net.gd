@@ -313,6 +313,20 @@ func c_guide_read(page_id: String) -> void:
 		server.on_guide_read(_sender(), page_id)
 
 
+## Asks to start or stop flying (creative, or the "fly" permission). The server answers with s_flying.
+@rpc("any_peer", "call_remote", "reliable")
+func c_set_flying(enabled: bool) -> void:
+	if server:
+		server.on_set_flying(_sender(), enabled)
+
+
+## Whether this player is flying now; the client predicts movement with the same flag.
+@rpc("authority", "call_remote", "reliable")
+func s_flying(enabled: bool) -> void:
+	if client:
+		client.on_flying(enabled)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func c_select_slot(slot: int) -> void:
 	if server:
