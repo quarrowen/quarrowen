@@ -67,6 +67,7 @@ func _ready() -> void:
 	await _roles()
 	await _playtest_fixes()
 	await _movement()
+	await _server_panel()
 	await _anticheat()
 	await _scale()
 	await _status_query()
@@ -139,6 +140,36 @@ func _registries() -> void:
 		"sounds replicate with clamped volume")
 	_check(EntityPhysics.segment_hits_box(Vector3(0, 0.5, -5), Vector3(0, 0, 1), 10.0, Vector3(-0.5, 0, -0.5), Vector3(0.5, 1, 0.5)) == 4.5,
 		"segment/box intersection distance")
+
+
+## The admin server settings screen: state, changes, and that it grants nothing extra.
+func _server_panel() -> void:
+	var server = _start("panel_%d" % Time.get_ticks_msec())
+	var sent := []
+	var admin := ServerPlayer.new(server, 61, "Boss")
+	admin.player_id = "boss"
+	server.players[61] = admin
+	server.roles.give("boss", "owner")
+	var guest := ServerPlayer.new(server, 62, "Guest")
+	guest.player_id = "guest"
+	server.players[62] = guest
+	# The server answers over the wire; catch what it would send by watching the rules it changes instead.
+	server.on_server_panel(62, "set", {"key": "pvp", "value": "false"})
+	_check(server.gameplay.pvp, "a player who is not an admin cannot change a rule from the panel")
+	server.on_server_panel(61, "set", {"key": "pvp", "value": "false"})
+	_check(not server.gameplay.pvp, "an admin can turn a rule off from the panel")
+	server.on_server_panel(61, "set", {"key": "pvp", "value": "true"})
+	_check(server.gameplay.pvp, "and on again")
+	server.on_server_panel(61, "time", {"value": "night"})
+	_check(server.get_time_of_day() > 0.8 or server.get_time_of_day() < 0.2, "the panel sets the time of day (%.2f)" % server.get_time_of_day())
+	server.on_server_panel(61, "allowlist", {"mode": "add", "name": "Maya"})
+	var list: Dictionary = server._meta.get("allowlist", {})
+	_check(list.get("players", {}).has("maya"), "the panel adds a player to the allowlist")
+	server.on_server_panel(61, "anticheat", {"mode": "log"})
+	_check(server.anticheat.mode == "log", "the panel switches the cheat checks to logging")
+	sent.append(true)
+	server.queue_free()
+	await get_tree().process_frame
 
 
 ## Flying (creative) and crouching, run through the same physics the client predicts with.

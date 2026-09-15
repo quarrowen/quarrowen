@@ -1294,6 +1294,8 @@ func _cmd_gameplay(player, args: PackedStringArray) -> void:
 		player.send_message("Unknown rule '%s'" % args[0])
 		return
 	var value = args[1] if gameplay[args[0]] is String else args[1] in ["true", "on", "1", "yes"]
+	if gameplay[args[0]] is int or gameplay[args[0]] is float:
+		value = args[1].to_float()
 	set_gameplay({args[0]: value})
 	broadcast_chat("%s set %s to %s" % [player.name, args[0], value])
 
@@ -1308,6 +1310,10 @@ func set_gameplay(values: Dictionary) -> void:
 			push_warning("[server] Unknown gameplay rule '%s'" % key)
 		elif gameplay[key] is bool:
 			gameplay[key] = bool(values[key])
+		elif gameplay[key] is int:
+			gameplay[key] = int(values[key])
+		elif gameplay[key] is float:
+			gameplay[key] = float(values[key])
 		else:
 			gameplay[key] = String(values[key])
 
@@ -3061,6 +3067,81 @@ func on_ugc_report(peer_id: int, id: String, reason: String, details: String) ->
 
 
 ## The players and roles panel. Answers with {players, roles, can_kick, denied?}.
+## Gameplay rules the settings screen offers, in the order they are shown: [key, label, help].
+const PANEL_RULES := [
+	["pvp", "Players can hurt each other", "Off: swings between players do nothing."],
+	["keep_inventory", "Keep your things when you die", "Off: everything drops where you died."],
+	["mob_spawning", "Monsters and animals appear", "Off: no new creatures (the ones around stay)."],
+	["mob_griefing", "Monster blasts break blocks", "Off: explosions still hurt, but leave the world alone."],
+	["fall_damage", "Falling hurts", ""],
+	["hunger", "Getting hungry", "Off: nobody needs to eat."],
+	["natural_regeneration", "Health comes back on its own", ""],
+	["sleeping", "Beds skip the night", ""],
+	["durability", "Tools and armour wear out", ""],
+	["recipe_discovery", "Recipes have to be discovered", "Off: everyone knows every recipe from the start."],
+	["tutorials", "Tutorials for new players", ""],
+	["chat_filter", "Mask swear words in chat", ""],
+	["role_tags", "Show role tags in chat", ""],
+]
+
+
+## The admin settings screen. Every action is the command an admin could type, run with their own
+## permissions, so nothing here grants more than chat already does.
+func on_server_panel(peer_id: int, action: String, args: Dictionary) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null:
+		return
+	if not has_permission(p, "admin"):
+		if p._online():
+			Net.s_server_panel.rpc_id(peer_id, {"denied": true})
+		return
+	match action:
+		"set":
+			_run_panel_command(p, "gameplay", PackedStringArray([str(args.get("key", "")), str(args.get("value", ""))]))
+		"time":
+			_run_panel_command(p, "time", PackedStringArray([str(args.get("value", "day"))]))
+		"gamemode":
+			_run_panel_command(p, "gamemode", PackedStringArray([str(args.get("mode", "survival")), "all"]))
+		"anticheat":
+			_run_panel_command(p, "anticheat", PackedStringArray(["mode", str(args.get("mode", "kick"))]))
+		"allowlist":
+			var allow_args := PackedStringArray([str(args.get("mode", "list"))])
+			if args.has("name"):
+				allow_args.append(str(args.name))
+			_run_panel_command(p, "allow", allow_args)
+		"save":
+			_run_panel_command(p, "backup", PackedStringArray())
+	var rules := []
+	for entry in PANEL_RULES:
+		if gameplay.has(entry[0]):
+			rules.append({"key": entry[0], "label": entry[1], "help": entry[2], "value": bool(gameplay[entry[0]])})
+	var list: Dictionary = _meta.get("allowlist", {}) if _meta.get("allowlist") is Dictionary else {}
+	var allowed := []
+	for key: String in (list.get("players", {}) as Dictionary):
+		allowed.append(str(list.players[key].get("name", key)))
+	allowed.sort()
+	if not p._online():
+		return
+	Net.s_server_panel.rpc_id(peer_id, {
+		"rules": rules,
+		"server": {"name": str(server_info.name), "motd": str(server_info.motd), "world": _save_dir.get_file(), "mods": server_info.get("mods", []),
+			"version": Protocol.GAME_VERSION, "players": players.size(), "id": transfers.own_id},
+		"time_of_day": snappedf(_time_of_day, 0.001), "day_length": _day_length,
+		"anticheat": anticheat.mode,
+		"allowlist": {"enabled": bool(list.get("enabled", false)), "names": allowed},
+		"can_kick": has_permission(p, "command.kick"),
+	})
+
+
+## Runs one of the panel's actions as a command from that player (so its own permission check applies).
+func _run_panel_command(p: ServerPlayer, command_name: String, args: PackedStringArray) -> void:
+	var command: Dictionary = _commands.get(command_name, {})
+	if command.is_empty() or not _permitted(p, command):
+		p.send_message("You don't have permission to change that")
+		return
+	command.handler.call(p, args)
+
+
 func on_roles_panel(peer_id: int, action: String, args: Dictionary) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null:

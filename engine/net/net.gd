@@ -222,6 +222,21 @@ func c_request_assets(hashes: PackedStringArray) -> void:
 
 
 ## The players and roles panel (roles.manage): action list | give {player_id, role} | take {player_id, role} | kick {peer}.
+## The admin server settings screen: "set" a gameplay rule, "time", "gamemode", "anticheat", "allowlist",
+## "save", or "" to just ask for the current state. The server checks every one against the caller's role.
+@rpc("any_peer", "call_remote", "reliable")
+func c_server_panel(action: String, args: Dictionary) -> void:
+	if server:
+		server.on_server_panel(_sender(), action, args)
+
+
+## What the admin settings screen shows.
+@rpc("authority", "call_remote", "reliable")
+func s_server_panel(state: Dictionary) -> void:
+	if client:
+		client.on_server_panel(state)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func c_roles_panel(action: String, args: Dictionary) -> void:
 	if server:

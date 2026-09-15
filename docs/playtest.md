@@ -108,6 +108,11 @@ for the guide book and **Esc → Settings** for controls.
 
 ## 4. Admin cheat sheet
 
+**Without typing anything:** press Esc → **Server settings…** (admins only). It has the rules as switches
+(PvP, keep-inventory, monsters, hunger, fall damage...), the time of day, "everyone plays in
+survival/creative", who may join, the cheat checks and a backup button. Everything below still works in chat.
+
+
 Press **T**, type a command, press Enter. `/help` lists them all.
 
 | Command | What it does |

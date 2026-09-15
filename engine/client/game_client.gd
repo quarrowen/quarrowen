@@ -33,6 +33,7 @@ const ClientSettings = preload("res://engine/client/settings/client_settings.gd"
 const SettingsScreen = preload("res://engine/client/settings/settings_screen.gd")
 const FriendsPanel = preload("res://engine/client/social/friends_panel.gd")
 const PlayersPanel = preload("res://engine/client/admin/players_panel.gd")
+const ServerPanel = preload("res://engine/client/admin/server_panel.gd")
 const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const Identity = preload("res://engine/shared/identity.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
@@ -267,6 +268,7 @@ var ugc_models := {}
 var _ugc_review: UgcReview
 var _settings_overlay: Control
 var _players_panel: Control
+var _server_panel: Control
 ## engine/client/social/social_client.gd when main.gd runs the game (null in tests).
 var social
 var _sprint_on := false  # the sprint key toggles (accessibility setting)
@@ -2610,6 +2612,20 @@ func on_roles_panel(state: Dictionary) -> void:
 		_players_panel.receive(state)
 
 
+## Server settings (admins) over the game, in the settings overlay slot.
+func open_server_panel() -> void:
+	var panel := ServerPanel.new()
+	panel.action_requested.connect(func(action, args): Net.c_server_panel.rpc_id(1, action, args))
+	panel.closed.connect(close_settings)
+	_open_overlay(panel)
+	_server_panel = panel
+
+
+func on_server_panel(state: Dictionary) -> void:
+	if _server_panel != null and is_instance_valid(_server_panel):
+		_server_panel.receive(state)
+
+
 ## Shows a screen over the game in a centred panel (settings, friends, players).
 func _open_overlay(content: Control) -> void:
 	if _settings_overlay != null:
@@ -2920,7 +2936,7 @@ func _build_hud() -> void:
 	guide_button.custom_minimum_size = Vector2(240, 44)
 	guide_button.pressed.connect(func(): _set_guide_open(true))
 	pause_box.add_child(guide_button)
-	for entry in [["Players and roles…", open_players_panel], ["Friends…", open_friends], ["Invite friends…", open_invite_dialog], ["Report a creation…", open_report_dialog], ["Review creations (admins)", open_ugc_review]]:
+	for entry in [["Server settings…", open_server_panel], ["Players and roles…", open_players_panel], ["Friends…", open_friends], ["Invite friends…", open_invite_dialog], ["Report a creation…", open_report_dialog], ["Review creations (admins)", open_ugc_review]]:
 		var ugc_button := Button.new()
 		ugc_button.text = entry[0]
 		ugc_button.custom_minimum_size = Vector2(240, 44)

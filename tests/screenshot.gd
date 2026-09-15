@@ -12,14 +12,14 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "name": "Camera"}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
 			options[kv[0]] = kv[1]
 	var client = GameClient.new()
 	client.server_port = int(options.port)
-	client.player_name = "Camera"
+	client.player_name = String(options.name)
 	client.avatar = JSON.parse_string(options.avatar) if not String(options.avatar).is_empty() else {}
 	add_child(client)
 	await _meshed(client)
@@ -32,6 +32,9 @@ func _ready() -> void:
 		await get_tree().create_timer(0.3).timeout
 	if not String(options.menu).is_empty():
 		Net.c_open_menu.rpc_id(1, options.menu)
+	if not String(options.server).is_empty():
+		# The admin server settings panel: --server=1
+		client.open_server_panel()
 	if not String(options.players).is_empty():
 		# The players and roles panel: --players=1
 		client._set_paused(true)
