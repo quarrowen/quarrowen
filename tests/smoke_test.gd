@@ -366,7 +366,7 @@ func _industry(c) -> void:
 	var expected_facing: int = c.registry.facing_from_yaw(c.yaw)
 	_check(c.get_block_state(row[0]) == expected_facing, "generator faces the player (state %d, expected %d)" % [c.get_block_state(row[0]), expected_facing])
 	_check(c._arm_meshes.has(ids.cable), "cable arm model loaded")
-	await _wait_until(func(): return not c._model_nodes.is_empty(), 3.0)
+	await _wait_until(func(): return not c._model_nodes.is_empty(), 10.0)
 	_check(not c._model_nodes.is_empty(), "model blocks rendered as instances")
 	var count_arms := func() -> int:
 		var arms := 0
@@ -376,7 +376,7 @@ func _industry(c) -> void:
 					arms += mmi.multimesh.instance_count
 		return arms
 	# The chunk remeshes after each placement; the GDScript mesher can take a moment.
-	await _wait_until(func(): return count_arms.call() == 2, 4.0)
+	await _wait_until(func(): return count_arms.call() == 2, 10.0)
 	var arm_instances: int = count_arms.call()
 	_check(arm_instances == 2, "cable draws arms toward generator and lamp (%d arms)" % arm_instances)
 

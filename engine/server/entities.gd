@@ -3,6 +3,9 @@ extends RefCounted
 ## (pickup and merging), natural spawn rules, damage and death, replication to players and
 ## persistence of persistent entities inside chunk saves.
 
+## Entity updates per unreliable packet (19 bytes each), to stay under the network MTU.
+const ENTITIES_PER_PACKET := 60
+const SPAWN_SLOTS := 60  # ticks over which every player gets one spawning round
 const Entity = preload("res://engine/server/entity.gd")
 const EntityPhysics = preload("res://engine/shared/entity_physics.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
@@ -53,7 +56,7 @@ var _server
 var _next_id := 1
 var _round := 0
 var _merge_timer := 0.0
-var _spawn_timer := 0.0
+var _spawn_slot := 0
 var _removed_ids := PackedInt32Array()
 
 
@@ -134,9 +137,15 @@ func in_radius(center: Vector3, radius: float, type_id := -1) -> Array:
 
 # --- Tick ---------------------------------------------------------------------------------------
 
+## Microseconds spent in each part of the last tick (read by the server's --metrics).
+var last_sections := {}
+
+
 func tick(delta: float) -> void:
 	var world = _server.world
+	var t0 := Time.get_ticks_usec()
 	ai.tick(delta)
+	var t1 := Time.get_ticks_usec()
 	var moving: Array[Entity] = []
 	for e: Entity in entities.values():
 		if e.removed:
@@ -157,22 +166,31 @@ func tick(delta: float) -> void:
 			continue
 		if _needs_step(e):
 			moving.append(e)
+	var t2 := Time.get_ticks_usec()
 	_step_bodies(moving, delta)
 	for e in moving:
 		if e.type == EntityRegistry.ITEM and not e.removed:
 			_collect(e)
+	var t3 := Time.get_ticks_usec()
 	_merge_timer += delta
 	if _merge_timer >= 1.0:
 		_merge_timer = 0.0
 		_merge_items()
-		spawning.despawn()
 		breeding.update(1.0)
 		_contact_damage()
 		taming.update()
-	_spawn_timer += delta
-	if _spawn_timer >= 1.0:
-		_spawn_timer = 0.0
-		spawning.run()
+	var t4 := Time.get_ticks_usec()
+	# Each player's spawning round comes once a second, spread over the ticks (a sixtieth of the players each).
+	_spawn_slot = (_spawn_slot + 1) % SPAWN_SLOTS
+	var slice := []
+	for p in _server.players.values():
+		if absi(p.peer_id) % SPAWN_SLOTS == _spawn_slot:
+			slice.append(p)
+	if not slice.is_empty():
+		spawning.run(slice)
+	spawning.despawn(_spawn_slot, SPAWN_SLOTS)
+	var t5 := Time.get_ticks_usec()
+	last_sections = {"ai": t1 - t0, "bookkeeping": t2 - t1, "bodies": t3 - t2, "housekeeping": t4 - t3, "spawning": t5 - t4}
 
 
 ## Resting bodies (on the ground, not moving) only re-check their support every few ticks.
@@ -433,8 +451,6 @@ func add_spawn_rule(rule: Dictionary) -> void:
 ## player's view, and compact position updates for visible entities that moved.
 func replicate(players: Array) -> void:
 	_round += 1
-	var refresh := _round % REFRESH_ROUNDS == 0
-	var recompute := _round % VISIBILITY_ROUNDS == 0
 	var removed := _removed_ids
 	_removed_ids = PackedInt32Array()
 	var r2 := VIEW_RADIUS * VIEW_RADIUS
@@ -445,7 +461,8 @@ func replicate(players: Array) -> void:
 			if known.erase(id):
 				gone.append(id)
 		var spawns := []
-		if recompute or p.known_entities_stale:
+		# Who sees what is recomputed for a fifth of the players each round (staggered by peer), not all at once.
+		if (_round + absi(p.peer_id)) % VISIBILITY_ROUNDS == 0 or p.known_entities_stale:
 			p.known_entities_stale = false
 			for e: Entity in entities.values():
 				var inside: bool = e.body.position.distance_squared_to(p.state.position) <= r2
@@ -459,6 +476,8 @@ func replicate(players: Array) -> void:
 			Net.s_entity_despawn.rpc_id(p.peer_id, gone)
 		if not spawns.is_empty():
 			Net.s_entity_spawn.rpc_id(p.peer_id, spawns)
+		# Every entity's position is resent now and then (for lost updates), also staggered by peer.
+		var refresh := (_round + absi(p.peer_id)) % REFRESH_ROUNDS == 0
 		var buf := StreamPeerBuffer.new()
 		buf.put_u16(0)
 		var count := 0
@@ -466,6 +485,14 @@ func replicate(players: Array) -> void:
 			var e: Entity = entities.get(id)
 			if e == null or not (e.dirty or refresh):
 				continue
+			if count >= ENTITIES_PER_PACKET:
+				# Unreliable packets above the MTU get fragmented and lost far more often: send what fits.
+				buf.seek(0)
+				buf.put_u16(count)
+				Net.s_entities.rpc_id(p.peer_id, _server.tick, buf.data_array)
+				buf = StreamPeerBuffer.new()
+				buf.put_u16(0)
+				count = 0
 			buf.put_u32(e.id)
 			buf.put_float(e.body.position.x)
 			buf.put_float(e.body.position.y)
@@ -473,8 +500,6 @@ func replicate(players: Array) -> void:
 			buf.put_u16(int(wrapf(e.yaw, 0.0, TAU) / TAU * 65535.0))
 			buf.put_u8((1 if e.body.on_ground else 0) | (2 if e.item_count > 1 else 0))
 			count += 1
-			if count >= 1200:
-				break
 		if count > 0:
 			buf.seek(0)
 			buf.put_u16(count)

@@ -205,8 +205,12 @@ func _setup_mobs() -> void:
 ## Occasional mob noises, and zombies burn in daylight.
 func _mob_tick() -> void:
 	var daylight: float = api.get_daylight()
+	var seen := {}  # a mob near several players still gets one turn
 	for player in api.get_players():
 		for mob in api.get_entities(player.position, 32.0):
+			if seen.has(mob.id):
+				continue
+			seen[mob.id] = true
 			if randf() < 0.25 and mob.def.sounds.has("ambient"):
 				api.play_sound(mob.def.sounds.ambient, mob.position + Vector3(0, 1, 0))
 			if mob.type in [ids.zombie, ids.skeleton] and daylight > 0.75 and api.sees_sky(Vector3i(mob.position.floor()) + Vector3i.UP):

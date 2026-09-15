@@ -259,10 +259,16 @@ changes with `tools/build_native.sh`.
      moderator/builder/member/visitor with inheritance, wildcards and denials, custom roles, permission checks on
      build/interact/chat/creative/ugc/dev tools/commands; old admin lists and --admins names map to roles.
    - N7 Anti-cheat (done: engine/server/anticheat.gd, /anticheat, --anticheat, cheat_detected event, Net._sender flood gate,
-     tests): closed a speed hole (clients sending inputs faster got two physics steps per tick; now an input credit of
-     1.05/tick, burst 4); decaying scores for timer/reach/fast_break/attack_rate/bad_packet/flood with moderator
+     tests): closed a speed hole (clients sending inputs faster got two physics steps per tick; now a wall-clock input
+     credit of 1.05/tick, burst 8, and a 10 s input allowance for the timer check so hitches are forgiven); decaying scores for timer/reach/fast_break/attack_rate/bad_packet/flood with moderator
      alerts and kicks (admins logged only). Not done: x-ray (hiding unseen ores), autoclicker heuristics, dashboard tab.
-   - N8 Scale: 100+ bot load tests, interest management and bandwidth budgets. Also: gameplay RPCs share reliable
+   - N8 Scale, part 1 (done): per-section tick metrics (--metrics), 100-bot load tests (8–12 ms ticks, 20–25 KB/s per
+     player, was 12 ms average with 90–140 ms spikes): spawning spread over 60 ticks per player with a time budget,
+     despawn checks spread too, saves spread over ticks (2 ms budget, flushed before unloads), visibility and refresh
+     of entities staggered per player, entity updates split under the MTU, player snapshots capped at the 64 nearest
+     (native and GDScript), sky column heights measured lazily and kept current on edits (was a whole-chunk rescan
+     per edit), vanilla mob tick visits each mob once. Bots handle every client message.
+     Part 2: gameplay RPCs share reliable
      channel 0 with chunk streaming, so effects/UI can lag seconds behind movement right after joining (seen in the
      arcana e2e); give bulk data its own channel with client-side buffering of edits for chunks not yet received.
 5. **Loot and drops system** (follow-up, user 2026-09-14): one engine loot capability behind structure

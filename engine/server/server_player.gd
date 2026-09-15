@@ -36,6 +36,12 @@ var modifiers := {}
 var input_queue: Array = []
 ## Simulation steps this player may take (anti-cheat: inputs cannot run faster than the game).
 var input_credit := 0.0
+var credit_usec := 0
+var input_allowance := 0.0
+var allowance_usec := 0
+var excess_inputs := 0
+var inputs_total := 0
+var first_input_usec := 0
 var last_received_seq := -1
 var last_processed_seq := -1
 var sent_chunks := {}

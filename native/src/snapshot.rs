@@ -9,6 +9,10 @@ use godot::prelude::*;
 #[class(base = RefCounted, init)]
 pub struct NativeSnapshots {}
 
+/// Other players per snapshot (20 bytes each), nearest first, so a crowd stays under the network MTU.
+/// Matches GameServer.SNAPSHOT_MAX_PLAYERS.
+const MAX_OTHERS: usize = 64;
+
 #[godot_api]
 impl NativeSnapshots {
     /// Parallel arrays describe every player. Players within `radius` are included; those beyond
@@ -51,6 +55,7 @@ impl NativeSnapshots {
 
         let (radius_sq, near_sq) = (radius * radius, near_radius * near_radius);
         let mut buf: Vec<u8> = Vec::with_capacity(256);
+        let mut picked: Vec<(f32, usize)> = Vec::new();
         for i in 0..n {
             buf.clear();
             buf.extend_from_slice(&seqs[i].to_le_bytes());
@@ -60,13 +65,13 @@ impl NativeSnapshots {
             buf.push(u8::from(grounded[i] != 0));
             let count_at = buf.len();
             buf.extend_from_slice(&0u16.to_le_bytes());
-            let mut count: u16 = 0;
+            picked.clear();
             let (cx, cz) = cell_of(pos[i]);
             for dx in -1..=1 {
                 for dz in -1..=1 {
                     let Some(members) = grid.get(&(cx + dx, cz + dz)) else { continue };
                     for &j in members {
-                        if j == i || count == u16::MAX {
+                        if j == i {
                             continue;
                         }
                         let d = pos[j] - pos[i];
@@ -74,20 +79,27 @@ impl NativeSnapshots {
                         if dist_sq > radius_sq || (dist_sq > near_sq && !full_rate) {
                             continue;
                         }
-                        buf.extend_from_slice(&ids[j].to_le_bytes());
-                        for v in [pos[j].x, pos[j].y, pos[j].z] {
-                            buf.extend_from_slice(&v.to_le_bytes());
-                        }
-                        let tau = std::f32::consts::TAU;
-                        let half_pi = std::f32::consts::FRAC_PI_2;
-                        let yaw = (yaws[j].rem_euclid(tau) / tau * 65535.0) as u16;
-                        let pitch = (pitches[j].clamp(-half_pi, half_pi) / half_pi * 32767.0) as i16;
-                        buf.extend_from_slice(&yaw.to_le_bytes());
-                        buf.extend_from_slice(&pitch.to_le_bytes());
-                        count += 1;
+                        picked.push((dist_sq, j));
                     }
                 }
             }
+            if picked.len() > MAX_OTHERS {
+                picked.select_nth_unstable_by(MAX_OTHERS, |a, b| a.0.total_cmp(&b.0));
+                picked.truncate(MAX_OTHERS);
+            }
+            for &(_, j) in &picked {
+                buf.extend_from_slice(&ids[j].to_le_bytes());
+                for v in [pos[j].x, pos[j].y, pos[j].z] {
+                    buf.extend_from_slice(&v.to_le_bytes());
+                }
+                let tau = std::f32::consts::TAU;
+                let half_pi = std::f32::consts::FRAC_PI_2;
+                let yaw = (yaws[j].rem_euclid(tau) / tau * 65535.0) as u16;
+                let pitch = (pitches[j].clamp(-half_pi, half_pi) / half_pi * 32767.0) as i16;
+                buf.extend_from_slice(&yaw.to_le_bytes());
+                buf.extend_from_slice(&pitch.to_le_bytes());
+            }
+            let count = picked.len() as u16;
             buf[count_at..count_at + 2].copy_from_slice(&count.to_le_bytes());
             out.push(&PackedByteArray::from(&buf[..]).to_variant());
         }

@@ -27,6 +27,8 @@ const DESPAWNS := {"monster": true, "ambient": true, "misc": true, "animal": fal
 const DEFAULT_LIGHT := {"monster": [0, 7], "animal": [9, 15], "ambient": [0, 15], "misc": [0, 15]}
 
 var rules: Array[Dictionary] = []
+## Microseconds a spawning round may use in one tick.
+const BUDGET_USEC := 2000
 var caps := {"monster": 24, "animal": 12, "ambient": 8, "misc": 8}
 
 var _entities
@@ -91,27 +93,48 @@ func count_near(center: Vector3, category: String) -> int:
 	return n
 
 
-func run() -> void:
+## One spawning round for `for_players` (default: everyone). The server calls it every tick for a slice of
+## the players, so each player gets a round about once a second without one tick doing them all.
+func run(for_players: Array = []) -> void:
 	if rules.is_empty() or not _server.gameplay.get("mob_spawning", true) or _server.players.is_empty():
 		return
+	var chosen: Array = for_players if not for_players.is_empty() else _server.players.values()
 	var daylight: float = WorldTime.daylight(_server.get_time_of_day())
+	# Counted once for the round: mobs per type everywhere, and per player by category and type nearby.
+	var totals := {}
+	var mobs: Array = []
+	for e in _entities.entities.values():
+		totals[e.type] = int(totals.get(e.type, 0)) + 1
+		if e.def.kind == "mob" and e.is_alive():
+			mobs.append(e)
+	var near := {}  # player -> {"cat:<name>": n, <type>: n}
+	var cap_r2 := CAP_RADIUS * CAP_RADIUS
+	for p in chosen:
+		var counts := {}
+		for e in mobs:
+			var d2: float = e.body.position.distance_squared_to(p.state.position)
+			if d2 <= cap_r2:
+				var key := "cat:" + category_of(e)
+				counts[key] = int(counts.get(key, 0)) + 1
+			if d2 <= 48.0 * 48.0:
+				counts[e.type] = int(counts.get(e.type, 0)) + 1
+		near[p] = counts
+	var started := Time.get_ticks_usec()
 	for rule in rules:
+		if for_players.size() > 0 and Time.get_ticks_usec() - started > BUDGET_USEC:
+			break  # a busy server spawns a little less rather than stalling a tick
 		var time := str(rule.get("time", "any"))
 		if time == "night" and daylight > 0.45 or time == "day" and daylight < 0.6:
 			continue
 		var type_id := int(rule.entity)
-		var total := 0
-		for e in _entities.entities.values():
-			if e.type == type_id:
-				total += 1
-		if total >= int(rule.get("max_total", 40)):
+		if int(totals.get(type_id, 0)) >= int(rule.get("max_total", 40)):
 			continue
-		for p in _server.players.values():
+		for p in chosen:
 			if p.dead or randf() > float(rule.get("chance", 0.3)):
 				continue
-			if count_near(p.state.position, rule.category) >= int(caps.get(rule.category, 8)):
+			if int(near[p].get("cat:" + str(rule.category), 0)) >= int(caps.get(rule.category, 8)):
 				continue
-			if _entities.in_radius(p.state.position, 48.0, type_id).size() >= int(rule.get("max_nearby", 4)):
+			if int(near[p].get(type_id, 0)) >= int(rule.get("max_nearby", 4)):
 				continue
 			var pos := find_spot(p.state.position, rule, daylight)
 			if pos == Vector3.INF:
@@ -123,8 +146,10 @@ func run() -> void:
 					continue
 				var ev: Dictionary = _server.emit("entity_natural_spawn", {"type": _entities.registry.defs[type_id].name, "position": at,
 					"category": rule.category, "cancelled": false})
-				if not ev.cancelled:
-					_entities.spawn(type_id, at)
+				if not ev.cancelled and _entities.spawn(type_id, at) != null:
+					near[p]["cat:" + str(rule.category)] = int(near[p].get("cat:" + str(rule.category), 0)) + 1
+					near[p][type_id] = int(near[p].get(type_id, 0)) + 1
+					totals[type_id] = int(totals.get(type_id, 0)) + 1
 
 
 ## A spot for a rule's mob around `center` (surface or caves), or Vector3.INF.
@@ -174,14 +199,20 @@ func find_spot(center: Vector3, rule: Dictionary, daylight: float, min_distance 
 	return Vector3.INF
 
 
-## Removes mobs nobody is near (run once a second).
-func despawn() -> void:
+## Removes mobs nobody is near. `slot`/`slots` check only the mobs whose id falls in that slot (the server
+## spreads the check over a second of ticks); the defaults check every mob.
+func despawn(slot := 0, slots := 1) -> void:
+	var positions := PackedVector3Array()
+	for p in _server.players.values():
+		positions.append(p.state.position)
 	for e in _entities.entities.values():
+		if slots > 1 and e.id % slots != slot:
+			continue
 		if e.def.persistent or e.def.kind != "mob" or e.data.get("no_despawn", false) or not DESPAWNS.get(category_of(e), true):
 			continue
 		var nearest := INF
-		for p in _server.players.values():
-			nearest = minf(nearest, p.state.position.distance_to(e.body.position))
+		for at in positions:
+			nearest = minf(nearest, at.distance_to(e.body.position))
 		if nearest > DESPAWN_DISTANCE or (nearest > RANDOM_DESPAWN_DISTANCE and randf() < RANDOM_DESPAWN_CHANCE):
 			_entities.remove(e)
 

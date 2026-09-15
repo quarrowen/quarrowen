@@ -81,6 +81,7 @@ const REACH := 6.0
 const EDITS_PER_SECOND := 15.0
 const CHAT_MAX_LENGTH := 160
 const SAVE_INTERVAL := 10.0
+const SAVE_BUDGET_USEC := 2000  # serializing per tick during a spread-out save
 const WORLD_UNLOAD_INTERVAL := 10.0
 const ATTACK_REACH := 4.5
 const ATTACK_INTERVAL := 0.25
@@ -161,6 +162,9 @@ var _deltas := {}  # Vector2i chunk -> {local index: block id}
 var _generated := {}  # Vector2i chunk -> PackedByteArray as generated (kept while the chunk has edits)
 var _block_data := {}  # Vector2i chunk -> {Vector3i: Dictionary}
 var _save_dirty := {}  # Vector2i chunk -> true
+var _save_queue := {}  # Vector2i chunk -> true: waiting to be serialized (see _save_all)
+var _save_writes: Array = []  # serialized [path, text] waiting for the rest of the save
+var _save_meta_pending := false
 var _js_mods: Array = []  # keeps JavaScript runtimes alive
 ## Crafting recipes and categories (sent to clients for the recipe book).
 var recipes := RecipeRegistry.new()
@@ -594,7 +598,10 @@ func _run_tasks() -> void:
 		if task.callback.is_valid():
 			var t := Time.get_ticks_usec()
 			task.callback.call()
-			dev_tools.record(task.owner, "task", Time.get_ticks_usec() - t)
+			var spent := Time.get_ticks_usec() - t
+			dev_tools.record(task.owner, "task", spent)
+			if _metrics_interval > 0.0 and spent > _slowest_task[1]:
+				_slowest_task = [task.owner, spent]
 
 
 func _register_builtin_commands() -> void:
@@ -1293,8 +1300,10 @@ func _physics_process(delta: float) -> void:
 	_time += delta
 	_stream_assets()
 	_poll_chunk_jobs()
+	var t_jobs := Time.get_ticks_usec()
 	_advance_time(delta)
 	block_ticks.update(delta)
+	var t_blocks := Time.get_ticks_usec()
 	containers.update(delta)
 	transfers.update(delta)
 	anticheat.update(delta)
@@ -1308,6 +1317,7 @@ func _physics_process(delta: float) -> void:
 	mod_reload.update(delta)
 	ugc.update(delta)
 	tutorials.update(delta)
+	var t_systems := Time.get_ticks_usec()
 	var sim_usec := 0
 	var stream_usec := 0
 	for p: ServerPlayer in players.values():
@@ -1329,9 +1339,11 @@ func _physics_process(delta: float) -> void:
 	_run_tasks()
 	emit("tick", {"delta": delta, "tick": tick})
 	var t2 := Time.get_ticks_usec()
+	var t_snap := t2
 
 	if tick % SNAPSHOT_INTERVAL_TICKS == 0 and not players.is_empty():
 		_send_snapshots()
+		t_snap = Time.get_ticks_usec()
 		entities.replicate(players.values())
 	var t3 := Time.get_ticks_usec()
 	dev_tools.record("engine", "tick:snapshots", t3 - t2)
@@ -1342,26 +1354,41 @@ func _physics_process(delta: float) -> void:
 	if _save_timer >= SAVE_INTERVAL:
 		_save_timer = 0.0
 		_save_all()
+	else:
+		_drain_save_queue(SAVE_BUDGET_USEC)
+	var t4 := Time.get_ticks_usec()
 	_unload_timer += delta
 	if _unload_timer >= WORLD_UNLOAD_INTERVAL:
 		_unload_timer = 0.0
 		_unload_unused_chunks()
+	var t5 := Time.get_ticks_usec()
 	if _metrics_interval > 0.0:
-		_record_metrics(delta, Time.get_ticks_usec() - t0, sim_usec, stream_usec, t2 - t1, t3 - t2)
+		var sections := {"chunk jobs": t_jobs - t0, "block ticks": t_blocks - t_jobs, "systems": t_systems - t_blocks, "players": sim_usec, "streaming": stream_usec, "entities": t1 - te,
+			"tasks+mods": t2 - t1, "snapshots": t_snap - t2, "entity replication": t3 - t_snap, "saving": t4 - t3, "unloading": t5 - t4}
+		for key: String in entities.last_sections:
+			sections["mob " + key] = entities.last_sections[key]
+		_record_metrics(delta, t5 - t0, sections)
 
 
-func _record_metrics(delta: float, total: int, sim: int, stream: int, mods: int, snapshot: int) -> void:
+## Tick timings by section, printed every --metrics seconds: averages, and the slowest tick's breakdown.
+var _slowest_task: Array = ["-", 0]  # [owner, usec] this metrics interval
+
+
+func _record_metrics(delta: float, total: int, sections: Dictionary) -> void:
 	var m := _metrics
 	if m.is_empty():
-		m.merge({"elapsed": 0.0, "ticks": 0, "total": 0, "max": 0, "sim": 0, "stream": 0, "mods": 0, "snapshot": 0, "gen": 0, "gen_usec": 0})
+		m.merge({"elapsed": 0.0, "ticks": 0, "total": 0, "max": 0, "max_sections": {}, "sections": {}, "gen": 0, "gen_usec": 0, "slow": 0,
+			"wall": Time.get_ticks_msec()})
 	m.elapsed += delta
 	m.ticks += 1
 	m.total += total
-	m.max = maxi(m.max, total)
-	m.sim += sim
-	m.stream += stream
-	m.mods += mods
-	m.snapshot += snapshot
+	if total > int(1000000.0 / Engine.physics_ticks_per_second):
+		m.slow += 1
+	if total > m.max:
+		m.max = total
+		m.max_sections = sections
+	for key: String in sections:
+		m.sections[key] = int(m.sections.get(key, 0)) + int(sections[key])
 	if m.elapsed < _metrics_interval:
 		return
 	var sent := 0
@@ -1369,11 +1396,19 @@ func _record_metrics(delta: float, total: int, sim: int, stream: int, mods: int,
 	if peer and peer.host:
 		sent = int(peer.host.pop_statistic(ENetConnection.HOST_TOTAL_SENT_DATA))
 	var n := float(m.ticks)
-	print("[metrics] players %d  chunks %d  tick avg %.2f ms (max %.2f)  sim %.3f  stream+gen %.2f (%d gens, %.2f ms each)  mods %.3f  snapshot %.3f  out %.1f KB/s" % [
-		players.size(), world.chunks.size(), m.total / n / 1000.0, m.max / 1000.0, m.sim / n / 1000.0,
-		m.stream / n / 1000.0, m.gen, (m.gen_usec / maxf(m.gen, 1.0)) / 1000.0, m.mods / n / 1000.0,
-		m.snapshot / n / 1000.0, sent / m.elapsed / 1024.0])
+	var average := PackedStringArray()
+	for key: String in m.sections:
+		average.append("%s %.2f" % [key, m.sections[key] / n / 1000.0])
+	var worst := PackedStringArray()
+	var keys: Array = m.max_sections.keys()
+	keys.sort_custom(func(a, b): return m.max_sections[a] > m.max_sections[b])
+	for key: String in keys.slice(0, 3):
+		worst.append("%s %.1f" % [key, m.max_sections[key] / 1000.0])
+	print("[metrics] players %d  mobs %d  chunks %d  ticks %d/s (%d over budget)  tick avg %.2f ms  [%s]  max %.1f ms [%s]  slowest task %s %.1f ms  gens %d (%.1f ms each)  out %.1f KB/s (%.1f per player)" % [
+		players.size(), entities.entities.size(), world.chunks.size(), roundi(n / maxf((Time.get_ticks_msec() - m.wall) / 1000.0, 0.001)), m.slow, m.total / n / 1000.0, ", ".join(average), m.max / 1000.0, ", ".join(worst), _slowest_task[0], _slowest_task[1] / 1000.0,
+		m.gen, (m.gen_usec / maxf(m.gen, 1.0)) / 1000.0, sent / m.elapsed / 1024.0, sent / m.elapsed / 1024.0 / maxf(players.size(), 1)])
 	_metrics = {}
+	_slowest_task = ["-", 0]
 
 
 func _simulate_player(p: ServerPlayer) -> void:
@@ -1395,11 +1430,16 @@ func _simulate_player(p: ServerPlayer) -> void:
 		if getting_up:
 			sleep.wake(p, "moved")
 		return
-	# Inputs cannot run faster than the game: a little over one step per tick on average (clock drift), with a
-	# small burst for inputs that arrive in a clump after network jitter. A client sending sped-up inputs just
-	# builds a queue (and a timer score, see AntiCheat) instead of moving faster.
-	p.input_credit = minf(p.input_credit + AntiCheat.INPUT_RATE, AntiCheat.INPUT_BURST)
-	var budget := mini(2, floori(p.input_credit)) if not p.input_queue.is_empty() else 0
+	# Inputs cannot run faster than real time: steps are paid from a credit that grows with the wall clock (60
+	# per second, 5% extra for clock drift), with a burst for inputs that arrive in a clump after jitter or a slow
+	# server tick. A client sending sped-up inputs just builds a queue instead of moving faster (and the timer
+	# check in AntiCheat notices its input rate).
+	var now := anticheat.now_usec()
+	if p.credit_usec > 0:
+		p.input_credit = minf(p.input_credit + (now - p.credit_usec) / 1000000.0 * Engine.physics_ticks_per_second * AntiCheat.INPUT_RATE,
+			AntiCheat.INPUT_BURST)
+	p.credit_usec = now
+	var budget := mini(3, floori(p.input_credit)) if not p.input_queue.is_empty() else 0
 	var start := p.state.position
 	var was_on_ground := p.state.on_ground
 	var steps := 0
@@ -1673,6 +1713,9 @@ func _send_snapshots() -> void:
 		Net.s_snapshot.rpc_id(p.peer_id, tick, _build_snapshot(p, full_rate))
 
 
+## Other players per snapshot (20 bytes each), nearest first, so a crowd stays under the network MTU.
+const SNAPSHOT_MAX_PLAYERS := 64
+
 ## Per-player snapshot: the recipient's own authoritative state, then compact entries for other
 ## players within INTEREST_RADIUS (beyond NEAR_RADIUS only at full rate). GDScript twin of
 ## NativeSnapshots.build; both produce the same layout.
@@ -1692,12 +1735,19 @@ func _build_snapshot(p: ServerPlayer, full_rate: bool) -> PackedByteArray:
 	var count := 0
 	var radius_sq := INTEREST_RADIUS * INTEREST_RADIUS
 	var near_sq := NEAR_RADIUS * NEAR_RADIUS
+	var picked := []  # [dist_sq, player]
 	for other: ServerPlayer in players.values():
 		if other == p:
 			continue
 		var dist_sq: float = other.state.position.distance_squared_to(s.position)
 		if dist_sq > radius_sq or (dist_sq > near_sq and not full_rate):
 			continue
+		picked.append([dist_sq, other])
+	if picked.size() > SNAPSHOT_MAX_PLAYERS:
+		picked.sort_custom(func(x, y): return x[0] < y[0])
+		picked.resize(SNAPSHOT_MAX_PLAYERS)
+	for entry in picked:
+		var other: ServerPlayer = entry[1]
 		buf.put_32(other.peer_id)
 		buf.put_float(other.state.position.x)
 		buf.put_float(other.state.position.y)
@@ -2151,6 +2201,9 @@ func _unload_unused_chunks() -> void:
 	for x in range(-SPAWN_RADIUS, SPAWN_RADIUS + 1):
 		for z in range(-SPAWN_RADIUS, SPAWN_RADIUS + 1):
 			needed[Vector2i(x, z)] = true
+	if not _save_queue.is_empty() or _save_meta_pending:
+		# A save in progress holds chunks serialized earlier; they must reach the disk before newer copies below.
+		_drain_save_queue(-1)
 	var writes := []
 	for coord: Vector2i in world.chunks.keys():
 		if needed.has(coord):
@@ -2267,14 +2320,11 @@ func on_inputs(peer_id: int, packet: PackedByteArray) -> void:
 		input.pitch = clampf(input.pitch, -PI * 0.5, PI * 0.5)
 		p.last_received_seq = input.seq
 		p.input_queue.append(input)
+		anticheat.count_input(p)
 		p.yaw = input.yaw
 		p.pitch = input.pitch
-	var dropped := 0
 	while p.input_queue.size() > MAX_QUEUED_INPUTS:
 		p.input_queue.pop_front()
-		dropped += 1
-	if dropped > 0:
-		anticheat.record(p, "timer", float(dropped), "%d inputs beyond the game's pace" % dropped)
 
 
 func on_break_block(peer_id: int, pos: Vector3i) -> void:
@@ -3771,10 +3821,12 @@ func _store_player(p: ServerPlayer) -> void:
 
 
 ## Serializes changed chunks and metadata on this thread, then writes files on a worker.
+## Saves changed chunks, players and world.json. With `wait` everything is serialized and written now
+## (shutdown, backups, tests); otherwise the chunks are queued and serialized a few milliseconds per tick
+## (see _drain_save_queue) so a big world does not stall one tick, and world.json follows once they are done.
 func _save_all(wait := false) -> void:
 	if _save_dir.is_empty():
 		return
-	var writes := []
 	var coords := _save_dirty.duplicate()
 	for coord: Vector2i in _block_data:
 		coords[coord] = true  # block data dictionaries may have been mutated in place
@@ -3785,19 +3837,37 @@ func _save_all(wait := false) -> void:
 	for e: Entity in entities.entities.values():
 		if e.def.persistent:
 			coords[VoxelWorld.chunk_coord_of(e.body.position)] = true
-	for coord: Vector2i in coords:
-		if world.chunks.has(coord):
-			writes.append(_serialize_chunk(coord))
-	_save_dirty.clear()
 	if not coords.is_empty():
 		_activity_since_backup = true
+	_save_queue.merge(coords)
+	_save_meta_pending = true
+	_drain_save_queue(-1 if wait else SAVE_BUDGET_USEC, wait)
+
+
+## Serializes queued chunks until `budget_usec` is spent (-1: all), then players and world.json.
+func _drain_save_queue(budget_usec: int, wait := false) -> void:
+	if _save_queue.is_empty() and not _save_meta_pending:
+		return
+	var start := Time.get_ticks_usec()
+	for coord: Vector2i in _save_queue.keys():
+		if budget_usec >= 0 and Time.get_ticks_usec() - start > budget_usec:
+			return
+		_save_queue.erase(coord)
+		if world.chunks.has(coord):
+			_save_writes.append(_serialize_chunk(coord))
+			_save_dirty.erase(coord)
+	if not _save_meta_pending:
+		return
+	_save_meta_pending = false
 	for p: ServerPlayer in players.values():
 		_store_player(p)
 	_meta.time = [_time_of_day, _day_length]
 	_meta.game = server_info.get("game_id", "")
 	_meta.last_played = int(Time.get_unix_time_from_system())
 	_meta.clock = block_ticks.clock
-	writes.append([_save_dir + "/world.json", JSON.stringify(_meta, "\t")])
+	_save_writes.append([_save_dir + "/world.json", JSON.stringify(_meta, "\t")])
+	var writes := _save_writes
+	_save_writes = []
 	_write_async(writes, wait)
 
 

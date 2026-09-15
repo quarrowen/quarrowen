@@ -41,7 +41,7 @@ class Bot:
 		net.create_client(address, port)
 
 	func _physics_process(_delta: float) -> void:
-		if not joined:
+		if not joined or multiplayer.multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_CONNECTED:
 			return
 		seq += 1
 		if rng.randf() < 0.01:
@@ -66,6 +66,15 @@ class Bot:
 			net.c_break_block.rpc_id(1, Vector3i(floori(front.x), floori(front.y), floori(front.z)))
 
 	# --- Net handler interface (subset used by bots; the rest are no-ops) ---
+	func on_player_appearance(_a = null, _b = null, _c = null) -> void:
+		pass
+
+	func on_cosmetics(_a = null, _b = null, _c = null) -> void:
+		pass
+
+	func on_entities(_a = null, _b = null, _c = null, _d = null) -> void:
+		pass
+
 	func on_challenge(nonce: PackedByteArray) -> void:
 		net.c_auth.rpc_id(1, Identity.sign(key, nonce))
 
@@ -96,13 +105,55 @@ class Bot:
 	func on_unload_chunk(_c) -> void: pass
 	func on_block_changed(_p, _b, _s) -> void: pass
 	func on_time(_t, _l) -> void: pass
-	func on_inventory(_s, _sel, _c) -> void: pass
+	func on_inventory(_s, _sel, _c, _d = null) -> void: pass
 	func on_player_joined(_id, _n) -> void: pass
 	func on_player_left(_id) -> void: pass
 	func on_chat(_t) -> void: pass
 	func on_ui_show(_id, _s) -> void: pass
 	func on_ui_hide(_id) -> void: pass
 	func on_title(_t, _s, _sec) -> void: pass
+	func on_assembled(_a = null, _b = null) -> void: pass
+	func on_container_close() -> void: pass
+	func on_container_open(_a = null) -> void: pass
+	func on_container_update(_a = null) -> void: pass
+	func on_content_update(_a = null) -> void: pass
+	func on_crafted(_a = null, _b = null, _c = null) -> void: pass
+	func on_crafting_open(_a = null, _b = null) -> void: pass
+	func on_crafting_stock(_a = null) -> void: pass
+	func on_dev(_a = null, _b = null) -> void: pass
+	func on_dev_error(_a = null) -> void: pass
+	func on_effect(_a = null, _b = null, _c = null) -> void: pass
+	func on_entity_despawn(_a = null) -> void: pass
+	func on_entity_event(_a = null, _b = null, _c = null) -> void: pass
+	func on_entity_look(_a = null, _b = null) -> void: pass
+	func on_entity_spawn(_a = null) -> void: pass
+	func on_experiment_result(_a = null) -> void: pass
+	func on_guide_open(_a = null) -> void: pass
+	func on_guide_state(_a = null, _b = null, _c = null) -> void: pass
+	func on_guide_unlocked(_a = null, _b = null) -> void: pass
+	func on_health(_a = null, _b = null, _c = null, _d = null) -> void: pass
+	func on_hunger(_a = null, _b = null) -> void: pass
+	func on_known_recipes(_a = null, _b = null) -> void: pass
+	func on_minigame(_a = null) -> void: pass
+	func on_minigame_event(_a = null, _b = null, _c = null) -> void: pass
+	func on_mining(_a = null, _b = null, _c = null) -> void: pass
+	func on_player_eating(_a = null, _b = null) -> void: pass
+	func on_player_event(_a = null, _b = null) -> void: pass
+	func on_player_stats(_a = null) -> void: pass
+	func on_recipe_learned(_a = null, _b = null) -> void: pass
+	func on_roles_panel(_a = null) -> void: pass
+	func on_selection(_a = null, _b = null, _c = null) -> void: pass
+	func on_server_reloading(_a = null) -> void: pass
+	func on_sleep(_a = null) -> void: pass
+	func on_sound(_a = null, _b = null, _c = null, _d = null, _e = null) -> void: pass
+	func on_station_label(_a = null, _b = null) -> void: pass
+	func on_station_session(_a = null) -> void: pass
+	func on_structure_guide(_a = null) -> void: pass
+	func on_tip(_a = null) -> void: pass
+	func on_transfer(_a = null, _b = null, _c = null, _d = null, _e = null) -> void: pass
+	func on_tutorial(_a = null) -> void: pass
+	func on_tutorial_event(_a = null, _b = null) -> void: pass
+	func on_ugc_admin_list(_a = null, _b = null) -> void: pass
 
 
 func _ready() -> void:

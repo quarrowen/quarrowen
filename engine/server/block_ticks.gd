@@ -29,6 +29,7 @@ var handlers := {}
 var _positions := {}  # Vector2i chunk -> {local index: block id} for tickable blocks
 var _lights := {}  # Vector2i chunk -> {local index: light level}
 var _scheduled := {}  # Vector2i chunk -> {local index: [due clock, payload]}
+const UNKNOWN_HEIGHT := -2
 var _heights := {}  # Vector2i chunk -> PackedInt32Array(256) highest opaque y per column (-1 open)
 var _pending: Array = []  # [position, ticks] catch-up calls to make on the next round
 var _timer := 0.0
@@ -139,7 +140,16 @@ func unload_chunk(coord: Vector2i) -> void:
 func block_changed(pos: Vector3i, old: int, block: int) -> void:
 	var coord := VoxelWorld.chunk_coord_at(pos.x, pos.z)
 	var index := Chunk.index(pos.x & 15, pos.y, pos.z & 15)
-	_heights.erase(coord)
+	var heights: PackedInt32Array = _heights.get(coord, PackedInt32Array())
+	if not heights.is_empty():
+		# Keep the column's height current instead of rescanning the chunk.
+		var column := (pos.x & 15) + (pos.z & 15) * 16
+		if server.registry.opaque_lut[block] == 1:
+			if heights[column] != UNKNOWN_HEIGHT and pos.y > heights[column]:
+				heights[column] = pos.y
+		elif pos.y >= heights[column]:
+			heights[column] = UNKNOWN_HEIGHT
+		_heights[coord] = heights
 	if handlers.has(old):
 		_positions.get(coord, {}).erase(index)
 	if handlers.has(block):
@@ -247,18 +257,21 @@ func _column_height(x: int, z: int) -> int:
 	var heights: PackedInt32Array = _heights.get(coord, PackedInt32Array())
 	if heights.is_empty():
 		heights.resize(256)
-		var blocks: PackedByteArray = chunk.blocks
-		var opaque: PackedByteArray = server.registry.opaque_lut
-		for lz in 16:
-			for lx in 16:
-				var h := -1
-				for y in range(Chunk.SIZE_Y - 1, -1, -1):
-					if opaque[blocks.decode_u16(Chunk.index(lx, y, lz) << 1)] == 1:
-						h = y
-						break
-				heights[lx + lz * 16] = h
-		_heights[coord] = heights
-	return heights[(x & 15) + (z & 15) * 16]
+		heights.fill(UNKNOWN_HEIGHT)
+	var column := (x & 15) + (z & 15) * 16
+	if heights[column] != UNKNOWN_HEIGHT:
+		return heights[column]
+	# Columns are measured when first asked about (a whole chunk at once is too slow for one tick).
+	var blocks: PackedByteArray = chunk.blocks
+	var opaque: PackedByteArray = server.registry.opaque_lut
+	var h := -1
+	for y in range(Chunk.SIZE_Y - 1, -1, -1):
+		if opaque[blocks.decode_u16(Chunk.index(x & 15, y, z & 15) << 1)] == 1:
+			h = y
+			break
+	heights[column] = h
+	_heights[coord] = heights
+	return h
 
 
 static func _local(index: int) -> Vector3i:

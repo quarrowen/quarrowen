@@ -66,6 +66,7 @@ func _ready() -> void:
 	await _transfers()
 	await _roles()
 	await _anticheat()
+	await _scale()
 	await _status_query()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -2872,6 +2873,73 @@ func _menu_data() -> void:
 	_check(InviteCode.parse("vc-3gs h9n") == {"hub_code": "VC-3GS-H9N"} and InviteCode.parse("VC-3GS-H9U").has("error"), "short hub codes are recognised")
 
 
+## Load-related server paths: saves spread over ticks, column heights kept up to date, crowded snapshots.
+func _scale() -> void:
+	var world_name := "scale_%d" % Time.get_ticks_msec()
+	var server = _start(world_name)
+	var stone: int = server.registry.id_of("base:stone")
+	# A save spread over several ticks still writes every chunk.
+	var edited := []
+	for i in 12:
+		var pos := Vector3i(-40 + i * 16, 90, 5)
+		server.get_block_loaded(pos)
+		server.set_block_authoritative(pos, stone)
+		edited.append(pos)
+	for pos in edited:
+		server._save_queue[Vector2i(floori(pos.x / 16.0), floori(pos.z / 16.0))] = true
+	server._save_meta_pending = true
+	var drains := 0
+	while (not server._save_queue.is_empty() or server._save_meta_pending) and drains < 1000:
+		server._drain_save_queue(0)
+		drains += 1
+	_check(server._save_queue.is_empty() and not server._save_meta_pending and drains > 1, "a save spread over %d ticks finishes" % drains)
+	WorkerThreadPool.wait_for_task_completion(server._save_task)
+	server._save_task = -1
+	# Column heights follow edits without rescanning.
+	var x := 3
+	var z := 3
+	var top: int = server.block_ticks._column_height(x, z)
+	server.set_block_authoritative(Vector3i(x, top + 6, z), stone)
+	var raised: int = server.block_ticks._column_height(x, z)
+	server.set_block_authoritative(Vector3i(x, top + 6, z), 0)
+	_check(raised == top + 6 and server.block_ticks._column_height(x, z) == top, "column heights follow placed and removed blocks (%d, %d, %d)" % [top, raised, server.block_ticks._column_height(x, z)])
+	# A crowd: snapshots carry the nearest players only, small enough for one packet.
+	var crowd := []
+	for i in 80:
+		var p := ServerPlayer.new(server, 500 + i, "crowd%d" % i)
+		p.state.position = Vector3(i * 0.5, 80, 0)
+		server.players[500 + i] = p
+		crowd.append(p)
+	var snapshot: PackedByteArray = server._build_snapshot(crowd[0], true)
+	var count := snapshot.decode_u16(29)
+	var farthest := 0.0
+	for k in count:
+		farthest = maxf(farthest, snapshot.decode_float(29 + 2 + k * 20 + 4))
+	_check(count == GameServer.SNAPSHOT_MAX_PLAYERS and snapshot.size() < 1340 and is_equal_approx(farthest, GameServer.SNAPSHOT_MAX_PLAYERS * 0.5),
+		"crowded snapshots keep the nearest %d players (%d bytes)" % [count, snapshot.size()])
+	if GameServer.Native.enabled():
+		var ids := PackedInt32Array()
+		var positions := PackedVector3Array()
+		for p in crowd:
+			ids.append(p.peer_id)
+			positions.append(p.state.position)
+		var zeros_f := PackedFloat32Array()
+		zeros_f.resize(crowd.size())
+		var zeros_b := PackedByteArray()
+		zeros_b.resize(crowd.size())
+		var payloads: Array = ClassDB.class_call_static(&"NativeSnapshots", &"build", ids, ids, positions, positions, zeros_f, zeros_f, zeros_b,
+			GameServer.INTEREST_RADIUS, GameServer.NEAR_RADIUS, true)
+		_check(payloads[0].decode_u16(29) == GameServer.SNAPSHOT_MAX_PLAYERS, "the native snapshot builder keeps the same cap")
+	for p in crowd:
+		server.players.erase(p.peer_id)
+	server.queue_free()
+	await get_tree().process_frame
+	var reopened = _start(world_name)
+	_check(edited.all(func(pos): return reopened.get_block_loaded(pos) == stone), "every chunk of the spread save was written")
+	reopened.queue_free()
+	await get_tree().process_frame
+
+
 func _status_query() -> void:
 	var ServerStatus = preload("res://engine/shared/server_status.gd")
 	var ServerPinger = preload("res://engine/client/menu/server_pinger.gd")
@@ -3206,7 +3274,9 @@ func _anticheat() -> void:
 	var starts := [honest.state.position, cheater.state.position]
 	var flags := []
 	server.add_handler("cheat_detected", func(ev): flags.append([ev.player.name, ev.check]), 0)
-	for tick in 120:
+	server.anticheat.clock_override = 1000000
+	for tick in 900:
+		server.anticheat.clock_override += 16667  # one tick of real time
 		server.on_inputs(191, packet.call(honest, 1))
 		for burst in 3:
 			server.on_inputs(192, packet.call(cheater, 5))  # 15 inputs per tick: a sped-up client
@@ -3215,6 +3285,25 @@ func _anticheat() -> void:
 		server.anticheat.update(1.0 / 60.0)
 	var honest_d: float = Vector2(honest.state.position.x - starts[0].x, honest.state.position.z - starts[0].z).length()
 	var cheat_d: float = Vector2(cheater.state.position.x - starts[1].x, cheater.state.position.z - starts[1].z).length()
+	# A slow server (a 150 ms tick) must not make an honest client look fast or move slowly afterwards.
+	var slow_start: Vector3 = honest.state.position
+	server.anticheat.clock_override += 150000
+	for i in 9:
+		server.on_inputs(191, packet.call(honest, 1))
+	for tick in 60:
+		server.anticheat.clock_override += 16667
+		server.on_inputs(191, packet.call(honest, 1))
+		server._simulate_player(honest)
+	_check(honest.input_queue.size() <= 3, "after a slow server tick an honest client catches up (%d inputs waiting)" % honest.input_queue.size())
+	# A client that hitches for two seconds and then sends what it held back is not flagged.
+	server.anticheat.clock_override += 2000000
+	for i in 120:
+		server.on_inputs(191, packet.call(honest, 1))
+	for tick in 60:
+		server.anticheat.clock_override += 16667
+		server.on_inputs(191, packet.call(honest, 1))
+		server._simulate_player(honest)
+	server.anticheat.clock_override = -1
 	_check(honest_d > 3.0 and cheat_d <= honest_d * 1.08 + 0.3, "sped-up inputs do not move a player faster (%.2f vs %.2f blocks)" % [cheat_d, honest_d])
 	_check(server.anticheat.score(cheater, "timer") > 0.0 and server.anticheat.score(honest, "timer") == 0.0 and flags.has(["Speedy", "timer"]),
 		"the timer check flags the sped-up client, not the honest one")

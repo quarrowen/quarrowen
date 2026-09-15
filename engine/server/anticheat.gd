@@ -19,13 +19,21 @@ const CHECKS := {
 	"bad_packet": {"decay": 1.0, "warn": 20.0, "kick": 60.0, "label": "sending malformed data"},
 	"flood": {"decay": 150.0, "warn": 600.0, "kick": 2500.0, "label": "flooding the server with messages"},
 }
-## Inputs a client may send per server tick on average (a little over one, for clock drift).
+## Simulation steps per tick of real time a client's inputs may take (a little over one, for clock drift),
+## and how many may be saved up for a clump of late inputs or a slow server tick.
 const INPUT_RATE := 1.05
-const INPUT_BURST := 4.0
+const INPUT_BURST := 8.0
+## Inputs are counted against an allowance that refills at the game's rate (plus a little for clock drift)
+## and holds up to INPUT_ALLOWANCE_SECONDS, so a client or server hitch (inputs queue, then arrive together)
+## is forgiven while a client that keeps sending faster than the game runs runs dry and is flagged.
+const INPUT_ALLOWANCE_SECONDS := 10.0
+const INPUT_ALLOWANCE_RATE := 1.1
 ## Messages per second from one client before they are dropped and count as flooding.
 const FLOOD_LIMIT := 400
 
 var mode := "kick"  # kick | log | off
+## Tests drive time themselves (microseconds); -1 = the real clock.
+var clock_override := -1
 
 var _server
 var _scores := {}  # peer -> {check: score}
@@ -77,6 +85,32 @@ func update(delta: float) -> void:
 				_warned[peer_id].erase(check + ":kick")
 		if scores.is_empty():
 			_scores.erase(peer_id)
+
+
+func now_usec() -> int:
+	return clock_override if clock_override >= 0 else Time.get_ticks_usec()
+
+
+## Counts a new input from a client and flags inputs beyond the allowance (real time, not server ticks, so
+## a slow server does not make honest players look fast).
+func count_input(p) -> void:
+	var now := now_usec()
+	var per_second := float(Engine.physics_ticks_per_second)
+	var cap := per_second * INPUT_ALLOWANCE_SECONDS
+	p.inputs_total += 1
+	if p.allowance_usec == 0:
+		p.input_allowance = cap
+		p.first_input_usec = now
+	else:
+		p.input_allowance = minf(p.input_allowance + (now - p.allowance_usec) / 1000000.0 * per_second * INPUT_ALLOWANCE_RATE, cap)
+	p.allowance_usec = now
+	p.input_allowance -= 1.0
+	if p.input_allowance < 0.0:
+		p.input_allowance = 0.0
+		p.excess_inputs += 1
+		if p.excess_inputs >= int(per_second) / 4:  # report in batches, not per input
+			record(p, "timer", p.excess_inputs, "%d inputs in %.1f s (the game runs at %d a second)" % [p.inputs_total, (now - p.first_input_usec) / 1000000.0, int(per_second)])
+			p.excess_inputs = 0
 
 
 ## Counts a message from a peer (every client RPC). Returns false when it should be dropped.

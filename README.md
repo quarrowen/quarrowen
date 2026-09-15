@@ -1155,6 +1155,14 @@ godot --path . res://tests/screenshot.tscn -- --port=24603 --commands="/industry
 godot --path . res://tests/screenshot.tscn -- --port=24603 --camera=2 --editor=hat   # avatar editor
 ```
 
+**Load testing.** `bots.tscn` connects many lightweight clients from one process; start the server with
+`--metrics=5 --anticheat=log` to print, every 5 seconds, players, mobs, chunks, ticks per second, the
+average cost of each tick section (players, streaming, mob AI and spawning, snapshots, entity
+replication, saving...), the slowest tick's top sections, the slowest mod task and bandwidth per player.
+On an M-series Mac with 100 bots crowded together, ticks average 8–12 ms (under the 16.7 ms budget) and
+bandwidth is about 20–25 KB/s per player. One bot process tops out at about 120–140 clients (its UDP
+buffer overflows), so run several for more.
+
 - **vanilla:** creative mode, movement prediction, edits.
 - **skyblock:** survival inventory, modal UI buttons, generator regrowth, mod veto, void teleport.
 - **industry:** model blocks, `/industry kit`, machine orientation, cable arms, machine panel,
