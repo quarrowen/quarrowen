@@ -158,6 +158,10 @@ var _mesh_context := {}
 
 var _chunk_nodes := {}  # Vector2i -> MeshInstance3D
 var _mesh_dirty := {}  # Vector2i -> true
+## Block changes for chunks that have not arrived yet (chunks come on their own channel): coord -> [[pos, block, state]].
+var _early_edits := {}
+var _early_edit_count := 0
+const MAX_EARLY_EDITS := 20000
 var _mesh_urgent := {}  # Vector2i -> true
 var _mesh_jobs := {}  # Vector2i -> Dictionary
 var _remote_players := {}  # peer_id -> RemotePlayer
@@ -632,6 +636,12 @@ func on_chunk(coord: Vector2i, payload: PackedByteArray, states: PackedInt32Arra
 	var chunk := Chunk.new(coord, data)
 	chunk.load_states(states)
 	world.add_chunk(chunk)
+	var early: Array = _early_edits.get(coord, [])
+	if not early.is_empty():
+		_early_edits.erase(coord)
+		_early_edit_count -= early.size()
+		for edit in early:
+			on_block_changed(edit[0], edit[1], edit[2])
 	# Neighbours' faces and light near the shared borders depend on this chunk.
 	for x in range(-1, 2):
 		for z in range(-1, 2):
@@ -639,6 +649,8 @@ func on_chunk(coord: Vector2i, payload: PackedByteArray, states: PackedInt32Arra
 
 
 func on_unload_chunk(coord: Vector2i) -> void:
+	_early_edit_count -= _early_edits.get(coord, []).size()
+	_early_edits.erase(coord)  # a later copy of the chunk will include them
 	world.remove_chunk(coord)
 	_mesh_dirty.erase(coord)
 	_mesh_urgent.erase(coord)
@@ -650,6 +662,16 @@ func on_unload_chunk(coord: Vector2i) -> void:
 
 
 func on_block_changed(pos: Vector3i, block: int, state: int) -> void:
+	var coord := VoxelWorld.chunk_coord_at(pos.x, pos.z)
+	if not world.chunks.has(coord) and registry.is_valid(block) and pos.y >= 0 and pos.y < Chunk.SIZE_Y:
+		if _early_edit_count >= MAX_EARLY_EDITS:
+			_early_edits.clear()
+			_early_edit_count = 0
+		if not _early_edits.has(coord):
+			_early_edits[coord] = []
+		_early_edits[coord].append([pos, block, state])
+		_early_edit_count += 1
+		return
 	if not registry.is_valid(block) or (world.get_block_v(pos) == block and get_block_state(pos) == state):
 		return
 	var previous := world.get_block_v(pos)

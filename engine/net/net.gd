@@ -13,6 +13,10 @@ extends Node
 ##   c_ready() -> s_welcome, s_inventory, s_chunk*, s_snapshot* ...
 
 const MOVEMENT_CHANNEL := 1
+## Chunk data has its own reliable channel so a burst of terrain does not hold up chat, block changes, UI and
+## effects behind it (ENet delivers each channel in order independently). Clients buffer block changes for
+## chunks still on the way (GameClient.on_block_changed).
+const BULK_CHANNEL := 2
 const Protocol = preload("res://engine/shared/protocol.gd")
 const KnownServers = preload("res://engine/net/known_servers.gd")
 ## Common name in server certificates; clients verify against a pinned certificate, not a CA.
@@ -506,13 +510,13 @@ func s_rules(rules: Dictionary) -> void:
 		client.on_rules(rules)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", BULK_CHANNEL)
 func s_chunk(coord: Vector2i, payload: PackedByteArray, states: PackedInt32Array) -> void:
 	if client:
 		client.on_chunk(coord, payload, states)
 
 
-@rpc("authority", "call_remote", "reliable")
+@rpc("authority", "call_remote", "reliable", BULK_CHANNEL)
 func s_unload_chunk(coord: Vector2i) -> void:
 	if client:
 		client.on_unload_chunk(coord)

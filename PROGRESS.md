@@ -268,9 +268,9 @@ changes with `tools/build_native.sh`.
      of entities staggered per player, entity updates split under the MTU, player snapshots capped at the 64 nearest
      (native and GDScript), sky column heights measured lazily and kept current on edits (was a whole-chunk rescan
      per edit), vanilla mob tick visits each mob once. Bots handle every client message.
-     Part 2: gameplay RPCs share reliable
-     channel 0 with chunk streaming, so effects/UI can lag seconds behind movement right after joining (seen in the
-     arcana e2e); give bulk data its own channel with client-side buffering of edits for chunks not yet received.
+     Part 2 (done): chunks and unloads travel on their own reliable channel (Net.BULK_CHANNEL) so terrain bursts no
+     longer delay chat, block changes, UI and effects; clients buffer block changes for chunks still on the way
+     (GameClient._early_edits, capped) and apply them when the chunk arrives.
 5. **Loot and drops system** (follow-up, user 2026-09-14): one engine loot capability behind structure
    chests, mob drops, block drops, fishing/rewards later. Today these are three separate simple things
    (loot tables {rolls, entries}, entity `drops` [[item, count, chance]], block `drops`). Ideas: shared
