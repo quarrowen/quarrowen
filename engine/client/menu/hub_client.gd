@@ -77,7 +77,8 @@ func _request_json(path: String, done: Callable) -> void:
 		if result != HTTPRequest.RESULT_SUCCESS:
 			done.call(null, "cannot reach the hub")
 			return
-		var parsed = JSON.parse_string(body.get_string_from_utf8())
+		var json := JSON.new()
+		var parsed = json.data if json.parse(body.get_string_from_utf8()) == OK else null
 		if status != 200:
 			done.call(null, str(parsed.get("error", "hub error %d" % status)) if parsed is Dictionary else "hub error %d" % status)
 			return

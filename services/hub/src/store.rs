@@ -12,7 +12,7 @@ pub const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 pub const CODE_LENGTH: usize = 6;
 
 pub struct Store {
-    db: Mutex<Connection>,
+    pub(crate) db: Mutex<Connection>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -46,6 +46,25 @@ impl Store {
                 port INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 updated INTEGER NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS players (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                friend_code TEXT NOT NULL UNIQUE,
+                created INTEGER NOT NULL,
+                last_seen INTEGER NOT NULL
+             );
+             CREATE TABLE IF NOT EXISTS friends (
+                a TEXT NOT NULL,
+                b TEXT NOT NULL,
+                since INTEGER NOT NULL,
+                PRIMARY KEY (a, b)
+             );
+             CREATE TABLE IF NOT EXISTS friend_requests (
+                from_id TEXT NOT NULL,
+                to_id TEXT NOT NULL,
+                created INTEGER NOT NULL,
+                PRIMARY KEY (from_id, to_id)
              );",
         )?;
         Ok(Self { db: Mutex::new(db) })

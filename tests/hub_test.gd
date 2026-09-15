@@ -7,6 +7,8 @@ extends Node
 const HubClient = preload("res://engine/client/menu/hub_client.gd")
 const ServerPinger = preload("res://engine/client/menu/server_pinger.gd")
 const InviteCode = preload("res://engine/shared/invite_code.gd")
+const SocialClient = preload("res://engine/client/social/social_client.gd")
+const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 
 var _failures := 0
 var _pids: Array[int] = []
@@ -38,6 +40,15 @@ func _run() -> void:
 	OS.set_environment("HUB_ALLOW_PRIVATE", "1")
 	_pids.append(OS.create_process(hub_bin, PackedStringArray()))
 	var hub_url := "http://127.0.0.1:%d" % hub_port
+	# Start the game server once the hub answers.
+	var up := false
+	for i in 50:
+		var health: Array = await _http_get(hub_url + "/healthz")
+		if health[0] == 200:
+			up = true
+			break
+		await get_tree().create_timer(0.1).timeout
+	_check(up, "the hub starts")
 	OS.set_environment("VOXEL_HUB", hub_url)
 	var server_args := PackedStringArray()
 	if not OS.has_feature("template"):
@@ -95,6 +106,7 @@ func _run() -> void:
 	var lan: Dictionary = found.get("this:%d" % game_port, {})
 	_check(not lan.is_empty() and lan.info.name == "Hub Test Server" and lan.info.code == code, "LAN discovery finds the server, with its hub code")
 	pinger.close()
+	await _social(hub_url, game_port)
 	_stop_processes()
 	OS.set_environment("VOXEL_HUB", "")
 	_remove_tree(work)
@@ -102,11 +114,105 @@ func _run() -> void:
 	get_tree().quit(0 if _failures == 0 else 1)
 
 
+## Two players: sign in, become friends by code, see each other online and on a server, party up.
+func _social(hub_url: String, game_port: int) -> void:
+	var alice := SocialClient.new()
+	alice.key = Crypto.new().generate_rsa(2048)
+	alice.player_name = "Alice"
+	var bob := SocialClient.new()
+	bob.key = Crypto.new().generate_rsa(2048)
+	bob.player_name = "Bob"
+	add_child(alice)
+	add_child(bob)
+	var notices := []
+	bob.notice.connect(func(t): notices.append(t))
+	alice.refresh()
+	bob.refresh()
+	_check(await _until(func(): return not alice.state.is_empty() and not bob.state.is_empty()), "players sign in to the hub with their identity keys")
+	var alice_code: String = alice.state.me.friend_code
+	_check(alice_code.length() == 9 and alice_code[4] == "-" and alice.state.me.name == "Alice", "each player has a friend code (%s)" % alice_code)
+	# A sign-in signed for a different hub address is refused.
+	var challenge: Array = await _post(hub_url + "/v1/auth/challenge", "{}", "")
+	var nonce := str(challenge[1].get("nonce", "")) if challenge[1] is Dictionary else ""
+	var key := Crypto.new().generate_rsa(2048)
+	var signed := Marshalls.raw_to_base64(preload("res://engine/shared/identity.gd").sign(key, ("voxelcraft-hub-login:%s:%s" % ["http://evil.example", nonce]).to_utf8_buffer()))
+	var replay: Array = await _post(hub_url + "/v1/auth/login", JSON.stringify({"key": key.save_to_string(true), "nonce": nonce, "hub": hub_url, "signature": signed}), "")
+	_check(replay[0] == 401, "a sign-in signed for another hub is refused")
+	var anonymous: Array = await _post(hub_url + "/v1/friends/request", JSON.stringify({"code": alice_code}), "")
+	_check(anonymous[0] == 401, "friend actions need a sign-in")
+	bob.request_friend(alice_code.to_lower())
+	_check(await _until(func(): return bob.state.outgoing.size() == 1), "a friend request is sent by code")
+	alice.refresh()
+	_check(await _until(func(): return alice.state.incoming.size() == 1 and alice.state.incoming[0].name == "Bob"), "the other player sees the request")
+	alice.respond_friend(alice.state.incoming[0].id, true)
+	_check(await _until(func(): return alice.state.friends.size() == 1), "accepting makes them friends")
+	# Bob plays on a server; Alice sees it.
+	bob.current_server = {"name": "Hub Test Server", "address": "127.0.0.1", "port": game_port, "code": ""}
+	bob.refresh()
+	await _until(func(): return bob.state.friends.size() == 1)
+	alice.refresh()
+	var sees_server := func() -> bool:
+		var f: Dictionary = alice.state.friends[0]
+		return f.online and f.server is Dictionary and f.server.port == game_port
+	_check(await _until(sees_server), "friends see who is online and on which server")
+	ClientSettings.shared().set_value("network/share_server", false, false)
+	bob.refresh()
+	await get_tree().create_timer(0.5).timeout
+	alice.refresh()
+	_check(await _until(func(): return alice.state.friends[0].online and alice.state.friends[0].server == null), "hiding the server keeps only the online status")
+	ClientSettings.shared().set_value("network/share_server", true, false)
+	bob.refresh()
+	await get_tree().create_timer(0.5).timeout
+	# Party.
+	alice.invite_to_party(alice.state.friends[0].id)
+	_check(await _until(func(): return alice.state.party is Dictionary and alice.state.party.invited.size() == 1), "inviting a friend starts a party")
+	bob.refresh()
+	_check(await _until(func(): return bob.state.party_invites.size() == 1) and notices.any(func(t): return t.contains("invited you")),
+		"the friend gets the party invitation (and a notice)")
+	bob.respond_party(bob.state.party_invites[0].party_id, true)
+	_check(await _until(func(): return bob.state.party is Dictionary and bob.state.party.members.size() == 2), "accepting joins the party")
+	alice.current_server = {"name": "Hub Test Server", "address": "127.0.0.1", "port": game_port, "code": ""}
+	alice.refresh()
+	await get_tree().create_timer(0.5).timeout
+	bob.refresh()
+	_check(await _until(func(): return bob.leader_server().get("port", 0) == game_port), "party members see the leader's server to follow")
+	alice.leave_party()
+	await _until(func(): return alice.state.party == null)
+	bob.refresh()
+	var took_over := func() -> bool:
+		return bob.state.party is Dictionary and bob.state.party.leader == bob.state.me.id and bob.state.party.members.size() == 1
+	_check(await _until(took_over), "when the leader leaves, the party passes to the next member")
+	bob.remove_friend(bob.state.friends[0].id)
+	_check(await _until(func(): return bob.state.friends.is_empty()), "friends can be removed")
+	alice.queue_free()
+	bob.queue_free()
+
+
+func _until(condition: Callable, timeout := 10.0) -> bool:
+	var deadline := Time.get_ticks_msec() + int(timeout * 1000)
+	while Time.get_ticks_msec() < deadline:
+		if condition.call():
+			return true
+		await get_tree().create_timer(0.1).timeout
+	return false
+
+
 func _sign(body: String, key: CryptoKey) -> String:
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(body.to_utf8_buffer())
 	return Marshalls.raw_to_base64(Crypto.new().sign(HashingContext.HASH_SHA256, ctx.finish(), key))
+
+
+func _http_get(url: String) -> Array:
+	var http := HTTPRequest.new()
+	add_child(http)
+	if http.request(url) != OK:
+		http.queue_free()
+		return [0, null]
+	var done: Array = await http.request_completed
+	http.queue_free()
+	return [done[1] if done[0] == HTTPRequest.RESULT_SUCCESS else 0, null]
 
 
 ## [status, error text or parsed body]

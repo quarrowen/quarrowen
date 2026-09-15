@@ -19,6 +19,10 @@ Play. The main menu shows a live generated world with your avatar, a sidebar and
   with search), **LAN** (servers on your network and this computer), **Favorites** (add, edit, remove)
   and **Recent**. Every row shows the name, message, game, players, ping and a version warning; Copy
   invite prefers the hub code.
+- **Friends** (with a hub): your friend code, adding friends by code, requests, friends online and the
+  server they are on (Join), parties (invite friends, join the leader's server, make leader, remove,
+  leave). Also in game from the pause menu (Join switches servers). Settings → Network decides whether
+  friends see your server; a world you host is shared by your local network address.
 - **Avatar** opens the avatar editor; **Create** has the mod wizard, your mods folder, the API docs and
   one-click dev hosting of any installed mod; **Settings** has identity export/import and the hosting
   port (graphics, audio and controls are coming).
@@ -990,7 +994,7 @@ are answered over UDP on the game port + 1 by default (0 turns them off; rate li
 ### Hub service
 
 `services/hub` is a small Rust service (axum, SQLite) for the public server list, short invite codes
-and menu news; see its README. Servers announce every 30 seconds, signed with their identity key, and
+menu news, and friends and parties (sign-in with the identity key); see its README. Servers announce every 30 seconds, signed with their identity key, and
 the hub proves the address with a signed status query before listing it. Players point the game at a
 hub in Settings → Network (or `VOXEL_HUB`). `tools/run_tests.sh` builds it and runs its unit tests and
 `tests/hub_test.tscn` (a real hub and game server) when cargo is installed.

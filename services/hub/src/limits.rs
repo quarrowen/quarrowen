@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 #[derive(Default)]
 pub struct Limiter {
     windows: Mutex<HashMap<(IpAddr, &'static str), (Instant, u32)>>,
+    keyed: Mutex<HashMap<(String, &'static str), (Instant, u32)>>,
 }
 
 impl Limiter {
@@ -22,7 +23,19 @@ impl Limiter {
         entry.1 <= max
     }
 
+    /// The same, per signed-in player.
+    pub fn allow_key(&self, key: &str, action: &'static str, max: u32, window: Duration) -> bool {
+        let mut windows = self.keyed.lock().unwrap();
+        let entry = windows.entry((key.to_string(), action)).or_insert((Instant::now(), 0));
+        if entry.0.elapsed() >= window {
+            *entry = (Instant::now(), 0);
+        }
+        entry.1 += 1;
+        entry.1 <= max
+    }
+
     pub fn prune(&self) {
+        self.keyed.lock().unwrap().retain(|_, (start, _)| start.elapsed() < Duration::from_secs(300));
         self.windows.lock().unwrap().retain(|_, (start, _)| start.elapsed() < Duration::from_secs(300));
     }
 }

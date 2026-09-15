@@ -10,6 +10,8 @@
 //!   HUB_DATA=./hub-data        SQLite database and news.json
 //!   HUB_ALLOW_PRIVATE=0        1 lists servers on private/loopback addresses (a LAN or local hub)
 //!   HUB_TRUST_PROXY=0          1 takes the client address from X-Forwarded-For (behind a reverse proxy)
+//!   HUB_PUBLIC_URL=            the hub's public address (https://hub.example.org): sign-ins must name it,
+//!                              so a login made for another hub cannot be replayed here
 //!
 //! API (JSON):
 //!   POST /v1/servers/announce  body {key, time, port, query_port, address?, name, motd, game, game_name,
@@ -19,10 +21,21 @@
 //!   GET  /v1/servers?game=&q=&limit=&offset=   -> {servers: [...], total}
 //!   GET  /v1/codes/{code}      -> {code, address, port, name, online}
 //!   GET  /v1/news              -> [{title, body, url?, date?}] from HUB_DATA/news.json
+//!   Players (see social.rs); every call but the first two needs "Authorization: Bearer <token>":
+//!   POST /v1/auth/challenge    -> {nonce}
+//!   POST /v1/auth/login        {key, nonce, hub, name, signature} -> {token, id, name, friend_code}
+//!   GET  /v1/social            -> {me, friends, incoming, outgoing, party, party_invites}
+//!   POST /v1/presence          {server: {name, address, port, code} | null, share_server} -> the social state
+//!   POST /v1/friends/request   {code (friend code or player id)} -> {result: requested | friends}
+//!   POST /v1/friends/respond   {id, accept}      POST /v1/friends/cancel {id}     POST /v1/friends/remove {id}
+//!   POST /v1/party/invite      {id} (creates a party when needed)     POST /v1/party/respond {party_id, accept}
+//!   POST /v1/party/leave       POST /v1/party/kick {id}     POST /v1/party/promote {id}
+//!   (every POST under /v1/friends and /v1/party answers with the social state)
 //!   GET  /healthz
 
 mod keys;
 mod limits;
+mod social;
 mod status;
 mod store;
 
@@ -53,6 +66,7 @@ struct Config {
     allow_private: bool,
     trust_proxy: bool,
     data: PathBuf,
+    public_url: String,
 }
 
 struct Hub {
@@ -60,6 +74,7 @@ struct Hub {
     store: store::Store,
     servers: Mutex<HashMap<String, Entry>>,
     limiter: limits::Limiter,
+    social: Mutex<social::Social>,
 }
 
 #[derive(Clone, Serialize)]
@@ -298,8 +313,177 @@ async fn news(State(hub): State<Arc<Hub>>) -> Response {
     Json(items).into_response()
 }
 
+// --- Players, friends and parties ---------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct Login {
+    key: String,
+    nonce: String,
+    #[serde(default)]
+    hub: String,
+    #[serde(default)]
+    name: String,
+    signature: String,
+}
+
+async fn challenge(State(hub): State<Arc<Hub>>, ConnectInfo(peer): ConnectInfo<SocketAddr>, headers: HeaderMap) -> Response {
+    if !hub.limiter.allow(client_ip(&hub, &headers, peer), "login", 20, Duration::from_secs(60)) {
+        return error(StatusCode::TOO_MANY_REQUESTS, "too many sign-ins");
+    }
+    Json(json!({"nonce": hub.social.lock().unwrap().new_nonce(), "hub": hub.config.public_url})).into_response()
+}
+
+async fn login(State(hub): State<Arc<Hub>>, ConnectInfo(peer): ConnectInfo<SocketAddr>, headers: HeaderMap, body: Bytes) -> Response {
+    if !hub.limiter.allow(client_ip(&hub, &headers, peer), "login", 20, Duration::from_secs(60)) {
+        return error(StatusCode::TOO_MANY_REQUESTS, "too many sign-ins");
+    }
+    if body.len() > MAX_BODY {
+        return error(StatusCode::PAYLOAD_TOO_LARGE, "request too large");
+    }
+    let Ok(l) = serde_json::from_slice::<Login>(&body) else { return error(StatusCode::BAD_REQUEST, "invalid sign-in") };
+    if !hub.config.public_url.is_empty() && l.hub.trim_end_matches('/') != hub.config.public_url.trim_end_matches('/') {
+        return error(StatusCode::UNAUTHORIZED, "this sign-in was made for another hub");
+    }
+    let key = match keys::PublicKey::from_pem(&l.key) {
+        Ok(key) => key,
+        Err(e) => return error(StatusCode::BAD_REQUEST, e),
+    };
+    if !hub.social.lock().unwrap().take_nonce(&l.nonce) {
+        return error(StatusCode::UNAUTHORIZED, "the sign-in challenge expired; try again");
+    }
+    if !key.verify(&social::login_message(&l.hub, &l.nonce), &l.signature) {
+        return error(StatusCode::UNAUTHORIZED, "bad signature");
+    }
+    let name = clip(l.name.trim(), 16);
+    let name = if name.is_empty() { "Player".to_string() } else { name };
+    let code = match hub.store.upsert_player(&key.id, &name, now_unix()) {
+        Ok(code) => code,
+        Err(e) => return error(StatusCode::INTERNAL_SERVER_ERROR, format!("storage error: {e}")),
+    };
+    let token = hub.social.lock().unwrap().start_session(&key.id);
+    Json(json!({"token": token, "id": key.id, "name": name, "friend_code": code})).into_response()
+}
+
+fn session(hub: &Hub, headers: &HeaderMap) -> Result<String, Response> {
+    let token = headers.get("authorization").and_then(|v| v.to_str().ok()).and_then(|v| v.strip_prefix("Bearer ")).unwrap_or("");
+    hub.social.lock().unwrap().player_for(token.trim()).ok_or_else(|| error(StatusCode::UNAUTHORIZED, "not signed in"))
+}
+
+fn social_error(e: social::Error) -> Response {
+    error(StatusCode::from_u16(e.0).unwrap_or(StatusCode::BAD_REQUEST), e.1)
+}
+
+fn state_response(hub: &Hub, player: &str) -> Response {
+    match hub.social.lock().unwrap().state(&hub.store, player) {
+        Ok(state) => Json(state).into_response(),
+        Err(e) => social_error(e),
+    }
+}
+
+async fn social_state(State(hub): State<Arc<Hub>>, headers: HeaderMap) -> Response {
+    match session(&hub, &headers) {
+        Ok(player) => state_response(&hub, &player),
+        Err(response) => response,
+    }
+}
+
+#[derive(Deserialize)]
+struct PresenceBody {
+    #[serde(default)]
+    server: Option<social::ServerRef>,
+    #[serde(default = "yes")]
+    share_server: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+async fn presence(State(hub): State<Arc<Hub>>, headers: HeaderMap, body: Bytes) -> Response {
+    let player = match session(&hub, &headers) {
+        Ok(player) => player,
+        Err(response) => return response,
+    };
+    if !hub.limiter.allow_key(&player, "presence", 30, Duration::from_secs(60)) {
+        return error(StatusCode::TOO_MANY_REQUESTS, "too many updates");
+    }
+    let Ok(p) = serde_json::from_slice::<PresenceBody>(&body) else { return error(StatusCode::BAD_REQUEST, "invalid presence") };
+    let server = p.server.map(|s| social::ServerRef { name: clip(&s.name, 64), address: clip(&s.address, 253), port: s.port, code: clip(&s.code, 16) });
+    hub.social.lock().unwrap().set_presence(&player, server, p.share_server);
+    state_response(&hub, &player)
+}
+
+#[derive(Deserialize)]
+struct Target {
+    #[serde(default)]
+    id: String,
+    #[serde(default)]
+    code: String,
+    #[serde(default)]
+    party_id: String,
+    #[serde(default)]
+    accept: bool,
+}
+
+/// Every friends and party action: `action` from the path, body {id | code | party_id, accept}.
+async fn social_action(State(hub): State<Arc<Hub>>, Path((group, action)): Path<(String, String)>, headers: HeaderMap, body: Bytes) -> Response {
+    let player = match session(&hub, &headers) {
+        Ok(player) => player,
+        Err(response) => return response,
+    };
+    if !hub.limiter.allow_key(&player, "social", 60, Duration::from_secs(60)) {
+        return error(StatusCode::TOO_MANY_REQUESTS, "too many requests");
+    }
+    let t: Target = if body.is_empty() { serde_json::from_str("{}").unwrap() } else {
+        match serde_json::from_slice(&body) {
+            Ok(t) => t,
+            Err(_) => return error(StatusCode::BAD_REQUEST, "invalid request"),
+        }
+    };
+    let now = now_unix();
+    let result: Result<Value, social::Error> = match (group.as_str(), action.as_str()) {
+        ("friends", "request") => match hub.store.find_player(&t.code) {
+            Ok(Some(to)) => hub.store.request_friend(&player, &to, now).map(|r| json!({"result": r})),
+            Ok(None) => Err((404, "no player has that friend code".into())),
+            Err(e) => Err((500, e.to_string())),
+        },
+        ("friends", "respond") => hub.store.respond_friend(&player, &t.id, t.accept, now).map(|_| json!({})),
+        ("friends", "cancel") => hub.store.cancel_request(&player, &t.id).map(|_| json!({})).map_err(|e| (500, e.to_string())),
+        ("friends", "remove") => hub.store.remove_friend(&player, &t.id).map(|_| json!({})).map_err(|e| (500, e.to_string())),
+        ("party", "invite") => hub.social.lock().unwrap().invite_to_party(&hub.store, &player, &t.id).map(|_| json!({})),
+        ("party", "respond") => hub.social.lock().unwrap().respond_party(&player, &t.party_id, t.accept).map(|_| json!({})),
+        ("party", "leave") => {
+            hub.social.lock().unwrap().leave_party(&player);
+            Ok(json!({}))
+        }
+        ("party", "kick") => hub.social.lock().unwrap().kick(&player, &t.id).map(|_| json!({})),
+        ("party", "promote") => hub.social.lock().unwrap().promote(&player, &t.id).map(|_| json!({})),
+        _ => Err((404, "unknown action".into())),
+    };
+    match result {
+        Ok(extra) => {
+            let mut state = match hub.social.lock().unwrap().state(&hub.store, &player) {
+                Ok(state) => state,
+                Err(e) => return social_error(e),
+            };
+            if let (Some(obj), Some(extra)) = (state.as_object_mut(), extra.as_object()) {
+                for (k, v) in extra {
+                    obj.insert(k.clone(), v.clone());
+                }
+            }
+            Json(state).into_response()
+        }
+        Err(e) => social_error(e),
+    }
+}
+
 fn app(hub: Arc<Hub>) -> Router {
     Router::new()
+        .route("/v1/auth/challenge", post(challenge))
+        .route("/v1/auth/login", post(login))
+        .route("/v1/social", get(social_state))
+        .route("/v1/presence", post(presence))
+        .route("/v1/{group}/{action}", post(social_action))
         .route("/v1/servers/announce", post(announce))
         .route("/v1/servers/leave", post(leave))
         .route("/v1/servers", get(list))
@@ -316,10 +500,11 @@ async fn main() {
         allow_private: env("HUB_ALLOW_PRIVATE", "0") == "1",
         trust_proxy: env("HUB_TRUST_PROXY", "0") == "1",
         data: PathBuf::from(env("HUB_DATA", "./hub-data")),
+        public_url: env("HUB_PUBLIC_URL", ""),
     };
     let bind: SocketAddr = env("HUB_BIND", "0.0.0.0:24600").parse().expect("HUB_BIND must be host:port");
     let store = store::Store::open(&config.data).expect("cannot open the hub database");
-    let hub = Arc::new(Hub { config: config.clone(), store, servers: Mutex::new(HashMap::new()), limiter: limits::Limiter::default() });
+    let hub = Arc::new(Hub { config: config.clone(), store, servers: Mutex::new(HashMap::new()), limiter: limits::Limiter::default(), social: Mutex::new(social::Social::default()) });
     // Forget silent servers and old rate-limit windows now and then.
     {
         let hub = hub.clone();
@@ -328,6 +513,7 @@ async fn main() {
                 tokio::time::sleep(Duration::from_secs(30)).await;
                 hub.servers.lock().unwrap().retain(|_, e| e.last_seen.elapsed() < EXPIRE);
                 hub.limiter.prune();
+                hub.social.lock().unwrap().prune();
             }
         });
     }

@@ -9,7 +9,9 @@ extends Node
 const Protocol = preload("res://engine/shared/protocol.gd")
 
 const HEARTBEAT := 30.0
-const RETRY := 60.0
+## After a failure: soon at first (the hub may still be starting), then less often.
+const RETRY_FIRST := 5.0
+const RETRY_MAX := 60.0
 
 var url := ""
 var public_address := ""
@@ -24,6 +26,7 @@ var _key: CryptoKey
 var _http: HTTPRequest
 var _timer := 0.0
 var _busy := false
+var _failures := 0
 
 
 func _init(game_server) -> void:
@@ -53,7 +56,8 @@ func _process(delta: float) -> void:
 	if _http == null or _busy:
 		return
 	_timer += delta
-	if _timer >= (HEARTBEAT if problem.is_empty() else RETRY):
+	var wait := HEARTBEAT if problem.is_empty() else minf(RETRY_FIRST * pow(2.0, _failures - 1), RETRY_MAX)
+	if _timer >= wait:
 		_timer = 0.0
 		announce()
 
@@ -108,7 +112,8 @@ func _headers(body: String) -> PackedStringArray:
 
 func _on_announced(result: int, status: int, _headers_in: PackedStringArray, response: PackedByteArray) -> void:
 	_busy = false
-	var parsed = JSON.parse_string(response.get_string_from_utf8()) if response.size() < 65536 else null
+	var json := JSON.new()
+	var parsed = json.data if response.size() < 65536 and json.parse(response.get_string_from_utf8()) == OK else null
 	if result != HTTPRequest.RESULT_SUCCESS:
 		_set_problem("cannot reach the hub at %s" % url)
 	elif status != 200 or not (parsed is Dictionary):
@@ -122,6 +127,7 @@ func _on_announced(result: int, status: int, _headers_in: PackedStringArray, res
 
 
 func _set_problem(text: String) -> void:
+	_failures = 0 if text.is_empty() else _failures + 1
 	if text != problem and not text.is_empty():
 		_server.dev_log.add("warn", "server", "Hub listing: %s" % text)
 	problem = text

@@ -241,8 +241,13 @@ changes with `tools/build_native.sh`.
      query, listings expire after 95 s, leave on shutdown, stable 6-char hub codes (VC-ABC-123) resolving to
      the last known address, per-IP rate limits, HUB_ALLOW_PRIVATE / HUB_TRUST_PROXY. No public hub is hosted
      yet (setting empty by default). Not done: hub TLS itself (use a reverse proxy), moderation of listings.
-   - N4 Friends and parties: identity-signed hub login, friend requests, presence (online, which server),
-     party invites, join a friend.
+   - N4 Friends and parties (done: services/hub/src/social.rs, engine/client/social/social_client.gd + friends_panel.gd,
+     menu Friends page, pause menu Friends…, main.gd presence and server switching, tests in hub_test): hub sign-in
+     with the identity key (message bound to the hub URL; clients now sign only 32-byte server challenges),
+     friend codes, requests (mutual requests auto-accept), presence every 20 s with the server when shared,
+     parties (invite friends, accept, leader server to follow, promote, kick, leader hand-over, 8 max, offline
+     members dropped after 10 min), notices in menu and game. Not done: blocking players, chat between
+     friends, party auto-follow when the leader changes servers (members get a Join button instead).
    - N5 Server transfers/portals: signed transfer tickets between trusting servers, carry avatar/party,
      portal blocks, commands and a mod API.
    - N6 Roles and permissions: owner/admin/moderator/builder/custom roles for commands and actions, in game

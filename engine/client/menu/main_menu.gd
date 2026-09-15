@@ -22,6 +22,7 @@ const Protocol = preload("res://engine/shared/protocol.gd")
 const SettingsScreen = preload("res://engine/client/settings/settings_screen.gd")
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 const HubClient = preload("res://engine/client/menu/hub_client.gd")
+const FriendsPanel = preload("res://engine/client/social/friends_panel.gd")
 
 const NEWS := "res://engine/client/menu/news.json"
 const PAGES := ["play", "multiplayer", "create", "settings"]
@@ -32,6 +33,8 @@ const TAB_FAVORITES := 2
 const TAB_RECENT := 3
 
 var player_name := "Player"
+## engine/client/social/social_client.gd, from main.gd.
+var social
 var port := 24565
 
 var _pages := {}
@@ -147,6 +150,7 @@ func _build() -> void:
 	content.add_child(stack)
 	_pages.play = _build_play()
 	_pages.multiplayer = _build_multiplayer()
+	_pages.friends = _build_friends()
 	_pages.create = _build_create()
 	_pages.settings = _build_settings()
 	for page: Control in _pages.values():
@@ -185,7 +189,7 @@ func _build_sidebar() -> Control:
 	gap.custom_minimum_size.y = 26
 	side.add_child(gap)
 	var group := ButtonGroup.new()
-	for entry in [["play", "Play"], ["multiplayer", "Multiplayer"], ["avatar", "Avatar"], ["create", "Create"], ["settings", "Settings"]]:
+	for entry in [["play", "Play"], ["multiplayer", "Multiplayer"], ["friends", "Friends"], ["avatar", "Avatar"], ["create", "Create"], ["settings", "Settings"]]:
 		var button := MenuTheme.nav(Button.new())
 		button.text = entry[1]
 		if entry[0] != "avatar":
@@ -208,7 +212,10 @@ func _build_sidebar() -> Control:
 	_name_edit = LineEdit.new()
 	_name_edit.text = player_name
 	_name_edit.max_length = 16
-	_name_edit.text_changed.connect(func(t): player_name = t)
+	_name_edit.text_changed.connect(func(t):
+		player_name = t
+		if social != null:
+			social.player_name = t)
 	card_box.add_child(_name_edit)
 	var quit := MenuTheme.nav(Button.new())
 	quit.toggle_mode = false
@@ -813,6 +820,15 @@ func _copy_invite() -> void:
 	var text := code if not code.is_empty() else InviteCode.share_text(e.address, e.port)
 	DisplayServer.clipboard_set(text)
 	show_message("Copied %s" % text)
+
+
+# --- Friends ------------------------------------------------------------------------------------
+
+func _build_friends() -> Control:
+	var panel := FriendsPanel.new()
+	panel.social = social
+	panel.join_requested.connect(func(address: String, game_port: int, server_name: String): _join(address, game_port, server_name))
+	return panel
 
 
 # --- Create -------------------------------------------------------------------------------------

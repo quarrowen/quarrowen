@@ -4,6 +4,8 @@ extends Node3D
 ## edits (the server confirms or corrects them), and draws server-described UI.
 
 signal exited(message: String)
+## Leave this server for a friend's (engine/main.gd switches).
+signal join_friend_requested(address: String, port: int, server_name: String)
 
 ## Set when the server announced a full reload: whoever owns the client should reconnect (see main.gd).
 var reload_pending := false
@@ -27,6 +29,7 @@ const ItemRegistry = preload("res://engine/shared/item_registry.gd")
 const GraphicsSettings = preload("res://engine/client/graphics_settings.gd")
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 const SettingsScreen = preload("res://engine/client/settings/settings_screen.gd")
+const FriendsPanel = preload("res://engine/client/social/friends_panel.gd")
 const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const Identity = preload("res://engine/shared/identity.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
@@ -245,6 +248,8 @@ var ugc := UgcClient.new(self)
 var ugc_models := {}
 var _ugc_review: UgcReview
 var _settings_overlay: Control
+## engine/client/social/social_client.gd when main.gd runs the game (null in tests).
+var social
 var _sprint_on := false  # the sprint key toggles (accessibility setting)
 
 
@@ -295,6 +300,11 @@ func _on_connected() -> void:
 
 
 func on_challenge(nonce: PackedByteArray) -> void:
+	# Sign only what a server challenge looks like, so a server cannot get anything else signed with the
+	# identity key (such as a hub sign-in).
+	if nonce.size() != Identity.NONCE_BYTES:
+		_leave("The server sent an invalid login challenge")
+		return
 	_set_status("Authenticating...")
 	Net.c_auth.rpc_id(1, Identity.sign(test_signing_key if test_signing_key != null else _identity, nonce))
 
@@ -2509,6 +2519,45 @@ func open_settings() -> void:
 	_settings_overlay = overlay
 
 
+## Friends and party over the game (from the pause menu), reusing the settings overlay slot.
+func open_friends() -> void:
+	if _settings_overlay != null:
+		return
+	_pause_panel.visible = false
+	var overlay := Control.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.theme = MenuTheme.build()
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(780, 660)
+	center.add_child(panel)
+	if social == null:
+		var none := Label.new()
+		none.text = "Friends are available when the game is started from the main menu."
+		panel.add_child(none)
+	else:
+		var friends := FriendsPanel.new()
+		friends.social = social
+		friends.closable = true
+		friends.closed.connect(close_settings)
+		friends.join_requested.connect(func(address: String, port: int, server_name: String):
+			close_settings()
+			if address == server_address and port == server_port:
+				notify("You are already on %s" % server_name)
+			else:
+				join_friend_requested.emit(address, port, server_name))
+		panel.add_child(friends)
+	_hud_root.add_child(overlay)
+	_settings_overlay = overlay
+
+
 func close_settings() -> void:
 	if _settings_overlay != null:
 		_settings_overlay.queue_free()
@@ -2748,7 +2797,7 @@ func _build_hud() -> void:
 	guide_button.custom_minimum_size = Vector2(240, 44)
 	guide_button.pressed.connect(func(): _set_guide_open(true))
 	pause_box.add_child(guide_button)
-	for entry in [["Invite friends…", open_invite_dialog], ["Report a creation…", open_report_dialog], ["Review creations (admins)", open_ugc_review]]:
+	for entry in [["Friends…", open_friends], ["Invite friends…", open_invite_dialog], ["Report a creation…", open_report_dialog], ["Review creations (admins)", open_ugc_review]]:
 		var ugc_button := Button.new()
 		ugc_button.text = entry[0]
 		ugc_button.custom_minimum_size = Vector2(240, 44)

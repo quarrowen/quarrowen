@@ -59,6 +59,8 @@ const SCHEMA := {
 	"accessibility/menu_motion": {"tab": "Accessibility", "label": "Moving camera in the menu", "type": "bool", "default": true},
 	"network/hub_url": {"tab": "Network", "label": "Server list hub", "type": "text", "default": "", "placeholder": "https://hub.example.org",
 		"help": "The hub lists public servers in Multiplayer → Browse, resolves short invite codes and shows news. Empty: no hub."},
+	"network/share_server": {"tab": "Network", "label": "Friends can see which server I'm on", "type": "bool", "default": true,
+		"help": "Lets friends and your party see your server and join you. Off: they only see that you are online."},
 	"network/lan_discovery": {"tab": "Network", "label": "Find servers on my network", "type": "bool", "default": true,
 		"help": "Multiplayer → LAN asks computers on your network (and this one) for games."},
 }

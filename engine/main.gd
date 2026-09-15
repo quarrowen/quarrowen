@@ -26,6 +26,8 @@ const MainMenu = preload("res://engine/client/menu/main_menu.gd")
 const MenuBackdrop = preload("res://engine/client/menu/menu_backdrop.gd")
 const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
+const SocialClient = preload("res://engine/client/social/social_client.gd")
+const InviteCode = preload("res://engine/shared/invite_code.gd")
 
 const DEFAULT_PORT := 24565
 const DEFAULT_GAME := "vanilla"
@@ -36,6 +38,9 @@ var _client: Node
 var _menu: MainMenu
 var _backdrop: MenuBackdrop
 var _backdrop_fallback: ColorRect
+var _social: SocialClient
+## A server to go to once the current game has closed (joining a friend from in game).
+var _pending_join := {}
 
 
 func _ready() -> void:
@@ -148,7 +153,29 @@ func _start_client(address: String, port: int, player_name: String, token: Strin
 	_client.player_name = player_name
 	_client.admin_token = token
 	_client.exited.connect(_on_client_exited)
+	_client.social = _social
+	_client.join_friend_requested.connect(func(to_address: String, to_port: int, to_name: String):
+		_pending_join = {"address": to_address, "port": to_port, "name": to_name}
+		_client.disconnect_from_server())
 	add_child(_client)
+	_set_presence(address, port, address)
+
+
+## Tells friends where we play. A world hosted here is shared by its local network address (only
+## friends on the same network can reach it); without one it is not shared.
+func _set_presence(address: String, port: int, server_name: String) -> void:
+	if address in ["127.0.0.1", "localhost", "::1"]:
+		address = InviteCode.local_address()
+	_social.current_server = {"name": server_name, "address": address, "port": port, "code": ""} if not address.is_empty() else {}
+	_social.refresh()
+
+
+func _process(_delta: float) -> void:
+	# The server's real name arrives with the welcome.
+	if _client != null and _client._welcomed and not _social.current_server.is_empty() \
+			and _social.current_server.name != str(_client.server_info.get("name", _social.current_server.name)):
+		_social.current_server.name = str(_client.server_info.name)
+		_social.refresh()
 
 
 func _on_client_exited(message: String) -> void:
@@ -158,6 +185,16 @@ func _on_client_exited(message: String) -> void:
 			reconnect = {"address": _client.server_address, "port": _client.server_port, "name": _client.player_name, "token": _client.admin_token}
 		_client.queue_free()
 		_client = null
+	_social.current_server = {}
+	_social.refresh()
+	if not _pending_join.is_empty():
+		var target := _pending_join
+		_pending_join = {}
+		if _server_pid > 0:
+			await get_tree().create_timer(1.0).timeout
+			_stop_local_server()
+		_start_client(target.address, target.port, _menu.player_name, "")
+		return
 	if not reconnect.is_empty():
 		# A full reload: the server is restarting; the new client retries until it is back.
 		_show_menu("Reloading mods… reconnecting")
@@ -183,10 +220,21 @@ func _build_menu() -> void:
 	_backdrop_fallback.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_backdrop_fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_backdrop_fallback)
+	_social = SocialClient.new()
+	_social.name = "Social"
+	add_child(_social)
 	_menu = MainMenu.new()
+	_menu.social = _social
 	_menu.player_name = _args.get("name", "Player%d" % (randi() % 1000))
 	_menu.port = int(_args.get("port", DEFAULT_PORT))
 	add_child(_menu)
+	_social.player_name = _menu.player_name
+	_social.notice.connect(func(text: String):
+		if _client != null:
+			_client.notify("✉ " + text)
+		elif _menu.visible:
+			_menu.show_message(text))
+	_social.refresh()
 	_menu.play_world.connect(func(world_id: String, mods: Array, dev: bool):
 		var extra := PackedStringArray(["--world=%s" % world_id])
 		if dev:
