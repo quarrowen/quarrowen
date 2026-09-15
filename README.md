@@ -14,13 +14,15 @@ Play. The main menu shows a live generated world with your avatar, a sidebar and
 - **Play**: your worlds (title, game and add-ons, last played). **New world…** picks a name, game,
   add-ons and an optional seed (a word or number); Play hosts it on a local server and joins it.
   Rename, delete (with its backups) and open the folder; Developer mode turns on the dev tools.
-- **Multiplayer**: join by address (`host`, `host:port`) or invite code (`VC-XXXXX-XXXXX-X`), favorite
-  servers (add, edit, remove, copy invite) and recent ones, each with its name, message, game,
-  players, ping and a version warning, refreshed every 10 seconds.
+- **Multiplayer**: join by address (`host`, `host:port`) or invite code (`VC-XXXXX-XXXXX-X` for an
+  address, `VC-ABC-123` for a server listed on a hub). Tabs: **Browse** (public servers from the hub,
+  with search), **LAN** (servers on your network and this computer), **Favorites** (add, edit, remove)
+  and **Recent**. Every row shows the name, message, game, players, ping and a version warning; Copy
+  invite prefers the hub code.
 - **Avatar** opens the avatar editor; **Create** has the mod wizard, your mods folder, the API docs and
   one-click dev hosting of any installed mod; **Settings** has identity export/import and the hosting
   port (graphics, audio and controls are coming).
-- **What's new** on the right (`engine/client/menu/news.json`).
+- **What's new** on the right: the hub's news, or `engine/client/menu/news.json` without one.
 
 In game, the pause menu's **Invite friends…** shows the server's invite code (for a hosted world, the
 computer's local network address). Menus scale up on high-density screens. Code: `engine/client/menu/`.
@@ -983,6 +985,15 @@ environment variable: `VOXEL_PORT`, `VOXEL_MODS`, `VOXEL_MODS_DIR`, `VOXEL_DATA_
 `VOXEL_BACKUP_INTERVAL`, `VOXEL_BACKUP_KEEP`, `VOXEL_RESTORE`, `VOXEL_NAME` and `VOXEL_MOTD` (shown in
 server lists) and `VOXEL_QUERY_PORT`: status queries for menus (name, message, game, players, ping)
 are answered over UDP on the game port + 1 by default (0 turns them off; rate limited per address).
+`VOXEL_HUB` lists the server on a hub (with `VOXEL_PUBLIC_ADDRESS` and `VOXEL_TAGS`).
+
+### Hub service
+
+`services/hub` is a small Rust service (axum, SQLite) for the public server list, short invite codes
+and menu news; see its README. Servers announce every 30 seconds, signed with their identity key, and
+the hub proves the address with a signed status query before listing it. Players point the game at a
+hub in Settings → Network (or `VOXEL_HUB`). `tools/run_tests.sh` builds it and runs its unit tests and
+`tests/hub_test.tscn` (a real hub and game server) when cargo is installed.
 
 ```sh
 docker build -t voxelcraft-server .

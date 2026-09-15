@@ -235,8 +235,12 @@ changes with `tools/build_native.sh`.
      camera. Game screens now scale on high-DPI too (content_scale_factor = screen scale x interface size;
      mouse look uses screen_relative). Tests use VOXEL_SETTINGS. Not done: gamepad bindings, colour-blind
      palettes, subtitles for sounds.
-   - N3 Hub service + discovery: Rust service (repo, Docker) with signed server heartbeats and a server
-     browser, news feed for the menu, LAN discovery (broadcast status queries), hub short codes.
+   - N3 Hub service + discovery (done: services/hub Rust axum+SQLite+rsa; engine/server/hub_announcer.gd; status
+     query proof flag; engine/client/menu/hub_client.gd; pinger LAN discovery; menu Browse/LAN tabs; hub news;
+     Settings → Network; tests/hub_test.tscn): signed announces every 30 s, address proven by a signed status
+     query, listings expire after 95 s, leave on shutdown, stable 6-char hub codes (VC-ABC-123) resolving to
+     the last known address, per-IP rate limits, HUB_ALLOW_PRIVATE / HUB_TRUST_PROXY. No public hub is hosted
+     yet (setting empty by default). Not done: hub TLS itself (use a reverse proxy), moderation of listings.
    - N4 Friends and parties: identity-signed hub login, friend requests, presence (online, which server),
      party invites, join a friend.
    - N5 Server transfers/portals: signed transfer tickets between trusting servers, carry avatar/party,

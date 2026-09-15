@@ -7,6 +7,9 @@ extends Node
 ##   --name="My Server"    VOXEL_NAME          shown in server lists
 ##   --motd="Welcome!"     VOXEL_MOTD          message shown in server lists
 ##   --query-port=24566    VOXEL_QUERY_PORT    UDP port answering status queries (default port + 1, 0 = off)
+##   --hub=https://...     VOXEL_HUB           list this server on a hub (services/hub)
+##   --public-address=host VOXEL_PUBLIC_ADDRESS the address the hub lists (default: where the announce comes from)
+##   --tags=pvp,modded     VOXEL_TAGS          tags shown in the server browser
 ##   --max-players=64      VOXEL_MAX_PLAYERS
 ##   --mods=vanilla        VOXEL_MODS          comma-separated; dependencies load automatically
 ##   --mods-dir=/mods      VOXEL_MODS_DIR      comma-separated folders searched before bundled mods
@@ -33,6 +36,9 @@ const DEFAULTS := {
 	"name": "",
 	"motd": "",
 	"query-port": "",
+	"hub": "",
+	"public-address": "",
+	"tags": "",
 	"max-players": "64",
 	"mods": "vanilla",
 	"mods-dir": "",
@@ -77,6 +83,9 @@ func _ready() -> void:
 		"name": options.name,
 		"motd": options.motd,
 		"query_port": int(options["query-port"]) if not str(options["query-port"]).is_empty() else int(options.port) + 1,
+		"hub": options.hub,
+		"public_address": options["public-address"],
+		"tags": options.tags,
 		"max_players": int(options["max-players"]),
 		"mods": mods,
 		"mod_dirs": String(options["mods-dir"]).replace(";", ",").split(",", false),

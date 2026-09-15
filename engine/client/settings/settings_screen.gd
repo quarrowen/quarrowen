@@ -162,6 +162,15 @@ func _row(key: String, entry: Dictionary) -> Control:
 			row.add_child(value_label)
 			_widgets[key] = slider
 			_value_labels[key] = value_label
+		"text":
+			var edit := LineEdit.new()
+			edit.custom_minimum_size.x = 300
+			edit.placeholder_text = str(entry.get("placeholder", ""))
+			# Saved when done typing (Enter or leaving the field), not on every letter.
+			edit.text_submitted.connect(func(t): settings.set_value(key, t))
+			edit.focus_exited.connect(func(): settings.set_value(key, edit.text))
+			row.add_child(edit)
+			_widgets[key] = edit
 		"choice":
 			var option := OptionButton.new()
 			option.custom_minimum_size.x = 220
@@ -199,6 +208,9 @@ func _refresh(key: String) -> void:
 		"float":
 			widget.set_value_no_signal(v)
 			_value_labels[key].text = _format(entry, v)
+		"text":
+			if not widget.has_focus():
+				widget.text = v
 		"choice":
 			for i in entry.choices.size():
 				if entry.choices[i][0] == v:

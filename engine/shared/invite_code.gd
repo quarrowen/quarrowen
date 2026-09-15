@@ -2,7 +2,8 @@ extends RefCounted
 ## Invite codes: a short, readable way to share a server address. An IPv4 address and port pack into
 ## 6 bytes, written as 10 Crockford base32 characters with a check character: "VC-7ZK3M-Q8D1A-4".
 ## Anything else (host names, IPv6) is shared as a plain "host:port" text, which `parse` also accepts.
-## (Hub-registered short codes for any server come with the central service.)
+## Servers listed on a hub also have a short hub code, "VC-ABC-123": `parse` returns {hub_code} for those,
+## to be resolved through the hub (engine/client/menu/hub_client.gd).
 
 const ALPHABET := "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 const PREFIX := "VC-"
@@ -43,6 +44,11 @@ static func parse(text: String) -> Dictionary:
 		var chars := upper.substr(PREFIX.length()).replace("-", "").replace(" ", "")
 		# Crockford: accept look-alikes.
 		chars = chars.replace("O", "0").replace("I", "1").replace("L", "1")
+		if chars.length() == 6:
+			for c in chars:
+				if not ALPHABET.contains(c):
+					return {"error": "that invite code has a wrong character"}
+			return {"hub_code": "VC-%s-%s" % [chars.substr(0, 3), chars.substr(3)]}  # a hub code: ask the hub
 		if chars.length() != 11:
 			return {"error": "that invite code is not complete"}
 		for c in chars:

@@ -20,10 +20,16 @@ const ModLoader = preload("res://engine/server/mod_loader.gd")
 const Identity = preload("res://engine/shared/identity.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
 const SettingsScreen = preload("res://engine/client/settings/settings_screen.gd")
+const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
+const HubClient = preload("res://engine/client/menu/hub_client.gd")
 
 const NEWS := "res://engine/client/menu/news.json"
 const PAGES := ["play", "multiplayer", "create", "settings"]
 const STATUS_REFRESH := 10.0
+const TAB_BROWSE := 0
+const TAB_LAN := 1
+const TAB_FAVORITES := 2
+const TAB_RECENT := 3
 
 var player_name := "Player"
 var port := 24565
@@ -46,9 +52,18 @@ var _book
 var _server_tab: TabBar
 var _server_rows: VBoxContainer
 var _selected_server := ""
-var _server_buttons: Array[Button] = []
+var _server_buttons := {}  # action -> Button
+var _browse_search: LineEdit
+var _server_note: Label
+var _hub: HubClient
+var _hub_servers: Array = []
+var _hub_busy := false
+var _hub_error := ""
+var _lan_servers := {}  # key -> entry
+var _lan_started := 0
 var _direct_edit: LineEdit
 var _statuses := {}  # key -> status entry
+var _news_box: VBoxContainer
 var _pinger: ServerPinger
 var _status_timer := 0.0
 # Settings
@@ -62,6 +77,11 @@ func _ready() -> void:
 	_book = ServerBook.load_book()
 	_pinger = ServerPinger.new()
 	_pinger.result.connect(_on_status)
+	_pinger.lan_found.connect(_on_lan_found)
+	_hub = HubClient.new()
+	add_child(_hub)
+	_hub.servers_received.connect(_on_hub_servers)
+	ClientSettings.shared().changed.connect(_on_setting_changed)
 	_discover_mods()
 	_build()
 	show_page("play")
@@ -69,6 +89,15 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	_pinger.close()
+	if ClientSettings.shared().changed.is_connected(_on_setting_changed):
+		ClientSettings.shared().changed.disconnect(_on_setting_changed)
+
+
+func _on_setting_changed(key: String) -> void:
+	if key == "network/hub_url":
+		_hub_servers = []
+		_hub_error = ""
+		_load_news()
 
 
 func _discover_mods() -> void:
@@ -193,23 +222,39 @@ func _build_news() -> Control:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size.x = 290
 	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
-	panel.add_child(box)
-	box.add_child(MenuTheme.heading("What's new", 20))
-	var items = JSON.parse_string(FileAccess.get_file_as_string(NEWS)) if FileAccess.file_exists(NEWS) else []
-	for item in (items if items is Array else []).slice(0, 5):
+	_news_box = VBoxContainer.new()
+	_news_box.add_theme_constant_override("separation", 10)
+	panel.add_child(_news_box)
+	_load_news()
+	return panel
+
+
+## News from the hub when one is set, else (or when it cannot be reached) the bundled news.
+func _load_news() -> void:
+	var bundled = JSON.parse_string(FileAccess.get_file_as_string(NEWS)) if FileAccess.file_exists(NEWS) else []
+	_show_news(bundled if bundled is Array else [])
+	if HubClient.configured():
+		_hub.news_received.connect(func(items: Array, error: String):
+			if error.is_empty() and not items.is_empty():
+				_show_news(items), CONNECT_ONE_SHOT)
+		_hub.fetch_news()
+
+
+func _show_news(items: Array) -> void:
+	for child in _news_box.get_children():
+		child.queue_free()
+	_news_box.add_child(MenuTheme.heading("What's new", 20))
+	for item in items.slice(0, 5):
 		if not (item is Dictionary):
 			continue
 		var title := Label.new()
 		title.text = str(item.get("title", ""))
 		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		title.add_theme_font_size_override("font_size", 16)
-		box.add_child(title)
+		_news_box.add_child(title)
 		var body := MenuTheme.muted(str(item.get("body", "")), 13)
 		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		box.add_child(body)
-	return panel
+		_news_box.add_child(body)
 
 
 func show_page(page: String) -> void:
@@ -461,8 +506,8 @@ func _build_multiplayer() -> Control:
 	var tabs_row := HBoxContainer.new()
 	page.add_child(tabs_row)
 	_server_tab = TabBar.new()
-	_server_tab.add_tab("Favorites")
-	_server_tab.add_tab("Recent")
+	for tab_name in ["Browse", "LAN", "Favorites", "Recent"]:
+		_server_tab.add_tab(tab_name)
 	_server_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_server_tab.tab_changed.connect(func(_i):
 		_selected_server = ""
@@ -472,6 +517,14 @@ func _build_multiplayer() -> Control:
 	refresh.text = "Refresh"
 	refresh.pressed.connect(refresh_servers.bind(true))
 	tabs_row.add_child(refresh)
+	_browse_search = LineEdit.new()
+	_browse_search.placeholder_text = "Search servers by name, message or tag"
+	_browse_search.text_submitted.connect(func(_t): refresh_servers(true))
+	page.add_child(_browse_search)
+	_server_note = MenuTheme.muted("", 14)
+	_server_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_server_note.custom_minimum_size.x = 300
+	page.add_child(_server_note)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -483,50 +536,92 @@ func _build_multiplayer() -> Control:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 8)
 	page.add_child(actions)
-	var join_selected := MenuTheme.primary(Button.new())
-	join_selected.text = "Join"
-	join_selected.custom_minimum_size.x = 120
-	join_selected.pressed.connect(join_selected_server)
-	actions.add_child(join_selected)
-	_server_buttons.append(join_selected)
-	var add := Button.new()
-	add.text = "Add server…"
-	add.pressed.connect(open_server_editor.bind({}))
-	actions.add_child(add)
-	for entry in [["Edit…", _edit_server], ["Remove", _remove_server], ["Copy invite", _copy_invite]]:
-		var b := Button.new()
-		b.text = entry[0]
-		b.pressed.connect(entry[1])
+	for entry in [["join", "Join", join_selected_server], ["add", "Add server…", open_server_editor.bind({})], ["favorite", "Add to favorites", _favorite_selected],
+			["edit", "Edit…", _edit_server], ["remove", "Remove", _remove_server], ["invite", "Copy invite", _copy_invite]]:
+		var b := MenuTheme.primary(Button.new()) if entry[0] == "join" else Button.new()
+		b.text = entry[1]
+		b.pressed.connect(entry[2])
 		actions.add_child(b)
-		_server_buttons.append(b)
+		_server_buttons[entry[0]] = b
+	_server_buttons.join.custom_minimum_size.x = 120
 	return page
 
 
+## The rows of the current tab: [{name, address, port, code?, ...}].
 func _server_list() -> Array:
-	return _book.favorites if _server_tab.current_tab == 0 else _book.recent
+	match _server_tab.current_tab:
+		TAB_BROWSE: return _hub_servers
+		TAB_LAN: return _lan_servers.values()
+		TAB_FAVORITES: return _book.favorites
+	return _book.recent
 
 
-## Redraws the list; `query` asks every listed server for its status again.
+## Redraws the list; `query` asks again (the hub, the network, or each server for its status).
 func refresh_servers(query := false) -> void:
+	var tab := _server_tab.current_tab
 	var list := _server_list()
+	_browse_search.visible = tab == TAB_BROWSE and HubClient.configured()
 	for child in _server_rows.get_children():
 		child.queue_free()
-	if list.is_empty():
-		_server_rows.add_child(MenuTheme.muted("No favorite servers yet. Add one, or join by address or invite code above." if _server_tab.current_tab == 0
-			else "Servers you join show up here.", 16))
+	var note := ""
+	match tab:
+		TAB_BROWSE:
+			if not HubClient.configured():
+				note = "No server list hub is set. Add one in Settings → Network to browse public servers."
+			elif _hub_busy:
+				note = "Loading servers…"
+			elif not _hub_error.is_empty():
+				note = "The server list is not available: %s" % _hub_error
+			elif list.is_empty():
+				note = "No public servers match." if not _browse_search.text.is_empty() else "No public servers are listed right now."
+		TAB_LAN:
+			if not ClientSettings.shared().get_value("network/lan_discovery"):
+				note = "Finding servers on your network is off (Settings → Network)."
+			elif list.is_empty():
+				note = "Looking for games on your network…" if Time.get_ticks_msec() - _lan_started < 2500 else "No games found on your network."
+		TAB_FAVORITES:
+			if list.is_empty():
+				note = "No favorite servers yet. Add one, or join by address or invite code above."
+		TAB_RECENT:
+			if list.is_empty():
+				note = "Servers you join show up here."
+	_server_note.text = note
+	_server_note.visible = not note.is_empty()
 	var keys := list.map(func(e): return ServerBook.key(e.address, e.port))
 	if not keys.has(_selected_server):
 		_selected_server = keys[0] if not keys.is_empty() else ""
 	for e in list:
 		_server_rows.add_child(_server_row(e))
-	for b in _server_buttons:
-		b.disabled = _selected_server.is_empty()
-	if _server_buttons.size() > 2:
-		_server_buttons[1].disabled = _selected_server.is_empty() or _server_tab.current_tab != 0  # Edit
-	if query:
-		_status_timer = 0.0
-		for e in list:
-			_pinger.ping(ServerBook.key(e.address, e.port), e.address, e.port)
+	var none := _selected_server.is_empty()
+	_server_buttons.join.disabled = none
+	_server_buttons.invite.disabled = none
+	_server_buttons.favorite.visible = tab in [TAB_BROWSE, TAB_LAN, TAB_RECENT]
+	_server_buttons.favorite.disabled = none or _book.find_favorite(_selected_entry().get("address", ""), int(_selected_entry().get("port", 0))) >= 0
+	_server_buttons.edit.visible = tab == TAB_FAVORITES
+	_server_buttons.edit.disabled = none
+	_server_buttons.remove.visible = tab in [TAB_FAVORITES, TAB_RECENT]
+	_server_buttons.remove.disabled = none
+	_server_buttons.add.visible = tab in [TAB_FAVORITES, TAB_RECENT]
+	if not query:
+		return
+	_status_timer = 0.0
+	match tab:
+		TAB_BROWSE:
+			if HubClient.configured() and not _hub_busy:
+				_hub_busy = true
+				_hub.list_servers(_browse_search.text.strip_edges())
+				refresh_servers()
+		TAB_LAN:
+			if ClientSettings.shared().get_value("network/lan_discovery"):
+				_lan_servers.clear()
+				_lan_started = Time.get_ticks_msec()
+				_pinger.discover_lan([port])
+				get_tree().create_timer(2.6).timeout.connect(func():
+					if _page == "multiplayer" and _server_tab.current_tab == TAB_LAN:
+						refresh_servers())
+		_:
+			for e in list:
+				_pinger.ping(ServerBook.key(e.address, e.port), e.address, e.port)
 
 
 func _server_row(e: Dictionary) -> Control:
@@ -535,19 +630,22 @@ func _server_row(e: Dictionary) -> Control:
 	var subtitle := "%s:%d" % [e.address, e.port]
 	var right := "…"
 	var right_color := MenuTheme.MUTED
+	if s.is_empty() and e.has("players"):
+		# A hub listing: its own numbers until a ping answers.
+		s = {"online": true, "info": e, "ping_ms": -1}
 	if not s.is_empty():
 		if s.online:
 			var info: Dictionary = s.info
 			subtitle = "%s · %s" % [info.game_name if not info.game_name.is_empty() else info.game, info.motd if not info.motd.is_empty() else subtitle]
-			right = "%d/%d  ·  %d ms" % [info.players, info.max_players, s.ping_ms]
-			right_color = MenuTheme.GOOD if s.ping_ms < 80 else (MenuTheme.WARN if s.ping_ms < 200 else MenuTheme.BAD)
-			if not info.compatible:
+			right = "%d/%d" % [info.players, info.max_players] + ("  ·  %d ms" % s.ping_ms if s.ping_ms >= 0 else "")
+			right_color = MenuTheme.MUTED if s.ping_ms < 0 else (MenuTheme.GOOD if s.ping_ms < 80 else (MenuTheme.WARN if s.ping_ms < 200 else MenuTheme.BAD))
+			if not info.get("compatible", true):
 				right = "version %s" % info.version
 				right_color = MenuTheme.BAD
 		else:
 			right = "offline"
 			right_color = MenuTheme.BAD
-	var shown_name := str(e.name)
+	var shown_name := str(e.get("name", ""))
 	if not s.is_empty() and s.online and (shown_name == e.address or shown_name.is_empty()):
 		shown_name = s.info.name
 	var row := _row(k, shown_name, subtitle, right, _selected_server == k,
@@ -567,11 +665,27 @@ func _on_status(k: String, entry: Dictionary) -> void:
 		refresh_servers()
 
 
+func _on_lan_found(k: String, entry: Dictionary) -> void:
+	_statuses[ServerBook.key(entry.address, entry.port)] = entry
+	_lan_servers[k] = {"name": entry.info.name, "address": entry.address, "port": entry.port, "code": entry.info.code}
+	if _page == "multiplayer" and _server_tab.current_tab == TAB_LAN:
+		refresh_servers()
+
+
+func _on_hub_servers(servers: Array, _total: int, error: String) -> void:
+	_hub_busy = false
+	_hub_error = error
+	_hub_servers = servers
+	if _page == "multiplayer" and _server_tab.current_tab == TAB_BROWSE:
+		refresh_servers()
+		for e in servers:
+			_pinger.ping(ServerBook.key(e.address, e.port), e.address, e.port)
+
+
 func join_selected_server() -> void:
-	for e in _server_list():
-		if ServerBook.key(e.address, e.port) == _selected_server:
-			_join(e.address, e.port, str(e.name))
-			return
+	var e := _selected_entry()
+	if not e.is_empty():
+		_join(e.address, e.port, str(e.get("name", "")))
 
 
 func _join_direct() -> void:
@@ -579,7 +693,26 @@ func _join_direct() -> void:
 	if parsed.has("error"):
 		show_message(parsed.error)
 		return
+	if parsed.has("hub_code"):
+		_resolve_hub_code(parsed.hub_code, func(entry: Dictionary): _join(entry.address, entry.port, entry.name))
+		return
 	_join(parsed.address, parsed.port, "")
+
+
+## Looks a hub code up, then calls `then` with {address, port, name}.
+func _resolve_hub_code(code: String, then: Callable) -> void:
+	if not HubClient.configured():
+		show_message("%s is a hub code: set a server list hub in Settings → Network first" % code)
+		return
+	show_message("Looking up %s…" % code)
+	var on_resolved := func(entry: Dictionary, error: String):
+		if not error.is_empty():
+			show_message("%s: %s" % [code, error])
+			return
+		show_message("" if entry.online else "%s was last seen at %s:%d (not online right now)" % [entry.name, entry.address, entry.port])
+		then.call(entry)
+	_hub.code_resolved.connect(on_resolved, CONNECT_ONE_SHOT)
+	_hub.resolve_code(code)
 
 
 func _join(address: String, game_port: int, server_name: String) -> void:
@@ -608,20 +741,27 @@ func open_server_editor(entry: Dictionary) -> void:
 	var status := Label.new()
 	status.add_theme_color_override("font_color", MenuTheme.WARN)
 	box.add_child(status)
+	var save := func(address: String, game_port: int):
+		if not entry.is_empty():
+			_book.remove_favorite(entry.address, int(entry.port))
+		if not _book.add_favorite(name_edit.text, address, game_port):
+			status.text = "Your favorites list is full"
+			return
+		_selected_server = ServerBook.key(address, game_port)
+		_server_tab.current_tab = TAB_FAVORITES
+		dialog.queue_free()
+		refresh_servers(true)
 	dialog.confirmed.connect(func():
 		var parsed := InviteCode.parse(address_edit.text)
 		if parsed.has("error"):
 			status.text = parsed.error
-			return
-		if not entry.is_empty():
-			_book.remove_favorite(entry.address, int(entry.port))
-		if not _book.add_favorite(name_edit.text, parsed.address, parsed.port):
-			status.text = "Your favorites list is full"
-			return
-		_selected_server = ServerBook.key(parsed.address, parsed.port)
-		_server_tab.current_tab = 0
-		dialog.queue_free()
-		refresh_servers(true))
+		elif parsed.has("hub_code"):
+			_resolve_hub_code(parsed.hub_code, func(found: Dictionary):
+				if name_edit.text.strip_edges().is_empty():
+					name_edit.text = found.name
+				save.call(found.address, found.port))
+		else:
+			save.call(parsed.address, parsed.port))
 	dialog.canceled.connect(dialog.queue_free)
 	add_child(dialog)
 	dialog.popup_centered()
@@ -635,6 +775,13 @@ func _selected_entry() -> Dictionary:
 	return {}
 
 
+func _favorite_selected() -> void:
+	var e := _selected_entry()
+	if not e.is_empty() and _book.add_favorite(str(e.get("name", "")), e.address, e.port):
+		show_message("Added %s to your favorites" % e.get("name", e.address))
+		refresh_servers()
+
+
 func _edit_server() -> void:
 	var e := _selected_entry()
 	if not e.is_empty():
@@ -645,7 +792,7 @@ func _remove_server() -> void:
 	var e := _selected_entry()
 	if e.is_empty():
 		return
-	if _server_tab.current_tab == 0:
+	if _server_tab.current_tab == TAB_FAVORITES:
 		_book.remove_favorite(e.address, e.port)
 	else:
 		_book.recent = _book.recent.filter(func(x): return ServerBook.key(x.address, x.port) != _selected_server)
@@ -654,11 +801,16 @@ func _remove_server() -> void:
 	refresh_servers()
 
 
+## A hub code when the server has one (shorter, works for any address), else an address code.
 func _copy_invite() -> void:
 	var e := _selected_entry()
 	if e.is_empty():
 		return
-	var text := InviteCode.share_text(e.address, e.port)
+	var s: Dictionary = _statuses.get(_selected_server, {})
+	var code := str(e.get("code", ""))
+	if code.is_empty() and not s.is_empty() and s.online:
+		code = str(s.info.get("code", ""))
+	var text := code if not code.is_empty() else InviteCode.share_text(e.address, e.port)
 	DisplayServer.clipboard_set(text)
 	show_message("Copied %s" % text)
 

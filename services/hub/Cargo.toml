@@ -1,0 +1,18 @@
+[package]
+name = "voxelcraft-hub"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "VoxelCraft hub: the public server list, short invite codes and news for game menus."
+
+[dependencies]
+axum = "0.8"
+base64 = "0.22"
+hex = "0.4"
+rand = "0.8"
+rsa = { version = "0.9", features = ["sha2"] }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.10"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "signal", "sync"] }

@@ -9,6 +9,8 @@ const PER_ADDRESS_PER_SECOND := 8
 const MAX_PACKETS_PER_UPDATE := 64
 
 var port := 0
+## The server's identity key (signs proofs for the hub); set by the server when it starts listening.
+var key: CryptoKey
 var _server
 var _udp: PacketPeerUDP
 var _counts := {}  # ip -> answers this second
@@ -45,7 +47,7 @@ func running() -> bool:
 func info() -> Dictionary:
 	return {"name": _server.server_info.name, "motd": _server.server_info.motd, "game": _server.server_info.get("game_id", ""),
 		"game_name": _server.server_info.game, "players": _server.players.size(), "max_players": _server.max_players,
-		"protocol": Protocol.VERSION, "version": Protocol.GAME_VERSION}
+		"protocol": Protocol.VERSION, "version": Protocol.GAME_VERSION, "port": _server.port, "code": _server.hub.code if _server.hub != null else ""}
 
 
 func update() -> void:
@@ -61,12 +63,23 @@ func update() -> void:
 		var packet := _udp.get_packet()
 		var ip := _udp.get_packet_ip()
 		var from_port := _udp.get_packet_port()
-		var nonce := ServerStatus.parse_request(packet)
-		if nonce.is_empty():
+		var request := ServerStatus.parse_request(packet)
+		if request.is_empty():
 			continue
 		var count := int(_counts.get(ip, 0))
 		if count >= PER_ADDRESS_PER_SECOND:
 			continue
 		_counts[ip] = count + 1
 		_udp.set_dest_address(ip, from_port)
-		_udp.put_packet(ServerStatus.make_response(nonce, info()))
+		var answer := info()
+		if request.proof and key != null:
+			answer.proof = Marshalls.raw_to_base64(Crypto.new().sign(HashingContext.HASH_SHA256,
+				_sha256(ServerStatus.proof_message(request.nonce)), key))
+		_udp.put_packet(ServerStatus.make_response(request.nonce, answer))
+
+
+static func _sha256(bytes: PackedByteArray) -> PackedByteArray:
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_SHA256)
+	ctx.update(bytes)
+	return ctx.finish()

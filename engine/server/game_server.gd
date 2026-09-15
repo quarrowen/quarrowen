@@ -42,6 +42,7 @@ const DevLog = preload("res://engine/server/dev_log.gd")
 const DevTools = preload("res://engine/server/dev_tools.gd")
 const DevWeb = preload("res://engine/server/dev_web.gd")
 const StatusQuery = preload("res://engine/server/status_query.gd")
+const HubAnnouncer = preload("res://engine/server/hub_announcer.gd")
 const ModReload = preload("res://engine/server/mod_reload.gd")
 const ModValidator = preload("res://engine/server/mod_validator.gd")
 const Ugc = preload("res://engine/server/ugc.gd")
@@ -175,6 +176,10 @@ var dev_mode := false
 ## The dev dashboard web server (--dev-web=port).
 var dev_web := DevWeb.new(self)
 var status_query := StatusQuery.new(self)
+## Lists the server on a hub (a child node while online; null for offline servers).
+var hub: HubAnnouncer
+## The game port (0 when offline).
+var port := 0
 var max_players := DEFAULT_MAX_PLAYERS
 ## Quick reloads, the file watcher and full reloads (see engine/server/mod_reload.gd).
 var mod_reload := ModReload.new(self)
@@ -299,9 +304,18 @@ func start(config: Dictionary) -> Error:
 		return err
 	Net.server = self
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
-	var query_port := int(config.get("query_port", int(config.get("port", 24565)) + 1))
+	port = int(config.get("port", 24565))
+	status_query.key = tls[0]
+	var query_port := int(config.get("query_port", port + 1))
 	if query_port > 0:
 		status_query.start(query_port)
+	hub = HubAnnouncer.new(self)
+	add_child(hub)
+	if not str(config.get("hub", "")).is_empty():
+		if query_port <= 0:
+			dev_log.add("warn", "server", "Hub listing needs status queries (--query-port is 0)")
+		else:
+			hub.start(str(config.hub), tls[0], str(config.get("public_address", "")), str(config.get("tags", "")).split(",", false))
 	var web_port := int(config.get("dev_web", 0))
 	if web_port == 0 and dev_mode:
 		web_port = int(config.get("port", 24565)) + 15
@@ -317,6 +331,8 @@ func start(config: Dictionary) -> Error:
 
 func _exit_tree() -> void:
 	dev_web.stop()
+	if hub != null:
+		hub.leave()
 	status_query.stop()
 	dev_log.drain()
 	dev_log.close()

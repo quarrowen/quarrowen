@@ -2861,13 +2861,14 @@ func _menu_data() -> void:
 	_check(InviteCode.parse(typo).has("error"), "a mistyped invite code is caught")
 	_check(InviteCode.parse("play.example.com:25000") == {"address": "play.example.com", "port": 25000} and InviteCode.parse("[::1]:24570") == {"address": "::1", "port": 24570}
 		and InviteCode.parse("host:abc").has("error") and InviteCode.share_text("play.example.com", 24565) == "play.example.com", "plain addresses work too")
+	_check(InviteCode.parse("vc-3gs h9n") == {"hub_code": "VC-3GS-H9N"} and InviteCode.parse("VC-3GS-H9U").has("error"), "short hub codes are recognised")
 
 
 func _status_query() -> void:
 	var ServerStatus = preload("res://engine/shared/server_status.gd")
 	var ServerPinger = preload("res://engine/client/menu/server_pinger.gd")
 	var nonce := PackedByteArray([1, 2, 3, 4, 5, 6, 7, 8])
-	_check(ServerStatus.make_request(nonce).size() == ServerStatus.REQUEST_SIZE and ServerStatus.parse_request(ServerStatus.make_request(nonce)) == nonce
+	_check(ServerStatus.make_request(nonce).size() == ServerStatus.REQUEST_SIZE and ServerStatus.parse_request(ServerStatus.make_request(nonce)).nonce == nonce
 		and ServerStatus.parse_request(PackedByteArray([86, 88, 81, 49])).is_empty(), "status requests are fixed-size and checked")
 	var big := ServerStatus.make_response(nonce, {"name": "x".repeat(2000), "motd": "y".repeat(2000)})
 	_check(big.size() <= ServerStatus.RESPONSE_MAX, "status answers stay small")

@@ -7,3 +7,4 @@ build/
 addons/godot_mcp/
 .mcp.json
 __pycache__/
+services/hub/target/

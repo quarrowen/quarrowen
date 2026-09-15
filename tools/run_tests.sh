@@ -93,6 +93,17 @@ fi
 for extra in tests/host_flow_test.tscn tests/reload_test.tscn; do
   [ -f "$extra" ] && run_scene "$(basename "$extra" .tscn)" "$WORK/$(basename "$extra" .tscn).log" "res://$extra"
 done
+# The hub service (Rust) with a real game server; skipped when cargo is not installed.
+if command -v cargo >/dev/null 2>&1; then
+  if cargo build --release --manifest-path services/hub/Cargo.toml >"$WORK/hub_build.log" 2>&1 \
+      && cargo test --release --manifest-path services/hub/Cargo.toml >"$WORK/hub_unit.log" 2>&1; then
+    record "hub-unit" 0 "$WORK/hub_unit.log"
+    run_scene "hub" "$WORK/hub.log" res://tests/hub_test.tscn
+  else
+    record "hub-unit" 1 "$WORK/hub_unit.log"
+    tail -20 "$WORK/hub_build.log" "$WORK/hub_unit.log" 2>/dev/null
+  fi
+fi
 
 # A script error inside a test can abort its remaining checks without failing it; treat it as a failure.
 for log in "$WORK"/*.log; do

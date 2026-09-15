@@ -54,6 +54,7 @@ const CreationLibrary = preload("res://engine/client/creation_library.gd")
 const UgcReview = preload("res://engine/client/ugc_review.gd")
 const Creations = preload("res://engine/shared/creations.gd")
 const InviteCode = preload("res://engine/shared/invite_code.gd")
+const ServerPinger = preload("res://engine/client/menu/server_pinger.gd")
 const MinigameScreen = preload("res://engine/client/minigame_screen.gd")
 const EatingVisuals = preload("res://engine/client/eating_visuals.gd")
 const ItemIcons = preload("res://engine/client/item_icons.gd")
@@ -764,9 +765,24 @@ func open_invite_dialog() -> void:
 	copy.text = "Copy"
 	copy.disabled = text.is_empty()
 	copy.pressed.connect(func():
-		DisplayServer.clipboard_set(text)
+		DisplayServer.clipboard_set(code.text)
 		copy.text = "Copied")
 	box.add_child(copy)
+	# A server listed on a hub has a short code that works from anywhere: ask the server for it.
+	var pinger = ServerPinger.new()
+	pinger.result.connect(func(_key, entry: Dictionary):
+		if entry.online and not str(entry.info.code).is_empty() and is_instance_valid(code):
+			code.text = entry.info.code
+			copy.disabled = false
+			intro.text = "Friends paste this in Multiplayer → Join (they need the same server list hub in Settings → Network), or use %s." % text if not text.is_empty() \
+				else "Friends paste this in Multiplayer → Join (with the same server list hub in Settings → Network).")
+	pinger.ping("self", server_address, server_port)
+	var poll := Timer.new()
+	poll.wait_time = 0.05
+	poll.autostart = true
+	poll.timeout.connect(pinger.update)
+	dialog.add_child(poll)
+	dialog.tree_exited.connect(pinger.close)
 	dialog.confirmed.connect(dialog.queue_free)
 	dialog.canceled.connect(dialog.queue_free)
 	_hud_root.add_child(dialog)

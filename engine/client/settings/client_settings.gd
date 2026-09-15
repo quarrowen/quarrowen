@@ -57,9 +57,13 @@ const SCHEMA := {
 	"crafting/relaxed_timing": {"tab": "Accessibility", "label": "Relaxed minigame timing", "type": "bool", "default": false,
 		"help": "Slower markers, bigger zones and longer windows. Every result is still at least Standard."},
 	"accessibility/menu_motion": {"tab": "Accessibility", "label": "Moving camera in the menu", "type": "bool", "default": true},
+	"network/hub_url": {"tab": "Network", "label": "Server list hub", "type": "text", "default": "", "placeholder": "https://hub.example.org",
+		"help": "The hub lists public servers in Multiplayer → Browse, resolves short invite codes and shows news. Empty: no hub."},
+	"network/lan_discovery": {"tab": "Network", "label": "Find servers on my network", "type": "bool", "default": true,
+		"help": "Multiplayer → LAN asks computers on your network (and this one) for games."},
 }
 
-const TABS := ["Graphics", "Audio", "Controls", "Accessibility"]
+const TABS := ["Graphics", "Audio", "Controls", "Accessibility", "Network"]
 
 ## Rebindable actions: [action, label, default events]. Events are "key:<physical keycode name>" or
 ## "mouse:<button index>".
@@ -167,6 +171,8 @@ static func _clean(entry: Dictionary, value):
 			return bool(value) if (value is bool or value is int or value is float) else entry.default
 		"float":
 			return clampf(float(value), entry.min, entry.max) if (value is float or value is int) else entry.default
+		"text":
+			return str(value).strip_edges().left(int(entry.get("max_length", 300))) if value != null else entry.default
 		"choice":
 			for c in entry.choices:
 				if c[0] is int and (value is int or value is float):
