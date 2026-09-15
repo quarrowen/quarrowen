@@ -1,10 +1,10 @@
 name: CI
 
+# Paused to save CI minutes while only macOS on Apple silicon is targeted (user, 2026-09-15): runs only
+# when started by hand from the Actions tab. To turn it back on, restore these triggers:
+#   push: {branches: [main, master], tags: ["v*"]}
+#   pull_request:
 on:
-  push:
-    branches: [main, master]
-    tags: ["v*"]
-  pull_request:
   workflow_dispatch:
 
 env:
