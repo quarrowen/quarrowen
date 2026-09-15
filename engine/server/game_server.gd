@@ -117,7 +117,7 @@ var containers := Containers.new(self)
 var gameplay := {
 	"item_drops": "entity",  # "entity": broken blocks drop items to pick up; "inventory": straight into the inventory
 	"keep_inventory": true,
-	"pvp": false,
+	"pvp": true,  # players can hit each other ("/gameplay pvp false" turns it off)
 	"fall_damage": true,
 	"natural_regeneration": true,
 	"hunger": true,  # survival players get hungry (see engine/server/hunger.gd)

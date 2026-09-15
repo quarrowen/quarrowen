@@ -53,6 +53,21 @@ sudo ufw allow 24565:24566/udp
 
 Note the machine's address on your network (for example `192.168.1.20`): `hostname -I`.
 
+**Mods live on the server, not inside the image.** The container holds the engine; the mods it loads sit in
+`deploy/homelab/mods/` on this machine (created on the first start, filled with the mods the engine shipped
+with). To add a game or an add-on, drop its folder there and restart:
+
+```sh
+cp -r ~/my_mod deploy/homelab/mods/         # a mod folder with a mod.json inside
+nano .env                                   # add it to GAME=vanilla,my_mod
+docker compose restart
+```
+
+`MODS_DIR` in `.env` moves that folder somewhere else. On each start the mods that came with the engine
+(`base`, `vanilla`, the add-ons) are refreshed from the image so an update cannot leave stale content behind;
+everything else there is left alone. Set `SEED_MODS=missing` to keep your own edits to the bundled mods, or
+`SEED_MODS=never` to manage the whole folder yourself.
+
 ## 2. The Macs
 
 **Build the app** once, on the Mac with this project (needs the Godot editor and Rust installed, as for
@@ -138,7 +153,9 @@ from the same folder; if you used `-p voxelcraft`, keep using it. `docker volume
 cd voxelcraft && git pull && cd deploy/homelab && docker compose up -d --build
 ```
 
-Then build a new zip with `tools/package_mac.sh` and replace the app on each Mac.
+Then build a new zip with `tools/package_mac.sh` and replace the app on each Mac. Mods update with the
+engine: the bundled ones are refreshed in `mods/` on the next start (unless `SEED_MODS` says otherwise), so a
+mod change does not need a rebuild - only `docker compose restart`.
 
 ## Two worlds and portals (optional)
 

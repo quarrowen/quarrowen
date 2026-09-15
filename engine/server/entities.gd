@@ -318,7 +318,7 @@ func _collect(e: Entity) -> void:
 		return
 	var center := e.body.position + Vector3(0, 0.12, 0)
 	for p in _server.players.values():
-		if p.dead or p.inventory.creative:
+		if p.dead:
 			continue
 		var chest: Vector3 = p.state.position + Vector3(0, 0.9, 0)
 		var dist := chest.distance_to(center)

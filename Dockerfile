@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1.7
 # VoxelCraft dedicated server, built from an exported Godot "Linux Server" preset.
 #   docker build -t voxelcraft-server .
-#   docker run -p 24565:24565/udp -v voxel-data:/data -e VOXEL_MODS=skyblock voxelcraft-server
+#   docker run -p 24565:24565/udp -v voxel-data:/data -v voxel-mods:/mods -e VOXEL_MODS=skyblock voxelcraft-server
+# The image holds the engine only: the mods it loads live in /mods (a volume), seeded from the copy it
+# shipped with on every start (see deploy/entrypoint.sh).
 # Multi-arch: docker buildx build --platform linux/amd64,linux/arm64 -t voxelcraft-server .
 
 ARG GODOT_VERSION=4.7.2
@@ -63,14 +65,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends libfontconfig1 
  && useradd --create-home --uid 10001 voxel \
  && mkdir -p /data /mods && chown voxel:voxel /data /mods
 COPY --from=export --chown=voxel:voxel /out /opt/voxelcraft
+COPY --chown=voxel:voxel deploy/entrypoint.sh /opt/voxelcraft/entrypoint.sh
+# The engine keeps no mods beside the binary: they are seeded into /mods (the volume) and loaded from there.
+RUN mv /opt/voxelcraft/mods /opt/voxelcraft/mods-seed && chmod +x /opt/voxelcraft/entrypoint.sh
 USER voxel
 WORKDIR /opt/voxelcraft
-# /mods is searched before the bundled mods in /opt/voxelcraft/mods, so mounts can add or override.
 ENV VOXEL_DATA_DIR=/data \
     VOXEL_MODS_DIR=/mods \
+    VOXEL_SEED_MODS=update \
     VOXEL_PORT=24565 \
     VOXEL_MODS=vanilla
-VOLUME ["/data"]
+VOLUME ["/data", "/mods"]
 EXPOSE 24565/udp 24566/udp
 STOPSIGNAL SIGTERM
-ENTRYPOINT ["/opt/voxelcraft/voxelcraft_server", "--headless"]
+ENTRYPOINT ["/opt/voxelcraft/entrypoint.sh"]

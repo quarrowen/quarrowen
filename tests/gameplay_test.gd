@@ -65,6 +65,7 @@ func _ready() -> void:
 	await _private_server()
 	await _transfers()
 	await _roles()
+	await _playtest_fixes()
 	await _anticheat()
 	await _scale()
 	await _status_query()
@@ -137,6 +138,61 @@ func _registries() -> void:
 		"sounds replicate with clamped volume")
 	_check(EntityPhysics.segment_hits_box(Vector3(0, 0.5, -5), Vector3(0, 0, 1), 10.0, Vector3(-0.5, 0, -0.5), Vector3(0.5, 1, 0.5)) == 4.5,
 		"segment/box intersection distance")
+
+
+## Things the family playtest turned up: creative pickup, sparring, zombies burning at dawn.
+func _playtest_fixes() -> void:
+	var server = _start("playtest_%d" % Time.get_ticks_msec())
+	var y: int = server.surface_height(8, 8)
+	var pos := Vector3(8.5, y + 1, 8.5)
+	var p := ServerPlayer.new(server, 81, "Builder")
+	p.player_id = "builder"
+	p.state.position = pos
+	p.set_creative(true)
+	server.players[81] = p
+	var coal: int = server.items.id_of("base:coal")
+	var dropped = server.entities.drop_item(coal, 1, pos + Vector3(0.4, 0.5, 0), Vector3.ZERO)
+	dropped.pickup_delay = 0.0
+	for i in 120:
+		server.entities.tick(1.0 / 60.0)
+	_check(dropped.removed, "a player in creative can pick up what they dropped")
+
+	# Sparring: players can hit each other unless the server turns pvp off.
+	var other := ServerPlayer.new(server, 82, "Sparring")
+	other.player_id = "sparring"
+	other.state.position = pos + Vector3(1.0, 0, 0)
+	server.players[82] = other
+	_check(server.gameplay.pvp, "players can hit each other by default")
+	other.hurt_timer = 0.0
+	server.on_attack(81, 1, 82)
+	_check(other.health < other.max_health, "a player's swing lands on another player (health %.1f)" % other.health)
+	server.set_gameplay({"pvp": false})
+	other.hurt_timer = 0.0
+	server._time += 5.0
+	var before: float = other.health
+	server.on_attack(81, 1, 82)
+	_check(other.health == before, "and does not when pvp is off")
+	server.set_gameplay({"pvp": true})
+
+	# Daylight burns the undead: a zombie standing in the open at noon dies.
+	server.set_world_time(0.5, 0.0)
+	var burn_spot := Vector3(12.5, server.surface_height(12, 8) + 1, 8.5)
+	var zombie = server.entities.spawn(server.entities.registry.id_of("vanilla:zombie"), burn_spot)
+	zombie.data["no_despawn"] = true
+	zombie.tune({"temperament": "none", "wander_radius": 0.0})  # stay in the open instead of wandering into shade
+	var burned := false
+	for i in 90 * 60:
+		server._time += 1.0 / 60.0
+		server.entities.tick(1.0 / 60.0)
+		server._run_tasks()
+		zombie.hurt_timer = 0.0
+		if zombie.removed or not zombie.is_alive():
+			burned = true
+			break
+
+	_check(burned, "a zombie caught in the open at noon burns up")
+	server.queue_free()
+	await get_tree().process_frame
 
 
 func _server_rules() -> void:

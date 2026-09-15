@@ -1,4 +1,4 @@
-# Keep the server image to engine code, bundled mods and project config.
+# Keep the server image to engine code, the mods it seeds and project config.
 .godot/
 .git/
 native/target/
@@ -16,5 +16,6 @@ server-mods/
 services/
 docs/
 deploy/
+!deploy/entrypoint.sh
 addons/
 .mcp.json

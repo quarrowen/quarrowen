@@ -32,7 +32,7 @@ func setup(mod_api) -> void:
 	api.register_command("fly", "Toggle low gravity for everyone", _toggle_low_gravity, "admin")
 	api.register_command("time", "day | night | noon | midnight | <0-1> | speed <seconds per day>", _cmd_time, "admin")
 	# Everyone may switch modes in the sandbox (the engine's /gamemode is admin-only).
-	api.register_command("gamemode", "survival | creative - switch your game mode", _cmd_gamemode)
+	api.register_command("gamemode", "survival | creative [player | all] - switch game mode ('all' also sets it for new players)", _cmd_gamemode)
 	_setup_mobs()
 	guide.setup(api)
 	tutorial.setup(api)
@@ -70,14 +70,14 @@ func _spawn_position(_player) -> Vector3:
 func _on_join(ev: Dictionary) -> void:
 	var player = ev.player
 	if ev.first_time:
-		player.set_creative(true)
-		player.set_hotbar(HOTBAR.map(func(n): return api.block(n)))
-	player.show_title("Vanilla Sandbox", "Build anything - blocks are unlimited", 4.0)
+		_set_mode(player, String(api.storage.get("default_gamemode", "creative")), false)
+	var creative: bool = player.is_creative()
+	player.show_title("Vanilla Sandbox", "Build anything - blocks are unlimited" if creative else "Survive the night", 4.0)
 	player.show_ui("vanilla:info", {
 		"anchor": "top_right",
 		"children": [
 			{"type": "label", "text": "Vanilla Sandbox", "size": 18, "color": "#ffd166"},
-			{"type": "label", "text": "Creative mode  -  /spawn  /fly  /gamemode survival"},
+			{"type": "label", "text": "%s mode  -  /spawn  /gamemode %s" % ["Creative" if creative else "Survival", "survival" if creative else "creative"]},
 		],
 	})
 
@@ -218,17 +218,42 @@ func _mob_tick() -> void:
 
 
 func _cmd_gamemode(player, args: PackedStringArray) -> void:
-	if args.is_empty() or not args[0] in ["survival", "creative"]:
-		player.send_message("Usage: /gamemode survival | creative")
+	var mode := args[0] if args.size() > 0 else ""
+	if not mode in ["survival", "creative"]:
+		player.send_message("Usage: /gamemode survival | creative [player | all]")
 		return
-	if args[0] == "creative" and not player.has_permission("creative"):
-		player.send_message("Creative mode is not available to you on this server")
+	var who := args[1] if args.size() > 1 else ""
+	if who.is_empty():
+		if mode == "creative" and not player.has_permission("creative"):
+			player.send_message("Creative mode is not available to you on this server")
+			return
+		if player.is_creative() == (mode == "creative"):
+			player.send_message("You are already in %s mode" % mode)
+			return
+		_set_mode(player, mode)
 		return
-	if player.is_creative() == (args[0] == "creative"):
-		player.send_message("You are already in %s mode" % args[0])
+	if not player.has_permission("admin"):
+		player.send_message("Only admins can change someone else's game mode")
 		return
-	player.set_creative(args[0] == "creative")
-	if args[0] == "survival":
+	if who.to_lower() == "all":
+		# The whole server, now and for anyone who joins later.
+		api.storage.default_gamemode = mode
+		for other in api.get_players():
+			_set_mode(other, mode)
+		player.send_message("Everyone is now in %s mode, and new players start in it" % mode)
+		return
+	for other in api.get_players():
+		if other.name.to_lower() == who.to_lower():
+			_set_mode(other, mode)
+			player.send_message("%s is now in %s mode" % [other.name, mode])
+			return
+	player.send_message("No player called '%s' is online" % who)
+
+
+## Switches one player's mode, with the kit or the creative hotbar that goes with it.
+func _set_mode(player, mode: String, tell := true) -> void:
+	player.set_creative(mode == "creative")
+	if mode == "survival":
 		# The creative hotbar holds placeholder stacks; start survival with a small kit instead.
 		player.clear_inventory()
 		player.give(api.item("base:stone_sword"))
@@ -237,7 +262,8 @@ func _cmd_gamemode(player, args: PackedStringArray) -> void:
 		player.give(api.item("base:apple"), 3)
 	else:
 		player.set_hotbar(HOTBAR.map(func(n): return api.block(n)))
-	player.send_message("Game mode: %s%s" % [args[0], " - watch out for zombies at night!" if args[0] == "survival" else ""])
+	if tell:
+		player.send_message("Game mode: %s%s" % [mode, " - watch out for zombies at night!" if mode == "survival" else ""])
 
 
 func _cmd_time(player, args: PackedStringArray) -> void:

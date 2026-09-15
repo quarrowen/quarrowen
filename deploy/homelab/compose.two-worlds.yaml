@@ -20,10 +20,12 @@ services:
       VOXEL_ALLOWLIST: ${ALLOWLIST}
       VOXEL_UGC: ${CREATIONS:-approval}
       VOXEL_CHAT_FILTER: ${CHAT_FILTER:-on}
+      VOXEL_SEED_MODS: ${SEED_MODS:-update}
       VOXEL_BACKUP_INTERVAL: "60"
       VOXEL_BACKUP_KEEP: "48"
     volumes:
       - voxelcraft-sky-data:/data
+      - ${MODS_DIR:-./mods}:/mods  # the same mods as the family server
 
 volumes:
   voxelcraft-sky-data:

@@ -38,7 +38,12 @@ static func build() -> Theme:
 	theme.set_stylebox("panel", "PanelContainer", box(PANEL, 14, 18, 16))
 	theme.set_stylebox("panel", "PopupMenu", box(Color(0.08, 0.1, 0.13, 0.98), 8, 6, 6))
 	theme.set_stylebox("panel", "AcceptDialog", box(Color(0.08, 0.1, 0.13, 0.98), 0, 16, 14))
-	theme.set_stylebox("embedded_border", "Window", box(Color(0.08, 0.1, 0.13, 0.98), 12, 16, 14))
+	theme.set_stylebox("embedded_border", "Window", box(Color(0.08, 0.1, 0.13, 0.99), 12, 16, 14))
+	# A dialog's own close button: the default icon all but disappears on a dark, busy backdrop.
+	theme.set_icon("close", "Window", close_icon(Color(1, 1, 1, 0.75)))
+	theme.set_icon("close_pressed", "Window", close_icon(ACCENT))
+	theme.set_color("title_color", "Window", Color(1, 1, 1, 0.92))
+	theme.set_constant("title_height", "Window", 34)
 	theme.set_stylebox("grabber_area", "HSlider", box(ACCENT, 3, 0, 3))
 	for state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 		theme.set_stylebox(state, "CheckBox", box(Color(1, 1, 1, 0.06) if state.begins_with("hover") else Color(0, 0, 0, 0), 6, 6, 5))
@@ -110,6 +115,24 @@ static func muted(text: String, size := 14) -> Label:
 
 ## A checkbox mark: a light rounded outline, or an accent square with a tick. Drawn at twice the size
 ## and scaled down, for smooth edges.
+## The ✕ on a dialog's title bar, drawn so it reads on any backdrop.
+static func close_icon(color: Color) -> ImageTexture:
+	const S := 22
+	var img := Image.create(S, S, false, Image.FORMAT_RGBA8)
+	var a := Vector2(6.5, 6.5)
+	var b := Vector2(S - 6.5, S - 6.5)
+	var c := Vector2(S - 6.5, 6.5)
+	var d := Vector2(6.5, S - 6.5)
+	for y in S:
+		for x in S:
+			var p := Vector2(x + 0.5, y + 0.5)
+			var dist := minf(_segment_distance(p, a, b), _segment_distance(p, c, d))
+			var stroke := clampf(1.7 - dist, 0.0, 1.0)
+			var circle := clampf(0.6 - (p.distance_to(Vector2(S, S) * 0.5) - S * 0.5 + 1.0), 0.0, 1.0)
+			img.set_pixel(x, y, Color(color.r, color.g, color.b, maxf(stroke * color.a, circle * 0.18)))
+	return ImageTexture.create_from_image(img)
+
+
 static func check_icon(checked: bool) -> ImageTexture:
 	const S := 36
 	var img := Image.create(S, S, false, Image.FORMAT_RGBA8)

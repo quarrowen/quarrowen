@@ -237,6 +237,7 @@ func _build_sidebar() -> Control:
 	_name_edit.max_length = 16
 	_name_edit.text_changed.connect(func(t):
 		player_name = t
+		ClientSettings.shared().set_value("player/name", t)  # the name sticks between sessions
 		if social != null:
 			social.player_name = t)
 	card_box.add_child(_name_edit)
@@ -445,6 +446,7 @@ func open_new_world() -> void:
 	dialog.title = "New world"
 	dialog.ok_button_text = "Create and play"
 	dialog.dialog_hide_on_ok = false
+	dialog.add_cancel_button("Cancel")
 	var box := VBoxContainer.new()
 	box.custom_minimum_size = Vector2(520, 0)
 	box.add_theme_constant_override("separation", 8)
@@ -791,6 +793,7 @@ func open_server_editor(entry: Dictionary) -> void:
 	dialog.title = "Edit server" if not entry.is_empty() else "Add server"
 	dialog.ok_button_text = "Save"
 	dialog.dialog_hide_on_ok = false
+	dialog.add_cancel_button("Cancel")
 	var box := VBoxContainer.new()
 	box.custom_minimum_size = Vector2(460, 0)
 	dialog.add_child(box)

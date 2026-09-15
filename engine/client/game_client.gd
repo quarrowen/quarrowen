@@ -230,6 +230,10 @@ var _server_ui: ServerUI
 var _status_label: Label
 var _debug_label: Label
 var _hotbar: HBoxContainer
+## Name of what the player is holding, shown above the hotbar for a moment when it changes.
+var _held_label: Label
+var _held_shown := 0
+var _held_until := 0.0
 var _hotbar_slots: Array[Panel] = []
 var _chat_log: VBoxContainer
 var _chat_input: LineEdit
@@ -1236,6 +1240,8 @@ func _can_simulate() -> bool:
 func _process(delta: float) -> void:
 	_poll_mesh_jobs()
 	_schedule_mesh_jobs()
+	if _held_label != null and _held_label.modulate.a > 0.0 and Time.get_ticks_msec() / 1000.0 > _held_until:
+		_held_label.modulate.a = maxf(_held_label.modulate.a - delta * 2.0, 0.0)
 	if not _welcomed:
 		return
 	ugc.update(delta)
@@ -2781,6 +2787,14 @@ func _build_hud() -> void:
 	_status_label.add_theme_font_size_override("font_size", 28)
 	_hud_root.add_child(_status_label)
 
+	_held_label = _shadow_label()
+	_held_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_held_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_held_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_held_label.position.y -= 72
+	_held_label.add_theme_font_size_override("font_size", 18)
+	_held_label.modulate.a = 0.0
+	_hud_root.add_child(_held_label)
 	_hotbar = HBoxContainer.new()
 	_hotbar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_hotbar.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -3138,6 +3152,7 @@ func _refresh_hotbar() -> void:
 			icon.texture = null
 		count.text = str(inventory.counts[i]) if has_item and not inventory.creative and inventory.counts[i] > 1 else ""
 		ItemVisuals.update_wear_bar(slot, items, id if has_item else 0, inventory.data[i])
+	_show_held_name()
 
 
 func _refresh_armor() -> void:
@@ -3221,6 +3236,21 @@ static func _heart_image(fill: float) -> ImageTexture:
 			var red := fill >= 1.0 or (fill > 0.0 and x < 4)
 			img.set_pixel(x, y + 1, Color(0.9, 0.1, 0.15) if red else Color(0.18, 0.05, 0.06, 0.85))
 	return ImageTexture.create_from_image(img)
+
+
+## Names what is in hand when the selection (or the item in that slot) changes.
+func _show_held_name() -> void:
+	if _held_label == null:
+		return
+	var id := inventory.ids[inventory.selected]
+	var empty: bool = not items.is_valid(id) or (not inventory.creative and inventory.counts[inventory.selected] <= 0)
+	var key := 0 if empty else id
+	if key == _held_shown:
+		return
+	_held_shown = key
+	_held_label.text = "" if empty else items.display_name(id)
+	_held_label.modulate.a = 0.0 if empty else 1.0
+	_held_until = Time.get_ticks_msec() / 1000.0 + 2.0
 
 
 func _shadow_label() -> Label:

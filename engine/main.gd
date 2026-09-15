@@ -236,7 +236,8 @@ func _build_menu() -> void:
 	add_child(_social)
 	_menu = MainMenu.new()
 	_menu.social = _social
-	_menu.player_name = _args.get("name", "Player%d" % (randi() % 1000))
+	var saved_name := str(ClientSettings.shared().get_value("player/name")).strip_edges()
+	_menu.player_name = _args.get("name", saved_name if not saved_name.is_empty() else "Player%d" % (randi() % 1000))
 	_menu.port = int(_args.get("port", DEFAULT_PORT))
 	add_child(_menu)
 	_social.player_name = _menu.player_name

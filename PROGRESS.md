@@ -308,6 +308,20 @@ scene path); stdout flushed on print (docker logs); menu banners (errors red and
 identity" action when a pinned server identity changed); backdrop spot chosen after the middle of the view has
 generated; docs/playtest.md. Next: N5 server transfers, after the family playtest feedback.
 
+## Family playtest feedback, batch 1 (2026-09-16)
+
+15 minutes of play with the kids on v0.35.0-alpha.1. Fixed in this batch: the name typed in the menu was not
+saved, so a relaunch sent a random "Player364" (now kept in settings); players in creative could not pick up
+what they dropped; players could not hit each other (pvp now on by default, `/gameplay pvp false` turns it
+off); nothing named what was in hand (the item's name now appears above the hotbar when it changes);
+`/gamemode` only changed the caller (now `[player | all]`, and "all" also sets what new players start in,
+kept in the world); menu dialogs had only a faint title-bar ✕ (a Cancel button, and a drawn close icon).
+Zombies staring instead of attacking was the idle-mob bug fixed the same day (not in their build yet).
+Packaging: the server image is engine-only and the mods it loads live in the /mods volume, refreshed from the
+image on each start (deploy/entrypoint.sh, VOXEL_SEED_MODS); tools/package_mods.sh builds one zip per mod for
+release downloads. Still open from this batch: creative flight and crouch, an admin settings screen in the
+client, stairs, a map, graves/teleports, "can't smelt with wood" (wood is registered fuel - needs a repro).
+
 ## Save compatibility (2026-09-15, user: "We really need to ensure world and inventories don't break between updates")
 
 Found while planning alpha 2: inventories saved numeric ids, and block item ids shift when a block is added (the

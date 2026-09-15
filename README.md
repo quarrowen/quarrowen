@@ -1073,9 +1073,12 @@ docker compose up        # vanilla on 24565, skyblock on 24567 (status on the ne
 ```
 
 The image compiles the Rust extension for the target architecture, exports the "Linux Server" preset
-and ships only the exported server (about 250 MB). Mods are plain files beside the binary
-(`/opt/voxelcraft/mods`); mount extra or overriding mods at `/mods`; worlds live in the `/data`
-volume. SIGTERM and SIGINT trigger a save before exit, so `docker stop` is safe.
+and ships the engine only (about 250 MB). **Mods live in the `/mods` volume, not in the image:** on
+every start `deploy/entrypoint.sh` refreshes the mods the engine shipped with into `/mods` and leaves
+everything else there alone, so a mod is added by dropping its folder (or a packaged zip) in and
+restarting - no rebuild. `VOXEL_SEED_MODS=missing` keeps your edits to the bundled mods, `never`
+leaves the folder entirely to you. Worlds live in the `/data` volume. SIGTERM and SIGINT trigger a
+save before exit, so `docker stop` is safe.
 
 ## Builds and CI
 
@@ -1083,6 +1086,7 @@ volume. SIGTERM and SIGINT trigger a save before exit, so `docker stop` is safe.
 tools/build_native.sh            # native library for this machine -> native/bin/<platform>/
 tools/run_tests.sh               # full test suite (VOXEL_NATIVE=0 for the GDScript fallbacks)
 tools/export.sh                  # every preset -> build/ (needs Godot export templates)
+tools/package_mods.sh            # every mod -> build/mods/<id>-<version>.zip (release downloads)
 tools/export.sh "Linux Server arm64" macOS
 ```
 
