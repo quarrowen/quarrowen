@@ -56,6 +56,7 @@ func _ready() -> void:
 	await _mod_templates()
 	_api_docs()
 	_creations()
+	await _skin_painter()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -2512,6 +2513,57 @@ func _creations() -> void:
 	Library.remove(hat.id)
 	_check(Library.list().size() == 1, "creations can be deleted")
 	OS.set_environment("VOXEL_CREATIONS_DIR", "")
+
+
+func _skin_painter() -> void:
+	var Painter = preload("res://engine/client/avatar/skin_painter.gd")
+	var dir := ProjectSettings.globalize_path(DATA_DIR.path_join("painter_%d" % Time.get_ticks_msec()))
+	OS.set_environment("VOXEL_CREATIONS_DIR", dir)
+	var start := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	start.fill(Color(0.5, 0.5, 0.5))
+	var painter = Painter.new()
+	painter.setup(preload("res://engine/shared/player_rig.gd").default_rig(), start, "Test Skin", "author1", "Ada")
+	add_child(painter)
+	await get_tree().process_frame
+	var front: Dictionary = painter._faces.filter(func(f): return f.region == "head" and f.side == "front")[0]
+	var r: Rect2i = front.rect
+	painter.set_color(Color.RED)
+	painter.mirror = true
+	painter.apply_tool(r.position)
+	painter.end_stroke()
+	var mirrored := Vector2i(r.end.x - 1, r.position.y)
+	_check(painter.image.get_pixelv(r.position) == Color.RED and painter.image.get_pixelv(mirrored) == Color.RED, "mirrored painting paints both halves of a face")
+	painter.mirror = false
+	painter.set_tool("fill")
+	painter.set_color(Color.BLUE)
+	painter.apply_tool(r.position + Vector2i(2, 2))
+	painter.end_stroke()
+	var outside: Vector2i = painter._faces.filter(func(f): return f.region == "head" and f.side == "back")[0].rect.position
+	_check(painter.image.get_pixelv(r.position + Vector2i(3, 3)) == Color.BLUE and painter.image.get_pixelv(r.position) == Color.RED
+		and painter.image.get_pixelv(outside) != Color.BLUE, "fill stays on one face and stops at other colors")
+	var overlay: Vector2i = painter._faces.filter(func(f): return f.overlay)[0].rect.position
+	painter.set_tool("pencil")
+	painter.apply_tool(overlay)
+	painter.end_stroke()
+	_check(painter.image.get_pixelv(overlay) != Color.BLUE, "the body layer does not paint the outer layer")
+	painter.set_layer("overlay")
+	painter.set_tool("eraser")
+	painter.apply_tool(overlay)
+	painter.end_stroke()
+	_check(painter.image.get_pixelv(overlay).a == 0.0, "the eraser clears outer-layer pixels")
+	painter.undo()
+	_check(painter.image.get_pixelv(overlay).a > 0.0, "undo restores the last stroke")
+	painter.redo()
+	_check(painter.image.get_pixelv(overlay).a == 0.0, "redo repeats it")
+	painter.set_tool("picker")
+	painter.apply_tool(r.position)
+	_check(painter.color == Color.RED, "the picker takes a color from the skin")
+	_check(painter.load_png(Image.create(16, 16, false, Image.FORMAT_RGBA8).save_png_to_buffer()).contains("64x64"), "importing checks the size")
+	var result: Dictionary = painter.save()
+	_check(result.ok and preload("res://engine/client/creation_library.gd").get_manifest(result.manifest.id).name == "Test Skin", "saving puts the skin in the library")
+	painter.queue_free()
+	OS.set_environment("VOXEL_CREATIONS_DIR", "")
+	await get_tree().process_frame
 
 
 func _js_blocks() -> void:

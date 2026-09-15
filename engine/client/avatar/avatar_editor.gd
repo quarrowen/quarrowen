@@ -9,6 +9,9 @@ signal cancelled
 const Cosmetics = preload("res://engine/shared/cosmetics.gd")
 const LookBuilder = preload("res://engine/client/avatar/look_builder.gd")
 const Avatar = preload("res://engine/client/avatar/avatar.gd")
+const Creations = preload("res://engine/shared/creations.gd")
+const CreationLibrary = preload("res://engine/client/creation_library.gd")
+const SkinPainter = preload("res://engine/client/avatar/skin_painter.gd")
 
 const EYE_COLORS := ["#3050c0", "#3a8a40", "#6a4428", "#202020", "#8a58c8", "#3d9c9c", "#9a9a9a", "#d94c4c"]
 const BODY_TARGETS := ["all", "head", "torso", "arms", "legs"]
@@ -21,6 +24,9 @@ var avatar := {}
 ## Server cosmetics the player owns (in game).
 var owned := PackedStringArray()
 var in_game := false
+## Show the player's creations and the tools to make them.
+var creations := false
+var author_id := ""
 
 var _rig: Dictionary
 var _preview: Avatar
@@ -34,6 +40,8 @@ var _colors_label: Label
 var _body_row: HBoxContainer
 var _armor_row: HBoxContainer
 var _dragging := false
+var _creation_row: HBoxContainer
+var _painter: Control
 
 
 func setup(registry: Cosmetics, look_builder: LookBuilder, rig: Dictionary, name_text: String, start: Dictionary, options := {}) -> void:
@@ -43,6 +51,8 @@ func setup(registry: Cosmetics, look_builder: LookBuilder, rig: Dictionary, name
 	player_name = name_text
 	in_game = bool(options.get("in_game", false))
 	owned = options.get("owned", PackedStringArray())
+	creations = bool(options.get("creations", false))
+	author_id = str(options.get("author", ""))
 	avatar = LookBuilder.resolve(start, name_text).duplicate(true)
 
 
@@ -101,6 +111,11 @@ func _ready() -> void:
 	_grid.columns = 3
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_grid)
+
+	_creation_row = HBoxContainer.new()
+	_creation_row.visible = creations
+	_creation_row.add_theme_constant_override("separation", 8)
+	panel.add_child(_creation_row)
 
 	_colors_label = Label.new()
 	_colors_label.text = "Color"
@@ -232,9 +247,75 @@ func _show_category(cat_name: String) -> void:
 		for d in _choices(cat_name):
 			var wearable := _can_wear(d)
 			var tip: String = d.description if wearable else "Locked on this server"
-			var label: String = d.display_name if Cosmetics.is_builtin(d.name) else "%s ★" % d.display_name
+			var label: String = d.display_name if Cosmetics.is_builtin(d.name) else ("✎ %s" % d.display_name if Creations.is_id(d.name) else "%s ★" % d.display_name)
 			_grid.add_child(_choice_button(label, d.name == worn, wearable, tip, _wear.bind(d.name)))
 	_rebuild_colors()
+	_rebuild_creation_row()
+
+
+## Buttons to make and manage creations for the category on show.
+func _rebuild_creation_row() -> void:
+	if _creation_row == null:
+		return
+	for child in _creation_row.get_children():
+		child.queue_free()
+	if not creations:
+		return
+	var worn := String(avatar.get("wear", {}).get(_category, {}).get("id", ""))
+	if _category in ["body", "skin"]:
+		_creation_row.add_child(_small_button("Paint a skin…", open_painter.bind("")))
+	if Creations.is_id(worn):
+		var m := CreationLibrary.get_manifest(worn)
+		if not m.is_empty():
+			if m.kind == "skin":
+				_creation_row.add_child(_small_button("Edit", open_painter.bind(worn)))
+			_creation_row.add_child(_small_button("Delete", _delete_creation.bind(worn)))
+
+
+func _small_button(text: String, action: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(0, 34)
+	b.pressed.connect(action)
+	return b
+
+
+## Opens the skin painter on a library skin (id) or, for "", on the current look.
+func open_painter(id: String) -> void:
+	var start: Image
+	var name := ""
+	if not id.is_empty():
+		start = Image.new()
+		start.load_png_from_buffer(CreationLibrary.get_payload(id))
+		name = str(CreationLibrary.get_manifest(id).get("name", ""))
+	else:
+		var look := avatar.duplicate(true)
+		if look.get("wear", {}).has("skin"):
+			look.wear.erase("skin")
+		start = looks.skin_image(look)
+	var painter := SkinPainter.new()
+	painter.setup(_rig, start, name, author_id, player_name)
+	painter.edit_id = id
+	painter.saved.connect(func(manifest: Dictionary):
+		CreationLibrary.add_to(cosmetics, looks.images, manifest, CreationLibrary.get_payload(manifest.id))
+		looks.clear_cache()
+		_category = "skin"
+		_rebuild_tabs()
+		_wear(manifest.id)
+		painter.queue_free()
+		_painter = null)
+	painter.closed.connect(func():
+		painter.queue_free()
+		_painter = null)
+	_painter = painter
+	add_child(painter)
+
+
+func _delete_creation(id: String) -> void:
+	CreationLibrary.remove(id)
+	cosmetics.defs.erase(id)
+	_wear("")
+	_rebuild_tabs()
 
 
 func _choice_button(label: String, selected: bool, enabled: bool, tip: String, action: Callable) -> Button:

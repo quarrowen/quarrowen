@@ -9,6 +9,8 @@ was recreated on 2026-09-14 with rewritten history (attribution lines and `.mcp.
 the old PR pages (#1-#5: hardening, gameplay foundation, engine mob AI, equipment core, visuals) no
 longer exist; their work is on `master`. The crafting milestone and the survival loop were merged into `master` on 2026-09-14. If SSH to GitHub times out, push over HTTPS with
 `git -c credential.helper='!gh auth git-credential' push https://github.com/omnivoxel-game/voxelcraft.git <branch>`.
+Target platform for now: macOS on Apple silicon only (user, 2026-09-15). GitHub CI is paused (manual
+dispatch only; the old triggers are in a comment in `.github/workflows/ci.yml`); run the local suites instead.
 
 Local test commands: `tools/run_tests.sh` (native) and `VOXEL_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh`
 (GDScript fallbacks). Both pass locally (14 and 13 suites). Rebuild native after Rust
@@ -201,9 +203,9 @@ changes with `tools/build_native.sh`.
    creations travel with the player and each server decides what it accepts, plus a server library
    (a cross-server catalog waits for the multiplayer network milestone); moderation with automatic
    checks, an approval queue, reports and bans, and mod hooks. In order:
-   - U1 Creation format: kinds skin / accessory / model, content-hash ids, shared validation limits,
+   - U1 Creation format (done: engine/shared/creations.gd, engine/client/creation_library.gd): kinds skin / accessory / model, content-hash ids, shared validation limits,
      conversion to cosmetic definitions, the player's local library.
-   - U2 Skin painter: 64x64 layout painting with a turning 3D preview, tools, layers, PNG import.
+   - U2 Skin painter (done: engine/client/avatar/skin_painter.gd, in the menu's avatar editor): 64x64 layout painting with a turning 3D preview, tools, layers, PNG import.
    - U3 Accessory builder (voxel boxes on an attachment point) and GLB model import with checks.
    - U4 Delivery: offer creations on join and when worn, uploads with limits, the server library (browse
      and wear), clients download them like assets, server policy.

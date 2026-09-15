@@ -21,6 +21,7 @@ const LookBuilder = preload("res://engine/client/avatar/look_builder.gd")
 const AvatarStore = preload("res://engine/client/avatar/avatar_store.gd")
 const AvatarEditor = preload("res://engine/client/avatar/avatar_editor.gd")
 const ModTemplates = preload("res://engine/server/mod_templates.gd")
+const CreationLibrary = preload("res://engine/client/creation_library.gd")
 
 const DEFAULT_PORT := 24565
 const DEFAULT_GAME := "vanilla"
@@ -286,8 +287,11 @@ func _build_menu() -> void:
 ## Your portable look: built-in cosmetics, saved on this computer and shown on every server that allows them.
 func _open_avatar_editor() -> void:
 	var registry := Cosmetics.new()
+	var images := {}
+	CreationLibrary.register_all(registry, images)
 	var editor := AvatarEditor.new()
-	editor.setup(registry, LookBuilder.new(registry), PlayerRig.default_rig(), _name_edit.text, AvatarStore.load_avatar())
+	editor.setup(registry, LookBuilder.new(registry, images, CreationLibrary.read_model), PlayerRig.default_rig(), _name_edit.text,
+		AvatarStore.load_avatar(), {"creations": true, "author": Identity.player_id(Identity.load_or_create())})
 	editor.done.connect(func(edited: Dictionary):
 		AvatarStore.save_avatar(registry.sanitize_avatar(edited))
 		editor.queue_free())

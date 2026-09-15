@@ -31,6 +31,12 @@ func _init(registry: Cosmetics, asset_images := {}, model_reader := Callable()) 
 	_box_material.roughness = 1.0
 
 
+## Forgets cached skins and meshes (after cosmetics or their images change).
+func clear_cache() -> void:
+	_skins.clear()
+	_meshes.clear()
+
+
 ## The avatar to draw: the player's own data, or the default look for their name.
 static func resolve(avatar: Dictionary, name_text: String) -> Dictionary:
 	return avatar if not avatar.is_empty() else Cosmetics.default_avatar(name_text)
@@ -63,11 +69,13 @@ func skin_image(look: Dictionary) -> Image:
 	var face: Image = null
 	var layers := []
 	var wear: Dictionary = look.get("wear", {})
+	# A whole painted skin replaces the painted layers (face, clothes); 3D accessories still show.
+	var whole_skin: bool = not cosmetics.get_def(String(wear.get("skin", {}).get("id", ""))).get("texture", "").is_empty()
 	for cat in cosmetics.categories:
 		if not wear.has(cat.name):
 			continue
 		var d := cosmetics.get_def(String(wear[cat.name].get("id", "")))
-		if d.is_empty():
+		if d.is_empty() or (whole_skin and cat.name != "skin"):
 			continue
 		var tint := Color.html(String(wear[cat.name].get("color", d.color)))
 		if not d.pixels.is_empty():

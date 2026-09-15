@@ -16,7 +16,9 @@ static func load_avatar() -> Dictionary:
 	if not FileAccess.file_exists(path()):
 		return {}
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path()))
-	return Cosmetics.new().sanitize_avatar(parsed.get("avatar") if parsed is Dictionary else null)
+	var registry := Cosmetics.new()
+	preload("res://engine/client/creation_library.gd").register_all(registry, {})  # the player's own creations are portable too
+	return registry.sanitize_avatar(parsed.get("avatar") if parsed is Dictionary else null)
 
 
 static func save_avatar(avatar: Dictionary) -> bool:

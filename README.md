@@ -444,6 +444,12 @@ api.register_item("frost_blade", {"icon": "textures/frost_blade.png", "weapon": 
 
 ### Avatars and cosmetics
 
+**Player creations (in progress):** the avatar editor (menu) has **Paint a skin…**: a 64x64 skin painter
+with a turning 3D preview (pencil, eraser, fill with a small tolerance, picker, mirror, body and outer
+layers, undo/redo, PNG import/export). Saved skins go to the local creation library (`user://creations`)
+and are worn in the Skin category; a worn skin replaces the painted face and clothes, while 3D accessories
+still show. Format and limits: `engine/shared/creations.gd`.
+
 Players are drawn with a rig of 10 boxes (head, torso, upper and lower arms and legs) textured in the
 standard 64x64 Minecraft skin layout, animated procedurally (walking, running, jumping, swinging,
 looking, getting hurt). Held items and worn armor show on everyone's avatar, F5 cycles first person,

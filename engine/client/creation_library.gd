@@ -74,6 +74,31 @@ static func update(id: String, changes: Dictionary) -> bool:
 	return save(m, get_payload(id)).ok
 
 
+## Registers every creation as a cosmetic, putting skin images in `images` (asset name -> Image) for the
+## look builder. Returns how many were added.
+static func register_all(registry, images: Dictionary) -> int:
+	var added := 0
+	for m in list():
+		if add_to(registry, images, m, get_payload(m.id)):
+			added += 1
+	return added
+
+
+static func add_to(registry, images: Dictionary, manifest: Dictionary, payload: PackedByteArray) -> bool:
+	if registry.register(Creations.to_cosmetic(manifest, payload)).is_empty():
+		return false
+	if manifest.kind == "skin":
+		var img := Image.new()
+		if img.load_png_from_buffer(payload) == OK:
+			images[Creations.asset_name(manifest)] = img
+	return true
+
+
+## Model bytes by asset name ("ugc:....glb"), for LookBuilder's model reader.
+static func read_model(asset: String) -> PackedByteArray:
+	return get_payload(asset.get_basename()) if Creations.is_id(asset.get_basename()) else PackedByteArray()
+
+
 static func remove(id: String) -> void:
 	var m := get_manifest(id)
 	if m.is_empty():
