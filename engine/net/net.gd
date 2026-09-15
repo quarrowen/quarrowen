@@ -213,6 +213,13 @@ func c_request_assets(hashes: PackedStringArray) -> void:
 		server.on_request_assets(_sender(), hashes)
 
 
+## A transfer ticket from the server the player just left (sent right after hello).
+@rpc("any_peer", "call_remote", "reliable")
+func c_transfer_ticket(ticket: String, signature: String) -> void:
+	if server:
+		server.on_transfer_ticket(_sender(), ticket, signature)
+
+
 @rpc("any_peer", "call_remote", "reliable")
 func c_ready() -> void:
 	if server:
@@ -432,6 +439,13 @@ func c_shutdown(token: String) -> void:
 
 
 # --- Server -> client -------------------------------------------------------------------------
+
+## Go to another server and hand it this ticket.
+@rpc("authority", "call_remote", "reliable")
+func s_transfer(address: String, port: int, server_name: String, ticket: String, signature: String) -> void:
+	if client:
+		client.on_transfer(address, port, server_name, ticket, signature)
+
 
 @rpc("authority", "call_remote", "reliable")
 func s_kick(reason: String) -> void:

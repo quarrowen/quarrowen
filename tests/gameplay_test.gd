@@ -63,6 +63,7 @@ func _ready() -> void:
 	_menu_data()
 	_client_settings()
 	await _private_server()
+	await _transfers()
 	await _status_query()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -2986,6 +2987,109 @@ func _private_server() -> void:
 	_check(again._meta.allowlist.enabled and not again.is_allowed("stranger_id", "Stranger"), "the allowlist is saved with the world")
 	server.queue_free()
 	again.queue_free()
+	await get_tree().process_frame
+
+
+func _transfers() -> void:
+	var TransferTicket = preload("res://engine/shared/transfer_ticket.gd")
+	var crypto := Crypto.new()
+	var lobby_key := crypto.generate_rsa(2048)
+	var sky_key := crypto.generate_rsa(2048)
+	var stranger_key := crypto.generate_rsa(2048)
+	var lobby_id: String = TransferTicket.key_id(lobby_key)
+	var sky_id: String = TransferTicket.key_id(sky_key)
+	# Two offline servers that trust each other.
+	var lobby = _start("lobby_%d" % Time.get_ticks_msec())
+	var sky = _start("sky_%d" % Time.get_ticks_msec())
+	for pair in [[lobby, lobby_key, "sky", "Sky Islands", sky_id, true], [sky, sky_key, "lobby", "Lobby", lobby_id, true]]:
+		var dir := DATA_DIR.path_join("network_%s_%d" % [pair[2], Time.get_ticks_msec()])
+		DirAccess.make_dir_recursive_absolute(dir)
+		var f := FileAccess.open(dir.path_join("network.json"), FileAccess.WRITE)
+		f.store_string(JSON.stringify({"servers": {pair[2]: {"name": pair[3], "address": "127.0.0.1", "port": 24999, "id": pair[4], "inventory": pair[5], "hop": true}}}))
+		f.close()
+		pair[0].transfers.setup(dir, pair[1])
+	_check(lobby.transfers.own_id == lobby_id and lobby.transfers.servers.has("sky") and lobby.transfers.find("Sky Islands").key == "sky", "network.json lists trusted servers")
+	var p := ServerPlayer.new(lobby, 170, "Traveller")
+	p.player_id = "traveller_id"
+	lobby.players[170] = p
+	var sword: int = lobby.items.id_of("base:stone_sword")
+	p.inventory.set_slot(3, sword, 1, {"damage": 5})
+	var leaving := []
+	lobby.add_handler("player_transfer", func(ev):
+		leaving.append(ev.server)
+		ev.data = {"quest": "find the sky"}, 0)
+	_check(lobby.transfers.transfer(p, "nowhere") != "", "unknown servers are refused")
+	# Capture the ticket the lobby would send.
+	var ticket := {}
+	lobby.transfers._key = lobby_key
+	var made: Dictionary = TransferTicket.make(lobby_key, {"player_id": "traveller_id", "player_name": "Traveller", "from": {"name": "Lobby"},
+		"to": {"name": "Sky Islands", "id": sky_id}, "arrival": "dock", "carry": {"inventory": lobby.transfers.pack_inventory(p), "data": {"quest": "x"}}})
+	_check(lobby.transfers.transfer(p, "sky", {"arrival": "dock"}) == "" and leaving == ["sky"] and p.inventory.count_of(sword) == 0 and p.get_meta("transferring") == "Sky Islands",
+		"a transfer asks mods, empties a travelling inventory and marks the player")
+	# A trip that never finishes: coming back without a ticket returns the held inventory.
+	lobby.transfers.settle_escrow(p, false)
+	_check(p.inventory.count_of(sword) == 1 and not p.data.has(lobby.transfers.ESCROW_KEY), "an unfinished trip gives the inventory back")
+	lobby.transfers.settle_escrow(p, false)
+	_check(p.inventory.count_of(sword) == 1, "and only once")
+	# Arriving on the sky server.
+	sky.transfers.set_arrival("dock", Vector3(10.5, 70, 10.5))
+	var accepted: Dictionary = sky.transfers.accept(made.ticket, made.signature, "traveller_id")
+	_check(accepted.has("entry") and accepted.entry.key == "lobby" and sky.transfers.arrival_position(accepted) == Vector3(10.5, 70, 10.5), "a trusted ticket is accepted with its arrival point")
+	_check(sky.transfers.accept(made.ticket, made.signature, "traveller_id").has("error"), "a ticket works once")
+	var made2: Dictionary = TransferTicket.make(lobby_key, {"player_id": "traveller_id", "to": {"id": sky_id}, "from": {"name": "Lobby"}})
+	_check(sky.transfers.accept(made2.ticket, made2.signature, "someone_else").has("error"), "a ticket belongs to its player")
+	_check(lobby.transfers.accept(made2.ticket, made2.signature, "traveller_id").has("error"), "a ticket is only for the server it names")
+	var tampered: String = made2.ticket.replace("traveller_id", "villain_id")
+	_check(sky.transfers.accept(tampered, made2.signature, "villain_id").has("error"), "a changed ticket is refused")
+	var forged: Dictionary = TransferTicket.make(stranger_key, {"player_id": "traveller_id", "to": {"id": sky_id}, "from": {"name": "Lobby"}})
+	_check(sky.transfers.accept(forged.ticket, forged.signature, "traveller_id").get("error", "").contains("does not accept"), "tickets from untrusted servers are refused")
+	var old: Dictionary = TransferTicket.verify(made2.ticket, made2.signature, {lobby_id: true})
+	old.data.expires = int(Time.get_unix_time_from_system()) - 5
+	_check(TransferTicket.check(old.data, "traveller_id", sky_id, int(Time.get_unix_time_from_system())).contains("expired"), "expired tickets are refused")
+	# The inventory travels by item name.
+	var q := ServerPlayer.new(sky, 171, "Traveller")
+	q.player_id = "traveller_id"
+	sky.players[171] = q
+	var missing: Array = sky.transfers.unpack_inventory(q, {"slots": [[3, "base:stone_sword", 1, {"damage": 5}], [4, "nomod:gizmo", 2, {}]], "equipment": {}})
+	_check(q.inventory.count_of(sky.items.id_of("base:stone_sword")) == 1 and q.inventory.data[3].get("damage") == 5 and missing == ["nomod:gizmo"],
+		"carried items arrive by name; unknown ones are reported")
+	var arrived := []
+	sky.add_handler("player_arrived", func(ev): arrived.append([ev.from, ev.arrival, ev.data]), 0)
+	sky.transfers.arrive(q, accepted)
+	_check(arrived.size() == 1 and arrived[0][0] == "lobby" and arrived[0][1] == "dock" and arrived[0][2] == {"quest": "x"}, "mods on the destination see where the player came from")
+	# Portals.
+	var portal: int = sky.registry.id_of("base:portal")
+	var spot := Vector3i(20, sky.surface_height(20, 20) + 1, 20)
+	sky.set_block_authoritative(spot, portal)
+	sky.set_block_authoritative(spot + Vector3i.UP, portal)
+	var admin := ServerPlayer.new(sky, 172, "Builder")
+	admin.player_id = "builder_id"
+	admin.edit_tokens = 100.0
+	admin.state.position = Vector3(spot) + Vector3(2.5, 0, 0.5)
+	sky.players[172] = admin
+	sky._meta.admins.append("builder_id")
+	sky.on_chat(172, "/portal lobby hall")
+	_check(sky.get_block_data(spot + Vector3i.UP).get("portal", {}) == {"server": "lobby", "arrival": "hall"} and sky.transfers.portal_at(Vector3(spot) + Vector3(0.5, 0, 0.5)).server == "lobby",
+		"/portal points a whole portal at a server")
+	var walker := ServerPlayer.new(sky, 173, "Walker")
+	walker.player_id = "walker_id"
+	walker.state.position = Vector3(spot) + Vector3(0.5, 0, 0.5)
+	sky.players[173] = walker
+	var sent := []
+	sky.add_handler("player_transfer", func(ev): sent.append([ev.player.name, ev.server, ev.arrival]), 0)
+	for i in 3:
+		sky.transfers.update(0.5)
+	_check(sent == [["Walker", "lobby", "hall"]], "standing in a portal for a moment starts the trip (%s)" % [sent])
+	var newcomer := ServerPlayer.new(sky, 174, "Newcomer")
+	newcomer.player_id = "newcomer_id"
+	newcomer.state.position = walker.state.position
+	sky.players[174] = newcomer
+	sky.transfers._arrived_at[174] = Time.get_ticks_msec()
+	for i in 3:
+		sky.transfers.update(0.5)
+	_check(sent.size() == 1, "players who just arrived are not sent straight back")
+	lobby.queue_free()
+	sky.queue_free()
 	await get_tree().process_frame
 
 

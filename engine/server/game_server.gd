@@ -44,6 +44,7 @@ const DevWeb = preload("res://engine/server/dev_web.gd")
 const StatusQuery = preload("res://engine/server/status_query.gd")
 const HubAnnouncer = preload("res://engine/server/hub_announcer.gd")
 const ChatFilter = preload("res://engine/server/chat_filter.gd")
+const Transfers = preload("res://engine/server/transfers.gd")
 const ModReload = preload("res://engine/server/mod_reload.gd")
 const ModValidator = preload("res://engine/server/mod_validator.gd")
 const Ugc = preload("res://engine/server/ugc.gd")
@@ -181,6 +182,7 @@ var status_query := StatusQuery.new(self)
 ## Lists the server on a hub (a child node while online; null for offline servers).
 var hub: HubAnnouncer
 var chat_filter := ChatFilter.new()
+var transfers := Transfers.new(self)
 ## The game port (0 when offline).
 var port := 0
 var max_players := DEFAULT_MAX_PLAYERS
@@ -319,6 +321,7 @@ func start(config: Dictionary) -> Error:
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	port = int(config.get("port", 24565))
 	status_query.key = tls[0]
+	transfers.setup(data_dir, tls[0])
 	var query_port := int(config.get("query_port", port + 1))
 	if query_port > 0:
 		status_query.start(query_port)
@@ -584,6 +587,10 @@ func _register_builtin_commands() -> void:
 			player.send_message("The dev dashboard is off. Start the server with --dev-web=24580 (or --dev)."), "engine", "admin")
 	add_command("players", "List online players", _cmd_players, "engine")
 	add_command("op", "<player> - grant admin", _cmd_op.bind(true), "engine", "admin")
+	add_command("network", "[list | id | reload | arrival <id> | arrivals] - servers players can travel to", _cmd_network, "engine", "admin")
+	add_command("server", "[name] - list servers you can travel to, or go to one", _cmd_server, "engine")
+	add_command("transfer", "<player> <server> [arrival] - send a player to another server", _cmd_transfer, "engine", "admin")
+	add_command("portal", "<server> [arrival] - point the nearest portal block at a server", _cmd_portal, "engine", "admin")
 	add_command("allow", "[list | add <name> | remove <name> | on | off] - who may join a private server", _cmd_allow, "engine", "admin")
 	add_command("deop", "<player> - revoke admin", _cmd_op.bind(false), "engine", "admin")
 	add_command("kick", "<player> [reason] - disconnect a player", _cmd_kick, "engine", "admin")
@@ -896,6 +903,100 @@ func _cmd_gamemode(player, args: PackedStringArray) -> void:
 	target.send_message("Game mode: %s" % args[0])
 
 
+func _cmd_network(player, args: PackedStringArray) -> void:
+	match args[0] if args.size() > 0 else "list":
+		"id":
+			player.send_message("This server's id: %s (other servers put it in their network.json)" % transfers.own_id)
+		"reload":
+			var problem := transfers.reload()
+			player.send_message(problem if not problem.is_empty() else "Network reloaded: %d servers" % transfers.servers.size())
+		"arrival":
+			if args.size() < 2:
+				player.send_message("Usage: /network arrival <id> (sets it where you stand)")
+				return
+			transfers.set_arrival(args[1], player.state.position)
+			player.send_message("Arrival point '%s' set here" % args[1].to_lower())
+			_save_all()
+		"arrivals":
+			var points: Dictionary = _meta.get("arrivals", {}) if _meta.get("arrivals") is Dictionary else {}
+			player.send_message("Arrival points: %s" % (", ".join(points.keys()) if not points.is_empty() else "none (/network arrival <id>)"))
+		_:
+			player.send_message("This server's id: %s" % transfers.own_id)
+			if transfers.servers.is_empty():
+				player.send_message("No other servers: add them to network.json in the data folder, then /network reload")
+			for e: Dictionary in transfers.servers.values():
+				player.send_message("%s (%s) %s:%d%s%s%s" % [e.key, e.name, e.address, e.port, "" if e.send else "  no travel there",
+					"" if e.receive else "  no arrivals", "  carries inventories" if e.inventory else ""])
+
+
+func _cmd_server(player, args: PackedStringArray) -> void:
+	var allowed: Array = transfers.servers.values().filter(func(e): return e.send and (e.hop or is_admin(player)))
+	if args.is_empty():
+		player.send_message("Servers you can go to: %s" % (", ".join(allowed.map(func(e): return "%s (%s)" % [e.key, e.name])) if not allowed.is_empty() else "none"))
+		return
+	var entry := transfers.find(args[0])
+	if entry.is_empty() or not allowed.has(entry):
+		player.send_message("You cannot travel to '%s' from here" % args[0])
+		return
+	var error := transfers.transfer(player, entry.key)
+	if not error.is_empty():
+		player.send_message(error)
+
+
+func _cmd_transfer(player, args: PackedStringArray) -> void:
+	if args.size() < 2:
+		player.send_message("Usage: /transfer <player> <server> [arrival]")
+		return
+	var target = _find_online(args[0])
+	if target == null:
+		player.send_message("No player named '%s' online" % args[0])
+		return
+	var error := transfers.transfer(target, args[1], {"arrival": args[2] if args.size() > 2 else ""})
+	player.send_message(error if not error.is_empty() else "Sending %s to %s" % [target.name, args[1]])
+
+
+func _cmd_portal(player, args: PackedStringArray) -> void:
+	if args.is_empty():
+		player.send_message("Usage: /portal <server> [arrival] (stand next to a portal block)")
+		return
+	var best := Vector3i(0, -9999, 0)
+	var best_d := INF
+	var center := Vector3i(player.state.position.floor())
+	for x in range(-4, 5):
+		for y in range(-2, 4):
+			for z in range(-4, 5):
+				var cell := center + Vector3i(x, y, z)
+				var block := world.get_block_v(cell)
+				if registry.is_valid(block) and bool(registry.defs[block].get("portal", false)):
+					var d := Vector3(cell).distance_to(player.state.position)
+					if d < best_d:
+						best_d = d
+						best = cell
+	if best.y == -9999:
+		player.send_message("No portal block within 4 blocks (place base:portal first)")
+		return
+	if transfers.find(args[0]).is_empty():
+		player.send_message("Note: '%s' is not in this server's network.json yet" % args[0])
+	# Every portal block touching this one gets the same settings (a portal is usually a whole frame).
+	var settings := {"server": args[0].to_lower(), "arrival": args[1].to_lower() if args.size() > 1 else ""}
+	var todo: Array[Vector3i] = [best]
+	var done := {}
+	while not todo.is_empty() and done.size() < 64:
+		var cell: Vector3i = todo.pop_back()
+		if done.has(cell):
+			continue
+		done[cell] = true
+		var data := get_block_data(cell).duplicate()
+		data.portal = settings
+		set_block_data(cell, data)
+		for d in [Vector3i.UP, Vector3i.DOWN, Vector3i.LEFT, Vector3i.RIGHT, Vector3i.FORWARD, Vector3i.BACK]:
+			var next: Vector3i = cell + d
+			var b := world.get_block_v(next)
+			if not done.has(next) and registry.is_valid(b) and bool(registry.defs[b].get("portal", false)):
+				todo.append(next)
+	player.send_message("Portal (%d blocks) now leads to %s%s" % [done.size(), args[0], " at '%s'" % settings.arrival if not settings.arrival.is_empty() else ""])
+
+
 func _cmd_allow(player, args: PackedStringArray) -> void:
 	var list: Dictionary = _meta.allowlist
 	var action := args[0] if args.size() > 0 else "list"
@@ -975,6 +1076,7 @@ func _physics_process(delta: float) -> void:
 	_advance_time(delta)
 	block_ticks.update(delta)
 	containers.update(delta)
+	transfers.update(delta)
 	sessions.update(delta)
 	skill.update()
 	sleep.update(delta)
@@ -1461,7 +1563,15 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		_joining.erase(peer_id)
 		kick(peer_id, "Authentication failed")
 		return
-	if not is_allowed(j.player_id, j.name):
+	if j.has("ticket"):
+		var accepted := transfers.accept(j.ticket[0], j.ticket[1], j.player_id)
+		j.erase("ticket")
+		if accepted.has("error"):
+			j.transfer_error = accepted.error
+			dev_log.add("warn", "server", "%s arrived with a transfer ticket that was refused: %s" % [j.name, accepted.error])
+		else:
+			j.transfer = accepted
+	if not (j.has("transfer") and j.transfer.entry.admit) and not is_allowed(j.player_id, j.name):
 		_joining.erase(peer_id)
 		dev_log.add("info", "server", "%s (%s) is not on the allowlist" % [j.name, j.player_id])
 		kick(peer_id, "This server is private. Ask an admin to add you: /allow add %s" % j.name)
@@ -1480,6 +1590,12 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network(), "recipes": recipes.to_network(), "processes": _processes,
 		"stations": stations.to_network(), "assembly": assembly.to_network(), "minigames": skill.to_network(), "guide": guide.registry.to_network(), "tutorials": tutorials.to_network()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
+
+
+func on_transfer_ticket(peer_id: int, ticket: String, signature: String) -> void:
+	var j: Dictionary = _joining.get(peer_id, {})
+	if not j.is_empty() and not j.authenticated and not j.has("ticket"):
+		j.ticket = [ticket.left(Transfers.TransferTicket.MAX_SIZE), signature.left(2048)]
 
 
 ## The local host proves it launched this server and becomes a permanent admin.
@@ -1523,10 +1639,12 @@ func on_client_ready(peer_id: int) -> void:
 	if j.is_empty() or not j.requested or not j.queue.is_empty():
 		return
 	_joining.erase(peer_id)
-	_spawn_player(peer_id, j.name, j.player_id, j.get("avatar", {}))
+	_spawn_player(peer_id, j.name, j.player_id, j.get("avatar", {}), j.get("transfer", {}))
+	if j.has("transfer_error") and players.has(peer_id):
+		players[peer_id].send_message("You arrived, but your trip could not be honoured: %s" % j.transfer_error)
 
 
-func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar = {}) -> void:
+func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar = {}, transfer := {}) -> void:
 	var p := ServerPlayer.new(self, peer_id, player_name)
 	p.player_id = player_id
 	p.edit_tokens = EDITS_PER_SECOND
@@ -1560,6 +1678,8 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	players[peer_id] = p
 	if first_time:
 		p.state.position = spawn_handler.call(p) if spawn_handler.is_valid() else _default_spawn()
+	if not transfer.is_empty() and transfers.arrival_position(transfer) != Vector3.INF:
+		p.state.position = transfers.arrival_position(transfer)
 	ensure_area_loaded(p.state.position)
 
 	Net.s_welcome.rpc_id(peer_id, peer_id, p.state.position, 0.0)
@@ -1584,6 +1704,9 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	broadcast_chat("%s joined the game" % player_name)
 	print("[server] %s joined (peer %d, player id %s%s)" % [player_name, peer_id, player_id, ", admin" if is_admin(p) else ""])
 	emit("player_join", {"player": p, "first_time": first_time})
+	transfers.settle_escrow(p, not transfer.is_empty())
+	if not transfer.is_empty():
+		transfers.arrive(p, transfer)
 	tutorials.on_join(p)  # after mods pick the game mode
 
 
@@ -1607,11 +1730,15 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	ugc.player_left(peer_id)
 	skill.player_left(p)
 	sessions.leave(p)
+	transfers.player_left(peer_id)
 	_store_player(p)
 	players.erase(peer_id)
 	for other: ServerPlayer in players.values():
 		Net.s_player_left.rpc_id(other.peer_id, peer_id)
-	broadcast_chat("%s left the game" % p.name)
+	if p.get_meta("transferring", false):
+		broadcast_chat("%s travelled to %s" % [p.name, p.get_meta("transferring")])
+	else:
+		broadcast_chat("%s left the game" % p.name)
 	print("[server] %s left (peer %d)" % [p.name, peer_id])
 
 

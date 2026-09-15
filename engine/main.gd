@@ -147,7 +147,7 @@ func _stop_local_server() -> void:
 		_server_pid = -1
 
 
-func _start_client(address: String, port: int, player_name: String, token: String) -> void:
+func _start_client(address: String, port: int, player_name: String, token: String, ticket := {}) -> void:
 	_menu.visible = false
 	_backdrop_fallback.visible = false
 	_remove_backdrop()
@@ -156,10 +156,15 @@ func _start_client(address: String, port: int, player_name: String, token: Strin
 	_client.server_port = port
 	_client.player_name = player_name
 	_client.admin_token = token
+	_client.transfer_ticket = ticket
 	_client.exited.connect(_on_client_exited)
 	_client.social = _social
 	_client.join_friend_requested.connect(func(to_address: String, to_port: int, to_name: String):
-		_pending_join = {"address": to_address, "port": to_port, "name": to_name}
+		_pending_join = {"address": to_address, "port": to_port, "name": to_name, "player": _client.player_name}
+		_client.disconnect_from_server())
+	# A server sending us on (portal, /server, a mod): leave and connect there with the ticket.
+	_client.transfer_requested.connect(func(to_address: String, to_port: int, to_name: String, ticket: Dictionary):
+		_pending_join = {"address": to_address, "port": to_port, "name": to_name, "ticket": ticket, "player": _client.player_name}
 		_client.disconnect_from_server())
 	add_child(_client)
 	_set_presence(address, port, address)
@@ -199,7 +204,7 @@ func _on_client_exited(message: String) -> void:
 		if _server_pid > 0:
 			await get_tree().create_timer(1.0).timeout
 			_stop_local_server()
-		_start_client(target.address, target.port, _menu.player_name, "")
+		_start_client(target.address, target.port, str(target.get("player", _menu.player_name)), "", target.get("ticket", {}))
 		return
 	if not reconnect.is_empty():
 		# A full reload: the server is restarting; the new client retries until it is back.

@@ -248,8 +248,12 @@ changes with `tools/build_native.sh`.
      parties (invite friends, accept, leader server to follow, promote, kick, leader hand-over, 8 max, offline
      members dropped after 10 min), notices in menu and game. Not done: blocking players, chat between
      friends, party auto-follow when the leader changes servers (members get a Join button instead).
-   - N5 Server transfers/portals: signed transfer tickets between trusting servers, carry avatar/party,
-     portal blocks, commands and a mod API.
+   - N5 Server transfers/portals (done: engine/shared/transfer_ticket.gd, engine/server/transfers.gd, network.json, base:portal
+     block, /network /server /transfer /portal, player.transfer_to + player_transfer/player_arrived events and JS, client
+     handoff in main.gd, tests/transfer_test.tscn, protocol 36): signed 2-minute single-use tickets bound to player and
+     destination id; arrival points; inventories by item name with source escrow (restored if the trip never finishes;
+     allows copying between two inventory-carrying servers); admit skips the allowlist; portal hold 1.2 s with a 5 s
+     arrival grace. Not done: pinning the destination's certificate from the ticket, party follow on transfer.
    - N6 Roles and permissions: owner/admin/moderator/builder/custom roles for commands and actions, in game
      and mod API.
    - N7 Anti-cheat: movement/fly, reach, break speed, rate limits; logs, kicks, admin alerts.

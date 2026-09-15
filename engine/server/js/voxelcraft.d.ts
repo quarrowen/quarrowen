@@ -246,6 +246,8 @@ declare module "voxelcraft" {
     readonly lookDirection: Vec3;
     readonly online: boolean;
     give(item: ItemId, count?: number, data?: ItemData): number;
+    /** Sends the player to another server in network.json; "" or why not. */
+    transferTo(server: string, arrival?: string, data?: Record<string, unknown>): string;
     getItem(slot: number): ItemStack;
     setItemData(slot: number, data: ItemData): void;
     readonly selectedSlot: number;
@@ -305,6 +307,8 @@ declare module "voxelcraft" {
   export interface Events {
     player_join: { player: Player; first_time: boolean };
     player_leave: { player: Player };
+    player_transfer: { player: Player; server: string; arrival: string; data: Record<string, unknown>; cancelled: boolean; reason: string };
+    player_arrived: { player: Player; from: string; arrival: string; data: Record<string, unknown> };
     tick: { delta: number; tick: number };
     block_break: { player: Player; position: Vec3; block: BlockId; drops: [ItemId, number][]; cancelled: boolean };
     block_broken: { player: Player; position: Vec3; block: BlockId; item: ItemId; slot: number; harvested: boolean };
@@ -435,6 +439,8 @@ declare module "voxelcraft" {
     setUgcPolicy(values: { enabled?: boolean; accept?: "auto" | "trusted" | "approval" | "off"; kinds?: ("skin" | "accessory" | "model")[];
       library?: boolean; max_per_player?: number; max_bytes_per_player?: number; report_hide?: number }): void;
     ugcList(filter?: "pending" | "reported" | "approved" | "rejected" | "removed" | "all"): Record<string, unknown>[];
+    networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[];
+    setArrivalPoint(id: string, position: Vec3): void;
     ugcGet(id: string): Record<string, unknown>;
     ugcSetStatus(id: string, status: "approved" | "rejected" | "removed" | "approve" | "reject" | "remove", reason?: string): boolean;
     ugcTrust(playerId: string, on?: boolean): void;

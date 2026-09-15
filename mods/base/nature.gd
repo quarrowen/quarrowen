@@ -27,5 +27,9 @@ func setup(api, sounds: Dictionary) -> void:
 	# Mob spawners (placed by structures; set what they spawn in block data, see engine/server/spawners.gd).
 	api.register_block("spawner", {"display_name": "Monster Spawner", "textures": "textures/spawner.png", "render": "cutout", "spawner": true,
 		"hardness": 5.0, "tier": 1, "tool": "pickaxe", "drops": "", "sounds": sounds.stone})
+	# Portals take players to another server in this server's network (engine/server/transfers.gd): stand in
+	# one. Admins set where it goes with /portal <server> [arrival] while standing next to it.
+	api.register_block("portal", {"display_name": "Portal", "textures": "textures/portal.png", "render": "translucent", "solid": false,
+		"light": 11, "portal": true, "hardness": 2.0, "drops": "", "sounds": sounds.stone})
 	api.register_block("fern", {"display_name": "Fern", "textures": "textures/fern.png", "render": "plant", "replaceable": true, "sway": true,
 		"hardness": 0.0, "drops": "", "support": "solid", "sounds": sounds.grass})

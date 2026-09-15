@@ -248,6 +248,8 @@ func _call_host(method: String, a: Array):
 		"registerLootTable": api.register_loot_table(_str(a, 0), _dict(a, 1))
 		"setUgcPolicy": api.set_ugc_policy(_dict(a, 0))
 		"ugcList": return api.ugc_list(_str(a, 0) if a.size() > 0 else "approved")
+		"networkServers": return api.network_servers()
+		"setArrivalPoint": api.set_arrival_point(_str(a, 0), _vec3(a, 1))
 		"ugcGet": return api.ugc_get(_str(a, 0))
 		"ugcSetStatus": return api.ugc_set_status(_str(a, 0), _str(a, 1), _str(a, 2) if a.size() > 2 else "")
 		"ugcTrust": api.ugc_trust(_str(a, 0), a.size() <= 1 or bool(a[1]))
@@ -313,6 +315,7 @@ func _call_player(method: String, a: Array):
 		"yaw": return player.yaw
 		"lookDirection": return Vector3(-sin(player.yaw) * cos(player.pitch), sin(player.pitch), -cos(player.yaw) * cos(player.pitch))
 		"give": return player.give(_int(a, 1), _int(a, 2, 1), _dict(a, 3))
+		"transferTo": return player.transfer_to(_str(a, 1), _str(a, 2) if a.size() > 2 else "", _dict(a, 3))
 		"getItem": return player.get_item(_int(a, 1))
 		"setItemData": player.set_item_data(_int(a, 1), _dict(a, 2))
 		"selectedSlot": return player.selected_slot

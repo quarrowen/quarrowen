@@ -993,6 +993,21 @@ manage it with `/allow list | add <name> | remove <name> | on | off`. A listed n
 identity that joins with it. `--chat-filter=on` (the `chat_filter` gameplay rule) masks common swear words
 and look-alike spellings in chat and refuses such player names; add words in `<world>/chat_filter.txt`.
 
+### Server networks: transfers and portals
+
+Servers that trust each other send players between them. Each lists the others in `<data dir>/network.json`
+(`{"servers": {"sky": {"name", "address", "port", "id", "send", "receive", "inventory", "admit", "hop"}}}`;
+a server's id is printed at startup and by `/network id`). Moving a player (`/transfer <player> <server>
+[arrival]`, `/server <name>` when `hop` is on, a **Portal** block pointed with `/portal <server> [arrival]`, or
+`player.transfer_to(server, arrival, data)` from mods) signs a two-minute ticket with the source server's
+identity key. The client connects to the destination and hands it over; the destination accepts it only from
+servers on its list, for this player and this server, once. Arrival points are named with `/network arrival
+<id>`. With `inventory` on both sides, inventories travel by item name (unknown items are reported) and the
+source keeps a copy until the player turns up, so a failed trip loses nothing. `admit` lets arrivals skip the
+allowlist. Events: `player_transfer {player, server, arrival, data, cancelled, reason}` (cancellable, data can be
+changed) and `player_arrived {player, from, arrival, data}`; `network_servers()`, `set_arrival_point(id, pos)`.
+Example setup: `deploy/homelab/compose.two-worlds.yaml` and docs/playtest.md.
+
 ## Dedicated server & Docker
 
 `scenes/server.tscn` (`engine/server_main.gd`) loads no client code. Every option is a CLI arg or an

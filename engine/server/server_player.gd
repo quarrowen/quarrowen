@@ -122,6 +122,13 @@ func get_eye_position() -> Vector3:
 	return PlayerPhysics.eye_position(state)
 
 
+## Sends the player to another server in this server's network (network.json; see engine/server/transfers.gd).
+## `arrival`: a named arrival point there; `data`: a small Dictionary mods there receive in player_arrived.
+## Returns "" or why not.
+func transfer_to(server_name: String, arrival := "", data := {}) -> String:
+	return _server.transfers.transfer(self, server_name, {"arrival": arrival, "data": data})
+
+
 ## Moves the player to a position and stops their fall.
 func teleport(pos: Vector3) -> void:
 	state.position = pos

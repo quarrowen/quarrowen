@@ -86,7 +86,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 </nav>
 <main>
 <section id="start"><h1>VoxelCraft mod API</h1>
-<p class="lead">Mod API 1.0.0 · game 0.35.0. Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>
+<p class="lead">Mod API 1.0.0 · game 0.36.0. Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>
 <h3>Make a mod in a minute</h3>
 <ol>
 <li>In the game menu choose <b>Create a mod</b>, or run <code>godot --headless --path . res://tools/mod_tool.tscn -- new my_mod [--lang=js] [--kind=game]</code>.</li>
@@ -346,6 +346,8 @@ each: {id, manifest {kind, category, name, author, author_name}, status, reason,
 <div class="card" id="api-ugc-report" data-search="ugc_report  files a report as a player (e.g. from a mod's own report button)."><div class="sig"><code>api.ugc_report(player, id: String, reason := &quot;other&quot;, details := &quot;&quot;) -&gt; String</code></div><p>Files a report as a player (e.g. from a mod's own report button).</p></div>
 <div class="card" id="api-ugc-trust" data-search="ugc_trust ugctrust trusted creators' uploads skip the approval queue when the policy accepts &quot;trusted&quot;."><div class="sig"><code>api.ugc_trust(player_id: String, on := true) -&gt; void</code><span class="tag js" title="ugcTrust(playerId: string, on?: boolean): void">JS ugcTrust</span></div><p>Trusted creators' uploads skip the approval queue when the policy accepts &quot;trusted&quot;.</p></div>
 <div class="card" id="api-ugc-ban" data-search="ugc_ban ugcban stops (or allows again) a player uploading creations; banning also hides their creations."><div class="sig"><code>api.ugc_ban(player_id: String, on := true, reason := &quot;&quot;) -&gt; void</code><span class="tag js" title="ugcBan(playerId: string, on?: boolean, reason?: string): void">JS ugcBan</span></div><p>Stops (or allows again) a player uploading creations; banning also hides their creations.</p></div>
+<div class="card" id="api-network-servers" data-search="network_servers networkservers the servers players can travel to from here (network.json): [{key, name, address, port, hop, inventory}]."><div class="sig"><code>api.network_servers() -&gt; Array</code><span class="tag js" title="networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[]">JS networkServers</span></div><p>The servers players can travel to from here (network.json): [{key, name, address, port, hop, inventory}].</p></div>
+<div class="card" id="api-set-arrival-point" data-search="set_arrival_point setarrivalpoint names a spot where players arriving from other servers can appear (tickets name it as their arrival)."><div class="sig"><code>api.set_arrival_point(id: String, position: Vector3) -&gt; void</code><span class="tag js" title="setArrivalPoint(id: string, position: Vec3): void">JS setArrivalPoint</span></div><p>Names a spot where players arriving from other servers can appear (tickets name it as their arrival).</p></div>
 </section>
 <section id="events"><h2>Events</h2><p>Register with <code>api.on(event, handler, priority)</code> (JS: <code>api.on</code>). Handlers get one dictionary; set <code>cancelled = true</code> where noted.</p><pre class="block">  player_join    {player, first_time}
   player_leave   {player}
@@ -379,6 +381,8 @@ each: {id, manifest {kind, category, name, author, author_name}, status, reason,
   tutorial_completed {player, tutorial}   tip_shown {player, tip}
   ugc_uploaded {player, creation, cancelled, reason}   a player creation arrived; cancel to refuse it
   ugc_status {id, status, reason, by}   ugc_reported {player, id, reason, details, reports, cancelled}
+  player_transfer {player, server, arrival, data, cancelled, reason}   leaving for another server (data may be changed)
+  player_arrived {player, from, arrival, data}           arrived through a transfer ticket from a trusted server
   night_skipped  {sleepers}                                enough players slept; it is morning now
   skill_crafted  {player, item, count, quality, score, names, data, product}   crafted by hand; data may be changed
   item_crafted   {player, item, count}
@@ -412,6 +416,9 @@ each: {id, manifest {kind, category, name, author, author_name}, status, reason,
 &quot;Mod API&quot; line are the supported surface. Underscore-free engine fields are read-only for mods.</p>
 <div class="card" id="player-selected-slot" data-search="selected_slot  index of the selected hotbar slot."><div class="sig"><code>player.selected_slot: int  (property)</code></div><p>Index of the selected hotbar slot.</p></div>
 <div class="card" id="player-get-eye-position" data-search="get_eye_position  where the player's eyes are (for aiming and line of sight)."><div class="sig"><code>player.get_eye_position() -&gt; Vector3</code></div><p>Where the player's eyes are (for aiming and line of sight).</p></div>
+<div class="card" id="player-transfer-to" data-search="transfer_to  sends the player to another server in this server's network (network.json; see engine/server/transfers.gd).
+`arrival`: a named arrival point there; `data`: a small dictionary mods there receive in player_arrived.
+returns &quot;&quot; or why not."><div class="sig"><code>player.transfer_to(server_name: String, arrival := &quot;&quot;, data := {}) -&gt; String</code></div><p>Sends the player to another server in this server's network (network.json; see engine/server/transfers.gd).<br>`arrival`: a named arrival point there; `data`: a small Dictionary mods there receive in player_arrived.<br>Returns &quot;&quot; or why not.</p></div>
 <div class="card" id="player-teleport" data-search="teleport  moves the player to a position and stops their fall."><div class="sig"><code>player.teleport(pos: Vector3) -&gt; void</code></div><p>Moves the player to a position and stops their fall.</p></div>
 <div class="card" id="player-damage" data-search="damage  deals damage from `attacker` (player, entity or null). creative players are unaffected. returns
 true if damage applied. `cause`: &quot;attack&quot;, &quot;mob&quot;, &quot;projectile&quot;, &quot;fall&quot;, &quot;void&quot;, &quot;magic&quot;, ..."><div class="sig"><code>player.damage(amount: float, cause := &quot;magic&quot;, attacker = null) -&gt; bool</code></div><p>Deals damage from `attacker` (player, entity or null). Creative players are unaffected. Returns<br>true if damage applied. `cause`: &quot;attack&quot;, &quot;mob&quot;, &quot;projectile&quot;, &quot;fall&quot;, &quot;void&quot;, &quot;magic&quot;, ...</p></div>
@@ -554,6 +561,8 @@ look and saved in data.look."><div class="sig"><code>entity.set_look(values: Dic
 <div class="card" data-search="error"><div class="sig"><code>api.error(...parts: unknown[]): void</code></div></div>
 <div class="card" data-search="setugcpolicy"><div class="sig"><code>api.setUgcPolicy(values: { enabled?: boolean; accept?: &quot;auto&quot; | &quot;trusted&quot; | &quot;approval&quot; | &quot;off&quot;; kinds?: (&quot;skin&quot; | &quot;accessory&quot; | &quot;model&quot;)[]; library?: boolean; max_per_player?: number; max_bytes_per_player?: number; report_hide?: number }): void</code></div></div>
 <div class="card" data-search="ugclist"><div class="sig"><code>api.ugcList(filter?: &quot;pending&quot; | &quot;reported&quot; | &quot;approved&quot; | &quot;rejected&quot; | &quot;removed&quot; | &quot;all&quot;): Record&lt;string, unknown&gt;[]</code></div></div>
+<div class="card" data-search="networkservers"><div class="sig"><code>api.networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[]</code></div></div>
+<div class="card" data-search="setarrivalpoint"><div class="sig"><code>api.setArrivalPoint(id: string, position: Vec3): void</code></div></div>
 <div class="card" data-search="ugcget"><div class="sig"><code>api.ugcGet(id: string): Record&lt;string, unknown&gt;</code></div></div>
 <div class="card" data-search="ugcsetstatus"><div class="sig"><code>api.ugcSetStatus(id: string, status: &quot;approved&quot; | &quot;rejected&quot; | &quot;removed&quot; | &quot;approve&quot; | &quot;reject&quot; | &quot;remove&quot;, reason?: string): boolean</code></div></div>
 <div class="card" data-search="ugctrust"><div class="sig"><code>api.ugcTrust(playerId: string, on?: boolean): void</code></div></div>
@@ -820,6 +829,8 @@ declare module &quot;voxelcraft&quot; {
     readonly lookDirection: Vec3;
     readonly online: boolean;
     give(item: ItemId, count?: number, data?: ItemData): number;
+    /** Sends the player to another server in network.json; &quot;&quot; or why not. */
+    transferTo(server: string, arrival?: string, data?: Record&lt;string, unknown&gt;): string;
     getItem(slot: number): ItemStack;
     setItemData(slot: number, data: ItemData): void;
     readonly selectedSlot: number;
@@ -879,6 +890,8 @@ declare module &quot;voxelcraft&quot; {
   export interface Events {
     player_join: { player: Player; first_time: boolean };
     player_leave: { player: Player };
+    player_transfer: { player: Player; server: string; arrival: string; data: Record&lt;string, unknown&gt;; cancelled: boolean; reason: string };
+    player_arrived: { player: Player; from: string; arrival: string; data: Record&lt;string, unknown&gt; };
     tick: { delta: number; tick: number };
     block_break: { player: Player; position: Vec3; block: BlockId; drops: [ItemId, number][]; cancelled: boolean };
     block_broken: { player: Player; position: Vec3; block: BlockId; item: ItemId; slot: number; harvested: boolean };
@@ -1009,6 +1022,8 @@ declare module &quot;voxelcraft&quot; {
     setUgcPolicy(values: { enabled?: boolean; accept?: &quot;auto&quot; | &quot;trusted&quot; | &quot;approval&quot; | &quot;off&quot;; kinds?: (&quot;skin&quot; | &quot;accessory&quot; | &quot;model&quot;)[];
       library?: boolean; max_per_player?: number; max_bytes_per_player?: number; report_hide?: number }): void;
     ugcList(filter?: &quot;pending&quot; | &quot;reported&quot; | &quot;approved&quot; | &quot;rejected&quot; | &quot;removed&quot; | &quot;all&quot;): Record&lt;string, unknown&gt;[];
+    networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[];
+    setArrivalPoint(id: string, position: Vec3): void;
     ugcGet(id: string): Record&lt;string, unknown&gt;;
     ugcSetStatus(id: string, status: &quot;approved&quot; | &quot;rejected&quot; | &quot;removed&quot; | &quot;approve&quot; | &quot;reject&quot; | &quot;remove&quot;, reason?: string): boolean;
     ugcTrust(playerId: string, on?: boolean): void;

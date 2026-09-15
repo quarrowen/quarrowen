@@ -6,6 +6,8 @@ extends Node3D
 signal exited(message: String)
 ## Leave this server for a friend's (engine/main.gd switches).
 signal join_friend_requested(address: String, port: int, server_name: String)
+## The server sent this player to another server (engine/main.gd connects there with the ticket).
+signal transfer_requested(address: String, port: int, server_name: String, ticket: Dictionary)
 
 ## Set when the server announced a full reload: whoever owns the client should reconnect (see main.gd).
 var reload_pending := false
@@ -133,6 +135,10 @@ var _identity: CryptoKey
 var _welcomed := false
 var _connect_attempts := 0
 var _exiting := false
+## A ticket to hand to the server right after hello, when arriving through a transfer: {ticket, signature}.
+var transfer_ticket := {}
+## Set when the server sent us elsewhere: {address, port, name, ticket}.
+var transfer := {}
 ## Why the game ended, for the menu: "" or "identity" (the server's identity no longer matches the pinned one).
 var exit_kind := ""
 var _input_seq := 0
@@ -299,6 +305,8 @@ func _connect() -> void:
 func _on_connected() -> void:
 	_set_status("Handshaking...")
 	Net.c_hello.rpc_id(1, Protocol.VERSION, player_name, Identity.public_pem(_identity))
+	if not transfer_ticket.is_empty():
+		Net.c_transfer_ticket.rpc_id(1, str(transfer_ticket.get("ticket", "")), str(transfer_ticket.get("signature", "")))
 
 
 func on_challenge(nonce: PackedByteArray) -> void:
@@ -389,6 +397,15 @@ func _update_defs(data, fields: Array, exists: Callable, apply: Callable) -> voi
 func on_server_reloading(message: String) -> void:
 	reload_pending = true
 	_server_ui.show_title(message, "The server restarts with the new mods; you will be back in a moment", 10.0)
+
+
+func on_transfer(address: String, port: int, server_name: String, ticket: String, signature: String) -> void:
+	if not transfer.is_empty():
+		return
+	transfer = {"address": address.left(253), "port": clampi(port, 1, 65535), "name": server_name.left(64),
+		"ticket": {"ticket": ticket, "signature": signature}}
+	_set_status("Travelling to %s…" % transfer.name)
+	transfer_requested.emit(transfer.address, transfer.port, transfer.name, transfer.ticket)
 
 
 func on_kick(reason: String) -> void:

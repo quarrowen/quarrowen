@@ -63,6 +63,7 @@
     get online() { return host("player.online", this.id); }
     /** Adds items, optionally with item data (wear, xp, custom name, lore, modifiers). */
     give(item, count = 1, data = {}) { return host("player.give", this.id, item, count, data); }
+    transferTo(server, arrival = "", data = {}) { return host("player.transferTo", this.id, server, arrival, data); }
     /** {item, count, data} in slot 0-35 (backpack) or an equipment slot index (see equipmentSlot). */
     getItem(slot) { return host("player.getItem", this.id, slot); }
     setItemData(slot, data) { host("player.setItemData", this.id, slot, data); }
@@ -275,6 +276,8 @@
      *  max_bytes_per_player, report_hide}, review lists and moderation. */
     setUgcPolicy: (values) => host("setUgcPolicy", values),
     ugcList: (filter = "approved") => host("ugcList", filter),
+    networkServers: () => host("networkServers"),
+    setArrivalPoint: (id, position) => host("setArrivalPoint", id, position),
     ugcGet: (id) => host("ugcGet", id),
     ugcSetStatus: (id, status, reason = "") => host("ugcSetStatus", id, status, reason),
     ugcTrust: (playerId, on = true) => host("ugcTrust", playerId, on),

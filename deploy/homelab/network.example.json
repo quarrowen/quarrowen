@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "sky": {
+      "name": "Sky Islands",
+      "address": "192.168.1.20",
+      "port": 24567,
+      "id": "PASTE THE OTHER SERVER'S ID HERE",
+      "inventory": true,
+      "hop": true
+    }
+  }
+}

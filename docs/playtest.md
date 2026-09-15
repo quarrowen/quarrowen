@@ -131,6 +131,32 @@ cd voxelcraft && git pull && cd deploy/homelab && docker compose up -d --build
 
 Then build a new zip with `tools/package_mac.sh` and replace the app on each Mac.
 
+## Two worlds and portals (optional)
+
+A second server (Sky Islands, the skyblock game) can run next to the family server, with portals between them.
+Players keep their inventory as they travel.
+
+1. Start both: `docker compose -p voxelcraft -f compose.yaml -f compose.two-worlds.yaml up -d --build`
+   (and open its ports too: `sudo ufw allow 24567:24568/udp`).
+2. Find each server's id in its log: `docker logs voxelcraft | grep "Server id"` and
+   `docker logs voxelcraft-sky | grep "Server id"`.
+3. Tell each server about the other. Copy `network.example.json`, fill in the *other* server's id and your
+   machine's address, and put it in each server's data volume:
+   ```sh
+   cp network.example.json family-network.json   # "sky": port 24567, id of voxelcraft-sky
+   cp network.example.json sky-network.json      # rename "sky" to "family": name, port 24565, id of voxelcraft
+   nano family-network.json sky-network.json
+   docker cp family-network.json voxelcraft:/data/network.json
+   docker cp sky-network.json voxelcraft-sky:/data/network.json
+   ```
+   Then in game on each server (as admin): `/network reload`, and `/network` to check.
+4. **Travel:** `/server sky` (with `"hop": true`, anyone may), or build a portal: place **Portal** blocks (from
+   the creative inventory), stand next to them and type `/portal sky`. Walking into it takes you there.
+   On the other side, stand where travellers should appear and type `/network arrival dock`, then point portals at
+   it with `/portal family dock`.
+
+If a trip cannot finish (the other server is down), coming back gives players their things back.
+
 ## 6. When something goes wrong
 
 - **The server is not in the LAN list.** Check the Mac and the server are on the same network (guest Wi-Fi is often

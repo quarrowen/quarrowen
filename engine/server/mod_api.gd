@@ -35,6 +35,8 @@ extends RefCounted
 ##   tutorial_completed {player, tutorial}   tip_shown {player, tip}
 ##   ugc_uploaded {player, creation, cancelled, reason}   a player creation arrived; cancel to refuse it
 ##   ugc_status {id, status, reason, by}   ugc_reported {player, id, reason, details, reports, cancelled}
+##   player_transfer {player, server, arrival, data, cancelled, reason}   leaving for another server (data may be changed)
+##   player_arrived {player, from, arrival, data}           arrived through a transfer ticket from a trusted server
 ##   night_skipped  {sleepers}                                enough players slept; it is morning now
 ##   skill_crafted  {player, item, count, quality, score, names, data, product}   crafted by hand; data may be changed
 ##   item_crafted   {player, item, count}
@@ -935,6 +937,17 @@ func ugc_trust(player_id: String, on := true) -> void:
 ## Stops (or allows again) a player uploading creations; banning also hides their creations.
 func ugc_ban(player_id: String, on := true, reason := "") -> void:
 	_server.ugc.set_banned(player_id, on, reason, mod_id)
+
+
+## The servers players can travel to from here (network.json): [{key, name, address, port, hop, inventory}].
+func network_servers() -> Array:
+	return _server.transfers.servers.values().filter(func(e): return e.send).map(func(e):
+		return {"key": e.key, "name": e.name, "address": e.address, "port": e.port, "hop": e.hop, "inventory": e.inventory})
+
+
+## Names a spot where players arriving from other servers can appear (tickets name it as their arrival).
+func set_arrival_point(id: String, position: Vector3) -> void:
+	_server.transfers.set_arrival(id, position)
 
 
 ## A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from
