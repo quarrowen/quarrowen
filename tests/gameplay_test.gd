@@ -545,7 +545,11 @@ func _farming() -> void:
 				server.set_block_authoritative(tree_spot + Vector3i(dx, dy, dz), 0)
 	server.set_block_authoritative(tree_spot + Vector3i.UP, sapling)
 	ticks.schedule(tree_spot + Vector3i.UP, 1.0)
+	# Saplings also grow on random ticks (about 1 in 240 per half-second round): keep those out of this check.
+	var growth_interval: float = ticks.handlers[sapling].interval
+	ticks.handlers[sapling].interval = 1.0e12
 	ticks.update(0.6)
+	ticks.handlers[sapling].interval = growth_interval
 	_check(server.world.get_block_v(tree_spot + Vector3i.UP) == sapling, "a scheduled tick waits until it is due")
 	ticks.update(0.6)
 	_check(server.world.get_block_v(tree_spot + Vector3i.UP) == reg.id_of("base:log"), "the scheduled tick grew the sapling into a tree")

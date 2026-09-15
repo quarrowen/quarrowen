@@ -2889,7 +2889,9 @@ func _build_hud() -> void:
 	_hud_root.add_child(_guide_screen)
 	_dev_overlay = DevOverlay.new()
 	_dev_overlay.visible = false
-	_dev_overlay.request.connect(func(action, args): Net.c_dev.rpc_id(1, action, args))
+	_dev_overlay.request.connect(func(action, args):
+		if _welcomed:  # the overlay subscribes while it is built, before there is a server to ask
+			Net.c_dev.rpc_id(1, action, args))
 	_dev_overlay.pick_requested.connect(_dev_pick)
 	_dev_overlay.closed.connect(_close_dev_overlay)
 	_hud_root.add_child(_dev_overlay)

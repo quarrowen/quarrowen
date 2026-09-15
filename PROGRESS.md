@@ -269,6 +269,19 @@ changes with `tools/build_native.sh`.
    to the normal body and a server switch; smoother, higher-detail default bodies (rounded parts, finger and
    face detail, eyes that blink); better animation (walk cycles, idle, emotes, cloth/cape motion).
 
+## Test stability (2026-09-15)
+
+`ONLY=` and `REPEAT=` in tools/run_tests.sh reproduce flaky tests (e.g. `REPEAT=10 ONLY=e2e:combat`, or loop
+`ONLY='e2e:*,auth,multiplayer'` for the shared-server sequence). Fixed causes: combat checks drifting away
+from the open arena after fights/falls (return to it; teleport next to mobs onto free ground; wider bed
+spot search), apple count race on a shared server, sapling random growth during the scheduled-tick check,
+mob spawner spots outside the cleared floor, hub test starting its server before the hub (faster announce
+retries), orphaned hub-test processes after a timeout. Log noise fixed: settings lookups of unsaved key
+bindings, the dev overlay subscribing before connecting, tutorial marker Rect2 with no screen, JSON
+parse errors on empty hub replies. Known harmless noise: "Buffer full, dropping packets" while joining (the
+server's content burst during the DTLS handshake; ENet resends), TLS errors from the auth tests, leak
+warnings at exit.
+
 ## Pending (next steps, in order)
 
 1. AI performance, if mob counts grow: move perception LOS batching and steering to native; path

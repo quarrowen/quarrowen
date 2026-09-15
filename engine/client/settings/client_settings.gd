@@ -197,7 +197,7 @@ static func default_events(action: String) -> Array:
 
 ## The events for an action (saved bindings, else defaults) as descriptors.
 func events(action: String) -> Array:
-	var saved = _cfg.get_value("bindings", action, null)
+	var saved = _cfg.get_value("bindings", action) if _cfg.has_section_key("bindings", action) else null
 	if saved is Array:
 		return saved.filter(func(e): return e is String and not event_from(e) == null)
 	return default_events(action)

@@ -5,12 +5,16 @@
 #   tools/run_tests.sh                 # uses $GODOT or `godot` on PATH
 #   GODOT=/path/to/godot tools/run_tests.sh
 #   VOXEL_NATIVE=0 tools/run_tests.sh  # exercise the GDScript fallbacks
+#   ONLY=e2e:combat,gameplay tools/run_tests.sh   # just these tests (names as printed; "e2e:*" and globs work)
+#   REPEAT=10 ONLY=e2e:combat tools/run_tests.sh  # run each selected test 10 times (hunting flaky tests)
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-$(command -v godot || echo /Applications/Godot.app/Contents/MacOS/Godot)}"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/voxelcraft-tests.XXXXXX")"
 PORT_BASE="${PORT_BASE:-25600}"
+ONLY="${ONLY:-}"
+REPEAT="${REPEAT:-1}"
 SERVERS=()
 FAILED=()
 PASSED=()
@@ -49,15 +53,44 @@ record() { # name exit_code log
   if [ "$2" -eq 0 ]; then PASSED+=("$1"); echo "PASS $1"; else FAILED+=("$1"); echo "FAIL $1 (see $3)"; grep -hE "FAIL|SCRIPT ERROR" "$3" | head -10; fi
 }
 
-run_scene() { # name log scene [user args...]
-  local name="$1" log="$2" scene="$3"; shift 3
-  timeout 240 "$GODOT" --headless --path . "$scene" -- "$@" >"$log" 2>&1
-  record "$name" $? "$log"
+selected() { # name
+  [ -z "$ONLY" ] && return 0
+  local pattern
+  IFS=',' read -ra patterns <<<"$ONLY"
+  for pattern in "${patterns[@]}"; do
+    # shellcheck disable=SC2053
+    [[ "$1" == $pattern ]] && return 0
+  done
+  return 1
 }
 
+run_scene() { # name log scene [user args...]
+  local name="$1" log="$2" scene="$3"; shift 3
+  selected "$name" || return 0
+  local i
+  for ((i = 1; i <= REPEAT; i++)); do
+    local run_log="$log"
+    [ "$REPEAT" -gt 1 ] && run_log="${log%.log}_run$i.log"
+    timeout 240 "$GODOT" --headless --path . "$scene" -- "$@" >"$run_log" 2>&1
+    local code=$?
+    local label="$name"
+    [ "$REPEAT" -gt 1 ] && label="$name #$i"
+    record "$label" $code "$run_log"
+  done
+}
+
+# Servers are only needed by the end-to-end tests.
+needs_servers() {
+  local t
+  for t in e2e:vanilla e2e:industry e2e:arcana e2e:guild e2e:combat e2e:skyblock auth multiplayer; do selected "$t" && return 0; done
+  return 1
+}
+
+if needs_servers; then
 start_server all "vanilla,industry,arcana,guild" $((PORT_BASE + 1))
 start_server sky "skyblock" $((PORT_BASE + 3))
 wait_for_server all && wait_for_server sky || { echo "servers failed to start"; exit 1; }
+fi
 
 for game in vanilla industry arcana guild combat; do
   run_scene "e2e:$game" "$WORK/test_$game.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 1)) --game=$game
@@ -71,12 +104,14 @@ fi
 cleanup
 SERVERS=()
 for log in "$WORK"/server_*.log; do
+  [ -f "$log" ] || continue
   if grep -qE "SCRIPT ERROR|script error" "$log"; then FAILED+=("clean-server-log:$(basename "$log")"); grep -hE "SCRIPT ERROR|script error" "$log" | head -5; fi
 done
 
 # Every bundled mod must pass the validator (errors fail; warnings and hints are printed).
 for mod_dir in mods/*/; do
   mod="$(basename "$mod_dir")"
+  selected "validate:$mod" || continue
   timeout 240 "$GODOT" --headless --path . res://tools/mod_tool.tscn -- validate "mods/$mod" >"$WORK/validate_$mod.log" 2>&1
   code=$?
   grep -h "^\[mod_tool\] \(ERROR\|WARNING\)" "$WORK/validate_$mod.log" | head -5
@@ -94,11 +129,14 @@ for extra in tests/host_flow_test.tscn tests/reload_test.tscn; do
   [ -f "$extra" ] && run_scene "$(basename "$extra" .tscn)" "$WORK/$(basename "$extra" .tscn).log" "res://$extra"
 done
 # The hub service (Rust) with a real game server; skipped when cargo is not installed.
-if command -v cargo >/dev/null 2>&1; then
+if command -v cargo >/dev/null 2>&1 && (selected hub-unit || selected hub); then
   if cargo build --release --manifest-path services/hub/Cargo.toml >"$WORK/hub_build.log" 2>&1 \
       && cargo test --release --manifest-path services/hub/Cargo.toml >"$WORK/hub_unit.log" 2>&1; then
     record "hub-unit" 0 "$WORK/hub_unit.log"
     run_scene "hub" "$WORK/hub.log" res://tests/hub_test.tscn
+    # A test that timed out cannot stop the processes it started: the hub and its game server.
+    pkill -f "services/hub/target/release/voxelcraft-hub" 2>/dev/null
+    pkill -f -- "--name=Hub Test Server" 2>/dev/null
   else
     record "hub-unit" 1 "$WORK/hub_unit.log"
     tail -20 "$WORK/hub_build.log" "$WORK/hub_unit.log" 2>/dev/null

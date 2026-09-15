@@ -290,6 +290,9 @@ func _show_marker(target: Vector3, _delta: float) -> void:
 	_marker.text = "▼\n%d m" % roundi(distance) if distance > 6.0 else "▼"
 	# Off screen (or behind): an arrow at the edge pointing the way.
 	var rect := get_viewport_rect()
+	if rect.size.x <= 80.0 or rect.size.y <= 80.0:
+		_edge_arrow.visible = false  # no real screen (headless)
+		return
 	var behind := camera.is_position_behind(target)
 	var screen := camera.unproject_position(target)
 	var on_screen := not behind and rect.grow(-40).has_point(screen)

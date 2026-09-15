@@ -11,6 +11,7 @@ const Chunk = preload("res://engine/shared/chunk.gd")
 var _client
 var _game := "vanilla"
 var _failures: Array[String] = []
+var _arena := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -494,7 +495,9 @@ func _guild(c) -> void:
 	if not bought:  # the click can land while the board is being redrawn after the turn-in; try once more
 		c._on_ui_action("guild:board", "buy:0")
 		bought = await _wait_until(func(): return c.inventory.count_of(coin) == 3, 3.0)
-	_check(bought and c.inventory.count_of(c.registry.id_of("base:glass")) >= 8, "shop sold glass for a coin")
+	_check(bought and c.inventory.count_of(c.registry.id_of("base:glass")) >= 8, "shop sold glass for a coin (coins %d, glass %d, board open %s, last chat: %s)" % [
+		c.inventory.count_of(coin), c.inventory.count_of(c.registry.id_of("base:glass")), c._server_ui._panels.has("guild:board"),
+		c._chat_log.get_child(c._chat_log.get_child_count() - 1).text if c._chat_log.get_child_count() > 0 else ""])
 	c._on_ui_action("guild:board", "close")
 	await get_tree().create_timer(0.3).timeout
 
@@ -514,9 +517,8 @@ func _guild(c) -> void:
 
 func _combat(c) -> void:
 	# Other tests build and dig around the shared spawn; fight on untouched, dry, open ground.
-	var arena := _find_open_ground(c, Vector2i(floori(c.state.position.x) + 32, floori(c.state.position.z)))
-	Net.c_chat.rpc_id(1, "/tp %.1f %.1f %.1f" % [arena.x, arena.y, arena.z])
-	await _wait_until(func(): return c.state.position.distance_to(arena) < 1.0 and c.state.on_ground, 5.0)
+	_arena = _find_open_ground(c, Vector2i(floori(c.state.position.x) + 32, floori(c.state.position.z)))
+	await _return_to_arena(c)
 	Net.c_chat.rpc_id(1, "/gameplay mob_spawning false")
 	Net.c_chat.rpc_id(1, "/clearmobs 128")  # cave monsters from earlier tests
 	Net.c_chat.rpc_id(1, "/time midnight")  # zombies burn in daylight
@@ -528,10 +530,11 @@ func _combat(c) -> void:
 	_check(await _wait_until(func(): return c.hunger == 20.0 and c._hunger_bar.visible, 3.0), "hunger HUD shows 20 (%.1f)" % c.hunger)
 
 	# Hunger: eat an apple by holding use.
+	var apple: int = c.items.id_of("base:apple")
+	var had_apples: int = c.inventory.count_of(apple)  # a shared server: earlier runs may have left some
 	Net.c_chat.rpc_id(1, "/hunger 10")
 	Net.c_chat.rpc_id(1, "/give base:apple")
-	var apple: int = c.items.id_of("base:apple")
-	await _wait_until(func(): return c.hunger == 10.0 and c.inventory.count_of(apple) >= 1, 3.0)
+	await _wait_until(func(): return c.hunger == 10.0 and c.inventory.count_of(apple) == had_apples + 1, 3.0)
 	var apples: int = c.inventory.count_of(apple)
 	await _select_item(c, apple)
 	await get_tree().create_timer(0.3).timeout
@@ -575,6 +578,8 @@ func _combat(c) -> void:
 		_check(paid, "bounty paid 5 coins via JavaScript entity_death")
 
 	# Beds: set the respawn point by day, sleep through the night.
+	# Fights chase mobs and teleport next to them: come back to the open ground for the next checks.
+	await _return_to_arena(c)
 	Net.c_chat.rpc_id(1, "/give base:bed")
 	var bed: int = c.items.id_of("base:bed")
 	await _wait_until(func(): return c.inventory.count_of(bed) >= 1, 3.0)
@@ -583,16 +588,19 @@ func _combat(c) -> void:
 	# Face an open two-block strip so the head has room behind the foot.
 	var bed_spot := Vector3i(0, -999, 0)
 	var base := Vector3i(floori(c.state.position.x), floori(c.state.position.y), floori(c.state.position.z))
-	for dy in [0, 1, -1]:
-		for d in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]:
-			var foot: Vector3i = base + d * 2 + Vector3i(0, dy, 0)
-			var free := true
-			for cell in [foot, foot + d]:
-				var id: int = c.world.get_block_v(cell)
-				free = free and (id == 0 or c.registry.defs[id].replaceable) and c.registry.solid_lut[c.world.get_block_v(cell + Vector3i.DOWN)] == 1
-			if free and bed_spot.y == -999:
-				bed_spot = foot
-				c.yaw = atan2(-float(d.x), -float(d.z))
+	for step in [2, 3, 1]:
+		for dy in [0, 1, -1]:
+			for d in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1)]:
+				var foot: Vector3i = base + d * step + Vector3i(0, dy, 0)
+				var free := true
+				for cell in [foot, foot + d]:
+					var id: int = c.world.get_block_v(cell)
+					free = free and (id == 0 or c.registry.defs[id].replaceable) and c.registry.solid_lut[c.world.get_block_v(cell + Vector3i.DOWN)] == 1
+				if free and bed_spot.y == -999:
+					bed_spot = foot
+					c.yaw = atan2(-float(d.x), -float(d.z))
+	if bed_spot.y == -999:
+		print("[test] no room for a bed around %s" % base)
 	c.request_place(bed_spot)
 	var head_block: int = c.registry.id_of("base:bed_head")
 	if await _wait_until(func(): return c.world.get_block_v(bed_spot) == bed and head_block in [
@@ -655,6 +663,7 @@ func _combat(c) -> void:
 	c._set_inventory_open(false)
 
 	# Equipment: wear a chestplate, see armor in stats and the HUD; mine stone with a pickaxe.
+	await _return_to_arena(c)  # the fall test may have left us on a tree top
 	Net.c_chat.rpc_id(1, "/give base:iron_chestplate")
 	var chestplate: int = c.items.id_of("base:iron_chestplate")
 	await _wait_until(func(): return c.inventory.count_of(chestplate) == 1, 2.0)
@@ -704,6 +713,7 @@ func _combat(c) -> void:
 	c._set_crafting_open(false)
 
 	# Wand of Sparks (arcana): a projectile that damages mobs.
+	await _return_to_arena(c)
 	Net.c_chat.rpc_id(1, "/give arcana:wand_of_sparks")
 	var wand: int = c.items.id_of("arcana:wand_of_sparks")
 	await _wait_until(func(): return c.inventory.count_of(wand) == 1, 2.0)
@@ -742,6 +752,12 @@ func _combat(c) -> void:
 
 
 ## Feet position on the surface near `around` where a 7x7 area is flat-ish, dry and has open sky.
+## Back to the open ground the combat checks started on (and standing on it).
+func _return_to_arena(c) -> void:
+	Net.c_chat.rpc_id(1, "/tp %.1f %.1f %.1f" % [_arena.x, _arena.y, _arena.z])
+	await _wait_until(func(): return c.state.position.distance_to(_arena) < 1.0 and c.state.on_ground, 5.0)
+
+
 func _find_open_ground(c, around: Vector2i) -> Vector3:
 	var best := Vector3(around.x + 0.5, 80, around.y + 0.5)
 	var best_score := INF
@@ -851,8 +867,20 @@ func _fight(c, entity_id: int, timeout: float) -> bool:
 
 
 func _teleport_near(target: Vector3) -> void:
-	var offset := Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).normalized() * 1.8
-	Net.c_chat.rpc_id(1, "/tp %.2f %.2f %.2f" % [target.x + offset.x, target.y + 0.5, target.z + offset.z])
+	var c = _client
+	# A free spot next to the target at its height (not inside a hill, a tree or the target itself).
+	for attempt in 8:
+		var angle := TAU * attempt / 8.0 + randf() * 0.3
+		var spot := target + Vector3(cos(angle), 0, sin(angle)) * 1.8
+		var cell := Vector3i(floori(spot.x), floori(target.y + 0.1), floori(spot.z))
+		var clear := true
+		for dy in 2:
+			var id: int = c.world.get_block_v(cell + Vector3i(0, dy, 0))
+			clear = clear and (id == 0 or not c.registry.solid_lut[id] == 1)
+		if clear and c.registry.solid_lut[c.world.get_block_v(cell + Vector3i.DOWN)] == 1:
+			Net.c_chat.rpc_id(1, "/tp %.2f %.2f %.2f" % [spot.x, float(cell.y) + 0.05, spot.z])
+			return
+	Net.c_chat.rpc_id(1, "/tp %.2f %.2f %.2f" % [target.x + 1.8, target.y + 1.0, target.z])
 
 
 ## Walks to the nearest dropped stack of `item` until it is in the inventory.
