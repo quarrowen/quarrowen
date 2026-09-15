@@ -27,6 +27,10 @@ Play. The main menu shows a live generated world with your avatar, a sidebar and
   one-click dev hosting of any installed mod; **Settings** has identity export/import and the hosting
   port (graphics, audio and controls are coming).
 - **What's new** on the right: the hub's news, or `engine/client/menu/news.json` without one.
+- The **live world** behind the menu is generated in this process by an offline server: the avatar stands
+  in a meadow with animals (and a zombie or two) wandering around it. The middle of the view appears in a
+  second or two and the rest fills in behind the fade; `assets/icon.png` (drawn by `tools/generate_icon.py`)
+  is the app icon.
 
 In game, the pause menu's **Invite friends…** shows the server's invite code (for a hosted world, the
 computer's local network address). Menus scale up on high-density screens. Code: `engine/client/menu/`.

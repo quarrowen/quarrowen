@@ -20,13 +20,26 @@ const PlayerRig = preload("res://engine/shared/player_rig.gd")
 const LookBuilder = preload("res://engine/client/avatar/look_builder.gd")
 const Cosmetics = preload("res://engine/shared/cosmetics.gd")
 const CreationLibrary = preload("res://engine/client/creation_library.gd")
+const ModelLibrary = preload("res://engine/client/model_library.gd")
+const EntityView = preload("res://engine/client/entity_view.gd")
 
 const DATA_DIR := "user://cache/menu_backdrop"
-const RADIUS := 6  # chunks around the centre that are drawn
+const RADIUS := 5  # chunks around the centre that are drawn
+## The middle of the view (rings 0-2 of the spiral): enough to pick the avatar's spot and show the menu,
+## while the rest keeps filling in behind the fade.
+const CENTRE_CHUNKS := 25
+## Chunks whose generation is started ahead of the mesher, and meshes built at once.
+const PREFETCH := 8
+const MESH_JOBS := 4
 const ORBIT_SECONDS := 240.0
 const ORBIT_RADIUS := 8.0
 const DAY_SECONDS := 300.0
 const SEEDS := [1337, 4242, 90210, 777, 2026, 31415]
+## Creatures that wander around the avatar: [entity name, how many]. Missing ones (another game's mods)
+## are skipped, so any world still gets whatever it has.
+const CREATURES := [["vanilla:pig", 2], ["vanilla:sheep", 2], ["vanilla:chicken", 2], ["vanilla:cow", 1],
+	["vanilla:wolf", 1], ["vanilla:zombie", 1], ["vanilla:spider", 1]]
+const CREATURE_RING := 7.0
 
 var game := "vanilla"
 var avatar_look := {}
@@ -35,6 +48,8 @@ var player_name := ""
 var motion := true
 
 var _server: Node
+var _creatures := {}  # entity id -> EntityView
+var _meshed := 0
 var _atlas := {}
 var _context := {}
 var _solid: ShaderMaterial
@@ -207,6 +222,48 @@ func _place_avatar() -> void:
 	refresh_avatar(avatar_look, player_name)
 
 
+## A few animals (and something to keep them company at night) wandering around the avatar.
+func _place_creatures() -> void:
+	var registry = _server.entities.registry
+	for entry in CREATURES:
+		var type_id: int = registry.id_of(String(entry[0]))
+		if type_id < 0:
+			continue
+		var def: Dictionary = registry.defs[type_id]
+		var parts := []
+		if not String(def.model).is_empty() and _server._assets.has(String(def.model)):
+			parts = ModelLibrary.load_parts(FileAccess.get_file_as_bytes(_server._assets[String(def.model)].path))
+		if parts.is_empty():
+			continue  # no model here: better nothing than a placeholder box in the menu
+		for i in int(entry[1]):
+			var x := 0.0
+			var z := 0.0
+			var y := -1
+			for attempt in 24:
+				var angle := randf() * TAU
+				var distance := randf_range(2.5, CREATURE_RING)
+				x = _centre.x + cos(angle) * distance
+				z = _centre.z + sin(angle) * distance
+				y = _surface(floori(x), floori(z))
+				# Open ground at the avatar's level: never a tree top, never a ledge above or below it.
+				if y >= 0 and y < 900 and absf(y + 1 - _centre.y) <= 3.0 and not _is_tree(_server.world.get_block(floori(x), y, floori(z))):
+					break
+				y = -1
+			if y < 0:
+				continue  # a wooded spot with no room for this one
+			var entity = _server.entities.spawn(type_id, Vector3(x, y + 1, z), {"yaw": randf() * TAU})
+			if entity == null:
+				continue
+			entity.data["no_despawn"] = true  # nobody is playing here, so nothing may tidy them away
+			if entity.brain != null:
+				entity.brain.home = Vector3(x, y + 1, z)
+				entity.brain.tune({"temperament": "none", "leash": CREATURE_RING, "wander_radius": 4.0, "wander_speed": 0.3})
+			var view := EntityView.new()
+			view.setup(entity.id, def, parts, null, entity.body.position, entity.yaw)
+			add_child(view)
+			_creatures[entity.id] = view
+
+
 ## Shows a (new) look on the menu avatar, e.g. after the avatar editor closes.
 func refresh_avatar(look: Dictionary, name_text: String) -> void:
 	avatar_look = look
@@ -232,6 +289,19 @@ func _process(delta: float) -> void:
 	_apply_time()
 	if _server == null:
 		return
+	if not _creatures.is_empty():
+		# The offline server only steps its creatures while the menu is up; nothing else ticks. Its clock has
+		# to move with them: mob timers (wandering, thinking) are all measured against it.
+		_server._time += delta
+		_server.entities.tick(delta)
+		for id: int in _creatures.keys():
+			var entity = _server.entities.entities.get(id)
+			var view: EntityView = _creatures[id]
+			if entity == null or not entity.is_alive():
+				view.queue_free()
+				_creatures.erase(id)
+				continue
+			view.push_state(Time.get_ticks_msec() / 1000.0, entity.body.position, entity.yaw)
 	_poll_jobs()
 	if _fade < 1.0 and _shown:
 		_fade = minf(1.0, _fade + delta * 1.5)
@@ -245,9 +315,15 @@ func _poll_jobs() -> void:
 		WorkerThreadPool.wait_for_task_completion(job.task_id)
 		_jobs.erase(coord)
 		_apply_mesh(coord, job.result)
-	# Generate what the next mesh needs (the chunk and its neighbours), then mesh it.
+	# Keep the generator's workers busy: ask for the chunks the next few meshes will need, not just the
+	# one at the front, or generation trickles in one ring at a time and the menu waits seconds for a view.
 	_server._poll_chunk_jobs()
-	while _jobs.size() < 2 and not _queue.is_empty():
+	for i in mini(PREFETCH, _queue.size()):
+		var ahead: Vector2i = _queue[i]
+		for dx in range(-1, 2):
+			for dz in range(-1, 2):
+				_server._request_chunk(ahead + Vector2i(dx, dz))
+	while _jobs.size() < MESH_JOBS and not _queue.is_empty():
 		var coord: Vector2i = _queue[0]
 		var missing := false
 		for dx in range(-1, 2):
@@ -266,17 +342,19 @@ func _poll_jobs() -> void:
 		var job := {"chunks": chunks, "context": _context, "result": []}
 		job.task_id = WorkerThreadPool.add_task(func(): job.result = ChunkMesher.build(job.chunks, job.context), false, "menu mesh")
 		_jobs[coord] = job
-	if not _shown and _queue.size() < (2 * RADIUS + 1) * (2 * RADIUS + 1) - 25 and _jobs.is_empty():
+	if not _shown and _meshed >= CENTRE_CHUNKS:
 		# Trees and other features spill in from neighbouring chunks as they generate, so the avatar's spot is
 		# chosen once the middle of the view is complete.
 		_shown = true
 		_heights.clear()
 		_centre = _find_centre()
 		_place_avatar()
+		_place_creatures()
 		ready_to_show.emit()
 
 
 func _apply_mesh(coord: Vector2i, result: Array) -> void:
+	_meshed += 1
 	var node := MeshInstance3D.new()
 	node.position = Vector3(coord.x * Chunk.SIZE_X, 0, coord.y * Chunk.SIZE_Z)
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
