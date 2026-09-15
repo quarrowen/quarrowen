@@ -6,13 +6,13 @@ extends Node
 ##     [--camera=0|1|2] [--avatar='{"wear": {...}}' (join with) | --wear='{...}' (change in game)]
 ##     [--editor=hat (opens the avatar editor on a category)] [--swing=0.12 (capture that long into a swing)]
 ##     [--open=base:chest (place and open a block)] [--craft=base:wooden_pickaxe (recipe book on a recipe)]
-##     [--guide=base:wood (the guidebook on a page) [--search=text]]
+##     [--guide=base:wood (the guidebook on a page) [--search=text]] [--settings=Graphics (settings screen on a tab)]
 
 const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -32,6 +32,12 @@ func _ready() -> void:
 		await get_tree().create_timer(0.3).timeout
 	if not String(options.menu).is_empty():
 		Net.c_open_menu.rpc_id(1, options.menu)
+	if not String(options.settings).is_empty():
+		# The settings screen over the game on a tab: --settings=Controls
+		client._set_paused(true)
+		client.open_settings()
+		await get_tree().process_frame
+		client._settings_overlay.find_children("*", "VBoxContainer", true, false).filter(func(n): return n.has_method("show_tab"))[0].show_tab(options.settings)
 	if not String(options.equip).is_empty():
 		await get_tree().create_timer(0.8).timeout
 		for slot in 36:

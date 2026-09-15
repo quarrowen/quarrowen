@@ -23,6 +23,7 @@ trap cleanup EXIT
 
 # Pin server certificates in a throwaway folder instead of the user's real known servers.
 export VOXEL_KNOWN_SERVERS_DIR="$WORK/known_servers"
+export VOXEL_SETTINGS="$WORK/settings.cfg"  # tests never touch the player's own settings
 echo "godot: $GODOT"
 echo "logs:  $WORK"
 "$GODOT" --headless --path . --import >"$WORK/import.log" 2>&1

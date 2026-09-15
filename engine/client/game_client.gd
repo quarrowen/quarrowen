@@ -25,6 +25,9 @@ const ModelLibrary = preload("res://engine/client/model_library.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const ItemRegistry = preload("res://engine/shared/item_registry.gd")
 const GraphicsSettings = preload("res://engine/client/graphics_settings.gd")
+const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
+const SettingsScreen = preload("res://engine/client/settings/settings_screen.gd")
+const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const Identity = preload("res://engine/shared/identity.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const EntityView = preload("res://engine/client/entity_view.gd")
@@ -240,7 +243,8 @@ var ugc := UgcClient.new(self)
 ## Model files of downloaded creations: asset name -> GLB bytes.
 var ugc_models := {}
 var _ugc_review: UgcReview
-var _volume_slider: HSlider
+var _settings_overlay: Control
+var _sprint_on := false  # the sprint key toggles (accessibility setting)
 
 
 func _ready() -> void:
@@ -251,6 +255,8 @@ func _ready() -> void:
 	_build_scene()
 	_build_hud()
 	_apply_graphics(false)
+	_apply_accessibility()
+	ClientSettings.shared().changed.connect(_on_setting_changed)
 	Net.client = self
 	multiplayer.connected_to_server.connect(_on_connected)
 	multiplayer.connection_failed.connect(_on_connection_failed)
@@ -885,7 +891,7 @@ func on_health(value: float, max_value: float, is_dead: bool, hurt: bool) -> voi
 	max_health = maxf(max_value, 1.0)
 	dead = is_dead
 	if hurt:
-		_hurt_flash.color.a = 0.45
+		_hurt_flash.color.a = 0.45 * float(ClientSettings.shared().get_value("accessibility/flashes"))
 	if dead and not was_dead:
 		_death_panel.visible = true
 		_set_inventory_open(false)
@@ -1079,7 +1085,14 @@ func _physics_process(_delta: float) -> void:
 	elif _gameplay_input_enabled():
 		input.move = Input.get_vector("move_left", "move_right", "move_back", "move_forward")
 		input.jump = Input.is_action_pressed("jump")
-		input.sprint = Input.is_action_pressed("sprint")
+		if ClientSettings.shared().get_value("controls/sprint_toggle"):
+			if Input.is_action_just_pressed("sprint"):
+				_sprint_on = not _sprint_on
+			if input.move.length() < 0.1:
+				_sprint_on = false  # stopping ends a toggled sprint
+			input.sprint = _sprint_on
+		else:
+			input.sprint = Input.is_action_pressed("sprint")
 	input.yaw = yaw
 	input.pitch = pitch
 
@@ -1746,12 +1759,21 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _chat_input.visible:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		yaw = wrapf(yaw - event.relative.x * MOUSE_SENSITIVITY, -PI, PI)
+		var settings = ClientSettings.shared()
+		var sensitivity: float = MOUSE_SENSITIVITY * float(settings.get_value("controls/mouse_sensitivity"))
+		# Screen pixels, so the interface size does not change how fast the camera turns.
+		var moved: Vector2 = event.screen_relative
+		yaw = wrapf(yaw - moved.x * sensitivity, -PI, PI)
 		_look_delta += event.relative
-		pitch = clampf(pitch - event.relative.y * MOUSE_SENSITIVITY, -PI * 0.49, PI * 0.49)
+		pitch = clampf(pitch - moved.y * sensitivity * (-1.0 if settings.get_value("controls/invert_y") else 1.0), -PI * 0.49, PI * 0.49)
 	elif _avatar_editor != null:
 		if event.is_action_pressed("pause"):
 			_close_avatar_editor()
+		return
+	elif _settings_overlay != null:
+		if event.is_action_pressed("pause"):
+			close_settings()
+			get_viewport().set_input_as_handled()
 		return
 	elif _guide_screen.visible:
 		if event.is_action_pressed("pause") or event.is_action_pressed("guide"):
@@ -1808,7 +1830,7 @@ func _gameplay_input_enabled() -> bool:
 	var captured := ignore_mouse_capture or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	return captured and not _chat_input.visible and not _pause_panel.visible and not _server_ui.has_modal() \
 		and not _inventory_screen.visible and not dead and _avatar_editor == null and not _crafting_screen.visible \
-		and not _guide_screen.visible
+		and not _guide_screen.visible and _settings_overlay == null
 
 
 func drop_selected(whole_stack := false) -> void:
@@ -1970,7 +1992,7 @@ func _close_dev_overlay() -> void:
 
 func _gameplay_input_enabled_ignoring_mouse() -> bool:
 	return not _chat_input.visible and not _pause_panel.visible and not _server_ui.has_modal() and not _inventory_screen.visible \
-		and _avatar_editor == null and not _crafting_screen.visible and not _guide_screen.visible
+		and _avatar_editor == null and not _crafting_screen.visible and not _guide_screen.visible and _settings_overlay == null
 
 
 ## Inspects what the crosshair points at, up to 64 blocks away: a mob or item, a player, else a block.
@@ -2415,29 +2437,67 @@ func _on_ui_action(ui_id: String, action: String) -> void:
 	Net.c_ui_action.rpc_id(1, ui_id, action)
 
 
+## Registers the input actions with the player's key bindings (engine/client/settings/client_settings.gd).
 static func _register_input_actions() -> void:
-	var keys := {
-		"move_forward": [KEY_W, KEY_UP], "move_back": [KEY_S, KEY_DOWN],
-		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
-		"jump": [KEY_SPACE], "sprint": [KEY_SHIFT, KEY_CTRL],
-		"chat": [KEY_T, KEY_ENTER], "toggle_debug": [KEY_F3], "pause": [KEY_ESCAPE], "crafting": [KEY_C], "graphics": [KEY_F4], "camera": [KEY_F5],
-		"inventory": [KEY_E, KEY_TAB], "drop": [KEY_Q], "guide": [KEY_G], "dev": [KEY_F8],
-	}
-	for action: String in keys:
-		if InputMap.has_action(action):
-			continue
-		InputMap.add_action(action)
-		for key: int in keys[action]:
-			var ev := InputEventKey.new()
-			ev.physical_keycode = key
-			InputMap.action_add_event(action, ev)
-	for pair in [["break", MOUSE_BUTTON_LEFT], ["place", MOUSE_BUTTON_RIGHT]]:
-		if InputMap.has_action(pair[0]):
-			continue
-		InputMap.add_action(pair[0])
-		var mb := InputEventMouseButton.new()
-		mb.button_index = pair[1]
-		InputMap.action_add_event(pair[0], mb)
+	ClientSettings.shared().apply_bindings()
+
+
+func _on_setting_changed(key: String) -> void:
+	var section := key.get_slice("/", 0)
+	if section == "graphics":
+		if key in ["graphics/window_mode", "graphics/vsync", "graphics/max_fps"]:
+			ClientSettings.shared().apply_display(get_window())
+		elif key == "graphics/fov":
+			_camera.fov = ClientSettings.shared().get_value(key)
+		elif key != "graphics/menu_backdrop":
+			_apply_graphics(false)
+	elif section == "audio":
+		ClientSettings.shared().apply_audio()
+	elif section == "accessibility" or key == "interface/scale":
+		_apply_accessibility()
+	elif key == "crafting/relaxed_timing":
+		_crafting_screen.load_settings()
+
+
+func _apply_accessibility() -> void:
+	var settings = ClientSettings.shared()
+	_effects.shake_scale = settings.get_value("accessibility/camera_shake")
+	_effects.flash_scale = settings.get_value("accessibility/flashes")
+	settings.apply_ui_scale(get_window())
+
+
+## The settings screen over the game (from the pause menu).
+func open_settings() -> void:
+	if _settings_overlay != null:
+		return
+	_pause_panel.visible = false
+	var overlay := Control.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.theme = MenuTheme.build()
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(780, 660)
+	center.add_child(panel)
+	var screen := SettingsScreen.new()
+	screen.closable = true
+	screen.closed.connect(close_settings)
+	panel.add_child(screen)
+	_hud_root.add_child(overlay)
+	_settings_overlay = overlay
+
+
+func close_settings() -> void:
+	if _settings_overlay != null:
+		_settings_overlay.queue_free()
+		_settings_overlay = null
+		_pause_panel.visible = true
 
 
 ## Pushes the current graphics preset into post-processing, materials and (when AO changes) meshes.
@@ -2502,7 +2562,7 @@ func _build_scene() -> void:
 	add_child(_effects)
 	add_child(_self_anchor)
 	_camera = Camera3D.new()
-	_camera.fov = 75.0
+	_camera.fov = ClientSettings.shared().get_value("graphics/fov")
 	_camera.near = 0.05
 	_camera.far = RENDER_DISTANCE * 1.5
 	add_child(_camera)
@@ -2685,6 +2745,11 @@ func _build_hud() -> void:
 		_pause_panel.visible = false
 		_tutorial_hud.open_panel())
 	pause_box.add_child(tutorials_button)
+	var settings_button := Button.new()
+	settings_button.text = "Settings"
+	settings_button.custom_minimum_size = Vector2(240, 44)
+	settings_button.pressed.connect(open_settings)
+	pause_box.add_child(settings_button)
 	var customize := Button.new()
 	customize.text = "Customize avatar"
 	customize.custom_minimum_size = Vector2(240, 44)
@@ -2695,20 +2760,6 @@ func _build_hud() -> void:
 	quit.custom_minimum_size = Vector2(240, 44)
 	quit.pressed.connect(disconnect_from_server)
 	pause_box.add_child(quit)
-	var volume_row := HBoxContainer.new()
-	var volume_label := Label.new()
-	volume_label.text = "Volume"
-	volume_row.add_child(volume_label)
-	_volume_slider = HSlider.new()
-	_volume_slider.min_value = 0.0
-	_volume_slider.max_value = 1.0
-	_volume_slider.step = 0.05
-	_volume_slider.value = _sounds.volume
-	_volume_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_volume_slider.value_changed.connect(func(v): _sounds.volume = v)
-	_volume_slider.drag_ended.connect(func(_changed): _sounds.save_volume())
-	volume_row.add_child(_volume_slider)
-	pause_box.add_child(volume_row)
 
 	_crafting_screen = CraftingScreen.new()
 	_crafting_screen.items = items

@@ -31,6 +31,8 @@ const SEEDS := [1337, 4242, 90210, 777, 2026, 31415]
 var game := "vanilla"
 var avatar_look := {}
 var player_name := ""
+## Orbiting camera and passing time (off: a still view, for players who prefer less motion).
+var motion := true
 
 var _server: Node
 var _atlas := {}
@@ -203,8 +205,9 @@ func refresh_avatar(look: Dictionary, name_text: String) -> void:
 
 
 func _process(delta: float) -> void:
-	_time = fposmod(_time + delta / DAY_SECONDS, 1.0)
-	_orbit = fposmod(_orbit + delta / ORBIT_SECONDS, 1.0)
+	if motion:
+		_time = fposmod(_time + delta / DAY_SECONDS, 1.0)
+		_orbit = fposmod(_orbit + delta / ORBIT_SECONDS, 1.0)
 	var angle := _orbit * TAU
 	var eye := _centre + Vector3(cos(angle) * ORBIT_RADIUS, 3.2, sin(angle) * ORBIT_RADIUS)
 	_camera.position = eye

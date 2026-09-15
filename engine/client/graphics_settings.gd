@@ -4,44 +4,28 @@ extends RefCounted
 ## fetch, bloom uses only a few small mip levels, and the "fast" preset renders 3D at reduced
 ## resolution with FSR upscaling. No real-time shadows, SSAO, SSR or global illumination.
 
-const PATH := "user://settings.cfg"
+const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 const PRESETS := ["fast", "balanced", "fancy"]
 
-const VALUES := {
-	# render_scale: 3D resolution relative to the window (FSR upscales when below 1).
-	"fast": {"ambient_occlusion": true, "sway": false, "fancy_water": false, "bloom": false, "grading": false, "fxaa": false, "render_scale": 0.7},
-	"balanced": {"ambient_occlusion": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": false, "render_scale": 0.85},
-	"fancy": {"ambient_occlusion": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 1.0},
-}
-
-var preset := "balanced"
+## The current preset name ("custom" when the player changed single toggles). Values live in the shared
+## client settings (engine/client/settings/client_settings.gd).
+var preset: String:
+	get:
+		return ClientSettings.shared().get_value("graphics/preset")
 
 
 func load_saved() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(PATH) == OK:
-		var saved := String(cfg.get_value("graphics", "preset", preset))
-		if saved in PRESETS:
-			preset = saved
-	var override := OS.get_environment("VOXEL_GRAPHICS")
-	if override in PRESETS:
-		preset = override
+	pass  # the shared settings load on first use
 
 
-func save() -> void:
-	var cfg := ConfigFile.new()
-	cfg.load(PATH)
-	cfg.set_value("graphics", "preset", preset)
-	cfg.save(PATH)
-
-
+## F4: the next preset (from "custom", back to the first).
 func cycle() -> void:
-	preset = PRESETS[(PRESETS.find(preset) + 1) % PRESETS.size()]
-	save()
+	var i := PRESETS.find(preset)
+	ClientSettings.shared().set_value("graphics/preset", PRESETS[(i + 1) % PRESETS.size()])
 
 
 func value(key: String):
-	return VALUES[preset][key]
+	return ClientSettings.shared().get_value("graphics/" + key)
 
 
 ## Applies post-processing and resolution settings. Material and mesher toggles are applied by the

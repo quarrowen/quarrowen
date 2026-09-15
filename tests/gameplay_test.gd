@@ -61,6 +61,7 @@ func _ready() -> void:
 	await _ugc_server()
 	await _ugc_moderation()
 	_menu_data()
+	_client_settings()
 	await _status_query()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -2031,10 +2032,13 @@ func _structures() -> void:
 			for dy in range(0, 3):
 				server.set_block_authoritative(sp + Vector3i(dx, dy, dz), 0)
 	server.set_block_authoritative(sp, spawner)
-	server.set_block_data(sp, {"spawner": {"entity": ["vanilla:zombie"], "count": [2, 2]}})
+	# Range 2 keeps every try on the cleared floor; spawn spots are random, so allow a few ticks.
+	server.set_block_data(sp, {"spawner": {"entity": ["vanilla:zombie"], "count": [2, 2], "range": 2}})
 	p.state.position = Vector3(sp) + Vector3(4, 0, 4)
 	server.set_world_time(0.0, 1200.0)
-	server.spawners._tick({"position": sp})
+	for i in 3:
+		if server.entities.in_radius(Vector3(sp), 8.0, server.entities.registry.id_of("vanilla:zombie")).is_empty():
+			server.spawners._tick({"position": sp})
 	_check(server.entities.in_radius(Vector3(sp), 8.0, server.entities.registry.id_of("vanilla:zombie")).size() >= 1, "a spawner makes its mobs when a player is near")
 	server.queue_free()
 	await get_tree().process_frame
@@ -2901,6 +2905,49 @@ func _status_query() -> void:
 	server.status_query.stop()
 	server.queue_free()
 	await get_tree().process_frame
+
+
+func _client_settings() -> void:
+	var ClientSettings = preload("res://engine/client/settings/client_settings.gd")
+	var path := DATA_DIR.path_join("settings_%d.cfg" % Time.get_ticks_msec())
+	OS.set_environment("VOXEL_SETTINGS", path)
+	var graphics_env := OS.get_environment("VOXEL_GRAPHICS")
+	OS.set_environment("VOXEL_GRAPHICS", "")
+	var settings = ClientSettings.new()
+	settings.load_file()
+	var changes := []
+	settings.changed.connect(func(k): changes.append(k))
+	_check(settings.get_value("graphics/preset") == "balanced" and settings.get_value("graphics/bloom") == true and settings.get_value("graphics/fov") == 75.0,
+		"settings start at their defaults")
+	settings.set_value("graphics/preset", "fast")
+	_check(settings.get_value("graphics/bloom") == false and settings.get_value("graphics/render_scale") == 0.7, "graphics toggles follow the preset")
+	settings.set_value("graphics/bloom", true)
+	_check(settings.get_value("graphics/preset") == "custom" and settings.get_value("graphics/bloom") == true and settings.get_value("graphics/sway") == false
+		and changes.has("graphics/preset"), "changing one toggle switches to custom, starting from the preset")
+	settings.set_value("graphics/fov", 500)
+	settings.set_value("graphics/max_fps", 60.0)
+	settings.set_value("graphics/window_mode", "tiny")
+	settings.set_value("controls/invert_y", true)
+	_check(settings.get_value("graphics/fov") == 110.0 and settings.get_value("graphics/max_fps") == 60 and settings.get_value("graphics/window_mode") == "windowed",
+		"values are clamped to the schema")
+	# Bindings.
+	settings.set_events("jump", ["key:J", "mouse:4"])
+	_check(InputMap.action_get_events("jump").size() == 2 and (InputMap.action_get_events("jump")[0] as InputEventKey).physical_keycode == KEY_J
+		and settings.action_using("key:J") == "jump" and settings.action_using("key:J", "jump") == "", "rebinding updates the input map")
+	var key := InputEventKey.new()
+	key.physical_keycode = KEY_F6
+	_check(ClientSettings.descriptor_of(key) == "key:F6" and ClientSettings.event_from("key:F6").physical_keycode == KEY_F6
+		and ClientSettings.describe("mouse:2") == "Right mouse" and ClientSettings.event_from("key:NotAKey") == null, "key descriptors round-trip")
+	var again = ClientSettings.new()
+	again.load_file()
+	_check(again.get_value("graphics/preset") == "custom" and again.get_value("controls/invert_y") == true and again.events("jump") == ["key:J", "mouse:4"],
+		"settings and bindings are saved")
+	again.reset_tab("Controls")
+	_check(again.get_value("controls/invert_y") == false and again.events("jump") == ["key:Space"]
+		and (InputMap.action_get_events("jump")[0] as InputEventKey).physical_keycode == KEY_SPACE, "resetting a tab restores its defaults and keys")
+	_check(again.get_value("graphics/preset") == "custom", "resetting one tab leaves the others")
+	OS.set_environment("VOXEL_SETTINGS", "")
+	OS.set_environment("VOXEL_GRAPHICS", graphics_env)
 
 
 func _js_blocks() -> void:

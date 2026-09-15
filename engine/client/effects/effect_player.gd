@@ -15,6 +15,9 @@ var play_sound: Callable
 var quality := 1.0
 ## Current camera shake as an offset to add to the camera, decaying over time.
 var shake_offset := Vector3.ZERO
+## Accessibility: 0..1 multipliers for camera shake and light flashes.
+var shake_scale := 1.0
+var flash_scale := 1.0
 
 var _shakes: Array[Dictionary] = []  # {strength, ends, seconds}
 var _builtin_textures := {}
@@ -31,6 +34,7 @@ func _process(delta: float) -> void:
 			_shakes.remove_at(i)
 			continue
 		strength = maxf(strength, s.strength * (s.ends - now) / s.seconds)
+	strength *= shake_scale
 	shake_offset = Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * strength * 0.12 if strength > 0.0 else Vector3.ZERO
 	for i in range(_live.size() - 1, -1, -1):
 		if not is_instance_valid(_live[i]):
@@ -72,10 +76,10 @@ func play_def(def: Dictionary, position: Vector3, options := {}, parent: Node3D 
 		var particles := _emitter(e, scale_factor, tint, duration)
 		root.add_child(particles)
 		longest = maxf(longest, float(e.lifetime))
-	if not def.light.is_empty():
+	if not def.light.is_empty() and flash_scale > 0.0:
 		var light := OmniLight3D.new()
 		light.light_color = Color.html(def.light.color) * tint
-		light.light_energy = def.light.energy
+		light.light_energy = def.light.energy * flash_scale
 		light.omni_range = def.light.range * scale_factor
 		light.shadow_enabled = false
 		root.add_child(light)

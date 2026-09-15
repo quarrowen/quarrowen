@@ -41,7 +41,22 @@ identity key to `user://identity/`
 
 **Controls:** WASD move, Space jump/swim, Shift sprint, LMB break, RMB place / use a machine / use
 the held item, C crafting, 1–9 / wheel slot, T chat and `/commands`, F3 debug, F4 graphics preset,
-Esc menu.
+Esc menu. Every key can be changed in Settings.
+
+**Settings** (main menu, or **Settings** in the pause menu; saved to `user://settings.cfg`, applied at
+once; each tab has a reset button):
+
+- **Graphics:** quality preset or Custom (3D resolution, corner shadows, swaying plants, fancy water,
+  glow, colour grading, FXAA), field of view, window (windowed, maximized, fullscreen), V-Sync, frame
+  rate limit, the live world behind the menu.
+- **Audio:** master, world sounds and interface sounds (separate audio buses).
+- **Controls:** mouse sensitivity, invert up/down, sprint key toggles, and two keys or mouse buttons for
+  every action (conflicts are pointed out).
+- **Accessibility:** interface size (on top of the automatic high-density scaling, for menus and the
+  HUD alike), camera shake, flashes, relaxed minigame timing, a still menu camera.
+- **Account** (menu): identity export/import and the hosting port.
+
+The schema lives in `engine/client/settings/client_settings.gd`; the screen is built from it.
 
 ## Layout
 
@@ -1010,7 +1025,7 @@ into chunk meshes instead of being rendered per pixel:
 - **Post:** AgX tone mapping, a few low-resolution bloom mips, light colour grading; optional FXAA.
 - **No** real-time shadow maps, SSAO, SSR or GI.
 
-Presets (F4, saved; `VOXEL_GRAPHICS=fast|balanced|fancy`): `fast` renders at 70% with FSR and turns
+Presets (F4 or Settings, saved; `VOXEL_GRAPHICS=fast|balanced|fancy`; changing a single option makes it Custom): `fast` renders at 70% with FSR and turns
 off sway, fancy water and bloom; `balanced` (default) 85% with everything on; `fancy` native
 resolution plus FXAA. At 2560x1600 on an M1 Max the balanced preset renders around 440 fps uncapped;
 scaling by GPU core count suggests roughly 130 fps on a base M1 Air (not measured on that machine).

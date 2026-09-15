@@ -172,7 +172,7 @@ changes with `tools/build_native.sh`.
      engine/client/guide_screen.gd; base "First Steps" chapter and a vanilla Cows page as samples; registered chapters/pages made of blocks (text, headings, item icons, live
      recipe embeds, mob portraits, links, tips), unlock conditions so spoilers stay hidden, search,
      opened with a key and a craftable Survival Guide item, remembers the last page.
-     Not done: the book UI does not scale up with high-DPI screens (like the other screens).
+     High-DPI scaling for every screen came with N2 (settings).
    - G2 Tutorial engine (done): engine/server/tutorials.gd, engine/client/tutorial_hud.gd, vanilla
      Survival Basics tutorial and five tips (mods/vanilla/tutorial.gd). Guided goals in the player's own world (HUD tracker, steps completed by real
      actions via events, hints that point at what to do), contextual one-time tips linking to guide
@@ -226,9 +226,15 @@ changes with `tools/build_native.sh`.
      Invite friends): live offline-generated world with the avatar, sidebar pages Play (worlds: new/rename/
      delete/folder), Multiplayer (address or invite code, favorites and recent with UDP status: name, motd,
      game, players, ping, version), Avatar, Create, Settings (identity, port); --name/--motd/--query-port;
-     menus scale on high-DPI (game screens still do not). Invite links (voxelcraft://) wait for export
+     menus scale on high-DPI (game screens too since N2). Invite links (voxelcraft://) wait for export
      packaging (URL scheme registration).
-   - N2 Settings screen: graphics, audio, controls/keybinds, accessibility, identity in one place.
+   - N2 Settings screen (done: engine/client/settings/client_settings.gd schema + settings_screen.gd; menu Settings page
+     with an Account tab, pause menu Settings overlay): graphics preset/custom toggles, FOV, window mode, v-sync,
+     fps limit, menu backdrop; master/world/interface audio buses; mouse sensitivity, invert Y, sprint toggle,
+     rebinding two events per action; interface size, camera shake, flashes, relaxed timing, still menu
+     camera. Game screens now scale on high-DPI too (content_scale_factor = screen scale x interface size;
+     mouse look uses screen_relative). Tests use VOXEL_SETTINGS. Not done: gamepad bindings, colour-blind
+     palettes, subtitles for sounds.
    - N3 Hub service + discovery: Rust service (repo, Docker) with signed server heartbeats and a server
      browser, news feed for the menu, LAN discovery (broadcast status queries), hub short codes.
    - N4 Friends and parties: identity-signed hub login, friend requests, presence (online, which server),

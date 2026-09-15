@@ -25,6 +25,7 @@ const CreationLibrary = preload("res://engine/client/creation_library.gd")
 const MainMenu = preload("res://engine/client/menu/main_menu.gd")
 const MenuBackdrop = preload("res://engine/client/menu/menu_backdrop.gd")
 const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
+const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 
 const DEFAULT_PORT := 24565
 const DEFAULT_GAME := "vanilla"
@@ -141,7 +142,6 @@ func _start_client(address: String, port: int, player_name: String, token: Strin
 	_menu.visible = false
 	_backdrop_fallback.visible = false
 	_remove_backdrop()
-	_scale_for_screen(false)
 	_client = GameClient.new()
 	_client.server_address = address
 	_client.server_port = port
@@ -174,7 +174,10 @@ func _on_client_exited(message: String) -> void:
 # --- Menu ---------------------------------------------------------------------------------------
 
 func _build_menu() -> void:
-	_scale_for_screen(true)
+	var settings = ClientSettings.shared()
+	settings.apply_display(get_window())
+	settings.apply_audio()
+	settings.changed.connect(_on_setting_changed)
 	_backdrop_fallback = ColorRect.new()
 	_backdrop_fallback.color = Color(0.1, 0.13, 0.18)
 	_backdrop_fallback.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -201,29 +204,40 @@ func _build_menu() -> void:
 	_add_backdrop()
 
 
-## Menus are laid out in logical pixels: on a high-density (Retina) screen they scale up to match.
-## The game's own screens do not scale yet, so it goes back to 1 while playing.
-func _scale_for_screen(menu: bool) -> void:
-	if DisplayServer.get_name() == "headless":
-		return
-	var window := get_window()
-	window.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
-	window.content_scale_factor = maxf(1.0, DisplayServer.screen_get_scale(window.current_screen)) if menu else 1.0
-
-
 ## The live world behind the menu (not in headless runs such as tests).
 func _add_backdrop() -> void:
-	if _backdrop != null or DisplayServer.get_name() == "headless" or OS.get_environment("VOXEL_MENU_BACKDROP") == "0":
+	if _backdrop != null or DisplayServer.get_name() == "headless" or OS.get_environment("VOXEL_MENU_BACKDROP") == "0" \
+			or not ClientSettings.shared().get_value("graphics/menu_backdrop"):
 		return
 	_backdrop = MenuBackdrop.new()
 	_backdrop.avatar_look = AvatarStore.load_avatar()
 	_backdrop.player_name = _menu.player_name
+	_backdrop.motion = ClientSettings.shared().get_value("accessibility/menu_motion")
 	_backdrop.ready_to_show.connect(func():
 		var tween := create_tween()
 		tween.tween_property(_backdrop_fallback, "modulate:a", 0.0, 0.8)
 		tween.tween_callback(func(): _backdrop_fallback.visible = false))
 	add_child(_backdrop)
 	move_child(_backdrop, 0)
+
+
+func _on_setting_changed(key: String) -> void:
+	var settings = ClientSettings.shared()
+	match key:
+		"graphics/window_mode", "graphics/vsync", "graphics/max_fps", "interface/scale":
+			settings.apply_display(get_window())
+		"audio/volume", "audio/world", "audio/interface":
+			settings.apply_audio()
+		"graphics/menu_backdrop":
+			if _client == null and settings.get_value(key):
+				_add_backdrop()
+			elif not settings.get_value(key):
+				_remove_backdrop()
+				_backdrop_fallback.visible = true
+				_backdrop_fallback.modulate.a = 1.0
+		"accessibility/menu_motion":
+			if _backdrop != null:
+				_backdrop.motion = settings.get_value(key)
 
 
 func _remove_backdrop() -> void:
@@ -343,7 +357,6 @@ func _labeled(parent: Control, label_text: String, control: Control) -> Control:
 
 
 func _show_menu(message: String) -> void:
-	_scale_for_screen(true)
 	_menu.visible = true
 	_backdrop_fallback.visible = true
 	_backdrop_fallback.modulate.a = 1.0

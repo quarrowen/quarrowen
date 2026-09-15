@@ -19,6 +19,7 @@ const InviteCode = preload("res://engine/shared/invite_code.gd")
 const ModLoader = preload("res://engine/server/mod_loader.gd")
 const Identity = preload("res://engine/shared/identity.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
+const SettingsScreen = preload("res://engine/client/settings/settings_screen.gd")
 
 const NEWS := "res://engine/client/menu/news.json"
 const PAGES := ["play", "multiplayer", "create", "settings"]
@@ -714,35 +715,38 @@ func _card(title: String, body: String, action: String, callback: Callable) -> C
 # --- Settings -----------------------------------------------------------------------------------
 
 func _build_settings() -> Control:
-	var page := VBoxContainer.new()
-	page.add_theme_constant_override("separation", 12)
-	page.add_child(MenuTheme.heading("Settings"))
-	page.add_child(MenuTheme.muted("Graphics, audio, controls and accessibility settings are coming next. In game, F3 cycles graphics presets."))
-	page.add_child(HSeparator.new())
-	page.add_child(MenuTheme.heading("Identity", 20))
+	var screen := SettingsScreen.new()
+	var account := VBoxContainer.new()
+	account.add_theme_constant_override("separation", 12)
+	account.add_child(MenuTheme.heading("Identity", 20))
 	_identity_label = MenuTheme.muted("")
 	_identity_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	page.add_child(_identity_label)
-	page.add_child(MenuTheme.muted("Your identity key is your account on every server. Export it (encrypted with a passphrase) to play from another computer.", 13))
-	_passphrase_edit = _labeled(page, "Passphrase", LineEdit.new())
+	_identity_label.custom_minimum_size.x = 300
+	account.add_child(_identity_label)
+	var about := MenuTheme.muted("Your identity key is your account on every server. Export it (encrypted with a passphrase) to play from another computer.", 13)
+	about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	about.custom_minimum_size.x = 300
+	account.add_child(about)
+	_passphrase_edit = _labeled(account, "Passphrase", LineEdit.new())
 	_passphrase_edit.secret = true
 	_passphrase_edit.placeholder_text = "at least %d characters" % Identity.MIN_PASSPHRASE_LENGTH
 	var identity_row := HBoxContainer.new()
-	page.add_child(identity_row)
+	account.add_child(identity_row)
 	for mode in ["Export identity…", "Import identity…"]:
 		var button := Button.new()
 		button.text = mode
 		button.pressed.connect(_pick_identity_file.bind(mode.begins_with("Export")))
 		identity_row.add_child(button)
-	page.add_child(HSeparator.new())
-	page.add_child(MenuTheme.heading("Hosting", 20))
-	var port_edit: SpinBox = _labeled(page, "Port", SpinBox.new())
+	account.add_child(HSeparator.new())
+	account.add_child(MenuTheme.heading("Hosting", 20))
+	var port_edit: SpinBox = _labeled(account, "Port", SpinBox.new())
 	port_edit.min_value = 1024
 	port_edit.max_value = 65534
 	port_edit.value = port
 	port_edit.value_changed.connect(func(v): port = int(v))
-	page.add_child(MenuTheme.muted("Worlds you play are hosted on this port (and the next one answers server list pings).", 13))
-	return page
+	account.add_child(MenuTheme.muted("Worlds you play are hosted on this port (and the next one answers server list pings).", 13))
+	screen.add_tab("Account", account)
+	return screen
 
 
 func _refresh_identity() -> void:

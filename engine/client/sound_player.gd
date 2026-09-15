@@ -9,16 +9,17 @@ const ContentCache = preload("res://engine/client/content_cache.gd")
 const VOICES_3D := 16
 const VOICES_2D := 4
 const BUILTIN_DIR := "res://engine/client/sounds/"
-const SETTINGS_PATH := "user://settings.cfg"
+const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 
 var registry := SoundRegistry.new()
 ## asset name -> {hash, size}; set by the client once content has loaded.
 var manifest := {}
-var volume := 1.0:
+## The master volume (the "audio/volume" setting).
+var volume: float:
+	get:
+		return ClientSettings.shared().get_value("audio/volume")
 	set(value):
-		volume = clampf(value, 0.0, 1.0)
-		AudioServer.set_bus_volume_db(0, linear_to_db(maxf(volume, 0.0001)))
-		AudioServer.set_bus_mute(0, volume <= 0.001)
+		ClientSettings.shared().set_value("audio/volume", value)
 ## Sounds started so far (read by tests).
 var played := 0
 
@@ -35,21 +36,15 @@ func _ready() -> void:
 		voice.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
 		voice.unit_size = 4.0
 		voice.max_polyphony = 1
+		voice.bus = ClientSettings.BUS_WORLD
 		add_child(voice)
 		_voices_3d.append(voice)
 	for i in VOICES_2D:
 		var voice := AudioStreamPlayer.new()
+		voice.bus = ClientSettings.BUS_INTERFACE
 		add_child(voice)
 		_voices_2d.append(voice)
-	var cfg := ConfigFile.new()
-	volume = float(cfg.get_value("audio", "volume", 0.8)) if cfg.load(SETTINGS_PATH) == OK else 0.8
-
-
-func save_volume() -> void:
-	var cfg := ConfigFile.new()
-	cfg.load(SETTINGS_PATH)
-	cfg.set_value("audio", "volume", volume)
-	cfg.save(SETTINGS_PATH)
+	ClientSettings.shared().apply_audio()
 
 
 func play_name(sound_name: String, pos: Vector3, volume_scale := 1.0, pitch := 1.0, positional := true) -> void:

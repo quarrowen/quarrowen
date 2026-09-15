@@ -22,6 +22,7 @@ signal experiment_requested(grid: PackedInt32Array)
 signal closed
 
 const Inventory = preload("res://engine/shared/inventory.gd")
+const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 const ItemVisuals = preload("res://engine/client/item_visuals.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 const COLUMNS := 7
@@ -1118,17 +1119,12 @@ func _relaxed_toggle() -> CheckBox:
 	box.focus_mode = Control.FOCUS_NONE
 	box.toggled.connect(func(on):
 		relaxed = on
-		var cfg := ConfigFile.new()
-		cfg.load("user://settings.cfg")
-		cfg.set_value("crafting", "relaxed_timing", on)
-		cfg.save("user://settings.cfg"))
+		ClientSettings.shared().set_value("crafting/relaxed_timing", on))
 	return box
 
 
 func load_settings() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load("user://settings.cfg") == OK:
-		relaxed = bool(cfg.get_value("crafting", "relaxed_timing", false))
+	relaxed = ClientSettings.shared().get_value("crafting/relaxed_timing")
 
 
 ## Shows the "by hand" buttons for something with a minigame.
