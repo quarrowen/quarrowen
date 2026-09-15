@@ -196,8 +196,19 @@ changes with `tools/build_native.sh`.
      version check; a validator/linter (manifest, missing assets, unknown names) with file hints.
    - C6 Templates and docs (done: engine/server/mod_templates.gd, menu Create a mod + Developer mode, mod_tool new/docs, docs/api/index.html): new-mod wizard (Host menu + CLI) for GDScript/JS starters; generated API docs
      site from mod_api.gd doc comments and the TypeScript declarations.
-3. **Player-made content / UGC** (follow-up): uploads of skins, cosmetics and later items/models;
-   validation, content hashing, per-server approval, reporting/moderation hooks, shared catalog.
+3. **Player-made content / UGC** (current, branch `ugc`; user decisions 2026-09-15): skins, voxel
+   accessories and imported models (item/block textures later); in-game editors plus PNG/GLB import;
+   creations travel with the player and each server decides what it accepts, plus a server library
+   (a cross-server catalog waits for the multiplayer network milestone); moderation with automatic
+   checks, an approval queue, reports and bans, and mod hooks. In order:
+   - U1 Creation format: kinds skin / accessory / model, content-hash ids, shared validation limits,
+     conversion to cosmetic definitions, the player's local library.
+   - U2 Skin painter: 64x64 layout painting with a turning 3D preview, tools, layers, PNG import.
+   - U3 Accessory builder (voxel boxes on an attachment point) and GLB model import with checks.
+   - U4 Delivery: offer creations on join and when worn, uploads with limits, the server library (browse
+     and wear), clients download them like assets, server policy.
+   - U5 Moderation: approval queue with previews, reports, hide/remove, hash blocklist, creator bans,
+     events and mod API, dashboard view.
 4. **Multiplayer network** (follow-up): server browser/discovery, server-to-server portals/transfer
    with the same identity, profiles, friends/parties, roles/permissions, anti-cheat checks, 100+ player
    scaling tests.

@@ -55,6 +55,7 @@ func _ready() -> void:
 	await _mod_packages()
 	await _mod_templates()
 	_api_docs()
+	_creations()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -2462,6 +2463,55 @@ func _api_docs() -> void:
 		"the API reference covers the mod API, JavaScript names, players and events")
 	_check(FileAccess.get_file_as_string("res://docs/api/index.html") == html,
 		"docs/api/index.html is up to date (regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)")
+
+
+func _creations() -> void:
+	var C = preload("res://engine/shared/creations.gd")
+	var Library = preload("res://engine/client/creation_library.gd")
+	var skin := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	skin.fill(Color(0.2, 0.4, 0.8))
+	var png := skin.save_png_to_buffer()
+	var m: Dictionary = C.make("skin", "skin", png, "Blue Suit", "author1", "Ada")
+	var checked: Dictionary = C.validate(m, png)
+	_check(checked.ok and C.is_id(m.id) and m.id == C.content_id("skin", "skin", png), "a skin creation validates with a content id")
+	var renamed := m.duplicate()
+	renamed.name = "Navy Suit"
+	_check(C.validate(renamed, png).manifest.id == m.id, "renaming keeps the id (it depends only on the content)")
+	var small := Image.create(32, 32, false, Image.FORMAT_RGBA8).save_png_to_buffer()
+	_check(C.validate(C.make("skin", "skin", small, "Tiny"), small).error.contains("64x64"), "skins must be 64x64")
+	_check(C.validate(m, Image.create(64, 64, false, Image.FORMAT_RGB8).save_png_to_buffer()).error.contains("id does not match"), "a changed payload no longer matches its id")
+	var boxes := {"boxes": [{"from": [-4, 0, -4], "size": [8, 3, 8], "color": "#aa3333"}, {"from": [-2, 3, -2], "size": [4, 4, 4], "color": "#222222"}]}
+	var box_data := JSON.stringify(boxes).to_utf8_buffer()
+	var hat: Dictionary = C.make("accessory", "hat", box_data, "Top Hat", "author1", "Ada")
+	_check(C.validate(hat, box_data).ok, "a voxel accessory validates")
+	var too_many := {"boxes": []}
+	for i in 70:
+		too_many.boxes.append({"from": [0, 0, 0], "size": [1, 1, 1], "color": "#ffffff"})
+	var many_data := JSON.stringify(too_many).to_utf8_buffer()
+	_check(C.validate(C.make("accessory", "hat", many_data, "Heap"), many_data).error.contains("at most"), "accessories have a box limit")
+	var far := JSON.stringify({"boxes": [{"from": [0, 90, 0], "size": [1, 1, 1], "color": "#ffffff"}]}).to_utf8_buffer()
+	_check(not C.validate(C.make("accessory", "hat", far, "Tower"), far).ok, "accessory boxes stay near the attachment point")
+	_check(not C.validate(C.make("accessory", "shirt", box_data, "Wrong"), box_data).ok, "accessories go in accessory categories")
+	var glb := FileAccess.get_file_as_bytes("res://mods/base/models/bed_foot.glb")
+	var model: Dictionary = C.make("model", "back", glb, "Bed Backpack", "author1", "Ada")
+	var model_check: Dictionary = C.validate(model, glb)
+	_check(model_check.ok and model_check.info.triangles > 0, "a GLB model validates and is measured (%s)" % model_check.error)
+	_check(C.validate(C.make("model", "back", png, "Fake"), png).error.contains("GLB"), "non-GLB models are refused")
+	var reg = preload("res://engine/shared/cosmetics.gd").new()
+	var hat_def: Dictionary = C.to_cosmetic(hat, box_data)
+	_check(reg.register(hat_def) == hat.id and reg.get_def(hat.id).boxes.size() == 2 and reg.get_def(hat.id).category == "hat", "creations become cosmetic definitions")
+	_check(reg.register(C.to_cosmetic(m, png)) == m.id and reg.get_def(m.id).texture == m.id + ".png" and reg.category("skin").name == "skin",
+		"a skin becomes a texture layer in the skin category")
+	# The local library.
+	var dir := ProjectSettings.globalize_path(DATA_DIR.path_join("creations_%d" % Time.get_ticks_msec()))
+	OS.set_environment("VOXEL_CREATIONS_DIR", dir)
+	_check(Library.save(m, png).ok and Library.save(hat, box_data).ok and not Library.save(C.make("skin", "skin", small, "Tiny"), small).ok,
+		"the library saves valid creations only")
+	_check(Library.list().size() == 2 and Library.get_payload(m.id) == png, "the library lists creations and returns their files")
+	_check(Library.update(m.id, {"name": "Navy Suit"}) and Library.get_manifest(m.id).name == "Navy Suit", "creations can be renamed")
+	Library.remove(hat.id)
+	_check(Library.list().size() == 1, "creations can be deleted")
+	OS.set_environment("VOXEL_CREATIONS_DIR", "")
 
 
 func _js_blocks() -> void:

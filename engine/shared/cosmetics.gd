@@ -36,6 +36,7 @@ const MAX_OPS := 64
 
 ## Categories in drawing order: layers of later categories paint over earlier ones.
 const DEFAULT_CATEGORIES := [
+	{"name": "skin", "display_name": "Skin"},  # a whole painted skin (player creations), under everything
 	{"name": "face", "display_name": "Face", "attach": "face"},
 	{"name": "pants", "display_name": "Pants"},
 	{"name": "shoes", "display_name": "Shoes"},
