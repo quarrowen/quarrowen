@@ -68,6 +68,7 @@ func _ready() -> void:
 	await _playtest_fixes()
 	await _movement()
 	await _server_panel()
+	await _graves_and_homes()
 	await _anticheat()
 	await _scale()
 	await _status_query()
@@ -140,6 +141,64 @@ func _registries() -> void:
 		"sounds replicate with clamped volume")
 	_check(EntityPhysics.segment_hits_box(Vector3(0, 0.5, -5), Vector3(0, 0, 1), 10.0, Vector3(-0.5, 0, -0.5), Vector3(0.5, 1, 0.5)) == 4.5,
 		"segment/box intersection distance")
+
+
+## Dying leaves a grave with your things in it, and /sethome, /home, /back get you around.
+func _graves_and_homes() -> void:
+	var server = _start("graves_%d" % Time.get_ticks_msec())
+	server.set_gameplay({"keep_inventory": false})
+	var y: int = server.surface_height(8, 8)
+	var pos := Vector3(8.5, y + 1, 8.5)
+	var p := ServerPlayer.new(server, 91, "Digger")
+	p.player_id = "digger"
+	p.state.position = pos
+	server.players[91] = p
+	var iron: int = server.items.id_of("base:iron_ingot")
+	p.give(iron, 5)
+	var stone: int = server.registry.id_of("base:stone")
+	p.give(stone, 12)
+	server.kill_player(p, "fall", null)
+	_check(p.inventory.count_of(iron) == 0, "dying empties the backpack")
+	var grave_block: int = server.registry.id_of("base:grave")
+	var grave_at := Vector3i.MAX
+	for dy in range(-1, 3):
+		for dx in range(-1, 2):
+			for dz in range(-1, 2):
+				var cell := Vector3i(floori(pos.x) + dx, floori(pos.y) + dy, floori(pos.z) + dz)
+				if server.world.get_block_v(cell) == grave_block:
+					grave_at = cell
+	_check(grave_at != Vector3i.MAX, "a grave stands where the player died")
+	if grave_at == Vector3i.MAX:
+		server.queue_free()
+		await get_tree().process_frame
+		return
+	var grave = server.containers.get_container(grave_at)
+	var in_grave := 0
+	for i in grave.size():
+		var stack: Dictionary = grave.get_item(i)
+		if int(stack.item) == iron:
+			in_grave += int(stack.count)
+	_check(in_grave == 5, "the iron is in the grave (%d)" % in_grave)
+	var other := ServerPlayer.new(server, 92, "Robber")
+	other.player_id = "robber"
+	server.players[92] = other
+	var blocked: Dictionary = server.emit("container_open", {"player": other, "position": grave_at, "container": grave, "cancelled": false})
+	_check(blocked.cancelled, "someone else cannot open it")
+	var mine: Dictionary = server.emit("container_open", {"player": p, "position": grave_at, "container": grave, "cancelled": false})
+	_check(not mine.cancelled, "the owner can")
+
+	# Homes: /sethome remembers a spot, /home returns to it, /back goes to the last death.
+	p.dead = false
+	p.edit_tokens = 100.0  # chat (and so commands) costs a token
+	p.state.position = pos + Vector3(20, 0, 0)
+	server.on_chat(91, "/sethome")
+	p.state.position = pos + Vector3(60, 0, 60)
+	server.on_chat(91, "/home")
+	_check(p.state.position.distance_to(pos + Vector3(20, 0, 0)) < 0.2, "/home returns to the spot /sethome remembered")
+	server.on_chat(91, "/back")
+	_check(p.state.position.distance_to(pos) < 1.5, "/back goes to where you died (%.1f blocks away)" % p.state.position.distance_to(pos))
+	server.queue_free()
+	await get_tree().process_frame
 
 
 ## The admin server settings screen: state, changes, and that it grants nothing extra.

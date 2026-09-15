@@ -234,6 +234,10 @@ func _init() -> void:
 	quit()
 
 
+	# Graves (appended last so earlier textures keep their random sequence).
+	_save(_grave(false), base + "grave_side.png")
+	_save(_grave(true), base + "grave_top.png")
+
 func _part(part: String) -> Image:
 	var img := _blank()
 	for y in TILE:
@@ -1123,4 +1127,26 @@ func _generator() -> Image:
 				var hot := x < 8
 				var c := Color(0.95, 0.5, 0.15) if hot else Color(0.25, 0.5, 0.95)
 				img.set_pixel(x, y, _vary(c, 0.1))
+	return img
+
+
+## A mossy headstone: the side carries the stone slab, the top is bare earth and grass.
+func _grave(top: bool) -> Image:
+	var img := _noise(Color(0.42, 0.42, 0.45) if not top else Color(0.35, 0.28, 0.2), 0.08)
+	if top:
+		for y in TILE:
+			for x in TILE:
+				if (x + y) % 5 == 0:
+					img.set_pixel(x, y, _vary(Color(0.3, 0.45, 0.24), 0.08))  # grass tufts on the mound
+		return img
+	for y in TILE:
+		for x in TILE:
+			if x >= 4 and x <= 11 and y >= 2:
+				img.set_pixel(x, y, _vary(Color(0.58, 0.58, 0.6), 0.05))  # the stone itself
+			if x >= 5 and x <= 10 and y >= 3 and y <= 4 and (x == 5 or x == 10 or y == 3):
+				img.set_pixel(x, y, Color(0.3, 0.3, 0.32))  # a carved arch
+	for x in range(6, 10):
+		img.set_pixel(x, 7, Color(0.32, 0.32, 0.34))
+	for y in range(6, 10):
+		img.set_pixel(7, y, Color(0.32, 0.32, 0.34))
 	return img

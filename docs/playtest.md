@@ -124,6 +124,8 @@ Press **T**, type a command, press Enter. `/help` lists them all.
 | `/time day` | make it day (`/time night`, `/time noon`) |
 | `/tp Name` | go to a player |
 | `/fly` | fly (creative mode, or the "fly" permission). Double-tap jump does it too; jump rises, Shift sinks |
+| `/sethome`, `/home` | remember a spot and come back to it (everyone can) |
+| `/back` | go to where you last died (your grave holds your things) |
 | `/lowgravity` | low gravity for everyone, for big jumps (again to turn it off) |
 | `/gameplay mob_spawning false` | no monsters (`true` to bring them back) |
 | `/gameplay chat_filter true` | turn the chat filter on or off |
