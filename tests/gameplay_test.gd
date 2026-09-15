@@ -57,6 +57,7 @@ func _ready() -> void:
 	_api_docs()
 	_creations()
 	await _skin_painter()
+	await _accessory_tools()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -2564,6 +2565,66 @@ func _skin_painter() -> void:
 	painter.queue_free()
 	OS.set_environment("VOXEL_CREATIONS_DIR", "")
 	await get_tree().process_frame
+
+
+func _accessory_tools() -> void:
+	var Builder = preload("res://engine/client/avatar/accessory_builder.gd")
+	var Importer = preload("res://engine/client/avatar/model_importer.gd")
+	var Cos = preload("res://engine/shared/cosmetics.gd")
+	var Looks = preload("res://engine/client/avatar/look_builder.gd")
+	var Library = preload("res://engine/client/creation_library.gd")
+	var dir := ProjectSettings.globalize_path(DATA_DIR.path_join("accessories_%d" % Time.get_ticks_msec()))
+	OS.set_environment("VOXEL_CREATIONS_DIR", dir)
+	var registry = Cos.new()
+	var looks = Looks.new(registry, {}, Library.read_model)
+	var rig: Dictionary = preload("res://engine/shared/player_rig.gd").default_rig()
+	var builder = Builder.new()
+	builder.setup(registry, looks, rig, Cos.default_avatar("Maker"), "Maker", {"category": "hat", "author": "author1"})
+	add_child(builder)
+	await get_tree().process_frame
+	builder.set_color("#222222")
+	for x in range(-6, 6):
+		for z in range(-6, 6):
+			builder.apply_at(Vector2i(x, z))
+	builder.end_stroke()
+	builder.set_layer(1)
+	builder.copy_layer_below()
+	_check(builder.voxels.size() == 288 and builder.build_boxes().size() == 1, "voxels of one color merge into a single box")
+	builder.set_color("#cc2222")
+	builder.mirror = true
+	builder.apply_at(Vector2i(2, -6))
+	builder.end_stroke()
+	_check(builder.voxels[Vector3i(2, 1, -6)] == "#cc2222" and builder.voxels[Vector3i(-3, 1, -6)] == "#cc2222", "mirroring places the other side too")
+	var boxes: Array = builder.build_boxes()
+	var count := 0
+	for b in boxes:
+		count += int(b.size[0]) * int(b.size[1]) * int(b.size[2])
+	_check(count == builder.voxels.size(), "merged boxes cover exactly the voxels")
+	builder.undo()
+	_check(builder.voxels[Vector3i(2, 1, -6)] == "#222222", "undo works in the builder")
+	var copy = Builder.new()
+	copy.load_boxes(boxes)
+	_check(copy.voxels.size() == count, "saved boxes load back into voxels for editing")
+	builder._name_edit.text = "Flat Cap"
+	var saved: Dictionary = builder.save()
+	_check(saved.ok and Library.get_manifest(saved.manifest.id).category == "hat" and not registry.defs.has("preview:accessory"), "the builder saves an accessory to the library")
+	builder.queue_free()
+	var importer = Importer.new()
+	importer.setup(registry, looks, rig, Cos.default_avatar("Maker"), "Maker", FileAccess.get_file_as_bytes("res://mods/industry/models/battery.glb"), {"category": "back"})
+	_check(importer.error.contains("512"), "the model importer refuses oversized textures before saving")
+	importer.free()
+	importer = Importer.new()
+	importer.setup(registry, looks, rig, Cos.default_avatar("Maker"), "Maker", FileAccess.get_file_as_bytes("res://mods/base/models/bed_foot.glb"), {"category": "back"})
+	add_child(importer)
+	await get_tree().process_frame
+	importer.transform.scale = 0.4
+	importer._name_edit.text = "Bedroll"
+	var model: Dictionary = importer.save()
+	_check(model.ok and Library.get_manifest(model.manifest.id).model_transform.scale == 0.4, "the model importer saves a model with its placement")
+	importer.queue_free()
+	await get_tree().process_frame
+	_check(looks.read_model == Library.read_model or looks.read_model.is_valid(), "the look builder gets its model reader back")
+	OS.set_environment("VOXEL_CREATIONS_DIR", "")
 
 
 func _js_blocks() -> void:

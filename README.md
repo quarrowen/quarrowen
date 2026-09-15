@@ -448,7 +448,10 @@ api.register_item("frost_blade", {"icon": "textures/frost_blade.png", "weapon": 
 with a turning 3D preview (pencil, eraser, fill with a small tolerance, picker, mirror, body and outer
 layers, undo/redo, PNG import/export). Saved skins go to the local creation library (`user://creations`)
 and are worn in the Skin category; a worn skin replaces the painted face and clothes, while 3D accessories
-still show. Format and limits: `engine/shared/creations.gd`.
+still show. In the hat, hair, glasses, back and face categories, **Build…** opens a voxel builder (layer
+by layer on a top-down grid with body-part guides, mirror, copy layer, undo; voxels merge into at most 64
+boxes) and **Import model…** places a GLB (size, offset and rotation sliders; refused if over 512 KB,
+4,000 triangles or 256 px textures). Format and limits: `engine/shared/creations.gd`.
 
 Players are drawn with a rig of 10 boxes (head, torso, upper and lower arms and legs) textured in the
 standard 64x64 Minecraft skin layout, animated procedurally (walking, running, jumping, swinging,

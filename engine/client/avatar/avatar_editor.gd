@@ -12,6 +12,8 @@ const Avatar = preload("res://engine/client/avatar/avatar.gd")
 const Creations = preload("res://engine/shared/creations.gd")
 const CreationLibrary = preload("res://engine/client/creation_library.gd")
 const SkinPainter = preload("res://engine/client/avatar/skin_painter.gd")
+const AccessoryBuilder = preload("res://engine/client/avatar/accessory_builder.gd")
+const ModelImporter = preload("res://engine/client/avatar/model_importer.gd")
 
 const EYE_COLORS := ["#3050c0", "#3a8a40", "#6a4428", "#202020", "#8a58c8", "#3d9c9c", "#9a9a9a", "#d94c4c"]
 const BODY_TARGETS := ["all", "head", "torso", "arms", "legs"]
@@ -222,7 +224,7 @@ func _rebuild_tabs() -> void:
 func _choices(cat_name: String) -> Array:
 	var out := []
 	for d in cosmetics.in_category(cat_name):
-		if cosmetics.is_blocked(d.name):
+		if cosmetics.is_blocked(d.name) or d.name.begins_with("preview:"):
 			continue
 		if Cosmetics.is_builtin(d.name) and in_game and not cosmetics.policy.allow_builtin:
 			continue
@@ -264,11 +266,16 @@ func _rebuild_creation_row() -> void:
 	var worn := String(avatar.get("wear", {}).get(_category, {}).get("id", ""))
 	if _category in ["body", "skin"]:
 		_creation_row.add_child(_small_button("Paint a skin…", open_painter.bind("")))
+	if _category in Creations.ACCESSORY_CATEGORIES:
+		_creation_row.add_child(_small_button("Build…", open_builder.bind("")))
+		_creation_row.add_child(_small_button("Import model…", _pick_model))
 	if Creations.is_id(worn):
 		var m := CreationLibrary.get_manifest(worn)
 		if not m.is_empty():
-			if m.kind == "skin":
-				_creation_row.add_child(_small_button("Edit", open_painter.bind(worn)))
+			match m.kind:
+				"skin": _creation_row.add_child(_small_button("Edit", open_painter.bind(worn)))
+				"accessory": _creation_row.add_child(_small_button("Edit", open_builder.bind(worn)))
+				"model": _creation_row.add_child(_small_button("Edit placement", open_model_importer.bind(CreationLibrary.get_payload(worn), worn)))
 			_creation_row.add_child(_small_button("Delete", _delete_creation.bind(worn)))
 
 
@@ -309,6 +316,77 @@ func open_painter(id: String) -> void:
 		_painter = null)
 	_painter = painter
 	add_child(painter)
+
+
+## Opens the accessory builder, empty or on a library accessory.
+func open_builder(id: String) -> void:
+	var options := {"category": _category, "author": author_id, "author_name": player_name}
+	var name := ""
+	if not id.is_empty():
+		var m := CreationLibrary.get_manifest(id)
+		var data = JSON.parse_string(CreationLibrary.get_payload(id).get_string_from_utf8())
+		options.boxes = data.get("boxes", []) if data is Dictionary else []
+		options.category = m.get("category", _category)
+		name = str(m.get("name", ""))
+	var look := avatar.duplicate(true)
+	var builder := AccessoryBuilder.new()
+	builder.setup(cosmetics, looks, _rig, look, player_name, options)
+	builder.edit_id = id
+	if not name.is_empty():
+		builder.set_name_text(name)
+	_open_tool(builder)
+
+
+func open_model_importer(glb: PackedByteArray, id := "") -> void:
+	var options := {"category": _category if _category in Creations.ACCESSORY_CATEGORIES else "hat", "author": author_id, "author_name": player_name}
+	var name := ""
+	if not id.is_empty():
+		var m := CreationLibrary.get_manifest(id)
+		options.category = m.get("category", options.category)
+		options.model_transform = m.get("model_transform", {})
+		name = str(m.get("name", ""))
+	var importer := ModelImporter.new()
+	importer.setup(cosmetics, looks, _rig, avatar, player_name, glb, options)
+	importer.edit_id = id
+	if not name.is_empty():
+		importer.set_name_text(name)
+	_open_tool(importer)
+
+
+func _pick_model() -> void:
+	var dialog := FileDialog.new()
+	dialog.use_native_dialog = true
+	dialog.access = FileDialog.ACCESS_FILESYSTEM
+	dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	dialog.filters = PackedStringArray(["*.glb ; Binary glTF model"])
+	dialog.file_selected.connect(func(path: String):
+		dialog.queue_free()
+		open_model_importer(FileAccess.get_file_as_bytes(path))
+		if _painter != null:
+			_painter.set_name_text(path.get_file().get_basename().capitalize()))
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered_ratio(0.6)
+
+
+## Shows a creation tool over the editor; saving wears the result.
+func _open_tool(tool_node: Control) -> void:
+	tool_node.saved.connect(func(manifest: Dictionary):
+		for preview in ["preview:accessory", "preview:model"]:
+			cosmetics.defs.erase(preview)
+		CreationLibrary.add_to(cosmetics, looks.images, manifest, CreationLibrary.get_payload(manifest.id))
+		looks.clear_cache()
+		_category = manifest.category
+		_rebuild_tabs()
+		_wear(manifest.id)
+		tool_node.queue_free()
+		_painter = null)
+	tool_node.closed.connect(func():
+		tool_node.queue_free()
+		_painter = null
+		_refresh_preview())
+	_painter = tool_node
+	add_child(tool_node)
 
 
 func _delete_creation(id: String) -> void:

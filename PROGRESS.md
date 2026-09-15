@@ -206,7 +206,7 @@ changes with `tools/build_native.sh`.
    - U1 Creation format (done: engine/shared/creations.gd, engine/client/creation_library.gd): kinds skin / accessory / model, content-hash ids, shared validation limits,
      conversion to cosmetic definitions, the player's local library.
    - U2 Skin painter (done: engine/client/avatar/skin_painter.gd, in the menu's avatar editor): 64x64 layout painting with a turning 3D preview, tools, layers, PNG import.
-   - U3 Accessory builder (voxel boxes on an attachment point) and GLB model import with checks.
+   - U3 Accessory builder (done: accessory_builder.gd, model_importer.gd) (voxel boxes on an attachment point) and GLB model import with checks.
    - U4 Delivery: offer creations on join and when worn, uploads with limits, the server library (browse
      and wear), clients download them like assets, server policy.
    - U5 Moderation: approval queue with previews, reports, hide/remove, hash blocklist, creator bans,
