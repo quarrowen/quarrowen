@@ -481,6 +481,9 @@ func _register_builtin_commands() -> void:
 		var result := ModValidator.check_running(self, args[0])
 		for line in ModValidator.report(result).slice(-12):
 			player.send_message(line), "engine", "admin")
+	add_command("ugc", "list [pending|reported|approved|rejected|removed|all] | approve|reject|remove <id> [reason] | trust|untrust <player> | ban|unban <player> [reason] | policy [key value]",
+		_cmd_ugc, "engine", "admin")
+	add_command("report", "<player> [inappropriate|offensive|copied|spam|other] - report a creation someone is wearing", _cmd_report, "engine")
 	add_command("reload", "<mod> | all | full | watch on|off - reload mods while the server runs", _cmd_reload, "engine", "admin")
 	add_command("devweb", "- the dev dashboard's address", func(player, _args):
 		if dev_web.running():
@@ -602,6 +605,14 @@ func after_mod_reload() -> void:
 ## Refreshes a player's open crafting screen (the recipe book may have changed).
 func open_crafting_refresh(p: ServerPlayer) -> void:
 	Net.s_known_recipes.rpc_id(p.peer_id, PackedStringArray(p.known_recipes.keys()), gameplay.recipe_discovery)
+
+
+## Messages for admins only (moderation).
+func tell_moderators(text: String) -> void:
+	dev_log.add("info", "server", text)
+	for p: ServerPlayer in players.values():
+		if is_admin(p):
+			p.send_message(text)
 
 
 func tell_admins(text: String) -> void:
@@ -2387,6 +2398,93 @@ func reapply_requested_avatar(p: ServerPlayer) -> void:
 
 
 # --- Player creations (RPC handlers; see engine/server/ugc.gd) -------------------------------------
+
+func _cmd_ugc(player, args: PackedStringArray) -> void:
+	var action := args[0] if args.size() > 0 else "list"
+	match action:
+		"list":
+			var filter := args[1] if args.size() > 1 else "pending"
+			var items := ugc.review_list(filter)
+			if items.is_empty():
+				player.send_message("No %s creations" % filter)
+			for item in items.slice(0, 12):
+				player.send_message("%s  %s \"%s\" by %s  [%s]%s" % [item.id.left(12), item.manifest.kind, item.manifest.name, item.manifest.author_name,
+					item.status, "  %d report%s" % [item.get("reports", []).size(), "" if item.get("reports", []).size() == 1 else "s"] if not item.get("reports", []).is_empty() else ""])
+		"approve", "reject", "remove":
+			var id := ugc.resolve_id(args[1] if args.size() > 1 else "")
+			if id.is_empty():
+				player.send_message("No single creation matches '%s' (see /ugc list)" % (args[1] if args.size() > 1 else ""))
+				return
+			var status: String = {"approve": "approved", "reject": "rejected", "remove": "removed"}[action]
+			ugc.set_status(id, status, " ".join(args.slice(2)), player.name)
+			player.send_message("%s is now %s" % [ugc.store[id].manifest.name, status])
+		"trust", "untrust", "ban", "unban":
+			var target_name := args[1] if args.size() > 1 else ""
+			var player_id: String = _meta.names.get(target_name.to_lower(), "")
+			if player_id.is_empty():
+				player.send_message("No known player named '%s'" % target_name)
+				return
+			if action in ["trust", "untrust"]:
+				ugc.set_trusted(player_id, action == "trust")
+			else:
+				ugc.set_banned(player_id, action == "ban", " ".join(args.slice(2)), player.name)
+			player.send_message("%s: %s" % [target_name, {"trust": "trusted creator", "untrust": "no longer trusted", "ban": "may not upload creations", "unban": "may upload again"}[action]])
+		"policy":
+			if args.size() >= 3:
+				var value = args[2]
+				if value in ["true", "false"]:
+					value = value == "true"
+				elif value.is_valid_int():
+					value = int(value)
+				ugc.set_policy({args[1]: value})
+			player.send_message("Creations policy: %s" % JSON.stringify(ugc.policy))
+		_:
+			player.send_message("Usage: /%s" % _commands.ugc.description)
+
+
+func _cmd_report(player, args: PackedStringArray) -> void:
+	var target = _find_online(args[0] if args.size() > 0 else "")
+	if target == null:
+		player.send_message("Usage: /report <player> [reason] - reports the creations that player wears")
+		return
+	var ids := Ugc.worn_ids(target.avatar)
+	if ids.is_empty():
+		player.send_message("%s is not wearing any player creations" % target.name)
+		return
+	for id in ids:
+		var error := ugc.report(player, id, args[1] if args.size() > 1 else "other")
+		player.send_message(error if not error.is_empty() else "Reported \"%s\". Thank you." % ugc.store[id].manifest.name)
+
+
+func on_ugc_report(peer_id: int, id: String, reason: String, details: String) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null:
+		return
+	var error := ugc.report(p, id, reason, details)
+	p.send_message(error if not error.is_empty() else "Thanks, the report was sent to this server's admins.")
+
+
+## The creations review panel (admins): list {filter, text} | set_status {id, status, reason} |
+## trust {player_id, on} | ban {player_id, on, reason} | clear_reports {id}. Answers with the list.
+func on_ugc_admin(peer_id: int, action: String, args: Dictionary) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null:
+		return
+	if not is_admin(p):
+		Net.s_ugc_admin_list.rpc_id(peer_id, [], {"denied": true})
+		return
+	match action:
+		"set_status":
+			ugc.set_status(str(args.get("id", "")), str(args.get("status", "")), str(args.get("reason", "")).left(200), p.name)
+		"trust":
+			ugc.set_trusted(str(args.get("player_id", "")), bool(args.get("on", true)))
+		"ban":
+			ugc.set_banned(str(args.get("player_id", "")), bool(args.get("on", true)), str(args.get("reason", "")).left(200), p.name)
+		"clear_reports":
+			ugc.clear_reports(str(args.get("id", "")))
+	var items := ugc.review_list(str(args.get("filter", "pending")), str(args.get("text", "")))
+	Net.s_ugc_admin_list.rpc_id(peer_id, items.slice(0, 200), ugc.policy)
+
 
 func on_ugc_offer(peer_id: int, manifests: Array) -> void:
 	var p: ServerPlayer = players.get(peer_id)

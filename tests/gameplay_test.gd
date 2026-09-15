@@ -59,6 +59,7 @@ func _ready() -> void:
 	await _skin_painter()
 	await _accessory_tools()
 	await _ugc_server()
+	await _ugc_moderation()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -2190,6 +2191,20 @@ func _dev_web() -> void:
 	_check(json.events.any(func(ev): return ev.event == "tester_signal" and ev.payload.player == "player Watcher"), "traced events reach the dashboard")
 	var info: Array = await _http_get(server, port, "/api/inspect?token=%s&player=97" % web.token)
 	_check(info[0] == 200 and JSON.parse_string(info[1]).fields.name == "Watcher", "the dashboard inspects players")
+	# Creations review.
+	server.ugc.set_policy({"accept": "approval"})
+	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.3, 0.5, 0.9))
+	var png := img.save_png_to_buffer()
+	var m: Dictionary = preload("res://engine/shared/creations.gd").make("skin", "skin", png, "Sky", "watcher", "Watcher")
+	server.ugc.offer(p, [m])
+	server.ugc.upload_piece(p, m.id, 0, png.size(), png)
+	var listed: Array = await _http_get(server, port, "/api/ugc?token=%s&filter=pending" % web.token)
+	_check(listed[0] == 200 and JSON.parse_string(listed[1]).items[0].id == m.id, "the dashboard lists creations waiting for review")
+	var file: Array = await _http_get(server, port, "/api/ugc_file?token=%s&id=%s" % [web.token, m.id])
+	_check(file[0] == 200 and file[1].contains("PNG"), "the dashboard serves a skin's image")
+	await _http_get(server, port, "/api/ugc_action?token=%s&action=set_status&id=%s&status=approved" % [web.token, m.id])
+	_check(server.ugc.is_approved(m.id), "the dashboard approves creations")
 	web.stop()
 	_check(not server.dev_tools.viewers.has(web.VIEWER_ID), "stopping the dashboard removes its viewer")
 	server.queue_free()
@@ -2695,6 +2710,84 @@ func _ugc_server() -> void:
 	var again = preload("res://engine/server/ugc.gd").new(server)
 	again.load_store(server._save_dir)
 	_check(again.store.has(cap.id) and again.blocked.has(m.id) and again.policy.max_per_player == 2, "the creation store and blocklist are saved")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _ugc_moderation() -> void:
+	var C = preload("res://engine/shared/creations.gd")
+	var server = _start("ugc_mod_%d" % Time.get_ticks_msec())
+	var ugc = server.ugc
+	var people := []
+	for i in 4:
+		var p := ServerPlayer.new(server, 150 + i, ["Artist", "Fan", "Critic", "Admin"][i])
+		p.player_id = ["artist_id", "fan_id", "critic_id", "admin_id"][i]
+		server.players[150 + i] = p
+		server._meta.names[p.name.to_lower()] = p.player_id
+		people.append(p)
+	var author: ServerPlayer = people[0]
+	var admin: ServerPlayer = people[3]
+	server._meta.admins.append(admin.player_id)
+	admin.edit_tokens = 100.0
+	author.edit_tokens = 100.0
+	var upload := func(name: String, color: Color) -> String:
+		var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+		img.fill(color)
+		var png := img.save_png_to_buffer()
+		var m: Dictionary = C.make("skin", "skin", png, name, "artist_id", "Artist")
+		ugc.offer(author, [m])
+		ugc.upload_piece(author, m.id, 0, png.size(), png)
+		return m.id
+	var id: String = upload.call("Red", Color(0.8, 0.1, 0.1))
+	var reported := []
+	server.add_handler("ugc_reported", func(ev): reported.append([ev.player.name, ev.reason, ev.reports]), 0)
+	# Reports: once per player, never your own, unknown reasons become "other".
+	ugc.set_policy({"report_hide": 2})
+	_check(ugc.report(author, id, "spam").contains("your own"), "players cannot report their own creations")
+	_check(ugc.report(people[1], id, "whatever", "rude words") == "" and ugc.store[id].reports[0].reason == "other", "a report is stored, unknown reasons become other")
+	_check(ugc.report(people[1], id, "spam") != "" and ugc.store[id].reports.size() == 1, "a player reports a creation only once")
+	_check(ugc.report(people[1], "ugc:" + "0".repeat(24), "spam") != "", "unknown creations cannot be reported")
+	_check(ugc.review_list("reported").map(func(x): return x.id) == [id] and ugc.is_approved(id), "reported creations are listed and stay up under the threshold")
+	ugc.report(people[2], id, "offensive")
+	_check(ugc.store[id].status == "pending" and reported.size() == 2 and reported[1] == ["Critic", "offensive", 2], "enough reports hide a creation until reviewed")
+	_check(ugc.review_list("pending").size() == 1 and ugc.review_list("approved").is_empty() and ugc.review_list("all", "red").size() == 1
+		and ugc.review_list("all", "blue").is_empty(), "review filters and search")
+	# Mods can veto a report.
+	var id2: String = upload.call("Blue", Color(0.1, 0.1, 0.8))
+	server.add_handler("ugc_reported", func(ev): ev.cancelled = ev.reason == "copied", 1)
+	ugc.report(people[1], id2, "copied")
+	_check(not ugc.store[id2].has("reports") or ugc.store[id2].reports.is_empty(), "a mod handler can cancel a report")
+	# Commands, admins only.
+	_check(ugc.resolve_id(id.substr(4, 6)) == id and ugc.resolve_id("ugc:") == "" and ugc.resolve_id("zzzz") == "", "ids resolve from a unique prefix")
+	server.on_chat(author.peer_id, "/ugc approve %s" % id.substr(4, 8))
+	_check(ugc.store[id].status == "pending", "only admins may moderate creations")
+	server.on_chat(admin.peer_id, "/ugc approve %s" % id.substr(4, 8))
+	_check(ugc.store[id].status == "approved" and ugc.store[id].reports.is_empty(), "approving clears reports")
+	server.on_chat(admin.peer_id, "/ugc reject %s looks like someone else's" % id.substr(4, 8))
+	_check(ugc.store[id].status == "rejected" and ugc.store[id].reason == "looks like someone else's", "rejecting keeps the reason")
+	# Trust skips the queue; banning hides everything and stops uploads.
+	ugc.set_policy({"accept": "trusted"})
+	var id3: String = upload.call("Green", Color(0.1, 0.8, 0.1))
+	_check(ugc.store[id3].status == "pending", "with accept trusted, unknown creators wait")
+	server.on_chat(admin.peer_id, "/ugc trust Artist")
+	var id4: String = upload.call("Yellow", Color(0.8, 0.8, 0.1))
+	_check(ugc.store[id4].status == "approved", "trusted creators skip the queue")
+	server.on_chat(admin.peer_id, "/ugc ban Artist stolen art")
+	_check([id2, id3, id4].all(func(x): return ugc.store[x].status == "rejected") and ugc.review_list("all")[0].author_banned, "banning a creator hides their creations")
+	var id5: String = upload.call("Black", Color(0.05, 0.05, 0.05))
+	_check(not ugc.store.has(id5), "banned creators cannot upload")
+	server.on_chat(admin.peer_id, "/ugc unban Artist")
+	_check(not ugc.banned_creators.has("artist_id") and ugc.store[id4].status == "rejected", "unbanning does not bring creations back by itself")
+	server.on_chat(admin.peer_id, "/ugc policy report_hide 5")
+	_check(ugc.policy.report_hide == 5, "/ugc policy sets values")
+	# The mod API.
+	var api = preload("res://engine/server/mod_api.gd").new(server, {"id": "tester", "dir": "res://tests"})
+	api.ugc_set_status(id4, "approve")
+	_check(ugc.is_approved(id4) and api.ugc_list("approved").size() == 1 and api.ugc_get(id4).manifest.name == "Yellow", "mods moderate through the API")
+	ugc.save_index()
+	var again = preload("res://engine/server/ugc.gd").new(server)
+	again.load_store(server._save_dir)
+	_check(again.trusted.has("artist_id") and again.store[id].reason == "looks like someone else's", "moderation state is saved")
 	server.queue_free()
 	await get_tree().process_frame
 

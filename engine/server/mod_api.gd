@@ -33,6 +33,8 @@ extends RefCounted
 ##   guide_page_read {player, page}                          a page read for the first time
 ##   tutorial_started {player, tutorial}   tutorial_step {player, tutorial, step, index, skipped}
 ##   tutorial_completed {player, tutorial}   tip_shown {player, tip}
+##   ugc_uploaded {player, creation, cancelled, reason}   a player creation arrived; cancel to refuse it
+##   ugc_status {id, status, reason, by}   ugc_reported {player, id, reason, details, reports, cancelled}
 ##   night_skipped  {sleepers}                                enough players slept; it is morning now
 ##   skill_crafted  {player, item, count, quality, score, names, data, product}   crafted by hand; data may be changed
 ##   item_crafted   {player, item, count}
@@ -902,6 +904,37 @@ func show_tip(player, tip_name: String) -> bool:
 ## max_per_player, max_bytes_per_player}. Saved with the world.
 func set_ugc_policy(values: Dictionary) -> void:
 	_server.ugc.set_policy(values)
+
+
+## Player creations for review or rewards: filter pending | reported | approved | rejected | removed | all.
+## Each: {id, manifest {kind, category, name, author, author_name}, status, reason, reports, uploaded_by, size}.
+func ugc_list(filter := "approved") -> Array:
+	return _server.ugc.review_list(filter)
+
+
+## One creation's record, or {}.
+func ugc_get(id: String) -> Dictionary:
+	return _server.ugc.store.get(id, {}).duplicate(true)
+
+
+## Approves, rejects (hidden; the author may upload a fixed version) or removes (blocked for good) a creation.
+func ugc_set_status(id: String, status: String, reason := "") -> bool:
+	return _server.ugc.set_status(id, {"approve": "approved", "reject": "rejected", "remove": "removed"}.get(status, status), reason, mod_id)
+
+
+## Files a report as a player (e.g. from a mod's own report button).
+func ugc_report(player, id: String, reason := "other", details := "") -> String:
+	return _server.ugc.report(player, id, reason, details)
+
+
+## Trusted creators' uploads skip the approval queue when the policy accepts "trusted".
+func ugc_trust(player_id: String, on := true) -> void:
+	_server.ugc.set_trusted(player_id, on)
+
+
+## Stops (or allows again) a player uploading creations; banning also hides their creations.
+func ugc_ban(player_id: String, on := true, reason := "") -> void:
+	_server.ugc.set_banned(player_id, on, reason, mod_id)
 
 
 ## A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from

@@ -75,6 +75,7 @@
   <button data-tab="events">Events</button>
   <button data-tab="perf">Perf</button>
   <button data-tab="inspect">Inspect</button>
+  <button data-tab="creations">Creations</button>
   <button data-tab="server">Server</button>
 </nav>
 <main>
@@ -146,6 +147,21 @@
       <label class="muted"><input id="inspect-live" type="checkbox" checked> Live</label>
     </div>
     <div class="detail" id="inspect-detail"><div class="empty">Pick a player and inspect what they look at.</div></div>
+  </section>
+
+  <section id="tab-creations" class="tab">
+    <div class="bar">
+      <select id="ugc-filter">
+        <option value="pending">Waiting for review</option><option value="reported">Reported</option><option value="approved">Approved</option>
+        <option value="rejected">Rejected</option><option value="removed">Removed</option><option value="all">All</option>
+      </select>
+      <input id="ugc-text" type="text" placeholder="Search name or creator">
+      <span id="ugc-policy" class="muted"></span>
+    </div>
+    <div class="split">
+      <div class="list" id="ugc-list"><div class="empty">Loading…</div></div>
+      <div class="detail" id="ugc-detail"><div class="empty">Select a creation to review it.</div></div>
+    </div>
   </section>
 
   <section id="tab-server" class="tab">
@@ -319,6 +335,58 @@ function renderPlayers(server) {
   $("server-detail").innerHTML = `<h3 style="margin-top:0">Server</h3>${tree(server)}`;
   $("players-detail").innerHTML = `<h3 style="margin-top:0">Players</h3>${tree(state.players)}`;
 }
+
+// --- Creations --------------------------------------------------------------------------------------
+state.ugc = [];
+state.ugcSelected = "";
+async function loadUgc() {
+  try {
+    const r = await api("/api/ugc", { filter: $("ugc-filter").value, text: $("ugc-text").value });
+    state.ugc = r.items;
+    $("ugc-policy").textContent = `accept: ${r.policy.accept} · library: ${r.policy.library ? "on" : "off"} · hide after ${r.policy.report_hide} reports`;
+    renderUgc();
+  } catch (e) { $("ugc-list").innerHTML = `<div class="empty">Could not load: ${esc(e.message)}</div>`; }
+}
+function renderUgc() {
+  const list = $("ugc-list");
+  if (!state.ugc.length) { list.innerHTML = `<div class="empty">Nothing here.</div>`; $("ugc-detail").innerHTML = `<div class="empty">Nothing to review.</div>`; return; }
+  list.innerHTML = state.ugc.map((c) => `<div class="row${state.ugcSelected === c.id ? " sel" : ""}" data-id="${esc(c.id)}">
+    ${c.reports && c.reports.length ? `<span class="count">⚑${c.reports.length}</span>` : ""}<b>${esc(c.manifest.name)}</b>
+    <span class="muted"> ${esc(c.manifest.kind)} by ${esc(c.manifest.author_name)} · ${esc(c.status)}</span></div>`).join("");
+  list.querySelectorAll(".row").forEach((r) => r.addEventListener("click", () => { state.ugcSelected = r.dataset.id; renderUgc(); }));
+  const c = state.ugc.find((x) => x.id === state.ugcSelected) || state.ugc[0];
+  state.ugcSelected = c.id;
+  const preview = c.manifest.kind === "skin"
+    ? `<img alt="skin" src="/api/ugc_file?token=${encodeURIComponent(token)}&id=${encodeURIComponent(c.id)}" style="width:256px;height:256px;image-rendering:pixelated;background:#222;border-radius:6px">`
+    : `<p class="muted">${esc(c.manifest.kind)} preview: wear it in game, or <a href="/api/ugc_file?token=${encodeURIComponent(token)}&id=${encodeURIComponent(c.id)}" style="color:var(--accent)">download the file</a>.</p>`;
+  const reports = (c.reports || []).map((r) => `<li>${esc(r.name)}: ${esc(r.reason)}${r.details ? " — " + esc(r.details) : ""}</li>`).join("");
+  $("ugc-detail").innerHTML = `${preview}
+    <h3 style="margin:12px 0 4px">${esc(c.manifest.name)}</h3>
+    <p class="muted">${esc(c.manifest.kind)} in ${esc(c.manifest.category)} · by <b>${esc(c.manifest.author_name)}</b>${c.author_trusted ? " (trusted)" : ""}${c.author_banned ? " (banned)" : ""}
+      · ${Math.round(c.size / 1024)} KB · ${esc(c.status)}${c.reason ? " — " + esc(c.reason) : ""}</p>
+    ${reports ? `<p><b>Reports</b></p><ul>${reports}</ul>` : ""}
+    <div class="bar"><input id="ugc-reason" type="text" placeholder="Reason (shown to the creator)"></div>
+    <div class="bar">
+      ${c.status !== "approved" ? `<button class="btn" data-act="approved">Approve</button>` : ""}
+      ${["approved", "pending"].includes(c.status) ? `<button class="btn" data-act="rejected">Reject</button>` : ""}
+      ${c.status !== "removed" ? `<button class="btn" data-act="removed">Remove for good</button>` : ""}
+      ${reports ? `<button class="btn" data-act="clear_reports">Clear reports</button>` : ""}
+      <button class="btn" data-act="trust">${c.author_trusted ? "Untrust" : "Trust"} creator</button>
+      <button class="btn" data-act="ban">${c.author_banned ? "Unban" : "Ban"} creator</button>
+    </div>
+    <p class="muted">${esc(c.id)}</p>`;
+  $("ugc-detail").querySelectorAll("button[data-act]").forEach((b) => b.addEventListener("click", async () => {
+    const act = b.dataset.act, reason = $("ugc-reason").value;
+    if (act === "removed" && !confirm("Remove this creation for good? Its content is blocked on this server.")) return;
+    if (["approved", "rejected", "removed"].includes(act)) await api("/api/ugc_action", { action: "set_status", id: c.id, status: act, reason });
+    else if (act === "clear_reports") await api("/api/ugc_action", { action: "clear_reports", id: c.id });
+    else await api("/api/ugc_action", { action: act, player_id: c.uploaded_by, on: (act === "trust" ? !c.author_trusted : !c.author_banned) ? "1" : "0", reason });
+    loadUgc();
+  }));
+}
+$("ugc-filter").addEventListener("change", loadUgc);
+$("ugc-text").addEventListener("change", loadUgc);
+document.querySelector('nav button[data-tab="creations"]').addEventListener("click", loadUgc);
 
 // --- Polling ----------------------------------------------------------------------------------------
 let busy = false;

@@ -12,6 +12,9 @@ extends RefCounted
 ##   /api/inspect?player=<peer>  |  &look=1 (what that player looks at)  |  entity=<id>  |  x=&y=&z=
 ##   /api/clear_errors[?source=mod]
 ##   /api/reload?mod=<id> | mod=all | mod=full
+##   /api/ugc?filter=pending|reported|approved|rejected|removed|all&text=   creations for review
+##   /api/ugc_action?action=set_status|trust|ban|clear_reports&id=&status=&reason=&player_id=&on=
+##   /api/ugc_file?id=   a creation's file (skin PNG, accessory JSON, model GLB)
 ## A dashboard that polls within VIEWER_TIMEOUT seconds counts as a dev tools viewer (so events are traced).
 
 const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
@@ -133,6 +136,25 @@ func _handle(peer: StreamPeerTCP, request_line: String) -> void:
 				result = {"results": _server.mod_reload.reload_all()}
 			else:
 				result = {"results": [_server.mod_reload.reload(what)]}
+		"/api/ugc":
+			result = {"items": _server.ugc.review_list(str(query.get("filter", "pending")), str(query.get("text", ""))).slice(0, 200), "policy": _server.ugc.policy}
+		"/api/ugc_action":
+			var ugc = _server.ugc
+			match str(query.get("action", "")):
+				"set_status": ugc.set_status(str(query.get("id", "")), str(query.get("status", "")), str(query.get("reason", "")).left(200), "dashboard")
+				"trust": ugc.set_trusted(str(query.get("player_id", "")), query.get("on", "1") == "1")
+				"ban": ugc.set_banned(str(query.get("player_id", "")), query.get("on", "1") == "1", str(query.get("reason", "")).left(200), "dashboard")
+				"clear_reports": ugc.clear_reports(str(query.get("id", "")))
+			result = {"ok": true}
+		"/api/ugc_file":
+			var id := str(query.get("id", ""))
+			var bytes: PackedByteArray = _server.ugc.payload(id)
+			if bytes.is_empty():
+				_respond(peer, 404, "application/json", JSON.stringify({"error": "no such creation"}))
+				return
+			var kind: String = _server.ugc.store[id].manifest.kind
+			_respond_bytes(peer, {"skin": "image/png", "accessory": "application/json", "model": "model/gltf-binary"}.get(kind, "application/octet-stream"), bytes)
+			return
 		"/api/clear_errors":
 			_server.dev_log.clear_errors(query.get("source", ""))
 			result = {"ok": true}
@@ -213,6 +235,13 @@ static func _query(text: String) -> Dictionary:
 		var kv := pair.split("=", true, 1)
 		out[kv[0].uri_decode()] = kv[1].uri_decode() if kv.size() > 1 else ""
 	return out
+
+
+static func _respond_bytes(peer: StreamPeerTCP, content_type: String, bytes: PackedByteArray) -> void:
+	var head := "HTTP/1.1 200 OK\r\nContent-Type: %s\r\nContent-Length: %d\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" % [content_type, bytes.size()]
+	peer.put_data(head.to_utf8_buffer())
+	peer.put_data(bytes)
+	peer.disconnect_from_host()
 
 
 static func _respond(peer: StreamPeerTCP, code: int, content_type: String, body: String) -> void:

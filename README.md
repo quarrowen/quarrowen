@@ -465,6 +465,18 @@ lists approved creations for the category so you can wear other players' work (i
 own creations stay in your portable look; library picks are remembered per server. Events
 `ugc_uploaded {player, creation, cancelled, reason}` and `ugc_status {id, status, reason}`.
 
+**Moderation:** players report a creation someone wears from the pause menu (**Report a creation…**) or
+with `/report <player> [reason]`; each player reports a creation once, and after `report_hide` reports
+(default 3, 0 = never) it is hidden until reviewed. Admins get **Review creations** in the pause menu
+(filters for waiting, reported, approved, rejected and removed; skin and 3D previews; reports; approve,
+reject, remove for good, clear reports, trust or ban the creator), the same in the dev dashboard's
+**Creations** tab, and `/ugc list|approve|reject|remove <id prefix> [reason]`, `/ugc trust|untrust|ban|unban
+<player>` and `/ugc policy <key> <value>`. Removed creations are blocklisted by content hash; trusted
+creators skip the queue under `accept=trusted`; banned creators cannot upload and their creations are
+hidden. Mods use `ugc_list`, `ugc_get`, `ugc_set_status`, `ugc_report`, `ugc_trust` and `ugc_ban`
+(JavaScript: `ugcList`, `ugcGet`, `ugcSetStatus`, `ugcTrust`, `ugcBan`), and the `ugc_reported {player, id,
+reason, details, reports, cancelled}` event can veto reports. `ugc_status` also carries `by`.
+
 Players are drawn with a rig of 10 boxes (head, torso, upper and lower arms and legs) textured in the
 standard 64x64 Minecraft skin layout, animated procedurally (walking, running, jumping, swinging,
 looking, getting hurt). Held items and worn armor show on everyone's avatar, F5 cycles first person,

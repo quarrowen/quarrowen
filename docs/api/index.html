@@ -86,7 +86,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 </nav>
 <main>
 <section id="start"><h1>VoxelCraft mod API</h1>
-<p class="lead">Mod API 1.0.0 · game 0.34.0. Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>
+<p class="lead">Mod API 1.0.0 · game 0.35.0. Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>
 <h3>Make a mod in a minute</h3>
 <ol>
 <li>In the game menu choose <b>Create a mod</b>, or run <code>godot --headless --path . res://tools/mod_tool.tscn -- new my_mod [--lang=js] [--kind=game]</code>.</li>
@@ -336,9 +336,16 @@ engine:dust, engine:explosion."><div class="sig"><code>api.play_effect(effect_na
 <section id="api-other"><h2>Other</h2>
 <div class="card" id="api-reloading" data-search="reloading  true while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,
 items and entities that exist update in place; things that cannot change live are skipped and noted."><div class="sig"><code>api.reloading := false  (property)</code></div><p>True while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,<br>items and entities that exist update in place; things that cannot change live are skipped and noted.</p></div>
-<div class="card" id="api-set-ugc-policy" data-search="set_ugc_policy  how this server treats player creations (engine/server/ugc.gd): {enabled, accept: &quot;auto&quot; | &quot;trusted&quot; |
+<div class="card" id="api-set-ugc-policy" data-search="set_ugc_policy setugcpolicy how this server treats player creations (engine/server/ugc.gd): {enabled, accept: &quot;auto&quot; | &quot;trusted&quot; |
 &quot;approval&quot; | &quot;off&quot;, kinds: [&quot;skin&quot;, &quot;accessory&quot;, &quot;model&quot;], library (others may wear approved ones),
-max_per_player, max_bytes_per_player}. saved with the world."><div class="sig"><code>api.set_ugc_policy(values: Dictionary) -&gt; void</code></div><p>How this server treats player creations (engine/server/ugc.gd): {enabled, accept: &quot;auto&quot; | &quot;trusted&quot; |<br>&quot;approval&quot; | &quot;off&quot;, kinds: [&quot;skin&quot;, &quot;accessory&quot;, &quot;model&quot;], library (others may wear approved ones),<br>max_per_player, max_bytes_per_player}. Saved with the world.</p></div>
+max_per_player, max_bytes_per_player}. saved with the world."><div class="sig"><code>api.set_ugc_policy(values: Dictionary) -&gt; void</code><span class="tag js" title="setUgcPolicy(values: { enabled?: boolean; accept?: &quot;auto&quot; | &quot;trusted&quot; | &quot;approval&quot; | &quot;off&quot;; kinds?: (&quot;skin&quot; | &quot;accessory&quot; | &quot;model&quot;)[]; library?: boolean; max_per_player?: number; max_bytes_per_player?: number; report_hide?: number }): void">JS setUgcPolicy</span></div><p>How this server treats player creations (engine/server/ugc.gd): {enabled, accept: &quot;auto&quot; | &quot;trusted&quot; |<br>&quot;approval&quot; | &quot;off&quot;, kinds: [&quot;skin&quot;, &quot;accessory&quot;, &quot;model&quot;], library (others may wear approved ones),<br>max_per_player, max_bytes_per_player}. Saved with the world.</p></div>
+<div class="card" id="api-ugc-list" data-search="ugc_list ugclist player creations for review or rewards: filter pending | reported | approved | rejected | removed | all.
+each: {id, manifest {kind, category, name, author, author_name}, status, reason, reports, uploaded_by, size}."><div class="sig"><code>api.ugc_list(filter := &quot;approved&quot;) -&gt; Array</code><span class="tag js" title="ugcList(filter?: &quot;pending&quot; | &quot;reported&quot; | &quot;approved&quot; | &quot;rejected&quot; | &quot;removed&quot; | &quot;all&quot;): Record&lt;string, unknown&gt;[]">JS ugcList</span></div><p>Player creations for review or rewards: filter pending | reported | approved | rejected | removed | all.<br>Each: {id, manifest {kind, category, name, author, author_name}, status, reason, reports, uploaded_by, size}.</p></div>
+<div class="card" id="api-ugc-get" data-search="ugc_get ugcget one creation's record, or {}."><div class="sig"><code>api.ugc_get(id: String) -&gt; Dictionary</code><span class="tag js" title="ugcGet(id: string): Record&lt;string, unknown&gt;">JS ugcGet</span></div><p>One creation's record, or {}.</p></div>
+<div class="card" id="api-ugc-set-status" data-search="ugc_set_status ugcsetstatus approves, rejects (hidden; the author may upload a fixed version) or removes (blocked for good) a creation."><div class="sig"><code>api.ugc_set_status(id: String, status: String, reason := &quot;&quot;) -&gt; bool</code><span class="tag js" title="ugcSetStatus(id: string, status: &quot;approved&quot; | &quot;rejected&quot; | &quot;removed&quot; | &quot;approve&quot; | &quot;reject&quot; | &quot;remove&quot;, reason?: string): boolean">JS ugcSetStatus</span></div><p>Approves, rejects (hidden; the author may upload a fixed version) or removes (blocked for good) a creation.</p></div>
+<div class="card" id="api-ugc-report" data-search="ugc_report  files a report as a player (e.g. from a mod's own report button)."><div class="sig"><code>api.ugc_report(player, id: String, reason := &quot;other&quot;, details := &quot;&quot;) -&gt; String</code></div><p>Files a report as a player (e.g. from a mod's own report button).</p></div>
+<div class="card" id="api-ugc-trust" data-search="ugc_trust ugctrust trusted creators' uploads skip the approval queue when the policy accepts &quot;trusted&quot;."><div class="sig"><code>api.ugc_trust(player_id: String, on := true) -&gt; void</code><span class="tag js" title="ugcTrust(playerId: string, on?: boolean): void">JS ugcTrust</span></div><p>Trusted creators' uploads skip the approval queue when the policy accepts &quot;trusted&quot;.</p></div>
+<div class="card" id="api-ugc-ban" data-search="ugc_ban ugcban stops (or allows again) a player uploading creations; banning also hides their creations."><div class="sig"><code>api.ugc_ban(player_id: String, on := true, reason := &quot;&quot;) -&gt; void</code><span class="tag js" title="ugcBan(playerId: string, on?: boolean, reason?: string): void">JS ugcBan</span></div><p>Stops (or allows again) a player uploading creations; banning also hides their creations.</p></div>
 </section>
 <section id="events"><h2>Events</h2><p>Register with <code>api.on(event, handler, priority)</code> (JS: <code>api.on</code>). Handlers get one dictionary; set <code>cancelled = true</code> where noted.</p><pre class="block">  player_join    {player, first_time}
   player_leave   {player}
@@ -370,6 +377,8 @@ max_per_player, max_bytes_per_player}. saved with the world."><div class="sig"><
   guide_page_read {player, page}                          a page read for the first time
   tutorial_started {player, tutorial}   tutorial_step {player, tutorial, step, index, skipped}
   tutorial_completed {player, tutorial}   tip_shown {player, tip}
+  ugc_uploaded {player, creation, cancelled, reason}   a player creation arrived; cancel to refuse it
+  ugc_status {id, status, reason, by}   ugc_reported {player, id, reason, details, reports, cancelled}
   night_skipped  {sleepers}                                enough players slept; it is morning now
   skill_crafted  {player, item, count, quality, score, names, data, product}   crafted by hand; data may be changed
   item_crafted   {player, item, count}
@@ -543,6 +552,12 @@ look and saved in data.look."><div class="sig"><code>entity.set_look(values: Dic
 <div class="card" data-search="debug"><div class="sig"><code>api.debug(...parts: unknown[]): void</code></div></div>
 <div class="card" data-search="warn"><div class="sig"><code>api.warn(...parts: unknown[]): void</code></div></div>
 <div class="card" data-search="error"><div class="sig"><code>api.error(...parts: unknown[]): void</code></div></div>
+<div class="card" data-search="setugcpolicy"><div class="sig"><code>api.setUgcPolicy(values: { enabled?: boolean; accept?: &quot;auto&quot; | &quot;trusted&quot; | &quot;approval&quot; | &quot;off&quot;; kinds?: (&quot;skin&quot; | &quot;accessory&quot; | &quot;model&quot;)[]; library?: boolean; max_per_player?: number; max_bytes_per_player?: number; report_hide?: number }): void</code></div></div>
+<div class="card" data-search="ugclist"><div class="sig"><code>api.ugcList(filter?: &quot;pending&quot; | &quot;reported&quot; | &quot;approved&quot; | &quot;rejected&quot; | &quot;removed&quot; | &quot;all&quot;): Record&lt;string, unknown&gt;[]</code></div></div>
+<div class="card" data-search="ugcget"><div class="sig"><code>api.ugcGet(id: string): Record&lt;string, unknown&gt;</code></div></div>
+<div class="card" data-search="ugcsetstatus"><div class="sig"><code>api.ugcSetStatus(id: string, status: &quot;approved&quot; | &quot;rejected&quot; | &quot;removed&quot; | &quot;approve&quot; | &quot;reject&quot; | &quot;remove&quot;, reason?: string): boolean</code></div></div>
+<div class="card" data-search="ugctrust"><div class="sig"><code>api.ugcTrust(playerId: string, on?: boolean): void</code></div></div>
+<div class="card" data-search="ugcban"><div class="sig"><code>api.ugcBan(playerId: string, on?: boolean, reason?: string): void</code></div></div>
 <div class="card" data-search="registerguidechapter"><div class="sig"><code>api.registerGuideChapter(name: string, def?: { title?: string; icon?: string; order?: number; description?: string }): boolean</code></div></div>
 <div class="card" data-search="registerguidepage"><div class="sig"><code>api.registerGuidePage(name: string, def: GuidePage): boolean</code></div></div>
 <div class="card" data-search="registertutorial"><div class="sig"><code>api.registerTutorial(name: string, def: Tutorial): boolean</code></div></div>
@@ -991,6 +1006,13 @@ declare module &quot;voxelcraft&quot; {
     debug(...parts: unknown[]): void;
     warn(...parts: unknown[]): void;
     error(...parts: unknown[]): void;
+    setUgcPolicy(values: { enabled?: boolean; accept?: &quot;auto&quot; | &quot;trusted&quot; | &quot;approval&quot; | &quot;off&quot;; kinds?: (&quot;skin&quot; | &quot;accessory&quot; | &quot;model&quot;)[];
+      library?: boolean; max_per_player?: number; max_bytes_per_player?: number; report_hide?: number }): void;
+    ugcList(filter?: &quot;pending&quot; | &quot;reported&quot; | &quot;approved&quot; | &quot;rejected&quot; | &quot;removed&quot; | &quot;all&quot;): Record&lt;string, unknown&gt;[];
+    ugcGet(id: string): Record&lt;string, unknown&gt;;
+    ugcSetStatus(id: string, status: &quot;approved&quot; | &quot;rejected&quot; | &quot;removed&quot; | &quot;approve&quot; | &quot;reject&quot; | &quot;remove&quot;, reason?: string): boolean;
+    ugcTrust(playerId: string, on?: boolean): void;
+    ugcBan(playerId: string, on?: boolean, reason?: string): void;
     registerGuideChapter(name: string, def?: { title?: string; icon?: string; order?: number; description?: string }): boolean;
     registerGuidePage(name: string, def: GuidePage): boolean;
     registerTutorial(name: string, def: Tutorial): boolean;
@@ -1409,6 +1431,9 @@ API (all GET, ?token=...):
   /api/inspect?player=&lt;peer&gt;  |  &amp;look=1 (what that player looks at)  |  entity=&lt;id&gt;  |  x=&amp;y=&amp;z=
   /api/clear_errors[?source=mod]
   /api/reload?mod=&lt;id&gt; | mod=all | mod=full
+  /api/ugc?filter=pending|reported|approved|rejected|removed|all&amp;text=   creations for review
+  /api/ugc_action?action=set_status|trust|ban|clear_reports&amp;id=&amp;status=&amp;reason=&amp;player_id=&amp;on=
+  /api/ugc_file?id=   a creation's file (skin PNG, accessory JSON, model GLB)
 A dashboard that polls within VIEWER_TIMEOUT seconds counts as a dev tools viewer (so events are traced).</pre></section>
 <section id="ref-reloading" class="ref"><h2>Reloading <span class="file">engine/server/mod_reload.gd</span></h2><pre class="block">Reloading mods while the server runs.
 

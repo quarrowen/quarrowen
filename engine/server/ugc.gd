@@ -13,7 +13,13 @@ extends RefCounted
 ##      may wear them from the server library when policy.library is on (or when a mod grants them).
 ##   5. Clients that see a creation they do not have ask for it (c_ugc_fetch) and get the manifest and
 ##      payload (s_ugc_defs, s_ugc_piece), which they validate and cache.
-## Events: ugc_uploaded {player, creation, cancelled} (cancel to refuse), ugc_status {id, status, reason}.
+## Moderation: players report creations they see (report); enough reports (policy.report_hide) hide a
+## creation until an admin looks at it. Admins approve, reject (hidden, the author may fix and re-upload),
+## remove (blocked for good), trust creators (their uploads skip the queue under "trusted") and ban them
+## from uploading (their creations are hidden too). In game: /ugc and the Creations review panel; on
+## the web: the dashboard's Creations tab; for mods: api.ugc_*.
+## Events: ugc_uploaded {player, creation, cancelled, reason} (cancel to refuse), ugc_status {id, status,
+## reason, by}, ugc_reported {player, id, reason, reports, cancelled}.
 
 const Creations = preload("res://engine/shared/creations.gd")
 const Cosmetics = preload("res://engine/shared/cosmetics.gd")
@@ -31,7 +37,9 @@ const DEFAULT_POLICY := {
 	"library": true,  # players may wear other players' approved creations
 	"max_per_player": 32,  # stored creations per author
 	"max_bytes_per_player": 4 * 1024 * 1024,
+	"report_hide": 3,  # reports from different players that hide an approved creation until reviewed (0 = never)
 }
+const REPORT_REASONS := ["inappropriate", "offensive", "copied", "spam", "other"]
 
 var policy := DEFAULT_POLICY.duplicate(true)
 ## id -> {manifest, status, reason, uploaded_by (player id), uploaded_at, size}
@@ -110,7 +118,7 @@ func set_policy(values: Dictionary) -> void:
 				policy.accept = values.accept if values.accept in ["auto", "trusted", "approval", "off"] else "approval"
 			"kinds":
 				policy.kinds = (values.kinds as Array).filter(func(k): return k in Creations.KINDS) if values.kinds is Array else policy.kinds
-			"max_per_player", "max_bytes_per_player":
+			"max_per_player", "max_bytes_per_player", "report_hide":
 				policy[key] = maxi(0, int(values[key]))
 			_:
 				policy[key] = bool(values[key])
@@ -275,11 +283,14 @@ func _after_approval(id: String) -> void:
 
 
 ## Changes a creation's status (moderation). "removed" also blocks the content for good.
-func set_status(id: String, status: String, reason := "") -> bool:
+func set_status(id: String, status: String, reason := "", by := "") -> bool:
 	if not store.has(id) or not status in STATUSES:
 		return false
 	store[id].status = status
 	store[id].reason = reason
+	store[id].reviewed_by = by
+	if status == "approved":
+		store[id].reports = []  # reviewed: old reports are settled
 	if status == "removed":
 		blocked[id] = reason
 		DirAccess.remove_absolute(_payload_path(id))
@@ -292,9 +303,9 @@ func set_status(id: String, status: String, reason := "") -> bool:
 	save_index()
 	var author = _server.players.values().filter(func(p): return p.player_id == store[id].uploaded_by)
 	for p in author:
-		_status(p, id, status, reason)
-	if author.is_empty():
-		_server.emit("ugc_status", {"id": id, "status": status, "reason": reason})
+		if p._online():
+			Net.s_ugc_status.rpc_id(p.peer_id, id, status, reason)
+	_server.emit("ugc_status", {"id": id, "status": status, "reason": reason, "by": by})
 	if status == "approved":
 		_after_approval(id)
 	return true
@@ -306,8 +317,10 @@ func set_status(id: String, status: String, reason := "") -> bool:
 func fetch(p, ids: PackedStringArray) -> void:
 	var defs := []
 	var queue: Array = _send.get(p.peer_id, [])
+	var moderator: bool = _server.is_admin(p)
 	for id in ids.slice(0, 32):
-		if not is_approved(id) or blocked.has(id):
+		# Moderators may look at creations waiting for review.
+		if not store.has(id) or blocked.has(id) or not (is_approved(id) or (moderator and store[id].status != "removed")):
 			continue
 		defs.append(store[id].manifest)
 		if not queue.any(func(q): return q[0] == id):
@@ -350,6 +363,90 @@ func library(query := {}, offset := 0, count := 48) -> Dictionary:
 		and (text.is_empty() or e.manifest.name.to_lower().contains(text) or str(e.manifest.author_name).to_lower().contains(text)))
 	list.sort_custom(func(a, b): return int(a.uploaded_at) > int(b.uploaded_at))
 	return {"total": list.size(), "items": list.slice(offset, offset + count).map(func(e): return e.manifest)}
+
+
+# --- Moderation -------------------------------------------------------------------------------------
+
+## A player reports a creation. Returns "" or why it was not accepted.
+func report(p, id: String, reason: String, details := "") -> String:
+	if not store.has(id):
+		return "that creation is not on this server"
+	var entry: Dictionary = store[id]
+	var reports: Array = entry.get("reports", [])
+	if reports.any(func(r): return r.by == p.player_id):
+		return "you already reported it"
+	if entry.manifest.author == p.player_id:
+		return "that is your own creation"
+	reason = reason if reason in REPORT_REASONS else "other"
+	var ev: Dictionary = _server.emit("ugc_reported", {"player": p, "id": id, "reason": reason, "details": details.left(200),
+		"reports": reports.size() + 1, "cancelled": false})
+	if ev.cancelled:
+		return ""
+	reports.append({"by": p.player_id, "name": p.name, "reason": reason, "details": details.left(200), "at": int(Time.get_unix_time_from_system())})
+	entry.reports = reports
+	_server.dev_log.add("warn", "server", "%s reported %s \"%s\" (%s): %d report%s" % [p.name, entry.manifest.kind, entry.manifest.name, reason,
+		reports.size(), "" if reports.size() == 1 else "s"])
+	if int(policy.report_hide) > 0 and reports.size() >= int(policy.report_hide) and entry.status == "approved":
+		set_status(id, "pending", "hidden after %d reports, waiting for review" % reports.size(), "reports")
+	else:
+		save_index()
+	_server.tell_moderators("A creation was reported: \"%s\" by %s (%s). /ugc list reported" % [entry.manifest.name, entry.manifest.author_name, reason])
+	return ""
+
+
+func clear_reports(id: String) -> void:
+	if store.has(id):
+		store[id].reports = []
+		save_index()
+
+
+## Creations for review: filter pending | reported | approved | rejected | removed | all, newest first.
+func review_list(filter := "pending", text := "") -> Array:
+	var needle := text.to_lower()
+	var out := []
+	for id in store:
+		var e: Dictionary = store[id]
+		var reports: int = e.get("reports", []).size()
+		var keep: bool = filter == "all" or e.status == filter or (filter == "reported" and reports > 0 and e.status != "removed")
+		if not keep or (not needle.is_empty() and not (e.manifest.name.to_lower().contains(needle) or str(e.manifest.author_name).to_lower().contains(needle))):
+			continue
+		var item := e.duplicate(true)
+		item.id = id
+		item.author_trusted = trusted.has(e.uploaded_by)
+		item.author_banned = banned_creators.has(e.uploaded_by)
+		out.append(item)
+	out.sort_custom(func(a, b): return a.get("reports", []).size() > b.get("reports", []).size() if filter == "reported" else int(a.uploaded_at) > int(b.uploaded_at))
+	return out
+
+
+## Finds a creation by id or a unique start of it ("3f2a", "ugc:3f2a"). "" when none or ambiguous.
+func resolve_id(text: String) -> String:
+	var needle := text if text.begins_with(Creations.PREFIX) else Creations.PREFIX + text
+	if store.has(needle):
+		return needle
+	var matches := store.keys().filter(func(k): return k.begins_with(needle))
+	return matches[0] if matches.size() == 1 else ""
+
+
+func set_trusted(player_id: String, on: bool) -> void:
+	if on:
+		trusted[player_id] = true
+	else:
+		trusted.erase(player_id)
+	save_index()
+
+
+## Bans (or unbans) a creator from uploading. Banning also hides their creations (rejected); unbanning
+## leaves them hidden until approved again.
+func set_banned(player_id: String, on: bool, reason := "", by := "") -> void:
+	if on:
+		banned_creators[player_id] = reason
+		for id in store.keys():
+			if store[id].uploaded_by == player_id and store[id].status in ["approved", "pending"]:
+				set_status(id, "rejected", "creator banned%s" % (": " + reason if not reason.is_empty() else ""), by)
+	else:
+		banned_creators.erase(player_id)
+	save_index()
 
 
 func player_left(peer_id: int) -> void:

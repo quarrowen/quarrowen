@@ -769,6 +769,27 @@ func c_ugc_library(query: Dictionary, offset: int) -> void:
 		server.on_ugc_library(_sender(), query, offset)
 
 
+## Reports a creation: reason inappropriate | offensive | copied | spam | other.
+@rpc("any_peer", "call_remote", "reliable")
+func c_ugc_report(id: String, reason: String, details: String) -> void:
+	if server:
+		server.on_ugc_report(_sender(), id, reason, details)
+
+
+## The creations review panel (admins; see GameServer.on_ugc_admin).
+@rpc("any_peer", "call_remote", "reliable")
+func c_ugc_admin(action: String, args: Dictionary) -> void:
+	if server:
+		server.on_ugc_admin(_sender(), action, args)
+
+
+## Creations for review: [{id, manifest, status, reason, reports, uploaded_by, uploaded_at, size, author_trusted, author_banned}].
+@rpc("authority", "call_remote", "reliable")
+func s_ugc_admin_list(items: Array, policy: Dictionary) -> void:
+	if client:
+		client.on_ugc_admin_list(items, policy)
+
+
 ## Upload these creations (ids from your offer).
 @rpc("authority", "call_remote", "reliable")
 func s_ugc_request(ids: PackedStringArray) -> void:

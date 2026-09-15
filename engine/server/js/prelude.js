@@ -271,6 +271,14 @@
       path: (points, color = "#60ff90", seconds = 2) => host("debugDraw", { type: "path", points, color, seconds }),
       sphere: (center, radius = 0.5, color = "#6090ff", seconds = 2) => host("debugDraw", { type: "sphere", center, radius, color, seconds }),
     },
+    /** Player creations (skins, accessories, models): policy {enabled, accept, kinds, library, max_per_player,
+     *  max_bytes_per_player, report_hide}, review lists and moderation. */
+    setUgcPolicy: (values) => host("setUgcPolicy", values),
+    ugcList: (filter = "approved") => host("ugcList", filter),
+    ugcGet: (id) => host("ugcGet", id),
+    ugcSetStatus: (id, status, reason = "") => host("ugcSetStatus", id, status, reason),
+    ugcTrust: (playerId, on = true) => host("ugcTrust", playerId, on),
+    ugcBan: (playerId, on = true, reason = "") => host("ugcBan", playerId, on, reason),
     registerGuideChapter: (name, def = {}) => host("registerGuideChapter", name, def),
     registerGuidePage: (name, def) => host("registerGuidePage", name, def),
     /** Tutorials (steps with goals completed by real actions) and one-time contextual tips. */

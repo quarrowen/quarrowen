@@ -48,6 +48,7 @@ const DevOverlay = preload("res://engine/client/dev_overlay.gd")
 const DebugDraw = preload("res://engine/client/debug_draw.gd")
 const UgcClient = preload("res://engine/client/ugc_client.gd")
 const CreationLibrary = preload("res://engine/client/creation_library.gd")
+const UgcReview = preload("res://engine/client/ugc_review.gd")
 const Creations = preload("res://engine/shared/creations.gd")
 const MinigameScreen = preload("res://engine/client/minigame_screen.gd")
 const EatingVisuals = preload("res://engine/client/eating_visuals.gd")
@@ -237,6 +238,7 @@ var _debug_draw: DebugDraw
 var ugc := UgcClient.new(self)
 ## Model files of downloaded creations: asset name -> GLB bytes.
 var ugc_models := {}
+var _ugc_review: UgcReview
 var _volume_slider: HSlider
 
 
@@ -686,6 +688,80 @@ func refresh_looks() -> void:
 			_apply_look(_self_avatar, player_name, _appearances[peer_id])
 		elif _remote_players.has(peer_id):
 			_apply_look(_remote_players[peer_id].avatar, _remote_players[peer_id].player_name, _appearances[peer_id])
+
+
+## The admin review panel for player creations.
+func open_ugc_review() -> void:
+	if _ugc_review != null:
+		return
+	_set_paused(false)
+	_ugc_review = UgcReview.new()
+	_ugc_review.cosmetics = cosmetics
+	_ugc_review.looks = _looks
+	_ugc_review.images = _asset_images
+	_ugc_review.rig = _player_rig
+	_ugc_review.action_requested.connect(func(action, args): Net.c_ugc_admin.rpc_id(1, action, args))
+	_ugc_review.fetch_requested.connect(func(ids): ugc.fetch(ids))
+	ugc.creation_ready.connect(_ugc_review.creation_ready)
+	_ugc_review.closed.connect(func():
+		ugc.creation_ready.disconnect(_ugc_review.creation_ready)
+		_ugc_review.queue_free()
+		_ugc_review = null
+		if not ignore_mouse_capture:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	_hud_root.add_child(_ugc_review)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func on_ugc_admin_list(items: Array, policy: Dictionary) -> void:
+	if _ugc_review != null:
+		_ugc_review.receive(items, policy)
+
+
+## Report a creation another player is wearing.
+func open_report_dialog() -> void:
+	var choices := []
+	for peer_id in _appearances:
+		if peer_id == my_id:
+			continue
+		var owner := str(_remote_players[peer_id].player_name) if _remote_players.has(peer_id) else "someone"
+		for id in UgcClient.worn_ids(_appearances[peer_id].get("avatar", {})):
+			var d := cosmetics.get_def(id)
+			choices.append([id, "%s's %s \"%s\"" % [owner, d.get("category", "creation"), d.get("display_name", id.left(12))]])
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "Report a creation"
+	dialog.ok_button_text = "Report"
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(460, 0)
+	dialog.add_child(box)
+	if choices.is_empty():
+		var none := Label.new()
+		none.text = "Nobody near you is wearing a player creation."
+		box.add_child(none)
+		dialog.get_ok_button().disabled = true
+	var which := OptionButton.new()
+	for c in choices:
+		which.add_item(c[1])
+	which.visible = not choices.is_empty()
+	box.add_child(which)
+	var reason := OptionButton.new()
+	for r in [["inappropriate", "Inappropriate"], ["offensive", "Offensive or hateful"], ["copied", "Copied from someone else"], ["spam", "Spam"], ["other", "Something else"]]:
+		reason.add_item(r[1])
+		reason.set_item_metadata(reason.item_count - 1, r[0])
+	reason.visible = not choices.is_empty()
+	box.add_child(reason)
+	var details := LineEdit.new()
+	details.placeholder_text = "Anything the admins should know (optional)"
+	details.max_length = 200
+	details.visible = not choices.is_empty()
+	box.add_child(details)
+	dialog.confirmed.connect(func():
+		if not choices.is_empty():
+			Net.c_ugc_report.rpc_id(1, choices[which.selected][0], reason.get_item_metadata(reason.selected), details.text)
+		dialog.queue_free())
+	dialog.canceled.connect(dialog.queue_free)
+	_hud_root.add_child(dialog)
+	dialog.popup_centered()
 
 
 ## A short message for the player (creation statuses and the like).
@@ -2548,6 +2624,12 @@ func _build_hud() -> void:
 	guide_button.custom_minimum_size = Vector2(240, 44)
 	guide_button.pressed.connect(func(): _set_guide_open(true))
 	pause_box.add_child(guide_button)
+	for entry in [["Report a creation…", open_report_dialog], ["Review creations (admins)", open_ugc_review]]:
+		var ugc_button := Button.new()
+		ugc_button.text = entry[0]
+		ugc_button.custom_minimum_size = Vector2(240, 44)
+		ugc_button.pressed.connect(entry[1])
+		pause_box.add_child(ugc_button)
 	var tutorials_button := Button.new()
 	tutorials_button.text = "Tutorials"
 	tutorials_button.custom_minimum_size = Vector2(240, 44)

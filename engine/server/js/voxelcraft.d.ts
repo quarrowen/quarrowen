@@ -432,6 +432,13 @@ declare module "voxelcraft" {
     debug(...parts: unknown[]): void;
     warn(...parts: unknown[]): void;
     error(...parts: unknown[]): void;
+    setUgcPolicy(values: { enabled?: boolean; accept?: "auto" | "trusted" | "approval" | "off"; kinds?: ("skin" | "accessory" | "model")[];
+      library?: boolean; max_per_player?: number; max_bytes_per_player?: number; report_hide?: number }): void;
+    ugcList(filter?: "pending" | "reported" | "approved" | "rejected" | "removed" | "all"): Record<string, unknown>[];
+    ugcGet(id: string): Record<string, unknown>;
+    ugcSetStatus(id: string, status: "approved" | "rejected" | "removed" | "approve" | "reject" | "remove", reason?: string): boolean;
+    ugcTrust(playerId: string, on?: boolean): void;
+    ugcBan(playerId: string, on?: boolean, reason?: string): void;
     registerGuideChapter(name: string, def?: { title?: string; icon?: string; order?: number; description?: string }): boolean;
     registerGuidePage(name: string, def: GuidePage): boolean;
     registerTutorial(name: string, def: Tutorial): boolean;
