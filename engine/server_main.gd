@@ -12,6 +12,7 @@ extends Node
 ##   --tags=pvp,modded     VOXEL_TAGS          tags shown in the server browser
 ##   --allowlist=Ann,Ben   VOXEL_ALLOWLIST     a private server: only these players (and admins) may join (/allow)
 ##   --chat-filter=on      VOXEL_CHAT_FILTER   mask swear words in chat (the chat_filter gameplay rule)
+##   --anticheat=kick      VOXEL_ANTICHEAT     kick | log (only tell moderators) | off
 ##   --default-role=member VOXEL_DEFAULT_ROLE  the role every player has (visitor: look around and chat, no building)
 ##   --max-players=64      VOXEL_MAX_PLAYERS
 ##   --mods=vanilla        VOXEL_MODS          comma-separated; dependencies load automatically
@@ -45,6 +46,7 @@ const DEFAULTS := {
 	"allowlist": "",
 	"chat-filter": "",
 	"default-role": "",
+	"anticheat": "",
 	"max-players": "64",
 	"mods": "vanilla",
 	"mods-dir": "",
@@ -95,6 +97,7 @@ func _ready() -> void:
 		"allowlist": options.allowlist,
 		"chat_filter": options["chat-filter"],
 		"default_role": options["default-role"],
+		"anticheat": options.anticheat,
 		"max_players": int(options["max-players"]),
 		"mods": mods,
 		"mod_dirs": String(options["mods-dir"]).replace(";", ",").split(",", false),

@@ -183,8 +183,12 @@ func get_ping_ms() -> int:
 	return int(server_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME))
 
 
+## The peer that sent the current message, or 0 (ignored everywhere) when it is flooding the server.
 func _sender() -> int:
-	return multiplayer.get_remote_sender_id()
+	var id := multiplayer.get_remote_sender_id()
+	if server and server.anticheat and not server.anticheat.allow_message(id):
+		return 0
+	return id
 
 
 # --- Client -> server -------------------------------------------------------------------------

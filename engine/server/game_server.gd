@@ -46,6 +46,7 @@ const HubAnnouncer = preload("res://engine/server/hub_announcer.gd")
 const ChatFilter = preload("res://engine/server/chat_filter.gd")
 const Transfers = preload("res://engine/server/transfers.gd")
 const Roles = preload("res://engine/server/roles.gd")
+const AntiCheat = preload("res://engine/server/anticheat.gd")
 const ModReload = preload("res://engine/server/mod_reload.gd")
 const ModValidator = preload("res://engine/server/mod_validator.gd")
 const Ugc = preload("res://engine/server/ugc.gd")
@@ -191,6 +192,7 @@ var hub: HubAnnouncer
 var chat_filter := ChatFilter.new()
 var transfers := Transfers.new(self)
 var roles := Roles.new(self)
+var anticheat := AntiCheat.new(self)
 ## The game port (0 when offline).
 var port := 0
 var max_players := DEFAULT_MAX_PLAYERS
@@ -293,6 +295,8 @@ func start(config: Dictionary) -> Error:
 		return err
 	_add_part_recipes()
 	_migrate_save_format()
+	if str(config.get("anticheat", "")) in ["kick", "log", "off"]:
+		anticheat.mode = str(config.anticheat)
 	chat_filter.load_extra(_save_dir)
 	if not str(config.get("default_role", "")).is_empty():
 		roles.default_role = str(config.default_role).to_lower()
@@ -615,6 +619,7 @@ func _register_builtin_commands() -> void:
 			player.send_message("The dev dashboard is off. Start the server with --dev-web=24580 (or --dev)."), "engine", "admin")
 	add_command("players", "List online players", _cmd_players, "engine")
 	add_command("op", "<player> - grant admin", _cmd_op.bind(true), "engine", "admin")
+	add_command("anticheat", "[player | recent | mode kick|log|off] - cheat checks", _cmd_anticheat, "engine", "admin")
 	add_command("role", "list | info <role> | give|take <player> <role> | create|delete|allow|deny|tag ... - roles and permissions", _cmd_role, "engine")
 	add_command("perms", "[player] - roles and what they allow", _cmd_perms, "engine")
 	add_command("network", "[list | id | reload | arrival <id> | arrivals] - servers players can travel to", _cmd_network, "engine", "admin")
@@ -914,6 +919,27 @@ func _cmd_role(player, args: PackedStringArray) -> void:
 				_save_all()
 		_:
 			player.send_message("Usage: /role list | info <role> | give|take <player> <role> | create <role> [inherits] | delete <role> | allow|deny|remove <role> <permission> | tag <role> <tag> [#color] | reset <role>")
+
+
+func _cmd_anticheat(player, args: PackedStringArray) -> void:
+	var action := args[0] if args.size() > 0 else "recent"
+	if action == "mode":
+		if args.size() > 1 and args[1] in ["kick", "log", "off"]:
+			anticheat.mode = args[1]
+		player.send_message("Anti-cheat mode: %s (kick: kick at high scores; log: only tell moderators; off)" % anticheat.mode)
+		return
+	var target = _find_online(action) if action != "recent" else null
+	if target != null:
+		var scores := []
+		for check: String in AntiCheat.CHECKS:
+			if anticheat.score(target, check) > 0.0:
+				scores.append("%s %.1f/%d" % [check, anticheat.score(target, check), int(AntiCheat.CHECKS[check].kick)])
+		player.send_message("%s: %s" % [target.name, ", ".join(scores) if not scores.is_empty() else "nothing suspicious"])
+		return
+	var recent := anticheat.recent()
+	player.send_message("Anti-cheat (%s): %s" % [anticheat.mode, "no flags" if recent.is_empty() else "%d recent flags" % recent.size()])
+	for r in recent.slice(0, 8):
+		player.send_message("  %s %s %s (%s, score %.0f) %s" % [Time.get_datetime_string_from_unix_time(r.time).substr(11), r.player, r.action, r.check, r.score, r.detail])
 
 
 func _cmd_perms(player, args: PackedStringArray) -> void:
@@ -1271,6 +1297,7 @@ func _physics_process(delta: float) -> void:
 	block_ticks.update(delta)
 	containers.update(delta)
 	transfers.update(delta)
+	anticheat.update(delta)
 	sessions.update(delta)
 	skill.update()
 	sleep.update(delta)
@@ -1368,7 +1395,11 @@ func _simulate_player(p: ServerPlayer) -> void:
 		if getting_up:
 			sleep.wake(p, "moved")
 		return
-	var budget := 2 if p.input_queue.size() > 3 else 1
+	# Inputs cannot run faster than the game: a little over one step per tick on average (clock drift), with a
+	# small burst for inputs that arrive in a clump after network jitter. A client sending sped-up inputs just
+	# builds a queue (and a timer score, see AntiCheat) instead of moving faster.
+	p.input_credit = minf(p.input_credit + AntiCheat.INPUT_RATE, AntiCheat.INPUT_BURST)
+	var budget := mini(2, floori(p.input_credit)) if not p.input_queue.is_empty() else 0
 	var start := p.state.position
 	var was_on_ground := p.state.on_ground
 	var steps := 0
@@ -1378,6 +1409,7 @@ func _simulate_player(p: ServerPlayer) -> void:
 		PlayerPhysics.step(p.state, input, world, p.physics_rules if p.physics_rules != null else rules)
 		p.last_processed_seq = input.seq
 		budget -= 1
+		p.input_credit -= 1.0
 		steps += 1
 		_track_fall(p, falling_speed)
 	var tick_time := 1.0 / Engine.physics_ticks_per_second
@@ -1929,6 +1961,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	skill.player_left(p)
 	sessions.leave(p)
 	transfers.player_left(peer_id)
+	anticheat.player_left(peer_id)
 	_store_player(p)
 	players.erase(peer_id)
 	for other: ServerPlayer in players.values():
@@ -2222,6 +2255,7 @@ func on_inputs(peer_id: int, packet: PackedByteArray) -> void:
 		return
 	var count := packet[0]
 	if count > MAX_INPUTS_PER_PACKET or packet.size() != 1 + count * PlayerPhysics.INPUT_SIZE:
+		anticheat.record(p, "bad_packet", 5.0, "an input packet of %d bytes" % packet.size())
 		return
 	var buf := StreamPeerBuffer.new()
 	buf.data_array = packet
@@ -2235,8 +2269,12 @@ func on_inputs(peer_id: int, packet: PackedByteArray) -> void:
 		p.input_queue.append(input)
 		p.yaw = input.yaw
 		p.pitch = input.pitch
+	var dropped := 0
 	while p.input_queue.size() > MAX_QUEUED_INPUTS:
 		p.input_queue.pop_front()
+		dropped += 1
+	if dropped > 0:
+		anticheat.record(p, "timer", float(dropped), "%d inputs beyond the game's pace" % dropped)
 
 
 func on_break_block(peer_id: int, pos: Vector3i) -> void:
@@ -2259,6 +2297,8 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 		# Accept a little early for latency; the client times the crack animation itself.
 		var mined_long_enough: bool = p.mining.get("position") == pos and _time - float(p.mining.get("started", INF)) >= required * 0.8 - 0.15
 		if required > 0.05 and not mined_long_enough:
+			var elapsed := _time - float(p.mining.get("started", _time)) if p.mining.get("position") == pos else 0.0
+			anticheat.record(p, "fast_break", 1.0 if elapsed < required * 0.5 else 0.25, "%.2f s of %.2f s" % [elapsed, required])
 			_reject_edit(p, pos)
 			return
 		harvest = Mining.can_harvest(registry.defs[current], tool)
@@ -2512,6 +2552,8 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 		return
 	var stats := p.get_stats()
 	if _time - p.last_attack_time < float(stats.attack_cooldown) * 0.9:
+		if _time - p.last_attack_time < float(stats.attack_cooldown) * 0.5:
+			anticheat.record(p, "attack_rate", 1.0, "%.2f s between hits" % (_time - p.last_attack_time))
 		return
 	var target = entities.entities.get(target_id) if kind == 0 else players.get(target_id)
 	if target == null or target == p or (kind == 0 and not target.is_alive()) or (kind == 1 and target.dead):
@@ -2521,6 +2563,8 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 	var eye := p.get_eye_position()
 	var distance := eye.distance_to(eye.clamp(box.position, box.end))
 	if distance > float(stats.reach):
+		if distance > float(stats.reach) + 2.0:
+			anticheat.record(p, "reach", 1.0, "a hit %.1f blocks away" % distance)
 		return
 	var center := box.get_center()
 	var ray := VoxelRaycast.cast(world, registry.solid_lut, eye, center - eye, eye.distance_to(center))
@@ -3518,7 +3562,10 @@ func _can_edit(p: ServerPlayer, pos: Vector3i) -> bool:
 	p.edit_tokens -= 1.0
 	if pos.y < 0 or pos.y >= Chunk.SIZE_Y or not world.has_chunk(VoxelWorld.chunk_coord_at(pos.x, pos.z)):
 		return false
-	return p.get_eye_position().distance_to(Vector3(pos) + Vector3(0.5, 0.5, 0.5)) <= REACH + 0.87
+	var distance := p.get_eye_position().distance_to(Vector3(pos) + Vector3(0.5, 0.5, 0.5))
+	if distance > REACH + 3.0:
+		anticheat.record(p, "reach", 1.0, "a block %.1f blocks away" % distance)
+	return distance <= REACH + 0.87
 
 
 func _has_solid_neighbor(pos: Vector3i) -> bool:

@@ -36,6 +36,7 @@ extends RefCounted
 ##   ugc_uploaded {player, creation, cancelled, reason}   a player creation arrived; cancel to refuse it
 ##   ugc_status {id, status, reason, by}   ugc_reported {player, id, reason, details, reports, cancelled}
 ##   role_changed {player_id, role, added, by}              a role given or taken
+##   cheat_detected {player, check, score, detail, cancelled}   an anti-cheat warning or kick (cancel to keep them)
 ##   player_transfer {player, server, arrival, data, cancelled, reason}   leaving for another server (data may be changed)
 ##   player_arrived {player, from, arrival, data}           arrived through a transfer ticket from a trusted server
 ##   night_skipped  {sleepers}                                enough players slept; it is morning now

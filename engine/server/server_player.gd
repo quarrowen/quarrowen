@@ -34,6 +34,8 @@ var modifiers := {}
 
 # Engine bookkeeping.
 var input_queue: Array = []
+## Simulation steps this player may take (anti-cheat: inputs cannot run faster than the game).
+var input_credit := 0.0
 var last_received_seq := -1
 var last_processed_seq := -1
 var sent_chunks := {}

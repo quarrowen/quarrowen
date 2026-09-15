@@ -65,6 +65,7 @@ func _ready() -> void:
 	await _private_server()
 	await _transfers()
 	await _roles()
+	await _anticheat()
 	await _status_query()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -3168,6 +3169,91 @@ func _roles() -> void:
 	_check(again.roles.exists("muted") and again.roles.roles_of("kid_id").has("builder"), "roles are saved with the world")
 	server.queue_free()
 	again.queue_free()
+	await get_tree().process_frame
+
+
+func _anticheat() -> void:
+	var server = _start("anticheat_%d" % Time.get_ticks_msec())
+	var make := func(peer: int, player_name: String) -> ServerPlayer:
+		var p := ServerPlayer.new(server, peer, player_name)
+		p.player_id = player_name.to_lower() + "_id"
+		p.edit_tokens = 100.0
+		server.players[peer] = p
+		# A flat, clear lane heading -z (yaw 0 walks forward along -z).
+		var x := 8 + peer % 5 * 6
+		var y := 70
+		for z in range(-24, 12):
+			for dx in range(-1, 2):
+				server.set_block_authoritative(Vector3i(x + dx, y - 1, z), server.registry.id_of("base:stone"))
+				for dy in 3:
+					server.set_block_authoritative(Vector3i(x + dx, y + dy, z), 0)
+		p.state.position = Vector3(x + 0.5, y, 8.5)
+		p.state.on_ground = true
+		return p
+	var honest: ServerPlayer = make.call(191, "Honest")
+	var cheater: ServerPlayer = make.call(192, "Speedy")
+	var packet := func(p: ServerPlayer, n: int) -> PackedByteArray:
+		var buf := StreamPeerBuffer.new()
+		buf.put_u8(n)
+		for i in n:
+			var input = PlayerPhysics.PlayerInput.new()
+			p.set_meta("seq", int(p.get_meta("seq", 0)) + 1)
+			input.seq = p.get_meta("seq")
+			input.move = Vector2(0, 1)
+			input.yaw = 0.0
+			input.write(buf)
+		return buf.data_array
+	var starts := [honest.state.position, cheater.state.position]
+	var flags := []
+	server.add_handler("cheat_detected", func(ev): flags.append([ev.player.name, ev.check]), 0)
+	for tick in 120:
+		server.on_inputs(191, packet.call(honest, 1))
+		for burst in 3:
+			server.on_inputs(192, packet.call(cheater, 5))  # 15 inputs per tick: a sped-up client
+		server._simulate_player(honest)
+		server._simulate_player(cheater)
+		server.anticheat.update(1.0 / 60.0)
+	var honest_d: float = Vector2(honest.state.position.x - starts[0].x, honest.state.position.z - starts[0].z).length()
+	var cheat_d: float = Vector2(cheater.state.position.x - starts[1].x, cheater.state.position.z - starts[1].z).length()
+	_check(honest_d > 3.0 and cheat_d <= honest_d * 1.08 + 0.3, "sped-up inputs do not move a player faster (%.2f vs %.2f blocks)" % [cheat_d, honest_d])
+	_check(server.anticheat.score(cheater, "timer") > 0.0 and server.anticheat.score(honest, "timer") == 0.0 and flags.has(["Speedy", "timer"]),
+		"the timer check flags the sped-up client, not the honest one")
+	# Reach: repeated edits far away end in a kick; admins are only logged.
+	var far := Vector3i(cheater.state.position.floor()) + Vector3i(12, 0, 0)
+	for i in 25:
+		server._can_edit(cheater, far)
+	_check(cheater.get_meta("anticheat_kicked", false) and flags.has(["Speedy", "reach"]), "editing far out of reach again and again gets a player kicked")
+	var admin: ServerPlayer = make.call(193, "Boss")
+	server.roles.give(admin.player_id, "admin")
+	for i in 25:
+		server._can_edit(admin, Vector3i(admin.state.position.floor()) + Vector3i(12, 0, 0))
+	_check(not admin.get_meta("anticheat_kicked", false) and server.anticheat.recent().any(func(r): return r.player == "Boss" and r.action == "logged"), "admins are logged, not kicked")
+	server.anticheat.mode = "log"
+	var tester: ServerPlayer = make.call(194, "Tester")
+	for i in 25:
+		server._can_edit(tester, Vector3i(tester.state.position.floor()) + Vector3i(12, 0, 0))
+	_check(not tester.get_meta("anticheat_kicked", false), "in log mode nobody is kicked")
+	server.anticheat.mode = "kick"
+	# A mod can overrule.
+	var lenient: ServerPlayer = make.call(195, "Lenient")
+	server.add_handler("cheat_detected", func(ev):
+		if ev.player.name == "Lenient":
+			ev.cancelled = true, 5)
+	for i in 25:
+		server._can_edit(lenient, Vector3i(lenient.state.position.floor()) + Vector3i(12, 0, 0))
+	_check(not lenient.get_meta("anticheat_kicked", false), "mods can cancel a kick")
+	# Scores fade: the odd early click is forgotten.
+	server.anticheat.record(tester, "fast_break", 3.0)
+	for i in 10:
+		server.anticheat.update(1.0)
+	_check(server.anticheat.score(tester, "fast_break") == 0.0, "scores decay over time")
+	# Floods: messages past the limit are dropped.
+	var allowed := 0
+	for i in 500:
+		if server.anticheat.allow_message(196):
+			allowed += 1
+	_check(allowed == server.anticheat.FLOOD_LIMIT, "messages past the flood limit are dropped (%d allowed)" % allowed)
+	server.queue_free()
 	await get_tree().process_frame
 
 

@@ -258,7 +258,10 @@ changes with `tools/build_native.sh`.
      engine/client/admin/players_panel.gd, chat tags, --default-role, mod + JS API, tests): built-in owner/admin/
      moderator/builder/member/visitor with inheritance, wildcards and denials, custom roles, permission checks on
      build/interact/chat/creative/ugc/dev tools/commands; old admin lists and --admins names map to roles.
-   - N7 Anti-cheat: movement/fly, reach, break speed, rate limits; logs, kicks, admin alerts.
+   - N7 Anti-cheat (done: engine/server/anticheat.gd, /anticheat, --anticheat, cheat_detected event, Net._sender flood gate,
+     tests): closed a speed hole (clients sending inputs faster got two physics steps per tick; now an input credit of
+     1.05/tick, burst 4); decaying scores for timer/reach/fast_break/attack_rate/bad_packet/flood with moderator
+     alerts and kicks (admins logged only). Not done: x-ray (hiding unseen ores), autoclicker heuristics, dashboard tab.
    - N8 Scale: 100+ bot load tests, interest management and bandwidth budgets. Also: gameplay RPCs share reliable
      channel 0 with chunk streaming, so effects/UI can lag seconds behind movement right after joining (seen in the
      arcana e2e); give bulk data its own channel with client-side buffering of edits for chunks not yet received.

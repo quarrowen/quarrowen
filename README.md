@@ -1011,6 +1011,18 @@ role tag (`[Mod] Leo`, the `role_tags` rule). Mods: `player.has_permission(name)
 description, roles)`, `player_roles(id)`, `set_player_role(id, role, on)` and the `role_changed` event
 (JavaScript: `hasPermission`, `registerPermission`, `playerRoles`, `setPlayerRole`). Saved in world.json.
 
+### Anti-cheat
+
+The server simulates movement from inputs, checks reach, break times, attack cooldowns and edit rates, so a
+modified client cannot simply fly, teleport or instamine. On top of that, `engine/server/anticheat.gd` watches
+for clients pushing past those limits: **timer** (inputs faster than the game runs; the server lets a client take
+at most ~5% more steps than ticks, so sped-up inputs gain nothing), **reach**, **fast_break**, **attack_rate**,
+**bad_packet** and **flood** (more than 400 messages a second are dropped). Each check keeps a score per player
+that decays over time, so lag and the odd early click fade away: past a warning level moderators are told
+(`moderation.alerts`), past a kick level the player is kicked. `--anticheat=kick|log|off` (in game `/anticheat
+mode ...`), `/anticheat [player]` for scores and recent flags. Players with `anticheat.bypass` (admins) are only
+logged; mods can cancel with the `cheat_detected {player, check, score, detail, cancelled}` event.
+
 ### Save compatibility
 
 Worlds must keep working across updates. Chunks save blocks by name, containers and entities by name, and since
