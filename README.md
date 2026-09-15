@@ -981,6 +981,18 @@ VOXEL_IDENTITY_PASSPHRASE='...' VoxelCraft -- --import-identity=my-identity.json
 on first start). Keep them with the world (the Docker `/data` volume does): a server that loses them
 looks like an impostor to returning players, who then have to delete the pin from `known_servers`.
 
+## Playing at home
+
+`docs/playtest.md` walks through a family setup: the server in Docker on a home Linux machine
+(`deploy/homelab/compose.yaml` with an allowlist, creations approval and the chat filter), the Mac app
+built with `tools/package_mac.sh` (ad-hoc signed; first launch via right-click → Open), joining through
+Multiplayer → LAN, and an admin cheat sheet.
+
+Private servers: `--allowlist=Ann,Ben` (or `VOXEL_ALLOWLIST`) lets only those players and admins join; admins
+manage it with `/allow list | add <name> | remove <name> | on | off`. A listed name is tied to the first
+identity that joins with it. `--chat-filter=on` (the `chat_filter` gameplay rule) masks common swear words
+and look-alike spellings in chat and refuses such player names; add words in `<world>/chat_filter.txt`.
+
 ## Dedicated server & Docker
 
 `scenes/server.tscn` (`engine/server_main.gd`) loads no client code. Every option is a CLI arg or an

@@ -269,6 +269,16 @@ changes with `tools/build_native.sh`.
    to the normal body and a server switch; smoother, higher-detail default bodies (rounded parts, finger and
    face detail, eyes that blink); better animation (walk cycles, idle, emotes, cloth/cape motion).
 
+## Playtest P1 (branch `playtest`, 2026-09-15; user: kids on base M1 MacBook Airs, server on an Ubuntu homelab with Docker)
+
+Done: allowlist (`--allowlist`, `/allow`, bound to identity on first join) and chat filter (engine/server/chat_filter.gd,
+`chat_filter` rule, `--chat-filter`); deploy/homelab/compose.yaml + .env.example (host networking for LAN discovery,
+approval for creations, backups); tools/package_mac.sh (universal .app with mods in Resources, exported from a clean
+copy without local editor plugins, ad-hoc signed, zipped); hosting from exported builds (`-- --server` instead of a
+scene path); stdout flushed on print (docker logs); menu banners (errors red and sticky, others fade; "Trust new
+identity" action when a pinned server identity changed); backdrop spot chosen after the middle of the view has
+generated; docs/playtest.md. Next: N5 server transfers, after the family playtest feedback.
+
 ## Test stability (2026-09-15)
 
 `ONLY=` and `REPEAT=` in tools/run_tests.sh reproduce flaky tests (e.g. `REPEAT=10 ONLY=e2e:combat`, or loop

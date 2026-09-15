@@ -133,6 +133,8 @@ var _identity: CryptoKey
 var _welcomed := false
 var _connect_attempts := 0
 var _exiting := false
+## Why the game ended, for the menu: "" or "identity" (the server's identity no longer matches the pinned one).
+var exit_kind := ""
 var _input_seq := 0
 var _pending_inputs: Array = []
 var _recent_packets: Array[PackedByteArray] = []
@@ -318,7 +320,8 @@ func _on_connection_failed() -> void:
 		return
 	var message := "Could not connect to %s:%d" % [server_address, server_port]
 	if Net.has_pinned_identity(server_address, server_port):
-		message += ". If the server is up, its identity may have changed since your last visit (reinstalled, or someone impersonating it)."
+		exit_kind = "identity"
+		message = "Could not connect to %s:%d. If the server is running, its identity has changed since your last visit: it was reinstalled or its data was reset, or someone is impersonating it." % [server_address, server_port]
 	_leave(message)
 
 

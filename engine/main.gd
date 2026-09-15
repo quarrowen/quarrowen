@@ -28,6 +28,7 @@ const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 const SocialClient = preload("res://engine/client/social/social_client.gd")
 const InviteCode = preload("res://engine/shared/invite_code.gd")
+const KnownServers = preload("res://engine/net/known_servers.gd")
 
 const DEFAULT_PORT := 24565
 const DEFAULT_GAME := "vanilla"
@@ -124,9 +125,12 @@ func _host(game: String, port: int, player_name: String, extra := PackedStringAr
 	var token := "%x%x" % [randi(), randi()]
 	var args := PackedStringArray()
 	if not OS.has_feature("template"):
-		# Running from the editor binary: point it at this project.
-		args.append_array(["--path", ProjectSettings.globalize_path("res://")])
-	args.append_array(["--headless", "res://scenes/server.tscn", "--", "--mods=%s" % game, "--port=%d" % port, "--admin-token=%s" % token])
+		# Running from the editor binary: point it at this project and its server scene.
+		args.append_array(["--path", ProjectSettings.globalize_path("res://"), "--headless", "res://scenes/server.tscn", "--"])
+	else:
+		# Exported builds cannot be given a scene on the command line: --server switches to it (see _ready).
+		args.append_array(["--headless", "--", "--server"])
+	args.append_array(["--mods=%s" % game, "--port=%d" % port, "--admin-token=%s" % token])
 	args.append_array(extra)
 	_server_pid = OS.create_process(OS.get_executable_path(), args)
 	if _server_pid <= 0:
@@ -180,7 +184,9 @@ func _process(_delta: float) -> void:
 
 func _on_client_exited(message: String) -> void:
 	var reconnect: Dictionary = {}
+	var ended := {}
 	if _client:
+		ended = {"kind": _client.exit_kind, "address": _client.server_address, "port": _client.server_port}
 		if _client.reload_pending:
 			reconnect = {"address": _client.server_address, "port": _client.server_port, "name": _client.player_name, "token": _client.admin_token}
 		_client.queue_free()
@@ -205,7 +211,7 @@ func _on_client_exited(message: String) -> void:
 		# The host asked the server to save and quit; kill it only if it is still around.
 		await get_tree().create_timer(1.0).timeout
 		_stop_local_server()
-	_show_menu(message)
+	_show_menu(message, ended)
 
 
 # --- Menu ---------------------------------------------------------------------------------------
@@ -247,7 +253,8 @@ func _build_menu() -> void:
 	_menu.host_mod_requested.connect(func(mods: String):
 		_host(mods, _menu.port, _menu.player_name, PackedStringArray(["--dev", "--world=dev_%s" % mods.replace(",", "_")])))
 	_menu.identity_file_chosen.connect(func(path: String, exporting: bool, passphrase: String):
-		_menu.show_message(export_identity(path, passphrase) if exporting else import_identity(path, passphrase)))
+		var result := export_identity(path, passphrase) if exporting else import_identity(path, passphrase)
+		_menu.show_message(result, "error" if result.begins_with("Error") else "success"))
 	_menu.quit_requested.connect(func(): get_tree().root.propagate_notification(NOTIFICATION_WM_CLOSE_REQUEST))
 	_add_backdrop()
 
@@ -404,10 +411,19 @@ func _labeled(parent: Control, label_text: String, control: Control) -> Control:
 	return control
 
 
-func _show_menu(message: String) -> void:
+## `ended`: {kind, address, port} of the game that just closed, to offer the right fix with the message.
+func _show_menu(message: String, ended := {}) -> void:
 	_menu.visible = true
 	_backdrop_fallback.visible = true
 	_backdrop_fallback.modulate.a = 1.0
-	_menu.show_message(message)
+	if message.is_empty() or message.begins_with("Reloading"):
+		_menu.show_message(message)
+	elif ended.get("kind", "") == "identity":
+		var endpoint := "%s:%d" % [ended.address, ended.port]
+		_menu.show_message(message + " Only trust the new identity if you know the server was reset.", "error", "Trust new identity", func():
+			KnownServers.forget(endpoint)
+			_start_client(ended.address, ended.port, _menu.player_name, ""))
+	else:
+		_menu.show_message(message, "error")
 	_menu.show_page(_menu._page)
 	_add_backdrop()

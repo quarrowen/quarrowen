@@ -12,6 +12,8 @@ const MUTED := Color(0.94, 0.95, 0.96, 0.6)
 const WARN := Color(1.0, 0.72, 0.5)
 const GOOD := Color(0.5, 0.86, 0.55)
 const BAD := Color(0.95, 0.45, 0.4)
+## Error banners: a strong red that stands out over the world.
+const ERROR := Color(0.86, 0.2, 0.18)
 
 
 static func build() -> Theme:

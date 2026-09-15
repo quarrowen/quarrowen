@@ -71,7 +71,7 @@ func _run() -> void:
 	crypto.generate_self_signed_certificate(fake_key, "CN=voxelcraft-server").save(KnownServers.path_for(endpoint))
 	var started := Time.get_ticks_msec()
 	var impersonated = await _join("auth_guest", "Guest", true)
-	_check(impersonated is String and impersonated.contains("identity may have changed"), "changed server identity refused in %dms (%s)" % [Time.get_ticks_msec() - started, str(impersonated)])
+	_check(impersonated is String and impersonated.contains("identity has changed"), "changed server identity refused in %dms (%s)" % [Time.get_ticks_msec() - started, str(impersonated)])
 	var restore := FileAccess.open(KnownServers.path_for(endpoint), FileAccess.WRITE)
 	restore.store_string(real_pin)
 	restore.close()

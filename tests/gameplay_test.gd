@@ -62,6 +62,7 @@ func _ready() -> void:
 	await _ugc_moderation()
 	_menu_data()
 	_client_settings()
+	await _private_server()
 	await _status_query()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
@@ -2953,6 +2954,39 @@ func _client_settings() -> void:
 	_check(again.get_value("graphics/preset") == "custom", "resetting one tab leaves the others")
 	OS.set_environment("VOXEL_SETTINGS", "")
 	OS.set_environment("VOXEL_GRAPHICS", graphics_env)
+
+
+func _private_server() -> void:
+	var filter = preload("res://engine/server/chat_filter.gd").new()
+	_check(filter.clean("what the fuck is this shit") == "what the f*** is this s***" and filter.clean("sh1t") == "s***"
+		and filter.clean("f u c k off") == "f * * * off" and filter.clean("SHIIIT") == "S*****", "the chat filter masks swear words and look-alikes")
+	_check(filter.is_clean("I passed the class with a cockpit of scrap metal") and filter.is_clean("Scunthorpe"), "ordinary words are left alone")
+	var server = _start("private_%d" % Time.get_ticks_msec())
+	_check(server.is_allowed("anyone_id", "Anyone"), "without an allowlist everyone may join")
+	var dad := ServerPlayer.new(server, 160, "Dad")
+	dad.player_id = "dad_id"
+	dad.edit_tokens = 100.0
+	server.players[160] = dad
+	server._meta.admins.append("dad_id")
+	server.on_chat(160, "/allow add Ann")
+	server.on_chat(160, "/allow on")
+	_check(server._meta.allowlist.enabled and server.is_allowed("dad_id", "Dad"), "turning the allowlist on keeps the admin and everyone online")
+	_check(server.is_allowed("ann_id", "Ann") and not server.is_allowed("stranger_id", "Stranger"), "listed names may join, others may not")
+	server.allowlist_bind("ann_id", "Ann")
+	_check(not server.is_allowed("impostor_id", "Ann") and server.is_allowed("ann_id", "Ann"), "after Ann joins, her entry belongs to her identity")
+	server.on_chat(160, "/allow remove Ann")
+	_check(not server.is_allowed("ann_id", "Ann"), "removed players may not join")
+	server.gameplay.chat_filter = true
+	var said := []
+	server.add_handler("chat", func(ev): said.append(ev.text), 0)
+	server.on_chat(160, "oh crap")
+	_check(said == ["oh c***"], "chat is filtered when the rule is on (%s)" % [said])
+	server._save_all(true)
+	var again = _start(server._save_dir.get_file())
+	_check(again._meta.allowlist.enabled and not again.is_allowed("stranger_id", "Stranger"), "the allowlist is saved with the world")
+	server.queue_free()
+	again.queue_free()
+	await get_tree().process_frame
 
 
 func _js_blocks() -> void:

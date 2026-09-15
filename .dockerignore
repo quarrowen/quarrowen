@@ -13,3 +13,8 @@ Dockerfile
 compose.yaml
 README.md
 server-mods/
+services/
+docs/
+deploy/
+addons/
+.mcp.json

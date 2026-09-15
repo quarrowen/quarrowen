@@ -48,6 +48,7 @@ var _environment: Environment
 var _avatar: Avatar
 var _looks: LookBuilder
 var _centre := Vector3.ZERO
+var _heights := {}  # Vector2i column -> surface y, while choosing the spot
 var _orbit := 0.0
 var _time := 0.3
 var _shown := false
@@ -113,13 +114,11 @@ func _start_world() -> void:
 	_server.set_physics_process(false)
 	_server.set_process(false)
 	_build_materials()
-	_centre = _find_centre()
 	for r in RADIUS + 1:
 		for x in range(-r, r + 1):
 			for z in range(-r, r + 1):
 				if maxi(absi(x), absi(z)) == r:
 					_queue.append(Vector2i(x, z))
-	_place_avatar()
 
 
 func _build_materials() -> void:
@@ -143,24 +142,30 @@ func _build_materials() -> void:
 func _find_centre() -> Vector3:
 	var best := Vector3(8.5, _surface(8, 8) + 1, 8.5)
 	var best_score := -INF
-	for x in range(-24, 40, 3):
-		for z in range(-24, 40, 3):
+	for x in range(-16, 33, 2):
+		for z in range(-16, 33, 2):
 			var y := _surface(x, z)
 			if y < 0 or y > 900 or not str(_server.registry.defs[_server.world.get_block(x, y, z)].name).contains("grass"):
 				continue
+			# Nothing taller than the avatar between it and the camera, all the way round.
 			var clear := true
 			var around := 0.0
-			for k in 16:
-				var b := TAU * k / 16.0
-				var h := _surface(x + roundi(cos(b) * ORBIT_RADIUS), z + roundi(sin(b) * ORBIT_RADIUS))
-				if h > y + 1 or h < 0:
-					clear = false
+			var samples := 0
+			for ring in [2.0, 4.0, 6.0, ORBIT_RADIUS, ORBIT_RADIUS + 1.5]:
+				for k in 32:
+					var b := TAU * k / 32.0
+					var h := _surface(x + roundi(cos(b) * ring), z + roundi(sin(b) * ring))
+					if h > y + 1 or h < 0:
+						clear = false
+						break
+					around += h
+					samples += 1
+				if not clear:
 					break
-				around += h
 			if not clear:
 				continue
 			# Flat ground near the average height of the area reads as a meadow, not a summit.
-			var score := -absf(around / 16.0 - y) * 2.0 - Vector2(x - 8, z - 8).length() * 0.05
+			var score := -absf(around / samples - y) * 2.0 - Vector2(x - 8, z - 8).length() * 0.05
 			if score > best_score:
 				best_score = score
 				best = Vector3(x + 0.5, y + 1, z + 0.5)
@@ -169,13 +174,20 @@ func _find_centre() -> Vector3:
 
 ## The y of the highest solid block in a column (-1 when none or not loaded).
 func _surface(x: int, z: int) -> int:
+	var key := Vector2i(x, z)
+	if _heights.has(key):
+		return _heights[key]
+	var height := -1
 	if not _server.world.chunks.has(Vector2i(floori(x / float(Chunk.SIZE_X)), floori(z / float(Chunk.SIZE_Z)))):
-		return 999  # unknown: treat as blocked
-	for y in range(Chunk.SIZE_Y - 2, 0, -1):
-		var block: int = _server.world.get_block(x, y, z)
-		if block != BlockRegistry.AIR and _server.registry.solid_lut[block] == 1:
-			return y
-	return -1
+		height = 999  # unknown: treat as blocked
+	else:
+		for y in range(Chunk.SIZE_Y - 2, 0, -1):
+			var block: int = _server.world.get_block(x, y, z)
+			if block != BlockRegistry.AIR and _server.registry.solid_lut[block] == 1:
+				height = y
+				break
+	_heights[key] = height
+	return height
 
 
 func _is_tree(block: int) -> bool:
@@ -254,8 +266,13 @@ func _poll_jobs() -> void:
 		var job := {"chunks": chunks, "context": _context, "result": []}
 		job.task_id = WorkerThreadPool.add_task(func(): job.result = ChunkMesher.build(job.chunks, job.context), false, "menu mesh")
 		_jobs[coord] = job
-	if not _shown and _queue.size() < (2 * RADIUS + 1) * (2 * RADIUS + 1) - 9 and _jobs.is_empty():
+	if not _shown and _queue.size() < (2 * RADIUS + 1) * (2 * RADIUS + 1) - 25 and _jobs.is_empty():
+		# Trees and other features spill in from neighbouring chunks as they generate, so the avatar's spot is
+		# chosen once the middle of the view is complete.
 		_shown = true
+		_heights.clear()
+		_centre = _find_centre()
+		_place_avatar()
 		ready_to_show.emit()
 
 

@@ -41,6 +41,10 @@ var _pages := {}
 var _nav := {}
 var _page := "play"
 var _message: Label
+var _banner: PanelContainer
+var _banner_icon: Label
+var _banner_action: Button
+var _banner_serial := 0
 var _name_edit: LineEdit
 var _games: Array = []
 var _addons: Array = []
@@ -161,17 +165,36 @@ func _build() -> void:
 	row.add_child(spacer)
 	row.add_child(_build_news())
 
+	# Messages: a banner at the bottom. Errors are red and stay until dismissed; others fade.
+	_banner = PanelContainer.new()
+	_banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_banner.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_banner.offset_bottom = -28
+	_banner.custom_minimum_size.x = 760
+	_banner.visible = false
+	add_child(_banner)
+	var banner_row := HBoxContainer.new()
+	banner_row.add_theme_constant_override("separation", 12)
+	_banner.add_child(banner_row)
+	_banner_icon = Label.new()
+	_banner_icon.add_theme_font_size_override("font_size", 22)
+	banner_row.add_child(_banner_icon)
 	_message = Label.new()
-	_message.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	_message.offset_top = -64
-	_message.offset_left = -400
-	_message.offset_right = 400
-	_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_message.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_message.add_theme_color_override("font_color", MenuTheme.WARN)
-	_message.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	_message.add_theme_constant_override("outline_size", 6)
-	add_child(_message)
+	_message.custom_minimum_size.x = 560
+	_message.add_theme_font_size_override("font_size", 16)
+	banner_row.add_child(_message)
+	_banner_action = Button.new()
+	_banner_action.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	banner_row.add_child(_banner_action)
+	var dismiss := Button.new()
+	dismiss.text = "✕"
+	dismiss.tooltip_text = "Dismiss"
+	dismiss.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	dismiss.pressed.connect(func(): _banner.visible = false)
+	banner_row.add_child(dismiss)
 
 
 func _build_sidebar() -> Control:
@@ -276,8 +299,38 @@ func show_page(page: String) -> void:
 		"settings": _refresh_identity()
 
 
-func show_message(text: String) -> void:
+## kind: "info" (fades after a few seconds), "success" (green, fades) or "error" (red, stays until
+## dismissed). `action_text` + `action` add a button (e.g. retry).
+func show_message(text: String, kind := "info", action_text := "", action := Callable()) -> void:
+	_banner_serial += 1
+	if text.is_empty():
+		_banner.visible = false
+		return
+	var colors := {"error": MenuTheme.ERROR, "success": Color(0.2, 0.52, 0.28)}
+	_banner.add_theme_stylebox_override("panel", MenuTheme.box(Color(colors[kind], 0.96) if colors.has(kind) else Color(0.1, 0.12, 0.16, 0.95),
+		10, 16, 12, Color(1, 0.55, 0.5) if kind == "error" else Color(0, 0, 0, 0)))
+	_banner_icon.text = {"error": "⚠", "success": "✓"}.get(kind, "ℹ")
 	_message.text = text
+	_message.add_theme_color_override("font_color", Color.WHITE)
+	for connection in _banner_action.pressed.get_connections():
+		_banner_action.pressed.disconnect(connection.callable)
+	_banner_action.visible = not action_text.is_empty()
+	_banner_action.text = action_text
+	if action.is_valid():
+		_banner_action.pressed.connect(func():
+			_banner.visible = false
+			action.call())
+	_banner.visible = true
+	_banner.modulate.a = 1.0
+	if kind != "error":
+		var serial := _banner_serial
+		await get_tree().create_timer(5.0).timeout
+		if serial == _banner_serial and is_instance_valid(_banner):
+			var tween := create_tween()
+			tween.tween_property(_banner, "modulate:a", 0.0, 0.5)
+			tween.tween_callback(func():
+				if serial == _banner_serial:
+					_banner.visible = false)
 
 
 func set_player_name(text: String) -> void:
@@ -381,7 +434,7 @@ func play_selected_world() -> void:
 		if w.id == _selected_world:
 			var mods: Array = w.mods if not w.mods.is_empty() else [w.game]
 			if mods.is_empty() or str(mods[0]).is_empty():
-				show_message("This world does not say which game it is")
+				show_message("This world does not say which game it is", "error")
 				return
 			play_world.emit(w.id, mods, _dev_check.button_pressed)
 			return
@@ -428,7 +481,7 @@ func open_new_world() -> void:
 	var seed_edit: LineEdit = _labeled(box, "Seed", LineEdit.new())
 	seed_edit.placeholder_text = "random (or any word or number)"
 	var status := Label.new()
-	status.add_theme_color_override("font_color", MenuTheme.WARN)
+	status.add_theme_color_override("font_color", MenuTheme.BAD)
 	box.add_child(status)
 	dialog.confirmed.connect(func():
 		if _games.is_empty():
@@ -472,7 +525,10 @@ func _delete_world() -> void:
 	dialog.dialog_text = "Delete \"%s\" and its backups? This cannot be undone." % w.title
 	dialog.ok_button_text = "Delete"
 	dialog.confirmed.connect(func():
-		show_message("Deleted \"%s\"" % w.title if WorldList.delete(w.id) else "Could not delete \"%s\"" % w.title)
+		if WorldList.delete(w.id):
+			show_message("Deleted \"%s\"" % w.title, "success")
+		else:
+			show_message("Could not delete \"%s\"" % w.title, "error")
 		refresh_worlds()
 		dialog.queue_free())
 	dialog.canceled.connect(dialog.queue_free)
@@ -698,7 +754,7 @@ func join_selected_server() -> void:
 func _join_direct() -> void:
 	var parsed := InviteCode.parse(_direct_edit.text)
 	if parsed.has("error"):
-		show_message(parsed.error)
+		show_message(parsed.error[0].to_upper() + parsed.error.substr(1), "error")
 		return
 	if parsed.has("hub_code"):
 		_resolve_hub_code(parsed.hub_code, func(entry: Dictionary): _join(entry.address, entry.port, entry.name))
@@ -709,12 +765,12 @@ func _join_direct() -> void:
 ## Looks a hub code up, then calls `then` with {address, port, name}.
 func _resolve_hub_code(code: String, then: Callable) -> void:
 	if not HubClient.configured():
-		show_message("%s is a hub code: set a server list hub in Settings → Network first" % code)
+		show_message("%s is a hub code: set a server list hub in Settings → Network first" % code, "error")
 		return
 	show_message("Looking up %s…" % code)
 	var on_resolved := func(entry: Dictionary, error: String):
 		if not error.is_empty():
-			show_message("%s: %s" % [code, error])
+			show_message("%s: %s" % [code, error], "error")
 			return
 		show_message("" if entry.online else "%s was last seen at %s:%d (not online right now)" % [entry.name, entry.address, entry.port])
 		then.call(entry)
@@ -746,7 +802,7 @@ func open_server_editor(entry: Dictionary) -> void:
 	if not entry.is_empty():
 		address_edit.text = entry.address if int(entry.port) == InviteCode.DEFAULT_PORT else "%s:%d" % [entry.address, entry.port]
 	var status := Label.new()
-	status.add_theme_color_override("font_color", MenuTheme.WARN)
+	status.add_theme_color_override("font_color", MenuTheme.BAD)
 	box.add_child(status)
 	var save := func(address: String, game_port: int):
 		if not entry.is_empty():
@@ -785,7 +841,7 @@ func _selected_entry() -> Dictionary:
 func _favorite_selected() -> void:
 	var e := _selected_entry()
 	if not e.is_empty() and _book.add_favorite(str(e.get("name", "")), e.address, e.port):
-		show_message("Added %s to your favorites" % e.get("name", e.address))
+		show_message("Added %s to your favorites" % e.get("name", e.address), "success")
 		refresh_servers()
 
 
@@ -924,7 +980,7 @@ func _refresh_identity() -> void:
 
 func _pick_identity_file(exporting: bool) -> void:
 	if _passphrase_edit.text.length() < Identity.MIN_PASSPHRASE_LENGTH:
-		show_message("Enter a passphrase of at least %d characters first" % Identity.MIN_PASSPHRASE_LENGTH)
+		show_message("Enter a passphrase of at least %d characters first" % Identity.MIN_PASSPHRASE_LENGTH, "error")
 		return
 	var dialog := FileDialog.new()
 	dialog.use_native_dialog = true

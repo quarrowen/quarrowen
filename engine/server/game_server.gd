@@ -43,6 +43,7 @@ const DevTools = preload("res://engine/server/dev_tools.gd")
 const DevWeb = preload("res://engine/server/dev_web.gd")
 const StatusQuery = preload("res://engine/server/status_query.gd")
 const HubAnnouncer = preload("res://engine/server/hub_announcer.gd")
+const ChatFilter = preload("res://engine/server/chat_filter.gd")
 const ModReload = preload("res://engine/server/mod_reload.gd")
 const ModValidator = preload("res://engine/server/mod_validator.gd")
 const Ugc = preload("res://engine/server/ugc.gd")
@@ -121,6 +122,7 @@ var gameplay := {
 	"recipe_discovery": true,  # players learn recipes (see RecipeRegistry unlock rules); false = all known
 	"minigame_assist": true,  # players may choose relaxed timing for crafting minigames
 	"tutorials": true,  # auto-start tutorials for new survival players (see engine/server/tutorials.gd)
+	"chat_filter": false,  # mask swear words in chat and refuse such player names (see engine/server/chat_filter.gd)
 }
 var server_info := {"name": "VoxelCraft Server", "game": "", "description": "", "motd": "", "mods": []}
 var generator: Object = null
@@ -178,6 +180,7 @@ var dev_web := DevWeb.new(self)
 var status_query := StatusQuery.new(self)
 ## Lists the server on a hub (a child node while online; null for offline servers).
 var hub: HubAnnouncer
+var chat_filter := ChatFilter.new()
 ## The game port (0 when offline).
 var port := 0
 var max_players := DEFAULT_MAX_PLAYERS
@@ -279,6 +282,16 @@ func start(config: Dictionary) -> Error:
 	if err != OK:
 		return err
 	_add_part_recipes()
+	chat_filter.load_extra(_save_dir)
+	if str(config.get("chat_filter", "")) in ["on", "true", "1", "yes"]:
+		gameplay.chat_filter = true
+	# A private server: only listed players (and admins) may join. Names given here are added to the list.
+	if not (_meta.get("allowlist") is Dictionary):
+		_meta.allowlist = {"enabled": false, "players": {}}
+	for entry in str(config.get("allowlist", "")).split(",", false):
+		allowlist_add(entry.strip_edges())
+	if not str(config.get("allowlist", "")).is_empty():
+		_meta.allowlist.enabled = true
 	# The server's own name and message win over what the game mod sets.
 	for key in ["name", "motd"]:
 		if not str(config.get(key, "")).is_empty():
@@ -470,6 +483,52 @@ func add_command(command: String, description: String, handler: Callable, mod_id
 	_commands[command.to_lower()] = {"description": description, "handler": handler, "mod": mod_id, "permission": permission}
 
 
+## Whether a player may join: always when the allowlist is off; else admins and listed players (by id, or
+## by name until that name first joins and binds the entry to the player's identity).
+func is_allowed(player_id: String, player_name: String) -> bool:
+	var list: Dictionary = _meta.get("allowlist", {})
+	if not list.get("enabled", false):
+		return true
+	if _meta.admins.has(player_id) or _config_admins.has(player_id) or _config_admins.has(player_name.to_lower()):
+		return true
+	var players: Dictionary = list.get("players", {})
+	for key: String in players:
+		var entry: Dictionary = players[key]
+		if entry.get("id", "") == player_id or (str(entry.get("id", "")).is_empty() and key == player_name.to_lower()):
+			return true
+	return false
+
+
+## Adds a player by name (or id) to the allowlist.
+func allowlist_add(name_or_id: String) -> void:
+	if name_or_id.is_empty():
+		return
+	var players: Dictionary = _meta.allowlist.players
+	var key := name_or_id.to_lower()
+	if players.has(key):
+		return
+	var known_id: String = _meta.names.get(key, "")
+	players[key] = {"name": name_or_id, "id": known_id if not known_id.is_empty() else (key if key.length() == 32 and key.is_valid_hex_number() else "")}
+
+
+func allowlist_remove(name_or_id: String) -> bool:
+	var players: Dictionary = _meta.allowlist.players
+	var key := name_or_id.to_lower()
+	for k: String in players.keys():
+		if k == key or players[k].get("id", "") == key:
+			players.erase(k)
+			return true
+	return false
+
+
+## The first time a listed name joins, its entry is tied to that identity (so the name cannot be taken).
+func allowlist_bind(player_id: String, player_name: String) -> void:
+	var players: Dictionary = _meta.get("allowlist", {}).get("players", {})
+	var entry: Dictionary = players.get(player_name.to_lower(), {})
+	if not entry.is_empty() and str(entry.get("id", "")).is_empty():
+		entry.id = player_id
+
+
 func is_admin(p) -> bool:
 	return p != null and (_meta.admins.has(p.player_id) or _config_admins.has(p.player_id) or _config_admins.has(p.name.to_lower()))
 
@@ -525,6 +584,7 @@ func _register_builtin_commands() -> void:
 			player.send_message("The dev dashboard is off. Start the server with --dev-web=24580 (or --dev)."), "engine", "admin")
 	add_command("players", "List online players", _cmd_players, "engine")
 	add_command("op", "<player> - grant admin", _cmd_op.bind(true), "engine", "admin")
+	add_command("allow", "[list | add <name> | remove <name> | on | off] - who may join a private server", _cmd_allow, "engine", "admin")
 	add_command("deop", "<player> - revoke admin", _cmd_op.bind(false), "engine", "admin")
 	add_command("kick", "<player> [reason] - disconnect a player", _cmd_kick, "engine", "admin")
 	add_command("whoami", "Show your player id and permissions", _cmd_whoami, "engine")
@@ -834,6 +894,32 @@ func _cmd_gamemode(player, args: PackedStringArray) -> void:
 		return
 	target.set_creative(args[0] == "creative")
 	target.send_message("Game mode: %s" % args[0])
+
+
+func _cmd_allow(player, args: PackedStringArray) -> void:
+	var list: Dictionary = _meta.allowlist
+	var action := args[0] if args.size() > 0 else "list"
+	var target := " ".join(args.slice(1)).strip_edges()
+	match action:
+		"on", "off":
+			list.enabled = action == "on"
+			if list.enabled:
+				for p: ServerPlayer in players.values():
+					allowlist_add(p.name)  # everyone here now stays welcome
+					allowlist_bind(p.player_id, p.name)
+			player.send_message("The allowlist is %s%s" % [action, " (everyone online was added)" if list.enabled else ""])
+		"add":
+			if target.is_empty():
+				player.send_message("Usage: /allow add <name>")
+				return
+			allowlist_add(target)
+			player.send_message("%s may join%s" % [target, "" if list.enabled else " (the allowlist is off: /allow on)"])
+		"remove":
+			player.send_message(("%s removed from the allowlist" if allowlist_remove(target) else "%s is not on the allowlist") % target)
+		_:
+			var names: Array = list.players.values().map(func(e): return str(e.name) + ("" if not str(e.id).is_empty() else " (not joined yet)"))
+			player.send_message("Allowlist %s: %s" % ["on" if list.enabled else "off", ", ".join(names) if not names.is_empty() else "empty"])
+	_save_all()
 
 
 func _cmd_gameplay(player, args: PackedStringArray) -> void:
@@ -1353,6 +1439,9 @@ func on_hello(peer_id: int, protocol: int, player_name: String, public_key: Stri
 		if p.name.to_lower() == clean_name.to_lower():
 			kick(peer_id, "The name '%s' is already in use" % clean_name)
 			return
+	if gameplay.chat_filter and not chat_filter.is_clean(clean_name):
+		kick(peer_id, "Please choose a different name")
+		return
 	var owner := String(_meta.names.get(clean_name.to_lower(), ""))
 	if not owner.is_empty() and owner != player_id:
 		kick(peer_id, "The name '%s' belongs to another player on this server" % clean_name)
@@ -1372,8 +1461,14 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		_joining.erase(peer_id)
 		kick(peer_id, "Authentication failed")
 		return
+	if not is_allowed(j.player_id, j.name):
+		_joining.erase(peer_id)
+		dev_log.add("info", "server", "%s (%s) is not on the allowlist" % [j.name, j.player_id])
+		kick(peer_id, "This server is private. Ask an admin to add you: /allow add %s" % j.name)
+		return
 	j.authenticated = true
 	_meta.names[String(j.name).to_lower()] = j.player_id
+	allowlist_bind(j.player_id, j.name)
 	var manifest := []
 	for asset_name: String in _assets:
 		var a: Dictionary = _assets[asset_name]
@@ -1953,6 +2048,8 @@ func on_chat(peer_id: int, text: String) -> void:
 			command.handler.call(p, parts.slice(1))
 			dev_tools.record(command.mod, "command:/" + parts[0].to_lower(), Time.get_ticks_usec() - t)
 		return
+	if gameplay.chat_filter:
+		clean = chat_filter.clean(clean)
 	if not emit("chat", {"player": p, "text": clean, "cancelled": false}).cancelled:
 		broadcast_chat("<%s> %s" % [p.name, clean])
 

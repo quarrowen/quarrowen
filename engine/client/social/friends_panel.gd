@@ -42,7 +42,7 @@ func _ready() -> void:
 		var code := str(social.state.get("me", {}).get("friend_code", ""))
 		if not code.is_empty():
 			DisplayServer.clipboard_set(code)
-			_note.text = "Copied %s: friends add you with it" % code)
+			_on_notice("Copied %s: friends add you with it" % code))
 	code_row.add_child(copy)
 	var add_row := HBoxContainer.new()
 	add_child(add_row)
@@ -58,7 +58,6 @@ func _ready() -> void:
 	_note = MenuTheme.muted("", 14)
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_note.custom_minimum_size.x = 300
-	_note.add_theme_color_override("font_color", MenuTheme.WARN)
 	add_child(_note)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -86,12 +85,14 @@ func _on_state(_state: Dictionary) -> void:
 
 
 func _on_failed(error: String) -> void:
-	_note.text = error
+	_note.text = "⚠ " + error
+	_note.add_theme_color_override("font_color", MenuTheme.BAD)
 	_render()
 
 
 func _on_notice(text: String) -> void:
 	_note.text = text
+	_note.add_theme_color_override("font_color", MenuTheme.GOOD)
 
 
 func _add_friend() -> void:
