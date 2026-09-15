@@ -21,6 +21,10 @@ func _ready() -> void:
 				"port": _port = int(kv[1])
 				"role": _role = kv[1]
 				"result": _result_path = kv[1]
+	# Keep this test's creations and downloads out of the real user folders.
+	var scratch := ProjectSettings.globalize_path("user://mp_test_%s_%d" % [_role, Time.get_ticks_msec()])
+	OS.set_environment("VOXEL_CREATIONS_DIR", scratch.path_join("creations"))
+	OS.set_environment("VOXEL_UGC_CACHE_DIR", scratch.path_join("cache"))
 	_client = GameClient.new()
 	_client.server_port = _port
 	_client.player_name = "Alice" if _role == "a" else "Bob"
@@ -76,6 +80,25 @@ func _alice() -> void:
 	_check(bob_heard, "Bob received Alice's chat")
 	var bob_saw := await _wait(func(): return _read_result().has("saw_alice"), 5.0)
 	_check(bob_saw, "Bob saw Alice")
+	if sees_bob:
+		# Bob paints a skin and wears it: it is uploaded, approved, and Alice downloads and draws it.
+		_write_result("wear_creation", "1")
+		var creation_seen := await _wait(func():
+			var bob = _remote("Bob")
+			if bob == null:
+				return false
+			var look: Dictionary = _client._appearances.get(bob.peer_id, {}).get("avatar", {})
+			var id := String(look.get("wear", {}).get("skin", {}).get("id", ""))
+			return id.begins_with("ugc:") and not _client.cosmetics.get_def(id).is_empty() and _client._asset_images.has(id + ".png"), 20.0)
+		if not creation_seen and _remote("Bob") != null:
+			var look: Dictionary = _client._appearances.get(_remote("Bob").peer_id, {}).get("avatar", {})
+			var sid := String(look.get("wear", {}).get("skin", {}).get("id", ""))
+			print("[multiplayer] debug: bob wear=%s def=%s image=%s" % [look.get("wear", {}).keys(), not _client.cosmetics.get_def(sid).is_empty(), _client._asset_images.has(sid + ".png")])
+		_check(creation_seen, "Alice downloads the skin Bob painted and wears")
+		if creation_seen:
+			var look: Dictionary = _client._appearances.get(_remote("Bob").peer_id, {}).get("avatar", {})
+			var pixel: Color = _client._looks.skin_image(look).get_pixel(21, 24)
+			_check(pixel.g > 0.6 and pixel.r < 0.3, "Bob's painted skin is what Alice draws (%s)" % pixel)
 	_write_result("done", "1")
 	await _wait(func(): return not OS.is_process_running(bob_pid), 10.0)
 	var gone := await _wait(func(): return _remote("Bob") == null or not _remote("Bob").visible, 10.0)
@@ -119,6 +142,19 @@ func _bob() -> void:
 				return true
 		return false, 15.0)
 	_write_result("chat", "ok" if heard else "missing")
+	if await _wait(func(): return _read_result().has("wear_creation"), 20.0):
+		var C = preload("res://engine/shared/creations.gd")
+		var skin := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+		skin.fill(Color(0.15, 0.8, 0.2))
+		var png := skin.save_png_to_buffer()
+		var me: String = preload("res://engine/shared/identity.gd").player_id(_client._identity)
+		var saved: Dictionary = preload("res://engine/client/creation_library.gd").save(C.make("skin", "skin", png, "Green Bob", me, "Bob"), png)
+		preload("res://engine/client/creation_library.gd").add_to(_client.cosmetics, _client._asset_images, saved.manifest, png)
+		var dressed := changed.duplicate(true)
+		dressed.wear.skin = {"id": saved.manifest.id, "color": "#ffffff"}
+		await get_tree().create_timer(1.1).timeout  # the server limits how often an avatar changes
+		_client.ugc.offer_worn(dressed)
+		Net.c_set_avatar.rpc_id(1, dressed)
 	await _wait(func(): return _read_result().has("done"), 20.0)
 	get_tree().quit(0)
 

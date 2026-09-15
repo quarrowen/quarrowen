@@ -43,6 +43,8 @@ const DevTools = preload("res://engine/server/dev_tools.gd")
 const DevWeb = preload("res://engine/server/dev_web.gd")
 const ModReload = preload("res://engine/server/mod_reload.gd")
 const ModValidator = preload("res://engine/server/mod_validator.gd")
+const Ugc = preload("res://engine/server/ugc.gd")
+const Creations = preload("res://engine/shared/creations.gd")
 const Explosions = preload("res://engine/server/explosions.gd")
 const Loot = preload("res://engine/server/loot.gd")
 const Spawners = preload("res://engine/server/spawners.gd")
@@ -173,6 +175,8 @@ var dev_mode := false
 var dev_web := DevWeb.new(self)
 ## Quick reloads, the file watcher and full reloads (see engine/server/mod_reload.gd).
 var mod_reload := ModReload.new(self)
+## Player creations: uploads, the server library and serving them (see engine/server/ugc.gd).
+var ugc := Ugc.new(self)
 ## Loaded mods: id -> manifest, in load order, and id -> the running mod (GDScript instance or JsMod).
 var mod_manifests := {}
 var mod_order: Array = []
@@ -250,6 +254,9 @@ func start(config: Dictionary) -> Error:
 		print("[server] Restored world '%s' from %s" % [world_name, archive.get_file()])
 	DirAccess.make_dir_recursive_absolute(_save_dir + "/chunks")
 	dev_log.open_file(_save_dir)
+	ugc.load_store(_save_dir)
+	if not str(config.get("ugc", "")).is_empty():
+		ugc.set_policy({"accept": str(config.ugc), "enabled": str(config.ugc) != "off"})
 	_load_meta(int(config.get("seed", -1)))
 	world_seed = int(_meta.seed)
 	_register_builtin_commands()
@@ -845,6 +852,7 @@ func _physics_process(delta: float) -> void:
 	dev_tools.update(delta)
 	dev_web.update()
 	mod_reload.update(delta)
+	ugc.update(delta)
 	tutorials.update(delta)
 	var sim_usec := 0
 	var stream_usec := 0
@@ -1456,6 +1464,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	containers.close(p, false)
 	sleep.wake(p, "left")
 	dev_tools.unsubscribe(peer_id)
+	ugc.player_left(peer_id)
 	skill.player_left(p)
 	sessions.leave(p)
 	_store_player(p)
@@ -2324,6 +2333,8 @@ func on_set_avatar(peer_id: int, avatar: Dictionary) -> void:
 ## Built-in picks form the player's portable look. Server cosmetic picks are remembered by this server;
 ## on join (`joining`) the client only knows its portable look, so remembered picks are kept.
 func _set_client_avatar(p: ServerPlayer, avatar, joining: bool) -> void:
+	p.requested_avatar = avatar.duplicate(true) if avatar is Dictionary else {}
+	ugc.ensure_registered(Ugc.worn_ids(avatar))
 	var clean := cosmetics.sanitize_avatar(avatar, can_wear.bind(p))
 	if not cosmetics.policy.allow_colors:
 		clean.erase("skin")
@@ -2333,7 +2344,10 @@ func _set_client_avatar(p: ServerPlayer, avatar, joining: bool) -> void:
 	var portable := clean.duplicate(true)
 	var server_picks := {}
 	for cat_name in clean.get("wear", {}):
-		if not Cosmetics.is_builtin(clean.wear[cat_name].id):
+		var worn_id: String = clean.wear[cat_name].id
+		# Portable: built-in cosmetics and the player's own creations. Everything else is this server's pick.
+		var own_creation := Creations.is_id(worn_id) and str(ugc.store.get(worn_id, {}).get("manifest", {}).get("author", "")) == p.player_id
+		if not Cosmetics.is_builtin(worn_id) and not own_creation:
 			server_picks[cat_name] = clean.wear[cat_name]
 			portable.wear.erase(cat_name)
 	p.portable_avatar = portable
@@ -2344,6 +2358,8 @@ func _set_client_avatar(p: ServerPlayer, avatar, joining: bool) -> void:
 
 ## Whether a player may pick a cosmetic themselves (mods can still dress anyone in anything).
 func can_wear(cosmetic_name: String, p: ServerPlayer) -> bool:
+	if Creations.is_id(cosmetic_name):
+		return ugc.can_wear(p, cosmetic_name)
 	var d := cosmetics.get_def(cosmetic_name)
 	if d.is_empty() or cosmetics.is_blocked(cosmetic_name):
 		return false
@@ -2363,6 +2379,38 @@ func refresh_avatar(p: ServerPlayer) -> void:
 	var ev := emit("avatar_change", {"player": p, "avatar": avatar})
 	p.avatar = cosmetics.sanitize_avatar(ev.avatar)
 	refresh_appearance(p)
+
+
+## Applies the avatar the player last asked for again (a creation in it was approved or removed).
+func reapply_requested_avatar(p: ServerPlayer) -> void:
+	_set_client_avatar(p, p.requested_avatar, true)
+
+
+# --- Player creations (RPC handlers; see engine/server/ugc.gd) -------------------------------------
+
+func on_ugc_offer(peer_id: int, manifests: Array) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p != null:
+		ugc.offer(p, manifests)
+
+
+func on_ugc_upload(peer_id: int, id: String, offset: int, total: int, bytes: PackedByteArray) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p != null:
+		ugc.upload_piece(p, id, offset, total, bytes)
+
+
+func on_ugc_fetch(peer_id: int, ids: PackedStringArray) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p != null:
+		ugc.fetch(p, ids)
+
+
+func on_ugc_library(peer_id: int, query: Dictionary, offset: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p != null and p._online():
+		var page := ugc.library(query, maxi(0, offset))
+		Net.s_ugc_library.rpc_id(peer_id, page.items, page.total, ugc.policy)
 
 
 func grant_cosmetic(p: ServerPlayer, cosmetic_name: String, owned: bool) -> void:

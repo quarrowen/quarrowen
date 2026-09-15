@@ -67,6 +67,8 @@ var portable_avatar := {}
 var server_wear := {}
 ## Avatar data mods lay over the player's look (see set_avatar_override).
 var avatar_override := {}
+## The avatar the client last asked for (creations in it may still be uploading or awaiting approval).
+var requested_avatar := {}
 ## Server cosmetics granted to this player: name -> true.
 var owned_cosmetics := {}
 var avatar_changed_at := -100.0

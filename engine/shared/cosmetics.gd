@@ -307,9 +307,12 @@ func sanitize_avatar(avatar, can_wear := Callable(), keep_removals := false) -> 
 			out.body = body
 	if avatar.get("wear") is Dictionary:
 		var wear := {}
-		for cat_name in avatar.wear:
-			var entry = avatar.wear[cat_name]
-			if not (cat_name is String) or category(cat_name).is_empty() or not (entry is Dictionary):
+		for key in avatar.wear:
+			var entry = avatar.wear[key]
+			if not (key is String or key is StringName) or not (entry is Dictionary):
+				continue
+			var cat_name := String(key)  # `wear.hat = ...` in GDScript makes a StringName key
+			if category(cat_name).is_empty():
 				continue
 			var id := str(entry.get("id", ""))
 			if id.is_empty():
@@ -395,7 +398,7 @@ func visible_armor(armor: Dictionary, avatar: Dictionary) -> Dictionary:
 func to_network() -> Dictionary:
 	var list := []
 	for d in defs.values():
-		if not is_builtin(d.name):
+		if not is_builtin(d.name) and not d.name.begins_with("ugc:"):  # creations are fetched when needed
 			list.append(d)
 	return {"categories": categories.duplicate(true), "cosmetics": list, "policy": policy.duplicate(true)}
 

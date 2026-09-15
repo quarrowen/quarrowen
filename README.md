@@ -453,6 +453,18 @@ by layer on a top-down grid with body-part guides, mirror, copy layer, undo; vox
 boxes) and **Import model…** places a GLB (size, offset and rotation sliders; refused if over 512 KB,
 4,000 triangles or 256 px textures). Format and limits: `engine/shared/creations.gd`.
 
+**Creations on servers:** when you join (or change your look) the game offers the creations you wear to
+the server; it asks for the files it lacks and you upload them in pieces (paced, size-checked, only the
+author may bring a creation). The server validates them again and stores them in `<world>/ugc/`. Policy
+(`--ugc=auto|trusted|approval|off`, or `api.set_ugc_policy({accept, kinds, library, max_per_player,
+max_bytes_per_player})`): with `auto` creations are approved at once, `trusted` approves admins' and
+trusted players', `approval` keeps them hidden until approved, `off` refuses them. Approved creations
+become cosmetics here; other players' clients fetch, re-check and cache what they need to draw
+(`user://ugc_cache`). In game the avatar editor has your creation tools plus **Server library…**, which
+lists approved creations for the category so you can wear other players' work (if `library` is on). Your
+own creations stay in your portable look; library picks are remembered per server. Events
+`ugc_uploaded {player, creation, cancelled, reason}` and `ugc_status {id, status, reason}`.
+
 Players are drawn with a rig of 10 boxes (head, torso, upper and lower arms and legs) textured in the
 standard 64x64 Minecraft skin layout, animated procedurally (walking, running, jumping, swinging,
 looking, getting hurt). Held items and worn armor show on everyone's avatar, F5 cycles first person,

@@ -86,7 +86,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 </nav>
 <main>
 <section id="start"><h1>VoxelCraft mod API</h1>
-<p class="lead">Mod API 1.0.0 · game 0.33.0. Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>
+<p class="lead">Mod API 1.0.0 · game 0.34.0. Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>
 <h3>Make a mod in a minute</h3>
 <ol>
 <li>In the game menu choose <b>Create a mod</b>, or run <code>godot --headless --path . res://tools/mod_tool.tscn -- new my_mod [--lang=js] [--kind=game]</code>.</li>
@@ -336,6 +336,9 @@ engine:dust, engine:explosion."><div class="sig"><code>api.play_effect(effect_na
 <section id="api-other"><h2>Other</h2>
 <div class="card" id="api-reloading" data-search="reloading  true while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,
 items and entities that exist update in place; things that cannot change live are skipped and noted."><div class="sig"><code>api.reloading := false  (property)</code></div><p>True while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,<br>items and entities that exist update in place; things that cannot change live are skipped and noted.</p></div>
+<div class="card" id="api-set-ugc-policy" data-search="set_ugc_policy  how this server treats player creations (engine/server/ugc.gd): {enabled, accept: &quot;auto&quot; | &quot;trusted&quot; |
+&quot;approval&quot; | &quot;off&quot;, kinds: [&quot;skin&quot;, &quot;accessory&quot;, &quot;model&quot;], library (others may wear approved ones),
+max_per_player, max_bytes_per_player}. saved with the world."><div class="sig"><code>api.set_ugc_policy(values: Dictionary) -&gt; void</code></div><p>How this server treats player creations (engine/server/ugc.gd): {enabled, accept: &quot;auto&quot; | &quot;trusted&quot; |<br>&quot;approval&quot; | &quot;off&quot;, kinds: [&quot;skin&quot;, &quot;accessory&quot;, &quot;model&quot;], library (others may wear approved ones),<br>max_per_player, max_bytes_per_player}. Saved with the world.</p></div>
 </section>
 <section id="events"><h2>Events</h2><p>Register with <code>api.on(event, handler, priority)</code> (JS: <code>api.on</code>). Handlers get one dictionary; set <code>cancelled = true</code> where noted.</p><pre class="block">  player_join    {player, first_time}
   player_leave   {player}

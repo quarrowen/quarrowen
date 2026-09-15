@@ -207,10 +207,15 @@ changes with `tools/build_native.sh`.
      conversion to cosmetic definitions, the player's local library.
    - U2 Skin painter (done: engine/client/avatar/skin_painter.gd, in the menu's avatar editor): 64x64 layout painting with a turning 3D preview, tools, layers, PNG import.
    - U3 Accessory builder (done: accessory_builder.gd, model_importer.gd) (voxel boxes on an attachment point) and GLB model import with checks.
-   - U4 Delivery: offer creations on join and when worn, uploads with limits, the server library (browse
+   - U4 Delivery (done: engine/server/ugc.gd, engine/client/ugc_client.gd, library panel, --ugc, e2e in multiplayer_test): offer creations on join and when worn, uploads with limits, the server library (browse
      and wear), clients download them like assets, server policy.
    - U5 Moderation: approval queue with previews, reports, hide/remove, hash blocklist, creator bans,
      events and mod API, dashboard view.
+3b. **Enhanced, more aesthetic player models** (future consideration, user 2026-09-15): beyond the blocky
+   64x64-skin body. Ideas: whole-body GLB models whose parts are named after the rig (head, torso,
+   arm_r_upper, ...) so animations keep working, with height/width, triangle and texture limits, a fallback
+   to the normal body and a server switch; smoother, higher-detail default bodies (rounded parts, finger and
+   face detail, eyes that blink); better animation (walk cycles, idle, emotes, cloth/cape motion).
 4. **Multiplayer network** (follow-up): server browser/discovery, server-to-server portals/transfer
    with the same identity, profiles, friends/parties, roles/permissions, anti-cheat checks, 100+ player
    scaling tests.

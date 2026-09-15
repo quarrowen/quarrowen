@@ -46,6 +46,9 @@ const GuideScreen = preload("res://engine/client/guide_screen.gd")
 const TutorialHud = preload("res://engine/client/tutorial_hud.gd")
 const DevOverlay = preload("res://engine/client/dev_overlay.gd")
 const DebugDraw = preload("res://engine/client/debug_draw.gd")
+const UgcClient = preload("res://engine/client/ugc_client.gd")
+const CreationLibrary = preload("res://engine/client/creation_library.gd")
+const Creations = preload("res://engine/shared/creations.gd")
 const MinigameScreen = preload("res://engine/client/minigame_screen.gd")
 const EatingVisuals = preload("res://engine/client/eating_visuals.gd")
 const ItemIcons = preload("res://engine/client/item_icons.gd")
@@ -230,6 +233,10 @@ var _tutorial_hud: TutorialHud
 var _dev_alerts: VBoxContainer
 var _dev_overlay: DevOverlay
 var _debug_draw: DebugDraw
+## Player creations: uploads, downloads and the server library (see engine/client/ugc_client.gd).
+var ugc := UgcClient.new(self)
+## Model files of downloaded creations: asset name -> GLB bytes.
+var ugc_models := {}
 var _volume_slider: HSlider
 
 
@@ -377,6 +384,7 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	inventory.set_equipment_slots(items.slot_names())
 	_player_rig = PlayerRig.sanitize(content.get("player_rig"))
 	cosmetics.load_network(content.get("cosmetics"))
+	CreationLibrary.register_all(cosmetics, _asset_images)  # the player's own creations
 	recipes.load_network(content.get("recipes"))
 	_crafting_screen.processes = content.get("processes", {}) if content.get("processes") is Dictionary else {}
 	_crafting_screen.stations = content.get("stations", {}) if content.get("stations") is Dictionary else {}
@@ -514,6 +522,10 @@ func _finish_content() -> void:
 		return ContentCache.read(_manifest[asset].hash) if _manifest.has(asset) else PackedByteArray())
 	_item_meshes.icons = _item_icons
 	_looks = LookBuilder.new(cosmetics, _asset_images, func(asset: String) -> PackedByteArray:
+		if ugc_models.has(asset):
+			return ugc_models[asset]
+		if Creations.is_id(asset.get_basename()):
+			return CreationLibrary.read_model(asset)
 		return ContentCache.read(_manifest[asset].hash) if _manifest.has(asset) else PackedByteArray())
 	_self_avatar = Avatar.new()
 	add_child(_self_avatar)
@@ -564,6 +576,7 @@ func on_welcome(peer_id: int, spawn: Vector3, spawn_yaw: float) -> void:
 		_apply_look(_self_avatar, player_name, _appearances[my_id])  # it may arrive before the welcome
 	if not admin_token.is_empty():
 		Net.c_claim_admin.rpc_id(1, admin_token)
+	ugc.offer_worn(avatar)
 	_set_status("Loading terrain...")
 	print("[client] Joined as peer %d at %s" % [peer_id, spawn])
 
@@ -656,10 +669,28 @@ func on_player_joined(peer_id: int, remote_name: String) -> void:
 
 func on_player_appearance(peer_id: int, appearance: Dictionary) -> void:
 	_appearances[peer_id] = appearance
+	ugc.ensure_known(appearance.get("avatar", {}))
 	if peer_id == my_id and _self_avatar != null:
 		_apply_look(_self_avatar, player_name, appearance)
 	elif _remote_players.has(peer_id):
 		_apply_look(_remote_players[peer_id].avatar, _remote_players[peer_id].player_name, appearance)
+
+
+## Draws everyone again (a creation someone wears has arrived).
+func refresh_looks() -> void:
+	if _looks == null:
+		return
+	_looks.clear_cache()
+	for peer_id in _appearances:
+		if peer_id == my_id and _self_avatar != null:
+			_apply_look(_self_avatar, player_name, _appearances[peer_id])
+		elif _remote_players.has(peer_id):
+			_apply_look(_remote_players[peer_id].avatar, _remote_players[peer_id].player_name, _appearances[peer_id])
+
+
+## A short message for the player (creation statuses and the like).
+func notify(text: String) -> void:
+	on_chat(text)
 
 
 func on_cosmetics(owned: PackedStringArray, policy: Dictionary) -> void:
@@ -990,6 +1021,7 @@ func _process(delta: float) -> void:
 	_schedule_mesh_jobs()
 	if not _welcomed:
 		return
+	ugc.update(delta)
 
 	if _status_label.visible and _can_simulate() and _chunk_nodes.has(VoxelWorld.chunk_coord_of(state.position)):
 		_set_status("")
@@ -2193,7 +2225,8 @@ func open_avatar_editor() -> void:
 			wear[cat_name] = current.wear[cat_name]
 			start.wear = wear
 	_avatar_editor = AvatarEditor.new()
-	_avatar_editor.setup(cosmetics, _looks, _player_rig, player_name, start, {"in_game": true, "owned": owned_cosmetics})
+	_avatar_editor.setup(cosmetics, _looks, _player_rig, player_name, start, {"in_game": true, "owned": owned_cosmetics,
+		"creations": true, "author": Identity.player_id(_identity) if _identity != null else "", "ugc": ugc})
 	_avatar_editor.done.connect(_on_avatar_edited)
 	_avatar_editor.cancelled.connect(_close_avatar_editor)
 	_hud_root.add_child(_avatar_editor)
@@ -2205,13 +2238,16 @@ func _on_avatar_edited(edited: Dictionary) -> void:
 	var portable := edited.duplicate(true)
 	var previous: Dictionary = LookBuilder.resolve(avatar, player_name)
 	for cat_name in edited.get("wear", {}):
-		if not Cosmetics.is_builtin(String(edited.wear[cat_name].id)):
+		var worn_id := String(edited.wear[cat_name].id)
+		# Built-in cosmetics and the player's own creations travel; other picks belong to this server.
+		if not Cosmetics.is_builtin(worn_id) and CreationLibrary.get_manifest(worn_id).is_empty():
 			if previous.get("wear", {}).has(cat_name):
 				portable.wear[cat_name] = previous.wear[cat_name]
 			else:
 				portable.wear.erase(cat_name)
 	avatar = cosmetics.sanitize_avatar(portable)
 	AvatarStore.save_avatar(avatar)
+	ugc.offer_worn(edited)
 	Net.c_set_avatar.rpc_id(1, edited)
 	_close_avatar_editor()
 

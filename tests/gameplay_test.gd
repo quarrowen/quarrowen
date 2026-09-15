@@ -58,6 +58,7 @@ func _ready() -> void:
 	_creations()
 	await _skin_painter()
 	await _accessory_tools()
+	await _ugc_server()
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[gameplay] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -2625,6 +2626,77 @@ func _accessory_tools() -> void:
 	await get_tree().process_frame
 	_check(looks.read_model == Library.read_model or looks.read_model.is_valid(), "the look builder gets its model reader back")
 	OS.set_environment("VOXEL_CREATIONS_DIR", "")
+
+
+func _ugc_server() -> void:
+	var C = preload("res://engine/shared/creations.gd")
+	var server = _start("ugc_%d" % Time.get_ticks_msec())
+	var ugc = server.ugc
+	var author := ServerPlayer.new(server, 140, "Artist")
+	author.player_id = "artist_id"
+	server.players[140] = author
+	var other := ServerPlayer.new(server, 141, "Fan")
+	other.player_id = "fan_id"
+	server.players[141] = other
+	var skin := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	skin.fill(Color(0.1, 0.7, 0.2))
+	var png := skin.save_png_to_buffer()
+	var m: Dictionary = C.make("skin", "skin", png, "Green", "artist_id", "Artist")
+	# Only authors bring creations.
+	_check(ugc.offer(other, [m]).status[m.id][0] == "refused", "only the author can upload a creation")
+	var answer: Dictionary = ugc.offer(author, [m])
+	_check(answer.request == [m.id], "the server asks the author for a creation it does not have")
+	var half := png.size() / 2
+	ugc.upload_piece(author, m.id, 0, png.size(), png.slice(0, half))
+	_check(not ugc.store.has(m.id), "a creation is stored only when complete")
+	ugc.upload_piece(author, m.id, half, png.size(), png.slice(half))
+	_check(ugc.is_approved(m.id) and FileAccess.file_exists(ugc._payload_path(m.id)), "with accept auto an upload is approved and stored")
+	# Wearing it: the author, and others through the library.
+	var worn := {"wear": {"skin": {"id": m.id, "color": "#ffffff"}}}
+	server._set_client_avatar(author, worn, false)
+	_check(author.avatar.get("wear", {}).get("skin", {}).get("id", "") == m.id, "the author wears an approved creation")
+	server._set_client_avatar(other, worn, false)
+	_check(other.avatar.get("wear", {}).get("skin", {}).get("id", "") == m.id, "others may wear it when the library is on")
+	ugc.set_policy({"library": false})
+	server._set_client_avatar(other, worn, false)
+	_check(other.avatar.get("wear", {}).get("skin", {}).get("id", "") != m.id, "with the library off only the author wears it")
+	ugc.set_policy({"library": true})
+	_check(ugc.library({"category": "skin"}).items.map(func(x): return x.id) == [m.id], "the server library lists approved creations")
+	# Approval mode: pending until approved, then the waiting avatar updates.
+	ugc.set_policy({"accept": "approval"})
+	var box_data := JSON.stringify({"boxes": [{"from": [-4, 0, -4], "size": [8, 2, 8], "color": "#3355aa"}]}).to_utf8_buffer()
+	var cap: Dictionary = C.make("accessory", "hat", box_data, "Blue Cap", "artist_id", "Artist")
+	ugc.offer(author, [cap])
+	ugc.upload_piece(author, cap.id, 0, box_data.size(), box_data)
+	_check(ugc.store[cap.id].status == "pending", "with accept approval uploads wait")
+	server._set_client_avatar(author, {"wear": {"hat": {"id": cap.id, "color": "#ffffff"}}}, false)
+	_check(author.avatar.get("wear", {}).get("hat", {}).get("id", "") != cap.id, "pending creations are not shown")
+	ugc.set_status(cap.id, "approved")
+	_check(author.avatar.get("wear", {}).get("hat", {}).get("id", "") == cap.id, "approving puts it on the player who was waiting")
+	# Bad content and limits.
+	var bad := Image.create(16, 16, false, Image.FORMAT_RGBA8).save_png_to_buffer()
+	var fake: Dictionary = C.make("skin", "skin", bad, "Tiny", "artist_id", "Artist")
+	var statuses := []
+	server.add_handler("ugc_status", func(ev): statuses.append([ev.id, ev.status, ev.reason]), 0)
+	ugc.set_policy({"accept": "auto"})
+	ugc.offer(author, [fake])
+	ugc.upload_piece(author, fake.id, 0, bad.size(), bad)
+	_check(not ugc.store.has(fake.id) and statuses.any(func(x): return x[0] == fake.id and x[1] == "refused" and x[2].contains("64x64")), "invalid uploads are refused with the reason")
+	ugc.set_policy({"max_per_player": 2})
+	var third_data := JSON.stringify({"boxes": [{"from": [0, 0, 0], "size": [1, 1, 1], "color": "#ffffff"}]}).to_utf8_buffer()
+	var third: Dictionary = C.make("accessory", "back", third_data, "Dot", "artist_id", "Artist")
+	_check(ugc.offer(author, [third]).status.get(third.id, [""])[0] == "refused", "the per-player creation limit applies")
+	# Removing blocks the content for good.
+	ugc.set_status(m.id, "removed", "not allowed")
+	_check(ugc.blocked.has(m.id) and ugc.offer(author, [m]).status[m.id][1].contains("removed") and not other.avatar.get("wear", {}).has("skin"),
+		"removed creations are blocked and taken off players")
+	# Saved with the world.
+	ugc.save_index()
+	var again = preload("res://engine/server/ugc.gd").new(server)
+	again.load_store(server._save_dir)
+	_check(again.store.has(cap.id) and again.blocked.has(m.id) and again.policy.max_per_player == 2, "the creation store and blocklist are saved")
+	server.queue_free()
+	await get_tree().process_frame
 
 
 func _js_blocks() -> void:

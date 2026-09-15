@@ -29,6 +29,9 @@ var in_game := false
 ## Show the player's creations and the tools to make them.
 var creations := false
 var author_id := ""
+## In game: the UgcClient, for the server library.
+var ugc = null
+var _library_panel: PopupPanel
 
 var _rig: Dictionary
 var _preview: Avatar
@@ -55,6 +58,7 @@ func setup(registry: Cosmetics, look_builder: LookBuilder, rig: Dictionary, name
 	owned = options.get("owned", PackedStringArray())
 	creations = bool(options.get("creations", false))
 	author_id = str(options.get("author", ""))
+	ugc = options.get("ugc")
 	avatar = LookBuilder.resolve(start, name_text).duplicate(true)
 
 
@@ -269,6 +273,8 @@ func _rebuild_creation_row() -> void:
 	if _category in Creations.ACCESSORY_CATEGORIES:
 		_creation_row.add_child(_small_button("Build…", open_builder.bind("")))
 		_creation_row.add_child(_small_button("Import model…", _pick_model))
+	if ugc != null and (_category == "skin" or _category in Creations.ACCESSORY_CATEGORIES):
+		_creation_row.add_child(_small_button("Server library…", open_library))
 	if Creations.is_id(worn):
 		var m := CreationLibrary.get_manifest(worn)
 		if not m.is_empty():
@@ -387,6 +393,66 @@ func _open_tool(tool_node: Control) -> void:
 		_refresh_preview())
 	_painter = tool_node
 	add_child(tool_node)
+
+
+## Other players' creations on this server, for the category on show.
+func open_library() -> void:
+	if _library_panel != null:
+		_library_panel.queue_free()
+	_library_panel = PopupPanel.new()
+	var box := VBoxContainer.new()
+	box.custom_minimum_size = Vector2(520, 420)
+	_library_panel.add_child(box)
+	var title := Label.new()
+	title.text = "Server library: %s" % _category.capitalize()
+	title.add_theme_font_size_override("font_size", 20)
+	box.add_child(title)
+	var search := LineEdit.new()
+	search.placeholder_text = "Search by name or creator"
+	box.add_child(search)
+	var list := ItemList.new()
+	list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.add_child(list)
+	var note := Label.new()
+	note.text = "Loading…"
+	note.add_theme_color_override("font_color", Color(0.7, 0.74, 0.8))
+	box.add_child(note)
+	var items := []
+	var on_page := func(page: Array, total: int, server_policy: Dictionary):
+		items = page
+		list.clear()
+		for m in page:
+			list.add_item("%s   by %s   (%s)" % [m.name, m.get("author_name", "?"), m.kind])
+		if not server_policy.get("library", true):
+			note.text = "This server does not let players wear each other's creations."
+		else:
+			note.text = "%d creation%s. Pick one to wear it." % [total, "" if total == 1 else "s"] if total > 0 else "Nothing here yet."
+	ugc.library_received.connect(on_page)
+	var category := _category
+	search.text_submitted.connect(func(t): ugc.request_library({"category": category, "text": t}))
+	list.item_selected.connect(func(i):
+		var id: String = items[i].id
+		if cosmetics.get_def(id).is_empty():
+			note.text = "Downloading %s…" % items[i].name
+			var ready := [Callable()]
+			ready[0] = func(done_id: String):
+				if done_id != id:
+					return
+				ugc.creation_ready.disconnect(ready[0])
+				if is_instance_valid(self):
+					_category = category
+					_rebuild_tabs()
+					_wear(id)
+			ugc.creation_ready.connect(ready[0])
+			ugc.fetch([id])
+		else:
+			_wear(id))
+	_library_panel.popup_hide.connect(func():
+		if ugc.library_received.is_connected(on_page):
+			ugc.library_received.disconnect(on_page))
+	add_child(_library_panel)
+	_library_panel.popup_centered()
+	ugc.request_library({"category": category})
 
 
 func _delete_creation(id: String) -> void:

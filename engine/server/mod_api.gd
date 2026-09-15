@@ -897,6 +897,13 @@ func show_tip(player, tip_name: String) -> bool:
 	return _server.tutorials.show_tip(player, _qualify_ref(tip_name))
 
 
+## How this server treats player creations (engine/server/ugc.gd): {enabled, accept: "auto" | "trusted" |
+## "approval" | "off", kinds: ["skin", "accessory", "model"], library (others may wear approved ones),
+## max_per_player, max_bytes_per_player}. Saved with the world.
+func set_ugc_policy(values: Dictionary) -> void:
+	_server.ugc.set_policy(values)
+
+
 ## A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from
 ## GDScript, a Callable(writer, origin: Vector3i, rng) run on worker threads. See worldgen/features.gd.
 func register_feature(feature_name: String, def) -> void:

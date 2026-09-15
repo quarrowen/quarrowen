@@ -741,6 +741,68 @@ func s_reloading(message: String) -> void:
 		client.on_server_reloading(message)
 
 
+## Player creations (engine/server/ugc.gd): offer the manifests of creations you wear.
+@rpc("any_peer", "call_remote", "reliable")
+func c_ugc_offer(manifests: Array) -> void:
+	if server:
+		server.on_ugc_offer(_sender(), manifests)
+
+
+## A piece of a creation's file the server asked for.
+@rpc("any_peer", "call_remote", "reliable")
+func c_ugc_upload(id: String, offset: int, total: int, bytes: PackedByteArray) -> void:
+	if server:
+		server.on_ugc_upload(_sender(), id, offset, total, bytes)
+
+
+## Creations this client needs (to draw someone, or to preview from the library).
+@rpc("any_peer", "call_remote", "reliable")
+func c_ugc_fetch(ids: PackedStringArray) -> void:
+	if server:
+		server.on_ugc_fetch(_sender(), ids)
+
+
+## A page of the server library: query {category, text}.
+@rpc("any_peer", "call_remote", "reliable")
+func c_ugc_library(query: Dictionary, offset: int) -> void:
+	if server:
+		server.on_ugc_library(_sender(), query, offset)
+
+
+## Upload these creations (ids from your offer).
+@rpc("authority", "call_remote", "reliable")
+func s_ugc_request(ids: PackedStringArray) -> void:
+	if client:
+		client.ugc.on_request(ids)
+
+
+## A creation's status here: approved | pending | rejected | removed | refused, with a reason.
+@rpc("authority", "call_remote", "reliable")
+func s_ugc_status(id: String, status: String, reason: String) -> void:
+	if client:
+		client.ugc.on_status(id, status, reason)
+
+
+## Manifests of creations you fetched (their files follow as pieces).
+@rpc("authority", "call_remote", "reliable")
+func s_ugc_defs(manifests: Array) -> void:
+	if client:
+		client.ugc.on_defs(manifests)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_ugc_piece(id: String, offset: int, total: int, bytes: PackedByteArray) -> void:
+	if client:
+		client.ugc.on_piece(id, offset, total, bytes)
+
+
+## A page of the server library: manifests, the total count and the server's creation policy.
+@rpc("authority", "call_remote", "reliable")
+func s_ugc_library(items: Array, total: int, policy: Dictionary) -> void:
+	if client:
+		client.ugc.on_library(items, total, policy)
+
+
 ## Dev overlay requests (see GameServer.on_dev).
 @rpc("any_peer", "call_remote", "reliable")
 func c_dev(action: String, args: Dictionary) -> void:
