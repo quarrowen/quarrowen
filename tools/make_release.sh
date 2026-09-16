@@ -85,14 +85,28 @@ if [ "$flat" -eq 1 ]; then mods_base="$base_url"; else mods_base="$base_url/$fil
 sign "$out/mods.json"
 
 # The rows the download page shows, from the same zips.
-mod_rows=""
+# The page groups mods the way the game's own list does: games to play, add-ons for a game, and the
+# library everything is built on (see docs/mods_plan.md). `kind` comes from each mod.json.
+games_rows=""
+addon_rows=""
+library_rows=""
 for zip in "$out/$files"/mods/*.zip; do
 	file="$(basename "$zip")"
 	id="${file%-*}"
 	description="$(sed -n 's/.*"description"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
 	name="$(sed -n 's/.*"name"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
-	mod_rows="$mod_rows<tr><td><b>${name:-$id}</b><br><span class=\"dim\">$description</span></td><td class=\"right\"><a href=\"$mods_base/$file\">$file</a><br><span class=\"dim\">$(human "$zip")</span></td></tr>"
+	kind="$(sed -n 's/.*"kind"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
+	row="<tr><td><b>${name:-$id}</b><br><span class=\"dim\">$description</span></td><td class=\"right\"><a href=\"$mods_base/$file\">$file</a><br><span class=\"dim\">$(human "$zip")</span></td></tr>"
+	case "$kind" in
+		game) games_rows="$games_rows$row" ;;
+		library) library_rows="$library_rows$row" ;;
+		*) addon_rows="$addon_rows$row" ;;
+	esac
 done
+mod_sections=""
+[ -n "$games_rows" ] && mod_sections="$mod_sections<h3>Games</h3><p class=\"dim\">A world runs one of these.</p><table>$games_rows</table>"
+[ -n "$addon_rows" ] && mod_sections="$mod_sections<h3>Add-ons</h3><p class=\"dim\">Extra content on top of a game.</p><table>$addon_rows</table>"
+[ -n "$library_rows" ] && mod_sections="$mod_sections<h3>Library</h3><p class=\"dim\">Blocks and items the others are built on; every game needs it.</p><table>$library_rows</table>"
 
 cat > "$out/index.html" <<EOF
 <!doctype html>
@@ -157,9 +171,9 @@ cat > "$out/index.html" <<EOF
 </ol>
 
 <h2>Mods in this release</h2>
-<p class="dim">Games and add-ons. A server drops these in its mods folder; the game will list them in its own
-mod browser.</p>
-<table>$mod_rows</table>
+<p class="dim">The game comes with all of these - this is for adding one to a server, or installing it by
+hand. In the game, the <b>Mods</b> page does it for you.</p>
+$mod_sections
 
 <h2>Running a server</h2>
 <p>The dedicated server is a Docker image, with its mods in a folder on the host so a zip from this page can be

@@ -56,6 +56,7 @@ func _ready() -> void:
 	await _mod_packages()
 	await _mod_templates()
 	_mod_index()
+	await _examples()
 	await _loot()
 	_api_docs()
 	_creations()
@@ -3200,6 +3201,27 @@ func _loot() -> void:
 	await get_tree().process_frame
 
 
+## The examples in examples/ are documentation that runs: they have to load and do what they claim, or
+## they teach something that no longer works.
+func _examples() -> void:
+	var ids := ["loot_example", "events_example", "worldgen_example", "ui_example"]
+	if ClassDB.class_exists(&"NativeJsRuntime"):
+		ids.append("js_example")
+	var server = _start("examples_%d" % Time.get_ticks_msec(), ["vanilla"] + ids, ["res://examples"])
+	server.dev_log.drain()
+	var errors: Array = server.dev_log.sorted_errors().filter(func(e): return ids.has(str(e.source)))
+	_check(errors.is_empty(), "every example loads without errors %s" % str(errors.map(func(e): return e.message).slice(0, 3)))
+	_check(server.loot.has("loot_example:chest") and server.loot.has("loot_example:junk"),
+		"the loot example registers its tables")
+	var pig_pools: int = server.loot.tables.get("mob:vanilla:pig", {}).get("pools", []).size()
+	server.loot.table_for_entity(server.entities.registry.defs[server.entities.registry.id_of("vanilla:pig")])
+	_check(server.loot.tables["mob:vanilla:pig"].pools.size() > pig_pools or pig_pools > 3,
+		"the loot example adds a drop to a mob another mod owns")
+	_check(server._commands.has("hello") and server._commands.has("prize"), "the examples register their commands")
+	server.queue_free()
+	await get_tree().process_frame
+
+
 func _api_docs() -> void:
 	var Docs = preload("res://tools/docs_generator.gd")
 	var html: String = Docs.build()
@@ -4080,10 +4102,11 @@ func _js_blocks() -> void:
 	await get_tree().process_frame
 
 
-func _start(world: String, mods := ["vanilla"]):
+func _start(world: String, mods := ["vanilla"], mod_dirs := []):
 	var server := GameServer.new()
 	add_child(server)
-	var err: Error = server.start({"mods": PackedStringArray(mods), "world": world, "data_dir": DATA_DIR, "seed": 42, "offline": true})
+	var err: Error = server.start({"mods": PackedStringArray(mods), "mod_dirs": PackedStringArray(mod_dirs),
+		"world": world, "data_dir": DATA_DIR, "seed": 42, "offline": true})
 	if err != OK:
 		_check(false, "server start: %s" % error_string(err))
 	server.set_physics_process(false)  # the test drives ticks itself

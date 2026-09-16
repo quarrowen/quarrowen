@@ -1,0 +1,15 @@
+{
+	"id": "events_example",
+	"name": "Example: Events",
+	"version": "1.0.0",
+	"description": "One capability, one small mod: events. Reacting to what players do, changing a value before it takes effect, and cancelling something outright.",
+	"kind": "example",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.0",
+	"depends": [
+		"base@^1.0"
+	],
+	"game": false
+}

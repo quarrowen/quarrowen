@@ -3,6 +3,7 @@
 	"name": "Skyblock",
 	"version": "1.0.0",
 	"description": "Survive on your own tiny island above the void. Mine the generator, complete challenges, expand.",
+	"kind": "game",
 	"authors": [
 		"Quarrowen"
 	],

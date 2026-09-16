@@ -3,6 +3,7 @@
 	"name": "Vanilla Sandbox",
 	"version": "1.0.0",
 	"description": "Endless generated terrain with mountains, oceans and forests. Creative building.",
+	"kind": "game",
 	"authors": [
 		"Quarrowen"
 	],

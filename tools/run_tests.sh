@@ -135,11 +135,13 @@ for log in "$WORK"/server_*.log; do
   if grep -qE "SCRIPT ERROR|script error" "$log"; then FAILED+=("clean-server-log:$(basename "$log")"); grep -hE "SCRIPT ERROR|script error" "$log" | head -5; fi
 done
 
-# Every bundled mod must pass the validator (errors fail; warnings and hints are printed).
-for mod_dir in mods/*/; do
+# Every bundled mod and every example must pass the validator (errors fail; warnings and hints printed).
+# The examples are documentation that runs, so they rot the moment nothing checks them.
+for mod_dir in mods/*/ examples/*/; do
+  [ -f "$mod_dir/mod.json" ] || continue
   mod="$(basename "$mod_dir")"
   selected "validate:$mod" || continue
-  timeout 240 "$GODOT" --headless --path . res://tools/mod_tool.tscn -- validate "mods/$mod" >"$WORK/validate_$mod.log" 2>&1
+  timeout 240 "$GODOT" --headless --path . res://tools/mod_tool.tscn -- validate "${mod_dir%/}" >"$WORK/validate_$mod.log" 2>&1
   code=$?
   grep -h "^\[mod_tool\] \(ERROR\|WARNING\)" "$WORK/validate_$mod.log" | head -5
   record "validate:$mod" $code "$WORK/validate_$mod.log"

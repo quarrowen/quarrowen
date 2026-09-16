@@ -1,0 +1,15 @@
+{
+	"id": "worldgen_example",
+	"name": "Example: World generation",
+	"version": "1.0.0",
+	"description": "One capability, one small mod: shaping the world. An ore that appears in any game, a feature scattered on the surface, and a biome of your own.",
+	"kind": "example",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.0",
+	"depends": [
+		"base@^1.0"
+	],
+	"game": false
+}

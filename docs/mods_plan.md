@@ -25,8 +25,9 @@ group them:
 - **library** - `base`. Ships inside the app, never chosen directly.
 - **game** - `vanilla`, `oneblock`, `skyblock`. What "New world" offers. Ships inside the app.
 - **add-on** - `arcana`, `industry`, `guild`. Downloaded, added to a world that already has a game.
-- **example** - new: a handful of 100-line mods, one capability each, living in `examples/` in the
-  repository and linked from the mod API docs. Not published, not shipped, never loaded by a real world.
+- **example** - a handful of small mods, one capability each, in `examples/` (see its README for the
+  capability matrix). Not published, not shipped, never loaded by a real world, but validated and loaded
+  by the test suite so they stay true.
 
 That last kind is the fix for the real problem: today the add-ons carry two jobs at once (be fun, and
 show how the engine works), and the second job keeps them thin.
@@ -46,27 +47,35 @@ show how the engine works), and the second job keeps them thin.
 
 ## Rollout
 
-**Phase 0 - catalogue metadata (before alpha 2).** `kind` in every `mod.json` (library/game/add-on/example),
-`tools/package_mods.sh` and the index carry it, the download page groups by it. Small, unblocks everything
-else.
+**Phase 0 - catalogue metadata. Done (0.39.0).** Every `mod.json` carries `kind` (library / game / addon /
+example), `ModLoader` reads it, the validator checks it agrees with `game:`, `mod_tool -- new` writes it,
+the index (`mods.json`) carries it, and both the in-game Mods page and the download page group by it.
 
-**Phase 1 - alpha 2 ships the split.** The app carries base, vanilla, oneblock, skyblock. arcana, industry
-and guild are published as downloads on the site. The playtest guide tells the family how to add one to the
-server (drop the zip in the mods folder, add it to `GAME=`).
+**Phase 1 - ship the split. Deferred, on purpose.** The idea was that the app carries base and the games
+while the add-ons are downloads. Measured, the three add-ons are 736 KB of a 62 MB app - about 1% - so the
+saving is not real, while the cost is: a child whose local world uses arcana would find it broken until
+they installed it again. The decision this phase was really meant to force (does anyone play industry?)
+needs playtest evidence we do not have yet. Revisit when the alpha 3 feedback says who plays what; the
+mod list makes the install one click whenever we do.
 
-**Phase 2 - mod settings** (docs/distribution.md §6). Schema, values in the world, a section per mod in the
-admin screen, a data-dir file for servers. Then arcana gets "mana regeneration", industry "machine speed",
-vanilla "monster rate" - the knobs an admin wants during a playtest.
+**Phase 2 - mod settings. Done (0.39.0).** Schema, values in the world, a section per mod in the admin
+screen, `mod_settings.json` for a headless server, `/modsettings`. See docs/distribution.md §6. vanilla
+uses it for monsters, day length, how much things drop and whether zombies burn.
 
-**Phase 3 - the in-game mod list.** Installed / available / updates from the index, install and remove, and
-"New world" listing every installed game and add-on. This is when a download stops being a manual step.
+**Phase 3 - the in-game mod list. Done (0.39.0).** Menu → Mods: installed / available / updates, install
+and remove, dependencies pulled in, the index signed like the update manifest. New world lists whatever is
+installed and re-reads it after a change.
 
-**Phase 4 - examples and the capability matrix.** `examples/` with one mod per capability, plus a table in
-the mod API docs mapping each engine capability to the example that shows it and the shipping mod that uses
-it. Anything in a shipping mod that exists only to demonstrate something moves here.
+**Phase 4 - examples and the capability matrix. Done (0.39.0).** `examples/` holds one small mod per
+capability - loot, events, world generation, commands and UI, and a JavaScript one - with a table in
+`examples/README.md` mapping each engine capability to the example that shows it and the shipping mod that
+uses it for real. The test suite validates and loads them, so they cannot rot. The gaps the table shows
+(mobs and spawning, containers and stations, models with moving parts, guide pages, structures) are the
+next examples to write, in that order.
 
 **Phase 5 - quality pass.** Per kept mod: a guide page, sounds for every action, a tutorial entry where it
 makes sense, and an e2e test that plays its loop (arcana, industry, guild and skyblock already have one).
+Waiting on alpha 3 feedback, so the effort goes to whichever mods the kids actually open.
 
 **Phase 6 - community mods.** Only after the list works: the advanced install path, what a submission looks
 like, and how a "verified" mark is earned.

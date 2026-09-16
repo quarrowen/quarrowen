@@ -1,0 +1,15 @@
+{
+	"id": "loot_example",
+	"name": "Example: Loot",
+	"version": "1.0.0",
+	"description": "One capability, one small mod: loot tables. Pools, conditions, a table that rolls another, and adding a drop to a mob another mod owns.",
+	"kind": "example",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.0",
+	"depends": [
+		"base@^1.0"
+	],
+	"game": false
+}

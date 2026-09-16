@@ -1,0 +1,15 @@
+{
+	"id": "ui_example",
+	"name": "Example: Commands and UI",
+	"version": "1.0.0",
+	"description": "One capability, one small mod: talking to players. A chat command, a panel on their screen, buttons that call back, and a permission of your own.",
+	"kind": "example",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.0",
+	"depends": [
+		"base@^1.0"
+	],
+	"game": false
+}

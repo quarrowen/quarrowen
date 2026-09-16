@@ -1,0 +1,16 @@
+{
+	"id": "js_example",
+	"name": "Example: A mod in JavaScript",
+	"version": "1.0.0",
+	"description": "One capability, one small mod: the JavaScript sandbox. The same API as GDScript in camelCase, with events, a command, timers and saved storage.",
+	"kind": "example",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.0",
+	"depends": [
+		"base@^1.0"
+	],
+	"game": false,
+	"main": "main.js"
+}
