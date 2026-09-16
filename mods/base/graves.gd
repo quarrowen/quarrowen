@@ -18,6 +18,11 @@ func setup(mod_api, sounds: Dictionary) -> void:
 		"textures": {"top": "textures/grave_top.png", "side": "textures/grave_side.png", "bottom": "textures/grave_top.png"},
 		"hardness": 0.6, "placeable": false, "drops": ""})
 	api.on("player_death", _on_death)
+	api.on("player_join", func(ev):
+		# Markers live in memory, so put this player's home back on the map when they join.
+		var home = ev.player.data.get("base:home")
+		if home is Array and home.size() == 3:
+			api.set_map_marker(ev.player, "home", {"label": "Home", "position": Vector3(float(home[0]), float(home[1]), float(home[2])), "color": "#8fd88f"}))
 	api.on("container_open", _guard_open)
 	api.on("block_break", _guard_break)
 	api.register_command("sethome", "Remember this spot as your home", _cmd_sethome)
@@ -51,6 +56,7 @@ func _on_death(ev: Dictionary) -> void:
 		grave.add(inventory.cursor_id, inventory.cursor_count, inventory.cursor_data)
 	player.clear_inventory()
 	api.set_block_data(spot, _mark(api.get_block_data(spot), player))
+	api.set_map_marker(player, "grave", {"label": "Your grave", "position": Vector3(spot), "color": "#d8d8e0"})
 	player.send_message("Your things are in a grave at %d, %d, %d - break it to get them back (/back goes there)." % [spot.x, spot.y, spot.z])
 	api.info("%s left a grave at %s with %d stacks" % [player.name, spot, moved])
 
@@ -95,12 +101,16 @@ func _guard_break(ev: Dictionary) -> void:
 	if not owner.is_empty() and owner != ev.player.player_id and not ev.player.has_permission("admin"):
 		ev.cancelled = true
 		ev.player.show_title("", "This grave is not yours", 1.5)
+		return
+	if owner == ev.player.player_id:
+		api.clear_map_marker(ev.player, "grave")  # emptied: off the map
 
 
 # --- Homes ----------------------------------------------------------------------------------------
 
 func _cmd_sethome(player, _args: PackedStringArray) -> void:
 	player.data["base:home"] = _pack(player.position)
+	api.set_map_marker(player, "home", {"label": "Home", "position": player.position, "color": "#8fd88f"})
 	player.send_message("Home set here. /home brings you back.")
 
 

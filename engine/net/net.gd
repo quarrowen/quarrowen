@@ -222,6 +222,20 @@ func c_request_assets(hashes: PackedStringArray) -> void:
 
 
 ## The players and roles panel (roles.manage): action list | give {player_id, role} | take {player_id, role} | kick {peer}.
+## Asks for what the map shows: where everyone is, and the markers mods put on it.
+@rpc("any_peer", "call_remote", "reliable")
+func c_map() -> void:
+	if server:
+		server.on_map(_sender())
+
+
+## Map contents: {players: [{name, position, you}], markers: [{id, label, position, color}]}.
+@rpc("authority", "call_remote", "reliable")
+func s_map(state: Dictionary) -> void:
+	if client:
+		client.on_map(state)
+
+
 ## The worlds this server is linked to: "" asks for the list, "travel" goes to one ({server: key}).
 @rpc("any_peer", "call_remote", "reliable")
 func c_worlds(action: String, args: Dictionary) -> void:

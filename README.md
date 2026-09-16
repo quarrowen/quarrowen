@@ -51,7 +51,7 @@ identity key to `user://identity/`
 (on macOS under `~/Library/Application Support/Godot/app_userdata/VoxelCraft/`).
 
 **Controls:** WASD move, Space jump/swim (double-tap to fly in creative), Shift crouch (sinks while
-flying), Ctrl sprint, LMB break, RMB place / use a machine / use
+flying), Ctrl sprint, M map (everyone on the server, your home and your grave), LMB break, RMB place / use a machine / use
 the held item, C crafting, 1–9 / wheel slot, T chat and `/commands`, F3 debug, F4 graphics preset,
 Esc menu. Every key can be changed in Settings.
 

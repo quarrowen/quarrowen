@@ -85,6 +85,7 @@ const ACTIONS := [
 	["crafting", "Crafting", ["key:C"]],
 	["drop", "Drop item", ["key:Q"]],
 	["guide", "Guide book", ["key:G"]],
+	["map", "Map", ["key:M"]],
 	["chat", "Chat", ["key:T", "key:Enter"]],
 	["camera", "Camera view", ["key:F5"]],
 	["graphics", "Cycle graphics quality", ["key:F4"]],

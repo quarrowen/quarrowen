@@ -132,9 +132,12 @@ var gameplay := {
 	"minigame_assist": true,  # players may choose relaxed timing for crafting minigames
 	"tutorials": true,  # auto-start tutorials for new survival players (see engine/server/tutorials.gd)
 	"chat_filter": false,  # mask swear words in chat and refuse such player names (see engine/server/chat_filter.gd)
+	"share_positions": true,  # everyone sees everyone on the map (off: only admins do)
 	"role_tags": true,  # show the player's highest role tag in chat ("[Mod] Name")
 }
 var server_info := {"name": "VoxelCraft Server", "game": "", "description": "", "motd": "", "mods": []}
+## Map markers mods set for a player: player id -> {marker id: {label, position, color}} (see ModApi.set_map_marker).
+var map_markers := {}
 var generator: Object = null
 ## Objects with decorate(chunk, world_seed) run after the generator on worker threads (e.g. ores).
 var generation_passes: Array = []
@@ -3067,6 +3070,25 @@ func on_ugc_report(peer_id: int, id: String, reason: String, details: String) ->
 
 
 ## The players and roles panel. Answers with {players, roles, can_kick, denied?}.
+## What the player's map shows: everyone online (unless the server hides them) and the markers mods set.
+func on_map(peer_id: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null or not p._online():
+		return
+	var people := []
+	if gameplay.share_positions or has_permission(p, "admin"):
+		for other: ServerPlayer in players.values():
+			people.append({"name": other.name, "position": other.state.position, "you": other == p})
+	else:
+		people.append({"name": p.name, "position": p.state.position, "you": true})
+	var markers := []
+	for id: String in map_markers.get(p.player_id, {}):
+		var marker: Dictionary = map_markers[p.player_id][id]
+		markers.append({"id": id, "label": marker.get("label", id), "position": marker.get("position", Vector3.ZERO),
+			"color": marker.get("color", "#ffd166")})
+	Net.s_map.rpc_id(peer_id, {"players": people, "markers": markers, "spawn": _default_spawn()})
+
+
 ## The worlds panel: the servers this one is linked to (network.json), and travel.
 func on_worlds_panel(peer_id: int, action: String, args: Dictionary) -> void:
 	var p: ServerPlayer = players.get(peer_id)

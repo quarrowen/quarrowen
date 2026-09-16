@@ -641,6 +641,24 @@ func register_recipe_category(category_name: String, def := {}) -> bool:
 	return _server.recipes.register_category(d)
 
 
+## Puts a marker on a player's map (it stays until removed). `marker` = {label, position, color}.
+## Markers are per player, so a home or a grave only shows to whoever it belongs to.
+func set_map_marker(player, marker_id: String, marker: Dictionary) -> void:
+	if player == null or String(player.player_id).is_empty():
+		return
+	var id := _qualify(marker_id)
+	if not _server.map_markers.has(player.player_id):
+		_server.map_markers[player.player_id] = {}
+	_server.map_markers[player.player_id][id] = {"label": String(marker.get("label", marker_id)).left(32),
+		"position": marker.get("position", Vector3.ZERO), "color": String(marker.get("color", "#ffd166")).left(9)}
+
+
+## Takes a marker off a player's map.
+func clear_map_marker(player, marker_id: String) -> void:
+	if player != null and _server.map_markers.has(player.player_id):
+		_server.map_markers[player.player_id].erase(_qualify(marker_id))
+
+
 ## Registers a container type (see engine/server/containers.gd): {title, groups: [{name, count,
 ## columns, label, take_only, accepts}], progress: [{name, label, color}]}. Blocks use it with
 ## `container: "<name>"` and open it on right-click. Names without ":" are this mod's.

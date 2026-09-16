@@ -35,6 +35,7 @@ const FriendsPanel = preload("res://engine/client/social/friends_panel.gd")
 const PlayersPanel = preload("res://engine/client/admin/players_panel.gd")
 const ServerPanel = preload("res://engine/client/admin/server_panel.gd")
 const WorldsPanel = preload("res://engine/client/admin/worlds_panel.gd")
+const MapScreen = preload("res://engine/client/map_screen.gd")
 const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const Identity = preload("res://engine/shared/identity.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
@@ -271,6 +272,7 @@ var _settings_overlay: Control
 var _players_panel: Control
 var _server_panel: Control
 var _worlds_panel: Control
+var _map_screen: Control
 ## engine/client/social/social_client.gd when main.gd runs the game (null in tests).
 var social
 var _sprint_on := false  # the sprint key toggles (accessibility setting)
@@ -1904,6 +1906,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		get_viewport().gui_release_focus()  # typing in the dev overlay stops when you go back to playing
 		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("map") and _welcomed and (_map_screen != null or _gameplay_input_enabled()):
+		toggle_map()
+		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("drop") and _welcomed and _gameplay_input_enabled():
 		drop_selected(event.ctrl_pressed or event.meta_pressed)
 	elif event.is_action_pressed("chat") and _welcomed:
@@ -2640,6 +2645,33 @@ func open_worlds_panel() -> void:
 func on_worlds(state: Dictionary) -> void:
 	if _worlds_panel != null and is_instance_valid(_worlds_panel):
 		_worlds_panel.receive(state)
+
+
+## The map (M): the world from above with everyone on it.
+func toggle_map() -> void:
+	if _map_screen != null and is_instance_valid(_map_screen):
+		close_map()
+		return
+	var screen := MapScreen.new()
+	screen.client = self
+	screen.closed.connect(close_map)
+	screen.refresh_requested.connect(func(): Net.c_map.rpc_id(1))
+	_hud_root.add_child(screen)
+	_map_screen = screen
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func close_map() -> void:
+	if _map_screen != null and is_instance_valid(_map_screen):
+		_map_screen.queue_free()
+	_map_screen = null
+	if not _pause_panel.visible and not _inventory_screen.visible:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func on_map(state: Dictionary) -> void:
+	if _map_screen != null and is_instance_valid(_map_screen):
+		_map_screen.receive(state)
 
 
 ## Shows a screen over the game in a centred panel (settings, friends, players).
