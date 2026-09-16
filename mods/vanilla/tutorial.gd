@@ -37,6 +37,8 @@ func setup(api) -> void:
 				"goal": {"type": "break", "target": "base:stone", "count": 5}, "page": "base:stone_tools"},
 			{"title": "Upgrade to stone", "text": "A stone pickaxe mines faster and can dig iron ore.", "icon": "base:stone_pickaxe",
 				"goal": {"type": "craft", "target": "base:stone_pickaxe"}, "hint": {"block": "base:crafting_table"}, "page": "base:stone_tools"},
+			{"title": "Discover something", "text": "Not every recipe is written down. Open the recipe book's [b]Experiment[/b] tab and try something that burns, held up by something to hold it.",
+				"icon": "base:torch", "goal": {"type": "learn", "target": "base:torch"}, "page": "base:experiment", "hint": false},
 			{"title": "Eat something", "text": "Apples fall from leaves; animals and wheat give more. Hold [b]right click[/b] with food.", "icon": "base:apple",
 				"goal": {"type": "eat"}, "page": "base:food"},
 			{"title": "Make a bed", "text": "Beds need wool from sheep or a hay bale. Place it somewhere safe.", "icon": "base:bed",
@@ -63,5 +65,10 @@ func setup(api) -> void:
 		"icon": "vanilla:boom_spores", "page": "vanilla:boomshroom", "trigger": {"type": "damage", "target": "explosion"}})
 	api.register_tip("died", {"text": "You died. Sleep in a bed (or just right-click one) to respawn next to it.",
 		"icon": "base:bed", "page": "base:beds", "trigger": {"type": "respawn"}})
-	api.register_tip("iron_tools", {"text": "Iron tools need an anvil next to your crafting table. Forge them by hand for better quality.",
-		"icon": "base:iron_ingot", "page": "base:workshop", "trigger": {"type": "pickup", "target": "base:iron_ingot"}})
+	# Points at the route that is actually open. Iron tools by recipe need an anvil, and an anvil needs
+	# plans that drop from skeletons - a wall a child can sit behind for hours. The Tool Forge needs no
+	# plans at all, and it is where the parts, traits and quality stars live.
+	api.register_tip("iron_tools", {"text": "Iron! Build a [b]Tool Forge[/b] (cobblestone, iron and planks) and put your own pickaxe together from parts - each material gives it a different knack.",
+		"icon": "base:tool_forge", "page": "base:tool_forge", "trigger": {"type": "pickup", "target": "base:iron_ingot"}})
+	api.register_tip("first_parts", {"text": "Parts made. Stand at the Tool Forge and open [b]Assemble[/b] to put them together - and hammer it by hand for a chance at [b]Masterwork[/b].",
+		"icon": "base:tool_forge", "page": "base:by_hand", "trigger": {"type": "craft", "target": "base:*_head"}})

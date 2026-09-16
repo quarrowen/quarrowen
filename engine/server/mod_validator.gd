@@ -241,7 +241,9 @@ static func check_references(server, mod_id: String) -> Array:
 		if not page.icon.is_empty() and not item_ok.call(page.icon):
 			issues.append(_issue("warning", "guide page %s: icon '%s' does not exist" % [page.id, page.icon]))
 		var u: Dictionary = page.unlock
-		if u.has("item") and not item_ok.call(u.item) or u.has("recipe") and server.recipes.index_of(u.recipe) < 0 \
+		# An unlock may name one thing or several, any of which opens the page.
+		var named: Array = (u.item if u.item is Array else [u.item]) if u.has("item") else []
+		if named.any(func(n): return not item_ok.call(str(n))) or u.has("recipe") and server.recipes.index_of(u.recipe) < 0 \
 				or u.has("entity") and not entity_ok.call(u.entity) or u.has("page") and reg.get_page(u.page).is_empty():
 			issues.append(_issue("error", "guide page %s unlocks with %s, which does not exist (the page can never open)" % [page.id, u]))
 		for b in page.blocks:

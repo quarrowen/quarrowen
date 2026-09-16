@@ -57,16 +57,20 @@ func experiment(p, grid: Array) -> Dictionary:
 			best_score = scored.score
 			best_hint = scored.hint
 	if best >= 0 and best_score >= 0.5:
-		return _close(p, best, best_hint)
+		return _close(p, best, best_hint, counts)
 	return {"status": "nothing", "recipe": -1, "hint": "Nothing happens."}
 
 
 ## A near miss. Bookshelves at the station name what is missing or extra.
-func _close(p, index: int, hint: String) -> Dictionary:
+func _close(p, index: int, hint: String, have := {}) -> Dictionary:
 	var r: Dictionary = _server.recipes.recipes[index]
 	var hints := int(p.crafting_station.get("hints", 0))
 	if hints >= 2 and hint.begins_with("Something is missing"):
+		# Name something they have not put in. Naming the first ingredient regardless was a coin flip:
+		# a player holding coal and missing the stick was told "the books mention Coal".
 		for id: int in r.inputs:
+			if int(have.get(id, 0)) >= int(r.inputs[id]):
+				continue
 			hint += " The books mention %s." % _server.items.display_name(id)
 			break
 	return {"status": "close", "recipe": -1, "hint": hint}

@@ -1943,7 +1943,9 @@ func _guide_content() -> void:
 		if not page.icon.is_empty() and not item_ok.call(page.icon):
 			bad.append("%s icon %s" % [page.id, page.icon])
 		var u: Dictionary = page.unlock
-		if u.has("item") and not item_ok.call(u.item) or u.has("recipe") and server.recipes.index_of(u.recipe) < 0 \
+		# An unlock may name one thing or several, any of which opens the page.
+		var items_named: Array = (u.item if u.item is Array else [u.item]) if u.has("item") else []
+		if items_named.any(func(n): return not item_ok.call(str(n))) or u.has("recipe") and server.recipes.index_of(u.recipe) < 0 \
 				or u.has("entity") and server.entities.registry.id_of(u.entity) < 0 or u.has("page") and reg.get_page(u.page).is_empty():
 			bad.append("%s unlock %s" % [page.id, u])
 		for b in page.blocks:
@@ -3364,6 +3366,20 @@ func _first_session() -> void:
 	server.players[151] = survivor
 	server.tutorials.on_join(survivor)
 	_check(server.tutorials.state_of(survivor).active == "vanilla:survival", "a survival player still gets Survival Basics")
+
+	# The deepest system in the game must be pointed at, and the way in must be findable.
+	var tips: Dictionary = server.tutorials.tips
+	_check(str(tips["vanilla:iron_tools"].text).contains("Tool Forge"),
+		"finding iron points at the Tool Forge, which needs no plans, not only at the anvil that does")
+	var recipe_index: int = server.recipes.index_of("base:tool_forge")
+	_check(recipe_index >= 0 and server.recipes.recipes[recipe_index].station == "crafting_table",
+		"and a Tool Forge is built at an ordinary crafting table")
+	var skeleton: int = server.entities.registry.id_of("vanilla:skeleton")
+	var plans_chance := 0.0
+	for drop in server.entities.registry.defs[skeleton].drops:
+		if str(drop[0]) == "base:forge_plans":
+			plans_chance = float(drop[2]) if drop.size() > 2 else 1.0
+	_check(plans_chance >= 0.1, "forge plans drop often enough to be a goal rather than a wall (%.0f%%)" % (plans_chance * 100.0))
 
 	# Dying tells you what happened and what became of your things, rather than just "You died!".
 	var titles := []

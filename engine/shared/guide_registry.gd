@@ -3,7 +3,7 @@ extends RefCounted
 ##
 ## Chapter: {id, title, icon (item name), order, description}
 ## Page: {id, chapter, title, icon (item name), order, unlock, hint, blocks, keywords}
-##   unlock: {} (always) or one of {item: name} (picked up or held), {recipe: id} (known),
+##   unlock: {} (always) or one of {item: name or [names]} (picked up or held), {recipe: id} (known),
 ##           {entity: name} (seen nearby), {biome: name} (visited), {flag: name} (set by mods or tutorials), {page: id} (after
 ##           another page); locked pages show their title as "???" with `hint` (or a hint made from the
 ##           condition) saying what reveals them.
@@ -57,7 +57,9 @@ func add_page(def: Dictionary) -> bool:
 	if def.get("unlock") is Dictionary:
 		for key in ["item", "recipe", "entity", "biome", "flag", "page"]:
 			if def.unlock.has(key):
-				unlock = {key: str(def.unlock[key])}
+				# An unlock may name several things, any of which opens the page (charcoal as well as coal).
+				var value = def.unlock[key]
+				unlock = {key: (value as Array).map(func(v): return str(v)) if value is Array else str(value)}
 				break
 	var p := {"id": id, "owner": str(def.get("owner", "")), "chapter": str(def.get("chapter", "")), "title": str(def.get("title", id.get_slice(":", 1).capitalize())).left(64),
 		"icon": str(def.get("icon", "")).left(128), "order": float(def.get("order", 100.0)), "unlock": unlock, "hint": str(def.get("hint", "")).left(200), "blocks": blocks,

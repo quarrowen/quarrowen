@@ -1004,10 +1004,11 @@ func _visible_recipes() -> Array:
 			continue
 		if not _category.is_empty() and r.category != _category:
 			continue
-		var visible_name := is_known(r) or _reveal(r) >= 3
 		if not is_known(r) and (r.get("unlock", "") == "secret" or not _undiscovered.button_pressed):
 			continue
-		if not query.is_empty() and (not visible_name or not items.display_name(r.output).to_lower().contains(query)):
+		# Searching by name finds things you have not discovered yet: the silhouette and its "how to find
+		# this" is exactly what someone typing "anvil" is looking for. Only secrets stay hidden (above).
+		if not query.is_empty() and not items.display_name(r.output).to_lower().contains(query):
 			continue
 		if _craftable_only.button_pressed and craftable_times(i) <= 0:
 			continue

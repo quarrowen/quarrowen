@@ -48,7 +48,11 @@ func condition_met(p, page: Dictionary) -> bool:
 	if unlock.is_empty():
 		return true
 	if unlock.has("item"):
-		return p.seen_items.has(unlock.item)
+		# One page, several ways in: charcoal should open the torch page just as coal does.
+		for item in (unlock.item if unlock.item is Array else [unlock.item]):
+			if p.seen_items.has(str(item)):
+				return true
+		return false
 	if unlock.has("recipe"):
 		return _server.knows_recipe(p, unlock.recipe)
 	if unlock.has("entity"):

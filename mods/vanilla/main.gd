@@ -42,6 +42,11 @@ func setup(mod_api) -> void:
 		"apples_from_leaves": {"label": "Apples fall from leaves", "type": "bool", "default": true},
 	})
 	api.on("settings_changed", func(ev): if ev.mod == "vanilla": _apply_settings())
+	# Stitching leather is the first crafting minigame anyone meets, well before iron, so the page that
+	# explains quality has to be readable by then - otherwise a hover tooltip is the only explanation.
+	api.on("item_pickup", func(ev):
+		if ev.item == api.item("vanilla:leather"):
+			api.unlock_guide_page(ev.player, "base:by_hand"))
 	api.set_server_info({"name": "Vanilla Sandbox", "motd": "Welcome! Press G for the guide, or T then /help for commands."})
 	api.set_spawn_handler(_spawn_position)
 	api.on("player_join", _on_join)
@@ -139,7 +144,7 @@ func _setup_mobs() -> void:
 	# their prey and circle while their claws recharge.
 	ids.zombie = api.register_entity("zombie", {
 		"kind": "mob", "model": "models/zombie.glb", "width": 0.6, "height": 1.85,
-		"health": 20, "speed": 3.0, "drops": [["vanilla:rotten_flesh", 1, 0.8], ["base:coal", 1, 0.5], ["base:workbench_plans", 1, 0.03]],
+		"health": 20, "speed": 3.0, "drops": [["vanilla:rotten_flesh", 1, 0.8], ["base:coal", 1, 0.5], ["base:workbench_plans", 1, 0.12]],
 		"sounds": {"hurt": "zombie_hurt", "death": "zombie_death", "ambient": "zombie_ambient"},
 		"ai": {
 			"preset": "hostile", "group": "undead", "aggression": 0.65, "intelligence": 0.55, "courage": 1.0,
@@ -154,7 +159,7 @@ func _setup_mobs() -> void:
 	# and back off when hurt.
 	ids.skeleton = api.register_entity("skeleton", {
 		"kind": "mob", "model": "models/skeleton.glb", "width": 0.6, "height": 1.8,
-		"health": 16, "speed": 3.2, "drops": [["vanilla:bone", 2], ["vanilla:bone", 1, 0.5], ["base:forge_plans", 1, 0.05]],
+		"health": 16, "speed": 3.2, "drops": [["vanilla:bone", 2], ["vanilla:bone", 1, 0.5], ["base:forge_plans", 1, 0.15]],
 		"sounds": {"hurt": "skeleton_hurt", "death": "skeleton_death"},
 		"ai": {
 			"preset": "archer", "group": "undead", "aggression": 0.6, "intelligence": 0.8, "agility": 0.55, "courage": 0.35,

@@ -904,7 +904,8 @@ func register_guide_chapter(chapter_name: String, def := {}) -> bool:
 	return _server.guide.registry.add_chapter(d)
 
 
-## A guidebook page (see engine/shared/guide_registry.gd): {chapter, title, icon, order, unlock: {item |
+## A guidebook page (see engine/shared/guide_registry.gd): {chapter, title, icon, order, unlock: {item (a
+## name or a list of names, any of which opens it) |
 ## recipe | entity | flag | page}, hint, keywords, blocks: [{type: text | heading | items | recipe |
 ## entity | image | tip | link | keys, ...}]}. Item, entity, page and flag names without ":" are this
 ## mod's; image blocks take a texture path in this mod.
@@ -918,7 +919,9 @@ func register_guide_page(page_name: String, def: Dictionary) -> bool:
 	if def.get("unlock") is Dictionary:
 		var u := {}
 		for key in def.unlock:
-			u[key] = _qualify_ref(str(def.unlock[key]))
+			# An unlock may name one thing or several, any of which opens the page.
+			var value = def.unlock[key]
+			u[key] = (value as Array).map(func(v): return _qualify_ref(str(v))) if value is Array else _qualify_ref(str(value))
 		d.unlock = u
 	var blocks := []
 	for b in (def.get("blocks") if def.get("blocks") is Array else []):

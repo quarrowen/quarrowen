@@ -97,7 +97,7 @@ func _survival(api) -> void:
 			{"type": "tip", "text": "When you die you come back at your bed. Depending on the server, your items may stay where you fell."},
 		]})
 	api.register_guide_page("light", {"chapter": "survival", "title": "Light and Torches", "icon": "base:torch", "order": 1,
-		"unlock": {"item": "base:coal"}, "keywords": "torch dark night monsters spawn safe",
+		"unlock": {"item": ["base:coal", "base:charcoal", "base:furnace"]}, "keywords": "torch dark night monsters spawn safe",
 		"blocks": [
 			{"type": "text", "text": "Monsters appear in the dark: at night, in caves and in unlit rooms. Light keeps them away, so a well-lit base is a safe base."},
 			{"type": "recipe", "output": "base:torch"},
@@ -194,8 +194,10 @@ func _crafting(api) -> void:
 func _smithing(api) -> void:
 	api.register_guide_chapter("smithing", {"title": "Smithing", "icon": "base:iron_pickaxe", "order": 15,
 		"description": "Tools from parts, and crafting by hand for better quality."})
+	# Leather stitching is the first minigame anyone meets, long before iron, so this has to be readable by
+	# then - otherwise the only explanation of quality is a hover tooltip on a button.
 	api.register_guide_page("by_hand", {"chapter": "smithing", "title": "Crafting by Hand", "icon": "base:iron_sword", "order": 0,
-		"unlock": {"item": "base:iron_ingot"}, "keywords": "quality masterwork superior fine minigame hammer skill forging timing relaxed",
+		"unlock": {"item": ["base:iron_ingot", "base:tool_forge"]}, "keywords": "quality masterwork superior fine minigame hammer skill forging timing relaxed",
 		"blocks": [
 			{"type": "text", "text": "Some recipes have a [b]by hand[/b] button next to Craft. It starts a short minigame, and how well you do sets the result's quality:"},
 			{"type": "text", "text": "• [b]Standard[/b]: the same as crafting normally (also what you get for stopping early)\n• [b]Fine[/b]: +10%\n• [b]Superior[/b]: +20%\n• [b]Masterwork[/b]: +30%, glows and carries its makers' names"},
