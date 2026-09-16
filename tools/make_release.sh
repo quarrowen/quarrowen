@@ -7,8 +7,10 @@
 #   build/release/v<version>/Quarrowen-...zip    the Mac app
 #   build/release/v<version>/mods/<id>-<v>.zip    one zip per mod
 #
-#   tools/make_release.sh
-#   BASE_URL=https://quarrowen.com NOTES="Flying, maps and graves." tools/make_release.sh
+#   tools/make_release.sh                                    # zips served from the site itself
+#   BASE_URL=https://github.com/<org>/<repo>/releases/download/v<version> tools/make_release.sh
+#                                                            # zips attached to the GitHub release
+#   NOTES="Flying, maps and graves." tools/make_release.sh
 #
 # BASE_URL is where these files end up *publicly* (see docs/distribution.md): a private repository's
 # release assets need a token to download, which the game cannot carry, so the site has to be public.
@@ -19,9 +21,11 @@ GODOT="${GODOT:-$(command -v godot || echo /Applications/Godot.app/Contents/MacO
 version="$(sed -n 's/^const GAME_VERSION := "\(.*\)"$/\1/p' engine/shared/protocol.gd)"
 out=build/release
 base_url="${BASE_URL:-https://quarrowen.com}"
-# GitHub release assets are a flat list, so their URLs have no folders; the Pages layout keeps them.
+# GitHub release assets are one flat list under the tag, so their URLs have no folders below it; the
+# Pages layout keeps the v<version>/ folder. The base URL says which of the two this build is for, and
+# tools/publish_site.sh refuses to publish a manifest that points somewhere the zips are not.
 flat=0
-case "$base_url" in */releases/download) flat=1 ;; esac
+case "$base_url" in */releases/download/*) flat=1 ;; esac
 notes="${NOTES:-A new version of Quarrowen.}"
 files="v$version"
 
@@ -42,8 +46,8 @@ digest() { shasum -a 256 "$1" | cut -d' ' -f1; }
 size_of() { wc -c < "$1" | tr -d ' '; }
 human() { du -h "$1" | cut -f1 | tr -d ' '; }
 
-# Both layouts put the app at <base>/v<version>/<file>; only the mod zips differ (release assets are flat).
-mac_url="$base_url/$files/$mac_name"
+# GitHub release assets are one flat list; the Pages layout keeps the v<version> folder.
+if [ "$flat" -eq 1 ]; then mac_url="$base_url/$mac_name"; else mac_url="$base_url/$files/$mac_name"; fi
 
 cat > "$out/update.json" <<EOF
 {

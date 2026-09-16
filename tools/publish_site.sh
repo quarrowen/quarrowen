@@ -3,7 +3,7 @@
 # the zips to a GitHub release:
 #
 #   tools/make_release.sh                 # build first
-#   tools/publish_site.sh                 # then publish the page, update.json and mods.json
+#   tools/publish_site.sh                 # then publish the page, update.json and mods.json (with signatures)
 #   tools/publish_site.sh --with-release  # and create/replace the GitHub release with the zips
 #
 # The page and the two JSON files are small and live in the branch; the zips are large, so they go to the
@@ -37,11 +37,32 @@ else
 fi
 
 # Keep older versions' folders (old builds may still ask for them), replace everything else.
-rm -f "$work/index.html" "$work/update.json" "$work/update.json.sig" "$work/mods.json" "$work/icon.png"
-cp "$out/index.html" "$out/update.json" "$out/mods.json" "$out/icon.png" "$work/"
-[ -f "$out/update.json.sig" ] && cp "$out/update.json.sig" "$work/"  # the signature clients check
+# Both manifests travel with their signature: a client that carries a release key ignores an unsigned
+# update manifest, and the mod list does the same, so a missing .sig is an empty Mods page.
+for f in index.html update.json update.json.sig mods.json mods.json.sig icon.png; do
+  rm -f "$work/$f"
+  [ -f "$out/$f" ] && cp "$out/$f" "$work/"
+done
 touch "$work/.nojekyll"  # serve files starting with an underscore, and skip Jekyll entirely
 echo "${PAGES_DOMAIN:-quarrowen.com}" > "$work/CNAME"  # the custom domain the client's updater is pinned to
+# The manifest has to point where the zips actually end up, or the game offers an update it cannot fetch.
+manifest_url="$(sed -n 's/.*"url": "\(.*\)".*/\1/p' "$out/update.json" | head -1)"
+case "$manifest_url" in
+  */releases/download/*) points_at_release=1 ;;
+  *) points_at_release=0 ;;
+esac
+if [ "$with_release" -eq 1 ] && [ "$points_at_release" -eq 0 ]; then
+  echo "update.json points at $manifest_url, but --with-release puts the zips on the GitHub release." >&2
+  echo "Rebuild with the release as the base first:" >&2
+  echo "  BASE_URL=https://github.com/quarrowen/quarrowen/releases/download/$tag tools/make_release.sh" >&2
+  exit 1
+fi
+if [ "$with_release" -eq 0 ] && [ "$points_at_release" -eq 1 ]; then
+  echo "update.json points at the GitHub release, but this publish only serves the branch." >&2
+  echo "Rebuild with the site as the base first:  BASE_URL=https://quarrowen.com tools/make_release.sh" >&2
+  exit 1
+fi
+
 if [ "$with_release" -eq 0 ]; then
   rm -rf "${work:?}/v$version"
   cp -R "$out/v$version" "$work/"   # no release assets: serve the zips from the page itself
