@@ -680,25 +680,32 @@ func _combat(c) -> void:
 	_check(lines.size() >= 3 and lines[1].contains("armor"), "tooltip lists armor and durability (%s)" % " | ".join(lines))
 	Net.c_chat.rpc_id(1, "/give base:stone_pickaxe")
 	var pickaxe: int = c.items.id_of("base:stone_pickaxe")
-	await _wait_until(func(): return c.inventory.count_of(pickaxe) == 1, 2.0)
-	await _select_item(c, pickaxe)
+	if not await _select_item(c, pickaxe):
+		_check(false, "the pickaxe never reached the hotbar (inventory full?)")
 	await get_tree().create_timer(0.3).timeout
 	var mine_target := _nearest_solid(c)
 	c.mine_block(mine_target)  # runs on its own; watch the crack and the result
 	await get_tree().create_timer(0.15).timeout
 	_check(c._cracks.has(0), "mining shows the crack overlay")
 	_check(await _wait_until(func(): return c.world.get_block_v(mine_target) == 0, 4.0), "survival mining broke the block")
-	_check(await _wait_until(func(): return c.inventory.data[c.inventory.ids.find(pickaxe)].get("damage", 0) >= 1, 3.0), "breaking a block wore the pickaxe")
+	_check(await _wait_until(func():
+		var slot: int = c.inventory.ids.find(pickaxe)
+		return slot >= 0 and slot < c.inventory.data.size() and int(c.inventory.data[slot].get("damage", 0)) >= 1, 5.0),
+		"breaking a block wore the pickaxe")
 
 	# Blueprints: reading forge plans teaches the forge and uses them up.
 	Net.c_chat.rpc_id(1, "/give base:forge_plans")
+	var knew_forge: bool = c._crafting_screen.known.has("base:forge")
 	var plans: int = c.items.id_of("base:forge_plans")
-	await _wait_until(func(): return c.inventory.count_of(plans) == 1, 3.0)
-	await _select_item(c, plans)
+	if not await _select_item(c, plans):
+		_check(false, "the forge plans never reached the hotbar (inventory full?)")
 	await get_tree().create_timer(0.3).timeout
 	c.use_selected_item()
-	_check(await _wait_until(func(): return c._crafting_screen.known.has("base:forge") and c.inventory.count_of(plans) == 0, 3.0),
-		"reading forge plans taught the forge")
+	# This world may be played again by the same bot (REPEAT=), and a blueprint whose recipes are all known
+	# is not used up - so what is checked is "you know the forge, and reading it did something" either way.
+	var taught := await _wait_until(func(): return c._crafting_screen.known.has("base:forge") and (knew_forge or c.inventory.count_of(plans) == 0), 5.0)
+	_check(taught, "reading forge plans taught the forge (known %s, plans left %d, knew it already %s)" % [
+		c._crafting_screen.known.has("base:forge"), c.inventory.count_of(plans), knew_forge])
 
 	# Experimentation grid: coal above a stick discovers torches.
 	Net.c_chat.rpc_id(1, "/give base:coal 2")
@@ -798,7 +805,11 @@ func _nearest_solid(c) -> Vector3i:
 	return base
 
 
-func _select_item(c, item: int) -> void:
+## Selects an item, waiting for it to arrive first (a /give is a round trip, and a loaded test machine can
+## take a moment). Returns false if it never turned up, so a failing check says which step actually broke.
+func _select_item(c, item: int) -> bool:
+	if not await _wait_until(func(): return c.inventory.ids.find(item) >= 0, 5.0):
+		return false
 	var slot: int = c.inventory.ids.find(item)
 	if slot >= 9:
 		# Hotbar full: swap it with the last hotbar slot through the inventory screen rules.
@@ -809,8 +820,10 @@ func _select_item(c, item: int) -> void:
 		c.inventory_click(slot)
 		await _wait_until(func(): return c.inventory.cursor_count == 0, 2.0)
 		slot = 8
-	if slot >= 0 and slot < 9:
-		c.select_slot(slot)
+	if slot < 0 or slot >= 9:
+		return false
+	c.select_slot(slot)
+	return await _wait_until(func(): return c.inventory.selected_item() == item, 2.0)
 
 
 func _aim_at(c, target: Vector3) -> void:

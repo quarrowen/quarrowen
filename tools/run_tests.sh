@@ -32,20 +32,45 @@ echo "godot: $GODOT"
 echo "logs:  $WORK"
 "$GODOT" --headless --path . --import >"$WORK/import.log" 2>&1
 
+SERVER_GENERATION=0
+
 start_server() { # name mods port
+  local log="$WORK/server_$1.log"
+  [ "$SERVER_GENERATION" -gt 0 ] && log="$WORK/server_$1_gen$SERVER_GENERATION.log"
   VOXEL_DATA_DIR="$WORK/data" VOXEL_MODS="$2" VOXEL_WORLD="$1" VOXEL_PORT="$3" VOXEL_SEED=42 VOXEL_MAX_PLAYERS=16 \
     VOXEL_ADMINS="Admin,Bot_guild,Bot_industry,Bot_vanilla,Bot_combat" \
-    "$GODOT" --headless --path . res://scenes/server.tscn >"$WORK/server_$1.log" 2>&1 &
+    "$GODOT" --headless --path . res://scenes/server.tscn >"$log" 2>&1 &
   SERVERS+=($!)
 }
 
+start_servers() {
+  start_server all "vanilla,industry,arcana,guild" $((PORT_BASE + 1))
+  start_server sky "skyblock" $((PORT_BASE + 3))
+  wait_for_server all && wait_for_server sky || { echo "servers failed to start"; exit 1; }
+}
+
+# The end-to-end tests play as a fixed bot in a saved world: starter items, a first-time welcome, an
+# undamaged pickaxe, unspent mana, a blueprint still to read. Playing the same world again would fail
+# those on state left by the run before, so REPEAT starts from an empty world each time - otherwise it
+# reports its own leftovers as flakiness.
+restart_servers() {
+  cleanup
+  SERVERS=()
+  SERVER_GENERATION=$((SERVER_GENERATION + 1))
+  # The worlds go, but not the server's identity: clients pin it, and a new one looks like impersonation.
+  find "$WORK/data" -mindepth 1 -maxdepth 1 ! -name identity -exec rm -rf {} +
+  start_servers
+}
+
 wait_for_server() { # name
+  local log="$WORK/server_$1.log"
+  [ "$SERVER_GENERATION" -gt 0 ] && log="$WORK/server_$1_gen$SERVER_GENERATION.log"
   for _ in $(seq 1 120); do
-    grep -q "running game" "$WORK/server_$1.log" 2>/dev/null && return 0
-    if grep -q "Startup failed" "$WORK/server_$1.log" 2>/dev/null; then break; fi
+    grep -q "running game" "$log" 2>/dev/null && return 0
+    if grep -q "Startup failed" "$log" 2>/dev/null; then break; fi
     sleep 0.5
   done
-  echo "server $1 did not start:"; tail -20 "$WORK/server_$1.log"
+  echo "server $1 did not start:"; tail -20 "$log"
   return 1
 }
 
@@ -64,6 +89,7 @@ selected() { # name
   return 1
 }
 
+# NEEDS_FRESH_WORLD=1 before a run_scene call: this test plays a saved world, so every repeat gets a new one.
 run_scene() { # name log scene [user args...]
   local name="$1" log="$2" scene="$3"; shift 3
   selected "$name" || return 0
@@ -71,6 +97,7 @@ run_scene() { # name log scene [user args...]
   for ((i = 1; i <= REPEAT; i++)); do
     local run_log="$log"
     [ "$REPEAT" -gt 1 ] && run_log="${log%.log}_run$i.log"
+    if [ "$REPEAT" -gt 1 ] && [ "${NEEDS_FRESH_WORLD:-0}" = "1" ] && [ "$i" -gt 1 ]; then restart_servers; fi
     timeout 240 "$GODOT" --headless --path . "$scene" -- "$@" >"$run_log" 2>&1
     local code=$?
     local label="$name"
@@ -87,15 +114,15 @@ needs_servers() {
 }
 
 if needs_servers; then
-start_server all "vanilla,industry,arcana,guild" $((PORT_BASE + 1))
-start_server sky "skyblock" $((PORT_BASE + 3))
-wait_for_server all && wait_for_server sky || { echo "servers failed to start"; exit 1; }
+start_servers
 fi
 
+NEEDS_FRESH_WORLD=1
 for game in vanilla industry arcana guild combat; do
   run_scene "e2e:$game" "$WORK/test_$game.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 1)) --game=$game
 done
 run_scene "e2e:skyblock" "$WORK/test_skyblock.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 3)) --game=skyblock
+NEEDS_FRESH_WORLD=0
 run_scene "auth" "$WORK/test_auth.log" res://tests/auth_test.tscn --port=$((PORT_BASE + 1))
 if [ -f tests/multiplayer_test.tscn ]; then
   run_scene "multiplayer" "$WORK/test_multiplayer.log" res://tests/multiplayer_test.tscn --port=$((PORT_BASE + 1))
