@@ -1,0 +1,169 @@
+extends RefCounted
+## Keeps the game up to date with the project's own releases.
+##
+## Where updates come from is built into the client (MANIFEST_URL below) and never taken from a server:
+## a server can say which version it wants, but it can never point the client at a download. The steps are
+##
+##   1. fetch the manifest (a small JSON file published with each release)
+##   2. compare its version with this build's (engine/shared/protocol.gd GAME_VERSION)
+##   3. download the zip for this platform and check it against the checksum in the manifest
+##   4. unpack it beside the installed app, then hand over to a small script that swaps the two once this
+##      process has quit, and starts the new one
+##
+## Everything except the two network calls is plain data in and out, so the logic is tested offline
+## (tests/gameplay_test.gd, "updates").
+##
+## The manifest (an asset of every release, and what MANIFEST_URL points at):
+##   {"version": "0.38.0",
+##    "notes": "What changed, one line.",
+##    "builds": {"macos": {"url": "https://github.com/.../VoxelCraft-macos-0.38.0.zip",
+##                         "sha256": "…", "size": 123456}}}
+
+const Protocol = preload("res://engine/shared/protocol.gd")
+const Semver = preload("res://engine/shared/semver.gd")
+
+## Where updates are fetched from. The release host has to be publicly readable (a private repository's
+## release assets need a token, which a game cannot carry), so this points at the project's public
+## distribution: override it in project.godot ("voxelcraft/update_manifest_url") for a fork or a test.
+const DEFAULT_MANIFEST_URL := "https://omnivoxel-game.github.io/voxelcraft/update.json"
+const DOWNLOAD_DIR := "user://updates"
+## Downloads must come from the project's own release host, whatever the manifest says.
+const ALLOWED_HOSTS := ["github.com", "objects.githubusercontent.com", "github-releases.githubusercontent.com",
+	"omnivoxel-game.github.io"]
+const MAX_DOWNLOAD_BYTES := 512 * 1024 * 1024
+
+
+## Where to ask about new versions (the project setting wins, so a fork can point somewhere else).
+static func manifest_url() -> String:
+	var configured := str(ProjectSettings.get_setting("voxelcraft/update_manifest_url", ""))
+	return configured if configured.begins_with("https://") else DEFAULT_MANIFEST_URL
+
+
+## This platform's key in the manifest, or "" where updating is not supported (a server, or a build
+## installed by something else).
+static func platform() -> String:
+	if OS.has_feature("macos"):
+		return "macos"
+	if OS.has_feature("windows"):
+		return "windows"
+	if OS.has_feature("linux"):
+		return "linux"
+	return ""
+
+
+## Reads a manifest. Returns {available, version, notes, url, sha256, size, reason}: `available` is true
+## only when the manifest is sound, names this platform, and offers something newer than `current`.
+static func check(manifest_text: String, current := Protocol.GAME_VERSION, for_platform := "") -> Dictionary:
+	var out := {"available": false, "version": "", "notes": "", "url": "", "sha256": "", "size": 0, "reason": ""}
+	var parsed = JSON.new()
+	if parsed.parse(manifest_text) != OK or not (parsed.data is Dictionary):
+		out.reason = "the update information could not be read"
+		return out
+	var manifest: Dictionary = parsed.data
+	var version := str(manifest.get("version", ""))
+	if not Semver.is_valid(version):
+		out.reason = "the update information has no version"
+		return out
+	out.version = version
+	out.notes = str(manifest.get("notes", "")).left(200)
+	var key := for_platform if not for_platform.is_empty() else platform()
+	var builds = manifest.get("builds")
+	var build = builds.get(key) if builds is Dictionary else null
+	if not (build is Dictionary):
+		out.reason = "there is no build for this computer in that release"
+		return out
+	out.url = str(build.get("url", ""))
+	out.sha256 = str(build.get("sha256", "")).to_lower()
+	out.size = int(build.get("size", 0))
+	if not _allowed(out.url):
+		out.reason = "the download is not on the project's own release page"
+		out.url = ""
+		return out
+	if out.sha256.length() != 64 or not out.sha256.is_valid_hex_number():
+		out.reason = "the download has no checksum"
+		return out
+	if Semver.compare(version, current) <= 0:
+		out.reason = "this is already the newest version"
+		return out
+	out.available = true
+	return out
+
+
+## Only the project's own release hosts (or whatever host the built-in manifest address uses), over https.
+static func _allowed(url: String) -> bool:
+	if not url.begins_with("https://"):
+		return false
+	var host := _host_of(url)
+	return not host.is_empty() and (ALLOWED_HOSTS.has(host) or host == _host_of(manifest_url()))
+
+
+static func _host_of(url: String) -> String:
+	return url.substr(8).get_slice("/", 0).get_slice(":", 0).to_lower() if url.begins_with("https://") else ""
+
+
+## Whether a downloaded file is exactly what the manifest described.
+static func verify(bytes: PackedByteArray, sha256: String, size := 0) -> bool:
+	if bytes.is_empty() or bytes.size() > MAX_DOWNLOAD_BYTES or (size > 0 and bytes.size() != size):
+		return false
+	var context := HashingContext.new()
+	context.start(HashingContext.HASH_SHA256)
+	context.update(bytes)
+	return context.finish().hex_encode() == sha256.to_lower()
+
+
+## Where this build is installed: the .app bundle on macOS, otherwise the folder holding the executable.
+## "" when the game runs from source (the editor), where there is nothing to replace.
+static func installed_path() -> String:
+	if not OS.has_feature("template"):
+		return ""
+	var executable := OS.get_executable_path()
+	if OS.has_feature("macos"):
+		var app := executable.get_base_dir().get_base_dir().get_base_dir()  # …/X.app/Contents/MacOS/exe
+		return app if app.ends_with(".app") else ""
+	return executable.get_base_dir()
+
+
+## The script that installs a downloaded update once this process has gone: it unpacks the zip itself
+## (so the executable bits inside a .app survive), swaps it with the installed build, clears the download
+## flag macOS puts on it and starts the new one. Kept as a string so a test can read it without installing.
+static func install_script(zip_path: String, work_dir: String, installed: String, pid: int) -> String:
+	var mac := OS.has_feature("macos") or installed.ends_with(".app")
+	var name := installed.get_file()
+	var unpacked := work_dir.path_join("unpacked")
+	var lines := [
+		"#!/bin/sh",
+		"# Written by VoxelCraft's updater: waits for the running game to quit, unpacks the update, puts it",
+		"# in place and starts it again. Safe to delete.",
+		"set -e",
+		"for i in $(seq 1 150); do",
+		"  kill -0 %d 2>/dev/null || break" % pid,
+		"  sleep 0.2",
+		"done",
+		"rm -rf \"%s\"" % unpacked,
+		"mkdir -p \"%s\"" % unpacked,
+	]
+	if mac:
+		lines.append("ditto -x -k \"%s\" \"%s\"" % [zip_path, unpacked])
+	else:
+		lines.append("unzip -oq \"%s\" -d \"%s\"" % [zip_path, unpacked])
+	lines.append_array([
+		"new=\"%s\"" % unpacked.path_join(name),
+		"if [ ! -e \"$new\" ]; then new=$(find \"%s\" -maxdepth 2 -name \"%s\" | head -1); fi" % [unpacked, name],
+		"if [ -z \"$new\" ] || [ ! -e \"$new\" ]; then exit 1; fi",
+		"rm -rf \"%s.old\"" % installed,
+		"mv \"%s\" \"%s.old\" 2>/dev/null || true" % [installed, installed],
+		"if ! cp -R \"$new\" \"%s\"; then" % installed,
+		"  rm -rf \"%s\"" % installed,
+		"  mv \"%s.old\" \"%s\"" % [installed, installed],
+		"  exit 1",
+		"fi",
+		"rm -rf \"%s.old\" \"%s\" \"%s\"" % [installed, unpacked, zip_path],
+	])
+	if mac:
+		# Downloads carry the quarantine flag; without clearing it the new build is refused for being
+		# unsigned, exactly the dance the playtest guide describes for the first install.
+		lines.append("xattr -dr com.apple.quarantine \"%s\" 2>/dev/null || true" % installed)
+		lines.append("open \"%s\"" % installed)
+	else:
+		lines.append("\"%s\" &" % installed)
+	return "\n".join(lines) + "\n"

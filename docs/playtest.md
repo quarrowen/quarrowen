@@ -155,13 +155,20 @@ because the world lives in that project's volume: if you started with plain `doc
 from the same folder; if you used `-p voxelcraft`, keep using it. `docker volume ls` shows the volumes
 (`homelab_voxelcraft-data` or `voxelcraft_voxelcraft-data`).
 
+**The Macs update themselves.** When the menu opens, the game checks the download page and offers the new
+version in a banner; pressing Update downloads it, checks it against the checksum published with the release
+and swaps the app (Settings → Network turns the check off, Settings → Account has a "Check for updates"
+button). Nothing is ever downloaded from a game server - a server can only say which version it needs.
+
 **Updating.** Server and Macs must run the same version. On the server:
 
 ```sh
 cd voxelcraft && git pull && cd deploy/homelab && docker compose up -d --build
 ```
 
-Then build a new zip with `tools/package_mac.sh` and replace the app on each Mac. Mods update with the
+Then publish the release with `tools/make_release.sh` (it builds the app, the mod zips, the download page
+and the update manifest - see docs/distribution.md); the Macs pick it up by themselves. `tools/package_mac.sh`
+alone still builds just the app if you want to copy it over by hand. Mods update with the
 engine: the bundled ones are refreshed in `mods/` on the next start (unless `SEED_MODS` says otherwise), so a
 mod change does not need a rebuild - only `docker compose restart`.
 

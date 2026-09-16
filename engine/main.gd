@@ -26,6 +26,7 @@ const MainMenu = preload("res://engine/client/menu/main_menu.gd")
 const MenuBackdrop = preload("res://engine/client/menu/menu_backdrop.gd")
 const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
+const UpdateCheck = preload("res://engine/client/menu/update_check.gd")
 const SocialClient = preload("res://engine/client/social/social_client.gd")
 const InviteCode = preload("res://engine/shared/invite_code.gd")
 const KnownServers = preload("res://engine/net/known_servers.gd")
@@ -40,6 +41,7 @@ var _menu: MainMenu
 var _backdrop: MenuBackdrop
 var _backdrop_fallback: ColorRect
 var _social: SocialClient
+var _updates: Node
 ## A server to go to once the current game has closed (joining a friend from in game).
 var _pending_join := {}
 
@@ -231,6 +233,12 @@ func _build_menu() -> void:
 	_backdrop_fallback.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_backdrop_fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_backdrop_fallback)
+	_updates = UpdateCheck.new()
+	_updates.name = "Updates"
+	_updates.message.connect(func(text: String, kind: String, action_text: String, action: Callable):
+		if _menu != null:
+			_menu.show_message(text, kind, action_text, action))
+	add_child(_updates)
 	_social = SocialClient.new()
 	_social.name = "Social"
 	add_child(_social)
@@ -241,6 +249,9 @@ func _build_menu() -> void:
 	_menu.port = int(_args.get("port", DEFAULT_PORT))
 	add_child(_menu)
 	_social.player_name = _menu.player_name
+	_menu.check_updates.connect(func(): _updates.check(true))
+	if ClientSettings.shared().get_value("network/auto_update"):
+		_updates.check()
 	_social.notice.connect(func(text: String):
 		if _client != null:
 			_client.notify("✉ " + text)
@@ -429,6 +440,10 @@ func _show_menu(message: String, ended := {}) -> void:
 		_menu.show_message(message + " Only trust the new identity if you know the server was reset.", "error", "Trust new identity", func():
 			KnownServers.forget(endpoint)
 			_start_client(ended.address, ended.port, _menu.player_name, ""))
+	elif message.contains("Please update your client"):
+		# The server runs a newer version: offer the update from the client's own source, never the server's.
+		_menu.show_message(message, "error", "Update now", func(): _updates.check(true))
+		_updates.check()
 	else:
 		_menu.show_message(message, "error")
 	_menu.show_page(_menu._page)

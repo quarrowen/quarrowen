@@ -10,6 +10,8 @@ signal mod_wizard_requested
 signal host_mod_requested(mods: String)
 signal identity_file_chosen(path: String, exporting: bool, passphrase: String)
 signal quit_requested
+## The player asked to look for a new version (Settings > Account).
+signal check_updates
 
 const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const WorldList = preload("res://engine/client/menu/world_list.gd")
@@ -972,6 +974,14 @@ func _build_settings() -> Control:
 	port_edit.value = port
 	port_edit.value_changed.connect(func(v): port = int(v))
 	account.add_child(MenuTheme.muted("Worlds you play are hosted on this port (and the next one answers server list pings).", 13))
+	account.add_child(HSeparator.new())
+	account.add_child(MenuTheme.heading("Version", 20))
+	account.add_child(MenuTheme.muted("VoxelCraft %s" % Protocol.GAME_VERSION, 14))
+	var update_button := Button.new()
+	update_button.text = "Check for updates"
+	update_button.pressed.connect(func(): check_updates.emit())
+	account.add_child(update_button)
+	account.add_child(MenuTheme.muted("Updates are downloaded from the project's own release page, never from a game server.", 12))
 	screen.add_tab("Account", account)
 	return screen
 

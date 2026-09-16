@@ -65,6 +65,8 @@ const SCHEMA := {
 		"help": "Lets friends and your party see your server and join you. Off: they only see that you are online."},
 	# Not shown in the settings screen (the menu's own field edits it), but saved like everything else.
 	"player/name": {"tab": "hidden", "label": "Player name", "type": "text", "default": ""},
+	"network/auto_update": {"tab": "Network", "label": "Tell me about new versions", "type": "bool", "default": true,
+		"help": "Checks the project's release page when the menu opens. Updates are only ever downloaded from there."},
 	"network/lan_discovery": {"tab": "Network", "label": "Find servers on my network", "type": "bool", "default": true,
 		"help": "Multiplayer → LAN asks computers on your network (and this one) for games."},
 }

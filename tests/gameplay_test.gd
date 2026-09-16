@@ -70,6 +70,7 @@ func _ready() -> void:
 	await _server_panel()
 	await _graves_and_homes()
 	await _items_of_missing_mods()
+	_updates()
 	await _anticheat()
 	await _scale()
 	await _status_query()
@@ -142,6 +143,46 @@ func _registries() -> void:
 		"sounds replicate with clamped volume")
 	_check(EntityPhysics.segment_hits_box(Vector3(0, 0.5, -5), Vector3(0, 0, 1), 10.0, Vector3(-0.5, 0, -0.5), Vector3(0.5, 1, 0.5)) == 4.5,
 		"segment/box intersection distance")
+
+
+## The updater: what it accepts, what it refuses, and the script that installs an update.
+func _updates() -> void:
+	var Updater = preload("res://engine/client/updater.gd")
+	var newer := {"version": "9.9.9", "notes": "New things", "builds": {"macos": {
+		"url": "https://github.com/omnivoxel-game/voxelcraft/releases/download/v9.9.9/VoxelCraft-macos.zip",
+		"sha256": "a".repeat(64), "size": 1234}}}
+	var found: Dictionary = Updater.check(JSON.stringify(newer), "0.37.0", "macos")
+	_check(found.available and found.version == "9.9.9" and found.notes == "New things", "a newer release is offered (%s)" % found.reason)
+	_check(not Updater.check(JSON.stringify(newer), "9.9.9", "macos").available, "the same version is not")
+	_check(not Updater.check(JSON.stringify(newer), "10.0.0", "macos").available, "nor an older one")
+	_check(not Updater.check(JSON.stringify(newer), "0.37.0", "windows").available, "nor a release without a build for this computer")
+	var elsewhere: Dictionary = newer.duplicate(true)
+	elsewhere.builds.macos.url = "https://not-github.example.com/evil.zip"
+	var refused: Dictionary = Updater.check(JSON.stringify(elsewhere), "0.37.0", "macos")
+	_check(not refused.available and refused.url.is_empty(), "a download somewhere other than the project's releases is refused")
+	var plain: Dictionary = newer.duplicate(true)
+	plain.builds.macos.url = "http://github.com/omnivoxel-game/voxelcraft/x.zip"
+	_check(not Updater.check(JSON.stringify(plain), "0.37.0", "macos").available, "and so is one that is not https")
+	var unchecked: Dictionary = newer.duplicate(true)
+	unchecked.builds.macos.erase("sha256")
+	_check(not Updater.check(JSON.stringify(unchecked), "0.37.0", "macos").available, "a download with no checksum is refused")
+	_check(not Updater.check("not json at all", "0.37.0", "macos").available, "so is nonsense instead of a manifest")
+
+	var payload := "the new build".to_utf8_buffer()
+	var context := HashingContext.new()
+	context.start(HashingContext.HASH_SHA256)
+	context.update(payload)
+	var digest: String = context.finish().hex_encode()
+	_check(Updater.verify(payload, digest, payload.size()), "a download that matches its checksum passes")
+	_check(not Updater.verify(payload, digest, payload.size() + 1), "one of the wrong size does not")
+	_check(not Updater.verify("something else".to_utf8_buffer(), digest), "nor one with the wrong contents")
+
+	var script: String = Updater.install_script("/tmp/u/VoxelCraft-9.9.9.zip", "/tmp/u", "/Applications/VoxelCraft.app", 4242)
+	_check(script.begins_with("#!/bin/sh") and script.contains("kill -0 4242"), "the installer waits for the game to quit")
+	_check(script.contains("/Applications/VoxelCraft.app.old") and script.contains("mv \"/Applications/VoxelCraft.app.old\" \"/Applications/VoxelCraft.app\""),
+		"it keeps the old app and puts it back if the swap fails")
+	_check(script.contains("com.apple.quarantine") and script.contains("open \"/Applications/VoxelCraft.app\""),
+		"it clears the download flag and starts the new one")
 
 
 ## What a player carries survives a mod being turned off and on again.

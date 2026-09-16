@@ -1093,6 +1093,8 @@ tools/build_native.sh            # native library for this machine -> native/bin
 tools/run_tests.sh               # full test suite (VOXEL_NATIVE=0 for the GDScript fallbacks)
 tools/export.sh                  # every preset -> build/ (needs Godot export templates)
 tools/package_mods.sh            # every mod -> build/mods/<id>-<version>.zip (release downloads)
+tools/make_release.sh            # app + mod zips + download page + update manifest -> build/release/
+tools/generate_icon.py           # the app icon -> assets/icon.png and icon.icns
 tools/export.sh "Linux Server arm64" macOS
 ```
 

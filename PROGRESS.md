@@ -331,11 +331,15 @@ Everything the family asked for in one pass, on branch `playtest-1`:
 
 ## Next milestones from this feedback
 
-1. **Client auto-update** (next up). The server advertises only the version it needs; the download comes from the
-   project's own GitHub releases (a URL baked into the client, never one a server sends), the zip is checked
-   against the release's checksum before anything is replaced, then the app swaps itself and restarts. macOS
-   details: the app is ad-hoc signed, so the update has to preserve the quarantine-free state, and a running
-   .app cannot replace itself directly (a small helper does it after the app quits).
+1. **Client auto-update** (done): engine/client/updater.gd (manifest, checksum, install script) and
+   engine/client/menu/update_check.gd (check on launch, banner, download, hand-over). Downloads only from the
+   address built into the client - a server can say which version it needs, never where to get it - over
+   https, from the release host, with a sha256 from the manifest; the installer script waits for the game to
+   quit, unpacks, swaps, clears the macOS quarantine flag and restarts, putting the old app back if anything
+   fails. Settings > Network turns the check off; Settings > Account checks now. tools/make_release.sh builds
+   the app, the mod zips, update.json, mods.json and a download page laid out for GitHub Pages.
+   **Distribution and mods: see docs/distribution.md; the mod catalogue review and rollout: docs/mods_plan.md** - the site, the public host a private repo needs, the
+   planned in-game mod list and mod settings (the user's ask, 2026-09-16).
 2. **Block shapes (stairs, slabs, fences).** Stairs need partial-height collision, which the voxel collision
    does not have: every cell is a full cube or nothing. Plan: a `collision` shape per block (a list of boxes),
    taught to the player and entity steps in GDScript *and* Rust, a 0.6 step-up assist so stairs and slabs are
