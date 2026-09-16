@@ -388,7 +388,16 @@ accept unsigned manifests, so the change costs nothing to the family's current i
    no UI written per mod. Changes are saved in the world (world.json `mod_settings`), so a world carries its
    own rules and a backup restores them, and the mod hears `settings_changed` while the server runs. vanilla
    uses it for how many monsters, the length of a day, whether zombies burn and whether leaves drop apples.
-4. **iPad (the user has a developer account).** Godot exports iOS from macOS with Xcode. Work: build the Rust
+4. **Mod list in game** (done): menu → Mods, with Installed / Available / Updates. engine/client/mod_catalog.gd
+   is the static half (read the index, work out what is installed against what is offered, install a package
+   into user://mods, remove one, resolve what a mod needs); engine/client/menu/mod_browser.gd is the network
+   half, and engine/client/menu/downloads.gd is now the one HTTP helper the update check shares. mods.json is
+   built by `mod_tool -- index` from the packed zips (so the list cannot drift from what it ships), carries
+   kind/game/depends/authors, and is signed with the release key like update.json - the client ignores an
+   unsigned list. Installing pulls in dependencies first; removing warns when another mod needs it and only
+   ever touches user://mods. The New world dialog re-reads the installed mods after a change.
+   iPad: bundled mods work there; downloading GDScript mods on iOS is left out on purpose (docs/distribution.md §6b).
+5. **iPad (the user has a developer account).** Godot exports iOS from macOS with Xcode. Work: build the Rust
    extension for `aarch64-apple-ios` (and the simulator target) and add it to the GDExtension config; an iOS
    export preset with the bundle id and icons; touch controls (a movement stick, look-drag, tap to break /
    hold to place, hotbar and menu buttons sized for fingers) behind the same input actions; UI scale for

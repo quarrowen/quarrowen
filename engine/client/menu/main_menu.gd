@@ -25,9 +25,11 @@ const SettingsScreen = preload("res://engine/client/settings/settings_screen.gd"
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 const HubClient = preload("res://engine/client/menu/hub_client.gd")
 const FriendsPanel = preload("res://engine/client/social/friends_panel.gd")
+const ModCatalog = preload("res://engine/client/mod_catalog.gd")
+const ModBrowser = preload("res://engine/client/menu/mod_browser.gd")
 
 const NEWS := "res://engine/client/menu/news.json"
-const PAGES := ["play", "multiplayer", "create", "settings"]
+const PAGES := ["play", "multiplayer", "create", "mods", "settings"]
 const STATUS_REFRESH := 10.0
 const TAB_BROWSE := 0
 const TAB_LAN := 1
@@ -50,6 +52,13 @@ var _banner_serial := 0
 var _name_edit: LineEdit
 var _games: Array = []
 var _addons: Array = []
+# Mods
+var _mod_browser: Node
+var _mod_rows: VBoxContainer
+var _mod_tab: TabBar
+var _mod_note: Label
+var _mod_buttons := {}
+var _selected_mod := ""
 # Play
 var _world_rows: VBoxContainer
 var _worlds: Array = []
@@ -91,6 +100,10 @@ func _ready() -> void:
 	add_child(_hub)
 	_hub.servers_received.connect(_on_hub_servers)
 	ClientSettings.shared().changed.connect(_on_setting_changed)
+	_mod_browser = ModBrowser.new()
+	add_child(_mod_browser)
+	_mod_browser.message.connect(func(text, kind, action_text, action): show_message(text, kind, action_text, action))
+	_mod_browser.catalog_changed.connect(_on_catalog_changed)
 	_discover_mods()
 	_build()
 	show_page("play")
@@ -110,6 +123,8 @@ func _on_setting_changed(key: String) -> void:
 
 
 func _discover_mods() -> void:
+	_games = []
+	_addons = []
 	var available := ModLoader.discover(ModLoader.search_dirs(PackedStringArray()))
 	for id: String in available:
 		var m: Dictionary = available[id]
@@ -158,6 +173,7 @@ func _build() -> void:
 	_pages.multiplayer = _build_multiplayer()
 	_pages.friends = _build_friends()
 	_pages.create = _build_create()
+	_pages.mods = _build_mods()
 	_pages.settings = _build_settings()
 	for page: Control in _pages.values():
 		page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -214,7 +230,7 @@ func _build_sidebar() -> Control:
 	gap.custom_minimum_size.y = 26
 	side.add_child(gap)
 	var group := ButtonGroup.new()
-	for entry in [["play", "Play"], ["multiplayer", "Multiplayer"], ["friends", "Friends"], ["avatar", "Avatar"], ["create", "Create"], ["settings", "Settings"]]:
+	for entry in [["play", "Play"], ["multiplayer", "Multiplayer"], ["friends", "Friends"], ["avatar", "Avatar"], ["mods", "Mods"], ["create", "Create"], ["settings", "Settings"]]:
 		var button := MenuTheme.nav(Button.new())
 		button.text = entry[1]
 		if entry[0] != "avatar":
@@ -299,6 +315,9 @@ func show_page(page: String) -> void:
 	match page:
 		"play": refresh_worlds()
 		"multiplayer": refresh_servers(true)
+		"mods":
+			refresh_mods()
+			_mod_browser.refresh()
 		"settings": _refresh_identity()
 
 
@@ -893,6 +912,151 @@ func _build_friends() -> Control:
 
 
 # --- Create -------------------------------------------------------------------------------------
+
+## Mods: what is on this computer, what the project offers, and putting one on or taking it off.
+## Installing only matters for hosting - joining a server needs nothing, because its mods run there.
+func _build_mods() -> Control:
+	var page := VBoxContainer.new()
+	page.add_theme_constant_override("separation", 12)
+	page.add_child(MenuTheme.heading("Mods"))
+	var tabs_row := HBoxContainer.new()
+	page.add_child(tabs_row)
+	_mod_tab = TabBar.new()
+	for tab_name in ["Installed", "Available", "Updates"]:
+		_mod_tab.add_tab(tab_name)
+	_mod_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_mod_tab.tab_changed.connect(func(_i):
+		_selected_mod = ""
+		refresh_mods())
+	tabs_row.add_child(_mod_tab)
+	var refresh := Button.new()
+	refresh.text = "Refresh"
+	refresh.pressed.connect(func(): _mod_browser.refresh(true))
+	tabs_row.add_child(refresh)
+	_mod_note = MenuTheme.muted("", 14)
+	_mod_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_mod_note.custom_minimum_size.x = 300
+	page.add_child(_mod_note)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	page.add_child(scroll)
+	_mod_rows = VBoxContainer.new()
+	_mod_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_mod_rows.add_theme_constant_override("separation", 6)
+	scroll.add_child(_mod_rows)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	page.add_child(actions)
+	for entry in [["install", "Install", _install_selected_mod], ["remove", "Remove", _remove_selected_mod],
+			["folder", "Open mods folder", func(): OS.shell_open(ProjectSettings.globalize_path(ModLoader.creation_dir()))]]:
+		var b := MenuTheme.primary(Button.new()) if entry[0] == "install" else Button.new()
+		b.text = entry[1]
+		b.pressed.connect(entry[2])
+		actions.add_child(b)
+		_mod_buttons[entry[0]] = b
+	return page
+
+
+## The rows of the current tab, from what is installed here and what the index offers.
+func refresh_mods() -> void:
+	if _mod_rows == null:
+		return
+	for child in _mod_rows.get_children():
+		child.queue_free()
+	var rows: Array = ModCatalog.merge(ModCatalog.installed(), _mod_browser.index)
+	var wanted := ["installed", "update"] if _mod_tab.current_tab == 0 else (["available"] if _mod_tab.current_tab == 1 else ["update"])
+	var shown: Array = rows.filter(func(row): return wanted.has(row.state))
+	for row: Dictionary in shown:
+		_mod_rows.add_child(_mod_row(row))
+	var selected := _selected_mod_row()
+	_mod_buttons.install.disabled = selected.is_empty() or selected.state == "installed" or _mod_browser.busy
+	_mod_buttons.install.text = "Update" if selected.get("state", "") == "update" else "Install"
+	_mod_buttons.remove.disabled = not selected.get("removable", false) or _mod_browser.busy
+	if shown.is_empty():
+		_mod_note.text = {
+			0: "No mods found, which should not happen - the game ships with some.",
+			1: "Everything the project offers is already installed.",
+			2: "Every mod you installed is up to date.",
+		}.get(_mod_tab.current_tab, "")
+		if _mod_browser.index.is_empty():
+			_mod_note.text = "The mod list has not been fetched yet. Press Refresh."
+		return
+	_mod_note.text = "Mods run on whoever hosts the world, so installing one is only needed to host it. Joining a server needs nothing."
+
+
+func _mod_row(row: Dictionary) -> Control:
+	var kinds := {"game": "game", "addon": "add-on", "library": "used by other mods", "example": "example"}
+	var kind := str(kinds.get(str(row.get("kind", "addon")), "add-on"))
+	var where := ""
+	match str(row.state):
+		"available": where = "%s · %s" % [kind, _size_text(int(row.get("size", 0)))]
+		"update": where = "%s · %s is out" % [kind, row.get("offered", "")]
+		_: where = "%s · %s" % [kind, "installed here" if row.get("removable", false) else "comes with the game"]
+	var right := str(row.get("version", ""))
+	if row.state == "update":
+		right = "%s → %s" % [row.version, row.offered]
+	elif row.state == "available":
+		right = "not installed"
+	var subtitle := str(row.get("description", ""))
+	return _row(row.id, "%s  %s" % [row.name, ""], "%s\n%s" % [where, subtitle] if not subtitle.is_empty() else where,
+		right, _selected_mod == row.id,
+		func():
+			_selected_mod = row.id
+			refresh_mods(),
+		func():
+			_selected_mod = row.id
+			if row.state != "installed":
+				_install_selected_mod())
+
+
+func _selected_mod_row() -> Dictionary:
+	for row: Dictionary in ModCatalog.merge(ModCatalog.installed(), _mod_browser.index):
+		if row.id == _selected_mod:
+			return row
+	return {}
+
+
+func _install_selected_mod() -> void:
+	var row := _selected_mod_row()
+	if not row.is_empty() and row.state != "installed":
+		_mod_browser.install(row)
+
+
+func _remove_selected_mod() -> void:
+	var row := _selected_mod_row()
+	if row.is_empty() or not row.get("removable", false):
+		return
+	var needed: Array = ModCatalog.needed_by(str(row.id), ModCatalog.installed())
+	var question := "Remove %s?" % row.name
+	if not needed.is_empty():
+		question += "\n%s needs it and will not load without it." % ", ".join(PackedStringArray(needed))
+	var dialog := ConfirmationDialog.new()
+	dialog.dialog_text = question + "\nWorlds that use it will not open until it is back."
+	dialog.ok_button_text = "Remove"
+	dialog.confirmed.connect(func(): _mod_browser.remove(str(row.id), str(row.name)))
+	dialog.visibility_changed.connect(func(): if not dialog.visible: dialog.queue_free())
+	add_child(dialog)
+	dialog.popup_centered()
+
+
+## A mod went on or came off: the new world dialog and the create page have to see it too.
+func _on_catalog_changed() -> void:
+	_discover_mods()
+	if _pages.has("create"):
+		var old: Control = _pages.create
+		var rebuilt := _build_create()
+		rebuilt.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		rebuilt.visible = old.visible
+		old.get_parent().add_child(rebuilt)
+		_pages.create = rebuilt
+		old.queue_free()
+	refresh_mods()
+
+
+static func _size_text(bytes: int) -> String:
+	return "%.1f MB" % (bytes / 1048576.0) if bytes >= 1048576 else "%d KB" % maxi(1, bytes / 1024)
+
 
 func _build_create() -> Control:
 	var page := VBoxContainer.new()

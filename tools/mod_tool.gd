@@ -4,14 +4,19 @@ extends Node
 ##   godot --headless --path . res://tools/mod_tool.tscn -- pack mods/my_mod [--out=build/mods] [--skip-validate]
 ##   godot --headless --path . res://tools/mod_tool.tscn -- new my_mod [--name="My Mod"] [--lang=gdscript|js] [--kind=addon|game]
 ##                                                                     [--author=Name] [--dir=mods]
+##   godot --headless --path . res://tools/mod_tool.tscn -- index build/release/v1.2.3/mods --base-url=https://quarrowen.com/v1.2.3/mods
+##                                                                     [--out=build/release/mods.json] [--version=1.2.3]
 ##   godot --headless --path . res://tools/mod_tool.tscn -- docs [--out=docs/api]
 ## validate: checks the manifest, files, scripts, a real load and every reference (exit code 1 on errors).
 ## pack: validates, then writes <out>/<id>-<version>.zip, which servers load from any mods folder.
+## index: reads a folder of packed mods and writes mods.json, the list the game's mod screen reads (see
+## docs/distribution.md). Every entry carries a sha256, so nothing is installed without matching it.
 
 const ModValidator = preload("res://engine/server/mod_validator.gd")
 const ModLoader = preload("res://engine/server/mod_loader.gd")
 const ModTemplates = preload("res://engine/server/mod_templates.gd")
 const DocsGenerator = preload("res://tools/docs_generator.gd")
+const Protocol = preload("res://engine/shared/protocol.gd")
 
 
 func _ready() -> void:
@@ -26,6 +31,9 @@ func _run() -> void:
 		if a.begins_with("--"):
 			var kv := a.substr(2).split("=", true, 1)
 			options[kv[0]] = kv[1] if kv.size() > 1 else "true"
+	if positional.size() >= 2 and positional[0] == "index":
+		_index(ProjectSettings.globalize_path(str(positional[1])), options)
+		return
 	if positional.size() >= 1 and positional[0] == "docs":
 		var out := ProjectSettings.globalize_path(str(options.get("out", "res://docs/api")))
 		var written := DocsGenerator.write(out)
@@ -79,6 +87,64 @@ func _run() -> void:
 		get_tree().quit(1)
 		return
 	_out("packed %s %s -> %s (%d KB)" % [manifest.id, manifest.version, zip_path, FileAccess.get_file_as_bytes(zip_path).size() / 1024])
+	get_tree().quit(0)
+
+
+## Writes the mod index from a folder of packed zips: what each mod is, what it needs, where to get it and
+## what it should hash to. Reading the zips (not their file names) keeps the index honest.
+func _index(zip_dir: String, options: Dictionary) -> void:
+	var dir := DirAccess.open(zip_dir)
+	if dir == null:
+		_out("error: %s is not a folder of packed mods" % zip_dir)
+		get_tree().quit(2)
+		return
+	var base_url := str(options.get("base-url", "")).rstrip("/")
+	var files := Array(dir.get_files()).filter(func(f): return str(f).get_extension().to_lower() == "zip")
+	files.sort()
+	var entries := []
+	for file: String in files:
+		var path := zip_dir.path_join(file)
+		var unpacked := ModLoader.unpack(path)
+		if unpacked.has("error"):
+			_out("error: %s" % unpacked.error)
+			get_tree().quit(1)
+			return
+		var manifest := ModLoader.read_manifest(unpacked.dir)
+		if manifest.has("error"):
+			_out("error: %s" % manifest.error)
+			get_tree().quit(1)
+			return
+		var bytes := FileAccess.get_file_as_bytes(path)
+		var digest := HashingContext.new()
+		digest.start(HashingContext.HASH_SHA256)
+		digest.update(bytes)
+		var depends := []
+		for dep in manifest.depends:
+			depends.append("%s@%s" % [dep.id, dep.version] if not str(dep.version).is_empty() else str(dep.id))
+		entries.append({
+			"id": manifest.id,
+			"name": manifest.name,
+			"version": manifest.version,
+			"description": manifest.description,
+			"authors": manifest.get("authors", []),
+			"kind": manifest.kind,
+			"game": manifest.game,
+			"depends": depends,
+			"engine": manifest.engine,
+			"url": "%s/%s" % [base_url, file],
+			"sha256": digest.finish().hex_encode(),
+			"size": bytes.size(),
+		})
+	var out_path := ProjectSettings.globalize_path(str(options.get("out", "res://build/release/mods.json")))
+	DirAccess.make_dir_recursive_absolute(out_path.get_base_dir())
+	var out_file := FileAccess.open(out_path, FileAccess.WRITE)
+	if out_file == null:
+		_out("error: could not write %s" % out_path)
+		get_tree().quit(1)
+		return
+	out_file.store_string(JSON.stringify({"version": str(options.get("version", Protocol.GAME_VERSION)), "mods": entries}, "\t") + "\n")
+	out_file.close()
+	_out("wrote %s (%d mods)" % [out_path, entries.size()])
 	get_tree().quit(0)
 
 

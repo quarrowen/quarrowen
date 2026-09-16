@@ -54,6 +54,7 @@ func _ready() -> void:
 	_semver()
 	await _mod_packages()
 	await _mod_templates()
+	_mod_index()
 	_api_docs()
 	_creations()
 	await _skin_painter()
@@ -2991,6 +2992,70 @@ func _mod_templates() -> void:
 			_check(validation.ok and validation.counts.warning == 0, "the %s %s template passes the validator %s" % [language, kind, str(validation.issues.slice(0, 3))])
 			server.queue_free()
 			await get_tree().process_frame
+
+
+## The mod list: reading the index, what is installed against what is offered, and putting a mod on this
+## computer and taking it off again.
+func _mod_index() -> void:
+	var Catalog = preload("res://engine/client/mod_catalog.gd")
+	var Loader = preload("res://engine/server/mod_loader.gd")
+	var root := DATA_DIR.path_join("catalog_%d" % Time.get_ticks_msec())
+
+	# An index only counts if every entry is from an address the client trusts, with a real checksum.
+	var good_sha := "a".repeat(64)
+	var index_text := JSON.stringify({"version": "1.0.0", "mods": [
+		{"id": "handy", "name": "Handy", "version": "1.2.0", "kind": "addon", "size": 2048,
+			"url": "https://quarrowen.com/v1/mods/handy-1.2.0.zip", "sha256": good_sha, "depends": ["base@^1.0"]},
+		{"id": "evil", "name": "Evil", "version": "1.0.0", "size": 2048,
+			"url": "https://example.com/evil.zip", "sha256": good_sha},
+		{"id": "sloppy", "name": "Sloppy", "version": "1.0.0", "size": 2048,
+			"url": "https://quarrowen.com/v1/mods/sloppy.zip", "sha256": "nope"},
+		{"id": "huge", "name": "Huge", "version": "1.0.0", "size": 1 << 30,
+			"url": "https://quarrowen.com/v1/mods/huge.zip", "sha256": good_sha},
+	]})
+	var index: Array = Catalog.read_index(index_text)
+	_check(index.size() == 1 and index[0].id == "handy", "the index keeps only entries from the project's own site with a real checksum")
+	_check(Catalog.read_index("not json at all").is_empty(), "a mod list that is not readable is treated as empty, not trusted")
+
+	# Installed against offered: what is new, what has an update, and what came with the game.
+	var installed := [
+		{"id": "base", "name": "Base", "version": "1.0.0", "kind": "library", "removable": false, "description": "", "depends": []},
+		{"id": "handy", "name": "Handy", "version": "1.0.0", "kind": "addon", "removable": true, "description": "", "depends": []},
+	]
+	var merged: Array = Catalog.merge(installed, index + [{"id": "base", "name": "Base", "version": "9.9.9", "kind": "library",
+		"url": "https://quarrowen.com/v1/mods/base-9.9.9.zip", "sha256": good_sha, "size": 2048, "description": "", "depends": []}])
+	var by_id := {}
+	for row: Dictionary in merged:
+		by_id[row.id] = row
+	_check(by_id.handy.state == "update" and by_id.handy.offered == "1.2.0", "a newer version of an installed mod shows as an update")
+	_check(by_id.base.state == "installed", "a mod that came with the game is not updated from the mod list (the game update brings it)")
+	var fresh: Array = Catalog.merge([], index)
+	_check(fresh.size() == 1 and fresh[0].state == "available", "a mod that is not installed shows as available")
+
+	# What a mod needs, and what needs it.
+	var needs: Array = Catalog.missing_dependencies({"id": "handy", "name": "Handy", "depends": ["base@^1.0", "nowhere"]}, [], index +
+		[{"id": "base", "name": "Base", "version": "1.0.0", "depends": []}])
+	_check(needs.size() == 2 and needs[0].id == "base" and needs[1].get("missing", false),
+		"installing a mod pulls in what it needs, and says so when something is not offered at all")
+	_check(Catalog.missing_dependencies({"id": "handy", "depends": ["base"]}, installed, index).is_empty(), "nothing is fetched twice")
+	_check(Catalog.needed_by("base", [{"id": "vanilla", "name": "Vanilla", "depends": [{"id": "base", "version": "^1.0"}]}]) == ["Vanilla"],
+		"removing a mod can say which other mods need it")
+
+	# Installing from a package, and removing it again. user://mods is the only place either touches.
+	var source := root.path_join("source")
+	_write_mod(source.path_join("handy"), {"id": "handy", "name": "Handy", "version": "1.2.0", "engine": "^1.0", "kind": "addon"})
+	var zip_path := ProjectSettings.globalize_path(root.path_join("handy-1.2.0.zip"))
+	_check(Loader.pack(ProjectSettings.globalize_path(source.path_join("handy")), zip_path) == OK, "a mod packs into a zip to install from")
+	var target: String = Loader.USER_MODS.path_join("handy")
+	_check(Catalog.install_file(zip_path, "handy").is_empty() and FileAccess.file_exists(target.path_join("mod.json")),
+		"installing a mod puts it in the player's own mods folder")
+	_check(not Catalog.install_file(zip_path, "something_else").is_empty(), "a package holding a different mod than the list promised is refused")
+	_check(Catalog.is_removable(target) and not Catalog.is_removable("res://mods/base"), "only mods the player installed may be removed")
+	var listed: Array = Catalog.installed().filter(func(m): return m.id == "handy")
+	_check(listed.size() == 1 and listed[0].removable and listed[0].version == "1.2.0", "an installed mod is listed with its version and can be removed")
+	_check(Catalog.remove("handy").is_empty() and not DirAccess.dir_exists_absolute(target), "removing a mod takes its folder away")
+	_check(not Catalog.remove("base").is_empty(), "a mod that came with the game cannot be removed")
+	_remove_tree(ProjectSettings.globalize_path(root))
 
 
 func _api_docs() -> void:

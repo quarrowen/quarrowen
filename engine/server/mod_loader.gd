@@ -21,8 +21,11 @@ const PACKAGE_EXTENSIONS := ["zip", "vcmod"]
 const CACHE_DIR := "user://mod_cache"
 const USER_MODS := "user://mods"
 ## Manifest keys the engine reads (others are reported by the validator as possible typos).
-const KNOWN_KEYS := ["id", "name", "version", "description", "authors", "author", "license", "homepage", "game", "main", "engine",
+const KNOWN_KEYS := ["id", "name", "version", "description", "authors", "author", "license", "homepage", "game", "kind", "main", "engine",
 	"depends", "optional_depends", "conflicts", "tags", "icon"]
+## What a mod is for, so the mod list can group it: a game to play, an add-on for one, a library other
+## mods build on, or an example to read. `game: true` still means "game" for mods written before this.
+const KINDS := ["game", "addon", "library", "example"]
 
 ## Problems found by the last discover/resolve, as {mod, message} (also pushed as errors).
 static var last_errors: Array = []
@@ -127,6 +130,7 @@ static func read_manifest(mod_dir: String) -> Dictionary:
 	manifest.optional_depends = parse_dependencies(manifest.get("optional_depends", []))
 	manifest.conflicts = parse_dependencies(manifest.get("conflicts", []))
 	manifest.game = bool(manifest.get("game", false))
+	manifest.kind = String(manifest.get("kind", "")) if String(manifest.get("kind", "")) in KINDS else ("game" if manifest.game else "addon")
 	var default_main := "main.js" if FileAccess.file_exists(mod_dir.path_join("main.js")) and not FileAccess.file_exists(mod_dir.path_join("main.gd")) else "main.gd"
 	manifest.main = String(manifest.get("main", default_main))
 	return manifest

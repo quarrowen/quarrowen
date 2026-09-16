@@ -94,14 +94,24 @@ textures, models and sounds they need. The mod list matters for **hosting**.
 
 `ModLoader.search_dirs` already looks in all three, so nothing changes in the engine's loading.
 
-### 5.2 The in-game mod list (menu → Create → Mods)
+### 5.2 The in-game mod list (menu → Mods) — done, 0.39.0
 
-- **Installed**: everything found, with version, size, what it is, and Remove for ones in `user://mods`.
-- **Available**: the entries from `mods.json` that are not installed (name, description, size, author),
-  with Install: download → checksum → unzip into `user://mods/<id>/`.
-- **Updates**: an installed mod with a newer version in the index gets an Update button.
-- Dependencies come from each `mod.json` (`depends`, `optional_depends`) and are installed with it;
-  the existing validator already reports a missing or out-of-range dependency clearly.
+A sidebar page with three tabs, next to Play and Multiplayer:
+
+- **Installed**: everything found, with version, what kind of mod it is, and where it came from. Remove
+  works only on mods in `user://mods` - the ones inside the app come back with every update anyway, and
+  it warns first when another installed mod depends on it.
+- **Available**: the entries from `mods.json` that are not installed, with size. Install downloads,
+  checks the checksum, and unpacks into `user://mods/<id>/`.
+- **Updates**: an installed mod with a newer version in the index. Only mods the player installed appear
+  here; a bundled mod is updated by updating the game.
+
+Dependencies come from the index (`depends`) and are installed first, in order; a dependency the index
+does not offer stops the install with a plain message instead of leaving a mod that cannot load.
+
+`mods.json` is built by `mod_tool -- index` from the packed zips themselves, so what the list claims and
+what it ships cannot drift, and it is **signed with the release key** exactly like `update.json`: a
+checksum only proves a download matches *that list*, so the list itself has to be the project's.
 
 ### 5.3 Choosing mods for a world
 
@@ -162,12 +172,26 @@ work per mod. A value for a mod that is not loaded this session is kept, not dro
 **Per-player client preferences** (a mod's HUD position, say) come later through the same schema on the
 client's settings screen; the server-side values were the piece that mattered.
 
+## 6b. Mods on iPad
+
+The iPad build (milestone 3 in PROGRESS.md) hosts local worlds the same way the Mac does, so **bundled
+mods work there**: vanilla, skyblock, One Block and the add-ons ship inside the app and need no install.
+
+Downloading *more* mods on iOS is deliberately left out of that first build. A GDScript mod is code, and
+App Store rule 2.5.2 is about apps that download and run code that changes what they do - not a fight
+worth having for alpha. The plan when it matters:
+
+- iPad: the bundled mods, and **JavaScript mods** (already sandboxed) as the path for anything fetched;
+- Mac: the full list above, GDScript mods included;
+- joining a server is unaffected on every platform - its mods run on the server.
+
 ## 7. Order of work
 
 1. **Distribution** (before alpha 2): `make_release.sh`, the Pages site, the public distribution repo,
    the download page, and the updater pointed at it. Alpha 2 is then downloaded, not handed over.
 2. ~~**Mod settings**: schema, storage in the world, the Server settings section, the data-dir file.~~ Done.
-3. **Mod list in game**: installed/available/updates from the index, install and remove, and the New
-   world dialog listing installed mods.
+3. ~~**Mod list in game**: installed/available/updates from the index, install and remove, and the New
+   world dialog listing installed mods.~~ Done (the New world dialog already lists whatever is installed,
+   and now re-reads it after an install).
 4. **Community mods**: the advanced install path, and what a public index would need (submissions,
    review, a "verified" mark).

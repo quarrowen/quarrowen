@@ -110,7 +110,7 @@ static func check(manifest_text: String, current := Protocol.GAME_VERSION, for_p
 	out.url = str(build.get("url", ""))
 	out.sha256 = str(build.get("sha256", "")).to_lower()
 	out.size = int(build.get("size", 0))
-	if not _allowed(out.url):
+	if not url_allowed(out.url):
 		out.reason = "the download is not on the project's own release page"
 		out.url = ""
 		return out
@@ -125,7 +125,8 @@ static func check(manifest_text: String, current := Protocol.GAME_VERSION, for_p
 
 
 ## Only the project's own release hosts (or whatever host the built-in manifest address uses), over https.
-static func _allowed(url: String) -> bool:
+## The mod list checks every download address the same way (engine/client/mod_catalog.gd).
+static func url_allowed(url: String) -> bool:
 	if not url.begins_with("https://"):
 		return false
 	var host := _host_of(url)

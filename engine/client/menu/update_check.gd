@@ -9,17 +9,16 @@ signal message(text: String, kind: String, action_text: String, action: Callable
 const Updater = preload("res://engine/client/updater.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
+const Downloads = preload("res://engine/client/menu/downloads.gd")
 
-var _http: HTTPRequest
+var _web: Node
 var _update := {}
 var _busy := false
 
 
 func _ready() -> void:
-	_http = HTTPRequest.new()
-	_http.use_threads = true
-	_http.timeout = 30.0
-	add_child(_http)
+	_web = Downloads.new()
+	add_child(_web)
 
 
 ## Asks the release page what the newest version is. `manual` also reports "you are up to date".
@@ -29,8 +28,8 @@ func check(manual := false) -> void:
 			message.emit("This copy was not installed as an app, so it cannot update itself.", "info", "", Callable())
 		return
 	_busy = true
-	var text := await _fetch(Updater.manifest_url())
-	var signature := await _fetch(Updater.manifest_url() + ".sig") if not text.is_empty() else ""
+	var text: String = await _web.fetch(Updater.manifest_url())
+	var signature: String = await _web.fetch(Updater.manifest_url() + ".sig") if not text.is_empty() else ""
 	_busy = false
 	if text.is_empty():
 		if manual:
@@ -52,7 +51,7 @@ func install() -> void:
 		return
 	_busy = true
 	message.emit("Downloading version %s…" % _update.version, "info", "", Callable())
-	var bytes := await _download(str(_update.url))
+	var bytes: PackedByteArray = await _web.download(str(_update.url), Updater.DOWNLOAD_DIR)
 	_busy = false
 	if bytes.is_empty():
 		message.emit("The download did not finish. Try again later.", "error", "Try again", install)
@@ -92,30 +91,3 @@ func _hand_over(bytes: PackedByteArray) -> String:
 	if OS.create_process("/bin/sh", [script_path]) <= 0:
 		return "The installer could not be started."
 	return ""
-
-
-func _fetch(url: String) -> String:
-	_http.cancel_request()
-	_http.download_file = ""
-	if _http.request(url) != OK:
-		return ""
-	var result: Array = await _http.request_completed
-	if int(result[0]) != HTTPRequest.RESULT_SUCCESS or int(result[1]) != 200:
-		return ""
-	return (result[3] as PackedByteArray).get_string_from_utf8()
-
-
-func _download(url: String) -> PackedByteArray:
-	_http.cancel_request()
-	var path := ProjectSettings.globalize_path(Updater.DOWNLOAD_DIR).path_join("download.zip")
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(Updater.DOWNLOAD_DIR))
-	_http.download_file = path
-	if _http.request(url) != OK:
-		return PackedByteArray()
-	var result: Array = await _http.request_completed
-	_http.download_file = ""
-	if int(result[0]) != HTTPRequest.RESULT_SUCCESS or int(result[1]) != 200:
-		return PackedByteArray()
-	var bytes := FileAccess.get_file_as_bytes(path)
-	DirAccess.remove_absolute(path)
-	return bytes

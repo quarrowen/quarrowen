@@ -61,44 +61,34 @@ EOF
 
 # Sign the manifest so a client only trusts a release that came from the project (see tools/release_key.gd).
 key="${QUARROWEN_RELEASE_KEY:-$HOME/.config/quarrowen/release_key.pem}"
+sign() {
+	if [ -f "$key" ]; then
+		"$GODOT" --headless --path . -s tools/release_key.gd -- sign --file="$1" --key="$key" | tail -1
+	fi
+}
 if [ -f "$key" ]; then
-	"$GODOT" --headless --path . -s tools/release_key.gd -- sign --file="$out/update.json" --key="$key" | tail -1
+	sign "$out/update.json"
 else
 	echo "!! no release key at $key: the manifest is unsigned, and clients that expect a signature will"
 	echo "!! ignore this release. Make one with: godot --headless --path . -s tools/release_key.gd -- new"
 fi
 
-# The mod index, and the rows the download page shows.
+# The mod index the game's mod screen reads, built from the packed zips themselves (so what it claims and
+# what it ships cannot drift), and signed like the update manifest.
+if [ "$flat" -eq 1 ]; then mods_base="$base_url"; else mods_base="$base_url/$files/mods"; fi
+"$GODOT" --headless --path . res://tools/mod_tool.tscn -- index "$out/$files/mods" \
+	--base-url="$mods_base" --out="$out/mods.json" --version="$version" | tail -1
+sign "$out/mods.json"
+
+# The rows the download page shows, from the same zips.
 mod_rows=""
-{
-	echo "{"
-	echo "	\"version\": \"$version\","
-	echo "	\"mods\": ["
-	first=1
-	for zip in "$out/$files"/mods/*.zip; do
-		file="$(basename "$zip")"
-		id="${file%-*}"
-		mod_version="${file##*-}"
-		mod_version="${mod_version%.zip}"
-		description="$(sed -n 's/.*"description"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
-		name="$(sed -n 's/.*"name"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
-		[ $first -eq 1 ] || echo "		},"
-		first=0
-		echo "		{"
-		echo "			\"id\": \"$id\","
-		echo "			\"name\": \"${name:-$id}\","
-		echo "			\"version\": \"$mod_version\","
-		echo "			\"description\": \"$description\","
-		if [ "$flat" -eq 1 ]; then mod_url="$base_url/$files/$file"; else mod_url="$base_url/$files/mods/$file"; fi
-		echo "			\"url\": \"$mod_url\","
-		echo "			\"sha256\": \"$(digest "$zip")\","
-		echo "			\"size\": $(size_of "$zip")"
-		mod_rows="$mod_rows<tr><td><b>${name:-$id}</b><br><span class=\"dim\">$description</span></td><td class=\"right\"><a href=\"$mod_url\">$file</a><br><span class=\"dim\">$(human "$zip")</span></td></tr>"
-	done
-	[ $first -eq 1 ] || echo "		}"
-	echo "	]"
-	echo "}"
-} > "$out/mods.json"
+for zip in "$out/$files"/mods/*.zip; do
+	file="$(basename "$zip")"
+	id="${file%-*}"
+	description="$(sed -n 's/.*"description"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
+	name="$(sed -n 's/.*"name"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
+	mod_rows="$mod_rows<tr><td><b>${name:-$id}</b><br><span class=\"dim\">$description</span></td><td class=\"right\"><a href=\"$mods_base/$file\">$file</a><br><span class=\"dim\">$(human "$zip")</span></td></tr>"
+done
 
 cat > "$out/index.html" <<EOF
 <!doctype html>
