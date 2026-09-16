@@ -3154,6 +3154,39 @@ func _loot() -> void:
 	_check(names.has("test:mix") and names.has("test:rare"), "an item knows everywhere it can come from (%s)" % str(names.slice(0, 4)))
 	_check(sources[0].chance >= sources[sources.size() - 1].chance, "the likeliest source comes first")
 
+	# Everyone who opens a dungeon chest gets their own loot, so nobody races a sibling for it.
+	loot.register("test:chest", {"pools": [{"rolls": 2, "entries": [{"item": "base:iron_ingot", "count": [2, 2]}]}]})
+	var chest_at := Vector3i(6, 62, 6)
+	server.set_block_authoritative(chest_at, server.registry.id_of("base:chest"))
+	server.set_block_data(chest_at, {"loot": "test:chest", "personal": true, "structure_seed": 99})
+	var ann := ServerPlayer.new(server, 141, "Ann")
+	ann.player_id = "ann"
+	server.players[141] = ann
+	var ben := ServerPlayer.new(server, 142, "Ben")
+	ben.player_id = "ben"
+	server.players[142] = ben
+	server.containers.get_container(chest_at, ann)
+	server.containers.get_container(chest_at, ben)
+	_check(ann.inventory.count_of(iron) == 4 and ben.inventory.count_of(iron) == 4,
+		"each player gets their own loot from a shared chest (Ann %d, Ben %d)" % [ann.inventory.count_of(iron), ben.inventory.count_of(iron)])
+	server.containers.get_container(chest_at, ann)
+	_check(ann.inventory.count_of(iron) == 4, "and only once each, however often they open it")
+	_check(server.get_block_data(chest_at).get("loot", "") == "test:chest", "the chest keeps its table for whoever has not opened it yet")
+
+	# A table nobody has met before is worth a moment.
+	loot.register("test:new", {"pools": [{"rolls": 1, "entries": [{"item": "base:coal"}]}]})
+	var firsts := []
+	server.add_handler("loot_first_time", func(ev): firsts.append(ev), 0, "test")
+	loot.roll("test:new", {"player": ann})
+	loot.roll("test:new", {"player": ann})
+	_check(firsts.size() == 1 and firsts[0].table == "test:new", "a player meeting a table for the first time is announced once")
+
+	# Where an item comes from, small enough to send a client when it joins.
+	var index: Dictionary = loot.sources_index()
+	_check(index.has(iron) and index[iron] is Array and index[iron][0].size() == 2,
+		"the client is sent where each item can be found, for the tooltip")
+	_check(index[iron].size() <= 3, "with only the few likeliest sources each")
+
 	# A mob's drops and a block's drops both go through tables now.
 	var pig: int = server.entities.registry.id_of("vanilla:pig")
 	if pig > 0:

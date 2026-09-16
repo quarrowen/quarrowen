@@ -5,6 +5,9 @@ extends RefCounted
 const STAGES := 10
 const TILE := 16
 
+## Where each item can be found: {item id: [[source, percent], …]}, sent by the server when joining.
+## Empty until then, and for an item nothing drops.
+static var sources := {}
 static var _crack_textures: Array[ImageTexture] = []
 static var _crack_material: StandardMaterial3D
 
@@ -41,6 +44,15 @@ static func tooltip_lines(items, id: int, item_data: Dictionary) -> PackedString
 	var durability: int = items.max_durability(id, item_data)
 	if durability > 0:
 		lines.append("Durability %d / %d" % [durability - int(item_data.get("damage", 0)), durability])
+	# Where it comes from, so a player can go and look instead of being told.
+	var from: Array = sources.get(id, sources.get(str(id), []))
+	if from is Array and not from.is_empty():
+		var parts := []
+		for row in from:
+			if row is Array and row.size() == 2:
+				parts.append("%s%s" % [str(row[0]), " (%d%%)" % int(row[1]) if int(row[1]) < 100 else ""])
+		if not parts.is_empty():
+			lines.append("Dropped by %s" % ", ".join(PackedStringArray(parts)))
 	for list in [def.get("lore", []), item_data.get("lore", [])]:
 		for line in (list if list is Array else []):
 			lines.append(String(line).left(120))

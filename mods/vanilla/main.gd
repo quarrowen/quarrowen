@@ -217,6 +217,7 @@ func _setup_mobs() -> void:
 	animals.setup(api)
 	monsters.setup(api)
 	structures.setup(api)
+	_first_kill_bonuses()
 	api.every(4.0, _mob_tick)
 
 
@@ -234,6 +235,21 @@ func _mob_tick() -> void:
 			if api.setting("zombies_burn") and mob.type in [ids.zombie, ids.skeleton] and daylight > 0.75 \
 					and api.sees_sky(Vector3i(mob.position.floor()) + Vector3i.UP):
 				mob.damage(4.0, null, "sun")
+
+
+## The first time a player meets each kind of creature, it leaves something extra behind: a small reward
+## for going somewhere new, rather than for grinding the same field. `first_time` is per player and per
+## table, so it happens once each, however many people are on the server.
+func _first_kill_bonuses() -> void:
+	for mob in [["pig", "base:apple"], ["cow", "base:apple"], ["chicken", "base:apple"], ["sheep", "base:apple"],
+			["zombie", "base:iron_ingot"], ["skeleton", "base:iron_ingot"], ["slime", "base:coal"]]:
+		api.extend_loot("mob:vanilla:%s" % mob[0], {"pools": [{"rolls": 1, "guaranteed": true,
+			"when": {"first_time": true, "player": true},
+			"entries": [{"item": mob[1], "count": [1, 2]}]}]})
+	api.on("loot_first_time", func(ev):
+		if ev.source != "entity" or not str(ev.table).begins_with("mob:vanilla:"):
+			return
+		ev.player.send_message("✦ Your first %s! It left something extra." % str(ev.table).substr(12).replace("_", " ")))
 
 
 ## Takes the host's settings into use, at startup and whenever one is changed while the server runs.

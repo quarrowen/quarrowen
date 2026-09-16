@@ -58,7 +58,10 @@ extends RefCounted
 ##   player_respawn {player, position}                        position may be changed
 ##   entity_spawned {entity}          entity_removed {entity}
 ##   entity_damage  {entity, amount, cause, attacker, cancelled}
-##   entity_death   {entity, cause, attacker, drops: [[id, count]...]}   drops may be changed
+##   entity_death   {entity, cause, attacker, drops: [[id, count, data]...]}   drops may be changed
+##   loot_generated {position, table, player}                a chest rolled its loot
+##   loot_first_time {player, table, source}                 this player met that table for the first time
+##   rare_loot      {player, item, count, table, position, announce}   an unlikely drop; set announce false to stay quiet
 ##   entity_interact {player, entity, item, cancelled}        right-click on an entity (cancel stops feeding it)
 ##   entity_fed     {player, entity, item, cancelled}         breeding food given (see engine/server/breeding.gd)
 ##   entity_bred    {parents, baby, player}   entity_grew {entity}

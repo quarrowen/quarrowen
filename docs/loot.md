@@ -77,18 +77,32 @@ api.replace_loot("vanilla:zombie", {...})   # start again
 - **A rare drop is an event.** Rarity is worked out from the weights, so the engine knows without being
   told: a sparkle, a sound, a beam of light on the item so it is not lost in the grass, and a line in
   chat when it is rare enough.
-- **Shared chests roll per player.** Everyone who opens the dungeon chest gets their own loot, so
-  nobody has to race a sibling for the good item.
-- **Bad luck does not last.** A pity counter guarantees the rare drop after a long enough run without
-  one, and the first time a player kills a kind of mob it gives a little extra.
-- **The guide answers "what drops this?"** - every item lists the mobs, blocks and chests it comes from,
-  which is the fastest way to learn a world.
+- **Shared chests roll per player.** A chest whose data says `personal: true` (every vanilla structure
+  chest) rolls separately for each player: what you find is handed straight to you, once each, so nobody
+  has to race a sibling for the good item. The chest is then an ordinary chest to keep things in. Doing
+  it this way means no per-viewer container view, so it needed no protocol change; the trade is that the
+  loot arrives in your pack rather than sitting in the box.
+- **Bad luck does not last.** A pity counter gives the table's rarest entry after 40 rolls without a
+  find. The first time a player meets a table the engine emits `loot_first_time`, and a `first_time`
+  condition can hold a pool back for exactly that moment - vanilla uses it so your first pig, cow, zombie
+  and so on leaves something extra.
+- **Every item says where it comes from.** Its tooltip ends with "Dropped by Zombie (12%), Stone" - the
+  few likeliest sources, worked out from the tables and sent to the client when it joins. The fastest way
+  to learn a world, and it costs one line in the payload the server already sends.
 
 ## 6. Tuning
 
-`vanilla` exposes a **How much loot** setting (less / normal / lots) through the mod settings screen, so
-a host changes drop rates for their family's server without editing anything. It multiplies pool roll
-counts, never the guaranteed part of a drop.
+Two levels, because an event needs more than one dial:
+
+- **How much loot** (less / normal / lots) is a vanilla mod setting in the admin screen: one multiplier on
+  every pool's roll count, for the whole server.
+- **One thing at a time**, for an event: `/loot boost base:coal 3 60` makes coal three times as common for
+  an hour and then stops on its own; `/loot boost vanilla:dungeon 2` enriches one table until it is
+  changed back. Mods do the same with `api.set_loot_boost(target, factor, seconds)`. `/loot` shows what is
+  turned up, `/loot clear` puts everything back.
+
+Both are kept with the world. A pool marked `guaranteed: true` ignores them, so a drop something depends
+on cannot be tuned away.
 
 ## 7. Left for later
 

@@ -397,7 +397,18 @@ accept unsigned manifests, so the change costs nothing to the family's current i
    unsigned list. Installing pulls in dependencies first; removing warns when another mod needs it and only
    ever touches user://mods. The New world dialog re-reads the installed mods after a change.
    iPad: bundled mods work there; downloading GDScript mods on iOS is left out on purpose (docs/distribution.md §6b).
-5. **iPad (the user has a developer account).** Godot exports iOS from macOS with Xcode. Work: build the Rust
+5. **Loot and drops** (done): engine/server/loot.gd is one table format behind mobs, blocks, chests and
+   anything a mod rolls (docs/loot.md) - pools of weighted entries, nested tables, `empty` as the miss, and
+   conditions (killed_by, tool, biome, depth, time, chance, first_time) on a pool or an entry. Old
+   `drops: [[item, count, chance]]` definitions are read as tables at first use, so nothing had to change.
+   Tuning has two levels: a global rate (vanilla's "How much loot" setting) and per-table or per-item
+   boosts with an optional end time for events (/loot boost base:coal 3 60), both kept with the world.
+   Rarity is derived from the weights: a rare drop sparkles, keeps sparkling so it is not lost in the
+   grass, and is announced; 40 rolls of bad luck pay out the rarest entry. Structure chests roll per
+   player (nobody races a sibling), the first time a player meets a table fires loot_first_time (vanilla
+   gives a first-kill bonus), and every item's tooltip says where it comes from. Mods get register_loot,
+   extend_loot, roll_loot, loot_sources and loot/*.json files, in GDScript and JavaScript.
+6. **iPad (the user has a developer account).** Godot exports iOS from macOS with Xcode. Work: build the Rust
    extension for `aarch64-apple-ios` (and the simulator target) and add it to the GDExtension config; an iOS
    export preset with the bundle id and icons; touch controls (a movement stick, look-drag, tap to break /
    hold to place, hotbar and menu buttons sized for fingers) behind the same input actions; UI scale for

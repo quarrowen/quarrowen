@@ -36,6 +36,8 @@ var rate := 1.0
 ## "table:<name>" -> how much more often that table's pools roll, "item:<name>" -> how much more often that
 ## item comes up in any table. Each is {factor, until} where `until` is a unix time, or 0 for no end.
 var boosts := {}
+## Tables already built from a mob's or block's `drops` list, so extending one first does not replace it.
+var _generated := {}
 
 var _server
 
@@ -137,16 +139,28 @@ func _table_for(def: Dictionary, generated_name: String, drops) -> String:
 	var named := str(def.get("loot", ""))
 	if not named.is_empty():
 		return named
-	if not tables.has(generated_name):
-		tables[generated_name] = _clean(generated_name, from_drops(drops if drops is Array else []))
+	if not _generated.has(generated_name):
+		# A mod may have extended this table before anything was killed or broken (a first-kill bonus, say),
+		# so the drops go in front of whatever is already there rather than instead of it.
+		_generated[generated_name] = true
+		var built := _clean(generated_name, from_drops(drops if drops is Array else []))
+		built.pools.append_array(tables.get(generated_name, {}).get("pools", []))
+		tables[generated_name] = built
 	return generated_name
 
 
 ## Fills a container from its `loot` block data, once. `player` is whoever opened it, when known.
+##
+## A chest whose data says `personal: true` is rolled for each player separately: everyone who opens it
+## gets their own loot, handed straight to them, so nobody has to race a sibling for the good item. The
+## chest is then an ordinary chest to keep things in. Any other chest is filled once and shared.
 func fill(container, player = null) -> void:
 	var store: Dictionary = container._store if container.get("_store") != null else {}
 	var table := str(store.get("loot", ""))
 	if table.is_empty():
+		return
+	if bool(store.get("personal", false)) and player != null:
+		_fill_personal(container, store, table, player)
 		return
 	var seed_value := int(store.get("structure_seed", randi()))
 	store.erase("loot")
@@ -165,6 +179,29 @@ func fill(container, player = null) -> void:
 			break
 		container.set_item(free[rng.randi_range(0, free.size() - 1)], stack[0], stack[1], stack[2])
 	_server.emit("loot_generated", {"position": container.position, "table": table})
+
+
+## Everyone who opens this chest gets their own loot, once each.
+func _fill_personal(container, store: Dictionary, table: String, player) -> void:
+	var looted: Dictionary = store.get("looted", {}) if store.get("looted") is Dictionary else {}
+	if looted.has(player.player_id):
+		return
+	looted[player.player_id] = true
+	store.looted = looted
+	var stacks := roll(table, {"seed": hash([int(store.get("structure_seed", 0)), player.player_id]),
+		"player": player, "position": container.position, "source": "container"})
+	var names := []
+	for stack in stacks:
+		var left: int = player.inventory.add(stack[0], stack[1], _server.items.max_stack(stack[0]), stack[2])
+		if left > 0:  # their pack is full: the rest waits on the floor
+			_server.entities.drop_item(stack[0], left, Vector3(container.position) + Vector3(0.5, 1.0, 0.5),
+				Vector3.INF, 0.3, stack[2])
+		names.append("%s%s" % ["%d × " % int(stack[1]) if int(stack[1]) > 1 else "", _server.items.display_name(stack[0])])
+	player.sync_inventory()
+	_server.play_sound_at("engine:discover", Vector3(container.position) + Vector3.ONE * 0.5)
+	player.send_message("The chest had something for you: %s" % ", ".join(PackedStringArray(names)) if not names.is_empty()
+		else "The chest was empty this time.")
+	_server.emit("loot_generated", {"position": container.position, "table": table, "player": player})
 
 
 ## Makes something more (or less) common for a while: `target` is a table name, an item name, or either
@@ -247,6 +284,31 @@ func sources_of(item_id: int) -> Array:
 		out.append({"table": table_name, "kind": kind_of(table_name), "source": describe(table_name),
 			"chance": chance, "count": count})
 	out.sort_custom(func(a, b): return a.chance > b.chance)
+	return out
+
+
+## Where things come from, small enough to send a client once: {item id: [[source, percent], …]}, at most
+## a few sources each. The tooltip's "Dropped by" line is built from this.
+func sources_index(limit := 3) -> Dictionary:
+	var out := {}
+	for table_name: String in tables:
+		var described := describe(table_name)
+		for pool: Dictionary in tables[table_name].pools:
+			for entry: Dictionary in pool.entries:
+				if not entry.has("item"):
+					continue
+				var id := int(_server.items.id_of(str(entry.item)))
+				if id <= 0:
+					continue
+				var rows: Array = out.get(id, [])
+				if rows.any(func(row): return row[0] == described):
+					continue
+				rows.append([described, int(round(chance_of(table_name, id) * 100.0))])
+				out[id] = rows
+	for id in out:
+		var rows: Array = out[id]
+		rows.sort_custom(func(a, b): return a[1] > b[1])
+		out[id] = rows.slice(0, limit)
 	return out
 
 
@@ -453,8 +515,12 @@ func _after_roll(table_name: String, out: Array, ctx: Dictionary) -> void:
 	if player == null or not str(ctx.get("source", "")).is_empty() and str(ctx.get("source", "")) == "preview":
 		return
 	var seen: Dictionary = player.data.get("loot_seen", {})
+	var first_time := not seen.has(table_name)
 	seen[table_name] = true
 	player.data.loot_seen = seen
+	if first_time:
+		# Something this player had not met before: a mod can make a moment of it.
+		_server.emit("loot_first_time", {"player": player, "table": table_name, "source": str(ctx.get("source", ""))})
 	var found_rare := false
 	for stack in out:
 		if is_rare(table_name, int(stack[0])):

@@ -449,6 +449,8 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	cosmetics.load_network(content.get("cosmetics"))
 	CreationLibrary.register_all(cosmetics, _asset_images)  # the player's own creations
 	recipes.load_network(content.get("recipes"))
+	# Where things come from, for the tooltip's "Dropped by" line.
+	ItemVisuals.sources = content.get("loot", {}) if content.get("loot") is Dictionary else {}
 	_crafting_screen.processes = content.get("processes", {}) if content.get("processes") is Dictionary else {}
 	_crafting_screen.stations = content.get("stations", {}) if content.get("stations") is Dictionary else {}
 	_crafting_screen.assembly.load_network(content.get("assembly"))

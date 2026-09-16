@@ -756,7 +756,8 @@ func after_mod_reload() -> void:
 	tutorials.revalidate()
 	var content := {"blocks": registry.to_network(), "items": items.to_network(), "entities": entities.registry.to_network(),
 		"recipes": recipes.to_network(), "processes": _processes, "stations": stations.to_network(), "assembly": assembly.to_network(),
-		"minigames": skill.to_network(), "guide": guide.registry.to_network(), "tutorials": tutorials.to_network()}
+		"minigames": skill.to_network(), "guide": guide.registry.to_network(), "tutorials": tutorials.to_network(),
+		"loot": loot.sources_index()}
 	for p: ServerPlayer in players.values():
 		if p._online():
 			Net.s_content_update.rpc_id(p.peer_id, content)
@@ -1942,7 +1943,8 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
 		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
 		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network(), "recipes": recipes.to_network(), "processes": _processes,
-		"stations": stations.to_network(), "assembly": assembly.to_network(), "minigames": skill.to_network(), "guide": guide.registry.to_network(), "tutorials": tutorials.to_network()}
+		"stations": stations.to_network(), "assembly": assembly.to_network(), "minigames": skill.to_network(), "guide": guide.registry.to_network(), "tutorials": tutorials.to_network(),
+		"loot": loot.sources_index()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
 
 
