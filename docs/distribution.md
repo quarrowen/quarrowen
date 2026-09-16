@@ -29,16 +29,15 @@ https://<org>.github.io/voxelcraft/
   v<version>/...        the zips
 ```
 
-Pages serves the zips itself, so downloads need no GitHub account. **A private repository's release
-assets need a token to download, which a game cannot carry**, so the distribution repo (or the Pages
-site) has to be public even while development stays private. Two ways:
+**The repository is public** (2026-09-16), so Pages and release assets both download without an
+account - a private repository's release assets need a token, which a game cannot carry. The address is
+baked into the client (`engine/client/updater.gd`), never taken from a server, and `project.godot`'s
+`voxelcraft/update_manifest_url` can point a fork somewhere else.
 
-- publish Pages from the private repo (needs a paid GitHub plan), or
-- keep a small public repo (for example `voxelcraft-dist`) that holds only the site and the zips; the
-  release script copies files into it and pushes. The private repo stays private.
-
-Either way the address is baked into the client (`engine/client/updater.gd`), never taken from a
-server, and `project.godot`'s `voxelcraft/update_manifest_url` can point a fork somewhere else.
+`tools/publish_site.sh` pushes the page, `update.json` and `mods.json` to the `gh-pages` branch, and
+with `--with-release` attaches the zips to the GitHub release (release assets do not count against the
+repository size, which matters at ~62 MB per build). Without a release it serves the zips from the
+branch instead.
 
 ## 3. Updating
 

@@ -86,58 +86,84 @@ mod_rows=""
 cat > "$out/index.html" <<EOF
 <!doctype html>
 <meta charset="utf-8">
-<title>VoxelCraft $version</title>
+<title>VoxelCraft</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A voxel game where the server decides the game. Free to play, free to mod.">
+<link rel="icon" href="icon.png">
 <style>
   :root { color-scheme: dark; }
-  body { margin: 0; padding: 0 20px 60px; background: #11141c; color: #e8ecf4;
-         font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
-  .wrap { max-width: 720px; margin: 0 auto; }
-  header { display: flex; align-items: center; gap: 18px; padding: 48px 0 8px; }
-  header img { width: 96px; height: 96px; border-radius: 22px; }
-  h1 { font-size: 34px; margin: 0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0 20px 80px; background: #0f1219; color: #e8ecf4;
+         font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  a { color: #7fb2ff; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 20px; padding: 56px 0 4px; flex-wrap: wrap; }
+  header img { width: 104px; height: 104px; border-radius: 24px; }
+  h1 { font-size: 40px; margin: 0; letter-spacing: -0.5px; }
+  .tag { color: #9aa4b8; font-size: 17px; margin-top: 4px; }
   .dim { color: #9aa4b8; font-size: 14px; }
-  .get { display: inline-block; margin: 22px 0 8px; padding: 14px 26px; border-radius: 10px;
-         background: #4c8dff; color: #08101f; font-weight: 700; text-decoration: none; }
+  .get { display: inline-block; margin: 24px 0 6px; padding: 15px 28px; border-radius: 11px;
+         background: #4c8dff; color: #08101f; font-weight: 700; text-decoration: none; font-size: 17px; }
   .get:hover { background: #6ba0ff; }
-  h2 { font-size: 20px; margin: 40px 0 8px; }
+  h2 { font-size: 21px; margin: 44px 0 10px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 8px; }
+  .card { background: #161b26; border: 1px solid #222838; border-radius: 12px; padding: 14px 16px; }
+  .card b { display: block; margin-bottom: 4px; }
+  .card span { color: #9aa4b8; font-size: 14px; }
   table { width: 100%; border-collapse: collapse; }
-  td { padding: 10px 0; border-top: 1px solid #222838; vertical-align: top; }
+  td { padding: 11px 0; border-top: 1px solid #222838; vertical-align: top; }
   .right { text-align: right; white-space: nowrap; }
   code { background: #1b2130; padding: 2px 6px; border-radius: 5px; font-size: 14px; }
-  ol { padding-left: 20px; }
+  ol, ul { padding-left: 20px; }
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid #222838; color: #9aa4b8; font-size: 14px; }
 </style>
 <div class="wrap">
 <header>
   <img src="icon.png" alt="">
   <div>
     <h1>VoxelCraft</h1>
-    <div class="dim">Version $version &middot; $notes</div>
+    <div class="tag">A voxel game where the server decides the game.<br>Build, survive, or start on a single block over the void.</div>
   </div>
 </header>
 
 <a class="get" href="$files/$mac_name">Download for Mac (Apple silicon)</a>
-<div class="dim">$(human "$out/$files/$mac_name") &middot; macOS 11 or newer</div>
+<div class="dim">Version $version &middot; $(human "$out/$files/$mac_name") &middot; macOS 11 or newer &middot; $notes</div>
+
+<h2>What it is</h2>
+<div class="cards">
+  <div class="card"><b>One client, many games</b><span>The client ships no content. It downloads the blocks, models and rules from whichever server you join - a sandbox, an island, a one-block challenge.</span></div>
+  <div class="card"><b>Play together</b><span>Host a world from the menu and your family joins over the network, or run the dedicated server in Docker. Friends, parties and invite codes included.</span></div>
+  <div class="card"><b>Made to be modded</b><span>A mod is a folder with a manifest and a script (GDScript, or sandboxed JavaScript). Blocks, mobs, machines, world generation, UI and commands are all mod territory.</span></div>
+  <div class="card"><b>Keeps itself current</b><span>The game checks this page when it opens and offers the new version. Worlds and inventories survive updates.</span></div>
+</div>
 
 <h2>First time on a Mac</h2>
 <ol>
   <li>Unzip it and drag <b>VoxelCraft</b> into your Applications folder.</li>
-  <li>The first launch needs <b>right-click &rarr; Open</b>, then Open again: the app is signed by us, not
-      by Apple, so macOS asks once.</li>
-  <li>Type your name in the menu, then <b>Play</b> for your own world, or <b>Multiplayer</b> to join the
-      family server.</li>
+  <li>The first launch needs <b>right-click &rarr; Open</b>, then Open again: the app is signed by us, not by
+      Apple, so macOS asks once.</li>
+  <li>Type your name in the menu, then <b>Play</b> for your own world, or <b>Multiplayer</b> to join a server.</li>
 </ol>
-<p class="dim">After this, the game updates itself: it checks this page when the menu opens and offers the
-new version. You can turn that off in Settings &rarr; Network.</p>
 
-<h2>Mods</h2>
-<p class="dim">The games and add-ons that ship with this version. Servers put these in their mods folder;
-the game will list them in its own mod browser.</p>
+<h2>Mods in this release</h2>
+<p class="dim">Games and add-ons. A server drops these in its mods folder; the game will list them in its own
+mod browser.</p>
 <table>$mod_rows</table>
 
 <h2>Running a server</h2>
-<p>The dedicated server is a Docker image built from the source; see <code>docs/playtest.md</code> in the
-repository. Its mods live in a folder on the host, so a mod zip from this page can be dropped straight in.</p>
+<p>The dedicated server is a Docker image, with its mods in a folder on the host so a zip from this page can be
+dropped straight in. The <a href="https://github.com/omnivoxel-game/voxelcraft/blob/master/docs/playtest.md">family
+setup guide</a> walks through a home server and the Macs that join it.</p>
+
+<h2>Source</h2>
+<p>Everything lives at <a href="https://github.com/omnivoxel-game/voxelcraft">github.com/omnivoxel-game/voxelcraft</a>:
+the engine, the mods, the tools that generate the art and sounds, and the tests. Free to use, modify and share
+for anything noncommercial; commercial use needs a separate licence.</p>
+
+<footer>
+Built from scratch with <a href="https://claude.com/claude-code">Claude Code</a> - engine, renderer, server,
+mod API, AI and tooling, from an empty folder.
+</footer>
 </div>
 EOF
 

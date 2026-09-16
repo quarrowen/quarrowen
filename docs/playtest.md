@@ -31,7 +31,7 @@ nano .env
 ```
 
 - `ADMINS`: your in-game name. Admins can change game modes, teleport, approve skins and manage who may join.
-- `ALLOWLIST`: everyone who may join, by the name they will type in the game (for example `Dad,Maya,Leo`).
+- `ALLOWLIST`: everyone who may join, by the name they will type in the game (for example `Alex,Sam,Robin`).
   Nobody else can get in. You can add people later from inside the game.
 - `CREATIONS=approval`: painted skins and hats wait for an admin to approve them before others see them.
 - `CHAT_FILTER=on`: swear words in chat are masked.
@@ -131,8 +131,8 @@ Press **T**, type a command, press Enter. `/help` lists them all.
 | `/gameplay chat_filter true` | turn the chat filter on or off |
 | `/ugc list` | skins and hats waiting for approval; `/ugc approve <id>`, `/ugc trust Name` to skip approval for someone |
 | `/backup` | save a backup now |
-| `/role give Maya builder` | give someone a role (`/role list` shows them; `/role take` removes) |
-| `/perms Maya` | what someone's roles let them do |
+| `/role give Sam builder` | give someone a role (`/role list` shows them; `/role take` removes) |
+| `/perms Sam` | what someone's roles let them do |
 
 Admins also get **Esc → Review creations** to see and approve painted skins with previews, and **Esc → Players and
 roles** to give roles (builder, moderator, admin) or kick someone, without typing commands.
