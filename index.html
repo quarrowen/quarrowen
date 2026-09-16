@@ -2,17 +2,83 @@
 <meta charset="utf-8">
 <title>Quarrowen</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A voxel game where the server decides the game. Free to play, free to mod.">
 <link rel="icon" href="icon.png">
 <style>
   :root { color-scheme: dark; }
-  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0f1219; color: #e8ecf4;
-         font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; text-align: center; padding: 24px; }
-  img { width: 96px; height: 96px; border-radius: 22px; }
-  h1 { font-size: 34px; margin: 18px 0 6px; }
-  p { color: #9aa4b8; max-width: 30rem; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0 20px 80px; background: #0f1219; color: #e8ecf4;
+         font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  a { color: #7fb2ff; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 20px; padding: 56px 0 4px; flex-wrap: wrap; }
+  header img { width: 104px; height: 104px; border-radius: 24px; }
+  h1 { font-size: 40px; margin: 0; letter-spacing: -0.5px; }
+  .tag { color: #9aa4b8; font-size: 17px; margin-top: 4px; }
+  .dim { color: #9aa4b8; font-size: 14px; }
+  .get { display: inline-block; margin: 24px 0 6px; padding: 15px 28px; border-radius: 11px;
+         background: #4c8dff; color: #08101f; font-weight: 700; text-decoration: none; font-size: 17px; }
+  .get:hover { background: #6ba0ff; }
+  h2 { font-size: 21px; margin: 44px 0 10px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 8px; }
+  .card { background: #161b26; border: 1px solid #222838; border-radius: 12px; padding: 14px 16px; }
+  .card b { display: block; margin-bottom: 4px; }
+  .card span { color: #9aa4b8; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 11px 0; border-top: 1px solid #222838; vertical-align: top; }
+  .right { text-align: right; white-space: nowrap; }
+  code { background: #1b2130; padding: 2px 6px; border-radius: 5px; font-size: 14px; }
+  ol, ul { padding-left: 20px; }
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid #222838; color: #9aa4b8; font-size: 14px; }
 </style>
-<div>
+<div class="wrap">
+<header>
   <img src="icon.png" alt="">
-  <h1>Quarrowen</h1>
-  <p>A voxel game where the server decides the game. The first public build lands here shortly.</p>
+  <div>
+    <h1>Quarrowen</h1>
+    <div class="tag">A voxel game where the server decides the game.<br>Build, survive, or start on a single block over the void.</div>
+  </div>
+</header>
+
+<a class="get" href="https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/Quarrowen-0.38.0-mac-arm64.zip">Download for Mac (Apple silicon)</a>
+<div class="dim">Version 0.38.0 &middot; 62M &middot; macOS 11 or newer &middot; First public build: flying and crouching, slabs and stairs, maps and compass, graves and homes, the One Block game, and updates that install themselves.</div>
+
+<h2>What it is</h2>
+<div class="cards">
+  <div class="card"><b>One client, many games</b><span>The client ships no content. It downloads the blocks, models and rules from whichever server you join - a sandbox, an island, a one-block challenge.</span></div>
+  <div class="card"><b>Play together</b><span>Host a world from the menu and your family joins over the network, or run the dedicated server in Docker. Friends, parties and invite codes included.</span></div>
+  <div class="card"><b>Made to be modded</b><span>A mod is a folder with a manifest and a script (GDScript, or sandboxed JavaScript). Blocks, mobs, machines, world generation, UI and commands are all mod territory.</span></div>
+  <div class="card"><b>Keeps itself current</b><span>The game checks this page when it opens and offers the new version. Worlds and inventories survive updates.</span></div>
+</div>
+
+<h2>First time on a Mac</h2>
+<ol>
+  <li>Unzip it and drag <b>Quarrowen</b> into your Applications folder.</li>
+  <li>The first launch needs <b>right-click &rarr; Open</b>, then Open again: the app is signed by us, not by
+      Apple, so macOS asks once.</li>
+  <li>Type your name in the menu, then <b>Play</b> for your own world, or <b>Multiplayer</b> to join a server.</li>
+</ol>
+
+<h2>Mods in this release</h2>
+<p class="dim">Games and add-ons. A server drops these in its mods folder; the game will list them in its own
+mod browser.</p>
+<table><tr><td><b>Arcana</b><br><span class="dim">A mana system: crystals spawn underground, pylons recharge mana, wands cast spells. Add to any game, e.g. --mods=vanilla,arcana</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/arcana-1.0.0.zip">arcana-1.0.0.zip</a><br><span class="dim">36K</span></td></tr><tr><td><b>Base Blocks</b><br><span class="dim">Common terrain and building blocks shared by other mods. Not a game on its own.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/base-1.0.0.zip">base-1.0.0.zip</a><br><span class="dim">208K</span></td></tr><tr><td><b>Adventurers' Guild</b><br><span class="dim">A JavaScript mod: quest boards, gold coins, a shop that sells other mods' items, gold ore, meteor showers and a guild leaderboard. Add to any game, e.g. --mods=vanilla,guild</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/guild-1.0.0.zip">guild-1.0.0.zip</a><br><span class="dim">48K</span></td></tr><tr><td><b>Industry</b><br><span class="dim">Power networks: coal generators and solar panels feed cables, batteries, lamps and auto-miners. Add to any game, e.g. --mods=vanilla,industry</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/industry-1.0.0.zip">industry-1.0.0.zip</a><br><span class="dim">140K</span></td></tr><tr><td><b>One Block</b><br><span class="dim">One block over the void. Break it and something else takes its place: dirt, then stone and ores, then creatures and crates. Build outwards from what you collect.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/oneblock-1.0.0.zip">oneblock-1.0.0.zip</a><br><span class="dim">4.0K</span></td></tr><tr><td><b>Skyblock</b><br><span class="dim">Survive on your own tiny island above the void. Mine the generator, complete challenges, expand.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/skyblock-1.0.0.zip">skyblock-1.0.0.zip</a><br><span class="dim">4.0K</span></td></tr><tr><td><b>Vanilla Sandbox</b><br><span class="dim">Endless generated terrain with mountains, oceans and forests. Creative building.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/vanilla-1.0.0.zip">vanilla-1.0.0.zip</a><br><span class="dim">608K</span></td></tr></table>
+
+<h2>Running a server</h2>
+<p>The dedicated server is a Docker image, with its mods in a folder on the host so a zip from this page can be
+dropped straight in. The <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/playtest.md">family
+setup guide</a> walks through a home server and the Macs that join it.</p>
+
+<h2>Source</h2>
+<p>Everything lives at <a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a>:
+the engine, the mods, the tools that generate the art and sounds, and the tests. Free to use, modify and share
+for anything noncommercial; commercial use needs a separate licence.</p>
+
+<footer>
+Built from scratch with <a href="https://claude.com/claude-code">Claude Code</a> - engine, renderer, server,
+mod API, AI and tooling, from an empty folder.
+<br><br>
+Quarrowen is an independent project, not affiliated with, endorsed by or connected to Mojang Synergies AB or
+Microsoft. Minecraft is a trademark of Mojang Synergies AB.
+</footer>
 </div>

@@ -1,0 +1,68 @@
+{
+	"version": "0.38.0",
+	"mods": [
+		{
+			"id": "arcana",
+			"name": "Arcana",
+			"version": "1.0.0",
+			"description": "A mana system: crystals spawn underground, pylons recharge mana, wands cast spells. Add to any game, e.g. --mods=vanilla,arcana",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/arcana-1.0.0.zip",
+			"sha256": "911e0b141746137c36fd029b3e0cf55aa08404eb6d7164503e63e394108ae890",
+			"size": 34343
+		},
+		{
+			"id": "base",
+			"name": "Base Blocks",
+			"version": "1.0.0",
+			"description": "Common terrain and building blocks shared by other mods. Not a game on its own.",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/base-1.0.0.zip",
+			"sha256": "8e79745da1ffa06cf6d99a1348976f3c3daf81e073af88f524c9198a10d8d183",
+			"size": 211679
+		},
+		{
+			"id": "guild",
+			"name": "Adventurers' Guild",
+			"version": "1.0.0",
+			"description": "A JavaScript mod: quest boards, gold coins, a shop that sells other mods' items, gold ore, meteor showers and a guild leaderboard. Add to any game, e.g. --mods=vanilla,guild",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/guild-1.0.0.zip",
+			"sha256": "8e5806fd685d6d38414ca326fda941efe09a5eaf4bae988bab00e79819ecabf8",
+			"size": 47712
+		},
+		{
+			"id": "industry",
+			"name": "Industry",
+			"version": "1.0.0",
+			"description": "Power networks: coal generators and solar panels feed cables, batteries, lamps and auto-miners. Add to any game, e.g. --mods=vanilla,industry",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/industry-1.0.0.zip",
+			"sha256": "592a4134e197db062a74ff77811e89ef95d4691fcf03b32ea30bae45d5fba8b5",
+			"size": 139610
+		},
+		{
+			"id": "oneblock",
+			"name": "One Block",
+			"version": "1.0.0",
+			"description": "One block over the void. Break it and something else takes its place: dirt, then stone and ores, then creatures and crates. Build outwards from what you collect.",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/oneblock-1.0.0.zip",
+			"sha256": "e2e0af53ab729f6af6cc02304ceb51dcd3e7023be89f2ce67b6b91398c88e5dc",
+			"size": 3224
+		},
+		{
+			"id": "skyblock",
+			"name": "Skyblock",
+			"version": "1.0.0",
+			"description": "Survive on your own tiny island above the void. Mine the generator, complete challenges, expand.",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/skyblock-1.0.0.zip",
+			"sha256": "a27a419b90ad7fccace9085ca4d64f27270a19c02013294392e97a9af2be1649",
+			"size": 4032
+		},
+		{
+			"id": "vanilla",
+			"name": "Vanilla Sandbox",
+			"version": "1.0.0",
+			"description": "Endless generated terrain with mountains, oceans and forests. Creative building.",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/vanilla-1.0.0.zip",
+			"sha256": "d3deb9095b05666b411d5ef6c3d198cb54b1d100fcc43c5cf2c4fcc8c885d12a",
+			"size": 620637
+		}
+	]
+}

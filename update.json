@@ -1,0 +1,11 @@
+{
+	"version": "0.38.0",
+	"notes": "First public build: flying and crouching, slabs and stairs, maps and compass, graves and homes, the One Block game, and updates that install themselves.",
+	"builds": {
+		"macos": {
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.38.0/Quarrowen-0.38.0-mac-arm64.zip",
+			"sha256": "97ce3ed1f1861a02b2eeb80f0cd809a184b507cd2ee4bb516a7485ef36108750",
+			"size": 64753461
+		}
+	}
+}
