@@ -144,6 +144,7 @@ static func merge(installed_mods: Array, index: Array) -> Array:
 		row.sha256 = entry.sha256
 		row.size = entry.size
 		row.offered = entry.version
+		row.depends = entry.depends  # the offered version's, not the installed one's: an update may have gained one
 		if row.description.is_empty():
 			row.description = entry.description
 		# A bundled mod is replaced by a game update, not from here; only what the player installed updates.
@@ -180,13 +181,25 @@ static func install_file(package_path: String, expect_id := "") -> String:
 	var id := str(manifest.id)
 	if not expect_id.is_empty() and id != expect_id:
 		return "That package holds '%s', not '%s'" % [id, expect_id]
+	# The copy is built beside the installed one and swapped in only once it is whole, so a failure
+	# halfway through an update leaves the working version in place instead of nothing at all.
 	var target := ModLoader.USER_MODS.path_join(id)
-	if DirAccess.dir_exists_absolute(target):
-		_remove_tree(target)
-	DirAccess.make_dir_recursive_absolute(target)
-	if not _copy_tree(unpacked.dir, target):
-		_remove_tree(target)
+	var staged := target + ".new"
+	_remove_tree(staged)
+	DirAccess.make_dir_recursive_absolute(staged)
+	if not _copy_tree(unpacked.dir, staged):
+		_remove_tree(staged)
 		return "Could not put %s into %s" % [id, ProjectSettings.globalize_path(ModLoader.USER_MODS)]
+	var previous := target + ".old"
+	_remove_tree(previous)
+	if DirAccess.dir_exists_absolute(target) and DirAccess.rename_absolute(ProjectSettings.globalize_path(target), ProjectSettings.globalize_path(previous)) != OK:
+		_remove_tree(staged)
+		return "%s is in use and could not be replaced" % id
+	if DirAccess.rename_absolute(ProjectSettings.globalize_path(staged), ProjectSettings.globalize_path(target)) != OK:
+		DirAccess.rename_absolute(ProjectSettings.globalize_path(previous), ProjectSettings.globalize_path(target))
+		_remove_tree(staged)
+		return "Could not put %s into %s" % [id, ProjectSettings.globalize_path(ModLoader.USER_MODS)]
+	_remove_tree(previous)
 	return ""
 
 

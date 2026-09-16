@@ -52,15 +52,26 @@ func register(table_name: String, def: Dictionary) -> void:
 	tables[table_name] = _clean(table_name, def)
 
 
-## Adds pools to a table another mod owns, without forking it. Unknown tables are created.
-func extend(table_name: String, def: Dictionary) -> void:
+## Adds pools to a table another mod owns, without forking it. Unknown tables are created. `owner` is the
+## mod adding them, so reloading that mod takes its pools away again instead of stacking another copy on
+## every save.
+func extend(table_name: String, def: Dictionary, owner := "") -> void:
 	var extra := _clean(table_name, def)
+	for pool: Dictionary in extra.pools:
+		pool.owner = owner
 	if not tables.has(table_name):
 		tables[table_name] = extra
 		return
 	var existing: Dictionary = tables[table_name]
 	existing.pools.append_array(extra.pools)
 	existing.pools = existing.pools.slice(0, MAX_POOLS)
+
+
+## Takes back everything a mod added to other mods' tables, for a reload.
+func forget(owner: String) -> void:
+	for table_name: String in tables:
+		var pools: Array = tables[table_name].pools
+		tables[table_name].pools = pools.filter(func(pool): return str(pool.get("owner", "")) != owner)
 
 
 func has(table_name: String) -> bool:
@@ -75,7 +86,8 @@ func has(table_name: String) -> bool:
 ##   position    where it happened (depth and biome come from this)
 ## Returns [[item id, count, data], …].
 func roll(table_name: String, context := {}) -> Array:
-	var ctx := context if context is Dictionary else {}
+	var ctx: Dictionary = (context if context is Dictionary else {}).duplicate()
+	ctx.table = table_name  # so `first_time` can ask whether this player has met this source before
 	var rng := RandomNumberGenerator.new()
 	if ctx.has("seed"):
 		rng.seed = int(ctx.seed)
@@ -83,8 +95,32 @@ func roll(table_name: String, context := {}) -> Array:
 		rng.randomize()
 	var out := []
 	_roll_into(out, table_name, ctx, rng, 0)
-	_after_roll(table_name, out, ctx)
+	awarded(table_name, out, ctx)
 	return out
+
+
+## Rolls without any of the consequences of actually getting the loot. Use this when the drop might still
+## be thrown away - a creative player breaking a block, or a handler that may cancel the break - and call
+## `awarded` once it is really handed over.
+func preview(table_name: String, context := {}) -> Array:
+	var ctx: Dictionary = (context if context is Dictionary else {}).duplicate()
+	ctx.table = table_name
+	ctx.preview = true
+	var rng := RandomNumberGenerator.new()
+	if ctx.has("seed"):
+		rng.seed = int(ctx.seed)
+	else:
+		rng.randomize()
+	var out := []
+	_roll_into(out, table_name, ctx, rng, 0)
+	return out
+
+
+## What getting the loot means for this player: they have now met this table, a long run of bad luck pays
+## out, and a find worth announcing is announced. Called for you by `roll`; call it yourself after a
+## `preview` that really happened.
+func awarded(table_name: String, out: Array, context := {}) -> void:
+	_after_roll(table_name, out, context if context is Dictionary else {})
 
 
 ## A mob's or block's `drops` list as a table: [[item, count, chance]] becomes one pool per line, each
@@ -159,8 +195,12 @@ func fill(container, player = null) -> void:
 	var table := str(store.get("loot", ""))
 	if table.is_empty():
 		return
-	if bool(store.get("personal", false)) and player != null:
-		_fill_personal(container, store, table, player)
+	if bool(store.get("personal", false)):
+		# Everyone gets their own, so the chest itself is never filled - not even when something other
+		# than a player opening it looks inside (a hopper, a crafting table pulling stock, a click on a
+		# slot). Falling through to the shared roll here would hand out a second, free copy of the loot.
+		if player != null:
+			_fill_personal(container, store, table, player)
 		return
 	var seed_value := int(store.get("structure_seed", randi()))
 	store.erase("loot")
@@ -203,13 +243,17 @@ func _fill_personal(container, store: Dictionary, table: String, player) -> void
 ## Makes something more (or less) common for a while: `target` is a table name, an item name, or either
 ## with its "table:"/"item:" prefix; `factor` is how much more often; `seconds` ends it on its own (0: it
 ## stays until changed). Setting the factor back to 1 clears it.
-func set_boost(target: String, factor: float, seconds := 0.0) -> void:
+func set_boost(target: String, factor: float, seconds := 0.0) -> String:
 	var key := target if target.begins_with("table:") or target.begins_with("item:") else \
 		("table:" + target if tables.has(target) else "item:" + target)
+	# A typo would otherwise be announced to the server as an event that then does nothing.
+	if key.begins_with("item:") and _server.items.id_of(key.substr(5)) <= 0:
+		return "Nothing here is called '%s' - name an item like base:coal, or a loot table" % target
 	if is_equal_approx(factor, 1.0) or factor < 0.0:
 		boosts.erase(key)
-		return
+		return ""
 	boosts[key] = {"factor": factor, "until": int(Time.get_unix_time_from_system() + seconds) if seconds > 0.0 else 0}
+	return ""
 
 
 ## What `target` is multiplied by right now, 1.0 when nothing applies. Expired events clear themselves.
@@ -244,6 +288,8 @@ func _entry_factor(entry: Dictionary) -> float:
 
 ## How likely this table is to give `item_id` at all, as 0-1. Used to tell a find worth announcing from
 ## an everyday one, so nothing has to be marked "rare" by hand.
+## Boosts and the loot rate count here: during a "coal everywhere" event, coal is common, and announcing
+## every lump of it as a rare find would drown the chat the event is supposed to liven up.
 func chance_of(table_name: String, item_id: int) -> float:
 	var table: Dictionary = tables.get(table_name, {})
 	var miss := 1.0
@@ -251,12 +297,15 @@ func chance_of(table_name: String, item_id: int) -> float:
 		var total := 0.0
 		var wanted := 0.0
 		for entry: Dictionary in pool.entries:
-			total += entry.weight
+			var weight: float = entry.weight * _entry_factor(entry)
+			total += weight
 			if _server.items.id_of(str(entry.get("item", ""))) == item_id:
-				wanted += entry.weight
+				wanted += weight
 		if total <= 0.0 or wanted <= 0.0:
 			continue
 		var rolls: float = maxf(float(pool.rolls[0] + pool.rolls[1]) * 0.5, 0.0)
+		if not bool(pool.get("guaranteed", false)):
+			rolls *= rate * factor_for("table:" + table_name)
 		miss *= pow(1.0 - wanted / total, rolls)
 	return 1.0 - miss
 
@@ -518,28 +567,33 @@ func _after_roll(table_name: String, out: Array, ctx: Dictionary) -> void:
 		# Something this player had not met before: a mod can make a moment of it.
 		_server.emit("loot_first_time", {"player": player, "table": table_name, "source": str(ctx.get("source", ""))})
 	var found_rare := false
+	var rare_ids := {}
 	for stack in out:
 		if is_rare(table_name, int(stack[0])):
 			found_rare = true
-			stack[2]["rare"] = true
-	# Bad luck does not last: after a long run without a find, the rarest thing in the table is given.
-	var pity := int(player.data.get("loot_pity", 0))
-	if found_rare:
-		pity = 0
-	elif not out.is_empty() or tables.has(table_name):
-		pity += 1
-		if pity >= PITY_ROLLS:
-			var wanted := rarest(table_name)
-			if not wanted.is_empty():
-				pity = 0
+			rare_ids[int(stack[0])] = true
+	# Bad luck does not last, but it is counted per table: forty stone blocks should not pay out the rare
+	# drop of the next mob you happen to kill. Only tables that hold something rare count at all.
+	var wanted := rarest(table_name)
+	if not wanted.is_empty():
+		var pity: Dictionary = player.data.get("loot_pity", {})
+		var count := int(pity.get(table_name, 0))
+		if found_rare:
+			count = 0
+		else:
+			count += 1
+			if count >= PITY_ROLLS:
+				count = 0
 				found_rare = true
-				out.append([wanted.item, wanted.count, {"rare": true, "pity": true}])
-	player.data.loot_pity = pity
+				rare_ids[wanted.item] = true
+				out.append([wanted.item, wanted.count, {}])
+		pity[table_name] = count
+		player.data.loot_pity = pity
 	if not found_rare:
 		return
 	var where = ctx.get("position", player.state.position if player.get("state") != null else Vector3.ZERO)
 	for stack in out:
-		if not stack[2].get("rare", false):
+		if not rare_ids.has(int(stack[0])):
 			continue
 		var ev: Dictionary = _server.emit("rare_loot", {"player": player, "item": int(stack[0]), "count": int(stack[1]),
 			"table": table_name, "position": where, "announce": announce_rare})

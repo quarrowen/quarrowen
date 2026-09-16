@@ -61,6 +61,9 @@ func register(mod_id: String, schema: Dictionary) -> void:
 				out.max = maxf(out.min, float(entry.get("max", maxf(out.min, 100.0))))
 				out.step = maxf(0.001, float(entry.get("step", 1.0 if type == "int" else 0.05)))
 				out.default = _coerce(out, entry.get("default", out.min))
+				if out.default == null:  # a default that is not a number at all: fall back to the range
+					_warn(mod_id, "Setting '%s' has a default that is not a number; using %s" % [setting_name, out.min])
+					out.default = out.min
 			"choice":
 				var choices := []
 				for choice in (entry.get("choices", []) as Array):

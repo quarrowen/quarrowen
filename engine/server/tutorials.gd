@@ -298,9 +298,7 @@ func _give(p, rewards: Array) -> void:
 	for r in rewards:
 		var id: int = _server.items.id_of(r[0])
 		if id > 0:
-			var left: int = p.give(id, r[1])
-			if left > 0:
-				_server.entities.drop_item(id, left, p.state.position + Vector3(0, 1, 0))
+			p.give(id, r[1])  # a full pack drops the rest at their feet (ServerPlayer.give)
 
 
 ## The tracker the client draws: {} when no tutorial is running.

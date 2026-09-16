@@ -231,11 +231,15 @@ static func unpack(package_path: String) -> Dictionary:
 	var hash := ctx.finish().hex_encode().left(12)
 	var id := str(manifest.id)
 	var dir := CACHE_DIR.path_join("%s-%s-%s" % [id, str(manifest.get("version", "0.0.0")).validate_filename(), hash]).path_join(id)
+	# mod.json is both the manifest and the "this was unpacked" marker, so it is written last: a run that
+	# dies halfway leaves no marker and is unpacked again rather than being used half-finished.
 	if not FileAccess.file_exists(dir.path_join("mod.json")):
-		for f in files:
+		var ordered := Array(files)
+		ordered.sort_custom(func(a, b): return int(str(a).ends_with("mod.json")) < int(str(b).ends_with("mod.json")))
+		for f in ordered:
 			if not f.begins_with(prefix) or f.ends_with("/"):
 				continue
-			var rel := f.substr(prefix.length())
+			var rel := str(f).substr(prefix.length())
 			if rel.contains("..") or rel.begins_with("/"):
 				continue  # never write outside the cache folder
 			var target := dir.path_join(rel)

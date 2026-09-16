@@ -160,6 +160,7 @@ func _forget(mod_id: String) -> void:
 			s.entities.ai.custom_behaviors.erase(behavior)
 	var rules: Array[Dictionary] = s.entities.spawning.rules
 	s.entities.spawning.rules = rules.filter(func(r): return r.get("owner", "") != mod_id)
+	s.loot.forget(mod_id)  # pools this mod added to other mods' tables, or they pile up on every save
 	s.recipes.begin_reload(mod_id)
 	s.guide.registry.remove_owner(mod_id)
 	s.tutorials.remove_owner(mod_id)

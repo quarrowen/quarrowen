@@ -134,11 +134,11 @@ func _register_shapes(api, sounds: Dictionary) -> void:
 		var slab_name := "%s_slab" % material.id
 		var slab := common.duplicate(true)
 		slab.merge({"display_name": "%s Slab" % material.display, "shape": "slab",
-			"top_block": "base:%s_slab_top" % material.id}, true)
+			"top_block": "base:%s_slab_top" % material.id, "full_block": String(material.from)}, true)
 		api.register_block(slab_name, slab)
 		var slab_top := common.duplicate(true)
 		slab_top.merge({"display_name": "%s Slab" % material.display, "shape": "slab_top",
-			"placeable": false, "drops": "base:" + slab_name}, true)
+			"placeable": false, "drops": "base:" + slab_name, "full_block": String(material.from)}, true)
 		api.register_block("%s_slab_top" % material.id, slab_top)
 		api.register_recipe({String(material.from): 3}, "base:" + slab_name, 6, {"station": "crafting_table"})
 		api.register_recipe({"base:" + slab_name: 2}, String(material.from), 1, {"station": "crafting_table"})

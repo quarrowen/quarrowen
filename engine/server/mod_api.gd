@@ -861,7 +861,7 @@ func register_loot_table(table_name: String, def: Dictionary) -> void:
 ## Adds pools to a table another mod owns, without forking it: an extra drop on their mob, a bonus in
 ## their dungeon chests.
 func extend_loot(table_name: String, def: Dictionary) -> void:
-	_server.loot.extend(_qualify_ref(table_name), def)
+	_server.loot.extend(_qualify_ref(table_name), def, mod_id)
 
 
 ## Rolls a table and returns [[item id, count, data], …], for anything the engine does not roll itself

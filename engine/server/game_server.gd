@@ -1062,7 +1062,8 @@ func _cmd_give(player, args: PackedStringArray) -> void:
 		return
 	var count := clampi(int(args[1]) if args.size() > 1 else 1, 1, 64 * 36)
 	var left: int = target.give(id, count)
-	player.send_message("Gave %d %s to %s" % [count - left, items.display_name(id), target.name])
+	player.send_message("Gave %d %s to %s%s" % [count, items.display_name(id), target.name,
+		" (%d of them at their feet - their pack is full)" % left if left > 0 else ""])
 
 
 func _cmd_tp(player, args: PackedStringArray) -> void:
@@ -1320,7 +1321,10 @@ func _cmd_loot(player, args: PackedStringArray) -> void:
 				player.send_message("Usage: /loot boost <table or item> <multiplier> [minutes]")
 				return
 			var minutes := args[3].to_float() if args.size() > 3 and args[3].is_valid_float() else 0.0
-			loot.set_boost(args[1], args[2].to_float(), minutes * 60.0)
+			var refused := loot.set_boost(args[1], args[2].to_float(), minutes * 60.0)
+			if not refused.is_empty():
+				player.send_message(refused)
+				return
 			_meta.loot = {"rate": loot.rate, "boosts": loot.boosts}
 			broadcast_chat("%s made %s %sx more common%s" % [player.name, args[1], args[2],
 				" for %d minutes" % int(minutes) if minutes > 0.0 else ""])
@@ -2450,11 +2454,17 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 			return
 		harvest = Mining.can_harvest(registry.defs[current], tool)
 	_stop_mining(p)
+	# Rolled without consequences until the break really happens: a cancelled break, or a creative player
+	# who keeps nothing, must not use up a pity streak or announce a find nobody received.
+	var loot_context := {"player": p, "tool": held, "cause": "player", "position": Vector3(pos), "source": "block"}
+	var loot_table := loot.table_for_block(current, _default_drops(current))
 	var ev := emit("block_break", {"player": p, "position": pos, "block": current, "item": held, "slot": p.inventory.selected,
-		"drops": _block_drops(current, p, held, pos) if harvest else [], "cancelled": false})
+		"drops": loot.preview(loot_table, loot_context) if harvest and not p.inventory.creative else [], "cancelled": false})
 	if ev.cancelled:
 		_reject_edit(p, pos)
 		return
+	if harvest and not p.inventory.creative and ev.drops is Array:
+		loot.awarded(loot_table, ev.drops, loot_context)
 	_apply_block(pos, BlockRegistry.AIR)
 	entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 10.0, p)
 	play_sound_at(block_sound(current, "break"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
@@ -2500,6 +2510,20 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 		var top := registry.id_of(top_name)
 		if top > 0:
 			block = top
+	# Two slabs make a whole block: putting one on the flat face of another of the same material fills
+	# that cell instead of starting a second slab beside it, which is what anyone laying a floor expects.
+	var merge := _slab_merge(p, block, pos) if valid else {}
+	if not merge.is_empty():
+		p.inventory.consume_selected()
+		if not p.inventory.creative:
+			p.sync_inventory()
+		_apply_block(merge.position, merge.block, true)
+		_reject_edit(p, pos)  # the client guessed the cell next door; put it back
+		play_sound_at(block_sound(merge.block, "place"), Vector3(merge.position) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1))
+		_broadcast_player_event(p, Entities.Event.SWING)
+		emit("block_placed", {"player": p, "position": merge.position, "block": merge.block})
+		return
+
 	# Two-block pieces (beds) also need room for their other half.
 	var pair = registry.defs[block].get("pair") if valid else null
 	var pair_pos := pos
@@ -3854,13 +3878,6 @@ func on_shutdown_request(peer_id: int, token: String) -> void:
 	get_tree().quit()  # _exit_tree saves and waits for the writes
 
 
-## What a broken block gives: its loot table, rolled with who broke it and what with, so a table can ask
-## for the right tool, the right depth or the right time of day.
-func _block_drops(block: int, p, tool: int, pos: Vector3i) -> Array:
-	return loot.roll(loot.table_for_block(block, _default_drops(block)), {
-		"player": p, "tool": tool, "cause": "player", "position": Vector3(pos), "source": "block"})
-
-
 func _default_drops(block: int) -> Array:
 	var drops = registry.defs[block].get("drops", null)
 	if drops == null:
@@ -3902,6 +3919,28 @@ func _aimed_high(p: ServerPlayer, pos: Vector3i) -> bool:
 	var face := float(hit.position.x if axis == 0 else hit.position.z) + (1.0 if (hit.normal.x if axis == 0 else hit.normal.z) > 0 else 0.0)
 	var t := (face - (origin.x if axis == 0 else origin.z)) / along
 	return origin.y + direction.y * t - float(pos.y) > 0.5
+
+
+## Whether this placement should fill a slab that is already there, as {position, block}: the player is
+## holding the matching slab and aimed at its flat face (a bottom slab from above, a top slab from below).
+func _slab_merge(p: ServerPlayer, block: int, pos: Vector3i) -> Dictionary:
+	var material := str(registry.defs[block].get("full_block", ""))
+	if material.is_empty():
+		return {}
+	var hit := VoxelRaycast.cast(world, registry.targetable_lut, p.get_eye_position(),
+		PlayerPhysics.look_direction(p.yaw, p.pitch), REACH)
+	if not hit.hit or hit.position + hit.normal != pos or not _can_edit(p, hit.position):
+		return {}
+	var there := world.get_block_v(hit.position)
+	if str(registry.defs[there].get("full_block", "")) != material:
+		return {}  # empty, another material, or not a slab at all
+	var shape := registry.shape_lut[there]
+	if shape == BlockRegistry.Shape.SLAB_BOTTOM and hit.normal.y <= 0:
+		return {}
+	if shape == BlockRegistry.Shape.SLAB_TOP and hit.normal.y >= 0:
+		return {}
+	var full := registry.id_of(material)
+	return {"position": hit.position, "block": full} if full > 0 else {}
 
 
 func _has_solid_neighbor(pos: Vector3i) -> bool:

@@ -212,7 +212,19 @@ func _block_shapes() -> void:
 	server.on_place_block(41, o + Vector3i(6, 1, 0), 0.0)
 	_check(server.world.get_block_v(o + Vector3i(6, 1, 0)) == slab,
 		"aiming down at a floor still places the ordinary bottom slab")
-	p.inventory.creative = false
+	# Two slabs make a whole block, so a floor of slabs can be filled in rather than stacked beside itself.
+	p.inventory.creative = false  # survival, so the slab is actually spent
+	server.set_block_authoritative(o + Vector3i(6, 1, 0), slab)
+	p.state.position = Vector3(o.x + 6.5, o.y + 3.0, o.z + 0.5)
+	p.pitch = -PI / 2.0  # looking down at the slab's flat top
+	p.inventory.ids[0] = slab
+	p.inventory.counts[0] = 2
+	p.edit_tokens = 100.0
+	server.on_place_block(41, o + Vector3i(6, 2, 0), 0.0)
+	_check(server.world.get_block_v(o + Vector3i(6, 1, 0)) == stone and server.world.get_block_v(o + Vector3i(6, 2, 0)) == 0,
+		"a second slab fills the first one's cell instead of stacking beside it")
+	_check(p.inventory.counts[0] == 1, "and it costs one slab")
+	server.set_block_authoritative(o + Vector3i(6, 1, 0), 0)
 	server.set_block_authoritative(o + Vector3i(4, 3, 0), 0)
 	server.set_block_authoritative(o + Vector3i(4, 4, 0), 0)
 	server.set_block_authoritative(o + Vector3i(6, 1, 0), 0)
@@ -3189,6 +3201,26 @@ func _loot() -> void:
 	_check(dropped == 5 and server.entities.entities.size() > entities_before,
 		"items that do not fit fall at your feet instead of vanishing (%d dropped)" % dropped)
 
+	# A pool held back for the first time a player meets a table has to actually fire.
+	loot.register("test:greeting", {"pools": [
+		{"rolls": 1, "entries": [{"item": "base:stick"}]},
+		{"rolls": 1, "guaranteed": true, "when": {"first_time": true, "player": true}, "entries": [{"item": "base:iron_ingot"}]},
+	]})
+	var newcomer := ServerPlayer.new(server, 145, "Newcomer")
+	newcomer.player_id = "newcomer"
+	server.players[145] = newcomer
+	var welcome: Array = loot.roll("test:greeting", {"player": newcomer, "position": Vector3(0, 60, 0)})
+	_check(welcome.any(func(d): return d[0] == iron), "the first time a player meets a table, a first_time pool gives its bonus")
+	var second: Array = loot.roll("test:greeting", {"player": newcomer, "position": Vector3(0, 60, 0)})
+	_check(not second.any(func(d): return d[0] == iron), "and never again")
+
+	# An event that makes something common must not announce every drop of it as a rare find.
+	loot.register("test:announce", {"pools": [{"rolls": 1, "entries": [{"item": "base:coal", "weight": 1}, {"empty": true, "weight": 199}]}]})
+	_check(loot.is_rare("test:announce", coal), "a one-in-two-hundred drop is a find")
+	loot.set_boost("base:coal", 400.0)
+	_check(not loot.is_rare("test:announce", coal), "but not while a host has made it common for an event")
+	loot.set_boost("base:coal", 1.0)
+
 	# Where an item comes from, for the guide.
 	var sources: Array = loot.sources_of(iron)
 	var names: Array = sources.map(func(row): return str(row.table))
@@ -3208,11 +3240,34 @@ func _loot() -> void:
 	server.players[142] = ben
 	server.containers.get_container(chest_at, ann)
 	server.containers.get_container(chest_at, ben)
+	# Anything else that looks inside (a click, a hopper, a crafting table pulling stock) must not turn a
+	# personal chest into a shared pile and hand out a second, free copy of the loot.
+	server.containers.get_container(chest_at)
+	server.containers.get_container(chest_at)
 	_check(ann.inventory.count_of(iron) == 4 and ben.inventory.count_of(iron) == 4,
 		"each player gets their own loot from a shared chest (Ann %d, Ben %d)" % [ann.inventory.count_of(iron), ben.inventory.count_of(iron)])
 	server.containers.get_container(chest_at, ann)
 	_check(ann.inventory.count_of(iron) == 4, "and only once each, however often they open it")
 	_check(server.get_block_data(chest_at).get("loot", "") == "test:chest", "the chest keeps its table for whoever has not opened it yet")
+	var in_chest := 0
+	var chest_view = server.containers.get_container(chest_at)
+	for slot in chest_view.size():
+		in_chest += int(chest_view.get_item(slot).count)
+	_check(in_chest == 0, "and nothing is ever poured into the chest itself (%d items)" % in_chest)
+
+	# Bad luck is counted per table: forty stone blocks must not pay out the next mob's rare drop.
+	loot.register("test:plain", {"pools": [{"rolls": 1, "entries": [{"item": "base:stick"}]}]})
+	loot.register("test:pity", {"pools": [{"rolls": 1, "entries": [{"item": "base:iron_ingot", "weight": 1}, {"empty": true, "weight": 199}]}]})
+	var patient := ServerPlayer.new(server, 144, "Patient")
+	patient.player_id = "patient"
+	server.players[144] = patient
+	for i in Loot.PITY_ROLLS + 5:
+		loot.roll("test:plain", {"player": patient, "position": Vector3(0, 60, 0)})
+	var first_try: Array = loot.roll("test:pity", {"player": patient, "position": Vector3(0, 60, 0)})
+	_check(not first_try.any(func(d): return d[0] == iron),
+		"rolling a table with nothing rare in it does not build up credit towards another table's rare drop")
+	_check(int(patient.data.get("loot_pity", {}).get("test:plain", 0)) == 0,
+		"a table with nothing rare to give keeps no pity count at all")
 
 	# A table nobody has met before is worth a moment.
 	loot.register("test:new", {"pools": [{"rolls": 1, "entries": [{"item": "base:coal"}]}]})

@@ -245,11 +245,9 @@ func _on_ui_action(ev: Dictionary) -> void:
 		"collect":
 			var stored: Dictionary = data.get("stored", {})
 			for key: String in stored.keys():
-				var left: int = player.give(api.item(key), int(stored[key]))
-				if left > 0:
-					stored[key] = left
-				else:
-					stored.erase(key)
+				# give() puts what does not fit at their feet, so the machine always empties.
+				player.give(api.item(key), int(stored[key]))
+				stored.erase(key)
 		"toggle":
 			data.enabled = not data.get("enabled", true)
 	_show_panel(player, pos)

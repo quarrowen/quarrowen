@@ -51,6 +51,7 @@ func refresh(force := false) -> void:
 	var entries := ModCatalog.read_index(text)
 	if entries.is_empty() and not index.is_empty():
 		message.emit("The mod list could not be read, so the one from last time is still being shown.", "error", "", Callable())
+		catalog_changed.emit()
 		return
 	_fetched = true
 	index = entries
