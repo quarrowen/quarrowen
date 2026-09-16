@@ -39,6 +39,27 @@ with `--with-release` attaches the zips to the GitHub release (release assets do
 repository size, which matters at ~62 MB per build). Without a release it serves the zips from the
 branch instead.
 
+## 2b. Signing a release
+
+The manifest is signed, and a client only installs an update whose manifest one of its built-in release
+keys signed. Without this, whoever controlled the website or its DNS could hand every player a build: the
+checksum in the manifest only proves the download matches *that manifest*.
+
+```sh
+godot --headless --path . -s tools/release_key.gd -- new     # once: writes ~/.config/quarrowen/release_key.pem
+                                                             # and prints the public half for RELEASE_KEYS
+tools/make_release.sh                                        # signs update.json automatically when the key is there
+```
+
+- The **private key never leaves the maintainer's machine** and is not in this repository. Back it up; losing
+  it means shipping a build with a new key before releases can resume.
+- The **public halves** live in `engine/client/updater.gd` (`RELEASE_KEYS`), so they travel with each build.
+- **Rotating:** add the new public key alongside the old one, ship that build, *then* start signing with the
+  new key, and drop the old entry a release or two later. The updater accepts any listed key.
+- A build whose `RELEASE_KEYS` are empty (anything up to 0.38.0) accepts an unsigned manifest, so the
+  transition costs nothing; from the first build that carries a key, an unsigned or badly signed manifest is
+  ignored with a message rather than installed.
+
 ## 3. Updating
 
 The client checks the manifest when the menu opens (Settings → Network turns it off, Settings →

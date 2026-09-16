@@ -4,15 +4,24 @@ extends RefCounted
 ## Where updates come from is built into the client (MANIFEST_URL below) and never taken from a server:
 ## a server can say which version it wants, but it can never point the client at a download. The steps are
 ##
-##   1. fetch the manifest (a small JSON file published with each release)
-##   2. compare its version with this build's (engine/shared/protocol.gd GAME_VERSION)
-##   3. download the zip for this platform and check it against the checksum in the manifest
-##   4. unpack it beside the installed app, then hand over to a small script that swaps the two once this
+##   1. fetch the manifest (a small JSON file published with each release) and its signature
+##   2. check the signature against the release keys built into this build - a manifest that is not signed
+##      by the project is refused, so taking over the website or its DNS is not enough to push a build
+##   3. compare its version with this build's (engine/shared/protocol.gd GAME_VERSION)
+##   4. download the zip for this platform and check it against the checksum in the signed manifest
+##   5. unpack it beside the installed app, then hand over to a small script that swaps the two once this
 ##      process has quit, and starts the new one
 ##
 ## Everything except the two network calls is plain data in and out, so the logic is tested offline
 ## (tests/gameplay_test.gd, "updates").
 ##
+## Public halves of the keys that may sign a release ("update.json.sig" next to the manifest). More than
+## one so a key can be rotated: ship a build that trusts both, then start signing with the new one.
+## The private halves live outside the repository (see tools/sign_manifest.gd and docs/distribution.md).
+const RELEASE_KEYS := [
+	"-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEArxszSL0cIfm6bPDINbwN\nS/sWLu4jcye0HCcRZ866hBYQq57xOjWRZYs3XqvCS1SzdFMQY2hys/E2n3TS1REg\nOMNCkLjvrEYM8qyAiL411sgGg2DBiNT42ariYhwfv9Uu9aKhPttcFSmRSZBf3jNT\nzNzxpvzG8xRT4+rh2B0XmKoR7cCzuR2aVIU8ze9egTrdaeJoIcBTQnnTcaGADY+P\n9FWyuoZcTNy5wzfyS55v05/pzk7xzquVUv+vRbKgRs6s/WfajN9QhS1++PcG+VWB\ni1Iq3cvX30DCo11eujNWZvJNI/3iKDjP5WVF1IVa+apC70oQFecdcJdx7+sluPef\ni8lZddJI9S2YZrJtWgrr3tWLuSGzjpB3/r+vyvr+DQwCHIjgdsX2VQxNPAkHLIA5\ndEtcLddblyMF0eymZydQIHtNEecrC5vvgVN9uTce3FD0qlvXNV4VRsMutI26oFjJ\nW73zONMcw4zmaUaAYCCfXVhLn3M9ygxcI8ljdw8QfIbpAgMBAAE=\n-----END PUBLIC KEY-----\n"
+]
+
 ## The manifest (an asset of every release, and what MANIFEST_URL points at):
 ##   {"version": "0.38.0",
 ##    "notes": "What changed, one line.",
@@ -51,10 +60,36 @@ static func platform() -> String:
 	return ""
 
 
+## Whether this manifest was signed by one of the project's release keys. An empty key list means this
+## build predates signing and accepts unsigned manifests; once a key is listed, a manifest without a good
+## signature is refused.
+static func signature_ok(manifest_text: String, signature: String, keys := RELEASE_KEYS) -> bool:
+	var trusted := keys.filter(func(pem): return not str(pem).strip_edges().is_empty())
+	if trusted.is_empty():
+		return true
+	var raw := Marshalls.base64_to_raw(signature)
+	if raw.is_empty():
+		return false
+	var digest := HashingContext.new()
+	digest.start(HashingContext.HASH_SHA256)
+	digest.update(manifest_text.to_utf8_buffer())
+	var hash := digest.finish()
+	var crypto := Crypto.new()
+	for pem: String in trusted:
+		var key := CryptoKey.new()
+		if key.load_from_string(pem, true) == OK and crypto.verify(HashingContext.HASH_SHA256, hash, raw, key):
+			return true
+	return false
+
+
 ## Reads a manifest. Returns {available, version, notes, url, sha256, size, reason}: `available` is true
-## only when the manifest is sound, names this platform, and offers something newer than `current`.
-static func check(manifest_text: String, current := Protocol.GAME_VERSION, for_platform := "") -> Dictionary:
+## only when the manifest is signed by the project, sound, names this platform, and is newer than `current`.
+static func check(manifest_text: String, current := Protocol.GAME_VERSION, for_platform := "", signature := "",
+		keys := RELEASE_KEYS) -> Dictionary:
 	var out := {"available": false, "version": "", "notes": "", "url": "", "sha256": "", "size": 0, "reason": ""}
+	if not signature_ok(manifest_text, signature, keys):
+		out.reason = "the update information is not signed by the project, so it was ignored"
+		return out
 	var parsed = JSON.new()
 	if parsed.parse(manifest_text) != OK or not (parsed.data is Dictionary):
 		out.reason = "the update information could not be read"

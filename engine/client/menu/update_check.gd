@@ -30,12 +30,13 @@ func check(manual := false) -> void:
 		return
 	_busy = true
 	var text := await _fetch(Updater.manifest_url())
+	var signature := await _fetch(Updater.manifest_url() + ".sig") if not text.is_empty() else ""
 	_busy = false
 	if text.is_empty():
 		if manual:
 			message.emit("Could not reach the update page. Check the internet connection.", "error", "", Callable())
 		return
-	_update = Updater.check(text)
+	_update = Updater.check(text, Protocol.GAME_VERSION, "", signature.strip_edges())
 	if not _update.available:
 		if manual:
 			message.emit("You are on the newest version (%s)." % Protocol.GAME_VERSION if _update.reason.is_empty() else _update.reason,

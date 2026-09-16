@@ -37,8 +37,9 @@ else
 fi
 
 # Keep older versions' folders (old builds may still ask for them), replace everything else.
-rm -f "$work/index.html" "$work/update.json" "$work/mods.json" "$work/icon.png"
+rm -f "$work/index.html" "$work/update.json" "$work/update.json.sig" "$work/mods.json" "$work/icon.png"
 cp "$out/index.html" "$out/update.json" "$out/mods.json" "$out/icon.png" "$work/"
+[ -f "$out/update.json.sig" ] && cp "$out/update.json.sig" "$work/"  # the signature clients check
 touch "$work/.nojekyll"  # serve files starting with an underscore, and skip Jekyll entirely
 echo "${PAGES_DOMAIN:-quarrowen.com}" > "$work/CNAME"  # the custom domain the client's updater is pinned to
 if [ "$with_release" -eq 0 ]; then

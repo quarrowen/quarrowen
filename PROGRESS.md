@@ -352,6 +352,17 @@ handed over by hand, and so the updater can fetch releases without a token.
   `tools/publish_site.sh` pushes them to the `gh-pages` branch and, with `--with-release`, attaches the
   zips to the GitHub release rather than committing 62 MB per build.
 
+## Signed updates (2026-09-16)
+
+The updater checks a signature before it will install anything: `update.json.sig` next to the manifest, made
+by an RSA key whose public half is compiled into the client (`Updater.RELEASE_KEYS`, more than one so a key
+can be rotated). A checksum alone only proves the download matches the manifest, so whoever held the website
+or its DNS could have pushed a build; now they also need the release key, which lives only on the
+maintainer's machine (`tools/release_key.gd new`, `~/.config/quarrowen/release_key.pem`, never committed).
+`tools/make_release.sh` signs automatically when the key is present and warns loudly when it is not;
+`tools/publish_site.sh` publishes the signature with the manifest. Builds up to 0.38.0 carry no keys and
+accept unsigned manifests, so the change costs nothing to the family's current install.
+
 ## Next milestones from this feedback
 
 1. **Client auto-update** (done): engine/client/updater.gd (manifest, checksum, install script) and

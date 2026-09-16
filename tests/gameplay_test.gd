@@ -256,25 +256,36 @@ func _shape_meshing() -> void:
 ## The updater: what it accepts, what it refuses, and the script that installs an update.
 func _updates() -> void:
 	var Updater = preload("res://engine/client/updater.gd")
+	var key := Crypto.new().generate_rsa(2048)
+	var other := Crypto.new().generate_rsa(2048)
+	var keys := [key.save_to_string(true)]
+	var sign := func(text: String, with: CryptoKey) -> String:
+		var hasher := HashingContext.new()
+		hasher.start(HashingContext.HASH_SHA256)
+		hasher.update(text.to_utf8_buffer())
+		return Marshalls.raw_to_base64(Crypto.new().sign(HashingContext.HASH_SHA256, hasher.finish(), with))
+	var signed := func(manifest: Dictionary) -> Array:
+		var text := JSON.stringify(manifest)
+		return [text, sign.call(text, key)]
 	var newer := {"version": "9.9.9", "notes": "New things", "builds": {"macos": {
 		"url": "https://github.com/quarrowen/quarrowen/releases/download/v9.9.9/Quarrowen-macos.zip",
 		"sha256": "a".repeat(64), "size": 1234}}}
-	var found: Dictionary = Updater.check(JSON.stringify(newer), "0.37.0", "macos")
+	var found: Dictionary = Updater.check(signed.call(newer)[0], "0.37.0", "macos", signed.call(newer)[1], keys)
 	_check(found.available and found.version == "9.9.9" and found.notes == "New things", "a newer release is offered (%s)" % found.reason)
-	_check(not Updater.check(JSON.stringify(newer), "9.9.9", "macos").available, "the same version is not")
-	_check(not Updater.check(JSON.stringify(newer), "10.0.0", "macos").available, "nor an older one")
-	_check(not Updater.check(JSON.stringify(newer), "0.37.0", "windows").available, "nor a release without a build for this computer")
+	_check(not Updater.check(signed.call(newer)[0], "9.9.9", "macos", signed.call(newer)[1], keys).available, "the same version is not")
+	_check(not Updater.check(signed.call(newer)[0], "10.0.0", "macos", signed.call(newer)[1], keys).available, "nor an older one")
+	_check(not Updater.check(signed.call(newer)[0], "0.37.0", "windows", signed.call(newer)[1], keys).available, "nor a release without a build for this computer")
 	var elsewhere: Dictionary = newer.duplicate(true)
 	elsewhere.builds.macos.url = "https://not-github.example.com/evil.zip"
-	var refused: Dictionary = Updater.check(JSON.stringify(elsewhere), "0.37.0", "macos")
+	var refused: Dictionary = Updater.check(signed.call(elsewhere)[0], "0.37.0", "macos", signed.call(elsewhere)[1], keys)
 	_check(not refused.available and refused.url.is_empty(), "a download somewhere other than the project's releases is refused")
 	var plain: Dictionary = newer.duplicate(true)
 	plain.builds.macos.url = "http://github.com/quarrowen/quarrowen/x.zip"
-	_check(not Updater.check(JSON.stringify(plain), "0.37.0", "macos").available, "and so is one that is not https")
+	_check(not Updater.check(signed.call(plain)[0], "0.37.0", "macos", signed.call(plain)[1], keys).available, "and so is one that is not https")
 	var unchecked: Dictionary = newer.duplicate(true)
 	unchecked.builds.macos.erase("sha256")
-	_check(not Updater.check(JSON.stringify(unchecked), "0.37.0", "macos").available, "a download with no checksum is refused")
-	_check(not Updater.check("not json at all", "0.37.0", "macos").available, "so is nonsense instead of a manifest")
+	_check(not Updater.check(signed.call(unchecked)[0], "0.37.0", "macos", signed.call(unchecked)[1], keys).available, "a download with no checksum is refused")
+	_check(not Updater.check("not json at all", "0.37.0", "macos", sign.call("not json at all", key), keys).available, "so is nonsense instead of a manifest")
 
 	var payload := "the new build".to_utf8_buffer()
 	var context := HashingContext.new()
@@ -284,6 +295,20 @@ func _updates() -> void:
 	_check(Updater.verify(payload, digest, payload.size()), "a download that matches its checksum passes")
 	_check(not Updater.verify(payload, digest, payload.size() + 1), "one of the wrong size does not")
 	_check(not Updater.verify("something else".to_utf8_buffer(), digest), "nor one with the wrong contents")
+
+	# Signing: a manifest is only trusted when one of the build's release keys signed exactly those bytes.
+	var manifest := JSON.stringify(newer)
+	_check(Updater.signature_ok(manifest, sign.call(manifest, key), keys), "a manifest signed by the release key is trusted")
+	_check(not Updater.signature_ok(manifest, sign.call(manifest, other), keys), "one signed by another key is not")
+	_check(not Updater.signature_ok(manifest + " ", sign.call(manifest, key), keys), "nor one whose contents were changed after signing")
+	_check(not Updater.signature_ok(manifest, "", keys), "nor an unsigned one, once the build expects a signature")
+	_check(Updater.signature_ok(manifest, "", []), "a build with no release keys yet accepts an unsigned manifest")
+	_check(Updater.signature_ok(manifest, sign.call(manifest, other), [key.save_to_string(true), other.save_to_string(true)]),
+		"either key works while one is being rotated out")
+	_check(not Updater.check(manifest, "0.37.0", "macos", "", keys).available,
+		"check() refuses an unsigned manifest when the build carries a release key")
+	_check(not Updater.RELEASE_KEYS.filter(func(k): return not str(k).strip_edges().is_empty()).is_empty(),
+		"this build ships a release key, so its updates must be signed")
 
 	var script: String = Updater.install_script("/tmp/u/Quarrowen-9.9.9.zip", "/tmp/u", "/Applications/Quarrowen.app", 4242)
 	_check(script.begins_with("#!/bin/sh") and script.contains("kill -0 4242"), "the installer waits for the game to quit")

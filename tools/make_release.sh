@@ -15,9 +15,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+GODOT="${GODOT:-$(command -v godot || echo /Applications/Godot.app/Contents/MacOS/Godot)}"
 version="$(sed -n 's/^const GAME_VERSION := "\(.*\)"$/\1/p' engine/shared/protocol.gd)"
 out=build/release
 base_url="${BASE_URL:-https://quarrowen.com}"
+# GitHub release assets are a flat list, so their URLs have no folders; the Pages layout keeps them.
+flat=0
+case "$base_url" in */releases/download) flat=1 ;; esac
 notes="${NOTES:-A new version of Quarrowen.}"
 files="v$version"
 
@@ -38,19 +42,31 @@ digest() { shasum -a 256 "$1" | cut -d' ' -f1; }
 size_of() { wc -c < "$1" | tr -d ' '; }
 human() { du -h "$1" | cut -f1 | tr -d ' '; }
 
+# Both layouts put the app at <base>/v<version>/<file>; only the mod zips differ (release assets are flat).
+mac_url="$base_url/$files/$mac_name"
+
 cat > "$out/update.json" <<EOF
 {
 	"version": "$version",
 	"notes": "$notes",
 	"builds": {
 		"macos": {
-			"url": "$base_url/$files/$mac_name",
+			"url": "$mac_url",
 			"sha256": "$(digest "$out/$files/$mac_name")",
 			"size": $(size_of "$out/$files/$mac_name")
 		}
 	}
 }
 EOF
+
+# Sign the manifest so a client only trusts a release that came from the project (see tools/release_key.gd).
+key="${QUARROWEN_RELEASE_KEY:-$HOME/.config/quarrowen/release_key.pem}"
+if [ -f "$key" ]; then
+	"$GODOT" --headless --path . -s tools/release_key.gd -- sign --file="$out/update.json" --key="$key" | tail -1
+else
+	echo "!! no release key at $key: the manifest is unsigned, and clients that expect a signature will"
+	echo "!! ignore this release. Make one with: godot --headless --path . -s tools/release_key.gd -- new"
+fi
 
 # The mod index, and the rows the download page shows.
 mod_rows=""
@@ -73,10 +89,11 @@ mod_rows=""
 		echo "			\"name\": \"${name:-$id}\","
 		echo "			\"version\": \"$mod_version\","
 		echo "			\"description\": \"$description\","
-		echo "			\"url\": \"$base_url/$files/mods/$file\","
+		if [ "$flat" -eq 1 ]; then mod_url="$base_url/$files/$file"; else mod_url="$base_url/$files/mods/$file"; fi
+		echo "			\"url\": \"$mod_url\","
 		echo "			\"sha256\": \"$(digest "$zip")\","
 		echo "			\"size\": $(size_of "$zip")"
-		mod_rows="$mod_rows<tr><td><b>${name:-$id}</b><br><span class=\"dim\">$description</span></td><td class=\"right\"><a href=\"$files/mods/$file\">$file</a><br><span class=\"dim\">$(human "$zip")</span></td></tr>"
+		mod_rows="$mod_rows<tr><td><b>${name:-$id}</b><br><span class=\"dim\">$description</span></td><td class=\"right\"><a href=\"$mod_url\">$file</a><br><span class=\"dim\">$(human "$zip")</span></td></tr>"
 	done
 	[ $first -eq 1 ] || echo "		}"
 	echo "	]"
@@ -126,7 +143,7 @@ cat > "$out/index.html" <<EOF
   </div>
 </header>
 
-<a class="get" href="$files/$mac_name">Download for Mac (Apple silicon)</a>
+<a class="get" href="$mac_url">Download for Mac (Apple silicon)</a>
 <div class="dim">Version $version &middot; $(human "$out/$files/$mac_name") &middot; macOS 11 or newer &middot; $notes</div>
 
 <h2>What it is</h2>
