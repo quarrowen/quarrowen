@@ -350,6 +350,7 @@ func _on_connection_failed() -> void:
 		if not _exiting:
 			_connect()
 		return
+	exit_kind = "connect"
 	var message := "Could not connect to %s:%d" % [server_address, server_port]
 	if Net.has_pinned_identity(server_address, server_port):
 		exit_kind = "identity"
@@ -433,7 +434,8 @@ func on_transfer(address: String, port: int, server_name: String, ticket: String
 
 
 func on_kick(reason: String) -> void:
-	_leave("Kicked: %s" % reason)
+	# Most reasons already read as a sentence to the player; only prefix the ones that do not.
+	_leave(reason if reason.length() > 24 or reason.ends_with(".") else "Kicked: %s" % reason)
 
 
 # --- Content download ---------------------------------------------------------------------------
@@ -443,7 +445,7 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 		return
 	server_info = info
 	if not registry.load_network(content.get("blocks")) or not items.load_network(content.get("items", []), content.get("equipment_slots"), content.get("stats")):
-		_leave("Server sent invalid block or item definitions")
+		_leave("This server’s world did not arrive properly. Try joining again.")
 		return
 	inventory.set_equipment_slots(items.slot_names())
 	_player_rig = PlayerRig.sanitize(content.get("player_rig"))
@@ -481,7 +483,7 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 			continue
 		total_size += size
 		if total_size > Protocol.MAX_TOTAL_ASSET_SIZE:
-			_leave("Server content is too large")
+			_leave("This server has more in it than the game can take in. Ask whoever runs it.")
 			return
 		_manifest[entry[0]] = {"hash": hash, "size": size}
 		if not ContentCache.has(hash) and not _downloads.has(hash):
@@ -503,7 +505,7 @@ func on_asset_piece(hash: String, offset: int, total: int, bytes: PackedByteArra
 		return
 	var buffer: PackedByteArray = _downloads[hash]
 	if offset != buffer.size() or offset + bytes.size() > mini(total, Protocol.MAX_ASSET_SIZE):
-		_leave("Asset transfer error")
+		_leave("The server’s pictures and sounds did not arrive properly. Try joining again.")
 		return
 	buffer.append_array(bytes)
 	_download_received += bytes.size()
@@ -512,7 +514,7 @@ func on_asset_piece(hash: String, offset: int, total: int, bytes: PackedByteArra
 	else:
 		_downloads.erase(hash)
 		if not ContentCache.store(hash, buffer):
-			_leave("Downloaded asset failed verification")
+			_leave("Something arrived from the server damaged. Try joining again.")
 			return
 	_update_download_status()
 	if _downloads.is_empty():

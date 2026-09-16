@@ -3367,6 +3367,16 @@ func _first_session() -> void:
 	server.tutorials.on_join(survivor)
 	_check(server.tutorials.state_of(survivor).active == "vanilla:survival", "a survival player still gets Survival Basics")
 
+	# A world that refuses to start must say why, in words, not as an address.
+	var broken = GameServer.new()
+	add_child(broken)
+	var failed: Error = broken.start({"mods": PackedStringArray(["no_such_mod"]), "world": "broken_%d" % Time.get_ticks_msec(),
+		"data_dir": DATA_DIR, "seed": 42, "offline": true})
+	_check(failed != OK and str(broken.start_error).contains("no_such_mod"),
+		"a world that cannot start says what is wrong with it (%s)" % broken.start_error)
+	broken.queue_free()
+	await get_tree().process_frame
+
 	# The deepest system in the game must be pointed at, and the way in must be findable.
 	var tips: Dictionary = server.tutorials.tips
 	_check(str(tips["vanilla:iron_tools"].text).contains("Tool Forge"),

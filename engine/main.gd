@@ -139,7 +139,7 @@ func _host(game: String, port: int, player_name: String, extra := PackedStringAr
 	args.append_array(extra)
 	_server_pid = OS.create_process(OS.get_executable_path(), args)
 	if _server_pid <= 0:
-		_show_menu("Failed to launch local server process")
+		_show_menu("Your world could not be started. Try closing the game and opening it again.")
 		return
 	print("[menu] Started local %s server (pid %d)" % [game, _server_pid])
 	_start_client("127.0.0.1", port, player_name, token)
@@ -220,8 +220,23 @@ func _on_client_exited(message: String) -> void:
 	if _server_pid > 0:
 		# The host asked the server to save and quit; kill it only if it is still around.
 		await get_tree().create_timer(1.0).timeout
+		var local_problem := _local_start_error() if ended.get("kind", "") == "connect" else ""
 		_stop_local_server()
+		if not local_problem.is_empty():
+			# The world's own process said why it gave up; that is far more use than an address.
+			_show_menu(local_problem)
+			return
 	_show_menu(message, ended)
+
+
+## What the world's own process said when it refused to start, or "".
+func _local_start_error() -> String:
+	var path := "user://worlds/last_start_error.txt"
+	if not FileAccess.file_exists(path):
+		return ""
+	var reason := FileAccess.get_file_as_string(path).strip_edges()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	return reason
 
 
 # --- Menu ---------------------------------------------------------------------------------------

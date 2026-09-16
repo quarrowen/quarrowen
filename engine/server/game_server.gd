@@ -160,6 +160,9 @@ var _task_seq := 0
 var _time := 0.0
 var _save_dir := ""
 var _meta := {}
+## Why start() gave up, in words a player can act on. Written next to the worlds so the menu can say it
+## instead of "could not connect to 127.0.0.1" (see engine/server_main.gd).
+var start_error := ""
 var _max_chunk_jobs := maxi(2, OS.get_processor_count() - 2)
 var _chunk_jobs := {}  # Vector2i -> job Dictionary (load/generate on a worker thread)
 var _save_task := -1
@@ -350,6 +353,7 @@ func start(config: Dictionary) -> Error:
 	var tls: Array = Net.load_or_create_server_identity(data_dir.path_join("identity"))
 	err = Net.create_server(int(config.get("port", 24565)), int(config.get("max_players", DEFAULT_MAX_PLAYERS)), tls[0], tls[1], tls[2])
 	if err != OK:
+		start_error = "Port %d is already in use - another copy of the game may still be running." % int(config.get("port", 24565))
 		printerr("[server] Failed to listen on port %d: %s" % [config.get("port"), error_string(err)])
 		return err
 	Net.server = self
@@ -406,10 +410,14 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 	var dirs := ModLoader.search_dirs(extra_dirs)
 	var available := ModLoader.discover(dirs)
 	if requested.is_empty():
+		start_error = "No mods were chosen. This world does not say which game to run."
 		printerr("[server] No mods requested. Available: %s" % ", ".join(available.keys()))
 		return ERR_INVALID_PARAMETER
 	var order := ModLoader.resolve(requested, available)
 	if order.is_empty():
+		var missing: Array = Array(requested).filter(func(id): return not available.has(id))
+		start_error = "The mod '%s' is not installed." % missing[0] if not missing.is_empty() \
+			else "The mods %s need something that is missing." % ", ".join(requested)
 		return ERR_CANT_RESOLVE
 	mod_order = order
 	for manifest in order:
@@ -429,10 +437,12 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 			continue
 		var script = load(manifest.dir.path_join(manifest.main))
 		if script == null or not script.can_instantiate():
+			start_error = "The mod '%s' has a mistake in %s and could not start." % [manifest.id, manifest.main]
 			printerr("[server] Mod '%s' failed to load %s" % [manifest.id, manifest.main])
 			return ERR_PARSE_ERROR
 		var instance = script.new()
 		if not instance.has_method("setup"):
+			start_error = "The mod '%s' is missing its setup(api) function." % manifest.id
 			printerr("[server] Mod '%s' has no setup(api) method" % manifest.id)
 			return ERR_INVALID_DATA
 		instance.setup(ModApi.new(self, manifest))
@@ -1909,7 +1919,8 @@ func on_hello(peer_id: int, protocol: int, player_name: String, public_key: Stri
 	if players.has(peer_id) or _joining.has(peer_id):
 		return
 	if protocol != Protocol.VERSION:
-		kick(peer_id, "Protocol mismatch: server %d, client %d" % [Protocol.VERSION, protocol])
+		kick(peer_id, "This server runs Quarrowen %s. Your game is a different version - update it from quarrowen.com and try again."
+			% Protocol.GAME_VERSION)
 		return
 	var key := Identity.parse_public_key(public_key)
 	if key == null:
@@ -1931,7 +1942,7 @@ func on_hello(peer_id: int, protocol: int, player_name: String, public_key: Stri
 		return
 	var owner := String(_meta.names.get(clean_name.to_lower(), ""))
 	if not owner.is_empty() and owner != player_id:
-		kick(peer_id, "The name '%s' belongs to another player on this server" % clean_name)
+		kick(peer_id, "Someone else here is already called '%s'. Pick a different name under 'Playing as' in the main menu." % clean_name)
 		return
 	var nonce := Identity.new_nonce()
 	_joining[peer_id] = {"name": clean_name, "player_id": player_id, "key": key, "nonce": nonce,
@@ -1959,7 +1970,7 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 	if not (j.has("transfer") and j.transfer.entry.admit) and not is_allowed(j.player_id, j.name):
 		_joining.erase(peer_id)
 		dev_log.add("info", "server", "%s (%s) is not on the allowlist" % [j.name, j.player_id])
-		kick(peer_id, "This server is private. Ask an admin to add you: /allow add %s" % j.name)
+		kick(peer_id, "This server only lets in players on its list. Ask whoever runs it to add '%s' - and check that is the name under 'Playing as' in the main menu." % j.name)
 		return
 	j.authenticated = true
 	_meta.names[String(j.name).to_lower()] = j.player_id

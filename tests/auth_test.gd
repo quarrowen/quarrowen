@@ -38,7 +38,7 @@ func _run() -> void:
 
 	# 2. Someone else with a different key cannot take the name.
 	var impostor = await _join("auth_impostor", "Guest", true)
-	_check(impostor is String and impostor.contains("belongs to another player"), "different key cannot claim a taken name (%s)" % str(impostor))
+	_check(impostor is String and impostor.contains("already called"), "different key cannot claim a taken name (%s)" % str(impostor))
 
 	# 3. The original key gets its saved state back.
 	guest = await _join("auth_guest", "Guest")

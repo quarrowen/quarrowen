@@ -1064,10 +1064,17 @@ func _build_create() -> Control:
 	page.add_child(MenuTheme.heading("Create"))
 	page.add_child(_card("Make a mod", "A starter mod in GDScript or JavaScript with a block, an item, recipes, a command, a guide page and a tutorial.",
 		"Create a mod…", func(): mod_wizard_requested.emit()))
-	page.add_child(_card("Your mods folder", ModLoader.creation_dir(), "Open folder",
-		func(): OS.shell_open(ProjectSettings.globalize_path(ModLoader.creation_dir()))))
+	page.add_child(_card("Your mods folder", ModLoader.creation_dir(), "Open folder", func():
+		# Nothing creates this folder until a mod is installed, and opening a path that is not there does
+		# nothing at all - which looks like a broken button.
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(ModLoader.creation_dir()))
+		OS.shell_open(ProjectSettings.globalize_path(ModLoader.creation_dir()))))
+	# docs/ is not in the exported app, so the local file only exists when running from source; released
+	# builds open the same page on the site instead of a button that does nothing.
+	var docs_local := FileAccess.file_exists("res://docs/api/index.html")
 	page.add_child(_card("Mod API reference", "Every function, event and type mods can use.", "Open docs",
-		func(): OS.shell_open(ProjectSettings.globalize_path("res://docs/api/index.html"))))
+		func(): OS.shell_open(ProjectSettings.globalize_path("res://docs/api/index.html") if docs_local
+			else "https://github.com/quarrowen/quarrowen/blob/master/docs/api/index.html")))
 	if not _addons.is_empty() or not _games.is_empty():
 		page.add_child(MenuTheme.muted("Try a mod with developer tools (F8, reload on save):"))
 		var flow := HFlowContainer.new()

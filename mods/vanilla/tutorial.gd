@@ -47,6 +47,8 @@ func setup(api) -> void:
 				"goal": {"type": "sleep"}, "page": "base:beds"},
 		]})
 
+	api.register_tip("home", {"text": "Somewhere to come back to. Type [b]/sethome[/b] here, and [b]/home[/b] brings you back from anywhere.",
+		"icon": "base:crafting_table", "trigger": {"type": "place", "target": "base:crafting_table"}})
 	api.register_tip("first_night", {"text": "Night is falling. Monsters spawn in the dark: stay near light, build walls or sleep in a bed.",
 		"icon": "base:bed", "page": "base:beds", "trigger": {"type": "night"}})
 	api.register_tip("hungry", {"text": "You're getting hungry. Below 3 drumsticks you can't sprint, and your health stops coming back.",

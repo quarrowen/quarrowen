@@ -122,9 +122,26 @@ func _ready() -> void:
 		"dev_web_host": options["dev-web-host"],
 	}
 	var err := _start_server()
+	_write_start_error(err)
 	if err != OK:
 		printerr("[server] Startup failed: %s" % error_string(err))
 		get_tree().quit(1)
+
+
+## A world started from the menu is a separate process whose output nobody sees, so why it refused is
+## left in a file beside the worlds for the menu to read (engine/main.gd). Starting cleanly clears it.
+func _write_start_error(err: Error) -> void:
+	var path := str(_config.get("data_dir", "user://worlds")).path_join("last_start_error.txt")
+	if err == OK:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+		return
+	DirAccess.make_dir_recursive_absolute(str(_config.get("data_dir", "user://worlds")))
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file != null:
+		var reason: String = _server.start_error if _server != null and not str(_server.start_error).is_empty() \
+			else "The world could not start (%s)." % error_string(err)
+		file.store_string(reason)
+		file.close()
 
 
 func _start_server() -> Error:
