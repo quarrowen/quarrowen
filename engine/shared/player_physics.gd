@@ -3,6 +3,8 @@ extends RefCounted
 ## Uses axis-separated AABB-vs-voxel collision rather than Godot physics so both sides produce
 ## identical results from identical inputs. Tunables come from the server's mods via `Rules`.
 
+const BlockShapes = preload("res://engine/shared/block_shapes.gd")
+
 const DT := 1.0 / 60.0
 const HALF_WIDTH := 0.3
 const HEIGHT := 1.8
@@ -28,6 +30,8 @@ class Rules:
 	const TUNABLES := ["walk_speed", "sprint_speed", "gravity", "jump_velocity", "terminal_velocity",
 		"ground_accel", "air_accel", "swim_speed", "sink_speed"]
 
+	## Which blocks are not whole cubes (BlockRegistry.shape_lut), so movement matches what is drawn.
+	var shape_lut := PackedByteArray()
 	var walk_speed := 4.3
 	var sprint_speed := 5.6
 	var gravity := 32.0
@@ -121,7 +125,8 @@ static func step(s: State, input: PlayerInput, world, rules: Rules) -> void:
 		s.on_ground = out[6] > 0.5
 		return
 	var solid := rules.solid_lut
-	if _collides(s.position, world, solid):
+	var shapes := rules.shape_lut
+	if _collides(s.position, world, solid, shapes):
 		# Stuck inside a block (e.g. terrain changed around us): push upward until free.
 		s.position.y += 0.25
 		s.velocity = Vector3.ZERO
@@ -166,79 +171,64 @@ static func step(s: State, input: PlayerInput, world, rules: Rules) -> void:
 	var part := motion / steps
 	# Crouching on solid ground: a sideways step that would leave nothing underfoot is refused.
 	var edge_guard: bool = input.sneak and s.on_ground and not s.flying and not in_liquid
+	var was_grounded := s.on_ground
 	s.on_ground = false
 	for i in steps:
-		if _move_axis(s, 1, part.y, world, solid):
+		if _move_axis(s, 1, part.y, world, solid, shapes):
 			if part.y < 0.0:
 				s.on_ground = true
 			s.velocity.y = 0.0
 			part.y = 0.0
 		var before := s.position
-		if _move_axis(s, 0, part.x, world, solid):
-			s.velocity.x = 0.0
-			part.x = 0.0
-		elif edge_guard and not _supported(s.position, world, solid):
+		var blocked_x := _move_axis(s, 0, part.x, world, solid, shapes)
+		if not blocked_x and edge_guard and not _supported(s.position, world, solid, shapes):
 			s.position = before
 			s.velocity.x = 0.0
 			part.x = 0.0
 		before = s.position
-		if _move_axis(s, 2, part.z, world, solid):
+		var blocked_z := _move_axis(s, 2, part.z, world, solid, shapes)
+		if not blocked_z and edge_guard and not _supported(s.position, world, solid, shapes):
+			s.position = before
 			s.velocity.z = 0.0
 			part.z = 0.0
-		elif edge_guard and not _supported(s.position, world, solid):
-			s.position = before
+		# Walking into something low (a slab, the first step of a stairs) lifts the player onto it and lets
+		# the same step carry on, so stairs are climbed by walking rather than jumping.
+		if (blocked_x or blocked_z) and (was_grounded or s.on_ground) and not s.flying and not input.sneak:
+			var step_dir := Vector3(part.x if blocked_x else 0.0, 0.0, part.z if blocked_z else 0.0)
+			if step_dir.length_squared() > 0.0:
+				var top := BlockShapes.step_target(s.position, HALF_WIDTH, HEIGHT, step_dir, world, solid, shapes)
+				if top > -INF and top - s.position.y <= BlockShapes.STEP_HEIGHT:
+					s.position.y = top + SKIN
+					s.velocity.y = maxf(s.velocity.y, 0.0)
+					s.on_ground = true
+					if blocked_x:
+						blocked_x = _move_axis(s, 0, part.x, world, solid, shapes)
+					if blocked_z:
+						blocked_z = _move_axis(s, 2, part.z, world, solid, shapes)
+		if blocked_x:
+			s.velocity.x = 0.0
+			part.x = 0.0
+		if blocked_z:
 			s.velocity.z = 0.0
 			part.z = 0.0
 
 
 ## Whether there is solid ground just under the player's box (used by the crouch edge guard).
-static func _supported(position: Vector3, world, solid: PackedByteArray) -> bool:
-	var y := floori(position.y - 0.08)
-	for z in range(floori(position.z - HALF_WIDTH), floori(position.z + HALF_WIDTH - EDGE) + 1):
-		for x in range(floori(position.x - HALF_WIDTH), floori(position.x + HALF_WIDTH - EDGE) + 1):
-			if solid[world.get_block(x, y, z)] == 1:
-				return true
-	return false
+static func _supported(position: Vector3, world, solid: PackedByteArray, shapes: PackedByteArray) -> bool:
+	return _collides(position - Vector3(0, 0.08, 0), world, solid, shapes)
 
 
 ## Moves along one axis; on collision snaps flush against the blocking voxel. Returns true on collision.
-static func _move_axis(s: State, axis: int, delta: float, world, solid: PackedByteArray) -> bool:
-	if delta == 0.0:
-		return false
-	var p := s.position
-	p[axis] += delta
-	if not _collides(p, world, solid):
-		s.position = p
-		return false
-	if axis == 1:
-		if delta > 0.0:
-			p.y = floorf(p.y + HEIGHT) - HEIGHT - SKIN
-		else:
-			p.y = floorf(p.y) + 1.0
-	else:
-		if delta > 0.0:
-			p[axis] = floorf(p[axis] + HALF_WIDTH) - HALF_WIDTH - SKIN
-		else:
-			p[axis] = floorf(p[axis] - HALF_WIDTH) + 1.0 + HALF_WIDTH + SKIN
-	# Only accept the snap if it lies between the start and the target and is free.
-	if (p[axis] - s.position[axis]) * delta >= 0.0 and not _collides(p, world, solid):
-		s.position = p
-	return true
+## Moves along one axis as far as the blocks (whole cells, slabs, stairs, fences) allow.
+## Returns true when something stopped it short.
+static func _move_axis(s: State, axis: int, delta: float, world, solid: PackedByteArray, shapes: PackedByteArray) -> bool:
+	var swept := BlockShapes.sweep(s.position, HALF_WIDTH, HEIGHT, axis, delta, world, solid, shapes)
+	s.position[axis] += swept.delta
+	return swept.hit
 
 
-static func _collides(p: Vector3, world, solid: PackedByteArray) -> bool:
-	var x0 := floori(p.x - HALF_WIDTH)
-	var x1 := floori(p.x + HALF_WIDTH - EDGE)
-	var y0 := floori(p.y)
-	var y1 := floori(p.y + HEIGHT - EDGE)
-	var z0 := floori(p.z - HALF_WIDTH)
-	var z1 := floori(p.z + HALF_WIDTH - EDGE)
-	for y in range(y0, y1 + 1):
-		for z in range(z0, z1 + 1):
-			for x in range(x0, x1 + 1):
-				if solid[world.get_block(x, y, z)] == 1:
-					return true
-	return false
+static func _collides(p: Vector3, world, solid: PackedByteArray, shapes := PackedByteArray()) -> bool:
+	return BlockShapes.overlaps(p, HALF_WIDTH, HEIGHT, world, solid, shapes)
 
 
 ## True if a player standing at feet position `p` overlaps the unit block at `block`.

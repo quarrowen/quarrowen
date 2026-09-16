@@ -340,11 +340,13 @@ Everything the family asked for in one pass, on branch `playtest-1`:
    the app, the mod zips, update.json, mods.json and a download page laid out for GitHub Pages.
    **Distribution and mods: see docs/distribution.md; the mod catalogue review and rollout: docs/mods_plan.md** - the site, the public host a private repo needs, the
    planned in-game mod list and mod settings (the user's ask, 2026-09-16).
-2. **Block shapes (stairs, slabs, fences).** Stairs need partial-height collision, which the voxel collision
-   does not have: every cell is a full cube or nothing. Plan: a `collision` shape per block (a list of boxes),
-   taught to the player and entity steps in GDScript *and* Rust, a 0.6 step-up assist so stairs and slabs are
-   walked up rather than jumped, and the shapes drawn as model blocks (the mesher already has `render: model`)
-   or as new mesher cases. Then stairs, slabs and fences in base, with recipes.
+2. **Block shapes (stairs, slabs, fences)** (done): `shape` on a block definition names the boxes it fills
+   (BlockRegistry.Shape/SHAPE_BOXES); engine/shared/block_shapes.gd sweeps a box against them for players and
+   entities, native/src/physics.rs is the twin, and both step a walker up to 0.55 blocks so slabs and stairs
+   are climbed by walking. Both meshers draw the boxes with the texture cropped to the part they cover, and a
+   shaped block no longer culls its neighbours. base gains stone/cobblestone/planks slabs and stairs (four
+   facings behind one carried block, placed to climb away from the player) and a fence that cannot be jumped.
+   Still open: fences do not join up to their neighbours yet, and slabs always place as the bottom half.
 3. **iPad (the user has a developer account).** Godot exports iOS from macOS with Xcode. Work: build the Rust
    extension for `aarch64-apple-ios` (and the simulator target) and add it to the GDExtension config; an iOS
    export preset with the bundle id and icons; touch controls (a movement stick, look-drag, tap to break /

@@ -16,6 +16,8 @@ pub struct NativeVoxelWorld {
     void_below: bool,
     solid: Lut,
     liquid: Lut,
+    /// Which shape each block fills its cell with (BlockRegistry.Shape); 0 = the whole cell.
+    shape: Lut,
     /// Blocks that stop line of sight (opaque blocks) and blocks mobs must never path through.
     sight: Lut,
     hazard: Lut,
@@ -47,9 +49,14 @@ impl NativeVoxelWorld {
         }
     }
 
+    /// The boxes a block fills (see physics::SHAPE_BOXES); empty when nothing is there.
     #[inline]
-    pub fn is_solid(&self, x: i32, y: i32, z: i32) -> bool {
-        self.solid.0[self.block(x, y, z) as usize] == 1
+    pub fn shape_at(&self, x: i32, y: i32, z: i32) -> &'static [[f32; 6]] {
+        let block = self.block(x, y, z) as usize;
+        if self.solid.0[block] != 1 {
+            return &[];
+        }
+        crate::physics::boxes_of(self.shape.0[block])
     }
 
     #[inline]
@@ -136,6 +143,13 @@ impl NativeVoxelWorld {
         copy_lut(&mut self.solid, &solid);
         copy_lut(&mut self.liquid, &liquid);
         self.solid.0[UNLOADED as usize] = 1;
+    }
+
+    /// Blocks that do not fill their cell (slabs, stairs, fences): BlockRegistry.shape_lut.
+    #[func]
+    fn set_shape_table(&mut self, shapes: PackedByteArray) {
+        copy_lut(&mut self.shape, &shapes);
+        self.shape.0[UNLOADED as usize] = 0;  // unloaded blocks fill their whole cell
     }
 
     /// `sight`: 1 for blocks that stop line of sight; `hazard`: 1 for blocks mobs avoid.

@@ -621,8 +621,9 @@ func on_rules(values: Dictionary) -> void:
 		adjusted.sprint_speed = (walk + (float(adjusted.sprint_speed) - walk) * sprint) * speed
 	rules.apply_dict(adjusted)
 	rules.solid_lut = registry.solid_lut
+	rules.shape_lut = registry.shape_lut
 	rules.liquid_lut = registry.liquid_lut
-	world.set_lookup_tables(registry.solid_lut, registry.liquid_lut)
+	world.set_lookup_tables(registry.solid_lut, registry.liquid_lut, registry.shape_lut)
 	world.void_below = rules.void_below
 
 

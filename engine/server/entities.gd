@@ -243,7 +243,8 @@ func _step_bodies(list: Array[Entity], delta: float) -> void:
 		var liquid: PackedByteArray = _server.registry.liquid_lut
 		for i in list.size():
 			before[i] = list[i].body.position
-			EntityPhysics.step(list[i].body, world, solid, liquid, delta, list[i].def.gravity, list[i].def.drag)
+			EntityPhysics.step(list[i].body, world, solid, liquid, delta, list[i].def.gravity, list[i].def.drag,
+				_server.registry.shape_lut)
 	for i in list.size():
 		var e := list[i]
 		var b := e.body

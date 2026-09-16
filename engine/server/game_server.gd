@@ -62,9 +62,7 @@ const DEFAULT_MAX_PLAYERS := 64
 const SAVE_FORMAT := 2
 ## Blocks added after save format 1 (0.35.0-alpha.1), in any mod: format-1 numeric ids are mapped without them.
 ## Only needed for format-1 worlds; later formats save names.
-## (A block added to a bundled mod must be listed here, or old saves read the wrong items - the save
-## compatibility test catches it.)
-const FORMAT1_ADDED_BLOCKS := ["base:portal", "base:grave"]
+
 ## Other players are replicated only within this distance (blocks) of the recipient...
 const INTEREST_RADIUS := 96.0
 ## ...and beyond this distance only on every other snapshot.
@@ -487,8 +485,9 @@ func set_rules(values: Dictionary) -> void:
 
 func _apply_rules_to_world() -> void:
 	rules.solid_lut = registry.solid_lut
+	rules.shape_lut = registry.shape_lut
 	rules.liquid_lut = registry.liquid_lut
-	world.set_lookup_tables(registry.solid_lut, registry.liquid_lut)
+	world.set_lookup_tables(registry.solid_lut, registry.liquid_lut, registry.shape_lut)
 	world.void_below = rules.void_below
 	entities.ai.update_tables()
 
@@ -798,11 +797,12 @@ func _on_dev_error(e: Dictionary, first: bool) -> void:
 			Net.s_dev_error.rpc_id(p.peer_id, alert)
 
 
-## Brings an older world save up to SAVE_FORMAT (after mods registered their blocks and items, before anyone
-## joins), backing the world up first. Format 1 (0.35.0-alpha.1 and earlier) kept inventories as numeric ids,
-## which shift whenever a block is added: they are turned into names using that version's block order.
+## Brings an older world save up to SAVE_FORMAT (after mods registered their blocks and items, before
+## anyone joins), backing the world up first. Nothing persisted has referred to a runtime id since format 2
+## (0.36.0), so a format bump from here on needs a migration written next to this one; the save fixtures in
+## tests/fixtures/saves keep every released format loading (see docs and PROGRESS).
 func _migrate_save_format() -> void:
-	var format := int(_meta.get("format", 1))
+	var format := int(_meta.get("format", SAVE_FORMAT))
 	if format >= SAVE_FORMAT:
 		return
 	if not _meta.players.is_empty() and not _save_dir.is_empty() and not _backup_dir.is_empty():
@@ -810,56 +810,8 @@ func _migrate_save_format() -> void:
 		var backup := _backup_dir.path_join("%s-before-format%d-%s%s" % [_save_dir.get_file(), SAVE_FORMAT, WorldBackups.timestamp(), WorldBackups.EXTENSION])
 		var error := WorldBackups.create(_save_dir, backup)
 		dev_log.add("info" if error.is_empty() else "error", "server", "Backed up the world before upgrading its save format: %s" % (backup if error.is_empty() else error))
-	var old_names := _format1_block_names()
-	var migrated := 0
-	for id: String in _meta.players:
-		var record = _meta.players[id]
-		if not (record is Dictionary) or record.has("items"):
-			continue
-		record.items = _format1_items(record, old_names)
-		for key in ["inventory", "item_data", "equipment"]:
-			record.erase(key)
-		migrated += 1
+	dev_log.add("warn", "server", "This world was saved in format %d; this version reads %d and cannot upgrade it." % [format, SAVE_FORMAT])
 	_meta.format = SAVE_FORMAT
-	if migrated > 0:
-		dev_log.add("info", "server", "Upgraded %d players' inventories to the name-based save format" % migrated)
-
-
-## Block names in the order format-1 saves numbered them: today's order without blocks added since.
-func _format1_block_names() -> Array:
-	var names := []
-	for d in registry.defs:
-		if not FORMAT1_ADDED_BLOCKS.has(str(d.name)):
-			names.append(str(d.name))
-	return names
-
-
-## A format-1 player record's numeric inventory as save_items() form.
-func _format1_items(record: Dictionary, old_block_names: Array) -> Dictionary:
-	var to_name := func(id: int) -> String:
-		if id <= 0:
-			return ""
-		if items.is_block_item(id):
-			return old_block_names[id] if id < old_block_names.size() else ""
-		return items.name_of(id) if items.is_valid(id) else ""  # non-block items did not move
-	var slots := []
-	var packed = record.get("inventory", [])
-	var item_data: Dictionary = record.get("item_data", {}) if record.get("item_data") is Dictionary else {}
-	if packed is Array and packed.size() >= Inventory.SIZE * 2:
-		for i in Inventory.SIZE:
-			var item_name: String = to_name.call(int(packed[i]))
-			if not item_name.is_empty() and int(packed[Inventory.SIZE + i]) > 0:
-				slots.append([i, item_name, int(packed[Inventory.SIZE + i]), item_data.get(str(i), {})])
-	var equipment := {}
-	var worn = record.get("equipment", {})
-	if worn is Dictionary:
-		for slot_name in worn:
-			var e = worn[slot_name]
-			if e is Array and e.size() == 3:
-				var item_name: String = to_name.call(int(e[0]))
-				if not item_name.is_empty():
-					equipment[str(slot_name)] = [item_name, int(e[1]), e[2] if e[2] is Dictionary else {}]
-	return {"slots": slots, "equipment": equipment}
 
 
 ## Checks a permission; tells the player (at most every few seconds) when it is missing.
@@ -2439,6 +2391,12 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 	var valid: bool = _can_edit(p, pos) and block > 0 and registry.placeable_lut[block] == 1 \
 		and _can_replace(current) and _has_solid_neighbor(pos) and is_supported(pos, block)
 	var state := BlockRegistry.facing_from_yaw(yaw) if valid and registry.defs[block].orientation == 1 and is_finite(yaw) else 0
+	# Stairs and the like: the carried block places the variant that faces the player.
+	var variants: Array = registry.defs[block].get("facing_blocks", []) if valid else []
+	if variants.size() == 4 and is_finite(yaw):
+		var variant := registry.id_of(str(variants[BlockRegistry.facing_from_yaw(yaw)]))
+		if variant > 0:
+			block = variant
 	# Two-block pieces (beds) also need room for their other half.
 	var pair = registry.defs[block].get("pair") if valid else null
 	var pair_pos := pos
@@ -3325,6 +3283,7 @@ func _update_player_rules(p: ServerPlayer) -> void:
 	values.sprint_speed = (rules.walk_speed + (rules.sprint_speed - rules.walk_speed) * sprint) * speed
 	p.physics_rules.apply_dict(values)
 	p.physics_rules.solid_lut = rules.solid_lut
+	p.physics_rules.shape_lut = rules.shape_lut
 	p.physics_rules.liquid_lut = rules.liquid_lut
 
 

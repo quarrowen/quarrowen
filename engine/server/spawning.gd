@@ -193,7 +193,7 @@ func find_spot(center: Vector3, rule: Dictionary, daylight: float, min_distance 
 			if light < int(rule.light[0]) or light > int(rule.light[1]):
 				break
 			var pos := Vector3(x + 0.5, y, z + 0.5)
-			if not EntityPhysics.collides(pos, def.width * 0.5, def.height, world, solid):
+			if not EntityPhysics.collides(pos, def.width * 0.5, def.height, world, solid, _server.registry.shape_lut):
 				return pos
 			break
 	return Vector3.INF

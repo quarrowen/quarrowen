@@ -77,6 +77,7 @@ func setup(api) -> void:
 	api.register_recipe({"base:gravel": 2, "base:coal": 1}, "base:brick", 4)
 	api.register_recipe({"base:cobblestone": 1}, "base:gravel", 1)
 	_register_tools(api)
+	_register_shapes(api, {"stone": stone, "wood": wood})
 	farming.setup(api, {"dirt": dirt, "grass": grass})
 	nature.setup(api, {"wood": wood, "grass": grass, "stone": stone})
 	stations.setup(api, {"wood": wood, "stone": stone})
@@ -114,3 +115,40 @@ func _register_tools(api) -> void:
 			"equip_slot": piece[1], "durability": 180, "armor": {"armor": piece[2]}, "armor_texture": "textures/iron_armor.png"})
 		api.register_recipe({"base:iron_ingot": piece[3]}, "base:iron_%s" % piece[0], 1, ARMORY)
 
+
+## Blocks that do not fill their cell: slabs (half a block, walked onto without jumping), stairs (four
+## facings, one item that places the one facing you) and a fence (a post you cannot jump over).
+func _register_shapes(api, sounds: Dictionary) -> void:
+	# In the order BlockRegistry.facing_from_yaw gives: the variant that climbs away from the player.
+	var facings := ["north", "west", "south", "east"]
+	for material in [
+		{"id": "stone", "from": "base:stone", "display": "Stone", "sound": "stone", "hardness": 1.5, "tool": "pickaxe", "tier": 1},
+		{"id": "cobblestone", "from": "base:cobblestone", "display": "Cobblestone", "sound": "stone", "hardness": 2.0, "tool": "pickaxe", "tier": 1},
+		{"id": "planks", "from": "base:planks", "display": "Wooden", "sound": "wood", "hardness": 1.2, "tool": "axe", "tier": 0},
+	]:
+		var textures = api.block_textures(String(material.from))
+		var common := {"textures": textures, "sounds": sounds.get(String(material.sound), {}),
+			"hardness": float(material.hardness), "tool": String(material.tool), "tier": int(material.tier)}
+		var slab_name := "%s_slab" % material.id
+		var slab := common.duplicate(true)
+		slab.merge({"display_name": "%s Slab" % material.display, "shape": "slab"}, true)
+		api.register_block(slab_name, slab)
+		api.register_recipe({String(material.from): 3}, "base:" + slab_name, 6, {"station": "crafting_table"})
+		api.register_recipe({"base:" + slab_name: 2}, String(material.from), 1, {"station": "crafting_table"})
+
+		var variant_names := []
+		for facing in facings:
+			variant_names.append("base:%s_stairs_%s" % [material.id, facing])
+		for i in facings.size():
+			var stairs := common.duplicate(true)
+			stairs.merge({"display_name": "%s Stairs" % material.display, "shape": "stairs_%s" % facings[i],
+				"facing_blocks": variant_names, "drops": variant_names[0]}, true)
+			if i > 0:
+				stairs.placeable = false  # you always carry the north one; placing turns it to face you
+			api.register_block("%s_stairs_%s" % [material.id, facings[i]], stairs)
+		api.register_recipe({String(material.from): 6}, variant_names[0], 4, {"station": "crafting_table"})
+
+	var fence := {"display_name": "Fence", "textures": api.block_textures("base:planks"), "sounds": sounds.get("wood", {}),
+		"shape": "fence", "hardness": 1.2, "tool": "axe", "render": "cutout"}
+	api.register_block("fence", fence)
+	api.register_recipe({"base:planks": 4, "base:stick": 2}, "base:fence", 3, {"station": "crafting_table"})

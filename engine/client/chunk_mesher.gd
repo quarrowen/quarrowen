@@ -52,6 +52,30 @@ class Surface:
 			custom.append_array([tile.position.x, tile.position.y, tile.size.x, tile.size.y])
 		indices.append_array([n, n + 1, n + 2, n, n + 2, n + 3])
 
+	## One face of a box inside the cell (a slab, a step of a stairs, a fence post). The texture is cropped
+	## to the part of the block the box covers, so a half-height side shows half the texture.
+	func add_box_face(origin: Vector3, face: int, box: Array, tile: Rect2, sky: int, block: int, flags: float) -> void:
+		var n := verts.size()
+		var corners: Array = CORNERS[face]
+		var normal: Vector3 = NORMALS[face]
+		var color := Color(sky / 15.0, block / 15.0, SHADE[face])
+		var low := Vector3(box[0], box[1], box[2])
+		var high := Vector3(box[3], box[4], box[5])
+		# Which of the block's axes the face's texture runs along (u, v).
+		var axes: Array = [[2, 1], [2, 1], [0, 2], [0, 2], [0, 1], [0, 1]][face]
+		for k in 4:
+			var c: Vector3 = corners[k]
+			var inside := Vector3(lerpf(low.x, high.x, c.x), lerpf(low.y, high.y, c.y), lerpf(low.z, high.z, c.z))
+			verts.append(origin + inside)
+			normals.append(normal)
+			colors.append(color)
+			var u: float = inside[axes[0]]
+			var v: float = 1.0 - inside[axes[1]]
+			uvs.append(Vector2(u, v))
+			uv2s.append(Vector2(flags, 0.0))
+			custom.append_array([tile.position.x, tile.position.y, tile.size.x, tile.size.y])
+		indices.append_array([n, n + 1, n + 2, n, n + 2, n + 3])
+
 	const PLANT_QUADS := [
 		[Vector3(0, 1, 0), Vector3(1, 1, 1), Vector3(1, 0, 1), Vector3(0, 0, 0)],
 		[Vector3(1, 1, 1), Vector3(0, 1, 0), Vector3(0, 0, 0), Vector3(1, 0, 1)],
@@ -111,6 +135,7 @@ static func make_context(registry, atlas_uv: Dictionary) -> Dictionary:
 		"render": registry.render_lut,
 		"cull_same": registry.cull_same_lut,
 		"liquid": registry.liquid_lut,
+		"shape": registry.shape_lut,
 		"emission": registry.emission_lut,
 		"emissive_ids": emissive,
 		"sway": registry.sway_lut,
@@ -126,7 +151,7 @@ static func make_context(registry, atlas_uv: Dictionary) -> Dictionary:
 static func build(chunks: Array, ctx: Dictionary) -> Array:
 	if ctx.native:
 		return ClassDB.class_call_static(&"NativeMesher", &"build", chunks, ctx.opaque, ctx.render,
-			ctx.cull_same, ctx.liquid, ctx.emission, ctx.sway, ctx.packed_uvs, true, ctx.ambient_occlusion)
+			ctx.cull_same, ctx.liquid, ctx.emission, ctx.sway, ctx.packed_uvs, true, ctx.ambient_occlusion, ctx.shape)
 	var blocks: PackedByteArray = chunks[4]
 	var pos_x: PackedByteArray = chunks[5]
 	var neg_x: PackedByteArray = chunks[3]
@@ -139,6 +164,7 @@ static func build(chunks: Array, ctx: Dictionary) -> Array:
 	var render_lut: PackedByteArray = ctx.render
 	var cull_same_lut: PackedByteArray = ctx.cull_same
 	var liquid_lut: PackedByteArray = ctx.liquid
+	var shape_lut: PackedByteArray = ctx.get("shape", PackedByteArray())
 	var face_uvs: Array[Rect2] = ctx.face_uvs
 	var has_pos_x := not pos_x.is_empty()
 	var has_neg_x := not neg_x.is_empty()
@@ -172,6 +198,19 @@ static func build(chunks: Array, ctx: Dictionary) -> Array:
 				if render == MODEL:
 					var model_light := light.at(x, y, z)
 					models.append_array([b, x, y, z, model_light[0], model_light[1]])
+					continue
+				var shape: int = shape_lut[b] if b < shape_lut.size() else 0
+				if shape != 0:
+					# A block that does not fill its cell (slab, stairs, fence): draw its boxes.
+					var box_light := light.at(x, y, z)
+					var box_flags := float(int(ctx.sway[b] != 0) | (int(ctx.emission[b] != 0) << 2))
+					var box_target := translucent if render == TRANSLUCENT else solid
+					var box_uv := b * 6
+					for box in BlockRegistry.SHAPE_BOXES.get(shape, []):
+						for f in 6:
+							box_target.add_box_face(Vector3(x, y, z), f, box,
+								face_uvs[box_uv + f] if box_uv + f < face_uvs.size() else ctx.missing_uv,
+								box_light[0], box_light[1], box_flags)
 					continue
 				if render == PLANT:
 					var plant_light := light.at(x, y, z)

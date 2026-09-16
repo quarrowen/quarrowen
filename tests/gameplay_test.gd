@@ -70,6 +70,8 @@ func _ready() -> void:
 	await _server_panel()
 	await _graves_and_homes()
 	await _items_of_missing_mods()
+	await _block_shapes()
+	await _shape_meshing()
 	_updates()
 	await _anticheat()
 	await _scale()
@@ -143,6 +145,112 @@ func _registries() -> void:
 		"sounds replicate with clamped volume")
 	_check(EntityPhysics.segment_hits_box(Vector3(0, 0.5, -5), Vector3(0, 0, 1), 10.0, Vector3(-0.5, 0, -0.5), Vector3(0.5, 1, 0.5)) == 4.5,
 		"segment/box intersection distance")
+
+
+## Blocks that do not fill their cell: slabs, stairs and fences, in movement and in what they block.
+func _block_shapes() -> void:
+	var server = _start("shapes_%d" % Time.get_ticks_msec())
+	var stone: int = server.registry.id_of("base:stone")
+	var slab: int = server.registry.id_of("base:stone_slab")
+	var stairs: int = server.registry.id_of("base:stone_stairs_north")
+	var fence: int = server.registry.id_of("base:fence")
+	_check(slab > 0 and stairs > 0 and fence > 0, "base registers slabs, stairs and a fence")
+	if slab <= 0:
+		server.queue_free()
+		await get_tree().process_frame
+		return
+	var o := Vector3i(60, 80, 60)
+	server._ensure_chunk(Vector2i(3, 3))
+	for x in range(-3, 7):
+		for z in range(-3, 4):
+			server.set_block_authoritative(o + Vector3i(x, 0, z), stone)
+	var p := ServerPlayer.new(server, 41, "Walker")
+	p.player_id = "walker"
+	p.state.position = Vector3(o.x + 0.5, o.y + 1, o.z + 0.5)
+	p.state.on_ground = true
+	server.players[41] = p
+	var walk := func(ticks: int, forward: float) -> void:
+		for t in ticks:
+			var i = PlayerPhysics.PlayerInput.new()
+			i.move = Vector2(0.0, forward)
+			i.yaw = 0.0  # -z is forward
+			PlayerPhysics.step(p.state, i, server.world, server.rules)
+
+	# A slab is half a block high: you stand on it at half height, and walk onto it without jumping.
+	server.set_block_authoritative(o + Vector3i(0, 1, -2), slab)
+	p.state.position = Vector3(o.x + 0.5, o.y + 1, o.z + 0.5)
+	p.state.velocity = Vector3.ZERO
+	walk.call(40, 1.0)
+	_check(absf(p.state.position.y - (o.y + 1.5)) < 0.06 and p.state.position.z < o.z - 1.0,
+		"a player walks up onto a slab and stands at half height (y %.2f, z %.1f)" % [p.state.position.y, p.state.position.z - o.z])
+
+	# Stairs: the same, and standing on the high half puts you a whole block up.
+	server.set_block_authoritative(o + Vector3i(0, 1, -2), 0)
+	server.set_block_authoritative(o + Vector3i(0, 1, -2), stairs)
+	server.set_block_authoritative(o + Vector3i(0, 1, -3), stone)
+	p.state.position = Vector3(o.x + 0.5, o.y + 1, o.z + 0.5)
+	p.state.velocity = Vector3.ZERO
+	walk.call(60, 1.0)
+	_check(p.state.position.y > o.y + 1.4 and p.state.position.z < o.z - 1.0,
+		"and up stairs onto the block behind them (y %.2f, z %.1f)" % [p.state.position.y, p.state.position.z - o.z])
+
+	# A fence is taller than it looks: walking into one stops you, and a jump does not clear it.
+	server.set_block_authoritative(o + Vector3i(0, 1, -2), 0)
+	server.set_block_authoritative(o + Vector3i(0, 1, -3), 0)
+	for x in range(-2, 3):
+		server.set_block_authoritative(o + Vector3i(x, 1, -2), fence)
+	p.state.position = Vector3(o.x + 0.5, o.y + 1, o.z + 0.5)
+	p.state.velocity = Vector3.ZERO
+	for t in 90:
+		var i = PlayerPhysics.PlayerInput.new()
+		i.move = Vector2(0.0, 1.0)
+		i.jump = t % 20 == 0
+		i.yaw = 0.0
+		PlayerPhysics.step(p.state, i, server.world, server.rules)
+	_check(p.state.position.z > o.z - 1.2, "a fence keeps a jumping player in (z %.1f)" % (p.state.position.z - o.z))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## The mesher draws the shapes it collides with: a slab is half high, and neighbours keep their faces.
+func _shape_meshing() -> void:
+	var ChunkMesher = preload("res://engine/client/chunk_mesher.gd")
+	var TextureAtlas = preload("res://engine/client/texture_atlas.gd")
+	var server = _start("mesh_%d" % Time.get_ticks_msec())
+	var registry = server.registry
+	var uv := {}
+	for d in registry.defs:
+		for tex: String in d.textures:
+			uv[tex] = Rect2(0, 0, 1, 1)
+	uv[""] = Rect2(0, 0, 1, 1)
+	var ctx := ChunkMesher.make_context(registry, uv)
+	var Chunk = preload("res://engine/shared/chunk.gd")
+	var chunk = Chunk.new(Vector2i(0, 0))
+	var stone: int = registry.id_of("base:stone")
+	var slab: int = registry.id_of("base:stone_slab")
+	chunk.blocks.encode_u16(Chunk.index(8, 10, 8) << 1, stone)
+	chunk.blocks.encode_u16(Chunk.index(8, 11, 8) << 1, slab)
+	var chunks := []
+	for i in 9:
+		chunks.append(chunk.blocks if i == 4 else PackedByteArray())
+	var built: Array = ChunkMesher.build(chunks, ctx)
+	var verts: PackedVector3Array = built[0][Mesh.ARRAY_VERTEX] if not built[0].is_empty() else PackedVector3Array()
+	var slab_top := 0
+	var above_slab := 0
+	for v in verts:
+		if absf(v.y - 11.5) < 0.001:
+			slab_top += 1
+		if v.y > 11.51:
+			above_slab += 1
+	_check(slab_top >= 4, "the mesher draws the slab's top at half height (%d corners there)" % slab_top)
+	_check(above_slab == 0, "and nothing above it (%d)" % above_slab)
+	var stone_top := 0
+	for v in verts:
+		if absf(v.y - 11.0) < 0.001:
+			stone_top += 1
+	_check(stone_top >= 8, "the block under a slab keeps its top face (%d corners at the join)" % stone_top)
+	server.queue_free()
+	await get_tree().process_frame
 
 
 ## The updater: what it accepts, what it refuses, and the script that installs an update.

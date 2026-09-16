@@ -30,9 +30,10 @@ func remove_chunk(coord: Vector2i) -> void:
 		native.remove_chunk(coord)
 
 
-func set_lookup_tables(solid: PackedByteArray, liquid: PackedByteArray) -> void:
+func set_lookup_tables(solid: PackedByteArray, liquid: PackedByteArray, shapes := PackedByteArray()) -> void:
 	if native:
 		native.set_lookup_tables(solid, liquid)
+		native.set_shape_table(shapes)
 
 
 static func chunk_coord_at(x: int, z: int) -> Vector2i:

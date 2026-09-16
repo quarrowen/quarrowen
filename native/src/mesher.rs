@@ -91,6 +91,36 @@ impl Surface {
         }
     }
 
+    /// One face of a box inside a cell: like add_quad, but the texture is cropped to the part of the
+    /// block the box covers, so a half-height side shows half the texture.
+    fn add_box_quad(&mut self, corners: [Vector3; 4], face: usize, tile: &[f32], light: [[u8; 3]; 4], flags: f32, b: &[f32; 6]) {
+        let n = self.verts.len() as i32;
+        let normal = NORMALS[face];
+        let (u_axis, v_axis) = match face {
+            0 | 1 => (2, 1),
+            2 | 3 => (0, 2),
+            _ => (0, 1),
+        };
+        let lo = [b[0], b[1], b[2]];
+        let hi = [b[3], b[4], b[5]];
+        for k in 0..4 {
+            let c = CORNERS[face][k];
+            let inside = [
+                lo[0] + c[0] * (hi[0] - lo[0]),
+                lo[1] + c[1] * (hi[1] - lo[1]),
+                lo[2] + c[2] * (hi[2] - lo[2]),
+            ];
+            self.verts.push(corners[k]);
+            self.normals.push(Vector3::new(normal[0] as f32, normal[1] as f32, normal[2] as f32));
+            let [sky, block, ao] = light[k];
+            self.colors.push(Color::from_rgba(sky as f32 / 15.0, block as f32 / 15.0, SHADE[face], ao as f32 / 3.0));
+            self.uvs.push(Vector2::new(inside[u_axis], 1.0 - inside[v_axis]));
+            self.uv2s.push(Vector2::new(flags, 0.0));
+            self.custom.extend_from_slice(tile);
+        }
+        self.indices.extend_from_slice(&[n, n + 1, n + 2, n, n + 2, n + 3]);
+    }
+
     /// A plant: crossed quads through the cell at `p`, lit by the cell's own light, texture 0..1.
     fn add_plant(&mut self, p: [usize; 3], tile: &[f32], sky: u8, block: u8, flags: f32) {
         let uv = [Vector2::new(0.0, 0.0), Vector2::new(1.0, 0.0), Vector2::new(1.0, 1.0), Vector2::new(0.0, 1.0)];
@@ -128,6 +158,8 @@ impl Surface {
 
 struct Tables<'a> {
     opaque: &'a [u8],
+    /// Blocks that do not fill their cell (BlockRegistry.shape_lut); drawn box by box, never merged.
+    shape: &'a [u8],
     render: &'a [u8],
     cull_same: &'a [u8],
     liquid: &'a [u8],
@@ -160,11 +192,15 @@ impl NativeMesher {
         face_uvs: PackedFloat32Array,
         lighting: bool,
         ambient_occlusion: bool,
+        shape: PackedByteArray,
     ) -> VarArray {
         let mut out = VarArray::new();
         let empty = || VarArray::new().to_variant();
+        let shapes = shape.as_slice();
+        let full = vec![0u8; LUT_SIZE];
         let tables = Tables {
             opaque: opaque.as_slice(),
+            shape: if shapes.len() >= LUT_SIZE { shapes } else { &full },
             render: render.as_slice(),
             cull_same: cull_same.as_slice(),
             liquid: liquid.as_slice(),
@@ -188,7 +224,8 @@ impl NativeMesher {
 
         let region = fill_region(&byte_arrays);
         let (sky, block_light) = if lighting { compute_light(&region, &tables) } else { full_bright() };
-        let (solid, translucent) = mesh_center(&region, &sky, &block_light, &tables);
+        let (mut solid, mut translucent) = mesh_center(&region, &sky, &block_light, &tables);
+        mesh_shapes(&region, &sky, &block_light, &tables, &mut solid, &mut translucent);
         out.push(&solid.into_arrays().to_variant());
         out.push(&translucent.into_arrays().to_variant());
         out.push(&PackedInt32Array::from(&model_instances(&region, &sky, &block_light, &tables)[..]).to_variant());
@@ -342,8 +379,8 @@ fn mesh_center(region: &[u16], sky: &[u8], block_light: &[u8], t: &Tables) -> (S
                     let id = region[i];
                     let mode = t.render[id as usize];
                     mask[u + v * u_len] = 0;
-                    if mode == 0 || mode == RENDER_MODEL || mode == RENDER_PLANT {
-                        continue;
+                    if mode == 0 || mode == RENDER_MODEL || mode == RENDER_PLANT || t.shape[id as usize] != 0 {
+                        continue;  // shaped blocks are drawn box by box below
                     }
                     let ny = p[1] as i32 + normal[1];
                     let n_id = if ny >= RY as i32 {
@@ -504,6 +541,45 @@ fn greedy(mask: &mut [u64], u_len: usize, v_len: usize, mut emit: impl FnMut(usi
             u += w;
         }
     }
+}
+
+/// Draws the blocks that do not fill their cell (slabs, stairs, fences): every box, every face, with the
+/// texture cropped to the part of the block it covers. The twin of ChunkMesher.add_box_face.
+fn mesh_shapes(region: &[u16], sky: &[u8], block_light: &[u8], t: &Tables, solid: &mut Surface, translucent: &mut Surface) {
+    for y in 0..RY {
+        for z in 0..16 {
+            for x in 0..16 {
+                let i = ridx(OFFSET + x, y, OFFSET + z);
+                let id = region[i];
+                let shape = t.shape[id as usize];
+                if shape == 0 || t.render[id as usize] == 0 {
+                    continue;
+                }
+                let flags = (t.sway[id as usize] != 0) as i32 | ((t.emission[id as usize] != 0) as i32) << 2;
+                let target = if t.render[id as usize] == RENDER_TRANSLUCENT { &mut *translucent } else { &mut *solid };
+                let light = [[sky[i], block_light[i], 3]; 4];
+                for b in crate::physics::boxes_of(shape) {
+                    for face in 0..6 {
+                        let corners = box_face(face, [x as f32, y as f32, z as f32], b);
+                        target.add_box_quad(corners, face, tile(t.uvs, id, face), light, flags as f32, b);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The four corners of one face of a box inside a cell.
+fn box_face(face: usize, origin: [f32; 3], b: &[f32; 6]) -> [Vector3; 4] {
+    let mut out = [Vector3::ZERO; 4];
+    for (k, corner) in CORNERS[face].iter().enumerate() {
+        out[k] = Vector3::new(
+            origin[0] + b[0] + corner[0] * (b[3] - b[0]),
+            origin[1] + b[1] + corner[1] * (b[4] - b[1]),
+            origin[2] + b[2] + corner[2] * (b[5] - b[2]),
+        );
+    }
+    out
 }
 
 fn model_instances(region: &[u16], sky: &[u8], block_light: &[u8], t: &Tables) -> Vec<i32> {

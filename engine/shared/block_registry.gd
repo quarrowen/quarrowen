@@ -23,7 +23,32 @@ const RENDER_NAMES := {
 ## Fields sent to clients. Anything else in a definition (e.g. drops) stays on the server.
 const NETWORK_FIELDS := ["name", "display_name", "render", "solid", "liquid", "cull_same", "breakable", "placeable",
 	"textures", "light", "interactive", "model", "orientation", "connect_group", "model_arm", "sway", "sounds",
-	"hardness", "tier", "tool", "replaceable"]
+	"hardness", "tier", "tool", "replaceable", "shape", "facing_blocks"]
+
+## Blocks that do not fill their cell. The shape decides both what is drawn and what a player or a mob
+## walks into, so the two can never disagree; every shape is a list of boxes in block space (0..1).
+## Stairs face a direction, so each facing is its own shape (and its own block id): no per-block state
+## has to reach the mesher or the physics.
+enum Shape { FULL, SLAB_BOTTOM, SLAB_TOP, STAIRS_NORTH, STAIRS_EAST, STAIRS_SOUTH, STAIRS_WEST, FENCE }
+const SHAPE_NAMES := {
+	"full": Shape.FULL, "slab": Shape.SLAB_BOTTOM, "slab_bottom": Shape.SLAB_BOTTOM, "slab_top": Shape.SLAB_TOP,
+	"stairs_north": Shape.STAIRS_NORTH, "stairs_east": Shape.STAIRS_EAST, "stairs_south": Shape.STAIRS_SOUTH,
+	"stairs_west": Shape.STAIRS_WEST, "fence": Shape.FENCE,
+}
+## The boxes each shape fills: [x0, y0, z0, x1, y1, z1] in block space. Stairs are the bottom slab plus the
+## half that stands up, named after the side that half is on: north stairs are high at north (-z), so you
+## climb them walking north. Placing a stairs block picks the variant that climbs away from the player.
+const SHAPE_BOXES := {
+	Shape.FULL: [[0.0, 0.0, 0.0, 1.0, 1.0, 1.0]],
+	Shape.SLAB_BOTTOM: [[0.0, 0.0, 0.0, 1.0, 0.5, 1.0]],
+	Shape.SLAB_TOP: [[0.0, 0.5, 0.0, 1.0, 1.0, 1.0]],
+	Shape.STAIRS_NORTH: [[0.0, 0.0, 0.0, 1.0, 0.5, 1.0], [0.0, 0.5, 0.0, 1.0, 1.0, 0.5]],
+	Shape.STAIRS_EAST: [[0.0, 0.0, 0.0, 1.0, 0.5, 1.0], [0.5, 0.5, 0.0, 1.0, 1.0, 1.0]],
+	Shape.STAIRS_SOUTH: [[0.0, 0.0, 0.0, 1.0, 0.5, 1.0], [0.0, 0.5, 0.5, 1.0, 1.0, 1.0]],
+	Shape.STAIRS_WEST: [[0.0, 0.0, 0.0, 1.0, 0.5, 1.0], [0.0, 0.5, 0.0, 0.5, 1.0, 1.0]],
+	# A fence is a post you cannot walk through and cannot jump over (its box is taller than the block).
+	Shape.FENCE: [[0.375, 0.0, 0.375, 0.625, 1.5, 0.625]],
+}
 
 ## Face order used by `textures`: +X, -X, +Y (top), -Y (bottom), +Z, -Z.
 const FACE_COUNT := 6
@@ -32,6 +57,8 @@ var defs: Array[Dictionary] = []
 var ids := {}  # name -> id
 
 var solid_lut := PackedByteArray()
+## Which shape each block fills its cell with (Shape); FULL for almost everything.
+var shape_lut := PackedByteArray()
 var opaque_lut := PackedByteArray()
 var render_lut := PackedByteArray()
 var cull_same_lut := PackedByteArray()
@@ -87,6 +114,12 @@ func register(def: Dictionary, replace := false) -> int:
 	d.interactive = bool(def.get("interactive", false))
 	d.model = String(def.get("model", "")).left(256)
 	d.orientation = 1 if def.get("orientation") in ["horizontal", 1] else 0
+	d.shape = SHAPE_NAMES.get(String(def.get("shape", "full")), Shape.FULL) if def.get("shape") is String \
+		else clampi(int(def.get("shape", Shape.FULL)), 0, Shape.FENCE)
+	## Blocks whose shape faces a direction (stairs) name their four variants here, one per facing; placing
+	## this block places the one that faces the player. Each variant drops the block that is carried.
+	d.facing_blocks = (def.get("facing_blocks") as Array).map(func(n): return String(n)) \
+		if def.get("facing_blocks") is Array and (def.facing_blocks as Array).size() == 4 else []
 	d.connect_group = String(def.get("connect_group", "")).left(64)
 	d.model_arm = String(def.get("model_arm", "")).left(256)
 	## Foliage that sways in the wind (visual only).
@@ -188,14 +221,14 @@ func load_network(data) -> bool:
 
 func _rebuild_luts() -> void:
 	var luts: Array[PackedByteArray] = []
-	for i in 12:
+	for i in 13:
 		var lut := PackedByteArray()
 		lut.resize(LUT_SIZE)
 		luts.append(lut)
 	for d in defs:
 		var id: int = d.id
 		luts[0][id] = 1 if d.solid else 0
-		luts[1][id] = 1 if d.render == Render.OPAQUE else 0
+		luts[1][id] = 1 if d.render == Render.OPAQUE and int(d.get("shape", Shape.FULL)) == Shape.FULL else 0
 		luts[2][id] = d.render
 		luts[3][id] = 1 if d.cull_same else 0
 		luts[4][id] = 1 if d.liquid else 0
@@ -206,6 +239,7 @@ func _rebuild_luts() -> void:
 		luts[9][id] = 1 if d.interactive else 0
 		luts[10][id] = 1 if d.sway else 0
 		luts[11][id] = 1 if d.get("hazard", false) else 0
+		luts[12][id] = int(d.get("shape", Shape.FULL))
 	luts[0][UNLOADED] = 1
 	luts[1][UNLOADED] = 1
 	solid_lut = luts[0]
@@ -220,3 +254,4 @@ func _rebuild_luts() -> void:
 	interactive_lut = luts[9]
 	sway_lut = luts[10]
 	hazard_lut = luts[11]
+	shape_lut = luts[12]

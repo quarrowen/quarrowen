@@ -3,6 +3,8 @@ extends RefCounted
 ## axis-separated AABB-vs-voxel collision like PlayerPhysics, but with per-entity sizes. Runs only on
 ## the server; clients interpolate the replicated positions.
 
+const BlockShapes = preload("res://engine/shared/block_shapes.gd")
+
 const MAX_SUBSTEP := 0.45
 const SKIN := 0.001
 const EDGE := 0.0001
@@ -22,8 +24,9 @@ class Body:
 
 ## Integrates one step. `gravity` in blocks/s^2, `drag` per second applied to horizontal velocity
 ## when airborne (ground friction comes from the caller steering velocity).
-static func step(b: Body, world, solid: PackedByteArray, liquid: PackedByteArray, dt: float, gravity: float, drag := 0.0) -> void:
-	if collides(b.position, b.half_width, b.height, world, solid):
+static func step(b: Body, world, solid: PackedByteArray, liquid: PackedByteArray, dt: float, gravity: float,
+		drag := 0.0, shapes := PackedByteArray()) -> void:
+	if collides(b.position, b.half_width, b.height, world, solid, shapes):
 		b.position.y += 0.25  # pushed out when terrain changed around the body
 		b.velocity = Vector3.ZERO
 		b.on_ground = false
@@ -46,47 +49,30 @@ static func step(b: Body, world, solid: PackedByteArray, liquid: PackedByteArray
 	b.on_ground = false
 	b.blocked = false
 	for i in steps:
-		if _move_axis(b, 1, part.y, world, solid):
+		if _move_axis(b, 1, part.y, world, solid, shapes):
 			if part.y < 0.0:
 				b.on_ground = true
 			b.velocity.y = 0.0
 			part.y = 0.0
-		if _move_axis(b, 0, part.x, world, solid):
+		if _move_axis(b, 0, part.x, world, solid, shapes):
 			b.velocity.x = 0.0
 			part.x = 0.0
 			b.blocked = true
-		if _move_axis(b, 2, part.z, world, solid):
+		if _move_axis(b, 2, part.z, world, solid, shapes):
 			b.velocity.z = 0.0
 			part.z = 0.0
 			b.blocked = true
 
 
-static func _move_axis(b: Body, axis: int, delta: float, world, solid: PackedByteArray) -> bool:
-	if delta == 0.0:
-		return false
-	var p := b.position
-	p[axis] += delta
-	if not collides(p, b.half_width, b.height, world, solid):
-		b.position = p
-		return false
-	if axis == 1:
-		p.y = floorf(p.y + b.height) - b.height - SKIN if delta > 0.0 else floorf(p.y) + 1.0
-	elif delta > 0.0:
-		p[axis] = floorf(p[axis] + b.half_width) - b.half_width - SKIN
-	else:
-		p[axis] = floorf(p[axis] - b.half_width) + 1.0 + b.half_width + SKIN
-	if (p[axis] - b.position[axis]) * delta >= 0.0 and not collides(p, b.half_width, b.height, world, solid):
-		b.position = p
-	return true
+static func _move_axis(b: Body, axis: int, delta: float, world, solid: PackedByteArray, shapes := PackedByteArray()) -> bool:
+	var swept := BlockShapes.sweep(b.position, b.half_width, b.height, axis, delta, world, solid, shapes)
+	b.position[axis] += swept.delta
+	return swept.hit
 
 
-static func collides(p: Vector3, half_width: float, height: float, world, solid: PackedByteArray) -> bool:
-	for y in range(floori(p.y), floori(p.y + height - EDGE) + 1):
-		for z in range(floori(p.z - half_width), floori(p.z + half_width - EDGE) + 1):
-			for x in range(floori(p.x - half_width), floori(p.x + half_width - EDGE) + 1):
-				if solid[world.get_block(x, y, z)] == 1:
-					return true
-	return false
+static func collides(p: Vector3, half_width: float, height: float, world, solid: PackedByteArray,
+		shapes := PackedByteArray()) -> bool:
+	return BlockShapes.overlaps(p, half_width, height, world, solid, shapes)
 
 
 ## Distance along the segment `from` + `dir` * t (t in [0, max_t]) where it enters the box, or -1.

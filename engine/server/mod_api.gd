@@ -737,6 +737,12 @@ func register_asset(relative_path: String) -> String:
 
 
 ## Looks up a block id by name ("base:stone", or "stone" for this mod's own). -1 if unknown.
+## The texture names a block uses, so a slab or stairs can be made of the same material.
+func block_textures(block_name: String) -> Array:
+	var id := block(block_name)
+	return (_server.registry.defs[id].textures as Array).duplicate() if _server.registry.is_valid(id) else []
+
+
 func block(block_name: String) -> int:
 	return _server.registry.id_of(block_name if block_name.contains(":") else _qualify(block_name))
 
