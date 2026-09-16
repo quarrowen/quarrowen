@@ -36,6 +36,7 @@ const PlayersPanel = preload("res://engine/client/admin/players_panel.gd")
 const ServerPanel = preload("res://engine/client/admin/server_panel.gd")
 const WorldsPanel = preload("res://engine/client/admin/worlds_panel.gd")
 const MapScreen = preload("res://engine/client/map_screen.gd")
+const Compass = preload("res://engine/client/compass.gd")
 const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const Identity = preload("res://engine/shared/identity.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
@@ -273,6 +274,10 @@ var _players_panel: Control
 var _server_panel: Control
 var _worlds_panel: Control
 var _map_screen: Control
+var _compass: Control
+var _map_timer := 0.0
+## What the server last sent about players and markers (the map screen and the compass share it).
+var _map_state := {}
 ## engine/client/social/social_client.gd when main.gd runs the game (null in tests).
 var social
 var _sprint_on := false  # the sprint key toggles (accessibility setting)
@@ -1266,6 +1271,13 @@ func _process(delta: float) -> void:
 		_held_label.modulate.a = maxf(_held_label.modulate.a - delta * 2.0, 0.0)
 	if not _welcomed:
 		return
+	# Who is nearby and where the marked places are: for the compass, and the map when it is open.
+	_map_timer -= delta
+	if _map_timer <= 0.0 and (_compass.visible or _map_screen != null):
+		_map_timer = 2.0
+		Net.c_map.rpc_id(1)
+	if _compass.visible:
+		_compass.look(yaw, state.position)
 	ugc.update(delta)
 
 	if _status_label.visible and _can_simulate() and _chunk_nodes.has(VoxelWorld.chunk_coord_of(state.position)):
@@ -2567,6 +2579,9 @@ func _on_setting_changed(key: String) -> void:
 		ClientSettings.shared().apply_audio()
 	elif section == "accessibility" or key == "interface/scale":
 		_apply_accessibility()
+	elif key == "interface/compass":
+		if _compass != null:
+			_compass.visible = bool(ClientSettings.shared().get_value(key))
 	elif key == "crafting/relaxed_timing":
 		_crafting_screen.load_settings()
 
@@ -2670,8 +2685,11 @@ func close_map() -> void:
 
 
 func on_map(state: Dictionary) -> void:
+	_map_state = state
 	if _map_screen != null and is_instance_valid(_map_screen):
 		_map_screen.receive(state)
+	if _compass != null:
+		_compass.receive(state)
 
 
 ## Shows a screen over the game in a centred panel (settings, friends, players).
@@ -2868,6 +2886,9 @@ func _build_hud() -> void:
 	_status_label.add_theme_font_size_override("font_size", 28)
 	_hud_root.add_child(_status_label)
 
+	_compass = Compass.new()
+	_compass.visible = bool(ClientSettings.shared().get_value("interface/compass"))
+	_hud_root.add_child(_compass)
 	_held_label = _shadow_label()
 	_held_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_held_label.grow_horizontal = Control.GROW_DIRECTION_BOTH

@@ -56,6 +56,8 @@ const SCHEMA := {
 		"help": "Light bursts from effects and the red flash when you are hurt."},
 	"crafting/relaxed_timing": {"tab": "Accessibility", "label": "Relaxed minigame timing", "type": "bool", "default": false,
 		"help": "Slower markers, bigger zones and longer windows. Every result is still at least Standard."},
+	"interface/compass": {"tab": "Accessibility", "label": "Compass at the top of the screen", "type": "bool", "default": true,
+		"help": "Which way you are facing, with a mark for players nearby and for your home and grave."},
 	"accessibility/menu_motion": {"tab": "Accessibility", "label": "Moving camera in the menu", "type": "bool", "default": true},
 	"network/hub_url": {"tab": "Network", "label": "Server list hub", "type": "text", "default": "", "placeholder": "https://hub.example.org",
 		"help": "The hub lists public servers in Multiplayer → Browse, resolves short invite codes and shows news. Empty: no hub."},

@@ -62,7 +62,9 @@ const DEFAULT_MAX_PLAYERS := 64
 const SAVE_FORMAT := 2
 ## Blocks added after save format 1 (0.35.0-alpha.1), in any mod: format-1 numeric ids are mapped without them.
 ## Only needed for format-1 worlds; later formats save names.
-const FORMAT1_ADDED_BLOCKS := ["base:portal"]
+## (A block added to a bundled mod must be listed here, or old saves read the wrong items - the save
+## compatibility test catches it.)
+const FORMAT1_ADDED_BLOCKS := ["base:portal", "base:grave"]
 ## Other players are replicated only within this distance (blocks) of the recipient...
 const INTEREST_RADIUS := 96.0
 ## ...and beyond this distance only on every other snapshot.
@@ -138,6 +140,8 @@ var gameplay := {
 var server_info := {"name": "VoxelCraft Server", "game": "", "description": "", "motd": "", "mods": []}
 ## Map markers mods set for a player: player id -> {marker id: {label, position, color}} (see ModApi.set_map_marker).
 var map_markers := {}
+## Markers everyone sees (ModApi.set_world_marker); saved in world.json.
+var world_markers := {}
 var generator: Object = null
 ## Objects with decorate(chunk, world_seed) run after the generator on worker threads (e.g. ores).
 var generation_passes: Array = []
@@ -308,6 +312,8 @@ func start(config: Dictionary) -> Error:
 	if not str(config.get("default_role", "")).is_empty():
 		roles.default_role = str(config.default_role).to_lower()
 	roles.migrate(_config_admins)
+	if _meta.get("world_markers") is Dictionary:
+		world_markers = _meta.world_markers  # markers mods put on everyone's map, from the last session
 	if str(config.get("chat_filter", "")) in ["on", "true", "1", "yes"]:
 		gameplay.chat_filter = true
 	# A private server: only listed players (and admins) may join. Names given here are added to the list.
@@ -3070,23 +3076,41 @@ func on_ugc_report(peer_id: int, id: String, reason: String, details: String) ->
 
 
 ## The players and roles panel. Answers with {players, roles, can_kick, denied?}.
-## What the player's map shows: everyone online (unless the server hides them) and the markers mods set.
+## Which world a player is in. One world today ("" is it); mods that add dimensions set this key on the
+## player, and the map, compass and markers follow them there.
+func dimension_of(p) -> String:
+	return str(p.data.get("dimension", "")) if p != null else ""
+
+
+## What the player's map shows: everyone in the same dimension (unless the server hides them) and the
+## markers mods set, also filtered to that dimension.
 func on_map(peer_id: int) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null or not p._online():
 		return
+	var here := dimension_of(p)
 	var people := []
 	if gameplay.share_positions or has_permission(p, "admin"):
 		for other: ServerPlayer in players.values():
-			people.append({"name": other.name, "position": other.state.position, "you": other == p})
+			if dimension_of(other) == here:
+				people.append({"name": other.name, "position": other.state.position, "you": other == p})
 	else:
 		people.append({"name": p.name, "position": p.state.position, "you": true})
 	var markers := []
+	for id: String in world_markers:
+		var shared: Dictionary = world_markers[id]
+		if str(shared.get("dimension", "")) != here:
+			continue
+		var at = shared.get("position", [0, 0, 0])
+		markers.append({"id": id, "label": shared.get("label", id), "color": shared.get("color", "#ffd166"),
+			"position": Vector3(float(at[0]), float(at[1]), float(at[2])) if at is Array and at.size() == 3 else Vector3.ZERO})
 	for id: String in map_markers.get(p.player_id, {}):
 		var marker: Dictionary = map_markers[p.player_id][id]
+		if str(marker.get("dimension", "")) != here:
+			continue
 		markers.append({"id": id, "label": marker.get("label", id), "position": marker.get("position", Vector3.ZERO),
 			"color": marker.get("color", "#ffd166")})
-	Net.s_map.rpc_id(peer_id, {"players": people, "markers": markers, "spawn": _default_spawn()})
+	Net.s_map.rpc_id(peer_id, {"players": people, "markers": markers, "spawn": _default_spawn(), "dimension": here})
 
 
 ## The worlds panel: the servers this one is linked to (network.json), and travel.
@@ -4024,6 +4048,7 @@ func _drain_save_queue(budget_usec: int, wait := false) -> void:
 	_meta.game = server_info.get("game_id", "")
 	_meta.last_played = int(Time.get_unix_time_from_system())
 	_meta.clock = block_ticks.clock
+	_meta.world_markers = world_markers
 	_save_writes.append([_save_dir + "/world.json", JSON.stringify(_meta, "\t")])
 	var writes := _save_writes
 	_save_writes = []

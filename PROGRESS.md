@@ -308,6 +308,46 @@ scene path); stdout flushed on print (docker logs); menu banners (errors red and
 identity" action when a pinned server identity changed); backdrop spot chosen after the middle of the view has
 generated; docs/playtest.md. Next: N5 server transfers, after the family playtest feedback.
 
+## Family playtest feedback, batch 2 (2026-09-16)
+
+Everything the family asked for in one pass, on branch `playtest-1`:
+- **Movement:** creative flight (double-tap jump, `/fly`, or the new "fly" permission in survival) and crouch
+  (Shift, slower and will not walk off a ledge; Ctrl now sprints). Shared physics, native twin and the
+  client's prediction all carry `flying`/`sneaking`; protocol 37.
+- **Admin screen in the client** (pause menu, admins only): rules as switches, time of day, "everyone plays
+  in survival/creative", the allowlist, cheat checks and a backup button. Every action runs the command an
+  admin could type, checked against their role, so the panel grants nothing extra.
+- **Worlds panel:** the servers this one is linked to (network.json) with a Travel button - the same trip a
+  portal makes. Covered in the transfer e2e.
+- **Graves and homes** (base mod): dying leaves a grave holding your things, only you (or an admin) can open
+  or break it; `/sethome`, `/home`, `/back`.
+- **Map (M) and compass:** the world from above drawn from the chunks the client already has, with everyone
+  nearby and markers mods set (home, grave) via the new `api.set_map_marker`; a compass strip at the top with
+  the same ticks (`interface/compass` turns it off). `share_positions` hides players from the map when off.
+- **One Block** (mods/oneblock): a game mode - a single block over the void that comes back as something else
+  each time it is broken, in phases, with the odd creature or crate.
+- **Menu:** creatures wander in the backdrop, the first view now takes ~2 s instead of ~8 (generation
+  prefetch, show the centre early), a drawn app icon (`tools/generate_icon.py`), dialogs have a Cancel button.
+
+## Next milestones from this feedback
+
+1. **Client auto-update** (next up). The server advertises only the version it needs; the download comes from the
+   project's own GitHub releases (a URL baked into the client, never one a server sends), the zip is checked
+   against the release's checksum before anything is replaced, then the app swaps itself and restarts. macOS
+   details: the app is ad-hoc signed, so the update has to preserve the quarantine-free state, and a running
+   .app cannot replace itself directly (a small helper does it after the app quits).
+2. **Block shapes (stairs, slabs, fences).** Stairs need partial-height collision, which the voxel collision
+   does not have: every cell is a full cube or nothing. Plan: a `collision` shape per block (a list of boxes),
+   taught to the player and entity steps in GDScript *and* Rust, a 0.6 step-up assist so stairs and slabs are
+   walked up rather than jumped, and the shapes drawn as model blocks (the mesher already has `render: model`)
+   or as new mesher cases. Then stairs, slabs and fences in base, with recipes.
+3. **iPad (the user has a developer account).** Godot exports iOS from macOS with Xcode. Work: build the Rust
+   extension for `aarch64-apple-ios` (and the simulator target) and add it to the GDExtension config; an iOS
+   export preset with the bundle id and icons; touch controls (a movement stick, look-drag, tap to break /
+   hold to place, hotbar and menu buttons sized for fingers) behind the same input actions; UI scale for
+   touch; a TestFlight build for the kids' iPads. The server side needs nothing.
+
+
 ## Family playtest feedback, batch 1 (2026-09-16)
 
 15 minutes of play with the kids on v0.35.0-alpha.1. Fixed in this batch: the name typed in the menu was not
@@ -321,6 +361,30 @@ Packaging: the server image is engine-only and the mods it loads live in the /mo
 image on each start (deploy/entrypoint.sh, VOXEL_SEED_MODS); tools/package_mods.sh builds one zip per mod for
 release downloads. Still open from this batch: creative flight and crouch, an admin settings screen in the
 client, stairs, a map, graves/teleports, "can't smelt with wood" (wood is registered fuel - needs a repro).
+
+## Save compatibility: the standing plan (2026-09-16, user: "moving forward it shouldn't break")
+
+Alpha 1's world may be recreated (the user said so); from alpha 2 on, updates must keep worlds, builds and
+inventories. The rules, and what enforces each:
+
+1. **Nothing persisted refers to a runtime id.** Chunk edits are saved with a per-chunk name palette,
+   inventories by item name (save format 2), entities, block data and roles by name. Ids shift whenever a
+   block or item is added anywhere; names do not. A new bundled block must therefore never change what an
+   old save means - and the save fixture test fails loudly when it does (it caught `base:grave` today).
+2. **A version on every saved shape.** `world.json.format` (SAVE_FORMAT) and `version` in chunk files. A
+   change that cannot be read by the old code bumps the number and ships a migration that runs on load,
+   after a backup of the whole world (`_migrate_save_format`).
+3. **Content that is missing is kept, not dropped.** A stack whose mod is not loaded is written back exactly
+   as it was (ServerPlayer.kept_items), so turning a mod off and on again returns the items. Chunk palette
+   entries the server does not know leave the terrain as generated rather than punching holes.
+4. **Every release adds a fixture.** `tests/fixtures/saves/<version>` is a real world made by
+   `tools/make_save_fixture.tscn` in a checkout of that tag; `save_compat_test` loads every fixture, checks
+   blocks, chests, entities and inventories, saves again and reloads. The suite runs it on both engines.
+5. **The release checklist** (docs/playtest.md): run both suites (the fixture test included), cut the tag,
+   add the new fixture, and only then package. A deliberate break needs a note in the release and a backup
+   step for the family server.
+6. **Deprecation:** the format-1 (alpha 1) inventory path and `FORMAT1_ADDED_BLOCKS` can be deleted once the
+   family's worlds are on format 2 - after alpha 2 has been running for a while.
 
 ## Save compatibility (2026-09-15, user: "We really need to ensure world and inventories don't break between updates")
 

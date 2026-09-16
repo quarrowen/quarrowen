@@ -1,0 +1,17 @@
+{
+	"id": "oneblock",
+	"name": "One Block",
+	"version": "1.0.0",
+	"description": "One block over the void. Break it and something else takes its place: dirt, then stone and ores, then creatures and crates. Build outwards from what you collect.",
+	"authors": [
+		"VoxelCraft"
+	],
+	"engine": "^1.0",
+	"depends": [
+		"base@^1.0"
+	],
+	"optional_depends": [
+		"vanilla"
+	],
+	"game": true
+}

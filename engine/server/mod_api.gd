@@ -641,8 +641,9 @@ func register_recipe_category(category_name: String, def := {}) -> bool:
 	return _server.recipes.register_category(d)
 
 
-## Puts a marker on a player's map (it stays until removed). `marker` = {label, position, color}.
-## Markers are per player, so a home or a grave only shows to whoever it belongs to.
+## Puts a marker on a player's map and compass (it stays until removed).
+## `marker` = {label, position, color, dimension}. Markers are per player, so a home or a grave only shows
+## to whoever it belongs to. `dimension` ("" = the ordinary world) hides it while they are somewhere else.
 func set_map_marker(player, marker_id: String, marker: Dictionary) -> void:
 	if player == null or String(player.player_id).is_empty():
 		return
@@ -650,13 +651,29 @@ func set_map_marker(player, marker_id: String, marker: Dictionary) -> void:
 	if not _server.map_markers.has(player.player_id):
 		_server.map_markers[player.player_id] = {}
 	_server.map_markers[player.player_id][id] = {"label": String(marker.get("label", marker_id)).left(32),
-		"position": marker.get("position", Vector3.ZERO), "color": String(marker.get("color", "#ffd166")).left(9)}
+		"position": marker.get("position", Vector3.ZERO), "color": String(marker.get("color", "#ffd166")).left(9),
+		"dimension": String(marker.get("dimension", _server.dimension_of(player)))}
 
 
 ## Takes a marker off a player's map.
 func clear_map_marker(player, marker_id: String) -> void:
 	if player != null and _server.map_markers.has(player.player_id):
 		_server.map_markers[player.player_id].erase(_qualify(marker_id))
+
+
+## Puts a marker on everyone's map and compass (a village, a shared base, an event). Saved with the world.
+## `marker` = {label, position, color, dimension} ("" = the ordinary world).
+func set_world_marker(marker_id: String, marker: Dictionary) -> void:
+	var id := _qualify(marker_id)
+	var at = marker.get("position", Vector3.ZERO)
+	_server.world_markers[id] = {"label": String(marker.get("label", marker_id)).left(32),
+		"position": [snappedf(at.x, 0.1), snappedf(at.y, 0.1), snappedf(at.z, 0.1)],
+		"color": String(marker.get("color", "#ffd166")).left(9), "dimension": String(marker.get("dimension", ""))}
+
+
+## Takes a marker off everyone's map.
+func clear_world_marker(marker_id: String) -> void:
+	_server.world_markers.erase(_qualify(marker_id))
 
 
 ## Registers a container type (see engine/server/containers.gd): {title, groups: [{name, count,

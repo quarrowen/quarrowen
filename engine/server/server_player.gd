@@ -14,6 +14,8 @@ var state := PlayerPhysics.State.new()
 var inventory: Inventory
 var yaw := 0.0
 var pitch := 0.0
+## Stacks from mods this server does not have right now: kept as saved and written back untouched.
+var kept_items: Array = []
 ## Free-form per-player data owned by mods; persisted with the world. Namespace your keys.
 var data := {}
 var health := 20.0
@@ -411,6 +413,10 @@ func save_items() -> Dictionary:
 	for i in Inventory.SIZE:
 		if inventory.ids[i] > 0:
 			slots.append([i, items.name_of(inventory.ids[i]), inventory.counts[i], inventory.data[i]])
+	# Stacks whose mod is not loaded right now are written back untouched, so turning a mod off (or a
+	# mod that has not finished loading) never eats what a player was carrying.
+	for stack in kept_items:
+		slots.append(stack)
 	var equipment := {}
 	for i in inventory.equipment_slots.size():
 		var index := Inventory.SIZE + i
@@ -422,6 +428,7 @@ func save_items() -> Dictionary:
 ## Loads save_items() output. Returns the names of items this server does not have (they are left out).
 func load_items(saved) -> Array:
 	var missing := []
+	kept_items.clear()
 	if not (saved is Dictionary):
 		return missing
 	var items = _server.items
@@ -433,6 +440,7 @@ func load_items(saved) -> Array:
 		var index := int(s[0])
 		if id <= 0:
 			missing.append(str(s[1]))
+			kept_items.append(s)  # held for when that mod comes back
 		elif index >= 0 and index < Inventory.SIZE:
 			inventory.set_slot(index, id, clampi(int(s[2]), 1, 9999), s[3] if s.size() > 3 and s[3] is Dictionary else {})
 	var equipment = saved.get("equipment", {})

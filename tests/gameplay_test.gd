@@ -69,6 +69,7 @@ func _ready() -> void:
 	await _movement()
 	await _server_panel()
 	await _graves_and_homes()
+	await _items_of_missing_mods()
 	await _anticheat()
 	await _scale()
 	await _status_query()
@@ -141,6 +142,23 @@ func _registries() -> void:
 		"sounds replicate with clamped volume")
 	_check(EntityPhysics.segment_hits_box(Vector3(0, 0.5, -5), Vector3(0, 0, 1), 10.0, Vector3(-0.5, 0, -0.5), Vector3(0.5, 1, 0.5)) == 4.5,
 		"segment/box intersection distance")
+
+
+## What a player carries survives a mod being turned off and on again.
+func _items_of_missing_mods() -> void:
+	var server = _start("kept_%d" % Time.get_ticks_msec())
+	var p := ServerPlayer.new(server, 66, "Collector")
+	p.player_id = "collector"
+	server.players[66] = p
+	var saved := {"slots": [[0, "base:planks", 5, {}], [1, "someothermod:relic", 2, {"quality": 3}]], "equipment": {}}
+	var missing := p.load_items(saved)
+	_check(missing == ["someothermod:relic"], "an item from a mod that is not loaded is reported (%s)" % str(missing))
+	_check(p.inventory.count_of(server.items.id_of("base:planks")) == 5, "the rest of the inventory loads")
+	var written: Dictionary = p.save_items()
+	var names: Array = written.slots.map(func(entry): return str(entry[1]))
+	_check(names.has("someothermod:relic"), "and is written back untouched, so turning the mod on again restores it (%s)" % str(names))
+	server.queue_free()
+	await get_tree().process_frame
 
 
 ## Dying leaves a grave with your things in it, and /sethome, /home, /back get you around.
