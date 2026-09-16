@@ -256,6 +256,7 @@ var _sleep_fade: ColorRect
 var _sleep_label: Label
 var _leave_bed_sent := 0.0
 var _death_label: Label
+var _respawn_button: Button
 var _inventory_screen: InventoryScreen
 var _minigame_screen: MinigameScreen
 var _guide_screen: GuideScreen
@@ -985,11 +986,13 @@ func on_health(value: float, max_value: float, is_dead: bool, hurt: bool) -> voi
 	if dead and not was_dead:
 		_death_panel.visible = true
 		_set_inventory_open(false)
+		_pause_panel.visible = false  # or it sits under the red overlay swallowing the clicks
+		_chat_input.visible = false
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_respawn_button.grab_focus.call_deferred()  # so Enter or Space works without finding the button
 	elif not dead and was_dead:
 		_death_panel.visible = false
-		if not ignore_mouse_capture:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_capture_mouse()
 	_refresh_hearts()
 	_refresh_hunger()
 
@@ -1914,6 +1917,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("inventory") and _welcomed and not dead and (_inventory_screen.visible or _gameplay_input_enabled()):
 		_set_inventory_open(not _inventory_screen.visible)
 		get_viewport().set_input_as_handled()
+	elif dead and (event.is_action_pressed("ui_accept") or event.is_action_pressed("jump")):
+		respawn()  # never let a player be stuck on the death screen with no way back
+		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("pause"):
 		_set_paused(not _pause_panel.visible)
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED \
@@ -2529,13 +2535,25 @@ func _close_avatar_editor() -> void:
 	if _avatar_editor != null:
 		_avatar_editor.queue_free()
 		_avatar_editor = null
+	_capture_mouse()
+
+
+## Gives the mouse back to the game, unless something still needs the pointer. Dying is the important
+## case: a player who dies, opens chat and closes it again must not lose the cursor the Respawn button
+## needs - that left them with no way out but quitting the game.
+func _capture_mouse() -> void:
+	if dead or ignore_mouse_capture or _pause_panel.visible or _inventory_screen.visible or _server_ui.has_modal():
+		return
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _set_paused(paused: bool) -> void:
 	_pause_panel.visible = paused
 	_tutorial_hud.panel.visible = false
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if paused else Input.MOUSE_MODE_CAPTURED
+	if paused:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	else:
+		_capture_mouse()
 
 
 func _open_chat() -> void:
@@ -2550,13 +2568,13 @@ func _on_chat_submitted(text: String) -> void:
 	_chat_input.release_focus()
 	if not text.strip_edges().is_empty():
 		Net.c_chat.rpc_id(1, text)
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_capture_mouse()
 
 
 func _on_chat_gui_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):
 		_chat_input.visible = false
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_capture_mouse()
 		_chat_input.accept_event()
 
 
@@ -3123,6 +3141,7 @@ func _build_hud() -> void:
 	var death_bg := ColorRect.new()
 	death_bg.color = Color(0.45, 0.0, 0.0, 0.45)
 	death_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	death_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_death_panel.add_child(death_bg)
 	var death_box := VBoxContainer.new()
 	death_box.set_anchors_preset(Control.PRESET_CENTER)
@@ -3131,16 +3150,21 @@ func _build_hud() -> void:
 	death_box.add_theme_constant_override("separation", 16)
 	_death_panel.add_child(death_box)
 	_death_label = _shadow_label()
-	_death_label.text = "You died!"
+	_death_label.text = "You died"
 	_death_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_death_label.add_theme_font_size_override("font_size", 56)
 	death_box.add_child(_death_label)
+	var death_hint := _shadow_label()
+	death_hint.text = "Press Enter to come back"
+	death_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	death_hint.add_theme_font_size_override("font_size", 20)
+	death_box.add_child(death_hint)
 	_build_sleep_panel()
-	var respawn_button := Button.new()
-	respawn_button.text = "Respawn"
-	respawn_button.custom_minimum_size = Vector2(240, 48)
-	respawn_button.pressed.connect(respawn)
-	death_box.add_child(respawn_button)
+	_respawn_button = Button.new()
+	_respawn_button.text = "Respawn"
+	_respawn_button.custom_minimum_size = Vector2(240, 48)
+	_respawn_button.pressed.connect(respawn)
+	death_box.add_child(_respawn_button)
 
 
 func _build_sleep_panel() -> void:
@@ -3233,6 +3257,15 @@ func _rebuild_hotbar() -> void:
 		count.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 		count.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		slot.add_child(count)
+		# The key that picks this slot, so nobody has to be told that 1-9 work.
+		var key := _shadow_label()
+		key.name = "Key"
+		key.text = str(i + 1)
+		key.add_theme_font_size_override("font_size", 11)
+		key.modulate = Color(1, 1, 1, 0.55)
+		key.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT, Control.PRESET_MODE_MINSIZE, 3)
+		key.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(key)
 		_hotbar.add_child(slot)
 		_hotbar_slots.append(slot)
 	_refresh_hotbar()

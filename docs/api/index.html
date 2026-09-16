@@ -790,7 +790,8 @@ Page: {id, chapter, title, icon (item name), order, unlock, hint, blocks, keywor
     {type: &quot;keys&quot;, action, text}      &quot;Press &lt;key&gt; to ...&quot; using the player's key binding</pre></section>
 <section id="ref-tutorials-and-tips" class="ref"><h2>Tutorials and tips <span class="file">engine/server/tutorials.gd</span></h2><pre class="block">Tutorials (guided goals in the player's own world) and contextual tips.
 
-Tutorial: {title, description, order, auto_start (start for new survival players), reward: [[item, count]],
+Tutorial: {title, description, order, auto_start (starts on its own for a new player), modes (which game
+  modes it suits: [&quot;survival&quot;] by default, [&quot;creative&quot;], or both), reward: [[item, count]],
   steps: [{title, text, icon (item), goal, hint, page (guide page), reward: [[item, count]]}]}
 Tip: {text, icon, page, trigger (a goal)}. Each tip shows once per player, at most one every TIP_GAP seconds.
 

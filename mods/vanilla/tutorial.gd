@@ -1,9 +1,24 @@
 extends RefCounted
-## The vanilla survival tutorial: from punching a tree to sleeping through the first night. Starts for
-## new survival players (and sandbox players who switch to survival).
+## The vanilla tutorials: a short one that teaches the controls in creative (where new players land), and
+## the survival one from punching a tree to sleeping through the first night.
 
 
 func setup(api) -> void:
+	# New players start in creative, so this is the first thing anyone sees. Nothing else in the game tells
+	# a child which keys to press; before this, the survival tutorial below never ran for them at all.
+	api.register_tutorial("first_steps", {"title": "Finding your feet", "order": -1, "auto_start": true,
+		"modes": ["creative"],
+		"description": "The keys you need: look, build, and where everything lives.",
+		"reward": [],
+		"steps": [
+			{"title": "Build something", "text": "Move with [b]W A S D[/b] and look with the mouse. Pick a block from the hotbar with [b]1-9[/b], then [b]right click[/b] the ground to place it.",
+				"icon": "base:planks", "goal": {"type": "place"}, "hint": false},
+			{"title": "Take it back", "text": "Hold [b]left click[/b] on a block to break it. In creative you have as many as you like.",
+				"icon": "base:cobblestone", "goal": {"type": "break"}, "hint": false},
+			{"title": "Read the guide", "text": "Press [b]G[/b] for the guide - it explains everything and fills up as you play. [b]E[/b] opens your things, [b]C[/b] the recipe book, [b]M[/b] the map, [b]T[/b] to chat.",
+				"goal": {"type": "read", "target": "base:welcome"}, "page": "base:welcome", "hint": false},
+		]})
+
 	api.register_tutorial("survival", {"title": "Survival Basics", "order": 0, "auto_start": true,
 		"description": "From your first log to your first night in a bed.",
 		"reward": [["base:bread", 3]],

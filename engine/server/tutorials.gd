@@ -1,7 +1,8 @@
 extends RefCounted
 ## Tutorials (guided goals in the player's own world) and contextual tips.
 ##
-## Tutorial: {title, description, order, auto_start (start for new survival players), reward: [[item, count]],
+## Tutorial: {title, description, order, auto_start (starts on its own for a new player), modes (which game
+##   modes it suits: ["survival"] by default, ["creative"], or both), reward: [[item, count]],
 ##   steps: [{title, text, icon (item), goal, hint, page (guide page), reward: [[item, count]]}]}
 ## Tip: {text, icon, page, trigger (a goal)}. Each tip shows once per player, at most one every TIP_GAP seconds.
 ##
@@ -85,7 +86,9 @@ func register_tutorial(id: String, def: Dictionary, qualify: Callable) -> bool:
 			_listen(step.goal.event)
 	tutorials[id] = {"id": id, "title": str(def.get("title", id.get_slice(":", 1).capitalize())).left(64),
 		"description": str(def.get("description", "")).left(300), "order": float(def.get("order", 100.0)),
-		"auto_start": bool(def.get("auto_start", false)), "owner": str(def.get("owner", "")), "reward": _clean_rewards(def.get("reward"), qualify), "steps": steps}
+		"auto_start": bool(def.get("auto_start", false)), "owner": str(def.get("owner", "")),
+		"modes": (def.get("modes") as Array).map(func(m): return str(m)) if def.get("modes") is Array else ["survival"],
+		"reward": _clean_rewards(def.get("reward"), qualify), "steps": steps}
 	return true
 
 
@@ -232,10 +235,12 @@ func save_player(p) -> Dictionary:
 ## auto-start one not yet done or stopped.
 func on_join(p) -> void:
 	var s := state_of(p)
-	if s.active.is_empty() and bool(_server.gameplay.get("tutorials", true)) and not p.inventory.creative:
+	if s.active.is_empty() and bool(_server.gameplay.get("tutorials", true)):
+		var mode := "creative" if p.inventory.creative else "survival"
 		for t in to_network():
 			var def: Dictionary = tutorials[t.id]
-			if def.auto_start and not s.done.has(t.id) and not s.stopped.has(t.id):
+			var modes: Array = def.get("modes", ["survival"]) if def.get("modes") is Array else ["survival"]
+			if def.auto_start and modes.has(mode) and not s.done.has(t.id) and not s.stopped.has(t.id):
 				start(p, t.id)
 				return
 	sync(p)

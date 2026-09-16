@@ -622,7 +622,7 @@ func _run_tasks() -> void:
 
 
 func _register_builtin_commands() -> void:
-	add_command("help", "List commands", _cmd_help, "engine")
+	add_command("help", "[all | word] - the commands worth knowing, or search them", _cmd_help, "engine")
 	add_command("log", "[mod] [count] | level <mod|all> <debug|info|warn|error> - recent log lines", _cmd_log, "engine", "admin")
 	add_command("errors", "[clear [mod] | mute | unmute] - script errors by mod", _cmd_errors, "engine", "admin")
 	add_command("validate", "<mod> - check a loaded mod's manifest, files and references", func(player, args):
@@ -951,12 +951,32 @@ func _name_for(player_id: String) -> String:
 	return player_id.left(8)
 
 
-func _cmd_help(player, _args: PackedStringArray) -> void:
+## The handful worth knowing first. An owner can run forty commands, and printing all of them scrolls the
+## chat log away before anyone can read it - which is what the welcome message used to send children to.
+const HELP_FIRST := ["spawn", "sethome", "home", "back", "players", "time", "guide", "help"]
+
+
+func _cmd_help(player, args: PackedStringArray) -> void:
 	var names := _commands.keys()
 	names.sort()
-	for n in names:
-		if _permitted(player, _commands[n]):
+	var permitted: Array = names.filter(func(n): return _permitted(player, _commands[n]))
+	var wanted := str(args[0]).to_lower() if args.size() > 0 else ""
+	if wanted == "all":
+		for n in permitted:
 			player.send_message("/%s - %s" % [n, _commands[n].description])
+		return
+	if not wanted.is_empty():
+		var found: Array = permitted.filter(func(n): return str(n).contains(wanted))
+		if found.is_empty():
+			player.send_message("No command like '%s'. Try /help for the usual ones, or /help all." % wanted)
+		for n in found:
+			player.send_message("/%s - %s" % [n, _commands[n].description])
+		return
+	player.send_message("Commands you will want:")
+	for n in HELP_FIRST:
+		if permitted.has(n):
+			player.send_message("  /%s - %s" % [n, _commands[n].description])
+	player.send_message("/help all lists every one (%d), /help <word> searches them." % permitted.size())
 
 
 func _cmd_op(player, args: PackedStringArray, grant: bool) -> void:
@@ -1681,6 +1701,14 @@ func kill_player(p: ServerPlayer, cause: String, attacker) -> void:
 	sync_health(p)
 	_broadcast_player_event(p, Entities.Event.DEATH)
 	play_sound_at("engine:death", p.get_eye_position())
+	# Tell the player what happened to them and to their things, in that order. "You died!" on its own
+	# leaves a child wondering what they did wrong and whether they have lost everything.
+	var reasons := {"fall": "You fell from a high place", "void": "You fell out of the world",
+		"starvation": "You were too hungry", "attack": "You were beaten in a fight", "mob": "You were beaten in a fight",
+		"projectile": "You were shot", "lava": "You burned", "fire": "You burned", "drowning": "You ran out of air"}
+	var belongings := "Your things are safe" if ev.keep_inventory or p.inventory.creative \
+		else "Your things are where you died - press M for the map"
+	p.show_title(str(reasons.get(cause, "You died")), belongings, 6.0)
 	if not String(ev.message).is_empty():
 		broadcast_chat(String(ev.message))
 

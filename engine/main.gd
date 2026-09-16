@@ -248,7 +248,13 @@ func _build_menu() -> void:
 	_menu = MainMenu.new()
 	_menu.social = _social
 	var saved_name := str(ClientSettings.shared().get_value("player/name")).strip_edges()
-	_menu.player_name = _args.get("name", saved_name if not saved_name.is_empty() else "Player%d" % (randi() % 1000))
+	if saved_name.is_empty():
+		# Keep the first generated name instead of rolling a new one every launch: a child who never
+		# notices the name field would otherwise be a different player each day, and an allowlisted name
+		# (how a family server is set up) would stop letting them in.
+		saved_name = "Player%d" % (randi() % 1000)
+		ClientSettings.shared().set_value("player/name", saved_name)
+	_menu.player_name = _args.get("name", saved_name)
 	_menu.port = int(_args.get("port", DEFAULT_PORT))
 	add_child(_menu)
 	_social.player_name = _menu.player_name

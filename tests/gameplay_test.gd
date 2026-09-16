@@ -40,6 +40,7 @@ func _ready() -> void:
 	await _beds()
 	await _guide()
 	await _tutorials()
+	await _first_session()
 	await _guide_content()
 	await _spawning()
 	await _animals()
@@ -2071,7 +2072,9 @@ func _tutorials() -> void:
 	tut.load_player(q, JSON.parse_string(JSON.stringify(server._meta.players.learner.tutorial)))
 	_check(tut.state_of(q).active == "tester:drill" and tut.state_of(q).done.has("tester:drill") and tut.state_of(q).tips.has("tester:dusk")
 		and tut.state_of(q).tips_off, "tutorial progress and tips are saved")
-	_check(tut.to_network().size() == 2 and tut.to_network()[0].id == "vanilla:survival", "clients get the tutorial list in order")
+	var listed: Array = tut.to_network().map(func(t): return str(t.id))
+	_check(listed.size() == 3 and listed[0] == "vanilla:first_steps" and listed[1] == "vanilla:survival",
+		"clients get the tutorial list in order (%s)" % str(listed))
 	server.queue_free()
 	await get_tree().process_frame
 
@@ -3263,9 +3266,10 @@ func _loot() -> void:
 	server.players[144] = patient
 	for i in Loot.PITY_ROLLS + 5:
 		loot.roll("test:plain", {"player": patient, "position": Vector3(0, 60, 0)})
-	var first_try: Array = loot.roll("test:pity", {"player": patient, "position": Vector3(0, 60, 0)})
-	_check(not first_try.any(func(d): return d[0] == iron),
-		"rolling a table with nothing rare in it does not build up credit towards another table's rare drop")
+	loot.roll("test:pity", {"player": patient, "position": Vector3(0, 60, 0)})
+	_check(int(patient.data.get("loot_pity", {}).get("test:pity", 0)) <= 1,
+		"a table's own run of bad luck starts from zero, however much of something else was rolled first (%d)"
+		% int(patient.data.get("loot_pity", {}).get("test:pity", 0)))
 	_check(int(patient.data.get("loot_pity", {}).get("test:plain", 0)) == 0,
 		"a table with nothing rare to give keeps no pity count at all")
 
@@ -3337,6 +3341,37 @@ func _fuels() -> void:
 	_check(woods.size() >= 5, "there are several kinds of wood to check (%s)" % str(woods))
 	_check(cold.is_empty(), "every kind of wood burns in a furnace (cold: %s)" % str(cold))
 	_check(uncharrable.is_empty(), "every log can be charred into charcoal (cannot: %s)" % str(uncharrable))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## What a child meets in their first minutes: the tutorial has to actually run (new players land in
+## creative, where it used to be skipped), and dying must never be a state they cannot get out of.
+func _first_session() -> void:
+	var server = _start("firstrun_%d" % Time.get_ticks_msec())
+	var p := ServerPlayer.new(server, 150, "Newcomer")
+	p.player_id = "newcomer"
+	p.inventory.creative = true
+	server.players[150] = p
+	server.tutorials.on_join(p)
+	var running: String = server.tutorials.state_of(p).active
+	_check(running == "vanilla:first_steps", "a new player in creative is taught the controls (%s)" % running)
+	_check(server.tutorials.tutorials[running].steps[0].text.contains("W A S D"),
+		"and the first step names the keys, because nothing else does")
+
+	var survivor := ServerPlayer.new(server, 151, "Digger")
+	survivor.player_id = "digger"
+	server.players[151] = survivor
+	server.tutorials.on_join(survivor)
+	_check(server.tutorials.state_of(survivor).active == "vanilla:survival", "a survival player still gets Survival Basics")
+
+	# Dying tells you what happened and what became of your things, rather than just "You died!".
+	var titles := []
+	server.add_handler("player_death", func(ev): titles.append(ev), 0, "test")
+	survivor.state.position = Vector3(8, 70, 8)
+	server.kill_player(survivor, "fall", null)
+	_check(survivor.dead and not titles.is_empty(), "a fall kills, and says how")
+	_check(str(titles[0].message).contains("fell"), "the message names what happened (%s)" % titles[0].message)
 	server.queue_free()
 	await get_tree().process_frame
 

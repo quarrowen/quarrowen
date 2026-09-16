@@ -42,7 +42,7 @@ func setup(mod_api) -> void:
 		"apples_from_leaves": {"label": "Apples fall from leaves", "type": "bool", "default": true},
 	})
 	api.on("settings_changed", func(ev): if ev.mod == "vanilla": _apply_settings())
-	api.set_server_info({"name": "Vanilla Sandbox", "motd": "Welcome! Type /help for commands."})
+	api.set_server_info({"name": "Vanilla Sandbox", "motd": "Welcome! Press G for the guide, or T then /help for commands."})
 	api.set_spawn_handler(_spawn_position)
 	api.on("player_join", _on_join)
 	api.register_command("spawn", "Teleport to world spawn", func(player, _args): player.teleport(_spawn_position(player)))

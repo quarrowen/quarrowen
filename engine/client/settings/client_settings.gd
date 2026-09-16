@@ -81,6 +81,9 @@ const ACTIONS := [
 	["move_left", "Move left", ["key:A", "key:Left"]],
 	["move_right", "Move right", ["key:D", "key:Right"]],
 	["jump", "Jump / swim up", ["key:Space"]],
+	# Ctrl matches what children coming from other block games expect (Shift is crouch, below). Whether
+	# macOS turns Ctrl+click into a right click while the mouse is captured is worth watching in a
+	# playtest - if it does, sprint needs its own key rather than a second binding that fights crouch.
 	["sprint", "Sprint", ["key:Ctrl"]],
 	["sneak", "Crouch (and sink while flying)", ["key:Shift"]],
 	["break", "Break / attack", ["mouse:1"]],
