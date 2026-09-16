@@ -407,7 +407,11 @@ other's tables, loot/*.json files for tuning without code, and mods.json is sign
    are climbed by walking. Both meshers draw the boxes with the texture cropped to the part they cover, and a
    shaped block no longer culls its neighbours. base gains stone/cobblestone/planks slabs and stairs (four
    facings behind one carried block, placed to climb away from the player) and a fence that cannot be jumped.
-   Still open: fences do not join up to their neighbours yet, and slabs always place as the bottom half.
+   Slabs now fill the half you aimed at (a top variant you never carry; the server reads where the player
+   was looking, so nothing new goes on the wire). Still open: fences do not join up to their neighbours.
+   That one needs a block id per connection pattern (16), each with boxes mirrored in native/src/physics.rs
+   and the two meshers - a medium change with real lockstep risk, for a purely cosmetic gain, so it waits
+   behind things players feel.
 3. **Mod settings** (done): a mod declares what a host may change (ModApi.register_settings) and reads it
    (api.setting); engine/server/mod_settings.gd holds the values. The server owns them, so the three ways in
    agree: mod_settings.json in the data folder (or --mod-settings / VOXEL_MOD_SETTINGS) for a headless server,
@@ -454,7 +458,9 @@ Zombies staring instead of attacking was the idle-mob bug fixed the same day (no
 Packaging: the server image is engine-only and the mods it loads live in the /mods volume, refreshed from the
 image on each start (deploy/entrypoint.sh, VOXEL_SEED_MODS); tools/package_mods.sh builds one zip per mod for
 release downloads. Still open from this batch: creative flight and crouch, an admin settings screen in the
-client, stairs, a map, graves/teleports, "can't smelt with wood" (wood is registered fuel - needs a repro).
+client, stairs, a map, graves/teleports. "Can't smelt with wood" is fixed and was real: only oak logs and
+planks were fuel, so a child who started in a birch forest or a savanna had nothing to burn (mods/base/
+stations.gd; a test now checks every wood burns and chars, rather than a list).
 
 ## Save compatibility: the standing plan (2026-09-16, user: "moving forward it shouldn't break")
 
