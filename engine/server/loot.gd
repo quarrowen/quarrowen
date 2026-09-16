@@ -192,12 +192,8 @@ func _fill_personal(container, store: Dictionary, table: String, player) -> void
 		"player": player, "position": container.position, "source": "container"})
 	var names := []
 	for stack in stacks:
-		var left: int = player.inventory.add(stack[0], stack[1], _server.items.max_stack(stack[0]), stack[2])
-		if left > 0:  # their pack is full: the rest waits on the floor
-			_server.entities.drop_item(stack[0], left, Vector3(container.position) + Vector3(0.5, 1.0, 0.5),
-				Vector3.INF, 0.3, stack[2])
+		player.give(stack[0], stack[1], stack[2])  # a full pack drops the rest at their feet
 		names.append("%s%s" % ["%d × " % int(stack[1]) if int(stack[1]) > 1 else "", _server.items.display_name(stack[0])])
-	player.sync_inventory()
 	_server.play_sound_at("engine:discover", Vector3(container.position) + Vector3.ONE * 0.5)
 	player.send_message("The chest had something for you: %s" % ", ".join(PackedStringArray(names)) if not names.is_empty()
 		else "The chest was empty this time.")

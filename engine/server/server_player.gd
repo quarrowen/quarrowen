@@ -249,9 +249,15 @@ func set_creative(enabled: bool) -> void:
 		_server.tutorials.on_join(self)  # a sandbox player trying survival gets the first tutorial
 
 
-## Adds blocks or items (optionally with item data); returns how many did not fit.
+## Adds blocks or items (optionally with item data). Anything that does not fit falls at the player's
+## feet rather than vanishing, so a reward, a purchase or a quest payout is never lost to a full pack -
+## a mod would otherwise have to remember to check the return value every single time. Returns how many
+## had to be dropped.
 func give(item: int, count := 1, item_data := {}) -> int:
 	var left := inventory.add(item, count, _server.items.max_stack(item), item_data)
+	if left > 0:
+		_server.entities.drop_item(item, left, state.position + Vector3(0, 0.6, 0), Vector3.INF, 0.3, item_data)
+		send_message("Your pack is full - %d dropped at your feet" % left)
 	sync_inventory()
 	return left
 

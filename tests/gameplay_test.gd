@@ -3177,6 +3177,18 @@ func _loot() -> void:
 	_check(not announced.is_empty() and announced[0].item == iron and announced[0].player == p, "the find is announced with who found it")
 	_check(p.data.get("loot_seen", {}).has("test:rare"), "the server remembers which tables a player has met (for first-time bonuses)")
 
+	# A reward, a purchase or a quest payout must never be lost to a full pack.
+	var full := ServerPlayer.new(server, 143, "Hoarder")
+	full.player_id = "hoarder"
+	server.players[143] = full
+	for slot in full.inventory.ids.size():
+		full.inventory.ids[slot] = stick
+		full.inventory.counts[slot] = server.items.max_stack(stick)
+	var entities_before: int = server.entities.entities.size()
+	var dropped: int = full.give(iron, 5)
+	_check(dropped == 5 and server.entities.entities.size() > entities_before,
+		"items that do not fit fall at your feet instead of vanishing (%d dropped)" % dropped)
+
 	# Where an item comes from, for the guide.
 	var sources: Array = loot.sources_of(iron)
 	var names: Array = sources.map(func(row): return str(row.table))

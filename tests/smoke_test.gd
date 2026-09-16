@@ -845,6 +845,11 @@ func _wait_for_entity(c, type_name: String, timeout: float) -> int:
 
 
 ## Chases and attacks an entity until it dies. Returns true if it did.
+## Where the last thing fought was standing when it died. A fleeing mob can die beyond the client's view,
+## and then nothing it dropped is in c._entities to walk to - see _collect.
+var _last_fight_position := Vector3.ZERO
+
+
 func _fight(c, entity_id: int, timeout: float) -> bool:
 	var deadline := Time.get_ticks_msec() + int(timeout * 1000)
 	var won := false
@@ -854,6 +859,7 @@ func _fight(c, entity_id: int, timeout: float) -> bool:
 		if view == null or view.dying:
 			won = true
 			break
+		_last_fight_position = view.position
 		_aim_at(c, view.position + Vector3(0, view.height * 0.5, 0))
 		var flat := Vector2(view.position.x - c.state.position.x, view.position.z - c.state.position.z).length()
 		if flat < 3.0:
@@ -910,14 +916,19 @@ func _collect(c, item: int, timeout: float) -> bool:
 		if c.inventory.count_of(item) > start_count:
 			got = true
 			break
-		if not teleported and Time.get_ticks_msec() - started > 4000:
-			# Walking is best effort (the stack may have rolled into a hole); go straight to it.
+		if not teleported and Time.get_ticks_msec() - started > 3000:
+			# Walking is best effort (the stack may have rolled into a hole, or the mob fled and died out
+			# of sight, in which case nothing it dropped is replicated here yet); go straight there.
+			var at := Vector3.ZERO
 			for id in c._entities:
 				if c._entities[id].item_id == item:
-					var at: Vector3 = c._entities[id].position
-					Net.c_chat.rpc_id(1, "/tp %.2f %.2f %.2f" % [at.x, at.y + 0.2, at.z])
-					teleported = true
+					at = c._entities[id].position
 					break
+			if at == Vector3.ZERO and _last_fight_position != Vector3.ZERO:
+				at = _last_fight_position
+			if at != Vector3.ZERO:
+				Net.c_chat.rpc_id(1, "/tp %.2f %.2f %.2f" % [at.x, at.y + 0.2, at.z])
+				teleported = true
 		var nearest = null
 		for id in c._entities:
 			var view = c._entities[id]
