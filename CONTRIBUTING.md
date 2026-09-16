@@ -1,6 +1,6 @@
 # Contributing
 
-VoxelCraft is a voxel **engine**: the engine provides capabilities, and mods provide the content. Most
+Quarrowen is a voxel **engine**: the engine provides capabilities, and mods provide the content. Most
 contributions therefore land in one of two places - a mod, or a capability the engine is missing.
 
 ## Making a mod

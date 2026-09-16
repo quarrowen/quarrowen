@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Draws the VoxelCraft app icon: a grass-topped voxel block over a night-sky gradient.
+"""Draws the Quarrowen app icon: a grass-topped voxel block over a night-sky gradient.
 
     python3 tools/generate_icon.py            # writes assets/icon.png (1024) and icon.svg-free .icns on macOS
+
+A quarry cut into rock with a small lit home in it: the name, and what the game is about (digging a
+world and settling it). Deliberately not a grass-topped cube, which is Minecraft's mark, not ours.
 
 The icon is generated rather than drawn by hand so it can be tweaked (colours, angle) in one place and
 re-rendered for every size macOS asks for.
@@ -20,12 +23,11 @@ OUT = pathlib.Path(__file__).resolve().parent.parent / "assets"
 
 SKY_TOP = (26, 34, 56)
 SKY_BOTTOM = (58, 44, 86)
-GRASS_TOP = (126, 200, 96)
-GRASS_TOP_LIGHT = (150, 220, 120)
-DIRT_LEFT = (132, 94, 62)
-DIRT_RIGHT = (104, 72, 46)
-GRASS_EDGE_LEFT = (104, 168, 78)
-GRASS_EDGE_RIGHT = (86, 142, 66)
+STONE_TOP = (138, 146, 160)
+STONE_TOP_LIT = (158, 167, 182)
+STONE_LEFT = (92, 99, 112)
+STONE_RIGHT = (68, 74, 86)
+WINDOW = (255, 206, 120)
 
 
 def lerp(a, b, t):
@@ -55,68 +57,42 @@ def background() -> Image.Image:
     return img
 
 
-def voxel(draw: ImageDraw.ImageDraw, cx: float, cy: float, w: float, alpha: int = 255) -> None:
-    """A small floating voxel, drawn flat so it reads as part of the same world."""
-    h = w * 0.55
-    side = w * 0.85
-    top = [(cx, cy - h * 2), (cx + w, cy - h), (cx, cy), (cx - w, cy - h)]
-    lip = side * 0.3
-    draw.polygon([(cx - w, cy - h), (cx, cy), (cx, cy + side), (cx - w, cy - h + side)], fill=DIRT_LEFT + (alpha,))
-    draw.polygon([(cx + w, cy - h), (cx, cy), (cx, cy + side), (cx + w, cy - h + side)], fill=DIRT_RIGHT + (alpha,))
-    draw.polygon([(cx - w, cy - h), (cx, cy), (cx, cy + lip), (cx - w, cy - h + lip)], fill=GRASS_EDGE_LEFT + (alpha,))
-    draw.polygon([(cx + w, cy - h), (cx, cy), (cx, cy + lip), (cx + w, cy - h + lip)], fill=GRASS_EDGE_RIGHT + (alpha,))
-    draw.polygon(top, fill=GRASS_TOP + (alpha,))
+def terrace(draw: ImageDraw.ImageDraw, cx: float, cy: float, w: float, h: float, top, left, right) -> None:
+    """One stepped block of the quarry: an isometric slab with a lit top and two shaded sides."""
+    half = h * 0.55
+    top_face = [(cx, cy - half * 2), (cx + w, cy - half), (cx, cy), (cx - w, cy - half)]
+    draw.polygon([(cx - w, cy - half), (cx, cy), (cx, cy + h), (cx - w, cy - half + h)], fill=left)
+    draw.polygon([(cx + w, cy - half), (cx, cy), (cx, cy + h), (cx + w, cy - half + h)], fill=right)
+    draw.polygon(top_face, fill=top)
 
 
 def cube(img: Image.Image) -> None:
-    """One isometric voxel: a grass top and two dirt sides, with a shadow and a few smaller ones around it."""
+    """The quarry: three stepped terraces cut into stone, with a lit window in the lowest step."""
     shadow = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).ellipse([SIZE * 0.28, SIZE * 0.72, SIZE * 0.72, SIZE * 0.82], fill=(8, 10, 20, 105))
-    img.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(SIZE * 0.045)))
+    ImageDraw.Draw(shadow).ellipse([SIZE * 0.22, SIZE * 0.70, SIZE * 0.78, SIZE * 0.86], fill=(8, 10, 20, 120))
+    img.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(SIZE * 0.05)))
 
     draw = ImageDraw.Draw(img)
-    for fx, fy, fw, fa in [(0.20, 0.40, 0.050, 235), (0.82, 0.34, 0.038, 210), (0.75, 0.68, 0.030, 190)]:
-        voxel(draw, SIZE * fx, SIZE * fy, SIZE * fw, fa)
+    steps = [
+        (0.50, 0.70, 0.30, 0.10, STONE_TOP, STONE_LEFT, STONE_RIGHT),
+        (0.50, 0.55, 0.22, 0.09, STONE_TOP_LIT, STONE_LEFT, STONE_RIGHT),
+        (0.50, 0.41, 0.14, 0.08, STONE_TOP_LIT, STONE_LEFT, STONE_RIGHT),
+    ]
+    for fx, fy, fw, fh, top, left, right in steps:
+        terrace(draw, SIZE * fx, SIZE * fy, SIZE * fw, SIZE * fh, top, left, right)
 
-    cx, cy = SIZE * 0.5, SIZE * 0.50
-    w = SIZE * 0.26          # half width of the top rhombus
-    h = w * 0.55             # half height of the top rhombus
-    side = SIZE * 0.23       # how far the sides drop
+    # The home: a small lit window cut into the front of the middle step.
+    wx, wy = SIZE * 0.50, SIZE * 0.605
+    ww, wh = SIZE * 0.045, SIZE * 0.055
+    glow = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).ellipse([wx - ww * 3, wy - wh * 3, wx + ww * 3, wy + wh * 3], fill=(255, 196, 92, 90))
+    img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(SIZE * 0.02)))
+    draw.polygon([(wx - ww, wy - wh * 0.4), (wx, wy - wh), (wx + ww, wy - wh * 0.4), (wx + ww, wy + wh * 0.6),
+                  (wx, wy + wh), (wx - ww, wy + wh * 0.6)], fill=WINDOW)
 
-    top = [(cx, cy - h * 2), (cx + w, cy - h), (cx, cy), (cx - w, cy - h)]
-    left = [(cx - w, cy - h), (cx, cy), (cx, cy + side), (cx - w, cy - h + side)]
-    right = [(cx + w, cy - h), (cx, cy), (cx, cy + side), (cx + w, cy - h + side)]
-
-    draw.polygon(left, fill=DIRT_LEFT)
-    draw.polygon(right, fill=DIRT_RIGHT)
-    draw.polygon(top, fill=GRASS_TOP)
-
-    # The grass lip on both side faces.
-    lip = side * 0.17
-    draw.polygon([(cx - w, cy - h), (cx, cy), (cx, cy + lip), (cx - w, cy - h + lip)], fill=GRASS_EDGE_LEFT)
-    draw.polygon([(cx + w, cy - h), (cx, cy), (cx, cy + lip), (cx + w, cy - h + lip)], fill=GRASS_EDGE_RIGHT)
-
-    # Voxel texture: a few lighter patches on the top face, kept inside the rhombus.
-    rng = 7
-    for i in range(26):
-        rng = (rng * 1103515245 + 12345) % (1 << 31)
-        u = ((rng >> 7) % 1000) / 1000.0
-        rng = (rng * 1103515245 + 12345) % (1 << 31)
-        v = ((rng >> 7) % 1000) / 1000.0
-        if u + v > 1.0:
-            u, v = 1.0 - u, 1.0 - v
-        px = cx + (u - v) * w
-        py = cy - h * 2 + (u + v) * h
-        r = SIZE * 0.012
-        draw.ellipse([px - r, py - r, px + r, py + r], fill=GRASS_TOP_LIGHT)
-
-    # Bright edges where the faces meet, for definition.
-    for a, b, color in [
-        (top[0], top[1], (170, 235, 140)),
-        (top[3], top[0], (170, 235, 140)),
-        ((cx, cy), (cx, cy + side), (70, 50, 34)),
-    ]:
-        draw.line([a, b], fill=color, width=max(3, SIZE // 200))
+    # A few loose blocks quarried out, resting beside the cut.
+    for fx, fy, fw in [(0.22, 0.60, 0.045), (0.80, 0.52, 0.036), (0.74, 0.70, 0.030)]:
+        terrace(draw, SIZE * fx, SIZE * fy, SIZE * fw, SIZE * fw * 0.8, STONE_TOP, STONE_LEFT, STONE_RIGHT)
 
 
 def rounded_mask() -> Image.Image:

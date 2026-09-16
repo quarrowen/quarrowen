@@ -204,7 +204,7 @@ func _build_sidebar() -> Control:
 	side.custom_minimum_size.x = 230
 	side.add_theme_constant_override("separation", 6)
 	var title := Label.new()
-	title.text = "VoxelCraft"
+	title.text = "Quarrowen"
 	title.add_theme_font_size_override("font_size", 46)
 	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
 	title.add_theme_constant_override("outline_size", 10)
@@ -976,7 +976,11 @@ func _build_settings() -> Control:
 	account.add_child(MenuTheme.muted("Worlds you play are hosted on this port (and the next one answers server list pings).", 13))
 	account.add_child(HSeparator.new())
 	account.add_child(MenuTheme.heading("Version", 20))
-	account.add_child(MenuTheme.muted("VoxelCraft %s" % Protocol.GAME_VERSION, 14))
+	account.add_child(MenuTheme.muted("Quarrowen %s" % Protocol.GAME_VERSION, 14))
+	var independent := MenuTheme.muted("An independent project, not affiliated with Mojang or Microsoft. Built with Claude Code.", 12)
+	independent.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	independent.custom_minimum_size.x = 300
+	account.add_child(independent)
 	var update_button := Button.new()
 	update_button.text = "Check for updates"
 	update_button.pressed.connect(func(): check_updates.emit())
@@ -999,8 +1003,8 @@ func _pick_identity_file(exporting: bool) -> void:
 	dialog.use_native_dialog = true
 	dialog.access = FileDialog.ACCESS_FILESYSTEM
 	dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE if exporting else FileDialog.FILE_MODE_OPEN_FILE
-	dialog.filters = PackedStringArray(["*.json ; VoxelCraft identity"])
-	dialog.current_file = "voxelcraft-identity.json"
+	dialog.filters = PackedStringArray(["*.json ; Quarrowen identity"])
+	dialog.current_file = "quarrowen-identity.json"
 	dialog.file_selected.connect(func(path: String):
 		identity_file_chosen.emit(path, exporting, _passphrase_edit.text)
 		_passphrase_edit.text = ""

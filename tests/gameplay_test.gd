@@ -257,7 +257,7 @@ func _shape_meshing() -> void:
 func _updates() -> void:
 	var Updater = preload("res://engine/client/updater.gd")
 	var newer := {"version": "9.9.9", "notes": "New things", "builds": {"macos": {
-		"url": "https://github.com/omnivoxel-game/voxelcraft/releases/download/v9.9.9/VoxelCraft-macos.zip",
+		"url": "https://github.com/quarrowen/quarrowen/releases/download/v9.9.9/Quarrowen-macos.zip",
 		"sha256": "a".repeat(64), "size": 1234}}}
 	var found: Dictionary = Updater.check(JSON.stringify(newer), "0.37.0", "macos")
 	_check(found.available and found.version == "9.9.9" and found.notes == "New things", "a newer release is offered (%s)" % found.reason)
@@ -269,7 +269,7 @@ func _updates() -> void:
 	var refused: Dictionary = Updater.check(JSON.stringify(elsewhere), "0.37.0", "macos")
 	_check(not refused.available and refused.url.is_empty(), "a download somewhere other than the project's releases is refused")
 	var plain: Dictionary = newer.duplicate(true)
-	plain.builds.macos.url = "http://github.com/omnivoxel-game/voxelcraft/x.zip"
+	plain.builds.macos.url = "http://github.com/quarrowen/quarrowen/x.zip"
 	_check(not Updater.check(JSON.stringify(plain), "0.37.0", "macos").available, "and so is one that is not https")
 	var unchecked: Dictionary = newer.duplicate(true)
 	unchecked.builds.macos.erase("sha256")
@@ -285,11 +285,11 @@ func _updates() -> void:
 	_check(not Updater.verify(payload, digest, payload.size() + 1), "one of the wrong size does not")
 	_check(not Updater.verify("something else".to_utf8_buffer(), digest), "nor one with the wrong contents")
 
-	var script: String = Updater.install_script("/tmp/u/VoxelCraft-9.9.9.zip", "/tmp/u", "/Applications/VoxelCraft.app", 4242)
+	var script: String = Updater.install_script("/tmp/u/Quarrowen-9.9.9.zip", "/tmp/u", "/Applications/Quarrowen.app", 4242)
 	_check(script.begins_with("#!/bin/sh") and script.contains("kill -0 4242"), "the installer waits for the game to quit")
-	_check(script.contains("/Applications/VoxelCraft.app.old") and script.contains("mv \"/Applications/VoxelCraft.app.old\" \"/Applications/VoxelCraft.app\""),
+	_check(script.contains("/Applications/Quarrowen.app.old") and script.contains("mv \"/Applications/Quarrowen.app.old\" \"/Applications/Quarrowen.app\""),
 		"it keeps the old app and puts it back if the swap fails")
-	_check(script.contains("com.apple.quarantine") and script.contains("open \"/Applications/VoxelCraft.app\""),
+	_check(script.contains("com.apple.quarantine") and script.contains("open \"/Applications/Quarrowen.app\""),
 		"it clears the download flag and starts the new one")
 
 
@@ -2571,7 +2571,7 @@ func _dev_web() -> void:
 	server.players[97] = p
 	server.dev_log.add("info", "tester", "hello dashboard")
 	var page: Array = await _http_get(server, port, "/?token=" + web.token)
-	_check(page[0] == 200 and page[1].contains("VoxelCraft Dev Dashboard"), "the dashboard page is served with the token")
+	_check(page[0] == 200 and page[1].contains("Quarrowen Dev Dashboard"), "the dashboard page is served with the token")
 	var denied: Array = await _http_get(server, port, "/api/state?token=wrong")
 	_check(denied[0] == 403, "the API refuses a wrong token")
 	var state: Array = await _http_get(server, port, "/api/state?token=%s&events=1&filter=tester_*" % web.token)

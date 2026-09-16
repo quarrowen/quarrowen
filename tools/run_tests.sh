@@ -11,7 +11,7 @@ set -uo pipefail
 
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-$(command -v godot || echo /Applications/Godot.app/Contents/MacOS/Godot)}"
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/voxelcraft-tests.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/quarrowen-tests.XXXXXX")"
 PORT_BASE="${PORT_BASE:-25600}"
 ONLY="${ONLY:-}"
 REPEAT="${REPEAT:-1}"
@@ -137,7 +137,7 @@ if command -v cargo >/dev/null 2>&1 && (selected hub-unit || selected hub); then
     record "hub-unit" 0 "$WORK/hub_unit.log"
     run_scene "hub" "$WORK/hub.log" res://tests/hub_test.tscn
     # A test that timed out cannot stop the processes it started: the hub and its game server.
-    pkill -f "services/hub/target/release/voxelcraft-hub" 2>/dev/null
+    pkill -f "services/hub/target/release/quarrowen-hub" 2>/dev/null
     pkill -f -- "--name=Hub Test Server" 2>/dev/null
   else
     record "hub-unit" 1 "$WORK/hub_unit.log"

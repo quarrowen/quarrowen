@@ -4,7 +4,7 @@ extends RefCounted
 ## Bump whenever RPC signatures or payload layouts change.
 const VERSION := 37
 ## Human-readable release shown in version mismatch messages.
-const GAME_NAME := "VoxelCraft"
+const GAME_NAME := "Quarrowen"
 const GAME_VERSION := "0.37.0"
 ## The mod API's semantic version: mods declare what they work with in mod.json ("engine": "^1.0").
 ## Bump the minor version when the API gains things, the major when something mods use changes.

@@ -1,6 +1,6 @@
 extends Node
 ## Friends and parties through the hub (services/hub, social.rs). Signs in with the player's identity key
-## (the hub's challenge, signed as "voxelcraft-hub-login:<hub url>:<nonce>"), checks in every HEARTBEAT
+## (the hub's challenge, signed as "quarrowen-hub-login:<hub url>:<nonce>"), checks in every HEARTBEAT
 ## seconds with where the player is (`current_server`, shown to friends when "network/share_server" is
 ## on) and keeps the latest social state: {me, friends, incoming, outgoing, party, party_invites}.
 ## Lives in engine/main.gd for the whole session, so friends see you in the menu and in game.
@@ -77,7 +77,7 @@ func sign_in() -> void:
 			_fail(error)
 			return
 		var nonce := str(data.get("nonce", ""))
-		var message := ("voxelcraft-hub-login:%s:%s" % [_hub, nonce]).to_utf8_buffer()
+		var message := ("quarrowen-hub-login:%s:%s" % [_hub, nonce]).to_utf8_buffer()
 		var login := {"key": Identity.public_pem(signing_key), "nonce": nonce, "hub": _hub, "name": player_name,
 			"signature": Marshalls.raw_to_base64(Identity.sign(signing_key, message))}
 		_post(_hub + "/v1/auth/login", login, "", func(result, login_error):
@@ -225,7 +225,7 @@ func _post(url: String, body: Dictionary, bearer: String, done: Callable) -> voi
 	http.timeout = 10.0
 	http.body_size_limit = 1024 * 1024
 	add_child(http)
-	var headers := PackedStringArray(["Content-Type: application/json", "User-Agent: VoxelCraft/%s" % Protocol.GAME_VERSION])
+	var headers := PackedStringArray(["Content-Type: application/json", "User-Agent: Quarrowen/%s" % Protocol.GAME_VERSION])
 	if not bearer.is_empty():
 		headers.append("Authorization: Bearer " + bearer)
 	http.request_completed.connect(func(result: int, status: int, _h: PackedStringArray, response: PackedByteArray):

@@ -4,11 +4,11 @@
 #   build/release/index.html                      the download page (GitHub Pages)
 #   build/release/update.json                     what the game's updater reads
 #   build/release/mods.json                       the mod index (for the in-game mod list)
-#   build/release/v<version>/VoxelCraft-...zip    the Mac app
+#   build/release/v<version>/Quarrowen-...zip    the Mac app
 #   build/release/v<version>/mods/<id>-<v>.zip    one zip per mod
 #
 #   tools/make_release.sh
-#   BASE_URL=https://omnivoxel-game.github.io/voxelcraft NOTES="Flying, maps and graves." tools/make_release.sh
+#   BASE_URL=https://quarrowen.com NOTES="Flying, maps and graves." tools/make_release.sh
 #
 # BASE_URL is where these files end up *publicly* (see docs/distribution.md): a private repository's
 # release assets need a token to download, which the game cannot carry, so the site has to be public.
@@ -17,8 +17,8 @@ cd "$(dirname "$0")/.."
 
 version="$(sed -n 's/^const GAME_VERSION := "\(.*\)"$/\1/p' engine/shared/protocol.gd)"
 out=build/release
-base_url="${BASE_URL:-https://omnivoxel-game.github.io/voxelcraft}"
-notes="${NOTES:-A new version of VoxelCraft.}"
+base_url="${BASE_URL:-https://quarrowen.com}"
+notes="${NOTES:-A new version of Quarrowen.}"
 files="v$version"
 
 rm -rf "$out"
@@ -26,7 +26,7 @@ mkdir -p "$out/$files/mods"
 
 echo "== version $version"
 tools/package_mac.sh
-mac_zip="build/macos/VoxelCraft-$version-mac-arm64.zip"
+mac_zip="build/macos/Quarrowen-$version-mac-arm64.zip"
 cp "$mac_zip" "$out/$files/"
 mac_name="$(basename "$mac_zip")"
 
@@ -86,7 +86,7 @@ mod_rows=""
 cat > "$out/index.html" <<EOF
 <!doctype html>
 <meta charset="utf-8">
-<title>VoxelCraft</title>
+<title>Quarrowen</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="A voxel game where the server decides the game. Free to play, free to mod.">
 <link rel="icon" href="icon.png">
@@ -121,7 +121,7 @@ cat > "$out/index.html" <<EOF
 <header>
   <img src="icon.png" alt="">
   <div>
-    <h1>VoxelCraft</h1>
+    <h1>Quarrowen</h1>
     <div class="tag">A voxel game where the server decides the game.<br>Build, survive, or start on a single block over the void.</div>
   </div>
 </header>
@@ -139,7 +139,7 @@ cat > "$out/index.html" <<EOF
 
 <h2>First time on a Mac</h2>
 <ol>
-  <li>Unzip it and drag <b>VoxelCraft</b> into your Applications folder.</li>
+  <li>Unzip it and drag <b>Quarrowen</b> into your Applications folder.</li>
   <li>The first launch needs <b>right-click &rarr; Open</b>, then Open again: the app is signed by us, not by
       Apple, so macOS asks once.</li>
   <li>Type your name in the menu, then <b>Play</b> for your own world, or <b>Multiplayer</b> to join a server.</li>
@@ -152,17 +152,20 @@ mod browser.</p>
 
 <h2>Running a server</h2>
 <p>The dedicated server is a Docker image, with its mods in a folder on the host so a zip from this page can be
-dropped straight in. The <a href="https://github.com/omnivoxel-game/voxelcraft/blob/master/docs/playtest.md">family
+dropped straight in. The <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/playtest.md">family
 setup guide</a> walks through a home server and the Macs that join it.</p>
 
 <h2>Source</h2>
-<p>Everything lives at <a href="https://github.com/omnivoxel-game/voxelcraft">github.com/omnivoxel-game/voxelcraft</a>:
+<p>Everything lives at <a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a>:
 the engine, the mods, the tools that generate the art and sounds, and the tests. Free to use, modify and share
 for anything noncommercial; commercial use needs a separate licence.</p>
 
 <footer>
 Built from scratch with <a href="https://claude.com/claude-code">Claude Code</a> - engine, renderer, server,
 mod API, AI and tooling, from an empty folder.
+<br><br>
+Quarrowen is an independent project, not affiliated with, endorsed by or connected to Mojang Synergies AB or
+Microsoft. Minecraft is a trademark of Mojang Synergies AB.
 </footer>
 </div>
 EOF

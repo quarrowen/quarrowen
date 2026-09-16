@@ -135,7 +135,7 @@ var gameplay := {
 	"share_positions": true,  # everyone sees everyone on the map (off: only admins do)
 	"role_tags": true,  # show the player's highest role tag in chat ("[Mod] Name")
 }
-var server_info := {"name": "VoxelCraft Server", "game": "", "description": "", "motd": "", "mods": []}
+var server_info := {"name": "Quarrowen Server", "game": "", "description": "", "motd": "", "mods": []}
 ## Map markers mods set for a player: player id -> {marker id: {label, position, color}} (see ModApi.set_map_marker).
 var map_markers := {}
 ## Markers everyone sees (ModApi.set_world_marker); saved in world.json.

@@ -1,9 +1,9 @@
 [package]
-name = "voxelcraft_native"
+name = "quarrowen_native"
 version = "0.1.0"
 edition = "2021"
 publish = false
-description = "Native hot paths for the VoxelCraft engine: chunk storage, player physics, meshing, process signals."
+description = "Native hot paths for the Quarrowen engine: chunk storage, player physics, meshing, process signals."
 
 [lib]
 crate-type = ["cdylib"]

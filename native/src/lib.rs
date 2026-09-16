@@ -1,4 +1,4 @@
-//! Native hot paths for the VoxelCraft engine. Everything here has a GDScript twin that is used when
+//! Native hot paths for the Quarrowen engine. Everything here has a GDScript twin that is used when
 //! the extension is not loaded, so the native code must stay behaviourally identical to it.
 
 use godot::prelude::*;

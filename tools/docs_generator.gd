@@ -7,7 +7,7 @@ extends RefCounted
 
 const Protocol = preload("res://engine/shared/protocol.gd")
 const MOD_API := "res://engine/server/mod_api.gd"
-const TYPES := "res://engine/server/js/voxelcraft.d.ts"
+const TYPES := "res://engine/server/js/quarrowen.d.ts"
 const PRELUDE := "res://engine/server/js/prelude.js"
 const OBJECTS := [["Player", "res://engine/server/server_player.gd"], ["Entity", "res://engine/server/entity.gd"]]
 ## Reference pages: the header comment of each file.
@@ -129,12 +129,12 @@ static func build() -> String:
 		body.append("</section>")
 
 	# JavaScript.
-	nav.append('<div class="group">JavaScript</div><a href="#js-api">Api members</a><a href="#js-types">voxelcraft.d.ts</a>')
+	nav.append('<div class="group">JavaScript</div><a href="#js-api">Api members</a><a href="#js-types">quarrowen.d.ts</a>')
 	body.append('<section id="js-api"><h2>JavaScript: Api members</h2><p>JavaScript mods export <code>setup(api)</code>. Every GDScript function above has a camelCase twin where marked <span class="tag js">JS</span>. The full declarations:</p>')
 	for m in js_members:
 		body.append('<div class="card" data-search="%s"><div class="sig"><code>api.%s</code></div>%s</div>' % [_esc(m.name.to_lower()), _esc(m.signature), "<p>%s</p>" % _esc(m.doc) if not m.doc.is_empty() else ""])
 	body.append("</section>")
-	body.append('<section id="js-types"><h2>voxelcraft.d.ts</h2><p>Copy it next to your mod (new mods get it in <code>types/</code>) for editor autocomplete.</p><pre class="block">%s</pre></section>' % _esc(FileAccess.get_file_as_string(TYPES)))
+	body.append('<section id="js-types"><h2>quarrowen.d.ts</h2><p>Copy it next to your mod (new mods get it in <code>types/</code>) for editor autocomplete.</p><pre class="block">%s</pre></section>' % _esc(FileAccess.get_file_as_string(TYPES)))
 
 	# References.
 	nav.append('<div class="group">Reference</div>')
@@ -288,7 +288,7 @@ static func _esc(text: String) -> String:
 
 
 static func _intro() -> String:
-	return """<section id="start"><h1>VoxelCraft mod API</h1>
+	return """<section id="start"><h1>Quarrowen mod API</h1>
 <p class="lead">Mod API {{api_version}} · game {{game_version}}. Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>
 <h3>Make a mod in a minute</h3>
 <ol>
@@ -306,7 +306,7 @@ const PAGE := """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VoxelCraft Mod API {{api_version}}</title>
+<title>Quarrowen Mod API {{api_version}}</title>
 <style>
 :root { --bg: #fbfaf7; --panel: #ffffff; --line: #e6e2d8; --text: #25231f; --muted: #7a7466; --accent: #2f6fd0; --code: #f3f0e8; --tag: #e7f0ff; }
 @media (prefers-color-scheme: dark) { :root { --bg: #111317; --panel: #171a20; --line: #2a2f38; --text: #dde1e7; --muted: #8b919c; --accent: #7fb0ff; --code: #1f232b; --tag: #1d2a40; } }

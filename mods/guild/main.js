@@ -1,4 +1,4 @@
-// Adventurers' Guild: a VoxelCraft mod written in JavaScript.
+// Adventurers' Guild: a Quarrowen mod written in JavaScript.
 //
 // Shows off the JavaScript mod API: blocks with 3D models, items, recipes, a world-generation ore
 // pass, interactive server-driven UI, per-player saved data, per-mod world storage, events (including

@@ -16,7 +16,7 @@ extends RefCounted
 ## The manifest (an asset of every release, and what MANIFEST_URL points at):
 ##   {"version": "0.38.0",
 ##    "notes": "What changed, one line.",
-##    "builds": {"macos": {"url": "https://github.com/.../VoxelCraft-macos-0.38.0.zip",
+##    "builds": {"macos": {"url": "https://github.com/.../Quarrowen-macos-0.38.0.zip",
 ##                         "sha256": "…", "size": 123456}}}
 
 const Protocol = preload("res://engine/shared/protocol.gd")
@@ -24,18 +24,18 @@ const Semver = preload("res://engine/shared/semver.gd")
 
 ## Where updates are fetched from. The release host has to be publicly readable (a private repository's
 ## release assets need a token, which a game cannot carry), so this points at the project's public
-## distribution: override it in project.godot ("voxelcraft/update_manifest_url") for a fork or a test.
-const DEFAULT_MANIFEST_URL := "https://omnivoxel-game.github.io/voxelcraft/update.json"
+## distribution: override it in project.godot ("quarrowen/update_manifest_url") for a fork or a test.
+const DEFAULT_MANIFEST_URL := "https://quarrowen.com/update.json"
 const DOWNLOAD_DIR := "user://updates"
 ## Downloads must come from the project's own release host, whatever the manifest says.
-const ALLOWED_HOSTS := ["github.com", "objects.githubusercontent.com", "github-releases.githubusercontent.com",
-	"omnivoxel-game.github.io"]
+const ALLOWED_HOSTS := ["quarrowen.com", "www.quarrowen.com", "quarrowen.github.io",
+	"github.com", "objects.githubusercontent.com", "github-releases.githubusercontent.com"]
 const MAX_DOWNLOAD_BYTES := 512 * 1024 * 1024
 
 
 ## Where to ask about new versions (the project setting wins, so a fork can point somewhere else).
 static func manifest_url() -> String:
-	var configured := str(ProjectSettings.get_setting("voxelcraft/update_manifest_url", ""))
+	var configured := str(ProjectSettings.get_setting("quarrowen/update_manifest_url", ""))
 	return configured if configured.begins_with("https://") else DEFAULT_MANIFEST_URL
 
 
@@ -132,7 +132,7 @@ static func install_script(zip_path: String, work_dir: String, installed: String
 	var unpacked := work_dir.path_join("unpacked")
 	var lines := [
 		"#!/bin/sh",
-		"# Written by VoxelCraft's updater: waits for the running game to quit, unpacks the update, puts it",
+		"# Written by Quarrowen's updater: waits for the running game to quit, unpacks the update, puts it",
 		"# in place and starts it again. Safe to delete.",
 		"set -e",
 		"for i in $(seq 1 150); do",

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Builds the Rust extension and installs it where voxelcraft_native.gdextension expects it:
-#   native/bin/<platform>/(lib)voxelcraft_native.(dylib|so|dll)
+# Builds the Rust extension and installs it where quarrowen_native.gdextension expects it:
+#   native/bin/<platform>/(lib)quarrowen_native.(dylib|so|dll)
 #
 #   tools/build_native.sh              # host platform
 #   tools/build_native.sh macos        # universal (arm64 + x86_64) macOS library
@@ -31,24 +31,24 @@ install_lib() { # source dest_dir name
 case "$platform" in
   macos-host)
     cargo build --release
-    install_lib target/release/libvoxelcraft_native.dylib macos libvoxelcraft_native.dylib ;;
+    install_lib target/release/libquarrowen_native.dylib macos libquarrowen_native.dylib ;;
   macos)
     rustup target add aarch64-apple-darwin x86_64-apple-darwin >/dev/null
     cargo build --release --target aarch64-apple-darwin
     cargo build --release --target x86_64-apple-darwin
     mkdir -p ../native/bin/macos
-    lipo -create -output ../native/bin/macos/libvoxelcraft_native.dylib \
-      target/aarch64-apple-darwin/release/libvoxelcraft_native.dylib \
-      target/x86_64-apple-darwin/release/libvoxelcraft_native.dylib
-    echo "installed native/bin/macos/libvoxelcraft_native.dylib (universal)" ;;
+    lipo -create -output ../native/bin/macos/libquarrowen_native.dylib \
+      target/aarch64-apple-darwin/release/libquarrowen_native.dylib \
+      target/x86_64-apple-darwin/release/libquarrowen_native.dylib
+    echo "installed native/bin/macos/libquarrowen_native.dylib (universal)" ;;
   linux-x86_64)
     cargo build --release --target x86_64-unknown-linux-gnu
-    install_lib target/x86_64-unknown-linux-gnu/release/libvoxelcraft_native.so linux-x86_64 libvoxelcraft_native.so ;;
+    install_lib target/x86_64-unknown-linux-gnu/release/libquarrowen_native.so linux-x86_64 libquarrowen_native.so ;;
   linux-arm64)
     cargo build --release --target aarch64-unknown-linux-gnu
-    install_lib target/aarch64-unknown-linux-gnu/release/libvoxelcraft_native.so linux-arm64 libvoxelcraft_native.so ;;
+    install_lib target/aarch64-unknown-linux-gnu/release/libquarrowen_native.so linux-arm64 libquarrowen_native.so ;;
   windows-x86_64)
     cargo build --release --target x86_64-pc-windows-msvc
-    install_lib target/x86_64-pc-windows-msvc/release/voxelcraft_native.dll windows-x86_64 voxelcraft_native.dll ;;
+    install_lib target/x86_64-pc-windows-msvc/release/quarrowen_native.dll windows-x86_64 quarrowen_native.dll ;;
   *) echo "unknown platform $platform" >&2; exit 1 ;;
 esac

@@ -1,4 +1,4 @@
-# Playing VoxelCraft at home
+# Playing Quarrowen at home
 
 A family setup: the server runs in Docker on a home Linux machine, and everyone plays from their own Mac
 (Apple silicon) on the same home network.
@@ -19,8 +19,8 @@ You need Docker with the Compose plugin (`docker compose version` should work) a
 ```sh
 sudo apt install gh        # or see https://cli.github.com
 gh auth login
-gh repo clone omnivoxel-game/voxelcraft
-cd voxelcraft/deploy/homelab
+gh repo clone quarrowen/quarrowen
+cd quarrowen/deploy/homelab
 ```
 
 **Choose names.** Copy the example settings and edit them:
@@ -77,16 +77,16 @@ development):
 tools/package_mac.sh
 ```
 
-It makes `build/macos/VoxelCraft-<version>-mac-arm64.zip`. Send the zip to each Mac (AirDrop works well).
+It makes `build/macos/Quarrowen-<version>-mac-arm64.zip`. Send the zip to each Mac (AirDrop works well).
 
 **Install on each Mac:**
 
-1. Double-click the zip, then drag **VoxelCraft** into **Applications**.
+1. Double-click the zip, then drag **Quarrowen** into **Applications**.
 2. The first time, macOS blocks apps that are not from the App Store or a registered developer. Open it anyway:
-   right-click (or Control-click) **VoxelCraft** in Applications, choose **Open**, then **Open** again.
+   right-click (or Control-click) **Quarrowen** in Applications, choose **Open**, then **Open** again.
    On newer macOS versions, if there is no Open button: try to open it once, then go to
    **System Settings → Privacy & Security**, scroll down and click **Open Anyway**.
-   (Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/VoxelCraft.app`.)
+   (Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/Quarrowen.app`.)
 3. After that it opens normally.
 
 A MacBook Air runs the game well on the default graphics. If it feels slow, open **Settings → Graphics** and
@@ -94,7 +94,7 @@ choose **Fast**.
 
 ## 3. First game
 
-1. **You first.** Open VoxelCraft, click the name under **Playing as** at the bottom left and type your admin name
+1. **You first.** Open Quarrowen, click the name under **Playing as** at the bottom left and type your admin name
    exactly as in `ADMINS`. The first player to use a name on a server keeps it, so join before sharing.
 2. Go to **Multiplayer → LAN**. The server appears there (the name from `SERVER_NAME`). Double-click it.
    If it does not appear, type the server's address (like `192.168.1.20`) in the box at the top and press **Join**.
@@ -143,7 +143,7 @@ roles** to give roles (builder, moderator, admin) or kick someone, without typin
 whole world out to a folder:
 
 ```sh
-docker run --rm -v homelab_voxelcraft-data:/data -v "$PWD":/out debian tar czf /out/voxelcraft-world.tgz -C /data .
+docker run --rm -v homelab_quarrowen-data:/data -v "$PWD":/out debian tar czf /out/quarrowen-world.tgz -C /data .
 ```
 
 (`docker volume ls` shows the exact volume name.) The volume also holds the server's identity: keep it, or
@@ -152,18 +152,29 @@ every Mac will warn that the server's identity changed.
 **Worlds survive updates.** Builds, chests, animals and inventories are kept when you update; the server backs a
 world up before it upgrades the save format. Always update with the *same* Compose project name you started with,
 because the world lives in that project's volume: if you started with plain `docker compose up`, keep using that
-from the same folder; if you used `-p voxelcraft`, keep using it. `docker volume ls` shows the volumes
-(`homelab_voxelcraft-data` or `voxelcraft_voxelcraft-data`).
+from the same folder; if you used `-p quarrowen`, keep using it. `docker volume ls` shows the volumes
+(`homelab_quarrowen-data` or `quarrowen_quarrowen-data`).
 
 **The Macs update themselves.** When the menu opens, the game checks the download page and offers the new
 version in a banner; pressing Update downloads it, checks it against the checksum published with the release
 and swaps the app (Settings → Network turns the check off, Settings → Account has a "Check for updates"
 button). Nothing is ever downloaded from a game server - a server can only say which version it needs.
 
+**Coming from the VoxelCraft build.** The game was renamed to Quarrowen; the server's Docker volumes are
+named after it now, so copy the old world across once before starting:
+
+```sh
+docker volume create homelab_quarrowen-data
+docker run --rm -v homelab_voxelcraft-data:/from -v homelab_quarrowen-data:/to alpine sh -c "cp -a /from/. /to/"
+```
+
+(`docker volume ls` shows the exact names.) On each Mac nothing is needed: the game brings your identity,
+worlds and settings across by itself the first time it starts.
+
 **Updating.** Server and Macs must run the same version. On the server:
 
 ```sh
-cd voxelcraft && git pull && cd deploy/homelab && docker compose up -d --build
+cd quarrowen && git pull && cd deploy/homelab && docker compose up -d --build
 ```
 
 Then publish the release with `tools/make_release.sh` (it builds the app, the mod zips, the download page
@@ -177,18 +188,18 @@ mod change does not need a rebuild - only `docker compose restart`.
 A second server (Sky Islands, the skyblock game) can run next to the family server, with portals between them.
 Players keep their inventory as they travel.
 
-1. Start both: `docker compose -p voxelcraft -f compose.yaml -f compose.two-worlds.yaml up -d --build`
+1. Start both: `docker compose -p quarrowen -f compose.yaml -f compose.two-worlds.yaml up -d --build`
    (and open its ports too: `sudo ufw allow 24567:24568/udp`).
-2. Find each server's id in its log: `docker logs voxelcraft | grep "Server id"` and
-   `docker logs voxelcraft-sky | grep "Server id"`.
+2. Find each server's id in its log: `docker logs quarrowen | grep "Server id"` and
+   `docker logs quarrowen-sky | grep "Server id"`.
 3. Tell each server about the other. Copy `network.example.json`, fill in the *other* server's id and your
    machine's address, and put it in each server's data volume:
    ```sh
-   cp network.example.json family-network.json   # "sky": port 24567, id of voxelcraft-sky
-   cp network.example.json sky-network.json      # rename "sky" to "family": name, port 24565, id of voxelcraft
+   cp network.example.json family-network.json   # "sky": port 24567, id of quarrowen-sky
+   cp network.example.json sky-network.json      # rename "sky" to "family": name, port 24565, id of quarrowen
    nano family-network.json sky-network.json
-   docker cp family-network.json voxelcraft:/data/network.json
-   docker cp sky-network.json voxelcraft-sky:/data/network.json
+   docker cp family-network.json quarrowen:/data/network.json
+   docker cp sky-network.json quarrowen-sky:/data/network.json
    ```
    Then in game on each server (as admin): `/network reload`, and `/network` to check.
 4. **Travel:** `/server sky` (with `"hop": true`, anyone may), or build a portal: place **Portal** blocks (from

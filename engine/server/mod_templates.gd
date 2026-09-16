@@ -7,7 +7,7 @@ extends RefCounted
 
 const ModLoader = preload("res://engine/server/mod_loader.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
-const TYPES_SOURCE := "res://engine/server/js/voxelcraft.d.ts"
+const TYPES_SOURCE := "res://engine/server/js/quarrowen.d.ts"
 
 
 ## options: id, name, language ("gdscript" | "javascript"), kind ("addon" | "game"), author, description.
@@ -33,7 +33,7 @@ static func create(parent_dir: String, options: Dictionary) -> Dictionary:
 		vars.name = id.capitalize()
 	var description := str(options.get("description", ""))
 	if description.is_empty():
-		description = "A new game made with VoxelCraft." if game else "Adds a crate, a gem and a little tutorial. Play it with any game, e.g. --mods=vanilla,%s" % id
+		description = "A new game made with Quarrowen." if game else "Adds a crate, a gem and a little tutorial. Play it with any game, e.g. --mods=vanilla,%s" % id
 	var manifest := {"id": id, "name": vars.name, "version": "0.1.0", "description": description, "authors": [vars.author] if not vars.author.is_empty() else [],
 		"engine": vars.engine, "depends": ["base@^1.0"], "game": game}
 	if js:
@@ -42,7 +42,7 @@ static func create(parent_dir: String, options: Dictionary) -> Dictionary:
 	if js:
 		files["main.js"] = _fill(JS_MAIN, vars, js, game)
 		if FileAccess.file_exists(TYPES_SOURCE):
-			files["types/voxelcraft.d.ts"] = FileAccess.get_file_as_string(TYPES_SOURCE)
+			files["types/quarrowen.d.ts"] = FileAccess.get_file_as_string(TYPES_SOURCE)
 		files["jsconfig.json"] = JSON.stringify({"compilerOptions": {"checkJs": true, "module": "es2020", "target": "es2020"}, "include": ["main.js", "types"]}, "\t") + "\n"
 	else:
 		files["main.gd"] = _fill(GD_MAIN, vars, js, game)
@@ -212,10 +212,10 @@ func setup(api) -> void:
 
 const JS_MAIN := """// {{name}}: a starter mod. Start a dev server (see README.md), change anything here and save: the
 // server reloads the mod by itself. F8 opens the dev tools (logs, errors, inspector, events, profiler).
-// Types for editor autocomplete: types/voxelcraft.d.ts (kept up to date by the engine's copy).
+// Types for editor autocomplete: types/quarrowen.d.ts (kept up to date by the engine's copy).
 // @ts-check
 
-/** @param {import("voxelcraft").Api} api */
+/** @param {import("quarrowen").Api} api */
 export function setup(api) {
   console.log("{{name}} is loading");
 {{#game}}
@@ -274,7 +274,7 @@ export function setup(api) {
 
 const README := """# {{name}}
 
-{{#game}}A game{{/game}}{{^game}}An add-on{{/game}} made with VoxelCraft ({{#js}}JavaScript{{/js}}{{^js}}GDScript{{/js}}).
+{{#game}}A game{{/game}}{{^game}}An add-on{{/game}} made with Quarrowen ({{#js}}JavaScript{{/js}}{{^js}}GDScript{{/js}}).
 
 ## Try it
 

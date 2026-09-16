@@ -1,15 +1,15 @@
 # Optional: a second world (Sky Islands) next to the family server, with portals between them.
-#   docker compose -p voxelcraft -f compose.yaml -f compose.two-worlds.yaml up -d --build
+#   docker compose -p quarrowen -f compose.yaml -f compose.two-worlds.yaml up -d --build
 # Then follow "Two worlds and portals" in docs/playtest.md to connect them.
 
 services:
-  voxelcraft-sky:
-    image: voxelcraft-server
-    container_name: voxelcraft-sky
+  quarrowen-sky:
+    image: quarrowen-server
+    container_name: quarrowen-sky
     restart: unless-stopped
     stop_grace_period: 30s
     network_mode: host
-    depends_on: [voxelcraft]
+    depends_on: [quarrowen]
     environment:
       VOXEL_NAME: ${SKY_NAME:-Sky Islands}
       VOXEL_MOTD: Start on a tiny island
@@ -24,8 +24,8 @@ services:
       VOXEL_BACKUP_INTERVAL: "60"
       VOXEL_BACKUP_KEEP: "48"
     volumes:
-      - voxelcraft-sky-data:/data
+      - quarrowen-sky-data:/data
       - ${MODS_DIR:-./mods}:/mods  # the same mods as the family server
 
 volumes:
-  voxelcraft-sky-data:
+  quarrowen-sky-data:

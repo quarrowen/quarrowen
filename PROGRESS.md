@@ -1,14 +1,14 @@
-# VoxelCraft — progress and resume notes
+# Quarrowen — progress and resume notes
 
 Last updated: 2026-09-14. Read this first when resuming.
 
 ## Repository and branches
 
-Remote: `git@github.com:omnivoxel-game/voxelcraft.git` (private, default branch `master`). The repo
+Remote: `git@github.com:quarrowen/quarrowen.git` (private, default branch `master`). The repo
 was recreated on 2026-09-14 with rewritten history (attribution lines and `.mcp.json` removed), so
 the old PR pages (#1-#5: hardening, gameplay foundation, engine mob AI, equipment core, visuals) no
 longer exist; their work is on `master`. The crafting milestone and the survival loop were merged into `master` on 2026-09-14. If SSH to GitHub times out, push over HTTPS with
-`git -c credential.helper='!gh auth git-credential' push https://github.com/omnivoxel-game/voxelcraft.git <branch>`.
+`git -c credential.helper='!gh auth git-credential' push https://github.com/quarrowen/quarrowen.git <branch>`.
 Target platform for now: macOS on Apple silicon only (user, 2026-09-15). GitHub CI is paused (manual
 dispatch only; the old triggers are in a comment in `.github/workflows/ci.yml`); run the local suites instead.
 
@@ -43,7 +43,7 @@ changes with `tools/build_native.sh`.
 - Mod API: `register_mob_behavior`, `make_noise`, entity methods `set_target`, `get_target`,
   `add_threat`, `tune`, `alert`, `set_home`, `perform_attack`, `get_behavior`, `set_goal`;
   events `mob_target`, `mob_attack`, `mob_phase`. JavaScript equivalents in `js_mod.gd`,
-  `js/prelude.js`, `js/voxelcraft.d.ts` (`registerMobBehavior`, `makeNoise`, `mob.tune`, ...).
+  `js/prelude.js`, `js/quarrowen.d.ts` (`registerMobBehavior`, `makeNoise`, `mob.tune`, ...).
 - Content: vanilla zombie (pack hunter with claw + lunge), skeleton archer (kites, strafes, dodges,
   arrows), pigs (herd alerts), Ancient Colossus boss (`/colossus`, 1.2 wide x 7.2 tall, stomp/punch,
   phase 2 charge + raise dead, boss bar); guild JS: elite bounty via `tune`, treasure goblin with a
@@ -226,7 +226,7 @@ changes with `tools/build_native.sh`.
      Invite friends): live offline-generated world with the avatar, sidebar pages Play (worlds: new/rename/
      delete/folder), Multiplayer (address or invite code, favorites and recent with UDP status: name, motd,
      game, players, ping, version), Avatar, Create, Settings (identity, port); --name/--motd/--query-port;
-     menus scale on high-DPI (game screens too since N2). Invite links (voxelcraft://) wait for export
+     menus scale on high-DPI (game screens too since N2). Invite links (quarrowen://) wait for export
      packaging (URL scheme registration).
    - N2 Settings screen (done: engine/client/settings/client_settings.gd schema + settings_screen.gd; menu Settings page
      with an Account tab, pause menu Settings overlay): graphics preset/custom toggles, FOV, window mode, v-sync,

@@ -8,7 +8,7 @@ chosen for a world. Written before alpha 2 so the first public release already w
 `tools/make_release.sh` builds everything and writes the two files the game reads:
 
 ```
-VoxelCraft-<version>-mac-arm64.zip     the app
+Quarrowen-<version>-mac-arm64.zip     the app
 mods/<id>-<version>.zip                one zip per mod (base, vanilla, arcana, industry, guild,
                                        skyblock, oneblock)
 update.json                            {version, notes, builds: {macos: {url, sha256, size}}}
@@ -22,7 +22,7 @@ Both JSON files carry a checksum for every download. Nothing is installed withou
 A plain static site, so a kid can open one page and press Download:
 
 ```
-https://<org>.github.io/voxelcraft/
+https://quarrowen.com/
   index.html            what it is, Download for Mac, "first launch" instructions
   update.json           the updater's manifest (same file the release attaches)
   mods.json             the mod index
@@ -32,7 +32,7 @@ https://<org>.github.io/voxelcraft/
 **The repository is public** (2026-09-16), so Pages and release assets both download without an
 account - a private repository's release assets need a token, which a game cannot carry. The address is
 baked into the client (`engine/client/updater.gd`), never taken from a server, and `project.godot`'s
-`voxelcraft/update_manifest_url` can point a fork somewhere else.
+`quarrowen/update_manifest_url` can point a fork somewhere else.
 
 `tools/publish_site.sh` pushes the page, `update.json` and `mods.json` to the `gh-pages` branch, and
 with `--with-release` attaches the zips to the GitHub release (release assets do not count against the
@@ -51,7 +51,7 @@ needs; the client then offers the update from its own pinned source.
 
 ## 4. Mods: the problem
 
-Today the app carries `base`, `vanilla` and the add-ons inside `VoxelCraft.app/Contents/Resources/mods`,
+Today the app carries `base`, `vanilla` and the add-ons inside `Quarrowen.app/Contents/Resources/mods`,
 and a dedicated server keeps its own copy in `/mods`. That covers the bundled games, but not:
 
 - a player wanting a mod that does not ship with the game,

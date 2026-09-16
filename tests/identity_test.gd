@@ -29,7 +29,7 @@ func _ready() -> void:
 	doc = JSON.parse_string(text)
 	doc.iterations = 20001
 	_check(Identity.import_encrypted(JSON.stringify(doc), passphrase).has("error"), "modified parameters rejected")
-	_check(Identity.import_encrypted("{}", passphrase).get("error", "").contains("Not a VoxelCraft"), "unrelated file rejected")
+	_check(Identity.import_encrypted("{}", passphrase).get("error", "").contains("Not a Quarrowen"), "unrelated file rejected")
 
 	# Installing replaces the named identity and keeps the previous one.
 	var path := Identity.path_for(NAME)

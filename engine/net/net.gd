@@ -20,7 +20,7 @@ const BULK_CHANNEL := 2
 const Protocol = preload("res://engine/shared/protocol.gd")
 const KnownServers = preload("res://engine/net/known_servers.gd")
 ## Common name in server certificates; clients verify against a pinned certificate, not a CA.
-const CERT_COMMON_NAME := "voxelcraft-server"
+const CERT_COMMON_NAME := "quarrowen-server"
 
 ## Emitted on clients when the connection handshake refuses to continue (version mismatch, changed
 ## server identity). The peer is closed afterwards.
@@ -106,7 +106,7 @@ static func load_or_create_server_identity(dir: String) -> Array:
 		return [key, cert, FileAccess.get_file_as_string(cert_path)]
 	var crypto := Crypto.new()
 	key = crypto.generate_rsa(2048)
-	cert = crypto.generate_self_signed_certificate(key, "CN=%s,O=VoxelCraft" % CERT_COMMON_NAME, "20250101000000", "21000101000000")
+	cert = crypto.generate_self_signed_certificate(key, "CN=%s,O=Quarrowen" % CERT_COMMON_NAME, "20250101000000", "21000101000000")
 	key.save(key_path)
 	cert.save(cert_path)
 	print("[server] Generated server identity in %s" % ProjectSettings.globalize_path(dir))

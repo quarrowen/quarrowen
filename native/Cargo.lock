@@ -210,6 +210,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "quarrowen_native"
+version = "0.1.0"
+dependencies = [
+ "godot",
+ "libm",
+ "rquickjs",
+ "signal-hook",
+ "tiny_http",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -348,17 +359,6 @@ checksum = "9a42528baceab6c7784446df2a10f4185078c39bf73dc614f154353f1a6b1229"
 dependencies = [
  "proc-macro2",
  "quote",
-]
-
-[[package]]
-name = "voxelcraft_native"
-version = "0.1.0"
-dependencies = [
- "godot",
- "libm",
- "rquickjs",
- "signal-hook",
- "tiny_http",
 ]
 
 [[package]]

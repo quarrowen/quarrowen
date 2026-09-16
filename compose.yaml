@@ -1,4 +1,4 @@
-# Two different games from one image. Any VoxelCraft client can join either:
+# Two different games from one image. Any Quarrowen client can join either:
 #   vanilla  -> <host>:24565
 #   skyblock -> <host>:24567
 # Each server answers menu status queries (name, players, ping) on its port + 1.
@@ -6,7 +6,7 @@
 
 x-server: &server
   build: .
-  image: voxelcraft-server
+  image: quarrowen-server
   restart: unless-stopped
   stop_grace_period: 30s
   volumes:

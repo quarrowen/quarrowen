@@ -10,7 +10,7 @@ const MAX_PEM_LENGTH := 4096
 const NONCE_BYTES := 32
 
 
-const EXPORT_FORMAT := "voxelcraft-identity"
+const EXPORT_FORMAT := "quarrowen-identity"
 const EXPORT_ITERATIONS := 210000
 const MIN_PASSPHRASE_LENGTH := 8
 
@@ -102,7 +102,7 @@ static func export_encrypted(key: CryptoKey, passphrase: String, iterations := E
 static func import_encrypted(text: String, passphrase: String) -> Dictionary:
 	var doc = JSON.parse_string(text) if text.length() < 16384 else null
 	if not (doc is Dictionary) or doc.get("format") != EXPORT_FORMAT or int(doc.get("version", 0)) != 1:
-		return {"error": "Not a VoxelCraft identity file"}
+		return {"error": "Not a Quarrowen identity file"}
 	var iterations := int(doc.get("iterations", 0))
 	if iterations < 10000 or iterations > 10000000:
 		return {"error": "Unsupported identity file parameters"}

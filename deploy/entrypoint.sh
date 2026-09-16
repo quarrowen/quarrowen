@@ -12,7 +12,7 @@
 #   never            copy nothing; /mods is entirely yours
 set -e
 
-seed_dir=/opt/voxelcraft/mods-seed
+seed_dir=/opt/quarrowen/mods-seed
 mods_dir="${VOXEL_MODS_DIR:-/mods}"
 mode="${VOXEL_SEED_MODS:-update}"
 
@@ -35,4 +35,4 @@ if [ "$mode" != "never" ] && [ -d "$seed_dir" ]; then
 fi
 echo "[entrypoint] loading mods from $mods_dir: $(ls "$mods_dir" 2>/dev/null | tr '\n' ' ')"
 
-exec /opt/voxelcraft/voxelcraft_server --headless "$@"
+exec /opt/quarrowen/quarrowen_server --headless "$@"

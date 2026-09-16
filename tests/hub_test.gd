@@ -2,7 +2,7 @@ extends Node
 ## The hub (services/hub) with a real game server: the server lists itself (signed, address proven by
 ## a status query), the menu's hub client browses and resolves its code, news comes through, forged
 ## announces are refused, and LAN discovery finds the server on this computer.
-##   godot --headless --path . res://tests/hub_test.tscn -- --hub-bin=services/hub/target/release/voxelcraft-hub
+##   godot --headless --path . res://tests/hub_test.tscn -- --hub-bin=services/hub/target/release/quarrowen-hub
 
 const HubClient = preload("res://engine/client/menu/hub_client.gd")
 const ServerPinger = preload("res://engine/client/menu/server_pinger.gd")
@@ -23,7 +23,7 @@ func _run() -> void:
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		args[kv[0]] = kv[1] if kv.size() > 1 else "true"
-	var hub_bin := ProjectSettings.globalize_path(str(args.get("hub-bin", "res://services/hub/target/release/voxelcraft-hub")))
+	var hub_bin := ProjectSettings.globalize_path(str(args.get("hub-bin", "res://services/hub/target/release/quarrowen-hub")))
 	if not FileAccess.file_exists(hub_bin):
 		print("[hub] SKIPPED (no hub binary at %s; build it with cargo build --release in services/hub)" % hub_bin)
 		get_tree().quit(0)
@@ -135,7 +135,7 @@ func _social(hub_url: String, game_port: int) -> void:
 	var challenge: Array = await _post(hub_url + "/v1/auth/challenge", "{}", "")
 	var nonce := str(challenge[1].get("nonce", "")) if challenge[1] is Dictionary else ""
 	var key := Crypto.new().generate_rsa(2048)
-	var signed := Marshalls.raw_to_base64(preload("res://engine/shared/identity.gd").sign(key, ("voxelcraft-hub-login:%s:%s" % ["http://evil.example", nonce]).to_utf8_buffer()))
+	var signed := Marshalls.raw_to_base64(preload("res://engine/shared/identity.gd").sign(key, ("quarrowen-hub-login:%s:%s" % ["http://evil.example", nonce]).to_utf8_buffer()))
 	var replay: Array = await _post(hub_url + "/v1/auth/login", JSON.stringify({"key": key.save_to_string(true), "nonce": nonce, "hub": hub_url, "signature": signed}), "")
 	_check(replay[0] == 401, "a sign-in signed for another hub is refused")
 	var anonymous: Array = await _post(hub_url + "/v1/friends/request", JSON.stringify({"code": alice_code}), "")

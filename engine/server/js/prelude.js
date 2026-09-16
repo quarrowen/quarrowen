@@ -1,4 +1,4 @@
-// VoxelCraft JavaScript mod API. Evaluated before a mod's main module.
+// Quarrowen JavaScript mod API. Evaluated before a mod's main module.
 //
 // A mod is an ES module exporting `setup(api)`:
 //
@@ -8,7 +8,7 @@
 //   }
 //
 // Every call crosses into the engine as JSON, so values are plain data: positions are {x, y, z},
-// players are Player objects, block/item ids are numbers. Types: engine/server/js/voxelcraft.d.ts.
+// players are Player objects, block/item ids are numbers. Types: engine/server/js/quarrowen.d.ts.
 "use strict";
 
 (() => {

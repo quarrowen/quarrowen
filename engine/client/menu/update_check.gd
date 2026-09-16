@@ -76,7 +76,7 @@ func _hand_over(bytes: PackedByteArray) -> String:
 		return "This copy was not installed as an app, so it cannot update itself."
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(Updater.DOWNLOAD_DIR))
 	var work := ProjectSettings.globalize_path(Updater.DOWNLOAD_DIR)
-	var zip_path := work.path_join("VoxelCraft-%s.zip" % _update.version)
+	var zip_path := work.path_join("Quarrowen-%s.zip" % _update.version)
 	var zip := FileAccess.open(zip_path, FileAccess.WRITE)
 	if zip == null:
 		return "The update could not be saved (%s)." % error_string(FileAccess.get_open_error())

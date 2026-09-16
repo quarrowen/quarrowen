@@ -83,6 +83,6 @@ func _request_json(path: String, done: Callable) -> void:
 			done.call(null, str(parsed.get("error", "hub error %d" % status)) if parsed is Dictionary else "hub error %d" % status)
 			return
 		done.call(parsed, ""))
-	if http.request(hub_url() + path, PackedStringArray(["User-Agent: VoxelCraft/%s" % Protocol.GAME_VERSION])) != OK:
+	if http.request(hub_url() + path, PackedStringArray(["User-Agent: Quarrowen/%s" % Protocol.GAME_VERSION])) != OK:
 		http.queue_free()
 		done.call(null, "cannot reach the hub")

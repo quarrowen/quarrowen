@@ -4,7 +4,7 @@
 	"version": "1.0.0",
 	"description": "Survive on your own tiny island above the void. Mine the generator, complete challenges, expand.",
 	"authors": [
-		"VoxelCraft"
+		"Quarrowen"
 	],
 	"engine": "^1.0",
 	"depends": [

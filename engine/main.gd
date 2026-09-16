@@ -26,6 +26,7 @@ const MainMenu = preload("res://engine/client/menu/main_menu.gd")
 const MenuBackdrop = preload("res://engine/client/menu/menu_backdrop.gd")
 const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
+const DataMigration = preload("res://engine/client/data_migration.gd")
 const UpdateCheck = preload("res://engine/client/menu/update_check.gd")
 const SocialClient = preload("res://engine/client/social/social_client.gd")
 const InviteCode = preload("res://engine/shared/invite_code.gd")
@@ -47,6 +48,8 @@ var _pending_join := {}
 
 
 func _ready() -> void:
+	# Before anything reads settings, worlds or the identity key: bring them across from an older name.
+	DataMigration.run()
 	_args = _parse_args()
 	if _args.has("server"):
 		_run_dedicated_server()

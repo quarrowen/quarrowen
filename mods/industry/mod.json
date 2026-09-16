@@ -4,7 +4,7 @@
 	"version": "1.0.0",
 	"description": "Power networks: coal generators and solar panels feed cables, batteries, lamps and auto-miners. Add to any game, e.g. --mods=vanilla,industry",
 	"authors": [
-		"VoxelCraft"
+		"Quarrowen"
 	],
 	"engine": "^1.0",
 	"depends": [

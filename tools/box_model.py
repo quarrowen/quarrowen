@@ -58,7 +58,7 @@ def main():
     dest, parts = sys.argv[1], parse_parts(sys.argv[2:])
     binary = bytearray()
     doc = {
-        "asset": {"version": "2.0", "generator": "voxelcraft box_model.py"},
+        "asset": {"version": "2.0", "generator": "quarrowen box_model.py"},
         "scene": 0,
         "scenes": [{"nodes": list(range(len(parts)))}],
         "nodes": [],

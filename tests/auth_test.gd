@@ -68,7 +68,7 @@ func _run() -> void:
 	var real_pin := FileAccess.get_file_as_string(KnownServers.path_for(endpoint))
 	var crypto := Crypto.new()
 	var fake_key := crypto.generate_rsa(1024)
-	crypto.generate_self_signed_certificate(fake_key, "CN=voxelcraft-server").save(KnownServers.path_for(endpoint))
+	crypto.generate_self_signed_certificate(fake_key, "CN=quarrowen-server").save(KnownServers.path_for(endpoint))
 	var started := Time.get_ticks_msec()
 	var impersonated = await _join("auth_guest", "Guest", true)
 	_check(impersonated is String and impersonated.contains("identity has changed"), "changed server identity refused in %dms (%s)" % [Time.get_ticks_msec() - started, str(impersonated)])

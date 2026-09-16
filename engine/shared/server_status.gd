@@ -19,7 +19,7 @@ const REQUEST_SIZE := 512
 const RESPONSE_MAX := 1024
 const NONCE_SIZE := 8
 const FLAG_PROOF := 1
-const PROOF_PREFIX := "voxelcraft-status-proof:"
+const PROOF_PREFIX := "quarrowen-status-proof:"
 
 
 static func query_port(game_port: int) -> int:

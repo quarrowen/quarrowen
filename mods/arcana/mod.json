@@ -4,7 +4,7 @@
 	"version": "1.0.0",
 	"description": "A mana system: crystals spawn underground, pylons recharge mana, wands cast spells. Add to any game, e.g. --mods=vanilla,arcana",
 	"authors": [
-		"VoxelCraft"
+		"Quarrowen"
 	],
 	"engine": "^1.0",
 	"depends": [

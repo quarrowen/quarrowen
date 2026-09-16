@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1.7
-# VoxelCraft dedicated server, built from an exported Godot "Linux Server" preset.
-#   docker build -t voxelcraft-server .
-#   docker run -p 24565:24565/udp -v voxel-data:/data -v voxel-mods:/mods -e VOXEL_MODS=skyblock voxelcraft-server
+# Quarrowen dedicated server, built from an exported Godot "Linux Server" preset.
+#   docker build -t quarrowen-server .
+#   docker run -p 24565:24565/udp -v voxel-data:/data -v voxel-mods:/mods -e VOXEL_MODS=skyblock quarrowen-server
 # The image holds the engine only: the mods it loads live in /mods (a volume), seeded from the copy it
 # shipped with on every start (see deploy/entrypoint.sh).
-# Multi-arch: docker buildx build --platform linux/amd64,linux/arm64 -t voxelcraft-server .
+# Multi-arch: docker buildx build --platform linux/amd64,linux/arm64 -t quarrowen-server .
 
 ARG GODOT_VERSION=4.7.2
 ARG RUST_VERSION=1.98
@@ -16,9 +16,9 @@ WORKDIR /src/native
 COPY native/Cargo.toml native/Cargo.lock ./
 COPY native/src ./src
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/src/native/target,id=voxelcraft-target-${TARGETARCH} \
+    --mount=type=cache,target=/src/native/target,id=quarrowen-target-${TARGETARCH} \
     cargo build --release --locked \
- && mkdir -p /out && cp target/release/libvoxelcraft_native.so /out/
+ && mkdir -p /out && cp target/release/libquarrowen_native.so /out/
 
 # --- Export (runs on the build machine's architecture) ------------------------------------------
 FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS export
@@ -46,17 +46,17 @@ RUN --mount=type=cache,target=/cache \
  && cp "/cache/${GODOT_VERSION}/"* "$templates/"
 WORKDIR /project
 COPY . .
-COPY --from=native /out/libvoxelcraft_native.so /tmp/libvoxelcraft_native.so
+COPY --from=native /out/libquarrowen_native.so /tmp/libquarrowen_native.so
 RUN case "${TARGETARCH}" in \
       amd64) preset="Linux Server x86_64"; platform=linux-x86_64; build=build/server-x86_64; suffix=x86_64 ;; \
       arm64) preset="Linux Server arm64"; platform=linux-arm64; build=build/server-arm64; suffix=arm64 ;; \
       *) echo "unsupported target arch ${TARGETARCH}"; exit 1 ;; \
     esac \
- && mkdir -p "native/bin/${platform}" && cp /tmp/libvoxelcraft_native.so "native/bin/${platform}/" \
+ && mkdir -p "native/bin/${platform}" && cp /tmp/libquarrowen_native.so "native/bin/${platform}/" \
  && GODOT=/usr/local/bin/godot tools/export.sh "$preset" \
  && mkdir -p /out && cp -r "$build"/. /out/ \
- && mv "/out/voxelcraft_server.${suffix}" /out/voxelcraft_server
-RUN test -x /out/voxelcraft_server && test -f /out/voxelcraft_server.pck && test -f /out/libvoxelcraft_native.so && test -d /out/mods/base
+ && mv "/out/quarrowen_server.${suffix}" /out/quarrowen_server
+RUN test -x /out/quarrowen_server && test -f /out/quarrowen_server.pck && test -f /out/libquarrowen_native.so && test -d /out/mods/base
 
 # --- Runtime ------------------------------------------------------------------------------------
 FROM debian:bookworm-slim
@@ -64,12 +64,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends libfontconfig1 
  && rm -rf /var/lib/apt/lists/* \
  && useradd --create-home --uid 10001 voxel \
  && mkdir -p /data /mods && chown voxel:voxel /data /mods
-COPY --from=export --chown=voxel:voxel /out /opt/voxelcraft
-COPY --chown=voxel:voxel deploy/entrypoint.sh /opt/voxelcraft/entrypoint.sh
+COPY --from=export --chown=voxel:voxel /out /opt/quarrowen
+COPY --chown=voxel:voxel deploy/entrypoint.sh /opt/quarrowen/entrypoint.sh
 # The engine keeps no mods beside the binary: they are seeded into /mods (the volume) and loaded from there.
-RUN mv /opt/voxelcraft/mods /opt/voxelcraft/mods-seed && chmod +x /opt/voxelcraft/entrypoint.sh
+RUN mv /opt/quarrowen/mods /opt/quarrowen/mods-seed && chmod +x /opt/quarrowen/entrypoint.sh
 USER voxel
-WORKDIR /opt/voxelcraft
+WORKDIR /opt/quarrowen
 ENV VOXEL_DATA_DIR=/data \
     VOXEL_MODS_DIR=/mods \
     VOXEL_SEED_MODS=update \
@@ -78,4 +78,4 @@ ENV VOXEL_DATA_DIR=/data \
 VOLUME ["/data", "/mods"]
 EXPOSE 24565/udp 24566/udp
 STOPSIGNAL SIGTERM
-ENTRYPOINT ["/opt/voxelcraft/entrypoint.sh"]
+ENTRYPOINT ["/opt/quarrowen/entrypoint.sh"]

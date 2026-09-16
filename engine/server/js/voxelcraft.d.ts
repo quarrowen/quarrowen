@@ -1,10 +1,10 @@
-// Type declarations for VoxelCraft JavaScript mods. Reference from a mod for editor autocomplete:
-//   /// <reference path="../../engine/server/js/voxelcraft.d.ts" />
-//   /** @param {import("voxelcraft").Api} api */
+// Type declarations for Quarrowen JavaScript mods. Reference from a mod for editor autocomplete:
+//   /// <reference path="../../engine/server/js/quarrowen.d.ts" />
+//   /** @param {import("quarrowen").Api} api */
 //   export function setup(api) { ... }
 // or author in TypeScript and compile to main.js.
 
-declare module "voxelcraft" {
+declare module "quarrowen" {
   export interface Vec3 { x: number; y: number; z: number; }
 
   export type BlockId = number;

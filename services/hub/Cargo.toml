@@ -1,9 +1,9 @@
 [package]
-name = "voxelcraft-hub"
+name = "quarrowen-hub"
 version = "0.1.0"
 edition = "2021"
 publish = false
-description = "VoxelCraft hub: the public server list, short invite codes and news for game menus."
+description = "Quarrowen hub: the public server list, short invite codes and news for game menus."
 
 [dependencies]
 axum = "0.8"

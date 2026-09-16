@@ -16,7 +16,7 @@ const FLAG_PROOF: u8 = 1;
 
 /// The message a server signs to prove it holds its key, for a given nonce.
 pub fn proof_message(nonce: &[u8]) -> Vec<u8> {
-    format!("voxelcraft-status-proof:{}", hex::encode(nonce)).into_bytes()
+    format!("quarrowen-status-proof:{}", hex::encode(nonce)).into_bytes()
 }
 
 /// Queries `addr` and checks the reply carries a valid proof for `key`.

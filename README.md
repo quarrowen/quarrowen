@@ -1,4 +1,4 @@
-# VoxelCraft
+# Quarrowen
 
 A voxel game **engine** in Godot 4.7 (GDScript + Rust) with a Roblox-style universal client. The
 server is authoritative and loads **mods** that define the game: blocks, 3D models, textures, world
@@ -6,7 +6,7 @@ generation, rules, machines, commands and UI. The client has no game content bui
 everything from whichever server it joins, so one client can play a sandbox, a skyblock server or a
 tech-modded world.
 
-**Download:** [omnivoxel-game.github.io/voxelcraft](https://omnivoxel-game.github.io/voxelcraft) - the
+**Download:** [quarrowen.com](https://quarrowen.com) - the
 Mac app, the mods, and what changed. The game keeps itself up to date after that.
 
 **Built from scratch with [Claude Code](https://claude.com/claude-code).** Every line of this engine -
@@ -18,6 +18,9 @@ day: family playtest feedback goes in, and features, fixes and tests come out.
 
 **Licence:** free to use, modify and share for anything noncommercial - play it, mod it, run a server,
 learn from it. Commercial use needs a separate licence; see [LICENSE](LICENSE).
+
+*Quarrowen is an independent project and is not affiliated with, endorsed by or connected to Mojang
+Synergies AB or Microsoft. Minecraft is a trademark of Mojang Synergies AB.*
 
 ## Running
 
@@ -61,7 +64,7 @@ godot --path . -- --host=skyblock --name=Steve
 
 Worlds save to `user://worlds/<world>` (world.json keeps the title, mods, game, seed and play times), downloaded assets to `user://cache/assets` and the player's
 identity key to `user://identity/`
-(on macOS under `~/Library/Application Support/Godot/app_userdata/VoxelCraft/`).
+(on macOS under `~/Library/Application Support/Godot/app_userdata/Quarrowen/`).
 
 Blocks can fill less than their cell: a `shape` ("slab", "stairs_north"..., "fence") names the boxes it
 fills, and the same boxes are what players and mobs walk into. Walkers step up to half a block on their
@@ -185,7 +188,7 @@ export function setup(api) {
 ```
 
 - Runs in QuickJS-NG (ES2023: classes, modules, destructuring, `async`) embedded in the native
-  extension. Types for editors/TypeScript: `engine/server/js/voxelcraft.d.ts`; API surface:
+  extension. Types for editors/TypeScript: `engine/server/js/quarrowen.d.ts`; API surface:
   `engine/server/js/prelude.js`.
 - **Sandboxed:** only ECMAScript built-ins exist (no filesystem, network or process access), the heap
   is capped at 64 MB and each callback is interrupted after 200 ms. Script errors are logged and never
@@ -996,8 +999,8 @@ Built-in admin commands: `/op`, `/deop`, `/kick`, `/backup`, `/backups`; everyon
 Export/Import identity buttons with a passphrase, or:
 
 ```sh
-VOXEL_IDENTITY_PASSPHRASE='...' VoxelCraft -- --export-identity=my-identity.json
-VOXEL_IDENTITY_PASSPHRASE='...' VoxelCraft -- --import-identity=my-identity.json   # old key kept as .bak
+VOXEL_IDENTITY_PASSPHRASE='...' Quarrowen -- --export-identity=my-identity.json
+VOXEL_IDENTITY_PASSPHRASE='...' Quarrowen -- --import-identity=my-identity.json   # old key kept as .bak
 ```
 
 **Server identity:** each data dir holds `identity/server.key` and `server.crt` (self-signed, created
@@ -1090,8 +1093,8 @@ hub in Settings → Network (or `VOXEL_HUB`). `tools/run_tests.sh` builds it and
 `tests/hub_test.tscn` (a real hub and game server) when cargo is installed.
 
 ```sh
-docker build -t voxelcraft-server .
-docker run -p 24565-24566:24565-24566/udp -v voxel-data:/data -e VOXEL_MODS=vanilla,industry voxelcraft-server
+docker build -t quarrowen-server .
+docker run -p 24565-24566:24565-24566/udp -v voxel-data:/data -e VOXEL_MODS=vanilla,industry quarrowen-server
 docker compose up        # vanilla on 24565, skyblock on 24567 (status on the next port)
 ```
 

@@ -1,4 +1,4 @@
-//! VoxelCraft hub: the public server list, short invite codes and news for game menus.
+//! Quarrowen hub: the public server list, short invite codes and news for game menus.
 //!
 //! Game servers announce themselves every HEARTBEAT seconds with a request signed by their server key;
 //! the first announce from an address (and every VERIFY_EVERY after) is checked with a UDP status
@@ -228,7 +228,7 @@ async fn announce(State(hub): State<Arc<Hub>>, ConnectInfo(peer): ConnectInfo<So
         }
         verified_at = Instant::now();
     }
-    let name = clip(if a.name.trim().is_empty() { "VoxelCraft Server" } else { a.name.trim() }, 64);
+    let name = clip(if a.name.trim().is_empty() { "Quarrowen Server" } else { a.name.trim() }, 64);
     let code = match hub.store.code_for(&key.id, &address, a.port, &name, now_unix()) {
         Ok(code) => code,
         Err(e) => return error(StatusCode::INTERNAL_SERVER_ERROR, format!("storage error: {e}")),

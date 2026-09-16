@@ -87,7 +87,7 @@ func _monsters(api) -> void:
 		{"type": "text", "text": "A large slime splits into medium slimes when it dies, and each of those into small ones. Only the small ones are harmless, and they drop slimeballs."},
 		{"type": "items", "items": ["vanilla:slimeball"]},
 	])
-	_page(api, "boomshroom", "monsters", 4, "Boomshrooms", "vanilla:boom_spores", {"entity": "vanilla:boomshroom"}, "boomshroom explode explosion creeper mushroom", [
+	_page(api, "boomshroom", "monsters", 4, "Boomshrooms", "vanilla:boom_spores", {"entity": "vanilla:boomshroom"}, "boomshroom explode explosion blast mushroom fungus", [
 		{"type": "entity", "entity": "vanilla:boomshroom", "text": "A walking mushroom that sneaks up on you, hisses, and explodes."},
 		{"type": "text", "text": "When you hear the hiss, [b]run[/b]: get a few blocks away and it fizzles out. The blast breaks blocks and hurts; armor helps."},
 		{"type": "items", "items": ["vanilla:boom_spores"]},

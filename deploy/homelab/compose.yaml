@@ -1,14 +1,14 @@
-# VoxelCraft family server for a home Linux box with Docker.
+# Quarrowen family server for a home Linux box with Docker.
 #   cp .env.example .env    # then edit the names
 #   docker compose up -d --build
 #   docker compose logs -f
 # See docs/playtest.md for the whole setup (Macs included).
 
 services:
-  voxelcraft:
+  quarrowen:
     build: ../..
-    image: voxelcraft-server
-    container_name: voxelcraft
+    image: quarrowen-server
+    container_name: quarrowen
     restart: unless-stopped
     stop_grace_period: 30s  # the server saves the world on SIGTERM
     # Host networking: the game port (UDP 24565) and the status port (UDP 24566) are the machine's own,
@@ -29,9 +29,9 @@ services:
       VOXEL_BACKUP_INTERVAL: "60"
       VOXEL_BACKUP_KEEP: "48"
     volumes:
-      - voxelcraft-data:/data
+      - quarrowen-data:/data
       # The mods the server loads live on the host: add a folder here and restart, no rebuild needed.
       - ${MODS_DIR:-./mods}:/mods
 
 volumes:
-  voxelcraft-data:
+  quarrowen-data:
