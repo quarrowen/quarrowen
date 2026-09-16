@@ -65,18 +65,20 @@ a table with one pool per line at load, so every old mod gets conditions, tuning
 
 ## 4. Extending someone else's table
 
-A mod (or a server's own small mod) adds to or replaces a table without forking the mod that owns it:
+A mod (or a server's own small mod) adds to or replaces a table without forking the mod that owns it. A
+mob's or block's generated table is named `mob:<entity>` or `block:<block>`:
 
 ```gdscript
-api.extend_loot("vanilla:zombie", {"pools": [{"rolls": 1, "entries": [{"item": "mymod:charm", "weight": 1}]}]})
-api.replace_loot("vanilla:zombie", {...})   # start again
+api.extend_loot("mob:vanilla:zombie", {"pools": [{"rolls": 1, "entries": [{"item": "mymod:charm", "weight": 1}]}]})
+api.register_loot("mob:vanilla:zombie", {...})   # start again: registering a name again replaces it
 ```
 
 ## 5. What a player notices
 
 - **A rare drop is an event.** Rarity is worked out from the weights, so the engine knows without being
-  told: a sparkle, a sound, a beam of light on the item so it is not lost in the grass, and a line in
-  chat when it is rare enough.
+  told. A drop of 6% or less sparkles where it lands, keeps sparkling for a few seconds so it is not lost
+  in the grass, plays a sound and is announced in chat. A handler can set `announce: false` on the
+  `rare_loot` event to keep a particular find quiet.
 - **Shared chests roll per player.** A chest whose data says `personal: true` (every vanilla structure
   chest) rolls separately for each player: what you find is handed straight to you, once each, so nobody
   has to race a sibling for the good item. The chest is then an ordinary chest to keep things in. Doing
