@@ -3,8 +3,8 @@
 	"notes": "Rare finds that sparkle, your own loot in dungeon chests, a Mods page, and server settings per mod.",
 	"builds": {
 		"macos": {
-			"url": "https://quarrowen.com/v0.39.0/Quarrowen-0.39.0-mac-arm64.zip",
-			"sha256": "5b744f045fa26656b302f7646cb9a8a7cef902c0b2cf4eeb5b3f5ffa76d1b37d",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.39.0/Quarrowen-0.39.0-mac-arm64.zip",
+			"sha256": "c24376002ee79db0a7b7ea955e8a9dd104bae904e10d28337e79f17908e69074",
 			"size": 64800632
 		}
 	}
