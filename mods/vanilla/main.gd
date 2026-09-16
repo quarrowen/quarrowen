@@ -36,6 +36,9 @@ func setup(mod_api) -> void:
 		"day_minutes": {"label": "Minutes in a day", "type": "int", "default": 20, "min": 2, "max": 120,
 			"help": "How long a full day and night takes for a new world."},
 		"zombies_burn": {"label": "Zombies burn in daylight", "type": "bool", "default": true},
+		"loot": {"label": "How much things drop", "type": "choice", "default": "normal",
+			"choices": [["less", "Less"], ["normal", "Normal"], ["lots", "Lots"]],
+			"help": "Multiplies what mobs, blocks and chests give. /loot can also turn one thing up for an event."},
 		"apples_from_leaves": {"label": "Apples fall from leaves", "type": "bool", "default": true},
 	})
 	api.on("settings_changed", func(ev): if ev.mod == "vanilla": _apply_settings())
@@ -236,6 +239,7 @@ func _mob_tick() -> void:
 ## Takes the host's settings into use, at startup and whenever one is changed while the server runs.
 func _apply_settings() -> void:
 	api.set_spawn_caps({"monster": MONSTER_CAPS.get(api.setting("monsters"), 24)})
+	api.set_loot_rate({"less": 0.5, "normal": 1.0, "lots": 2.0}.get(api.setting("loot"), 1.0))
 
 
 func _cmd_gamemode(player, args: PackedStringArray) -> void:

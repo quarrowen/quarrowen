@@ -95,12 +95,14 @@ func _on_event(ev: Dictionary, callback_id: int) -> void:
 	if ev.has("cancelled") and changed.get("cancelled") != null:
 		ev.cancelled = bool(changed.cancelled)
 	if ev.has("drops") and changed.get("drops") is Array:
+		# [item, count] or [item, count, data] (loot tables add the item data a stack carries), and the
+		# object form a JS handler is more likely to write.
 		var drops := []
 		for d in changed.drops:
-			if d is Array and d.size() == 2:
-				drops.append([int(d[0]), int(d[1])])
+			if d is Array and d.size() >= 2:
+				drops.append([int(d[0]), int(d[1]), d[2] if d.size() > 2 and d[2] is Dictionary else {}])
 			elif d is Dictionary and d.has("item"):
-				drops.append([int(d.item), int(d.get("count", 1))])
+				drops.append([int(d.item), int(d.get("count", 1)), d.get("data", {}) if d.get("data") is Dictionary else {}])
 		ev.drops = drops
 	# Other fields handlers may rewrite, when the event carries them.
 	for key in ["amount", "damage"]:
@@ -245,7 +247,12 @@ func _call_host(method: String, a: Array):
 		"registerFeature": api.register_feature(_str(a, 0), _dict(a, 1))
 		"registerStructureTemplate": return api.register_structure_template(_str(a, 0), a[1] if a.size() > 1 and (a[1] is String or a[1] is Dictionary) else "")
 		"registerStructure": api.register_structure(_str(a, 0), _dict(a, 1))
-		"registerLootTable": api.register_loot_table(_str(a, 0), _dict(a, 1))
+		"registerLoot": api.register_loot(_str(a, 0), _dict(a, 1))
+		"extendLoot": api.extend_loot(_str(a, 0), _dict(a, 1))
+		"rollLoot": return api.roll_loot(_str(a, 0), _dict(a, 1))
+		"lootSources": return api.loot_sources(_str(a, 0))
+		"setLootRate": api.set_loot_rate(_float(a, 0, 1.0))
+		"setLootBoost": api.set_loot_boost(_str(a, 0), _float(a, 1, 1.0), _float(a, 2))
 		"setUgcPolicy": api.set_ugc_policy(_dict(a, 0))
 		"ugcList": return api.ugc_list(_str(a, 0) if a.size() > 0 else "approved")
 		"networkServers": return api.network_servers()
@@ -504,6 +511,10 @@ static func _str(a: Array, i: int) -> String:
 
 static func _int(a: Array, i: int, fallback := 0) -> int:
 	return int(a[i]) if i < a.size() and (a[i] is float or a[i] is int or a[i] is bool) else fallback
+
+
+static func _float(a: Array, i: int, fallback := 0.0) -> float:
+	return float(a[i]) if i < a.size() and (a[i] is float or a[i] is int) else fallback
 
 
 static func _dict(a: Array, i: int) -> Dictionary:

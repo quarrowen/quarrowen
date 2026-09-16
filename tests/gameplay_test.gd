@@ -8,6 +8,7 @@ const Inventory = preload("res://engine/shared/inventory.gd")
 const EntityPhysics = preload("res://engine/shared/entity_physics.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const SoundRegistry = preload("res://engine/shared/sound_registry.gd")
+const Loot = preload("res://engine/server/loot.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 const StationSessions = preload("res://engine/server/station_sessions.gd")
@@ -55,6 +56,7 @@ func _ready() -> void:
 	await _mod_packages()
 	await _mod_templates()
 	_mod_index()
+	await _loot()
 	_api_docs()
 	_creations()
 	await _skin_painter()
@@ -449,7 +451,9 @@ func _mod_settings() -> void:
 	server.on_server_panel(72, "modset", {"mod": "vanilla", "key": "monsters", "value": "many"})
 	_check(api.setting("monsters") == "few", "which checks the role too, like every other action there")
 	var listed: Array = server.mod_settings.list("vanilla")
-	_check(listed.size() == 4 and listed[0].has("label") and listed[0].has("type"), "the screen is given every setting with its type and label")
+	var keys: Array = listed.map(func(entry): return str(entry.key))
+	_check(keys.has("monsters") and keys.has("day_minutes") and listed[0].has("label") and listed[0].has("type"),
+		"the screen is given every setting with its type and label (%s)" % str(keys))
 	server.on_chat(71, "/modsettings vanilla zombies_burn reset")
 	_check(api.setting("zombies_burn") == true, "'reset' puts a setting back to its default")
 
@@ -3056,6 +3060,111 @@ func _mod_index() -> void:
 	_check(Catalog.remove("handy").is_empty() and not DirAccess.dir_exists_absolute(target), "removing a mod takes its folder away")
 	_check(not Catalog.remove("base").is_empty(), "a mod that came with the game cannot be removed")
 	_remove_tree(ProjectSettings.globalize_path(root))
+
+
+## Loot: one table format behind mobs, blocks and chests - pools, weights, conditions, nested tables,
+## what a host can turn up for an event, and the find worth announcing.
+func _loot() -> void:
+	var server = _start("loot_%d" % Time.get_ticks_msec())
+	var loot = server.loot
+	var iron: int = server.items.id_of("base:iron_ingot")
+	var coal: int = server.items.id_of("base:coal")
+	var stick: int = server.items.id_of("base:stick")
+
+	# Pools roll on their own: one always gives, the other is a small chance.
+	loot.register("test:mix", {"pools": [
+		{"rolls": 2, "entries": [{"item": "base:coal", "count": [1, 1]}]},
+		{"rolls": 1, "entries": [{"item": "base:iron_ingot", "weight": 1}, {"empty": true, "weight": 9}]},
+	]})
+	var counts := {}
+	for i in 400:
+		for stack in loot.roll("test:mix"):
+			counts[stack[0]] = int(counts.get(stack[0], 0)) + int(stack[1])
+	_check(counts.get(coal, 0) == 800, "a pool that always gives, gives every time (%d of 800 coal)" % counts.get(coal, 0))
+	_check(counts.get(iron, 0) > 10 and counts.get(iron, 0) < 100, "an entry's weight against 'empty' is its chance (%d irons in 400)" % counts.get(iron, 0))
+	_check(loot.chance_of("test:mix", iron) > 0.08 and loot.chance_of("test:mix", iron) < 0.12,
+		"the engine works out how likely a drop is from the weights (%.2f)" % loot.chance_of("test:mix", iron))
+	_check(loot.is_rare("test:mix", iron) == false and loot.is_rare("test:mix", coal) == false, "a one-in-ten drop is not rare enough to announce")
+
+	# The same roll twice, when it is seeded: a chest holds the same thing however often it is looked at.
+	_check(str(loot.roll("test:mix", {"seed": 7})) == str(loot.roll("test:mix", {"seed": 7})), "a seeded roll gives the same loot every time")
+
+	# Conditions, on a pool and on an entry.
+	loot.register("test:conditions", {"pools": [
+		{"rolls": 1, "when": {"killed_by": "player"}, "entries": [{"item": "base:iron_ingot"}]},
+		{"rolls": 1, "entries": [{"item": "base:coal", "when": {"depth": [0, 30]}}, {"item": "base:stick"}]},
+	]})
+	var deep: Array = loot.roll("test:conditions", {"cause": "player", "position": Vector3(0, 12, 0)})
+	var high: Array = loot.roll("test:conditions", {"cause": "fall", "position": Vector3(0, 80, 0)})
+	_check(deep.any(func(d): return d[0] == iron), "a pool only rolls when its condition holds")
+	_check(not high.any(func(d): return d[0] == iron), "and not when it does not")
+	_check(high.all(func(d): return d[0] == stick), "an entry's condition takes it out of the running (%s)" % str(high))
+
+	# One table can roll another.
+	loot.register("test:nested", {"pools": [{"rolls": 1, "entries": [{"table": "test:mix"}]}]})
+	_check(loot.roll("test:nested").any(func(d): return d[0] == coal), "an entry can roll another table")
+
+	# An old mob or block definition still works: [[item, count, chance]] is read as a table.
+	var from_drops: Dictionary = loot._clean("test:old", loot.from_drops([["base:coal", 2], ["base:iron_ingot", 1, 0.0]]))
+	loot.tables["test:old"] = from_drops
+	var old_rolls: Array = loot.roll("test:old")
+	_check(old_rolls.size() == 1 and old_rolls[0][0] == coal and old_rolls[0][1] == 2, "a mob's old drops list behaves exactly as it did")
+
+	# What a host turns up for an event, and what it goes back to afterwards.
+	loot.register("test:event", {"pools": [{"rolls": 1, "entries": [{"item": "base:coal", "weight": 1}, {"item": "base:stick", "weight": 99}]}]})
+	loot.set_boost("base:coal", 200.0)
+	var boosted: int = 0
+	for i in 100:
+		boosted += loot.roll("test:event").reduce(func(n, d): return n + (1 if d[0] == coal else 0), 0)
+	_check(boosted > 50, "an item can be made more common for an event (%d of 100)" % boosted)
+	_check(loot.factor_for("item:base:coal") == 200.0 and loot.active_boosts().size() == 1, "and a host can see what is turned up")
+	loot.set_boost("base:coal", 1.0)
+	_check(loot.factor_for("item:base:coal") == 1.0 and loot.active_boosts().is_empty(), "setting it back to normal clears it")
+	loot.set_boost("test:mix", 3.0, 0.001)
+	await get_tree().create_timer(0.05).timeout
+	_check(loot.factor_for("table:test:mix") == 1.0, "an event with a time on it ends by itself")
+
+	# How much everything drops, as one dial.
+	loot.rate = 2.0
+	var doubled: int = loot.roll("test:mix").reduce(func(n, d): return n + (int(d[1]) if d[0] == coal else 0), 0)
+	loot.rate = 1.0
+	_check(doubled == 4, "the loot rate multiplies what every pool rolls (%d)" % doubled)
+
+	# A rare find is announced, and bad luck does not last forever.
+	loot.register("test:rare", {"pools": [{"rolls": 1, "entries": [{"item": "base:iron_ingot", "weight": 1}, {"empty": true, "weight": 199}]}]})
+	_check(loot.is_rare("test:rare", iron), "a one-in-two-hundred drop counts as a find")
+	var p := ServerPlayer.new(server, 140, "Finder")
+	p.player_id = "finder"
+	server.players[140] = p
+	var announced := []
+	server.add_handler("rare_loot", func(ev): announced.append(ev), 0, "test")
+	var pity_rolls := 0
+	for i in 200:
+		var got: Array = loot.roll("test:rare", {"player": p, "position": Vector3(0, 60, 0)})
+		pity_rolls += 1
+		if got.any(func(d): return d[0] == iron):
+			break
+	_check(pity_rolls <= Loot.PITY_ROLLS, "a long run of bad luck is paid out (%d rolls)" % pity_rolls)
+	_check(not announced.is_empty() and announced[0].item == iron and announced[0].player == p, "the find is announced with who found it")
+	_check(p.data.get("loot_seen", {}).has("test:rare"), "the server remembers which tables a player has met (for first-time bonuses)")
+
+	# Where an item comes from, for the guide.
+	var sources: Array = loot.sources_of(iron)
+	var names: Array = sources.map(func(row): return str(row.table))
+	_check(names.has("test:mix") and names.has("test:rare"), "an item knows everywhere it can come from (%s)" % str(names.slice(0, 4)))
+	_check(sources[0].chance >= sources[sources.size() - 1].chance, "the likeliest source comes first")
+
+	# A mob's drops and a block's drops both go through tables now.
+	var pig: int = server.entities.registry.id_of("vanilla:pig")
+	if pig > 0:
+		var pig_table: String = loot.table_for_entity(server.entities.registry.defs[pig])
+		_check(loot.has(pig_table) and pig_table == "mob:vanilla:pig", "a mob without its own table gets one from its drops (%s)" % pig_table)
+	var stone: int = server.registry.id_of("base:stone")
+	var stone_table: String = loot.table_for_block(stone, server._default_drops(stone))
+	_check(loot.roll(stone_table).any(func(d): return d[0] == server.items.id_of("base:cobblestone")),
+		"a broken block's drops come from a table too")
+	server.queue_free()
+	await get_tree().process_frame
 
 
 func _api_docs() -> void:

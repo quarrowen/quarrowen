@@ -398,13 +398,18 @@ func damage(e: Entity, amount: float, cause: String, attacker = null, direction 
 func kill(e: Entity, cause := "magic", attacker = null) -> void:
 	if not e.is_alive():
 		return
+	# What a mob leaves behind goes through the loot tables, so the same conditions, tuning and rare-find
+	# handling apply whether it was a mob, a block or a chest (see engine/server/loot.gd).
 	var drops := []
-	for drop in (e.def.drops if not e.data.get("baby", false) else []):
-		if drop is Array and drop.size() >= 2:
-			var item: int = int(drop[0]) if (drop[0] is int or drop[0] is float) else _server.items.id_of(String(drop[0]))
-			var chance := float(drop[2]) if drop.size() > 2 else 1.0
-			if item > 0 and randf() <= chance:
-				drops.append([item, int(drop[1])])
+	if not e.data.get("baby", false):
+		var killer = attacker if attacker != null and attacker.get("peer_id") != null else null
+		drops = _server.loot.roll(_server.loot.table_for_entity(e.def), {
+			"cause": "player" if killer != null else cause,
+			"player": killer,
+			"tool": killer.inventory.selected_item() if killer != null else 0,
+			"position": e.body.position,
+			"source": "entity",
+		})
 	var ev: Dictionary = _server.emit("entity_death", {"entity": e, "cause": cause, "attacker": attacker, "drops": drops})
 	# Splitters (slimes) break into smaller mobs: split: {entity, count: [min, max]}.
 	var split = e.def.get("split")
@@ -419,8 +424,10 @@ func kill(e: Entity, cause := "magic", attacker = null) -> void:
 	play_sound(e, e.def.sounds.get("death", ""))
 	if ev.drops is Array:
 		for drop in ev.drops:
-			if drop is Array and drop.size() == 2 and _server.items.is_valid(int(drop[0])):
-				drop_item(int(drop[0]), int(drop[1]), e.body.position + Vector3(0, 0.5, 0))
+			# [item, count] from an older handler, or [item, count, data] from a loot table.
+			if drop is Array and drop.size() >= 2 and _server.items.is_valid(int(drop[0])):
+				var data: Dictionary = drop[2] if drop.size() > 2 and drop[2] is Dictionary else {}
+				drop_item(int(drop[0]), int(drop[1]), e.body.position + Vector3(0, 0.5, 0), Vector3.INF, ITEM_PICKUP_DELAY, data)
 	remove(e)
 
 

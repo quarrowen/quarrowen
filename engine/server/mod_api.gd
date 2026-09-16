@@ -831,10 +831,64 @@ func register_structure(structure_name: String, def: Dictionary) -> void:
 	biome_generator().structures.add_set(_qualify(structure_name), d)
 
 
-## Loot table: {rolls: [min, max], entries: [{item, count: [min, max], weight, data}]}. Containers with
-## block data {loot: "<table>"} fill from it the first time they are opened.
+## Declares what something gives: a mob that dies, a block that breaks, a chest, a reward (docs/loot.md).
+##
+##   api.register_loot("zombie", {"pools": [
+##       {"rolls": [0, 2], "entries": [{"item": "base:rotten_flesh", "count": [1, 2], "weight": 3},
+##                                     {"empty": true, "weight": 1}]},
+##       {"rolls": 1, "when": {"killed_by": "player"}, "entries": [{"item": "base:iron_ingot", "weight": 1},
+##                                                                 {"empty": true, "weight": 20}]},
+##   ]})
+##
+## Pools roll on their own, so each is one idea ("some flesh" / "rarely, iron"). An entry names an `item`,
+## another `table` to roll instead, or `empty: true` for the miss; `weight` is relative within its pool,
+## `count` is a number or [min, max], `data` is the item data the stack carries. `when` on a pool or an
+## entry takes killed_by, tool, biome, depth, time, chance and first_time. An entity or block can name its
+## table with `loot: "<name>"`; without one, its `drops` list is read as a table.
+## Tables can also be JSON files: every loot/*.json in the mod folder registers as "<mod>:<file name>".
+func register_loot(table_name: String, def: Dictionary) -> void:
+	_server.loot.register(_qualify_ref(table_name), def)
+
+
+## Same as register_loot (the name it had before tables were used for everything).
 func register_loot_table(table_name: String, def: Dictionary) -> void:
-	_server.loot.register(_qualify(table_name), def)
+	register_loot(table_name, def)
+
+
+## Adds pools to a table another mod owns, without forking it: an extra drop on their mob, a bonus in
+## their dungeon chests.
+func extend_loot(table_name: String, def: Dictionary) -> void:
+	_server.loot.extend(_qualify_ref(table_name), def)
+
+
+## Rolls a table and returns [[item id, count, data], …], for anything the engine does not roll itself
+## (fishing, a quest reward, a prize crate). `context` may carry player, cause, tool, position and seed.
+func roll_loot(table_name: String, context := {}) -> Array:
+	return _server.loot.roll(_qualify_ref(table_name), context)
+
+
+## What a mob, block or table gives, without rolling: everything it could drop, as
+## [{item, chance, count, table}]. This is what the guide's "what drops this?" is built from.
+func loot_sources(item_name: String) -> Array:
+	return _server.loot.sources_of(_server.items.id_of(_qualify_ref(item_name)))
+
+
+## How much everything drops, as a multiplier (1.0 is normal). A host's "how much loot" setting.
+func set_loot_rate(multiplier: float) -> void:
+	_server.loot.rate = clampf(multiplier, 0.0, 10.0)
+
+
+func get_loot_rate() -> float:
+	return _server.loot.rate
+
+
+## Turns one thing up (or down) for a while, for an event: `target` is a table or an item name, `factor`
+## how much more often it comes up, `seconds` how long (0: until it is changed back).
+##
+##   api.set_loot_boost("base:coal", 3.0, 3600.0)     # coal everywhere, for an hour
+##   api.set_loot_boost("vanilla:dungeon", 2.0)       # richer dungeon chests until further notice
+func set_loot_boost(target: String, factor: float, seconds := 0.0) -> void:
+	_server.loot.set_boost(_qualify_ref(target), factor, seconds)
 
 
 ## A guidebook chapter: {title, icon (item name), order, description}. Names without ":" are this mod's.

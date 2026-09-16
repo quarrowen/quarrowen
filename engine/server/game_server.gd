@@ -315,6 +315,9 @@ func start(config: Dictionary) -> Error:
 	if not str(config.get("default_role", "")).is_empty():
 		roles.default_role = str(config.default_role).to_lower()
 	roles.migrate(_config_admins)
+	if _meta.get("loot") is Dictionary:
+		loot.rate = clampf(float(_meta.loot.get("rate", 1.0)), 0.0, 10.0)
+		loot.boosts = _meta.loot.get("boosts", {}) if _meta.loot.get("boosts") is Dictionary else {}
 	if _meta.get("world_markers") is Dictionary:
 		world_markers = _meta.world_markers  # markers mods put on everyone's map, from the last session
 	if str(config.get("chat_filter", "")) in ["on", "true", "1", "yes"]:
@@ -413,6 +416,7 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 		dev_log.add_mod_dir(manifest.id, manifest.dir)
 		mod_manifests[manifest.id] = manifest
 	for manifest in order:
+		loot.load_files(manifest.id, manifest.dir)  # loot/*.json, before the mod runs so it can build on them
 		if String(manifest.main).get_extension() == "js":
 			var js_mod := JsMod.new(self, manifest)
 			var js_error := js_mod.load()
@@ -693,6 +697,7 @@ func _register_builtin_commands() -> void:
 	add_command("kill", "Die and respawn", func(p, _args): kill_player(p, "command", null), "engine")
 	add_command("gameplay", "[rule value] - show or change gameplay rules", _cmd_gameplay, "engine", "admin")
 	add_command("modsettings", "[mod] [setting value|reset] - show or change what a mod lets you change", _cmd_mod_settings, "engine", "admin")
+	add_command("loot", "rate <x> | boost <table or item> <x> [minutes] | clear | show - how much things drop", _cmd_loot, "engine", "admin")
 
 
 # --- Logs and errors ------------------------------------------------------------------------------
@@ -1293,6 +1298,41 @@ func _cmd_mod_settings(player, args: PackedStringArray) -> void:
 		if not which.is_empty():
 			line += "  (%s; default %s)" % [ModSettings.describe(entry), entry.default]
 		player.send_message(line)
+
+
+## /loot                          what is turned up or down right now
+## /loot rate 2                    everything drops twice as much
+## /loot boost base:coal 3 60      coal three times as often, for an hour (an event)
+## /loot boost vanilla:dungeon 2   richer dungeon chests, until it is changed back
+## /loot clear                     back to normal
+func _cmd_loot(player, args: PackedStringArray) -> void:
+	match args[0].to_lower() if args.size() > 0 else "show":
+		"rate":
+			if args.size() < 2 or not args[1].is_valid_float():
+				player.send_message("Usage: /loot rate <multiplier>, e.g. /loot rate 2")
+				return
+			loot.rate = clampf(args[1].to_float(), 0.0, 10.0)
+			_meta.loot = {"rate": loot.rate, "boosts": loot.boosts}
+			broadcast_chat("%s set how much things drop to %sx" % [player.name, loot.rate])
+		"boost":
+			if args.size() < 3 or not args[2].is_valid_float():
+				player.send_message("Usage: /loot boost <table or item> <multiplier> [minutes]")
+				return
+			var minutes := args[3].to_float() if args.size() > 3 and args[3].is_valid_float() else 0.0
+			loot.set_boost(args[1], args[2].to_float(), minutes * 60.0)
+			_meta.loot = {"rate": loot.rate, "boosts": loot.boosts}
+			broadcast_chat("%s made %s %sx more common%s" % [player.name, args[1], args[2],
+				" for %d minutes" % int(minutes) if minutes > 0.0 else ""])
+		"clear":
+			loot.rate = 1.0
+			loot.boosts = {}
+			_meta.loot = {"rate": 1.0, "boosts": {}}
+			broadcast_chat("%s put drops back to normal" % player.name)
+		_:
+			player.send_message("Everything drops %sx" % loot.rate)
+			for boost: Dictionary in loot.active_boosts():
+				player.send_message("  %s %sx%s" % [boost.target, boost.factor,
+					" (%d minutes left)" % int(boost.ends_in / 60.0) if boost.ends_in > 0 else ""])
 
 
 func set_player_rig(def: Dictionary) -> void:
@@ -2329,6 +2369,25 @@ func find_block_data(block := -1) -> Array[Vector3i]:
 	return out
 
 
+## A find worth noticing: a sparkle where it landed, a sound for whoever found it, and a line in chat so
+## the rest of the server shares the moment. The sparkle repeats for a little while, so a rare drop in
+## long grass can still be found. Rarity comes from the table's own weights - nothing is marked by hand.
+func announce_rare_loot(player, item: int, count: int, position: Vector3) -> void:
+	var display := items.display_name(item)
+	play_effect("engine:sparkle", position + Vector3(0, 0.4, 0), {"scale": 1.4})
+	play_sound_at("engine:discover", position)
+	if player != null and player._online():
+		player.send_message("✦ You found %s%s!" % ["%d × " % count if count > 1 else "", display])
+		broadcast_chat("✦ %s found %s" % [player.name, display])
+	var left := [5]
+	var marker := [0]
+	marker[0] = schedule(2.5, func():
+		play_effect("engine:sparkle", position + Vector3(0, 0.4, 0), {"scale": 0.7})
+		left[0] -= 1
+		if left[0] <= 0:
+			cancel_task(marker[0]), 2.5)
+
+
 func broadcast_chat(text: String) -> void:
 	if not _started:
 		return
@@ -2390,7 +2449,7 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 		harvest = Mining.can_harvest(registry.defs[current], tool)
 	_stop_mining(p)
 	var ev := emit("block_break", {"player": p, "position": pos, "block": current, "item": held, "slot": p.inventory.selected,
-		"drops": _default_drops(current) if harvest else [], "cancelled": false})
+		"drops": _block_drops(current, p, held, pos) if harvest else [], "cancelled": false})
 	if ev.cancelled:
 		_reject_edit(p, pos)
 		return
@@ -2399,13 +2458,14 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 	play_sound_at(block_sound(current, "break"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
 	if not p.inventory.creative and ev.drops is Array:
 		for drop in ev.drops:
-			if not (drop is Array and drop.size() == 2 and items.is_valid(int(drop[0]))):
+			if not (drop is Array and drop.size() >= 2 and items.is_valid(int(drop[0]))):
 				continue
+			var data: Dictionary = drop[2] if drop.size() > 2 and drop[2] is Dictionary else {}
 			if gameplay.item_drops == "entity":
 				entities.drop_item(int(drop[0]), int(drop[1]), Vector3(pos) + Vector3(0.5, 0.3, 0.5),
-					Vector3(randf_range(-1.0, 1.0), randf_range(2.0, 3.5), randf_range(-1.0, 1.0)), 0.3)
+					Vector3(randf_range(-1.0, 1.0), randf_range(2.0, 3.5), randf_range(-1.0, 1.0)), 0.3, data)
 			else:
-				p.inventory.add(int(drop[0]), int(drop[1]), items.max_stack(int(drop[0])))
+				p.inventory.add(int(drop[0]), int(drop[1]), items.max_stack(int(drop[0])), data)
 		if registry.defs[current].hardness > 0.0 and items.max_durability(held, held_data) > 0:
 			damage_item(p, p.inventory.selected, 1, "mine")
 		hunger.add_exhaustion(p, Hunger.BREAK_BLOCK)
@@ -3785,6 +3845,13 @@ func on_shutdown_request(peer_id: int, token: String) -> void:
 	get_tree().quit()  # _exit_tree saves and waits for the writes
 
 
+## What a broken block gives: its loot table, rolled with who broke it and what with, so a table can ask
+## for the right tool, the right depth or the right time of day.
+func _block_drops(block: int, p, tool: int, pos: Vector3i) -> Array:
+	return loot.roll(loot.table_for_block(block, _default_drops(block)), {
+		"player": p, "tool": tool, "cause": "player", "position": Vector3(pos), "source": "block"})
+
+
 func _default_drops(block: int) -> Array:
 	var drops = registry.defs[block].get("drops", null)
 	if drops == null:
@@ -4056,6 +4123,7 @@ func _drain_save_queue(budget_usec: int, wait := false) -> void:
 	_meta.clock = block_ticks.clock
 	_meta.world_markers = world_markers
 	_meta.mod_settings = mod_settings.to_saved()
+	_meta.loot = {"rate": loot.rate, "boosts": loot.boosts}
 	_save_writes.append([_save_dir + "/world.json", JSON.stringify(_meta, "\t")])
 	var writes := _save_writes
 	_save_writes = []

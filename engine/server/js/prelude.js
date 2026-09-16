@@ -260,7 +260,14 @@
     /** Structures: a template file in the mod (saved with /struct save) or template data, structure sets, loot tables. */
     registerStructureTemplate: (name, source) => host("registerStructureTemplate", name, source),
     registerStructure: (name, def) => host("registerStructure", name, def),
-    registerLootTable: (name, def) => host("registerLootTable", name, def),
+    registerLootTable: (name, def) => host("registerLoot", name, def),
+    /** Loot: what a mob, block, chest or reward gives. Pools roll on their own; an entry is an item, another table, or empty. */
+    registerLoot: (name, def) => host("registerLoot", name, def),
+    extendLoot: (name, def) => host("extendLoot", name, def),
+    rollLoot: (name, context = {}) => host("rollLoot", name, context),
+    lootSources: (item) => host("lootSources", item),
+    setLootRate: (multiplier) => host("setLootRate", multiplier),
+    setLootBoost: (target, factor, seconds = 0) => host("setLootBoost", target, factor, seconds),
     /** Guidebook: chapters and pages of blocks (text, heading, items, recipe, entity, image, tip, link, keys). */
     /** Debug drawing, shown to admins with the dev overlay's Draw toggle on (F8). Shapes expire after `seconds`. */
     draw: {

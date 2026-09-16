@@ -233,8 +233,35 @@ entrance_chance."><div class="sig"><code>api.add_cave_carver(options := {}) -&gt
 or a template dictionary. names without &quot;:&quot; are this mod's."><div class="sig"><code>api.register_structure_template(template_name: String, source) -&gt; bool</code><span class="tag js" title="registerStructureTemplate">JS registerStructureTemplate</span></div><p>A structure template: a JSON file in this mod (e.g. &quot;structures/tower.json&quot;, saved with /struct save)<br>or a template dictionary. Names without &quot;:&quot; are this mod's.</p></div>
 <div class="card" id="api-register-structure" data-search="register_structure registerstructure generated structures (see worldgen/structures.gd): {templates: [{template, weight}] or generator
 (gdscript callable), spacing, separation, biomes, place, y, sink, foundation, swaps, reach, chance}."><div class="sig"><code>api.register_structure(structure_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="registerStructure">JS registerStructure</span></div><p>Generated structures (see worldgen/structures.gd): {templates: [{template, weight}] or generator<br>(GDScript Callable), spacing, separation, biomes, place, y, sink, foundation, swaps, reach, chance}.</p></div>
-<div class="card" id="api-register-loot-table" data-search="register_loot_table registerloottable loot table: {rolls: [min, max], entries: [{item, count: [min, max], weight, data}]}. containers with
-block data {loot: &quot;&lt;table&gt;&quot;} fill from it the first time they are opened."><div class="sig"><code>api.register_loot_table(table_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="registerLootTable">JS registerLootTable</span></div><p>Loot table: {rolls: [min, max], entries: [{item, count: [min, max], weight, data}]}. Containers with<br>block data {loot: &quot;&lt;table&gt;&quot;} fill from it the first time they are opened.</p></div>
+<div class="card" id="api-register-loot" data-search="register_loot registerloot declares what something gives: a mob that dies, a block that breaks, a chest, a reward (docs/loot.md).
+
+api.register_loot(&quot;zombie&quot;, {&quot;pools&quot;: [
+{&quot;rolls&quot;: [0, 2], &quot;entries&quot;: [{&quot;item&quot;: &quot;base:rotten_flesh&quot;, &quot;count&quot;: [1, 2], &quot;weight&quot;: 3},
+{&quot;empty&quot;: true, &quot;weight&quot;: 1}]},
+{&quot;rolls&quot;: 1, &quot;when&quot;: {&quot;killed_by&quot;: &quot;player&quot;}, &quot;entries&quot;: [{&quot;item&quot;: &quot;base:iron_ingot&quot;, &quot;weight&quot;: 1},
+{&quot;empty&quot;: true, &quot;weight&quot;: 20}]},
+]})
+
+pools roll on their own, so each is one idea (&quot;some flesh&quot; / &quot;rarely, iron&quot;). an entry names an `item`,
+another `table` to roll instead, or `empty: true` for the miss; `weight` is relative within its pool,
+`count` is a number or [min, max], `data` is the item data the stack carries. `when` on a pool or an
+entry takes killed_by, tool, biome, depth, time, chance and first_time. an entity or block can name its
+table with `loot: &quot;&lt;name&gt;&quot;`; without one, its `drops` list is read as a table.
+tables can also be json files: every loot/*.json in the mod folder registers as &quot;&lt;mod&gt;:&lt;file name&gt;&quot;."><div class="sig"><code>api.register_loot(table_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="registerLoot">JS registerLoot</span></div><p>Declares what something gives: a mob that dies, a block that breaks, a chest, a reward (docs/loot.md).<br><br>api.register_loot(&quot;zombie&quot;, {&quot;pools&quot;: [<br>{&quot;rolls&quot;: [0, 2], &quot;entries&quot;: [{&quot;item&quot;: &quot;base:rotten_flesh&quot;, &quot;count&quot;: [1, 2], &quot;weight&quot;: 3},<br>{&quot;empty&quot;: true, &quot;weight&quot;: 1}]},<br>{&quot;rolls&quot;: 1, &quot;when&quot;: {&quot;killed_by&quot;: &quot;player&quot;}, &quot;entries&quot;: [{&quot;item&quot;: &quot;base:iron_ingot&quot;, &quot;weight&quot;: 1},<br>{&quot;empty&quot;: true, &quot;weight&quot;: 20}]},<br>]})<br><br>Pools roll on their own, so each is one idea (&quot;some flesh&quot; / &quot;rarely, iron&quot;). An entry names an `item`,<br>another `table` to roll instead, or `empty: true` for the miss; `weight` is relative within its pool,<br>`count` is a number or [min, max], `data` is the item data the stack carries. `when` on a pool or an<br>entry takes killed_by, tool, biome, depth, time, chance and first_time. An entity or block can name its<br>table with `loot: &quot;&lt;name&gt;&quot;`; without one, its `drops` list is read as a table.<br>Tables can also be JSON files: every loot/*.json in the mod folder registers as &quot;&lt;mod&gt;:&lt;file name&gt;&quot;.</p></div>
+<div class="card" id="api-register-loot-table" data-search="register_loot_table registerloottable same as register_loot (the name it had before tables were used for everything)."><div class="sig"><code>api.register_loot_table(table_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="registerLootTable">JS registerLootTable</span></div><p>Same as register_loot (the name it had before tables were used for everything).</p></div>
+<div class="card" id="api-extend-loot" data-search="extend_loot extendloot adds pools to a table another mod owns, without forking it: an extra drop on their mob, a bonus in
+their dungeon chests."><div class="sig"><code>api.extend_loot(table_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="extendLoot">JS extendLoot</span></div><p>Adds pools to a table another mod owns, without forking it: an extra drop on their mob, a bonus in<br>their dungeon chests.</p></div>
+<div class="card" id="api-roll-loot" data-search="roll_loot rollloot rolls a table and returns [[item id, count, data], …], for anything the engine does not roll itself
+(fishing, a quest reward, a prize crate). `context` may carry player, cause, tool, position and seed."><div class="sig"><code>api.roll_loot(table_name: String, context := {}) -&gt; Array</code><span class="tag js" title="rollLoot">JS rollLoot</span></div><p>Rolls a table and returns [[item id, count, data], …], for anything the engine does not roll itself<br>(fishing, a quest reward, a prize crate). `context` may carry player, cause, tool, position and seed.</p></div>
+<div class="card" id="api-loot-sources" data-search="loot_sources lootsources what a mob, block or table gives, without rolling: everything it could drop, as
+[{item, chance, count, table}]. this is what the guide's &quot;what drops this?&quot; is built from."><div class="sig"><code>api.loot_sources(item_name: String) -&gt; Array</code><span class="tag js" title="lootSources">JS lootSources</span></div><p>What a mob, block or table gives, without rolling: everything it could drop, as<br>[{item, chance, count, table}]. This is what the guide's &quot;what drops this?&quot; is built from.</p></div>
+<div class="card" id="api-set-loot-rate" data-search="set_loot_rate setlootrate how much everything drops, as a multiplier (1.0 is normal). a host's &quot;how much loot&quot; setting."><div class="sig"><code>api.set_loot_rate(multiplier: float) -&gt; void</code><span class="tag js" title="setLootRate">JS setLootRate</span></div><p>How much everything drops, as a multiplier (1.0 is normal). A host's &quot;how much loot&quot; setting.</p></div>
+<div class="card" id="api-get-loot-rate" data-search="get_loot_rate  "><div class="sig"><code>api.get_loot_rate() -&gt; float</code></div><p class="muted">No description yet.</p></div>
+<div class="card" id="api-set-loot-boost" data-search="set_loot_boost setlootboost turns one thing up (or down) for a while, for an event: `target` is a table or an item name, `factor`
+how much more often it comes up, `seconds` how long (0: until it is changed back).
+
+api.set_loot_boost(&quot;base:coal&quot;, 3.0, 3600.0)     # coal everywhere, for an hour
+api.set_loot_boost(&quot;vanilla:dungeon&quot;, 2.0)       # richer dungeon chests until further notice"><div class="sig"><code>api.set_loot_boost(target: String, factor: float, seconds := 0.0) -&gt; void</code><span class="tag js" title="setLootBoost">JS setLootBoost</span></div><p>Turns one thing up (or down) for a while, for an event: `target` is a table or an item name, `factor`<br>how much more often it comes up, `seconds` how long (0: until it is changed back).<br><br>api.set_loot_boost(&quot;base:coal&quot;, 3.0, 3600.0)     # coal everywhere, for an hour<br>api.set_loot_boost(&quot;vanilla:dungeon&quot;, 2.0)       # richer dungeon chests until further notice</p></div>
 <div class="card" id="api-register-feature" data-search="register_feature registerfeature a world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from
 gdscript, a callable(writer, origin: vector3i, rng) run on worker threads. see worldgen/features.gd."><div class="sig"><code>api.register_feature(feature_name: String, def) -&gt; void</code><span class="tag js" title="registerFeature">JS registerFeature</span></div><p>A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from<br>GDScript, a Callable(writer, origin: Vector3i, rng) run on worker threads. See worldgen/features.gd.</p></div>
 <div class="card" id="api-get-biome" data-search="get_biome getbiome name of the biome at a column (&quot;&quot; without the biome generator)."><div class="sig"><code>api.get_biome(position: Vector3) -&gt; String</code><span class="tag js" title="getBiome">JS getBiome</span></div><p>Name of the biome at a column (&quot;&quot; without the biome generator).</p></div>
@@ -721,9 +748,22 @@ place: &quot;surface&quot; | &quot;underground&quot;, y: [min, max] (underground
 foundation (block filling down to the ground under surface structures), swaps: {biome: {block:
 block}}, reach (chunks the structure may extend from its start; default from its size)}.
 Everything is computed from the world seed and the region, so every chunk agrees.</pre></section>
-<section id="ref-loot-tables" class="ref"><h2>Loot tables <span class="file">engine/server/loot.gd</span></h2><pre class="block">Loot tables: {rolls: [min, max], entries: [{item, count: [min, max], weight, data}]}. A container
-whose block data has `loot: &quot;&lt;table&gt;&quot;` (structure chests) is filled the first time it is opened, from
-the data's `structure_seed` so the same chest always holds the same loot.</pre></section>
+<section id="ref-loot-tables" class="ref"><h2>Loot tables <span class="file">engine/server/loot.gd</span></h2><pre class="block">What comes out of things: a mob that dies, a block that breaks, a chest in a dungeon, or anything a mod
+asks for. One table format for all of them (see docs/loot.md).
+
+  {&quot;pools&quot;: [{&quot;rolls&quot;: [0, 2], &quot;when&quot;: {...}, &quot;entries&quot;: [
+       {&quot;item&quot;: &quot;base:rotten_flesh&quot;, &quot;count&quot;: [1, 2], &quot;weight&quot;: 3, &quot;data&quot;: {}},
+       {&quot;table&quot;: &quot;vanilla:junk&quot;, &quot;weight&quot;: 1},   # roll another table instead
+       {&quot;empty&quot;: true, &quot;weight&quot;: 4},             # the miss: this is how a chance below 1 is written
+  ]}]}
+
+Pools roll independently, so &quot;always some flesh, and separately a small chance of something good&quot; needs
+no arithmetic. A table may also use the older {rolls, entries} shape; it is read as a single pool, and a
+mob's or block's `drops` list becomes a table with one pool per line (see from_drops), so mods written
+before this keep working and get conditions, tuning and extension for free.
+
+Rolls are seeded when it matters (a chest holds the same loot for a given world seed and position) and
+otherwise use the global RNG.</pre></section>
 <section id="ref-guidebook" class="ref"><h2>Guidebook <span class="file">engine/shared/guide_registry.gd</span></h2><pre class="block">The in-game guidebook: chapters and pages registered by mods, sent to clients with the content.
 
 Chapter: {id, title, icon (item name), order, description}

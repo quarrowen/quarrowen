@@ -63,7 +63,7 @@ func type_of_block(block: int) -> Dictionary:
 
 
 ## The container at a position (loads its chunk), or null if the block there is not a container.
-func get_container(pos: Vector3i):
+func get_container(pos: Vector3i, player = null):
 	var block: int = _server.get_block_loaded(pos)
 	var t := type_of_block(block)
 	if t.is_empty():
@@ -74,12 +74,12 @@ func get_container(pos: Vector3i):
 		store = _server.get_block_data(pos)
 	var view := ContainerView.new(_server, pos, t, store)
 	if store.has("loot"):
-		_server.loot.fill(view)  # structure chests roll their loot on first use
+		_server.loot.fill(view, player)  # structure chests roll their loot on first use
 	return view
 
 
 func open(p, pos: Vector3i) -> bool:
-	var c = get_container(pos)
+	var c = get_container(pos, p)
 	if c == null:
 		return false
 	if _server.emit("container_open", {"player": p, "position": pos, "container": c, "cancelled": false}).cancelled:

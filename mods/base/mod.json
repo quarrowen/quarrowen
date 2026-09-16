@@ -3,6 +3,7 @@
 	"name": "Base Blocks",
 	"version": "1.0.0",
 	"description": "Common terrain and building blocks shared by other mods. Not a game on its own.",
+	"kind": "library",
 	"authors": [
 		"Quarrowen"
 	],
