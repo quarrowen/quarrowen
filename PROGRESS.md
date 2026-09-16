@@ -363,6 +363,33 @@ maintainer's machine (`tools/release_key.gd new`, `~/.config/quarrowen/release_k
 `tools/publish_site.sh` publishes the signature with the manifest. Builds up to 0.38.0 carry no keys and
 accept unsigned manifests, so the change costs nothing to the family's current install.
 
+## Alpha 3 (0.39.0)
+
+What the kids get, over 0.38.0:
+
+- **Finding things is an event.** Anything genuinely unlikely sparkles where it lands, keeps sparkling so
+  it is not lost in the grass, plays a sound and is announced in chat. Nothing is marked "rare" by hand:
+  the engine works it out from the drop tables.
+- **Dungeon chests give everyone their own loot.** No more racing a sibling to the good item.
+- **Bad luck runs out.** A long enough streak without a find pays one out, and the first time you meet
+  each kind of creature it leaves something extra.
+- **Every item says where it comes from**, at the bottom of its tooltip.
+- **Mods on the main menu.** A Mods page lists what is installed, what the site offers and what has an
+  update, and installs or removes with one button.
+- **Server settings a grown-up can change** without editing files: how many monsters, how long a day is,
+  how much things drop, whether zombies burn, per mod, in the admin screen.
+
+For whoever runs the server:
+
+- `/loot rate 2`, `/loot boost base:coal 3 60` (an hour of extra coal, then back to normal), `/loot` to
+  see what is turned up, `/loot clear` to reset.
+- `/modsettings`, `mod_settings.json` in the data folder, or `VOXEL_MOD_SETTINGS` in compose.
+- Mod settings and loot tuning are saved with the world, so a backup brings them back.
+
+Under the hood: one loot system behind mobs, blocks and chests (docs/loot.md), mods can extend each
+other's tables, loot/*.json files for tuning without code, and mods.json is signed like update.json.
+
+
 ## Next milestones from this feedback
 
 1. **Client auto-update** (done): engine/client/updater.gd (manifest, checksum, install script) and
