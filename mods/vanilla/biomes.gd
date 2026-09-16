@@ -38,6 +38,8 @@ func _blocks() -> void:
 	api.register_block("shadow_leaves", {"display_name": "Shadowwood Leaves", "textures": "textures/shadow_leaves.png", "render": "cutout",
 		"drops": "", "sway": true, "sounds": soft, "hardness": 0.2})
 	api.register_recipe({"vanilla:shadow_log": 1}, "base:planks", 4, {"unlock": "known", "id": "planks_from_shadow"})
+	api.set_fuel("vanilla:shadow_log", 15.0)  # wood burns, whatever it grew from
+	api.register_process("smelting", "vanilla:shadow_log", "base:charcoal", 1, 10.0)
 	api.register_block("gloomgrass", {"display_name": "Gloomgrass", "sounds": soft, "hardness": 0.6, "tool": "shovel", "drops": "base:dirt",
 		"textures": {"all": "textures/gloomgrass_side.png", "top": "textures/gloomgrass_top.png", "bottom": "base:textures/dirt.png"}})
 	# Biome waters: glowing pools in the mushroom fields, murky water in the shadowwood.

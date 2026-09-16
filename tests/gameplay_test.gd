@@ -57,6 +57,7 @@ func _ready() -> void:
 	await _mod_templates()
 	_mod_index()
 	await _examples()
+	await _fuels()
 	await _loot()
 	_api_docs()
 	_creations()
@@ -188,6 +189,33 @@ func _block_shapes() -> void:
 	walk.call(40, 1.0)
 	_check(absf(p.state.position.y - (o.y + 1.5)) < 0.06 and p.state.position.z < o.z - 1.0,
 		"a player walks up onto a slab and stands at half height (y %.2f, z %.1f)" % [p.state.position.y, p.state.position.z - o.z])
+
+	# A slab fills the half you aimed at: look up at the underside of a block and it goes above your head,
+	# look down at a floor and it stays at your feet (playtest: slabs only ever placed as the bottom half).
+	var slab_top: int = server.registry.id_of("base:stone_slab_top")
+	_check(slab_top > 0 and not server.registry.defs[slab_top].placeable, "a top slab exists and is never carried")
+	server.set_block_authoritative(o + Vector3i(4, 4, 0), stone)  # a ceiling to aim up at, clear of the head
+	p.state.position = Vector3(o.x + 4.5, o.y + 1.0, o.z + 0.5)
+	p.inventory.creative = true
+	p.inventory.ids[0] = slab
+	p.inventory.counts[0] = 1
+	p.inventory.selected = 0
+	p.pitch = PI / 2.0  # straight up at the underside (positive pitch looks up)
+	p.yaw = 0.0
+	p.edit_tokens = 100.0
+	server.on_place_block(41, o + Vector3i(4, 3, 0), 0.0)
+	_check(server.world.get_block_v(o + Vector3i(4, 3, 0)) == slab_top,
+		"aiming at the underside of a block places the slab in the top half")
+	p.pitch = -PI / 2.0  # straight down at the floor
+	p.state.position = Vector3(o.x + 6.5, o.y + 2.0, o.z + 0.5)
+	p.edit_tokens = 100.0
+	server.on_place_block(41, o + Vector3i(6, 1, 0), 0.0)
+	_check(server.world.get_block_v(o + Vector3i(6, 1, 0)) == slab,
+		"aiming down at a floor still places the ordinary bottom slab")
+	p.inventory.creative = false
+	server.set_block_authoritative(o + Vector3i(4, 3, 0), 0)
+	server.set_block_authoritative(o + Vector3i(4, 4, 0), 0)
+	server.set_block_authoritative(o + Vector3i(6, 1, 0), 0)
 
 	# Stairs: the same, and standing on the high half puts you a whole block up.
 	server.set_block_authoritative(o + Vector3i(0, 1, -2), 0)
@@ -3218,6 +3246,30 @@ func _examples() -> void:
 	_check(server.loot.tables["mob:vanilla:pig"].pools.size() > pig_pools or pig_pools > 3,
 		"the loot example adds a drop to a mob another mod owns")
 	_check(server._commands.has("hello") and server._commands.has("prize"), "the examples register their commands")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Anything a player would look at and call wood has to burn, and char. A kid who started in a birch
+## forest could not light a furnace with the only trees around them (playtest, 2026-09-16), so this
+## checks the rule rather than a list: the next wood someone adds is covered too.
+func _fuels() -> void:
+	var server = _start("fuels_%d" % Time.get_ticks_msec(), ["vanilla", "arcana", "industry"])
+	var woods := []
+	var cold := []
+	var uncharrable := []
+	for id in server.registry.defs.size():
+		var block_name := str(server.registry.defs[id].get("name", ""))
+		if not (block_name.ends_with("log") or block_name.ends_with("planks")):
+			continue
+		woods.append(block_name)
+		if server.get_fuel(id) <= 0.0:
+			cold.append(block_name)
+		if block_name.ends_with("log") and server.get_process("smelting", id).is_empty():
+			uncharrable.append(block_name)
+	_check(woods.size() >= 5, "there are several kinds of wood to check (%s)" % str(woods))
+	_check(cold.is_empty(), "every kind of wood burns in a furnace (cold: %s)" % str(cold))
+	_check(uncharrable.is_empty(), "every log can be charred into charcoal (cannot: %s)" % str(uncharrable))
 	server.queue_free()
 	await get_tree().process_frame
 

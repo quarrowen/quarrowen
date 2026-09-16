@@ -2493,6 +2493,13 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 		var variant := registry.id_of(str(variants[BlockRegistry.facing_from_yaw(yaw)]))
 		if variant > 0:
 			block = variant
+	# Slabs: the half you aimed at. Clicking the underside of something, or the upper half of a side,
+	# puts the slab in the top half of the cell, the way stairs already follow where you are looking.
+	var top_name := str(registry.defs[block].get("top_block", "")) if valid else ""
+	if not top_name.is_empty() and _aimed_high(p, pos):
+		var top := registry.id_of(top_name)
+		if top > 0:
+			block = top
 	# Two-block pieces (beds) also need room for their other half.
 	var pair = registry.defs[block].get("pair") if valid else null
 	var pair_pos := pos
@@ -3874,6 +3881,27 @@ func _can_edit(p: ServerPlayer, pos: Vector3i) -> bool:
 	if distance > REACH + 3.0:
 		anticheat.record(p, "reach", 1.0, "a block %.1f blocks away" % distance)
 	return distance <= REACH + 0.87
+
+
+## Whether the player was looking at the upper half of the cell they are placing into: the underside of
+## a block, or above the middle of a side face. Worked out from where they are looking rather than asked
+## of the client, so it needs nothing new on the wire and cannot be fibbed about.
+func _aimed_high(p: ServerPlayer, pos: Vector3i) -> bool:
+	var origin := p.get_eye_position()
+	var direction := PlayerPhysics.look_direction(p.yaw, p.pitch)
+	var hit := VoxelRaycast.cast(world, registry.targetable_lut, origin, direction, REACH)
+	if not hit.hit or hit.position + hit.normal != pos:
+		return false
+	if hit.normal.y != 0:
+		return hit.normal.y < 0  # the underside of a block: the slab goes up against it
+	# A side face: find where the ray crosses it, and compare with the middle of the cell.
+	var axis := 0 if hit.normal.x != 0 else 2
+	var along := direction.x if axis == 0 else direction.z
+	if absf(along) < 0.0001:
+		return false
+	var face := float(hit.position.x if axis == 0 else hit.position.z) + (1.0 if (hit.normal.x if axis == 0 else hit.normal.z) > 0 else 0.0)
+	var t := (face - (origin.x if axis == 0 else origin.z)) / along
+	return origin.y + direction.y * t - float(pos.y) > 0.5
 
 
 func _has_solid_neighbor(pos: Vector3i) -> bool:

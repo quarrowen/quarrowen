@@ -3,8 +3,13 @@ extends RefCounted
 ## dead bushes and ferns. The vanilla game places them with the engine biome generator.
 
 
+## The woods that grow in other biomes. They behave exactly like oak, including burning and charring
+## (see stations.gd, which registers the fuels once charcoal exists).
+const WOODS := ["birch", "spruce", "acacia"]
+
+
 func setup(api, sounds: Dictionary) -> void:
-	for wood in ["birch", "spruce", "acacia"]:
+	for wood in WOODS:
 		api.register_block("%s_log" % wood, {"display_name": "%s Log" % wood.capitalize(), "sounds": sounds.wood, "hardness": 2.0, "tool": "axe",
 			"textures": {"all": "textures/%s_log_side.png" % wood, "top": "textures/%s_log_top.png" % wood, "bottom": "textures/%s_log_top.png" % wood}})
 		api.register_block("%s_leaves" % wood, {"display_name": "%s Leaves" % wood.capitalize(), "textures": "textures/%s_leaves.png" % wood,

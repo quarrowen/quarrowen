@@ -9,6 +9,8 @@ extends RefCounted
 ##   chest: 27 slots that keep their contents with the world and spill when broken
 ##   furnace: smelts with fuel over time, keeps working while nobody watches and catches up after
 ##            its chunk was unloaded; it glows while burning
+const Nature = preload("nature.gd")
+
 
 const TABLE := "crafting_table"
 const TICK := 0.5  # seconds between furnace updates while it works
@@ -74,6 +76,11 @@ func setup(mod_api, sounds: Dictionary) -> void:
 		api.register_recipe({}, "base:torch", 4, {"pattern": ["F", "S"], "key": {"F": fuel, "S": "base:stick"}, "unlock": "experiment",
 			"id": "torch" if fuel == "base:coal" else "torch_from_charcoal", "category": "blocks",
 			"hint": "Something that burns, held up by something to hold it."})
+	# Wood is wood: every kind burns and chars, not just oak. A player who started in a birch forest or a
+	# savanna could not light a furnace with the only trees they had (playtest, 2026-09-16).
+	for wood in Nature.WOODS:
+		api.set_fuel("base:%s_log" % wood, 15.0)
+		api.register_process("smelting", "base:%s_log" % wood, "base:charcoal", 1, 10.0)
 	for fuel in [["base:coal", 80.0], ["base:charcoal", 80.0], ["base:log", 15.0], ["base:planks", 15.0], ["base:crafting_table", 15.0],
 			["base:chest", 15.0], ["base:stick", 5.0], ["base:sapling", 5.0], ["base:wooden_pickaxe", 10.0], ["base:wooden_axe", 10.0],
 			["base:wooden_shovel", 10.0], ["base:wooden_sword", 10.0], ["base:wooden_hoe", 10.0]]:
