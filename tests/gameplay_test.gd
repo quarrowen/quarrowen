@@ -68,6 +68,7 @@ func _ready() -> void:
 	await _playtest_fixes()
 	await _movement()
 	await _server_panel()
+	await _mod_settings()
 	await _graves_and_homes()
 	await _items_of_missing_mods()
 	await _block_shapes()
@@ -389,6 +390,82 @@ func _graves_and_homes() -> void:
 	_check(p.state.position.distance_to(pos + Vector3(20, 0, 0)) < 0.2, "/home returns to the spot /sethome remembered")
 	server.on_chat(91, "/back")
 	_check(p.state.position.distance_to(pos) < 1.5, "/back goes to where you died (%.1f blocks away)" % p.state.position.distance_to(pos))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Mod settings: what a mod declares, the three ways a host changes them (the data folder's file, the
+## command, the admin screen), that a mod is told, and that the world keeps them.
+func _mod_settings() -> void:
+	var world := "modsettings_%d" % Time.get_ticks_msec()
+	# A server with nobody logged in: values come from mod_settings.json in the data folder.
+	DirAccess.make_dir_recursive_absolute(DATA_DIR)
+	var file := FileAccess.open(DATA_DIR.path_join("mod_settings.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify({"vanilla": {"monsters": "few", "day_minutes": 5, "nonsense": true},
+		"absent_mod": {"whatever": 3}}))
+	file.close()
+	var server = _start(world)
+	var api = server.mod_instances.vanilla.api
+	_check(api.setting("zombies_burn") == true, "a setting nobody changed is its default")
+	_check(api.setting("monsters") == "few" and api.setting("day_minutes") == 5, "mod_settings.json sets values before the mod starts")
+	_check(api.setting("nothing_like_this") == null, "a setting that was never declared reads as null")
+	_check(server.entities.spawning.caps.monster == 8, "and the mod acted on it as it started")
+
+	# Values the host gives are checked against what the setting accepts.
+	_check(not server.mod_settings.set_value("vanilla", "monsters", "loads").is_empty(), "a choice refuses a value that is not one of its choices")
+	_check(not server.mod_settings.set_value("vanilla", "not_a_setting", 1).is_empty(), "an unknown setting is refused")
+	_check(server.mod_settings.set_value("vanilla", "day_minutes", 500).is_empty() and api.setting("day_minutes") == 120,
+		"a number outside the range is brought back into it (%s)" % api.setting("day_minutes"))
+	_check(server.mod_settings.set_value("vanilla", "zombies_burn", "off").is_empty() and api.setting("zombies_burn") == false,
+		"'off' turns a switch off")
+
+	# The mod hears about a change while the server runs, and the file's value can be overridden in game.
+	var heard := []
+	api.on("settings_changed", func(ev): heard.append(ev))
+	_check(server.mod_settings.set_value("vanilla", "monsters", "many").is_empty(), "an admin can change a setting")
+	_check(heard.size() == 1 and heard[0].key == "monsters" and heard[0].value == "many" and heard[0].previous == "few",
+		"the mod is told what changed, and what it was")
+	_check(server.entities.spawning.caps.monster == 48, "and it took effect at once")
+	server.mod_settings.set_value("vanilla", "monsters", "many")
+	_check(heard.size() == 1, "setting a value it already has tells nobody")
+
+	# The command, with an admin and without one.
+	var admin := ServerPlayer.new(server, 71, "Boss")
+	admin.player_id = "boss"
+	admin.edit_tokens = 100.0  # a command costs a token, like chatting
+	server.players[71] = admin
+	server.roles.give("boss", "owner")
+	var guest := ServerPlayer.new(server, 72, "Guest")
+	guest.player_id = "guest"
+	guest.edit_tokens = 100.0
+	server.players[72] = guest
+	server.on_chat(72, "/modsettings vanilla monsters none")
+	_check(api.setting("monsters") == "many", "a player who is not an admin cannot change a mod's settings")
+	server.on_chat(71, "/modsettings vanilla monsters none")
+	_check(api.setting("monsters") == "none", "an admin can, with /modsettings")
+	server.on_server_panel(71, "modset", {"mod": "vanilla", "key": "monsters", "value": "few"})
+	_check(api.setting("monsters") == "few", "and from the admin settings screen")
+	server.on_server_panel(72, "modset", {"mod": "vanilla", "key": "monsters", "value": "many"})
+	_check(api.setting("monsters") == "few", "which checks the role too, like every other action there")
+	var listed: Array = server.mod_settings.list("vanilla")
+	_check(listed.size() == 4 and listed[0].has("label") and listed[0].has("type"), "the screen is given every setting with its type and label")
+	server.on_chat(71, "/modsettings vanilla zombies_burn reset")
+	_check(api.setting("zombies_burn") == true, "'reset' puts a setting back to its default")
+
+	# The world keeps what the admin set; the file's values are not written into it.
+	server._save_all(true)
+	var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(DATA_DIR.path_join(world).path_join("world.json")))
+	_check(saved.get("mod_settings", {}).get("vanilla", {}).get("monsters", "") == "few", "the world remembers what was changed")
+	_check(not saved.mod_settings.vanilla.has("zombies_burn"), "a setting put back to its default is not kept")
+	_check(saved.mod_settings.get("absent_mod", {}).is_empty(), "a mod_settings.json value is not copied into the world")
+	server.queue_free()
+	await get_tree().process_frame
+
+	# Reopening the world: what an admin set wins over the file.
+	server = _start(world)
+	api = server.mod_instances.vanilla.api
+	_check(api.setting("monsters") == "few", "the world's value wins over mod_settings.json when it opens again")
+	DirAccess.remove_absolute(DATA_DIR.path_join("mod_settings.json"))
 	server.queue_free()
 	await get_tree().process_frame
 

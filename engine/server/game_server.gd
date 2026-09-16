@@ -50,6 +50,7 @@ const AntiCheat = preload("res://engine/server/anticheat.gd")
 const ModReload = preload("res://engine/server/mod_reload.gd")
 const ModValidator = preload("res://engine/server/mod_validator.gd")
 const Ugc = preload("res://engine/server/ugc.gd")
+const ModSettings = preload("res://engine/server/mod_settings.gd")
 const Creations = preload("res://engine/shared/creations.gd")
 const Explosions = preload("res://engine/server/explosions.gd")
 const Loot = preload("res://engine/server/loot.gd")
@@ -209,6 +210,8 @@ var max_players := DEFAULT_MAX_PLAYERS
 var mod_reload := ModReload.new(self)
 ## Player creations: uploads, the server library and serving them (see engine/server/ugc.gd).
 var ugc := Ugc.new(self)
+## What mods let a host change without editing them (see engine/server/mod_settings.gd).
+var mod_settings := ModSettings.new(self)
 ## Loaded mods: id -> manifest, in load order, and id -> the running mod (GDScript instance or JsMod).
 var mod_manifests := {}
 var mod_order: Array = []
@@ -297,6 +300,8 @@ func start(config: Dictionary) -> Error:
 		_meta.created_at = int(Time.get_unix_time_from_system())
 	max_players = int(config.get("max_players", DEFAULT_MAX_PLAYERS))
 	_register_builtin_commands()
+	# Before the mods load, so a mod can read its own settings while it is still starting up.
+	mod_settings.load_sources(_meta, data_dir, str(config.get("mod_settings", "")))
 
 	var err := _load_mods(config.get("mods", PackedStringArray()), config.get("mod_dirs", PackedStringArray()))
 	dev_log.drain()  # script parse errors from loading, so they reach the log file
@@ -687,6 +692,7 @@ func _register_builtin_commands() -> void:
 	add_command("fly", "Toggle flying (creative, or the \"fly\" permission)", _cmd_fly, "engine")
 	add_command("kill", "Die and respawn", func(p, _args): kill_player(p, "command", null), "engine")
 	add_command("gameplay", "[rule value] - show or change gameplay rules", _cmd_gameplay, "engine", "admin")
+	add_command("modsettings", "[mod] [setting value|reset] - show or change what a mod lets you change", _cmd_mod_settings, "engine", "admin")
 
 
 # --- Logs and errors ------------------------------------------------------------------------------
@@ -1259,6 +1265,34 @@ func _cmd_gameplay(player, args: PackedStringArray) -> void:
 		value = args[1].to_float()
 	set_gameplay({args[0]: value})
 	broadcast_chat("%s set %s to %s" % [player.name, args[0], value])
+
+
+## /modsettings                      every mod's settings and what they are set to
+## /modsettings <mod>                 one mod's, with what each one accepts
+## /modsettings <mod> <key> <value>   change one (or "reset" to put it back to the default)
+func _cmd_mod_settings(player, args: PackedStringArray) -> void:
+	var which := args[0] if args.size() > 0 else ""
+	if not which.is_empty() and not mod_settings.mods().has(which):
+		player.send_message("No loaded mod called '%s' has settings (%s)" % [which, ", ".join(mod_settings.mods())])
+		return
+	if args.size() >= 3:
+		var key := args[1]
+		var value := " ".join(Array(args).slice(2))
+		var problem := mod_settings.reset(which, key) if value == "reset" else mod_settings.set_value(which, key, value)
+		if problem.is_empty():
+			broadcast_chat("%s set %s's %s to %s" % [player.name, which, key, mod_settings.get_value(which, key)])
+		else:
+			player.send_message(problem)
+		return
+	var settings := mod_settings.list(which)
+	if settings.is_empty():
+		player.send_message("No mod has settings" if which.is_empty() else "%s has no settings" % which)
+		return
+	for entry: Dictionary in settings:
+		var line := "%s %s = %s" % [entry.mod, entry.key, entry.value]
+		if not which.is_empty():
+			line += "  (%s; default %s)" % [ModSettings.describe(entry), entry.default]
+		player.send_message(line)
 
 
 func set_player_rig(def: Dictionary) -> void:
@@ -3136,6 +3170,9 @@ func on_server_panel(peer_id: int, action: String, args: Dictionary) -> void:
 			_run_panel_command(p, "allow", allow_args)
 		"save":
 			_run_panel_command(p, "backup", PackedStringArray())
+		"modset":
+			var mod_args := PackedStringArray([str(args.get("mod", "")), str(args.get("key", "")), str(args.get("value", ""))])
+			_run_panel_command(p, "modsettings", mod_args)
 	var rules := []
 	for entry in PANEL_RULES:
 		if gameplay.has(entry[0]):
@@ -3155,7 +3192,17 @@ func on_server_panel(peer_id: int, action: String, args: Dictionary) -> void:
 		"anticheat": anticheat.mode,
 		"allowlist": {"enabled": bool(list.get("enabled", false)), "names": allowed},
 		"can_kick": has_permission(p, "command.kick"),
+		"mod_settings": mod_settings.list(),
+		"mod_names": _mod_titles(mod_settings.mods()),
 	})
+
+
+## Display names for mod ids, for the settings screen's section headings.
+func _mod_titles(ids: Array) -> Dictionary:
+	var out := {}
+	for id in ids:
+		out[id] = str(mod_manifests.get(id, {}).get("name", id))
+	return out
 
 
 ## Runs one of the panel's actions as a command from that player (so its own permission check applies).
@@ -4008,6 +4055,7 @@ func _drain_save_queue(budget_usec: int, wait := false) -> void:
 	_meta.last_played = int(Time.get_unix_time_from_system())
 	_meta.clock = block_ticks.clock
 	_meta.world_markers = world_markers
+	_meta.mod_settings = mod_settings.to_saved()
 	_save_writes.append([_save_dir + "/world.json", JSON.stringify(_meta, "\t")])
 	var writes := _save_writes
 	_save_writes = []

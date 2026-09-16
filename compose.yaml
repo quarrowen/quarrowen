@@ -3,6 +3,8 @@
 #   skyblock -> <host>:24567
 # Each server answers menu status queries (name, players, ping) on its port + 1.
 # Put extra or overriding mods in ./server-mods/<mod_id>/ (mounted at /mods).
+# Mod settings: VOXEL_MOD_SETTINGS takes the settings as JSON (or a path to a file), and /data/mod_settings.json
+# is read too. Admins can change them in game afterwards, and that is kept with the world.
 
 x-server: &server
   build: .
@@ -18,6 +20,7 @@ services:
     environment:
       VOXEL_MODS: vanilla
       VOXEL_METRICS: "60"
+      VOXEL_MOD_SETTINGS: '{"vanilla": {"monsters": "normal", "day_minutes": 20}}'
     ports:
       - "24565:24565/udp"
       - "24566:24566/udp"

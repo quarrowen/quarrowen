@@ -19,6 +19,9 @@ extends Node
 ##   --mods-dir=/mods      VOXEL_MODS_DIR      comma-separated folders searched before bundled mods
 ##   --data-dir=/data      VOXEL_DATA_DIR      world saves (default user://worlds)
 ##   --world=name          VOXEL_WORLD         defaults to the first mod id
+##   --mod-settings=path   VOXEL_MOD_SETTINGS  mod settings as a JSON file or inline JSON
+##                                             ({"mod": {"setting": value}}); the data folder's
+##                                             mod_settings.json is read anyway
 ##   --seed=123            VOXEL_SEED          seed for a new world
 ##   --metrics=10          VOXEL_METRICS       print tick/bandwidth stats every N seconds
 ##   --admin-token=xyz     VOXEL_ADMIN_TOKEN   token the local host uses to shut down / become admin
@@ -51,6 +54,7 @@ const DEFAULTS := {
 	"mods": "vanilla",
 	"mods-dir": "",
 	"data-dir": "user://worlds",
+	"mod-settings": "",
 	"world": "",
 	"seed": "-1",
 	"metrics": "0",
@@ -102,6 +106,7 @@ func _ready() -> void:
 		"mods": mods,
 		"mod_dirs": String(options["mods-dir"]).replace(";", ",").split(",", false),
 		"data_dir": options["data-dir"],
+		"mod_settings": options["mod-settings"],
 		"world": options.world if not options.world.is_empty() else mods[0],
 		"seed": int(options.seed),
 		"metrics": float(options.metrics),

@@ -120,10 +120,10 @@ A GDScript mod is code that runs on whoever hosts the world. So:
 - JavaScript mods stay sandboxed (they already are) - the natural home for community content;
 - every download is checksummed against the index, and an installed mod records where it came from.
 
-## 6. Mod settings
+## 6. Mod settings (done, 0.39.0)
 
-Mods need values a host can change without touching code (spawn rates, whether a feature is on, a
-difficulty). The design mirrors the client's own settings, which are already schema-driven:
+Mods expose values a host can change without touching code (spawn rates, whether a feature is on, a
+difficulty). A mod declares a schema and reads values; it never draws a screen:
 
 ```gdscript
 api.register_settings({
@@ -134,25 +134,39 @@ api.register_settings({
                      "choices": [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]]},
 })
 
-var rate: float = api.setting("monster_rate")      # read anywhere
+var rate: float = api.setting("monster_rate")      # read anywhere, including while the mod starts
 api.on("settings_changed", func(ev): ...)          # react while the server runs
 ```
 
-- **Values live with the world** (`world.json`, `mod_settings: {mod_id: {key: value}}`), so a world keeps
-  its own rules and a backup restores them. Defaults come from the schema.
-- **Admins change them in game**: the Server settings screen grows a section per mod, built from the
-  schema exactly like the engine's own rules - no new UI work per mod.
-- **Servers can set them without a UI**: `mod_settings.json` in the data dir (and `VOXEL_MOD_SETTINGS`
-  for compose) is read at start; the file wins over the schema default, and a change in game wins over
-  the file (and is saved).
-- **Per-player client preferences** (a mod's HUD position, say) come later through the same schema on
-  the client's settings screen; the server-side values are the piece that matters now.
+Types: `bool`, `int`, `float` (`min`/`max`/`step`), `choice` (`choices: [[value, label]]`) and `text`.
+A malformed entry is dropped with a warning instead of taking the server down, and a value that does not
+fit (out of range, not one of the choices) is clamped or refused rather than stored.
+
+**The server owns the values** - a setting is not client UI. All three ways in change the same thing on
+the server, and the last one wins:
+
+1. the schema's `default`;
+2. `mod_settings.json` in the server's data folder, or `--mod-settings=<path or inline JSON>` /
+   `VOXEL_MOD_SETTINGS` for compose - for a dedicated server nobody logs into:
+   ```json
+   { "vanilla": { "monsters": "few", "day_minutes": 5 } }
+   ```
+3. what an admin changed in game, kept in the world's `world.json` under `mod_settings`, so a world
+   carries its own rules and a backup restores them. Values from the file are *not* copied into the
+   world, so removing a line from the file takes effect again.
+
+Admins change them two ways, both checked against their role on the server: `/modsettings [mod] [key
+value|reset]`, and a section per mod in the Server settings screen, built from the schema - no new UI
+work per mod. A value for a mod that is not loaded this session is kept, not dropped.
+
+**Per-player client preferences** (a mod's HUD position, say) come later through the same schema on the
+client's settings screen; the server-side values were the piece that mattered.
 
 ## 7. Order of work
 
 1. **Distribution** (before alpha 2): `make_release.sh`, the Pages site, the public distribution repo,
    the download page, and the updater pointed at it. Alpha 2 is then downloaded, not handed over.
-2. **Mod settings**: schema, storage in the world, the Server settings section, the data-dir file.
+2. ~~**Mod settings**: schema, storage in the world, the Server settings section, the data-dir file.~~ Done.
 3. **Mod list in game**: installed/available/updates from the index, install and remove, and the New
    world dialog listing installed mods.
 4. **Community mods**: the advanced install path, and what a public index would need (submissions,

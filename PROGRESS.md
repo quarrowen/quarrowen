@@ -381,7 +381,14 @@ accept unsigned manifests, so the change costs nothing to the family's current i
    shaped block no longer culls its neighbours. base gains stone/cobblestone/planks slabs and stairs (four
    facings behind one carried block, placed to climb away from the player) and a fence that cannot be jumped.
    Still open: fences do not join up to their neighbours yet, and slabs always place as the bottom half.
-3. **iPad (the user has a developer account).** Godot exports iOS from macOS with Xcode. Work: build the Rust
+3. **Mod settings** (done): a mod declares what a host may change (ModApi.register_settings) and reads it
+   (api.setting); engine/server/mod_settings.gd holds the values. The server owns them, so the three ways in
+   agree: mod_settings.json in the data folder (or --mod-settings / VOXEL_MOD_SETTINGS) for a headless server,
+   /modsettings for an admin, and a section per mod in the Server settings screen built from the schema, with
+   no UI written per mod. Changes are saved in the world (world.json `mod_settings`), so a world carries its
+   own rules and a backup restores them, and the mod hears `settings_changed` while the server runs. vanilla
+   uses it for how many monsters, the length of a day, whether zombies burn and whether leaves drop apples.
+4. **iPad (the user has a developer account).** Godot exports iOS from macOS with Xcode. Work: build the Rust
    extension for `aarch64-apple-ios` (and the simulator target) and add it to the GDExtension config; an iOS
    export preset with the bundle id and icons; touch controls (a movement stick, look-drag, tap to break /
    hold to place, hotbar and menu buttons sized for fingers) behind the same input actions; UI scale for

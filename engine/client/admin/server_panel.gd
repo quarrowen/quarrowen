@@ -123,6 +123,8 @@ func _render() -> void:
 			add_name.text = "")
 	add_row.add_child(add_button)
 
+	_mod_settings()
+
 	_section("Cheat checks and backups")
 	var cheat_row := _row()
 	cheat_row.add_child(MenuTheme.muted("When someone cheats", 14))
@@ -136,6 +138,81 @@ func _render() -> void:
 	backup.text = "Back up the world now"
 	backup.pressed.connect(func(): action_requested.emit("save", {}))
 	_list.add_child(backup)
+
+
+## One section per mod that has settings, built from the schema the server sent - the client knows nothing
+## about what any of these mean, and every change goes back to the server to check and keep.
+func _mod_settings() -> void:
+	var settings: Array = _state.get("mod_settings", [])
+	var names: Dictionary = _state.get("mod_names", {})
+	var current_mod := ""
+	for entry in settings:
+		if not (entry is Dictionary):
+			continue
+		if entry.get("mod", "") != current_mod:
+			current_mod = str(entry.mod)
+			_section(str(names.get(current_mod, current_mod)))
+		_setting_row(entry)
+
+
+func _setting_row(entry: Dictionary) -> void:
+	var mod := str(entry.get("mod", ""))
+	var key := str(entry.get("key", ""))
+	var label := str(entry.get("label", key))
+	var change := func(value): action_requested.emit("modset", {"mod": mod, "key": key, "value": str(value)})
+	match str(entry.get("type", "")):
+		"bool":
+			var check := CheckBox.new()
+			check.text = label
+			check.button_pressed = bool(entry.get("value", false))
+			check.toggled.connect(func(on): change.call("true" if on else "false"))
+			_list.add_child(check)
+		"int", "float":
+			var row := _row()
+			row.add_child(MenuTheme.muted(label, 14))
+			var slider := HSlider.new()
+			slider.min_value = float(entry.get("min", 0.0))
+			slider.max_value = float(entry.get("max", 1.0))
+			slider.step = float(entry.get("step", 1.0))
+			slider.value = float(entry.get("value", slider.min_value))
+			slider.custom_minimum_size.x = 160
+			slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(slider)
+			var shown := MenuTheme.muted(str(entry.get("value", "")), 14)
+			shown.custom_minimum_size.x = 48
+			row.add_child(shown)
+			slider.value_changed.connect(func(value): shown.text = str(int(value) if entry.type == "int" else snappedf(value, 0.01)))
+			slider.drag_ended.connect(func(changed): if changed: change.call(slider.value))
+			# Keyboard and click-on-the-track changes do not count as a drag.
+			slider.gui_input.connect(func(event):
+				if event is InputEventKey and event.pressed:
+					change.call(slider.value))
+		"choice":
+			var row := _row()
+			row.add_child(MenuTheme.muted(label, 14))
+			for choice in entry.get("choices", []):
+				if not (choice is Array and choice.size() == 2):
+					continue
+				var button := Button.new()
+				button.text = str(choice[1])
+				button.disabled = str(entry.get("value", "")) == str(choice[0])
+				button.pressed.connect(func(): change.call(choice[0]))
+				row.add_child(button)
+		"text":
+			var row := _row()
+			row.add_child(MenuTheme.muted(label, 14))
+			var edit := LineEdit.new()
+			edit.text = str(entry.get("value", ""))
+			edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			edit.text_submitted.connect(func(text): change.call(text))
+			edit.focus_exited.connect(func(): change.call(edit.text))
+			row.add_child(edit)
+	var help := str(entry.get("help", ""))
+	if not help.is_empty():
+		var note := MenuTheme.muted(help, 12)
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		note.custom_minimum_size.x = 380
+		_list.add_child(note)
 
 
 func _section(text: String) -> void:

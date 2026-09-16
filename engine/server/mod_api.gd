@@ -1195,6 +1195,46 @@ func broadcast(text: String) -> void:
 	_server.broadcast_chat(text)
 
 
+# --- Settings -----------------------------------------------------------------------------------
+
+## Declares the settings a host may change without editing this mod, as {key: definition}. Each
+## definition takes a `type` ("bool", "int", "float", "choice" or "text"), a `label` players see, an
+## optional `help` line, a `default`, `min`/`max`/`step` for numbers and `choices` ([[value, label]])
+## for a choice. Call it while the mod loads; declaring the same key again updates its definition.
+##
+##   api.register_settings({
+##       "monster_rate": {"label": "How many monsters", "type": "float", "default": 1.0, "min": 0.0, "max": 3.0,
+##                        "help": "Multiplies how often monsters appear."},
+##       "difficulty":   {"label": "Difficulty", "type": "choice", "default": "normal",
+##                        "choices": [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]]},
+##   })
+##
+## The server owns the values, so all three ways in agree: mod_settings.json in the server's data
+## folder, the /modsettings command, and the admin settings screen. They live in the world, so a world
+## carries its own settings and a backup restores them.
+func register_settings(schema: Dictionary) -> void:
+	_server.mod_settings.register(mod_id, schema)
+
+
+## This mod's setting, as the host left it (its default until someone changes it). null if not declared.
+func setting(key: String):
+	return _server.mod_settings.get_value(mod_id, key)
+
+
+## Every setting of this mod as {key: value}, for passing to something that wants a config dictionary.
+func settings() -> Dictionary:
+	var out := {}
+	for entry in _server.mod_settings.list(mod_id):
+		out[entry.key] = entry.value
+	return out
+
+
+## Changes one of this mod's settings from code (the same path the admin screen uses, so handlers of
+## `settings_changed` run). Returns "" or why it was refused.
+func set_setting(key: String, value) -> String:
+	return _server.mod_settings.set_value(mod_id, key, value)
+
+
 # --- Events, commands, scheduling ---------------------------------------------------------------
 
 ## Higher priority runs first.

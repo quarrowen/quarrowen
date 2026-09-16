@@ -8,6 +8,8 @@ const VanillaStructures = preload("structures.gd")
 const Guide = preload("guide.gd")
 const Tutorial = preload("tutorial.gd")
 const APPLE_CHANCE := 0.12
+## How many monsters may be around each player, for the "monsters" setting.
+const MONSTER_CAPS := {"none": 0, "few": 8, "normal": 24, "many": 48}
 
 const HOTBAR := ["base:grass", "base:dirt", "base:stone", "base:cobblestone", "base:planks",
 	"base:log", "base:glass", "base:brick", "base:sand"]
@@ -25,6 +27,18 @@ var ids := {}
 func setup(mod_api) -> void:
 	api = mod_api
 	biomes.setup(api)
+	# What a host can change without editing this mod: the admin screen, /modsettings and the server's
+	# mod_settings.json all end up here.
+	api.register_settings({
+		"monsters": {"label": "How many monsters", "type": "choice", "default": "normal",
+			"choices": [["none", "None"], ["few", "A few"], ["normal", "Normal"], ["many", "Lots"]],
+			"help": "Monsters still only appear in the dark. 'None' leaves the animals alone."},
+		"day_minutes": {"label": "Minutes in a day", "type": "int", "default": 20, "min": 2, "max": 120,
+			"help": "How long a full day and night takes for a new world."},
+		"zombies_burn": {"label": "Zombies burn in daylight", "type": "bool", "default": true},
+		"apples_from_leaves": {"label": "Apples fall from leaves", "type": "bool", "default": true},
+	})
+	api.on("settings_changed", func(ev): if ev.mod == "vanilla": _apply_settings())
 	api.set_server_info({"name": "Vanilla Sandbox", "motd": "Welcome! Type /help for commands."})
 	api.set_spawn_handler(_spawn_position)
 	api.on("player_join", _on_join)
@@ -38,7 +52,7 @@ func setup(mod_api) -> void:
 	tutorial.setup(api)
 	if not api.storage.get("time_initialized", false):
 		api.storage.time_initialized = true
-		api.set_world_time(0.3, 1200.0)  # start the morning of a 20-minute day
+		api.set_world_time(0.3, float(api.setting("day_minutes")) * 60.0)  # start the morning of the first day
 
 
 ## Players start on open grassland (plains or savanna) near the world origin.
@@ -194,8 +208,9 @@ func _setup_mobs() -> void:
 	api.add_spawn_rule({"entity": "pig", "category": "animal", "light": [9, 15], "place": "surface", "on": ["base:grass"],
 		"max_nearby": 4, "max_total": 30, "chance": 0.08, "group": [1, 3]})
 	api.on("block_break", func(ev):
-		if ev.block == api.block("base:leaves") and randf() < APPLE_CHANCE:
+		if api.setting("apples_from_leaves") and ev.block == api.block("base:leaves") and randf() < APPLE_CHANCE:
 			ev.drops.append([api.item("base:apple"), 1]))
+	_apply_settings()
 	animals.setup(api)
 	monsters.setup(api)
 	structures.setup(api)
@@ -213,8 +228,14 @@ func _mob_tick() -> void:
 			seen[mob.id] = true
 			if randf() < 0.25 and mob.def.sounds.has("ambient"):
 				api.play_sound(mob.def.sounds.ambient, mob.position + Vector3(0, 1, 0))
-			if mob.type in [ids.zombie, ids.skeleton] and daylight > 0.75 and api.sees_sky(Vector3i(mob.position.floor()) + Vector3i.UP):
+			if api.setting("zombies_burn") and mob.type in [ids.zombie, ids.skeleton] and daylight > 0.75 \
+					and api.sees_sky(Vector3i(mob.position.floor()) + Vector3i.UP):
 				mob.damage(4.0, null, "sun")
+
+
+## Takes the host's settings into use, at startup and whenever one is changed while the server runs.
+func _apply_settings() -> void:
+	api.set_spawn_caps({"monster": MONSTER_CAPS.get(api.setting("monsters"), 24)})
 
 
 func _cmd_gamemode(player, args: PackedStringArray) -> void:
