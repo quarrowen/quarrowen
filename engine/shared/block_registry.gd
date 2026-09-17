@@ -29,11 +29,14 @@ const NETWORK_FIELDS := ["name", "display_name", "render", "solid", "liquid", "c
 ## walks into, so the two can never disagree; every shape is a list of boxes in block space (0..1).
 ## Stairs face a direction, so each facing is its own shape (and its own block id): no per-block state
 ## has to reach the mesher or the physics.
-enum Shape { FULL, SLAB_BOTTOM, SLAB_TOP, STAIRS_NORTH, STAIRS_EAST, STAIRS_SOUTH, STAIRS_WEST, FENCE }
+enum Shape { FULL, SLAB_BOTTOM, SLAB_TOP, STAIRS_NORTH, STAIRS_EAST, STAIRS_SOUTH, STAIRS_WEST, FENCE,
+	DOOR_NORTH, DOOR_EAST, DOOR_SOUTH, DOOR_WEST, PANE_X, PANE_Z }
 const SHAPE_NAMES := {
 	"full": Shape.FULL, "slab": Shape.SLAB_BOTTOM, "slab_bottom": Shape.SLAB_BOTTOM, "slab_top": Shape.SLAB_TOP,
 	"stairs_north": Shape.STAIRS_NORTH, "stairs_east": Shape.STAIRS_EAST, "stairs_south": Shape.STAIRS_SOUTH,
 	"stairs_west": Shape.STAIRS_WEST, "fence": Shape.FENCE,
+	"door_north": Shape.DOOR_NORTH, "door_east": Shape.DOOR_EAST, "door_south": Shape.DOOR_SOUTH,
+	"door_west": Shape.DOOR_WEST, "pane_x": Shape.PANE_X, "pane_z": Shape.PANE_Z,
 }
 ## The boxes each shape fills: [x0, y0, z0, x1, y1, z1] in block space. Stairs are the bottom slab plus the
 ## half that stands up, named after the side that half is on: north stairs are high at north (-z), so you
@@ -48,6 +51,16 @@ const SHAPE_BOXES := {
 	Shape.STAIRS_WEST: [[0.0, 0.0, 0.0, 1.0, 0.5, 1.0], [0.0, 0.5, 0.0, 0.5, 1.0, 1.0]],
 	# A fence is a post you cannot walk through and cannot jump over (its box is taller than the block).
 	Shape.FENCE: [[0.375, 0.0, 0.375, 0.625, 1.5, 0.625]],
+	# A door is a thin panel against one side of its cell, named after the side it is on. Opening one does
+	# not need shapes of its own: an open door is the same panel against the next side round, so a mod
+	# swaps to the block whose shape says so (see mods/base/openings.gd).
+	Shape.DOOR_NORTH: [[0.0, 0.0, 0.0, 1.0, 1.0, 0.1875]],
+	Shape.DOOR_EAST: [[0.8125, 0.0, 0.0, 1.0, 1.0, 1.0]],
+	Shape.DOOR_SOUTH: [[0.0, 0.0, 0.8125, 1.0, 1.0, 1.0]],
+	Shape.DOOR_WEST: [[0.0, 0.0, 0.0, 0.1875, 1.0, 1.0]],
+	# A pane stands in the middle of its cell: glass, bars, a shutter. Named for the axis it runs along.
+	Shape.PANE_X: [[0.4375, 0.0, 0.0, 0.5625, 1.0, 1.0]],
+	Shape.PANE_Z: [[0.0, 0.0, 0.4375, 1.0, 1.0, 0.5625]],
 }
 
 ## Face order used by `textures`: +X, -X, +Y (top), -Y (bottom), +Z, -Z.
@@ -115,7 +128,7 @@ func register(def: Dictionary, replace := false) -> int:
 	d.model = String(def.get("model", "")).left(256)
 	d.orientation = 1 if def.get("orientation") in ["horizontal", 1] else 0
 	d.shape = SHAPE_NAMES.get(String(def.get("shape", "full")), Shape.FULL) if def.get("shape") is String \
-		else clampi(int(def.get("shape", Shape.FULL)), 0, Shape.FENCE)
+		else clampi(int(def.get("shape", Shape.FULL)), 0, Shape.PANE_Z)
 	## Blocks whose shape faces a direction (stairs) name their four variants here, one per facing; placing
 	## this block places the one that faces the player. Each variant drops the block that is carried.
 	d.facing_blocks = (def.get("facing_blocks") as Array).map(func(n): return String(n)) \

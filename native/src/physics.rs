@@ -25,6 +25,12 @@ const STAIRS_EAST: [[f32; 6]; 2] = [[0.0, 0.0, 0.0, 1.0, 0.5, 1.0], [0.5, 0.5, 0
 const STAIRS_SOUTH: [[f32; 6]; 2] = [[0.0, 0.0, 0.0, 1.0, 0.5, 1.0], [0.0, 0.5, 0.5, 1.0, 1.0, 1.0]];
 const STAIRS_WEST: [[f32; 6]; 2] = [[0.0, 0.0, 0.0, 1.0, 0.5, 1.0], [0.0, 0.5, 0.0, 0.5, 1.0, 1.0]];
 const FENCE: [[f32; 6]; 1] = [[0.375, 0.0, 0.375, 0.625, 1.5, 0.625]];
+const DOOR_NORTH: [[f32; 6]; 1] = [[0.0, 0.0, 0.0, 1.0, 1.0, 0.1875]];
+const DOOR_EAST: [[f32; 6]; 1] = [[0.8125, 0.0, 0.0, 1.0, 1.0, 1.0]];
+const DOOR_SOUTH: [[f32; 6]; 1] = [[0.0, 0.0, 0.8125, 1.0, 1.0, 1.0]];
+const DOOR_WEST: [[f32; 6]; 1] = [[0.0, 0.0, 0.0, 0.1875, 1.0, 1.0]];
+const PANE_X: [[f32; 6]; 1] = [[0.4375, 0.0, 0.0, 0.5625, 1.0, 1.0]];
+const PANE_Z: [[f32; 6]; 1] = [[0.0, 0.0, 0.4375, 1.0, 1.0, 0.5625]];
 
 /// The boxes for one shape id (BlockRegistry.Shape).
 pub fn boxes_of(shape: u8) -> &'static [[f32; 6]] {
@@ -36,6 +42,12 @@ pub fn boxes_of(shape: u8) -> &'static [[f32; 6]] {
         5 => &STAIRS_SOUTH,
         6 => &STAIRS_WEST,
         7 => &FENCE,
+        8 => &DOOR_NORTH,
+        9 => &DOOR_EAST,
+        10 => &DOOR_SOUTH,
+        11 => &DOOR_WEST,
+        12 => &PANE_X,
+        13 => &PANE_Z,
         _ => &FULL_BOX,
     }
 }
