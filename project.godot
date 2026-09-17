@@ -12,6 +12,8 @@ config_version=5
 
 config/name="Quarrowen"
 run/main_scene="res://scenes/main.tscn"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="Quarrowen"
 config/features=PackedStringArray("4.7")
 run/flush_stdout_on_print=true
 boot_splash/bg_color=Color(0.1, 0.13, 0.18, 1)
@@ -22,6 +24,13 @@ run/main_scene.dedicated_server="res://scenes/server.tscn"
 [autoload]
 
 Net="*res://engine/net/net.gd"
+
+[debug]
+
+file_logger/enable_file_logging=true
+file_logger/enable_file_logging.pc=true
+file_logger/log_path="user://logs/quarrowen.log"
+file_logger/max_log_files=5
 
 [display]
 

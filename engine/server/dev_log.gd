@@ -10,12 +10,17 @@ extends RefCounted
 ## - Lines everything else prints ("[server] ...", "[arcana] ...") are kept too, tagged by their prefix.
 ## - Errors are grouped by source, file, line and message with a count; new ones (and repeats at most
 ##   once every REPEAT_NOTIFY seconds) are sent to the `error_added` listeners (admins' alerts).
-## Files: <world>/logs/latest.log, rotated to <date>.log on start, KEEP_FILES kept.
+## Files: <world>/logs/latest.log, rotated to <date>.log on start and again whenever it passes
+## MAX_FILE_BYTES, KEEP_FILES kept. Rotating on size as well as on start matters because a server that
+## is working properly is never restarted: `restart: unless-stopped` plus a good month means one file
+## that grows until the disk is full.
 
 const LEVELS := {"debug": 0, "info": 1, "warn": 2, "error": 3}
 const MAX_ENTRIES := 2000
 const MAX_ERRORS := 200
 const KEEP_FILES := 5
+## Rotate once the file passes this. Five of these is the most the logs can take on disk.
+const MAX_FILE_BYTES := 16 * 1024 * 1024
 const REPEAT_NOTIFY := 10.0
 
 ## Everything Godot prints or reports goes through here (on any thread).
@@ -57,6 +62,8 @@ var _seq := 0
 var _error_seq := 0
 var _mod_dirs := {}  # absolute folder (with trailing /) -> mod id
 var _file: FileAccess
+var _dir := ""
+var _written := 0  # bytes in the open file, so it can be rotated without asking the filesystem
 var _notified := {}  # error key -> time last sent
 
 
@@ -76,19 +83,37 @@ func close() -> void:
 
 ## Opens <save_dir>/logs/latest.log, moving the previous one aside.
 func open_file(save_dir: String) -> void:
-	var dir := save_dir.path_join("logs")
-	DirAccess.make_dir_recursive_absolute(dir)
-	var latest := dir.path_join("latest.log")
-	if FileAccess.file_exists(latest):
-		var stamp := Time.get_datetime_string_from_unix_time(FileAccess.get_modified_time(latest)).replace(":", "-").replace("T", "_")
-		DirAccess.rename_absolute(latest, dir.path_join("%s.log" % stamp))
-	var old := Array(DirAccess.get_files_at(dir)).filter(func(f): return f.ends_with(".log") and f != "latest.log")
-	old.sort()
-	while old.size() > KEEP_FILES - 1:
-		DirAccess.remove_absolute(dir.path_join(old.pop_front()))
-	_file = FileAccess.open(latest, FileAccess.WRITE)
+	_dir = save_dir.path_join("logs")
+	DirAccess.make_dir_recursive_absolute(_dir)
+	_rotate()
 	for e in entries:
 		_write(e)
+
+
+## Moves latest.log aside, drops the oldest until KEEP_FILES remain, and opens a new one.
+func _rotate() -> void:
+	if _file != null:
+		_file.close()
+		_file = null
+	var latest := _dir.path_join("latest.log")
+	if FileAccess.file_exists(latest):
+		# Counted up rather than named by clock time: a timestamp is the obvious name, but it is taken
+		# from the machine's local clock, and one daylight-saving step backwards makes the sort that
+		# decides what to delete pick the wrong file. Numbers only ever go one way.
+		for i in range(KEEP_FILES - 1, 0, -1):
+			var older := _dir.path_join("%d.log" % i)
+			if FileAccess.file_exists(older):
+				if i == KEEP_FILES - 1:
+					DirAccess.remove_absolute(older)
+				else:
+					DirAccess.rename_absolute(older, _dir.path_join("%d.log" % (i + 1)))
+		DirAccess.rename_absolute(latest, _dir.path_join("1.log"))
+	# Tidy away the clock-named files earlier versions wrote, so the folder does not keep both schemes.
+	for name in DirAccess.get_files_at(_dir):
+		if name.ends_with(".log") and name != "latest.log" and not name.trim_suffix(".log").is_valid_int():
+			DirAccess.remove_absolute(_dir.path_join(name))
+	_file = FileAccess.open(latest, FileAccess.WRITE)
+	_written = 0
 
 
 func add_mod_dir(mod_id: String, dir: String) -> void:
@@ -266,4 +291,9 @@ func _from_error(item: Dictionary) -> void:
 func _write(entry: Dictionary) -> void:
 	if _file == null:
 		return
-	_file.store_line("%s %-5s [%s] %s" % [Time.get_datetime_string_from_unix_time(int(entry.time)).replace("T", " "), entry.level.to_upper(), entry.source, entry.message])
+	var line := "%s %-5s [%s] %s" % [Time.get_datetime_string_from_unix_time(int(entry.time)).replace("T", " "),
+		entry.level.to_upper(), entry.source, entry.message]
+	_file.store_line(line)
+	_written += line.length() + 1
+	if _written >= MAX_FILE_BYTES:
+		_rotate()

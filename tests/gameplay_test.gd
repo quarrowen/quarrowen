@@ -78,6 +78,7 @@ func _ready() -> void:
 	await _movement()
 	await _server_panel()
 	await _mod_settings()
+	_housekeeping()
 	await _graves_and_homes()
 	await _items_of_missing_mods()
 	await _block_shapes()
@@ -449,6 +450,37 @@ func _graves_and_homes() -> void:
 
 ## Mod settings: what a mod declares, the three ways a host changes them (the data folder's file, the
 ## command, the admin screen), that a mod is told, and that the world keeps them.
+## Housekeeping: caches pruned oldest-first back to a budget, and nothing of the player's touched.
+func _housekeeping() -> void:
+	var Housekeeping = preload("res://engine/client/housekeeping.gd")
+	var root := "user://test_housekeeping_%d" % Time.get_ticks_msec()
+	DirAccess.make_dir_recursive_absolute(root)
+	# Three files of 1 KB, written oldest first. They have to land in different seconds for oldest-first
+	# to mean anything, because a filesystem modification time is only good to the second.
+	var kilobyte := PackedByteArray()
+	kilobyte.resize(1024)
+	for name in ["a", "b", "c"]:
+		var f := FileAccess.open(root.path_join(name), FileAccess.WRITE)
+		f.store_buffer(kilobyte)
+		f.close()
+		OS.delay_msec(1100)
+	_check(Housekeeping.size_of(root) == 3 * 1024, "a folder knows what it costs (%d)" % Housekeeping.size_of(root))
+	var freed: int = Housekeeping.prune(root, 1024)
+	var left := Array(DirAccess.get_files_at(root))
+	left.sort()
+	_check(freed == 2 * 1024 and left == ["c"], "pruning drops the oldest until it fits (%s)" % str(left))
+	_check(Housekeeping.prune(root, 1024) == 0, "and does nothing when it already fits")
+	# A budget of 0 means "never", not "delete everything" - it is what guards worlds and the identity key.
+	for folder in Housekeeping.FOLDERS:
+		if str(folder.key) in ["worlds", "mods", "creations", "identity", "logs"]:
+			_check(int(folder.budget) == 0, "%s is never pruned" % folder.key)
+	_check(Housekeeping.human(1024 * 1024 * 3) == "3 MB" and Housekeeping.human(900) == "900 bytes",
+		"sizes read as sizes (%s)" % Housekeeping.human(1024 * 1024 * 3))
+	for name in Array(DirAccess.get_files_at(root)):
+		DirAccess.remove_absolute(root.path_join(name))
+	DirAccess.remove_absolute(root)
+
+
 func _mod_settings() -> void:
 	var world := "modsettings_%d" % Time.get_ticks_msec()
 	# A server with nobody logged in: values come from mod_settings.json in the data folder.

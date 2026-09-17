@@ -23,6 +23,11 @@ services:
       VOXEL_SEED_MODS: ${SEED_MODS:-update}
       VOXEL_BACKUP_INTERVAL: "60"
       VOXEL_BACKUP_KEEP: "48"
+    logging:  # as the family server: bounded, or it grows until the disk is full
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - quarrowen-sky-data:/data
       - ${MODS_DIR:-./mods}:/mods  # the same mods as the family server

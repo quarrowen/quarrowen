@@ -17,6 +17,10 @@ static func dir() -> String:
 static func list(root := "") -> Array:
 	root = root if not root.is_empty() else dir()
 	var out := []
+	# A player who has never made a world has no worlds folder, which is not a problem worth an error in
+	# the log on the very first launch.
+	if not DirAccess.dir_exists_absolute(root):
+		return out
 	for id in DirAccess.get_directories_at(root):
 		if id in RESERVED or id.begins_with("."):
 			continue

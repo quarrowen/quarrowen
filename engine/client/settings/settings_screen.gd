@@ -8,6 +8,7 @@ signal closed
 
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
+const Housekeeping = preload("res://engine/client/housekeeping.gd")
 
 var settings = ClientSettings.shared()
 ## Shows a close button (the in-game overlay).
@@ -51,6 +52,7 @@ func _ready() -> void:
 	_pages["__stack"] = stack
 	for tab: String in ClientSettings.TABS:
 		_add_page(tab, _build_tab(tab))
+	_add_page("Files", _build_files())
 	for e in _extra:
 		_add_page(e[0], e[1])
 	_extra.clear()
@@ -122,6 +124,49 @@ func _build_tab(tab: String) -> Control:
 		box.add_child(_binding_note)
 		for a in ClientSettings.ACTIONS:
 			box.add_child(_binding_row(a[0], a[1]))
+	return box
+
+
+## The Files tab: every folder the game keeps things in, what it holds, how big it is, and a button that
+## opens it in Finder.
+##
+## This exists because "where is the log?" had no answer a parent could act on. The folder is buried
+## several levels inside Library, which is hidden by default, under a name that is not the game's - so
+## telling somebody the path is not much better than not telling them. A button is.
+func _build_files() -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	var intro := MenuTheme.muted("Where Quarrowen keeps things on this computer. The downloaded ones clear themselves out as they grow; the rest are yours.", 13)
+	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	intro.custom_minimum_size.x = 300
+	box.add_child(intro)
+	for folder in Housekeeping.listing():
+		box.add_child(HSeparator.new())
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		box.add_child(row)
+		var text := VBoxContainer.new()
+		text.add_theme_constant_override("separation", 2)
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(text)
+		var size_note: String = Housekeeping.human(int(folder.bytes)) if folder.exists else "empty"
+		var heading := MenuTheme.heading("%s - %s" % [folder.title, size_note], 16)
+		text.add_child(heading)
+		var about := MenuTheme.muted(str(folder.about), 13)
+		about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		about.custom_minimum_size.x = 260
+		text.add_child(about)
+		var open := Button.new()
+		open.text = "Open"
+		open.tooltip_text = str(folder.absolute)
+		open.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var path := str(folder.path)
+		open.pressed.connect(func():
+			# Made on demand: a folder nothing has written to yet does not exist, and a button that does
+			# nothing is worse than one that opens an empty folder.
+			DirAccess.make_dir_recursive_absolute(path)
+			OS.shell_open(ProjectSettings.globalize_path(path)))
+		row.add_child(open)
 	return box
 
 

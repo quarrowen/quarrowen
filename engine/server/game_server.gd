@@ -395,8 +395,6 @@ func _exit_tree() -> void:
 	if hub != null:
 		hub.leave()
 	status_query.stop()
-	dev_log.drain()
-	dev_log.close()
 	for job: Dictionary in _chunk_jobs.values():
 		WorkerThreadPool.wait_for_task_completion(job.task_id)
 	_chunk_jobs.clear()
@@ -405,6 +403,10 @@ func _exit_tree() -> void:
 	if _backup_task != -1:
 		WorkerThreadPool.wait_for_task_completion(_backup_task)
 		_backup_task = -1
+	# The log closes last, after the final save and the backup it might be waiting on. Closing it first
+	# is the one ordering that loses the message you most want: "could not write the world".
+	dev_log.drain()
+	dev_log.close()
 	if Net.server == self:
 		Net.server = null
 

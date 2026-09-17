@@ -934,7 +934,10 @@ file, line and stack, attributed to the mod whose code was running and de-duplic
 - Lines everything else prints (&quot;[server] ...&quot;, &quot;[arcana] ...&quot;) are kept too, tagged by their prefix.
 - Errors are grouped by source, file, line and message with a count; new ones (and repeats at most
   once every REPEAT_NOTIFY seconds) are sent to the `error_added` listeners (admins' alerts).
-Files: &lt;world&gt;/logs/latest.log, rotated to &lt;date&gt;.log on start, KEEP_FILES kept.</pre></section>
+Files: &lt;world&gt;/logs/latest.log, rotated to &lt;date&gt;.log on start and again whenever it passes
+MAX_FILE_BYTES, KEEP_FILES kept. Rotating on size as well as on start matters because a server that
+is working properly is never restarted: `restart: unless-stopped` plus a good month means one file
+that grows until the disk is full.</pre></section>
 <section id="ref-dev-tools" class="ref"><h2>Dev tools <span class="file">engine/server/dev_tools.gd</span></h2><pre class="block">Developer tools behind the dev overlay (and the web dashboard): a per-mod profiler, a live event
 tracer, an inspector for blocks, entities and players, and debug drawing. Available to admins, or to
 everyone when the server runs with --dev.

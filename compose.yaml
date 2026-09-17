@@ -11,6 +11,13 @@ x-server: &server
   image: quarrowen-server
   restart: unless-stopped
   stop_grace_period: 30s
+  # Without this Docker keeps stdout for ever, which on a server that is never restarted means it keeps
+  # growing until the disk is full.
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
   volumes:
     - ./server-mods:/mods:ro
 

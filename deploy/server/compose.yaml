@@ -28,6 +28,13 @@ services:
       VOXEL_CHAT_FILTER: ${CHAT_FILTER:-on}
       VOXEL_BACKUP_INTERVAL: "60"
       VOXEL_BACKUP_KEEP: "48"
+    # Docker keeps a container's stdout for ever by default, and a server that is never restarted is
+    # exactly the case where that fills the disk. Three days of talking is plenty to debug from.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - quarrowen-data:/data
       # The mods the server loads live on the host: add a folder here and restart, no rebuild needed.

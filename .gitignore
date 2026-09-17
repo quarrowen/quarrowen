@@ -17,3 +17,9 @@ services/hub/target/
 *.local.md
 *.local.json
 deploy/*/mods/
+# Logs and backups carry the same things: who played, when, and the paths of whoever ran the server.
+# They live in a Docker volume in normal use, but copying a world folder in to share a repro is a very
+# natural thing to do, and this is what stops that becoming a commit.
+*.log
+logs/
+backups/

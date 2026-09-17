@@ -112,6 +112,12 @@ static func restore(zip_path: String, world_dir: String) -> String:
 	return "" if err == OK else "could not move restored world into place: %s" % error_string(err)
 
 
+## Folders inside a world that a backup has no business carrying. The log is the whole list: it is not
+## part of the world, restoring it would overwrite the log of the server doing the restoring, and every
+## archive would otherwise keep its own copy of who played and when.
+const SKIP_DIRS := ["logs"]
+
+
 static func _collect(root: String, relative: String, out: PackedStringArray) -> void:
 	var dir := DirAccess.open(root.path_join(relative))
 	if dir == null:
@@ -119,6 +125,8 @@ static func _collect(root: String, relative: String, out: PackedStringArray) -> 
 	for file in dir.get_files():
 		out.append(relative.path_join(file) if not relative.is_empty() else file)
 	for sub in dir.get_directories():
+		if relative.is_empty() and sub in SKIP_DIRS:
+			continue
 		_collect(root, relative.path_join(sub) if not relative.is_empty() else sub, out)
 
 

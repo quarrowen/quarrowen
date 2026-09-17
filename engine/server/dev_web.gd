@@ -72,7 +72,12 @@ func start(listen_port: int, bind_host := "127.0.0.1", keep_token := "") -> Erro
 			_tcp = null
 			return err
 	_page = FileAccess.get_file_as_string(PAGE)
-	_server.dev_log.add("info", "server", "Dev dashboard: %s" % url())
+	# Deliberately without the token. The URL carries a live credential that grants the logs, player
+	# positions, reloads and the ban controls, and the log is the one place it must not be: it is read by
+	# anyone with `docker logs`, and it used to be copied into every backup archive as well. Admins get
+	# the full URL privately with /devweb.
+	_server.dev_log.add("info", "server", "Dev dashboard on http://%s:%d/ (use /devweb for the link with its token)"
+		% ["127.0.0.1" if host == "0.0.0.0" or host == "*" else host, port])
 	return OK
 
 

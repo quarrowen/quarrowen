@@ -26,7 +26,7 @@ const MainMenu = preload("res://engine/client/menu/main_menu.gd")
 const MenuBackdrop = preload("res://engine/client/menu/menu_backdrop.gd")
 const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
-const DataMigration = preload("res://engine/client/data_migration.gd")
+const Housekeeping = preload("res://engine/client/housekeeping.gd")
 const UpdateCheck = preload("res://engine/client/menu/update_check.gd")
 const SocialClient = preload("res://engine/client/social/social_client.gd")
 const InviteCode = preload("res://engine/shared/invite_code.gd")
@@ -48,12 +48,15 @@ var _pending_join := {}
 
 
 func _ready() -> void:
-	# Before anything reads settings, worlds or the identity key: bring them across from an older name.
-	DataMigration.run()
 	_args = _parse_args()
 	if _args.has("server"):
 		_run_dedicated_server()
 		return
+	# Caches back inside their budgets, before the game has a chance to add to them. Only caches: see
+	# engine/client/housekeeping.gd for what is never touched.
+	var freed := Housekeeping.sweep()
+	if freed > 0:
+		print("[main] Freed %s of cached downloads" % Housekeeping.human(freed))
 	if _args.has("export-identity") or _args.has("import-identity"):
 		get_tree().quit(_identity_cli())
 		return
