@@ -642,8 +642,14 @@ func _combat(c) -> void:
 	while top > 0 and c.world.get_block(floori(ground.x), top, floori(ground.z)) == 0:
 		top -= 1  # land on the highest block in the column (trees included), 12 blocks down
 	Net.c_chat.rpc_id(1, "/tp %.2f %d %.2f" % [ground.x, top + 13, ground.z])
-	var fell := await _wait_until(func(): return c.health <= 17.0, 5.0)
-	_check(fell, "fell 12 blocks and took fall damage (health %.1f)" % c.health)
+	# Wait for the fall itself rather than for a number of seconds. A server running the GDScript physics
+	# on a small CI runner simulates a good deal less in five seconds than one on a fast machine does, and
+	# a stopwatch turns that into a failure that looks like broken fall damage.
+	var lifted := await _wait_until(func(): return not c.state.on_ground, 5.0)
+	var landed := await _wait_until(func(): return c.state.on_ground, 15.0)
+	var fell := await _wait_until(func(): return c.health <= 17.0, 3.0)
+	_check(fell, "fell 12 blocks and took fall damage (health %.1f, lifted %s, landed %s, y %.1f of %d)"
+		% [c.health, lifted, landed, c.state.position.y, top + 13])
 
 	# Drop the sword with Q, then pick it back up.
 	await _select_item(c, sword)

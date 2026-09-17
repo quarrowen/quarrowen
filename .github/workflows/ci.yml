@@ -93,6 +93,20 @@ jobs:
         run: tools/run_tests.sh
       - name: Run test suite (GDScript fallbacks)
         run: QW_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh
+      # The suite writes every server and test log to a temporary folder and prints where. Without this
+      # a CI-only failure can only be guessed at, which is worse than not knowing.
+      - name: Collect logs
+        if: failure()
+        run: |
+          mkdir -p ci-logs
+          cp -r /tmp/quarrowen-tests.*/. ci-logs/ 2>/dev/null || true
+          ls -la ci-logs | head -40
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-logs
+          path: ci-logs
+          if-no-files-found: warn
 
   export:
     name: Export macOS
@@ -133,7 +147,6 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -153,7 +166,9 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          # The homelab is amd64. Building arm64 too would mean emulating it under QEMU, which takes
+          # about three times as long and doubles what the package stores, for nothing anyone runs.
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
