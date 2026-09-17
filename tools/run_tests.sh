@@ -6,6 +6,7 @@
 #   GODOT=/path/to/godot tools/run_tests.sh
 #   QW_NATIVE=0 tools/run_tests.sh  # exercise the GDScript fallbacks
 #   ONLY=e2e:combat,gameplay tools/run_tests.sh   # just these tests (names as printed; "e2e:*" and globs work)
+#   EXCEPT="e2e:*" tools/run_tests.sh  # everything but these (EXCEPT wins over ONLY)
 #   REPEAT=10 ONLY=e2e:combat tools/run_tests.sh  # run each selected test 10 times (hunting flaky tests)
 set -uo pipefail
 
@@ -14,6 +15,7 @@ GODOT="${GODOT:-$(command -v godot || echo /Applications/Godot.app/Contents/MacO
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/quarrowen-tests.XXXXXX")"
 PORT_BASE="${PORT_BASE:-25600}"
 ONLY="${ONLY:-}"
+EXCEPT="${EXCEPT:-}"
 REPEAT="${REPEAT:-1}"
 SERVERS=()
 FAILED=()
@@ -79,8 +81,15 @@ record() { # name exit_code log
 }
 
 selected() { # name
+  local pattern patterns
+  if [ -n "$EXCEPT" ]; then
+    IFS=',' read -ra patterns <<<"$EXCEPT"
+    for pattern in "${patterns[@]}"; do
+      # shellcheck disable=SC2053
+      [[ "$1" == $pattern ]] && return 1
+    done
+  fi
   [ -z "$ONLY" ] && return 0
-  local pattern
   IFS=',' read -ra patterns <<<"$ONLY"
   for pattern in "${patterns[@]}"; do
     # shellcheck disable=SC2053
