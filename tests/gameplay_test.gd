@@ -60,6 +60,7 @@ func _ready() -> void:
 	await _examples()
 	await _fuels()
 	await _cooking()
+	await _hearthhold()
 	await _loot()
 	_api_docs()
 	_creations()
@@ -79,6 +80,8 @@ func _ready() -> void:
 	await _graves_and_homes()
 	await _items_of_missing_mods()
 	await _block_shapes()
+	_shape_twins()
+	await _doors_and_windows()
 	await _shape_meshing()
 	_updates()
 	await _anticheat()
@@ -1434,15 +1437,15 @@ func _assembly() -> void:
 		"materials and assemblies are registered")
 	var head_recipe: int = server.recipes.index_of("base:pickaxe_head/base:iron")
 	_check(head_recipe >= 0 and server.recipes.index_of("base:tool_handle/vanilla:bone") >= 0, "part recipes exist for every material")
-	# Parts need the Tool Forge.
+	# Parts need the Toolsmith’s Bench.
 	p.inventory.set_slot(0, items.id_of("base:iron_ingot"), 5)
 	p.inventory.set_slot(1, items.id_of("vanilla:bone"), 2)
 	server.open_crafting(p, {})
-	_check(server.craft(p, head_recipe) == 0, "parts cannot be made without a Tool Forge")
+	_check(server.craft(p, head_recipe) == 0, "parts cannot be made without a Toolsmith’s Bench")
 	var forge := Vector3i(10, y + 1, 8)
 	server.set_block_authoritative(forge, reg.id_of("base:tool_forge"))
 	server.on_interact(97, forge)
-	_check(p.crafting_station.get("name", "") == "tool_forge", "the Tool Forge opens as a station")
+	_check(p.crafting_station.get("name", "") == "tool_forge", "the Toolsmith’s Bench opens as a station")
 	_check(server.craft(p, head_recipe) == 1, "an iron pickaxe head is forged")
 	server.craft(p, server.recipes.index_of("base:tool_handle/vanilla:bone"))
 	server.craft(p, server.recipes.index_of("base:binding/base:iron"))
@@ -3380,11 +3383,11 @@ func _first_session() -> void:
 
 	# The deepest system in the game must be pointed at, and the way in must be findable.
 	var tips: Dictionary = server.tutorials.tips
-	_check(str(tips["vanilla:iron_tools"].text).contains("Tool Forge"),
-		"finding iron points at the Tool Forge, which needs no plans, not only at the anvil that does")
+	_check(str(tips["vanilla:iron_tools"].text).contains("Toolsmith’s Bench"),
+		"finding iron points at the Toolsmith’s Bench, which needs no plans, not only at the anvil that does")
 	var recipe_index: int = server.recipes.index_of("base:tool_forge")
 	_check(recipe_index >= 0 and server.recipes.recipes[recipe_index].station == "crafting_table",
-		"and a Tool Forge is built at an ordinary crafting table")
+		"and a Toolsmith’s Bench is built at an ordinary crafting table")
 	var skeleton: int = server.entities.registry.id_of("vanilla:skeleton")
 	var plans_chance := 0.0
 	for drop in server.entities.registry.defs[skeleton].drops:
@@ -3398,7 +3401,31 @@ func _first_session() -> void:
 	survivor.state.position = Vector3(8, 70, 8)
 	server.kill_player(survivor, "fall", null)
 	_check(survivor.dead and not titles.is_empty(), "a fall kills, and says how")
-	_check(str(titles[0].message).contains("fell"), "the message names what happened (%s)" % titles[0].message)
+	_check(str(titles[0].message).contains(survivor.name), "the message names who it happened to (%s)" % titles[0].message)
+	# A few of each, never the same one twice running, and never unkind.
+	var seen := {}
+	for i in 40:
+		seen[server._death_message("Robin", "fall", "")] = true
+	_check(seen.size() >= 3, "death messages vary rather than repeating one line (%d of them)" % seen.size())
+	var runs := []
+	for i in 12:
+		runs.append(server._death_message("Robin", "fall", ""))
+	var repeated := false
+	for i in range(1, runs.size()):
+		repeated = repeated or runs[i] == runs[i - 1]
+	_check(not repeated, "and never the same one twice in a row")
+	_check(server._death_message("Robin", "mob", "").contains("Robin"), "a line needing an attacker is not used when there is none")
+	# A mod can give its own mob its own send-off, without taking the engine's lines away.
+	server.add_death_messages("testmod:dragon", ["%s was toasted by %s"])
+	var mob_lines := {}
+	for i in 20:
+		mob_lines[server._death_message("Robin", "mob", "Dragon", "testmod:dragon")] = true
+	_check(mob_lines.keys().any(func(line): return str(line).contains("toasted")),
+		"a mod's own mob can have its own death message (%s)" % str(mob_lines.keys().slice(0, 2)))
+	_check(mob_lines.size() > 1, "and the engine's lines are still in the mix")
+	server.add_death_messages("testmod:bad", ["no placeholders here"])
+	_check(not server._death_message("Robin", "mob", "Dragon", "testmod:bad").contains("no placeholders"),
+		"a line that does not name anyone is refused")
 	server.queue_free()
 	await get_tree().process_frame
 
@@ -3443,6 +3470,178 @@ func _cooking() -> void:
 	_check(orphans.is_empty(), "things a player picks up are worth picking up (%s has no use)" % str(orphans))
 	server.queue_free()
 	await get_tree().process_frame
+
+
+## Hearthhold, phase 1: the Hearthstone is the thing the whole game rests on, because it is what turns
+## building into something the game counts. It must never answer "no" without saying which part is missing.
+func _hearthhold() -> void:
+	var server = _start("hearth_%d" % Time.get_ticks_msec(), ["hearthhold"])
+	var mod = server.mod_instances.get("hearthhold")
+	_check(mod != null, "Hearthhold loads as a game")
+	if mod == null:
+		server.queue_free()
+		await get_tree().process_frame
+		return
+	var hearthstone: int = server.registry.id_of("hearthhold:hearthstone")
+	var cold: int = server.registry.id_of("hearthhold:cold_hearth")
+	_check(hearthstone > 0 and cold > 0, "it registers a hearthstone and a hearth to light")
+
+	# An empty field: nothing ticks, and every line says what to do about it.
+	var at := Vector3i(40, 70, 40)
+	server._ensure_chunk(Vector2i(2, 2))
+	for x in range(-8, 9):
+		for z in range(-8, 9):
+			server.set_block_authoritative(at + Vector3i(x, -1, z), server.registry.id_of("base:stone"))
+	server.set_block_authoritative(at, hearthstone)
+	var survey: Array = mod.dwellings.survey(at)
+	_check(survey.size() == 5 and survey.all(func(item): return not item.ok), "an empty field is nobody's home yet")
+	_check(survey.all(func(item): return not str(item.hint).is_empty()),
+		"and every missing thing says how to fix it, rather than only that it is missing")
+	_check(not mod.dwellings.is_home(at), "so nobody can live there")
+
+	# Build a room around a bed: walls, a roof, a light.
+	var bed_at := at + Vector3i(3, 0, 0)  # far enough that its walls do not land on the hearthstone itself
+	server.set_block_authoritative(bed_at, server.registry.id_of("base:bed"))
+	for dir in [Vector3i.LEFT, Vector3i.RIGHT, Vector3i.FORWARD, Vector3i.BACK]:
+		server.set_block_authoritative(bed_at + dir * 2, server.registry.id_of("base:planks"))
+	for x in range(-3, 4):
+		for z in range(-3, 4):
+			server.set_block_authoritative(bed_at + Vector3i(x, 3, z), server.registry.id_of("base:planks"))
+	server.set_block_authoritative(at + Vector3i.UP, server.registry.id_of("base:torch"))
+	server.set_block_authoritative(bed_at + Vector3i(0, 0, 3), server.registry.id_of("base:door_north"))
+	survey = mod.dwellings.survey(at)
+	var missing: Array = survey.filter(func(item): return not item.ok).map(func(item): return str(item.label))
+	_check(missing.is_empty(), "a bed with walls, a roof, a light and a door is somewhere to live (missing: %s)" % str(missing))
+	_check(mod.dwellings.is_home(at), "and the hearthstone says so")
+
+	# Taking the light away takes the home away again, and says which part went.
+	server.set_block_authoritative(at + Vector3i.UP, 0)
+	var after: Array = mod.dwellings.survey(at).filter(func(item): return not item.ok)
+	_check(after.size() == 1 and str(after[0].label).contains("light"),  # and not because the sun went in
+		"and when something is taken away it names what (%s)" % str(after.map(func(item): return str(item.label))))
+	server.set_block_authoritative(at + Vector3i.UP, server.registry.id_of("base:torch"))
+
+	# Chapter two: Bramble agrees to come, follows, and moves in once there is somewhere to live.
+	var p := ServerPlayer.new(server, 161, "Walker")
+	p.player_id = "walker"
+	p.state.position = Vector3(at) + Vector3(3, 1, 3)
+	server.players[161] = p
+	var bramble = server.entities.spawn(server.entities.registry.id_of("hearthhold:bramble"), Vector3(at) + Vector3(4, 1, 4), {})
+	_check(bramble != null, "Bramble can be found in the world")
+	_check(str(bramble.data.get("owner", "")).is_empty(), "and is nobody's to begin with")
+
+	# Nothing can take her away from a child who walked to find her.
+	server.entities.damage(bramble, 1000.0, "attack", p)
+	_check(bramble.is_alive(), "a settler cannot be killed")
+
+	mod.settlers.recruit(p, bramble.id)
+	_check(str(bramble.data.get("owner", "")) == "walker", "asking her to come makes her follow you")
+	_check(mod.settlers.whereabouts(p).contains("following"), "and the game can say where she is (%s)" % mod.settlers.whereabouts(p))
+
+	# The hearthstone beside a finished house is what she moves into.
+	server.set_block_data(at, {"hearthstone": true})
+	mod.settlers._settle_in()
+	var stones: Array = server.find_block_data(server.registry.id_of("hearthhold:hearthstone"))
+	var nearby: Array = server.entities.in_radius(Vector3(at), 24.0, server.entities.registry.id_of("hearthhold:bramble"))
+	_check(bramble.data.get("home") != null, "she moves into a house that is ready (stones %d, home %s, nearby %d)" % [
+		stones.size(), str(mod.dwellings.is_home(at)), nearby.size()])
+	_check(str(bramble.data.get("owner", "")).is_empty(), "and stops trailing after anyone once she has one")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## The boxes a shape fills are written twice: once in GDScript and once in Rust (native/src/physics.rs),
+## because the native build has no access to the GDScript table. If they ever disagree, a player walks
+## through a wall they can see, or bumps into nothing - and only on one of the two builds, which is a
+## miserable thing to debug. So the two tables are compared as text.
+func _shape_twins() -> void:
+	const BlockRegistry = preload("res://engine/shared/block_registry.gd")
+	var source := FileAccess.get_file_as_string("res://native/src/physics.rs")
+	var numbers := func(text: String) -> Array:
+		var out := []
+		for piece in text.replace("[", " ").replace("]", " ").replace(",", " ").split(" ", false):
+			if piece.strip_edges().is_valid_float():
+				out.append(snappedf(piece.to_float(), 0.0001))
+		return out
+	var missing := []
+	var different := []
+	for shape: int in BlockRegistry.SHAPE_BOXES:
+		# A shape can have several names ("slab" and "slab_bottom"); the Rust const uses one of them.
+		var names := []
+		for key: String in BlockRegistry.SHAPE_NAMES:
+			if BlockRegistry.SHAPE_NAMES[key] == shape:
+				names.append(key.to_upper())
+		if shape == BlockRegistry.Shape.FULL or names.is_empty():
+			continue
+		var line := ""
+		for text in source.split("\n"):
+			for name: String in names:
+				if text.begins_with("const %s:" % name) or text.begins_with("const %s " % name):
+					line = text
+					break
+			if not line.is_empty():
+				break
+		if line.is_empty():
+			missing.append(str(names[0]))
+			continue
+		var theirs: Array = numbers.call(line.get_slice("=", 1))
+		var ours: Array = numbers.call(str(BlockRegistry.SHAPE_BOXES[shape]))
+		# The Rust const carries its box count in the type ([[f32; 6]; 2]); drop those two leading numbers.
+		if theirs.size() == ours.size() + 2:
+			theirs = theirs.slice(2)
+		if theirs != ours:
+			different.append("%s: gdscript %s, rust %s" % [str(names[0]), str(ours), str(theirs)])
+	_check(missing.is_empty(), "every block shape exists in the native twin too (missing: %s)" % str(missing))
+	_check(different.is_empty(), "and fills exactly the same boxes in both (%s)" % str(different))
+
+
+## Doors and windows. A house needs a way in that shuts, and something to see out of - and both are what
+## a child decorates with, which is most of what they do with the game.
+func _doors_and_windows() -> void:
+	var server = _start("openings_%d" % Time.get_ticks_msec())
+	var shut: int = server.registry.id_of("base:door_north")
+	var shut_top: int = server.registry.id_of("base:door_north_top")
+	var glass: int = server.registry.id_of("base:glass_pane_x")
+	var bars: int = server.registry.id_of("base:iron_bars_z")
+	_check(shut > 0 and shut_top > 0 and glass > 0 and bars > 0, "base has doors, glass panes and iron bars")
+
+	# A shut door fills only its own side of the cell, so a wall of them is a wall.
+	var boxes: Array = BlockRegistryFor(server).SHAPE_BOXES[server.registry.shape_lut[shut]]
+	_check(boxes.size() == 1 and boxes[0][5] < 0.25, "a shut door is a thin panel, not a whole block")
+	_check(server.registry.shape_lut[glass] != 0 and server.registry.shape_lut[bars] != 0, "a pane is thin too")
+
+	# Opening swaps both halves at once, to the same door against the side it swings to.
+	var at := Vector3i(24, 70, 24)
+	server._ensure_chunk(Vector2i(1, 1))
+	server.set_block_authoritative(at + Vector3i.DOWN, server.registry.id_of("base:stone"))
+	server.set_block_authoritative(at, shut)
+	server.set_block_authoritative(at + Vector3i.UP, shut_top)
+	var p := ServerPlayer.new(server, 160, "Knocker")
+	p.player_id = "knocker"
+	p.state.position = Vector3(at) + Vector3(0.5, 0.0, 2.5)
+	p.edit_tokens = 100.0
+	server.players[160] = p
+	server.on_interact(160, at)
+	var opened: int = server.world.get_block_v(at)
+	var opened_top: int = server.world.get_block_v(at + Vector3i.UP)
+	_check(server.registry.defs[opened].name.ends_with("_open"), "right-clicking a door opens it (%s)" % server.registry.defs[opened].name)
+	_check(server.registry.defs[opened_top].name.ends_with("_open_top"), "and the top half swings with it")
+	_check(server.registry.shape_lut[opened] != server.registry.shape_lut[shut], "an open door stands somewhere else in its cell")
+
+	# Clicking the top half closes it again, because a child clicks whatever is at eye level.
+	server.on_interact(160, at + Vector3i.UP)
+	_check(server.world.get_block_v(at) == shut and server.world.get_block_v(at + Vector3i.UP) == shut_top,
+		"clicking either half shuts it again")
+
+	# Breaking one half takes the other, and gives back one door rather than two.
+	server.break_block(at + Vector3i.UP)
+	_check(server.world.get_block_v(at) == 0, "breaking the top half takes the bottom with it")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+static func BlockRegistryFor(_server):
+	return preload("res://engine/shared/block_registry.gd")
 
 
 func _api_docs() -> void:
@@ -3798,12 +3997,14 @@ func _menu_data() -> void:
 	# Invite codes.
 	var code: String = InviteCode.encode("192.168.1.42", 24565)
 	var parsed: Dictionary = InviteCode.parse(code.to_lower().replace("-", " "))
-	_check(code.begins_with("VC-") and code.length() == 16 and parsed.address == "192.168.1.42" and parsed.port == 24565, "invite codes round-trip (%s)" % code)
+	_check(code.begins_with("QW-") and code.length() == 16 and parsed.address == "192.168.1.42" and parsed.port == 24565, "invite codes round-trip (%s)" % code)
 	var typo := code.substr(0, 4) + ("A" if code[4] != "A" else "B") + code.substr(5)
 	_check(InviteCode.parse(typo).has("error"), "a mistyped invite code is caught")
 	_check(InviteCode.parse("play.example.com:25000") == {"address": "play.example.com", "port": 25000} and InviteCode.parse("[::1]:24570") == {"address": "::1", "port": 24570}
 		and InviteCode.parse("host:abc").has("error") and InviteCode.share_text("play.example.com", 24565) == "play.example.com", "plain addresses work too")
-	_check(InviteCode.parse("vc-3gs h9n") == {"hub_code": "VC-3GS-H9N"} and InviteCode.parse("VC-3GS-H9U").has("error"), "short hub codes are recognised")
+	_check(InviteCode.parse("qw-3gs h9n") == {"hub_code": "QW-3GS-H9N"} and InviteCode.parse("QW-3GS-H9U").has("error"), "short hub codes are recognised")
+	# Codes written down before the game was renamed still work.
+	_check(InviteCode.parse("vc-3gs h9n") == {"hub_code": "QW-3GS-H9N"}, "an old VC- code is still understood")
 
 
 ## Load-related server paths: saves spread over ticks, column heights kept up to date, crowded snapshots.

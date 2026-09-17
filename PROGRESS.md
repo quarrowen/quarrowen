@@ -390,6 +390,42 @@ Under the hood: one loot system behind mobs, blocks and chests (docs/loot.md), m
 other's tables, loot/*.json files for tuning without code, and mods.json is signed like update.json.
 
 
+## Planned capability: structures and maps as data
+
+Structures are already data: `mods/*/structures/*.json` with `{size, palette, blocks, data}`, built in
+game and captured with `/struct save`, stamped by worldgen at any of four rotations with the `data`
+coordinates rotating too. What is missing is the boring half - a written schema, validation in
+`mod_tool` (unknown block names, out-of-bounds coordinates, a `data` key with no block under it), and a
+size limit - so that a creator finds out at pack time rather than when a chunk generates wrong.
+
+**Maps are the bigger prize, and cheaper than they look.** An authored world - a valley someone built for
+a story rather than terrain the generator made - does not need a new format. A world save *is* already a
+portable map: `chunks/x_z.json` deltas plus `world.json`, and `WorldBackups.create/restore` already packs
+and unpacks exactly that. So:
+
+- a mod ships `world/` (or a single archive) beside its `mods.json` entry;
+- on the first start of a world using that mod, the server restores it instead of generating;
+- `world.json` carries the spawn, and the mod carries the triggers.
+
+That is a map format, an authoring tool (play, build, `/backup`), and a distribution channel (the mod
+list) for very little new code. It is also what Story mode needs to be worth anything: the mode restricts
+what a player may change, and this is how the thing they walk through gets built in the first place.
+
+Worth doing after Hearthhold phase 1, alongside Story mode, since neither is much use without the other.
+
+## Waiting on the machine (17 September 2026)
+
+Two one-liners in Terminal, then a batch of finished work can be verified and committed:
+
+```sh
+sudo xcodebuild -license     # Xcode is the active developer directory and its licence is unaccepted,
+                             # so cc, git and every command line tool refuse to run
+brew install ffmpeg          # to cut the showcase video here rather than in an editor that watermarks
+```
+
+Until the first one is done: `git` cannot commit, and `hub` / `hub-unit` fail because Rust cannot link.
+Everything else in the tree is finished and tested; it is only the commit that is blocked.
+
 ## Dates worth remembering
 
 - **17 September 2031** - the macOS signing certificate (Developer ID Application) expires. Releases keep
@@ -531,7 +567,7 @@ warnings at exit.
 - Mining: timed breaking; blocks define hardness + tier; tools define speed + tier. (done)
 - Progression: engine provides only building blocks; mods design their own. (done)
 - Visuals: first-person held item and visible armor are in scope, plus glows, trails, particles — as
-  engine capabilities mods use. Deep dive wanted on armor/cosmetics: carry over Roblox-style avatar
+  engine capabilities mods use. Deep dive wanted on armor/cosmetics: carry over portable avatar
   customization so players can heavily customize looks. (phase 2)
 - Durability: mods decide; on by default. (done)
 

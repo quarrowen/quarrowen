@@ -7,7 +7,7 @@ extends Node
 ##   --connect=1.2.3.4     skip the menu and join a server
 ##   --host=skyblock       skip the menu, start a local server for that game and join it (vanilla,my_mod: with add-ons)
 ##   --dev                 with --host: developer mode (dev tools for everyone, reload mods on save)
-##   --name=Steve          player name for --connect / --host
+##   --name=Robin          player name for --connect / --host
 ##   --export-identity=file.json   write your identity, encrypted, and quit
 ##   --import-identity=file.json   replace your identity with an exported one and quit
 ##                         both read the passphrase from VOXEL_IDENTITY_PASSPHRASE (or --passphrase=)

@@ -170,7 +170,7 @@ func _vanilla(c) -> void:
 	c._set_crafting_open(false)
 	await get_tree().create_timer(0.3).timeout
 
-	# Tools from parts: forge an iron head, a bone handle and a binding at a Tool Forge, then assemble.
+	# Tools from parts: forge an iron head, a bone handle and a binding at a Toolsmith’s Bench, then assemble.
 	Net.c_chat.rpc_id(1, "/give base:tool_forge")
 	Net.c_chat.rpc_id(1, "/give base:iron_ingot 8")
 	Net.c_chat.rpc_id(1, "/give vanilla:bone 2")
@@ -182,7 +182,7 @@ func _vanilla(c) -> void:
 	await _wait_until(func(): return c.world.get_block_v(forge_spot) == forge_item, 3.0)
 	Net.c_interact.rpc_id(1, forge_spot)
 	_check(await _wait_until(func(): return c._crafting_screen.visible and c._crafting_screen._mode_forge.visible, 3.0),
-		"a Tool Forge offers the Assemble tab")
+		"a Toolsmith’s Bench offers the Assemble tab")
 	for recipe_id in ["base:pickaxe_head/base:iron", "base:tool_handle/vanilla:bone", "base:binding/base:iron"]:
 		Net.c_craft.rpc_id(1, c.recipes.index_of(recipe_id), 1)
 		await get_tree().create_timer(0.3).timeout
