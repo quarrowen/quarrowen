@@ -18,4 +18,13 @@ docs/
 deploy/
 !deploy/entrypoint.sh
 addons/
+# Belt and braces now the image is published: nothing of one person's own setup goes into it.
+.env
+*.env
+!*.env.example
+*.local.md
+*.local.json
+*.log
+logs/
+backups/
 .mcp.json

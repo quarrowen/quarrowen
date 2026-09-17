@@ -6,8 +6,10 @@
 
 services:
   quarrowen:
+    # Pull the image CI published rather than compiling Godot and Rust on the server; `build` is still
+    # here so `docker compose up -d --build` works when testing a change that is not pushed yet.
+    image: ${QW_IMAGE:-ghcr.io/quarrowen/quarrowen/server:latest}
     build: ../..
-    image: quarrowen-server
     container_name: quarrowen
     restart: unless-stopped
     stop_grace_period: 30s  # the server saves the world on SIGTERM

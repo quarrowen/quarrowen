@@ -1,13 +1,13 @@
 {
-	"admins": [],
 	"allowlist": {
 		"enabled": false,
 		"players": {}
 	},
 	"clock": 0.0,
-	"created_at": 1789631566,
+	"created_at": 1789646854,
+	"format": 2,
 	"game": "vanilla",
-	"last_played": 1789631567,
+	"last_played": 1789646854,
 	"loot": {
 		"boosts": {},
 		"rate": 1.0

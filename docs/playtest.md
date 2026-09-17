@@ -36,12 +36,17 @@ nano .env
 - `CREATIONS=approval`: painted skins and hats wait for an admin to approve them before others see them.
 - `CHAT_FILTER=on`: swear words in chat are masked.
 
-**Start it** (the first build takes a few minutes; it compiles the server for this machine):
+**Start it.** The image is built by CI and published to GitHub Packages, so this pulls rather than
+compiles:
 
 ```sh
-docker compose up -d --build
+docker compose up -d
 docker compose logs -f     # Ctrl+C stops watching, not the server
 ```
+
+Add `--build` to compile on this machine instead - needed only for a change that is not pushed yet.
+(If the pull is refused with "denied" or "not found", the package is still private: on GitHub go to the
+repository's **Packages**, open `server`, and change its visibility to public. It only needs doing once.)
 
 It is ready when the log says `running game`. The server starts again by itself after a reboot.
 
@@ -183,7 +188,7 @@ server in whatever volume it was in.
 **Updating.** Server and Macs must run the same version. On the server:
 
 ```sh
-cd quarrowen && git pull && cd deploy/server && docker compose up -d --build
+cd quarrowen && git pull && cd deploy/server && docker compose pull && docker compose up -d
 ```
 
 Then publish the release with `tools/make_release.sh` (it builds the app, the mod zips, the download page

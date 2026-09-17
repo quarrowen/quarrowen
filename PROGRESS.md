@@ -411,13 +411,34 @@ What the kids get, over 0.39.0:
   traps them behind a captured mouse, and every wood burns in a furnace rather than only oak.
 - **Death messages** that are varied, gentle and never repeat themselves twice running; mods can add
   their own, including per-mob pools.
+- **Milestones.** The things you have done are remembered for the life of the world and paid out once,
+  usually as a hat, because a hat is something the others can see. `/milestones` shows what is left.
+- **A bow, at last.** Skeletons have been shooting at players since the start with no way to shoot back.
+  Hold to draw: a hurried shot drops short, a full one is worth the second it cost.
+- **Cobalt gear**, and deepstone under it that nothing else will cut. A tier that reaches somewhere
+  rather than one that mines the same stone slightly faster.
+- **Charms.** One slot, three charms, and only one of them at a time - the first thing in the game that
+  is a choice rather than a total.
+- **The Colossus is worth fighting.** It used to leave less than an afternoon in a cave. It now leaves
+  its heart, which is the best charm in the game and the only one nobody can craft.
 
-For whoever runs the server: the Mac app is signed and notarized, so it opens on a fresh machine without
-right-click-Open or a trip through System Settings.
+For whoever runs the server:
+
+- The Mac app is signed and notarized, so it opens on a fresh machine without right-click-Open or a trip
+  through System Settings.
+- **Every environment variable is renamed `VOXEL_*` to `QW_*`**, and the hub header with it. An existing
+  `.env` must be updated, and the server and hub have to go out together.
+- Logs rotate on size as well as at startup, and the Docker log is capped. Backups no longer carry the
+  log folder.
+- On each Mac, Settings > Files lists every folder the game uses, with its size and a button that opens
+  it. Caches prune themselves.
+- **Nothing from before alpha 4 loads**: worlds, players and identity keys all start again. This is a
+  fresh deployment, on purpose.
 
 Under the hood: `connects`/`connect_group` as block fields (any mod can have blocks that notice their
-neighbours), structure templates as JSON, a test that compares the GDScript shape table against the Rust
-one, and a suite that rebuilds the native library rather than quietly testing an old one.
+neighbours), structure templates as JSON, milestones and held-use (`charge`) as engine capabilities in
+both GDScript and JavaScript, a test comparing the GDScript shape table against the Rust one, and a suite
+that rebuilds the native library rather than quietly testing an old one.
 
 
 ## Planned capability: structures and maps as data

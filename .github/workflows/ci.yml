@@ -1,10 +1,21 @@
 name: CI
 
-# Paused to save CI minutes while only macOS on Apple silicon is targeted (user, 2026-09-15): runs only
-# when started by hand from the Actions tab. To turn it back on, restore these triggers:
-#   push: {branches: [main, master], tags: ["v*"]}
-#   pull_request:
+# macOS on Apple silicon is the only thing shipped today, so that is the only thing built here. Windows
+# and the Linux desktop export are off; the Linux *native library* stays, because the test suite runs on
+# a Linux runner and needs it (a macOS runner costs ten times the minutes for the same answer).
+#
+# The server image is built and published to GitHub Packages (ghcr.io/<owner>/<repo>/server) so the family
+# server can pull it rather than compile Godot and Rust on the box. NOTE: a new package is PRIVATE until
+# somebody makes it public once, in Packages -> the package -> settings -> change visibility.
+#
+# The macOS build made here is UNSIGNED. Releases are still cut on the maintainer's Mac with
+# tools/make_release.sh, which signs and notarizes with the Developer ID certificate (docs/distribution.md).
+# This one exists to prove the export works, not to hand to anyone.
 on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
   workflow_dispatch:
 
 env:
@@ -19,15 +30,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { platform: linux-x86_64, os: ubuntu-24.04 }
-          - { platform: linux-arm64, os: ubuntu-24.04-arm }
-          - { platform: windows-x86_64, os: windows-latest }
+          - { platform: linux-x86_64, os: ubuntu-24.04 }  # for the test runner, not for shipping
           - { platform: macos, os: macos-14 }
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos' && 'aarch64-apple-darwin,x86_64-apple-darwin' || matrix.platform == 'linux-x86_64' && 'x86_64-unknown-linux-gnu' || matrix.platform == 'linux-arm64' && 'aarch64-unknown-linux-gnu' || 'x86_64-pc-windows-msvc' }}
+          targets: ${{ matrix.platform == 'macos' && 'aarch64-apple-darwin,x86_64-apple-darwin' || 'x86_64-unknown-linux-gnu' }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: native
@@ -61,23 +70,15 @@ jobs:
         run: QW_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh
 
   export:
-    name: Export builds
+    name: Export macOS
     needs: [native, test]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          pattern: native-*
-          path: artifacts
-      - name: Place native libraries
-        run: |
-          for dir in artifacts/native-*; do
-            platform="${dir#artifacts/native-}"
-            mkdir -p "native/bin/$platform"
-            cp -r "$dir"/. "native/bin/$platform/"
-          done
-          ls -R native/bin
+          name: native-macos
+          path: native/bin/macos
       - name: Install Godot and export templates
         run: |
           curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
@@ -89,10 +90,10 @@ jobs:
           unzip -q templates.tpz -d "$RUNNER_TEMP/tpz"
           mv "$RUNNER_TEMP/tpz/templates/"* "$templates/"
       - name: Export
-        run: tools/export.sh
+        run: tools/export.sh macOS
       - uses: actions/upload-artifact@v4
         with:
-          name: builds
+          name: macos-unsigned
           path: build
           if-no-files-found: error
 
@@ -117,6 +118,12 @@ jobs:
         id: meta
         with:
           images: ghcr.io/${{ github.repository }}/server
+          # master -> :master and :latest, a tag -> :0.40.0 and :0.40, so a server can follow either.
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
       - uses: docker/build-push-action@v6
         with:
           context: .

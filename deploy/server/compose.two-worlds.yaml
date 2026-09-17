@@ -4,7 +4,7 @@
 
 services:
   quarrowen-sky:
-    image: quarrowen-server
+    image: ${QW_IMAGE:-ghcr.io/quarrowen/quarrowen/server:latest}
     container_name: quarrowen-sky
     restart: unless-stopped
     stop_grace_period: 30s
