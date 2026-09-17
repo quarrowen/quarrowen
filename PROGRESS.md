@@ -12,7 +12,7 @@ longer exist; their work is on `master`. The crafting milestone and the survival
 Target platform for now: macOS on Apple silicon only (user, 2026-09-15). GitHub CI is paused (manual
 dispatch only; the old triggers are in a comment in `.github/workflows/ci.yml`); run the local suites instead.
 
-Local test commands: `tools/run_tests.sh` (native) and `VOXEL_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh`
+Local test commands: `tools/run_tests.sh` (native) and `QW_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh`
 (GDScript fallbacks). Both pass locally (14 and 13 suites). Rebuild native after Rust
 changes with `tools/build_native.sh`.
 
@@ -233,7 +233,7 @@ changes with `tools/build_native.sh`.
      fps limit, menu backdrop; master/world/interface audio buses; mouse sensitivity, invert Y, sprint toggle,
      rebinding two events per action; interface size, camera shake, flashes, relaxed timing, still menu
      camera. Game screens now scale on high-DPI too (content_scale_factor = screen scale x interface size;
-     mouse look uses screen_relative). Tests use VOXEL_SETTINGS. Not done: gamepad bindings, colour-blind
+     mouse look uses screen_relative). Tests use QW_SETTINGS. Not done: gamepad bindings, colour-blind
      palettes, subtitles for sounds.
    - N3 Hub service + discovery (done: services/hub Rust axum+SQLite+rsa; engine/server/hub_announcer.gd; status
      query proof flag; engine/client/menu/hub_client.gd; pinger LAN discovery; menu Browse/LAN tabs; hub news;
@@ -383,7 +383,7 @@ For whoever runs the server:
 
 - `/loot rate 2`, `/loot boost base:coal 3 60` (an hour of extra coal, then back to normal), `/loot` to
   see what is turned up, `/loot clear` to reset.
-- `/modsettings`, `mod_settings.json` in the data folder, or `VOXEL_MOD_SETTINGS` in compose.
+- `/modsettings`, `mod_settings.json` in the data folder, or `QW_MOD_SETTINGS` in compose.
 - Mod settings and loot tuning are saved with the world, so a backup brings them back.
 
 Under the hood: one loot system behind mobs, blocks and chests (docs/loot.md), mods can extend each
@@ -443,16 +443,15 @@ what a player may change, and this is how the thing they walk through gets built
 
 Worth doing after Hearthhold phase 1, alongside Story mode, since neither is much use without the other.
 
-## Waiting on the machine (17 September 2026)
+## Toolchain (settled 17 September 2026)
 
-```sh
-sudo xcodebuild -license     # still worth doing: needed for iOS builds, which have no CLT fallback
-brew install ffmpeg          # to cut the showcase video here rather than in an editor that watermarks
-```
+The Xcode licence is accepted and ffmpeg is installed, so both of the things that were waiting on the
+machine are done. `xcrun --find cc` resolves through full Xcode, Rust links without help, and git needs
+no `DEVELOPER_DIR`. The fallback in `tools/run_tests.sh` stays: it costs nothing and only fires when the
+licence gate is back (a fresh machine, or an Xcode update).
 
-The licence is no longer blocking day to day work: `DEVELOPER_DIR=/Library/Developer/CommandLineTools`
-sidesteps it for git, Rust and the linker, and `tools/run_tests.sh` sets it itself when it sees the gate.
-Xcode proper is only needed for an iOS build, so the licence has to be accepted before the iPad milestone.
+Still to install for the iPad milestone: `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`
+(only `aarch64-apple-darwin` is present today).
 
 ## Dates worth remembering
 
@@ -489,7 +488,7 @@ Xcode proper is only needed for an iOS build, so the licence has to be accepted 
    behind things players feel.
 3. **Mod settings** (done): a mod declares what a host may change (ModApi.register_settings) and reads it
    (api.setting); engine/server/mod_settings.gd holds the values. The server owns them, so the three ways in
-   agree: mod_settings.json in the data folder (or --mod-settings / VOXEL_MOD_SETTINGS) for a headless server,
+   agree: mod_settings.json in the data folder (or --mod-settings / QW_MOD_SETTINGS) for a headless server,
    /modsettings for an admin, and a section per mod in the Server settings screen built from the schema, with
    no UI written per mod. Changes are saved in the world (world.json `mod_settings`), so a world carries its
    own rules and a backup restores them, and the mod hears `settings_changed` while the server runs. vanilla
@@ -531,7 +530,7 @@ off); nothing named what was in hand (the item's name now appears above the hotb
 kept in the world); menu dialogs had only a faint title-bar ✕ (a Cancel button, and a drawn close icon).
 Zombies staring instead of attacking was the idle-mob bug fixed the same day (not in their build yet).
 Packaging: the server image is engine-only and the mods it loads live in the /mods volume, refreshed from the
-image on each start (deploy/entrypoint.sh, VOXEL_SEED_MODS); tools/package_mods.sh builds one zip per mod for
+image on each start (deploy/entrypoint.sh, QW_SEED_MODS); tools/package_mods.sh builds one zip per mod for
 release downloads. Still open from this batch: creative flight and crouch, an admin settings screen in the
 client, stairs, a map, graves/teleports. "Can't smelt with wood" is fixed and was real: only oak logs and
 planks were fuel, so a child who started in a birch forest or a savanna had nothing to burn (mods/base/

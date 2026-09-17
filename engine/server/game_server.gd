@@ -39,6 +39,7 @@ const Sleep = preload("res://engine/server/sleep.gd")
 const Guide = preload("res://engine/server/guide.gd")
 const Tutorials = preload("res://engine/server/tutorials.gd")
 const Milestones = preload("res://engine/server/milestones.gd")
+const Charging = preload("res://engine/server/charging.gd")
 const DevLog = preload("res://engine/server/dev_log.gd")
 const DevTools = preload("res://engine/server/dev_tools.gd")
 const DevWeb = preload("res://engine/server/dev_web.gd")
@@ -196,6 +197,8 @@ var guide := Guide.new(self)
 var tutorials := Tutorials.new(self)
 ## What a player has done, for as long as the world lasts (see engine/server/milestones.gd).
 var milestones := Milestones.new(self)
+## Items held down rather than clicked: bows, slings (see engine/server/charging.gd).
+var charging := Charging.new(self)
 ## Logs and script errors for mod authors (see engine/server/dev_log.gd).
 var dev_log := DevLog.new()
 ## Profiler, event tracer, inspector and debug drawing (see engine/server/dev_tools.gd).
@@ -242,7 +245,7 @@ var _time_of_day := 0.5
 var _day_length := 0.0
 var _time_sync_timer := 0.0
 var _admin_token := ""
-## Lower-case names or player ids granted admin by configuration (VOXEL_ADMINS).
+## Lower-case names or player ids granted admin by configuration (QW_ADMINS).
 var _config_admins := {}
 var _save_timer := 0.0
 var _unload_timer := 0.0
@@ -1564,6 +1567,7 @@ func _simulate_player(p: ServerPlayer) -> void:
 		_track_fall(p, falling_speed)
 	var tick_time := 1.0 / Engine.physics_ticks_per_second
 	hunger.update(p, tick_time, p.state.position - start, steps * tick_time, was_on_ground)
+	charging.update(p)  # a draw belongs to the item that started it
 	if tick % 15 == 0 and p.state.on_ground and Vector2(p.state.velocity.x, p.state.velocity.z).length() > rules.walk_speed + 0.5:
 		entities.ai.make_noise(p.state.position, 7.0, p)  # sprinting footsteps
 
@@ -1662,7 +1666,7 @@ func damage_player(p: ServerPlayer, amount: float, cause: String, attacker = nul
 	sleep.wake(p, "hurt")
 	sync_health(p, true)
 	play_sound_at("engine:hurt", p.get_eye_position(), 1.0, randf_range(0.9, 1.1))
-	_broadcast_player_event(p, Entities.Event.HURT)
+	broadcast_player_event(p, Entities.Event.HURT)
 	if p.health <= 0.0:
 		kill_player(p, cause, attacker)
 	return true
@@ -1705,7 +1709,7 @@ func kill_player(p: ServerPlayer, cause: String, attacker) -> void:
 		p.inventory.clear()
 		p.sync_inventory()
 	sync_health(p)
-	_broadcast_player_event(p, Entities.Event.DEATH)
+	broadcast_player_event(p, Entities.Event.DEATH)
 	play_sound_at("engine:death", p.get_eye_position())
 	# Tell the player what happened to them and to their things, in that order. "You died!" on its own
 	# leaves a child wondering what they did wrong and whether they have lost everything.
@@ -1737,10 +1741,10 @@ func on_respawn(peer_id: int) -> void:
 	p.last_damage_time = _time
 	p.teleport(ev.position if ev.position is Vector3 else spawn)
 	sync_health(p)
-	_broadcast_player_event(p, Entities.Event.RESPAWN)
+	broadcast_player_event(p, Entities.Event.RESPAWN)
 
 
-func _broadcast_player_event(p: ServerPlayer, kind: int) -> void:
+func broadcast_player_event(p: ServerPlayer, kind: int) -> void:
 	if not _started:
 		return
 	for other: ServerPlayer in players.values():
@@ -2612,7 +2616,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 		_apply_block(merge.position, merge.block, true)
 		_reject_edit(p, pos)  # the client guessed the cell next door; put it back
 		play_sound_at(block_sound(merge.block, "place"), Vector3(merge.position) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1))
-		_broadcast_player_event(p, Entities.Event.SWING)
+		broadcast_player_event(p, Entities.Event.SWING)
 		emit("block_placed", {"player": p, "position": merge.position, "block": merge.block})
 		return
 
@@ -2644,7 +2648,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 		sessions.claim(pos, p)
 	entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 8.0, p)
 	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
-	_broadcast_player_event(p, Entities.Event.SWING)
+	broadcast_player_event(p, Entities.Event.SWING)
 	emit("block_placed", {"player": p, "position": pos, "block": block})
 
 
@@ -2721,6 +2725,8 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 	if not items.get_def(item).get("food", {}).is_empty():
 		hunger.start_eating(p)  # finishes while use is held (see Hunger)
 		return
+	if charging.start(p, item):  # held rather than clicked: fires on release (see Charging)
+		return
 	var teaches: Array = p.inventory.data[p.inventory.selected].get("teaches", items.get_def(item).get("teaches", []))
 	if teaches is Array and not teaches.is_empty():
 		_read_blueprint(p, teaches)
@@ -2728,7 +2734,7 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 	if has_target and (not world.has_chunk(VoxelWorld.chunk_coord_at(target.x, target.z)) \
 			or p.get_eye_position().distance_to(Vector3(target) + Vector3.ONE * 0.5) > REACH + 0.87):
 		has_target = false
-	_broadcast_player_event(p, Entities.Event.SWING)
+	broadcast_player_event(p, Entities.Event.SWING)
 	var use_effect := String(items.visuals(item, p.inventory.data[p.inventory.selected]).effects.get("use", ""))
 	if not use_effect.is_empty():
 		var look_dir := PlayerPhysics.look_direction(p.yaw, p.pitch)
@@ -2747,6 +2753,7 @@ func on_stop_using(peer_id: int) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p != null:
 		hunger.stop_eating(p)
+		charging.release(p)
 
 
 func on_open_menu(peer_id: int, menu: String) -> void:
@@ -2881,7 +2888,7 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 	if ev.cancelled:
 		return
 	play_sound_at("engine:swing", eye, 0.7, randf_range(0.9, 1.1), peer_id)
-	_broadcast_player_event(p, Entities.Event.SWING)
+	broadcast_player_event(p, Entities.Event.SWING)
 	var look := items.visuals(item, p.inventory.data[p.inventory.selected]) if item >= ItemRegistry.FIRST_ITEM else {"effects": {}}
 	var direction3 := PlayerPhysics.look_direction(p.yaw, p.pitch)
 	if look.effects.has("swing"):
@@ -3020,7 +3027,7 @@ func on_mine_start(peer_id: int, pos: Vector3i) -> void:
 	if block == BlockRegistry.UNLOADED or registry.breakable_lut[block] == 0:
 		return
 	p.mining = {"position": pos, "started": _time}
-	_broadcast_player_event(p, Entities.Event.SWING)
+	broadcast_player_event(p, Entities.Event.SWING)
 	var seconds := Mining.break_time(registry.defs[block], items.tool_of(p.inventory.selected_item(), p.inventory.data[p.inventory.selected]), p.get_stat("mining_speed"))
 	_broadcast_mining(p, pos, seconds)
 

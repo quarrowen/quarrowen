@@ -21,7 +21,7 @@ Before opening a pull request:
 ```sh
 godot --headless --path . res://tools/mod_tool.tscn -- validate mods/my_mod   # manifest, files, scripts
 tools/run_tests.sh                                                            # the suite, native
-VOXEL_NATIVE=0 PORT_BASE=25700 tools/run_tests.sh                             # and the GDScript paths
+QW_NATIVE=0 PORT_BASE=25700 tools/run_tests.sh                             # and the GDScript paths
 ```
 
 ## Changing the engine

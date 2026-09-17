@@ -1,7 +1,7 @@
 extends RefCounted
 ## The player's own creations on this computer (skins, accessories, models), saved as
 ## <dir>/<id>.json (manifest) and <dir>/<id>.<png|json|glb> (payload), with the id's colon replaced.
-## VOXEL_CREATIONS_DIR overrides the folder (tests). See engine/shared/creations.gd for the format.
+## QW_CREATIONS_DIR overrides the folder (tests). See engine/shared/creations.gd for the format.
 
 const Creations = preload("res://engine/shared/creations.gd")
 
@@ -9,7 +9,7 @@ const DIR := "user://creations"
 
 
 static func dir() -> String:
-	var override := OS.get_environment("VOXEL_CREATIONS_DIR")
+	var override := OS.get_environment("QW_CREATIONS_DIR")
 	return override if not override.is_empty() else DIR
 
 

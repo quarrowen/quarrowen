@@ -4,7 +4,7 @@
 #
 #   tools/run_tests.sh                 # uses $GODOT or `godot` on PATH
 #   GODOT=/path/to/godot tools/run_tests.sh
-#   VOXEL_NATIVE=0 tools/run_tests.sh  # exercise the GDScript fallbacks
+#   QW_NATIVE=0 tools/run_tests.sh  # exercise the GDScript fallbacks
 #   ONLY=e2e:combat,gameplay tools/run_tests.sh   # just these tests (names as printed; "e2e:*" and globs work)
 #   REPEAT=10 ONLY=e2e:combat tools/run_tests.sh  # run each selected test 10 times (hunting flaky tests)
 set -uo pipefail
@@ -26,8 +26,8 @@ cleanup() {
 trap cleanup EXIT
 
 # Pin server certificates in a throwaway folder instead of the user's real known servers.
-export VOXEL_KNOWN_SERVERS_DIR="$WORK/known_servers"
-export VOXEL_SETTINGS="$WORK/settings.cfg"  # tests never touch the player's own settings
+export QW_KNOWN_SERVERS_DIR="$WORK/known_servers"
+export QW_SETTINGS="$WORK/settings.cfg"  # tests never touch the player's own settings
 echo "godot: $GODOT"
 echo "logs:  $WORK"
 "$GODOT" --headless --path . --import >"$WORK/import.log" 2>&1
@@ -37,8 +37,8 @@ SERVER_GENERATION=0
 start_server() { # name mods port
   local log="$WORK/server_$1.log"
   [ "$SERVER_GENERATION" -gt 0 ] && log="$WORK/server_$1_gen$SERVER_GENERATION.log"
-  VOXEL_DATA_DIR="$WORK/data" VOXEL_MODS="$2" VOXEL_WORLD="$1" VOXEL_PORT="$3" VOXEL_SEED=42 VOXEL_MAX_PLAYERS=16 \
-    VOXEL_ADMINS="Admin,Bot_guild,Bot_industry,Bot_vanilla,Bot_combat" \
+  QW_DATA_DIR="$WORK/data" QW_MODS="$2" QW_WORLD="$1" QW_PORT="$3" QW_SEED=42 QW_MAX_PLAYERS=16 \
+    QW_ADMINS="Admin,Bot_guild,Bot_industry,Bot_vanilla,Bot_combat" \
     "$GODOT" --headless --path . res://scenes/server.tscn >"$log" 2>&1 &
   SERVERS+=($!)
 }
@@ -120,7 +120,7 @@ fi
 # tests until somebody rebuilds it. Running anyway is worse than not running at all: the suite reports
 # on a library nobody is writing any more, and a real divergence between the Rust and its GDScript twin
 # passes green. So rebuild when the source is newer, and stop if that rebuild fails.
-if [ "${VOXEL_NATIVE:-1}" != "0" ] && command -v cargo >/dev/null 2>&1; then
+if [ "${QW_NATIVE:-1}" != "0" ] && command -v cargo >/dev/null 2>&1; then
   lib="$(command ls native/bin/*/libquarrowen_native.dylib native/bin/*/libquarrowen_native.so 2>/dev/null | head -1)"
   if [ -z "$lib" ] || [ -n "$(find native/src native/Cargo.toml -newer "$lib" 2>/dev/null)" ]; then
     echo "native library is behind native/src; rebuilding"
@@ -177,7 +177,7 @@ run_scene "gameplay" "$WORK/gameplay.log" res://tests/gameplay_test.tscn
 run_scene "ai" "$WORK/ai.log" res://tests/ai_test.tscn
 # Mob AI on generated terrain: stuck, hopping in place, dithering, blind hits and failed chases stay under limits.
 run_scene "ai-soak" "$WORK/ai_soak.log" res://tests/ai_soak.tscn --seconds=60 --sites=4 --check
-if [ "${VOXEL_NATIVE:-1}" != "0" ]; then
+if [ "${QW_NATIVE:-1}" != "0" ]; then
   run_scene "js-sandbox" "$WORK/js_sandbox.log" res://tests/js_sandbox_test.tscn
 fi
 for extra in tests/host_flow_test.tscn tests/reload_test.tscn tests/transfer_test.tscn tests/save_compat_test.tscn; do

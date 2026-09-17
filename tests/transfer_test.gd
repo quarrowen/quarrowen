@@ -19,7 +19,7 @@ func _run() -> void:
 	var work := ProjectSettings.globalize_path("user://transfer_test_%d" % Time.get_ticks_msec())
 	var port_a := 26400 + randi() % 100 * 2
 	var port_b := port_a + 10
-	OS.set_environment("VOXEL_KNOWN_SERVERS_DIR", work.path_join("known_servers"))
+	OS.set_environment("QW_KNOWN_SERVERS_DIR", work.path_join("known_servers"))
 	# Each server's identity exists before it starts, so each network.json can name the other.
 	var ids := {}
 	for server_name in ["a", "b"]:
@@ -92,7 +92,7 @@ func _finish(work: String) -> void:
 		if pid > 0 and OS.is_process_running(pid):
 			OS.kill(pid)
 	_pids.clear()
-	OS.set_environment("VOXEL_KNOWN_SERVERS_DIR", "")
+	OS.set_environment("QW_KNOWN_SERVERS_DIR", "")
 	_remove_tree(work)
 	print("[transfer] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)

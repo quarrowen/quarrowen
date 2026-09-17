@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # Quarrowen dedicated server, built from an exported Godot "Linux Server" preset.
 #   docker build -t quarrowen-server .
-#   docker run -p 24565:24565/udp -v voxel-data:/data -v voxel-mods:/mods -e VOXEL_MODS=skyblock quarrowen-server
+#   docker run -p 24565:24565/udp -v voxel-data:/data -v voxel-mods:/mods -e QW_MODS=skyblock quarrowen-server
 # The image holds the engine only: the mods it loads live in /mods (a volume), seeded from the copy it
 # shipped with on every start (see deploy/entrypoint.sh).
 # Multi-arch: docker buildx build --platform linux/amd64,linux/arm64 -t quarrowen-server .
@@ -70,11 +70,11 @@ COPY --chown=voxel:voxel deploy/entrypoint.sh /opt/quarrowen/entrypoint.sh
 RUN mv /opt/quarrowen/mods /opt/quarrowen/mods-seed && chmod +x /opt/quarrowen/entrypoint.sh
 USER voxel
 WORKDIR /opt/quarrowen
-ENV VOXEL_DATA_DIR=/data \
-    VOXEL_MODS_DIR=/mods \
-    VOXEL_SEED_MODS=update \
-    VOXEL_PORT=24565 \
-    VOXEL_MODS=vanilla
+ENV QW_DATA_DIR=/data \
+    QW_MODS_DIR=/mods \
+    QW_SEED_MODS=update \
+    QW_PORT=24565 \
+    QW_MODS=vanilla
 VOLUME ["/data", "/mods"]
 EXPOSE 24565/udp 24566/udp
 STOPSIGNAL SIGTERM

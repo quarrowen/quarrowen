@@ -9,7 +9,8 @@ extends RefCounted
 const FIRST_ITEM := 65536
 const MAX_ITEMS := 4096
 const NETWORK_FIELDS := ["name", "display_name", "icon", "max_stack", "usable", "durability", "tool", "weapon",
-	"armor", "equip_slot", "modifiers", "model", "lore", "armor_texture", "glow", "trail", "effects", "teaches", "food"]
+	"armor", "equip_slot", "modifiers", "model", "lore", "armor_texture", "glow", "trail", "effects", "teaches", "food",
+	"charge"]
 ## Item effect hooks: effect names played by the engine (see EffectRegistry).
 const EFFECT_HOOKS := ["swing", "hit", "use", "held", "break"]
 const DEFAULT_SLOTS := ["head", "chest", "legs", "feet", "offhand"]
@@ -56,6 +57,8 @@ static func is_block_item(id: int) -> bool:
 ## def keys:
 ##   name, display_name, icon (asset name), max_stack (default 64; 1 for items with durability)
 ##   usable: right-click fires item_use
+##   charge: {seconds, minimum, sound, cancel_on_switch} hold use to draw it; releasing fires
+##           item_released with how far it got (see engine/server/charging.gd)
 ##   durability: uses before it breaks (0 = never); wear is stored in item data as `damage`
 ##   tool: {type: "pickaxe" | "axe" | "shovel" | any mod type, tier, speed}
 ##   weapon: {damage, cooldown, reach, crit_chance, knockback, sweep (fraction dealt to nearby mobs)}
@@ -106,6 +109,17 @@ func register(def: Dictionary, replace := false) -> int:
 		d.usable = true
 	d.food = clean_food(def.get("food"))
 	if not d.food.is_empty():
+		d.usable = true
+	# Held rather than clicked (see engine/server/charging.gd). Usable follows: an item you draw is one
+	# you use, and making a mod say both would only ever be a way to get it wrong.
+	var charge = def.get("charge")
+	d.charge = {} if not (charge is Dictionary) else {
+		"seconds": clampf(float(charge.get("seconds", 1.0)), 0.05, 10.0),
+		"minimum": clampf(float(charge.get("minimum", 0.0)), 0.0, 1.0),
+		"sound": String(charge.get("sound", "")).left(64),
+		"cancel_on_switch": bool(charge.get("cancel_on_switch", true)),
+	}
+	if not d.charge.is_empty():
 		d.usable = true
 	d.lore = (def.get("lore") as Array).map(func(l): return String(l).left(120)).slice(0, 8) if def.get("lore") is Array else []
 	if ids.has(item_name):

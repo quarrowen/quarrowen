@@ -275,6 +275,8 @@ func _init() -> void:
 	_save(_charm(Color(0.6, 0.72, 0.5), Color(0.35, 0.28, 0.18)), base + "wayfarers_charm.png")
 	_save(_charm(cobalt, Color(0.3, 0.3, 0.34)), base + "stoneheart_charm.png")
 	_save(_colossus_heart(), vanilla + "colossus_heart.png")
+	_save(_bow(), vanilla + "bow.png")
+	_save(_arrow_item(), vanilla + "arrow_item.png")
 
 func _part(part: String) -> Image:
 	var img := _blank()
@@ -1342,6 +1344,35 @@ func _bars() -> Image:
 
 ## The charter board: planks with a nailed-on notice, and handwriting too small to read as anything but
 ## handwriting - which is the point, since what it says is on the panel, not the block.
+## A bow: the stave curved back, the string straight across it. Drawn at rest rather than fully bent, so
+## it reads as a bow in the hotbar rather than as a letter D.
+func _bow() -> Image:
+	var img := _blank()
+	var wood := Color(0.55, 0.38, 0.2)
+	for y in range(2, 14):
+		var t := (y - 8.0) / 6.0
+		var x := int(round(10.5 - 3.5 * (1.0 - t * t)))
+		img.set_pixel(x, y, _vary(wood, 0.06))
+		img.set_pixel(clampi(x + 1, 0, 15), y, _vary(wood.darkened(0.2), 0.06))
+	for y in range(2, 14):
+		img.set_pixel(10, y, Color(0.88, 0.86, 0.8))  # the string
+	for tip in [2, 13]:
+		img.set_pixel(10, tip, wood.darkened(0.35))
+	return img
+
+
+## A loose arrow, lying corner to corner: flint head one end, fletching the other.
+func _arrow_item() -> Image:
+	var img := _blank()
+	for i in range(3, 14):
+		img.set_pixel(i, 16 - i, Color(0.55, 0.4, 0.25))
+	for d in [Vector2i(12, 3), Vector2i(13, 2), Vector2i(12, 2), Vector2i(13, 3), Vector2i(11, 4)]:
+		img.set_pixel(d.x, d.y, Color(0.72, 0.72, 0.76))  # the head
+	for d in [Vector2i(3, 12), Vector2i(3, 13), Vector2i(4, 13), Vector2i(2, 12), Vector2i(5, 12)]:
+		img.set_pixel(d.x, d.y, Color(0.93, 0.93, 0.95))  # the fletching
+	return img
+
+
 ## The Colossus heart: a lump of dark stone with something lit inside it, brightest at the middle. It has
 ## to read as alive at 16x16, so the glow is a gradient rather than a shape.
 func _colossus_heart() -> Image:

@@ -106,7 +106,7 @@ func _headers(body: String) -> PackedStringArray:
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(body.to_utf8_buffer())
 	var signature := Crypto.new().sign(HashingContext.HASH_SHA256, ctx.finish(), _key)
-	return PackedStringArray(["Content-Type: application/json", "X-Voxel-Signature: " + Marshalls.raw_to_base64(signature),
+	return PackedStringArray(["Content-Type: application/json", "X-Quarrowen-Signature: " + Marshalls.raw_to_base64(signature),
 		"User-Agent: Quarrowen/%s" % Protocol.GAME_VERSION])
 
 

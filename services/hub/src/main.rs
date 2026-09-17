@@ -15,7 +15,7 @@
 //!
 //! API (JSON):
 //!   POST /v1/servers/announce  body {key, time, port, query_port, address?, name, motd, game, game_name,
-//!                              players, max_players, protocol, version, tags}, header X-Voxel-Signature
+//!                              players, max_players, protocol, version, tags}, header X-Quarrowen-Signature
 //!                              (base64 signature of the body) -> {id, code, heartbeat}
 //!   POST /v1/servers/leave     body {key, time}, signed -> {ok}
 //!   GET  /v1/servers?game=&q=&limit=&offset=   -> {servers: [...], total}
@@ -176,7 +176,7 @@ fn is_private(ip: IpAddr) -> bool {
 /// Parses and checks a signed request: body size, signature, clock. Returns the key.
 fn signed_key(headers: &HeaderMap, body: &[u8], key_pem: &str, time: i64) -> Result<keys::PublicKey, Response> {
     let key = keys::PublicKey::from_pem(key_pem).map_err(|e| error(StatusCode::BAD_REQUEST, e))?;
-    let signature = headers.get("x-voxel-signature").and_then(|v| v.to_str().ok()).unwrap_or("");
+    let signature = headers.get("x-quarrowen-signature").and_then(|v| v.to_str().ok()).unwrap_or("");
     if !key.verify(body, signature) {
         return Err(error(StatusCode::UNAUTHORIZED, "bad signature"));
     }

@@ -1,6 +1,6 @@
 extends RefCounted
 ## The player's settings, shared by the main menu and the game: one schema, saved to user://settings.cfg
-## (VOXEL_SETTINGS overrides the path, for tests). `changed(key)` fires on every change so whatever uses
+## (QW_SETTINGS overrides the path, for tests). `changed(key)` fires on every change so whatever uses
 ## a setting can apply it at once. Keys are "section/name", the same as in the file.
 ##
 ## The schema drives the settings screen too: each entry has a label, a type (bool, float, choice) and
@@ -116,7 +116,7 @@ static func shared():
 
 
 func load_file() -> void:
-	var override := OS.get_environment("VOXEL_SETTINGS")
+	var override := OS.get_environment("QW_SETTINGS")
 	path = override if not override.is_empty() else DEFAULT_PATH
 	_cfg = ConfigFile.new()
 	_cfg.load(path)
@@ -130,7 +130,7 @@ func get_value(key: String):
 	var entry: Dictionary = SCHEMA.get(key, {})
 	var parts := key.split("/")
 	if key == "graphics/preset":
-		var forced := OS.get_environment("VOXEL_GRAPHICS")
+		var forced := OS.get_environment("QW_GRAPHICS")
 		if forced in GRAPHICS_PRESETS:
 			return forced
 	# Graphics toggles follow the preset unless it is "custom".

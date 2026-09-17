@@ -15,7 +15,7 @@ func _ready() -> void:
 func _run() -> void:
 	# Keep the hosted world out of the real user data folder.
 	var data_dir := ProjectSettings.globalize_path("user://host_flow_test_%d" % Time.get_ticks_msec())
-	OS.set_environment("VOXEL_DATA_DIR", data_dir)
+	OS.set_environment("QW_DATA_DIR", data_dir)
 	var main := Node.new()
 	main.set_script(Main)
 	add_child(main)

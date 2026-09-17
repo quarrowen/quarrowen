@@ -9,7 +9,7 @@ const RESERVED := ["backups", "identity"]
 
 
 static func dir() -> String:
-	var override := OS.get_environment("VOXEL_DATA_DIR")
+	var override := OS.get_environment("QW_DATA_DIR")
 	return override if not override.is_empty() else DEFAULT_DIR
 
 

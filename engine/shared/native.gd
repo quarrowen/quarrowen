@@ -1,13 +1,13 @@
 extends RefCounted
 ## Access to the optional Rust extension (native/). Every native feature has a GDScript fallback, so
-## the engine runs without the library; set VOXEL_NATIVE=0 to force the fallbacks for comparison.
+## the engine runs without the library; set QW_NATIVE=0 to force the fallbacks for comparison.
 
 static var _enabled := -1
 
 
 static func enabled() -> bool:
 	if _enabled == -1:
-		_enabled = 1 if ClassDB.class_exists(&"NativeVoxelWorld") and OS.get_environment("VOXEL_NATIVE") != "0" else 0
+		_enabled = 1 if ClassDB.class_exists(&"NativeVoxelWorld") and OS.get_environment("QW_NATIVE") != "0" else 0
 	return _enabled == 1
 
 

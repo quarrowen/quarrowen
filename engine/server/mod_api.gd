@@ -34,6 +34,7 @@ extends RefCounted
 ##   tutorial_started {player, tutorial}   tutorial_step {player, tutorial, step, index, skipped}
 ##   tutorial_completed {player, tutorial}   tip_shown {player, tip}
 ##   milestone_reached {player, milestone, title}
+##   item_charge {player, item, cancelled}   item_released {player, item, slot, charge, seconds, direction}
 ##   ugc_uploaded {player, creation, cancelled, reason}   a player creation arrived; cancel to refuse it
 ##   ugc_status {id, status, reason, by}   ugc_reported {player, id, reason, details, reports, cancelled}
 ##   role_changed {player_id, role, added, by}              a role given or taken
@@ -1334,7 +1335,7 @@ func on(event: String, handler: Callable, priority := 0) -> void:
 
 
 ## `handler(player, args: PackedStringArray)` runs for "/name args...". permission "admin" restricts
-## it to server admins (VOXEL_ADMINS, /op, or the local host).
+## it to server admins (QW_ADMINS, /op, or the local host).
 func register_command(command: String, description: String, handler: Callable, permission := "") -> void:
 	_server.add_command(command, description, handler, mod_id, permission)
 

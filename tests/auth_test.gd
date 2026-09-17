@@ -1,5 +1,5 @@
 extends Node
-## Identity and permission checks against a running server started with VOXEL_ADMINS=Admin:
+## Identity and permission checks against a running server started with QW_ADMINS=Admin:
 ##   godot --headless --path . res://tests/auth_test.tscn -- --port=25601
 ## Clients connect one after another with different identities.
 

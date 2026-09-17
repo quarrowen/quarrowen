@@ -24,6 +24,7 @@ func _ready() -> void:
 	_mining_rules()
 	await _server_rules()
 	await _equipment()
+	await _archery()
 	await _progression()
 	await _cosmetics()
 	await _effects()
@@ -772,6 +773,55 @@ func _server_rules() -> void:
 	_check(not again.damage_player(p, 5.0, "mob"), "creative players take no damage")
 	again.players.erase(99)
 	again.queue_free()
+	await get_tree().process_frame
+
+
+## Drawing a bow: the hold is the shot, and letting go early is not one.
+func _archery() -> void:
+	var server = _start("archery_%d" % Time.get_ticks_msec())
+	var items = server.items
+	var p := ServerPlayer.new(server, 91, "Archer")
+	p.player_id = "archer"
+	server.players[91] = p
+	var y: int = server.surface_height(8, 8)
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	p.edit_tokens = 100.0
+	var bow: int = items.id_of("vanilla:bow")
+	var arrow: int = items.id_of("vanilla:arrow")
+	_check(bow > 0 and arrow > 0 and items.get_def(bow).charge.get("seconds", 0.0) > 0.0, "a bow is an item you hold")
+	p.inventory.set_slot(0, bow, 1)
+	p.inventory.selected = 0
+	p.give(arrow, 3)
+	var before: int = server.entities.entities.size()
+	# Let go at once: under the minimum draw, so nothing is shot and no arrow is spent.
+	_check(server.charging.start(p, bow) and not p.charging.is_empty(), "holding use draws it")
+	server.charging.release(p)
+	_check(server.entities.entities.size() == before and p.count_of(arrow) == 3, "letting go straight away shoots nothing")
+	# A full draw.
+	server.charging.start(p, bow)
+	server._time += 1.0
+	server.charging.release(p)
+	_check(p.count_of(arrow) == 2, "a full draw spends an arrow")
+	var shot = null
+	for e in server.entities.entities.values():
+		if e.type == server.entities.registry.id_of("vanilla:arrow"):
+			shot = e
+	_check(shot != null and shot.body.velocity.length() > 30.0, "and sends it off at speed (%.1f)" % (shot.body.velocity.length() if shot != null else 0.0))
+	_check(shot != null and float(shot.data.get("damage", 0.0)) > 8.0, "a fully drawn arrow hits harder than the def alone")
+	# Switching slots mid-draw lets it go rather than leaving them drawing something they no longer hold.
+	server.charging.start(p, bow)
+	p.inventory.selected = 1
+	server.charging.update(p)
+	_check(p.charging.is_empty(), "changing what you hold drops the draw")
+	# With no arrows left it refuses rather than firing nothing.
+	p.inventory.selected = 0
+	p.take(arrow, 2)
+	var count: int = server.entities.entities.size()
+	server.charging.start(p, bow)
+	server._time += 1.0
+	server.charging.release(p)
+	_check(server.entities.entities.size() == count, "no arrows, no shot")
+	server.queue_free()
 	await get_tree().process_frame
 
 
@@ -3876,20 +3926,20 @@ func _creations() -> void:
 		"a skin becomes a texture layer in the skin category")
 	# The local library.
 	var dir := ProjectSettings.globalize_path(DATA_DIR.path_join("creations_%d" % Time.get_ticks_msec()))
-	OS.set_environment("VOXEL_CREATIONS_DIR", dir)
+	OS.set_environment("QW_CREATIONS_DIR", dir)
 	_check(Library.save(m, png).ok and Library.save(hat, box_data).ok and not Library.save(C.make("skin", "skin", small, "Tiny"), small).ok,
 		"the library saves valid creations only")
 	_check(Library.list().size() == 2 and Library.get_payload(m.id) == png, "the library lists creations and returns their files")
 	_check(Library.update(m.id, {"name": "Navy Suit"}) and Library.get_manifest(m.id).name == "Navy Suit", "creations can be renamed")
 	Library.remove(hat.id)
 	_check(Library.list().size() == 1, "creations can be deleted")
-	OS.set_environment("VOXEL_CREATIONS_DIR", "")
+	OS.set_environment("QW_CREATIONS_DIR", "")
 
 
 func _skin_painter() -> void:
 	var Painter = preload("res://engine/client/avatar/skin_painter.gd")
 	var dir := ProjectSettings.globalize_path(DATA_DIR.path_join("painter_%d" % Time.get_ticks_msec()))
-	OS.set_environment("VOXEL_CREATIONS_DIR", dir)
+	OS.set_environment("QW_CREATIONS_DIR", dir)
 	var start := Image.create(64, 64, false, Image.FORMAT_RGBA8)
 	start.fill(Color(0.5, 0.5, 0.5))
 	var painter = Painter.new()
@@ -3933,7 +3983,7 @@ func _skin_painter() -> void:
 	var result: Dictionary = painter.save()
 	_check(result.ok and preload("res://engine/client/creation_library.gd").get_manifest(result.manifest.id).name == "Test Skin", "saving puts the skin in the library")
 	painter.queue_free()
-	OS.set_environment("VOXEL_CREATIONS_DIR", "")
+	OS.set_environment("QW_CREATIONS_DIR", "")
 	await get_tree().process_frame
 
 
@@ -3944,7 +3994,7 @@ func _accessory_tools() -> void:
 	var Looks = preload("res://engine/client/avatar/look_builder.gd")
 	var Library = preload("res://engine/client/creation_library.gd")
 	var dir := ProjectSettings.globalize_path(DATA_DIR.path_join("accessories_%d" % Time.get_ticks_msec()))
-	OS.set_environment("VOXEL_CREATIONS_DIR", dir)
+	OS.set_environment("QW_CREATIONS_DIR", dir)
 	var registry = Cos.new()
 	var looks = Looks.new(registry, {}, Library.read_model)
 	var rig: Dictionary = preload("res://engine/shared/player_rig.gd").default_rig()
@@ -3994,7 +4044,7 @@ func _accessory_tools() -> void:
 	importer.queue_free()
 	await get_tree().process_frame
 	_check(looks.read_model == Library.read_model or looks.read_model.is_valid(), "the look builder gets its model reader back")
-	OS.set_environment("VOXEL_CREATIONS_DIR", "")
+	OS.set_environment("QW_CREATIONS_DIR", "")
 
 
 func _ugc_server() -> void:
@@ -4163,7 +4213,7 @@ func _menu_data() -> void:
 		"deleting refuses odd names and removes the world")
 	_check(WorldList.describe_time(int(Time.get_unix_time_from_system()) - 7200) == "2 hours ago" and WorldList.describe_time(0) == "never", "play times read naturally")
 	# Saved servers.
-	OS.set_environment("VOXEL_SERVER_BOOK", root.path_join("servers.json"))
+	OS.set_environment("QW_SERVER_BOOK", root.path_join("servers.json"))
 	var book = ServerBook.load_book()
 	book.add_favorite("Home", "example.org", 24565)
 	book.add_favorite("Home renamed", "Example.org", 24565)
@@ -4177,7 +4227,7 @@ func _menu_data() -> void:
 		"recent servers keep the latest joins without repeats")
 	again.move_favorite("10.0.0.2", 25000, -1)
 	_check(ServerBook.load_book().favorites[0].address == "10.0.0.2", "favorites can be reordered")
-	OS.set_environment("VOXEL_SERVER_BOOK", "")
+	OS.set_environment("QW_SERVER_BOOK", "")
 	# Invite codes.
 	var code: String = InviteCode.encode("192.168.1.42", 24565)
 	var parsed: Dictionary = InviteCode.parse(code.to_lower().replace("-", " "))
@@ -4305,9 +4355,9 @@ func _status_query() -> void:
 func _client_settings() -> void:
 	var ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 	var path := DATA_DIR.path_join("settings_%d.cfg" % Time.get_ticks_msec())
-	OS.set_environment("VOXEL_SETTINGS", path)
-	var graphics_env := OS.get_environment("VOXEL_GRAPHICS")
-	OS.set_environment("VOXEL_GRAPHICS", "")
+	OS.set_environment("QW_SETTINGS", path)
+	var graphics_env := OS.get_environment("QW_GRAPHICS")
+	OS.set_environment("QW_GRAPHICS", "")
 	var settings = ClientSettings.new()
 	settings.load_file()
 	var changes := []
@@ -4341,8 +4391,8 @@ func _client_settings() -> void:
 	_check(again.get_value("controls/invert_y") == false and again.events("jump") == ["key:Space"]
 		and (InputMap.action_get_events("jump")[0] as InputEventKey).physical_keycode == KEY_SPACE, "resetting a tab restores its defaults and keys")
 	_check(again.get_value("graphics/preset") == "custom", "resetting one tab leaves the others")
-	OS.set_environment("VOXEL_SETTINGS", "")
-	OS.set_environment("VOXEL_GRAPHICS", graphics_env)
+	OS.set_environment("QW_SETTINGS", "")
+	OS.set_environment("QW_GRAPHICS", graphics_env)
 
 
 func _private_server() -> void:

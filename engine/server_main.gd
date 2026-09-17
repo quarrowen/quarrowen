@@ -3,37 +3,37 @@ extends Node
 ## container only needs engine/shared, engine/server and engine/net.
 ##
 ## Every option can come from a CLI arg (after `--`) or an environment variable; CLI wins.
-##   --port=24565          VOXEL_PORT
-##   --name="My Server"    VOXEL_NAME          shown in server lists
-##   --motd="Welcome!"     VOXEL_MOTD          message shown in server lists
-##   --query-port=24566    VOXEL_QUERY_PORT    UDP port answering status queries (default port + 1, 0 = off)
-##   --hub=https://...     VOXEL_HUB           list this server on a hub (services/hub)
-##   --public-address=host VOXEL_PUBLIC_ADDRESS the address the hub lists (default: where the announce comes from)
-##   --tags=pvp,modded     VOXEL_TAGS          tags shown in the server browser
-##   --allowlist=Ann,Ben   VOXEL_ALLOWLIST     a private server: only these players (and admins) may join (/allow)
-##   --chat-filter=on      VOXEL_CHAT_FILTER   mask swear words in chat (the chat_filter gameplay rule)
-##   --anticheat=kick      VOXEL_ANTICHEAT     kick | log (only tell moderators) | off
-##   --default-role=member VOXEL_DEFAULT_ROLE  the role every player has (visitor: look around and chat, no building)
-##   --max-players=64      VOXEL_MAX_PLAYERS
-##   --mods=vanilla        VOXEL_MODS          comma-separated; dependencies load automatically
-##   --mods-dir=/mods      VOXEL_MODS_DIR      comma-separated folders searched before bundled mods
-##   --data-dir=/data      VOXEL_DATA_DIR      world saves (default user://worlds)
-##   --world=name          VOXEL_WORLD         defaults to the first mod id
-##   --mod-settings=path   VOXEL_MOD_SETTINGS  mod settings as a JSON file or inline JSON
+##   --port=24565          QW_PORT
+##   --name="My Server"    QW_NAME          shown in server lists
+##   --motd="Welcome!"     QW_MOTD          message shown in server lists
+##   --query-port=24566    QW_QUERY_PORT    UDP port answering status queries (default port + 1, 0 = off)
+##   --hub=https://...     QW_HUB           list this server on a hub (services/hub)
+##   --public-address=host QW_PUBLIC_ADDRESS the address the hub lists (default: where the announce comes from)
+##   --tags=pvp,modded     QW_TAGS          tags shown in the server browser
+##   --allowlist=Ann,Ben   QW_ALLOWLIST     a private server: only these players (and admins) may join (/allow)
+##   --chat-filter=on      QW_CHAT_FILTER   mask swear words in chat (the chat_filter gameplay rule)
+##   --anticheat=kick      QW_ANTICHEAT     kick | log (only tell moderators) | off
+##   --default-role=member QW_DEFAULT_ROLE  the role every player has (visitor: look around and chat, no building)
+##   --max-players=64      QW_MAX_PLAYERS
+##   --mods=vanilla        QW_MODS          comma-separated; dependencies load automatically
+##   --mods-dir=/mods      QW_MODS_DIR      comma-separated folders searched before bundled mods
+##   --data-dir=/data      QW_DATA_DIR      world saves (default user://worlds)
+##   --world=name          QW_WORLD         defaults to the first mod id
+##   --mod-settings=path   QW_MOD_SETTINGS  mod settings as a JSON file or inline JSON
 ##                                             ({"mod": {"setting": value}}); the data folder's
 ##                                             mod_settings.json is read anyway
-##   --seed=123            VOXEL_SEED          seed for a new world
-##   --metrics=10          VOXEL_METRICS       print tick/bandwidth stats every N seconds
-##   --admin-token=xyz     VOXEL_ADMIN_TOKEN   token the local host uses to shut down / become admin
-##   --admins=a,b          VOXEL_ADMINS        admin player ids (see /whoami) or names
-##   --backup-interval=60  VOXEL_BACKUP_INTERVAL  minutes between automatic world backups (0 = off)
-##   --backup-keep=24      VOXEL_BACKUP_KEEP   backups kept per world (oldest deleted)
-##   --restore=latest      VOXEL_RESTORE       restore a backup (latest, file name or path) before starting
-##   --log-level=info      VOXEL_LOG_LEVEL     debug | info | warn | error, or per mod: all:warn,my_mod:debug
-##   --ugc=auto            VOXEL_UGC           player creations: auto | trusted | approval | off
-##   --dev                 VOXEL_DEV           developer mode: every player gets the dev tools (F8), dashboard on
-##   --dev-web=24580       VOXEL_DEV_WEB       serve the dev dashboard on this port (default with --dev: port + 15)
-##   --dev-web-host=127.0.0.1 VOXEL_DEV_WEB_HOST address the dashboard listens on (token protected)
+##   --seed=123            QW_SEED          seed for a new world
+##   --metrics=10          QW_METRICS       print tick/bandwidth stats every N seconds
+##   --admin-token=xyz     QW_ADMIN_TOKEN   token the local host uses to shut down / become admin
+##   --admins=a,b          QW_ADMINS        admin player ids (see /whoami) or names
+##   --backup-interval=60  QW_BACKUP_INTERVAL  minutes between automatic world backups (0 = off)
+##   --backup-keep=24      QW_BACKUP_KEEP   backups kept per world (oldest deleted)
+##   --restore=latest      QW_RESTORE       restore a backup (latest, file name or path) before starting
+##   --log-level=info      QW_LOG_LEVEL     debug | info | warn | error, or per mod: all:warn,my_mod:debug
+##   --ugc=auto            QW_UGC           player creations: auto | trusted | approval | off
+##   --dev                 QW_DEV           developer mode: every player gets the dev tools (F8), dashboard on
+##   --dev-web=24580       QW_DEV_WEB       serve the dev dashboard on this port (default with --dev: port + 15)
+##   --dev-web-host=127.0.0.1 QW_DEV_WEB_HOST address the dashboard listens on (token protected)
 
 const GameServer = preload("res://engine/server/game_server.gd")
 const Native = preload("res://engine/shared/native.gd")
@@ -79,7 +79,7 @@ func _ready() -> void:
 	var options := read_options(OS.get_cmdline_user_args())
 	var mods: PackedStringArray = String(options.mods).split(",", false)
 	if mods.is_empty():
-		printerr("[server] No mods configured (--mods / VOXEL_MODS)")
+		printerr("[server] No mods configured (--mods / QW_MODS)")
 		get_tree().quit(2)
 		return
 	# Save before exiting on window close, and on SIGTERM/SIGINT when the native extension is loaded
@@ -194,7 +194,7 @@ func _shutdown() -> void:
 static func read_options(args: PackedStringArray) -> Dictionary:
 	var options := {}
 	for key: String in DEFAULTS:
-		var env := OS.get_environment("VOXEL_" + key.to_upper().replace("-", "_"))
+		var env := OS.get_environment("QW_" + key.to_upper().replace("-", "_"))
 		options[key] = env if not env.is_empty() else DEFAULTS[key]
 	for arg in args:
 		if arg.begins_with("--"):

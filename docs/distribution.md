@@ -154,7 +154,7 @@ checksum only proves a download matches *that list*, so the list itself has to b
 The New world dialog already picks a game (vanilla, skyblock, One Block) plus add-ons. It grows into:
 the game list is every installed mod with `"game": true`, the add-on list every other installed mod, and
 the choice is saved in `world.json` (it already is). Nothing changes for servers: their mod list stays
-`VOXEL_MODS` in the compose file, and the same zips drop into their `/mods` folder.
+`QW_MODS` in the compose file, and the same zips drop into their `/mods` folder.
 
 ### 5.4 Safety
 
@@ -193,7 +193,7 @@ the server, and the last one wins:
 
 1. the schema's `default`;
 2. `mod_settings.json` in the server's data folder, or `--mod-settings=<path or inline JSON>` /
-   `VOXEL_MOD_SETTINGS` for compose - for a dedicated server nobody logs into:
+   `QW_MOD_SETTINGS` for compose - for a dedicated server nobody logs into:
    ```json
    { "vanilla": { "monsters": "few", "day_minutes": 5 } }
    ```

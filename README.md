@@ -976,11 +976,11 @@ serialized on the main thread and written by a worker, atomically via rename.
 
 ### Backups
 
-Every `VOXEL_BACKUP_INTERVAL` minutes (default 60; 0 turns it off; skipped while the world is idle)
+Every `QW_BACKUP_INTERVAL` minutes (default 60; 0 turns it off; skipped while the world is idle)
 the server flushes pending saves and zips the world on a worker thread into
-`<data dir>/backups/<world>/<world>-<UTC timestamp>.zip`, keeping the newest `VOXEL_BACKUP_KEEP` (24).
+`<data dir>/backups/<world>/<world>-<UTC timestamp>.zip`, keeping the newest `QW_BACKUP_KEEP` (24).
 Admins can run `/backup` and `/backups`. To restore, start with `--restore=latest` (or a file name or
-path, `VOXEL_RESTORE`): the current world folder is moved aside to `<world>.before-restore-<time>`, never
+path, `QW_RESTORE`): the current world folder is moved aside to `<world>.before-restore-<time>`, never
 deleted, and the archive is unpacked in its place.
 
 ## Identity and permissions
@@ -990,7 +990,7 @@ player id: saved inventory, position and mod data follow the key, not the name. 
 the first key that claims it on a server, so nobody can take over someone else's player by typing
 their name.
 
-Admins come from `VOXEL_ADMINS` (player ids from `/whoami`, or names), `/op <player>`, or the local
+Admins come from `QW_ADMINS` (player ids from `/whoami`, or names), `/op <player>`, or the local
 host via the token the menu's Host button passes to its server. Mods mark commands as admin-only
 (`register_command(..., "admin")`, or `{ admin: true }` in JavaScript) or check `player.is_admin()`.
 Built-in admin commands: `/op`, `/deop`, `/kick`, `/backup`, `/backups`; everyone has `/help`,
@@ -1001,8 +1001,8 @@ Built-in admin commands: `/op`, `/deop`, `/kick`, `/backup`, `/backups`; everyon
 Export/Import identity buttons with a passphrase, or:
 
 ```sh
-VOXEL_IDENTITY_PASSPHRASE='...' Quarrowen -- --export-identity=my-identity.json
-VOXEL_IDENTITY_PASSPHRASE='...' Quarrowen -- --import-identity=my-identity.json   # old key kept as .bak
+QW_IDENTITY_PASSPHRASE='...' Quarrowen -- --export-identity=my-identity.json
+QW_IDENTITY_PASSPHRASE='...' Quarrowen -- --import-identity=my-identity.json   # old key kept as .bak
 ```
 
 **Server identity:** each data dir holds `identity/server.key` and `server.crt` (self-signed, created
@@ -1016,7 +1016,7 @@ looks like an impostor to returning players, who then have to delete the pin fro
 built with `tools/package_mac.sh` (ad-hoc signed; first launch via right-click → Open), joining through
 Multiplayer → LAN, and an admin cheat sheet.
 
-Private servers: `--allowlist=Ann,Ben` (or `VOXEL_ALLOWLIST`) lets only those players and admins join; admins
+Private servers: `--allowlist=Ann,Ben` (or `QW_ALLOWLIST`) lets only those players and admins join; admins
 manage it with `/allow list | add <name> | remove <name> | on | off`. A listed name is tied to the first
 identity that joins with it. `--chat-filter=on` (the `chat_filter` gameplay rule) masks common swear words
 and look-alike spellings in chat and refuses such player names; add words in `<world>/chat_filter.txt`.
@@ -1080,24 +1080,24 @@ Example setup: `deploy/server/compose.two-worlds.yaml` and docs/playtest.md.
 ## Dedicated server & Docker
 
 `scenes/server.tscn` (`engine/server_main.gd`) loads no client code. Every option is a CLI arg or an
-environment variable: `VOXEL_PORT`, `VOXEL_MODS`, `VOXEL_MODS_DIR`, `VOXEL_DATA_DIR`, `VOXEL_WORLD`,
-`VOXEL_SEED`, `VOXEL_MAX_PLAYERS`, `VOXEL_METRICS`, `VOXEL_ADMINS`, `VOXEL_ADMIN_TOKEN`,
-`VOXEL_BACKUP_INTERVAL`, `VOXEL_BACKUP_KEEP`, `VOXEL_RESTORE`, `VOXEL_NAME` and `VOXEL_MOTD` (shown in
-server lists) and `VOXEL_QUERY_PORT`: status queries for menus (name, message, game, players, ping)
+environment variable: `QW_PORT`, `QW_MODS`, `QW_MODS_DIR`, `QW_DATA_DIR`, `QW_WORLD`,
+`QW_SEED`, `QW_MAX_PLAYERS`, `QW_METRICS`, `QW_ADMINS`, `QW_ADMIN_TOKEN`,
+`QW_BACKUP_INTERVAL`, `QW_BACKUP_KEEP`, `QW_RESTORE`, `QW_NAME` and `QW_MOTD` (shown in
+server lists) and `QW_QUERY_PORT`: status queries for menus (name, message, game, players, ping)
 are answered over UDP on the game port + 1 by default (0 turns them off; rate limited per address).
-`VOXEL_HUB` lists the server on a hub (with `VOXEL_PUBLIC_ADDRESS` and `VOXEL_TAGS`).
+`QW_HUB` lists the server on a hub (with `QW_PUBLIC_ADDRESS` and `QW_TAGS`).
 
 ### Hub service
 
 `services/hub` is a small Rust service (axum, SQLite) for the public server list, short invite codes
 menu news, and friends and parties (sign-in with the identity key); see its README. Servers announce every 30 seconds, signed with their identity key, and
 the hub proves the address with a signed status query before listing it. Players point the game at a
-hub in Settings → Network (or `VOXEL_HUB`). `tools/run_tests.sh` builds it and runs its unit tests and
+hub in Settings → Network (or `QW_HUB`). `tools/run_tests.sh` builds it and runs its unit tests and
 `tests/hub_test.tscn` (a real hub and game server) when cargo is installed.
 
 ```sh
 docker build -t quarrowen-server .
-docker run -p 24565-24566:24565-24566/udp -v voxel-data:/data -e VOXEL_MODS=vanilla,industry quarrowen-server
+docker run -p 24565-24566:24565-24566/udp -v voxel-data:/data -e QW_MODS=vanilla,industry quarrowen-server
 docker compose up        # vanilla on 24565, skyblock on 24567 (status on the next port)
 ```
 
@@ -1105,7 +1105,7 @@ The image compiles the Rust extension for the target architecture, exports the "
 and ships the engine only (about 250 MB). **Mods live in the `/mods` volume, not in the image:** on
 every start `deploy/entrypoint.sh` refreshes the mods the engine shipped with into `/mods` and leaves
 everything else there alone, so a mod is added by dropping its folder (or a packaged zip) in and
-restarting - no rebuild. `VOXEL_SEED_MODS=missing` keeps your edits to the bundled mods, `never`
+restarting - no rebuild. `QW_SEED_MODS=missing` keeps your edits to the bundled mods, `never`
 leaves the folder entirely to you. Worlds live in the `/data` volume. SIGTERM and SIGINT trigger a
 save before exit, so `docker stop` is safe.
 
@@ -1113,7 +1113,7 @@ save before exit, so `docker stop` is safe.
 
 ```sh
 tools/build_native.sh            # native library for this machine -> native/bin/<platform>/
-tools/run_tests.sh               # full test suite (VOXEL_NATIVE=0 for the GDScript fallbacks)
+tools/run_tests.sh               # full test suite (QW_NATIVE=0 for the GDScript fallbacks)
 tools/export.sh                  # every preset -> build/ (needs Godot export templates)
 tools/package_mods.sh            # every mod -> build/mods/<id>-<version>.zip (release downloads)
 tools/make_release.sh            # app + mod zips + download page + update manifest -> build/release/
@@ -1142,7 +1142,7 @@ into chunk meshes instead of being rendered per pixel:
 - **Post:** AgX tone mapping, a few low-resolution bloom mips, light colour grading; optional FXAA.
 - **No** real-time shadow maps, SSAO, SSR or GI.
 
-Presets (F4 or Settings, saved; `VOXEL_GRAPHICS=fast|balanced|fancy`; changing a single option makes it Custom): `fast` renders at 70% with FSR and turns
+Presets (F4 or Settings, saved; `QW_GRAPHICS=fast|balanced|fancy`; changing a single option makes it Custom): `fast` renders at 70% with FSR and turns
 off sway, fancy water and bloom; `balanced` (default) 85% with everything on; `fancy` native
 resolution plus FXAA. At 2560x1600 on an M1 Max the balanced preset renders around 440 fps uncapped;
 scaling by GPU core count suggests roughly 130 fps on a base M1 Air (not measured on that machine).
@@ -1150,7 +1150,7 @@ scaling by GPU core count suggests roughly 130 fps on a base M1 Air (not measure
 ## Native extension (Rust)
 
 `native/` is a godot-rust (gdext 0.5, `api-4-7`) library. Each feature has a GDScript twin used
-automatically when the library is missing; `VOXEL_NATIVE=0` forces the fallbacks.
+automatically when the library is missing; `QW_NATIVE=0` forces the fallbacks.
 
 | Path | Native class | GDScript | Native |
 |---|---|---|---|

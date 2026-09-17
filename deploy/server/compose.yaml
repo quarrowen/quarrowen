@@ -15,19 +15,19 @@ services:
     # so Macs on the home network find the server in Multiplayer > LAN.
     network_mode: host
     environment:
-      VOXEL_NAME: ${SERVER_NAME:-Family Server}
-      VOXEL_MOTD: ${SERVER_MOTD:-Be kind, build big}
-      VOXEL_MODS: ${GAME:-vanilla}
-      VOXEL_WORLD: ${WORLD:-family}
-      VOXEL_PORT: "24565"
-      VOXEL_ADMINS: ${ADMINS}
-      VOXEL_ALLOWLIST: ${ALLOWLIST}
-      VOXEL_UGC: ${CREATIONS:-approval}
+      QW_NAME: ${SERVER_NAME:-Family Server}
+      QW_MOTD: ${SERVER_MOTD:-Be kind, build big}
+      QW_MODS: ${GAME:-vanilla}
+      QW_WORLD: ${WORLD:-family}
+      QW_PORT: "24565"
+      QW_ADMINS: ${ADMINS}
+      QW_ALLOWLIST: ${ALLOWLIST}
+      QW_UGC: ${CREATIONS:-approval}
       # update: refresh the mods that ship with the engine on every start; missing: keep your edits; never: hands off
-      VOXEL_SEED_MODS: ${SEED_MODS:-update}
-      VOXEL_CHAT_FILTER: ${CHAT_FILTER:-on}
-      VOXEL_BACKUP_INTERVAL: "60"
-      VOXEL_BACKUP_KEEP: "48"
+      QW_SEED_MODS: ${SEED_MODS:-update}
+      QW_CHAT_FILTER: ${CHAT_FILTER:-on}
+      QW_BACKUP_INTERVAL: "60"
+      QW_BACKUP_KEEP: "48"
     # Docker keeps a container's stdout for ever by default, and a server that is never restarted is
     # exactly the case where that fills the disk. Three days of talking is plenty to debug from.
     logging:

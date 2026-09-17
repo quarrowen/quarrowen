@@ -1,6 +1,6 @@
 extends Node
 ## Talks to a hub (services/hub) for the menu: the server list, invite codes and news. The hub's
-## address is the "network/hub_url" setting (or VOXEL_HUB). Each call emits its signal once, with
+## address is the "network/hub_url" setting (or QW_HUB). Each call emits its signal once, with
 ## `error` set ("" on success).
 
 signal servers_received(servers: Array, total: int, error: String)
@@ -14,7 +14,7 @@ const MAX_RESPONSE := 512 * 1024
 
 
 static func hub_url() -> String:
-	var override := OS.get_environment("VOXEL_HUB")
+	var override := OS.get_environment("QW_HUB")
 	var url: String = override if not override.is_empty() else str(ClientSettings.shared().get_value("network/hub_url"))
 	return url.strip_edges().trim_suffix("/")
 

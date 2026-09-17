@@ -226,6 +226,7 @@ func _setup_mobs() -> void:
 	monsters.setup(api)
 	structures.setup(api)
 	_first_kill_bonuses()
+	_archery()
 	_colossus_reward()
 	_milestones()
 	# Each monster gets its own way of saying it: kind, and about what happened rather than about anyone.
@@ -252,6 +253,42 @@ func _mob_tick() -> void:
 			if api.setting("zombies_burn") and mob.type in [ids.zombie, ids.skeleton] and daylight > 0.75 \
 					and api.sees_sky(Vector3i(mob.position.floor()) + Vector3i.UP):
 				mob.damage(4.0, null, "sun")
+
+
+## A bow, and something to shoot from it.
+##
+## Skeletons have shot at players since the start and players could not shoot back, which made every
+## fight a matter of walking into range and taking the hits on the way. The draw is the whole point: a
+## flicked bow is nearly useless and a full one is worth the second it costs, so shooting is a decision
+## about timing rather than a button to hold down.
+func _archery() -> void:
+	api.register_item("arrow", {"display_name": "Arrow", "icon": "textures/arrow_item.png",
+		"lore": ["Flint, a stick, and a feather off something."]})
+	api.register_recipe({"base:stick": 1, "base:gravel": 1, "vanilla:feather": 1}, "vanilla:arrow", 4,
+		{"station": "crafting_table", "category": "tools"})
+	ids.bow = api.register_item("bow", {"display_name": "Bow", "icon": "textures/bow.png", "durability": 300,
+		"max_stack": 1, "lore": ["Hold to draw. The longer you hold, the further it goes."],
+		"charge": {"seconds": 1.0, "minimum": 0.2, "sound": "vanilla:bow"}})
+	api.register_recipe({"base:stick": 3, "vanilla:leather": 3}, "vanilla:bow", 1, {"station": "crafting_table"})
+	api.on("item_released", func(ev):
+		if ev.item != ids.bow:
+			return
+		var arrow: int = api.item("vanilla:arrow")
+		if ev.player.count_of(arrow) <= 0 and not ev.player.is_creative():
+			ev.player.show_title("", "No arrows", 1.0)
+			return
+		if not ev.player.is_creative():
+			ev.player.take(arrow, 1)
+			ev.player.damage_item(ev.slot, 1, "use")
+		# A full draw is fast and hurts; a hurried one drops short and glances off. The curve is squared
+		# so the last part of the draw is worth more than the first, which is what makes waiting feel like
+		# a choice rather than a delay.
+		var power: float = 0.25 + 0.75 * ev.charge * ev.charge
+		var shot = api.spawn_entity("arrow", ev.player.get_eye_position() + ev.direction * 0.6,
+			{"velocity": ev.direction * (12.0 + 26.0 * power), "owner": ev.player})
+		if shot != null:
+			shot.data.damage = 2.0 + 7.0 * power
+		api.play_sound("vanilla:bow", ev.player.position, 0.9, 0.9 + 0.3 * power))
 
 
 ## What the Colossus leaves, and what the valley remembers about it.

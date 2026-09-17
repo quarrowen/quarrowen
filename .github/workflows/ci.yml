@@ -58,7 +58,7 @@ jobs:
       - name: Run test suite (native)
         run: tools/run_tests.sh
       - name: Run test suite (GDScript fallbacks)
-        run: VOXEL_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh
+        run: QW_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh
 
   export:
     name: Export builds

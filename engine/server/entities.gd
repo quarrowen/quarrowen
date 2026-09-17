@@ -38,7 +38,7 @@ const SLEEP_AFTER_TICKS := 20
 const SLEEPING_STEP_INTERVAL := 15
 const PROJECTILE_OWNER_GRACE := 0.25
 
-enum Event { HURT, DEATH, PICKUP, ATTACK, RESPAWN, WINDUP, SWING }
+enum Event { HURT, DEATH, PICKUP, ATTACK, RESPAWN, WINDUP, SWING, DRAW, RELEASE }
 
 var registry := EntityRegistry.new()
 var ai: MobAI
@@ -302,7 +302,7 @@ func _step_projectile(e: Entity, delta: float) -> void:
 	ai.make_noise(b.position, 8.0, e.owner, hit.kind != "block")
 	var ev: Dictionary = _server.emit("projectile_hit", {"entity": e, "owner": e.owner, "hit": hit.kind,
 		"target": hit.get("target"), "position": b.position, "block": hit.get("block", Vector3i.ZERO),
-		"damage": e.def.damage, "cancelled": false, "keep": false})
+		"damage": float(e.data.get("damage", e.def.damage)), "cancelled": false, "keep": false})
 	if not ev.cancelled and ev.damage > 0.0 and hit.has("target"):
 		if hit.kind == "player":
 			_server.damage_player(hit.target, ev.damage, "projectile", e.owner if e.owner != null else e, dir)

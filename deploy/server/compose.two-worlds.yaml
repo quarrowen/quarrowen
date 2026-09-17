@@ -11,18 +11,18 @@ services:
     network_mode: host
     depends_on: [quarrowen]
     environment:
-      VOXEL_NAME: ${SKY_NAME:-Sky Islands}
-      VOXEL_MOTD: Start on a tiny island
-      VOXEL_MODS: skyblock
-      VOXEL_WORLD: sky
-      VOXEL_PORT: "24567"   # the family server uses 24565 (and 24566 for its status)
-      VOXEL_ADMINS: ${ADMINS}
-      VOXEL_ALLOWLIST: ${ALLOWLIST}
-      VOXEL_UGC: ${CREATIONS:-approval}
-      VOXEL_CHAT_FILTER: ${CHAT_FILTER:-on}
-      VOXEL_SEED_MODS: ${SEED_MODS:-update}
-      VOXEL_BACKUP_INTERVAL: "60"
-      VOXEL_BACKUP_KEEP: "48"
+      QW_NAME: ${SKY_NAME:-Sky Islands}
+      QW_MOTD: Start on a tiny island
+      QW_MODS: skyblock
+      QW_WORLD: sky
+      QW_PORT: "24567"   # the family server uses 24565 (and 24566 for its status)
+      QW_ADMINS: ${ADMINS}
+      QW_ALLOWLIST: ${ALLOWLIST}
+      QW_UGC: ${CREATIONS:-approval}
+      QW_CHAT_FILTER: ${CHAT_FILTER:-on}
+      QW_SEED_MODS: ${SEED_MODS:-update}
+      QW_BACKUP_INTERVAL: "60"
+      QW_BACKUP_KEEP: "48"
     logging:  # as the family server: bounded, or it grows until the disk is full
       driver: json-file
       options:

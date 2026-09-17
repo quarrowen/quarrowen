@@ -114,7 +114,7 @@ messages go to the server console, &lt;world&gt;/logs/latest.log and the dev too
 <section id="api-events--commands-and-timers"><h2>Events, commands and timers</h2>
 <div class="card" id="api-on" data-search="on on higher priority runs first."><div class="sig"><code>api.on(event: String, handler: Callable, priority := 0) -&gt; void</code><span class="tag js" title="on">JS on</span></div><p>Higher priority runs first.</p></div>
 <div class="card" id="api-register-command" data-search="register_command  `handler(player, args: packedstringarray)` runs for &quot;/name args...&quot;. permission &quot;admin&quot; restricts
-it to server admins (voxel_admins, /op, or the local host)."><div class="sig"><code>api.register_command(command: String, description: String, handler: Callable, permission := &quot;&quot;) -&gt; void</code></div><p>`handler(player, args: PackedStringArray)` runs for &quot;/name args...&quot;. permission &quot;admin&quot; restricts<br>it to server admins (VOXEL_ADMINS, /op, or the local host).</p></div>
+it to server admins (qw_admins, /op, or the local host)."><div class="sig"><code>api.register_command(command: String, description: String, handler: Callable, permission := &quot;&quot;) -&gt; void</code></div><p>`handler(player, args: PackedStringArray)` runs for &quot;/name args...&quot;. permission &quot;admin&quot; restricts<br>it to server admins (QW_ADMINS, /op, or the local host).</p></div>
 <div class="card" id="api-after" data-search="after after runs `callback` once after `seconds`. returns a task id for `cancel`."><div class="sig"><code>api.after(seconds: float, callback: Callable) -&gt; int</code><span class="tag js" title="after">JS after</span></div><p>Runs `callback` once after `seconds`. Returns a task id for `cancel`.</p></div>
 <div class="card" id="api-every" data-search="every every runs `callback` every `seconds`. returns a task id for `cancel`."><div class="sig"><code>api.every(seconds: float, callback: Callable) -&gt; int</code><span class="tag js" title="every">JS every</span></div><p>Runs `callback` every `seconds`. Returns a task id for `cancel`.</p></div>
 <div class="card" id="api-cancel" data-search="cancel cancel stops a timer started with after or every."><div class="sig"><code>api.cancel(task_id: int) -&gt; void</code><span class="tag js" title="cancel">JS cancel</span></div><p>Stops a timer started with after or every.</p></div>
@@ -460,6 +460,7 @@ carries its own settings and a backup restores them."><div class="sig"><code>api
   tutorial_started {player, tutorial}   tutorial_step {player, tutorial, step, index, skipped}
   tutorial_completed {player, tutorial}   tip_shown {player, tip}
   milestone_reached {player, milestone, title}
+  item_charge {player, item, cancelled}   item_released {player, item, slot, charge, seconds, direction}
   ugc_uploaded {player, creation, cancelled, reason}   a player creation arrived; cancel to refuse it
   ugc_status {id, status, reason, by}   ugc_reported {player, id, reason, details, reports, cancelled}
   role_changed {player_id, role, added, by}              a role given or taken

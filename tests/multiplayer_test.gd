@@ -23,8 +23,8 @@ func _ready() -> void:
 				"result": _result_path = kv[1]
 	# Keep this test's creations and downloads out of the real user folders.
 	var scratch := ProjectSettings.globalize_path("user://mp_test_%s_%d" % [_role, Time.get_ticks_msec()])
-	OS.set_environment("VOXEL_CREATIONS_DIR", scratch.path_join("creations"))
-	OS.set_environment("VOXEL_UGC_CACHE_DIR", scratch.path_join("cache"))
+	OS.set_environment("QW_CREATIONS_DIR", scratch.path_join("creations"))
+	OS.set_environment("QW_UGC_CACHE_DIR", scratch.path_join("cache"))
 	_client = GameClient.new()
 	_client.server_port = _port
 	_client.player_name = "Alice" if _role == "a" else "Bob"

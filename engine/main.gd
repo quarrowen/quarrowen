@@ -10,7 +10,7 @@ extends Node
 ##   --name=Robin          player name for --connect / --host
 ##   --export-identity=file.json   write your identity, encrypted, and quit
 ##   --import-identity=file.json   replace your identity with an exported one and quit
-##                         both read the passphrase from VOXEL_IDENTITY_PASSPHRASE (or --passphrase=)
+##                         both read the passphrase from QW_IDENTITY_PASSPHRASE (or --passphrase=)
 
 const GameClient = preload("res://engine/client/game_client.gd")
 const ModLoader = preload("res://engine/server/mod_loader.gd")
@@ -87,7 +87,7 @@ static func _parse_args() -> Dictionary:
 
 
 func _identity_cli() -> int:
-	var passphrase := OS.get_environment("VOXEL_IDENTITY_PASSPHRASE")
+	var passphrase := OS.get_environment("QW_IDENTITY_PASSPHRASE")
 	passphrase = _args.get("passphrase", passphrase)
 	var result := export_identity(_args["export-identity"], passphrase) if _args.has("export-identity") \
 		else import_identity(_args["import-identity"], passphrase)
@@ -305,7 +305,7 @@ func _build_menu() -> void:
 
 ## The live world behind the menu (not in headless runs such as tests).
 func _add_backdrop() -> void:
-	if _backdrop != null or DisplayServer.get_name() == "headless" or OS.get_environment("VOXEL_MENU_BACKDROP") == "0" \
+	if _backdrop != null or DisplayServer.get_name() == "headless" or OS.get_environment("QW_MENU_BACKDROP") == "0" \
 			or not ClientSettings.shared().get_value("graphics/menu_backdrop"):
 		return
 	_backdrop = MenuBackdrop.new()

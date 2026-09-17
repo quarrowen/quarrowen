@@ -58,6 +58,8 @@ var hurt_timer := 0.0
 var regen_timer := 0.0
 var starve_timer := 0.0
 var eating := {}  # {slot, item, started, sound} while holding use on food
+## {slot, item, started} while holding use on an item that charges (a drawn bow; see Charging).
+var charging := {}
 var _sent_hunger := Vector2(-1, -1)
 var void_timer := 0.0
 var contact_timer := 0.0

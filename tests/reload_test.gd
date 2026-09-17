@@ -31,7 +31,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	var root := ProjectSettings.globalize_path("user://reload_test_%d" % Time.get_ticks_msec())
-	OS.set_environment("VOXEL_DATA_DIR", root.path_join("data"))
+	OS.set_environment("QW_DATA_DIR", root.path_join("data"))
 	_mod_dir = root.path_join("mods/liveblock")
 	DirAccess.make_dir_recursive_absolute(_mod_dir)
 	_write("mod.json", JSON.stringify({"id": "liveblock", "name": "Live block", "version": "1.0.0", "depends": ["base"]}))

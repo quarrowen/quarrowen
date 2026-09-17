@@ -1,7 +1,7 @@
 extends Node
 ## Offline tests of the engine mob AI in a flat arena (tests/mods/ai_arena):
 ##   godot --headless --path . res://tests/ai_test.tscn
-## Runs with the native extension and, with VOXEL_NATIVE=0, with the GDScript pathfinder.
+## Runs with the native extension and, with QW_NATIVE=0, with the GDScript pathfinder.
 
 const GameServer = preload("res://engine/server/game_server.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")

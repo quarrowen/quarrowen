@@ -1,13 +1,13 @@
 extends RefCounted
 ## Trust-on-first-use pinning of server certificates, like SSH known_hosts. The first connection to an
 ## address stores the server's certificate; later connections verify it during the DTLS handshake.
-## VOXEL_KNOWN_SERVERS_DIR overrides the folder (tests use a throwaway one).
+## QW_KNOWN_SERVERS_DIR overrides the folder (tests use a throwaway one).
 
 const DEFAULT_DIR := "user://known_servers"
 
 
 static func dir() -> String:
-	var override := OS.get_environment("VOXEL_KNOWN_SERVERS_DIR")
+	var override := OS.get_environment("QW_KNOWN_SERVERS_DIR")
 	return override if not override.is_empty() else DEFAULT_DIR
 
 

@@ -1,6 +1,6 @@
 extends RefCounted
 ## The player's portable avatar (built-in cosmetics and colors), saved on this computer and sent to
-## every server on join. VOXEL_AVATAR_FILE overrides the location.
+## every server on join. QW_AVATAR_FILE overrides the location.
 
 const Cosmetics = preload("res://engine/shared/cosmetics.gd")
 
@@ -8,7 +8,7 @@ const PATH := "user://avatar.json"
 
 
 static func path() -> String:
-	var override := OS.get_environment("VOXEL_AVATAR_FILE")
+	var override := OS.get_environment("QW_AVATAR_FILE")
 	return override if not override.is_empty() else PATH
 
 

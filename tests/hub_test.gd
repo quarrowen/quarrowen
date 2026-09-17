@@ -49,7 +49,7 @@ func _run() -> void:
 			break
 		await get_tree().create_timer(0.1).timeout
 	_check(up, "the hub starts")
-	OS.set_environment("VOXEL_HUB", hub_url)
+	OS.set_environment("QW_HUB", hub_url)
 	var server_args := PackedStringArray()
 	if not OS.has_feature("template"):
 		server_args.append_array(["--path", ProjectSettings.globalize_path("res://")])
@@ -59,7 +59,7 @@ func _run() -> void:
 
 	var client := HubClient.new()
 	add_child(client)
-	_check(HubClient.configured() and HubClient.hub_url() == hub_url, "the hub address comes from VOXEL_HUB")
+	_check(HubClient.configured() and HubClient.hub_url() == hub_url, "the hub address comes from QW_HUB")
 	# The server lists itself once it is up and the hub has checked its address.
 	var listed := {}
 	var deadline := Time.get_ticks_msec() + 60000
@@ -108,7 +108,7 @@ func _run() -> void:
 	pinger.close()
 	await _social(hub_url, game_port)
 	_stop_processes()
-	OS.set_environment("VOXEL_HUB", "")
+	OS.set_environment("QW_HUB", "")
 	_remove_tree(work)
 	print("[hub] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -219,7 +219,7 @@ func _http_get(url: String) -> Array:
 func _post(url: String, body: String, signature: String) -> Array:
 	var http := HTTPRequest.new()
 	add_child(http)
-	http.request(url, PackedStringArray(["Content-Type: application/json", "X-Voxel-Signature: " + signature]), HTTPClient.METHOD_POST, body)
+	http.request(url, PackedStringArray(["Content-Type: application/json", "X-Quarrowen-Signature: " + signature]), HTTPClient.METHOD_POST, body)
 	var done: Array = await http.request_completed
 	http.queue_free()
 	var parsed = JSON.parse_string((done[3] as PackedByteArray).get_string_from_utf8())

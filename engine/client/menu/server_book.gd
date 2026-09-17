@@ -1,6 +1,6 @@
 extends RefCounted
 ## Saved servers for the menu's Multiplayer tab: favorites the player added and servers joined
-## recently (user://servers.json, or VOXEL_SERVER_BOOK for tests).
+## recently (user://servers.json, or QW_SERVER_BOOK for tests).
 ##   {"favorites": [{name, address, port, added_at}], "recent": [{name, address, port, last_joined}]}
 
 const DEFAULT_PATH := "user://servers.json"
@@ -12,7 +12,7 @@ var recent: Array = []
 
 
 static func path() -> String:
-	var override := OS.get_environment("VOXEL_SERVER_BOOK")
+	var override := OS.get_environment("QW_SERVER_BOOK")
 	return override if not override.is_empty() else DEFAULT_PATH
 
 

@@ -3,7 +3,7 @@
 #   skyblock -> <host>:24567
 # Each server answers menu status queries (name, players, ping) on its port + 1.
 # Put extra or overriding mods in ./server-mods/<mod_id>/ (mounted at /mods).
-# Mod settings: VOXEL_MOD_SETTINGS takes the settings as JSON (or a path to a file), and /data/mod_settings.json
+# Mod settings: QW_MOD_SETTINGS takes the settings as JSON (or a path to a file), and /data/mod_settings.json
 # is read too. Admins can change them in game afterwards, and that is kept with the world.
 
 x-server: &server
@@ -25,9 +25,9 @@ services:
   vanilla:
     <<: *server
     environment:
-      VOXEL_MODS: vanilla
-      VOXEL_METRICS: "60"
-      VOXEL_MOD_SETTINGS: '{"vanilla": {"monsters": "normal", "day_minutes": 20}}'
+      QW_MODS: vanilla
+      QW_METRICS: "60"
+      QW_MOD_SETTINGS: '{"vanilla": {"monsters": "normal", "day_minutes": 20}}'
     ports:
       - "24565:24565/udp"
       - "24566:24566/udp"
@@ -38,8 +38,8 @@ services:
   skyblock:
     <<: *server
     environment:
-      VOXEL_MODS: skyblock
-      VOXEL_MAX_PLAYERS: "32"
+      QW_MODS: skyblock
+      QW_MAX_PLAYERS: "32"
     ports:
       - "24567:24565/udp"
       - "24568:24566/udp"

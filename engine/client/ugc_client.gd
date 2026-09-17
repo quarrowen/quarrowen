@@ -30,7 +30,7 @@ func _init(game_client) -> void:
 
 
 static func cache_dir() -> String:
-	var override := OS.get_environment("VOXEL_UGC_CACHE_DIR")
+	var override := OS.get_environment("QW_UGC_CACHE_DIR")
 	return override if not override.is_empty() else CACHE_DIR
 
 
