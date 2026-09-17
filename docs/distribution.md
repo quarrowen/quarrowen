@@ -39,6 +39,25 @@ with `--with-release` attaches the zips to the GitHub release (release assets do
 repository size, which matters at ~62 MB per build). Without a release it serves the zips from the
 branch instead.
 
+## 2a. Signing the app for macOS
+
+Two different signatures, easily confused:
+
+- **The app bundle** is signed with an **Apple Developer ID Application** certificate and notarized by
+  Apple, so macOS opens it without the right-click dance. This is about the operating system trusting the
+  download. `tools/package_mac.sh` does it when the certificate is in the keychain (and falls back to an
+  ad-hoc signature, with a message, when it is not). Team ID 9N6LK2SB78.
+- **The update manifest** is signed with the project's own release key (§2b), which is about the *game*
+  trusting an update. Neither replaces the other.
+
+```sh
+xcrun notarytool store-credentials quarrowen-notary --apple-id <you@example.com> \
+  --team-id 9N6LK2SB78 --password <app-specific password>   # once
+tools/make_release.sh                                        # signs, hardens, notarizes, staples
+```
+
+`QUARROWEN_SKIP_NOTARIZE=1` signs without the (slow, online) notarization step, for a quick local build.
+
 ## 2b. Signing a release
 
 The manifest is signed, and a client only installs an update whose manifest one of its built-in release

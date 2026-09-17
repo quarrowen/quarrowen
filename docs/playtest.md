@@ -82,12 +82,26 @@ It makes `build/macos/Quarrowen-<version>-mac-arm64.zip`. Send the zip to each M
 **Install on each Mac:**
 
 1. Double-click the zip, then drag **Quarrowen** into **Applications**.
-2. The first time, macOS blocks apps that are not from the App Store or a registered developer. Open it anyway:
-   right-click (or Control-click) **Quarrowen** in Applications, choose **Open**, then **Open** again.
-   On newer macOS versions, if there is no Open button: try to open it once, then go to
-   **System Settings → Privacy & Security**, scroll down and click **Open Anyway**.
-   (Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/Quarrowen.app`.)
-3. After that it opens normally.
+2. Open it. A **signed and notarized** build (any release built on a machine with the project's Developer
+   ID certificate - see below) opens straight away.
+3. An **unsigned** build - one you built yourself without the certificate - is blocked by macOS the first
+   time: right-click (or Control-click) **Quarrowen** in Applications, choose **Open**, then **Open**
+   again. If there is no Open button: try to open it once, then go to **System Settings → Privacy &
+   Security**, scroll down and click **Open Anyway**. (Or, in Terminal:
+   `xattr -dr com.apple.quarantine /Applications/Quarrowen.app`.) After that it opens normally.
+
+**Signing a release so nobody has to do step 3** (needs an Apple Developer account, $99/yr):
+
+```sh
+# once: a Developer ID Application certificate in your keychain, and a notarytool profile
+xcrun notarytool store-credentials quarrowen-notary --apple-id <you@example.com> \
+  --team-id <TEAM ID> --password <app-specific password>
+
+tools/make_release.sh            # signs, hardens, notarizes and staples automatically
+```
+
+`tools/package_mac.sh` looks for the certificate itself; without one it signs ad hoc and says so, so
+building on any other machine still works.
 
 A MacBook Air runs the game well on the default graphics. If it feels slow, open **Settings → Graphics** and
 choose **Fast**.

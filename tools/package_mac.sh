@@ -3,10 +3,17 @@
 #   build/macos/Quarrowen.app
 #   build/macos/Quarrowen-<version>-mac-arm64.zip
 #
-# The app carries the bundled mods in Contents/Resources/mods (so it can host worlds) and is signed
-# ad hoc, which is enough for your own Macs: the first launch needs right-click > Open (or
-# `xattr -dr com.apple.quarantine Quarrowen.app`). Sharing widely needs an Apple Developer ID and
-# notarization.
+# The app carries the bundled mods in Contents/Resources/mods (so it can host worlds).
+#
+# Signing: with an Apple Developer ID certificate in the keychain the app is signed properly, hardened
+# and notarized, and it opens with a double click like any other app. Without one it falls back to an
+# ad-hoc signature, which works on your own Macs but makes the first launch a right-click > Open (or
+# `xattr -dr com.apple.quarantine Quarrowen.app`). Set these to sign:
+#
+#   QUARROWEN_SIGN_IDENTITY   "Developer ID Application: Name (TEAMID)", or "auto" to find it
+#   QUARROWEN_NOTARY_PROFILE  the notarytool keychain profile (xcrun notarytool store-credentials ...)
+#
+# Notarizing needs the network and takes a few minutes; QUARROWEN_SKIP_NOTARIZE=1 signs without it.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-$(command -v godot || echo /Applications/Godot.app/Contents/MacOS/Godot)}"
@@ -33,11 +40,43 @@ if [ ! -d "$app/Contents/MacOS" ] || [ -z "$(ls -A "$app/Contents/MacOS" 2>/dev/
 fi
 rm -f "$log"
 rsync -a --delete --exclude "*.import" --exclude "*.uid" --exclude ".DS_Store" mods/ "$app/Contents/Resources/mods/"
-# Adding files invalidated the export's signature: sign the whole bundle again (ad hoc).
-codesign --force --deep --sign - "$app"
-codesign --verify --deep --strict "$app"
+
+# Adding the mods invalidated the export's signature, so the bundle is signed again either way.
+identity="${QUARROWEN_SIGN_IDENTITY:-auto}"
+if [ "$identity" = "auto" ]; then
+  identity="$(security find-identity -v -p codesigning 2>/dev/null | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -1)"
+fi
+if [ -n "$identity" ]; then
+  # A real signature: hardened runtime (notarization refuses without it) and a timestamp, inside out.
+  echo "== signing as $identity"
+  find "$app/Contents" -type f \( -name "*.dylib" -o -name "*.framework" \) -print0 |
+    xargs -0 -I{} codesign --force --timestamp --options runtime --sign "$identity" {} 2>/dev/null || true
+  codesign --force --deep --timestamp --options runtime --sign "$identity" "$app"
+  codesign --verify --deep --strict "$app"
+else
+  echo "== no Developer ID certificate found: signing ad hoc (first launch needs right-click > Open)"
+  codesign --force --deep --sign - "$app"
+  codesign --verify --deep --strict "$app"
+fi
+
 zip="$out/Quarrowen-$version-mac-arm64.zip"
 rm -f "$zip"
 ditto -c -k --keepParent "$app" "$zip"
+
+# Notarizing: Apple checks the build, then the ticket is stapled into the app so it opens offline too.
+profile="${QUARROWEN_NOTARY_PROFILE:-quarrowen-notary}"
+if [ -n "$identity" ] && [ "${QUARROWEN_SKIP_NOTARIZE:-0}" != "1" ] && xcrun notarytool history --keychain-profile "$profile" >/dev/null 2>&1; then
+  echo "== notarizing (a few minutes)"
+  if xcrun notarytool submit "$zip" --keychain-profile "$profile" --wait; then
+    xcrun stapler staple "$app"
+    rm -f "$zip"
+    ditto -c -k --keepParent "$app" "$zip"   # zip again so the download carries the stapled ticket
+    echo "== notarized and stapled"
+  else
+    echo "!! notarization failed: the app is signed but macOS will still warn on first launch" >&2
+  fi
+elif [ -n "$identity" ]; then
+  echo "== skipping notarization (no '$profile' notarytool profile; see the header of this script)"
+fi
 echo "built $app"
 echo "zipped $zip ($(du -h "$zip" | cut -f1))"
