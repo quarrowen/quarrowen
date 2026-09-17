@@ -1075,7 +1075,8 @@ servers on its list, for this player and this server, once. Arrival points are n
 source keeps a copy until the player turns up, so a failed trip loses nothing. `admit` lets arrivals skip the
 allowlist. Events: `player_transfer {player, server, arrival, data, cancelled, reason}` (cancellable, data can be
 changed) and `player_arrived {player, from, arrival, data}`; `network_servers()`, `set_arrival_point(id, pos)`.
-Example setup: `deploy/server/compose.two-worlds.yaml` and docs/playtest.md.
+Example setup: `deploy/server/compose.yaml` (three worlds and a hub) with `deploy/server/link-servers.sh`,
+which fills in each server's network.json once the ids exist. See docs/playtest.md.
 
 ## Dedicated server & Docker
 

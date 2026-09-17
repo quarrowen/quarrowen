@@ -1,49 +1,129 @@
-# Quarrowen family server for a Linux box with Docker.
-#   cp .env.example .env    # then edit the names
-#   docker compose up -d --build
+# Quarrowen at home: three worlds and a hub, on one Linux box with Docker.
+#
+#   cp .env.example .env          # then edit the names
+#   docker compose up -d          # pulls the images CI built
+#   ./link-servers.sh             # lets players travel between the three worlds
 #   docker compose logs -f
+#
+# Two different things connect these servers, and it is worth knowing which does what:
+#
+#   The hub is a server LIST. Each world announces itself to it, so the game's Multiplayer screen shows
+#   them by name and nobody has to type an address. It does not move anybody anywhere.
+#
+#   network.json is TRAVEL: portals, /server <name> and the Worlds panel. Each world holds a list of the
+#   others with their 32-character server ids, and those only exist once a server has started - so it is
+#   written by ./link-servers.sh after the first `up`, not by this file.
+#
+# Host networking: every port below is the machine's own, so the Macs find these in Multiplayer > LAN
+# even with the hub off. Each world uses two ports: the game port, and the next one up for status queries.
+#
 # See docs/playtest.md for the whole setup (Macs included).
 
+x-world: &world
+  # Pull the image CI published rather than compiling Godot and Rust on the server; `build` is still
+  # here so `docker compose up -d --build` works when testing a change that is not pushed yet.
+  image: ${QW_IMAGE:-ghcr.io/quarrowen/quarrowen/server:latest}
+  build: ../..
+  restart: unless-stopped
+  stop_grace_period: 30s  # the server saves the world on SIGTERM
+  network_mode: host
+  # Docker keeps a container's stdout for ever by default, and a server that is never restarted is
+  # exactly the case where that fills the disk. Three days of talking is plenty to debug from.
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-world-env: &world-env
+  QW_ADMINS: ${ADMINS}
+  QW_ALLOWLIST: ${ALLOWLIST}
+  QW_UGC: ${CREATIONS:-approval}
+  QW_CHAT_FILTER: ${CHAT_FILTER:-on}
+  # update: refresh the mods that ship with the engine on every start; missing: keep your edits; never: hands off
+  QW_SEED_MODS: ${SEED_MODS:-update}
+  QW_BACKUP_INTERVAL: "60"
+  QW_BACKUP_KEEP: "48"
+  # Listed on the family's own hub, so the worlds appear in the menu by themselves.
+  QW_HUB: ${HUB_URL:-http://127.0.0.1:24600}
+  QW_PUBLIC_ADDRESS: ${PUBLIC_ADDRESS:-}
+
 services:
-  quarrowen:
-    # Pull the image CI published rather than compiling Godot and Rust on the server; `build` is still
-    # here so `docker compose up -d --build` works when testing a change that is not pushed yet.
-    image: ${QW_IMAGE:-ghcr.io/quarrowen/quarrowen/server:latest}
-    build: ../..
-    container_name: quarrowen
-    restart: unless-stopped
-    stop_grace_period: 30s  # the server saves the world on SIGTERM
-    # Host networking: the game port (UDP 24565) and the status port (UDP 24566) are the machine's own,
-    # so Macs on the home network find the server in Multiplayer > LAN.
-    network_mode: host
+  # The valley: survival with the Hearthhold story on top. `hearthhold` pulls in vanilla and base itself.
+  hearthhold:
+    <<: *world
+    container_name: quarrowen-hearthhold
     environment:
-      QW_NAME: ${SERVER_NAME:-Family Server}
-      QW_MOTD: ${SERVER_MOTD:-Be kind, build big}
-      QW_MODS: ${GAME:-vanilla}
-      QW_WORLD: ${WORLD:-family}
+      <<: *world-env
+      QW_NAME: ${HEARTHHOLD_NAME:-Hearthhold}
+      QW_MOTD: ${HEARTHHOLD_MOTD:-A valley whose light went out}
+      QW_MODS: ${HEARTHHOLD_MODS:-hearthhold}
+      QW_WORLD: hearthhold
       QW_PORT: "24565"
-      QW_ADMINS: ${ADMINS}
-      QW_ALLOWLIST: ${ALLOWLIST}
-      QW_UGC: ${CREATIONS:-approval}
-      # update: refresh the mods that ship with the engine on every start; missing: keep your edits; never: hands off
-      QW_SEED_MODS: ${SEED_MODS:-update}
-      QW_CHAT_FILTER: ${CHAT_FILTER:-on}
-      QW_BACKUP_INTERVAL: "60"
-      QW_BACKUP_KEEP: "48"
-    # Docker keeps a container's stdout for ever by default, and a server that is never restarted is
-    # exactly the case where that fills the disk. Three days of talking is plenty to debug from.
+    volumes:
+      - quarrowen-hearthhold:/data
+      # The mods the server loads live on the host: add a folder here and restart, no rebuild needed.
+      - ${MODS_DIR:-./mods}:/mods
+
+  # One block over the void that comes back as something else each time it is broken.
+  oneblock:
+    <<: *world
+    container_name: quarrowen-oneblock
+    environment:
+      <<: *world-env
+      QW_NAME: ${ONEBLOCK_NAME:-One Block}
+      QW_MOTD: ${ONEBLOCK_MOTD:-Break it and see what it becomes}
+      QW_MODS: oneblock
+      QW_WORLD: oneblock
+      QW_PORT: "24567"
+    volumes:
+      - quarrowen-oneblock:/data
+      - ${MODS_DIR:-./mods}:/mods
+
+  # An island each, a cobblestone generator, and a list of challenges.
+  skyblock:
+    <<: *world
+    container_name: quarrowen-skyblock
+    environment:
+      <<: *world-env
+      QW_NAME: ${SKYBLOCK_NAME:-Sky Islands}
+      QW_MOTD: ${SKYBLOCK_MOTD:-Start on a tiny island}
+      QW_MODS: skyblock
+      QW_WORLD: skyblock
+      QW_PORT: "24569"
+    volumes:
+      - quarrowen-skyblock:/data
+      - ${MODS_DIR:-./mods}:/mods
+
+  # The server list the three worlds announce themselves to.
+  hub:
+    build: ../../services/hub
+    image: ${QW_HUB_IMAGE:-quarrowen-hub}
+    container_name: quarrowen-hub
+    restart: unless-stopped
+    network_mode: host
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    environment:
+      HUB_BIND: 0.0.0.0:24600
+      HUB_DATA: /data
+      # The worlds are on this machine's own network, which a hub meant for the internet would refuse.
+      HUB_ALLOW_PRIVATE: "1"
+      HUB_PUBLIC_URL: ${HUB_URL:-http://127.0.0.1:24600}
     volumes:
-      - quarrowen-data:/data
-      # The mods the server loads live on the host: add a folder here and restart, no rebuild needed.
-      - ${MODS_DIR:-./mods}:/mods
+      - quarrowen-hub:/data
 
 volumes:
-  quarrowen-data:
-    # Named outright, so the world does not move when this folder is renamed: Compose otherwise prefixes
-    # the volume with whatever the directory happens to be called.
-    name: quarrowen-data
+  # Named outright, so a world does not move when this folder is renamed: Compose otherwise prefixes
+  # the volume with whatever the directory happens to be called.
+  quarrowen-hearthhold:
+    name: quarrowen-hearthhold
+  quarrowen-oneblock:
+    name: quarrowen-oneblock
+  quarrowen-skyblock:
+    name: quarrowen-skyblock
+  quarrowen-hub:
+    name: quarrowen-hub

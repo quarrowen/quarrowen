@@ -162,16 +162,16 @@ roles** to give roles (builder, moderator, admin) or kick someone, without typin
 whole world out to a folder:
 
 ```sh
-docker run --rm -v quarrowen-data:/data -v "$PWD":/out debian tar czf /out/quarrowen-world.tgz -C /data .
+docker run --rm -v quarrowen-hearthhold:/data -v "$PWD":/out debian tar czf /out/hearthhold-world.tgz -C /data .
 ```
 
 (`docker volume ls` shows the exact volume name.) The volume also holds the server's identity: keep it, or
 every Mac will warn that the server's identity changed.
 
-**Worlds survive updates.** Builds, chests, animals and inventories are kept when you update; the server backs
-a world up before it upgrades the save format. The volume is named outright in the Compose file
-(`quarrowen-data`), so it stays put wherever the folder lives or whatever it is called. `docker volume ls`
-shows what is on the machine.
+**Worlds survive updates**, from alpha 4 on: builds, chests, animals and inventories are kept. A world saved
+by anything older is refused rather than converted. Each world has its own volume, named outright in the
+Compose file (`quarrowen-hearthhold`, `quarrowen-oneblock`, `quarrowen-skyblock`, `quarrowen-hub`), so they
+stay put wherever the folder lives or whatever it is called. `docker volume ls` shows what is on the machine.
 
 **The Macs update themselves.** When the menu opens, the game checks the download page and offers the new
 version in a banner; pressing Update downloads it, checks it against the checksum published with the release
@@ -197,31 +197,42 @@ alone still builds just the app if you want to copy it over by hand. Mods update
 engine: the bundled ones are refreshed in `mods/` on the next start (unless `SEED_MODS` says otherwise), so a
 mod change does not need a rebuild - only `docker compose restart`.
 
-## Two worlds and portals (optional)
+## Three worlds, travel between them, and the hub
 
-A second server (Sky Islands, the skyblock game) can run next to the family server, with portals between them.
-Players keep their inventory as they travel.
+`docker compose up -d` starts all three worlds and the hub. Open their ports once:
 
-1. Start both: `docker compose -p quarrowen -f compose.yaml -f compose.two-worlds.yaml up -d --build`
-   (and open its ports too: `sudo ufw allow 24567:24568/udp`).
-2. Find each server's id in its log: `docker logs quarrowen | grep "Server id"` and
-   `docker logs quarrowen-sky | grep "Server id"`.
-3. Tell each server about the other. Copy `network.example.json`, fill in the *other* server's id and your
-   machine's address, and put it in each server's data volume:
-   ```sh
-   cp network.example.json family-network.json   # "sky": port 24567, id of quarrowen-sky
-   cp network.example.json sky-network.json      # rename "sky" to "family": name, port 24565, id of quarrowen
-   nano family-network.json sky-network.json
-   docker cp family-network.json quarrowen:/data/network.json
-   docker cp sky-network.json quarrowen-sky:/data/network.json
-   ```
-   Then in game on each server (as admin): `/network reload`, and `/network` to check.
-4. **Travel:** `/server sky` (with `"hop": true`, anyone may), or build a portal: place **Portal** blocks (from
-   the creative inventory), stand next to them and type `/portal sky`. Walking into it takes you there.
-   On the other side, stand where travellers should appear and type `/network arrival dock`, then point portals at
-   it with `/portal family dock`.
+```sh
+sudo ufw allow 24565:24570/udp   # the three worlds (each uses its port and the next one up)
+sudo ufw allow 24600/tcp         # the hub
+```
 
-If a trip cannot finish (the other server is down), coming back gives players their things back.
+**The hub is a server list, not a way to travel.** Each world announces itself to it, so the game's
+Multiplayer screen shows Hearthhold, One Block and Sky Islands by name and nobody types an address. That
+is all it does. Moving a player from one world to another is a separate thing, below.
+
+**Travel** (portals, `/server <name>`, the Worlds panel) needs each world to know the others' 32-character
+server ids, and those only exist once a server has started. So after the first `up`:
+
+```sh
+./link-servers.sh
+```
+
+It reads each id, writes a `network.json` into each world naming the other two, and restarts them. Run it
+again after adding a world, or after deleting a volume - a new volume means a new id. Then in game:
+
+- `/server oneblock`, `/server skyblock`, `/server hearthhold` - anyone may, and inventories come along.
+- Or build a **portal**: place Portal blocks (creative inventory), stand next to them and type
+  `/portal oneblock`. Walking in takes you there. To choose where travellers arrive, stand on the spot on
+  the far side and type `/network arrival dock`, then point portals at it with `/portal hearthhold dock`.
+- `/network` lists what this world is linked to, and `/network reload` re-reads the file.
+
+A player on the allowlist is allowed on all three, and an arrival skips the check (`admit`), so nobody is
+bounced halfway through a portal.
+
+**What the three are.** Hearthhold is survival with a story: a valley whose light went out, people to find
+and houses to build them. One Block gives everyone a single block over the void that becomes something
+else each time it is broken, in phases. Sky Islands gives everyone a small island, a cobblestone
+generator and a list of challenges. Hearthhold is the one to start a child on.
 
 ## 6. When something goes wrong
 
