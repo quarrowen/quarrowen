@@ -7,6 +7,7 @@ const Monsters = preload("monsters.gd")
 const VanillaStructures = preload("structures.gd")
 const Guide = preload("guide.gd")
 const Tutorial = preload("tutorial.gd")
+const Cooking = preload("cooking.gd")
 const APPLE_CHANCE := 0.12
 ## How many monsters may be around each player, for the "monsters" setting.
 const MONSTER_CAPS := {"none": 0, "few": 8, "normal": 24, "many": 48}
@@ -21,6 +22,7 @@ var monsters := Monsters.new()
 var structures := VanillaStructures.new()
 var guide := Guide.new()
 var tutorial := Tutorial.new()
+var cooking := Cooking.new()
 var ids := {}
 
 
@@ -56,6 +58,7 @@ func setup(mod_api) -> void:
 	# Everyone may switch modes in the sandbox (the engine's /gamemode is admin-only).
 	api.register_command("gamemode", "survival | creative [player | all] - switch game mode ('all' also sets it for new players)", _cmd_gamemode)
 	_setup_mobs()
+	cooking.setup(api)
 	guide.setup(api)
 	tutorial.setup(api)
 	if not api.storage.get("time_initialized", false):

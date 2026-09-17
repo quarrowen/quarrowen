@@ -49,6 +49,8 @@ func setup(api) -> void:
 
 	api.register_tip("home", {"text": "Somewhere to come back to. Type [b]/sethome[/b] here, and [b]/home[/b] brings you back from anywhere.",
 		"icon": "base:crafting_table", "trigger": {"type": "place", "target": "base:crafting_table"}})
+	api.register_tip("cooking", {"text": "Two mushrooms and a bowl make a stew. Build a [b]Cooking Pot[/b] - cooked meals give you something extra for a while.",
+		"icon": "base:cooking_pot", "page": "base:cooking", "trigger": {"type": "pickup", "target": ["vanilla:red_mushroom", "vanilla:glow_mushroom", "vanilla:raw_beef"]}})
 	api.register_tip("first_night", {"text": "Night is falling. Monsters spawn in the dark: stay near light, build walls or sleep in a bed.",
 		"icon": "base:bed", "page": "base:beds", "trigger": {"type": "night"}})
 	api.register_tip("hungry", {"text": "You're getting hungry. Below 3 drumsticks you can't sprint, and your health stops coming back.",

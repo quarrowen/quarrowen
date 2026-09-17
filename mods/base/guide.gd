@@ -73,6 +73,19 @@ func _first_steps(api) -> void:
 			{"type": "recipe", "output": "base:bread"},
 			{"type": "tip", "text": "Some food keeps you full for longer than its drumsticks show. Cooked meat is far better than raw."},
 		]})
+	api.register_guide_page("cooking", {"chapter": "basics", "title": "Cooking", "icon": "base:cooking_pot", "order": 5,
+		"unlock": {"item": ["base:bowl", "base:cooking_pot"]},
+		"hint": "Make a bowl, or pick up something worth cooking.",
+		"keywords": "cook pot stew soup cake pie meal bowl feast buff masterwork stir",
+		"blocks": [
+			{"type": "text", "text": "A furnace melts one thing at a time. A [b]Cooking Pot[/b] takes several and makes a meal of them - and a meal does more than fill you up."},
+			{"type": "recipe", "output": "base:cooking_pot"},
+			{"type": "text", "text": "Every dish gives you something for a while: quicker feet, a longer reach, harder to knock over, more hearts than you started with. The message when you finish eating tells you what you got."},
+			{"type": "items", "items": ["base:bowl", "base:apple_pie"]},
+			{"type": "tip", "text": "Press [b]Stir the pot[/b] instead of Craft and keep the spoon moving steadily. A Masterwork meal glows, carries your name, and fills you more."},
+			{"type": "text", "text": "Not every recipe is written down. The pot is a good place to try two things that seem like they belong together."},
+			{"type": "link", "page": "experiment"},
+		]})
 	api.register_guide_page("beds", {"chapter": "basics", "title": "Beds", "icon": "base:bed", "order": 5,
 		"unlock": {"item": "base:wheat"}, "hint": "Grow or find some wheat to fill in this page.", "keywords": "sleep night respawn spawn",
 		"blocks": [

@@ -59,6 +59,7 @@ func _ready() -> void:
 	_mod_index()
 	await _examples()
 	await _fuels()
+	await _cooking()
 	await _loot()
 	_api_docs()
 	_creations()
@@ -3398,6 +3399,48 @@ func _first_session() -> void:
 	server.kill_player(survivor, "fall", null)
 	_check(survivor.dead and not titles.is_empty(), "a fall kills, and says how")
 	_check(str(titles[0].message).contains("fell"), "the message names what happened (%s)" % titles[0].message)
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Cooking: a pot you can put several things in, meals that do something for a while, and the quality
+## minigame on food (which the engine already rewards by making a good meal more filling).
+func _cooking() -> void:
+	var server = _start("cooking_%d" % Time.get_ticks_msec())
+	var pot: int = server.registry.id_of("base:cooking_pot")
+	_check(pot > 0 and str(server.registry.defs[pot].get("station", "")) == "cooking_pot", "there is a pot to cook in")
+	var dishes := ["vanilla:mushroom_stew", "vanilla:beef_stew", "vanilla:glowcap_soup", "vanilla:honey_cake",
+		"vanilla:hearty_feast", "base:apple_pie"]
+	var without_effects := []
+	var without_recipe := []
+	for name in dishes:
+		var id: int = server.items.id_of(name)
+		if id <= 0:
+			without_recipe.append(name)
+			continue
+		var food: Dictionary = server.items.get_def(id).get("food", {})
+		if food.get("effects", []).is_empty() and float(food.get("heal", 0.0)) <= 0.0:
+			without_effects.append(name)
+		if server.recipes.index_of(name) < 0:
+			without_recipe.append(name)
+	_check(without_recipe.is_empty(), "every dish can be cooked (%s)" % str(without_recipe))
+	_check(without_effects.is_empty(), "every dish does something you can feel, not just fill you up (%s)" % str(without_effects))
+
+	# Cooking is a station recipe, so it runs the minigame and can be done together - and a good cook is
+	# rewarded, which is what makes the trouble worth it.
+	var stew: int = server.recipes.index_of("vanilla:mushroom_stew")
+	_check(str(server.recipes.recipes[stew].get("skill", "")) == "base:cooking", "a meal can be stirred by hand for quality")
+	_check(server.skill.defs.has("base:cooking"), "and there is a stirring game to play")
+	_check(server.items.id_of("vanilla:clean_broth") > 0, "and something to find out for yourself: rotten meat is worth boiling")
+
+	# The ingredients that had no use at all before now have one.
+	var used := {}
+	for index in server.recipes.recipes.size():
+		for id: int in server.recipes.recipes[index].inputs:
+			used[server.items.name_of(id)] = true
+	var orphans: Array = ["vanilla:egg", "vanilla:glow_mushroom", "vanilla:red_mushroom", "vanilla:nightbloom",
+		"vanilla:rotten_flesh"].filter(func(n): return not used.has(n))
+	_check(orphans.is_empty(), "things a player picks up are worth picking up (%s has no use)" % str(orphans))
 	server.queue_free()
 	await get_tree().process_frame
 

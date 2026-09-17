@@ -231,12 +231,22 @@ func _init() -> void:
 	_save(_web(), vanilla + "cobweb.png")
 	_save(_altar(), vanilla + "ancient_altar.png")
 	_save(_guide_book(), base + "guide_book.png")
-	quit()
+
 
 
 	# Graves (appended last so earlier textures keep their random sequence).
 	_save(_grave(false), base + "grave_side.png")
 	_save(_grave(true), base + "grave_top.png")
+	# Cooking (appended last so earlier textures keep their random sequence).
+	_save(_pot_side(), base + "cooking_pot_side.png")
+	_save(_pot_top(), base + "cooking_pot_top.png")
+	_save(_bowl(Color(0, 0, 0, 0)), base + "bowl.png")
+	_save(_pie(Color(0.9, 0.45, 0.3)), base + "apple_pie.png")
+	_save(_bowl(Color(0.55, 0.32, 0.18)), vanilla + "beef_stew.png")
+	_save(_bowl(Color(0.78, 0.6, 0.35)), vanilla + "mushroom_stew.png")
+	_save(_bowl(Color(0.45, 0.75, 0.55)), vanilla + "glowcap_soup.png")
+	_save(_pie(Color(0.95, 0.82, 0.45)), vanilla + "honey_cake.png")
+	_save(_bowl(Color(0.85, 0.75, 0.55)), vanilla + "hearty_feast.png")
 
 func _part(part: String) -> Image:
 	var img := _blank()
@@ -1149,4 +1159,68 @@ func _grave(top: bool) -> Image:
 		img.set_pixel(x, 7, Color(0.32, 0.32, 0.34))
 	for y in range(6, 10):
 		img.set_pixel(7, y, Color(0.32, 0.32, 0.34))
+	return img
+
+## A black iron pot: a fat belly with a rim, seen from the side.
+func _pot_side() -> Image:
+	var img := _noise(Color(0.2, 0.2, 0.22), 0.05)
+	for y in TILE:
+		for x in TILE:
+			var outside := Vector2((x - 7.5) * 0.85, (y - 9.5) * 0.95).length() > 6.2
+			if y <= 3 and outside:
+				img.set_pixel(x, y, Color(0.35, 0.33, 0.3))  # the stone it stands on shows past the rim
+			elif y >= 3 and y <= 4:
+				img.set_pixel(x, y, Color(0.3, 0.3, 0.33))  # rim
+			elif outside and y > 4:
+				img.set_pixel(x, y, Color(0.35, 0.33, 0.3))
+	for x in range(4, 12):
+		img.set_pixel(x, 12, Color(0.14, 0.14, 0.16))  # a shadow where the fire licks it
+	return img
+
+
+## Looking down into the pot: stew, with a lazy bubble or two.
+func _pot_top() -> Image:
+	var img := _noise(Color(0.2, 0.2, 0.22), 0.05)
+	for y in TILE:
+		for x in TILE:
+			var r := Vector2(x - 7.5, y - 7.5).length()
+			if r < 5.6:
+				img.set_pixel(x, y, _vary(Color(0.62, 0.38, 0.2), 0.06))
+			elif r < 6.4:
+				img.set_pixel(x, y, Color(0.3, 0.3, 0.33))
+	for spot in [Vector2(6, 6), Vector2(9, 8), Vector2(7, 10)]:
+		img.set_pixel(int(spot.x), int(spot.y), Color(0.78, 0.55, 0.3))
+	return img
+
+
+## A wooden bowl, filled when the meal has a colour.
+func _bowl(filling: Color) -> Image:
+	var img := _blank()
+	var wood := Color(0.55, 0.38, 0.22)
+	for y in TILE:
+		for x in TILE:
+			var dx := (x - 7.5) / 6.5
+			var dy := (y - 9.0) / 4.5
+			if dx * dx + dy * dy > 1.0 or y < 6:
+				continue
+			var inner: bool = y <= 8 and absf(x - 7.5) < 5.0
+			if filling.a > 0.0 and inner:
+				img.set_pixel(x, y, _vary(filling, 0.05))
+			else:
+				img.set_pixel(x, y, _vary(wood.darkened(0.15 if y > 11 else 0.0), 0.05))
+	return img
+
+
+## A round pie or cake with a lattice top.
+func _pie(crust: Color) -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			if Vector2(x - 7.5, y - 8.0).length() > 6.0:
+				continue
+			var edge := Vector2(x - 7.5, y - 8.0).length() > 4.6
+			img.set_pixel(x, y, _vary(Color(0.78, 0.6, 0.35) if edge else crust, 0.06))
+	for i in range(3, 13):
+		img.set_pixel(i, 8, Color(0.85, 0.7, 0.45))
+		img.set_pixel(8, i, Color(0.85, 0.7, 0.45))
 	return img
