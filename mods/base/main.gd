@@ -10,6 +10,7 @@ const Nature = preload("nature.gd")
 const Guide = preload("guide.gd")
 const Graves = preload("graves.gd")
 const Cooking = preload("cooking.gd")
+const Openings = preload("openings.gd")
 const TABLE := {"station": "crafting_table"}
 ## Iron gear needs an anvil beside the table; iron armor also needs a Sturdy Workbench.
 ## Iron gear can also be forged by hand at the anvil for better quality (the "forging" minigame).
@@ -24,6 +25,7 @@ var nature := Nature.new()
 var guide := Guide.new()
 var graves := Graves.new()
 var cooking := Cooking.new()
+var openings := Openings.new()
 
 
 func setup(api) -> void:
@@ -87,6 +89,7 @@ func setup(api) -> void:
 	beds.setup(api, {"wood": wood})
 	graves.setup(api, {"stone": stone})
 	cooking.setup(api, {"stone": stone, "wood": wood})
+	openings.setup(api, {"stone": stone, "wood": wood})
 	guide.setup(api)
 
 

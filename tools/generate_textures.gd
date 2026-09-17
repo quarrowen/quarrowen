@@ -248,6 +248,19 @@ func _init() -> void:
 	_save(_pie(Color(0.95, 0.82, 0.45)), vanilla + "honey_cake.png")
 	_save(_bowl(Color(0.85, 0.75, 0.55)), vanilla + "hearty_feast.png")
 
+	# Doors and windows (appended last so earlier textures keep their random sequence).
+	_save(_door(false), base + "door_lower.png")
+	_save(_door(true), base + "door_upper.png")
+	_save(_bars(), base + "iron_bars.png")
+
+	# Hearthhold (appended last so earlier textures keep their random sequence).
+	var hearth := "res://mods/hearthhold/textures/"
+	_save(_hearth(false), hearth + "hearth_cold.png")
+	_save(_hearth(true), hearth + "hearth_lit.png")
+	_save(_hearth_side(), hearth + "hearth_side.png")
+	_save(_hearthstone(true), hearth + "hearthstone_top.png")
+	_save(_hearthstone(false), hearth + "hearthstone_side.png")
+
 func _part(part: String) -> Image:
 	var img := _blank()
 	for y in TILE:
@@ -1223,4 +1236,90 @@ func _pie(crust: Color) -> Image:
 	for i in range(3, 13):
 		img.set_pixel(i, 8, Color(0.85, 0.7, 0.45))
 		img.set_pixel(8, i, Color(0.85, 0.7, 0.45))
+	return img
+
+
+## The outpost hearth seen from above: a ring of stones round ash, or round a fire once it is lit.
+func _hearth(lit: bool) -> Image:
+	var img := _noise(Color(0.34, 0.33, 0.32), 0.07)
+	for y in TILE:
+		for x in TILE:
+			var r := Vector2(x - 7.5, y - 7.5).length()
+			if r > 6.6:
+				continue
+			if r > 5.0:
+				img.set_pixel(x, y, _vary(Color(0.52, 0.51, 0.5), 0.08))  # the ring of stones
+			elif lit:
+				var heat := 1.0 - r / 5.0
+				img.set_pixel(x, y, _vary(Color(0.95, 0.55 + 0.35 * heat, 0.18).lerp(Color(1, 0.95, 0.6), heat * heat), 0.06))
+			else:
+				img.set_pixel(x, y, _vary(Color(0.22, 0.21, 0.2), 0.09))  # cold ash
+	if lit:
+		for spot in [Vector2(6, 5), Vector2(9, 7), Vector2(7, 9)]:
+			img.set_pixel(int(spot.x), int(spot.y), Color(1.0, 0.98, 0.82))
+	return img
+
+
+func _hearth_side() -> Image:
+	var img := _noise(Color(0.4, 0.39, 0.38), 0.08)
+	for y in TILE:
+		for x in TILE:
+			if y < 3:
+				img.set_pixel(x, y, _vary(Color(0.52, 0.51, 0.5), 0.07))  # the rim, seen edge on
+			elif (x + y * 3) % 7 == 0:
+				img.set_pixel(x, y, _vary(Color(0.33, 0.32, 0.31), 0.05))  # mortar between the stones
+	return img
+
+
+## The hearthstone: a slab with a carved mark, lit from within by a small ember.
+func _hearthstone(top: bool) -> Image:
+	var img := _noise(Color(0.46, 0.45, 0.47), 0.06)
+	if not top:
+		for x in TILE:
+			img.set_pixel(x, 3, _vary(Color(0.36, 0.35, 0.37), 0.04))
+			img.set_pixel(x, 12, _vary(Color(0.36, 0.35, 0.37), 0.04))
+		return img
+	# A simple house shape scratched into the top: a roof over a square.
+	for x in range(4, 12):
+		img.set_pixel(x, 11, Color(0.88, 0.62, 0.3))
+	for y in range(7, 12):
+		img.set_pixel(4, y, Color(0.88, 0.62, 0.3))
+		img.set_pixel(11, y, Color(0.88, 0.62, 0.3))
+	for i in 4:
+		img.set_pixel(4 + i, 7 - i + 3, Color(0.95, 0.72, 0.38))
+		img.set_pixel(11 - i, 7 - i + 3, Color(0.95, 0.72, 0.38))
+	img.set_pixel(7, 9, Color(1.0, 0.85, 0.5))
+	img.set_pixel(8, 9, Color(1.0, 0.85, 0.5))
+	return img
+
+
+## A plank door. The upper half carries a small window; the lower half a handle, on the side it opens.
+func _door(upper: bool) -> Image:
+	var img := _planks()
+	for y in TILE:
+		for x in TILE:
+			if x <= 1 or x >= 14:
+				img.set_pixel(x, y, _vary(Color(0.32, 0.22, 0.13), 0.05))  # the stiles down each edge
+	if upper:
+		for y in range(3, 8):
+			for x in range(5, 11):
+				var edge: bool = x == 5 or x == 10 or y == 3 or y == 7
+				img.set_pixel(x, y, Color(0.3, 0.2, 0.12) if edge else Color(0.55, 0.78, 0.86, 0.85))
+	else:
+		for y in range(6, 9):
+			img.set_pixel(12, y, Color(0.75, 0.64, 0.3))  # the handle
+		img.set_pixel(11, 7, Color(0.82, 0.72, 0.36))
+	return img
+
+
+## Iron bars: uprights with a band across, so a window reads as barred rather than merely dark.
+func _bars() -> Image:
+	var img := _blank()
+	var iron := Color(0.62, 0.63, 0.66)
+	for y in TILE:
+		for x in [2, 7, 13]:
+			img.set_pixel(x, y, _vary(iron.darkened(0.1 if x == 7 else 0.0), 0.06))
+	for x in TILE:
+		img.set_pixel(x, 1, _vary(iron, 0.05))
+		img.set_pixel(x, 14, _vary(iron, 0.05))
 	return img
