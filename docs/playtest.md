@@ -45,8 +45,9 @@ docker compose logs -f     # Ctrl+C stops watching, not the server
 ```
 
 Add `--build` to compile on this machine instead - needed only for a change that is not pushed yet.
-(If the pull is refused with "denied" or "not found", the package is still private: on GitHub go to the
-repository's **Packages**, open `server`, and change its visibility to public. It only needs doing once.)
+(If a pull is refused with "denied" or "not found", the package is still private. On GitHub open the
+repository's **Packages** and set both `server` and `hub` to public - package settings, change
+visibility. It only needs doing once each, and public packages have no storage limit.)
 
 It is ready when the log says `running game`. The server starts again by itself after a reboot.
 

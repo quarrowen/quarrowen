@@ -13,9 +13,10 @@ name: CI
 # the Linux desktop export are off; the Linux *native library* stays, because the test suite runs on a
 # Linux runner and needs it (a macOS runner costs ten times the minutes for the same answer).
 #
-# The server image goes to GitHub Packages (ghcr.io/<owner>/<repo>/server) so the family server pulls it
-# rather than compiling Godot and Rust on the box. NOTE: a new package is PRIVATE until somebody makes it
-# public once, in Packages -> the package -> settings -> change visibility.
+# Both images the homelab runs go to GitHub Packages - ghcr.io/<owner>/<repo>/server and .../hub - so the
+# family box pulls them rather than compiling Godot, Rust and the hub itself. NOTE: a new package is
+# PRIVATE until somebody makes it public once, in Packages -> the package -> settings -> change
+# visibility. Public packages also have no storage limit, where private ones share a 500 MB quota.
 #
 # The macOS build made here is UNSIGNED and is a check that a clean checkout still exports, not something
 # to hand to anyone. Releases are cut on the maintainer's Mac with tools/make_release.sh, which signs and
@@ -137,14 +138,22 @@ jobs:
           path: build
           if-no-files-found: error
 
+  # Both images the homelab runs: the game server, and the hub it lists itself on. One job with a matrix
+  # rather than two, so they cannot drift apart in how they are tagged or where they are pushed.
   docker:
-    name: Server image
+    name: Image (${{ matrix.image }})
     needs: test
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { image: server, context: . }
+          - { image: hub, context: services/hub }
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -156,7 +165,7 @@ jobs:
       - uses: docker/metadata-action@v5
         id: meta
         with:
-          images: ghcr.io/${{ github.repository }}/server
+          images: ghcr.io/${{ github.repository }}/${{ matrix.image }}
           # Only tags reach here, so :0.40.0, :0.40 and :latest all mean a released version. A server
           # can sit on :latest and follow releases, or pin :0.40 and stay on that line.
           tags: |
@@ -165,7 +174,7 @@ jobs:
             type=raw,value=latest
       - uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.context }}
           # The homelab is amd64. Building arm64 too would mean emulating it under QEMU, which takes
           # about three times as long and doubles what the package stores, for nothing anyone runs.
           platforms: linux/amd64

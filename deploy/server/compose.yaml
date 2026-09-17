@@ -97,8 +97,8 @@ services:
 
   # The server list the three worlds announce themselves to.
   hub:
+    image: ${QW_HUB_IMAGE:-ghcr.io/quarrowen/quarrowen/hub:latest}
     build: ../../services/hub
-    image: ${QW_HUB_IMAGE:-quarrowen-hub}
     container_name: quarrowen-hub
     restart: unless-stopped
     network_mode: host
