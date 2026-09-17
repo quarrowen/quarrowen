@@ -302,6 +302,8 @@
     /** Tutorials (steps with goals completed by real actions) and one-time contextual tips. */
     registerTutorial: (name, def) => host("registerTutorial", name, def),
     registerTip: (name, def) => host("registerTip", name, def),
+    /** A milestone: a tutorial-shaped goal counted for the life of the world, paid out once. */
+    registerMilestone: (name, def) => host("registerMilestone", name, def),
     getBiome: (position) => host("getBiome", position),
     /** Mobs of each spawn category allowed around each player: { monster, animal, ambient, misc }. */
     setSpawnCaps: (caps) => host("setSpawnCaps", caps),

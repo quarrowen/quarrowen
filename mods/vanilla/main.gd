@@ -226,6 +226,8 @@ func _setup_mobs() -> void:
 	monsters.setup(api)
 	structures.setup(api)
 	_first_kill_bonuses()
+	_colossus_reward()
+	_milestones()
 	# Each monster gets its own way of saying it: kind, and about what happened rather than about anyone.
 	api.add_death_messages("vanilla:boomshroom", ["%s was standing too close to %s", "%s heard %s pop"])
 	api.add_death_messages("vanilla:night_stalker", ["%s was caught in the dark by %s", "%s blinked and %s was there"])
@@ -250,6 +252,57 @@ func _mob_tick() -> void:
 			if api.setting("zombies_burn") and mob.type in [ids.zombie, ids.skeleton] and daylight > 0.75 \
 					and api.sees_sky(Vector3i(mob.position.floor()) + Vector3i.UP):
 				mob.damage(4.0, null, "sun")
+
+
+## What the Colossus leaves, and what the valley remembers about it.
+##
+## It was the biggest thing in the game and the least acknowledged: four hundred health, two phases, an
+## arena of its own, and it dropped rather less than a good afternoon in a cave. The fix is not a bigger
+## pile of ore. It is one thing you cannot get any other way, worn where other people can see it.
+func _colossus_reward() -> void:
+	api.register_item("colossus_heart", {"display_name": "Colossus Heart",
+		"icon": "textures/colossus_heart.png", "equip_slot": "trinket", "max_stack": 1,
+		"lore": ["Still warm. Still, faintly, beating."],
+		"glow": {"color": "#ff8844", "energy": 0.6, "light": 0},
+		"modifiers": [{"stat": "max_health", "amount": 6.0, "op": "add"},
+			{"stat": "knockback_resistance", "amount": 0.3, "op": "add"},
+			{"stat": "armor", "amount": 2.0, "op": "add"}]})
+	# A cosmetic rather than a helmet: armor wears out, and this should not.
+	api.register_cosmetic("colossus_crown", {"category": "hat", "display_name": "Colossus crown", "color": "#6a5a3a",
+		"unlocked": false, "description": "Vanilla: for bringing down the Ancient Colossus.", "boxes": [
+			{"from": [-4.5, 0, -4.5], "size": [9, 2, 9]},
+			{"from": [-4.5, 2, -4.5], "size": [1.5, 3, 1.5]}, {"from": [3, 2, -4.5], "size": [1.5, 3, 1.5]},
+			{"from": [-4.5, 2, 3], "size": [1.5, 3, 1.5]}, {"from": [3, 2, 3], "size": [1.5, 3, 1.5]},
+			{"from": [-1, 2, -4.5], "size": [2, 4, 1.5]}, {"from": [-1, 2, 3], "size": [2, 4, 1.5]}]})
+	# The heart is rare enough that the engine announces it on its own (loot.gd RARE_CHANCE), so the kill
+	# sparkles and goes to chat without a line of code here.
+	api.extend_loot("mob:vanilla:colossus", {"pools": [
+		{"rolls": 1, "guaranteed": true, "entries": [{"item": "vanilla:colossus_heart", "count": 1}]},
+		{"rolls": 3, "entries": [{"item": "base:cobalt_ingot", "count": [2, 4]}, {"item": "base:deepstone", "count": [4, 8]}]}]})
+	api.register_milestone("colossus", {"title": "The Colossus", "order": 40, "announce": true,
+		"description": "You brought down the Ancient Colossus.",
+		"icon": "vanilla:colossus_heart", "goal": {"type": "kill", "target": "vanilla:colossus"},
+		"reward": {"cosmetic": "vanilla:colossus_crown"}})
+
+
+## Milestones: the handful of things worth remembering about a world, one for each way a child might
+## choose to play it. Deliberately few - a long list is a chore list, and the point is the opposite.
+func _milestones() -> void:
+	api.register_milestone("prospector", {"title": "Prospector", "order": 10,
+		"description": "You found cobalt, deeper than most people dig.",
+		"icon": "base:cobalt_ingot", "goal": {"type": "break", "target": "base:cobalt_ore"}})
+	api.register_milestone("deepstone", {"title": "The Bottom of It", "order": 20,
+		"description": "You cut deepstone out of the floor of the world.",
+		"icon": "base:deepstone", "goal": {"type": "break", "target": "base:deepstone"}})
+	api.register_milestone("cook", {"title": "Somebody Who Cooks", "order": 25,
+		"description": "A dozen proper meals made for whoever was hungry.",
+		"icon": "base:bowl", "goal": {"type": "craft", "count": 12, "target": ["vanilla:mushroom_stew",
+			"vanilla:beef_stew", "vanilla:glowcap_soup", "vanilla:honey_cake", "vanilla:hearty_feast",
+			"vanilla:clean_broth", "base:apple_pie"]}})
+	# No target: anything placed counts, which is what "builder" should mean.
+	api.register_milestone("builder", {"title": "Builder", "order": 30,
+		"description": "A thousand blocks placed. Something must be standing by now.",
+		"icon": "base:planks", "goal": {"type": "place", "count": 1000}})
 
 
 ## The first time a player meets each kind of creature, it leaves something extra behind: a small reward

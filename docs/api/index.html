@@ -380,6 +380,14 @@ to whoever it belongs to. `dimension` (&quot;&quot; = the ordinary world) hides 
 <div class="card" id="api-set-world-marker" data-search="set_world_marker  puts a marker on everyone's map and compass (a village, a shared base, an event). saved with the world.
 `marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world)."><div class="sig"><code>api.set_world_marker(marker_id: String, marker: Dictionary) -&gt; void</code></div><p>Puts a marker on everyone's map and compass (a village, a shared base, an event). Saved with the world.<br>`marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world).</p></div>
 <div class="card" id="api-clear-world-marker" data-search="clear_world_marker  takes a marker off everyone's map."><div class="sig"><code>api.clear_world_marker(marker_id: String) -&gt; void</code></div><p>Takes a marker off everyone's map.</p></div>
+<div class="card" id="api-register-milestone" data-search="register_milestone registermilestone a milestone: something a player has done, remembered for the life of the world and paid out once
+(see engine/server/milestones.gd). goals are written exactly as tutorial goals are - {type, target,
+count}, type being an event goal (break, place, craft, kill, ...) or &quot;event&quot; - but the count is a
+lifetime total. no target means anything of that kind counts.
+{title, description, goal, icon, order, secret (hidden until reached), announce (tell everyone),
+reward: {items: [[item, count]], cosmetic}}. the usual reward is a cosmetic, because a cosmetic is
+something other players can see. names without &quot;:&quot; are this mod's."><div class="sig"><code>api.register_milestone(milestone_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerMilestone">JS registerMilestone</span></div><p>A milestone: something a player has done, remembered for the life of the world and paid out once<br>(see engine/server/milestones.gd). Goals are written exactly as tutorial goals are - {type, target,<br>count}, type being an event goal (break, place, craft, kill, ...) or &quot;event&quot; - but the count is a<br>lifetime total. No target means anything of that kind counts.<br>{title, description, goal, icon, order, secret (hidden until reached), announce (tell everyone),<br>reward: {items: [[item, count]], cosmetic}}. The usual reward is a cosmetic, because a cosmetic is<br>something other players can see. Names without &quot;:&quot; are this mod's.</p></div>
+<div class="card" id="api-milestone-reached" data-search="milestone_reached  whether a player has reached a milestone, for gating something behind it."><div class="sig"><code>api.milestone_reached(player, milestone_name: String) -&gt; bool</code></div><p>Whether a player has reached a milestone, for gating something behind it.</p></div>
 <div class="card" id="api-set-ugc-policy" data-search="set_ugc_policy setugcpolicy how this server treats player creations (engine/server/ugc.gd): {enabled, accept: &quot;auto&quot; | &quot;trusted&quot; |
 &quot;approval&quot; | &quot;off&quot;, kinds: [&quot;skin&quot;, &quot;accessory&quot;, &quot;model&quot;], library (others may wear approved ones),
 max_per_player, max_bytes_per_player}. saved with the world."><div class="sig"><code>api.set_ugc_policy(values: Dictionary) -&gt; void</code><span class="tag js" title="setUgcPolicy">JS setUgcPolicy</span></div><p>How this server treats player creations (engine/server/ugc.gd): {enabled, accept: &quot;auto&quot; | &quot;trusted&quot; |<br>&quot;approval&quot; | &quot;off&quot;, kinds: [&quot;skin&quot;, &quot;accessory&quot;, &quot;model&quot;], library (others may wear approved ones),<br>max_per_player, max_bytes_per_player}. Saved with the world.</p></div>
@@ -452,6 +460,7 @@ carries its own settings and a backup restores them."><div class="sig"><code>api
   guide_page_read {player, page}                          a page read for the first time
   tutorial_started {player, tutorial}   tutorial_step {player, tutorial, step, index, skipped}
   tutorial_completed {player, tutorial}   tip_shown {player, tip}
+  milestone_reached {player, milestone, title}
   ugc_uploaded {player, creation, cancelled, reason}   a player creation arrived; cancel to refuse it
   ugc_status {id, status, reason, by}   ugc_reported {player, id, reason, details, reports, cancelled}
   role_changed {player_id, role, added, by}              a role given or taken

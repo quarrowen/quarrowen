@@ -583,6 +583,27 @@ parse errors on empty hub replies. Known harmless noise: "Buffer full, dropping 
 server's content burst during the DTLS handshake; ENet resends), TLS errors from the auth tests, leak
 warnings at exit.
 
+## Content review leftovers (2026-09-17)
+
+Six findings from the "cool factor" review that were acted on late or not at all. Written down because
+they had been living in a todo list rather than in the repo, which is how things get quietly dropped.
+All six are content in mods, not engine capabilities, unless noted.
+
+1. **The Colossus gives nothing.** A seven-block boss with its own arena, and killing it is not
+   acknowledged or rewarded. The biggest thing in the game should leave something behind.
+2. **Cobalt is a dead end.** The ore generates deep, and there is nothing to make from it. An ore with
+   no gear behind it teaches a child that digging deep is pointless.
+3. **Nothing marks what you did.** Cosmetics exist but are handed out rather than earned. Milestones
+   ("first diamond", "the Colossus") should award one, so what a player wears says where they have been.
+4. **Players cannot shoot back.** Skeletons shoot arrows; there is no bow. Ranged combat is the clearest
+   gap in the fighting, and a bow is also the thing that makes archery targets and hunting worth adding.
+5. **Water is scenery.** No fishing, nothing to do with a lake but swim across it. Fishing is the classic
+   quiet activity for the child who does not want to fight anything, and the loot system already does
+   weighted tables with conditions, so the catch table is nearly free.
+6. **No trinket slot.** Armour is the only way to change what a character is good at. A charm slot is
+   where mods put the interesting, non-armour effects. *This one is engine*: a new equipment slot touches
+   the save format and probably the protocol, so it needs the save-compatibility treatment.
+
 ## Pending (next steps, in order)
 
 1. AI performance, if mob counts grow: move perception LOS batching and steering to native; path

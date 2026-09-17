@@ -268,6 +268,7 @@ declare module "quarrowen" {
     advanceTutorial(): void;
     tutorialState(): { active: string; step: number; progress: number; done: string[] };
     showTip(name: string): boolean;
+    milestoneReached(name: string): boolean;
     setGuideFlag(flag: string, on?: boolean): void;
     hasGuideFlag(flag: string): boolean;
     unlockGuidePage(page: string, notify?: boolean): boolean;
@@ -455,6 +456,7 @@ declare module "quarrowen" {
     registerGuidePage(name: string, def: GuidePage): boolean;
     registerTutorial(name: string, def: Tutorial): boolean;
     registerTip(name: string, def: { text: string; icon?: string; page?: string; trigger: TutorialGoal }): boolean;
+    registerMilestone(name: string, def: Milestone): boolean;
     getBiome(position: Vec3): string;
     setSpawnCaps(caps: { monster?: number; animal?: number; ambient?: number; misc?: number }): void;
     setGameplay(values: Gameplay): void;
@@ -502,6 +504,27 @@ declare module "quarrowen" {
       count?: number;
       event?: string; who?: string; field?: string;
       below?: number; position?: [number, number, number]; radius?: number; value?: number;
+  }
+
+  /** A goal counted for the life of the world. Only the event goals: a milestone is something you did,
+   *  not a state you are briefly in, so `have`, `depth`, `night` and the rest are not accepted here. */
+  export interface MilestoneGoal extends TutorialGoal {
+      type: "break" | "place" | "craft" | "pickup" | "eat" | "use_item" | "use_block" | "equip" | "kill"
+          | "breed" | "tame" | "learn" | "read" | "unlock_page" | "sleep" | "respawn" | "death" | "damage"
+          | "upgrade" | "assemble" | "event";
+  }
+
+  export interface Milestone {
+      title?: string;
+      description?: string;
+      goal: MilestoneGoal;
+      icon?: string;
+      order?: number;
+      /** Hidden from the list until it is reached. */
+      secret?: boolean;
+      /** Announce it to everyone, not just the player. */
+      announce?: boolean;
+      reward?: { items?: [string, number][]; cosmetic?: string };
   }
 
   export interface Tutorial {

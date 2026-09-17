@@ -164,6 +164,7 @@ func _forget(mod_id: String) -> void:
 	s.recipes.begin_reload(mod_id)
 	s.guide.registry.remove_owner(mod_id)
 	s.tutorials.remove_owner(mod_id)
+	s.milestones.remove_owner(mod_id)
 
 
 # --- File watcher -----------------------------------------------------------------------------------

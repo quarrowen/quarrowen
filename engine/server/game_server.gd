@@ -38,6 +38,7 @@ const Hunger = preload("res://engine/server/hunger.gd")
 const Sleep = preload("res://engine/server/sleep.gd")
 const Guide = preload("res://engine/server/guide.gd")
 const Tutorials = preload("res://engine/server/tutorials.gd")
+const Milestones = preload("res://engine/server/milestones.gd")
 const DevLog = preload("res://engine/server/dev_log.gd")
 const DevTools = preload("res://engine/server/dev_tools.gd")
 const DevWeb = preload("res://engine/server/dev_web.gd")
@@ -192,6 +193,8 @@ var sleep := Sleep.new(self)
 var guide := Guide.new(self)
 ## Tutorials and contextual tips.
 var tutorials := Tutorials.new(self)
+## What a player has done, for as long as the world lasts (see engine/server/milestones.gd).
+var milestones := Milestones.new(self)
 ## Logs and script errors for mod authors (see engine/server/dev_log.gd).
 var dev_log := DevLog.new()
 ## Profiler, event tracer, inspector and debug drawing (see engine/server/dev_tools.gd).
@@ -705,6 +708,7 @@ func _register_builtin_commands() -> void:
 		elif target != null:
 			hunger.set_hunger(target, float(args[0]), 0.0), "engine", "admin")
 	add_command("tutorial", "list | start <id> | skip | stop | tips on|off", _cmd_tutorial, "engine")
+	add_command("milestones", "What you have done, and what is still out there", _cmd_milestones, "engine")
 	add_command("gamemode", "survival | creative [player]", _cmd_gamemode, "engine", "admin")
 	add_command("fly", "Toggle flying (creative, or the \"fly\" permission)", _cmd_fly, "engine")
 	add_command("kill", "Die and respawn", func(p, _args): kill_player(p, "command", null), "engine")
@@ -2773,6 +2777,29 @@ func on_tutorial_action(peer_id: int, action: String, arg: String) -> void:
 		"stop": tutorials.stop(p)
 		"tips_on": tutorials.set_tips(p, true)
 		"tips_off": tutorials.set_tips(p, false)
+
+
+## Shown as a panel rather than chat lines: this is the one screen a child goes to to feel pleased with
+## themselves, and a wall of grey text does not do that.
+func _cmd_milestones(player, _args: PackedStringArray) -> void:
+	var rows := milestones.view(player)
+	var children: Array = [{"type": "label", "text": "What you have done", "size": 22, "color": "#ffd166"}]
+	if rows.is_empty():
+		children.append({"type": "label", "text": "Nothing to chase yet. This world's mods have set no milestones."})
+	var done := 0
+	for row in rows:
+		if row.done:
+			done += 1
+			children.append({"type": "label", "text": "✦ %s" % row.title, "color": "#8ce99a"})
+			children.append({"type": "label", "text": "    %s" % row.description, "size": 12, "color": "#9aa4b8"})
+		else:
+			var progress := "" if row.goal <= 1 else "  (%d of %d)" % [row.progress, row.goal]
+			children.append({"type": "label", "text": "○ %s%s" % [row.title, progress], "color": "#c9b896"})
+	if not rows.is_empty():
+		children.append({"type": "spacer", "size": 6})
+		children.append({"type": "label", "text": "%d of %d" % [done, rows.size()], "size": 12, "color": "#9aa4b8"})
+	children.append({"type": "button", "text": "Close", "action": "close"})
+	player.show_ui("engine:milestones", {"anchor": "center", "modal": true, "children": children})
 
 
 func _cmd_tutorial(player, args: PackedStringArray) -> void:

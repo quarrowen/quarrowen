@@ -28,7 +28,13 @@ func setup(api, sounds: Dictionary) -> void:
 	# Cobalt: a deep ore (below y 24) for later tool tiers; smelts into ingots.
 	api.register_block("cobalt_ore", {"display_name": "Cobalt Ore", "textures": "textures/cobalt_ore.png", "sounds": sounds.stone, "hardness": 4.5,
 		"tier": 3, "tool": "pickaxe"})
-	api.register_item("cobalt_ingot", {"display_name": "Cobalt Ingot", "icon": "textures/cobalt_ingot.png"})
+	# The ingot itself is registered with the tools it belongs to (main.gd _register_tools), because the
+	# cobalt recipes are written there and a recipe cannot name an item that does not exist yet.
+	# Deepstone: the floor of the world, and the reason cobalt tools are worth making. Nothing below tier 4
+	# brings it up, so the ladder has a rung at the top that is about reaching somewhere rather than about
+	# mining the same stone slightly faster.
+	api.register_block("deepstone", {"display_name": "Deepstone", "textures": "textures/deepstone.png", "sounds": sounds.stone,
+		"hardness": 6.0, "tier": 4, "tool": "pickaxe"})
 	# Mob spawners (placed by structures; set what they spawn in block data, see engine/server/spawners.gd).
 	api.register_block("spawner", {"display_name": "Monster Nest", "textures": "textures/spawner.png", "render": "cutout", "spawner": true,
 		"hardness": 5.0, "tier": 1, "tool": "pickaxe", "drops": "", "sounds": sounds.stone})

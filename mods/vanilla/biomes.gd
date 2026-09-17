@@ -18,6 +18,8 @@ func setup(mod_api) -> void:
 	api.add_ore_pass({"ore": "base:coal_ore", "replace": "base:stone", "veins": 14, "size": 9, "min_y": 20, "max_y": 110})
 	api.add_ore_pass({"ore": "base:iron_ore", "replace": "base:stone", "veins": 9, "size": 6, "min_y": 5, "max_y": 64})
 	api.add_ore_pass({"ore": "base:cobalt_ore", "replace": "base:stone", "veins": 3, "size": 4, "min_y": 4, "max_y": 24})
+	# Deepstone in thick seams right at the bottom, where only a cobalt pickaxe reaches it.
+	api.add_ore_pass({"ore": "base:deepstone", "replace": "base:stone", "veins": 6, "size": 14, "min_y": 1, "max_y": 14})
 
 
 func _blocks() -> void:

@@ -33,6 +33,7 @@ extends RefCounted
 ##   guide_page_read {player, page}                          a page read for the first time
 ##   tutorial_started {player, tutorial}   tutorial_step {player, tutorial, step, index, skipped}
 ##   tutorial_completed {player, tutorial}   tip_shown {player, tip}
+##   milestone_reached {player, milestone, title}
 ##   ugc_uploaded {player, creation, cancelled, reason}   a player creation arrived; cancel to refuse it
 ##   ugc_status {id, status, reason, by}   ugc_reported {player, id, reason, details, reports, cancelled}
 ##   role_changed {player_id, role, added, by}              a role given or taken
@@ -978,6 +979,22 @@ func is_guide_page_unlocked(player, page: String) -> bool:
 ## this mod's.
 func register_tutorial(tutorial_name: String, def: Dictionary) -> bool:
 	return _server.tutorials.register_tutorial(_qualify_ref(tutorial_name), def.merged({"owner": mod_id}), _qualify_ref)
+
+
+## A milestone: something a player has done, remembered for the life of the world and paid out once
+## (see engine/server/milestones.gd). Goals are written exactly as tutorial goals are - {type, target,
+## count}, type being an event goal (break, place, craft, kill, ...) or "event" - but the count is a
+## lifetime total. No target means anything of that kind counts.
+## {title, description, goal, icon, order, secret (hidden until reached), announce (tell everyone),
+## reward: {items: [[item, count]], cosmetic}}. The usual reward is a cosmetic, because a cosmetic is
+## something other players can see. Names without ":" are this mod's.
+func register_milestone(milestone_name: String, def: Dictionary) -> bool:
+	return _server.milestones.register(_qualify_ref(milestone_name), def, _qualify_ref)
+
+
+## Whether a player has reached a milestone, for gating something behind it.
+func milestone_reached(player, milestone_name: String) -> bool:
+	return _server.milestones.reached(player, _qualify_ref(milestone_name))
 
 
 ## A one-time contextual tip: {text, icon, page (guide page to read more), trigger: a goal}.

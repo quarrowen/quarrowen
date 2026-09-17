@@ -40,6 +40,7 @@ func _ready() -> void:
 	await _beds()
 	await _guide()
 	await _tutorials()
+	await _milestones()
 	await _first_session()
 	await _guide_content()
 	await _spawning()
@@ -757,7 +758,11 @@ func _equipment() -> void:
 	var chestplate: int = items.id_of("base:iron_chestplate")
 	var helmet: int = items.id_of("base:iron_helmet")
 	var sword: int = items.id_of("base:iron_sword")
-	_check(chest == Inventory.SIZE + 1 and p.inventory.total() == Inventory.SIZE + 5, "equipment slots follow the backpack")
+	# The slots sit after the backpack in one array, in registration order, so a mod adding one (base's
+	# charm slot) lengthens the inventory rather than moving anything already in it.
+	_check(chest == Inventory.SIZE + 1 and p.inventory.total() == Inventory.SIZE + items.slots.size(),
+		"equipment slots follow the backpack (%d of them)" % items.slots.size())
+	_check(p.equipment_slot("trinket") >= Inventory.SIZE + 5, "and a mod can add one of its own")
 
 	p.give(helmet)
 	var helmet_slot := p.inventory.ids.find(helmet)
@@ -2088,6 +2093,62 @@ func _tutorials() -> void:
 	await get_tree().process_frame
 
 
+## Milestones: lifetime counts, paid out once, saved with the player.
+func _milestones() -> void:
+	var server = _start("milestones_%d" % Time.get_ticks_msec())
+	var ms = server.milestones
+	var items = server.items
+	var api = preload("res://engine/server/mod_api.gd").new(server, {"id": "tester", "dir": "res://tests"})
+	_check(ms.milestones.has("vanilla:colossus") and ms.milestones["vanilla:colossus"].goal.event == "entity_death",
+		"mods register milestones")
+	_check(not api.register_milestone("nope", {"goal": {"type": "have", "target": "base:planks"}}),
+		"a state is not a milestone, so poll goals are refused")
+	_check(not api.register_milestone("nope2", {"goal": {"type": "juggle"}}), "and unknown goals are refused")
+	api.register_milestone("digger", {"title": "Digger", "order": 1, "announce": true,
+		"description": "Twelve blocks of stone.", "goal": {"type": "break", "target": "base:stone", "count": 12},
+		"reward": {"items": [["base:apple", 2]]}})
+	api.register_milestone("secretive", {"title": "Secret", "secret": true, "goal": {"type": "sleep"}})
+	var p := ServerPlayer.new(server, 140, "Digger")
+	p.player_id = "digger"
+	server.players[140] = p
+	var reached := []
+	api.on("milestone_reached", func(ev): reached.append(ev.milestone))
+	var stone: int = server.registry.id_of("base:stone")
+	var dirt: int = server.registry.id_of("base:dirt")
+	for i in 5:
+		server.emit("block_broken", {"player": p, "position": Vector3i.ZERO, "block": stone})
+	_check(ms.state_of(p).counts.get("tester:digger", 0) == 5, "matching events count towards a milestone")
+	for i in 5:
+		server.emit("block_broken", {"player": p, "position": Vector3i.ZERO, "block": dirt})
+	_check(ms.state_of(p).counts.get("tester:digger", 0) == 5, "and other blocks do not")
+	# The list a player sees, before it is finished: progress, and no sign of the secret one.
+	var titles: Array = ms.view(p).map(func(m): return str(m.title))
+	_check(not titles.has("Secret"), "a secret milestone stays out of the list until it is reached")
+	var before: int = p.inventory.count_of(items.id_of("base:apple"))
+	for i in 7:
+		server.emit("block_broken", {"player": p, "position": Vector3i.ZERO, "block": stone})
+	_check(reached == ["tester:digger"] and ms.reached(p, "tester:digger"), "reaching one fires once")
+	_check(p.inventory.count_of(items.id_of("base:apple")) == before + 2, "and pays out its reward")
+	for i in 6:
+		server.emit("block_broken", {"player": p, "position": Vector3i.ZERO, "block": stone})
+	_check(reached == ["tester:digger"], "and never pays out twice, however long you keep going")
+	# A mob killing a mob is not a player reaching anything: `kill` reports whoever landed the blow, and
+	# that is often another mob.
+	api.register_milestone("hunter", {"title": "Hunter", "goal": {"type": "kill", "target": "vanilla:pig"}})
+	var pig = server.entities.spawn(server.entities.registry.id_of("vanilla:pig"), p.position + Vector3(2, 0, 0))
+	var wolf = server.entities.spawn(server.entities.registry.id_of("vanilla:wolf"), p.position + Vector3(3, 0, 0))
+	server.emit("entity_death", {"attacker": wolf, "entity": pig})
+	_check(reached == ["tester:digger"], "a kill with no player behind it counts for nobody")
+	server.emit("entity_death", {"attacker": p, "entity": pig})
+	_check(reached == ["tester:digger", "tester:hunter"], "and the same kill by a player does count")
+	# Saved with the player, because it lives in player data.
+	server._store_player(p)
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(server._meta.players.digger.data))
+	_check(saved.get("milestones", {}).get("done", {}).has("tester:digger"), "milestones are saved with the player")
+	server.queue_free()
+	await get_tree().process_frame
+
+
 func _spawning() -> void:
 	var server = _start("spawning_%d" % Time.get_ticks_msec())
 	var reg = server.registry
@@ -2104,10 +2165,13 @@ func _spawning() -> void:
 	# A sealed dark room and a lit one, far below the surface.
 	var stone: int = reg.id_of("base:stone")
 	var y := 20
-	for x in range(0, 40):
-		for z in range(0, 12):
+	# The filled box has to cover everywhere find_spot can look, or the test is really asking what the
+	# world generator happened to put next door: it picks a spot up to 6 blocks out and scans 28 up and
+	# down. So the walls sit outside that reach, and only the room inside them is open.
+	for x in range(-2, 42):
+		for z in range(-2, 14):
 			for dy in range(-30, 31):
-				var edge: bool = dy <= -1 or dy >= 3 or x == 0 or x == 39 or z == 0 or z == 11 or x == 20  # solid around, so caves nearby don't count
+				var edge: bool = dy <= -1 or dy >= 3 or x <= 0 or x >= 39 or z <= 0 or z >= 11 or x == 20  # solid around, so caves nearby don't count
 				server.set_block_authoritative(Vector3i(x, y + dy, z), stone if edge else 0)
 	var dark := Vector3(10.5, y, 5.5)
 	var lit := Vector3(30.5, y, 3.5)

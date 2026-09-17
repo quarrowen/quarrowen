@@ -262,6 +262,20 @@ func _init() -> void:
 	_save(_hearthstone(false), hearth + "hearthstone_side.png")
 	_save(_charter_board(), hearth + "charter_board.png")
 
+	# Cobalt gear, deepstone and the charms (appended last so earlier textures keep their random sequence).
+	var cobalt := Color(0.32, 0.5, 0.72)
+	for tool in ["pickaxe", "axe", "shovel"]:
+		_save(_item(cobalt, tool), base + "cobalt_%s.png" % tool)
+	_save(_item(cobalt, "sword"), base + "cobalt_sword.png")
+	for piece in ["helmet", "chestplate", "leggings", "boots"]:
+		_save(_item(cobalt, piece), base + "cobalt_%s.png" % piece)
+	_save(_armor_layer(cobalt, cobalt.darkened(0.35)), base + "cobalt_armor.png")
+	_save(_noise(Color(0.17, 0.17, 0.21), 0.05), base + "deepstone.png")
+	_save(_charm(Color(0.35, 0.35, 0.4), Color(0.2, 0.2, 0.22)), base + "miners_charm.png")
+	_save(_charm(Color(0.6, 0.72, 0.5), Color(0.35, 0.28, 0.18)), base + "wayfarers_charm.png")
+	_save(_charm(cobalt, Color(0.3, 0.3, 0.34)), base + "stoneheart_charm.png")
+	_save(_colossus_heart(), vanilla + "colossus_heart.png")
+
 func _part(part: String) -> Image:
 	var img := _blank()
 	for y in TILE:
@@ -1328,6 +1342,38 @@ func _bars() -> Image:
 
 ## The charter board: planks with a nailed-on notice, and handwriting too small to read as anything but
 ## handwriting - which is the point, since what it says is on the panel, not the block.
+## The Colossus heart: a lump of dark stone with something lit inside it, brightest at the middle. It has
+## to read as alive at 16x16, so the glow is a gradient rather than a shape.
+func _colossus_heart() -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var d := Vector2(x - 7.5, (y - 8.0) * 1.1).length()
+			if d > 6.0:
+				continue
+			if d < 3.0:
+				img.set_pixel(x, y, _vary(Color(1.0, 0.72, 0.35).lerp(Color(1.0, 0.95, 0.7), 1.0 - d / 3.0), 0.05))
+			else:
+				img.set_pixel(x, y, _vary(Color(0.32, 0.22, 0.2).lerp(Color(0.85, 0.4, 0.2), (6.0 - d) / 3.0), 0.06))
+	return img
+
+
+## A charm: a stone on a cord. The stone is what differs between them, so the three read as a set at a
+## glance in the hotbar and as three different things once you look.
+func _charm(stone: Color, cord: Color) -> Image:
+	var img := _blank()
+	for y in range(1, 7):
+		img.set_pixel(7 - (y / 3), y, cord)
+		img.set_pixel(8 + (y / 3), y, cord)
+	for y in range(6, 14):
+		for x in range(4, 12):
+			if Vector2(x - 7.5, y - 9.5).length() < 3.6:
+				img.set_pixel(x, y, _vary(stone, 0.07))
+	for x in range(6, 10):
+		img.set_pixel(x, 7, stone.lightened(0.25))  # a highlight so it reads as round
+	return img
+
+
 func _charter_board() -> Image:
 	var img := _planks()
 	for y in range(2, 14):
