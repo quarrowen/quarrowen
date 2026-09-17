@@ -1,16 +1,25 @@
 name: CI
 
-# macOS on Apple silicon is the only thing shipped today, so that is the only thing built here. Windows
-# and the Linux desktop export are off; the Linux *native library* stays, because the test suite runs on
-# a Linux runner and needs it (a macOS runner costs ten times the minutes for the same answer).
+# Two different things happen here, and the split matters:
 #
-# The server image is built and published to GitHub Packages (ghcr.io/<owner>/<repo>/server) so the family
-# server can pull it rather than compile Godot and Rust on the box. NOTE: a new package is PRIVATE until
-# somebody makes it public once, in Packages -> the package -> settings -> change visibility.
+#   Every push and pull request runs the TESTS. That is what catches a mistake while it is still cheap.
 #
-# The macOS build made here is UNSIGNED. Releases are still cut on the maintainer's Mac with
-# tools/make_release.sh, which signs and notarizes with the Developer ID certificate (docs/distribution.md).
-# This one exists to prove the export works, not to hand to anyone.
+#   Only a v* TAG builds anything. The server image and the macOS export are cut from tags alone, because
+#   the game refuses a client whose protocol differs from the server's, and the Macs only ever update
+#   themselves to released versions. An image following master would quietly move the family server ahead
+#   of the children's clients, and they would be turned away at the door with no obvious reason why.
+#
+# macOS on Apple silicon is the only thing shipped today, so it is the only thing exported. Windows and
+# the Linux desktop export are off; the Linux *native library* stays, because the test suite runs on a
+# Linux runner and needs it (a macOS runner costs ten times the minutes for the same answer).
+#
+# The server image goes to GitHub Packages (ghcr.io/<owner>/<repo>/server) so the family server pulls it
+# rather than compiling Godot and Rust on the box. NOTE: a new package is PRIVATE until somebody makes it
+# public once, in Packages -> the package -> settings -> change visibility.
+#
+# The macOS build made here is UNSIGNED and is a check that a clean checkout still exports, not something
+# to hand to anyone. Releases are cut on the maintainer's Mac with tools/make_release.sh, which signs and
+# notarizes with the Developer ID certificate (docs/distribution.md).
 on:
   push:
     branches: [main, master]
@@ -23,30 +32,46 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # For the test runner, which is Linux. Not something anybody installs.
   native:
-    name: Native (${{ matrix.platform }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { platform: linux-x86_64, os: ubuntu-24.04 }  # for the test runner, not for shipping
-          - { platform: macos, os: macos-14 }
+    name: Native (linux-x86_64)
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos' && 'aarch64-apple-darwin,x86_64-apple-darwin' || 'x86_64-unknown-linux-gnu' }}
+          targets: x86_64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: native
       - name: Build
-        shell: bash
-        run: tools/build_native.sh ${{ matrix.platform }}
+        run: tools/build_native.sh linux-x86_64
       - uses: actions/upload-artifact@v4
         with:
-          name: native-${{ matrix.platform }}
-          path: native/bin/${{ matrix.platform }}
+          name: native-linux-x86_64
+          path: native/bin/linux-x86_64
+          if-no-files-found: error
+
+  # The library that actually ships. Its own job because a macOS runner costs ten times a Linux one, and
+  # only the tagged export needs it - there is no reason to spend that on every push to master.
+  native-macos:
+    name: Native (macos)
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - name: Build
+        run: tools/build_native.sh macos
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-macos
+          path: native/bin/macos
           if-no-files-found: error
 
   test:
@@ -71,7 +96,8 @@ jobs:
 
   export:
     name: Export macOS
-    needs: [native, test]
+    needs: [native-macos, test]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -100,7 +126,7 @@ jobs:
   docker:
     name: Server image
     needs: test
-    if: github.event_name != 'pull_request'
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -118,12 +144,12 @@ jobs:
         id: meta
         with:
           images: ghcr.io/${{ github.repository }}/server
-          # master -> :master and :latest, a tag -> :0.40.0 and :0.40, so a server can follow either.
+          # Only tags reach here, so :0.40.0, :0.40 and :latest all mean a released version. A server
+          # can sit on :latest and follow releases, or pin :0.40 and stay on that line.
           tags: |
-            type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest
       - uses: docker/build-push-action@v6
         with:
           context: .
