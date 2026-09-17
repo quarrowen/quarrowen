@@ -85,11 +85,8 @@ func _light_hearth(player, pos: Vector3i) -> void:
 func _register_places() -> void:
 	for place in ["outpost", "cold_camp"]:
 		api.register_structure_template(place, "structures/%s.json" % place)
-	# The outpost sits near where players start; the camp is a walk away, which is the point of it.
-	api.register_structure("outpost", {"templates": [{"template": "outpost"}], "spacing": 1024,
-		"place": "surface", "chance": 1.0, "biomes": []})
-	api.register_structure("cold_camp", {"templates": [{"template": "cold_camp"}], "spacing": 192,
-		"place": "surface", "chance": 0.6, "biomes": []})
+	# Both are placed by hand rather than left to world generation: a story needs to know where its own
+	# outpost is, and how far the walk to the camp is, because that walk is the whole of chapter two.
 	# What the last warden left, and what Bramble has: little, and worth having.
 	api.register_loot("warden", {"pools": [
 		{"rolls": 1, "guaranteed": true, "entries": [{"item": "base:bread", "count": [2, 3]}]},
@@ -103,9 +100,58 @@ func _register_places() -> void:
 	]})
 
 
+## How far Bramble is: far enough that getting there and back is a journey, near enough that a child does
+## not give up. Worth tuning after the first playtest - it is the number the design rests on.
+const CAMP_DISTANCE := 150.0
+
+
+## Builds the valley's two places the first time anyone arrives, and remembers where they are.
+func _build_the_valley(player) -> void:
+	if api.storage.has("outpost"):
+		return
+	var spot := _level_ground_near(Vector3i(0, 0, 0), 48)
+	api.place_structure("outpost", spot - Vector3i(6, 0, 6))  # the template's middle, not its corner
+	api.storage.outpost = [spot.x, spot.y, spot.z]
+	# The camp is in a direction nobody chose, so no two worlds send you the same way.
+	var angle := randf() * TAU
+	var away := Vector3i(int(cos(angle) * CAMP_DISTANCE), 0, int(sin(angle) * CAMP_DISTANCE))
+	var camp := _level_ground_near(spot + away, 24)
+	api.place_structure("cold_camp", camp - Vector3i(3, 0, 3))
+	api.storage.camp = [camp.x, camp.y, camp.z]
+	settlers.place_bramble(Vector3(camp) + Vector3(0.5, 1.0, 0.5))
+	api.info("Hearthhold: outpost at %s, Bramble's camp at %s" % [str(spot), str(camp)])
+
+
+## The flattest spot within `radius` of a point, so a building does not end up half buried or on stilts.
+func _level_ground_near(around: Vector3i, radius: int) -> Vector3i:
+	var best := Vector3i(around.x, api.surface_y(around.x, around.z) + 1, around.z)
+	var best_spread := 999
+	for step in range(0, radius, 6):
+		for angle in 8:
+			var x := around.x + int(cos(angle * TAU / 8.0) * step)
+			var z := around.z + int(sin(angle * TAU / 8.0) * step)
+			var low := 999
+			var high := -999
+			for probe in [Vector2i(-5, -5), Vector2i(5, -5), Vector2i(-5, 5), Vector2i(5, 5), Vector2i(0, 0)]:
+				var y: int = api.surface_y(x + probe.x, z + probe.y)
+				low = mini(low, y)
+				high = maxi(high, y)
+			if high - low < best_spread and low > 40:
+				best_spread = high - low
+				best = Vector3i(x, high + 1, z)
+			if best_spread == 0:
+				return best
+	return best
+
+
 func _on_join(ev: Dictionary) -> void:
 	var player = ev.player
 	player.set_creative(false)
+	_build_the_valley(player)
+	if api.storage.has("outpost"):
+		var at: Array = api.storage.outpost
+		if ev.first_time:
+			player.teleport(Vector3(at[0], at[1] + 1, at[2] + 3))
 	if ev.first_time:
 		player.give(api.item("base:log"), 3)  # enough for the hearth, so chapter one cannot stall
 		player.show_title("Hearthhold", "The valley is empty. It was not always.", 5.0)

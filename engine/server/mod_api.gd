@@ -825,6 +825,13 @@ func register_structure_template(template_name: String, source) -> bool:
 
 ## Generated structures (see worldgen/structures.gd): {templates: [{template, weight}] or generator
 ## (GDScript Callable), spacing, separation, biomes, place, y, sink, foundation, swaps, reach, chance}.
+## Stamps a template into the world now, rotated a quarter turn at a time (0-3). What `/struct place`
+## does, for a mod that wants to build something itself rather than leave it to world generation: a
+## story's outpost, a rescue site, a prize somebody hid.
+func place_structure(template_name: String, at: Vector3i, rotation := 0) -> bool:
+	return _server.structure_tools.place(_qualify_ref(template_name), at, rotation)
+
+
 func register_structure(structure_name: String, def: Dictionary) -> void:
 	if reloading:
 		return  # world generation is fixed once the world runs (a full reload applies changes)

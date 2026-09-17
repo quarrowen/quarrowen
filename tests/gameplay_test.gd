@@ -3561,10 +3561,28 @@ func _hearthhold() -> void:
 	server.mod_instances["hearthhold"].api.storage.bramble_home = true
 	_check(charter.current().is_empty(), "with nothing outstanding once she has moved in")
 
-	# The two places the chapters happen in.
-	var places: Array = server.biome_generator.structures.sets.map(func(entry): return str(entry.name))
-	_check(places.has("hearthhold:outpost") and places.has("hearthhold:cold_camp"),
-		"the outpost and the cold camp are places in the world (%s)" % str(places.filter(func(n): return n.begins_with("hearthhold"))))
+	# Arriving builds the valley: an outpost to stand in, a camp a walk away, and Bramble at it.
+	var newcomer := ServerPlayer.new(server, 162, "Arrival")
+	newcomer.player_id = "arrival"
+	newcomer.state.position = Vector3(8, 70, 8)
+	server.players[162] = newcomer
+	mod.api.storage.clear()
+	mod._build_the_valley(newcomer)
+	_check(mod.api.storage.has("outpost") and mod.api.storage.has("camp"), "arriving builds the outpost and the camp")
+	var outpost: Array = mod.api.storage.outpost
+	var camp: Array = mod.api.storage.camp
+	var walk: float = Vector2(outpost[0] - camp[0], outpost[2] - camp[2]).length()
+	_check(walk > 100.0 and walk < 220.0, "the camp is a walk away rather than next door (%d blocks)" % int(walk))
+	var stood_up: int = server.world.get_block_v(Vector3i(outpost[0], outpost[1], outpost[2]))
+	_check(stood_up != 0 or server.world.get_block_v(Vector3i(outpost[0], outpost[1] - 1, outpost[2])) != 0,
+		"the outpost is really built, not just remembered")
+	var found: Array = server.entities.in_radius(Vector3(camp[0], camp[1], camp[2]), 20.0,
+		server.entities.registry.id_of("hearthhold:bramble"))
+	_check(found.size() == 1, "and Bramble is at her camp waiting (%d there)" % found.size())
+	mod._build_the_valley(newcomer)
+	var again: Array = server.entities.in_radius(Vector3(camp[0], camp[1], camp[2]), 20.0,
+		server.entities.registry.id_of("hearthhold:bramble"))
+	_check(again.size() == 1, "and the valley is not built a second time when somebody else arrives")
 	server.queue_free()
 	await get_tree().process_frame
 

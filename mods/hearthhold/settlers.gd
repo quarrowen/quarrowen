@@ -85,6 +85,16 @@ func recruit(player, entity_id: int) -> void:
 	api.broadcast("%s found Bramble, who is coming back to Hearthhold." % player.name)
 
 
+## Puts her at her camp, once, when the valley is built.
+func place_bramble(at: Vector3) -> void:
+	if api.storage.get("bramble_placed", false):
+		return
+	api.storage.bramble_placed = true
+	var e = api.spawn_entity("bramble", at, {})
+	if e != null:
+		e.set_home(at, 12.0)  # she waits near her fire rather than wandering off across the valley
+
+
 ## Where she is, for a player who has lost her - which will happen, because a valley is large.
 func whereabouts(player) -> String:
 	for e in api.get_entities(player.position, 512.0, "hearthhold:bramble"):
