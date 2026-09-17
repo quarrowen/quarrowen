@@ -8,3 +8,12 @@ addons/godot_mcp/
 .mcp.json
 __pycache__/
 services/hub/target/
+
+# Anything belonging to one person's own setup: server names, the children's player names, addresses.
+# The .example files next to these show what to put in them.
+.env
+*.env
+!*.env.example
+*.local.md
+*.local.json
+deploy/*/mods/

@@ -29,3 +29,18 @@ The game only installs an update whose manifest is signed by a release key built
 (`engine/client/updater.gd`), fetched over HTTPS from an address compiled into the client - never one a
 server supplies - and the download must match the checksum in the signed manifest. The private key is not
 in this repository. If you believe a release was published that the maintainer did not sign, report it.
+
+## Reporting content, not code
+
+Players can paint skins and build accessories in the game and share them with a server, which may pass
+them on to other players there. A server run from this project is therefore capable of holding pictures
+its operator did not make.
+
+- **If something of yours is being shared without permission**, open an issue saying which server and
+  which creation, or use the private reporting route above if you would rather not say it in public. The
+  maintainer runs one small family server; anything hosted there will be taken down on request.
+- **In game**, any player can report a creation they can see (including as *copied*), and enough reports
+  hide it until an admin has looked. Admins have a review screen, and `--ugc=approval` makes every
+  creation wait for a person before anyone else sees it.
+- **Servers are independent.** Anyone can run this software, and the project has no control over what
+  other people's servers hold.

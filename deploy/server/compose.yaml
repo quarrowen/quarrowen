@@ -1,4 +1,4 @@
-# Quarrowen family server for a home Linux box with Docker.
+# Quarrowen family server for a Linux box with Docker.
 #   cp .env.example .env    # then edit the names
 #   docker compose up -d --build
 #   docker compose logs -f
@@ -35,3 +35,6 @@ services:
 
 volumes:
   quarrowen-data:
+    # Named outright, so the world does not move when this folder is renamed: Compose otherwise prefixes
+    # the volume with whatever the directory happens to be called.
+    name: quarrowen-data

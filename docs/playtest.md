@@ -20,7 +20,7 @@ You need Docker with the Compose plugin (`docker compose version` should work) a
 sudo apt install gh        # or see https://cli.github.com
 gh auth login
 gh repo clone quarrowen/quarrowen
-cd quarrowen/deploy/homelab
+cd quarrowen/deploy/server
 ```
 
 **Choose names.** Copy the example settings and edit them:
@@ -51,14 +51,14 @@ It is ready when the log says `running game`. The server starts again by itself 
 sudo ufw allow 24565:24566/udp
 ```
 
-Note the machine's address on your network (for example `192.168.1.20`): `hostname -I`.
+Note the machine's address on your network (something like `192.168.1.x`): `hostname -I`.
 
 **Mods live on the server, not inside the image.** The container holds the engine; the mods it loads sit in
-`deploy/homelab/mods/` on this machine (created on the first start, filled with the mods the engine shipped
+`deploy/server/mods/` on this machine (created on the first start, filled with the mods the engine shipped
 with). To add a game or an add-on, drop its folder there and restart:
 
 ```sh
-cp -r ~/my_mod deploy/homelab/mods/         # a mod folder with a mod.json inside
+cp -r ~/my_mod deploy/server/mods/         # a mod folder with a mod.json inside
 nano .env                                   # add it to GAME=vanilla,my_mod
 docker compose restart
 ```
@@ -111,7 +111,7 @@ choose **Fast**.
 1. **You first.** Open Quarrowen, click the name under **Playing as** at the bottom left and type your admin name
    exactly as in `ADMINS`. The first player to use a name on a server keeps it, so join before sharing.
 2. Go to **Multiplayer → LAN**. The server appears there (the name from `SERVER_NAME`). Double-click it.
-   If it does not appear, type the server's address (like `192.168.1.20`) in the box at the top and press **Join**.
+   If it does not appear, type the server's address (the one from `hostname -I`) in the box at the top and press **Join**.
 3. Check you are admin: press **T** and type `/whoami`.
 4. **The kids.** On each Mac, set **Playing as** to the name you put in `ALLOWLIST`, then **Multiplayer → LAN** and join.
    Click **Add to favorites** so it is one click next time.
@@ -157,38 +157,39 @@ roles** to give roles (builder, moderator, admin) or kick someone, without typin
 whole world out to a folder:
 
 ```sh
-docker run --rm -v homelab_quarrowen-data:/data -v "$PWD":/out debian tar czf /out/quarrowen-world.tgz -C /data .
+docker run --rm -v quarrowen-data:/data -v "$PWD":/out debian tar czf /out/quarrowen-world.tgz -C /data .
 ```
 
 (`docker volume ls` shows the exact volume name.) The volume also holds the server's identity: keep it, or
 every Mac will warn that the server's identity changed.
 
-**Worlds survive updates.** Builds, chests, animals and inventories are kept when you update; the server backs a
-world up before it upgrades the save format. Always update with the *same* Compose project name you started with,
-because the world lives in that project's volume: if you started with plain `docker compose up`, keep using that
-from the same folder; if you used `-p quarrowen`, keep using it. `docker volume ls` shows the volumes
-(`homelab_quarrowen-data` or `quarrowen_quarrowen-data`).
+**Worlds survive updates.** Builds, chests, animals and inventories are kept when you update; the server backs
+a world up before it upgrades the save format. The volume is named outright in the Compose file
+(`quarrowen-data`), so it stays put wherever the folder lives or whatever it is called. `docker volume ls`
+shows what is on the machine.
 
 **The Macs update themselves.** When the menu opens, the game checks the download page and offers the new
 version in a banner; pressing Update downloads it, checks it against the checksum published with the release
 and swaps the app (Settings → Network turns the check off, Settings → Account has a "Check for updates"
 button). Nothing is ever downloaded from a game server - a server can only say which version it needs.
 
-**Coming from the VoxelCraft build.** The game was renamed to Quarrowen; the server's Docker volumes are
-named after it now, so copy the old world across once before starting:
+**Coming from an older build.** The world used to live in a volume named after whatever folder Compose was
+run from (`<folder>_quarrowen-data`, and before the rename `<folder>_voxelcraft-data`). It is now simply
+`quarrowen-data`, so copy the old one across once before starting. Run `docker volume ls` to see what you
+have, then:
 
 ```sh
-docker volume create homelab_quarrowen-data
-docker run --rm -v homelab_voxelcraft-data:/from -v homelab_quarrowen-data:/to alpine sh -c "cp -a /from/. /to/"
+docker volume create quarrowen-data
+docker run --rm -v <old volume>:/from -v quarrowen-data:/to alpine sh -c "cp -a /from/. /to/"
 ```
 
-(`docker volume ls` shows the exact names.) On each Mac nothing is needed: the game brings your identity,
-worlds and settings across by itself the first time it starts.
+On each Mac nothing is needed: the game brings your identity, worlds and settings across by itself the first
+time it starts.
 
 **Updating.** Server and Macs must run the same version. On the server:
 
 ```sh
-cd quarrowen && git pull && cd deploy/homelab && docker compose up -d --build
+cd quarrowen && git pull && cd deploy/server && docker compose up -d --build
 ```
 
 Then publish the release with `tools/make_release.sh` (it builds the app, the mod zips, the download page
@@ -236,3 +237,13 @@ If a trip cannot finish (the other server is down), coming back gives players th
   new identity. If you know that is what happened, click **Trust new identity**.
 - **Version mismatch.** Update both sides (see above).
 - **Everything is slow.** Settings → Graphics → Fast, and close other apps.
+
+## A word about skins
+
+The game lets children paint a skin, and import a PNG to start from. Anything they wear can be offered to
+the server they join, and other players there may then wear it too - which is lovely when it is their own
+drawing, and awkward when it is a skin downloaded from a site that belongs to somebody else.
+
+The family server accepts creations automatically (`--ugc=auto`), which suits people who know each other.
+For a server with strangers on it, `--ugc=approval` holds every creation until an admin says yes, and
+`--ugc=off` turns sharing off entirely. Either way an admin can review, hide and remove creations in game.

@@ -576,7 +576,9 @@ func _import() -> void:
 	dialog.filters = PackedStringArray(["*.png ; 64x64 skin"])
 	dialog.file_selected.connect(func(path: String):
 		var error := load_png(FileAccess.get_file_as_bytes(path))
-		_status.text = error
+		# Importing is for a picture you drew yourself. Anything worn can be shared with a server, where
+		# other players may wear it in turn, so somebody else's artwork should not start that journey.
+		_status.text = error if not error.is_empty() else "Imported. Only share pictures you drew yourself."
 		dialog.queue_free())
 	dialog.canceled.connect(dialog.queue_free)
 	add_child(dialog)
