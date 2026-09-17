@@ -117,7 +117,11 @@ pub fn derive_code(server_id: &str, attempt: u32) -> String {
 /// "vc-abc-123", "ABC123", "abc o12" -> "ABC012" (Crockford look-alikes accepted).
 pub fn normalize(code: &str) -> String {
     let upper = code.trim().to_uppercase();
-    let body = upper.strip_prefix("VC").unwrap_or(&upper);
+    // "QW" now; "VC" was the prefix before the game was renamed, and codes written down then still work.
+    let body = upper
+        .strip_prefix("QW")
+        .or_else(|| upper.strip_prefix("VC"))
+        .unwrap_or(&upper);
     body.chars()
         .filter(|c| !matches!(c, '-' | ' '))
         .map(|c| match c {
@@ -129,7 +133,7 @@ pub fn normalize(code: &str) -> String {
 }
 
 pub fn display(code: &str) -> String {
-    format!("VC-{}-{}", &code[..3], &code[3..])
+    format!("QW-{}-{}", &code[..3], &code[3..])
 }
 
 #[cfg(test)]
@@ -151,7 +155,8 @@ mod tests {
 
     #[test]
     fn normalizes_look_alikes() {
-        assert_eq!(normalize("vc-abo-il1"), "AB0111");
+        assert_eq!(normalize("qw-abo-il1"), "AB0111");
+        assert_eq!(normalize("vc-abo-il1"), "AB0111"); // codes written before the rename still work
         assert_eq!(normalize(" ABC 123 "), "ABC123");
     }
 }

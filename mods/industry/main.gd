@@ -1,5 +1,6 @@
 extends "res://engine/server/mod.gd"
-## Industry: an energy system in the spirit of modded Minecraft power mods.
+## Industry: an energy system of generators, cables, storage and machines that draw from the network.
+## Energy is measured in QE (this mod’s own unit); what matters is the ratios, not the name.
 ##
 ## Machines are 3D model blocks with block data (energy buffers, fuel, stored items). Anything
 ## touching a cable or another machine joins a network; every 0.25 s each network pools what its
@@ -14,12 +15,12 @@ const UI_REFRESH := 0.5
 const UI_RANGE := 8.0
 const NETWORK_REBUILD_INTERVAL := 5.0
 
-const GENERATOR_OUTPUT := 40.0  # FE per second while burning
-const SOLAR_OUTPUT := 15.0  # FE per second at full daylight with open sky
+const GENERATOR_OUTPUT := 40.0  # energy units per second while burning
+const SOLAR_OUTPUT := 15.0  # energy units per second at full daylight with open sky
 const BATTERY_CAPACITY := 20000.0
-const LAMP_DRAW := 4.0  # FE per second
+const LAMP_DRAW := 4.0  # energy units per second
 const MINER_BUFFER := 2000.0
-const MINER_COST := 120.0  # FE per block
+const MINER_COST := 120.0  # energy units per block
 const MINER_INTERVAL := 0.5
 const FUEL := {"base:coal": 40.0, "base:coal_ore": 40.0, "base:log": 15.0, "base:planks": 6.0}  # seconds of burn
 
@@ -290,7 +291,7 @@ func _show_panel(player, pos: Vector3i) -> void:
 	var block: int = api.get_loaded_block(pos)
 	var data: Dictionary = api.get_block_data(pos)
 	var network: Dictionary = power.network_at(pos)
-	var net_line := "Network: %d machines, %d cables, producing %.0f FE/s, stored %.0f FE" % [
+	var net_line := "Network: %d machines, %d cables, producing %.0f QE/s, stored %.0f QE" % [
 		network.get("machine_count", 0), network.get("cable_count", 0), network.get("last_produced", 0.0), power.stored(network)] \
 		if not network.is_empty() else "Not connected to a network"
 	var children := [{"type": "label", "text": api.block_display_name(block), "size": 24, "color": "#ffd166"}]
@@ -298,22 +299,22 @@ func _show_panel(player, pos: Vector3i) -> void:
 	match block:
 		ids.generator:
 			var burn := float(data.get("burn", 0.0))
-			children.append({"type": "label", "text": "Burning: %ds left  (%s)" % [ceili(burn), "%.0f FE/s" % GENERATOR_OUTPUT if burn > 0.0 else "idle"]})
+			children.append({"type": "label", "text": "Burning: %ds left  (%s)" % [ceili(burn), "%.0f QE/s" % GENERATOR_OUTPUT if burn > 0.0 else "idle"]})
 			children.append({"type": "progress", "value": minf(burn, 120.0), "max": 120.0})
 			children.append({"type": "label", "text": "Fuel: coal 40s, log 15s, planks 6s", "color": "#aaaaaa"})
 			buttons.append({"type": "button", "text": "Add fuel", "action": "fuel"})
 		ids.solar:
 			var sky: bool = power.sees_sky(pos)
-			children.append({"type": "label", "text": "Output: %.1f FE/s" % (SOLAR_OUTPUT * api.get_daylight() if sky else 0.0)})
+			children.append({"type": "label", "text": "Output: %.1f QE/s" % (SOLAR_OUTPUT * api.get_daylight() if sky else 0.0)})
 			children.append({"type": "label", "text": "Daylight %d%%%s" % [roundi(api.get_daylight() * 100), "" if sky else " - blocked from the sky!"],
 				"color": "#aaaaaa" if sky else "#ff8888"})
 		ids.battery:
 			var energy := float(data.get("energy", 0.0))
-			children.append({"type": "label", "text": "Stored: %.0f / %.0f FE" % [energy, BATTERY_CAPACITY]})
+			children.append({"type": "label", "text": "Stored: %.0f / %.0f QE" % [energy, BATTERY_CAPACITY]})
 			children.append({"type": "progress", "value": energy, "max": BATTERY_CAPACITY})
 		ids.miner:
 			children.append({"type": "label", "text": "Status: %s" % data.get("status", "Idle")})
-			children.append({"type": "label", "text": "Energy: %.0f / %.0f FE  (%.0f per block)" % [float(data.get("energy", 0.0)), MINER_BUFFER, MINER_COST]})
+			children.append({"type": "label", "text": "Energy: %.0f / %.0f QE  (%.0f per block)" % [float(data.get("energy", 0.0)), MINER_BUFFER, MINER_COST]})
 			children.append({"type": "progress", "value": float(data.get("energy", 0.0)), "max": MINER_BUFFER})
 			var stored: Dictionary = data.get("stored", {})
 			var lines := PackedStringArray()

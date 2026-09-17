@@ -20,7 +20,7 @@ func setup(api, sounds: Dictionary) -> void:
 	api.register_block("sandstone", {"display_name": "Sandstone", "sounds": sounds.stone, "hardness": 0.8, "tier": 1, "tool": "pickaxe",
 		"textures": {"all": "textures/sandstone_side.png", "top": "textures/sandstone_top.png", "bottom": "textures/sandstone_top.png"}})
 	api.register_recipe({"base:sand": 4}, "base:sandstone", 1, {"category": "blocks"})
-	api.register_block("dead_bush", {"display_name": "Dead Bush", "textures": "textures/dead_bush.png", "render": "plant", "replaceable": true,
+	api.register_block("dead_bush", {"display_name": "Dry Shrub", "textures": "textures/dead_bush.png", "render": "plant", "replaceable": true,
 		"hardness": 0.0, "drops": "base:stick", "support": ["base:sand"], "sounds": sounds.grass})
 	# Lava: fills the deepest caves; glows and burns.
 	api.register_block("lava", {"display_name": "Lava", "textures": "textures/lava.png", "liquid": true, "light": 15, "hazard": true,
@@ -30,7 +30,7 @@ func setup(api, sounds: Dictionary) -> void:
 		"tier": 3, "tool": "pickaxe"})
 	api.register_item("cobalt_ingot", {"display_name": "Cobalt Ingot", "icon": "textures/cobalt_ingot.png"})
 	# Mob spawners (placed by structures; set what they spawn in block data, see engine/server/spawners.gd).
-	api.register_block("spawner", {"display_name": "Monster Spawner", "textures": "textures/spawner.png", "render": "cutout", "spawner": true,
+	api.register_block("spawner", {"display_name": "Monster Nest", "textures": "textures/spawner.png", "render": "cutout", "spawner": true,
 		"hardness": 5.0, "tier": 1, "tool": "pickaxe", "drops": "", "sounds": sounds.stone})
 	# Portals take players to another server in this server's network (engine/server/transfers.gd): stand in
 	# one. Admins set where it goes with /portal <server> [arrival] while standing next to it.

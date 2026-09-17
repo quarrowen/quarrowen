@@ -222,7 +222,7 @@ func _smithing(api) -> void:
 	api.register_guide_page("tool_forge", {"chapter": "smithing", "title": "Tools from Parts", "icon": "base:tool_forge", "order": 1,
 		"unlock": {"item": "base:iron_ingot"}, "keywords": "tool forge parts head handle binding material trait assemble",
 		"blocks": [
-			{"type": "text", "text": "A [b]Tool Forge[/b] makes tool parts from any material: heads, blades, handles, grips, bindings and guards. Put them together in the recipe book's [b]Assemble[/b] tab."},
+			{"type": "text", "text": "A [b]Toolsmith’s Bench[/b] makes tool parts from any material: heads, blades, handles, grips, bindings and guards. Put them together in the recipe book's [b]Assemble[/b] tab."},
 			{"type": "recipe", "output": "base:tool_forge"},
 			{"type": "text", "text": "• The [b]head[/b] (or blade) sets the tier, speed and damage.\n• The [b]handle[/b]'s material changes durability.\n• Every material adds its own [b]trait[/b], shown on the part."},
 			{"type": "items", "items": ["base:pickaxe_head", "base:axe_head", "base:sword_blade", "base:tool_handle", "base:binding"]},

@@ -78,7 +78,7 @@ static func _collect(modifiers, adds: Dictionary, multiplies: Dictionary) -> voi
 
 
 ## Damage left after armor: armor points absorb up to 80% of a hit, less against big hits unless
-## toughness is high (the same curve players know from Minecraft).
+## toughness is high: a diminishing-returns curve, so each point of armour is worth less than the last.
 static func apply_armor(amount: float, armor: float, toughness: float) -> float:
 	if armor <= 0.0:
 		return amount

@@ -16,7 +16,7 @@ const RETRY_MAX := 60.0
 var url := ""
 var public_address := ""
 var tags: PackedStringArray = []
-## The hub's invite code for this server ("VC-ABC-123"), once listed.
+## The hub's invite code for this server ("QW-ABC-123"), once listed.
 var code := ""
 ## "" while fine, else why the last announce failed (shown to admins and in the log once per change).
 var problem := ""

@@ -164,7 +164,7 @@ func is_empty() -> bool:
 	return cursor_count <= 0
 
 
-## Inventory screen click on `slot` with the mouse `button` (1 = left, 2 = right), Minecraft style:
+## Inventory screen click on `slot` with the mouse `button` (1 = left, 2 = right):
 ## left picks up / puts down / merges / swaps whole stacks, right picks up half or puts down one.
 ## `shift` moves the stack between the hotbar and the main inventory, or into and out of equipment.
 ## `max_stack_of(id)` gives stack limits; `accepts(slot_index, id)` says whether an equipment slot

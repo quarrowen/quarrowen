@@ -1,6 +1,7 @@
 # Quarrowen
 
-A voxel game **engine** in Godot 4.7 (GDScript + Rust) with a Roblox-style universal client. The
+A voxel game **engine** in Godot 4.7 (GDScript + Rust) with a universal client: one app that plays any
+server’s game, because the client ships no content of its own. The
 server is authoritative and loads **mods** that define the game: blocks, 3D models, textures, world
 generation, rules, machines, commands and UI. The client has no game content built in; it downloads
 everything from whichever server it joins, so one client can play a sandbox, a skyblock server or a
@@ -19,8 +20,9 @@ day: family playtest feedback goes in, and features, fixes and tests come out.
 **Licence:** free to use, modify and share for anything noncommercial - play it, mod it, run a server,
 learn from it. Commercial use needs a separate licence; see [LICENSE](LICENSE).
 
-*Quarrowen is an independent project and is not affiliated with, endorsed by or connected to Mojang
-Synergies AB or Microsoft. Minecraft is a trademark of Mojang Synergies AB.*
+*Quarrowen is an independent project and is not affiliated with, endorsed by or connected to
+Mojang Synergies AB, Microsoft or Roblox Corporation. Minecraft is a trademark of Mojang Synergies AB;
+Roblox is a trademark of Roblox Corporation.*
 
 ## Running
 
@@ -30,8 +32,8 @@ Play. The main menu shows a live generated world with your avatar, a sidebar and
 - **Play**: your worlds (title, game and add-ons, last played). **New world…** picks a name, game,
   add-ons and an optional seed (a word or number); Play hosts it on a local server and joins it.
   Rename, delete (with its backups) and open the folder; Developer mode turns on the dev tools.
-- **Multiplayer**: join by address (`host`, `host:port`) or invite code (`VC-XXXXX-XXXXX-X` for an
-  address, `VC-ABC-123` for a server listed on a hub). Tabs: **Browse** (public servers from the hub,
+- **Multiplayer**: join by address (`host`, `host:port`) or invite code (`QW-XXXXX-XXXXX-X` for an
+  address, `QW-ABC-123` for a server listed on a hub). Tabs: **Browse** (public servers from the hub,
   with search), **LAN** (servers on your network and this computer), **Favorites** (add, edit, remove)
   and **Recent**. Every row shows the name, message, game, players, ping and a version warning; Copy
   invite prefers the hub code.
@@ -55,11 +57,11 @@ computer's local network address). Menus scale up on high-density screens. Code:
 ```sh
 # Dedicated server (mods are comma-separated; dependencies load automatically)
 godot --headless --path . res://scenes/server.tscn -- --mods=vanilla,industry --metrics=10
-godot --headless --path . res://scenes/server.tscn -- --mods=skyblock --world=myworld --mods-dir=/srv/mods --admins=Steve
+godot --headless --path . res://scenes/server.tscn -- --mods=skyblock --world=myworld --mods-dir=/srv/mods --admins=Robin
 
 # Client straight into a server / host from the command line
-godot --path . -- --connect=127.0.0.1 --name=Steve
-godot --path . -- --host=skyblock --name=Steve
+godot --path . -- --connect=127.0.0.1 --name=Robin
+godot --path . -- --host=skyblock --name=Robin
 ```
 
 Worlds save to `user://worlds/<world>` (world.json keeps the title, mods, game, seed and play times), downloaded assets to `user://cache/assets` and the player's
@@ -396,7 +398,7 @@ api.set_fuel("my_mod:peat", 40.0)                                        # api.g
   extra. Experiments are rate-limited and need the items in hand. Shaped recipes:
   `register_recipe({}, "base:torch", 4, {"pattern": ["C", "S"], "key": {"C": "base:coal", "S": "base:stick"}, "unlock": "experiment"})`.
   Bundled: torches (coal or charcoal over a stick) and hay bales (a grid of wheat).
-- **Tools from parts:** alongside the fixed tools, a Tool Forge makes parts (pickaxe/axe/shovel heads,
+- **Tools from parts:** alongside the fixed tools, a Toolsmith’s Bench makes parts (pickaxe/axe/shovel heads,
   sword blades, handles, grips, bindings, guards) from any registered material and assembles them in
   the crafting screen's Assemble tab. The head decides tier, mining speed and damage, the handle's
   material scales durability, and every material adds its trait (stat modifiers, durability, speed,
@@ -538,7 +540,7 @@ hidden. Mods use `ugc_list`, `ugc_get`, `ugc_set_status`, `ugc_report`, `ugc_tru
 reason, details, reports, cancelled}` event can veto reports. `ugc_status` also carries `by`.
 
 Players are drawn with a rig of 10 boxes (head, torso, upper and lower arms and legs) textured in the
-standard 64x64 Minecraft skin layout, animated procedurally (walking, running, jumping, swinging,
+standard 64x64 box-unwrap skin layout, animated procedurally (walking, running, jumping, swinging,
 looking, getting hurt). Held items and worn armor show on everyone's avatar, F5 cycles first person,
 behind and in front, and first person shows your arm and held item. Servers can replace the rig with
 `api.set_player_rig(def)` (see `engine/shared/player_rig.gd`); outfits keep working because they are
@@ -799,7 +801,7 @@ boss.set_target(player)
   `mob_attack` (cancellable) and `mob_phase`. Reference: `engine/server/ai/mob_config.gd`.
 - **In the bundled games:** zombie packs (claw + lunge, they call each other in), skeleton archers
   that kite and dodge, pig herds that scatter together, the Ancient Colossus (`/colossus`), and in the
-  guild mod an elite bounty zombie tuned from JavaScript and a treasure goblin whose loot-grabbing
+  guild mod an elite bounty zombie tuned from JavaScript and a coin snatcher whose loot-grabbing
   behaviour is written in JavaScript (`/guild goblin`).
 - **Cost:** 300 mobs with about 130 hunting 10 players, plus 200 item stacks: 3.5 ms per tick with
   the native extension, 9.3 ms with the GDScript fallback (`tests/bench.tscn`).
@@ -854,12 +856,12 @@ and for sandbox players who switch to survival.
 `--mods=vanilla,industry` (or add it to any game). `/industry kit` fills your hotbar,
 `/industry demo` builds a powered showcase, `/time night` shows the lamps.
 
-- **Coal generator** (burns coal ore / logs / planks, 40 FE/s) and **solar panel** (15 FE/s × daylight,
+- **Coal generator** (burns coal ore / logs / planks, 40 QE/s) and **solar panel** (15 QE/s × daylight,
   needs open sky) produce energy.
 - **Cables** and adjacent machines form networks, discovered by flood fill and cached until a
   network block changes.
-- **Batteries** store surplus (20k FE); **lamps** draw 4 FE/s and switch to a light-emitting variant
-  when powered; the **auto miner** spends 120 FE per block digging straight down and stores drops.
+- **Batteries** store surplus (20k QE); **lamps** draw 4 QE/s and switch to a light-emitting variant
+  when powered; the **auto miner** spends 120 QE per block digging straight down and stores drops.
 - Right-clicking a machine opens a live panel (energy bars, fuel, collected items, buttons).
 - Machines are Kenney industrial models baked with `tools/bake_model.py`, rotated to face whoever
   placed them; runtime state lives in block data. Cables are box models (`tools/box_model.py`) whose
@@ -1010,7 +1012,7 @@ looks like an impostor to returning players, who then have to delete the pin fro
 ## Playing at home
 
 `docs/playtest.md` walks through a family setup: the server in Docker on a home Linux machine
-(`deploy/homelab/compose.yaml` with an allowlist, creations approval and the chat filter), the Mac app
+(`deploy/server/compose.yaml` with an allowlist, creations approval and the chat filter), the Mac app
 built with `tools/package_mac.sh` (ad-hoc signed; first launch via right-click → Open), joining through
 Multiplayer → LAN, and an admin cheat sheet.
 
@@ -1072,7 +1074,7 @@ servers on its list, for this player and this server, once. Arrival points are n
 source keeps a copy until the player turns up, so a failed trip loses nothing. `admit` lets arrivals skip the
 allowlist. Events: `player_transfer {player, server, arrival, data, cancelled, reason}` (cancellable, data can be
 changed) and `player_arrived {player, from, arrival, data}`; `network_servers()`, `set_arrival_point(id, pos)`.
-Example setup: `deploy/homelab/compose.two-worlds.yaml` and docs/playtest.md.
+Example setup: `deploy/server/compose.two-worlds.yaml` and docs/playtest.md.
 
 ## Dedicated server & Docker
 

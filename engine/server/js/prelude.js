@@ -263,6 +263,8 @@
     registerLootTable: (name, def) => host("registerLoot", name, def),
     /** Loot: what a mob, block, chest or reward gives. Pools roll on their own; an entry is an item, another table, or empty. */
     registerLoot: (name, def) => host("registerLoot", name, def),
+    /** More ways of saying somebody died, for a cause or for one of your own mobs. "%s" is the player, a second "%s" is what did it. */
+    addDeathMessages: (key, lines) => host("addDeathMessages", key, lines),
     extendLoot: (name, def) => host("extendLoot", name, def),
     rollLoot: (name, context = {}) => host("rollLoot", name, context),
     lootSources: (item) => host("lootSources", item),

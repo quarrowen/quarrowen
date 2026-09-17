@@ -8,7 +8,7 @@
 //   /guild meteor   call down a meteor near you now
 //   /guild top      the guild leaderboard
 //   /guild bounty   summon an elite bounty monster worth extra coins (needs a mod with vanilla:zombie)
-//   /guild goblin   release a treasure goblin that grabs dropped coins and runs away with them
+//   /guild goblin   release a coin snatcher that grabs dropped coins and runs away with them
 
 const METEOR_INTERVAL = 240; // seconds between meteor showers
 const ACTIVE_QUEST_UI = "tracker";
@@ -21,7 +21,7 @@ const QUESTS = [
   { id: "prospector", title: "Gold Rush", text: "Mine 3 gold ore", stat: "gold", goal: 3, reward: 8 },
   { id: "pathfinder", title: "Pathfinder", text: "Travel 150 blocks", stat: "travel", goal: 150, reward: 6 },
   { id: "stargazer", title: "Stargazer", text: "Touch a fallen meteorite", stat: "meteor", goal: 1, reward: 10 },
-  { id: "hunter", title: "Monster Hunter", text: "Defeat 3 monsters", stat: "hunted", goal: 3, reward: 7 },
+  { id: "hunter", title: "Monster Slayer", text: "Defeat 3 monsters", stat: "hunted", goal: 3, reward: 7 },
 ];
 const BOUNTY_MOB = "vanilla:zombie";
 
@@ -465,7 +465,7 @@ export function setup(api) {
         const here = player.position;
         api.spawnEntity("guild:goblin", { x: here.x + 5, y: here.y + 0.5, z: here.z });
         for (let i = 0; i < 3; i++) api.dropItem(ids.coin, 1, { x: here.x + 8 + i * 2, y: here.y + 1, z: here.z + 3 });
-        player.sendMessage("A treasure goblin is after the coins! Catch it before it runs off.");
+        player.sendMessage("A coin snatcher is after the coins! Catch it before it runs off.");
         break;
       }
       case "coins":
@@ -508,7 +508,7 @@ export function setup(api) {
       { type: "text", text: "The Guild Banner is a project built together at a crafting table: anyone can add coins, planks and glass over time. When it is raised, everyone who helped gets coins back for what they gave." },
       { type: "recipe", output: "guild:guild_banner" },
     ] });
-  api.registerGuidePage("goblins", { chapter: "guild", title: "Treasure Goblins", icon: "guild:gold_coin", order: 4,
+  api.registerGuidePage("goblins", { chapter: "guild", title: "Coin Snatchers", icon: "guild:gold_coin", order: 4,
     unlock: { entity: "guild:goblin" }, keywords: "goblin thief coins steal",
     blocks: [
       { type: "entity", entity: "guild:goblin", text: "A quick little thief that grabs coins lying on the ground and runs." },

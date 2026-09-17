@@ -131,12 +131,12 @@ func _setup_mobs() -> void:
 		api.register_item("leather_%s" % piece[0], {"display_name": "Leather %s" % String(piece[0]).capitalize(),
 			"icon": "textures/leather_%s.png" % piece[0], "equip_slot": piece[1], "durability": 80, "armor": {"armor": piece[2]}, "armor_texture": "textures/leather_armor.png"})
 		api.register_recipe({"vanilla:leather": piece[3]}, "vanilla:leather_%s" % piece[0], 1, {"station": "crafting_table", "skill": "vanilla:stitching"})
-	ids.porkchop = api.register_item("porkchop", {"display_name": "Raw Porkchop", "icon": "textures/porkchop.png",
+	ids.porkchop = api.register_item("porkchop", {"display_name": "Raw Pork", "icon": "textures/porkchop.png",
 		"food": {"hunger": 3, "saturation": 1.8, "color": "#f0a0a0"}})
-	ids.cooked_porkchop = api.register_item("cooked_porkchop", {"display_name": "Cooked Porkchop", "icon": "textures/cooked_porkchop.png",
+	ids.cooked_porkchop = api.register_item("cooked_porkchop", {"display_name": "Roast Pork", "icon": "textures/cooked_porkchop.png",
 		"food": {"hunger": 8, "saturation": 12.8, "color": "#b87040"}})
 	# Zombies drop rotten flesh: filling in a pinch, but it usually gives food poisoning (hunger drains faster).
-	api.register_item("rotten_flesh", {"display_name": "Rotten Flesh", "icon": "textures/rotten_flesh.png",
+	api.register_item("rotten_flesh", {"display_name": "Spoiled Meat", "icon": "textures/rotten_flesh.png",
 		"food": {"hunger": 4, "saturation": 0.8, "color": "#7a8a40",
 			"effects": [{"stat": "hunger_drain", "amount": 0.5, "seconds": 30, "chance": 0.8, "message": "Food poisoning!"}]}})
 	api.register_process("smelting", "vanilla:porkchop", "vanilla:cooked_porkchop", 1, 8.0)
@@ -226,6 +226,13 @@ func _setup_mobs() -> void:
 	monsters.setup(api)
 	structures.setup(api)
 	_first_kill_bonuses()
+	# Each monster gets its own way of saying it: kind, and about what happened rather than about anyone.
+	api.add_death_messages("vanilla:boomshroom", ["%s was standing too close to %s", "%s heard %s pop"])
+	api.add_death_messages("vanilla:night_stalker", ["%s was caught in the dark by %s", "%s blinked and %s was there"])
+	api.add_death_messages("vanilla:colossus", ["%s was flattened by %s", "%s stood up to %s, briefly"])
+	api.add_death_messages("vanilla:slime", ["%s was bounced on by %s", "%s got stuck to %s"])
+	api.add_death_messages("vanilla:wolf", ["%s was chased down by %s"])
+	api.add_death_messages("fall", ["%s came down faster than expected"])
 	api.every(4.0, _mob_tick)
 
 

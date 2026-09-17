@@ -153,6 +153,7 @@ cat > "$out/index.html" <<EOF
 
 <a class="get" href="$mac_url">Download for Mac (Apple silicon)</a>
 <div class="dim">Version $version &middot; $(human "$out/$files/$mac_name") &middot; macOS 11 or newer &middot; $notes</div>
+<div class="dim">An independent project &mdash; not affiliated with Mojang, Microsoft or Roblox.</div>
 
 <h2>What it is</h2>
 <div class="cards">
@@ -189,8 +190,9 @@ for anything noncommercial; commercial use needs a separate licence.</p>
 Built from scratch with <a href="https://claude.com/claude-code">Claude Code</a> - engine, renderer, server,
 mod API, AI and tooling, from an empty folder.
 <br><br>
-Quarrowen is an independent project, not affiliated with, endorsed by or connected to Mojang Synergies AB or
-Microsoft. Minecraft is a trademark of Mojang Synergies AB.
+Quarrowen is an independent project, not affiliated with, endorsed by or connected to Mojang Synergies AB,
+Microsoft or Roblox Corporation. Minecraft is a trademark of Mojang Synergies AB; Roblox is a trademark of
+Roblox Corporation.
 </footer>
 </div>
 EOF

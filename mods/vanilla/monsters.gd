@@ -16,7 +16,7 @@ func setup(mod_api) -> void:
 	for sound in ["spider_ambient", "spider_hurt", "slime_hop", "slime_hurt", "stalker_ambient", "stalker_screech"]:
 		api.register_sound(sound, "sounds/%s.wav" % sound, {"pitch_variance": 0.1})
 	api.register_item("string", {"display_name": "String", "icon": "textures/string.png"})
-	api.register_item("slimeball", {"display_name": "Slimeball", "icon": "textures/slimeball.png"})
+	api.register_item("slimeball", {"display_name": "Slime Glob", "icon": "textures/slimeball.png"})
 	api.register_item("boom_spores", {"display_name": "Boom Spores", "icon": "textures/boom_spores.png", "lore": ["Handle with care."]})
 	ids.boomshroom = api.register_entity("boomshroom", {"kind": "mob", "model": "models/boomshroom.glb", "display_name": "Boomshroom",
 		"width": 0.8, "height": 1.4, "health": 14, "speed": 2.6, "category": "monster",

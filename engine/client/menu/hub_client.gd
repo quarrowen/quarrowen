@@ -37,7 +37,7 @@ func list_servers(query := "", game := "") -> void:
 
 
 func resolve_code(code: String) -> void:
-	var clean := code.to_upper().replace("VC-", "").replace("-", "").replace(" ", "")
+	var clean := code.to_upper().replace("QW-", "").replace("VC-", "").replace("-", "").replace(" ", "")
 	_request_json("/v1/codes/" + clean.uri_encode(), func(data, error):
 		if not error.is_empty() or not (data is Dictionary) or not data.has("address"):
 			code_resolved.emit({}, error if not error.is_empty() else "the hub sent an unexpected answer")

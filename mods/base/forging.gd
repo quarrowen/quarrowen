@@ -1,5 +1,5 @@
 extends RefCounted
-## Tools built from parts at the Tool Forge, using the engine's materials, part types and assemblies:
+## Tools built from parts at the Toolsmith’s Bench, using the engine's materials, part types and assemblies:
 ## make heads, handles and bindings from any material, then assemble a pickaxe, axe, shovel or sword
 ## whose stats and look come from its parts. The fixed wooden, stone and iron tools stay for the early
 ## game. Other mods add materials (vanilla bone, Guild gold, Arcana mana crystals).
@@ -15,7 +15,7 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	# speeds up. Two players: one works the bellows, the other the hammer.
 	api.register_minigame("forging", {"title": "Forge by hand", "type": "timing", "verb": "Strike", "rounds": 5,
 		"speed": 0.75, "zone": 0.2, "cool": 9.0, "team": true})
-	api.register_block("tool_forge", {"display_name": "Tool Forge", "station": STATION, "sounds": sounds.stone, "hardness": 4.0, "tier": 1,
+	api.register_block("tool_forge", {"display_name": "Toolsmith’s Bench", "station": STATION, "sounds": sounds.stone, "hardness": 4.0, "tier": 1,
 		"tool": "pickaxe", "textures": {"top": "textures/anvil_top.png", "side": "textures/tool_rack.png", "bottom": "textures/cobblestone.png"}})
 	api.register_recipe({"base:cobblestone": 4, "base:iron_ingot": 2, "base:planks": 4}, "base:tool_forge", 1, {"station": "crafting_table"})
 

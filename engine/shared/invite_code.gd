@@ -1,12 +1,14 @@
 extends RefCounted
 ## Invite codes: a short, readable way to share a server address. An IPv4 address and port pack into
-## 6 bytes, written as 10 Crockford base32 characters with a check character: "VC-7ZK3M-Q8D1A-4".
+## 6 bytes, written as 10 Crockford base32 characters with a check character: "QW-7ZK3M-Q8D1A-4".
 ## Anything else (host names, IPv6) is shared as a plain "host:port" text, which `parse` also accepts.
-## Servers listed on a hub also have a short hub code, "VC-ABC-123": `parse` returns {hub_code} for those,
+## Servers listed on a hub also have a short hub code, "QW-ABC-123": `parse` returns {hub_code} for those,
 ## to be resolved through the hub (engine/client/menu/hub_client.gd).
 
 const ALPHABET := "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
-const PREFIX := "VC-"
+const PREFIX := "QW-"
+## Codes written before the game was renamed still work: only the prefix changed.
+const OLD_PREFIXES := ["VC-", "VC ", "QW "]
 const DEFAULT_PORT := 24565
 
 
@@ -40,15 +42,21 @@ static func parse(text: String) -> Dictionary:
 	if t.is_empty():
 		return {"error": "enter an address or invite code"}
 	var upper := t.to_upper()
-	if upper.begins_with(PREFIX) or upper.begins_with("VC "):
-		var chars := upper.substr(PREFIX.length()).replace("-", "").replace(" ", "")
+	var prefix := PREFIX if upper.begins_with(PREFIX) else ""
+	if prefix.is_empty():
+		for old in OLD_PREFIXES:
+			if upper.begins_with(old):
+				prefix = old
+				break
+	if not prefix.is_empty():
+		var chars := upper.substr(prefix.length()).replace("-", "").replace(" ", "")
 		# Crockford: accept look-alikes.
 		chars = chars.replace("O", "0").replace("I", "1").replace("L", "1")
 		if chars.length() == 6:
 			for c in chars:
 				if not ALPHABET.contains(c):
 					return {"error": "that invite code has a wrong character"}
-			return {"hub_code": "VC-%s-%s" % [chars.substr(0, 3), chars.substr(3)]}  # a hub code: ask the hub
+			return {"hub_code": "%s%s-%s" % [PREFIX, chars.substr(0, 3), chars.substr(3)]}  # a hub code: ask the hub
 		if chars.length() != 11:
 			return {"error": "that invite code is not complete"}
 		for c in chars:

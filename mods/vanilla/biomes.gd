@@ -23,7 +23,7 @@ func setup(mod_api) -> void:
 func _blocks() -> void:
 	var soft := {"break": "base:grass", "place": "base:grass", "step": "base:soft_step"}
 	var wood := {"break": "base:wood", "place": "base:wood", "step": "base:wood_step"}
-	api.register_block("mycelium", {"display_name": "Mycelium", "sounds": soft, "hardness": 0.6, "tool": "shovel", "drops": "base:dirt",
+	api.register_block("mycelium", {"display_name": "Sporeturf", "sounds": soft, "hardness": 0.6, "tool": "shovel", "drops": "base:dirt",
 		"textures": {"all": "textures/mycelium_side.png", "top": "textures/mycelium_top.png", "bottom": "base:textures/dirt.png"}})
 	api.register_block("mushroom_cap", {"display_name": "Mushroom Cap", "textures": "textures/mushroom_cap.png", "sounds": soft, "hardness": 0.3, "drops": "vanilla:red_mushroom"})
 	api.register_block("mushroom_stem", {"display_name": "Mushroom Stem", "textures": "textures/mushroom_stem.png", "sounds": wood, "hardness": 0.3})
@@ -85,7 +85,7 @@ func _biomes() -> void:
 		"features": [{"feature": "spruce", "per_chunk": 5.0}, {"feature": "boulder", "per_chunk": 0.15}],
 		"plants": [{"block": "base:fern", "chance": 0.1, "on": ["base:grass"]}, {"block": "base:tall_grass", "chance": 0.05, "on": ["base:grass"]}],
 		"spawn_tags": ["wolves"]})
-	api.register_biome("snowy_tundra", {"display_name": "Snowy Tundra", "climate": {"temperature": -0.65, "humidity": -0.25}, "height": {"base": 53, "variation": 3},
+	api.register_biome("snowy_tundra", {"display_name": "Frozen Steppe", "climate": {"temperature": -0.65, "humidity": -0.25}, "height": {"base": 53, "variation": 3},
 		"surface": {"top": "base:snow", "filler": "base:dirt", "beach": "base:snow"}, "features": [{"feature": "spruce", "per_chunk": 0.25}]})
 	api.register_biome("desert", {"climate": {"temperature": 0.6, "humidity": -0.5}, "height": {"base": 52, "variation": 4},
 		"surface": {"top": "base:sand", "filler": "base:sandstone", "depth": 4, "underwater": "base:sand"},
@@ -102,7 +102,7 @@ func _biomes() -> void:
 		"features": [{"feature": "spruce", "per_chunk": 0.6}, {"feature": "boulder", "per_chunk": 0.3}],
 		"plants": [{"block": "base:tall_grass", "chance": 0.05, "on": ["base:grass"]}]})
 	# Fantasy biomes: rare, at the far ends of weirdness.
-	api.register_biome("mushroom_fields", {"display_name": "Glowing Mushroom Fields", "climate": {"temperature": 0.3, "humidity": 0.55, "weirdness": 0.8},
+	api.register_biome("mushroom_fields", {"display_name": "Glowcap Flats", "climate": {"temperature": 0.3, "humidity": 0.55, "weirdness": 0.8},
 		"height": {"base": 50, "variation": 5}, "surface": {"top": "vanilla:mycelium", "beach": "vanilla:mycelium", "water": "vanilla:glowing_water"},
 		"features": [{"feature": "huge_mushroom", "per_chunk": 1.2}, {"feature": "huge_glowcap", "per_chunk": 0.8}],
 		"plants": [{"block": "vanilla:red_mushroom", "chance": 0.04, "on": ["vanilla:mycelium"]}, {"block": "vanilla:glow_mushroom", "chance": 0.05, "on": ["vanilla:mycelium"]}]})

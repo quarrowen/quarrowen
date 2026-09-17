@@ -60,7 +60,7 @@ func setup(mod_api) -> void:
 
 func _register_items() -> void:
 	ids.beef = api.register_item("raw_beef", {"display_name": "Raw Beef", "icon": "textures/raw_beef.png", "food": {"hunger": 3, "saturation": 1.8, "color": "#c04040"}})
-	ids.steak = api.register_item("steak", {"display_name": "Steak", "icon": "textures/steak.png", "food": {"hunger": 8, "saturation": 12.8, "color": "#80502c"}})
+	ids.steak = api.register_item("steak", {"display_name": "Cooked Beef", "icon": "textures/steak.png", "food": {"hunger": 8, "saturation": 12.8, "color": "#80502c"}})
 	ids.raw_chicken = api.register_item("raw_chicken", {"display_name": "Raw Chicken", "icon": "textures/raw_chicken.png",
 		"food": {"hunger": 2, "saturation": 1.2, "color": "#f0b8a0",
 			"effects": [{"stat": "hunger_drain", "amount": 0.5, "seconds": 30, "chance": 0.3, "message": "Food poisoning!"}]}})

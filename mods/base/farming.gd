@@ -28,7 +28,7 @@ func setup(mod_api, sounds: Dictionary) -> void:
 			"render": "plant", "sway": true, "hardness": 0.0, "placeable": false, "support": ["base:farmland"],
 			"drops": "", "sounds": sounds.grass}))
 	ids.wheat_stages = wheat
-	ids.tall_grass = api.register_block("tall_grass", {"display_name": "Tall Grass", "textures": "textures/tall_grass.png",
+	ids.tall_grass = api.register_block("tall_grass", {"display_name": "Long Grass", "textures": "textures/tall_grass.png",
 		"render": "plant", "sway": true, "hardness": 0.0, "support": soil, "drops": "", "replaceable": true, "sounds": sounds.grass})
 	for flower in ["poppy", "dandelion"]:
 		ids[flower] = api.register_block(flower, {"textures": "textures/%s.png" % flower, "render": "plant", "sway": true,
@@ -50,7 +50,7 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	# Found by experimenting: arranged in the crafting grid (see the recipe patterns).
 	api.register_block("torch", {"display_name": "Torch", "textures": "textures/torch.png", "render": "plant", "light": 14,
 		"hardness": 0.0, "support": "solid", "sounds": sounds.grass})
-	api.register_block("hay_bale", {"display_name": "Hay Bale", "sounds": sounds.grass, "hardness": 0.5,
+	api.register_block("hay_bale", {"display_name": "Straw Bale", "sounds": sounds.grass, "hardness": 0.5,
 		"textures": {"top": "textures/hay_bale_top.png", "bottom": "textures/hay_bale_top.png", "side": "textures/hay_bale_side.png"}})
 	api.register_recipe({}, "base:hay_bale", 1, {"pattern": ["WWW", "WWW", "WWW"], "key": {"W": "base:wheat"}, "unlock": "experiment",
 		"category": "blocks", "hint": "A whole grid of the harvest, bundled."})

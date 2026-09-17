@@ -1689,11 +1689,8 @@ func kill_player(p: ServerPlayer, cause: String, attacker) -> void:
 		attacker_name = String(attacker.name)
 	elif attacker != null and attacker.get("def") != null:
 		attacker_name = String(attacker.def.display_name)
-	var messages := {"fall": "%s fell from a high place", "void": "%s fell out of the world", "starvation": "%s starved to death",
-		"attack": "%s was slain by %s", "mob": "%s was slain by %s", "projectile": "%s was shot by %s"}
-	var message := "%s died" % p.name
-	if messages.has(cause) and (not attacker_name.is_empty() or String(messages[cause]).count("%s") == 1):
-		message = messages[cause] % ([p.name, attacker_name] if String(messages[cause]).count("%s") == 2 else [p.name])
+	var attacker_type := str(attacker.def.name) if attacker != null and attacker.get("def") != null else ""
+	var message := _death_message(p.name, cause, attacker_name, attacker_type)
 	var ev := emit("player_death", {"player": p, "cause": cause, "attacker": attacker,
 		"keep_inventory": gameplay.keep_inventory, "message": message})
 	p.health = 0.0
@@ -1713,7 +1710,7 @@ func kill_player(p: ServerPlayer, cause: String, attacker) -> void:
 	play_sound_at("engine:death", p.get_eye_position())
 	# Tell the player what happened to them and to their things, in that order. "You died!" on its own
 	# leaves a child wondering what they did wrong and whether they have lost everything.
-	var reasons := {"fall": "You fell from a high place", "void": "You fell out of the world",
+	var reasons := {"fall": "You landed hard", "void": "You dropped off the edge of the world",
 		"starvation": "You were too hungry", "attack": "You were beaten in a fight", "mob": "You were beaten in a fight",
 		"projectile": "You were shot", "lava": "You burned", "fire": "You burned", "drowning": "You ran out of air"}
 	var belongings := "Your things are safe" if ev.keep_inventory or p.inventory.creative \
@@ -2102,7 +2099,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 			Net.s_player_appearance.rpc_id(other.peer_id, peer_id, p.appearance)
 	if not server_info.motd.is_empty():
 		p.send_message(server_info.motd)
-	broadcast_chat("%s joined the game" % player_name)
+	broadcast_chat("%s is here" % player_name)
 	print("[server] %s joined (peer %d, player id %s%s)" % [player_name, peer_id, player_id, ", admin" if is_admin(p) else ""])
 	emit("player_join", {"player": p, "first_time": first_time})
 	transfers.settle_escrow(p, not transfer.is_empty())
@@ -2140,7 +2137,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	if p.get_meta("transferring", false):
 		broadcast_chat("%s travelled to %s" % [p.name, p.get_meta("transferring")])
 	else:
-		broadcast_chat("%s left the game" % p.name)
+		broadcast_chat("%s has gone" % p.name)
 	print("[server] %s left (peer %d)" % [p.name, peer_id])
 
 
@@ -2412,6 +2409,66 @@ func find_block_data(block := -1) -> Array[Vector3i]:
 			if block < 0 or world.get_block_v(pos) == block:
 				out.append(pos)
 	return out
+
+
+## What the server says when somebody dies. A few of each, picked at random and never the same one twice
+## in a row, so it stays light rather than becoming a drone - dying is already annoying enough.
+##
+## The rules these follow, for whoever adds more: say what happened, never who deserved it. Nothing about
+## how anyone looks, speaks, believes, or who they are; no teasing, no "noob", no gloating on a mob's
+## behalf. A child reading their own name in chat should smile, and so should the one who killed them.
+const DEATH_LINES := {
+	"fall": ["%s landed hard", "%s found the ground in a hurry", "%s forgot about gravity", "%s tried flying"],
+	"void": ["%s dropped off the edge of the world", "%s went looking for the bottom", "%s fell out of everything"],
+	"starvation": ["%s ran out of food", "%s should have packed a snack", "%s went hungry"],
+	"drowning": ["%s ran out of air", "%s stayed under too long", "%s forgot to come up"],
+	"lava": ["%s found the hot rock", "%s went for a swim in the wrong thing"],
+	"fire": ["%s got too warm", "%s should have stepped back"],
+	"explosion": ["%s was standing a bit too close", "%s heard the bang from very nearby"],
+	"attack": ["%s lost a fight with %s", "%s came second to %s", "%s was no match for %s today"],
+	"mob": ["%s lost a fight with %s", "%s was caught out by %s", "%s met %s and did not come back"],
+	"projectile": ["%s was hit by an arrow from %s", "%s did not see %s taking aim"],
+	"magic": ["%s was out-sparkled by %s", "%s ran into something magical"],
+	"": ["%s died", "%s is having a day of it", "%s needs a moment"],
+}
+## The last line used for each pool, so the same one never comes round twice running.
+var _last_death_line := {}
+## Lines mods added, by cause ("lava") or by the entity that did it ("mymod:dragon"). Theirs are used
+## alongside the engine's, so a mod colours its own mobs without taking the rest away.
+var _mod_death_lines := {}
+
+
+## Adds ways of saying somebody died (see ModApi.add_death_messages). `key` is a cause, or the name of an
+## entity so a mod's own mob gets its own send-off; "%s" is the player, and a second "%s" is what did it.
+func add_death_messages(key: String, lines: Array) -> void:
+	var clean := []
+	for line in lines:
+		var text := str(line).strip_edges().left(160)
+		if text.count("%s") in [1, 2] and not text.is_empty():
+			clean.append(text)
+	if clean.is_empty():
+		return
+	var existing: Array = _mod_death_lines.get(key, [])
+	existing.append_array(clean)
+	_mod_death_lines[key] = existing
+
+
+func _death_message(who: String, cause: String, attacker_name: String, attacker_type := "") -> String:
+	# A mod's lines for its own mob come first, then anything it added for this cause, then the engine's.
+	var lines: Array = []
+	if not attacker_type.is_empty():
+		lines.append_array(_mod_death_lines.get(attacker_type, []))
+	lines.append_array(_mod_death_lines.get(cause, []))
+	lines.append_array(DEATH_LINES.get(cause, DEATH_LINES[""]))
+	# A line naming the attacker is no use when there is not one.
+	var usable: Array = lines.filter(func(line): return not attacker_name.is_empty() or String(line).count("%s") == 1)
+	if usable.is_empty():
+		usable = DEATH_LINES[""]
+	var pool := attacker_type if not attacker_type.is_empty() else cause
+	var fresh: Array = usable.filter(func(line): return line != _last_death_line.get(pool, ""))
+	var line: String = str((fresh if not fresh.is_empty() else usable).pick_random())
+	_last_death_line[pool] = line
+	return line % ([who, attacker_name] if line.count("%s") == 2 else [who])
 
 
 ## A find worth noticing: a sparkle where it landed, a sound for whoever found it, and a line in chat so

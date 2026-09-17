@@ -1255,6 +1255,18 @@ func broadcast(text: String) -> void:
 	_server.broadcast_chat(text)
 
 
+## More ways of saying that somebody died, so a mod’s own mobs get their own send-off rather than the
+## engine’s general one. `key` is a cause ("lava", "fall", "magic") or the name of an entity; the first
+## "%s" is the player and a second one is whatever did it. One is picked at random, never the same twice
+## running, alongside the lines already there.
+##
+##   api.add_death_messages("mymod:dragon", ["%s was toasted by %s", "%s argued with %s and lost"])
+##
+## Keep them kind: say what happened, never what anyone is like. Children read these about themselves.
+func add_death_messages(key: String, lines: Array) -> void:
+	_server.add_death_messages(_qualify_ref(key), lines)
+
+
 # --- Settings -----------------------------------------------------------------------------------
 
 ## Declares the settings a host may change without editing this mod, as {key: definition}. Each

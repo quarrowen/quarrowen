@@ -2,7 +2,7 @@ extends RefCounted
 ## Player character rigs as plain data, so servers can replace the engine's default body.
 ##
 ## Units are pixels of the skin texture layout: the default body is 32 px tall and 1.8 blocks, so one
-## pixel is 0.05625 blocks. Skins, clothing and armor textures use the standard 64x64 Minecraft skin
+## pixel is 0.05625 blocks. Skins, clothing and armor textures use a 64x64 unfolded-box skin
 ## layout (skin editors work as is); a rig maps each part to a region of that layout, so outfits do
 ## not depend on how many parts a rig has. The default rig splits arms and legs at the elbows and
 ## knees for better animation; the upper part samples the top half of the limb's region and the lower

@@ -581,7 +581,7 @@ func _build_multiplayer() -> Control:
 	var direct := HBoxContainer.new()
 	page.add_child(direct)
 	_direct_edit = LineEdit.new()
-	_direct_edit.placeholder_text = "Server address or invite code (VC-…)"
+	_direct_edit.placeholder_text = "Server address or invite code (QW-…)"
 	_direct_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_direct_edit.text_submitted.connect(func(_t): _join_direct())
 	direct.add_child(_direct_edit)
@@ -1148,7 +1148,9 @@ func _build_settings() -> Control:
 	account.add_child(HSeparator.new())
 	account.add_child(MenuTheme.heading("Version", 20))
 	account.add_child(MenuTheme.muted("Quarrowen %s" % Protocol.GAME_VERSION, 14))
-	var independent := MenuTheme.muted("An independent project, not affiliated with Mojang or Microsoft. Built with Claude Code.", 12)
+	var independent := MenuTheme.muted("Quarrowen is an independent project and is not affiliated with, endorsed by or connected to "
+		+ "Mojang Synergies AB, Microsoft or Roblox Corporation. Minecraft is a trademark of Mojang Synergies AB; "
+		+ "Roblox is a trademark of Roblox Corporation.\n\nBuilt from scratch with Claude Code.", 12)
 	independent.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	independent.custom_minimum_size.x = 300
 	account.add_child(independent)

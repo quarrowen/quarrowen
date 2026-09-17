@@ -70,9 +70,9 @@ func setup(api) -> void:
 	api.register_tip("died", {"text": "You died. Sleep in a bed (or just right-click one) to respawn next to it.",
 		"icon": "base:bed", "page": "base:beds", "trigger": {"type": "respawn"}})
 	# Points at the route that is actually open. Iron tools by recipe need an anvil, and an anvil needs
-	# plans that drop from skeletons - a wall a child can sit behind for hours. The Tool Forge needs no
+	# plans that drop from skeletons - a wall a child can sit behind for hours. The Toolsmith’s Bench needs no
 	# plans at all, and it is where the parts, traits and quality stars live.
-	api.register_tip("iron_tools", {"text": "Iron! Build a [b]Tool Forge[/b] (cobblestone, iron and planks) and put your own pickaxe together from parts - each material gives it a different knack.",
+	api.register_tip("iron_tools", {"text": "Iron! Build a [b]Toolsmith’s Bench[/b] (cobblestone, iron and planks) and put your own pickaxe together from parts - each material gives it a different knack.",
 		"icon": "base:tool_forge", "page": "base:tool_forge", "trigger": {"type": "pickup", "target": "base:iron_ingot"}})
-	api.register_tip("first_parts", {"text": "Parts made. Stand at the Tool Forge and open [b]Assemble[/b] to put them together - and hammer it by hand for a chance at [b]Masterwork[/b].",
+	api.register_tip("first_parts", {"text": "Parts made. Stand at the Toolsmith’s Bench and open [b]Assemble[/b] to put them together - and hammer it by hand for a chance at [b]Masterwork[/b].",
 		"icon": "base:tool_forge", "page": "base:by_hand", "trigger": {"type": "craft", "target": "base:*_head"}})

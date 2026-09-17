@@ -81,7 +81,7 @@ func _run() -> void:
 	client.resolve_code(code.replace("-", " "))
 	var resolved: Array = await client.code_resolved
 	_check(resolved[1] == "" and resolved[0].address == "127.0.0.1" and resolved[0].port == game_port and resolved[0].online, "a hub code resolves to the server")
-	client.resolve_code("VC-000-000")
+	client.resolve_code("QW-000-000")
 	var missing: Array = await client.code_resolved
 	_check(not missing[1].is_empty(), "an unknown code is an error")
 	client.fetch_news()

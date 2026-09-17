@@ -248,6 +248,7 @@ func _call_host(method: String, a: Array):
 		"registerStructureTemplate": return api.register_structure_template(_str(a, 0), a[1] if a.size() > 1 and (a[1] is String or a[1] is Dictionary) else "")
 		"registerStructure": api.register_structure(_str(a, 0), _dict(a, 1))
 		"registerLoot": api.register_loot(_str(a, 0), _dict(a, 1))
+		"addDeathMessages": api.add_death_messages(_str(a, 0), a[1] if a.size() > 1 and a[1] is Array else [])
 		"extendLoot": api.extend_loot(_str(a, 0), _dict(a, 1))
 		"rollLoot": return api.roll_loot(_str(a, 0), _dict(a, 1))
 		"lootSources": return api.loot_sources(_str(a, 0))

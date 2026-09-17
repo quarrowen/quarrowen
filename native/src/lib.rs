@@ -12,10 +12,10 @@ mod process;
 mod snapshot;
 mod world;
 
-struct VoxelcraftNative;
+struct QuarrowenNative;
 
 #[gdextension]
-unsafe impl ExtensionLibrary for VoxelcraftNative {}
+unsafe impl ExtensionLibrary for QuarrowenNative {}
 
 /// Chunk dimensions shared with engine/shared/chunk.gd.
 pub const SIZE_X: i32 = 16;
