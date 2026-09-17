@@ -257,7 +257,10 @@ func _block_shapes() -> void:
 		i.jump = t % 20 == 0
 		i.yaw = 0.0
 		PlayerPhysics.step(p.state, i, server.world, server.rules)
-	_check(p.state.position.z > o.z - 1.2, "a fence keeps a jumping player in (z %.1f)" % (p.state.position.z - o.z))
+	# Names the form it ended up as: a run of five joins up, so the one being jumped is base:fence_ew.
+	var fence_here: int = server.world.get_block_v(o + Vector3i(0, 1, -2))
+	_check(p.state.position.z > o.z - 1.2, "a fence keeps a jumping player in, joined up or not (%s, z %.1f)" % [
+		server.registry.defs[fence_here].name, p.state.position.z - o.z])
 	server.queue_free()
 	await get_tree().process_frame
 
@@ -3704,6 +3707,25 @@ func _doors_and_windows() -> void:
 	# Breaking one half takes the other, and gives back one door rather than two.
 	server.break_block(at + Vector3i.UP)
 	_check(server.world.get_block_v(at) == 0, "breaking the top half takes the bottom with it")
+
+	# Fences join up with their neighbours, which is what makes a run of them read as a fence.
+	var post: int = server.registry.id_of("base:fence")
+	var line := Vector3i(30, 70, 30)
+	server._ensure_chunk(Vector2i(1, 1))
+	for i in 3:
+		server.set_block_authoritative(line + Vector3i(0, -1, i), server.registry.id_of("base:stone"))
+	server.set_block_authoritative(line, post)
+	_check(server.world.get_block_v(line) == post, "a lone fence is a post on its own")
+	server.set_block_authoritative(line + Vector3i(0, 0, 1), post)
+	var joined: int = server.world.get_block_v(line)
+	_check(joined != post, "putting one beside it makes the first reach out to it (%s)" % server.registry.defs[joined].name)
+	_check(str(server.registry.defs[joined].name).ends_with("_s"), "towards the side the new one is on")
+	server.set_block_authoritative(line + Vector3i(0, 0, 2), post)
+	var middle: int = server.world.get_block_v(line + Vector3i(0, 0, 1))
+	_check(str(server.registry.defs[middle].name).contains("n") and str(server.registry.defs[middle].name).contains("s"),
+		"and one in the middle of a run reaches both ways (%s)" % server.registry.defs[middle].name)
+	server.set_block_authoritative(line + Vector3i(0, 0, 1), 0)
+	_check(server.world.get_block_v(line) == post, "taking one away leaves the rest standing on their own again")
 	server.queue_free()
 	await get_tree().process_frame
 

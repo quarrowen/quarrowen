@@ -161,7 +161,23 @@ func _register_shapes(api, sounds: Dictionary) -> void:
 			api.register_block("%s_stairs_%s" % [material.id, facings[i]], stairs)
 		api.register_recipe({String(material.from): 6}, variant_names[0], 4, {"station": "crafting_table"})
 
-	var fence := {"display_name": "Fence", "textures": api.block_textures("base:planks"), "sounds": sounds.get("wood", {}),
-		"shape": "fence", "hardness": 1.2, "tool": "axe", "render": "cutout"}
-	api.register_block("fence", fence)
+	# A fence joins up with whatever is beside it: sixteen forms, one per combination of the four sides,
+	# swapped by the engine when anything next to it changes (engine/server/connect.gd). Only the lone
+	# post is ever carried, and every form drops that one.
+	var sides := ["n", "e", "s", "w"]
+	var forms := []
+	for mask in 16:
+		var suffix := ""
+		for bit in 4:
+			if mask & (1 << bit):
+				suffix += sides[bit]
+		forms.append("base:fence" if suffix.is_empty() else "base:fence_%s" % suffix)
+	for mask in 16:
+		var fence := {"display_name": "Fence", "textures": api.block_textures("base:planks"),
+			"sounds": sounds.get("wood", {}), "hardness": 1.2, "tool": "axe", "render": "cutout",
+			"connect_group": "fence", "connects": forms, "drops": "base:fence",
+			"shape": "fence_%s" % (forms[mask].get_slice("_", 1) if mask > 0 else "post")}
+		if mask > 0:
+			fence.placeable = false  # placing the post is enough; it joins up by itself
+		api.register_block(forms[mask].get_slice(":", 1), fence)
 	api.register_recipe({"base:planks": 4, "base:stick": 2}, "base:fence", 3, {"station": "crafting_table"})

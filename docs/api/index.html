@@ -59,6 +59,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#ref-mod-script">Mod script</a>
 <a href="#ref-version-ranges">Version ranges</a>
 <a href="#ref-blocks">Blocks</a>
+<a href="#ref-blocks-that-join-up">Blocks that join up</a>
 <a href="#ref-items">Items</a>
 <a href="#ref-entities">Entities</a>
 <a href="#ref-mob-ai-settings">Mob AI settings</a>
@@ -621,6 +622,20 @@ Ranges (npm-style, the common subset):
 Pre-releases sort before their release (1.0.0-beta &lt; 1.0.0).</pre></section>
 <section id="ref-blocks" class="ref"><h2>Blocks <span class="file">engine/shared/block_registry.gd</span></h2><pre class="block">Runtime block table. The server builds it from mod registrations; clients rebuild it from the
 plain-data copy the server sends. Block ids are u16: 0 is air, 65535 marks unloaded chunks.</pre></section>
+<section id="ref-blocks-that-join-up" class="ref"><h2>Blocks that join up <span class="file">engine/server/connect.gd</span></h2><pre class="block">Blocks that notice their neighbours: fences that join into a run, walls that meet at a corner, panes
+that make a window rather than four separate sheets of glass.
+
+A block declares the sixteen forms it can take - one per combination of the four sides it might join
+on to - and the engine swaps between them whenever anything beside it changes:
+
+    api.register_block(&quot;fence&quot;, {..., &quot;connects&quot;: [&quot;base:fence_post&quot;, &quot;base:fence_n&quot;, ...]})
+
+The list is in bit order: north 1, east 2, south 4, west 8, so entry 5 is the one joined north and
+south. `mods/base/openings.gd` builds the list rather than writing it out.
+
+Why shapes and ids rather than a state byte: the mesher and the physics both read the shape from the
+block id alone (see BlockRegistry.SHAPE_BOXES), which keeps what a player sees and what they walk into
+the same thing by construction. The cost is sixteen ids per material, which is cheap.</pre></section>
 <section id="ref-items" class="ref"><h2>Items <span class="file">engine/shared/item_registry.gd</span></h2><pre class="block">Items. Every block id (1-65534) is implicitly also the item that places it; non-block items (coal,
 tools, armor, wands, ...) get ids from FIRST_ITEM upward. Inventories store these ids.
 

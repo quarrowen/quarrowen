@@ -106,6 +106,30 @@ run_scene() { # name log scene [user args...]
   done
 }
 
+# Rust links through Apple's `cc`, which is a shim for whatever xcode-select points at. When that is a
+# full Xcode whose licence has not been accepted, every tool it fronts refuses to run - including git and
+# the linker - and the failure looks like a broken build rather than a missing agreement. The standalone
+# Command Line Tools have no such gate, so use them when they are there.
+if [ -z "${DEVELOPER_DIR:-}" ] && [ -d /Library/Developer/CommandLineTools ] \
+    && ! xcrun --find cc >/dev/null 2>&1; then
+  export DEVELOPER_DIR=/Library/Developer/CommandLineTools
+  echo "note: using the Command Line Tools for Rust (Xcode's licence is unaccepted)"
+fi
+
+# The GDExtension is a built artifact checked in under native/bin, so a source edit does not reach the
+# tests until somebody rebuilds it. Running anyway is worse than not running at all: the suite reports
+# on a library nobody is writing any more, and a real divergence between the Rust and its GDScript twin
+# passes green. So rebuild when the source is newer, and stop if that rebuild fails.
+if [ "${VOXEL_NATIVE:-1}" != "0" ] && command -v cargo >/dev/null 2>&1; then
+  lib="$(command ls native/bin/*/libquarrowen_native.dylib native/bin/*/libquarrowen_native.so 2>/dev/null | head -1)"
+  if [ -z "$lib" ] || [ -n "$(find native/src native/Cargo.toml -newer "$lib" 2>/dev/null)" ]; then
+    echo "native library is behind native/src; rebuilding"
+    if ! tools/build_native.sh >"$WORK/native_build.log" 2>&1; then
+      echo "FAIL native build" && tail -25 "$WORK/native_build.log" && exit 1
+    fi
+  fi
+fi
+
 # Servers are only needed by the end-to-end tests.
 needs_servers() {
   local t
@@ -160,16 +184,6 @@ for extra in tests/host_flow_test.tscn tests/reload_test.tscn tests/transfer_tes
   [ -f "$extra" ] && run_scene "$(basename "$extra" .tscn)" "$WORK/$(basename "$extra" .tscn).log" "res://$extra"
 done
 # The hub service (Rust) with a real game server; skipped when cargo is not installed.
-#
-# Rust links through Apple's `cc`, which is a shim for whatever xcode-select points at. When that is a
-# full Xcode whose licence has not been accepted, every tool it fronts refuses to run - including git and
-# the linker - and the failure looks like a broken build rather than a missing agreement. The standalone
-# Command Line Tools have no such gate, so use them when they are there.
-if [ -z "${DEVELOPER_DIR:-}" ] && [ -d /Library/Developer/CommandLineTools ] \
-    && ! xcrun --find cc >/dev/null 2>&1; then
-  export DEVELOPER_DIR=/Library/Developer/CommandLineTools
-  echo "note: using the Command Line Tools for Rust (Xcode's licence is unaccepted)"
-fi
 if command -v cargo >/dev/null 2>&1 && (selected hub-unit || selected hub); then
   if cargo build --release --manifest-path services/hub/Cargo.toml >"$WORK/hub_build.log" 2>&1 \
       && cargo test --release --manifest-path services/hub/Cargo.toml >"$WORK/hub_unit.log" 2>&1; then

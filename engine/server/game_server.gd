@@ -56,6 +56,7 @@ const Explosions = preload("res://engine/server/explosions.gd")
 const Loot = preload("res://engine/server/loot.gd")
 const Spawners = preload("res://engine/server/spawners.gd")
 const StructureTools = preload("res://engine/server/structure_tools.gd")
+const Connect = preload("res://engine/server/connect.gd")
 const Assembly = preload("res://engine/shared/assembly.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
@@ -225,6 +226,8 @@ var explosions := Explosions.new(self)
 var loot := Loot.new(self)
 var spawners := Spawners.new(self)
 var structure_tools := StructureTools.new(self)
+## Blocks that notice their neighbours: fences joining into a run, panes into a window.
+var connect := Connect.new(self)
 ## Materials, parts and tools built from parts (see Assembly).
 var assembly := Assembly.new()
 var _snapshot_round := 0
@@ -4073,6 +4076,8 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0) -> 
 			containers.block_removed(pos, get_block_data(pos), old)
 		clear_block_data(pos)
 	block_ticks.block_changed(pos, old, block)
+	if old != block:
+		connect.refresh_around(pos)
 	# Removing one half of a two-block piece removes the other (its drops come from the half broken).
 	if old != block and registry.defs[old].get("pair") is Dictionary:
 		var other: Vector3i = pos + pair_offset(registry.defs[old].pair, old_state)

@@ -30,13 +30,30 @@ const NETWORK_FIELDS := ["name", "display_name", "render", "solid", "liquid", "c
 ## Stairs face a direction, so each facing is its own shape (and its own block id): no per-block state
 ## has to reach the mesher or the physics.
 enum Shape { FULL, SLAB_BOTTOM, SLAB_TOP, STAIRS_NORTH, STAIRS_EAST, STAIRS_SOUTH, STAIRS_WEST, FENCE,
-	DOOR_NORTH, DOOR_EAST, DOOR_SOUTH, DOOR_WEST, PANE_X, PANE_Z }
+	DOOR_NORTH, DOOR_EAST, DOOR_SOUTH, DOOR_WEST, PANE_X, PANE_Z,
+	FENCE_POST, FENCE_N, FENCE_E, FENCE_NE, FENCE_S, FENCE_NS, FENCE_ES, FENCE_NES, FENCE_W, FENCE_NW, FENCE_EW, FENCE_NEW, FENCE_SW, FENCE_NSW, FENCE_ESW, FENCE_NESW }
 const SHAPE_NAMES := {
 	"full": Shape.FULL, "slab": Shape.SLAB_BOTTOM, "slab_bottom": Shape.SLAB_BOTTOM, "slab_top": Shape.SLAB_TOP,
 	"stairs_north": Shape.STAIRS_NORTH, "stairs_east": Shape.STAIRS_EAST, "stairs_south": Shape.STAIRS_SOUTH,
 	"stairs_west": Shape.STAIRS_WEST, "fence": Shape.FENCE,
 	"door_north": Shape.DOOR_NORTH, "door_east": Shape.DOOR_EAST, "door_south": Shape.DOOR_SOUTH,
 	"door_west": Shape.DOOR_WEST, "pane_x": Shape.PANE_X, "pane_z": Shape.PANE_Z,
+	"fence_post": Shape.FENCE_POST,
+	"fence_n": Shape.FENCE_N,
+	"fence_e": Shape.FENCE_E,
+	"fence_ne": Shape.FENCE_NE,
+	"fence_s": Shape.FENCE_S,
+	"fence_ns": Shape.FENCE_NS,
+	"fence_es": Shape.FENCE_ES,
+	"fence_nes": Shape.FENCE_NES,
+	"fence_w": Shape.FENCE_W,
+	"fence_nw": Shape.FENCE_NW,
+	"fence_ew": Shape.FENCE_EW,
+	"fence_new": Shape.FENCE_NEW,
+	"fence_sw": Shape.FENCE_SW,
+	"fence_nsw": Shape.FENCE_NSW,
+	"fence_esw": Shape.FENCE_ESW,
+	"fence_nesw": Shape.FENCE_NESW,
 }
 ## The boxes each shape fills: [x0, y0, z0, x1, y1, z1] in block space. Stairs are the bottom slab plus the
 ## half that stands up, named after the side that half is on: north stairs are high at north (-z), so you
@@ -61,6 +78,24 @@ const SHAPE_BOXES := {
 	# A pane stands in the middle of its cell: glass, bars, a shutter. Named for the axis it runs along.
 	Shape.PANE_X: [[0.4375, 0.0, 0.0, 0.5625, 1.0, 1.0]],
 	Shape.PANE_Z: [[0.0, 0.0, 0.4375, 1.0, 1.0, 0.5625]],
+	# A fence that knows its neighbours: the post, plus a rail towards each side it joins on to. Which of
+	# the sixteen a fence is gets worked out when anything next to it changes (engine/server/connect.gd).
+	Shape.FENCE_POST: [[0.375, 0, 0.375, 0.625, 1.5, 0.625]],
+	Shape.FENCE_N: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.4375, 0.375, 0, 0.5625, 1.3125, 0.375]],
+	Shape.FENCE_E: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.625, 0.375, 0.4375, 1, 1.3125, 0.5625]],
+	Shape.FENCE_NE: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.4375, 0.375, 0, 0.5625, 1.3125, 0.375], [0.625, 0.375, 0.4375, 1, 1.3125, 0.5625]],
+	Shape.FENCE_S: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.4375, 0.375, 0.625, 0.5625, 1.3125, 1]],
+	Shape.FENCE_NS: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.4375, 0.375, 0, 0.5625, 1.3125, 0.375], [0.4375, 0.375, 0.625, 0.5625, 1.3125, 1]],
+	Shape.FENCE_ES: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.625, 0.375, 0.4375, 1, 1.3125, 0.5625], [0.4375, 0.375, 0.625, 0.5625, 1.3125, 1]],
+	Shape.FENCE_NES: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.4375, 0.375, 0, 0.5625, 1.3125, 0.375], [0.625, 0.375, 0.4375, 1, 1.3125, 0.5625], [0.4375, 0.375, 0.625, 0.5625, 1.3125, 1]],
+	Shape.FENCE_W: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0, 0.375, 0.4375, 0.375, 1.3125, 0.5625]],
+	Shape.FENCE_NW: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.4375, 0.375, 0, 0.5625, 1.3125, 0.375], [0, 0.375, 0.4375, 0.375, 1.3125, 0.5625]],
+	Shape.FENCE_EW: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.625, 0.375, 0.4375, 1, 1.3125, 0.5625], [0, 0.375, 0.4375, 0.375, 1.3125, 0.5625]],
+	Shape.FENCE_NEW: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.4375, 0.375, 0, 0.5625, 1.3125, 0.375], [0.625, 0.375, 0.4375, 1, 1.3125, 0.5625], [0, 0.375, 0.4375, 0.375, 1.3125, 0.5625]],
+	Shape.FENCE_SW: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.4375, 0.375, 0.625, 0.5625, 1.3125, 1], [0, 0.375, 0.4375, 0.375, 1.3125, 0.5625]],
+	Shape.FENCE_NSW: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.4375, 0.375, 0, 0.5625, 1.3125, 0.375], [0.4375, 0.375, 0.625, 0.5625, 1.3125, 1], [0, 0.375, 0.4375, 0.375, 1.3125, 0.5625]],
+	Shape.FENCE_ESW: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.625, 0.375, 0.4375, 1, 1.3125, 0.5625], [0.4375, 0.375, 0.625, 0.5625, 1.3125, 1], [0, 0.375, 0.4375, 0.375, 1.3125, 0.5625]],
+	Shape.FENCE_NESW: [[0.375, 0, 0.375, 0.625, 1.5, 0.625], [0.4375, 0.375, 0, 0.5625, 1.3125, 0.375], [0.625, 0.375, 0.4375, 1, 1.3125, 0.5625], [0.4375, 0.375, 0.625, 0.5625, 1.3125, 1], [0, 0.375, 0.4375, 0.375, 1.3125, 0.5625]],
 }
 
 ## Face order used by `textures`: +X, -X, +Y (top), -Y (bottom), +Z, -Z.
@@ -128,7 +163,7 @@ func register(def: Dictionary, replace := false) -> int:
 	d.model = String(def.get("model", "")).left(256)
 	d.orientation = 1 if def.get("orientation") in ["horizontal", 1] else 0
 	d.shape = SHAPE_NAMES.get(String(def.get("shape", "full")), Shape.FULL) if def.get("shape") is String \
-		else clampi(int(def.get("shape", Shape.FULL)), 0, Shape.PANE_Z)
+		else clampi(int(def.get("shape", Shape.FULL)), 0, Shape.FENCE_NESW)
 	## Blocks whose shape faces a direction (stairs) name their four variants here, one per facing; placing
 	## this block places the one that faces the player. Each variant drops the block that is carried.
 	d.facing_blocks = (def.get("facing_blocks") as Array).map(func(n): return String(n)) \

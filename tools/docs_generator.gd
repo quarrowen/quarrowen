@@ -16,6 +16,7 @@ const REFERENCES := [
 	["Mod script", "res://engine/server/mod.gd"],
 	["Version ranges", "res://engine/shared/semver.gd"],
 	["Blocks", "res://engine/shared/block_registry.gd"],
+	["Blocks that join up", "res://engine/server/connect.gd"],
 	["Items", "res://engine/shared/item_registry.gd"],
 	["Entities", "res://engine/shared/entity_registry.gd"],
 	["Mob AI settings", "res://engine/server/ai/mob_config.gd"],
