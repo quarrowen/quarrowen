@@ -80,6 +80,7 @@ func recruit(player, entity_id: int) -> void:
 	e.data.owner = player.player_id
 	e.data.owner_name = player.name
 	api.storage.bramble_found = true  # the charter moves on to finding her a house
+	api.set_guide_flag(player, "met_bramble")  # her page fills in, now that there is somebody to write about
 	api.play_sound("engine:discover", e.body.position)
 	player.show_title("Bramble is coming with you", "She will need somewhere to live", 4.0)
 	api.broadcast("%s found Bramble, who is coming back to Hearthhold." % player.name)

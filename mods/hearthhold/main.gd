@@ -11,11 +11,13 @@ extends "res://engine/server/mod.gd"
 const Dwellings = preload("dwellings.gd")
 const Settlers = preload("settlers.gd")
 const Charter = preload("charter.gd")
+const Guide = preload("guide.gd")
 
 var api
 var dwellings := Dwellings.new()
 var settlers := Settlers.new()
 var charter := Charter.new()
+var guide := Guide.new()
 var ids := {}
 
 
@@ -28,6 +30,7 @@ func setup(mod_api) -> void:
 	var stone := {"break": "base:stone", "place": "base:stone", "step": "base:stone_step"}
 	dwellings.setup(api, {"stone": stone, "wood": {"break": "base:wood", "place": "base:wood", "step": "base:wood_step"}})
 	_register_hearth(stone)
+	guide.setup(api)
 	charter.setup(api, dwellings)
 	settlers.setup(api, dwellings)
 	_register_places()

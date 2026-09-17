@@ -3583,6 +3583,37 @@ func _hearthhold() -> void:
 	var again: Array = server.entities.in_radius(Vector3(camp[0], camp[1], camp[2]), 20.0,
 		server.entities.registry.id_of("hearthhold:bramble"))
 	_check(again.size() == 1, "and the valley is not built a second time when somebody else arrives")
+
+	# The whole of chapters one and two, in the order a child would do them.
+	mod.api.storage.clear()
+	var kid := ServerPlayer.new(server, 163, "Sam")
+	kid.player_id = "sam"
+	kid.edit_tokens = 1000.0
+	server.players[163] = kid
+	mod._build_the_valley(kid)
+	var home: Array = mod.api.storage.outpost
+	var hearth_at := Vector3i(home[0], home[1], home[2])
+	# The outpost's hearth is somewhere in the yard; find it the way a player would - by looking.
+	var unlit: int = server.registry.id_of("hearthhold:cold_hearth")
+	var found_hearth := Vector3i.MAX
+	for dx in range(-8, 9):
+		for dy in range(-2, 4):
+			for dz in range(-8, 9):
+				if server.world.get_block_v(hearth_at + Vector3i(dx, dy, dz)) == unlit:
+					found_hearth = hearth_at + Vector3i(dx, dy, dz)
+	_check(found_hearth != Vector3i.MAX, "the outpost has a cold hearth standing in it")
+	_check(str(mod.charter.current().get("id", "")) == "hearth", "and the charter asks for firewood")
+
+	# Chapter one: three logs light it.
+	kid.state.position = Vector3(found_hearth) + Vector3(0.5, 1.0, 1.5)
+	server.on_interact(163, found_hearth)
+	_check(server.world.get_block_v(found_hearth) == unlit, "an empty-handed player cannot light it")
+	kid.give(server.items.id_of("base:log"), 3)
+	server.on_interact(163, found_hearth)
+	_check(server.world.get_block_v(found_hearth) == server.registry.id_of("hearthhold:lit_hearth"),
+		"three logs light the hearth")
+	_check(kid.count_of(server.items.id_of("base:log")) == 0, "and the logs are spent")
+	_check(str(mod.charter.current().get("id", "")) == "night", "the charter moves on to the night")
 	server.queue_free()
 	await get_tree().process_frame
 
