@@ -390,6 +390,36 @@ Under the hood: one loot system behind mobs, blocks and chests (docs/loot.md), m
 other's tables, loot/*.json files for tuning without code, and mods.json is signed like update.json.
 
 
+## Alpha 4 (0.40.0) - built, not published
+
+Protocol 38: the shape table is something client and server have to agree on, so an older client is
+turned away rather than let in to rubber-band at every fence.
+
+What the kids get, over 0.39.0:
+
+- **Hearthhold**, a new game to start in: a valley whose light went out, an outpost somebody kept and
+  then stopped keeping, and a charter board that says what the place needs next. Light the hearth, see
+  the night out, find the woman who saw your smoke, and build her somewhere to live. The guide fills in
+  as they play, so read afterwards it is the story of what actually happened to them. (docs/hearthhold.md)
+- **Doors and windows.** Doors in every wood, two blocks tall, that open and shut and remember which way
+  they face; glass panes and iron bars that make a window rather than four separate sheets.
+- **Fences join up.** A run of fence is a run of fence now, not a line of separate posts, and it meets a
+  stone wall without a gap.
+- **Cooking.** A cooking pot, bowls, and six dishes that do more for you than the same food raw. It is a
+  station rather than a container, so the recipe book, discovery, co-op and the minigame all came free.
+- **The first session works.** New players land somewhere the tutorial will actually run, dying no longer
+  traps them behind a captured mouse, and every wood burns in a furnace rather than only oak.
+- **Death messages** that are varied, gentle and never repeat themselves twice running; mods can add
+  their own, including per-mob pools.
+
+For whoever runs the server: the Mac app is signed and notarized, so it opens on a fresh machine without
+right-click-Open or a trip through System Settings.
+
+Under the hood: `connects`/`connect_group` as block fields (any mod can have blocks that notice their
+neighbours), structure templates as JSON, a test that compares the GDScript shape table against the Rust
+one, and a suite that rebuilds the native library rather than quietly testing an old one.
+
+
 ## Planned capability: structures and maps as data
 
 Structures are already data: `mods/*/structures/*.json` with `{size, palette, blocks, data}`, built in
@@ -415,16 +445,14 @@ Worth doing after Hearthhold phase 1, alongside Story mode, since neither is muc
 
 ## Waiting on the machine (17 September 2026)
 
-Two one-liners in Terminal, then a batch of finished work can be verified and committed:
-
 ```sh
-sudo xcodebuild -license     # Xcode is the active developer directory and its licence is unaccepted,
-                             # so cc, git and every command line tool refuse to run
+sudo xcodebuild -license     # still worth doing: needed for iOS builds, which have no CLT fallback
 brew install ffmpeg          # to cut the showcase video here rather than in an editor that watermarks
 ```
 
-Until the first one is done: `git` cannot commit, and `hub` / `hub-unit` fail because Rust cannot link.
-Everything else in the tree is finished and tested; it is only the commit that is blocked.
+The licence is no longer blocking day to day work: `DEVELOPER_DIR=/Library/Developer/CommandLineTools`
+sidesteps it for git, Rust and the linker, and `tools/run_tests.sh` sets it itself when it sees the gate.
+Xcode proper is only needed for an iOS build, so the licence has to be accepted before the iPad milestone.
 
 ## Dates worth remembering
 
