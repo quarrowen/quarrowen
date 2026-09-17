@@ -390,6 +390,17 @@ Under the hood: one loot system behind mobs, blocks and chests (docs/loot.md), m
 other's tables, loot/*.json files for tuning without code, and mods.json is signed like update.json.
 
 
+## Dates worth remembering
+
+- **17 September 2031** - the macOS signing certificate (Developer ID Application) expires. Releases keep
+  building after that, but macOS stops trusting them until a new certificate is made and installed, plus
+  Apple's Developer ID G2 intermediate. See docs/distribution.md §2a.
+- The Apple Developer membership renews yearly; letting it lapse invalidates the certificate early.
+- The notarization credentials live in the keychain profile `quarrowen-notary` and depend on an
+  app-specific password. Revoking that password means running `notarytool store-credentials` again.
+- The release signing key (which the *game* checks, not macOS) does not expire, but losing it means
+  shipping a build with a new key before updates can resume - see docs/distribution.md §2b.
+
 ## Next milestones from this feedback
 
 1. **Client auto-update** (done): engine/client/updater.gd (manifest, checksum, install script) and

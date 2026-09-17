@@ -46,17 +46,34 @@ Two different signatures, easily confused:
 - **The app bundle** is signed with an **Apple Developer ID Application** certificate and notarized by
   Apple, so macOS opens it without the right-click dance. This is about the operating system trusting the
   download. `tools/package_mac.sh` does it when the certificate is in the keychain (and falls back to an
-  ad-hoc signature, with a message, when it is not). Team ID 9N6LK2SB78.
+  ad-hoc signature, with a message, when it is not).
 - **The update manifest** is signed with the project's own release key (§2b), which is about the *game*
   trusting an update. Neither replaces the other.
 
 ```sh
 xcrun notarytool store-credentials quarrowen-notary --apple-id <you@example.com> \
-  --team-id 9N6LK2SB78 --password <app-specific password>   # once
+  --team-id <TEAM ID> --password <app-specific password>   # once
 tools/make_release.sh                                        # signs, hardens, notarizes, staples
 ```
 
 `QUARROWEN_SKIP_NOTARIZE=1` signs without the (slow, online) notarization step, for a quick local build.
+The Team ID is in App Store Connect under Membership details; `security find-identity -v -p codesigning`
+shows the certificate once it is installed.
+
+**Two things expire.** The signing certificate lasts five years (the current one to **17 September 2031**,
+tracked in PROGRESS.md), and after that releases keep building but stop being trusted until a new one is
+made. The notarization credentials are tied to an app-specific password: revoke that password in the
+Apple ID settings and `store-credentials` has to be run again.
+
+**A Developer ID certificate carries the name of whoever owns the account**, and `codesign -dv` on any
+downloaded build shows it. That is how macOS tells a player who signed the thing they are about to run,
+so it cannot be hidden; an individual account therefore publishes under a personal name, and only an
+organisation account shows a company instead.
+
+**Installing the certificate on a new machine** needs Apple's *Developer ID Certification Authority*
+intermediate as well (apple.com/certificateauthority, "Developer ID - G2"). Without it the certificate is
+in the keychain but not valid, and `security find-identity -v` lists nothing at all - which looks exactly
+like the certificate failing to install.
 
 ## 2b. Signing a release
 
