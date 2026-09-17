@@ -326,6 +326,7 @@ func _call_player(method: String, a: Array):
 		"yaw": return player.yaw
 		"lookDirection": return Vector3(-sin(player.yaw) * cos(player.pitch), sin(player.pitch), -cos(player.yaw) * cos(player.pitch))
 		"give": return player.give(_int(a, 1), _int(a, 2, 1), _dict(a, 3))
+		"hasRoom": return player.has_room(_int(a, 1), _int(a, 2, 1))
 		"hasPermission": return player.has_permission(_str(a, 1))
 		"transferTo": return player.transfer_to(_str(a, 1), _str(a, 2) if a.size() > 2 else "", _dict(a, 3))
 		"getItem": return player.get_item(_int(a, 1))

@@ -3546,6 +3546,25 @@ func _hearthhold() -> void:
 	_check(bramble.data.get("home") != null, "she moves into a house that is ready (stones %d, home %s, nearby %d)" % [
 		stones.size(), str(mod.dwellings.is_home(at)), nearby.size()])
 	_check(str(bramble.data.get("owner", "")).is_empty(), "and stops trailing after anyone once she has one")
+
+	# The charter is the story's spine: it always shows the first thing that is not done, and the first
+	# entry is already on the board when a player arrives.
+	var charter = mod.charter
+	server.mod_instances["hearthhold"].api.storage.clear()
+	_check(str(charter.current().get("id", "")) == "hearth", "the board opens on the warden's note about firewood")
+	_check(str(charter.current().hand).contains("W."), "signed by somebody who never came back")
+	server.mod_instances["hearthhold"].api.storage.hearth_lit = true
+	_check(str(charter.current().get("id", "")) == "night", "lighting the hearth moves it on to the first night")
+	server.mod_instances["hearthhold"].api.storage.seen_morning = true
+	_check(str(charter.current().get("id", "")) == "bramble", "and morning moves it on to whoever saw the smoke")
+	server.mod_instances["hearthhold"].api.storage.bramble_found = true
+	server.mod_instances["hearthhold"].api.storage.bramble_home = true
+	_check(charter.current().is_empty(), "with nothing outstanding once she has moved in")
+
+	# The two places the chapters happen in.
+	var places: Array = server.biome_generator.structures.sets.map(func(entry): return str(entry.name))
+	_check(places.has("hearthhold:outpost") and places.has("hearthhold:cold_camp"),
+		"the outpost and the cold camp are places in the world (%s)" % str(places.filter(func(n): return n.begins_with("hearthhold"))))
 	server.queue_free()
 	await get_tree().process_frame
 

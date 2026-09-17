@@ -10,10 +10,12 @@ extends "res://engine/server/mod.gd"
 
 const Dwellings = preload("dwellings.gd")
 const Settlers = preload("settlers.gd")
+const Charter = preload("charter.gd")
 
 var api
 var dwellings := Dwellings.new()
 var settlers := Settlers.new()
+var charter := Charter.new()
 var ids := {}
 
 
@@ -26,7 +28,9 @@ func setup(mod_api) -> void:
 	var stone := {"break": "base:stone", "place": "base:stone", "step": "base:stone_step"}
 	dwellings.setup(api, {"stone": stone, "wood": {"break": "base:wood", "place": "base:wood", "step": "base:wood_step"}})
 	_register_hearth(stone)
+	charter.setup(api, dwellings)
 	settlers.setup(api, dwellings)
+	_register_places()
 	api.on("player_join", _on_join)
 	api.on("ui_action", func(ev):
 		if ev.ui_id == "hearthhold:talk" and str(ev.action).begins_with("recruit:"):
@@ -34,6 +38,13 @@ func setup(mod_api) -> void:
 	# Chapter two begins when the hearth is lit: the smoke is what somebody sees from the ridge.
 	api.register_command("bramble", "Ask where Bramble was last seen", func(player, _args):
 		player.send_message(settlers.whereabouts(player)))
+	api.register_command("charter", "What the place needs next", func(player, _args): charter.show(player))
+	# Morning after the first night, which is chapter one finished.
+	api.every(5.0, func():
+		if api.storage.get("hearth_lit", false) and not api.storage.get("seen_morning", false) \
+				and api.get_time_of_day() > 0.25 and api.get_time_of_day() < 0.35:
+			api.storage.seen_morning = true
+			api.broadcast("Morning. The hearth held."))
 
 
 ## The hearth at the outpost: cold when you arrive, and the first thing you put right. Lighting it is
@@ -65,8 +76,31 @@ func _light_hearth(player, pos: Vector3i) -> void:
 	api.set_block(pos, ids.lit_hearth)
 	api.play_sound("engine:craft", Vector3(pos) + Vector3.ONE * 0.5)
 	api.play_effect("engine:sparkle", Vector3(pos) + Vector3(0.5, 1.0, 0.5), {"scale": 1.2})
+	api.storage.hearth_lit = true
 	player.show_title("The hearth is lit", "Somebody kept this place once", 4.0)
 	api.broadcast("%s lit the hearth at Hearthhold." % player.name)
+
+
+## Where the story happens: the outpost you arrive at, and the camp somebody walked away from.
+func _register_places() -> void:
+	for place in ["outpost", "cold_camp"]:
+		api.register_structure_template(place, "structures/%s.json" % place)
+	# The outpost sits near where players start; the camp is a walk away, which is the point of it.
+	api.register_structure("outpost", {"templates": [{"template": "outpost"}], "spacing": 1024,
+		"place": "surface", "chance": 1.0, "biomes": []})
+	api.register_structure("cold_camp", {"templates": [{"template": "cold_camp"}], "spacing": 192,
+		"place": "surface", "chance": 0.6, "biomes": []})
+	# What the last warden left, and what Bramble has: little, and worth having.
+	api.register_loot("warden", {"pools": [
+		{"rolls": 1, "guaranteed": true, "entries": [{"item": "base:bread", "count": [2, 3]}]},
+		{"rolls": 1, "entries": [{"item": "base:torch", "count": [4, 8], "weight": 3},
+			{"item": "base:wooden_pickaxe", "weight": 1}, {"empty": true, "weight": 1}]},
+	]})
+	api.register_loot("camp", {"pools": [
+		{"rolls": 1, "guaranteed": true, "entries": [{"item": "base:bowl", "count": [2, 2]}]},
+		{"rolls": 1, "entries": [{"item": "vanilla:red_mushroom", "count": [1, 3], "weight": 2},
+			{"item": "base:apple", "weight": 1}]},
+	]})
 
 
 func _on_join(ev: Dictionary) -> void:

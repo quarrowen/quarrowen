@@ -63,6 +63,8 @@
     get online() { return host("player.online", this.id); }
     /** Adds items, optionally with item data (wear, xp, custom name, lore, modifiers). */
     give(item, count = 1, data = {}) { return host("player.give", this.id, item, count, data); }
+    /** Whether this many would fit. Refuse a sale rather than dropping paid-for goods on the floor. */
+    hasRoom(item, count = 1) { return host("player.hasRoom", this.id, item, count); }
     hasPermission(permission) { return host("player.hasPermission", this.id, permission); }
     transferTo(server, arrival = "", data = {}) { return host("player.transferTo", this.id, server, arrival, data); }
     /** {item, count, data} in slot 0-35 (backpack) or an equipment slot index (see equipmentSlot). */

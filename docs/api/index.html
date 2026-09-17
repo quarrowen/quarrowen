@@ -511,6 +511,9 @@ true if damage applied. `cause`: &quot;attack&quot;, &quot;mob&quot;, &quot;proj
 <div class="card" id="player-hide-ui" data-search="hide_ui  closes a server ui panel shown with show_ui."><div class="sig"><code>player.hide_ui(ui_id: String) -&gt; void</code></div><p>Closes a server UI panel shown with show_ui.</p></div>
 <div class="card" id="player-is-creative" data-search="is_creative  whether the player is in creative mode."><div class="sig"><code>player.is_creative() -&gt; bool</code></div><p>Whether the player is in creative mode.</p></div>
 <div class="card" id="player-set-creative" data-search="set_creative  switches the player between creative (true) and survival (false)."><div class="sig"><code>player.set_creative(enabled: bool) -&gt; void</code></div><p>Switches the player between creative (true) and survival (false).</p></div>
+<div class="card" id="player-has-room" data-search="has_room  whether this many would fit in the pack. a reward can be dropped at a player's feet when it does not
+(see give), but anything they are *paying* for should be refused instead: goods on the floor can be
+missed, or despawn, and the coin is gone either way."><div class="sig"><code>player.has_room(item: int, count := 1, item_data := {}) -&gt; bool</code></div><p>Whether this many would fit in the pack. A reward can be dropped at a player's feet when it does not<br>(see give), but anything they are *paying* for should be refused instead: goods on the floor can be<br>missed, or despawn, and the coin is gone either way.</p></div>
 <div class="card" id="player-give" data-search="give  adds blocks or items (optionally with item data). anything that does not fit falls at the player's
 feet rather than vanishing, so a reward, a purchase or a quest payout is never lost to a full pack -
 a mod would otherwise have to remember to check the return value every single time. returns how many

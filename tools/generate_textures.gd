@@ -260,6 +260,7 @@ func _init() -> void:
 	_save(_hearth_side(), hearth + "hearth_side.png")
 	_save(_hearthstone(true), hearth + "hearthstone_top.png")
 	_save(_hearthstone(false), hearth + "hearthstone_side.png")
+	_save(_charter_board(), hearth + "charter_board.png")
 
 func _part(part: String) -> Image:
 	var img := _blank()
@@ -1322,4 +1323,22 @@ func _bars() -> Image:
 	for x in TILE:
 		img.set_pixel(x, 1, _vary(iron, 0.05))
 		img.set_pixel(x, 14, _vary(iron, 0.05))
+	return img
+
+
+## The charter board: planks with a nailed-on notice, and handwriting too small to read as anything but
+## handwriting - which is the point, since what it says is on the panel, not the block.
+func _charter_board() -> Image:
+	var img := _planks()
+	for y in range(2, 14):
+		for x in range(3, 13):
+			var edge: bool = x == 3 or x == 12 or y == 2 or y == 13
+			img.set_pixel(x, y, Color(0.72, 0.66, 0.52) if not edge else Color(0.55, 0.45, 0.3))
+	for row in range(4, 12, 2):
+		# A line of writing, ragged at the end the way handwriting is.
+		var width: int = 7 if row % 4 == 0 else 5
+		for x in range(5, 5 + width):
+			img.set_pixel(x, row, Color(0.32, 0.27, 0.22))
+	for corner in [Vector2(4, 3), Vector2(11, 3), Vector2(4, 12), Vector2(11, 12)]:
+		img.set_pixel(int(corner.x), int(corner.y), Color(0.45, 0.45, 0.48))  # the nails
 	return img

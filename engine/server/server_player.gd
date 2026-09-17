@@ -249,6 +249,13 @@ func set_creative(enabled: bool) -> void:
 		_server.tutorials.on_join(self)  # a sandbox player trying survival gets the first tutorial
 
 
+## Whether this many would fit in the pack. A reward can be dropped at a player's feet when it does not
+## (see give), but anything they are *paying* for should be refused instead: goods on the floor can be
+## missed, or despawn, and the coin is gone either way.
+func has_room(item: int, count := 1, item_data := {}) -> bool:
+	return inventory.space_for(item, _server.items.max_stack(item), item_data) >= count
+
+
 ## Adds blocks or items (optionally with item data). Anything that does not fit falls at the player's
 ## feet rather than vanishing, so a reward, a purchase or a quest payout is never lost to a full pack -
 ## a mod would otherwise have to remember to check the return value every single time. Returns how many

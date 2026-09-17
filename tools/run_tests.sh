@@ -160,6 +160,16 @@ for extra in tests/host_flow_test.tscn tests/reload_test.tscn tests/transfer_tes
   [ -f "$extra" ] && run_scene "$(basename "$extra" .tscn)" "$WORK/$(basename "$extra" .tscn).log" "res://$extra"
 done
 # The hub service (Rust) with a real game server; skipped when cargo is not installed.
+#
+# Rust links through Apple's `cc`, which is a shim for whatever xcode-select points at. When that is a
+# full Xcode whose licence has not been accepted, every tool it fronts refuses to run - including git and
+# the linker - and the failure looks like a broken build rather than a missing agreement. The standalone
+# Command Line Tools have no such gate, so use them when they are there.
+if [ -z "${DEVELOPER_DIR:-}" ] && [ -d /Library/Developer/CommandLineTools ] \
+    && ! xcrun --find cc >/dev/null 2>&1; then
+  export DEVELOPER_DIR=/Library/Developer/CommandLineTools
+  echo "note: using the Command Line Tools for Rust (Xcode's licence is unaccepted)"
+fi
 if command -v cargo >/dev/null 2>&1 && (selected hub-unit || selected hub); then
   if cargo build --release --manifest-path services/hub/Cargo.toml >"$WORK/hub_build.log" 2>&1 \
       && cargo test --release --manifest-path services/hub/Cargo.toml >"$WORK/hub_unit.log" 2>&1; then

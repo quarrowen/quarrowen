@@ -281,6 +281,12 @@ export function setup(api) {
       }
       case "buy": {
         const entry = shop[Number(arg)];
+        // Check there is room before taking the coin: paid-for goods dropped on the floor can be missed
+        // or despawn, and then the coin has bought nothing.
+        if (entry && !player.hasRoom(entry.id, entry.count)) {
+          player.sendMessage("Your pack is full - make room first.");
+          break;
+        }
         if (entry && player.take(ids.coin, entry.price)) {
           player.give(entry.id, entry.count);
           player.playSound("guild:coin");
