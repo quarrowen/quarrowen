@@ -474,38 +474,3 @@ func load_items(saved) -> Array:
 	return missing
 
 
-func save_inventory() -> Dictionary:
-	var backpack := PackedInt32Array()
-	backpack.append_array(inventory.ids.slice(0, Inventory.SIZE))
-	backpack.append_array(inventory.counts.slice(0, Inventory.SIZE))
-	var item_data := {}
-	for i in Inventory.SIZE:
-		if inventory.ids[i] > 0 and not inventory.data[i].is_empty():
-			item_data[str(i)] = inventory.data[i]
-	var equipment := {}
-	for i in inventory.equipment_slots.size():
-		var index := Inventory.SIZE + i
-		if inventory.ids[index] > 0:
-			equipment[inventory.equipment_slots[i]] = [inventory.ids[index], inventory.counts[index], inventory.data[index]]
-	return {"inventory": Array(backpack), "item_data": item_data, "equipment": equipment}
-
-
-## Restores an inventory saved by save_inventory.
-func load_inventory(saved: Dictionary) -> void:
-	inventory.load_packed(PackedInt32Array(saved.get("inventory", [])))
-	var item_data = saved.get("item_data", {})
-	if item_data is Dictionary:
-		for key in item_data:
-			var i := int(key)
-			if i >= 0 and i < Inventory.SIZE and item_data[key] is Dictionary and inventory.ids[i] > 0:
-				inventory.data[i] = item_data[key]
-	var equipment = saved.get("equipment", {})
-	if equipment is Dictionary:
-		for slot_name in equipment:
-			var entry = equipment[slot_name]
-			var index := inventory.equipment_index(String(slot_name))
-			if index >= 0 and entry is Array and entry.size() == 3 and _server.items.is_valid(int(entry[0])):
-				inventory.set_slot(index, int(entry[0]), int(entry[1]), entry[2] if entry[2] is Dictionary else {})
-			elif entry is Array and entry.size() == 3 and _server.items.is_valid(int(entry[0])):
-				inventory.add(int(entry[0]), int(entry[1]), 1, entry[2] if entry[2] is Dictionary else {})  # slot no longer exists
-	_stats_dirty = true

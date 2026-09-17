@@ -238,7 +238,7 @@ changes with `tools/build_native.sh`.
    - N3 Hub service + discovery (done: services/hub Rust axum+SQLite+rsa; engine/server/hub_announcer.gd; status
      query proof flag; engine/client/menu/hub_client.gd; pinger LAN discovery; menu Browse/LAN tabs; hub news;
      Settings → Network; tests/hub_test.tscn): signed announces every 30 s, address proven by a signed status
-     query, listings expire after 95 s, leave on shutdown, stable 6-char hub codes (VC-ABC-123) resolving to
+     query, listings expire after 95 s, leave on shutdown, stable 6-char hub codes (QW-ABC-123) resolving to
      the last known address, per-IP rate limits, HUB_ALLOW_PRIVATE / HUB_TRUST_PROXY. No public hub is hosted
      yet (setting empty by default). Not done: hub TLS itself (use a reverse proxy), moderation of listings.
    - N4 Friends and parties (done: services/hub/src/social.rs, engine/client/social/social_client.gd + friends_panel.gd,
@@ -537,18 +537,23 @@ client, stairs, a map, graves/teleports. "Can't smelt with wood" is fixed and wa
 planks were fuel, so a child who started in a birch forest or a savanna had nothing to burn (mods/base/
 stations.gd; a test now checks every wood burns and chars, rather than a list).
 
-## Save compatibility: the standing plan (2026-09-16, user: "moving forward it shouldn't break")
+## Save compatibility: the standing plan (2026-09-16, user: "moving forward it shouldn't break";
+## reset at alpha 4, 2026-09-17, user: "We don't expect to keep anything from pre alpha 4 times")
 
-Alpha 1's world may be recreated (the user said so); from alpha 2 on, updates must keep worlds, builds and
-inventories. The rules, and what enforces each:
+From alpha 4 (0.40.0) on, updates must keep worlds, builds and inventories. Everything from before it was
+dropped: the format-1 inventory converter, the id-based inventory path, the old admin list, the pre-rename
+invite prefix and the 0.37-0.39 fixtures. A world in an older format is now refused with a clear line in
+the log rather than relabelled as current, which is what the old code did.
+
+The rules, and what enforces each:
 
 1. **Nothing persisted refers to a runtime id.** Chunk edits are saved with a per-chunk name palette,
    inventories by item name (save format 2), entities, block data and roles by name. Ids shift whenever a
    block or item is added anywhere; names do not. A new bundled block must therefore never change what an
-   old save means - and the save fixture test fails loudly when it does (it caught `base:grave` today).
+   old save means - and the save fixture test fails loudly when it does (it caught `base:grave` once).
 2. **A version on every saved shape.** `world.json.format` (SAVE_FORMAT) and `version` in chunk files. A
-   change that cannot be read by the old code bumps the number and ships a migration that runs on load,
-   after a backup of the whole world (`_migrate_save_format`).
+   change the old code cannot read bumps the number and ships a migration written to run on load. There is
+   no migration in the tree today, on purpose: the next one will be the first.
 3. **Content that is missing is kept, not dropped.** A stack whose mod is not loaded is written back exactly
    as it was (ServerPlayer.kept_items), so turning a mod off and on again returns the items. Chunk palette
    entries the server does not know leave the terrain as generated rather than punching holes.
@@ -558,17 +563,6 @@ inventories. The rules, and what enforces each:
 5. **The release checklist** (docs/playtest.md): run both suites (the fixture test included), cut the tag,
    add the new fixture, and only then package. A deliberate break needs a note in the release and a backup
    step for the family server.
-6. **Deprecation:** the format-1 (alpha 1) inventory path and `FORMAT1_ADDED_BLOCKS` can be deleted once the
-   family's worlds are on format 2 - after alpha 2 has been running for a while.
-
-## Save compatibility (2026-09-15, user: "We really need to ensure world and inventories don't break between updates")
-
-Found while planning alpha 2: inventories saved numeric ids, and block item ids shift when a block is added (the
-N5 portal), so kids' inventories would have changed items after an update (worlds, chests and entities were
-already name-based). Fixed with save format 2 (inventories by name), a pre-migration backup and a format-1
-converter; tests/save_compat_test.tscn loads a real 0.35.0-alpha.1 world (tests/fixtures/saves/0.35.0-alpha.1,
-made by tools/make_save_fixture.tscn in a checkout of the tag). **Release rule:** every alpha adds its own
-fixture (check out the tag, run the fixture tool, commit the output) and the suite must pass on all of them.
 
 ## Test stability (2026-09-15)
 

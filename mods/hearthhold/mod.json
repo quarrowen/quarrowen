@@ -11,6 +11,5 @@
 	"depends": [
 		"base@^1.0",
 		"vanilla@^1.0"
-	],
-	"game": true
+	]
 }

@@ -115,10 +115,8 @@ func _inventory_rules() -> void:
 	inv.set_slot(3, 9, 10)
 	inv.click(3, 1, true, stack64)
 	_check(inv.ids[3] == 0 and inv.ids[Inventory.HOTBAR] == 9 and inv.counts[Inventory.HOTBAR] == 10, "shift click moves hotbar -> main")
-	var old := PackedInt32Array([1, 2, 0, 0, 0, 0, 0, 0, 0, 10, 20, 0, 0, 0, 0, 0, 0, 0])
-	var migrated := Inventory.new()
-	_check(migrated.load_packed(old) and migrated.ids[1] == 2 and migrated.counts[1] == 20 and migrated.ids.size() == Inventory.SIZE,
-		"9-slot inventories from older saves load into the hotbar")
+	var wrong_size := PackedInt32Array([1, 2, 0, 0, 0, 0, 0, 0, 0, 10, 20, 0, 0, 0, 0, 0, 0, 0])
+	_check(not Inventory.new().load_packed(wrong_size), "a packed inventory of the wrong length is refused, not half-read")
 	var round_trip := Inventory.new()
 	_check(round_trip.load_packed(inv.to_packed()) and round_trip.ids == inv.ids, "inventory round-trips through to_packed")
 
@@ -357,7 +355,7 @@ func _updates() -> void:
 	_check(not Updater.signature_ok(manifest, sign.call(manifest, other), keys), "one signed by another key is not")
 	_check(not Updater.signature_ok(manifest + " ", sign.call(manifest, key), keys), "nor one whose contents were changed after signing")
 	_check(not Updater.signature_ok(manifest, "", keys), "nor an unsigned one, once the build expects a signature")
-	_check(Updater.signature_ok(manifest, "", []), "a build with no release keys yet accepts an unsigned manifest")
+	_check(not Updater.signature_ok(manifest, "", []), "a build with no release keys trusts nothing rather than everything")
 	_check(Updater.signature_ok(manifest, sign.call(manifest, other), [key.save_to_string(true), other.save_to_string(true)]),
 		"either key works while one is being rotated out")
 	_check(not Updater.check(manifest, "0.37.0", "macos", "", keys).available,
@@ -842,9 +840,9 @@ func _equipment() -> void:
 		server.damage_item(p, 0, 1, "attack")
 	_check(broke == [sword] and p.inventory.ids[0] == 0, "item breaks at its durability")
 
-	var saved: Dictionary = p.save_inventory()
+	var saved: Dictionary = p.save_items()
 	var copy := ServerPlayer.new(server, 78, "Copy")
-	copy.load_inventory(saved)
+	copy.load_items(saved)
 	_check(copy.inventory.ids[chest] == chestplate and copy.inventory.data[chest].get("damage", 0) == 1, "equipment and item data survive saving")
 
 	# Timed mining: breaking needs a started mine that lasted long enough; tiers gate drops.
@@ -4083,7 +4081,7 @@ func _ugc_moderation() -> void:
 		people.append(p)
 	var author: ServerPlayer = people[0]
 	var admin: ServerPlayer = people[3]
-	server._meta.admins.append(admin.player_id)
+	server.roles.give(admin.player_id, "admin")
 	admin.edit_tokens = 100.0
 	author.edit_tokens = 100.0
 	var upload := func(name: String, color: Color) -> String:
@@ -4189,8 +4187,8 @@ func _menu_data() -> void:
 	_check(InviteCode.parse("play.example.com:25000") == {"address": "play.example.com", "port": 25000} and InviteCode.parse("[::1]:24570") == {"address": "::1", "port": 24570}
 		and InviteCode.parse("host:abc").has("error") and InviteCode.share_text("play.example.com", 24565) == "play.example.com", "plain addresses work too")
 	_check(InviteCode.parse("qw-3gs h9n") == {"hub_code": "QW-3GS-H9N"} and InviteCode.parse("QW-3GS-H9U").has("error"), "short hub codes are recognised")
-	# Codes written down before the game was renamed still work.
-	_check(InviteCode.parse("vc-3gs h9n") == {"hub_code": "QW-3GS-H9N"}, "an old VC- code is still understood")
+	# Read aloud and typed back in, the hyphen after the prefix often arrives as a space.
+	_check(InviteCode.parse("qw 3gs h9n") == {"hub_code": "QW-3GS-H9N"}, "a code typed with spaces is still understood")
 
 
 ## Load-related server paths: saves spread over ticks, column heights kept up to date, crowded snapshots.
@@ -4358,7 +4356,7 @@ func _private_server() -> void:
 	dad.player_id = "dad_id"
 	dad.edit_tokens = 100.0
 	server.players[160] = dad
-	server._meta.admins.append("dad_id")
+	server.roles.give("dad_id", "admin")
 	server.on_chat(160, "/allow add Ann")
 	server.on_chat(160, "/allow on")
 	_check(server._meta.allowlist.enabled and server.is_allowed("dad_id", "Dad"), "turning the allowlist on keeps the admin and everyone online")
@@ -4457,7 +4455,7 @@ func _transfers() -> void:
 	admin.edit_tokens = 100.0
 	admin.state.position = Vector3(spot) + Vector3(2.5, 0, 0.5)
 	sky.players[172] = admin
-	sky._meta.admins.append("builder_id")
+	sky.roles.give("builder_id", "admin")
 	sky.on_chat(172, "/portal lobby hall")
 	_check(sky.get_block_data(spot + Vector3i.UP).get("portal", {}) == {"server": "lobby", "arrival": "hall"} and sky.transfers.portal_at(Vector3(spot) + Vector3(0.5, 0, 0.5)).server == "lobby",
 		"/portal points a whole portal at a server")
@@ -4537,11 +4535,7 @@ func _roles() -> void:
 	# Tags in chat.
 	server.roles.give(kid.player_id, "builder")
 	_check(server.roles.badge(kid.player_id).tag == "Builder" and server.roles.badge(owner.player_id).tag == "Owner", "the highest tagged role is shown in chat")
-	# The old admin list still counts, and /op gives the admin role.
-	server._meta.admins.append("legacy_id")
-	var legacy: ServerPlayer = make.call(183, "Legacy")
-	legacy.player_id = "legacy_id"
-	_check(server.is_admin(legacy), "players on the old admin list are still admins")
+	# /op gives the admin role.
 	server.on_chat(180, "/op Kid")
 	_check(server.roles.roles_of(kid.player_id).has("admin"), "/op gives the admin role")
 	# Mods.

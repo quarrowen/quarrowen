@@ -8,6 +8,5 @@
 		"Quarrowen"
 	],
 	"engine": "^1.0",
-	"depends": [],
-	"game": false
+	"depends": []
 }

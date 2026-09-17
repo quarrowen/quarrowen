@@ -58,11 +58,10 @@ func _meta() -> Dictionary:
 	return meta
 
 
-## Moves the old admin list into roles (once) and applies config admins as owners.
-func migrate(config_admins: Dictionary) -> void:
+## Applies the admins named in the server's configuration as owners, every start: the config is the
+## authority on who runs the server, so it is reapplied rather than migrated once.
+func apply_config_admins(config_admins: Dictionary) -> void:
 	var meta := _meta()
-	for id in meta.get("admins", []):
-		give(str(id), "admin")
 	for key: String in config_admins:
 		var id: String = key if key.length() == 32 and key.is_valid_hex_number() else str(meta.names.get(key, ""))
 		if not id.is_empty():

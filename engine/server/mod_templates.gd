@@ -35,7 +35,7 @@ static func create(parent_dir: String, options: Dictionary) -> Dictionary:
 	if description.is_empty():
 		description = "A new game made with Quarrowen." if game else "Adds a crate, a gem and a little tutorial. Play it with any game, e.g. --mods=vanilla,%s" % id
 	var manifest := {"id": id, "name": vars.name, "version": "0.1.0", "description": description, "authors": [vars.author] if not vars.author.is_empty() else [],
-		"kind": "game" if game else "addon", "engine": vars.engine, "depends": ["base@^1.0"], "game": game}
+		"kind": "game" if game else "addon", "engine": vars.engine, "depends": ["base@^1.0"]}
 	if js:
 		manifest.main = "main.js"
 	var files := {"mod.json": JSON.stringify(manifest, "\t") + "\n", "README.md": _fill(README, vars, js, game)}

@@ -173,18 +173,12 @@ version in a banner; pressing Update downloads it, checks it against the checksu
 and swaps the app (Settings → Network turns the check off, Settings → Account has a "Check for updates"
 button). Nothing is ever downloaded from a game server - a server can only say which version it needs.
 
-**Coming from an older build.** The world used to live in a volume named after whatever folder Compose was
-run from (`<folder>_quarrowen-data`, and before the rename `<folder>_voxelcraft-data`). It is now simply
-`quarrowen-data`, so copy the old one across once before starting. Run `docker volume ls` to see what you
-have, then:
-
-```sh
-docker volume create quarrowen-data
-docker run --rm -v <old volume>:/from -v quarrowen-data:/to alpine sh -c "cp -a /from/. /to/"
-```
-
-On each Mac nothing is needed: the game brings your identity, worlds and settings across by itself the first
-time it starts.
+**Coming from before alpha 4.** Nothing is carried across: worlds, players and identity keys all start
+again. Alpha 4 moved the client's folder and dropped the code that read older saves, so a world from
+alpha 3 or earlier will not load, and each Mac is a new player as far as a server is concerned - add the
+children to `ALLOWLIST` again, or let them join once with it turned off. Old data is not deleted, just no
+longer read: on a Mac it stays in `~/Library/Application Support/Godot/app_userdata/Quarrowen`, and on the
+server in whatever volume it was in.
 
 **Updating.** Server and Macs must run the same version. On the server:
 

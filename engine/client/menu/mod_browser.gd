@@ -36,10 +36,10 @@ func refresh(force := false) -> void:
 	busy = true
 	var text: String = await _web.fetch(ModCatalog.index_url())
 	# Signed like the update manifest: a checksum only proves a download matches *this* list, so the list
-	# itself has to be the project's. A build with no release keys (up to 0.38.0) accepts it unsigned.
+	# itself has to be the project's.
 	var signature: String = await _web.fetch(ModCatalog.index_url() + ".sig") if not text.is_empty() else ""
 	busy = false
-	if not text.is_empty() and not Updater.RELEASE_KEYS.is_empty() and not Updater.signature_ok(text, signature.strip_edges()):
+	if not text.is_empty() and not Updater.signature_ok(text, signature.strip_edges()):
 		message.emit("The mod list was not signed by the project, so it was ignored.", "error", "", Callable())
 		catalog_changed.emit()
 		return

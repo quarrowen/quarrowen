@@ -10,6 +10,5 @@
 	"engine": "^1.0",
 	"depends": [
 		"base@^1.0"
-	],
-	"game": false
+	]
 }

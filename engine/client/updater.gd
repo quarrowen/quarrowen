@@ -60,13 +60,14 @@ static func platform() -> String:
 	return ""
 
 
-## Whether this manifest was signed by one of the project's release keys. An empty key list means this
-## build predates signing and accepts unsigned manifests; once a key is listed, a manifest without a good
-## signature is refused.
+## Whether this manifest was signed by one of the project's release keys. A build with no keys refuses
+## everything rather than accepting everything: this used to return true so that builds made before
+## signing existed could still update themselves, which meant that a build shipped with its keys somehow
+## empty would take an update from anyone who could answer for the address.
 static func signature_ok(manifest_text: String, signature: String, keys := RELEASE_KEYS) -> bool:
 	var trusted := keys.filter(func(pem): return not str(pem).strip_edges().is_empty())
 	if trusted.is_empty():
-		return true
+		return false
 	var raw := Marshalls.base64_to_raw(signature)
 	if raw.is_empty():
 		return false

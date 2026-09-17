@@ -11,20 +11,20 @@ extends RefCounted
 ##   conflicts: ["other_mod", "old_mod@<2"]
 ## Version ranges: engine/shared/semver.gd.
 ##
-## Packages: a .zip (or .vcmod) holding mod.json at its root (or inside a single top folder) is unpacked
+## Packages: a .zip holding mod.json at its root (or inside a single top folder) is unpacked
 ## once into user://mod_cache/<id>-<version>-<hash>/<id> and loaded like a folder. A folder with the same
 ## id in the same search directory wins over a package.
 
 const Semver = preload("res://engine/shared/semver.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
-const PACKAGE_EXTENSIONS := ["zip", "vcmod"]
+const PACKAGE_EXTENSIONS := ["zip"]
 const CACHE_DIR := "user://mod_cache"
 const USER_MODS := "user://mods"
 ## Manifest keys the engine reads (others are reported by the validator as possible typos).
-const KNOWN_KEYS := ["id", "name", "version", "description", "authors", "author", "license", "homepage", "game", "kind", "main", "engine",
+const KNOWN_KEYS := ["id", "name", "version", "description", "authors", "license", "homepage", "kind", "main", "engine",
 	"depends", "optional_depends", "conflicts", "tags", "icon"]
 ## What a mod is for, so the mod list can group it: a game to play, an add-on for one, a library other
-## mods build on, or an example to read. `game: true` still means "game" for mods written before this.
+## mods build on, or an example to read.
 const KINDS := ["game", "addon", "library", "example"]
 
 ## Problems found by the last discover/resolve, as {mod, message} (also pushed as errors).
@@ -129,8 +129,8 @@ static func read_manifest(mod_dir: String) -> Dictionary:
 	manifest.depends = parse_dependencies(manifest.get("depends", []))
 	manifest.optional_depends = parse_dependencies(manifest.get("optional_depends", []))
 	manifest.conflicts = parse_dependencies(manifest.get("conflicts", []))
-	manifest.game = bool(manifest.get("game", false))
-	manifest.kind = String(manifest.get("kind", "")) if String(manifest.get("kind", "")) in KINDS else ("game" if manifest.game else "addon")
+	manifest.kind = String(manifest.get("kind", "")) if String(manifest.get("kind", "")) in KINDS else "addon"
+	manifest.game = manifest.kind == "game"
 	var default_main := "main.js" if FileAccess.file_exists(mod_dir.path_join("main.js")) and not FileAccess.file_exists(mod_dir.path_join("main.gd")) else "main.gd"
 	manifest.main = String(manifest.get("main", default_main))
 	return manifest

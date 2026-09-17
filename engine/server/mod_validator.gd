@@ -116,13 +116,11 @@ static func check_manifest(mod_dir: String) -> Array:
 		issues.append(_issue("hint", "add a \"description\" (shown in the Host menu and server list)", path))
 	if not raw.has("name"):
 		issues.append(_issue("hint", "add a display \"name\"", path))
-	if not raw.has("authors") and not raw.has("author"):
+	if not raw.has("authors"):
 		issues.append(_issue("hint", "add \"authors\"", path))
 	# What this mod is, so the mod list and the download page can group it (see docs/mods_plan.md).
 	if raw.has("kind") and not str(raw.kind) in ModLoader.KINDS:
 		issues.append(_issue("error", "kind \"%s\" is not one of %s" % [raw.kind, ", ".join(ModLoader.KINDS)], path))
-	elif raw.has("kind") and (str(raw.kind) == "game") != bool(raw.get("game", false)):
-		issues.append(_issue("error", "kind \"%s\" and game: %s disagree; a game needs both" % [raw.kind, raw.get("game", false)], path))
 	elif not raw.has("kind"):
 		issues.append(_issue("hint", "add \"kind\": game, addon, library or example", path))
 	if m.engine.is_empty():

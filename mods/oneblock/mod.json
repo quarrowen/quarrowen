@@ -13,6 +13,5 @@
 	],
 	"optional_depends": [
 		"vanilla"
-	],
-	"game": true
+	]
 }

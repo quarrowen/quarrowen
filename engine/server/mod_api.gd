@@ -514,11 +514,6 @@ func item_name(id: int) -> String:
 	return _server.items.name_of(id)
 
 
-## Same as item_name (kept for older mods).
-func items_name(id: int) -> String:
-	return _server.items.name_of(id)
-
-
 ## How many of this item fit in one slot.
 func item_max_stack(id: int) -> int:
 	return _server.items.max_stack(id)
@@ -553,8 +548,8 @@ func register_recipe(inputs: Dictionary, output: String, count := 1, options := 
 					return
 				ids.append(id)
 				if id > 0:
-					var item_name := items_name(id)
-					inputs[item_name] = int(inputs.get(item_name, 0)) + 1
+					var named := item_name(id)
+					inputs[named] = int(inputs.get(named, 0)) + 1
 			pattern.append(ids)
 	for input_name: String in inputs:
 		var id := item(input_name)

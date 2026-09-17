@@ -1053,13 +1053,14 @@ logged; mods can cancel with the `cheat_detected {player, check, score, detail, 
 
 ### Save compatibility
 
-Worlds must keep working across updates. Chunks save blocks by name, containers and entities by name, and since
-save format 2 (0.36) player inventories and equipment are saved by item name too (`items` in each player
-record). Opening an older world backs it up first (`backups/<world>-before-format2-*.zip`) and converts it.
-`tests/save_compat_test.tscn` loads a world written by each release (`tests/fixtures/saves/<version>/`, made
-with `tools/make_save_fixture.tscn` from that release's checkout) and checks builds, chest contents, animals,
-inventories and worn equipment. Mods: store names (`items.name_of`), never numeric ids, in block data, player
-data and storage.
+Worlds must keep working across updates, from alpha 4 (0.40.0) on. Chunks save blocks by name, containers and
+entities by name, and since save format 2 player inventories and equipment are saved by item name too (`items`
+in each player record) - which is what makes adding, removing and reordering blocks safe. A world in an older
+format is refused rather than converted: there is no converter, and nothing from before alpha 4 is carried
+forward. `tests/save_compat_test.tscn` loads a world written by each release (`tests/fixtures/saves/<version>/`,
+made with `tools/make_save_fixture.tscn` from that release's checkout) and checks builds, chest contents,
+animals, inventories and worn equipment. Mods: store names (`items.name_of`), never numeric ids, in block data,
+player data and storage.
 
 ### Server networks: transfers and portals
 

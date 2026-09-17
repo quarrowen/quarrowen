@@ -11,6 +11,5 @@
 	"depends": [
 		"base@^1.0"
 	],
-	"game": false,
 	"main": "main.js"
 }

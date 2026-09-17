@@ -61,10 +61,11 @@ const Connect = preload("res://engine/server/connect.gd")
 const Assembly = preload("res://engine/shared/assembly.gd")
 
 const DEFAULT_MAX_PLAYERS := 64
-## world.json "format": 2 = inventories saved by item name (see _migrate_save_format).
+## world.json "format": 2 = inventories saved by item name. Nothing persisted has referred to a runtime
+## block or item id since this format, which is what makes adding and removing blocks safe. A future
+## format bump needs a migration written for it; there is no longer one here, because nothing from
+## before alpha 4 is carried forward.
 const SAVE_FORMAT := 2
-## Blocks added after save format 1 (0.35.0-alpha.1), in any mod: format-1 numeric ids are mapped without them.
-## Only needed for format-1 worlds; later formats save names.
 
 ## Other players are replicated only within this distance (blocks) of the recipient...
 const INTEREST_RADIUS := 96.0
@@ -323,7 +324,7 @@ func start(config: Dictionary) -> Error:
 	chat_filter.load_extra(_save_dir)
 	if not str(config.get("default_role", "")).is_empty():
 		roles.default_role = str(config.default_role).to_lower()
-	roles.migrate(_config_admins)
+	roles.apply_config_admins(_config_admins)
 	if _meta.get("loot") is Dictionary:
 		loot.rate = clampf(float(_meta.loot.get("rate", 1.0)), 0.0, 10.0)
 		loot.boosts = _meta.loot.get("boosts", {}) if _meta.loot.get("boosts") is Dictionary else {}
@@ -548,7 +549,7 @@ func is_allowed(player_id: String, player_name: String) -> bool:
 	var list: Dictionary = _meta.get("allowlist", {})
 	if not list.get("enabled", false):
 		return true
-	if _meta.admins.has(player_id) or _config_admins.has(player_id) or _config_admins.has(player_name.to_lower()) \
+	if _config_admins.has(player_id) or _config_admins.has(player_name.to_lower()) \
 			or roles.has(player_id, "admin") or roles.has(player_id, "allowlist.bypass"):
 		return true
 	var players: Dictionary = list.get("players", {})
@@ -602,11 +603,11 @@ func _permitted(p, command: Dictionary) -> bool:
 	return has_permission(p, permission)
 
 
-## Whether a player's roles grant a permission (legacy admins and config admins have everything).
+## Whether a player's roles grant a permission (config admins have everything).
 func has_permission(p, permission: String) -> bool:
 	if p == null:
 		return false
-	if _meta.admins.has(p.player_id) or _config_admins.has(p.player_id) or _config_admins.has(p.name.to_lower()):
+	if _config_admins.has(p.player_id) or _config_admins.has(p.name.to_lower()):
 		return true
 	return roles.has(p.player_id, permission)
 
@@ -828,20 +829,13 @@ func _on_dev_error(e: Dictionary, first: bool) -> void:
 			Net.s_dev_error.rpc_id(p.peer_id, alert)
 
 
-## Brings an older world save up to SAVE_FORMAT (after mods registered their blocks and items, before
-## anyone joins), backing the world up first. Nothing persisted has referred to a runtime id since format 2
-## (0.36.0), so a format bump from here on needs a migration written next to this one; the save fixtures in
-## tests/fixtures/saves keep every released format loading (see docs and PROGRESS).
+## Refuses a world this version cannot read, and stamps the format on one it can. There is no converter:
+## a world older than alpha 4 is not something this game carries forward, and pretending to upgrade one
+## by relabelling it - which is what used to happen here - is worse than saying so.
 func _migrate_save_format() -> void:
 	var format := int(_meta.get("format", SAVE_FORMAT))
-	if format >= SAVE_FORMAT:
-		return
-	if not _meta.players.is_empty() and not _save_dir.is_empty() and not _backup_dir.is_empty():
-		DirAccess.make_dir_recursive_absolute(_backup_dir)
-		var backup := _backup_dir.path_join("%s-before-format%d-%s%s" % [_save_dir.get_file(), SAVE_FORMAT, WorldBackups.timestamp(), WorldBackups.EXTENSION])
-		var error := WorldBackups.create(_save_dir, backup)
-		dev_log.add("info" if error.is_empty() else "error", "server", "Backed up the world before upgrading its save format: %s" % (backup if error.is_empty() else error))
-	dev_log.add("warn", "server", "This world was saved in format %d; this version reads %d and cannot upgrade it." % [format, SAVE_FORMAT])
+	if format < SAVE_FORMAT:
+		dev_log.add("warn", "server", "This world was saved in format %d; this version reads %d and cannot convert it." % [format, SAVE_FORMAT])
 	_meta.format = SAVE_FORMAT
 
 
@@ -1000,10 +994,6 @@ func _cmd_help(player, args: PackedStringArray) -> void:
 
 func _cmd_op(player, args: PackedStringArray, grant: bool) -> void:
 	_cmd_role(player, PackedStringArray(["give" if grant else "take", args[0] if args.size() > 0 else "", "admin"]))
-	if not grant and args.size() > 0:
-		var target = _find_online(args[0])
-		if target != null:
-			_meta.admins.erase(target.player_id)  # the old admin list
 
 
 func _cmd_kick(player, args: PackedStringArray) -> void:
@@ -2058,10 +2048,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 		var pos = saved.get("position")
 		if pos is Array and pos.size() == 3:
 			p.state.position = Vector3(pos[0], pos[1], pos[2])
-		if saved.has("items"):
-			p.load_items(saved.items)
-		else:
-			p.load_inventory(saved)  # a record still in the numeric form (migrated at start; kept as a fallback)
+		p.load_items(saved.get("items", {}))
 		p.inventory.creative = bool(saved.get("creative", false))
 		p.data = saved.get("data", {}) if saved.get("data") is Dictionary else {}
 		for id in (saved.get("cosmetics") if saved.get("cosmetics") is Array else []):
@@ -4215,8 +4202,6 @@ func _load_meta(seed_override: int) -> void:
 	for key in ["players", "mod_storage", "names"]:
 		if not (_meta.get(key) is Dictionary):
 			_meta[key] = {}
-	if not (_meta.get("admins") is Array):
-		_meta.admins = []
 	block_ticks.clock = float(_meta.get("clock", 0.0))
 	if _meta.get("time") is Array and _meta.time.size() == 2:
 		_time_of_day = float(_meta.time[0])

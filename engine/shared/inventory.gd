@@ -272,25 +272,21 @@ func data_to_network() -> Dictionary:
 	return out
 
 
+## Reads what to_packed() wrote: ids then counts, optionally followed by the held cursor stack. The
+## length has to match this inventory exactly, which is what makes a mismatch a refusal rather than a
+## silently half-filled backpack.
 func load_packed(packed: PackedInt32Array) -> bool:
-	# Older saves: 9 hotbar slots, or 36 slots without equipment.
-	if packed.size() == HOTBAR * 2:
-		clear()
-		for i in HOTBAR:
-			ids[i] = packed[i]
-			counts[i] = packed[HOTBAR + i]
-		return true
-	for slots in [total(), SIZE]:
-		if packed.size() == slots * 2 or packed.size() == slots * 2 + 2:
-			clear()
-			for i in slots:
-				ids[i] = packed[i]
-				counts[i] = packed[slots + i]
-			if packed.size() == slots * 2 + 2:
-				cursor_id = packed[slots * 2]
-				cursor_count = packed[slots * 2 + 1]
-			return true
-	return false
+	var slots := total()
+	if packed.size() != slots * 2 and packed.size() != slots * 2 + 2:
+		return false
+	clear()
+	for i in slots:
+		ids[i] = packed[i]
+		counts[i] = packed[slots + i]
+	if packed.size() == slots * 2 + 2:
+		cursor_id = packed[slots * 2]
+		cursor_count = packed[slots * 2 + 1]
+	return true
 
 
 ## Client side: applies data from data_to_network, rejecting anything malformed or oversized.

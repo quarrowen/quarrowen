@@ -7,8 +7,8 @@ extends RefCounted
 
 const ALPHABET := "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 const PREFIX := "QW-"
-## Codes written before the game was renamed still work: only the prefix changed.
-const OLD_PREFIXES := ["VC-", "VC ", "QW "]
+## A code read aloud and typed back in often arrives with a space where the hyphen was.
+const OLD_PREFIXES := ["QW "]
 const DEFAULT_PORT := 24565
 
 
