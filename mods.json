@@ -13,9 +13,9 @@
 			"id": "arcana",
 			"kind": "addon",
 			"name": "Arcana",
-			"sha256": "99f061bb6e7a56688f83f12d54ae0d5e3ee029454af2d50c93daadda78e32b5a",
+			"sha256": "68efea4e9cc7d737d4ef1f364a5367662414e2fd89e5354ffe3a932c2c059144",
 			"size": 34343,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.39.0/arcana-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/arcana-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -29,9 +29,9 @@
 			"id": "base",
 			"kind": "library",
 			"name": "Base Blocks",
-			"sha256": "ec6565cc1d6b1963100be99c20b5535084243571b134ab39c7dfff16d41b4b8d",
-			"size": 211690,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.39.0/base-1.0.0.zip",
+			"sha256": "7697d97ce57824f56f591496f23857335c1d5093e3810353d8fb300d1093b2a4",
+			"size": 231357,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/base-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -47,10 +47,29 @@
 			"id": "guild",
 			"kind": "addon",
 			"name": "Adventurers' Guild",
-			"sha256": "3b66d08eec012b8bf6c79620c334349d062e5e6b791c8f7810021896e2013685",
-			"size": 47712,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.39.0/guild-1.0.0.zip",
+			"sha256": "06d57ff51c36ff4fe80999a413442ee1cd57f1d8f26c4dd5cfb2a325f2462d97",
+			"size": 47838,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/guild-1.0.0.zip",
 			"version": "1.0.0"
+		},
+		{
+			"authors": [
+				"Quarrowen"
+			],
+			"depends": [
+				"base@^1.0",
+				"vanilla@^1.0"
+			],
+			"description": "A valley whose light went out. Find the people who scattered into the hills, build them somewhere to live, and get the light lit again before another long night.",
+			"engine": "^1.0",
+			"game": true,
+			"id": "hearthhold",
+			"kind": "game",
+			"name": "Hearthhold",
+			"sha256": "3a872cd4144305d1d0bec0df2bc1422fd550689ee158222d90fcbbea4ab6db31",
+			"size": 21300,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/hearthhold-0.1.0.zip",
+			"version": "0.1.0"
 		},
 		{
 			"authors": [
@@ -65,9 +84,9 @@
 			"id": "industry",
 			"kind": "addon",
 			"name": "Industry",
-			"sha256": "500dbbcd012f442e86369466d40bb54d44749fea552a27499bd5b03b93d1a388",
-			"size": 139610,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.39.0/industry-1.0.0.zip",
+			"sha256": "f0fe7c62e0e6e4a373c6f8a5702eac67738e3b57b87a84ee651a1a86c3a75451",
+			"size": 139695,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/industry-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -83,9 +102,9 @@
 			"id": "oneblock",
 			"kind": "game",
 			"name": "One Block",
-			"sha256": "5e304f0db7427b5f0df4e0b6ca049ac41e040bde9079611c823bdfb249617433",
-			"size": 3224,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.39.0/oneblock-1.0.0.zip",
+			"sha256": "105691bd1f15d3dfce8805b4ea737fc9ccc69ea4f7273ad3cf5911c709677ba3",
+			"size": 3226,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/oneblock-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -101,9 +120,9 @@
 			"id": "skyblock",
 			"kind": "game",
 			"name": "Skyblock",
-			"sha256": "e44cdf30e38df55831e177fad1919cebeca7d2419a0360192f6f43f77eab912f",
-			"size": 4032,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.39.0/skyblock-1.0.0.zip",
+			"sha256": "e5ac10970d4c3e2f630f520d05849a11600b2cb3808adb7ba516b774d16713a6",
+			"size": 4035,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/skyblock-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -119,11 +138,11 @@
 			"id": "vanilla",
 			"kind": "game",
 			"name": "Vanilla Sandbox",
-			"sha256": "8d4c2818ec4a0bdf75aa490a136463a578996c6708969ae78672b212e6fd67b1",
-			"size": 621762,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.39.0/vanilla-1.0.0.zip",
+			"sha256": "08cd6f870ab6671b1ac199b841e3b587678bb0333b4a21f205208d075144ddce",
+			"size": 630797,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/vanilla-1.0.0.zip",
 			"version": "1.0.0"
 		}
 	],
-	"version": "0.39.0"
+	"version": "0.40.0"
 }
