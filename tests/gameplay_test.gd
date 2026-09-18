@@ -10,6 +10,7 @@ const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const SoundRegistry = preload("res://engine/shared/sound_registry.gd")
 const Loot = preload("res://engine/server/loot.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
+const MusicRegistryScript = preload("res://engine/shared/music_registry.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 const StationSessions = preload("res://engine/server/station_sessions.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
@@ -64,6 +65,8 @@ func _ready() -> void:
 	await _cooking()
 	await _hearthhold()
 	await _fishing()
+	await _music()
+	_scripts_compile()
 	await _loot()
 	_api_docs()
 	_creations()
@@ -3704,6 +3707,91 @@ func _cooking() -> void:
 
 ## Hearthhold, phase 1: the Hearthstone is the thing the whole game rests on, because it is what turns
 ## building into something the game counts. It must never answer "no" without saying which part is missing.
+## Every engine script still parses. Cheap, and it runs early, because the alternative is finding out
+## from the end-to-end tests: a client that will not compile fails as three four-minute timeouts twelve
+## minutes apart, and the message says "nonexistent function 'new'" rather than naming the line.
+## (A `--check-only --script` run reports success on a file that does not parse, so it cannot be used
+## for this - 2026-09-18.)
+func _scripts_compile() -> void:
+	var bad := []
+	var checked := 0
+	var pending := ["res://engine"]
+	while not pending.is_empty():
+		var dir_path: String = pending.pop_back()
+		var dir := DirAccess.open(dir_path)
+		if dir == null:
+			continue
+		for name in dir.get_directories():
+			pending.append(dir_path.path_join(name))
+		for name in dir.get_files():
+			if not name.ends_with(".gd"):
+				continue
+			var path := dir_path.path_join(name)
+			var script = load(path)
+			checked += 1
+			if script == null or not script.can_instantiate():
+				bad.append(path.replace("res://", ""))
+	_check(checked > 50, "found the engine scripts to check (%d)" % checked)
+	_check(bad.is_empty(), "every engine script parses (%s)" % ", ".join(bad))
+
+
+func _music() -> void:
+	var server = _start("music_%d" % Time.get_ticks_msec())
+	var mod = server.mod_instances.get("vanilla")
+	var day: int = server.music.id_of("vanilla:daylight")
+	var night: int = server.music.id_of("vanilla:night")
+	_check(day >= 0 and night >= 0, "vanilla registers its two tracks")
+
+	# Attribution is required, not encouraged: running a server means redistributing whatever a mod put
+	# in it, and a track nobody wrote the source of is one nobody can check the licence of later.
+	var before: int = server.music.defs.size()
+	_check(server.music.register({"name": "test:anon", "file": "x.wav"}) < 0
+		and server.music.register({"name": "test:empty", "file": "x.wav", "attribution": "  "}) < 0,
+		"a track with no attribution is refused")
+	_check(server.music.register({"name": "test:ok", "file": "x.wav", "attribution": "Somebody (CC0)"}) >= 0,
+		"and one that says who made it is accepted")
+	_check(server.music.defs.size() == before + 1, "only the good one was kept")
+	_check(server.music.credits().any(func(line): return line.contains("Somebody (CC0)")),
+		"/music can show who made it, which is the point of demanding it")
+
+	# The lazy lane. Music is megabytes; if it joined the download a player waits through, every join
+	# would carry the soundtrack before anyone could move.
+	var track: Dictionary = server.music.defs[day]
+	var asset = server._assets.get(track.file)
+	_check(asset != null and asset.get("lazy", false), "the audio is registered as a lazy asset (%s)" % track.file)
+	var eager := 0
+	var lazy := 0
+	for asset_name: String in server._assets:
+		if server._assets[asset_name].get("lazy", false):
+			lazy += 1
+		else:
+			eager += 1
+	_check(lazy == 2 and eager > 50, "only the music is lazy; everything needed to draw the world is not (%d lazy, %d eager)" % [lazy, eager])
+	_check(server._lazy_hashes.size() == lazy, "and the server can tell which hashes those are without searching")
+
+	# What a player is sent. Asking for the track already playing must do nothing, because a mod will
+	# call this on a timer and a restart every few seconds would be unlistenable.
+	var p := ServerPlayer.new(server, 190, "Listener")
+	p.player_id = "listener"
+	server.players[190] = p
+	server.send_music(p, day, 2.0, false)
+	_check(int(p.get_meta("music", -1)) == day, "a player is put on a track")
+	server.send_music(p, day, 2.0, false)
+	_check(int(p.get_meta("music", -1)) == day, "and asking again for the same one changes nothing")
+	server.send_music(p, -1, 1.0, false)
+	_check(int(p.get_meta("music", -1)) == -1, "-1 stops it")
+	_check(not p.data.has("_music"), "and none of it is written into the save")
+
+	# The client half, without a network: the registry travels, and a track whose file has not arrived
+	# yet is wanted but not playing rather than an error.
+	var client_registry = MusicRegistryScript.new()
+	_check(client_registry.load_network(server.music.to_network()), "the track list survives the trip to a client")
+	_check(client_registry.id_of("vanilla:daylight") == day, "with the same ids, which is what the server sends")
+
+	server.queue_free()
+	await get_tree().process_frame
+
+
 func _fishing() -> void:
 	var server = _start("fishing_%d" % Time.get_ticks_msec())
 	var mod = server.mod_instances.get("vanilla")
@@ -3773,6 +3861,11 @@ func _hearthhold() -> void:
 	# the night the whole story is about. (playtest, 2026-09-18)
 	var vanilla_mod = server.mod_instances.get("vanilla")
 	_check(vanilla_mod != null and not vanilla_mod.api.is_game(), "vanilla knows it is a foundation here, not the game")
+	# And it knew during its own setup(), not only afterwards. Which mod is the game used to be decided
+	# after every mod had started, so a mod asking this while setting itself up was always told "no" -
+	# silently. It cost vanilla its music timer, and nothing failed; it just went quiet. (2026-09-18)
+	_check(vanilla_mod.music_setup_saw_game == false and mod.setup_saw_game == true,
+		"and both knew which game was running while they were still starting up")
 	_check(mod.api.is_game(), "and Hearthhold knows it is the game")
 	_check(mod.api.game_id() == "hearthhold" and vanilla_mod != null and vanilla_mod.api.game_id() == "hearthhold",
 		"both agree on which game is running")

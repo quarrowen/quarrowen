@@ -55,6 +55,9 @@ small CI runner, which simulates less in that time. Wait for the event, not for 
   twice in one frame frees the new children too. Take the child out of the tree first.
 - **Changing a block or item id.** Saves are by name (`SAVE_FORMAT 2`); ids shift whenever anything is
   added. Display names are safe to change, ids are not.
+- **`godot --check-only --script <file>`.** It reports success on a file that does not parse. To check a
+  script really compiles, `load()` it and ask `can_instantiate()` - which is what the suite does for every
+  script under `engine/`.
 
 ## When to bump `Protocol.VERSION`
 

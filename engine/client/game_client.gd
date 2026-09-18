@@ -43,6 +43,7 @@ const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const EntityView = preload("res://engine/client/entity_view.gd")
 const EntityPhysics = preload("res://engine/shared/entity_physics.gd")
 const SoundPlayer = preload("res://engine/client/sound_player.gd")
+const MusicPlayer = preload("res://engine/client/music_player.gd")
 const InventoryScreen = preload("res://engine/client/inventory_screen.gd")
 const Mining = preload("res://engine/shared/mining.gd")
 const ItemVisuals = preload("res://engine/client/item_visuals.gd")
@@ -155,6 +156,9 @@ var _correction_count := 0
 
 var _manifest := {}  # asset name -> {hash, size}
 var _downloads := {}  # hash -> PackedByteArray being received
+## Lazy assets being fetched while playing: hash -> {buffer, callbacks}. Separate from _downloads so a
+## slow music track can never be mistaken for part of the join and stall the progress bar.
+var _lazy := {}
 var _download_total := 0
 var _download_received := 0
 var _asset_textures := {}  # asset name -> ImageTexture
@@ -177,6 +181,7 @@ var _entity_target := {}  # {kind: 0 entity / 1 player, id, distance} or empty
 var _attack_timer := 0.0
 var _step_distance := 0.0
 var _sounds: SoundPlayer
+var _music: MusicPlayer
 var _base_rules := {}
 var _mining := {}  # {position, started, seconds} while breaking a block in survival
 var _mining_sound_at := 0.0
@@ -482,24 +487,30 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	stats = items.stats.duplicate()
 	if content.get("rules") is Dictionary:
 		on_rules(content.rules)
-	if not entity_types.load_network(content.get("entities", [])) or not _sounds.registry.load_network(content.get("sounds", [])):
+	if not entity_types.load_network(content.get("entities", [])) or not _sounds.registry.load_network(content.get("sounds", [])) \
+			or not _music.registry.load_network(content.get("music", [])):
 		_leave("Server sent invalid entity or sound definitions")
 		return
 
 	var total_size := 0
 	var missing := PackedStringArray()
 	for entry in manifest.slice(0, Protocol.MAX_ASSETS):
-		if not (entry is Array) or entry.size() != 3 or not (entry[0] is String) or not (entry[1] is String):
+		if not (entry is Array) or entry.size() < 3 or not (entry[0] is String) or not (entry[1] is String):
 			continue
 		var hash: String = entry[1]
 		var size := int(entry[2])
+		var lazy: bool = entry.size() > 3 and int(entry[3]) == 1
 		if not ContentCache.is_valid_hash(hash) or size < 0 or size > Protocol.MAX_ASSET_SIZE:
 			continue
 		total_size += size
 		if total_size > Protocol.MAX_TOTAL_ASSET_SIZE:
 			_leave("This server has more in it than the game can take in. Ask whoever runs it.")
 			return
-		_manifest[entry[0]] = {"hash": hash, "size": size}
+		_manifest[entry[0]] = {"hash": hash, "size": size, "lazy": lazy}
+		# A lazy asset is listed but not waited for. Music is megabytes; a join that downloads the
+		# soundtrack first is a join a child gives up on.
+		if lazy:
+			continue
 		if not ContentCache.has(hash) and not _downloads.has(hash):
 			_downloads[hash] = PackedByteArray()
 			_download_total += size
@@ -514,7 +525,44 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 		_finish_content()
 
 
+## Fetches a lazy asset, calling `then(asset_name)` once it is on disk. Calling it again for something
+## already arriving just adds another listener rather than asking the server twice.
+func fetch_lazy_asset(asset_name: String, then: Callable) -> void:
+	var entry = _manifest.get(asset_name)
+	if entry == null:
+		return
+	var hash: String = entry.hash
+	if ContentCache.has(hash):
+		then.call(asset_name)
+		return
+	if _lazy.has(hash):
+		_lazy[hash].waiting.append(then)
+		return
+	_lazy[hash] = {"buffer": PackedByteArray(), "name": asset_name, "waiting": [then]}
+	Net.c_request_assets.rpc_id(1, PackedStringArray([hash]))
+
+
+func _lazy_piece(hash: String, offset: int, total: int, bytes: PackedByteArray) -> void:
+	var entry: Dictionary = _lazy[hash]
+	var buffer: PackedByteArray = entry.buffer
+	if offset != buffer.size() or offset + bytes.size() > mini(total, Protocol.MAX_ASSET_SIZE):
+		_lazy.erase(hash)  # give up quietly: this is music, not the world
+		return
+	buffer.append_array(bytes)
+	if buffer.size() < total:
+		entry.buffer = buffer
+		return
+	_lazy.erase(hash)
+	if not ContentCache.store(hash, buffer):
+		return
+	for callback in entry.waiting:
+		callback.call(entry.name)
+
+
 func on_asset_piece(hash: String, offset: int, total: int, bytes: PackedByteArray) -> void:
+	if _lazy.has(hash):
+		_lazy_piece(hash, offset, total, bytes)
+		return
 	if phase != Phase.DOWNLOADING or not _downloads.has(hash):
 		return
 	var buffer: PackedByteArray = _downloads[hash]
@@ -589,6 +637,7 @@ func _finish_content() -> void:
 		if _asset_textures.has(d.sprite):
 			_entity_sprites[d.id] = _asset_textures[d.sprite]
 	_sounds.manifest = _manifest
+	_music.manifest = _manifest
 	_crafting_screen.atlas = _atlas
 	_item_icons.items = items
 	_item_icons.atlas = _atlas
@@ -1131,6 +1180,13 @@ func on_player_event(peer_id: int, kind: int) -> void:
 		1: remote.set_dead(true)
 		4: remote.set_dead(false)
 		6: remote.swing()
+
+
+## The server's music instruction. Nothing here can fail loudly: the track may not have arrived yet, or
+## may never arrive, and either way the game carries on without it.
+func on_music(track_id: int, fade: float, restart: bool) -> void:
+	if _music != null:
+		_music.play(track_id, fade, restart)
 
 
 func on_sound(sound_id: int, pos: Vector3, volume: float, pitch: float, positional: bool) -> void:
@@ -2906,6 +2962,9 @@ func _build_scene() -> void:
 	listener.make_current()
 	_sounds = SoundPlayer.new()
 	add_child(_sounds)
+	_music = MusicPlayer.new()
+	_music.fetch = fetch_lazy_asset
+	add_child(_music)
 
 	_highlight = MeshInstance3D.new()
 	var box := BoxMesh.new()

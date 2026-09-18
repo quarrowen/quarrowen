@@ -368,7 +368,10 @@ engine/shared/effect_registry.gd). emitter textures are paths in this mod or &qu
 built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,
 engine:dust, engine:explosion."><div class="sig"><code>api.play_effect(effect_name: String, position: Vector3, options := {}) -&gt; void</code><span class="tag js" title="playEffect">JS playEffect</span></div><p>Plays an effect for everyone in range. options: color (&quot;#rrggbb&quot;, tints it), scale, direction<br>(Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).<br>Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,<br>engine:dust, engine:explosion.</p></div>
 <div class="card" id="api-play-sound" data-search="play_sound playsound plays a sound at a world position for everyone in range."><div class="sig"><code>api.play_sound(sound_name: String, position: Vector3, volume := 1.0, pitch := 1.0) -&gt; void</code><span class="tag js" title="playSound(name: string, position: Vec3, volume?: number, pitch?: number): void">JS playSound</span></div><p>Plays a sound at a world position for everyone in range.</p></div>
-<div class="card" id="api-register-asset" data-search="register_asset  makes a file from this mod's folder downloadable by clients. returns its asset name."><div class="sig"><code>api.register_asset(relative_path: String) -&gt; String</code></div><p>Makes a file from this mod's folder downloadable by clients. Returns its asset name.</p></div>
+<div class="card" id="api-register-asset" data-search="register_asset  makes a file from this mod's folder downloadable by clients. returns its asset name.
+options: {lazy} - a lazy asset is listed for the client but not part of the download it waits through
+to join; it is fetched the first time something needs it. use it for anything big and optional (music
+is the reason it exists). anything the world cannot be drawn without must stay eager."><div class="sig"><code>api.register_asset(relative_path: String, options := {}) -&gt; String</code></div><p>Makes a file from this mod's folder downloadable by clients. Returns its asset name.<br>options: {lazy} - a lazy asset is listed for the client but not part of the download it waits through<br>to join; it is fetched the first time something needs it. Use it for anything big and optional (music<br>is the reason it exists). Anything the world cannot be drawn without must stay eager.</p></div>
 </section>
 <section id="api-server"><h2>Server</h2>
 <div class="card" id="api-storage" data-search="storage storage persistent dictionary owned by this mod, saved with the world."><div class="sig"><code>api.storage: Dictionary  (property)</code><span class="tag js" title="storage">JS storage</span></div><p>Persistent Dictionary owned by this mod, saved with the world.</p></div>
@@ -376,6 +379,25 @@ engine:dust, engine:explosion."><div class="sig"><code>api.play_effect(effect_na
 <section id="api-other"><h2>Other</h2>
 <div class="card" id="api-reloading" data-search="reloading  true while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,
 items and entities that exist update in place; things that cannot change live are skipped and noted."><div class="sig"><code>api.reloading := false  (property)</code></div><p>True while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,<br>items and entities that exist update in place; things that cannot change live are skipped and noted.</p></div>
+<div class="card" id="api-register-music" data-search="register_music registermusic registers a music track. `attribution` is required: say who made it and under what licence.
+
+api.register_music(&quot;valley&quot;, &quot;music/valley.ogg&quot;, {
+&quot;attribution&quot;: &quot;kevin macleod - meadow (cc0)&quot;, &quot;volume&quot;: 0.8})
+
+the audio is registered as a *lazy* asset, so it does not join the download a player waits through to
+get in; it arrives quietly afterwards and the track starts when it is ready. nothing is ever held up
+waiting for music, which is the whole reason the lazy lane exists.
+
+attribution is required rather than encouraged because whoever runs a server is redistributing this
+to their children and anyone else who joins, and a track whose source nobody wrote down is one whose
+licence nobody can check later. `/music` shows the credits in game."><div class="sig"><code>api.register_music(track_name: String, file: String, options := {}) -&gt; int</code><span class="tag js" title="registerMusic(name: string, file: string, options: { attribution: string; volume?: number; loop?: boolean }): number">JS registerMusic</span></div><p>Registers a music track. `attribution` is required: say who made it and under what licence.<br><br>api.register_music(&quot;valley&quot;, &quot;music/valley.ogg&quot;, {<br>&quot;attribution&quot;: &quot;Kevin MacLeod - Meadow (CC0)&quot;, &quot;volume&quot;: 0.8})<br><br>The audio is registered as a *lazy* asset, so it does not join the download a player waits through to<br>get in; it arrives quietly afterwards and the track starts when it is ready. Nothing is ever held up<br>waiting for music, which is the whole reason the lazy lane exists.<br><br>Attribution is required rather than encouraged because whoever runs a server is redistributing this<br>to their children and anyone else who joins, and a track whose source nobody wrote down is one whose<br>licence nobody can check later. `/music` shows the credits in game.</p></div>
+<div class="card" id="api-play-music" data-search="play_music playmusic starts a track for one player, or for everybody when `player` is null. playing the track that is
+already playing does nothing, so this is safe to call every time the biome or the time of day
+changes - which is how a mod will actually want to use it.
+
+options: {fade (seconds to cross over, default 2.0), restart (start again even if it is already
+playing, default false)}."><div class="sig"><code>api.play_music(player, track_name: String, options := {}) -&gt; void</code><span class="tag js" title="playMusic(player: Player | null, name: string, options?: { fade?: number; restart?: boolean }): void">JS playMusic</span></div><p>Starts a track for one player, or for everybody when `player` is null. Playing the track that is<br>already playing does nothing, so this is safe to call every time the biome or the time of day<br>changes - which is how a mod will actually want to use it.<br><br>options: {fade (seconds to cross over, default 2.0), restart (start again even if it is already<br>playing, default false)}.</p></div>
+<div class="card" id="api-stop-music" data-search="stop_music stopmusic fades the music out for one player, or for everybody when `player` is null."><div class="sig"><code>api.stop_music(player, options := {}) -&gt; void</code><span class="tag js" title="stopMusic(player: Player | null, options?: { fade?: number }): void">JS stopMusic</span></div><p>Fades the music out for one player, or for everybody when `player` is null.</p></div>
 <div class="card" id="api-set-map-marker" data-search="set_map_marker  puts a marker on a player's map and compass (it stays until removed).
 `marker` = {label, position, color, dimension}. markers are per player, so a home or a grave only shows
 to whoever it belongs to. `dimension` (&quot;&quot; = the ordinary world) hides it while they are somewhere else."><div class="sig"><code>api.set_map_marker(player, marker_id: String, marker: Dictionary) -&gt; void</code></div><p>Puts a marker on a player's map and compass (it stays until removed).<br>`marker` = {label, position, color, dimension}. Markers are per player, so a home or a grave only shows<br>to whoever it belongs to. `dimension` (&quot;&quot; = the ordinary world) hides it while they are somewhere else.</p></div>
@@ -698,8 +720,11 @@ look and saved in data.look."><div class="sig"><code>entity.set_look(values: Dic
 <div class="card" data-search="playerroles"><div class="sig"><code>api.playerRoles(playerId: string): string[]</code></div></div>
 <div class="card" data-search="setplayerrole"><div class="sig"><code>api.setPlayerRole(playerId: string, role: string, on?: boolean): boolean</code></div></div>
 <div class="card" data-search="networkservers"><div class="sig"><code>api.networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[]</code></div></div>
-<div class="card" data-search="isgame"><div class="sig"><code>api.isGame(): boolean</code></div><p>Is this mod the game being played, or is another game using it as a foundation? A game mod is
-       often somebody else's dependency - guard welcomes and whole-game UI with this.</p></div>
+<div class="card" data-search="registermusic"><div class="sig"><code>api.registerMusic(name: string, file: string, options: { attribution: string; volume?: number; loop?: boolean }): number</code></div><p>Registers a music track; `attribution` is required. Fetched lazily, so it never delays a join.</p></div>
+<div class="card" data-search="playmusic"><div class="sig"><code>api.playMusic(player: Player | null, name: string, options?: { fade?: number; restart?: boolean }): void</code></div><p>Starts a track for one player, or everybody when player is null. Re-asking for what is already
+       playing does nothing.</p></div>
+<div class="card" data-search="stopmusic"><div class="sig"><code>api.stopMusic(player: Player | null, options?: { fade?: number }): void</code></div><p>Fades the music out for one player, or everybody when player is null.</p></div>
+<div class="card" data-search="isgame"><div class="sig"><code>api.isGame(): boolean</code></div></div>
 <div class="card" data-search="isliquid"><div class="sig"><code>api.isLiquid(block: number): boolean</code></div><p>Is this block id a liquid (water, lava, anything a mod declares `liquid: true`)?</p></div>
 <div class="card" data-search="raycast"><div class="sig"><code>api.raycast( origin: { x: number; y: number; z: number }, direction: { x: number; y: number; z: number }, maxDistance?: number, options?: { liquids?: boolean }, ): { hit: boolean; position?: { x: number; y: number; z: number }; normal?: { x: number; y: number; z: number }; block?: number }</code></div><p>What a ray hits. Looks through water by default, as a player's crosshair does; {liquids: true}
        stops at the surface instead, which is the only way to find where water begins.</p></div>
@@ -1155,6 +1180,13 @@ declare module &quot;quarrowen&quot; {
     networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[];
     /** Is this mod the game being played, or is another game using it as a foundation? A game mod is
      *  often somebody else's dependency - guard welcomes and whole-game UI with this. */
+    /** Registers a music track; `attribution` is required. Fetched lazily, so it never delays a join. */
+    registerMusic(name: string, file: string, options: { attribution: string; volume?: number; loop?: boolean }): number;
+    /** Starts a track for one player, or everybody when player is null. Re-asking for what is already
+     *  playing does nothing. */
+    playMusic(player: Player | null, name: string, options?: { fade?: number; restart?: boolean }): void;
+    /** Fades the music out for one player, or everybody when player is null. */
+    stopMusic(player: Player | null, options?: { fade?: number }): void;
     isGame(): boolean;
     /** Is this block id a liquid (water, lava, anything a mod declares `liquid: true`)? */
     isLiquid(block: number): boolean;

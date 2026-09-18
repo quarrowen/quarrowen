@@ -40,6 +40,22 @@ func _run() -> void:
 		c.server_info.get("name"), c.server_info.get("game"), c.registry.defs.size(), c._manifest.size(), c._download_total, c.state.position])
 	_check(c.registry.defs.size() > 10, "received block registry")
 	_check(not c._atlas.is_empty(), "built texture atlas from server assets")
+
+	# Music, over a real connection. Two halves worth proving separately: that the soundtrack did NOT
+	# join the download the player waited through, and that it arrives afterwards anyway.
+	if _game == "vanilla":
+		var tracks: int = c._music.registry.defs.size()
+		_check(tracks >= 2, "the track list arrived with the rest of the content (%d)" % tracks)
+		var music_bytes := 0
+		for name: String in c._manifest:
+			if c._manifest[name].get("lazy", false):
+				music_bytes += int(c._manifest[name].size)
+		_check(music_bytes > 100000, "the music is real and sizeable (%d bytes)" % music_bytes)
+		_check(c._download_total < music_bytes, "and none of it was in the join download (%d waited for, %d lazy)" % [c._download_total, music_bytes])
+		# The server puts everyone on a track within five seconds (vanilla's timer), and the client then
+		# fetches it. Either it is playing, or it is still on its way - both mean the lane works.
+		var got := await _wait_until(func(): return c._music.playing >= 0, 25.0)
+		_check(got, "the track was fetched after joining and started playing (wanted %d, playing %d)" % [c._music.wanted, c._music.playing])
 	await _wait_until(func(): return c.state.on_ground, 5.0)
 
 	match _game:

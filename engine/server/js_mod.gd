@@ -275,6 +275,9 @@ func _call_host(method: String, a: Array):
 		"setUgcPolicy": api.set_ugc_policy(_dict(a, 0))
 		"ugcList": return api.ugc_list(_str(a, 0) if a.size() > 0 else "approved")
 		"networkServers": return api.network_servers()
+		"registerMusic": return api.register_music(_str(a, 0), _str(a, 1), _dict(a, 2))
+		"playMusic": api.play_music(_player_or_all(a, 0), _str(a, 1), _dict(a, 2))
+		"stopMusic": api.stop_music(_player_or_all(a, 0), _dict(a, 1))
 		"isGame": return api.is_game()
 		"isLiquid": return api.is_liquid(_int(a, 0))
 		"raycast":
@@ -565,6 +568,14 @@ static func _vec3(a: Array, i: int) -> Vector3:
 static func _block_pos(a: Array, i: int) -> Vector3i:
 	var v := _vec3(a, i)
 	return Vector3i(floori(v.x), floori(v.y), floori(v.z))
+
+
+## Like _player_ref, but null means "everybody" rather than an error - music is usually for the room.
+func _player_or_all(a: Array, i: int):
+	if i >= a.size() or a[i] == null:
+		return null
+	var player = _player_ref(a, i)
+	return null if player is HostError else player
 
 
 func _player_ref(a: Array, i: int):

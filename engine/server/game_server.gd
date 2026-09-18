@@ -20,6 +20,7 @@ const ItemRegistry = preload("res://engine/shared/item_registry.gd")
 const Entities = preload("res://engine/server/entities.gd")
 const Entity = preload("res://engine/server/entity.gd")
 const SoundRegistry = preload("res://engine/shared/sound_registry.gd")
+const MusicRegistry = preload("res://engine/shared/music_registry.gd")
 const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const Mining = preload("res://engine/shared/mining.gd")
@@ -108,6 +109,7 @@ var world := VoxelWorld.new()
 var world_seed := 0
 var entities := Entities.new(self)
 var sounds := SoundRegistry.new()
+var music := MusicRegistry.new()
 ## The character body every client draws players with (see PlayerRig; mods may replace it).
 var player_rig := PlayerRig.default_rig()
 ## Built-in and server cosmetics, categories and this server's cosmetics policy.
@@ -440,6 +442,19 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 	for manifest in order:
 		dev_log.add_mod_dir(manifest.id, manifest.dir)
 		mod_manifests[manifest.id] = manifest
+	# Which mod is the game is decided before any of them run, not after: a mod asking api.is_game() in
+	# its own setup() - to decide whether to drive the music, say - would otherwise always be told no,
+	# and would be told it silently. Nothing here needs a mod to have started; it is the requested list
+	# and the manifests, both of which are known already.
+	var game: Dictionary = available[requested[requested.size() - 1]]
+	for id in requested:
+		if available[id].game:
+			game = available[id]
+			break
+	server_info.game = game.name
+	server_info.game_id = game.id
+	if server_info.description.is_empty():
+		server_info.description = game.description
 	for manifest in order:
 		loot.load_files(manifest.id, manifest.dir)  # loot/*.json, before the mod runs so it can build on them
 		if String(manifest.main).get_extension() == "js":
@@ -467,16 +482,6 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 		mod_instances[manifest.id] = instance
 		server_info.mods.append("%s@%s" % [manifest.id, manifest.version])
 		print("[server] Loaded mod %s %s" % [manifest.id, manifest.version])
-	# The game is the first requested mod marked as one; add-ons like industry follow it.
-	var game: Dictionary = available[requested[requested.size() - 1]]
-	for id in requested:
-		if available[id].game:
-			game = available[id]
-			break
-	server_info.game = game.name
-	server_info.game_id = game.id
-	if server_info.description.is_empty():
-		server_info.description = game.description
 	return OK
 
 
@@ -486,13 +491,21 @@ func mod_storage(mod_id: String) -> Dictionary:
 	return _meta.mod_storage[mod_id]
 
 
-func add_asset(asset_name: String, path: String) -> void:
+## `lazy` assets are in the manifest but are not part of the download a player waits through to join.
+## The client fetches one the first time something actually needs it. Music lives here: a track is
+## megabytes where a texture is a few hundred bytes, and a child should not wait through the soundtrack
+## to get into the world.
+func add_asset(asset_name: String, path: String, lazy := false) -> void:
 	if _assets.has(asset_name):
+		# Something already asked for this file eagerly, and that wins: an asset needed to draw the world
+		# cannot become optional because a second caller was relaxed about it.
+		if not lazy:
+			_assets[asset_name].lazy = false
 		return
 	if not FileAccess.file_exists(path):
 		push_error("[server] Asset not found: %s (%s)" % [asset_name, path])
 		return
-	_assets[asset_name] = {"path": path}
+	_assets[asset_name] = {"path": path, "lazy": lazy}
 
 
 func _hash_assets() -> void:
@@ -508,6 +521,8 @@ func _hash_assets() -> void:
 		_assets[asset_name].hash = hash
 		_assets[asset_name].size = bytes.size()
 		_asset_bytes[hash] = bytes
+		if _assets[asset_name].get("lazy", false):
+			_lazy_hashes[hash] = true
 
 
 func set_rules(values: Dictionary) -> void:
@@ -720,6 +735,7 @@ func _register_builtin_commands() -> void:
 			hunger.set_hunger(target, float(args[0]), 0.0), "engine", "admin")
 	add_command("tutorial", "list | start <id> | skip | stop | tips on|off", _cmd_tutorial, "engine")
 	add_command("milestones", "What you have done, and what is still out there", _cmd_milestones, "engine")
+	add_command("music", "Who made the music this server plays", _cmd_music, "engine")
 	add_command("gamemode", "survival | creative [player]", _cmd_gamemode, "engine", "admin")
 	add_command("fly", "Toggle flying (creative, or the \"fly\" permission)", _cmd_fly, "engine")
 	add_command("kill", "Die and respawn", func(p, _args): kill_player(p, "command", null), "engine")
@@ -1010,6 +1026,18 @@ func _cmd_kick(player, args: PackedStringArray) -> void:
 		player.send_message("No online player named '%s'" % (args[0] if args.size() > 0 else ""))
 		return
 	kick(target.peer_id, " ".join(args.slice(1)) if args.size() > 1 else "Kicked by %s" % player.name)
+
+
+## Attribution is required when a track is registered precisely so that this can exist. A player, or a
+## parent, can always find out what they are listening to and under what licence.
+func _cmd_music(player, _args: PackedStringArray) -> void:
+	var lines := music.credits()
+	if lines.is_empty():
+		player.send_message("This server has no music.")
+		return
+	player.send_message("Music on this server:")
+	for line in lines:
+		player.send_message("  " + line)
 
 
 func _cmd_whoami(player, _args: PackedStringArray) -> void:
@@ -1789,6 +1817,24 @@ func play_effect(effect_name: String, pos: Vector3, options := {}, exclude := 0)
 			Net.s_effect.rpc_id(p.peer_id, id, pos, clean)
 
 
+## Tells a player (or everyone, when `p` is null) what music to play. -1 means stop. The track each
+## player is on is remembered so a mod can call this on every biome change without restarting anything,
+## and so a player who reconnects hears the same thing rather than silence.
+func send_music(p, track_id: int, fade := 2.0, restart := false) -> void:
+	var targets: Array = players.values() if p == null else [p]
+	for target in targets:
+		if target == null:
+			continue
+		if not restart and int(target.get_meta("music", -1)) == track_id:
+			continue
+		# Kept as metadata on the connection rather than in player data, which is written to the save:
+		# what a player is listening to right now is not something a world should remember, and a
+		# reconnecting client starts from silence and must be told again.
+		target.set_meta("music", track_id)
+		if target._online():
+			Net.s_music.rpc_id(target.peer_id, track_id, clampf(fade, 0.0, 30.0), restart)
+
+
 func play_sound_to(p: ServerPlayer, sound_name: String, volume := 1.0, pitch := 1.0) -> void:
 	var id := sounds.id_of(sound_name)
 	if id >= 0 and _started:
@@ -1991,9 +2037,9 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 	for asset_name: String in _assets:
 		var a: Dictionary = _assets[asset_name]
 		if a.has("hash"):
-			manifest.append([asset_name, a.hash, a.size])
+			manifest.append([asset_name, a.hash, a.size, 1 if a.get("lazy", false) else 0])
 	var content := {"blocks": registry.to_network(), "items": items.to_network(), "rules": rules.to_dict(),
-		"entities": entities.registry.to_network(), "sounds": sounds.to_network(),
+		"entities": entities.registry.to_network(), "sounds": sounds.to_network(), "music": music.to_network(),
 		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
 		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network(), "recipes": recipes.to_network(), "processes": _processes,
 		"stations": stations.to_network(), "assembly": assembly.to_network(), "minigames": skill.to_network(), "guide": guide.registry.to_network(), "tutorials": tutorials.to_network(),
@@ -2016,14 +2062,40 @@ func on_claim_admin(peer_id: int, token: String) -> void:
 	p.send_message("You are an admin on this server.")
 
 
+## How many lazy assets one player may have in flight. A player in the world can ask for these at any
+## time, unlike the single join burst, so the queue is short on purpose: serving assets is pure egress,
+## and a peer that asks in a loop should cost a trickle rather than a bill.
+const LAZY_QUEUE := 4
+const LAZY_BYTES_PER_TICK := 48 * 1024
+
+## peer_id -> {queue, offset} for players in the world fetching lazy assets (music).
+var _lazy_streams := {}
+
+
 func on_request_assets(peer_id: int, hashes: PackedStringArray) -> void:
 	var j: Dictionary = _joining.get(peer_id, {})
 	if j.is_empty() or j.requested or not j.authenticated:
+		# Not joining: a player already in the world asking for a lazy asset. Only lazy ones - the eager
+		# assets went out with the join, and re-serving them on request is free bandwidth for a stranger.
+		if players.has(peer_id):
+			var stream: Dictionary = _lazy_streams.get(peer_id, {"queue": [], "offset": 0})
+			_lazy_streams[peer_id] = stream
+			for hash in hashes.slice(0, LAZY_QUEUE):
+				if stream.queue.size() >= LAZY_QUEUE:
+					break
+				if _asset_bytes.has(hash) and not stream.queue.has(hash) and _lazy_hashes.has(hash):
+					stream.queue.append(hash)
 		return
 	j.requested = true
 	for hash in hashes.slice(0, Protocol.MAX_ASSETS):
 		if _asset_bytes.has(hash) and not j.queue.has(hash):
 			j.queue.append(hash)
+
+
+## Hashes of lazy assets, as a set. Built with the hashes rather than searched for per request: this is
+## reached from a network handler, and a scan of every asset per message is how a cheap message becomes
+## an expensive one.
+var _lazy_hashes := {}
 
 
 func _stream_assets() -> void:
@@ -2040,6 +2112,22 @@ func _stream_assets() -> void:
 			if j.offset >= bytes.size():
 				j.queue.pop_front()
 				j.offset = 0
+	for peer_id: int in _lazy_streams.keys():
+		var stream: Dictionary = _lazy_streams[peer_id]
+		if not players.has(peer_id):
+			_lazy_streams.erase(peer_id)
+			continue
+		var budget := LAZY_BYTES_PER_TICK
+		while budget > 0 and not stream.queue.is_empty():
+			var hash: String = stream.queue[0]
+			var bytes: PackedByteArray = _asset_bytes[hash]
+			var piece := bytes.slice(stream.offset, stream.offset + Protocol.ASSET_PIECE_SIZE)
+			Net.s_asset_piece.rpc_id(peer_id, hash, stream.offset, bytes.size(), piece)
+			stream.offset += piece.size()
+			budget -= maxi(piece.size(), 1)
+			if stream.offset >= bytes.size():
+				stream.queue.pop_front()
+				stream.offset = 0
 
 
 func on_client_ready(peer_id: int) -> void:

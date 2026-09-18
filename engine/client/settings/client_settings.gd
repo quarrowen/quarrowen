@@ -11,6 +11,7 @@ signal changed(key: String)
 const DEFAULT_PATH := "user://settings.cfg"
 const BUS_WORLD := "World"
 const BUS_INTERFACE := "Interface"
+const BUS_MUSIC := "Music"
 
 const GRAPHICS_PRESETS := ["fast", "balanced", "fancy", "custom"]
 ## Per-preset values of the graphics toggles (see engine/client/graphics_settings.gd).
@@ -45,6 +46,11 @@ const SCHEMA := {
 		"help": "Blocks, creatures, machines and footsteps around you."},
 	"audio/interface": {"tab": "Audio", "label": "Interface sounds", "type": "float", "default": 1.0, "min": 0.0, "max": 1.0, "step": 0.05, "percent": true,
 		"help": "Sounds that are not in the world: clicks, crafting, notifications."},
+	# Quiet by default rather than off: a player who never opens Settings still hears what a server meant
+	# them to hear, and one who finds it too much has an obvious slider. Off would mean most people never
+	# discovered that servers can have music at all.
+	"audio/music": {"tab": "Audio", "label": "Music", "type": "float", "default": 0.35, "min": 0.0, "max": 1.0, "step": 0.05, "percent": true,
+		"help": "Music the server chooses. Who wrote it is under Music in the chat: /music."},
 	"controls/mouse_sensitivity": {"tab": "Controls", "label": "Mouse sensitivity", "type": "float", "default": 1.0, "min": 0.2, "max": 3.0, "step": 0.05, "percent": true},
 	"controls/invert_y": {"tab": "Controls", "label": "Invert mouse up and down", "type": "bool", "default": false},
 	"controls/sprint_toggle": {"tab": "Controls", "label": "Sprint key toggles", "type": "bool", "default": false,
@@ -312,12 +318,12 @@ func apply_ui_scale(window: Window) -> void:
 
 ## Master volume on the Master bus; World and Interface buses (created when missing) below it.
 func apply_audio() -> void:
-	for bus_name in [BUS_WORLD, BUS_INTERFACE]:
+	for bus_name in [BUS_WORLD, BUS_INTERFACE, BUS_MUSIC]:
 		if AudioServer.get_bus_index(bus_name) == -1:
 			AudioServer.add_bus()
 			AudioServer.set_bus_name(AudioServer.bus_count - 1, bus_name)
 			AudioServer.set_bus_send(AudioServer.bus_count - 1, "Master")
-	for pair in [["Master", "audio/volume"], [BUS_WORLD, "audio/world"], [BUS_INTERFACE, "audio/interface"]]:
+	for pair in [["Master", "audio/volume"], [BUS_WORLD, "audio/world"], [BUS_INTERFACE, "audio/interface"], [BUS_MUSIC, "audio/music"]]:
 		var index := AudioServer.get_bus_index(pair[0])
 		var v := float(get_value(pair[1]))
 		AudioServer.set_bus_volume_db(index, linear_to_db(maxf(v, 0.0001)))

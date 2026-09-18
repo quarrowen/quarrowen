@@ -532,6 +532,14 @@ func s_transfer(address: String, port: int, server_name: String, ticket: String,
 		client.on_transfer(address, port, server_name, ticket, signature)
 
 
+## Which music to play, or -1 for none. Reliable: a dropped one leaves the wrong music playing for as
+## long as the player stays in that biome, which is exactly the kind of quiet wrongness nobody reports.
+@rpc("authority", "call_remote", "reliable")
+func s_music(track_id: int, fade: float, restart: bool) -> void:
+	if client:
+		client.on_music(track_id, fade, restart)
+
+
 @rpc("authority", "call_remote", "reliable")
 func s_kick(reason: String) -> void:
 	if client:

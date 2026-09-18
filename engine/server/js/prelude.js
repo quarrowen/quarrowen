@@ -291,6 +291,16 @@
     networkServers: () => host("networkServers"),
     /** Is this mod the game being played, or is another game using it as a foundation? Guard anything
      *  that speaks for the whole game - a welcome, a corner panel - with this. */
+    /** Registers a music track. `attribution` is required - say who made it and under what licence,
+     *  because running a server means redistributing it. The file is fetched lazily, so it never
+     *  delays a join. options: {attribution (required), volume, loop}. */
+    registerMusic: (name, file, options = {}) => host("registerMusic", name, file, options),
+    /** Starts a track for one player, or everybody when player is null. Asking for the track already
+     *  playing does nothing, so this is safe to call on every biome or time change.
+     *  options: {fade, restart}. */
+    playMusic: (player, name, options = {}) => host("playMusic", player, name, options),
+    /** Fades the music out for one player, or everybody when player is null. options: {fade}. */
+    stopMusic: (player, options = {}) => host("stopMusic", player, options),
     isGame: () => host("isGame"),
     /** Is this block id a liquid? */
     isLiquid: (block) => host("isLiquid", block),

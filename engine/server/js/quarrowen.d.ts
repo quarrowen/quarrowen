@@ -449,6 +449,13 @@ declare module "quarrowen" {
     networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[];
     /** Is this mod the game being played, or is another game using it as a foundation? A game mod is
      *  often somebody else's dependency - guard welcomes and whole-game UI with this. */
+    /** Registers a music track; `attribution` is required. Fetched lazily, so it never delays a join. */
+    registerMusic(name: string, file: string, options: { attribution: string; volume?: number; loop?: boolean }): number;
+    /** Starts a track for one player, or everybody when player is null. Re-asking for what is already
+     *  playing does nothing. */
+    playMusic(player: Player | null, name: string, options?: { fade?: number; restart?: boolean }): void;
+    /** Fades the music out for one player, or everybody when player is null. */
+    stopMusic(player: Player | null, options?: { fade?: number }): void;
     isGame(): boolean;
     /** Is this block id a liquid (water, lava, anything a mod declares `liquid: true`)? */
     isLiquid(block: number): boolean;

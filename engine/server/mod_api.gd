@@ -282,6 +282,50 @@ func register_sound(sound_name: String, files, options := {}) -> int:
 	return _server.sounds.register(d)
 
 
+## Registers a music track. `attribution` is required: say who made it and under what licence.
+##
+##   api.register_music("valley", "music/valley.ogg", {
+##       "attribution": "Kevin MacLeod - Meadow (CC0)", "volume": 0.8})
+##
+## The audio is registered as a *lazy* asset, so it does not join the download a player waits through to
+## get in; it arrives quietly afterwards and the track starts when it is ready. Nothing is ever held up
+## waiting for music, which is the whole reason the lazy lane exists.
+##
+## Attribution is required rather than encouraged because whoever runs a server is redistributing this
+## to their children and anyone else who joins, and a track whose source nobody wrote down is one whose
+## licence nobody can check later. `/music` shows the credits in game.
+func register_music(track_name: String, file: String, options := {}) -> int:
+	# A quick reload re-runs setup(); a track that is already there is not a new one, and saying it needs
+	# a full reload every time would train everybody to ignore that message.
+	if reloading and _server.music.id_of(_qualify(track_name)) >= 0:
+		return _server.music.id_of(_qualify(track_name))
+	if _static_during_reload("music", _qualify(track_name)):
+		return -1
+	var d := options.duplicate()
+	d.name = _qualify(track_name)
+	d.file = register_asset(file, {"lazy": true})
+	return _server.music.register(d)
+
+
+## Starts a track for one player, or for everybody when `player` is null. Playing the track that is
+## already playing does nothing, so this is safe to call every time the biome or the time of day
+## changes - which is how a mod will actually want to use it.
+##
+## options: {fade (seconds to cross over, default 2.0), restart (start again even if it is already
+## playing, default false)}.
+func play_music(player, track_name: String, options := {}) -> void:
+	var id: int = _server.music.id_of(track_name if track_name.contains(":") else _qualify(track_name))
+	if id < 0:
+		push_error("[%s] No music track '%s'" % [mod_id, track_name])
+		return
+	_server.send_music(player, id, float(options.get("fade", 2.0)), bool(options.get("restart", false)))
+
+
+## Fades the music out for one player, or for everybody when `player` is null.
+func stop_music(player, options := {}) -> void:
+	_server.send_music(player, -1, float(options.get("fade", 2.0)), false)
+
+
 ## Registers a visual effect: particle emitters, light flash, camera shake and sound (see
 ## engine/shared/effect_registry.gd). Emitter textures are paths in this mod or "soft", "spark",
 ## "star", "square". Returns the effect id, or -1.
@@ -728,13 +772,16 @@ func get_process(kind: String, item_id: int) -> Dictionary:
 
 
 ## Makes a file from this mod's folder downloadable by clients. Returns its asset name.
-func register_asset(relative_path: String) -> String:
+## options: {lazy} - a lazy asset is listed for the client but not part of the download it waits through
+## to join; it is fetched the first time something needs it. Use it for anything big and optional (music
+## is the reason it exists). Anything the world cannot be drawn without must stay eager.
+func register_asset(relative_path: String, options := {}) -> String:
 	if reloading and not relative_path.contains(":") and not _server._assets.has("%s:%s" % [mod_id, relative_path]):
 		reload_notes.append("new file %s needs a full reload (/reload full)" % relative_path)
 	if relative_path.contains(":"):
 		return relative_path  # already an asset name from another mod
 	var asset_name := "%s:%s" % [mod_id, relative_path]
-	_server.add_asset(asset_name, mod_dir.path_join(relative_path))
+	_server.add_asset(asset_name, mod_dir.path_join(relative_path), bool(options.get("lazy", false)))
 	return asset_name
 
 
