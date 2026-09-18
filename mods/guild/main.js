@@ -46,7 +46,7 @@ export function setup(api) {
     cooled: api.registerBlock("cooled_meteorite", { display_name: "Cooled Meteorite", textures: "textures/meteorite_cooled.png" }),
   };
 
-  api.registerSound("coin", "sounds/coin.wav", { pitch_variance: 0.05 });
+  api.registerSound("coin", "sounds/coin.ogg", { pitch_variance: 0.05 });
   // Gold coins melted into tool parts: blazing fast but soft.
   api.registerMaterial("gold", { display_name: "Gilded", item: "guild:gold_coin", color: "#f2c94c", tier: 2, speed: 10,
     durability: 45, damage: 0.5, handle: 0.6,

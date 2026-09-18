@@ -585,6 +585,20 @@ The rules, and what enforces each:
    server *before* the site, and only then publish. A deliberate break needs a note in the release and a
    backup step for the family server.
 
+## A silent coin, and the check that would have caught it (2026-09-18)
+
+Cutting 0.41.1 turned up `Asset not found: guild:sounds/coin.wav` while building the save fixture. Two
+causes stacked: the search that repointed sound references at Kenney's `.ogg` files only looked at
+GDScript, so `mods/guild/main.js` was missed from the start - and a `git checkout -- mods`, used to undo
+a bad sound regeneration, quietly reverted the fishing float as well. A wide checkout is a blunt tool.
+
+The failure mode is the thing worth remembering: a missing asset is only a `push_error` at startup. The
+mod loads, the sound is simply silent, and nobody finds out until somebody notices the coins stopped
+clinking - which for a family server might be never. So the suite now walks every `.gd` and `.js` in
+`mods/` and checks that each "sounds/..." / "textures/..." / "models/..." / "music/..." it names really
+exists (268 of them; format strings are skipped, since those are built at runtime). Proved by putting
+the bug back: it names the file and the reference.
+
 ## Test stability: a flake worth naming rather than fixing blind (2026-09-18)
 
 A full suite run fails about one time in three, a *different* e2e test each time (`e2e:vanilla` once,
@@ -990,6 +1004,23 @@ public idea returns. Full reasoning was in the review; the short version:
 - *Security review before opening anything to the public internet* - see the section below.
 - The imported-skin report turned out to be the test harness overwriting the player's identity, not a UGC
   bug. Nothing is owed there beyond what was fixed.
+
+## Alpha 5.1 (0.41.1)
+
+Protocol stays 40: nothing the client and server must agree on changed, so a 0.41.0 client and a 0.41.1
+server still talk to each other. This one is all things you hear and one you watch.
+
+- **Real sound effects.** Footsteps, breaking blocks, the clicks, the page of the guidebook and the coins
+  are Kenney's CC0 ones now instead of synthesised stand-ins. Who made them is in CREDITS.md and in
+  `/music`'s neighbour on the credits page. Creature voices are still placeholders - no pack has animals
+  in it - and are the next thing to replace.
+- **The world sounds like somewhere.** Wind out in the open, a drip in the dark, water lapping at the
+  edge of a lake. Quiet and occasional on purpose: it should be noticed once and then not thought about.
+  Any mod can add its own with `register_ambience`.
+- **Fishing has a float.** It sits where the line lands and dips when something takes the bait, so the
+  bite happens where you are already looking rather than in a line of text elsewhere on the screen.
+- Windows can now install its own updates - written, but switched off until somebody has tried it on a
+  real Windows machine. The download page is still the way to get it.
 
 ## Alpha 5 (0.41.0)
 

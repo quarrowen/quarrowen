@@ -71,6 +71,7 @@ func _ready() -> void:
 	await _music()
 	await _ambience()
 	_scripts_compile()
+	_mod_assets_exist()
 	_test_isolation()
 	await _loot()
 	_api_docs()
@@ -3749,6 +3750,50 @@ func _test_isolation() -> void:
 	for pair in [["assets cache", ContentCacheScript.dir()], ["unpacked mods", ModLoaderScript.cache_dir()],
 			["the mods folder", ModLoaderScript.user_mods()], ["crafting pins", UserPaths.path("crafting_pins.cfg")]]:
 		_check(not str(pair[1]).begins_with("user://"), "%s is not in the player's folder (%s)" % pair)
+
+
+## Every asset a mod names actually exists.
+##
+## A missing one is only a push_error at startup - the mod loads, the sound is silent, and nobody finds
+## out until somebody notices the coins stopped clinking. That is exactly what happened when the sounds
+## became Kenney's: the .gd files were updated and `mods/guild/main.js` was not, because the search that
+## did it only looked at GDScript. (2026-09-18)
+func _mod_assets_exist() -> void:
+	var missing := []
+	var checked := 0
+	var pending := ["res://mods"]
+	var mods := []
+	var dir := DirAccess.open("res://mods")
+	if dir != null:
+		for name in dir.get_directories():
+			mods.append(name)
+	for mod_name: String in mods:
+		var root := "res://mods/%s" % mod_name
+		var files := []
+		pending = [root]
+		while not pending.is_empty():
+			var at: String = pending.pop_back()
+			var d := DirAccess.open(at)
+			if d == null:
+				continue
+			for sub in d.get_directories():
+				pending.append(at.path_join(sub))
+			for f in d.get_files():
+				if f.ends_with(".gd") or f.ends_with(".js"):
+					files.append(at.path_join(f))
+		for path: String in files:
+			var text := FileAccess.get_file_as_string(path)
+			# "sounds/x.ogg", "textures/y.png", "models/z.glb", "music/w.ogg" - skipping anything with a
+			# format placeholder in it, which is built at runtime and cannot be checked from here.
+			for m in RegEx.create_from_string('"((?:sounds|textures|models|music)/[^"]+)"').search_all(text):
+				var rel := m.get_string(1)
+				if rel.contains("%"):
+					continue
+				checked += 1
+				if not FileAccess.file_exists(root.path_join(rel)):
+					missing.append("%s -> %s" % [path.replace("res://", ""), rel])
+	_check(checked > 40, "found mod asset references to check (%d)" % checked)
+	_check(missing.is_empty(), "every file a mod names exists (%s)" % ", ".join(missing))
 
 
 func _scripts_compile() -> void:
