@@ -55,10 +55,13 @@ func _run() -> void:
 		# property is that the join *passed over* every lazy byte, whatever was already on disk.
 		_check(c.lazy_bytes_skipped == music_bytes,
 			"and the join passed over every byte of it (%d skipped of %d)" % [c.lazy_bytes_skipped, music_bytes])
-		# The server puts everyone on a track within five seconds (vanilla's timer), and the client then
-		# fetches it. Either it is playing, or it is still on its way - both mean the lane works.
-		var got := await _wait_until(func(): return c._music.playing >= 0, 25.0)
-		_check(got, "the track was fetched after joining and started playing (wanted %d, playing %d)" % [c._music.wanted, c._music.playing])
+		# The server puts everyone on a track on a five-second timer and the client then fetches it.
+		# Generous, because this asks "did it ever arrive", not "how fast": the whole suite runs several
+		# servers at once and a tick that slows down stretches both the timer and the streaming. A
+		# stopwatch tight enough to be meaningful here would only be measuring the machine's mood.
+		var got := await _wait_until(func(): return c._music.playing >= 0, 90.0)
+		_check(got, "the track was fetched after joining and started playing (wanted %d, playing %d, %d lazy bytes still missing)"
+			% [c._music.wanted, c._music.playing, c.lazy_bytes_skipped if c._music.playing < 0 else 0])
 	await _wait_until(func(): return c.state.on_ground, 5.0)
 
 	match _game:

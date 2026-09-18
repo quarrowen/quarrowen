@@ -43,11 +43,34 @@ func setup(mod_api) -> void:
 		{"item": "vanilla:bone", "weight": 6, "when": {"time": "night"}},
 	]})
 
+	# The float you actually watch. An object rather than a projectile: it is placed where the line lands
+	# and stays there, so it wants no gravity and no lifetime of its own - fishing.gd puts it away.
+	api.register_entity("float", {"kind": "object", "sprite": "textures/float.png",
+		"width": 0.3, "height": 0.3, "gravity": 0.0, "health": 0})
+
 	api.register_sound("fishing_cast", "sounds/fishing_cast.ogg", {"pitch_variance": 0.12})
 	api.register_sound("fishing_bite", "sounds/fishing_bite.ogg", {"pitch_variance": 0.04})
 
 	api.on("item_use", _on_use)
-	api.on("player_leave", func(ev): _casts.erase(ev.player.player_id))
+	api.on("player_leave", func(ev): _end(ev.player.player_id))
+
+
+## Ends a cast and takes the float with it. Every way a cast can finish goes through here, because a
+## float left behind is a red dot bobbing on a lake for ever with nothing holding it.
+func _end(player_id: String) -> void:
+	var cast = _casts.get(player_id)
+	if cast == null:
+		return
+	_casts.erase(player_id)
+	var bob = cast.get("float")
+	if bob != null and is_instance_valid(bob) and not bob.removed:
+		bob.remove()
+
+
+func _move_float(cast: Dictionary, to: Vector3) -> void:
+	var bob = cast.get("float")
+	if bob != null and is_instance_valid(bob) and not bob.removed:
+		bob.position = to
 
 
 # --- Casting ------------------------------------------------------------------------------------
@@ -66,8 +89,10 @@ func _on_use(ev: Dictionary) -> void:
 		return
 	_generation += 1
 	var generation := _generation
-	_casts[player.player_id] = {"player": player, "at": Vector3(hit.position), "biting": false,
-		"generation": generation}
+	# On top of the block the ray stopped at, in the middle of it: that is the water's surface.
+	var at := Vector3(hit.position) + Vector3(0.5, 1.0, 0.5)
+	_casts[player.player_id] = {"player": player, "at": at, "biting": false, "generation": generation,
+		"float": api.spawn_entity("vanilla:float", at)}
 	player.play_sound("vanilla:fishing_cast")
 	player.show_title("", "The float settles. Wait for it to dip.", 2.5)
 	api.after(randf_range(4.0, 14.0), _bite.bind(player.player_id, generation))
@@ -81,11 +106,13 @@ func _bite(player_id: String, generation: int) -> void:
 	var player = cast.player
 	# Wandering off ends it, rather than telling a player in a cave that a fish waited for them.
 	if player.position.distance_to(cast.at) > 12.0:
-		_casts.erase(player_id)
+		_end(player_id)
 		player.show_title("", "You walked away from your line", 2.0)
 		return
 	cast.biting = true
-	# The sound matters more than the words here: a child watching the water is not reading the screen.
+	# The float dips. This is the whole point of having one: a child watching the water sees the bite
+	# where they are already looking, instead of reading a line of text somewhere else on the screen.
+	_move_float(cast, cast.at - Vector3(0, 0.35, 0))
 	player.play_sound("vanilla:fishing_bite")
 	player.show_title("", "Something is tugging! Use the rod!", 1.6)
 	# 1.6 seconds is long enough for an eight-year-old to read that, find the mouse and click. Two
@@ -97,14 +124,14 @@ func _got_away(player_id: String, generation: int) -> void:
 	var cast = _casts.get(player_id)
 	if cast == null or cast.generation != generation or not cast.biting:
 		return
-	_casts.erase(player_id)
+	_end(player_id)
 	cast.player.show_title("", "It got away", 2.0)
 
 
 ## Pulling the line back in, whether or not there was anything on the end of it.
 func _reel_in(player) -> void:
 	var cast: Dictionary = _casts[player.player_id]
-	_casts.erase(player.player_id)
+	_end(player.player_id)
 	if not cast.biting:
 		# Struck early, or gave up. No penalty beyond casting again - see the note at the top.
 		player.show_title("", "Nothing yet. The line comes back empty.", 2.0)

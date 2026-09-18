@@ -301,6 +301,10 @@
     playMusic: (player, name, options = {}) => host("playMusic", player, name, options),
     /** Fades the music out for one player, or everybody when player is null. options: {fade}. */
     stopMusic: (player, options = {}) => host("stopMusic", player, options),
+    /** An occasional atmospheric sound near a player: wind out in the open, a drip in the dark, water
+     *  by a lake. {sound, every: [min, max], sky, depth: [low, high], biome, near, radius, chance,
+     *  volume}. Returns "" or why it was refused. */
+    registerAmbience: (options) => host("registerAmbience", options),
     isGame: () => host("isGame"),
     /** Is this block id a liquid? */
     isLiquid: (block) => host("isLiquid", block),

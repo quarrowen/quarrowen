@@ -82,12 +82,17 @@ func _hand_over(bytes: PackedByteArray) -> String:
 		return "The update could not be saved (%s)." % error_string(FileAccess.get_open_error())
 	zip.store_buffer(bytes)
 	zip.close()
-	var script_path := work.path_join("install.sh")
+	# What runs the installer differs by platform - a shell script on macOS and Linux, a batch file on
+	# Windows, which cannot delete a running executable and needs PowerShell borrowed for the unzip.
+	var plan: Dictionary = Updater.installer(zip_path, work, installed, OS.get_process_id())
+	var script_path: String = work.path_join(plan.file)
 	var script := FileAccess.open(script_path, FileAccess.WRITE)
 	if script == null:
 		return "The installer could not be written (%s)." % error_string(FileAccess.get_open_error())
-	script.store_string(Updater.install_script(zip_path, work, installed, OS.get_process_id()))
+	script.store_string(plan.text)
 	script.close()
-	if OS.create_process("/bin/sh", [script_path]) <= 0:
+	var args: Array = (plan.args as Array).duplicate()
+	args.append(script_path)
+	if OS.create_process(plan.program, PackedStringArray(args)) <= 0:
 		return "The installer could not be started."
 	return ""

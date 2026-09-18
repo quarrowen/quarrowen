@@ -160,6 +160,87 @@ static func installed_path() -> String:
 	return executable.get_base_dir()
 
 
+## The installer for this platform: what file to write, what runs it, and what goes inside.
+## `force` ("macos", "linux", "windows") is for the tests, which have to be able to read the Windows
+## installer from a Mac - there is no Windows machine in this project and there may never be one.
+static func installer(zip_path: String, work_dir: String, installed: String, pid: int, force := "") -> Dictionary:
+	var platform := force
+	if platform.is_empty():
+		platform = "windows" if OS.has_feature("windows") else ("macos" if OS.has_feature("macos") else "linux")
+	if platform == "windows":
+		return {"file": "install.cmd", "program": "cmd.exe", "args": ["/c"],
+			"text": windows_install_script(zip_path, work_dir, installed, pid)}
+	return {"file": "install.sh", "program": "/bin/sh", "args": [],
+		"text": install_script(zip_path, work_dir, installed, pid)}
+
+
+## The Windows twin of install_script, as a batch file.
+##
+## Windows will not let you delete a running .exe, so everything waits for the game to go first - the
+## same shape as the shell one, in a language that cannot do most of it. `tasklist` is the wait,
+## PowerShell is borrowed for the unzip because batch has no such thing, and the swap is a rename so
+## that a failure halfway leaves the old build where it was rather than nothing at all.
+##
+## **Not tested on Windows by anyone yet.** It is deliberately not reachable: Windows is a download link
+## and is not in update.json, so no client will run this until somebody has tried it by hand and the
+## manifest is changed to offer it. An untested script that replaces a folder is not something to arm.
+static func windows_install_script(zip_path: String, work_dir: String, installed: String, pid: int) -> String:
+	var unpacked := work_dir.path_join("unpacked").replace("/", "\\")
+	var zip := zip_path.replace("/", "\\")
+	var target := installed.replace("/", "\\")
+	return "\r\n".join([
+		"@echo off",
+		"rem Written by Quarrowen's updater: waits for the game to quit, unpacks the update, puts it in",
+		"rem place and starts it again. Safe to delete.",
+		"setlocal",
+		"set \"TARGET=%s\"" % target,
+		"set \"UNPACKED=%s\"" % unpacked,
+		"set \"ZIP=%s\"" % zip,
+		"",
+		"rem Windows keeps a running executable locked, so wait for it to go before touching anything.",
+		"set TRIES=0",
+		":wait",
+		"tasklist /fi \"PID eq %d\" 2>nul | find \"%d\" >nul" % [pid, pid],
+		"if errorlevel 1 goto gone",
+		"set /a TRIES+=1",
+		"if %TRIES% GEQ 60 goto gone",
+		"timeout /t 1 /nobreak >nul",
+		"goto wait",
+		":gone",
+		"",
+		"if exist \"%UNPACKED%\" rmdir /s /q \"%UNPACKED%\"",
+		"mkdir \"%UNPACKED%\"",
+		"rem Batch cannot unzip; PowerShell can, and is on every Windows that can run this game.",
+		"powershell -NoProfile -NonInteractive -Command \"Expand-Archive -LiteralPath '%ZIP%' -DestinationPath '%UNPACKED%' -Force\"",
+		"if errorlevel 1 exit /b 1",
+		"",
+		"rem The zip holds one folder; find whichever one has the game in it.",
+		"set \"NEW=\"",
+		"if exist \"%UNPACKED%\\Quarrowen.exe\" set \"NEW=%UNPACKED%\"",
+		"if not defined NEW for /d %%D in (\"%UNPACKED%\\*\") do if exist \"%%~fD\\Quarrowen.exe\" set \"NEW=%%~fD\"",
+		"if not defined NEW exit /b 1",
+		"",
+		"rem Rename rather than delete, so a failure below still has something to put back.",
+		"if exist \"%TARGET%.old\" rmdir /s /q \"%TARGET%.old\"",
+		"move \"%TARGET%\" \"%TARGET%.old\" >nul 2>&1",
+		"rem If that did not work - locked, or no permission to write here - stop while the old build is",
+		"rem still whole. Moving onto a folder that still exists puts the new one *inside* it.",
+		"if exist \"%TARGET%\" exit /b 1",
+		"move \"%NEW%\" \"%TARGET%\" >nul 2>&1",
+		"if errorlevel 1 (",
+		"  if exist \"%TARGET%\" rmdir /s /q \"%TARGET%\"",
+		"  move \"%TARGET%.old\" \"%TARGET%\" >nul 2>&1",
+		"  exit /b 1",
+		")",
+		"",
+		"if exist \"%TARGET%.old\" rmdir /s /q \"%TARGET%.old\"",
+		"if exist \"%UNPACKED%\" rmdir /s /q \"%UNPACKED%\"",
+		"del /q \"%ZIP%\" >nul 2>&1",
+		"start \"\" \"%TARGET%\\Quarrowen.exe\"",
+		"",
+	])
+
+
 ## The script that installs a downloaded update once this process has gone: it unpacks the zip itself
 ## (so the executable bits inside a .app survive), swaps it with the installed build, clears the download
 ## flag macOS puts on it and starts the new one. Kept as a string so a test can read it without installing.

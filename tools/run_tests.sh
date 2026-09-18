@@ -19,6 +19,7 @@ EXCEPT="${EXCEPT:-}"
 REPEAT="${REPEAT:-1}"
 SERVERS=()
 FAILED=()
+FAILED_LOGS=()
 PASSED=()
 
 cleanup() {
@@ -90,7 +91,9 @@ wait_for_server() { # name
 }
 
 record() { # name exit_code log
-  if [ "$2" -eq 0 ]; then PASSED+=("$1"); echo "PASS $1"; else FAILED+=("$1"); echo "FAIL $1 (see $3)"; grep -hE "FAIL|SCRIPT ERROR" "$3" | head -10; fi
+  if [ "$2" -eq 0 ]; then PASSED+=("$1"); echo "PASS $1"; else
+    FAILED+=("$1"); FAILED_LOGS+=("$3"); echo "FAIL $1 (see $3)"; grep -hE "FAIL|SCRIPT ERROR" "$3" | head -10
+  fi
 }
 
 selected() { # name
@@ -224,9 +227,30 @@ fi
 for log in "$WORK"/*.log; do
   case "$(basename "$log")" in server_*|import.log) continue ;; esac
   # tests/mods/buggy fails on purpose (the dev log tests); any other script error counts.
-  if grep -A1 "SCRIPT ERROR" "$log" | grep "at:" | grep -v "tests/mods/buggy" | grep -qv "reload_mods\|__reload_probe"; then FAILED+=("clean-test-log:$(basename "$log")"); grep -h "SCRIPT ERROR" -A2 "$log" | head -6; fi
+  if grep -A1 "SCRIPT ERROR" "$log" | grep "at:" | grep -v "tests/mods/buggy" | grep -qv "reload_mods\|__reload_probe"; then FAILED+=("clean-test-log:$(basename "$log")"); FAILED_LOGS+=("$log"); grep -h "SCRIPT ERROR" -A2 "$log" | head -6; fi
 done
 
 echo
 echo "passed: ${#PASSED[@]}  failed: ${#FAILED[@]}"
-[ ${#FAILED[@]} -eq 0 ] || { printf '  %s\n' "${FAILED[@]}"; exit 1; }
+if [ ${#FAILED[@]} -ne 0 ]; then
+  # Repeat what went wrong down here as well as where it happened. The detail is printed as each test
+  # finishes, which is no use at all when somebody is reading the tail of a long run - and an e2e test
+  # that fails once in three runs and cannot be reproduced on its own is exactly the kind you only get
+  # one look at. (2026-09-18)
+  echo
+  for i in "${!FAILED[@]}"; do
+    echo "--- ${FAILED[$i]}"
+    log="${FAILED_LOGS[$i]:-}"
+    if [ -n "$log" ] && [ -f "$log" ]; then
+      # The failed assertion first; a script error only when there is no assertion to show. Otherwise
+      # the deliberate crash in tests/mods/buggy sits at the top of every summary looking like a cause.
+      detail="$(grep -hE "^\[[a-z_-]+\] FAIL" "$log" | head -6)"
+      [ -z "$detail" ] && detail="$(grep -hE "SCRIPT ERROR" "$log" | head -4)"
+      [ -n "$detail" ] && printf '%s\n' "$detail" | sed 's/^/    /'
+    fi
+  done
+  echo
+  echo "logs are in $WORK (KEEP=1 to keep them)"
+  printf '  %s\n' "${FAILED[@]}"
+  exit 1
+fi

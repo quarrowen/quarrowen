@@ -283,6 +283,11 @@ func _init() -> void:
 	_save(_fish(Color(0.56, 0.66, 0.74), Color(0.85, 0.88, 0.9)), vanilla + "raw_fish.png")
 	_save(_fish(Color(0.78, 0.56, 0.34), Color(0.92, 0.78, 0.56)), vanilla + "cooked_fish.png")
 
+	# The float on the water. Appended after the fish, not beside the rod, because inserting a _save
+	# anywhere but the end re-rolls every texture after it - which is what happened the first time this
+	# line was written, and it silently changed three textures that had already shipped. (2026-09-18)
+	_save(_float_bob(), vanilla + "float.png")
+
 func _part(part: String) -> Image:
 	var img := _blank()
 	for y in TILE:
@@ -1457,4 +1462,28 @@ func _fish(body: Color, belly: Color) -> Image:
 			if absi(y - 8) >= x - 1:  # a notched tail
 				img.set_pixel(x, y, _vary(body.darkened(0.15), 0.05))
 	img.set_pixel(11, 7, Color(0.1, 0.1, 0.12))
+	return img
+
+
+## The float that sits on the water: a red top, a white bottom and a waterline between them, which is
+## what makes it read as floating rather than as a ball. Drawn small in the middle of the tile so it
+## stays a dot at a distance instead of a smear.
+func _float_bob() -> Image:
+	var img := _blank()
+	var red := Color(0.86, 0.20, 0.16)
+	# Not white below the line: a white float on bright water disappears, and this is a thing a child has
+	# to be able to see at fifteen paces. A dark slate reads against water and against sky both.
+	var below := Color(0.28, 0.30, 0.34)
+	for y in range(3, 13):
+		for x in range(3, 13):
+			var d := Vector2(x - 7.5, y - 7.5).length()
+			if d < 4.2:
+				img.set_pixel(x, y, _vary(red if y < 8 else below, 0.04))
+			elif d < 4.9:
+				img.set_pixel(x, y, Color(0.12, 0.10, 0.10, 0.85))  # an outline, so it never merges with the water
+	for x in range(4, 12):
+		if absf(x - 7.5) < 3.6:
+			img.set_pixel(x, 8, Color(0.97, 0.96, 0.92))  # the waterline band
+	for spot in [Vector2i(6, 5), Vector2i(7, 4)]:
+		img.set_pixel(spot.x, spot.y, red.lightened(0.4))  # a highlight, so it is not a flat disc
 	return img

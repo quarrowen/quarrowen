@@ -585,6 +585,24 @@ The rules, and what enforces each:
    server *before* the site, and only then publish. A deliberate break needs a note in the release and a
    backup step for the family server.
 
+## Test stability: a flake worth naming rather than fixing blind (2026-09-18)
+
+A full suite run fails about one time in three, a *different* e2e test each time (`e2e:vanilla` once,
+`e2e:combat` the next), and the same test passes 5/5 when run on its own. So it is load, not any one
+assertion. Two things ruled out by looking rather than guessing: the new ambience sweep cannot generate
+chunks (`get_block_v` returns UNLOADED and never generates, so it is ~1500 array lookups every ten or
+twenty seconds), and the music wait was made generous (90s) since it asks "did it ever arrive", not how
+fast.
+
+Not fixed, and not claimed to be. What *was* fixed is that it can now be diagnosed: `run_tests.sh`
+repeats the failing assertions in the summary at the end, so reading the tail of a long run is enough.
+Three of these were lost this session to `| tail -6` cutting the detail off, and an intermittent you
+only get one look at is exactly the one you cannot afford to lose. Assertions are shown in preference to
+script errors, so the deliberate crash in `tests/mods/buggy` stops heading every summary like a cause.
+
+A flaky *failure* is safe - it fails loudly and the release stops. A flaky pass would not be, and that
+is not what this is.
+
 ## Test stability (2026-09-15)
 
 `ONLY=` and `REPEAT=` in tools/run_tests.sh reproduce flaky tests (e.g. `REPEAT=10 ONLY=e2e:combat`, or loop
@@ -856,12 +874,32 @@ Everything discussed and not yet done, so none of it lives only in a conversatio
     actually frightening is a different experience from a synthesised sawtooth.
   - Chosen by *name*, not by ear - nothing here can hear. The mapping is conservative on purpose.
     Whether a footstep sounds like a footstep is for somebody playing to say.
-- *Ambient sound* (wind, drips, water) - positional and mod-side. Not started.
+- ~~*Ambient sound*~~ - done as a capability (2026-09-18). `api.register_ambience({sound, every, sky,
+  depth, biome, near, radius, chance})`: the mod says under what conditions, the engine picks the
+  moments. Clocks are **per player**, so two people in different places hear their own surroundings,
+  and the sound goes only to the player it is for - this is atmosphere, not an event others should hear.
+  Vanilla registers wind above ground, a rarer drip below it, and water that laps *from* the water.
+  In the engine and not a mod for the charging argument: otherwise every mod wanting weather or caves
+  re-answers the same four questions (how often is too often, how far, who else hears it, what about
+  someone asleep) and none of them agree.
+  **The mistake worth keeping:** `near` first took 24 random probes in a box of ~1500 cells. A small
+  pond is a few dozen cells, so it found the water less than half the time - you would stand beside a
+  lake in silence with no clue why. It sweeps properly now with reservoir sampling; the "too expensive"
+  instinct was wrong about the frequency, because this runs once every ten or twenty seconds per player,
+  not once a frame.
+  Not gated on `api.is_game()`, unlike music: music is one channel and someone loses, ambience adds.
 
 **Content still owed**
-- ~~*Fishing*~~ - done, see above. Still unbuilt: a visible float on the water. Today the feedback is a
-  title line and a sound, which works, but a bobber a child can watch dip would be better, and needs an
-  entity with a model.
+- ~~*Fishing*~~ - done, **float included** (2026-09-18). A sprite `object` entity sits on the water where
+  the line lands and dips when something bites, so the bite happens where a child is already looking
+  rather than in a line of text elsewhere on the screen. Every way a cast can end goes through one
+  `_end()`, because a float left behind is a red dot bobbing on a lake for ever with nothing holding it.
+  Dark below the waterline rather than white: a white float on bright water disappears.
+  Two things this cost, both instructive. The `_save` for its texture went in beside the rod at first,
+  which re-rolled the RNG and silently changed three textures that had already shipped in 0.41.0 - the
+  exact trap CLAUDE.md warns about, walked into while the warning was on screen. And the test asserted a
+  hardcoded height for the float; the world is generated, so the ray found an ocean above the pond the
+  test had built. It now asserts what the float is *sitting on*, which is the property that matters.
 - *Hearthhold phase 2*: the other settlers (Cobb, Wren, Odd, Mab, Tam), night pressure, the keeper and
   the finale. Phase 1 is the valley, Bramble, and the tutorial that leads into it.
 - *Story mode* as an engine capability, with structure schemas and maps-as-world-saves. The three want
@@ -873,9 +911,17 @@ Everything discussed and not yet done, so none of it lives only in a conversatio
 - *Windows*: **played and it works** (2026-09-18, the user: "verified on windows :) it worked", with no
   warning beyond the firewall prompt when starting a local server). Now linked from the download page,
   quietly and with the caveats written next to it. Two things still owed:
-  - **It cannot update itself.** `Updater.install_script` writes `#!/bin/sh`, so a Windows client offered
-    an update would download it and fail to install it. That is why Windows is deliberately *not* in
-    `update.json` - a download link only. A `.cmd` twin of that script, and a test of it, is the work.
+  - **Self-update: written, not armed** (2026-09-18). `Updater.installer()` now returns what to write
+    and what runs it, and there is a batch twin of the shell script: `tasklist` waits for the game,
+    because Windows will not let you delete a running executable; PowerShell is borrowed for the unzip,
+    because batch cannot; the swap is a rename so a failure leaves the old build whole.
+    **Nobody has run it on Windows.** It stays unreachable - Windows is still not in `update.json` - and
+    a test asserts the script's content rather than its behaviour, which is all that can be checked from
+    a Mac. Arming an untested script that replaces a folder is the thing not to do. The next step is a
+    manual run on a real Windows machine; only then does Windows go into the manifest.
+    One bug found by reading it back rather than by testing: the first `move` was unchecked, so if it
+    failed (locked folder, or Program Files without admin) the next one would have put the new build
+    *inside* the old one. It now stops there with the old build intact.
   - **Signing.** SmartScreen did not warn this time, but reputation-based warnings come and go with how
     many people have downloaded a binary; a code-signing certificate is a separate purchase from the
     Apple one. Not urgent while it is a family build.

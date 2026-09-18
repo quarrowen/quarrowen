@@ -329,6 +329,7 @@ removed automatically when the block is broken or replaced."><div class="sig"><c
 <div class="card" id="api-surface-y" data-search="surface_y surfacey y of the highest non-air block in the column, or -1."><div class="sig"><code>api.surface_y(x: int, z: int) -&gt; int</code><span class="tag js" title="surfaceY(x: number, z: number): number">JS surfaceY</span></div><p>Y of the highest non-air block in the column, or -1.</p></div>
 </section>
 <section id="api-players-and-gameplay"><h2>Players and gameplay</h2>
+<div class="card" id="api-players" data-search="players players everyone playing on this server right now, as an array of players."><div class="sig"><code>api.players() -&gt; Array</code><span class="tag js" title="players(): Player[]">JS players</span></div><p>Everyone playing on this server right now, as an Array of players.</p></div>
 <div class="card" id="api-set-player-rig" data-search="set_player_rig  replaces the player character rig for this server (see engine/shared/player_rig.gd)."><div class="sig"><code>api.set_player_rig(def: Dictionary) -&gt; void</code></div><p>Replaces the player character rig for this server (see engine/shared/player_rig.gd).</p></div>
 <div class="card" id="api-register-cosmetic" data-search="register_cosmetic registercosmetic registers a server cosmetic players can wear on this server (see engine/shared/cosmetics.gd for
 the def: category, paint, pixels, boxes, texture, model, color, covers, unlocked...). `texture` and
@@ -379,6 +380,21 @@ is the reason it exists). anything the world cannot be drawn without must stay e
 <section id="api-other"><h2>Other</h2>
 <div class="card" id="api-reloading" data-search="reloading  true while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,
 items and entities that exist update in place; things that cannot change live are skipped and noted."><div class="sig"><code>api.reloading := false  (property)</code></div><p>True while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,<br>items and entities that exist update in place; things that cannot change live are skipped and noted.</p></div>
+<div class="card" id="api-register-ambience" data-search="register_ambience registerambience registers an occasional atmospheric sound near a player: wind out in the open, a drip in the dark,
+water lapping by a lake. returns &quot;&quot; or why it was refused.
+
+api.register_ambience({&quot;sound&quot;: &quot;wind&quot;, &quot;sky&quot;: true, &quot;every&quot;: [20.0, 45.0]})
+api.register_ambience({&quot;sound&quot;: &quot;drip&quot;, &quot;sky&quot;: false, &quot;depth&quot;: [0, 45], &quot;every&quot;: [8.0, 25.0]})
+api.register_ambience({&quot;sound&quot;: &quot;lapping&quot;, &quot;near&quot;: [&quot;base:water&quot;], &quot;radius&quot;: 6})
+
+conditions: `sky` (true outdoors, false under something), `depth` [low, high], `biome` (one or a
+list), `near` (block names - the sound then comes *from* one of them, so water laps from the water),
+`radius`, `chance`. `every` is [minimum, maximum] seconds, kept per player, so two people in
+different places hear their own surroundings rather than each other's.
+
+in the engine rather than in a mod because otherwise every mod that wanted weather or caves would
+write the same four decisions - how often is too often, how far can it be, who else hears it, what
+about somebody asleep - and none of them would agree."><div class="sig"><code>api.register_ambience(options: Dictionary) -&gt; String</code><span class="tag js" title="registerAmbience(options: { sound: string; every?: [number, number]; sky?: boolean; depth?: [number, number]; biome?: string | string[]; near?: string | string[]; radius?: number; chance?: number; volume?: number; pitch?: number; }): string">JS registerAmbience</span></div><p>Registers an occasional atmospheric sound near a player: wind out in the open, a drip in the dark,<br>water lapping by a lake. Returns &quot;&quot; or why it was refused.<br><br>api.register_ambience({&quot;sound&quot;: &quot;wind&quot;, &quot;sky&quot;: true, &quot;every&quot;: [20.0, 45.0]})<br>api.register_ambience({&quot;sound&quot;: &quot;drip&quot;, &quot;sky&quot;: false, &quot;depth&quot;: [0, 45], &quot;every&quot;: [8.0, 25.0]})<br>api.register_ambience({&quot;sound&quot;: &quot;lapping&quot;, &quot;near&quot;: [&quot;base:water&quot;], &quot;radius&quot;: 6})<br><br>Conditions: `sky` (true outdoors, false under something), `depth` [low, high], `biome` (one or a<br>list), `near` (block names - the sound then comes *from* one of them, so water laps from the water),<br>`radius`, `chance`. `every` is [minimum, maximum] seconds, kept per player, so two people in<br>different places hear their own surroundings rather than each other's.<br><br>In the engine rather than in a mod because otherwise every mod that wanted weather or caves would<br>write the same four decisions - how often is too often, how far can it be, who else hears it, what<br>about somebody asleep - and none of them would agree.</p></div>
 <div class="card" id="api-register-music" data-search="register_music registermusic registers a music track. `attribution` is required: say who made it and under what licence.
 
 api.register_music(&quot;valley&quot;, &quot;music/valley.ogg&quot;, {
@@ -724,6 +740,7 @@ look and saved in data.look."><div class="sig"><code>entity.set_look(values: Dic
 <div class="card" data-search="playmusic"><div class="sig"><code>api.playMusic(player: Player | null, name: string, options?: { fade?: number; restart?: boolean }): void</code></div><p>Starts a track for one player, or everybody when player is null. Re-asking for what is already
        playing does nothing.</p></div>
 <div class="card" data-search="stopmusic"><div class="sig"><code>api.stopMusic(player: Player | null, options?: { fade?: number }): void</code></div><p>Fades the music out for one player, or everybody when player is null.</p></div>
+<div class="card" data-search="registerambience"><div class="sig"><code>api.registerAmbience(options: { sound: string; every?: [number, number]; sky?: boolean; depth?: [number, number]; biome?: string | string[]; near?: string | string[]; radius?: number; chance?: number; volume?: number; pitch?: number; }): string</code></div><p>An occasional atmospheric sound near a player. Returns &quot;&quot; or why it was refused.</p></div>
 <div class="card" data-search="isgame"><div class="sig"><code>api.isGame(): boolean</code></div></div>
 <div class="card" data-search="isliquid"><div class="sig"><code>api.isLiquid(block: number): boolean</code></div><p>Is this block id a liquid (water, lava, anything a mod declares `liquid: true`)?</p></div>
 <div class="card" data-search="raycast"><div class="sig"><code>api.raycast( origin: { x: number; y: number; z: number }, direction: { x: number; y: number; z: number }, maxDistance?: number, options?: { liquids?: boolean }, ): { hit: boolean; position?: { x: number; y: number; z: number }; normal?: { x: number; y: number; z: number }; block?: number }</code></div><p>What a ray hits. Looks through water by default, as a player's crosshair does; {liquids: true}
@@ -1187,6 +1204,12 @@ declare module &quot;quarrowen&quot; {
     playMusic(player: Player | null, name: string, options?: { fade?: number; restart?: boolean }): void;
     /** Fades the music out for one player, or everybody when player is null. */
     stopMusic(player: Player | null, options?: { fade?: number }): void;
+    /** An occasional atmospheric sound near a player. Returns &quot;&quot; or why it was refused. */
+    registerAmbience(options: {
+      sound: string; every?: [number, number]; sky?: boolean; depth?: [number, number];
+      biome?: string | string[]; near?: string | string[]; radius?: number; chance?: number;
+      volume?: number; pitch?: number;
+    }): string;
     isGame(): boolean;
     /** Is this block id a liquid (water, lava, anything a mod declares `liquid: true`)? */
     isLiquid(block: number): boolean;

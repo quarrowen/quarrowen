@@ -456,6 +456,12 @@ declare module "quarrowen" {
     playMusic(player: Player | null, name: string, options?: { fade?: number; restart?: boolean }): void;
     /** Fades the music out for one player, or everybody when player is null. */
     stopMusic(player: Player | null, options?: { fade?: number }): void;
+    /** An occasional atmospheric sound near a player. Returns "" or why it was refused. */
+    registerAmbience(options: {
+      sound: string; every?: [number, number]; sky?: boolean; depth?: [number, number];
+      biome?: string | string[]; near?: string | string[]; radius?: number; chance?: number;
+      volume?: number; pitch?: number;
+    }): string;
     isGame(): boolean;
     /** Is this block id a liquid (water, lava, anything a mod declares `liquid: true`)? */
     isLiquid(block: number): boolean;

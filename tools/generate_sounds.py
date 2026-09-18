@@ -87,31 +87,11 @@ def resonant_knock(seconds, freqs, decay):
 
 def main():
     # --- Engine (built into the client) ---
-    write("engine/client/sounds/hurt.wav", mix(tone(0.22, 320, 140, shape="square", gain=0.5), noise_burst(0.12, 0.2, gain=0.4)))
-    write("engine/client/sounds/death.wav", mix(tone(0.6, 260, 60, shape="square", gain=0.5, curve=2.0), noise_burst(0.3, 0.1, gain=0.3)))
-    write("engine/client/sounds/pickup.wav", mix(tone(0.07, 900, 1300, gain=0.5, curve=1.5), [0.0] * n(0.05) + tone(0.08, 1300, 1800, gain=0.4)))
-    write("engine/client/sounds/swing.wav", noise_burst(0.14, 0.08, curve=2.0, gain=0.6))
-    write("engine/client/sounds/ui_click.wav", tone(0.03, 1800, 1400, gain=0.4, curve=6.0))
-    write("engine/client/sounds/drop.wav", tone(0.08, 500, 300, gain=0.4))
-    write("engine/client/sounds/equip.wav", mix(resonant_knock(0.12, [620, 930], 35), noise_burst(0.06, 0.4, gain=0.25)))
-    write("engine/client/sounds/item_break.wav", mix(noise_burst(0.25, 0.6, gain=0.7), resonant_knock(0.2, [1400, 2100], 25)))
-    write("engine/client/sounds/crit.wav", mix(noise_burst(0.1, 0.5, gain=0.6), tone(0.12, 900, 500, gain=0.3)))
 
-    # --- base: block materials ---
-    for variant in range(2):
-        write(f"mods/base/sounds/stone_break{variant}.wav", mix(noise_burst(0.18, 0.35, gain=0.9), resonant_knock(0.15, [180 + variant * 30, 410], 30)))
-        write(f"mods/base/sounds/wood_break{variant}.wav", mix(resonant_knock(0.2, [210 + variant * 25, 330, 520], 22), noise_burst(0.1, 0.15, gain=0.3)))
-        write(f"mods/base/sounds/dirt_break{variant}.wav", noise_burst(0.16, 0.08 + variant * 0.02, curve=3.0))
-        write(f"mods/base/sounds/grass_break{variant}.wav", mix(noise_burst(0.14, 0.25, curve=3.0, gain=0.6), noise_burst(0.14, 0.05, gain=0.5)))
-        write(f"mods/base/sounds/sand_break{variant}.wav", noise_burst(0.2, 0.5, curve=2.0, gain=0.5))
-    for variant in range(3):
-        write(f"mods/base/sounds/stone_step{variant}.wav", noise_burst(0.06, 0.3, gain=0.5))
-        write(f"mods/base/sounds/wood_step{variant}.wav", resonant_knock(0.08, [240 + variant * 20, 400], 50))
-        write(f"mods/base/sounds/soft_step{variant}.wav", noise_burst(0.08, 0.06, gain=0.6))
-    glass = []
-    for k in range(6):
-        glass = mix(glass, [0.0] * n(0.02 * k) + tone(0.25, 2200 + rng.uniform(-400, 900), 2000, gain=0.25, curve=3.0))
-    write("mods/base/sounds/glass_break.wav", mix(glass, noise_burst(0.1, 0.6, gain=0.4)))
+    # Footsteps, block breaks and breaking glass used to be generated here. They are Kenney's now - see
+    # tools/import_kenney_sounds.py, which is where they come from and what records the licence. Taking
+    # them out re-rolled the sounds generated after them, once, which is why a dozen creature noises
+    # changed in the same commit: one RNG drives the whole file in order. (2026-09-18)
     write("mods/base/sounds/eat.wav", mix(noise_burst(0.09, 0.2, gain=0.5), [0.0] * n(0.14) + noise_burst(0.09, 0.2, gain=0.5), [0.0] * n(0.28) + noise_burst(0.09, 0.2, gain=0.4)))
 
     # --- vanilla: mobs ---
@@ -127,20 +107,20 @@ def main():
         rattle = mix(rattle, [0.0] * n(0.035 * k) + resonant_knock(0.05, [900 + rng.uniform(-150, 250), 1700], 80))
     write("mods/vanilla/sounds/skeleton_hurt.wav", rattle)
     write("mods/vanilla/sounds/skeleton_death.wav", mix(rattle, [0.0] * n(0.15) + rattle, [0.0] * n(0.3) + noise_burst(0.2, 0.3, gain=0.3)))
-    write("mods/vanilla/sounds/bow.wav", mix(tone(0.18, 520, 380, gain=0.35, curve=3.0), noise_burst(0.08, 0.5, gain=0.25)))
     write("mods/vanilla/sounds/colossus_stomp.wav", mix(tone(0.9, 70, 35, gain=0.7, curve=2.0), noise_burst(0.5, 0.04, curve=2.0, gain=0.8)))
     write("mods/vanilla/sounds/colossus_roar.wav", mix(tone(1.4, 95, 70, shape="saw", gain=0.45, curve=1.2, vibrato=0.08), noise_burst(1.2, 0.06, curve=1.5, gain=0.3)))
     write("mods/vanilla/sounds/colossus_hurt.wav", mix(resonant_knock(0.4, [110, 160, 240], 9), noise_burst(0.25, 0.2, gain=0.3)))
 
     # --- arcana & guild ---
-    write("mods/arcana/sounds/spark_cast.wav", mix(tone(0.25, 600, 2400, gain=0.35, curve=1.5), noise_burst(0.2, 0.7, gain=0.15)))
-    write("mods/arcana/sounds/spark_hit.wav", mix(tone(0.2, 1800, 500, gain=0.3), noise_burst(0.15, 0.5, gain=0.35)))
-    write("mods/guild/sounds/coin.wav", mix(tone(0.12, 1568, 1568, gain=0.35, curve=2.0), [0.0] * n(0.09) + tone(0.3, 2093, 2093, gain=0.35, curve=2.5)))
 
     crafting_sounds()
     hunger_sounds()
     guide_sounds()
     animal_sounds()
+    # Last, always. One RNG drives every sound in order, so a call inserted anywhere but the end
+    # re-rolls all of them - which is what happened the first time this line went in, quietly changing
+    # a dozen sounds that were fine. Same rule as tools/generate_textures.gd. (2026-09-18)
+    ambient_sounds()
 
 
 def animal_sounds():
@@ -152,7 +132,6 @@ def animal_sounds():
     write("mods/vanilla/sounds/chicken_ambient.wav", mix(tone(0.07, 900, 700, shape="square", gain=0.2), [0.0] * n(0.11) + tone(0.07, 950, 750, shape="square", gain=0.2),
                                                          [0.0] * n(0.22) + tone(0.14, 1000, 650, shape="square", gain=0.22)))
     write("mods/vanilla/sounds/chicken_hurt.wav", tone(0.18, 1200, 700, shape="square", gain=0.3, curve=2.0))
-    write("mods/vanilla/sounds/shear.wav", mix(noise_burst(0.06, 0.7, gain=0.4), [0.0] * n(0.09) + noise_burst(0.06, 0.7, gain=0.35)))
     write("mods/vanilla/sounds/wolf_ambient.wav", mix(tone(0.12, 520, 380, shape="saw", gain=0.3, curve=2.5), [0.0] * n(0.2) + tone(0.14, 560, 360, shape="saw", gain=0.3, curve=2.5)))
     write("mods/vanilla/sounds/wolf_hurt.wav", tone(0.3, 900, 500, shape="square", gain=0.25, curve=2.0, vibrato=0.2))
     write("mods/vanilla/sounds/wolf_growl.wav", tone(0.6, 110, 90, shape="saw", gain=0.35, curve=1.2, vibrato=0.4))
@@ -177,15 +156,37 @@ def hunger_sounds():
 def guide_sounds():
     # --- Engine: guidebook page turn (a separate function so it can be regenerated alone) ---
     swish = [s * math.sin(math.pi * i / n(0.22)) for i, s in enumerate(noise_burst(0.22, 0.35, curve=0.8, gain=0.35))]
-    write("engine/client/sounds/page.wav", mix(swish, [0.0] * n(0.16) + noise_burst(0.05, 0.6, gain=0.25)))
 
 
 def crafting_sounds():
     # --- Engine: crafting (a separate function so it can be regenerated alone) ---
     chime = mix(tone(0.18, 1046, 1046, gain=0.3, curve=3.0), [0.0] * n(0.07) + tone(0.22, 1318, 1318, gain=0.28, curve=3.0),
                 [0.0] * n(0.14) + tone(0.35, 1568, 1568, gain=0.25, curve=3.0))
-    write("engine/client/sounds/craft.wav", mix(resonant_knock(0.14, [520, 780], 30), noise_burst(0.08, 0.3, gain=0.2), [0.0] * n(0.06) + chime))
-    write("engine/client/sounds/discover.wav", mix(tone(0.5, 784, 1568, gain=0.3, curve=2.0), [0.0] * n(0.12) + tone(0.45, 1175, 2349, gain=0.22, curve=2.5)))
+
+
+def ambient_sounds():
+    """Atmosphere: wind, a cave drip, water at the edge of a lake.
+
+    Kenney's packs have none of these - they are footsteps, impacts and interface - so they stay
+    synthesised. Longer and quieter than an effect, because these arrive unasked every twenty seconds
+    or so and the job is to be noticed once and then not thought about.
+    """
+    # Wind: filtered noise with a slow swell, so it breathes rather than hisses.
+    gust = lowpass(noise_burst(3.2, 0.06, curve=0.25, gain=0.5), 0.9)
+    gust = [s * (0.35 + 0.65 * (0.5 - 0.5 * math.cos(2 * math.pi * i / len(gust)))) for i, s in enumerate(gust)]
+    write("mods/vanilla/sounds/wind.wav", gust)
+
+    # A drip: a short wet knock with a rising tail, which is what makes it read as a drop rather than
+    # a tap, plus a small room to fall in.
+    drop = mix(tone(0.05, 900, 1700, gain=0.35, curve=4.0), noise_burst(0.02, 0.5, gain=0.12))
+    echo = [0.0] * n(0.13) + [s * 0.3 for s in drop]
+    write("mods/vanilla/sounds/drip.wav", mix(drop, echo))
+
+    # Water at the edge: two soft washes of filtered noise, one after the other.
+    def wash(seconds, gain):
+        body = lowpass(noise_burst(seconds, 0.12, curve=0.5, gain=gain), 0.75)
+        return [s * math.sin(math.pi * i / len(body)) for i, s in enumerate(body)]
+    write("mods/vanilla/sounds/lapping.wav", mix(wash(0.9, 0.35), [0.0] * n(0.7) + wash(1.1, 0.28)))
 
 
 if __name__ == "__main__":

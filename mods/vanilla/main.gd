@@ -137,6 +137,24 @@ func _setup_music() -> void:
 	api.every(5.0, func(): api.play_music(null, "night" if api.get_daylight() < 0.3 else "daylight", {"fade": 6.0}))
 
 
+## The sound of being somewhere: wind in the open, a drip in the dark, water at the edge of a lake.
+##
+## Quiet and infrequent on purpose. This arrives unasked every twenty seconds or so, and the job is to
+## be noticed once and then stop being noticed - a wind that announces itself is worse than silence.
+func _setup_ambience() -> void:
+	api.register_sound("wind", "sounds/wind.wav", {"range": 24.0, "pitch_variance": 0.08})
+	api.register_sound("drip", "sounds/drip.wav", {"range": 14.0, "pitch_variance": 0.2})
+	api.register_sound("lapping", "sounds/lapping.wav", {"range": 16.0, "pitch_variance": 0.06})
+	api.register_ambience({"sound": "wind", "sky": true, "every": [22.0, 55.0], "volume": 0.45})
+	# Underground only, and rarer than the wind: a drip you hear twice a minute is atmosphere, one you
+	# hear every ten seconds is a tap nobody turned off.
+	api.register_ambience({"sound": "drip", "sky": false, "depth": [0, 48], "every": [14.0, 40.0],
+		"volume": 0.5, "chance": 0.7})
+	# From the water rather than from inside your head, which is what `near` is for.
+	api.register_ambience({"sound": "lapping", "near": ["base:water"], "radius": 7, "every": [9.0, 22.0],
+		"volume": 0.4})
+
+
 func _setup_mobs() -> void:
 	api.register_sound("zombie_ambient", "sounds/zombie_ambient.wav", {"range": 16.0})
 	api.register_sound("zombie_hurt", "sounds/zombie_hurt.wav")
@@ -268,6 +286,10 @@ func _setup_mobs() -> void:
 	api.add_death_messages("fall", ["%s came down faster than expected"])
 	api.every(4.0, _mob_tick)
 	_setup_music()
+	# Not gated on api.is_game(), unlike the music. Music is one channel and two mods driving it means
+	# one of them loses; ambience simply adds, and Hearthhold's valley wants wind in it as much as a
+	# sandbox does.
+	_setup_ambience()
 
 
 ## Occasional mob noises, and zombies burn in daylight.

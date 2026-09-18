@@ -69,6 +69,7 @@ func _ready() -> void:
 	await _hearthhold()
 	await _fishing()
 	await _music()
+	await _ambience()
 	_scripts_compile()
 	_test_isolation()
 	await _loot()
@@ -381,6 +382,28 @@ func _updates() -> void:
 		"it keeps the old app and puts it back if the swap fails")
 	_check(script.contains("com.apple.quarantine") and script.contains("open \"/Applications/Quarrowen.app\""),
 		"it clears the download flag and starts the new one")
+
+	# The Windows installer, read rather than run: there is no Windows machine here and there may never
+	# be one, so what can be checked is that the script says what it should. It is also not reachable yet
+	# - Windows is not in update.json - and this test guards that too, because arming an untested script
+	# that replaces a folder is the mistake worth preventing.
+	var win: Dictionary = Updater.installer("C:/Users/x/AppData/Quarrowen/updates/Quarrowen-9.9.9.zip",
+		"C:/Users/x/AppData/Quarrowen/updates", "C:/Games/Quarrowen", 4242, "windows")
+	_check(win.file == "install.cmd" and win.program == "cmd.exe" and (win.args as Array) == ["/c"],
+		"Windows gets a batch file run by cmd, not a shell script")
+	var cmd: String = win.text
+	_check(cmd.contains("\r\n") and cmd.begins_with("@echo off"), "it is a batch file with CRLF line endings")
+	_check(cmd.contains("tasklist /fi \"PID eq 4242\""), "it waits for the game to quit, because Windows locks a running exe")
+	_check(cmd.contains("if %TRIES% GEQ 60 goto gone"), "and gives up waiting rather than looping for ever")
+	_check(cmd.contains("Expand-Archive"), "it unzips with PowerShell, which batch cannot do itself")
+	_check(cmd.contains("C:\\Games\\Quarrowen") and not cmd.contains("C:/Games"), "paths are backslashed")
+	_check(cmd.contains("move \"%TARGET%\" \"%TARGET%.old\""), "it renames the old build aside rather than deleting it")
+	# Without this, a failed first move means the second one puts the new build *inside* the old folder.
+	_check(cmd.contains("if exist \"%TARGET%\" exit /b 1"), "and stops if that move did not work, leaving the old build whole")
+	_check(cmd.contains("move \"%TARGET%.old\" \"%TARGET%\"") and cmd.contains("exit /b 1"),
+		"and puts it back if the swap fails")
+	_check(cmd.contains("start \"\" \"%TARGET%\\Quarrowen.exe\""), "then starts the new one")
+	_check(cmd.contains("Quarrowen.exe\" set \"NEW="), "it finds the game inside the zip rather than assuming a folder name")
 
 
 ## What a player carries survives a mod being turned off and on again.
@@ -3751,6 +3774,58 @@ func _scripts_compile() -> void:
 	_check(bad.is_empty(), "every engine script parses (%s)" % ", ".join(bad))
 
 
+## Atmosphere. The engine picks the moments; a mod says under what conditions.
+func _ambience() -> void:
+	var server = _start("amb_%d" % Time.get_ticks_msec())
+	var amb = server.ambience
+	_check(amb.entries.size() >= 3, "vanilla registers wind, a drip and water (%d)" % amb.entries.size())
+
+	# An unknown setting is a typo, and a typo that is ignored is a sound that never plays and no reason
+	# why - the same argument as unknown loot conditions being refused rather than passing.
+	_check(amb.register({"sound": "x", "whenever": true}).contains("unknown"), "an unknown setting is refused by name")
+	_check(amb.register({}).contains("needs a sound"), "and so is one with no sound")
+	_check(amb.register({"sound": "x", "every": 5.0}).contains("minimum"), "'every' has to be a range")
+
+	# Conditions decide *whether*, and `near` decides *where from*.
+	var stone: int = server.registry.id_of("base:stone")
+	var water: int = server.registry.id_of("base:water")
+	var o := Vector3i(900, 40, 900)
+	server.ensure_area_loaded(Vector3(o))
+	for x in 3:
+		for z in 3:
+			server.set_block_authoritative(o + Vector3i(x, 0, z), water)
+	var p := ServerPlayer.new(server, 195, "Listener")
+	p.player_id = "amb"
+	server.players[195] = p
+	p.state.position = Vector3(o) + Vector3(1.5, 1.0, 1.5)
+
+	var lapping := {"sound": "vanilla:lapping", "near": ["base:water"], "radius": 4, "every": [1.0, 1.0],
+		"volume": 1.0, "pitch": 1.0, "chance": 1.0, "biome": null, "depth": null, "sky": null}
+	var from: Vector3 = amb._where(p, lapping)
+	_check(from != Vector3.INF and server.world.get_block_v(Vector3i(from.floor())) == water,
+		"a 'near' ambience comes from the water itself, not from inside your head")
+
+	# Under a roof, `sky: true` must not hold - otherwise wind blows in caves.
+	for x in 3:
+		for z in 3:
+			server.set_block_authoritative(o + Vector3i(x, 4, z), stone)
+	var outdoors := {"sound": "vanilla:wind", "sky": true, "every": [1.0, 1.0], "volume": 1.0, "pitch": 1.0,
+		"chance": 1.0, "biome": null, "depth": null, "near": null, "radius": 8}
+	_check(amb._where(p, outdoors) == Vector3.INF, "wind does not blow with a roof overhead")
+	var indoors: Dictionary = outdoors.duplicate()
+	indoors.sky = false
+	_check(amb._where(p, indoors) != Vector3.INF, "and the drip that wants a roof is happy with one")
+
+	# Each player has their own clock, so a second person does not hear the first one's surroundings.
+	amb.update(0.1)
+	_check(amb._next.has(195), "a player gets clocks of their own")
+	amb.player_left(195)
+	_check(not amb._next.has(195), "and they go when the player does")
+
+	server.queue_free()
+	await get_tree().process_frame
+
+
 func _music() -> void:
 	var server = _start("music_%d" % Time.get_ticks_msec())
 	var mod = server.mod_instances.get("vanilla")
@@ -3843,6 +3918,19 @@ func _fishing() -> void:
 	server.emit("item_use", {"player": p, "item": rod, "has_target": false,
 		"position": Vector3i.ZERO, "normal": Vector3i.ZERO, "direction": down})
 	_check(mod.fishing._casts.has("angler"), "casting at water starts a wait")
+
+	# The float is the thing a child actually watches, so it has to be there, and it has to go away
+	# again - a float left behind is a red dot bobbing on a lake for ever with nothing holding it.
+	var bob = mod.fishing._casts["angler"].get("float")
+	_check(bob != null and not bob.removed, "a float appears on the water")
+	# Not a hardcoded height: this is a generated world, and the ray may well find an ocean above the
+	# pond the test built. The property that matters is what the float is sitting on.
+	var under: int = server.world.get_block_v(Vector3i(bob.position.floor()) - Vector3i(0, 1, 0)) if bob else 0
+	_check(bob != null and mod.api.is_liquid(under),
+		"resting on the surface, with water directly under it (%s)" % server.registry.display_name(under))
+	mod.fishing._end("angler")
+	_check(bob != null and bob.removed, "and it is taken away when the cast ends")
+	_check(not mod.fishing._casts.has("angler"), "which also ends the cast")
 
 	mod.fishing._casts.clear()
 	p.state.position = Vector3(o) + Vector3(1.5, 3.0, 40.0)  # nothing but air and ground below

@@ -282,6 +282,41 @@ func register_sound(sound_name: String, files, options := {}) -> int:
 	return _server.sounds.register(d)
 
 
+## Registers an occasional atmospheric sound near a player: wind out in the open, a drip in the dark,
+## water lapping by a lake. Returns "" or why it was refused.
+##
+##   api.register_ambience({"sound": "wind", "sky": true, "every": [20.0, 45.0]})
+##   api.register_ambience({"sound": "drip", "sky": false, "depth": [0, 45], "every": [8.0, 25.0]})
+##   api.register_ambience({"sound": "lapping", "near": ["base:water"], "radius": 6})
+##
+## Conditions: `sky` (true outdoors, false under something), `depth` [low, high], `biome` (one or a
+## list), `near` (block names - the sound then comes *from* one of them, so water laps from the water),
+## `radius`, `chance`. `every` is [minimum, maximum] seconds, kept per player, so two people in
+## different places hear their own surroundings rather than each other's.
+##
+## In the engine rather than in a mod because otherwise every mod that wanted weather or caves would
+## write the same four decisions - how often is too often, how far can it be, who else hears it, what
+## about somebody asleep - and none of them would agree.
+func register_ambience(options: Dictionary) -> String:
+	var def := options.duplicate()
+	if def.has("sound"):
+		def.sound = String(def.sound) if String(def.sound).contains(":") else _qualify(String(def.sound))
+	if def.has("near"):
+		var names := []
+		for n in (def.near if def.near is Array else [def.near]):
+			names.append(str(n) if str(n).contains(":") else _qualify(str(n)))
+		def.near = names
+	var error: String = _server.ambience.register(def)
+	if not error.is_empty():
+		push_error("[%s] %s" % [mod_id, error])
+	return error
+
+
+## Everyone playing on this server right now, as an Array of players.
+func players() -> Array:
+	return _server.players.values()
+
+
 ## Registers a music track. `attribution` is required: say who made it and under what licence.
 ##
 ##   api.register_music("valley", "music/valley.ogg", {
