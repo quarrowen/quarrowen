@@ -32,15 +32,15 @@ var openings := Openings.new()
 
 
 func setup(api) -> void:
-	api.register_sound("stone", ["sounds/stone_break0.wav", "sounds/stone_break1.wav"])
-	api.register_sound("stone_step", ["sounds/stone_step0.wav", "sounds/stone_step1.wav", "sounds/stone_step2.wav"], {"volume": 0.6})
-	api.register_sound("wood", ["sounds/wood_break0.wav", "sounds/wood_break1.wav"])
-	api.register_sound("wood_step", ["sounds/wood_step0.wav", "sounds/wood_step1.wav", "sounds/wood_step2.wav"], {"volume": 0.6})
-	api.register_sound("dirt", ["sounds/dirt_break0.wav", "sounds/dirt_break1.wav"])
-	api.register_sound("grass", ["sounds/grass_break0.wav", "sounds/grass_break1.wav"])
-	api.register_sound("sand", ["sounds/sand_break0.wav", "sounds/sand_break1.wav"])
-	api.register_sound("soft_step", ["sounds/soft_step0.wav", "sounds/soft_step1.wav", "sounds/soft_step2.wav"], {"volume": 0.6})
-	api.register_sound("glass", "sounds/glass_break.wav")
+	api.register_sound("stone", ["sounds/stone_break0.ogg", "sounds/stone_break1.ogg"])
+	api.register_sound("stone_step", ["sounds/stone_step0.ogg", "sounds/stone_step1.ogg", "sounds/stone_step2.ogg"], {"volume": 0.6})
+	api.register_sound("wood", ["sounds/wood_break0.ogg", "sounds/wood_break1.ogg"])
+	api.register_sound("wood_step", ["sounds/wood_step0.ogg", "sounds/wood_step1.ogg", "sounds/wood_step2.ogg"], {"volume": 0.6})
+	api.register_sound("dirt", ["sounds/dirt_break0.ogg", "sounds/dirt_break1.ogg"])
+	api.register_sound("grass", ["sounds/grass_break0.ogg", "sounds/grass_break1.ogg"])
+	api.register_sound("sand", ["sounds/sand_break0.ogg", "sounds/sand_break1.ogg"])
+	api.register_sound("soft_step", ["sounds/soft_step0.ogg", "sounds/soft_step1.ogg", "sounds/soft_step2.ogg"], {"volume": 0.6})
+	api.register_sound("glass", "sounds/glass_break.ogg")
 	api.register_sound("eat", "sounds/eat.wav")
 	var stone := {"break": "stone", "place": "stone", "step": "stone_step"}
 	var wood := {"break": "wood", "place": "wood", "step": "wood_step"}

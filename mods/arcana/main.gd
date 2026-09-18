@@ -72,8 +72,8 @@ func setup(mod_api) -> void:
 	ids.light = api.register_item("wand_of_light", {"display_name": "Wand of Light", "icon": "textures/wand_of_light.png", "usable": true, "max_stack": 1})
 	ids.sparks = api.register_item("wand_of_sparks", {"display_name": "Wand of Sparks", "icon": "textures/wand_of_sparks.png", "usable": true, "max_stack": 1,
 		"glow": {"color": "#ff9040", "energy": 0.6}, "effects": {"use": "cast"}})
-	api.register_sound("spark_cast", "sounds/spark_cast.wav", {"pitch_variance": 0.15})
-	api.register_sound("spark_hit", "sounds/spark_hit.wav")
+	api.register_sound("spark_cast", "sounds/spark_cast.ogg", {"pitch_variance": 0.15})
+	api.register_sound("spark_hit", "sounds/spark_hit.ogg")
 	ids.spark = api.register_entity("spark", {"kind": "projectile", "sprite": "textures/spark.png", "glow": true,
 		"width": 0.3, "height": 0.3, "damage": 6, "gravity": 1.5, "lifetime": 3.0})
 	# Effects are data: the client draws them, the mod only says when and where.

@@ -835,9 +835,27 @@ Everything discussed and not yet done, so none of it lives only in a conversatio
 - ~~*Music comes from the server*~~ - done, with the lazy asset lane under it; see above. All four things
   the note asked for are in (lazy arrival, required attribution, quiet-by-default slider, ambient left
   alone as a separate problem).
-- *Sound effects want replacing* with something more real. CC0 only - Kenney's packs, or Freesound
-  filtered to CC0 - and a CREDITS.md recording source, licence and URL per file even where CC0 asks for
-  nothing. **Not started**: it means fetching third-party assets, worth agreeing before doing.
+- ~~*Sound effects want replacing*~~ - **done for the mundane half** (2026-09-18, the user: "go ahead
+  with Kenney cc0"). 39 files from four of Kenney's CC0 packs: footsteps, block breaks, interface
+  clicks, the guidebook page, coins, the fishing cast and bite. Kenney because it is one identifiable
+  author publishing his own work, which is the thing that matters - **CC0 is a dedication, not a
+  warranty**, and carries no promise the uploader had the right to give the work away. The risk is
+  provenance, not licence text.
+  - `tools/import_kenney_sounds.py` is the mapping, and CREDITS.md is generated from it, so the two
+    cannot drift. The pack archives are pinned by SHA-256: if upstream changes, the import stops rather
+    than quietly shipping something else. `--check` verifies what is committed still matches.
+  - **33 sounds stay generated**, for two different reasons. *Nothing close exists* for the 25 creature
+    voices - pig, cow, sheep, chicken, wolf, zombie, skeleton, spider, slime, stalker, Colossus - because
+    these packs are footsteps, impacts, interface and sci-fi, with no animal in any of them. *Something
+    existed but was worse* for eating/gulping/burping (no mouth sounds at all), the explosion
+    (`impactBell_heavy` is not an explosion) and the fuse (a zap does not build tension). Two were close
+    calls that could go either way once somebody hears them: `milk` and `slime_hop`.
+  - **The 25 creature voices are the AI phase's job**, and the clearest brief it could have: they are
+    what carries the game's character and what no generic pack contains. `stalker_screech` and
+    `colossus_roar` are the two where a real sound would change the game most - a night stalker that is
+    actually frightening is a different experience from a synthesised sawtooth.
+  - Chosen by *name*, not by ear - nothing here can hear. The mapping is conservative on purpose.
+    Whether a footstep sounds like a footstep is for somebody playing to say.
 - *Ambient sound* (wind, drips, water) - positional and mod-side. Not started.
 
 **Content still owed**

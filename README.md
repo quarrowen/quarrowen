@@ -50,6 +50,9 @@ Free to use, modify and share for anything **noncommercial** — play it, mod it
 it. It uses the [PolyForm Noncommercial](LICENSE) licence, which is deliberately **not** an OSI open
 source licence: commercial use needs a separate one. Worth knowing before you build a business on it.
 
+Sound effects are by [Kenney](https://kenney.nl) under CC0 and stay CC0 — this licence does not restrict
+them. Everything somebody else made is listed in [CREDITS.md](CREDITS.md).
+
 *Quarrowen is an independent project and is not affiliated with, endorsed by or connected to Mojang
 Synergies AB, Microsoft or Roblox Corporation. Minecraft is a trademark of Mojang Synergies AB; Roblox is
 a trademark of Roblox Corporation.*

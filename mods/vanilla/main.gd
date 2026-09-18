@@ -146,7 +146,7 @@ func _setup_mobs() -> void:
 	api.register_sound("pig_death", "sounds/pig_death.wav")
 	api.register_sound("skeleton_hurt", "sounds/skeleton_hurt.wav")
 	api.register_sound("skeleton_death", "sounds/skeleton_death.wav")
-	api.register_sound("bow", "sounds/bow.wav", {"pitch_variance": 0.15})
+	api.register_sound("bow", "sounds/bow.ogg", {"pitch_variance": 0.15})
 	api.register_sound("colossus_stomp", "sounds/colossus_stomp.wav", {"range": 48.0})
 	api.register_sound("colossus_roar", "sounds/colossus_roar.wav", {"range": 64.0})
 	api.register_sound("colossus_hurt", "sounds/colossus_hurt.wav", {"range": 32.0})

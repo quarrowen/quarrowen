@@ -29,7 +29,7 @@ func setup(mod_api) -> void:
 	api.register_sound("sheep_hurt", "sounds/sheep_hurt.wav", {"pitch_variance": 0.1})
 	api.register_sound("chicken_ambient", "sounds/chicken_ambient.wav", {"pitch_variance": 0.12})
 	api.register_sound("chicken_hurt", "sounds/chicken_hurt.wav", {"pitch_variance": 0.1})
-	api.register_sound("shear", "sounds/shear.wav")
+	api.register_sound("shear", "sounds/shear.ogg")
 	api.register_sound("wolf_ambient", "sounds/wolf_ambient.wav", {"pitch_variance": 0.1})
 	api.register_sound("wolf_hurt", "sounds/wolf_hurt.wav", {"pitch_variance": 0.1})
 	api.register_sound("wolf_growl", "sounds/wolf_growl.wav", {"pitch_variance": 0.1})

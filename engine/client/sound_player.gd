@@ -86,7 +86,9 @@ func _stream_for(def: Dictionary) -> AudioStream:
 	if files.is_empty():
 		if not String(def.name).begins_with("engine:"):
 			return null
-		var builtin := BUILTIN_DIR + String(def.name).get_slice(":", 1) + ".wav"
+		# Ogg where there is one (Kenney's are Ogg and a quarter the size), the generated .wav otherwise.
+		var stem := BUILTIN_DIR + String(def.name).get_slice(":", 1)
+		var builtin := stem + ".ogg" if ResourceLoader.exists(stem + ".ogg") else stem + ".wav"
 		if not _streams.has(builtin):
 			_streams[builtin] = load(builtin) if ResourceLoader.exists(builtin) else null
 		return _streams[builtin]

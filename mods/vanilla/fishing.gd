@@ -43,6 +43,9 @@ func setup(mod_api) -> void:
 		{"item": "vanilla:bone", "weight": 6, "when": {"time": "night"}},
 	]})
 
+	api.register_sound("fishing_cast", "sounds/fishing_cast.ogg", {"pitch_variance": 0.12})
+	api.register_sound("fishing_bite", "sounds/fishing_bite.ogg", {"pitch_variance": 0.04})
+
 	api.on("item_use", _on_use)
 	api.on("player_leave", func(ev): _casts.erase(ev.player.player_id))
 
@@ -65,6 +68,7 @@ func _on_use(ev: Dictionary) -> void:
 	var generation := _generation
 	_casts[player.player_id] = {"player": player, "at": Vector3(hit.position), "biting": false,
 		"generation": generation}
+	player.play_sound("vanilla:fishing_cast")
 	player.show_title("", "The float settles. Wait for it to dip.", 2.5)
 	api.after(randf_range(4.0, 14.0), _bite.bind(player.player_id, generation))
 
@@ -81,6 +85,8 @@ func _bite(player_id: String, generation: int) -> void:
 		player.show_title("", "You walked away from your line", 2.0)
 		return
 	cast.biting = true
+	# The sound matters more than the words here: a child watching the water is not reading the screen.
+	player.play_sound("vanilla:fishing_bite")
 	player.show_title("", "Something is tugging! Use the rod!", 1.6)
 	# 1.6 seconds is long enough for an eight-year-old to read that, find the mouse and click. Two
 	# thirds of a second, which is what a grown-up game would give, is not.
