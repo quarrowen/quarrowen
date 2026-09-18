@@ -919,6 +919,29 @@ public idea returns. Full reasoning was in the review; the short version:
 - The imported-skin report turned out to be the test harness overwriting the player's identity, not a UGC
   bug. Nothing is owed there beyond what was fixed.
 
+## Alpha 5 (0.41.0)
+
+**Protocol 39 -> 40, so this one has to arrive everywhere at once**: a 0.40.x client cannot join a 0.41.0
+server or the other way round, and it is refused at the door with a message rather than misbehaving. The
+asset manifest gained a field and there is a new RPC for music. Update the server and the Macs together.
+
+- **Music.** Servers can choose what plays: open in daylight, lower and sparser after dark, and
+  Hearthhold's own from the moment the hearth is lit. Settings -> Audio has a Music slider; `/music` says
+  who wrote it. Under it, big files can now arrive *after* you are already playing, so nothing you want
+  to listen to ever stands between a child and the world.
+- **Fishing.** Sticks and string make a rod. Stand by water, cast, and wait - then strike when something
+  tugs. Missing costs nothing. Raw fish cooks into something worth eating.
+- **Travel between worlds works.** It was sending everybody to their own computer instead of to the
+  server, so nobody could go anywhere. Whoever runs the servers should re-run `link-servers.sh`.
+- **Pockets no longer travel between worlds by default**, because One Block is no challenge if you arrive
+  with a chest from somewhere else. Each world remembers its own, so nothing is lost either way.
+- **Hearthhold is Hearthhold.** It was greeting players as "Vanilla Sandbox", leaving that panel in the
+  corner, and starting them in creative - which removes the night the whole story is about.
+- **Windows.** Played, works, and now linked from the download page. It is unsigned and cannot update
+  itself yet, and the page says so.
+- A mod can now place first-time arrivals and returning players separately, which is what lobby systems
+  need; ask whether it is the game being played; and cast a ray that stops at water.
+
 ## Alpha 4.3 (0.40.3)
 
 Protocol stays 39: nothing the client and server must agree on has changed, so a 0.40.2 client and a
