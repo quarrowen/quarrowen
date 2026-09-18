@@ -211,6 +211,7 @@ func show_page(page_id: String, remember := true) -> void:
 		_future.clear()
 	current = page_id
 	for child in _page.get_children():
+		_page.remove_child(child)
 		child.queue_free()
 	_portraits.clear()
 	var chapter := registry.get_chapter(page.chapter)
@@ -264,6 +265,7 @@ func _rebuild_contents() -> void:
 	if _contents == null:
 		return
 	for child in _contents.get_children():
+		_contents.remove_child(child)
 		child.queue_free()
 	var query := _search.text.strip_edges().to_lower()
 	var found := 0
@@ -361,6 +363,7 @@ func _go_forward() -> void:
 
 func _show_empty() -> void:
 	for child in _page.get_children():
+		_page.remove_child(child)
 		child.queue_free()
 	_title.text = "An empty book"
 	_crumb.text = ""

@@ -109,6 +109,7 @@ func _ready() -> void:
 func set_container(view: Dictionary) -> void:
 	container = view
 	for child in _container_box.get_children():
+		_container_box.remove_child(child)
 		child.queue_free()
 	_container_slots.clear()
 	_bars.clear()
@@ -182,6 +183,7 @@ func update_container(view: Dictionary) -> void:
 ## Builds one slot per equipment slot the server defined (called once content is known).
 func build_equipment(slot_defs: Array) -> void:
 	for child in _equipment_box.get_children():
+		_equipment_box.remove_child(child)
 		child.queue_free()
 	_slots.resize(Inventory.SIZE + slot_defs.size())
 	for i in slot_defs.size():

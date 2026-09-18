@@ -3671,6 +3671,19 @@ func _hearthhold() -> void:
 	var hearthstone: int = server.registry.id_of("hearthhold:hearthstone")
 	var cold: int = server.registry.id_of("hearthhold:cold_hearth")
 	_check(hearthstone > 0 and cold > 0, "it registers a hearthstone and a hearth to light")
+	# The story has to be the thing that starts, not vanilla's chop-a-tree tutorial: a player who follows
+	# that one spends their first session away from the valley with the charter board unread.
+	var first := ""
+	for t in server.tutorials.to_network():
+		var def: Dictionary = server.tutorials.tutorials[t.id]
+		if def.auto_start:
+			first = str(t.id)
+			break
+	_check(first == "hearthhold:arriving", "Hearthhold's own opening is the tutorial that starts (%s)" % first)
+	var arriving: Dictionary = server.tutorials.tutorials["hearthhold:arriving"]
+	_check(arriving.steps.size() == 3 and arriving.steps[0].goal.target == ["hearthhold:charter_board"]
+		and arriving.steps[1].goal.target == ["hearthhold:cold_hearth"],
+		"and it reads the board, lights the hearth, then makes a torch")
 
 	# An empty field: nothing ticks, and every line says what to do about it.
 	var at := Vector3i(40, 70, 40)

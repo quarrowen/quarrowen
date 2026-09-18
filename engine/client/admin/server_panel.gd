@@ -45,6 +45,7 @@ func receive(state: Dictionary) -> void:
 
 func _render() -> void:
 	for child in _list.get_children():
+		_list.remove_child(child)
 		child.queue_free()
 	if _state.get("denied", false):
 		_note.text = "Only admins can change server settings."

@@ -291,6 +291,7 @@ func _load_news() -> void:
 
 func _show_news(items: Array) -> void:
 	for child in _news_box.get_children():
+		_news_box.remove_child(child)
 		child.queue_free()
 	_news_box.add_child(MenuTheme.heading("What's new", 20))
 	for item in items.slice(0, 5):
@@ -415,6 +416,7 @@ func _build_play() -> Control:
 func refresh_worlds() -> void:
 	_worlds = WorldList.list()
 	for child in _world_rows.get_children():
+		_world_rows.remove_child(child)
 		child.queue_free()
 	if _worlds.is_empty():
 		var empty := VBoxContainer.new()
@@ -648,6 +650,7 @@ func refresh_servers(query := false) -> void:
 	var list := _server_list()
 	_browse_search.visible = tab == TAB_BROWSE and HubClient.configured()
 	for child in _server_rows.get_children():
+		_server_rows.remove_child(child)
 		child.queue_free()
 	var note := ""
 	match tab:
@@ -963,6 +966,7 @@ func refresh_mods() -> void:
 	if _mod_rows == null:
 		return
 	for child in _mod_rows.get_children():
+		_mod_rows.remove_child(child)
 		child.queue_free()
 	var rows: Array = ModCatalog.merge(ModCatalog.installed(), _mod_browser.index)
 	var wanted := ["installed", "update"] if _mod_tab.current_tab == 0 else (["available"] if _mod_tab.current_tab == 1 else ["update"])

@@ -192,6 +192,26 @@ children to `ALLOWLIST` again, or let them join once with it turned off. Old dat
 longer read: on a Mac it stays in `~/Library/Application Support/Godot/app_userdata/Quarrowen`, and on the
 server in whatever volume it was in.
 
+**Starting one world again.** A world holds its own story: in Hearthhold, once the hearth is lit,
+chapter one is done for everyone who joins afterwards. To give a world a clean start without disturbing
+anything else:
+
+```sh
+docker compose stop hearthhold
+docker run --rm -v quarrowen-hearthhold:/data alpine \
+  sh -c 'rm -rf /data/hearthhold /data/backups/hearthhold'
+docker compose up -d hearthhold
+```
+
+Name the world in place of `hearthhold` for the others; the volume and the folder inside it share its
+name. **Do not delete the volume itself.** It also holds `identity/`, which is what the Macs pin so they
+know the server is the same one - losing it makes every client warn that the server's identity changed -
+and `network.json`, which is what lets players travel between the worlds. Removing only the world folder
+and its backups keeps both, so nothing needs re-linking and nobody is warned.
+
+A player who has already started a tutorial keeps their place, since progress is saved per player rather
+than per world. `/tutorial stop` and then `/tutorial start <id>` begins one again (`/tutorial list`).
+
 **Updating.** Server and Macs must run the same version: a server refuses a client on a different
 protocol. `.env` pins the server to an exact version for that reason, so it never moves on its own while
 the children are still on the old client. To update, publish the release for the Macs first, then:

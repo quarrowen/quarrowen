@@ -362,6 +362,7 @@ func _remember_color(c: Color) -> void:
 		_recent_colors.pop_back()
 	if _recent != null:
 		for child in _recent.get_children():
+			_recent.remove_child(child)
 			child.queue_free()
 		for rc in _recent_colors:
 			_recent.add_child(_swatch(rc))

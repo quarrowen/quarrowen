@@ -171,6 +171,7 @@ func _inside_panel(pos: Vector2) -> bool:
 
 func _rebuild_buttons() -> void:
 	for child in _buttons.get_children():
+		_buttons.remove_child(child)
 		child.queue_free()
 	var add := func(text: String, action: Callable):
 		var b := Button.new()

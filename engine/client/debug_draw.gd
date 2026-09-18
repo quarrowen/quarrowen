@@ -27,6 +27,7 @@ func add_shapes(shapes: Array) -> void:
 
 func clear() -> void:
 	for child in get_children():
+		remove_child(child)
 		child.queue_free()
 
 

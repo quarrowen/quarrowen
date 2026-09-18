@@ -2442,6 +2442,7 @@ func _refresh_pin() -> void:
 	if not _pin_panel.visible:
 		return
 	for child in _pin_rows.get_children():
+		_pin_rows.remove_child(child)
 		child.queue_free()
 	var r: Dictionary = recipes.recipes[index]
 	var ready: bool = _crafting_screen.craftable_times(index) > 0 or (r.station != "" and _crafting_screen.have_all(index))
@@ -2478,6 +2479,7 @@ func _pin_row(item: int, text: String, color: Color) -> Control:
 ## A short popup with an item icon ("Crafted 4 x Planks"), also used for discoveries.
 func _show_toast(item: int, text: String) -> void:
 	for child in _toast.get_children():
+		_toast.remove_child(child)
 		child.queue_free()
 	_toast.add_child(_pin_row(item, text, Color(1.0, 0.9, 0.6)))
 	_toast.reset_size()

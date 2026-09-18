@@ -200,6 +200,7 @@ func creation_ready(id: String) -> void:
 
 func _show_detail(item: Dictionary) -> void:
 	for child in _buttons.get_children():
+		_buttons.remove_child(child)
 		child.queue_free()
 	selected_id = str(item.get("id", ""))
 	_info.visible = not item.is_empty()

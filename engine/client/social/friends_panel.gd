@@ -105,6 +105,7 @@ func _add_friend() -> void:
 
 func _render() -> void:
 	for child in _list.get_children():
+		_list.remove_child(child)
 		child.queue_free()
 	var state: Dictionary = social.state
 	var me: Dictionary = state.get("me", {})

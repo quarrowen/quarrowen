@@ -359,6 +359,7 @@ func _refresh_panel() -> void:
 	if _panel_list == null:
 		return
 	for child in _panel_list.get_children():
+		_panel_list.remove_child(child)
 		child.queue_free()
 	var done: Array = view.get("done", [])
 	if tutorials.is_empty():

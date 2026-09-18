@@ -156,6 +156,7 @@ func _color_of(block: int) -> Color:
 
 func _draw_markers() -> void:
 	for child in _markers.get_children():
+		_markers.remove_child(child)
 		child.queue_free()
 	var step: int = ZOOMS[_zoom]
 	var scale := _view.size.x / float(IMAGE_SIZE)

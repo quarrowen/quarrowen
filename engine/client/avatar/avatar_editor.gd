@@ -209,6 +209,7 @@ func _on_preview_input(event: InputEvent) -> void:
 
 func _rebuild_tabs() -> void:
 	for child in _tabs.get_children():
+		_tabs.remove_child(child)
 		child.queue_free()
 	var names := [["body", "Body"]]
 	for cat in cosmetics.categories:
@@ -245,6 +246,7 @@ func _show_category(cat_name: String) -> void:
 	for b in _tabs.get_children():
 		b.button_pressed = b.name == "tab_" + cat_name
 	for child in _grid.get_children():
+		_grid.remove_child(child)
 		child.queue_free()
 	_body_row.visible = cat_name == "body"
 	var worn := String(avatar.get("wear", {}).get(cat_name, {}).get("id", ""))
@@ -264,6 +266,7 @@ func _rebuild_creation_row() -> void:
 	if _creation_row == null:
 		return
 	for child in _creation_row.get_children():
+		_creation_row.remove_child(child)
 		child.queue_free()
 	if not creations:
 		return
@@ -478,6 +481,7 @@ func _choice_button(label: String, selected: bool, enabled: bool, tip: String, a
 
 func _rebuild_colors() -> void:
 	for child in _colors.get_children():
+		_colors.remove_child(child)
 		child.queue_free()
 	var palette := []
 	var worn: Dictionary = avatar.get("wear", {}).get(_category, {})

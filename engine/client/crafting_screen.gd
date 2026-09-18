@@ -439,6 +439,7 @@ func set_forge_mode() -> void:
 ## Pick what to build, then a part for each slot from your backpack; the preview shows the result.
 func _rebuild_forge() -> void:
 	for child in _forge.get_children():
+		_forge.remove_child(child)
 		child.queue_free()
 	if not _forge.visible:
 		return
@@ -579,7 +580,12 @@ func _redraw_lab() -> void:
 	var r: Dictionary = recipes.recipes[_lab_recipe] if _lab_recipe >= 0 and _lab_recipe < recipes.recipes.size() else {}
 	_lab_result_icon.texture = _icon(r.output) if not r.is_empty() else null
 	_lab_craft.disabled = r.is_empty() or craftable_times(_lab_recipe) <= 0
+	# Taken out of the tree before being freed. queue_free() alone happens at the end of the frame, so a
+	# second redraw in the same frame - a stock update arriving as you switch tabs - saw the old children
+	# still there *and* the new ones, and freed the lot: your items simply vanished until the screen was
+	# reopened. Every rebuild in the client's UI was written this way. (playtest, 2026-09-18)
 	for child in _palette.get_children():
+		_palette.remove_child(child)
 		child.queue_free()
 	var seen := {}
 	for i in inventory.SIZE:
@@ -714,6 +720,7 @@ func requirement_text(r: Dictionary) -> String:
 ## The station's tier, workshop upgrades found and still possible, the next tier and structure status.
 func _rebuild_station_panel() -> void:
 	for child in _station_panel.get_children():
+		_station_panel.remove_child(child)
 		child.queue_free()
 	_station_panel.visible = station.has("position")
 	_side_scroll.visible = _station_panel.visible
@@ -798,6 +805,7 @@ func set_session(view: Dictionary) -> void:
 
 func _rebuild_coop_panel() -> void:
 	for child in _coop_panel.get_children():
+		_coop_panel.remove_child(child)
 		child.queue_free()
 	_job_bars.clear()
 	_project_bar = null
@@ -970,6 +978,7 @@ static func station_title(station_name: String) -> String:
 
 func _rebuild_tabs() -> void:
 	for child in _tabs.get_children():
+		_tabs.remove_child(child)
 		child.queue_free()
 	var present := {}
 	for r in recipes.recipes:
@@ -1023,6 +1032,7 @@ func _visible_recipes() -> Array:
 
 func _rebuild_grid() -> void:
 	for child in _grid.get_children():
+		_grid.remove_child(child)
 		child.queue_free()
 	_cells.clear()
 	var shown := _visible_recipes()
@@ -1146,6 +1156,7 @@ func _update_skill_row(row: HBoxContainer, skill_name: String, can_make: bool) -
 
 func _show_details() -> void:
 	for child in _ingredients.get_children():
+		_ingredients.remove_child(child)
 		child.queue_free()
 	var has := selected >= 0 and selected < recipes.recipes.size()
 	_skill_row.visible = false

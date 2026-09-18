@@ -47,6 +47,7 @@ var _meal_bites := 0
 func build(rig_def: Dictionary) -> void:
 	rig = rig_def
 	for child in get_children():
+		remove_child(child)
 		child.queue_free()
 	parts.clear()
 	attachments.clear()

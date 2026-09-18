@@ -5,10 +5,10 @@ extends RefCounted
 ## agree on something the wire does not carry, such as the block shape table: an older client that does
 ## not know a shape walks into a different world from the one the server is simulating, and the player
 ## sees it as rubber-banding rather than as a version problem.
-const VERSION := 38
+const VERSION := 39
 ## Human-readable release shown in version mismatch messages.
 const GAME_NAME := "Quarrowen"
-const GAME_VERSION := "0.40.0"
+const GAME_VERSION := "0.40.1"
 ## The mod API's semantic version: mods declare what they work with in mod.json ("engine": "^1.0").
 ## Bump the minor version when the API gains things, the major when something mods use changes.
 const MOD_API_VERSION := "1.0.0"

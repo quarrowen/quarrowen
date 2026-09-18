@@ -37,6 +37,7 @@ func _ready() -> void:
 func receive(state: Dictionary) -> void:
 	last_state = state
 	for child in _list.get_children():
+		_list.remove_child(child)
 		child.queue_free()
 	var worlds: Array = state.get("worlds", [])
 	if worlds.size() <= 1:
