@@ -1040,7 +1040,20 @@ public idea returns. Full reasoning was in the review; the short version:
   publicly reachable but allowlisted is a much smaller step than open.
 
 **Other**
-- *The showcase video*: ffmpeg is installed; the script and clips are not written.
+- *The showcase video*: **tried and abandoned** (2026-09-19, the user: "definitely not up to the mark...
+  we will abort the plan for the video. not something critical at this moment"). A recorder was built on
+  Godot's movie writer - join a server, move the camera, cut with ffmpeg - and it produced a watchable
+  42 seconds, but not a good one. Deleted rather than left half-finished.
+  What stopped it being good, so this is not re-attempted blindly:
+  - **There is no spectator camera.** Every shot is from a player's eye at head height, which is fine for
+    a meadow and useless for One Block and Sky Islands, where the whole idea is standing on almost
+    nothing seen from above. `/tp` upward starts a fall, and `/gamemode creative` + `/fly` first did not
+    hold it either - both attempts filmed the void. A detached camera that ignores gravity and the
+    anticheat is the missing piece, and it would serve screenshots too.
+  - The held item and arm are in every frame. Five ways of removing them failed; whatever draws them is
+    not the view model. Arguably right for a trailer anyway.
+  - `/time night` had no effect even with the player joining as admin. Unexplained.
+  If it comes back: the spectator camera first, on its own merits, and the film second.
 - *Security review before opening anything to the public internet* - see the section below.
 - The imported-skin report turned out to be the test harness overwriting the player's identity, not a UGC
   bug. Nothing is owed there beyond what was fixed.
