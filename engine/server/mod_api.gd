@@ -81,6 +81,8 @@ const OrePass = preload("res://engine/server/ore_pass.gd")
 const BiomeGenerator = preload("res://engine/server/worldgen/biome_generator.gd")
 const CaveCarver = preload("res://engine/server/worldgen/cave_carver.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
+const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
+const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
 var mod_id: String
 var mod_dir: String
@@ -1106,14 +1108,50 @@ func register_feature(feature_name: String, def) -> void:
 	biome_generator().add_feature(_qualify(feature_name), def)
 
 
+## What a ray from `origin` in `direction` hits: `{hit, position, normal, block}` (position and normal are
+## Vector3i; `hit` is false when it reaches `max_distance` or unloaded world).
+##
+## By default it sees what a player's crosshair sees, which deliberately looks straight through water -
+## you aim at the riverbed, not the river. Pass `{"liquids": true}` when the liquid is the point: a
+## fishing rod has to find the water's surface, and there is no other way to ask where that is.
+##
+##   var look := api.look_direction(player)
+##   var hit := api.raycast(player.get_eye_position(), look, 6.0, {"liquids": true})
+func raycast(origin: Vector3, direction: Vector3, max_distance := 5.0, options := {}) -> Dictionary:
+	var lut: PackedByteArray = _server.registry.targetable_lut
+	if bool(options.get("liquids", false)):
+		lut = _server.raycast_lut_with_liquids()
+	return VoxelRaycast.cast(_server.world, lut, origin, direction, clampf(max_distance, 0.0, 256.0))
+
+
+## Where a player is looking, as a unit vector. The same direction the engine uses for their reach.
+func look_direction(player) -> Vector3:
+	return PlayerPhysics.look_direction(player.yaw, player.pitch)
+
+
 ## Name of the biome at a column ("" without the biome generator).
 func get_biome(position: Vector3) -> String:
 	return _server.biome_generator.biome_at(floori(position.x), floori(position.z)) if _server.biome_generator != null else ""
 
 
-## `handler(player) -> Vector3` picks the spawn position for players without a saved position.
+## Where a player who has never played here before starts: `handler(player) -> Vector3`.
+##
+## This runs before the world around it is loaded, so it is also the right place to *build* the thing
+## the player should open their eyes on. Placing a structure from `player_join` instead is too late -
+## the player has already been put at the old position and sees themselves moved. (playtest, 2026-09-18)
 func set_spawn_handler(handler: Callable) -> void:
 	_server.spawn_handler = handler
+
+
+## Where a player who has played here before comes back to: `handler(player, saved_position) -> Vector3`.
+## Return `Vector3.INF` to leave them where they logged out, which is what happens with no handler.
+##
+## A separate question from `set_spawn_handler`, and usually a different answer. A story might want a
+## first-time arrival at the structure it placed, and everyone after that back in their own bed. A lobby
+## server wants the opposite: everybody, every time, in the lobby. Answering both with one handler meant
+## a mod could only have one of them.
+func set_rejoin_handler(handler: Callable) -> void:
+	_server.rejoin_handler = handler
 
 
 ## Adds a pass run after the world generator for every new chunk, on worker threads:
@@ -1159,6 +1197,11 @@ func get_loaded_block(pos: Vector3i) -> int:
 ## Whether a block id collides (unloaded space counts as solid).
 func is_solid(block: int) -> bool:
 	return block == BlockRegistry.UNLOADED or (_server.registry.is_valid(block) and _server.registry.solid_lut[block] == 1)
+
+
+## Whether a block id is a liquid (water, lava, and anything a mod declares `liquid: true`).
+func is_liquid(block: int) -> bool:
+	return _server.registry.is_valid(block) and _server.registry.liquid_lut[block] == 1
 
 
 ## Whether players can break a block id.
@@ -1311,6 +1354,28 @@ func register_settings(schema: Dictionary) -> void:
 ## This mod's setting, as the host left it (its default until someone changes it). null if not declared.
 func setting(key: String):
 	return _server.mod_settings.get_value(mod_id, key)
+
+
+## Is this mod the game being played, or is it being used as a foundation by another one?
+##
+## A game mod is often somebody else's dependency: Hearthhold builds on vanilla, so vanilla's blocks,
+## creatures and recipes are all wanted, but its "Vanilla Sandbox" panel and its welcome are not - the
+## player is in Hearthhold. Guard anything that speaks for the whole game with this:
+##
+##   api.on("player_join", func(ev):
+##       if api.is_game():
+##           ev.player.show_title("Vanilla Sandbox", "Build anything", 4.0))
+##
+## The game is the first mod the server was asked to load that declares `"kind": "game"`; a game loaded
+## only because something else depends on it is not it. Add-ons (kind "addon") are never the game.
+func is_game() -> bool:
+	return _server.server_info.get("game_id", "") == mod_id
+
+
+## The id of the game being played, whichever mod this is. Useful for an add-on that wants to behave
+## differently depending on the game it has been added to.
+func game_id() -> String:
+	return String(_server.server_info.get("game_id", ""))
 
 
 ## Every setting of this mod as {key: value}, for passing to something that wants a config dictionary.

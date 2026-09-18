@@ -151,6 +151,11 @@ var generation_passes: Array = []
 ## The engine biome generator once a mod registers biomes (may also be the world generator).
 var biome_generator = null
 var spawn_handler := Callable()
+## Where a *returning* player appears, if a mod wants a say - a lobby, a hub, wherever their story left
+## them. Separate from spawn_handler because "where does a new player start" and "where does somebody
+## who has played before come back to" are different questions, and a mod that answers one usually does
+## not want to answer the other. Vector3.INF means "leave them where they logged out".
+var rejoin_handler := Callable()
 var players := {}  # peer_id -> ServerPlayer
 var tick := 0
 
@@ -2081,6 +2086,10 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	players[peer_id] = p
 	if first_time:
 		p.state.position = spawn_handler.call(p) if spawn_handler.is_valid() else _default_spawn()
+	elif rejoin_handler.is_valid():
+		var at = rejoin_handler.call(p, p.state.position)
+		if at is Vector3 and at != Vector3.INF:
+			p.state.position = at
 	if not transfer.is_empty() and transfers.arrival_position(transfer) != Vector3.INF:
 		p.state.position = transfers.arrival_position(transfer)
 	ensure_area_loaded(p.state.position)
@@ -2373,6 +2382,20 @@ func surface_height(x: int, z: int) -> int:
 		if block != BlockRegistry.AIR and (registry.solid_lut[block] == 1 or registry.liquid_lut[block] == 1):
 			return y
 	return -1
+
+
+## Targetable blocks *and* liquids, for a mod that needs to find the surface of water. Built once and
+## thrown away whenever the registry changes, because block ids move when mods are added or reloaded.
+var _liquid_ray_lut := PackedByteArray()
+
+
+func raycast_lut_with_liquids() -> PackedByteArray:
+	if _liquid_ray_lut.size() != registry.targetable_lut.size():
+		_liquid_ray_lut = registry.targetable_lut.duplicate()
+		for id in registry.liquid_lut.size():
+			if registry.liquid_lut[id] == 1:
+				_liquid_ray_lut[id] = 1
+	return _liquid_ray_lut
 
 
 func get_block_state(pos: Vector3i) -> int:

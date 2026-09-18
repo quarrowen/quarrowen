@@ -447,6 +447,29 @@ declare module "quarrowen" {
     playerRoles(playerId: string): string[];
     setPlayerRole(playerId: string, role: string, on?: boolean): boolean;
     networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[];
+    /** Is this mod the game being played, or is another game using it as a foundation? A game mod is
+     *  often somebody else's dependency - guard welcomes and whole-game UI with this. */
+    isGame(): boolean;
+    /** Is this block id a liquid (water, lava, anything a mod declares `liquid: true`)? */
+    isLiquid(block: number): boolean;
+    /** What a ray hits. Looks through water by default, as a player's crosshair does; {liquids: true}
+     *  stops at the surface instead, which is the only way to find where water begins. */
+    raycast(
+      origin: { x: number; y: number; z: number },
+      direction: { x: number; y: number; z: number },
+      maxDistance?: number,
+      options?: { liquids?: boolean },
+    ): { hit: boolean; position?: { x: number; y: number; z: number }; normal?: { x: number; y: number; z: number }; block?: number };
+    /** Where a player who has never played here starts. Runs before the surrounding world loads, so it
+     *  is also the place to build what they should arrive at. */
+    setSpawnHandler(handler: (playerId: string) => { x: number; y: number; z: number }): void;
+    /** Where a returning player comes back to; return nothing to leave them where they logged out. */
+    setRejoinHandler(
+      handler: (playerId: string, saved: { x: number; y: number; z: number }) =>
+        { x: number; y: number; z: number } | void,
+    ): void;
+    /** The id of the game being played, whichever mod this is. */
+    gameId(): string;
     setArrivalPoint(id: string, position: Vec3): void;
     ugcGet(id: string): Record<string, unknown>;
     ugcSetStatus(id: string, status: "approved" | "rejected" | "removed" | "approve" | "reject" | "remove", reason?: string): boolean;

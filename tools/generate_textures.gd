@@ -278,6 +278,11 @@ func _init() -> void:
 	_save(_bow(), vanilla + "bow.png")
 	_save(_arrow_item(), vanilla + "arrow_item.png")
 
+	# Fishing (appended last so earlier textures keep their random sequence).
+	_save(_fishing_rod(), vanilla + "fishing_rod.png")
+	_save(_fish(Color(0.56, 0.66, 0.74), Color(0.85, 0.88, 0.9)), vanilla + "raw_fish.png")
+	_save(_fish(Color(0.78, 0.56, 0.34), Color(0.92, 0.78, 0.56)), vanilla + "cooked_fish.png")
+
 func _part(part: String) -> Image:
 	var img := _blank()
 	for y in TILE:
@@ -1418,4 +1423,38 @@ func _charter_board() -> Image:
 			img.set_pixel(x, row, Color(0.32, 0.27, 0.22))
 	for corner in [Vector2(4, 3), Vector2(11, 3), Vector2(4, 12), Vector2(11, 12)]:
 		img.set_pixel(int(corner.x), int(corner.y), Color(0.45, 0.45, 0.48))  # the nails
+	return img
+
+
+## A rod held corner to corner with a line hanging off the tip. The line is drawn a pixel at a time
+## rather than as a straight run so it reads as string rather than as a crack in the icon.
+func _fishing_rod() -> Image:
+	var img := _blank()
+	var wood := Color(0.52, 0.36, 0.2)
+	for y in range(3, 16):
+		var x := 15 - y
+		img.set_pixel(x, y, _vary(wood, 0.06))
+		if y > 10:
+			img.set_pixel(x - 1, y, _vary(wood.darkened(0.2), 0.05))  # the grip is thicker
+	var line := Color(0.86, 0.86, 0.8)
+	for y in range(3, 11):
+		img.set_pixel(12 if y < 7 else 13, y, line)
+	img.set_pixel(13, 11, Color(0.8, 0.25, 0.2))  # the float, the one spot of colour
+	img.set_pixel(13, 12, Color(0.9, 0.9, 0.9))
+	return img
+
+
+## A fish in profile: body, tail, and an eye, which is what makes it read as a fish at 16 pixels.
+func _fish(body: Color, belly: Color) -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var d := Vector2((x - 8.0) / 5.5, (y - 8.0) / 2.8).length()
+			if d < 1.0:
+				img.set_pixel(x, y, _vary(belly if y > 8 else body, 0.05))
+	for y in range(5, 12):
+		for x in range(2, 5):
+			if absi(y - 8) >= x - 1:  # a notched tail
+				img.set_pixel(x, y, _vary(body.darkened(0.15), 0.05))
+	img.set_pixel(11, 7, Color(0.1, 0.1, 0.12))
 	return img

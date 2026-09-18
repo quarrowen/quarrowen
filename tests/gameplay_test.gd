@@ -63,6 +63,7 @@ func _ready() -> void:
 	await _fuels()
 	await _cooking()
 	await _hearthhold()
+	await _fishing()
 	await _loot()
 	_api_docs()
 	_creations()
@@ -3703,6 +3704,61 @@ func _cooking() -> void:
 
 ## Hearthhold, phase 1: the Hearthstone is the thing the whole game rests on, because it is what turns
 ## building into something the game counts. It must never answer "no" without saying which part is missing.
+func _fishing() -> void:
+	var server = _start("fishing_%d" % Time.get_ticks_msec())
+	var mod = server.mod_instances.get("vanilla")
+	var rod: int = server.items.id_of("vanilla:fishing_rod")
+	var raw: int = server.items.id_of("vanilla:raw_fish")
+	_check(rod > 0 and raw > 0, "a rod and a fish exist")
+
+	# The engine bit this needed. A crosshair looks *through* water on purpose - you aim at the riverbed,
+	# not the river - so without {"liquids": true} a rod could never find the surface to cast at.
+	var water: int = server.registry.id_of("base:water")
+	var stone: int = server.registry.id_of("base:stone")
+	var o := Vector3i(600, 40, 600)
+	server.ensure_area_loaded(Vector3(o))
+	for x in 4:
+		for z in 4:
+			server.set_block_authoritative(o + Vector3i(x, 0, z), stone)
+			server.set_block_authoritative(o + Vector3i(x, 1, z), water)
+	var above := Vector3(o) + Vector3(1.5, 6.0, 1.5)
+	var down := Vector3(0, -1, 0)
+	var through: Dictionary = mod.api.raycast(above, down, 10.0)
+	var stops: Dictionary = mod.api.raycast(above, down, 10.0, {"liquids": true})
+	_check(through.hit and through.block == stone, "a normal ray passes through water to the bed below")
+	_check(stops.hit and stops.block == water, "and one asked for liquids stops at the surface")
+	_check(mod.api.is_liquid(water) and not mod.api.is_liquid(stone), "is_liquid tells the two apart")
+
+	# Casting: at water it starts a wait, at anything else it says so and starts nothing.
+	var p := ServerPlayer.new(server, 180, "Anglerfish")
+	p.player_id = "angler"
+	server.players[180] = p
+	p.state.position = Vector3(o) + Vector3(1.5, 3.0, 1.5)
+	p.pitch = -PI / 2.0  # straight down at the water
+	p.give(rod)
+	server.emit("item_use", {"player": p, "item": rod, "has_target": false,
+		"position": Vector3i.ZERO, "normal": Vector3i.ZERO, "direction": down})
+	_check(mod.fishing._casts.has("angler"), "casting at water starts a wait")
+
+	mod.fishing._casts.clear()
+	p.state.position = Vector3(o) + Vector3(1.5, 3.0, 40.0)  # nothing but air and ground below
+	server.emit("item_use", {"player": p, "item": rod, "has_target": false,
+		"position": Vector3i.ZERO, "normal": Vector3i.ZERO, "direction": down})
+	_check(not mod.fishing._casts.has("angler"), "casting at dry land does not")
+
+	# The catch table. Every entry has to name something that exists, or a child reels in nothing at all.
+	var table: Dictionary = server.loot.tables.get("vanilla:fishing", {})
+	_check(not table.is_empty(), "the catch table is registered")
+	var bad := []
+	for entry in table.get("entries", []):
+		if server.items.id_of(str(entry.get("item", ""))) <= 0:
+			bad.append(str(entry.get("item", "")))
+	_check(bad.is_empty(), "everything in it is a real item (%s)" % ", ".join(bad))
+
+	server.queue_free()
+	await get_tree().process_frame
+
+
 func _hearthhold() -> void:
 	var server = _start("hearth_%d" % Time.get_ticks_msec(), ["hearthhold"])
 	var mod = server.mod_instances.get("hearthhold")
@@ -3711,6 +3767,16 @@ func _hearthhold() -> void:
 		server.queue_free()
 		await get_tree().process_frame
 		return
+	# Hearthhold builds on vanilla, so both are loaded and both declare themselves games. Only one of them
+	# is the game being played, and vanilla must know it is not: it used to greet a player in the valley
+	# as "Vanilla Sandbox", leave its panel in the corner, and put them in creative mode, which removes
+	# the night the whole story is about. (playtest, 2026-09-18)
+	var vanilla_mod = server.mod_instances.get("vanilla")
+	_check(vanilla_mod != null and not vanilla_mod.api.is_game(), "vanilla knows it is a foundation here, not the game")
+	_check(mod.api.is_game(), "and Hearthhold knows it is the game")
+	_check(mod.api.game_id() == "hearthhold" and vanilla_mod != null and vanilla_mod.api.game_id() == "hearthhold",
+		"both agree on which game is running")
+
 	var hearthstone: int = server.registry.id_of("hearthhold:hearthstone")
 	var cold: int = server.registry.id_of("hearthhold:cold_hearth")
 	_check(hearthstone > 0 and cold > 0, "it registers a hearthstone and a hearth to light")

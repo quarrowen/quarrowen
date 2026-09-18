@@ -46,6 +46,35 @@ if [ -f "$mac_dmg" ]; then
   dmg_name="$(basename "$mac_dmg")"
 fi
 
+# Windows. Nobody builds it here - there is no Windows machine - so it comes from the tag's CI run, which
+# is the only artifact of CI's that reaches a player. It is unsigned (SmartScreen may warn) and it is NOT
+# offered through update.json: the updater's install step writes a /bin/sh script, so a Windows client
+# that accepted an update could not install it. Download link only, until that is written.
+win_zip="build/windows/Quarrowen-$version-windows-x86_64.zip"
+win_name=""
+if [ ! -f "$win_zip" ] && [ "${QUARROWEN_SKIP_WINDOWS:-0}" != "1" ] && command -v gh >/dev/null 2>&1; then
+  run_id="$(gh run list --workflow CI --branch "v$version" --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
+  if [ -n "$run_id" ]; then
+    echo "== fetching the Windows build from CI run $run_id"
+    tmp="$(mktemp -d)"
+    if gh run download "$run_id" -n windows-unsigned-untested -D "$tmp" >/dev/null 2>&1; then
+      mkdir -p build/windows
+      # The artifact unpacks to a folder called "windows", which is a poor thing to find in Downloads.
+      # Give it the game's name and version, so extracting it produces something recognisable.
+      inner="$tmp/Quarrowen-$version"
+      if [ -d "$tmp/windows" ]; then mv "$tmp/windows" "$inner"; else mkdir -p "$inner" && find "$tmp" -maxdepth 1 -mindepth 1 ! -name "Quarrowen-$version" -exec mv {} "$inner/" \; ; fi
+      (cd "$tmp" && zip -qr "$OLDPWD/$win_zip" "Quarrowen-$version") && echo "   got $win_zip"
+    else
+      echo "   no Windows artifact on that run; the page will not offer it"
+    fi
+    rm -rf "$tmp"
+  fi
+fi
+if [ -f "$win_zip" ]; then
+  cp "$win_zip" "$out/$files/"
+  win_name="$(basename "$win_zip")"
+fi
+
 OUT="$out/$files/mods" tools/package_mods.sh >/dev/null
 cp assets/icon.png "$out/icon.png"
 # The page is led by pictures of the game (site/screenshots, taken with the interface hidden - F1).
@@ -64,6 +93,14 @@ else
   dmg_url="$mac_url"
 fi
 download_name="${dmg_name:-$mac_name}"
+win_url=""
+win_button=""
+if [ -n "$win_name" ]; then
+  if [ "$flat" -eq 1 ]; then win_url="$base_url/$win_name"; else win_url="$base_url/$files/$win_name"; fi
+  # Quieter than the Mac button on purpose: it is unsigned, so Windows shows a warning the first time,
+  # and it does not update itself. Saying so here is better than a child finding out.
+  win_button="<p class=\"under\"><a href=\"$win_url\">Windows ($(human "$out/$files/$win_name"))</a> — unsigned, so Windows asks before running it, and it does not update itself yet.</p>"
+fi
 
 cat > "$out/update.json" <<EOF
 {
@@ -296,6 +333,7 @@ cat > "$out/index.html" <<EOF
       <a class="btn ghost" href="#games">See the games</a>
     </div>
     <p class="under">Apple silicon · signed and notarized · updates itself · $notes</p>
+    $win_button
   </div>
 </div>
 

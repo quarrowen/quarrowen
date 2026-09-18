@@ -17,7 +17,11 @@ commercial use needs a separate one. Worth knowing before you build a business o
 ## What do I need to run it?
 
 A Mac with Apple silicon. It is signed and notarized, so it opens by double-clicking with no security
-detour. Windows and Linux builds are not published yet, though the engine builds for them.
+detour.
+
+There is a **Windows** build too, linked from the download page. It is unsigned, so Windows asks before
+running it the first time, and it does not update itself yet - you download the new one when there is
+one. Linux is not published, though the engine builds for it.
 
 A server wants a Linux box with Docker — a spare mini PC or an old laptop is plenty for a family.
 

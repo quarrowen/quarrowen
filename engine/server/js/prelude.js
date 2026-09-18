@@ -289,6 +289,17 @@
     setUgcPolicy: (values) => host("setUgcPolicy", values),
     ugcList: (filter = "approved") => host("ugcList", filter),
     networkServers: () => host("networkServers"),
+    /** Is this mod the game being played, or is another game using it as a foundation? Guard anything
+     *  that speaks for the whole game - a welcome, a corner panel - with this. */
+    isGame: () => host("isGame"),
+    /** Is this block id a liquid? */
+    isLiquid: (block) => host("isLiquid", block),
+    /** What a ray hits: {hit, position, normal, block}. By default it looks through water the way a
+     *  player's crosshair does; pass {liquids: true} when the water itself is the target. */
+    raycast: (origin, direction, maxDistance = 5, options = {}) =>
+      host("raycast", origin, direction, maxDistance, options),
+    /** The id of the game being played, whichever mod this is. */
+    gameId: () => host("gameId"),
     registerPermission: (permission, description, roles = []) => host("registerPermission", permission, description, roles),
     playerRoles: (playerId) => host("playerRoles", playerId),
     setPlayerRole: (playerId, role, on = true) => host("setPlayerRole", playerId, role, on),
@@ -338,6 +349,13 @@
       host("registerMobBehavior", name, register(score), register(update), stop ? register(stop) : -1),
     // Events, commands, timers
     on: (event, handler, priority = 0) => host("on", event, register(handler), priority),
+    /** Where a player who has never played here starts: handler(playerId) -> {x, y, z}. Runs before the
+     *  world around it loads, so it is also where to build what they should open their eyes on. */
+    setSpawnHandler: (handler) => host("setSpawnHandler", register(handler)),
+    /** Where a returning player comes back to: handler(playerId, saved) -> {x, y, z}, or nothing to
+     *  leave them where they logged out. A different question from setSpawnHandler - a lobby wants
+     *  everybody in the lobby every time, a story wants only the first arrival placed. */
+    setRejoinHandler: (handler) => host("setRejoinHandler", register(handler)),
     command: (name, description, handler, { admin = false } = {}) =>
       host("command", name, description, register(handler), admin ? "admin" : ""),
     after: (seconds, fn) => host("after", seconds, register(fn)),

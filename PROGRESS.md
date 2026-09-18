@@ -662,6 +662,39 @@ the fix is not another entry on the list. The uploader now takes every `.zip` an
 produced, and then refuses to publish if anything update.json, mods.json or the page's download button
 links to is not among them. A broken link now fails the release instead of reaching players.
 
+## Three quick wins, and what each one turned out to be (2026-09-18)
+
+**A game mod can say "this one is mine".** Hearthhold showed vanilla's "Vanilla Sandbox" panel in the
+corner, because it depends on vanilla and vanilla greeted every player regardless of whose game was
+running. Worse than cosmetic: vanilla also set the *game mode*, so a first-time player in the valley
+landed in creative, which removes the night the whole story is about. `api.is_game()` (and `api.game_id()`)
+answer it - the game is the first requested mod with `"kind": "game"`, so one loaded as a dependency
+knows it is a foundation. Vanilla guards its welcome with it; Hearthhold now asks for survival itself.
+Both mod languages. Tested: vanilla reports false and Hearthhold true on a Hearthhold server.
+
+**Mods own the world spawn, both halves of it** (the user, earlier: first-time arrivals and returning
+players are different questions). `set_spawn_handler` keeps the first half; `set_rejoin_handler(player,
+saved) -> Vector3` is the second, returning `Vector3.INF` to leave a player where they logged out. A
+story wants only the first arrival placed; a lobby wants everybody, every time. One handler could not do
+both, which is why #17 had to be worked around rather than fixed. JavaScript mods could not set a spawn
+handler at all before; they can set either now.
+
+**Fishing** - the last of the six content-review findings. The engine grew one thing for it:
+`api.raycast(origin, direction, distance, {"liquids": true})`, plus `api.is_liquid(block)`. A player's
+crosshair looks straight through water on purpose - you aim at the riverbed, not the river - so no mod
+could ask where the surface was. Everything else was loot tables and timers that already existed.
+
+The design decision worth keeping: **the waiting is the point**, and missing a bite costs nothing. Four
+to fourteen seconds before a bite, a 1.6-second window to strike (long enough for an eight-year-old to
+read the message, find the mouse and click), and no penalty for striking early or late. Everything else
+in the game rewards doing; this is the one thing that asks a child to stand still by a lake.
+
+Two invented-API mistakes caught by checking rather than by a player, both the same shape as the
+milestone-goal one: loot conditions are `{"time": "night"}`, not `{"night": true}` (an unknown condition
+never holds, so those entries would have silently never dropped), and shaped recipes take `pattern` +
+`key`, not `shape`. There is no `api.players()` or `api.now()`; the cast waits on `api.after` timers with
+a generation counter instead of a global tick.
+
 ## Open threads (2026-09-18)
 
 Everything discussed and not yet done, so none of it lives only in a conversation.
@@ -679,9 +712,9 @@ Everything discussed and not yet done, so none of it lives only in a conversatio
   nothing.
 
 **Content still owed**
-- *Fishing*: the last of the six review findings. Loot tables already do catch tables with tool, biome,
-  time and first-time conditions; the only real work is that the client's raycast skips liquids on
-  purpose, so a rod has to cast server-side against `liquid_lut`.
+- ~~*Fishing*~~ - done, see above. Still unbuilt: a visible float on the water. Today the feedback is a
+  title line and a sound, which works, but a bobber a child can watch dip would be better, and needs an
+  entity with a model.
 - *Hearthhold phase 2*: the other settlers (Cobb, Wren, Odd, Mab, Tam), night pressure, the keeper and
   the finale. Phase 1 is the valley, Bramble, and the tutorial that leads into it.
 - *Story mode* as an engine capability, with structure schemas and maps-as-world-saves. The three want
@@ -690,8 +723,18 @@ Everything discussed and not yet done, so none of it lives only in a conversatio
   trinket slot beyond the three charms.
 
 **Platforms**
-- *Windows*: built by CI from a tag, unsigned and unplayed. Before publishing it: play it, then decide
-  about signing (SmartScreen will warn without it).
+- *Windows*: **played and it works** (2026-09-18, the user: "verified on windows :) it worked", with no
+  warning beyond the firewall prompt when starting a local server). Now linked from the download page,
+  quietly and with the caveats written next to it. Two things still owed:
+  - **It cannot update itself.** `Updater.install_script` writes `#!/bin/sh`, so a Windows client offered
+    an update would download it and fail to install it. That is why Windows is deliberately *not* in
+    `update.json` - a download link only. A `.cmd` twin of that script, and a test of it, is the work.
+  - **Signing.** SmartScreen did not warn this time, but reputation-based warnings come and go with how
+    many people have downloaded a binary; a code-signing certificate is a separate purchase from the
+    Apple one. Not urgent while it is a family build.
+  It is also the one CI artifact that now reaches players: there is no Windows machine to build on, so
+  `make_release.sh` fetches it from the tag's run with `gh run download`. Its checksum is not in a signed
+  manifest, because it is not in the manifest at all - anyone downloading it is trusting the site.
 - *iPad*: blocked on touch controls, not on CI. An iOS build today would install and be unplayable. Order
   is touch controls, then a local build, then TestFlight, then CI.
 
@@ -773,7 +816,7 @@ Protocol stays 39: nothing the client and server must agree on has changed, so a
 
 ## Seen while taking screenshots (2026-09-18)
 
-16. **Hearthhold shows vanilla's panel.** "Vanilla Sandbox - Creative mode - /spawn /gamemode survival"
+16. ~~**Hearthhold shows vanilla's panel.**~~ (fixed - `api.is_game()`, see above) "Vanilla Sandbox - Creative mode - /spawn /gamemode survival"
    sits in the top right of a Hearthhold world, because Hearthhold depends on vanilla and vanilla's
    `player_join` shows its own info panel regardless of which game is actually running. A game mod should
    be able to say "this is mine now" - or vanilla should only show it when vanilla is the game.
@@ -783,7 +826,7 @@ Protocol stays 39: nothing the client and server must agree on has changed, so a
    nothing, and was moved a moment later. Hearthhold now builds the valley from inside its spawn
    handler, so the first player opens their eyes in the yard. (fixed)
 
-**Wanted: mods should own the world spawn** (the user, 2026-09-18). `set_spawn_handler` runs for any
+**Wanted: mods should own the world spawn** (the user, 2026-09-18) - **done the same day**, see the quick-wins section above (`set_rejoin_handler`). `set_spawn_handler` runs for any
 player without a saved position, which conflates two different questions: *where does a new player
 start* and *where does a returning player appear*. A mod should be able to answer them separately - a
 first-time arrival at a structure the mod placed, and a returning player at a lobby, a bed, or wherever

@@ -126,6 +126,14 @@ func _world(api) -> void:
 		{"type": "items", "items": ["vanilla:shadow_log", "vanilla:shadow_pod", "vanilla:nightbloom", "vanilla:gloomgrass"]},
 		{"type": "tip", "text": "Night stalkers hunt shadowwood from dusk. Bring torches."},
 	])
+	_page(api, "fishing", "world", 4, "Fishing", "vanilla:fishing_rod", {"item": "vanilla:string"},
+		"fish fishing rod water lake river sea bait catch wait", [
+		{"type": "text", "text": "Sticks and string make a [b]fishing rod[/b]. Stand at the edge of any water, look at it and use the rod to cast."},
+		{"type": "text", "text": "Then wait. It takes a few seconds, and the float will not move until it does. When something tugs, use the rod again straight away - you have a moment, not an instant."},
+		{"type": "items", "items": ["vanilla:fishing_rod", "vanilla:raw_fish", "vanilla:cooked_fish"]},
+		{"type": "recipe", "output": "vanilla:cooked_fish"},
+		{"type": "tip", "text": "Missing a bite costs nothing. Cast again."},
+	])
 	_page(api, "caves", "world", 3, "Caves and Lava", "base:lava", {"item": "base:coal"}, "cave cavern ravine lava underground ore depth cobalt", [
 		{"type": "text", "text": "Winding tunnels, huge caverns and deep ravines run under the world. Ores are placed by depth: coal high up, iron in the middle, and cobalt deep down near the lava."},
 		{"type": "text", "text": "Low caverns flood with water; the deepest ones hold [b]lava[/b], which burns anything that touches it."},

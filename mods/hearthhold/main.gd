@@ -183,6 +183,11 @@ func _on_join(ev: Dictionary) -> void:
 		api.set_map_marker(player, "outpost", {"label": "Hearthhold", "position": Vector3(at[0], at[1], at[2]),
 			"color": "#ffb454"})
 	if ev.first_time:
+		# Hearthhold is a survival story - the night is the antagonist, and creative removes it. Vanilla
+		# used to decide this, which put a first-time player in the valley in creative mode. A game that
+		# builds on another one has to say what it wants rather than inherit it. (playtest, 2026-09-18)
+		player.set_creative(false)
+		player.clear_inventory()
 		player.give(api.item("base:log"), 3)  # enough for the hearth, so chapter one cannot stall
 		# Coal for the first torch. The valley is dark, the first night comes quickly, and a child who
 		# cannot make light on night one is a child who stops playing. The rest they must find.

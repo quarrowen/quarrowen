@@ -8,6 +8,7 @@ const VanillaStructures = preload("structures.gd")
 const Guide = preload("guide.gd")
 const Tutorial = preload("tutorial.gd")
 const Cooking = preload("cooking.gd")
+const Fishing = preload("fishing.gd")
 const APPLE_CHANCE := 0.12
 ## How many monsters may be around each player, for the "monsters" setting.
 const MONSTER_CAPS := {"none": 0, "few": 8, "normal": 24, "many": 48}
@@ -23,6 +24,7 @@ var structures := VanillaStructures.new()
 var guide := Guide.new()
 var tutorial := Tutorial.new()
 var cooking := Cooking.new()
+var fishing := Fishing.new()
 var ids := {}
 
 
@@ -59,6 +61,7 @@ func setup(mod_api) -> void:
 	api.register_command("gamemode", "survival | creative [player | all] - switch game mode ('all' also sets it for new players)", _cmd_gamemode)
 	_setup_mobs()
 	cooking.setup(api)
+	fishing.setup(api)
 	guide.setup(api)
 	tutorial.setup(api)
 	if not api.storage.get("time_initialized", false):
@@ -94,6 +97,11 @@ func _spawn_position(_player) -> Vector3:
 
 func _on_join(ev: Dictionary) -> void:
 	var player = ev.player
+	# Only when the sandbox *is* the game. Hearthhold builds on vanilla and wants its blocks and creatures,
+	# not its welcome: a player in the valley was greeted as "Vanilla Sandbox" and had its panel in the
+	# corner all game. (playtest, 2026-09-18)
+	if not api.is_game():
+		return
 	if ev.first_time:
 		_set_mode(player, String(api.storage.get("default_gamemode", "creative")), false)
 	var creative: bool = player.is_creative()

@@ -87,6 +87,22 @@ func _js_location(stack: String) -> Dictionary:
 	return out
 
 
+## A JS mod's spawn handler. A position it cannot make sense of falls back to the engine's own choice,
+## rather than dropping the player at the origin, which is a hole in the ground as often as not.
+func _spawn_from_js(player, callback_id: int) -> Vector3:
+	var reply = _invoke(callback_id, [player.player_id])
+	var at := _vec3([reply], 0)
+	return at if reply != null and at != Vector3.ZERO else _server._default_spawn()
+
+
+func _rejoin_from_js(player, saved: Vector3, callback_id: int) -> Vector3:
+	var reply = _invoke(callback_id, [player.player_id, {"x": saved.x, "y": saved.y, "z": saved.z}])
+	if reply == null:
+		return Vector3.INF
+	var at := _vec3([reply], 0)
+	return at if at != Vector3.ZERO else Vector3.INF
+
+
 func _on_event(ev: Dictionary, callback_id: int) -> void:
 	var reply = _invoke(callback_id, [ev])
 	if not (reply is Dictionary) or not (reply.get("event") is Dictionary):
@@ -228,6 +244,8 @@ func _call_host(method: String, a: Array):
 				return player
 			api.show_crafting(player)
 		"on": api.on(_str(a, 0), _on_event.bind(_int(a, 1)), _int(a, 2, 0))
+		"setSpawnHandler": api.set_spawn_handler(_spawn_from_js.bind(_int(a, 0)))
+		"setRejoinHandler": api.set_rejoin_handler(_rejoin_from_js.bind(_int(a, 0)))
 		"command": api.register_command(_str(a, 0), _str(a, 1), _on_command.bind(_int(a, 2)), _str(a, 3))
 		"after": return api.after(float(a[0]) if a.size() > 0 else 0.0, _on_timer.bind(_int(a, 1)))
 		"every": return api.every(maxf(float(a[0]) if a.size() > 0 else 1.0, 0.05), _on_timer.bind(_int(a, 1)))
@@ -257,6 +275,16 @@ func _call_host(method: String, a: Array):
 		"setUgcPolicy": api.set_ugc_policy(_dict(a, 0))
 		"ugcList": return api.ugc_list(_str(a, 0) if a.size() > 0 else "approved")
 		"networkServers": return api.network_servers()
+		"isGame": return api.is_game()
+		"isLiquid": return api.is_liquid(_int(a, 0))
+		"raycast":
+			var r: Dictionary = api.raycast(_vec3(a, 0), _vec3(a, 1), _float(a, 2, 5.0), _dict(a, 3))
+			if not r.hit:
+				return {"hit": false}
+			return {"hit": true, "block": r.block,
+				"position": {"x": r.position.x, "y": r.position.y, "z": r.position.z},
+				"normal": {"x": r.normal.x, "y": r.normal.y, "z": r.normal.z}}
+		"gameId": return api.game_id()
 		"registerPermission": api.register_permission(_str(a, 0), _str(a, 1), a[2] if a.size() > 2 and a[2] is Array else [])
 		"playerRoles": return api.player_roles(_str(a, 0))
 		"setPlayerRole": return api.set_player_role(_str(a, 0), _str(a, 1), a.size() <= 2 or bool(a[2]))

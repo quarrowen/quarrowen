@@ -96,7 +96,10 @@ if [ "$with_release" -eq 1 ]; then
   while IFS= read -r f; do assets+=("$f"); done < <(find "$out/v$version" -type f \( -name '*.zip' -o -name '*.dmg' \) | sort)
   [ "${#assets[@]}" -gt 0 ] || { echo "no release files in $out/v$version" >&2; exit 1; }
   # Whatever update.json and the page link to must be among them, or players get a 404 from a live page.
-  for url in $(sed -n 's/.*"url": "\(.*\)".*/\1/p' "$out/update.json" "$out/mods.json") "$(sed -n 's/.*class="btn" href="\([^"]*\)".*/\1/p' "$out/index.html" | head -1)"; do
+  # Every release-asset link anywhere on the page, not just the main button - the Windows download is an
+  # ordinary link, and a check that only knows about one shape of button is the bug it is meant to catch.
+  page_links="$(grep -o 'href="[^"]*/releases/download/[^"]*"' "$out/index.html" | sed 's/href="//; s/"$//' | sort -u)"
+  for url in $(sed -n 's/.*"url": "\(.*\)".*/\1/p' "$out/update.json" "$out/mods.json") $page_links; do
     case "$url" in */releases/download/*) ;; *) continue ;; esac
     name="${url##*/}"
     printf '%s\n' "${assets[@]}" | grep -q "/$name$" || { echo "$name is linked but was not built - nothing would be uploaded for it" >&2; exit 1; }
