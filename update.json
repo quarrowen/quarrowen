@@ -1,11 +1,11 @@
 {
-	"version": "0.41.0",
-	"notes": "Music the server chooses, fishing, and travel that goes somewhere real.",
+	"version": "0.41.1",
+	"notes": "Real footsteps, wind and water, and a float to watch while you fish.",
 	"builds": {
 		"macos": {
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.0/Quarrowen-0.41.0-mac-arm64.zip",
-			"sha256": "156597dbc41cfbd2568023743eb24e76e8e2c17e374bb12e15e28dc2b802e264",
-			"size": 69555518
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/Quarrowen-0.41.1-mac-arm64.zip",
+			"sha256": "b83de30656f93d2e30119278ae62c6d2522cbc614498cc98bb5cf29ea27be1ba",
+			"size": 69898865
 		}
 	}
 }

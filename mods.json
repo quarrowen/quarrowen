@@ -13,9 +13,9 @@
 			"id": "arcana",
 			"kind": "addon",
 			"name": "Arcana",
-			"sha256": "5bc5411c91438915256188c7cdf5b6c52d1948fca21361a712ea8c27e290dea6",
-			"size": 34343,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.0/arcana-1.0.0.zip",
+			"sha256": "a478827e81099867e0bc3726070d60c0b33fde50f45240156048f01b5d9a306d",
+			"size": 32906,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/arcana-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -29,9 +29,9 @@
 			"id": "base",
 			"kind": "library",
 			"name": "Base Blocks",
-			"sha256": "956218c47fa6ade9af8cedaab49d6880de835074cb183cf8b7bf0a480b81dcaa",
-			"size": 231517,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.0/base-1.0.0.zip",
+			"sha256": "33c3e86344567dc07b3aa93d033f124291a0d84ee8a6187168c0718e7297209b",
+			"size": 225409,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/base-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -47,9 +47,9 @@
 			"id": "guild",
 			"kind": "addon",
 			"name": "Adventurers' Guild",
-			"sha256": "9c83323f2b572d9ac90630443522a53a5365437cf9ed114eb99bb0f26ce2420f",
-			"size": 47838,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.0/guild-1.0.0.zip",
+			"sha256": "e2dedd7c8835f207b3528e0c6bc838d6e891ab43ad54abd248f6951443179a70",
+			"size": 56263,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/guild-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -66,9 +66,9 @@
 			"id": "hearthhold",
 			"kind": "game",
 			"name": "Hearthhold",
-			"sha256": "55f5b6b4e9d942398bcf5818bb254376f1ba92db4616d1ebe021f2df1751856a",
+			"sha256": "511e3e1a0a017cc191b82fe46e8994ff6d191e81c4598ca0794b532deb66b4d1",
 			"size": 98585,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.0/hearthhold-0.1.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/hearthhold-0.1.0.zip",
 			"version": "0.1.0"
 		},
 		{
@@ -84,9 +84,9 @@
 			"id": "industry",
 			"kind": "addon",
 			"name": "Industry",
-			"sha256": "679a354b5534215cba41e3071ce1fe5a666c9050d6efb635a5256aff0668715d",
+			"sha256": "08f320717118f8a94404b3c03ca725ea85f5c5171a4f8c1794cb9575ba5af756",
 			"size": 139695,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.0/industry-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/industry-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -102,9 +102,9 @@
 			"id": "oneblock",
 			"kind": "game",
 			"name": "One Block",
-			"sha256": "04c44d3d2927ed2fe9ddb777ec4cfbde0ff69d24ab4f3413540462e6e9e085b9",
+			"sha256": "fcf7028c287d221a5bb874011f99798d2ed859be7f5d873b60d16c54d27de73f",
 			"size": 3226,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.0/oneblock-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/oneblock-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -120,9 +120,9 @@
 			"id": "skyblock",
 			"kind": "game",
 			"name": "Skyblock",
-			"sha256": "36e66916817164a6a552c20e855bac7fe7582deb2cd835cf4d18f95a71f977e6",
+			"sha256": "bce3bc875f645d5876d2205367cb9b74d04e4469fbede9fef1bbf17aa35b99c0",
 			"size": 4035,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.0/skyblock-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/skyblock-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -138,11 +138,11 @@
 			"id": "vanilla",
 			"kind": "game",
 			"name": "Vanilla Sandbox",
-			"sha256": "a12b5f4b4fdfc834974731b93a74ff860150f4a7b02a6db7d497d72b32150a7a",
-			"size": 800485,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.0/vanilla-1.0.0.zip",
+			"sha256": "f16ea1b11d78eb4883e7450abb7dd2a2ad5881e1d1db66ff5140ca1c61c223e7",
+			"size": 1035618,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/vanilla-1.0.0.zip",
 			"version": "1.0.0"
 		}
 	],
-	"version": "0.41.0"
+	"version": "0.41.1"
 }
