@@ -96,8 +96,15 @@ fn normalize_friend_code(text: &str) -> String {
             other => other,
         })
         .collect();
-    if clean.len() == 8 {
-        format!("{}-{}", &clean[..4], &clean[4..])
+    // Counted and split by characters, not bytes. `len()` is bytes, so "€€ab" is eight of them and
+    // slicing at four landed inside a character: a panic, taken while holding the database lock, which
+    // poisoned it and left every later hub request panicking too. One friend request killed the hub
+    // until somebody restarted it. (security review, 2026-09-18)
+    let chars: Vec<char> = clean.chars().collect();
+    if chars.len() == 8 {
+        let head: String = chars[..4].iter().collect();
+        let tail: String = chars[4..].iter().collect();
+        format!("{}-{}", head, tail)
     } else {
         clean
     }
@@ -337,8 +344,10 @@ impl Store {
 
     /// A player id from a friend code or a full id.
     pub fn find_player(&self, text: &str) -> rusqlite::Result<Option<String>> {
-        let db = self.db.lock().unwrap();
+        // Normalised before the lock is taken: whatever this does, it must not do it while holding the
+        // database, or a panic in here poisons the mutex for the life of the process.
         let code = normalize_friend_code(text);
+        let db = self.db.lock().unwrap();
         let by_code: Option<String> = db.query_row("SELECT id FROM players WHERE friend_code = ?1", params![code], |r| r.get(0)).optional()?;
         if by_code.is_some() {
             return Ok(by_code);
@@ -432,6 +441,29 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn friend_codes_survive_anything_typed_at_them() {
+        // Eight *bytes* but four characters: slicing this by byte index used to panic while the database
+        // lock was held, which poisoned it and took the whole hub down with it.
+        assert_eq!(normalize_friend_code("€€ab"), "€€AB");
+        // Eight characters are grouped four and four; O/I/L read as 0/1 for people copying by eye.
+        assert_eq!(normalize_friend_code("abcdefgh"), "ABCD-EFGH");
+        assert_eq!(normalize_friend_code("abcd-efgh"), "ABCD-EFGH");
+        assert_eq!(normalize_friend_code("oil2345x"), "0112-345X");
+        for odd in ["", "   ", "----", "😀😀😀😀😀😀😀😀", "ǆǆǆǆ", "\u{0}\u{1}"] {
+            let _ = normalize_friend_code(odd);  // must not panic
+        }
+    }
+
+    #[test]
+    fn a_bad_code_does_not_poison_the_database() {
+        let store = Store::in_memory().unwrap();
+        players(&store);
+        let _ = store.find_player("€€ab");
+        // The lock still works afterwards, which is the whole point.
+        assert!(store.find_player("a").unwrap().is_some());
+    }
 
     fn players(store: &Store) {
         for (id, name) in [("a", "Alice"), ("b", "Bob"), ("c", "Cara")] {

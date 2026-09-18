@@ -53,8 +53,8 @@ jobs:
           path: native/bin/linux-x86_64
           if-no-files-found: error
 
-  # The library that actually ships. Its own job because a macOS runner costs ten times a Linux one, and
-  # only the tagged export needs it - there is no reason to spend that on every push to master.
+  # The libraries that ship. Their own job because a release is the only thing that needs them, and a
+  # macOS runner costs ten times a Linux one - no reason to spend that on every push to master.
   native-macos:
     name: Native (macos)
     if: startsWith(github.ref, 'refs/tags/v')
@@ -109,6 +109,27 @@ jobs:
           path: ci-logs
           if-no-files-found: warn
 
+  native-windows:
+    name: Native (windows)
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native
+      - name: Build
+        shell: bash
+        run: tools/build_native.sh windows-x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-windows-x86_64
+          path: native/bin/windows-x86_64
+          if-no-files-found: error
+
   export:
     name: Export macOS
     needs: [native-macos, test]
@@ -135,6 +156,38 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos-unsigned
+          path: build
+          if-no-files-found: error
+
+  # Windows is built but not published: nobody has played it, and it is unsigned, so Windows will warn
+  # about it. This exists to prove the export still works and to give anyone who asks something to try.
+  # It is deliberately not in update.json - the Macs must not be offered it.
+  export-windows:
+    name: Export Windows (untested)
+    needs: [native-windows, test]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-windows-x86_64
+          path: native/bin/windows-x86_64
+      - name: Install Godot and export templates
+        run: |
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d "$RUNNER_TEMP/godot"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+          templates="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$templates"
+          curl -fsSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q templates.tpz -d "$RUNNER_TEMP/tpz"
+          mv "$RUNNER_TEMP/tpz/templates/"* "$templates/"
+      - name: Export
+        run: tools/export.sh Windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-unsigned-untested
           path: build
           if-no-files-found: error
 

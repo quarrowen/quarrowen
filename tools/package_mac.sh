@@ -78,5 +78,33 @@ if [ -n "$identity" ] && [ "${QUARROWEN_SKIP_NOTARIZE:-0}" != "1" ] && xcrun not
 elif [ -n "$identity" ]; then
   echo "== skipping notarization (no '$profile' notarytool profile; see the header of this script)"
 fi
+# A disk image for people, the zip for the updater. Dragging an app into Applications is what a Mac
+# download looks like; the updater wants something it can unpack unattended in one call, and mounting a
+# disk image in a script that runs while the game is quitting is more to go wrong at bedtime.
+dmg="$out/Quarrowen-$version-mac-arm64.dmg"
+if command -v hdiutil >/dev/null 2>&1 && [ "${QUARROWEN_SKIP_DMG:-0}" != "1" ]; then
+  staging="$(mktemp -d)"
+  cp -R "$app" "$staging/"
+  ln -s /Applications "$staging/Applications"
+  rm -f "$dmg"
+  if hdiutil create -volname "Quarrowen" -srcfolder "$staging" -ov -format UDZO "$dmg" >/dev/null; then
+    [ -n "$identity" ] && codesign --force --sign "$identity" --timestamp "$dmg"
+    # The app inside carries its own stapled ticket, but notarizing the image as well means the download
+    # itself is trusted rather than only what comes out of it.
+    if [ -n "$identity" ] && [ "${QUARROWEN_SKIP_NOTARIZE:-0}" != "1" ] \
+        && xcrun notarytool history --keychain-profile "$profile" >/dev/null 2>&1; then
+      echo "== notarizing the disk image"
+      if xcrun notarytool submit "$dmg" --keychain-profile "$profile" --wait; then
+        xcrun stapler staple "$dmg"
+      else
+        echo "!! the disk image was not notarized; the zip still is" >&2
+      fi
+    fi
+    echo "disk image $dmg ($(du -h "$dmg" | cut -f1))"
+  else
+    echo "!! could not make a disk image; the zip is still there" >&2
+  fi
+  rm -rf "$staging"
+fi
 echo "built $app"
 echo "zipped $zip ($(du -h "$zip" | cut -f1))"

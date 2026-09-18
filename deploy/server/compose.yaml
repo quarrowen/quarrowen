@@ -18,7 +18,7 @@
 # Host networking: every port below is the machine's own, so the Macs find these in Multiplayer > LAN
 # even with the hub off. Each world uses two ports: the game port, and the next one up for status queries.
 #
-# See docs/playtest.md for the whole setup (Macs included).
+# See docs/hosting.md for the whole setup (Macs included).
 
 x-world: &world
   # Always a published image, never a build. This folder is meant to be copied to the server on its own,
@@ -73,7 +73,7 @@ services:
       <<: *world-env
       QW_NAME: ${ONEBLOCK_NAME:-One Block}
       QW_MOTD: ${ONEBLOCK_MOTD:-Break it and see what it becomes}
-      QW_MODS: oneblock
+      QW_MODS: ${ONEBLOCK_MODS:-oneblock}
       QW_WORLD: oneblock
       QW_PORT: "24567"
     volumes:
@@ -88,7 +88,7 @@ services:
       <<: *world-env
       QW_NAME: ${SKYBLOCK_NAME:-Sky Islands}
       QW_MOTD: ${SKYBLOCK_MOTD:-Start on a tiny island}
-      QW_MODS: skyblock
+      QW_MODS: ${SKYBLOCK_MODS:-skyblock}
       QW_WORLD: skyblock
       QW_PORT: "24569"
     volumes:

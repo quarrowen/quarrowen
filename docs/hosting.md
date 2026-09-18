@@ -61,6 +61,18 @@ sudo ufw allow 24565:24566/udp
 
 Note the machine's address on your network (something like `192.168.1.x`): `hostname -I`.
 
+**Which mods each world runs.** Two different things, and the difference is worth knowing:
+
+- **Present**: every world's mods folder gets all the bundled mods, refreshed from the image on each
+  start. The log says so: `mods in /mods refreshed from the image: arcana base guild hearthhold ...`.
+- **Loaded**: only what that world's `*_MODS` in `.env` names, **plus what those depend on**. So
+  `HEARTHHOLD_MODS=hearthhold` loads base and vanilla too, because Hearthhold depends on them, and
+  `SKYBLOCK_MODS=skyblock` loads base but not vanilla, because Skyblock does not need it.
+
+You never list `base` or `vanilla` yourself: naming the game brings them. To add an add-on to one world,
+list it - `HEARTHHOLD_MODS=hearthhold,arcana,industry` - and `docker compose up -d`. The server's log
+names exactly what it loaded, which is the quickest way to check.
+
 **Mods live beside each world, not inside the image.** The container holds the engine and a seed copy of
 the mods it shipped with; each world has its own mods folder, in a Docker volume of its own. To add a game
 or an add-on to one world:
@@ -295,7 +307,7 @@ For a server with strangers on it, `--ugc=approval` holds every creation until a
 
 ## Playing at home
 
-`docs/playtest.md` walks through a family setup: the server in Docker on a home Linux machine
+This guide walks through a family setup: the server in Docker on a home Linux machine
 (`deploy/server/compose.yaml` with an allowlist, creations approval and the chat filter), the Mac app
 built with `tools/package_mac.sh` (ad-hoc signed; first launch via right-click → Open), joining through
 Multiplayer → LAN, and an admin cheat sheet.
@@ -360,7 +372,7 @@ source keeps a copy until the player turns up, so a failed trip loses nothing. `
 allowlist. Events: `player_transfer {player, server, arrival, data, cancelled, reason}` (cancellable, data can be
 changed) and `player_arrived {player, from, arrival, data}`; `network_servers()`, `set_arrival_point(id, pos)`.
 Example setup: `deploy/server/compose.yaml` (three worlds and a hub) with `deploy/server/link-servers.sh`,
-which fills in each server's network.json once the ids exist. See docs/playtest.md.
+which fills in each server's network.json once the ids exist. See docs/hosting.md.
 
 ## Dedicated server & Docker
 

@@ -37,6 +37,14 @@ tools/package_mac.sh
 mac_zip="build/macos/Quarrowen-$version-mac-arm64.zip"
 cp "$mac_zip" "$out/$files/"
 mac_name="$(basename "$mac_zip")"
+# The disk image is what a person downloads; the zip is what the updater swaps in. update.json keeps
+# pointing at the zip, so an unattended update never has to mount anything.
+mac_dmg="build/macos/Quarrowen-$version-mac-arm64.dmg"
+dmg_name=""
+if [ -f "$mac_dmg" ]; then
+  cp "$mac_dmg" "$out/$files/"
+  dmg_name="$(basename "$mac_dmg")"
+fi
 
 OUT="$out/$files/mods" tools/package_mods.sh >/dev/null
 cp assets/icon.png "$out/icon.png"
@@ -48,6 +56,12 @@ human() { du -h "$1" | cut -f1 | tr -d ' '; }
 
 # GitHub release assets are one flat list; the Pages layout keeps the v<version> folder.
 if [ "$flat" -eq 1 ]; then mac_url="$base_url/$mac_name"; else mac_url="$base_url/$files/$mac_name"; fi
+if [ -n "$dmg_name" ]; then
+  if [ "$flat" -eq 1 ]; then dmg_url="$base_url/$dmg_name"; else dmg_url="$base_url/$files/$dmg_name"; fi
+else
+  dmg_url="$mac_url"
+fi
+download_name="${dmg_name:-$mac_name}"
 
 cat > "$out/update.json" <<EOF
 {
@@ -151,8 +165,8 @@ cat > "$out/index.html" <<EOF
   </div>
 </header>
 
-<a class="get" href="$mac_url">Download for Mac (Apple silicon)</a>
-<div class="dim">Version $version &middot; $(human "$out/$files/$mac_name") &middot; macOS 11 or newer &middot; $notes</div>
+<a class="get" href="$dmg_url">Download for Mac (Apple silicon)</a>
+<div class="dim">Version $version &middot; $(human "$out/$files/$download_name") &middot; macOS 11 or newer &middot; $notes</div>
 <div class="dim">An independent project &mdash; not affiliated with Mojang, Microsoft or Roblox.</div>
 
 <h2>What it is</h2>
@@ -165,11 +179,18 @@ cat > "$out/index.html" <<EOF
 
 <h2>First time on a Mac</h2>
 <ol>
-  <li>Unzip it and drag <b>Quarrowen</b> into your Applications folder.</li>
-  <li>The first launch needs <b>right-click &rarr; Open</b>, then Open again: the app is signed by us, not by
-      Apple, so macOS asks once.</li>
+  <li>Open the disk image and drag <b>Quarrowen</b> onto the Applications folder beside it.</li>
+  <li>Open it. It is signed and notarized by Apple, so it opens by double-clicking - no right-click detour.</li>
   <li>Type your name in the menu, then <b>Play</b> for your own world, or <b>Multiplayer</b> to join a server.</li>
 </ol>
+
+<h2>Where to go next</h2>
+<div class="cards">
+  <div class="card"><b><a href="https://github.com/quarrowen/quarrowen/blob/master/docs/playing.md">Playing</a></b><span>Controls, your first hour, crafting, and how recipes are discovered.</span></div>
+  <div class="card"><b><a href="https://github.com/quarrowen/quarrowen/blob/master/docs/hosting.md">Running a server</a></b><span>Three worlds and a hub on one Linux box, in about ten minutes, for the family.</span></div>
+  <div class="card"><b><a href="https://github.com/quarrowen/quarrowen/blob/master/docs/modding.md">Making a mod</a></b><span>Blocks, creatures, machines and whole games, in GDScript or JavaScript.</span></div>
+  <div class="card"><b><a href="https://github.com/quarrowen/quarrowen/blob/master/docs/faq.md">Questions</a></b><span>Is it safe for children, what does it cost, where are my worlds kept.</span></div>
+</div>
 
 <h2>Mods in this release</h2>
 <p class="dim">The game comes with all of these - this is for adding one to a server, or installing it by
@@ -177,9 +198,11 @@ hand. In the game, the <b>Mods</b> page does it for you.</p>
 $mod_sections
 
 <h2>Running a server</h2>
-<p>The dedicated server is a Docker image, with its mods in a folder on the host so a zip from this page can be
-dropped straight in. The <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/playtest.md">family
-setup guide</a> walks through a home server and the Macs that join it.</p>
+<p>The dedicated server is a published Docker image, so the machine that runs it never compiles anything:
+three files, <code>docker compose pull</code>, and it is up. You can run several worlds beside each other -
+a survival world, an island, a story - and let players walk between them. The
+<a href="https://github.com/quarrowen/quarrowen/blob/master/docs/hosting.md">hosting guide</a> is the whole
+setup, including the Macs that join it.</p>
 
 <h2>Source</h2>
 <p>Everything lives at <a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a>:

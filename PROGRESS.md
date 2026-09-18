@@ -306,7 +306,7 @@ approval for creations, backups); tools/package_mac.sh (universal .app with mods
 copy without local editor plugins, ad-hoc signed, zipped); hosting from exported builds (`-- --server` instead of a
 scene path); stdout flushed on print (docker logs); menu banners (errors red and sticky, others fade; "Trust new
 identity" action when a pinned server identity changed); backdrop spot chosen after the middle of the view has
-generated; docs/playtest.md. Next: N5 server transfers, after the family playtest feedback.
+generated; docs/hosting.md. Next: N5 server transfers, after the family playtest feedback.
 
 ## Family playtest feedback, batch 2 (2026-09-16)
 
@@ -598,6 +598,116 @@ parse errors on empty hub replies. Known harmless noise: "Buffer full, dropping 
 server's content burst during the DTLS handshake; ENet resends), TLS errors from the auth tests, leak
 warnings at exit.
 
+## Open threads (2026-09-18)
+
+Everything discussed and not yet done, so none of it lives only in a conversation.
+
+**Audio** (agreed, next up after the playtest settles)
+- *Music comes from the server*, as a capability: `register_music` / `play_music` with fade and loop, a
+  non-positional player on its own volume slider, so mods choose when - biome, time of day, a theme when
+  the hearth is lit. The asset pipe already exists; what is missing is the lane.
+- Four things to get right: music must arrive lazily and never hold up a join; attribution must be a
+  required field because whoever runs a server is redistributing it; it must be quiet or off by default
+  with a slider that works; ambient sound (wind, drips, water) stays positional and mod-side, which is a
+  different problem from music.
+- *Sound effects want replacing* with something more real. CC0 only - Kenney's packs, or Freesound
+  filtered to CC0 - and a CREDITS.md recording source, licence and URL per file even where CC0 asks for
+  nothing.
+
+**Content still owed**
+- *Fishing*: the last of the six review findings. Loot tables already do catch tables with tool, biome,
+  time and first-time conditions; the only real work is that the client's raycast skips liquids on
+  purpose, so a rod has to cast server-side against `liquid_lut`.
+- *Hearthhold phase 2*: the other settlers (Cobb, Wren, Odd, Mab, Tam), night pressure, the keeper and
+  the finale. Phase 1 is the valley, Bramble, and the tutorial that leads into it.
+- *Story mode* as an engine capability, with structure schemas and maps-as-world-saves. The three want
+  doing together; none is much use alone.
+- Leftovers from the content review: cosmetic milestones beyond the Colossus crown, and a use for the
+  trinket slot beyond the three charms.
+
+**Platforms**
+- *Windows*: built by CI from a tag, unsigned and unplayed. Before publishing it: play it, then decide
+  about signing (SmartScreen will warn without it).
+- *iPad*: blocked on touch controls, not on CI. An iOS build today would install and be unplayable. Order
+  is touch controls, then a local build, then TestFlight, then CI.
+
+**Security review (2026-09-18) - findings, for when public hosting comes back**
+
+Two are fixed now because they bite the family server too; the rest are recorded against the day the
+public idea returns. Full reasoning was in the review; the short version:
+
+*Fixed in 0.40.2*
+- **Critical: a flooding peer became id 0, and rpc_id(0) is Godot's broadcast.** 400 cheap messages then
+  a `c_hello` with a name in use kicked every player off the server. Could also spawn a ghost player
+  whose every message went to everyone. (`engine/net/net.gd` `_sender`)
+- **Critical: one friend code permanently bricks the hub.** A byte-index slice on a non-ASCII code
+  panicked while holding the SQLite mutex, poisoning it, so every later hub operation panicked too.
+  (`services/hub/src/social.rs` `normalize_friend_code`)
+
+*Blocks public hosting, not yet done*
+- No per-IP connection cap and no timeout on a half-finished join: 64 sockets lock everyone out.
+- **No /ban and no /mute.** /kick disconnects and the player is back in two seconds with the same
+  identity. The only durable exclusion is the allowlist, which makes the server private. Both are small
+  given that player_id is stable and unforgeable.
+- The server parses untrusted PNG and glTF in its own process. Unverified: whether GLTFDocument resolves
+  external URIs (if it does, that is a server-side file read), and peak memory on a hostile GLB.
+- UGC's *code* default is `accept: auto`; the deploy default is `approval`, which is the right one. Never
+  ship `auto` publicly.
+- RPC arguments are decoded before any size cap applies. Needs measuring.
+
+*Worth doing anyway*
+- The join challenge signs only the nonce, so a hostile server can relay a player's signature to a real
+  one and log in as them. The hub already does this correctly (it signs hub, purpose and nonce); the game
+  handshake should too. Low exposure today, real once servers are public.
+- UGC fetch is ~15 MB/s per peer of egress with no global budget - a metered bill on EC2.
+- Creation names skip the chat filter; hub server names and MOTDs are unfiltered.
+- Unrated O(N) handlers: `c_map` (which also generates a chunk per call), `c_ugc_library`, `c_ugc_offer`.
+- `_admin_token` for local worlds comes from `randi()`, not a CSPRNG, and is visible in `ps`.
+- Dev dashboard: full control through a URL token over plain HTTP, GET with side effects. Off and
+  loopback-bound by default, which is right - keep it that way.
+
+*Reassuring*
+- Movement is properly server-authoritative; anticheat is decaying-score with reach and line-of-sight.
+- Identity, transfer tickets and the hub's announce proof are well built: content-addressed creations,
+  single-use nonces, PBKDF2 at 210k with encrypt-then-MAC, and a UDP ownership proof that stops anyone
+  listing an address they do not control.
+- No SQL injection anywhere in the hub; every query is parameterised.
+
+**Public servers: parked (2026-09-18, the user's call)**
+- The idea was game servers on EC2 open to the internet, with `hub.quarrowen.com` as a default hub.
+- Parked because **there is no registration or account system**. A player today is a keypair on their own
+  computer, which is right for a family LAN and not enough to decide who may join a public server. The
+  allowlist works by name until first join and then binds to a key - fine among people you know, no use
+  against strangers.
+- The other half is moderation, not code: strangers and children in the same chat is a supervision
+  problem a word filter does not solve.
+- When it comes back: registration first, then a security review (UGC parsing of hostile files is the
+  part to look hardest at), then TLS and rate limits on the hub, then game servers - and even then,
+  publicly reachable but allowlisted is a much smaller step than open.
+
+**Other**
+- *The showcase video*: ffmpeg is installed; the script and clips are not written.
+- *Security review before opening anything to the public internet* - see the section below.
+- The imported-skin report turned out to be the test harness overwriting the player's identity, not a UGC
+  bug. Nothing is owed there beyond what was fixed.
+
+## Alpha 4.2 (0.40.2)
+
+Protocol stays 39: nothing the client and server must agree on has changed.
+
+- **Two security fixes that mattered here, not only to the public idea that was parked.** A client that
+  flooded the server was handed to the handlers as peer 0, which is Godot's *broadcast* id: four hundred
+  cheap messages and a hello with a name already in use threw every player off the server. And one
+  malformed friend code permanently bricked the hub - a byte-index slice panicked while holding the
+  database lock, poisoning it for the life of the process.
+- **A Close button closes.** Nothing handled the action, so any modal panel trapped the player until they
+  quit - and the first thing Hearthhold's tutorial asks you to do is right-click the charter board.
+- **The map is quick, and the wheel zooms it** instead of changing the hotbar hidden behind it.
+- **The server stops logging a boot splash error** on every start.
+- **The test suite no longer writes into the player's own folder** (settings, identity, scratch worlds).
+- Docs rebuilt around who is reading: playing, hosting, modding, the engine, and an FAQ. CLAUDE.md is the
+  brief the project is built from.
+
 ## Playtest, second session on 0.40.1 (2026-09-18)
 
 12. **The tests were writing into the player's own folder.** A suite run overwrote `settings.cfg` and
@@ -637,7 +747,7 @@ physics, which the client predicts and the server simulates, so the two must mat
 - **New: what you are looking at**, named under the compass.
 
 For whoever runs the server: same images, `QW_IMAGE` pinned to 0.40.1. Worlds carry over from 0.40.0;
-docs/playtest.md now says how to start a single world again without losing the server's identity or the
+docs/hosting.md now says how to start a single world again without losing the server's identity or the
 links between the worlds.
 
 ## Playtest, first session on 0.40.0 (2026-09-18, the user's own laptop)

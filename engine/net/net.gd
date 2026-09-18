@@ -187,11 +187,18 @@ func get_ping_ms() -> int:
 	return int(server_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME))
 
 
-## The peer that sent the current message, or 0 (ignored everywhere) when it is flooding the server.
+## The peer that sent the current message, or -1 when it is flooding the server and the message should be
+## dropped.
+##
+## Not 0. Zero is not a harmless "nobody" here - it is Godot's *broadcast* id, so every rpc_id(0, ...)
+## made on behalf of a flooding peer went to everybody. Four hundred cheap messages followed by a hello
+## with a name already in use reached kick(0, ...) and threw every player on the server back to the menu;
+## a ghost players[0] could be spawned whose every message was a broadcast. Handlers all check for a peer
+## they know, and -1 is never one. (security review, 2026-09-18)
 func _sender() -> int:
 	var id := multiplayer.get_remote_sender_id()
 	if server and server.anticheat and not server.anticheat.allow_message(id):
-		return 0
+		return -1
 	return id
 
 

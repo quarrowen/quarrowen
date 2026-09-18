@@ -80,6 +80,19 @@ The checklist is in `docs/distribution.md` ("Cutting a release"). The two steps 
 bump the pinned image in `deploy/server/.env.example`, and bring the family server up on the new version
 *before* publishing the site - a client that has updated itself cannot join a server that has not.
 
+## Ideas do not evaporate
+
+Work arrives in the middle of other work: a bug report while a feature is half-built, an idea while
+chasing a regression. **Write it down before carrying on.** `PROGRESS.md` is the place - a line under the
+right heading, with enough of the reasoning that it still makes sense next week.
+
+This applies to the small ones especially. A design decision taken aloud and not written down is one that
+gets taken again, differently, a fortnight later. If something is deliberately *not* being done, write
+that down too, with why - a rejected idea that leaves no trace comes back.
+
+Before saying a piece of work is finished, check that everything raised during it is either done or
+recorded. Nothing should only exist in the conversation.
+
 ## House style
 
 - Comments say **why**, not what. If a line needs explaining, explain the reason it is that way, ideally

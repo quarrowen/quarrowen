@@ -79,6 +79,7 @@ func _ready() -> void:
 	await _movement()
 	await _swimming()
 	await _ui_close()
+	await _broadcast_id()
 	await _server_panel()
 	await _mod_settings()
 	_housekeeping()
@@ -591,6 +592,28 @@ func _server_panel() -> void:
 ## Getting out of the water onto a bank at the water's own level, which used to need a pickaxe.
 ## A Close button must actually close. Nothing handled the action, so a modal panel - the charter board,
 ## Bramble, /milestones - trapped the player until they quit the game.
+## Peer 0 is Godot's broadcast id, not a harmless "nobody". A flooding client was handed to the handlers
+## as 0, and the replies made on its behalf went to everyone - including a kick.
+func _broadcast_id() -> void:
+	var server = _start("peer0_%d" % Time.get_ticks_msec())
+	var bystander := ServerPlayer.new(server, 210, "Bystander")
+	bystander.player_id = "bystander"
+	server.players[210] = bystander
+	var before: int = server.players.size()
+	# A hello from the broadcast id must be ignored outright: it used to create a join, send a challenge
+	# to everybody, and - with a name already taken - kick the whole server.
+	var protocol := preload("res://engine/shared/protocol.gd").VERSION
+	server.on_hello(0, protocol, "Bystander", "not a key")
+	_check(not server._joining.has(0), "a hello from the broadcast id starts no join")
+	_check(server.players.size() == before and server.players.has(210), "and kicks nobody")
+	server.on_hello(-1, protocol, "Someone", "not a key")
+	_check(not server._joining.has(-1), "nor does one from a negative id, which means 'everyone else'")
+	server.kick(0, "should do nothing at all")
+	_check(server.players.has(210), "kicking the broadcast id throws nobody off")
+	server.queue_free()
+	await get_tree().process_frame
+
+
 func _ui_close() -> void:
 	var server = _start("uiclose_%d" % Time.get_ticks_msec())
 	var p := ServerPlayer.new(server, 131, "Reader")

@@ -1916,6 +1916,11 @@ func _broadcast_time() -> void:
 # --- Joining & content delivery -----------------------------------------------------------------
 
 func on_hello(peer_id: int, protocol: int, player_name: String, public_key: String) -> void:
+	# Only a real peer may start a join. 0 is Godot's broadcast id and a negative id means "everyone but
+	# this one", so either would turn the replies below - including a kick - into messages to the whole
+	# server. Net._sender() hands out 0 for a peer that is flooding. (security review, 2026-09-18)
+	if peer_id <= 1:
+		return
 	if players.has(peer_id) or _joining.has(peer_id):
 		return
 	if protocol != Protocol.VERSION:
@@ -2142,6 +2147,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 
 func kick(peer_id: int, reason: String) -> void:
+	if peer_id <= 1:
+		return  # 0 is the broadcast id: "kicking" it throws everybody off the server
 	print("[server] Kicking peer %d: %s" % [peer_id, reason])
 	Net.s_kick.rpc_id(peer_id, reason)
 	# Delay the disconnect so the kick message is flushed first.
