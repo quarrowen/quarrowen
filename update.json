@@ -1,11 +1,11 @@
 {
-	"version": "0.40.2",
-	"notes": "A Close button that closes, a quick map the wheel zooms, and Hearthhold leading its own opening.",
+	"version": "0.40.3",
+	"notes": "A face of its own, F1 to hide the interface, and Close buttons that close.",
 	"builds": {
 		"macos": {
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.2/Quarrowen-0.40.2-mac-arm64.zip",
-			"sha256": "d6d99f486456e14b4ac2d2fd7822588eb7b4f2330c05c52c591bfa5c01bd90bc",
-			"size": 64910495
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.3/Quarrowen-0.40.3-mac-arm64.zip",
+			"sha256": "cfb2ea9ec8bda932bf3ff5ef90c43da2123c3fb54784d9b0442bc240c86e17f0",
+			"size": 69290346
 		}
 	}
 }
