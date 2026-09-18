@@ -520,8 +520,14 @@ func _guild(c) -> void:
 	if not bought:  # the click can land while the board is being redrawn after the turn-in; try once more
 		c._on_ui_action("guild:board", "buy:0")
 		bought = await _wait_until(func(): return c.inventory.count_of(coin) == 3, 3.0)
-	_check(bought and c.inventory.count_of(c.registry.id_of("base:glass")) >= 8, "shop sold glass for a coin (coins %d, glass %d, board open %s, last chat: %s)" % [
-		c.inventory.count_of(coin), c.inventory.count_of(c.registry.id_of("base:glass")), c._server_ui._panels.has("guild:board"),
+	# Wait for the glass as well, rather than reading it the instant the coin leaves. What you paid and
+	# what you bought reach the client in separate inventory syncs, so checking the second one the moment
+	# the first arrives is a race - it passes here and loses on a slower machine, which is exactly how it
+	# failed on CI and nowhere else. (2026-09-18)
+	var glass: int = c.registry.id_of("base:glass")
+	var delivered := await _wait_until(func(): return c.inventory.count_of(glass) >= 8, 3.0)
+	_check(bought and delivered, "shop sold glass for a coin (coins %d, glass %d, board open %s, last chat: %s)" % [
+		c.inventory.count_of(coin), c.inventory.count_of(glass), c._server_ui._panels.has("guild:board"),
 		c._chat_log.get_child(c._chat_log.get_child_count() - 1).text if c._chat_log.get_child_count() > 0 else ""])
 	c._on_ui_action("guild:board", "close")
 	await get_tree().create_timer(0.3).timeout

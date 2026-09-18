@@ -66,8 +66,10 @@ small CI runner, which simulates less in that time. Wait for the event, not for 
   added. Display names are safe to change, ids are not.
 - **`:=` on anything reached through an untyped variable.** `var x := _server.thing()` is a *parse*
   error ("Cannot infer the type of x"), and a parse error means the whole script silently fails to
-  load, which surfaces as something unrelated much later. `_server`, `api` and `player` are all
-  untyped by convention here, so annotate: `var x: String = ...`.
+  load, which surfaces as something unrelated much later - a mod that does not register, a client that
+  cannot be constructed, a test that fails on an assertion it never reached. `_server`, `api`, `c` and
+  `player` are all untyped by convention here, so annotate: `var x: String = ...`. The suite checks
+  every script under `engine/`, `mods/` and `tests/` really parses, which is the fast way to find it.
 - **`godot --check-only --script <file>`.** It reports success on a file that does not parse. To check a
   script really compiles, `load()` it and ask `can_instantiate()` - which is what the suite does for every
   script under `engine/`.

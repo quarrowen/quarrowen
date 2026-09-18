@@ -585,6 +585,23 @@ The rules, and what enforces each:
    server *before* the site, and only then publish. A deliberate break needs a note in the release and a
    backup step for the family server.
 
+## The guild flake was a real race, not just load (2026-09-18)
+
+`e2e:guild` failed on CI and passed 3/3 here. The improved failure summary made it readable in one look:
+"shop sold glass for a coin (coins 3, glass 0)" - the coin had gone, the glass had not arrived. The test
+waited for the *payment* and then read the *goods* immediately, and those reach the client in separate
+inventory syncs. Always a race; it simply won on this machine and lost on a slower runner. Now it waits
+for the glass too.
+
+So part of what was written up earlier as "load, not any one assertion" was a real, fixable bug. The
+lesson holds either way: wait for the event you are about to assert on, not for a different one that
+happens to arrive near it.
+
+Also: the `:=` inference trap was walked into **four times in one day** - in engine code, in a mod and
+twice in tests - and each time it surfaced as something unrelated, because a parse error makes the whole
+script fail to load silently. A note in CLAUDE.md was not enough, so `_scripts_compile` now covers
+`mods/` and `tests/` as well as `engine/`: 200 scripts, a couple of seconds, and it names the file.
+
 ## A silent coin, and the check that would have caught it (2026-09-18)
 
 Cutting 0.41.1 turned up `Asset not found: guild:sounds/coin.wav` while building the save fixture. Two

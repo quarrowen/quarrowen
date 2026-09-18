@@ -3799,7 +3799,11 @@ func _mod_assets_exist() -> void:
 func _scripts_compile() -> void:
 	var bad := []
 	var checked := 0
-	var pending := ["res://engine"]
+	# mods and tests as well as the engine. The parse error this catches - `:=` on anything reached
+	# through an untyped variable - was made four times in one day, in all three places, and each time it
+	# surfaced as something unrelated: a mod that silently did not load, a client that could not be
+	# constructed, a test that failed on an assertion it never reached. (2026-09-18)
+	var pending := ["res://engine", "res://mods", "res://tests"]
 	while not pending.is_empty():
 		var dir_path: String = pending.pop_back()
 		var dir := DirAccess.open(dir_path)
@@ -3815,8 +3819,8 @@ func _scripts_compile() -> void:
 			checked += 1
 			if script == null or not script.can_instantiate():
 				bad.append(path.replace("res://", ""))
-	_check(checked > 50, "found the engine scripts to check (%d)" % checked)
-	_check(bad.is_empty(), "every engine script parses (%s)" % ", ".join(bad))
+	_check(checked > 150, "found the scripts to check (%d)" % checked)
+	_check(bad.is_empty(), "every script parses (%s)" % ", ".join(bad))
 
 
 ## Atmosphere. The engine picks the moments; a mod says under what conditions.
