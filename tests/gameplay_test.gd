@@ -78,6 +78,7 @@ func _ready() -> void:
 	await _playtest_fixes()
 	await _movement()
 	await _swimming()
+	await _ui_close()
 	await _server_panel()
 	await _mod_settings()
 	_housekeeping()
@@ -588,6 +589,25 @@ func _server_panel() -> void:
 
 
 ## Getting out of the water onto a bank at the water's own level, which used to need a pickaxe.
+## A Close button must actually close. Nothing handled the action, so a modal panel - the charter board,
+## Bramble, /milestones - trapped the player until they quit the game.
+func _ui_close() -> void:
+	var server = _start("uiclose_%d" % Time.get_ticks_msec())
+	var p := ServerPlayer.new(server, 131, "Reader")
+	p.player_id = "reader"
+	server.players[131] = p
+	p.show_ui("tester:panel", {"anchor": "center", "modal": true,
+		"children": [{"type": "button", "text": "Close", "action": "close"}]})
+	_check(p.ui_ids.has("tester:panel"), "a panel is open")
+	var seen := []
+	server.add_handler("ui_action", func(ev): seen.append(str(ev.action)), 0)
+	server.on_ui_action(131, "tester:panel", "close")
+	_check(not p.ui_ids.has("tester:panel"), "clicking Close closes it")
+	_check(seen == ["close"], "and the mod still hears the action first")
+	server.queue_free()
+	await get_tree().process_frame
+
+
 func _swimming() -> void:
 	var server = _start("swim_%d" % Time.get_ticks_msec())
 	var stone: int = server.registry.id_of("base:stone")

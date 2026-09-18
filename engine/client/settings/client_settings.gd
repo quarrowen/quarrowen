@@ -103,6 +103,8 @@ const ACTIONS := [
 
 static var _shared = null
 
+## Resolved in _init, so an instance made directly (a test, a tool) writes where QW_SETTINGS says rather
+## than over the player's own file. One that did exactly that wiped a player's settings. (2026-09-18)
 var path := DEFAULT_PATH
 var _cfg := ConfigFile.new()
 
@@ -113,6 +115,11 @@ static func shared():
 		_shared = load("res://engine/client/settings/client_settings.gd").new()
 		_shared.load_file()
 	return _shared
+
+
+func _init() -> void:
+	var override := OS.get_environment("QW_SETTINGS")
+	path = override if not override.is_empty() else DEFAULT_PATH
 
 
 func load_file() -> void:

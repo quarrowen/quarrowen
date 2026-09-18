@@ -22,7 +22,12 @@ func _ready() -> void:
 				"role": _role = kv[1]
 				"result": _result_path = kv[1]
 	# Keep this test's creations and downloads out of the real user folders.
-	var scratch := ProjectSettings.globalize_path("user://mp_test_%s_%d" % [_role, Time.get_ticks_msec()])
+	# Under the run's own data folder (QW_DATA_DIR), not the player's: these used to pile up in
+	# ~/Library/Application Support/Quarrowen next to somebody's real worlds.
+	var base := OS.get_environment("QW_DATA_DIR")
+	if base.is_empty():
+		base = ProjectSettings.globalize_path("user://")
+	var scratch := base.path_join("mp_test_%s_%d" % [_role, Time.get_ticks_msec()])
 	OS.set_environment("QW_CREATIONS_DIR", scratch.path_join("creations"))
 	OS.set_environment("QW_UGC_CACHE_DIR", scratch.path_join("cache"))
 	_client = GameClient.new()

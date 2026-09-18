@@ -292,3 +292,104 @@ drawing, and awkward when it is a skin downloaded from a site that belongs to so
 The family server accepts creations automatically (`--ugc=auto`), which suits people who know each other.
 For a server with strangers on it, `--ugc=approval` holds every creation until an admin says yes, and
 `--ugc=off` turns sharing off entirely. Either way an admin can review, hide and remove creations in game.
+
+## Playing at home
+
+`docs/playtest.md` walks through a family setup: the server in Docker on a home Linux machine
+(`deploy/server/compose.yaml` with an allowlist, creations approval and the chat filter), the Mac app
+built with `tools/package_mac.sh` (ad-hoc signed; first launch via right-click → Open), joining through
+Multiplayer → LAN, and an admin cheat sheet.
+
+Private servers: `--allowlist=Ann,Ben` (or `QW_ALLOWLIST`) lets only those players and admins join; admins
+manage it with `/allow list | add <name> | remove <name> | on | off`. A listed name is tied to the first
+identity that joins with it. `--chat-filter=on` (the `chat_filter` gameplay rule) masks common swear words
+and look-alike spellings in chat and refuses such player names; add words in `<world>/chat_filter.txt`.
+
+### Roles and permissions
+
+Every player has the default role (`member`, or `--default-role=visitor` for look-but-don't-build servers) plus
+any roles given to them. Built-in roles, highest first: **owner** (everything; `--admins` names and the local
+host), **admin** (everything but making owners), **moderator** (kick, teleport, review creations, the allowlist,
+alerts; inherits builder), **builder** (structures; inherits member), **member** (build, interact, chat, creative;
+inherits visitor), **visitor** (chat, interact). Permissions are names like `build`, `interact`, `chat`,
+`creative`, `ugc.review`, `allowlist.manage`, `dev.tools`, `roles.manage` and `command.<name>` for admin-only
+commands; `*` and `group.*` match many, `-name` denies (and wins).
+
+In game: `/role list | info <role> | give|take <player> <role> | create <role> [inherits] | delete <role> |
+allow|deny|remove <role> <permission> | tag <role> <tag> [#color] | reset <role>` and `/perms [player]`; `/op`
+and `/deop` give and take admin. Admins also get **Players and roles…** in the pause menu (roles as chips, give a
+role, kick). Managers can only hand out roles below their own; only owners edit roles. Chat shows the highest
+role tag (`[Mod] Sam`, the `role_tags` rule). Mods: `player.has_permission(name)`, `register_permission(name,
+description, roles)`, `player_roles(id)`, `set_player_role(id, role, on)` and the `role_changed` event
+(JavaScript: `hasPermission`, `registerPermission`, `playerRoles`, `setPlayerRole`). Saved in world.json.
+
+### Anti-cheat
+
+The server simulates movement from inputs, checks reach, break times, attack cooldowns and edit rates, so a
+modified client cannot simply fly, teleport or instamine. On top of that, `engine/server/anticheat.gd` watches
+for clients pushing past those limits: **timer** (inputs faster than the game runs; the server lets a client take
+at most ~5% more steps than ticks, so sped-up inputs gain nothing), **reach**, **fast_break**, **attack_rate**,
+**bad_packet** and **flood** (more than 400 messages a second are dropped). Each check keeps a score per player
+that decays over time, so lag and the odd early click fade away: past a warning level moderators are told
+(`moderation.alerts`), past a kick level the player is kicked. `--anticheat=kick|log|off` (in game `/anticheat
+mode ...`), `/anticheat [player]` for scores and recent flags. Players with `anticheat.bypass` (admins) are only
+logged; mods can cancel with the `cheat_detected {player, check, score, detail, cancelled}` event.
+
+### Save compatibility
+
+Worlds must keep working across updates, from alpha 4 (0.40.0) on. Chunks save blocks by name, containers and
+entities by name, and since save format 2 player inventories and equipment are saved by item name too (`items`
+in each player record) - which is what makes adding, removing and reordering blocks safe. A world in an older
+format is refused rather than converted: there is no converter, and nothing from before alpha 4 is carried
+forward. `tests/save_compat_test.tscn` loads a world written by each release (`tests/fixtures/saves/<version>/`,
+made with `tools/make_save_fixture.tscn` from that release's checkout) and checks builds, chest contents,
+animals, inventories and worn equipment. Mods: store names (`items.name_of`), never numeric ids, in block data,
+player data and storage.
+
+### Server networks: transfers and portals
+
+Servers that trust each other send players between them. Each lists the others in `<data dir>/network.json`
+(`{"servers": {"sky": {"name", "address", "port", "id", "send", "receive", "inventory", "admit", "hop"}}}`;
+a server's id is printed at startup and by `/network id`). Moving a player (`/transfer <player> <server>
+[arrival]`, `/server <name>` when `hop` is on, a **Portal** block pointed with `/portal <server> [arrival]`, or
+`player.transfer_to(server, arrival, data)` from mods) signs a two-minute ticket with the source server's
+identity key. The client connects to the destination and hands it over; the destination accepts it only from
+servers on its list, for this player and this server, once. Arrival points are named with `/network arrival
+<id>`. With `inventory` on both sides, inventories travel by item name (unknown items are reported) and the
+source keeps a copy until the player turns up, so a failed trip loses nothing. `admit` lets arrivals skip the
+allowlist. Events: `player_transfer {player, server, arrival, data, cancelled, reason}` (cancellable, data can be
+changed) and `player_arrived {player, from, arrival, data}`; `network_servers()`, `set_arrival_point(id, pos)`.
+Example setup: `deploy/server/compose.yaml` (three worlds and a hub) with `deploy/server/link-servers.sh`,
+which fills in each server's network.json once the ids exist. See docs/playtest.md.
+
+## Dedicated server & Docker
+
+`scenes/server.tscn` (`engine/server_main.gd`) loads no client code. Every option is a CLI arg or an
+environment variable: `QW_PORT`, `QW_MODS`, `QW_MODS_DIR`, `QW_DATA_DIR`, `QW_WORLD`,
+`QW_SEED`, `QW_MAX_PLAYERS`, `QW_METRICS`, `QW_ADMINS`, `QW_ADMIN_TOKEN`,
+`QW_BACKUP_INTERVAL`, `QW_BACKUP_KEEP`, `QW_RESTORE`, `QW_NAME` and `QW_MOTD` (shown in
+server lists) and `QW_QUERY_PORT`: status queries for menus (name, message, game, players, ping)
+are answered over UDP on the game port + 1 by default (0 turns them off; rate limited per address).
+`QW_HUB` lists the server on a hub (with `QW_PUBLIC_ADDRESS` and `QW_TAGS`).
+
+### Hub service
+
+`services/hub` is a small Rust service (axum, SQLite) for the public server list, short invite codes
+menu news, and friends and parties (sign-in with the identity key); see its README. Servers announce every 30 seconds, signed with their identity key, and
+the hub proves the address with a signed status query before listing it. Players point the game at a
+hub in Settings → Network (or `QW_HUB`). `tools/run_tests.sh` builds it and runs its unit tests and
+`tests/hub_test.tscn` (a real hub and game server) when cargo is installed.
+
+```sh
+docker build -t quarrowen-server .
+docker run -p 24565-24566:24565-24566/udp -v voxel-data:/data -e QW_MODS=vanilla,industry quarrowen-server
+docker compose up        # vanilla on 24565, skyblock on 24567 (status on the next port)
+```
+
+The image compiles the Rust extension for the target architecture, exports the "Linux Server" preset
+and ships the engine only (about 250 MB). **Mods live in the `/mods` volume, not in the image:** on
+every start `deploy/entrypoint.sh` refreshes the mods the engine shipped with into `/mods` and leaves
+everything else there alone, so a mod is added by dropping its folder (or a packaged zip) in and
+restarting - no rebuild. `QW_SEED_MODS=missing` keeps your edits to the bundled mods, `never`
+leaves the folder entirely to you. Worlds live in the `/data` volume. SIGTERM and SIGINT trigger a
+save before exit, so `docker stop` is safe.

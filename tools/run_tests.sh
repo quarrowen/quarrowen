@@ -30,6 +30,12 @@ trap cleanup EXIT
 # Pin server certificates in a throwaway folder instead of the user's real known servers.
 export QW_KNOWN_SERVERS_DIR="$WORK/known_servers"
 export QW_SETTINGS="$WORK/settings.cfg"  # tests never touch the player's own settings
+# Nor their identity: a bot key written as "default" used to replace the player's own account, and the
+# folder filled up with bot_*.pem beside it. (2026-09-18)
+export QW_IDENTITY_DIR="$WORK/identity"
+# And anything a test client writes as "its worlds". The servers set QW_DATA_DIR inline for themselves,
+# which takes precedence over this, so they are unaffected.
+export QW_DATA_DIR="$WORK/client-data"
 echo "godot: $GODOT"
 echo "logs:  $WORK"
 "$GODOT" --headless --path . --import >"$WORK/import.log" 2>&1

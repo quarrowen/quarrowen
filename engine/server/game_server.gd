@@ -3988,8 +3988,15 @@ func _refresh_crafting_stock(pos: Vector3i) -> void:
 
 func on_ui_action(peer_id: int, ui_id: String, action: String) -> void:
 	var p: ServerPlayer = players.get(peer_id)
-	if p and p.ui_ids.has(ui_id):
-		emit("ui_action", {"player": p, "ui_id": ui_id.left(64), "action": action.left(64)})
+	if not p or not p.ui_ids.has(ui_id):
+		return
+	emit("ui_action", {"player": p, "ui_id": ui_id.left(64), "action": action.left(64)})
+	# "close" is handled here rather than left to the mod. The engine writes Close buttons into its own
+	# panels, and every mod copied that, but nothing ever acted on the action - so a modal panel with a
+	# Close button trapped the player until they quit the game. The event is still emitted first, so a
+	# mod can do something on the way out. (playtest, 2026-09-18)
+	if action == "close" and p.ui_ids.has(ui_id):
+		p.hide_ui(ui_id)
 
 
 func on_shutdown_request(peer_id: int, token: String) -> void:

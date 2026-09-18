@@ -3,7 +3,15 @@ extends RefCounted
 ## every server; logging in means signing a server-chosen random challenge. Names are display names,
 ## bound to the first identity that claims them on each server.
 
-const DIR := "user://identity"
+const DEFAULT_DIR := "user://identity"
+
+
+## Where identities live. QW_IDENTITY_DIR moves them, which is how the tests keep their bot keys out of
+## the player's own folder: a test run used to overwrite default.pem and take the player's account with
+## it. (2026-09-18)
+static func dir() -> String:
+	var override := OS.get_environment("QW_IDENTITY_DIR")
+	return override if not override.is_empty() else DEFAULT_DIR
 const DEFAULT_BITS := 2048
 const MIN_BITS_PEM_LENGTH := 200
 const MAX_PEM_LENGTH := 4096
@@ -16,7 +24,7 @@ const MIN_PASSPHRASE_LENGTH := 8
 
 
 static func path_for(identity_name := "default") -> String:
-	return DIR.path_join(identity_name.validate_filename() + ".pem")
+	return dir().path_join(identity_name.validate_filename() + ".pem")
 
 
 ## Loads the named identity from user://identity, creating it on first use.
@@ -26,7 +34,7 @@ static func load_or_create(identity_name := "default", bits := DEFAULT_BITS) -> 
 	if FileAccess.file_exists(path) and key.load(path) == OK:
 		return key
 	key = Crypto.new().generate_rsa(bits)
-	DirAccess.make_dir_recursive_absolute(DIR)
+	DirAccess.make_dir_recursive_absolute(dir())
 	key.save(path)
 	return key
 
@@ -131,7 +139,7 @@ static func import_encrypted(text: String, passphrase: String) -> Dictionary:
 
 ## Saves `key` as the named identity. An existing different identity is kept as a .bak file.
 static func install(key: CryptoKey, identity_name := "default") -> Error:
-	DirAccess.make_dir_recursive_absolute(DIR)
+	DirAccess.make_dir_recursive_absolute(dir())
 	var path := path_for(identity_name)
 	if FileAccess.file_exists(path):
 		var current := CryptoKey.new()

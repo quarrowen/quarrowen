@@ -36,12 +36,12 @@ func _ready() -> void:
 	var previous := Identity.load_or_create(NAME, 1024)
 	_check(Identity.install(imported.key, NAME) == OK, "install succeeds")
 	_check(Identity.player_id(Identity.load_or_create(NAME)) == Identity.player_id(key), "installed identity is used")
-	var backups := Array(DirAccess.get_files_at(Identity.DIR)).filter(func(f): return f.begins_with(NAME + ".pem.bak-"))
+	var backups := Array(DirAccess.get_files_at(Identity.dir())).filter(func(f): return f.begins_with(NAME + ".pem.bak-"))
 	_check(backups.size() == 1, "previous identity kept as backup (%s)" % str(backups))
 	var kept := CryptoKey.new()
-	_check(not backups.is_empty() and kept.load(Identity.DIR.path_join(backups[0])) == OK and Identity.player_id(kept) == Identity.player_id(previous), "backup holds the previous key")
+	_check(not backups.is_empty() and kept.load(Identity.dir().path_join(backups[0])) == OK and Identity.player_id(kept) == Identity.player_id(previous), "backup holds the previous key")
 	for f in backups:
-		DirAccess.remove_absolute(Identity.DIR.path_join(f))
+		DirAccess.remove_absolute(Identity.dir().path_join(f))
 	DirAccess.remove_absolute(path)
 
 	print("[identity] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))

@@ -1,0 +1,102 @@
+# Working on Quarrowen
+
+Quarrowen is a voxel game engine in Godot 4.7 with a Rust extension, built for one family's children and
+for anyone else who wants it. This file is the short list of things that are true about this codebase and
+are not obvious from reading any one file. Everything else is in `docs/`.
+
+## The one rule the whole design rests on
+
+**The engine provides capabilities; mods provide content.** A feature that names a particular block, item
+or story belongs in a mod. A feature that lets *any* mod do that kind of thing belongs in the engine.
+
+When a request sounds like content ("add a bow"), the question to ask first is what capability is missing
+(holding a use to draw it) and whether that belongs in the engine. Usually the capability is small and
+general and the content is a dozen lines in `mods/`.
+
+## Things that must change together
+
+These pairs have bitten before. Changing one without the other produces a bug that looks like something
+else entirely.
+
+- **Physics.** `engine/shared/player_physics.gd` ⇄ `native/src/physics.rs`. The client predicts the same
+  step the server runs, so divergence shows up as rubber-banding, not as an error.
+- **Block shapes.** `BlockRegistry.SHAPE_BOXES` ⇄ the consts and `boxes_of` match in `native/src/physics.rs`.
+  A test (`_shape_twins`) compares them, but it reads the Rust *source*, so it cannot tell you the built
+  library is stale - see below.
+- **Mesher and pathfinder** have the same GDScript/Rust arrangement.
+
+**The GDExtension is a checked-in build artifact.** `tools/run_tests.sh` rebuilds it when `native/src` is
+newer and stops if that build fails. It did not always: a Rust file that did not compile once left the old
+library in place and the suite reported on physics nobody was writing any more.
+
+## Running the tests
+
+Both suites, always. The second one exercises the GDScript fallbacks, which are what run where there is no
+native library:
+
+```sh
+tools/run_tests.sh
+QW_NATIVE=0 PORT_BASE=25700 tools/run_tests.sh
+```
+
+`ONLY=gameplay tools/run_tests.sh` narrows it while working; `EXCEPT="e2e:*"` is the inverse. The suite
+prints where its logs are - read them rather than guessing, especially for an e2e failure.
+
+A test that waits a fixed number of seconds for the server to do something will pass here and fail on a
+small CI runner, which simulates less in that time. Wait for the event, not for a stopwatch.
+
+## Things that look safe and are not
+
+- **Adding a texture in the middle of `tools/generate_textures.gd`.** One RNG, seeded once, drives every
+  texture in order: inserting a call changes every texture after it. Append new ones at the end, as the
+  file says.
+- **Reordering mod registration.** A recipe cannot name an item registered later in the same run.
+- **`queue_free()` when rebuilding a panel.** It frees at the end of the frame, so a rebuild that runs
+  twice in one frame frees the new children too. Take the child out of the tree first.
+- **Changing a block or item id.** Saves are by name (`SAVE_FORMAT 2`); ids shift whenever anything is
+  added. Display names are safe to change, ids are not.
+
+## When to bump `Protocol.VERSION`
+
+Whenever the client and the server must agree on something, not only when an RPC changes. The block shape
+table and the movement code both count: an older client walks into a different world from the one the
+server is simulating, and the player sees rubber-banding rather than a version problem. A mismatch is
+refused at the door, which is the kind failure.
+
+## Documentation that is generated
+
+`docs/api/index.html` is built from the engine's own sources, and a test fails when it is out of date:
+
+```sh
+godot --headless --path . res://tools/mod_tool.tscn -- docs
+```
+
+Run it after touching `engine/server/mod_api.gd`, any `## ` header comment listed in
+`tools/docs_generator.gd`, or `engine/server/js/quarrowen.d.ts`.
+
+## Releases
+
+The checklist is in `docs/distribution.md` ("Cutting a release"). The two steps that are easy to get wrong:
+bump the pinned image in `deploy/server/.env.example`, and bring the family server up on the new version
+*before* publishing the site - a client that has updated itself cannot join a server that has not.
+
+## House style
+
+- Comments say **why**, not what. If a line needs explaining, explain the reason it is that way, ideally
+  with the failure that made it so. `# playtest, 2026-09-18` is a useful thing to write.
+- British spelling in prose; code keeps whatever the API uses.
+- Commit messages are prose, not bullet lists: what changed, and what it was like before. The first line
+  is a sentence, not a category.
+- No attribution lines or co-author trailers in commits.
+- Player-facing text is for children: plain, kind, never arch. Death messages and hints get read by an
+  eight-year-old at bedtime.
+
+## Where things are
+
+- `engine/` - the engine. `client/`, `server/`, `shared/`, `net/`.
+- `mods/` - bundled content. `base` (blocks and tools), `vanilla` (the survival game), `hearthhold` (the
+  story game), plus add-ons and two game modes.
+- `native/` - the Rust extension.
+- `deploy/server/` - what the family server runs. Meant to be copied on its own, without the repository.
+- `PROGRESS.md` - status, roadmap, playtest findings, and the decisions behind them. Read it first.
+- `docs/` - hosting, modding, the engine, distribution, and the generated API reference.
