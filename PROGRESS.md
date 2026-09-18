@@ -598,6 +598,34 @@ parse errors on empty hub replies. Known harmless noise: "Buffer full, dropping 
 server's content burst during the DTLS handshake; ENet resends), TLS errors from the auth tests, leak
 warnings at exit.
 
+## Playtest, first session on 0.40.0 (2026-09-18, the user's own laptop)
+
+The first time anyone played a published Quarrowen rather than a build from this checkout. Found in
+roughly twenty minutes, which is the usual lesson about real sessions.
+
+1. **The first window looked like a dialog.** project.godot opened fullscreen and the client's own
+   default then set it to windowed at 1280x720 - a small window with title bar and traffic lights, on a
+   Retina screen. Both now say maximized, and there is a boot splash instead of a flat colour. (fixed)
+2. **A hat flickers.** Cosmetic accessory geometry fighting the head for the same pixels.
+3. **The held item's name sits behind the hearts and the hunger icons**, so it cannot be read.
+4. **You cannot climb out of water onto a bank at your own level.** You have to break a block and jump
+   into the hole. Swimming should let you get out where the ground is level with the water.
+5. **The crafting window opens behind the guide panel.**
+6. **"What am I looking at"** - name the block under the crosshair, under the compass. (asked for)
+7. **The inventory vanished** from the crafting screen after moving between the crafting and experiment
+   tabs a few times. Not reproducible on demand, which makes it a state bug rather than a layout one.
+9. **Died, respawned elsewhere, and lost the valley.** Hearthhold set no spawn point and no map marker,
+   so the only record of where the outpost was had gone to the server's log. Now: spawn and respawn at
+   the outpost, a permanent map marker, `/valley` to ask the way, and 4 coal at the start so the first
+   night has light in it. (fixed)
+10. **An imported skin shows in the editor but not in game**, with "only the author can bring a creation
+   to a server" in the log. Both editor paths set the author from the same identity, so the cause is not
+   yet known - waiting on the log around it. Note the server runs `CREATIONS=approval`, so an approval
+   step is also in the way.
+8. **Experimenting is too hard.** The user, who wrote the game, could not work out how to make a torch
+   ("that thing that burns" and "something that holds it"). If the author is stuck, a child is lost. The
+   discovery system needs to say more about what is close, or the first few recipes should not need it.
+
 ## Content review leftovers (2026-09-17)
 
 Six findings from the "cool factor" review that were acted on late or not at all. Written down because

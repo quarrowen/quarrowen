@@ -75,7 +75,11 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	for fuel in ["base:coal", "base:charcoal"]:
 		api.register_recipe({}, "base:torch", 4, {"pattern": ["F", "S"], "key": {"F": fuel, "S": "base:stick"}, "unlock": "experiment",
 			"id": "torch" if fuel == "base:coal" else "torch_from_charcoal", "category": "blocks",
-			"hint": "Something that burns, held up by something to hold it."})
+			# Names the stick and the arrangement, and leaves only the burning half to work out. The author
+			# of this game could not make a torch in his own first session with the older wording, which
+			# is as clear a verdict as a hint can get: a child on their first night needs light, and that
+			# is not the place to be clever. (playtest, 2026-09-18)
+			"hint": "Something that burns, sitting on top of a stick."})
 	# Wood is wood: every kind burns and chars, not just oak. A player who started in a birch forest or a
 	# savanna could not light a furnace with the only trees they had (playtest, 2026-09-16).
 	for wood in Nature.WOODS:

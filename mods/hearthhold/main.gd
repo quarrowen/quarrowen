@@ -35,6 +35,13 @@ func setup(mod_api) -> void:
 	settlers.setup(api, dwellings)
 	_register_places()
 	api.on("player_join", _on_join)
+	# Everyone spawns, and respawns, at the outpost. Without this the world spawn was somewhere else
+	# entirely and dying lost you the valley.
+	api.set_spawn_handler(func(_player):
+		if api.storage.has("outpost"):
+			var at: Array = api.storage.outpost
+			return Vector3(at[0], at[1] + 1, at[2] + 3)
+		return Vector3(0.5, api.surface_y(0, 0) + 1, 0.5))
 	api.on("ui_action", func(ev):
 		if ev.ui_id == "hearthhold:talk" and str(ev.action).begins_with("recruit:"):
 			settlers.recruit(ev.player, int(str(ev.action).get_slice(":", 1))))
@@ -42,6 +49,15 @@ func setup(mod_api) -> void:
 	api.register_command("bramble", "Ask where Bramble was last seen", func(player, _args):
 		player.send_message(settlers.whereabouts(player)))
 	api.register_command("charter", "What the place needs next", func(player, _args): charter.show(player))
+	api.register_command("valley", "Which way the outpost is", func(player, _args):
+		if not api.storage.has("outpost"):
+			player.send_message("The valley has not been found yet.")
+			return
+		var at: Array = api.storage.outpost
+		var to := Vector3(at[0], at[1], at[2])
+		var away := int(to.distance_to(player.position))
+		player.send_message("Hearthhold is %d blocks away, towards %s. It is marked on your map (M)."
+			% [away, Settlers._compass(to - player.position)]))
 	# Morning after the first night, which is chapter one finished.
 	api.every(5.0, func():
 		if api.storage.get("hearth_lit", false) and not api.storage.get("seen_morning", false) \
@@ -155,6 +171,14 @@ func _on_join(ev: Dictionary) -> void:
 		var at: Array = api.storage.outpost
 		if ev.first_time:
 			player.teleport(Vector3(at[0], at[1] + 1, at[2] + 3))
+		# The valley is the whole game, so it is marked on the map and the compass for good. A player who
+		# died and respawned somewhere else could not find it again and had no way to look it up: the
+		# only record of where it was had gone to the server's log. (playtest, 2026-09-18)
+		api.set_map_marker(player, "outpost", {"label": "Hearthhold", "position": Vector3(at[0], at[1], at[2]),
+			"color": "#ffb454"})
 	if ev.first_time:
 		player.give(api.item("base:log"), 3)  # enough for the hearth, so chapter one cannot stall
+		# Coal for the first torch. The valley is dark, the first night comes quickly, and a child who
+		# cannot make light on night one is a child who stops playing. The rest they must find.
+		player.give(api.item("base:coal"), 4)
 		player.show_title("Hearthhold", "The valley is empty. It was not always.", 5.0)

@@ -4373,8 +4373,12 @@ func _client_settings() -> void:
 	settings.set_value("graphics/max_fps", 60.0)
 	settings.set_value("graphics/window_mode", "tiny")
 	settings.set_value("controls/invert_y", true)
-	_check(settings.get_value("graphics/fov") == 110.0 and settings.get_value("graphics/max_fps") == 60 and settings.get_value("graphics/window_mode") == "windowed",
-		"values are clamped to the schema")
+	# A choice outside the list falls back to whatever the schema says the default is, rather than to a
+	# particular value written out here: the default is a product decision and moves.
+	var window_default: String = ClientSettings.SCHEMA["graphics/window_mode"].default
+	_check(settings.get_value("graphics/fov") == 110.0 and settings.get_value("graphics/max_fps") == 60
+		and settings.get_value("graphics/window_mode") == window_default,
+		"values are clamped to the schema (window mode fell back to %s)" % window_default)
 	# Bindings.
 	settings.set_events("jump", ["key:J", "mouse:4"])
 	_check(InputMap.action_get_events("jump").size() == 2 and (InputMap.action_get_events("jump")[0] as InputEventKey).physical_keycode == KEY_J

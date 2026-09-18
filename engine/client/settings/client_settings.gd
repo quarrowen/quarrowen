@@ -34,7 +34,7 @@ const SCHEMA := {
 	"graphics/grading": {"tab": "Graphics", "label": "Colour grading", "type": "bool", "default": true},
 	"graphics/fxaa": {"tab": "Graphics", "label": "Smooth edges (FXAA)", "type": "bool", "default": false},
 	"graphics/fov": {"tab": "Graphics", "label": "Field of view", "type": "float", "default": 75.0, "min": 55.0, "max": 110.0, "step": 1.0, "suffix": "°"},
-	"graphics/window_mode": {"tab": "Graphics", "label": "Window", "type": "choice", "default": "windowed",
+	"graphics/window_mode": {"tab": "Graphics", "label": "Window", "type": "choice", "default": "maximized",
 		"choices": [["windowed", "Windowed"], ["maximized", "Maximized"], ["fullscreen", "Fullscreen"]]},
 	"graphics/vsync": {"tab": "Graphics", "label": "V-Sync", "type": "bool", "default": true, "help": "Matches the screen's refresh rate: no tearing, steady frames."},
 	"graphics/max_fps": {"tab": "Graphics", "label": "Frame rate limit", "type": "choice", "default": 0,
