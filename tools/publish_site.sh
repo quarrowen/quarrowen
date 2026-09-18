@@ -39,6 +39,11 @@ fi
 # Keep older versions' folders (old builds may still ask for them), replace everything else.
 # Both manifests travel with their signature: a client that carries a release key ignores an unsigned
 # update manifest, and the mod list does the same, so a missing .sig is an empty Mods page.
+# The pictures of the game the page is built around. Copied as a folder rather than named one by one,
+# so adding a screenshot never means remembering to edit this list - the page went live once with every
+# image 404ing because of exactly that. (2026-09-18)
+rm -rf "$work/shots"
+[ -d "$out/shots" ] && cp -R "$out/shots" "$work/shots"
 for f in index.html update.json update.json.sig mods.json mods.json.sig icon.png; do
   rm -f "$work/$f"
   [ -f "$out/$f" ] && cp "$out/$f" "$work/"
