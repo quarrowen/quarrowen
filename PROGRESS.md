@@ -637,8 +637,16 @@ have broken `update.json`'s JSON string - now the tag's subject line.
 
 Six secrets and the one-time Apple setup are in docs/distribution.md ("Releasing from CI").
 
-**Not switched on (2026-09-18, user: "for now i wont do the signing in CI").** The job is committed but
-inert: without the secrets and the `release` environment it cannot run, and it is tag-only regardless.
+**Not switched on (2026-09-18, user: "for now i wont do the signing in CI").** Releases keep being cut
+by hand on the Mac.
+
+**And the claim that it was inert was wrong.** On the v0.41.0 tag the job *ran* - naming
+`environment: release` does not gate anything, because GitHub creates a missing environment implicitly
+with no protection rules (confirmed afterwards: `release: protection_rules=0`). It failed only because
+there were no secrets to sign with, so nothing was at risk, but the reasoning written into the docs was
+wrong and a tag build that is always red is a tag build nobody reads. The job is now switched off by a
+repository variable `SIGN_IN_CI`, and the docs say plainly that the environment is a gate only once
+required reviewers are added to it by hand. Both, or neither.
 Releases keep being cut by hand on the Mac. Nothing is lost by leaving it - when the setup is done, it
 starts working with no further change.
 

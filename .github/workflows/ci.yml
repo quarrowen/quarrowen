@@ -25,9 +25,10 @@ name: CI
 # maintainer's Mac by tools/make_release.sh and uploaded by tools/publish_site.sh, neither of which can
 # see a CI artifact. So a build from here cannot reach anybody by accident.
 #
-# The `release` job is the way to change that. It is deliberately hard to reach: a v* tag only, and only
-# after a human approves it in the "release" environment, because the certificate signs software as a
-# named person.
+# The `release` job is the way to change that, and it is off until SIGN_IN_CI is set. NOTE, because this
+# was got wrong once: naming an `environment:` does NOT by itself gate anything. GitHub creates a missing
+# environment implicitly with no protection rules, and the job then runs unattended. The approval only
+# exists once somebody adds required reviewers to it by hand. Both, or neither.
 on:
   push:
     branches: [main, master]
@@ -178,7 +179,10 @@ jobs:
   release:
     name: Sign and publish
     needs: [native-macos, test]
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Off unless somebody turns it on: set the repository variable SIGN_IN_CI to "true" once the secrets
+    # and the reviewers exist. Without this the job runs on every tag and fails for want of a
+    # certificate, and a tag build that is always red is a tag build nobody reads.
+    if: startsWith(github.ref, 'refs/tags/v') && vars.SIGN_IN_CI == 'true'
     runs-on: macos-14
     environment: release
     permissions:

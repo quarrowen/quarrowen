@@ -113,13 +113,24 @@ A release can be cut by CI, so no particular machine has to be awake. It runs **
 Developer ID means somebody can ship malware that macOS tells your children came from you.
 
 The gate is *reaching the job*, not hiding the values. Any step inside a job that can read a secret can
-print it, so the protection that matters is the approval on the `release` environment - a pushed tag, or
-a workflow edit, cannot use the signing identity on its own.
+print it, so the protection that matters is the approval on the `release` environment.
+
+**Naming an `environment:` in the workflow does not by itself gate anything.** GitHub creates a missing
+environment implicitly, with no protection rules, and the job then runs unattended - which is exactly
+what happened the first time a tag was pushed with this job in place. The approval exists only once
+somebody adds required reviewers to that environment by hand. So the job is also switched off by a
+repository variable, and both have to be done deliberately:
+
+- **`SIGN_IN_CI` = `true`** (Settings → Secrets and variables → Actions → Variables). Without it the job
+  is skipped, which is how it ships.
+- **Required reviewers on the `release` environment.** Check them: Settings → Environments → release
+  should list at least one reviewer. An environment with no protection rules is not a gate.
 
 **Set up once.**
 
 1. **An environment called `release`** - repository Settings → Environments → New environment → add
-   yourself under *Required reviewers*. Without this the job runs unattended, which is the thing to avoid.
+   yourself under *Required reviewers*. Without the reviewers it is not a gate at all (see above), so
+   check the environment afterwards and confirm it lists one.
 
 2. **An App Store Connect API key** for notarisation, at appstoreconnect.apple.com → Users and Access →
    Integrations → App Store Connect API → **+**, with the *Developer* role. Download the `.p8` **once**
@@ -140,6 +151,9 @@ a workflow edit, cannot use the signing identity on its own.
    | `NOTARY_KEY_ID` | the Key ID, e.g. `A1B2C3D4E5` |
    | `NOTARY_ISSUER_ID` | the Issuer ID (a UUID) |
    | `RELEASE_SIGNING_KEY` | the contents of `~/.config/quarrowen/release_key.pem` |
+
+5. **The variable `SIGN_IN_CI` set to `true`**, on the Variables tab beside the secrets. This is the
+   switch; everything above is inert without it.
 
    That last one is the key the *game* checks, not macOS: it signs `update.json` and `mods.json` so a
    client will not install an update the project did not publish. Losing it means shipping a build with a
