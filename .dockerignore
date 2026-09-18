@@ -5,7 +5,10 @@ native/target/
 native/bin/
 build/
 .github/
+# The engine's own assets are not needed by a headless server, except the one the boot splash names:
+# without it every server start logs "Non-existing or invalid boot splash". (2026-09-18)
 assets/
+!assets/icon.png
 tests/
 **/*.import
 **/.DS_Store

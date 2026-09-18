@@ -598,6 +598,23 @@ parse errors on empty hub replies. Known harmless noise: "Buffer full, dropping 
 server's content burst during the DTLS handshake; ENet resends), TLS errors from the auth tests, leak
 warnings at exit.
 
+## Playtest, second session on 0.40.1 (2026-09-18)
+
+12. **The tests were writing into the player's own folder.** A suite run overwrote `settings.cfg` and
+   regenerated `identity/default.pem`, and left fourteen scratch worlds and thirteen bot keys beside
+   them. It looked like the update resetting things. It also explains #10: the imported skin was made
+   under one identity and offered under another, because a test run had replaced the key in between.
+   Fixed with QW_IDENTITY_DIR, a settings path resolved in _init, and a client data dir for the run;
+   verified by checksumming either side of both suites. (fixed)
+13. **A Close button did not close.** Nothing in the engine handled the action, so any modal panel - the
+   charter board, Bramble, /milestones - trapped the player until they quit. (fixed)
+14. **The map was slow to redraw and the wheel did not zoom it.** The redraw walked every column from the
+   world ceiling through `world.get_block`, which looks a chunk up per call. Now it indexes the chunk
+   directly and starts just above the tallest ground found so far; the wheel zooms while the map is
+   open. (fixed)
+15. **The server logged a boot splash error on every start** - the splash image lives in `assets/`, which
+   the server image excludes. (fixed)
+
 ## Alpha 4.1 (0.40.1)
 
 Everything the first real session found, twenty minutes of it. Protocol 39: the swimming fix changes

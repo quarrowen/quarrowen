@@ -1955,9 +1955,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("toggle_debug"):
 		_debug_label.visible = not _debug_label.visible
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
-		select_slot(inventory.selected - 1)
+		_wheel(1)
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-		select_slot(inventory.selected + 1)
+		_wheel(-1)
 	elif event is InputEventKey and event.pressed and not event.echo \
 			and event.physical_keycode >= KEY_1 and event.physical_keycode <= KEY_9:
 		select_slot(event.physical_keycode - KEY_1)
@@ -2602,6 +2602,16 @@ func _on_chat_gui_input(event: InputEvent) -> void:
 
 func _on_ui_action(ui_id: String, action: String) -> void:
 	Net.c_ui_action.rpc_id(1, ui_id, action)
+
+
+## The wheel zooms the map while it is open, and picks a hotbar slot the rest of the time. Reaching for
+## the wheel over a map is what everybody does; it used to change the hotbar hidden behind it instead.
+func _wheel(steps: int) -> void:
+	if _map_screen != null and is_instance_valid(_map_screen) and _map_screen.visible:
+		_map_screen.zoom_by(steps)
+		get_viewport().set_input_as_handled()
+		return
+	select_slot(inventory.selected - steps)
 
 
 ## Registers the input actions with the player's key bindings (engine/client/settings/client_settings.gd).

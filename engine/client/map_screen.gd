@@ -97,6 +97,15 @@ func _process(delta: float) -> void:
 	refresh_requested.emit()
 
 
+## Zooms in (+1) or out (-1). The buttons call this, and so does the mouse wheel: reaching for the wheel
+## over a map is what everybody does, and it used to change the hotbar behind the map instead.
+func zoom_by(steps: int) -> void:
+	var wanted := clampi(_zoom - steps, 0, ZOOMS.size() - 1)
+	if wanted != _zoom:
+		_zoom = wanted
+		_redraw()
+
+
 ## Paints the world from above: the colour of the highest solid block in each column.
 func _redraw() -> void:
 	if client == null or not is_instance_valid(client):
@@ -107,6 +116,8 @@ func _redraw() -> void:
 	var world = client.world
 	var registry = client.registry
 	_image.fill(Color(0.07, 0.08, 0.11, 1.0))
+	# The first column pays for a full scan; the rest start just above whatever the tallest so far was.
+	var highest := Chunk.SIZE_Y - 1
 	for py in IMAGE_SIZE:
 		var wz := _centre.y + (py - half) * step
 		for px in IMAGE_SIZE:
@@ -115,8 +126,15 @@ func _redraw() -> void:
 			if chunk == null:
 				continue
 			var color := Color(0, 0, 0, 0)
-			for y in range(Chunk.SIZE_Y - 1, 0, -1):
-				var block: int = world.get_block(wx, y, wz)
+			# Straight into the chunk rather than through world.get_block, which looks the chunk up in a
+			# dictionary on every call - and this loop is a quarter of a million columns deep. Start just
+			# above the highest ground found so far instead of at the world ceiling: a surface world is
+			# around y 60-90, so the old scan spent most of its time counting empty sky. Between them the
+			# redraw went from visibly locking up to unnoticeable. (playtest, 2026-09-18)
+			var column: int = (wx & 15) + ((wz & 15) << 4)
+			var blocks: PackedByteArray = chunk.blocks
+			for y in range(mini(Chunk.SIZE_Y - 1, highest + 8), 0, -1):
+				var block: int = blocks.decode_u16((column + (y << 8)) << 1)
 				if block == 0 or not registry.is_valid(block):
 					continue
 				if registry.solid_lut[block] == 0 and registry.liquid_lut[block] == 0:
@@ -124,6 +142,7 @@ func _redraw() -> void:
 				color = _color_of(block)
 				# Higher ground reads lighter, so hills and valleys show.
 				color = color.lightened(clampf((y - 60) / 90.0, -0.35, 0.35)) if y >= 60 else color.darkened(clampf((60 - y) / 90.0, 0.0, 0.35))
+				highest = maxi(highest, y)
 				break
 			if color.a > 0.0:
 				_image.set_pixel(px, py, color)
