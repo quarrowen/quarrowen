@@ -18,10 +18,16 @@ name: CI
 # PRIVATE until somebody makes it public once, in Packages -> the package -> settings -> change
 # visibility. Public packages also have no storage limit, where private ones share a 500 MB quota.
 #
-# The `export` job's macOS build is UNSIGNED - a check that a clean checkout still exports, not something
-# to hand to anyone. The signed, notarized, published release comes from the `release` job below, which a
-# human has to approve before it can touch the Developer ID certificate. Doing it by hand on a Mac still
-# works and is the fallback: docs/distribution.md.
+# SIGNING. Nothing here signs anything unless the `release` job runs, and it cannot until somebody adds
+# the secrets and the approval environment (docs/distribution.md). Until then every macOS build made here
+# is ad-hoc signed, Gatekeeper refuses it, and it stays in an artifact called `macos-unsigned` - the job
+# exists to prove a clean checkout still exports. What players download is signed and notarized on the
+# maintainer's Mac by tools/make_release.sh and uploaded by tools/publish_site.sh, neither of which can
+# see a CI artifact. So a build from here cannot reach anybody by accident.
+#
+# The `release` job is the way to change that. It is deliberately hard to reach: a v* tag only, and only
+# after a human approves it in the "release" environment, because the certificate signs software as a
+# named person.
 on:
   push:
     branches: [main, master]
@@ -36,7 +42,7 @@ env:
 jobs:
   # For the test runner, which is Linux. Not something anybody installs.
   native:
-    name: Native (linux-x86_64)
+    name: Rust library (linux-x86_64)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +63,7 @@ jobs:
   # The libraries that ship. Their own job because a release is the only thing that needs them, and a
   # macOS runner costs ten times a Linux one - no reason to spend that on every push to master.
   native-macos:
-    name: Native (macos)
+    name: Rust library (macos)
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: macos-14
     steps:
@@ -111,7 +117,7 @@ jobs:
           if-no-files-found: warn
 
   native-windows:
-    name: Native (windows)
+    name: Rust library (windows)
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: windows-latest
     steps:
@@ -132,7 +138,7 @@ jobs:
           if-no-files-found: error
 
   export:
-    name: Export macOS
+    name: Export macOS (unsigned, not published)
     needs: [native-macos, test]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04

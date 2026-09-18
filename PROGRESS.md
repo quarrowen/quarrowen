@@ -635,8 +635,20 @@ Two bugs caught while writing it: `security list-keychains -d user -s "$keychain
 existing keychain list, and the release notes were taken from the commit message, whose newlines would
 have broken `update.json`'s JSON string - now the tag's subject line.
 
-Six secrets and the one-time Apple setup are in docs/distribution.md ("Releasing from CI"). Signing by
-hand on a Mac still works and is the fallback.
+Six secrets and the one-time Apple setup are in docs/distribution.md ("Releasing from CI").
+
+**Not switched on (2026-09-18, user: "for now i wont do the signing in CI").** The job is committed but
+inert: without the secrets and the `release` environment it cannot run, and it is tag-only regardless.
+Releases keep being cut by hand on the Mac. Nothing is lost by leaving it - when the setup is done, it
+starts working with no further change.
+
+Worth being precise about, because the job names invited the opposite conclusion: **CI has never signed
+anything, and nothing CI built has ever been published.** "Native (macos)" builds only the Rust `.dylib`;
+"Export macOS" builds an app that is ad-hoc signed, that Gatekeeper rejects, and that goes into an
+artifact called `macos-unsigned`. Checked on the v0.40.3 tag run: `Signature=adhoc`, no Authority,
+`spctl: rejected`, against the published build's Developer ID, notarized, stapled. They cannot cross,
+because `publish_site.sh` uploads from the local `build/release` folder and cannot see a CI artifact. The
+jobs have been renamed to say which is which.
 
 ## The download button on the live site was broken (2026-09-18, found while checking the release job)
 
