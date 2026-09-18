@@ -691,6 +691,25 @@ public idea returns. Full reasoning was in the review; the short version:
 - The imported-skin report turned out to be the test harness overwriting the player's identity, not a UGC
   bug. Nothing is owed there beyond what was fixed.
 
+## Seen while taking screenshots (2026-09-18)
+
+16. **Hearthhold shows vanilla's panel.** "Vanilla Sandbox - Creative mode - /spawn /gamemode survival"
+   sits in the top right of a Hearthhold world, because Hearthhold depends on vanilla and vanilla's
+   `player_join` shows its own info panel regardless of which game is actually running. A game mod should
+   be able to say "this is mine now" - or vanilla should only show it when vanilla is the game.
+17. **The first player spawned at the origin and was teleported.** The spawn position is chosen in
+   `_spawn_player` before `player_join` runs, so on a brand new world the outpost did not exist yet:
+   the player appeared at (0, y, 0), saw a flash of the wrong place while chunks generated there for
+   nothing, and was moved a moment later. Hearthhold now builds the valley from inside its spawn
+   handler, so the first player opens their eyes in the yard. (fixed)
+
+**Wanted: mods should own the world spawn** (the user, 2026-09-18). `set_spawn_handler` runs for any
+player without a saved position, which conflates two different questions: *where does a new player
+start* and *where does a returning player appear*. A mod should be able to answer them separately - a
+first-time arrival at a structure the mod placed, and a returning player at a lobby, a bed, or wherever
+their story left them. That also makes lobby systems possible, which is the shape a lot of multiplayer
+servers want. Today a mod fakes it by teleporting after the fact, which is what caused #17.
+
 ## Alpha 4.2 (0.40.2)
 
 Protocol stays 39: nothing the client and server must agree on has changed.

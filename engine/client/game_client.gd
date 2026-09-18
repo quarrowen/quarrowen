@@ -1954,6 +1954,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_apply_graphics(true)
 	elif event.is_action_pressed("toggle_debug"):
 		_debug_label.visible = not _debug_label.visible
+	elif event.is_action_pressed("toggle_hud"):
+		# No message about how to get it back: the label that would say so lives inside the thing being
+		# hidden. F1 again is the answer, and it is in Settings > Controls.
+		_hud_root.visible = not _hud_root.visible
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
 		_wheel(1)
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:

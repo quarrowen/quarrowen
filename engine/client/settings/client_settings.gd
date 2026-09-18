@@ -97,6 +97,9 @@ const ACTIONS := [
 	["camera", "Camera view", ["key:F5"]],
 	["graphics", "Cycle graphics quality", ["key:F4"]],
 	["toggle_debug", "Debug info", ["key:F3"]],
+	# Screenshot mode: everything drawn over the world goes away. Children want to show somebody what they
+	# built, and a picture of it reads better without hearts and a hotbar across the bottom.
+	["toggle_hud", "Hide the interface", ["key:F1"]],
 	["dev", "Dev tools", ["key:F8"]],
 	["pause", "Pause / close", ["key:Escape"]],
 ]

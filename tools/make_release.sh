@@ -48,6 +48,8 @@ fi
 
 OUT="$out/$files/mods" tools/package_mods.sh >/dev/null
 cp assets/icon.png "$out/icon.png"
+# The page is led by pictures of the game (site/screenshots, taken with the interface hidden - F1).
+mkdir -p "$out/shots" && cp site/screenshots/*.jpg "$out/shots/" 2>/dev/null || true
 echo "== packaged $(ls -1 "$out/$files/mods" | wc -l | tr -d ' ') mods"
 
 digest() { shasum -a 256 "$1" | cut -d' ' -f1; }
@@ -124,106 +126,367 @@ mod_sections=""
 
 cat > "$out/index.html" <<EOF
 <!doctype html>
+<html lang="en">
 <meta charset="utf-8">
-<title>Quarrowen</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="A voxel game where the server decides the game. Free to play, free to mod.">
+<meta name="description" content="A voxel game where the server decides the game. Free to play, free to mod, and free for your family.">
 <link rel="icon" href="icon.png">
+<title>Quarrowen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap">
 <style>
-  :root { color-scheme: dark; }
+  :root {
+    /* The game's own palette (engine/client/menu/menu_theme.gd), so the site and the game match. */
+    --ground: #1A212E;
+    --panel: #0F141C;
+    --panel-2: #172031;
+    --edge: #2A3445;
+    --ink: #F0F2F5;
+    --muted: #97A0AE;
+    --accent: #5CB86B;
+    --accent-hover: #70CC80;
+    --warn: #FFB880;
+    --display: "Fredoka", system-ui, sans-serif;   /* headings and the name */
+    --sans: "Nunito Sans", system-ui, sans-serif;  /* everything a player reads */
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 0 20px 80px; background: #0f1219; color: #e8ecf4;
-         font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
-  a { color: #7fb2ff; }
-  .wrap { max-width: 760px; margin: 0 auto; }
-  header { display: flex; align-items: center; gap: 20px; padding: 56px 0 4px; flex-wrap: wrap; }
-  header img { width: 104px; height: 104px; border-radius: 24px; }
-  h1 { font-size: 40px; margin: 0; letter-spacing: -0.5px; }
-  .tag { color: #9aa4b8; font-size: 17px; margin-top: 4px; }
-  .dim { color: #9aa4b8; font-size: 14px; }
-  .get { display: inline-block; margin: 24px 0 6px; padding: 15px 28px; border-radius: 11px;
-         background: #4c8dff; color: #08101f; font-weight: 700; text-decoration: none; font-size: 17px; }
-  .get:hover { background: #6ba0ff; }
-  h2 { font-size: 21px; margin: 44px 0 10px; }
-  pre { background: #161b26; border: 1px solid #222838; border-radius: 10px; padding: 12px 14px;
-        overflow-x: auto; font-size: 13px; line-height: 1.5; }
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 8px; }
-  .card { background: #161b26; border: 1px solid #222838; border-radius: 12px; padding: 14px 16px; }
-  .card b { display: block; margin-bottom: 4px; }
-  .card span { color: #9aa4b8; font-size: 14px; }
-  table { width: 100%; border-collapse: collapse; }
-  td { padding: 11px 0; border-top: 1px solid #222838; vertical-align: top; }
-  .right { text-align: right; white-space: nowrap; }
-  code { background: #1b2130; padding: 2px 6px; border-radius: 5px; font-size: 14px; }
-  ol, ul { padding-left: 20px; }
-  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid #222838; color: #9aa4b8; font-size: 14px; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; padding: 0; background: var(--ground); color: var(--ink);
+    font: 400 17px/1.65 var(--sans);
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding-inline: 24px; }
+  .narrow { max-width: 680px; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  img { max-width: 100%; display: block; }
+
+  /* --- Hero: the valley fills the screen, the words sit on it. --- */
+  .hero { position: relative; min-height: 78vh; display: flex; align-items: flex-end; overflow: hidden; }
+  .hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .hero::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(26,33,46,0.34) 0%, rgba(26,33,46,0.1) 40%, rgba(26,33,46,0.92) 88%, var(--ground) 100%);
+  }
+  .hero .wrap { position: relative; z-index: 2; padding-block: 0 64px; width: 100%; }
+  .name {
+    font: 600 15px/1 var(--display); letter-spacing: 0.26em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 18px; text-shadow: 0 2px 16px rgba(0,0,0,0.9);
+  }
+  h1 {
+    font: 600 clamp(42px, 8vw, 86px)/0.98 var(--display);
+    margin: 0; letter-spacing: -0.015em; max-width: 14ch; text-wrap: balance;
+    text-shadow: 0 4px 32px rgba(0,0,0,0.75);
+  }
+  h1 span { color: var(--accent); }
+  .hero p {
+    font-size: clamp(17px, 2.1vw, 21px); margin: 20px 0 0; max-width: 40ch; color: #DCE2EA;
+    text-shadow: 0 2px 18px rgba(0,0,0,0.85); text-wrap: pretty;
+  }
+  .cta { display: flex; flex-wrap: wrap; gap: 14px 16px; align-items: center; margin-top: 34px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 12px; text-decoration: none;
+    font-family: var(--display); font-weight: 600; font-size: 19px;
+    background: var(--accent); color: #08150C; padding: 16px 30px; border-radius: 12px;
+    border: 2px solid var(--accent); box-shadow: 0 10px 40px rgba(92,184,107,0.28);
+    transition: background 0.15s ease, transform 0.12s ease;
+  }
+  .btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn:active { transform: translateY(2px); }
+  .btn small { font: 400 13px/1 var(--sans); opacity: 0.72; }
+  .btn.ghost {
+    background: rgba(255,255,255,0.06); color: var(--ink); border-color: rgba(255,255,255,0.22);
+    box-shadow: none;
+  }
+  .btn.ghost:hover { background: rgba(255,255,255,0.13); border-color: rgba(255,255,255,0.4); }
+  .under { font-size: 14px; color: var(--muted); margin-top: 14px; }
+
+  /* --- Sections --- */
+  section { padding-block: 86px 0; }
+  h2 {
+    font: 600 clamp(28px, 4vw, 40px)/1.1 var(--display);
+    margin: 0 0 16px; letter-spacing: -0.01em; text-wrap: balance;
+  }
+  h2 span { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 17.5px; margin: 0 0 40px; max-width: 54ch; text-wrap: pretty; }
+  p { text-wrap: pretty; }
+
+  /* A game: a big picture with its words beside it, alternating sides. */
+  .game { display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; align-items: center; margin-bottom: 72px; }
+  .game:nth-child(even) .shot { order: 2; }
+  .shot { border-radius: 14px; overflow: hidden; border: 1px solid var(--edge); background: var(--panel); }
+  .shot img { width: 100%; height: auto; }
+  .game h3 { font: 600 27px/1.2 var(--display); margin: 0 0 4px; }
+  .kind {
+    font: 600 12px/1 var(--sans); letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 12px;
+  }
+  .game p { margin: 0; color: #C7CFDA; font-size: 16.5px; }
+  .figures {
+    display: flex; gap: 26px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--edge);
+    font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .figures b { display: block; font-family: var(--display); font-weight: 600; font-size: 25px; color: var(--ink); line-height: 1.1; }
+
+  /* What makes it different: plain statements, no cards fighting the games above. */
+  .diffs { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 34px 40px; }
+  .diff h3 {
+    font: 600 20px/1.25 var(--display); margin: 0 0 8px; padding-top: 16px;
+    border-top: 2px solid var(--accent);
+  }
+  .diff p { margin: 0; color: #C7CFDA; font-size: 15.5px; }
+  .diff em { font-style: normal; color: var(--ink); font-weight: 600; }
+
+  /* The mod zips: a plain table, since it is a reference rather than something to browse. */
+  .mods { margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--edge); }
+  .mods h3 { font: 600 20px/1.25 var(--display); margin: 0 0 8px; }
+  .mods h3 + p { margin-bottom: 14px; }
+  .mods table { width: 100%; border-collapse: collapse; margin: 0 0 22px; font-size: 14.5px; }
+  .mods td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--edge); vertical-align: top; }
+  .mods td:last-child { text-align: right; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .dim { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+
+  /* Four lanes */
+  .lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .lane {
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 14px; padding: 24px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .lane:hover { background: var(--panel-2); border-color: #3C4A61; }
+  .lane h3 { font: 600 20px/1.25 var(--display); margin: 0 0 8px; }
+  .lane p { font-size: 15px; color: var(--muted); margin: 0 0 14px; }
+  .lane a { font-weight: 600; font-size: 15px; text-decoration: none; }
+  .lane a:hover { text-decoration: underline; }
+
+  /* Server */
+  .server { background: var(--panel); border: 1px solid var(--edge); border-radius: 16px; padding: 34px; }
+  .server h2 { font-size: clamp(25px, 3.4vw, 33px); }
+  pre {
+    background: #0A0E15; border: 1px solid var(--edge); border-radius: 10px; margin: 20px 0 0;
+    padding: 16px 18px; overflow-x: auto;
+    font: 400 13.5px/1.75 ui-monospace, SFMono-Regular, Menlo, monospace; color: #C7CFDA;
+  }
+  pre b { color: var(--accent); font-weight: 400; }
+
+  .made { border-top: 1px solid var(--edge); margin-top: 96px; padding-top: 40px; }
+  .made p { color: var(--muted); font-size: 16px; max-width: 62ch; }
+  .made strong { color: var(--ink); font-weight: 600; }
+  footer { padding-block: 40px 90px; color: #6F7A8A; font-size: 13.5px; }
+  footer p { max-width: none; }
+
+  @media (max-width: 760px) {
+    .game { grid-template-columns: 1fr; gap: 22px; margin-bottom: 56px; }
+    .game:nth-child(even) .shot { order: 0; }
+    .hero { min-height: 72vh; }
+    .server { padding: 24px; }
+  }
 </style>
-<div class="wrap">
-<header>
-  <img src="icon.png" alt="">
-  <div>
-    <h1>Quarrowen</h1>
-    <div class="tag">A voxel game where the server decides the game.<br>Build, survive, or start on a single block over the void.</div>
+
+<div class="hero">
+  <img class="hero-img" src="shots/vanilla-vista.jpg"
+       alt="Green hills with an ore-streaked cliff, trees and a beach beyond.">
+  <div class="wrap">
+    <p class="name">Quarrowen</p>
+    <h1>The server decides <span>the game</span>.</h1>
+    <p>One app plays any world, because it carries no game of its own. Blocks, creatures, recipes and
+    rules all arrive from whichever server you join.</p>
+    <div class="cta">
+      <a class="btn" href="$dmg_url">Download for Mac <small>$version · $(human "$out/$files/$download_name")</small></a>
+      <a class="btn ghost" href="#games">See the games</a>
+    </div>
+    <p class="under">Apple silicon · signed and notarized · updates itself · $notes</p>
   </div>
-</header>
-
-<a class="get" href="$dmg_url">Download for Mac (Apple silicon)</a>
-<div class="dim">Version $version &middot; $(human "$out/$files/$download_name") &middot; macOS 11 or newer &middot; $notes</div>
-<div class="dim">An independent project &mdash; not affiliated with Mojang, Microsoft or Roblox.</div>
-
-<h2>What it is</h2>
-<div class="cards">
-  <div class="card"><b>One client, many games</b><span>The client ships no content. It downloads the blocks, models and rules from whichever server you join - a sandbox, an island, a one-block challenge.</span></div>
-  <div class="card"><b>Play together</b><span>Host a world from the menu and your family joins over the network, or run the dedicated server in Docker. Friends, parties and invite codes included.</span></div>
-  <div class="card"><b>Made to be modded</b><span>A mod is a folder with a manifest and a script (GDScript, or sandboxed JavaScript). Blocks, mobs, machines, world generation, UI and commands are all mod territory.</span></div>
-  <div class="card"><b>Keeps itself current</b><span>The game checks this page when it opens and offers the new version. Worlds and inventories survive updates.</span></div>
 </div>
 
-<h2>First time on a Mac</h2>
-<ol>
-  <li>Open the disk image and drag <b>Quarrowen</b> onto the Applications folder beside it.</li>
-  <li>Open it. It is signed and notarized by Apple, so it opens by double-clicking - no right-click detour.</li>
-  <li>Type your name in the menu, then <b>Play</b> for your own world, or <b>Multiplayer</b> to join a server.</li>
-</ol>
+<div class="wrap">
 
-<h2>Where to go next</h2>
-<div class="cards">
-  <div class="card"><b><a href="https://github.com/quarrowen/quarrowen/blob/master/docs/playing.md">Playing</a></b><span>Controls, your first hour, crafting, and how recipes are discovered.</span></div>
-  <div class="card"><b><a href="https://github.com/quarrowen/quarrowen/blob/master/docs/hosting.md">Running a server</a></b><span>Three worlds and a hub on one Linux box, in about ten minutes, for the family.</span></div>
-  <div class="card"><b><a href="https://github.com/quarrowen/quarrowen/blob/master/docs/modding.md">Making a mod</a></b><span>Blocks, creatures, machines and whole games, in GDScript or JavaScript.</span></div>
-  <div class="card"><b><a href="https://github.com/quarrowen/quarrowen/blob/master/docs/faq.md">Questions</a></b><span>Is it safe for children, what does it cost, where are my worlds kept.</span></div>
-</div>
+<section id="games">
+  <h2>Four games, <span>one download</span></h2>
+  <p class="sub">Every one of these is a mod. None of it is built into the app — so your server can load
+  something else entirely, and everyone who joins gets it automatically.</p>
 
-<h2>Mods in this release</h2>
-<p class="dim">The game comes with all of these - this is for adding one to a server, or installing it by
-hand. In the game, the <b>Mods</b> page does it for you.</p>
-$mod_sections
+  <div class="game">
+    <div class="shot">
+      <img src="shots/hearthhold-outpost.jpg" alt="An abandoned outpost with a charter board, a cold hearth, and the tutorial pointing the way.">
+    </div>
+    <div>
+      <p class="kind">Story</p>
+      <h3>Hearthhold</h3>
+      <p>A valley whose light went out. Light the hearth, see the night out, then find the people who
+      scattered into the hills and build them somewhere to live. The guidebook fills in as you play, so
+      afterwards it reads as the story of what actually happened to you.</p>
+      <div class="figures">
+        <div><b>157</b> blocks</div><div><b>294</b> assets</div><div><b>4</b> chapters</div>
+      </div>
+    </div>
+  </div>
 
-<h2>Running a server</h2>
-<p>The dedicated server is a published Docker image, so the machine that runs it never compiles anything:
-three files, <code>docker compose pull</code>, and it is up. You can run several worlds beside each other -
-a survival world, an island, a story - and let players walk between them. The
-<a href="https://github.com/quarrowen/quarrowen/blob/master/docs/hosting.md">hosting guide</a> is the whole
-setup, including the Macs that join it.</p>
-<p class="dim">The server for this release. A server and the games joining it must be the same version, so
-these are pinned rather than following <code>:latest</code> - put them in your <code>.env</code>:</p>
-<pre><code>QW_IMAGE=ghcr.io/quarrowen/quarrowen/server:$version
-QW_HUB_IMAGE=ghcr.io/quarrowen/quarrowen/hub:$version</code></pre>
+  <div class="game">
+    <div class="shot">
+      <img src="shots/vanilla-hills.jpg" alt="Green hills, a cliff face, a beach and grazing animals, with the hotbar and health below.">
+    </div>
+    <div>
+      <p class="kind">Survival &amp; building</p>
+      <h3>Vanilla</h3>
+      <p>Generated terrain with caves, ores, weather, animals, monsters and a seven-block boss in its own
+      arena. Recipes are discovered by experimenting rather than looked up, which is the good bit.</p>
+      <div class="figures">
+        <div><b>156</b> blocks</div><div><b>294</b> assets</div><div><b>4</b> gear tiers</div>
+      </div>
+    </div>
+  </div>
 
-<h2>Source</h2>
-<p>Everything lives at <a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a>:
-the engine, the mods, the tools that generate the art and sounds, and the tests. Free to use, modify and share
-for anything noncommercial; commercial use needs a separate licence.</p>
+  <div class="game">
+    <div class="shot">
+      <img src="shots/oneblock-vista.jpg" alt="A single block suspended in empty sky.">
+    </div>
+    <div>
+      <p class="kind">Challenge</p>
+      <h3>One Block</h3>
+      <p>Everyone gets a single block over the void, and it comes back as something else each time you
+      break it — dirt, then stone and ores, then stranger things, with the odd creature or crate of
+      treasure instead.</p>
+      <div class="figures">
+        <div><b>153</b> blocks</div><div><b>287</b> assets</div><div><b>6</b> phases</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="game">
+    <div class="shot">
+      <img src="shots/skyblock.jpg" alt="A tiny island in an empty sky, with a list of challenges.">
+    </div>
+    <div>
+      <p class="kind">Challenge</p>
+      <h3>Sky Islands</h3>
+      <p>An island each, a cobblestone generator, and a list of challenges to stretch what little you
+      started with. Don't fall off.</p>
+      <div class="figures">
+        <div><b>112</b> blocks</div><div><b>153</b> assets</div><div><b>12</b> challenges</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="different">
+  <h2>How this is <span>different</span></h2>
+  <p class="sub">Block games are a genre, the way platformers are. What Quarrowen does differently is
+  where the game lives and who is allowed to change it.</p>
+
+  <div class="diffs">
+    <div class="diff">
+      <h3>The app has no game in it</h3>
+      <p>Other block games ship a game and let you mod it. Quarrowen ships an <em>engine</em>: the client
+      has no blocks, no creatures and no rules of its own. It downloads them from whichever server it
+      joins, so the same app is a survival world on one server and a story on the next.</p>
+    </div>
+    <div class="diff">
+      <h3>Nobody installs a mod</h3>
+      <p>Mods are installed on the server only. A child joins and the content arrives — no launchers, no
+      mod folders, no matching versions between friends, nothing to go wrong at bedtime. A mismatch is
+      refused at the door with a sentence saying so, rather than breaking quietly.</p>
+    </div>
+    <div class="diff">
+      <h3>A mod can change anything</h3>
+      <p>Blocks, creatures and their AI, world generation, machines, crafting, UI panels, commands,
+      whole games. Hearthhold is a mod. Vanilla is a mod. The engine only supplies capabilities, which
+      means anything the bundled games do, yours can do.</p>
+    </div>
+    <div class="diff">
+      <h3>Two languages, one of them sandboxed</h3>
+      <p>Write a mod in GDScript, or in JavaScript that runs in a sandbox. There is no marketplace, no
+      approval queue and no revenue share — you write a folder with a manifest in it and put it on your
+      server.</p>
+    </div>
+    <div class="diff">
+      <h3>There is no platform</h3>
+      <p>No account, no sign-up, no email, no telemetry, no store, no currency, no advertising. A player
+      is a key on their own computer. Your worlds are files on your own machine or your own server, and
+      they stay there.</p>
+    </div>
+    <div class="diff">
+      <h3>You can read all of it</h3>
+      <p>The whole engine is published — renderer, server, protocol, AI, tests. Free to play, modify and
+      share for anything noncommercial. If you want to know how something works, the answer is a file,
+      not a support ticket.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Made for a family to <span>play together</span></h2>
+  <p class="sub">Your worlds live on your own machine or your own server. No accounts, no email, nothing
+  collected, and only the people you allow can join.</p>
+  <div class="shot" style="max-width:100%">
+    <img src="shots/menu.jpg" alt="The Quarrowen main menu, with a world list over a living world backdrop.">
+  </div>
+</section>
+
+<section>
+  <h2>Where to go</h2>
+  <div class="lanes">
+    <div class="lane">
+      <h3>Play</h3>
+      <p>Controls, your first hour, and how recipes are discovered rather than looked up.</p>
+      <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/playing.md">Playing →</a>
+    </div>
+    <div class="lane">
+      <h3>Run a server</h3>
+      <p>Several worlds and a hub on one Linux box, in about ten minutes.</p>
+      <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/hosting.md">Hosting →</a>
+    </div>
+    <div class="lane">
+      <h3>Make a mod</h3>
+      <p>Blocks, creatures, machines, whole games — GDScript or JavaScript.</p>
+      <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/modding.md">Modding →</a>
+    </div>
+    <div class="lane">
+      <h3>Questions</h3>
+      <p>What it costs, whether it's safe for children, where your worlds are kept.</p>
+      <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/faq.md">FAQ →</a>
+    </div>
+  </div>
+</section>
+
+<section id="get">
+  <div class="server">
+    <h2>Running a server</h2>
+    <p class="sub" style="margin-bottom:0">Three files and a pull. The machine never compiles anything,
+    and several worlds can sit beside each other with players walking between them through portals.</p>
+<pre><b>QW_IMAGE</b>=ghcr.io/quarrowen/quarrowen/server:$version
+<b>QW_HUB_IMAGE</b>=ghcr.io/quarrowen/quarrowen/hub:$version
+
+docker compose pull &amp;&amp; docker compose up -d</pre>
+  </div>
+  <div class="mods">
+    <h3>Mods in this release</h3>
+    <p class="sub" style="margin:0 0 18px">Every game comes with the download; these are for adding one to
+    a server by hand. In the game, the Mods page does it for you.</p>
+    $mod_sections
+  </div>
+</section>
+
+<section class="made">
+  <h2>Built with Claude Code</h2>
+  <p><strong>Every line of this engine was written with <a href="https://claude.com/claude-code">Claude
+  Code</a>, from an empty folder</strong> — the renderer and its Rust mesher, the authoritative server and
+  its protocol, mob AI and pathfinding, the mod API and its sandbox, world generation, the tests and the
+  tooling. No engine template and no asset packs: every texture, model and sound is generated by a script.</p>
+  <p>It was built for one family's children, and it is free for yours. Free to play, modify and share for
+  anything noncommercial; commercial use needs a separate licence.
+  <a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a></p>
+</section>
 
 <footer>
-Built from scratch with <a href="https://claude.com/claude-code">Claude Code</a> - engine, renderer, server,
-mod API, AI and tooling, from an empty folder.
-<br><br>
-Quarrowen is an independent project, not affiliated with, endorsed by or connected to Mojang Synergies AB,
-Microsoft or Roblox Corporation. Minecraft is a trademark of Mojang Synergies AB; Roblox is a trademark of
-Roblox Corporation.
+  <p>Quarrowen is an independent project, not affiliated with, endorsed by or connected to Mojang
+  Synergies AB, Microsoft or Roblox Corporation. Minecraft is a trademark of Mojang Synergies AB; Roblox
+  is a trademark of Roblox Corporation.</p>
 </footer>
+
 </div>
+
+
 EOF
 
 echo

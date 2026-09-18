@@ -41,10 +41,13 @@ func setup(mod_api) -> void:
 	# Everyone spawns, and respawns, at the outpost. Without this the world spawn was somewhere else
 	# entirely and dying lost you the valley.
 	api.set_spawn_handler(func(_player):
-		if api.storage.has("outpost"):
-			var at: Array = api.storage.outpost
-			return Vector3(at[0], at[1] + 1, at[2] + 3)
-		return Vector3(0.5, api.surface_y(0, 0) + 1, 0.5))
+		# The valley is built here rather than waiting for player_join, because the spawn position is
+		# chosen first: the very first player used to appear at the world origin and be teleported a
+		# moment later, which meant a flash of the wrong place and a pocket of chunks generated for
+		# nothing. Building it on demand means the first player opens their eyes in the yard.
+		_build_the_valley()
+		var at: Array = api.storage.outpost
+		return Vector3(at[0], at[1] + 1, at[2] + 3))
 	api.on("ui_action", func(ev):
 		if ev.ui_id == "hearthhold:talk" and str(ev.action).begins_with("recruit:"):
 			settlers.recruit(ev.player, int(str(ev.action).get_slice(":", 1))))
@@ -128,7 +131,7 @@ const CAMP_DISTANCE := 150.0
 
 
 ## Builds the valley's two places the first time anyone arrives, and remembers where they are.
-func _build_the_valley(player) -> void:
+func _build_the_valley() -> void:
 	if api.storage.has("outpost"):
 		return
 	var spot := _level_ground_near(Vector3i(0, 0, 0), 48)
@@ -169,7 +172,7 @@ func _level_ground_near(around: Vector3i, radius: int) -> Vector3i:
 func _on_join(ev: Dictionary) -> void:
 	var player = ev.player
 	player.set_creative(false)
-	_build_the_valley(player)
+	_build_the_valley()
 	if api.storage.has("outpost"):
 		var at: Array = api.storage.outpost
 		if ev.first_time:

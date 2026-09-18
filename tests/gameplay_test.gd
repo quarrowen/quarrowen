@@ -3809,7 +3809,7 @@ func _hearthhold() -> void:
 	newcomer.state.position = Vector3(8, 70, 8)
 	server.players[162] = newcomer
 	mod.api.storage.clear()
-	mod._build_the_valley(newcomer)
+	mod._build_the_valley()
 	_check(mod.api.storage.has("outpost") and mod.api.storage.has("camp"), "arriving builds the outpost and the camp")
 	var outpost: Array = mod.api.storage.outpost
 	var camp: Array = mod.api.storage.camp
@@ -3821,7 +3821,7 @@ func _hearthhold() -> void:
 	var found: Array = server.entities.in_radius(Vector3(camp[0], camp[1], camp[2]), 20.0,
 		server.entities.registry.id_of("hearthhold:bramble"))
 	_check(found.size() == 1, "and Bramble is at her camp waiting (%d there)" % found.size())
-	mod._build_the_valley(newcomer)
+	mod._build_the_valley()
 	var again: Array = server.entities.in_radius(Vector3(camp[0], camp[1], camp[2]), 20.0,
 		server.entities.registry.id_of("hearthhold:bramble"))
 	_check(again.size() == 1, "and the valley is not built a second time when somebody else arrives")
@@ -3832,7 +3832,7 @@ func _hearthhold() -> void:
 	kid.player_id = "sam"
 	kid.edit_tokens = 1000.0
 	server.players[163] = kid
-	mod._build_the_valley(kid)
+	mod._build_the_valley()
 	var home: Array = mod.api.storage.outpost
 	var hearth_at := Vector3i(home[0], home[1], home[2])
 	# The outpost's hearth is somewhere in the yard; find it the way a player would - by looking.

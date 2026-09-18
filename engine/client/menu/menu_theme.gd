@@ -1,6 +1,12 @@
 extends RefCounted
 ## The main menu's look: dark glassy panels over the live world, rounded buttons with an accent colour,
 ## readable type. Built in code so it needs no editor resources.
+##
+## Two faces, both open-licensed and shipped in assets/fonts. Nunito Sans carries everything a player
+## reads - it keeps its shape at the twelve pixels an item count lives at. Fredoka is for headings and
+## the name: rounded and warm, the face a child recognises across a room, and soft enough at small sizes
+## that it is deliberately kept away from body text. They are close cousins, so the pair reads as one
+## voice. Before this the game used Godot's default and had no face of its own. (2026-09-18)
 
 const ACCENT := Color(0.36, 0.72, 0.42)
 const ACCENT_HOVER := Color(0.44, 0.8, 0.5)
@@ -16,9 +22,33 @@ const BAD := Color(0.95, 0.45, 0.4)
 const ERROR := Color(0.86, 0.2, 0.18)
 
 
+const BODY_FONT := "res://assets/fonts/NunitoSans.ttf"
+const DISPLAY_FONT := "res://assets/fonts/Fredoka.ttf"
+
+## Loaded once and shared: a Font is a resource, and every label asking for its own copy of a 571 KB file
+## would be a waste of both memory and loading time.
+static var _body: FontFile
+static var _display: FontFile
+
+
+static func body_font() -> FontFile:
+	if _body == null and ResourceLoader.exists(BODY_FONT):
+		_body = load(BODY_FONT)
+	return _body
+
+
+static func display_font() -> FontFile:
+	if _display == null and ResourceLoader.exists(DISPLAY_FONT):
+		_display = load(DISPLAY_FONT)
+	return _display
+
+
 static func build() -> Theme:
 	var theme := Theme.new()
 	theme.default_font_size = 16
+	var body := body_font()
+	if body != null:
+		theme.default_font = body
 	theme.set_color("font_color", "Label", TEXT)
 	theme.set_color("font_color", "Button", TEXT)
 	theme.set_color("font_hover_color", "Button", Color.WHITE)
@@ -102,6 +132,9 @@ static func heading(text: String, size := 26) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", size)
+	var display := display_font()
+	if display != null:
+		label.add_theme_font_override("font", display)
 	return label
 
 
