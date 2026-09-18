@@ -1,7 +1,8 @@
 # Quarrowen at home: three worlds and a hub, on one Linux box with Docker.
 #
 #   cp .env.example .env          # then edit the names
-#   docker compose up -d          # pulls the images CI built
+#   docker compose pull           # the images CI built from the release tag
+#   docker compose up -d
 #   ./link-servers.sh             # lets players travel between the three worlds
 #   docker compose logs -f
 #
@@ -20,10 +21,10 @@
 # See docs/playtest.md for the whole setup (Macs included).
 
 x-world: &world
-  # Pull the image CI published rather than compiling Godot and Rust on the server; `build` is still
-  # here so `docker compose up -d --build` works when testing a change that is not pushed yet.
+  # Always a published image, never a build. This folder is meant to be copied to the server on its own,
+  # without the repository, so there is nothing here to build from - and a `build:` key would make Compose
+  # try to build instead of pull the moment the image was missing, which is exactly the wrong failure.
   image: ${QW_IMAGE:-ghcr.io/quarrowen/quarrowen/server:latest}
-  build: ../..
   restart: unless-stopped
   stop_grace_period: 30s  # the server saves the world on SIGTERM
   network_mode: host
@@ -98,7 +99,6 @@ services:
   # The server list the three worlds announce themselves to.
   hub:
     image: ${QW_HUB_IMAGE:-ghcr.io/quarrowen/quarrowen/hub:latest}
-    build: ../../services/hub
     container_name: quarrowen-hub
     restart: unless-stopped
     network_mode: host

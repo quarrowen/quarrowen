@@ -12,15 +12,17 @@ A family setup: the server runs in Docker on a home Linux machine, and everyone 
 
 ## 1. The server (Ubuntu + Docker)
 
-You need Docker with the Compose plugin (`docker compose version` should work) and git.
+You need Docker with the Compose plugin (`docker compose version` should work). Nothing else: the server
+is a published image, so this machine never compiles anything and does not need the repository.
 
-**Get the code.** The repository is private, so sign in first. The GitHub CLI is the easiest:
+**Get the three files.** They are all the server needs:
 
 ```sh
-sudo apt install gh        # or see https://cli.github.com
-gh auth login
-gh repo clone quarrowen/quarrowen
-cd quarrowen/deploy/server
+mkdir -p ~/quarrowen && cd ~/quarrowen
+base=https://raw.githubusercontent.com/quarrowen/quarrowen/master/deploy/server
+curl -fsSLO "$base/compose.yaml"
+curl -fsSL -o .env.example "$base/.env.example"
+curl -fsSLO "$base/link-servers.sh" && chmod +x link-servers.sh
 ```
 
 **Choose names.** Copy the example settings and edit them:
@@ -36,15 +38,15 @@ nano .env
 - `CREATIONS=approval`: painted skins and hats wait for an admin to approve them before others see them.
 - `CHAT_FILTER=on`: swear words in chat are masked.
 
-**Start it.** The image is built by CI and published to GitHub Packages, so this pulls rather than
-compiles:
+**Start it.** The images are built by CI from each release tag and published to GitHub Packages, so this
+downloads rather than compiles:
 
 ```sh
+docker compose pull
 docker compose up -d
 docker compose logs -f     # Ctrl+C stops watching, not the server
 ```
 
-Add `--build` to compile on this machine instead - needed only for a change that is not pushed yet.
 (If a pull is refused with "denied" or "not found", the package is still private. On GitHub open the
 repository's **Packages** and set both `server` and `hub` to public - package settings, change
 visibility. It only needs doing once each, and public packages have no storage limit.)
@@ -186,11 +188,15 @@ children to `ALLOWLIST` again, or let them join once with it turned off. Old dat
 longer read: on a Mac it stays in `~/Library/Application Support/Godot/app_userdata/Quarrowen`, and on the
 server in whatever volume it was in.
 
-**Updating.** Server and Macs must run the same version. On the server:
+**Updating.** Server and Macs must run the same version - a client is refused by a server on a different
+protocol. The images are tagged per release, and `:latest` follows the newest one, so on the server:
 
 ```sh
-cd quarrowen && git pull && cd deploy/server && docker compose pull && docker compose up -d
+cd ~/quarrowen && docker compose pull && docker compose up -d
 ```
+
+To stay on one release instead, put `QW_IMAGE` and `QW_HUB_IMAGE` in `.env` pinned to a version, e.g.
+`ghcr.io/quarrowen/quarrowen/server:0.40`. Re-download compose.yaml when it changes (rarely).
 
 Then publish the release with `tools/make_release.sh` (it builds the app, the mod zips, the download page
 and the update manifest - see docs/distribution.md); the Macs pick it up by themselves. `tools/package_mac.sh`
