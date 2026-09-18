@@ -6,8 +6,13 @@ of capabilities it does not have yet, in the order that unlocks the most.
 It comes from working backwards: taking the things people build on top of voxel games — the machines,
 the magic, the economies, the dungeons, the storage systems — and asking not "how would we write that"
 but **"what could our engine not express, that whoever built it had to reach past the game to do?"**
-About a hundred such things collapse into eighteen answers, because most of them are different content
-over the same few gaps.
+About a hundred such things collapse into twenty-one answers, because most of them are different
+content over the same few gaps.
+
+**The test each of these has to pass**: could two mods build genuinely *different* things on it, or
+does it bake one game's answer into the engine? A capability is a mechanism — the engine propagates,
+stores, detects and notifies; the mod decides what any of it means. Where something below still fails
+that test, it says so rather than pretending.
 
 Names, recipes, balance and voice are ours throughout. What is taken from the genre is *what a player can
 do*, never what somebody else called it — the engine keeps plain descriptive names for its capabilities
@@ -43,12 +48,25 @@ never learns what electricity is.
 If only one thing after dimensions gets built, it is this. It is the foundation of every machine, every
 pipe, every storage system and every mana pool anyone will ever want to write here.
 
+**Where this does not reach, and it should be decided rather than discovered.** "A quantity that moves"
+assumes something *stored and conserved*, which buffers, fills and runs out. Mechanical power is not
+that shape: rotation is a speed and a twist, it arrives the instant the shaft turns, nothing accumulates
+in the gearbox, and a network with two sources fights rather than adds. A mod wanting gears, shafts and
+windmills cannot build them on this. Either the capability covers propagation-without-storage as a
+second kind of network, or it is written down as a thing the engine will not do — but not left to be
+found out by whoever tries.
+
 ### 3. Signals
 
-Blocks that emit, carry and react to a level, with wires, gates and delays — the wiring layer that
-anything mechanical assumes. The engine calls it `signals`; in the bundled game the material is
-**quickdust**, laid in lines and gathered from **quickstone**, and a block carrying a signal is
-*quickened*. (Quick in the old sense: alive.)
+A block can emit a level, a block can declare itself able to carry one, and a block can be told when the
+level reaching it changes. That is the whole capability, and it is deliberately less than it first
+looked: **gates, delays, inverters and latches are blocks a mod writes**, each one reading its
+neighbours and emitting accordingly. An engine that ships an AND gate has decided what logic looks like,
+which is not its business.
+
+In the bundled game the material is **quickdust**, laid in lines and gathered from **quickstone**, and a
+block carrying a signal is *quickened*. (Quick in the old sense: alive.) Another mod's wiring can look
+nothing like it.
 
 ### 4. Item modifiers
 
@@ -77,49 +95,65 @@ attacks exist; what is missing is a mod scripting a fight without writing a brai
 People who stand somewhere, have a name and a face, hold a conversation and offer something. Bramble is
 one, written by hand; this makes her a capability so a mod can have a hundred.
 
-### 9. Objectives, skills and coin
+### 9. Objectives
 
-Three things that want the same plumbing: **objectives** with steps and rewards (tutorials teach and
-milestones commemorate; this is neither), **experience earned by doing a thing** with levels and perks,
-and **a balance** mods can share so nobody invents money twice.
+Steps, conditions and rewards, given and tracked. Tutorials teach and milestones commemorate; this is
+neither, and a mod should be able to hang a story, a daily errand or a contract on the same frame.
 
-### 10. Claims, companies and keeping the world awake
+### 10. Experience
 
-Areas with an owner and permissions, groups of players who share them, and keeping a place ticking when
-nobody is standing in it. The last is not optional once machines exist.
+A number that goes up when a player does a thing, with thresholds a mod reads. What counts, what the
+levels mean and whether they unlock anything at all is the mod's business — the engine counts and
+remembers.
 
-### 11. Applied effects
+### 11. Balances
+
+A named quantity a player owns, that mods can read and change without agreeing on what it is. Coins,
+reputation, contribution, a guild's standing: the engine stores a number against a player and a name,
+and never learns that one of them is money.
+
+### 12. Claims
+
+An area with an owner and permissions, which the engine consults before an edit. What may be claimed,
+how much, and what it costs are the mod's.
+
+### 13. Companies
+
+Groups of players that other things can be owned by — a claim, a balance, a base. Deliberately separate
+from claims: plenty of servers want one without the other.
+
+### 14. Keeping the world awake
+
+An area that keeps ticking when nobody is standing in it. Small, and not optional once machines exist.
+
+### 15. Applied effects
 
 Food already applies timed modifiers to any stat. This generalises it to anything that can apply an
 effect to anybody, and gives mods a station to brew them at.
 
-### 12. Companions
+### 16. Companions
 
 A creature that follows, is owned, takes instruction and is still there tomorrow.
 
-### 13. Vehicles
+### 17. Vehicles
 
 Rideable entities that carry a player and change how they move.
 
-### 14. Area tools
+### 18. Area tools
 
 Placing or breaking many blocks at once with a preview, respecting permissions and the edit budget.
 Mining a whole vein is the same capability with a different rule for choosing the blocks.
 
-### 15. Text in the world
+### 19. Text in the world
 
 Words that float where a thing is, numbers that fly off a hit, mod-defined corners of the interface, and
 a way to put a live value inside a piece of text.
 
-### 16. Inventories inside things
+### 20. Inventories inside things
 
 An item that contains an inventory, and a container that is the same container wherever you open it.
 
-### 17. Seasons
-
-World state on a longer clock than day and night, which crops, creatures and weather can read.
-
-### 18. Instances
+### 21. Instances
 
 A private copy of a space, entered and left. Much cheaper once dimensions exist, being a dimension with
 a lifetime.
@@ -136,6 +170,11 @@ custom menus, permission tiers, and a looking-glass that names what you are poin
 
 The one decoration idea that is *not* content is textures that join up across neighbouring blocks, which
 is a rendering capability.
+
+**Seasons belong here too**, which was not obvious. They were on the capability list until the question
+was asked properly: a mod already has persistent storage, the world clock, and an event for everything
+that happens in it. A long cycle that crops and creatures read is a number a mod keeps and publishes —
+no engine change. What is genuinely missing is **weather**, and that is listed on its own below.
 
 ## The games and mods to build
 
@@ -160,8 +199,10 @@ Dimensions and networks first; nearly everything assumes one or the other. Signa
 survival game needs wiring on its own account and machines are poor without it. Then item modifiers,
 fluids and multiblocks, which together turn `machines` from a demonstration into a game.
 
-The social half — objectives, skills, coin, claims, companies — depends on none of that and can happen
-whenever it is wanted. It is what a *server* needs rather than what a *world* needs.
+The social half — objectives, experience, balances, claims, companies — depends on none of that and can
+happen whenever it is wanted. It is what a *server* needs rather than what a *world* needs, and each of
+those five is small on its own, which is why they are listed separately: bundled together they looked
+like one large job and put themselves off.
 
 **Weather** is small, visible, blocked by nothing, and does not exist at all. It is the cheapest thing on
 this page.
