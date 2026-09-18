@@ -876,33 +876,33 @@ property actually worth testing is that the join *passed over* every lazy byte w
 the client now counts what it skipped and the test asserts on that. Reproduced by moving the local cache
 aside before re-running - which is the cheap way to get CI's conditions here.
 
-## Parity, and what it needs from the engine (2026-09-19)
+## The roadmap, written down at last (2026-09-19)
 
-Written up properly in **docs/parity.md**. The user had been carrying this since the beginning and it
-was nowhere in the repository - I checked PROGRESS, every doc, every tracked file and the whole git
-history including deleted files, and there was no record of either the parity target or the plugin list
-the capability design was meant to be based on. That is exactly what the "ideas do not evaporate" rule
-exists to stop, and it predates the rule. It is written down now.
+**docs/roadmap.md** is the list of capabilities the engine still needs, in the order that unlocks the
+most. The user had been carrying this since the beginning and it was nowhere in the repository - I
+checked PROGRESS, every doc, every tracked file and the whole git history including deleted files, and
+found no record of it. Exactly what "ideas do not evaporate" exists to stop; it predates the rule.
 
-The target: **vanilla 1.21 parity** (blocks, mobs, plants, biomes, dimensions, bosses) *and* an engine
-that can express what today needs plugins and mods - so an equivalent of Create or MythicMobs is
-buildable here by anyone, without engine changes.
+The method was to work backwards from what people build on top of voxel games - machines, magic,
+economies, dungeons, storage - and ask what the engine could not express. About a hundred such things
+collapse into **eighteen capabilities**, because most are different content over the same few gaps.
+Dimensions and networks first (one "a quantity moves between blocks along a network" capability covers
+power, items, fluids and magic, and is the foundation of some thirty of them), then signals, item
+modifiers, fluids, multiblocks.
 
-The useful result of the analysis is that ~105 plugins and mods collapse to **18 engine capabilities**,
-because most of them are different content over the same few gaps. Ordered by what they unlock:
-dimensions, resource networks (one capability covering energy, items, fluids and mana - about thirty
-mods on the list are this plus content), signals, item modifiers, fluids, multiblocks, mob skills, NPCs,
-quests/skills/economy, claims/teams/chunk loading, applied effects, pets, vehicles, area tools,
-world-anchored text, nested inventories, seasons, instances.
+A useful negative result: a great deal needs **nothing**. Every decoration idea, ore types, larger
+chests, magnets, bins, music blocks, teleport stones, custom menus and permission tiers are content on
+what already exists, and someone could start on them tomorrow.
 
-And a decent number need **nothing**: death chests, menus, permissions, multiverse, cosmetics, the one
-probe, jukebox, waystones, iron chests, ore mods and every decoration mod are content on what exists.
-
-The hundred mods consolidate to ten: base, vanilla, deep, machines, arcana, guild, frontier, kitchen,
-build, hearthhold.
-
-Nothing is a copy. Names, recipes, balance and voice stay ours - what is taken from the genre is what a
-player can *do*, not what somebody else called it.
+**Two kinds of file, on purpose.** `docs/roadmap.md` is public and written entirely in our own
+vocabulary - the engine's capabilities have plain descriptive names (`signals`, `dimensions`,
+`networks`) and the bundled game names its own materials: quickdust and quickstone for the wiring layer,
+the Emberdeep and the Hush for the two new worlds. The research behind it - the specific games, plugins
+and mods studied, and which capability each one implied - is in `docs/parity.local.md`, which
+`.gitignore` keeps out of a public repository under the user's own name. (The first draft named all of
+them in the public doc, and the user caught it: "we dont want to clash with minecraft, mojang,
+microsoft, roblox". A list of a hundred third-party mods in a public repo reads as a plan to clone them,
+whatever the intent, and the analysis stands perfectly well without it.)
 
 ## Open threads (2026-09-18)
 
