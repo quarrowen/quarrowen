@@ -758,6 +758,36 @@ Two more things learned while building it, both now guarded:
   suite now walks every script under `engine/` and checks it parses (147 of them, a second or two). Proved
   by putting the bug back: it names `engine/client/game_client.gd` straight away.
 
+**Wanted: an AI audio phase** (the user, 2026-09-18: "ideally i wanna look into AI generated music...
+AI generated music + sound fx as well"). Agreed as a dedicated phase, not started. The thinking so far,
+so it does not have to be had again:
+
+- **It is tooling, not runtime.** A server generating music on demand means latency, cost, an API key on
+  a family homelab and a kids' server phoning a third party. The pipeline produces committed `.ogg`
+  files exactly as `generate_textures.gd` produces PNGs, and the engine never knows AI was involved.
+- **The engine half is layered music, and it is worth doing on its own.** Today a track is one file. The
+  capability wanted is stems with independent gains driven by game state - `{base, night, danger,
+  hearth}` fading against each other - which is what makes a soundtrack feel responsive rather than like
+  a radio in another room. It is also what AI is unusually good at supplying ("same key, same tempo,
+  just the low strings" is a prompt; asking a composer for eleven variations is a commission). Without
+  the layers, AI music is only cheaper placeholders. **Start here** - it is testable, mod-facing, and
+  useful whatever fills it.
+- **Licensing is a different risk from CC0, and model choice is the lever.** Generator terms vary on who
+  owns the output and whether commercial use is granted; training-data litigation is unresolved; some
+  open *weights* are noncommercial even where the code is permissive. A model trained on a library its
+  owner licensed is a materially different position from one trained on scraped commercial music, and
+  that matters more than output quality. This area moves fast - read the current terms at the time, do
+  not trust a remembered summary. The mandatory `attribution` field carries model, version, date and
+  prompt, so anything can be identified and regenerated if a model's status changes.
+- **Generated clips do not loop.** The seam measurement written for the placeholder tracks (the jump at
+  the loop point against the largest ordinary step in the waveform) becomes the pipeline's QA gate.
+- **Sound effects should be hybrid.** AI is weaker at short effects than at music: curated CC0 is better
+  and cheaper for footsteps, clicks and page turns. AI earns its place on the characterful ones -
+  creature voices, ambience beds, the Colossus, Bramble - which are exactly what no generic pack has.
+- **The bar is the children, not a measurement.** Nothing in this project can hear. Loop seams, file
+  sizes and licences are checkable; whether the valley feels like somewhere worth lighting a fire is
+  not. Build a cheap A/B step into the loop: two candidates, play both, let them choose.
+
 **Still owed on audio:** real sound effects. CC0 only (Kenney, or Freesound filtered to CC0) with a
 CREDITS.md giving source, licence and URL per file even where CC0 asks for nothing. Not started - it
 means fetching third-party assets, which is worth agreeing before doing. Ambient sound (wind, drips,
