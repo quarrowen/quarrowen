@@ -691,6 +691,22 @@ public idea returns. Full reasoning was in the review; the short version:
 - The imported-skin report turned out to be the test harness overwriting the player's identity, not a UGC
   bug. Nothing is owed there beyond what was fixed.
 
+## Alpha 4.3 (0.40.3)
+
+Protocol stays 39: nothing the client and server must agree on has changed, so a 0.40.2 client and a
+0.40.3 server still talk to each other.
+
+- **The game has a face.** Fredoka for headings and the name, Nunito Sans for everything a player reads.
+  It used Godot's default until now, which gave it no character of its own.
+- **F1 hides the interface**, for showing somebody what you built.
+- **A Close button closes** - the charter board no longer traps a player until they quit the game.
+- **Two security fixes**: a client that flooded the server could throw everyone off it, and one malformed
+  friend code could permanently brick the hub.
+- **The map is quick**, and the wheel zooms it instead of changing the hotbar hidden behind it.
+- **Hearthhold puts the first player in the yard**, rather than at the world origin and then teleporting.
+- The download page is rebuilt around pictures of the game, in the game's own colours and faces.
+- The test suite no longer writes into the player's own settings and identity.
+
 ## Seen while taking screenshots (2026-09-18)
 
 16. **Hearthhold shows vanilla's panel.** "Vanilla Sandbox - Creative mode - /spawn /gamemode survival"

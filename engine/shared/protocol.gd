@@ -8,7 +8,7 @@ extends RefCounted
 const VERSION := 39
 ## Human-readable release shown in version mismatch messages.
 const GAME_NAME := "Quarrowen"
-const GAME_VERSION := "0.40.2"
+const GAME_VERSION := "0.40.3"
 ## The mod API's semantic version: mods declare what they work with in mod.json ("engine": "^1.0").
 ## Bump the minor version when the API gains things, the major when something mods use changes.
 const MOD_API_VERSION := "1.0.0"
