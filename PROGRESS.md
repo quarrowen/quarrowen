@@ -763,6 +763,32 @@ CREDITS.md giving source, licence and URL per file even where CC0 asks for nothi
 means fetching third-party assets, which is worth agreeing before doing. Ambient sound (wind, drips,
 water) stays positional and mod-side; that is a different problem from music and is also not started.
 
+## The tests were still writing into the player's folder (2026-09-18)
+
+Found while chasing a CI failure, by checking which files a test run had touched. `project.godot` sets
+`use_custom_user_dir`, so `user://` from this checkout **is** the installed app's folder. The three worst
+paths were fixed in the morning one at a time - settings, identity, worlds - and the rest went on
+quietly: the asset cache, the unpacked-mod cache, the mods folder, the pinned recipe, and Godot's own
+log file.
+
+Nothing lost this time (all of it disposable), but it is the same bug coming back, and it came back
+*because* the fix was per-path. So now there is one mechanism: `engine/shared/user_paths.gd`, and
+`QW_USER_DIR` moves everything under it. Godot's own logger is a project setting applied before any
+script runs, so the harness passes `--log-file` as well. Worlds, creations and identity keep their own
+named overrides, because losing one of those is a different kind of bad from losing a cache.
+
+Verified the way the last one was: 3614 files in the player's folder, checksummed before and after a
+full test run, byte-identical. And the *mechanism* is now asserted in the suite (`_test_isolation`), so
+the next path that forgets is caught by a test rather than by somebody losing something.
+
+## A CI-only failure, from an assertion that was wrong rather than code that was (2026-09-18)
+
+The new end-to-end music check asserted "the join download was smaller than the music". That holds with
+a warm content cache and not with a cold one, so it passed here and failed on CI at 1.4 MB vs 226 KB. The
+property actually worth testing is that the join *passed over* every lazy byte whatever was on disk, so
+the client now counts what it skipped and the test asserts on that. Reproduced by moving the local cache
+aside before re-running - which is the cheap way to get CI's conditions here.
+
 ## Open threads (2026-09-18)
 
 Everything discussed and not yet done, so none of it lives only in a conversation.

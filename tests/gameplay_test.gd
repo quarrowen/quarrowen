@@ -11,6 +11,9 @@ const SoundRegistry = preload("res://engine/shared/sound_registry.gd")
 const Loot = preload("res://engine/server/loot.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
 const MusicRegistryScript = preload("res://engine/shared/music_registry.gd")
+const UserPaths = preload("res://engine/shared/user_paths.gd")
+const ContentCacheScript = preload("res://engine/client/content_cache.gd")
+const ModLoaderScript = preload("res://engine/server/mod_loader.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 const StationSessions = preload("res://engine/server/station_sessions.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
@@ -67,6 +70,7 @@ func _ready() -> void:
 	await _fishing()
 	await _music()
 	_scripts_compile()
+	_test_isolation()
 	await _loot()
 	_api_docs()
 	_creations()
@@ -3333,7 +3337,7 @@ func _mod_index() -> void:
 	_write_mod(source.path_join("handy"), {"id": "handy", "name": "Handy", "version": "1.2.0", "engine": "^1.0", "kind": "addon"})
 	var zip_path := ProjectSettings.globalize_path(root.path_join("handy-1.2.0.zip"))
 	_check(Loader.pack(ProjectSettings.globalize_path(source.path_join("handy")), zip_path) == OK, "a mod packs into a zip to install from")
-	var target: String = Loader.USER_MODS.path_join("handy")
+	var target: String = Loader.user_mods().path_join("handy")
 	_check(Catalog.install_file(zip_path, "handy").is_empty() and FileAccess.file_exists(target.path_join("mod.json")),
 		"installing a mod puts it in the player's own mods folder")
 	_check(not Catalog.install_file(zip_path, "something_else").is_empty(), "a package holding a different mod than the list promised is refused")
@@ -3712,6 +3716,18 @@ func _cooking() -> void:
 ## minutes apart, and the message says "nonexistent function 'new'" rather than naming the line.
 ## (A `--check-only --script` run reports success on a file that does not parse, so it cannot be used
 ## for this - 2026-09-18.)
+## The suite must not write into the player's own folder. `project.godot` sets use_custom_user_dir, so
+## `user://` from this checkout *is* the installed app's folder - running the tests used to overwrite the
+## player's identity and settings, and after those were fixed one at a time it went on filling their
+## asset cache and unpacked-mod cache and resetting their pinned recipe. Each fix was a path; this checks
+## the mechanism, so the next path that forgets is caught here instead of by somebody losing something.
+func _test_isolation() -> void:
+	_check(UserPaths.redirected(), "the suite is redirected out of the player's folder (QW_USER_DIR)")
+	for pair in [["assets cache", ContentCacheScript.dir()], ["unpacked mods", ModLoaderScript.cache_dir()],
+			["the mods folder", ModLoaderScript.user_mods()], ["crafting pins", UserPaths.path("crafting_pins.cfg")]]:
+		_check(not str(pair[1]).begins_with("user://"), "%s is not in the player's folder (%s)" % pair)
+
+
 func _scripts_compile() -> void:
 	var bad := []
 	var checked := 0

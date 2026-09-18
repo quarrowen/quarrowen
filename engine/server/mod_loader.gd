@@ -18,8 +18,17 @@ extends RefCounted
 const Semver = preload("res://engine/shared/semver.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
 const PACKAGE_EXTENSIONS := ["zip"]
-const CACHE_DIR := "user://mod_cache"
-const USER_MODS := "user://mods"
+const UserPaths = preload("res://engine/shared/user_paths.gd")
+
+
+## Unpacked mods and the player's own mods folder. QW_USER_DIR moves both, so a test run does not
+## unpack its fixtures into the player's folder.
+static func cache_dir() -> String:
+	return UserPaths.path("mod_cache")
+
+
+static func user_mods() -> String:
+	return UserPaths.path("mods")
 ## Manifest keys the engine reads (others are reported by the validator as possible typos).
 const KNOWN_KEYS := ["id", "name", "version", "description", "authors", "license", "homepage", "kind", "main", "engine",
 	"depends", "optional_depends", "conflicts", "tags", "icon"]
@@ -44,8 +53,8 @@ static func search_dirs(configured: PackedStringArray) -> PackedStringArray:
 	for candidate in [exe_dir.path_join("mods"), exe_dir.path_join("../Resources/mods").simplify_path()]:
 		if DirAccess.dir_exists_absolute(candidate) and not dirs.has(candidate):
 			dirs.append(candidate)
-	if DirAccess.dir_exists_absolute(USER_MODS):
-		dirs.append(USER_MODS)
+	if DirAccess.dir_exists_absolute(user_mods()):
+		dirs.append(user_mods())
 	dirs.append("res://mods")
 	return dirs
 
@@ -53,7 +62,7 @@ static func search_dirs(configured: PackedStringArray) -> PackedStringArray:
 ## Where the game's "Create a mod" puts new mods: the project's mods folder when running from the editor
 ## or source, otherwise user://mods.
 static func creation_dir() -> String:
-	return ProjectSettings.globalize_path("res://mods") if not OS.has_feature("template") else ProjectSettings.globalize_path(USER_MODS)
+	return ProjectSettings.globalize_path("res://mods") if not OS.has_feature("template") else ProjectSettings.globalize_path(user_mods())
 
 
 ## Returns id -> manifest for every valid mod folder or package in `dirs`. Manifests gain `dir` (and
@@ -230,7 +239,7 @@ static func unpack(package_path: String) -> Dictionary:
 	ctx.update(FileAccess.get_file_as_bytes(package_path))
 	var hash := ctx.finish().hex_encode().left(12)
 	var id := str(manifest.id)
-	var dir := CACHE_DIR.path_join("%s-%s-%s" % [id, str(manifest.get("version", "0.0.0")).validate_filename(), hash]).path_join(id)
+	var dir := cache_dir().path_join("%s-%s-%s" % [id, str(manifest.get("version", "0.0.0")).validate_filename(), hash]).path_join(id)
 	# mod.json is both the manifest and the "this was unpacked" marker, so it is written last: a run that
 	# dies halfway leaves no marker and is unpacked again rather than being used half-finished.
 	if not FileAccess.file_exists(dir.path_join("mod.json")):

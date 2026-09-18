@@ -51,7 +51,10 @@ func _run() -> void:
 			if c._manifest[name].get("lazy", false):
 				music_bytes += int(c._manifest[name].size)
 		_check(music_bytes > 100000, "the music is real and sizeable (%d bytes)" % music_bytes)
-		_check(c._download_total < music_bytes, "and none of it was in the join download (%d waited for, %d lazy)" % [c._download_total, music_bytes])
+		# Not "the join download was small" - that only holds with a warm cache, and CI's is cold. The
+		# property is that the join *passed over* every lazy byte, whatever was already on disk.
+		_check(c.lazy_bytes_skipped == music_bytes,
+			"and the join passed over every byte of it (%d skipped of %d)" % [c.lazy_bytes_skipped, music_bytes])
 		# The server puts everyone on a track within five seconds (vanilla's timer), and the client then
 		# fetches it. Either it is playing, or it is still on its way - both mean the lane works.
 		var got := await _wait_until(func(): return c._music.playing >= 0, 25.0)

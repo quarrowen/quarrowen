@@ -71,7 +71,7 @@ const EatingVisuals = preload("res://engine/client/eating_visuals.gd")
 const ItemIcons = preload("res://engine/client/item_icons.gd")
 const Assembly = preload("res://engine/shared/assembly.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
-const PINS_PATH := "user://crafting_pins.cfg"
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 const ItemMesh = preload("res://engine/client/avatar/item_mesh.gd")
 const ViewModel = preload("res://engine/client/avatar/view_model.gd")
 
@@ -155,6 +155,9 @@ var _render_offset := Vector3.ZERO
 var _correction_count := 0
 
 var _manifest := {}  # asset name -> {hash, size}
+## Bytes the join deliberately did not wait for. Counted whether or not they were already cached, so it
+## says what the join *decided* rather than what happened to be on disk - which is the thing to test.
+var lazy_bytes_skipped := 0
 var _downloads := {}  # hash -> PackedByteArray being received
 ## Lazy assets being fetched while playing: hash -> {buffer, callbacks}. Separate from _downloads so a
 ## slow music track can never be mistaken for part of the join and stall the progress bar.
@@ -510,6 +513,7 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 		# A lazy asset is listed but not waited for. Music is megabytes; a join that downloads the
 		# soundtrack first is a join a child gives up on.
 		if lazy:
+			lazy_bytes_skipped += size
 			continue
 		if not ContentCache.has(hash) and not _downloads.has(hash):
 			_downloads[hash] = PackedByteArray()
@@ -2470,16 +2474,16 @@ func lookup_recipes(item: int, mode: String) -> void:
 func pin_recipe(index: int) -> void:
 	_crafting_screen.pinned = index
 	var cfg := ConfigFile.new()
-	cfg.load(PINS_PATH)
+	cfg.load(UserPaths.path("crafting_pins.cfg"))
 	cfg.set_value("pins", "%s:%d" % [server_address, server_port], recipes.recipes[index].id if index >= 0 else "")
-	cfg.save(PINS_PATH)
+	cfg.save(UserPaths.path("crafting_pins.cfg"))
 	_crafting_screen.refresh()
 	_refresh_pin()
 
 
 func _load_pin() -> void:
 	var cfg := ConfigFile.new()
-	cfg.load(PINS_PATH)
+	cfg.load(UserPaths.path("crafting_pins.cfg"))
 	_crafting_screen.pinned = recipes.index_of(String(cfg.get_value("pins", "%s:%d" % [server_address, server_port], "")))
 	_refresh_pin()
 

@@ -61,7 +61,7 @@ static func kind_of(manifest: Dictionary) -> String:
 static func is_removable(dir: String) -> bool:
 	if dir.is_empty():
 		return false
-	var user_mods := ProjectSettings.globalize_path(ModLoader.USER_MODS).simplify_path()
+	var user_mods: String = ProjectSettings.globalize_path(ModLoader.user_mods()).simplify_path()
 	return ProjectSettings.globalize_path(dir).simplify_path().begins_with(user_mods)
 
 
@@ -183,13 +183,13 @@ static func install_file(package_path: String, expect_id := "") -> String:
 		return "That package holds '%s', not '%s'" % [id, expect_id]
 	# The copy is built beside the installed one and swapped in only once it is whole, so a failure
 	# halfway through an update leaves the working version in place instead of nothing at all.
-	var target := ModLoader.USER_MODS.path_join(id)
+	var target: String = ModLoader.user_mods().path_join(id)
 	var staged := target + ".new"
 	_remove_tree(staged)
 	DirAccess.make_dir_recursive_absolute(staged)
 	if not _copy_tree(unpacked.dir, staged):
 		_remove_tree(staged)
-		return "Could not put %s into %s" % [id, ProjectSettings.globalize_path(ModLoader.USER_MODS)]
+		return "Could not put %s into %s" % [id, ProjectSettings.globalize_path(ModLoader.user_mods())]
 	var previous := target + ".old"
 	_remove_tree(previous)
 	if DirAccess.dir_exists_absolute(target) and DirAccess.rename_absolute(ProjectSettings.globalize_path(target), ProjectSettings.globalize_path(previous)) != OK:
@@ -198,7 +198,7 @@ static func install_file(package_path: String, expect_id := "") -> String:
 	if DirAccess.rename_absolute(ProjectSettings.globalize_path(staged), ProjectSettings.globalize_path(target)) != OK:
 		DirAccess.rename_absolute(ProjectSettings.globalize_path(previous), ProjectSettings.globalize_path(target))
 		_remove_tree(staged)
-		return "Could not put %s into %s" % [id, ProjectSettings.globalize_path(ModLoader.USER_MODS)]
+		return "Could not put %s into %s" % [id, ProjectSettings.globalize_path(ModLoader.user_mods())]
 	_remove_tree(previous)
 	return ""
 
@@ -206,7 +206,7 @@ static func install_file(package_path: String, expect_id := "") -> String:
 ## Takes an installed mod off this computer. Only mods in user://mods may be removed - the ones inside the
 ## app come back with every update anyway. Returns "" or the problem.
 static func remove(id: String) -> String:
-	var found := ModLoader.discover(PackedStringArray([ModLoader.USER_MODS]))
+	var found := ModLoader.discover(PackedStringArray([ModLoader.user_mods()]))
 	if not found.has(id):
 		return "%s was not installed here (mods that come with the game cannot be removed)" % id
 	var dir := str(found[id].dir)

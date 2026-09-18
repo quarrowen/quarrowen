@@ -36,9 +36,16 @@ export QW_IDENTITY_DIR="$WORK/identity"
 # And anything a test client writes as "its worlds". The servers set QW_DATA_DIR inline for themselves,
 # which takes precedence over this, so they are unaffected.
 export QW_DATA_DIR="$WORK/client-data"
+# And everything else under user://. `project.godot` sets use_custom_user_dir, so a Godot run from this
+# checkout writes to the very folder the installed app uses - the tests were filling the player's asset
+# cache and unpacked-mod cache and resetting their pinned recipe. Overriding the three worst paths one
+# at a time is what let this come back, so QW_USER_DIR moves the lot (engine/shared/user_paths.gd).
+export QW_USER_DIR="$WORK/user"
+# Godot's own log file is a project setting, applied before any script runs, so it needs the flag.
+GODOT_LOG=(--log-file "$WORK/godot/test.log")
 echo "godot: $GODOT"
 echo "logs:  $WORK"
-"$GODOT" --headless --path . --import >"$WORK/import.log" 2>&1
+"$GODOT" --headless "${GODOT_LOG[@]}" --path . --import >"$WORK/import.log" 2>&1
 
 SERVER_GENERATION=0
 
@@ -47,7 +54,7 @@ start_server() { # name mods port
   [ "$SERVER_GENERATION" -gt 0 ] && log="$WORK/server_$1_gen$SERVER_GENERATION.log"
   QW_DATA_DIR="$WORK/data" QW_MODS="$2" QW_WORLD="$1" QW_PORT="$3" QW_SEED=42 QW_MAX_PLAYERS=16 \
     QW_ADMINS="Admin,Bot_guild,Bot_industry,Bot_vanilla,Bot_combat" \
-    "$GODOT" --headless --path . res://scenes/server.tscn >"$log" 2>&1 &
+    "$GODOT" --headless "${GODOT_LOG[@]}" --path . res://scenes/server.tscn >"$log" 2>&1 &
   SERVERS+=($!)
 }
 
@@ -113,7 +120,7 @@ run_scene() { # name log scene [user args...]
     local run_log="$log"
     [ "$REPEAT" -gt 1 ] && run_log="${log%.log}_run$i.log"
     if [ "$REPEAT" -gt 1 ] && [ "${NEEDS_FRESH_WORLD:-0}" = "1" ] && [ "$i" -gt 1 ]; then restart_servers; fi
-    timeout 240 "$GODOT" --headless --path . "$scene" -- "$@" >"$run_log" 2>&1
+    timeout 240 "$GODOT" --headless "${GODOT_LOG[@]}" --path . "$scene" -- "$@" >"$run_log" 2>&1
     local code=$?
     local label="$name"
     [ "$REPEAT" -gt 1 ] && label="$name #$i"
@@ -180,7 +187,7 @@ for mod_dir in mods/*/ examples/*/; do
   [ -f "$mod_dir/mod.json" ] || continue
   mod="$(basename "$mod_dir")"
   selected "validate:$mod" || continue
-  timeout 240 "$GODOT" --headless --path . res://tools/mod_tool.tscn -- validate "${mod_dir%/}" >"$WORK/validate_$mod.log" 2>&1
+  timeout 240 "$GODOT" --headless "${GODOT_LOG[@]}" --path . res://tools/mod_tool.tscn -- validate "${mod_dir%/}" >"$WORK/validate_$mod.log" 2>&1
   code=$?
   grep -h "^\[mod_tool\] \(ERROR\|WARNING\)" "$WORK/validate_$mod.log" | head -5
   record "validate:$mod" $code "$WORK/validate_$mod.log"

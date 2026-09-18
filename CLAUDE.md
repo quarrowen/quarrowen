@@ -29,6 +29,15 @@ else entirely.
 newer and stops if that build fails. It did not always: a Rust file that did not compile once left the old
 library in place and the suite reported on physics nobody was writing any more.
 
+## The tests must not touch the player's folder
+
+`project.godot` sets `use_custom_user_dir`, so `user://` from this checkout **is** the installed app's
+folder. Anything the suite writes there lands in somebody's real game. This has bitten three times: it
+took the player's identity and settings, and later filled their caches and reset a pinned recipe.
+
+New client paths go through `engine/shared/user_paths.gd`, never a bare `user://`. `tools/run_tests.sh`
+sets `QW_USER_DIR`, and a test asserts the mechanism works rather than trusting it.
+
 ## Running the tests
 
 Both suites, always. The second one exercises the GDScript fallbacks, which are what run where there is no

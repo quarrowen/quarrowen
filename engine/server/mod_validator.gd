@@ -102,7 +102,7 @@ static func check_manifest(mod_dir: String) -> Array:
 	var m := ModLoader.read_manifest(mod_dir)
 	if m.has("error") or not (raw is Dictionary):
 		return [_issue("error", m.get("error", "mod.json is not an object"), path)]
-	if mod_dir.get_file() != m.id and not mod_dir.get_base_dir().begins_with(ModLoader.CACHE_DIR):
+	if mod_dir.get_file() != m.id and not mod_dir.get_base_dir().begins_with(ModLoader.cache_dir()):
 		issues.append(_issue("error", "the folder is '%s' but the id is '%s'; they must match" % [mod_dir.get_file(), m.id], path))
 	for key in raw:
 		if not key in ModLoader.KNOWN_KEYS:
