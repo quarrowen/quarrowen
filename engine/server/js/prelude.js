@@ -305,6 +305,9 @@
      *  by a lake. {sound, every: [min, max], sky, depth: [low, high], biome, near, radius, chance,
      *  volume}. Returns "" or why it was refused. */
     registerAmbience: (options) => host("registerAmbience", options),
+    /** The role players start in. "visitor" (chat and interact, no build) makes a world to walk
+     *  through rather than one to change. Returns "" or why not. */
+    setDefaultRole: (role) => host("setDefaultRole", role),
     isGame: () => host("isGame"),
     /** Is this block id a liquid? */
     isLiquid: (block) => host("isLiquid", block),

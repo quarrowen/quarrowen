@@ -312,6 +312,25 @@ func register_ambience(options: Dictionary) -> String:
 	return error
 
 
+## The role every player has unless somebody gives them another. This is how a mod makes a story: the
+## stock "visitor" role is chat and interact with no build, so the valley stays as its author left it
+## while doors, chests and levers still work.
+##
+##   api.set_default_role("visitor")   # a world to walk through, not one to change
+##
+## Story mode needed no new capability in the end: "build" has been a permission since roles existed,
+## the engine already refuses a break or a place without it, tells the player why (once every three
+## seconds, not once a click) and puts the block back on the client that predicted it. All that was
+## missing was a mod being able to say which role people start in. Returns "" or why not.
+func set_default_role(role_name: String) -> String:
+	if not _server.roles.exists(role_name):
+		var why := "there is no role called '%s'" % role_name
+		push_error("[%s] set_default_role: %s" % [mod_id, why])
+		return why
+	_server.roles.default_role = role_name
+	return ""
+
+
 ## Everyone playing on this server right now, as an Array of players.
 func players() -> Array:
 	return _server.players.values()

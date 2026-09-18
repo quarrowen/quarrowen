@@ -933,8 +933,31 @@ Everything discussed and not yet done, so none of it lives only in a conversatio
   test had built. It now asserts what the float is *sitting on*, which is the property that matters.
 - *Hearthhold phase 2*: the other settlers (Cobb, Wren, Odd, Mab, Tam), night pressure, the keeper and
   the finale. Phase 1 is the valley, Bramble, and the tutorial that leads into it.
-- *Story mode* as an engine capability, with structure schemas and maps-as-world-saves. The three want
-  doing together; none is much use alone.
+- *Story mode* - **two of the three pieces done** (2026-09-18):
+  - ~~*Structure schemas*~~ - `mod_validator.check_structures` at pack time, and `add_template` now says
+    what it dropped at load time. Five silent failures made loud: a palette name nothing registers, a
+    block outside the declared size (which was silently *kept* and stamped), a malformed entry, data
+    keyed to nothing, and a data key that is not coordinates. Verified against all twelve bundled
+    structures first, so a complaint means something is wrong rather than the rule being too strict.
+  - ~~*Maps as world saves*~~ - `"world": "world.zip"` in mod.json, restored on the first start of a
+    world using that mod. No new format, as predicted: a world save already is a portable map, so
+    authoring is play, build, `/backup`, drop the archive in your mod. The editor is the game and the
+    distribution channel is the mod list.
+    Two rules that do not bend: it runs **only** when there is no `world.json`, so a world somebody has
+    played is never overwritten by a mod update; and a missing archive **stops the server** rather than
+    quietly generating terrain a story's triggers do not fit. Both are tested.
+  - ~~*Story mode itself*~~ - done, and it **needed no new capability**, which the plan had assumed it
+    would. `build` has been a permission since roles existed: the engine already refuses a break or a
+    place without it, says why (rate-limited to once every three seconds rather than once a click), and
+    puts the block back on the client that predicted it. The stock `visitor` role is already the right
+    shape - chat and interact, no build - so doors and chests keep working while the valley stays as its
+    author left it. All that was missing was a mod being able to say which role people start in, so
+    `api.set_default_role("visitor")` is the whole of story mode.
+    **The test nearly proved the wrong thing.** A player built by hand in a test never goes through
+    `_spawn_player`, which is what hands out edit tokens - so the first two assertions passed while
+    actually demonstrating "a player with no edit tokens cannot edit". The control assertion ("and it is
+    the permission doing it, not something else") is what caught it. A test that passes for the wrong
+    reason is worse than one that fails, and only the control tells them apart.
 - Leftovers from the content review: cosmetic milestones beyond the Colossus crown, and a use for the
   trinket slot beyond the three charms.
 

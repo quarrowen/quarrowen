@@ -47,6 +47,7 @@ static func validate(mod_dir: String, parent: Node, search_dirs := PackedStringA
 	issues.append_array(_log_issues(server, manifest.id))
 	if err == OK:
 		issues.append_array(check_references(server, manifest.id))
+		issues.append_array(check_structures(server, mod_dir))
 		issues.append_array(check_unused_files(server, mod_dir, manifest))
 	server.dev_log.close()
 	parent.remove_child(server)
@@ -156,6 +157,103 @@ static func check_files(mod_dir: String, manifest: Dictionary) -> Array:
 			issues.append(_issue("hint", "%s: lowercase names without spaces avoid case problems on Linux servers" % rel, path))
 		if path.get_extension().to_lower() in TEXTURE_EXTENSIONS and Image.load_from_file(path) == null:
 			issues.append(_issue("error", "%s is not a readable image" % rel, path))
+	return issues
+
+
+## The structure templates in `structures/*.json`.
+##
+## These are the one kind of content nothing looked at, and they fail in the quietest way there is:
+## `Structures.add_template` keeps what it understands and drops the rest, returning true either way. A
+## block naming a palette entry that was never registered simply is not placed, a `data` key that is not
+## three coordinates is thrown away, and a block outside the declared size is kept and stamped somewhere
+## it should not be. None of that says anything at load; you find out when a chunk generates wrong, if
+## you ever notice at all. (2026-09-18)
+##
+## Checked against every bundled structure first: all twelve obey these rules already, so a complaint
+## here means something is actually wrong rather than that the rule is too strict.
+const MAX_STRUCTURE_SIDE := 64
+const MAX_STRUCTURE_BLOCKS := 100000
+
+static func check_structures(server, mod_dir: String) -> Array:
+	var issues := []
+	var dir := DirAccess.open(mod_dir.path_join("structures"))
+	if dir == null:
+		return issues
+	for file in dir.get_files():
+		if file.get_extension().to_lower() != "json":
+			continue
+		var path := mod_dir.path_join("structures").path_join(file)
+		var doc = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if not (doc is Dictionary):
+			issues.append(_issue("error", "%s is not a JSON object" % file, path))
+			continue
+		var size = doc.get("size")
+		if not (size is Array) or (size as Array).size() != 3:
+			issues.append(_issue("error", "%s: 'size' must be [x, y, z]" % file, path))
+			continue
+		var sx := int(size[0])
+		var sy := int(size[1])
+		var sz := int(size[2])
+		if sx < 1 or sy < 1 or sz < 1:
+			issues.append(_issue("error", "%s: size %dx%dx%d has a side of zero" % [file, sx, sy, sz], path))
+			continue
+		if maxi(sx, maxi(sy, sz)) > MAX_STRUCTURE_SIDE:
+			issues.append(_issue("error", "%s: size %dx%dx%d is longer than %d on a side" % [file, sx, sy, sz, MAX_STRUCTURE_SIDE], path))
+
+		var palette = doc.get("palette")
+		if not (palette is Array):
+			issues.append(_issue("error", "%s: 'palette' must be a list of block names" % file, path))
+			continue
+		for i in (palette as Array).size():
+			var name := str(palette[i])
+			if name != "engine:air" and server.registry.id_of(name) <= 0:
+				issues.append(_issue("error", "%s: palette %d is '%s', which no loaded mod registers" % [file, i, name], path))
+
+		var blocks = doc.get("blocks")
+		if not (blocks is Array):
+			issues.append(_issue("error", "%s: 'blocks' must be a list" % file, path))
+			continue
+		if (blocks as Array).size() > MAX_STRUCTURE_BLOCKS:
+			issues.append(_issue("error", "%s: %d blocks is over the %d limit" % [file, (blocks as Array).size(), MAX_STRUCTURE_BLOCKS], path))
+		var placed := {}
+		var malformed := 0
+		var outside := 0
+		var bad_index := 0
+		for b in blocks:
+			if not (b is Array) or (b as Array).size() < 4:
+				malformed += 1
+				continue
+			var x := int(b[0])
+			var y := int(b[1])
+			var z := int(b[2])
+			var index := int(b[3])
+			if x < 0 or y < 0 or z < 0 or x >= sx or y >= sy or z >= sz:
+				outside += 1
+				continue
+			if index < 0 or index >= (palette as Array).size():
+				bad_index += 1
+				continue
+			placed["%d,%d,%d" % [x, y, z]] = true
+		if malformed > 0:
+			issues.append(_issue("error", "%s: %d block entries are not [x, y, z, palette index]" % [file, malformed], path))
+		if outside > 0:
+			issues.append(_issue("error", "%s: %d blocks are outside the declared %dx%dx%d" % [file, outside, sx, sy, sz], path))
+		if bad_index > 0:
+			issues.append(_issue("error", "%s: %d blocks use a palette entry that does not exist" % [file, bad_index], path))
+
+		var data = doc.get("data", {})
+		if data != null and not (data is Dictionary):
+			issues.append(_issue("error", "%s: 'data' must be an object keyed \"x,y,z\"" % file, path))
+		elif data is Dictionary:
+			for key in data:
+				var parts := str(key).split(",")
+				if parts.size() != 3:
+					issues.append(_issue("error", "%s: data key '%s' is not \"x,y,z\"" % [file, key], path))
+				elif not placed.has("%d,%d,%d" % [int(parts[0]), int(parts[1]), int(parts[2])]):
+					# A chest's loot table attached to thin air: the data is kept and nothing ever reads it.
+					issues.append(_issue("error", "%s: data at '%s' has no block there" % [file, key], path))
+				elif not (data[key] is Dictionary):
+					issues.append(_issue("error", "%s: data at '%s' is not an object" % [file, key], path))
 	return issues
 
 

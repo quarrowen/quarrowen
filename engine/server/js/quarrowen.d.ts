@@ -462,6 +462,8 @@ declare module "quarrowen" {
       biome?: string | string[]; near?: string | string[]; radius?: number; chance?: number;
       volume?: number; pitch?: number;
     }): string;
+    /** The role players start in; "visitor" is chat and interact with no build. Returns "" or why not. */
+    setDefaultRole(role: string): string;
     isGame(): boolean;
     /** Is this block id a liquid (water, lava, anything a mod declares `liquid: true`)? */
     isLiquid(block: number): boolean;

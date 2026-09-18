@@ -309,6 +309,11 @@ func start(config: Dictionary) -> Error:
 			printerr("[server] Restore failed: %s" % restore_error)
 			return FAILED
 		print("[server] Restored world '%s' from %s" % [world_name, archive.get_file()])
+	var map_error := _install_map(config)
+	if not map_error.is_empty():
+		start_error = map_error
+		printerr("[server] " + map_error)
+		return FAILED
 	DirAccess.make_dir_recursive_absolute(_save_dir + "/chunks")
 	dev_log.open_file(_save_dir)
 	ugc.load_store(_save_dir)
@@ -425,6 +430,39 @@ func _exit_tree() -> void:
 
 
 # --- Mods ---------------------------------------------------------------------------------------
+
+## An authored world shipped by a mod: a valley someone built for a story rather than terrain the
+## generator made. Restored on the **first** start of a world using that mod, and never afterwards.
+##
+## No new format was needed for this, which is the good part. A world save already *is* a portable map -
+## `chunks/x_z.json` deltas plus `world.json` - and WorldBackups packs and unpacks exactly that. So
+## authoring a map is: play a world, build the thing, `/backup`, and put the archive in your mod. The
+## distribution channel is the mod list, and the "editor" is the game.
+##
+## Two rules it will not bend. It only ever runs when there is no `world.json`, so a world somebody has
+## played is never overwritten by a mod update - losing a child's build to a version bump is not a thing
+## that may happen. And a failure stops the server rather than quietly generating terrain instead: a
+## story mod whose valley is missing is not a story mod, and starting anyway would strand players in a
+## world the triggers do not fit.
+func _install_map(config: Dictionary) -> String:
+	if FileAccess.file_exists(_save_dir.path_join("world.json")):
+		return ""  # already played; never touched again
+	var dirs := ModLoader.search_dirs(config.get("mod_dirs", PackedStringArray()))
+	var available := ModLoader.discover(dirs)
+	for id in config.get("mods", PackedStringArray()):
+		var manifest = available.get(str(id))
+		if manifest == null or String(manifest.get("world", "")).is_empty():
+			continue
+		var archive: String = manifest.dir.path_join(String(manifest.world))
+		if not FileAccess.file_exists(archive):
+			return "%s says it ships the world '%s', and that file is not in the mod" % [id, manifest.world]
+		var error := WorldBackups.restore(archive, _save_dir)
+		if not error.is_empty():
+			return "%s's world could not be unpacked: %s" % [id, error]
+		print("[server] Laid out %s's world from %s" % [id, String(manifest.world)])
+		return ""  # the first mod asked for that has one; a game brings its own world, add-ons do not
+	return ""
+
 
 func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> Error:
 	# External folders come first so a deployment can override bundled mods.

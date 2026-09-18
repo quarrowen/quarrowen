@@ -43,17 +43,33 @@ func add_template(template_name: String, doc: Dictionary) -> bool:
 		var name := str(entry)
 		palette.append(0 if name == "engine:air" else int(_block_id.call(name)))
 	var blocks := []
+	var dropped := 0
 	for b in doc.blocks:
 		if b is Array and b.size() >= 4:
 			var id: int = palette[int(b[3])] if int(b[3]) >= 0 and int(b[3]) < palette.size() else -1
 			if id >= 0:
 				blocks.append([int(b[0]), int(b[1]), int(b[2]), id, int(b[4]) if b.size() > 4 else 0])
+			else:
+				dropped += 1
+		else:
+			dropped += 1
+	if dropped > 0:
+		# Say so. Dropping quietly means a structure that stamps with holes in it and nothing to explain
+		# them - the author sees this at pack time from mod_validator, but whoever is running a mod
+		# somebody else wrote only ever gets this line. (2026-09-18)
+		push_error("Structure '%s': %d of %d blocks name a palette entry that does not exist, or are malformed, and were left out" % [
+			template_name, dropped, (doc.blocks as Array).size()])
 	var data := {}
 	if doc.get("data") is Dictionary:
+		var bad_keys := 0
 		for key in doc.data:
 			var parts := str(key).split(",")
 			if parts.size() == 3 and doc.data[key] is Dictionary:
 				data[Vector3i(int(parts[0]), int(parts[1]), int(parts[2]))] = doc.data[key]
+			else:
+				bad_keys += 1
+		if bad_keys > 0:
+			push_error("Structure '%s': %d data keys are not \"x,y,z\" with an object, and were left out" % [template_name, bad_keys])
 	templates[template_name] = {"size": Vector3i(int(doc.size[0]), int(doc.size[1]), int(doc.size[2])), "blocks": blocks, "data": data}
 	return true
 

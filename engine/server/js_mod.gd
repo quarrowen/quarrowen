@@ -279,6 +279,7 @@ func _call_host(method: String, a: Array):
 		"playMusic": api.play_music(_player_or_all(a, 0), _str(a, 1), _dict(a, 2))
 		"stopMusic": api.stop_music(_player_or_all(a, 0), _dict(a, 1))
 		"registerAmbience": return api.register_ambience(_dict(a, 0))
+		"setDefaultRole": return api.set_default_role(_str(a, 0))
 		"isGame": return api.is_game()
 		"isLiquid": return api.is_liquid(_int(a, 0))
 		"raycast":

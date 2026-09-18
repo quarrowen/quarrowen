@@ -395,6 +395,16 @@ different places hear their own surroundings rather than each other's.
 in the engine rather than in a mod because otherwise every mod that wanted weather or caves would
 write the same four decisions - how often is too often, how far can it be, who else hears it, what
 about somebody asleep - and none of them would agree."><div class="sig"><code>api.register_ambience(options: Dictionary) -&gt; String</code><span class="tag js" title="registerAmbience(options: { sound: string; every?: [number, number]; sky?: boolean; depth?: [number, number]; biome?: string | string[]; near?: string | string[]; radius?: number; chance?: number; volume?: number; pitch?: number; }): string">JS registerAmbience</span></div><p>Registers an occasional atmospheric sound near a player: wind out in the open, a drip in the dark,<br>water lapping by a lake. Returns &quot;&quot; or why it was refused.<br><br>api.register_ambience({&quot;sound&quot;: &quot;wind&quot;, &quot;sky&quot;: true, &quot;every&quot;: [20.0, 45.0]})<br>api.register_ambience({&quot;sound&quot;: &quot;drip&quot;, &quot;sky&quot;: false, &quot;depth&quot;: [0, 45], &quot;every&quot;: [8.0, 25.0]})<br>api.register_ambience({&quot;sound&quot;: &quot;lapping&quot;, &quot;near&quot;: [&quot;base:water&quot;], &quot;radius&quot;: 6})<br><br>Conditions: `sky` (true outdoors, false under something), `depth` [low, high], `biome` (one or a<br>list), `near` (block names - the sound then comes *from* one of them, so water laps from the water),<br>`radius`, `chance`. `every` is [minimum, maximum] seconds, kept per player, so two people in<br>different places hear their own surroundings rather than each other's.<br><br>In the engine rather than in a mod because otherwise every mod that wanted weather or caves would<br>write the same four decisions - how often is too often, how far can it be, who else hears it, what<br>about somebody asleep - and none of them would agree.</p></div>
+<div class="card" id="api-set-default-role" data-search="set_default_role setdefaultrole the role every player has unless somebody gives them another. this is how a mod makes a story: the
+stock &quot;visitor&quot; role is chat and interact with no build, so the valley stays as its author left it
+while doors, chests and levers still work.
+
+api.set_default_role(&quot;visitor&quot;)   # a world to walk through, not one to change
+
+story mode needed no new capability in the end: &quot;build&quot; has been a permission since roles existed,
+the engine already refuses a break or a place without it, tells the player why (once every three
+seconds, not once a click) and puts the block back on the client that predicted it. all that was
+missing was a mod being able to say which role people start in. returns &quot;&quot; or why not."><div class="sig"><code>api.set_default_role(role_name: String) -&gt; String</code><span class="tag js" title="setDefaultRole(role: string): string">JS setDefaultRole</span></div><p>The role every player has unless somebody gives them another. This is how a mod makes a story: the<br>stock &quot;visitor&quot; role is chat and interact with no build, so the valley stays as its author left it<br>while doors, chests and levers still work.<br><br>api.set_default_role(&quot;visitor&quot;)   # a world to walk through, not one to change<br><br>Story mode needed no new capability in the end: &quot;build&quot; has been a permission since roles existed,<br>the engine already refuses a break or a place without it, tells the player why (once every three<br>seconds, not once a click) and puts the block back on the client that predicted it. All that was<br>missing was a mod being able to say which role people start in. Returns &quot;&quot; or why not.</p></div>
 <div class="card" id="api-register-music" data-search="register_music registermusic registers a music track. `attribution` is required: say who made it and under what licence.
 
 api.register_music(&quot;valley&quot;, &quot;music/valley.ogg&quot;, {
@@ -741,6 +751,7 @@ look and saved in data.look."><div class="sig"><code>entity.set_look(values: Dic
        playing does nothing.</p></div>
 <div class="card" data-search="stopmusic"><div class="sig"><code>api.stopMusic(player: Player | null, options?: { fade?: number }): void</code></div><p>Fades the music out for one player, or everybody when player is null.</p></div>
 <div class="card" data-search="registerambience"><div class="sig"><code>api.registerAmbience(options: { sound: string; every?: [number, number]; sky?: boolean; depth?: [number, number]; biome?: string | string[]; near?: string | string[]; radius?: number; chance?: number; volume?: number; pitch?: number; }): string</code></div><p>An occasional atmospheric sound near a player. Returns &quot;&quot; or why it was refused.</p></div>
+<div class="card" data-search="setdefaultrole"><div class="sig"><code>api.setDefaultRole(role: string): string</code></div><p>The role players start in; &quot;visitor&quot; is chat and interact with no build. Returns &quot;&quot; or why not.</p></div>
 <div class="card" data-search="isgame"><div class="sig"><code>api.isGame(): boolean</code></div></div>
 <div class="card" data-search="isliquid"><div class="sig"><code>api.isLiquid(block: number): boolean</code></div><p>Is this block id a liquid (water, lava, anything a mod declares `liquid: true`)?</p></div>
 <div class="card" data-search="raycast"><div class="sig"><code>api.raycast( origin: { x: number; y: number; z: number }, direction: { x: number; y: number; z: number }, maxDistance?: number, options?: { liquids?: boolean }, ): { hit: boolean; position?: { x: number; y: number; z: number }; normal?: { x: number; y: number; z: number }; block?: number }</code></div><p>What a ray hits. Looks through water by default, as a player's crosshair does; {liquids: true}
@@ -1210,6 +1221,8 @@ declare module &quot;quarrowen&quot; {
       biome?: string | string[]; near?: string | string[]; radius?: number; chance?: number;
       volume?: number; pitch?: number;
     }): string;
+    /** The role players start in; &quot;visitor&quot; is chat and interact with no build. Returns &quot;&quot; or why not. */
+    setDefaultRole(role: string): string;
     isGame(): boolean;
     /** Is this block id a liquid (water, lava, anything a mod declares `liquid: true`)? */
     isLiquid(block: number): boolean;

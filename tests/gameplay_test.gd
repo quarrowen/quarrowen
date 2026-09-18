@@ -14,6 +14,8 @@ const MusicRegistryScript = preload("res://engine/shared/music_registry.gd")
 const UserPaths = preload("res://engine/shared/user_paths.gd")
 const ContentCacheScript = preload("res://engine/client/content_cache.gd")
 const ModLoaderScript = preload("res://engine/server/mod_loader.gd")
+const Validator = preload("res://engine/server/mod_validator.gd")
+const WorldBackupsScript = preload("res://engine/server/world_backups.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 const StationSessions = preload("res://engine/server/station_sessions.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
@@ -72,6 +74,8 @@ func _ready() -> void:
 	await _ambience()
 	_scripts_compile()
 	_mod_assets_exist()
+	await _map_from_mod()
+	await _story_mode()
 	_test_isolation()
 	await _loot()
 	_api_docs()
@@ -216,6 +220,10 @@ func _block_shapes() -> void:
 	server.set_block_authoritative(o + Vector3i(4, 4, 0), stone)  # a ceiling to aim up at, clear of the head
 	p.state.position = Vector3(o.x + 4.5, o.y + 1.0, o.z + 0.5)
 	p.inventory.creative = true
+	# A player built by hand here never went through _spawn_player, which is what hands out edit tokens.
+	# Without them every edit is refused before permissions are even consulted, and this test would have
+	# "passed" its first two assertions for entirely the wrong reason.
+	p.edit_tokens = 100.0
 	p.inventory.ids[0] = slab
 	p.inventory.counts[0] = 1
 	p.inventory.selected = 0
@@ -2736,6 +2744,25 @@ func _structures() -> void:
 				doc.blocks.append([x, y, z, 0 if wall else 1])
 	doc.blocks.append([1, 1, 1, 2])
 	_check(st.add_template("test:hut", doc), "a template loads from JSON data")
+
+	# What happens to a template with faults in it. It still loads - content should not crash a server -
+	# but it must not do so in silence, which is what it used to do: blocks naming a palette entry nobody
+	# registered were dropped, data keyed to nothing was dropped, and nothing said a word. You found out
+	# when a chunk generated with holes in it, if you ever noticed. (2026-09-18)
+	var broken := {"size": [3, 3, 3], "palette": ["base:cobblestone", "base:not_a_real_block"],
+		"blocks": [[0, 0, 0, 0], [1, 0, 0, 1], [2, 2]], "data": {"0,0,0": {"loot": "x"}, "nope": {}}}
+	_check(st.add_template("test:broken", broken), "a template with faults still loads, because content should not stop a server")
+	_check((st.templates["test:broken"].blocks as Array).size() == 1, "and keeps only what it could read (%d of 3)" % (st.templates["test:broken"].blocks as Array).size())
+	_check((st.templates["test:broken"].data as Dictionary).size() == 1, "same for its data")
+
+	# The author should never get that far: mod_tool says so at pack time, naming the file and the fault.
+	# Checked against the bundled structures first - if a rule complains about those, the rule is wrong.
+	# Only the mods this server actually loaded: the check resolves block names against the running
+	# registry, so pointing it at Hearthhold's structures from a vanilla server reports its blocks as
+	# unregistered - correctly, and uselessly. `mod_tool validate mods/hearthhold` loads Hearthhold and
+	# is where that one belongs.
+	var structure_issues: Array = Validator.check_structures(server, "res://mods/vanilla")
+	_check(structure_issues.is_empty(), "vanilla's structures all pass validation (%s)" % ", ".join(structure_issues.map(func(i): return str(i.message))))
 	server.loot.register("test:hut", {"rolls": [2, 2], "entries": [{"item": "base:iron_ingot", "count": [3, 3]}]})
 	st.add_set("test:huts", {"templates": [{"template": "test:hut"}], "spacing": 3, "separation": 0, "place": "surface"})
 	st.freeze(reg)
@@ -3758,6 +3785,130 @@ func _test_isolation() -> void:
 ## out until somebody notices the coins stopped clinking. That is exactly what happened when the sounds
 ## became Kenney's: the .gd files were updated and `mods/guild/main.js` was not, because the search that
 ## did it only looked at GDScript. (2026-09-18)
+## A mod that ships a world: authored terrain restored on first start instead of generated.
+##
+## The whole point is that no new format was needed - a world save already is a portable map. So the
+## test does what an author would: play a world, change it, `/backup`, put the archive in a mod, and
+## start a *fresh* world with that mod to see the change arrive.
+## Story mode: a world you walk through rather than one you change.
+##
+## It needed no new capability, which is worth writing down because the plan assumed it would. "build"
+## has been a permission since roles existed, `_may` already guards both breaking and placing, it tells
+## the player why (once every three seconds, not every click), and `_reject_edit` puts the block back on
+## the client that predicted it. The stock `visitor` role is already the shape - chat and interact, no
+## build - so doors and chests still work while the valley stays as its author left it.
+##
+## So a story mod is one line: `api.set_default_role("visitor")`.
+func _story_mode() -> void:
+	var server = _start("story_%d" % Time.get_ticks_msec())
+	var stone: int = server.registry.id_of("base:stone")
+	var at := Vector3i(120, 60, 120)
+	server.ensure_area_loaded(Vector3(at))
+	server.set_block_authoritative(at, stone)
+
+	var p := ServerPlayer.new(server, 210, "Reader")
+	p.player_id = "reader"
+	server.players[210] = p
+	p.state.position = Vector3(at) + Vector3(0.5, 1.0, 0.5)
+	# Creative, so the only thing between this player and the block is the permission. A survival player
+	# has to mine for the block's break time first, and an instant break is refused as cheating - which
+	# is a correct refusal and would have made this test look like it proved something it did not.
+	p.inventory.creative = true
+
+	_check(server.has_permission(p, "build"), "an ordinary player may build")
+	var mod = server.mod_instances.get("vanilla")
+	_check(mod.api.set_default_role("visitor") == "", "a mod can say which role players start in")
+	_check(mod.api.set_default_role("not_a_role").contains("no role"), "and is told when the role does not exist")
+	_check(not server.has_permission(p, "build"), "a visitor may not")
+	_check(server.has_permission(p, "interact"), "but may still open doors and chests, which a story needs")
+
+	p.edit_tokens = 100.0
+	server.on_break_block(210, at)
+	_check(server.world.get_block_v(at) == stone, "so breaking a block does nothing to the world")
+	p.give(server.items.id_of("base:stone"), 4)
+	p.inventory.selected = 0
+	p.edit_tokens = 100.0
+	server.on_place_block(210, at + Vector3i(0, 1, 0), 0.0)
+	_check(server.world.get_block_v(at + Vector3i(0, 1, 0)) != stone, "and neither does placing one")
+
+	server.roles.default_role = "member"
+	p.edit_tokens = 100.0
+	server.on_break_block(210, at)
+	_check(server.world.get_block_v(at) != stone, "and it is the permission doing it, not something else")
+
+	server.queue_free()
+	await get_tree().process_frame
+
+
+func _map_from_mod() -> void:
+	var work := ProjectSettings.globalize_path("user://map_test_%d" % Time.get_ticks_msec())
+	var mod_dir := work.path_join("mods/mapmod")
+	DirAccess.make_dir_recursive_absolute(mod_dir)
+
+	# 1. Author a world: put a block somewhere the generator would never choose.
+	var source = _start("mapsrc_%d" % Time.get_ticks_msec())
+	var marker: int = source.registry.id_of("base:glass")
+	var at := Vector3i(300, 70, 300)
+	source.ensure_area_loaded(Vector3(at))
+	source.set_block_authoritative(at, marker)
+	source._save_all(true)
+	var archive := mod_dir.path_join("world.zip")
+	var packed: String = WorldBackupsScript.create(source._save_dir, archive)
+	_check(packed.is_empty() and FileAccess.file_exists(archive), "a world packs into an archive (%s)" % packed)
+	source.queue_free()
+	await get_tree().process_frame
+
+	# 2. Ship it: a mod whose manifest says it brings a world.
+	var manifest := {"id": "mapmod", "name": "Map Mod", "version": "1.0.0", "kind": "game",
+		"depends": ["base@^1.0", "vanilla@^1.0"], "world": "world.zip"}
+	var f := FileAccess.open(mod_dir.path_join("mod.json"), FileAccess.WRITE)
+	f.store_string(JSON.stringify(manifest))
+	f.close()
+	f = FileAccess.open(mod_dir.path_join("main.gd"), FileAccess.WRITE)
+	f.store_string("extends RefCounted\n\n\nfunc setup(_api) -> void:\n\tpass\n")
+	f.close()
+
+	# 3. A brand new world with that mod gets the authored one, not generated terrain.
+	var played = GameServer.new()
+	add_child(played)
+	var err: Error = played.start({"mods": PackedStringArray(["mapmod"]), "mod_dirs": PackedStringArray([work.path_join("mods")]),
+		"world": "mapdest_%d" % Time.get_ticks_msec(), "data_dir": DATA_DIR, "seed": 7, "offline": true})
+	played.set_physics_process(false)
+	_check(err == OK, "a server starts with a mod that ships a world (%s)" % error_string(err))
+	if err == OK:
+		played.ensure_area_loaded(Vector3(at))
+		_check(played.world.get_block_v(at) == marker, "and the authored world is what loads, not fresh terrain")
+
+	# 4. Starting it again must not lay the map down over what has been played since.
+	played.set_block_authoritative(at, 0)
+	played._save_all(true)
+	var world_name: String = played._save_dir.get_file()
+	played.queue_free()
+	await get_tree().process_frame
+	var again = GameServer.new()
+	add_child(again)
+	again.start({"mods": PackedStringArray(["mapmod"]), "mod_dirs": PackedStringArray([work.path_join("mods")]),
+		"world": world_name, "data_dir": DATA_DIR, "seed": 7, "offline": true})
+	again.set_physics_process(false)
+	again.ensure_area_loaded(Vector3(at))
+	_check(again.world.get_block_v(at) != marker,
+		"a second start leaves the played world alone rather than laying the map over it again")
+	again.queue_free()
+	await get_tree().process_frame
+
+	# 5. A mod that promises a world it does not have stops the server, rather than quietly generating
+	#    terrain the story does not fit.
+	DirAccess.remove_absolute(archive)
+	var broken = GameServer.new()
+	add_child(broken)
+	var broken_err: Error = broken.start({"mods": PackedStringArray(["mapmod"]), "mod_dirs": PackedStringArray([work.path_join("mods")]),
+		"world": "mapmissing_%d" % Time.get_ticks_msec(), "data_dir": DATA_DIR, "seed": 7, "offline": true})
+	_check(broken_err != OK and broken.start_error.contains("world"),
+		"a missing map stops the server and says so (%s)" % broken.start_error)
+	broken.queue_free()
+	await get_tree().process_frame
+
+
 func _mod_assets_exist() -> void:
 	var missing := []
 	var checked := 0
