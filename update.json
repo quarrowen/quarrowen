@@ -1,11 +1,11 @@
 {
-	"version": "0.40.3",
-	"notes": "A face of its own, F1 to hide the interface, and Close buttons that close.",
+	"version": "0.41.0",
+	"notes": "Music the server chooses, fishing, and travel that goes somewhere real.",
 	"builds": {
 		"macos": {
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.3/Quarrowen-0.40.3-mac-arm64.zip",
-			"sha256": "cfb2ea9ec8bda932bf3ff5ef90c43da2123c3fb54784d9b0442bc240c86e17f0",
-			"size": 69290346
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.0/Quarrowen-0.41.0-mac-arm64.zip",
+			"sha256": "156597dbc41cfbd2568023743eb24e76e8e2c17e374bb12e15e28dc2b802e264",
+			"size": 69555518
 		}
 	}
 }
