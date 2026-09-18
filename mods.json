@@ -13,9 +13,9 @@
 			"id": "arcana",
 			"kind": "addon",
 			"name": "Arcana",
-			"sha256": "68efea4e9cc7d737d4ef1f364a5367662414e2fd89e5354ffe3a932c2c059144",
+			"sha256": "b4b8ba37e77b791317aeef90b6ae5c57310cc86f5abecd20784c9e684d142fa2",
 			"size": 34343,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/arcana-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.1/arcana-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -29,9 +29,9 @@
 			"id": "base",
 			"kind": "library",
 			"name": "Base Blocks",
-			"sha256": "7697d97ce57824f56f591496f23857335c1d5093e3810353d8fb300d1093b2a4",
-			"size": 231357,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/base-1.0.0.zip",
+			"sha256": "7a9182b91cc33e06eaec0679d301b5d2e86c23412e35f8e6b2fdbbf48733df92",
+			"size": 231517,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.1/base-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -47,9 +47,9 @@
 			"id": "guild",
 			"kind": "addon",
 			"name": "Adventurers' Guild",
-			"sha256": "06d57ff51c36ff4fe80999a413442ee1cd57f1d8f26c4dd5cfb2a325f2462d97",
+			"sha256": "ec8e3b8bee64404696d5715eeac234e1fc2ff2bbf0465e4c2e1ceb9d7e5c4e43",
 			"size": 47838,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/guild-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.1/guild-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -66,9 +66,9 @@
 			"id": "hearthhold",
 			"kind": "game",
 			"name": "Hearthhold",
-			"sha256": "3a872cd4144305d1d0bec0df2bc1422fd550689ee158222d90fcbbea4ab6db31",
-			"size": 21300,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/hearthhold-0.1.0.zip",
+			"sha256": "b66fb86f82e4d413270188f11b7df8856ff528ee07e496bc11dbf44bb2b38f9b",
+			"size": 22840,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.1/hearthhold-0.1.0.zip",
 			"version": "0.1.0"
 		},
 		{
@@ -84,9 +84,9 @@
 			"id": "industry",
 			"kind": "addon",
 			"name": "Industry",
-			"sha256": "f0fe7c62e0e6e4a373c6f8a5702eac67738e3b57b87a84ee651a1a86c3a75451",
+			"sha256": "928ea07aca32291acecf334d500bd7c84d56eea80b29caa3dc062eee604ebc1d",
 			"size": 139695,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/industry-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.1/industry-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -102,9 +102,9 @@
 			"id": "oneblock",
 			"kind": "game",
 			"name": "One Block",
-			"sha256": "105691bd1f15d3dfce8805b4ea737fc9ccc69ea4f7273ad3cf5911c709677ba3",
+			"sha256": "884ec886f4267fd27bf2104ad2f6f40e4b38afae0fd61ace032f495c8b4cdd47",
 			"size": 3226,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/oneblock-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.1/oneblock-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -120,9 +120,9 @@
 			"id": "skyblock",
 			"kind": "game",
 			"name": "Skyblock",
-			"sha256": "e5ac10970d4c3e2f630f520d05849a11600b2cb3808adb7ba516b774d16713a6",
+			"sha256": "79222ae6ddd6d8565d43aa011bee45317ea86e607ef5823f52c823e118844be8",
 			"size": 4035,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/skyblock-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.1/skyblock-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -138,11 +138,11 @@
 			"id": "vanilla",
 			"kind": "game",
 			"name": "Vanilla Sandbox",
-			"sha256": "08cd6f870ab6671b1ac199b841e3b587678bb0333b4a21f205208d075144ddce",
+			"sha256": "d1b7632cbbe5871e00f98e04b46abdba93f90d851ae325a04658cc94d1e91938",
 			"size": 630797,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/vanilla-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.1/vanilla-1.0.0.zip",
 			"version": "1.0.0"
 		}
 	],
-	"version": "0.40.0"
+	"version": "0.40.1"
 }

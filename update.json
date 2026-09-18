@@ -1,11 +1,11 @@
 {
-	"version": "0.40.0",
-	"notes": "Hearthhold, a bow, milestones, cobalt gear and charms, cooking, doors and windows.",
+	"version": "0.40.1",
+	"notes": "Climb out of water, keep the valley when you die, Hearthhold leads its own opening, a readable HUD.",
 	"builds": {
 		"macos": {
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.0/Quarrowen-0.40.0-mac-arm64.zip",
-			"sha256": "0f73820c2367c5872f02a0ebf71f25517f66362277d0278433d3a398a4585094",
-			"size": 64904284
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.40.1/Quarrowen-0.40.1-mac-arm64.zip",
+			"sha256": "e9c72e2255cb1abdf29682702787a5b3af49ac8e199d785d122db526bca1adf8",
+			"size": 64909176
 		}
 	}
 }
