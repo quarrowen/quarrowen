@@ -598,6 +598,31 @@ parse errors on empty hub replies. Known harmless noise: "Buffer full, dropping 
 server's content burst during the DTLS handshake; ENet resends), TLS errors from the auth tests, leak
 warnings at exit.
 
+## Alpha 4.1 (0.40.1)
+
+Everything the first real session found, twenty minutes of it. Protocol 39: the swimming fix changes
+physics, which the client predicts and the server simulates, so the two must match.
+
+- **You can climb out of the water.** A bank at the water's own level used to need a pickaxe.
+- **Dying no longer loses you the valley.** Hearthhold is where you spawn and respawn, it is marked on
+  your map for good, and `/valley` says which way it is.
+- **Hearthhold leads its opening**: read the board, light the hearth, make a torch. It used to hand new
+  players vanilla's chop-a-tree tutorial and leave the story to be noticed.
+- **Four coal to start with**, so the first night has a torch in it.
+- **The torch hint names the stick and the arrangement.** It was a riddle, and the author of the game
+  could not solve it in his own first session.
+- **The game opens maximized**, with a splash, rather than as a small window with a title bar.
+- **The held item's name is readable** - it sat behind the hearts and the hunger row.
+- **The crafting window opens in front of the guidebook**, not behind it.
+- **Hats stop flickering** (they fought the head for the same pixels, but only with hair underneath).
+- **Your items stop vanishing** from the experiment tab - a rebuild twice in one frame freed both the
+  old panel and the new one.
+- **New: what you are looking at**, named under the compass.
+
+For whoever runs the server: same images, `QW_IMAGE` pinned to 0.40.1. Worlds carry over from 0.40.0;
+docs/playtest.md now says how to start a single world again without losing the server's identity or the
+links between the worlds.
+
 ## Playtest, first session on 0.40.0 (2026-09-18, the user's own laptop)
 
 The first time anyone played a published Quarrowen rather than a build from this checkout. Found in
