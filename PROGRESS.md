@@ -598,6 +598,58 @@ parse errors on empty hub replies. Known harmless noise: "Buffer full, dropping 
 server's content burst during the DTLS handshake; ENet resends), TLS errors from the auth tests, leak
 warnings at exit.
 
+## Travelling between worlds, and what comes along (2026-09-18, user: "it said couldnt connect to
+## 127.0.0.1"; "i wanna switch it off... players should start with an empty inventory")
+
+Travel handed the *client* the destination address, and `link-servers.sh` filled that in as `127.0.0.1`
+with a comment reasoning that all three worlds are on one box - true, and beside the point: the client
+connects to it from the player's machine, where loopback is the player's own computer. Nobody could travel.
+
+Three changes, deliberately overlapping, because the same mistake is easy to make by hand in network.json:
+
+- `link-servers.sh` works out the machine's LAN address (`ip route get`, then `hostname -I`, then
+  `ipconfig getifaddr en0`) and refuses to write a loopback one; `LINK_ADDRESS=` overrides it.
+- The server logs a warning for any loopback address in network.json, naming what it should be instead.
+- The client substitutes the host it is already connected to when a server sends it a loopback address,
+  unless it really is playing on this computer. So an already-written network.json now works anyway.
+
+Carrying inventories between worlds now defaults to **off** (`CARRY_INVENTORY=true` to turn it back on).
+One Block and Sky Islands are about starting from nothing, and arriving with Hearthhold's chest is no
+start at all. The engine capability is unchanged - it is a per-link setting in network.json, and each
+world keeps its own inventory for when you come back, so nothing is lost by travelling.
+
+## Releases are cut by CI now (2026-09-18, user: "so that my machine isnt a dependancy and lets make
+## it secure")
+
+A `release` job on `macos-14`, on a `v*` tag only, behind GitHub's `release` environment with a required
+reviewer - so a pushed tag, or an edit to the workflow, cannot reach the signing identity on its own. That
+approval is the security boundary, not secrecy: any step in a job that can read a secret can print it.
+
+It builds a throwaway keychain with a random password, imports the Developer ID `.p12`, runs
+`make_release.sh` and `publish_site.sh --with-release`, then deletes the keychain and the key files in an
+`if: always()` step. Notarisation uses an App Store Connect API key (`QUARROWEN_NOTARY_*`) rather than the
+app-specific password in the local keychain: it is scoped to notarisation and revocable on its own, where
+the password authenticates as the whole Apple Account. `package_mac.sh` takes either, preferring the key.
+
+Two bugs caught while writing it: `security list-keychains -d user -s "$keychain" $(...)` word-split the
+existing keychain list, and the release notes were taken from the commit message, whose newlines would
+have broken `update.json`'s JSON string - now the tag's subject line.
+
+Six secrets and the one-time Apple setup are in docs/distribution.md ("Releasing from CI"). Signing by
+hand on a Mac still works and is the fallback.
+
+## The download button on the live site was broken (2026-09-18, found while checking the release job)
+
+`publish_site.sh` uploaded `*.zip` and `mods/*.zip` to the GitHub release - a list written by hand, from
+before the disk image existed. So every release since the DMG was added has had a "Download for Mac"
+button pointing at a file that was never uploaded. 0.40.3's 404'd from the moment it was published; the
+0.40.3 DMG has now been uploaded to that release and the link checked.
+
+This is the *second* one of these (the screenshots 404'd for the same reason: a hand-kept copy list), so
+the fix is not another entry on the list. The uploader now takes every `.zip` and `.dmg` the build
+produced, and then refuses to publish if anything update.json, mods.json or the page's download button
+links to is not among them. A broken link now fails the release instead of reaching players.
+
 ## Open threads (2026-09-18)
 
 Everything discussed and not yet done, so none of it lives only in a conversation.

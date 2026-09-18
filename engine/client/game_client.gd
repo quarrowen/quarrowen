@@ -425,9 +425,22 @@ func on_server_reloading(message: String) -> void:
 	_server_ui.show_title(message, "The server restarts with the new mods; you will be back in a moment", 10.0)
 
 
+## Where to actually go when a server sends us somewhere. A server that names itself 127.0.0.1 means "this
+## machine" - but the client reads that as the *player's* machine, and the destination is wherever the
+## server we are talking to lives. Unless we really are playing on our own computer, use the host we are
+## already connected to. (A network.json written with loopback addresses is an easy mistake and used to
+## leave nobody able to travel at all.)
+static func resolve_transfer_address(address: String, current: String) -> String:
+	const LOOPBACK := ["127.0.0.1", "localhost", "::1"]
+	if address.strip_edges() in LOOPBACK and not (current.strip_edges() in LOOPBACK):
+		return current
+	return address
+
+
 func on_transfer(address: String, port: int, server_name: String, ticket: String, signature: String) -> void:
 	if not transfer.is_empty():
 		return
+	address = resolve_transfer_address(address, server_address)
 	transfer = {"address": address.left(253), "port": clampi(port, 1, 65535), "name": server_name.left(64),
 		"ticket": {"ticket": ticket, "signature": signature}}
 	_set_status("Travelling to %s…" % transfer.name)

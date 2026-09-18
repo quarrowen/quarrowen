@@ -53,6 +53,12 @@ if [ -n "$identity" ]; then
     xargs -0 -I{} codesign --force --timestamp --options runtime --sign "$identity" {} 2>/dev/null || true
   codesign --force --deep --timestamp --options runtime --sign "$identity" "$app"
   codesign --verify --deep --strict "$app"
+elif [ "${QUARROWEN_REQUIRE_SIGNING:-0}" = "1" ]; then
+  # A release must never fall through to an ad-hoc signature: it would publish a build macOS refuses to
+  # open, and the failure would be a child's, days later, not the build's.
+  echo "no Developer ID certificate in the keychain search list, and this build requires one." >&2
+  security find-identity -v -p codesigning >&2 || true
+  exit 1
 else
   echo "== no Developer ID certificate found: signing ad hoc (first launch needs right-click > Open)"
   codesign --force --deep --sign - "$app"
@@ -64,10 +70,21 @@ rm -f "$zip"
 ditto -c -k --keepParent "$app" "$zip"
 
 # Notarizing: Apple checks the build, then the ticket is stapled into the app so it opens offline too.
+#
+# Two ways to prove who we are. On a person's Mac it is a keychain profile, made once with
+# `notarytool store-credentials`, so no secret is ever typed into a script. On a build machine it is an
+# App Store Connect API key, because a keychain profile cannot travel: the key is scoped to notarisation
+# and can be revoked on its own, where an app-specific password authenticates as the whole Apple Account.
 profile="${QUARROWEN_NOTARY_PROFILE:-quarrowen-notary}"
-if [ -n "$identity" ] && [ "${QUARROWEN_SKIP_NOTARIZE:-0}" != "1" ] && xcrun notarytool history --keychain-profile "$profile" >/dev/null 2>&1; then
+notary_args=()
+if [ -n "${QUARROWEN_NOTARY_KEY:-}" ] && [ -n "${QUARROWEN_NOTARY_KEY_ID:-}" ] && [ -n "${QUARROWEN_NOTARY_ISSUER:-}" ]; then
+  notary_args=(--key "$QUARROWEN_NOTARY_KEY" --key-id "$QUARROWEN_NOTARY_KEY_ID" --issuer "$QUARROWEN_NOTARY_ISSUER")
+elif xcrun notarytool history --keychain-profile "$profile" >/dev/null 2>&1; then
+  notary_args=(--keychain-profile "$profile")
+fi
+if [ -n "$identity" ] && [ "${QUARROWEN_SKIP_NOTARIZE:-0}" != "1" ] && [ ${#notary_args[@]} -gt 0 ]; then
   echo "== notarizing (a few minutes)"
-  if xcrun notarytool submit "$zip" --keychain-profile "$profile" --wait; then
+  if xcrun notarytool submit "$zip" "${notary_args[@]}" --wait; then
     xcrun stapler staple "$app"
     rm -f "$zip"
     ditto -c -k --keepParent "$app" "$zip"   # zip again so the download carries the stapled ticket
@@ -76,7 +93,7 @@ if [ -n "$identity" ] && [ "${QUARROWEN_SKIP_NOTARIZE:-0}" != "1" ] && xcrun not
     echo "!! notarization failed: the app is signed but macOS will still warn on first launch" >&2
   fi
 elif [ -n "$identity" ]; then
-  echo "== skipping notarization (no '$profile' notarytool profile; see the header of this script)"
+  echo "== skipping notarization (no '$profile' keychain profile and no API key; see the header of this script)"
 fi
 # A disk image for people, the zip for the updater. Dragging an app into Applications is what a Mac
 # download looks like; the updater wants something it can unpack unattended in one call, and mounting a
@@ -91,10 +108,9 @@ if command -v hdiutil >/dev/null 2>&1 && [ "${QUARROWEN_SKIP_DMG:-0}" != "1" ]; 
     [ -n "$identity" ] && codesign --force --sign "$identity" --timestamp "$dmg"
     # The app inside carries its own stapled ticket, but notarizing the image as well means the download
     # itself is trusted rather than only what comes out of it.
-    if [ -n "$identity" ] && [ "${QUARROWEN_SKIP_NOTARIZE:-0}" != "1" ] \
-        && xcrun notarytool history --keychain-profile "$profile" >/dev/null 2>&1; then
+    if [ -n "$identity" ] && [ "${QUARROWEN_SKIP_NOTARIZE:-0}" != "1" ] && [ ${#notary_args[@]} -gt 0 ]; then
       echo "== notarizing the disk image"
-      if xcrun notarytool submit "$dmg" --keychain-profile "$profile" --wait; then
+      if xcrun notarytool submit "$dmg" "${notary_args[@]}" --wait; then
         xcrun stapler staple "$dmg"
       else
         echo "!! the disk image was not notarized; the zip still is" >&2

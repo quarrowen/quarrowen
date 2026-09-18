@@ -18,12 +18,29 @@ WORLDS=(
   "oneblock:quarrowen-oneblock:24567"
   "skyblock:quarrowen-skyblock:24569"
 )
-# The address the other servers use to reach this machine. They are all on one box, so its own is right.
-ADDRESS="${LINK_ADDRESS:-127.0.0.1}"
+# The address a *player's computer* uses to reach this machine - it is handed to the client, which then
+# connects to it itself. So it must not be 127.0.0.1: that is the player's own machine, not this one, and
+# the trip fails with "couldn't connect to 127.0.0.1". This guesses the LAN address; set LINK_ADDRESS to
+# a hostname or public address if players reach the box some other way.
+ADDRESS="${LINK_ADDRESS:-}"
+if [ -z "$ADDRESS" ]; then
+  ADDRESS="$(ip route get 1.1.1.1 2>/dev/null | grep -oE 'src [0-9.]+' | awk '{print $2}' | head -1)"
+  [ -z "$ADDRESS" ] && ADDRESS="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  [ -z "$ADDRESS" ] && ADDRESS="$(ipconfig getifaddr en0 2>/dev/null || true)"
+fi
+case "$ADDRESS" in
+  ""|127.*|localhost)
+    echo "Could not work out this machine's address on the network." >&2
+    echo "Run it with the address players use to reach this box, e.g." >&2
+    echo "  LINK_ADDRESS=192.168.1.20 ./link-servers.sh" >&2
+    exit 1 ;;
+esac
+echo "Players will be sent to $ADDRESS when they travel."
 
-# Every world is on this machine, so carrying inventories between them is safe and is what the children
-# will expect. Change to false to make each world a clean start.
-CARRY_INVENTORY="${CARRY_INVENTORY:-true}"
+# Whether things in a player's pockets come with them. Off by default: each world is its own game, and
+# One Block and Sky Islands are no challenge at all if you arrive with a full chest from somewhere else.
+# Nothing is lost either way - each world remembers its own inventory for when you come back.
+CARRY_INVENTORY="${CARRY_INVENTORY:-false}"
 
 id_of() { # container
   # The server prints its id on every start (engine/server/transfers.gd).
@@ -72,3 +89,8 @@ echo "Restarting so they read it..."
 docker compose restart hearthhold oneblock skyblock
 echo
 echo "Done. In game: /server oneblock, /server skyblock, /server hearthhold - or build a portal."
+if [ "$CARRY_INVENTORY" = "true" ]; then
+  echo "Pockets travel between worlds. CARRY_INVENTORY=false ./link-servers.sh to make each world a clean start."
+else
+  echo "Each world has its own inventory, and remembers it. CARRY_INVENTORY=true ./link-servers.sh if things should travel."
+fi

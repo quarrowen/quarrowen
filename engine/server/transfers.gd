@@ -66,6 +66,10 @@ func reload() -> String:
 			"port": clampi(int(e.get("port", 24565)), 1, 65535), "id": str(e.get("id", "")).strip_edges().to_lower(),
 			"send": bool(e.get("send", true)), "receive": bool(e.get("receive", true)), "inventory": bool(e.get("inventory", false)),
 			"admit": bool(e.get("admit", true)), "hop": bool(e.get("hop", false))}
+		if entry.address in ["127.0.0.1", "localhost", "::1"]:
+			# The address is handed to the player's client, which then connects to it itself: loopback
+			# there means the player's own computer. Clients work around it, but say so plainly.
+			_server.dev_log.add("warn", "server", "Network: server '%s' has address %s, which is the *player's* machine. Use the address players reach this box by." % [key, entry.address])
 		if entry.id.length() != 32 or not entry.id.is_valid_hex_number():
 			_server.dev_log.add("warn", "server", "Network: server '%s' needs its 32-character id (/network id on that server)" % key)
 			continue

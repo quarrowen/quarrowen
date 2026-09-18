@@ -27,8 +27,15 @@ with_release=0
 # The site: a worktree on the pages branch so the main checkout is untouched.
 work="$(mktemp -d "${TMPDIR:-/tmp}/quarrowen-pages.XXXXXX")"
 trap 'git worktree remove --force "$work" 2>/dev/null || true; rm -rf "$work"' EXIT
+# A fresh clone (CI) has the branch only as origin/$branch, or not at all. Get it from there before
+# concluding it does not exist - starting an orphan branch over a site that already has one throws away
+# every past version's folder, and the push is then refused as a non-fast-forward anyway.
+if ! git show-ref --verify --quiet "refs/heads/$branch"; then
+  git fetch --quiet origin "$branch" 2>/dev/null && git branch --quiet "$branch" FETCH_HEAD 2>/dev/null || true
+fi
 if git show-ref --verify --quiet "refs/heads/$branch"; then
   git worktree add --quiet "$work" "$branch"
+  git -C "$work" pull --quiet --ff-only origin "$branch" 2>/dev/null || true
 else
   git worktree add --quiet --detach "$work"
   git -C "$work" checkout --orphan "$branch"
@@ -83,11 +90,21 @@ else
 fi
 
 if [ "$with_release" -eq 1 ]; then
+  # Everything the build produced, not a list kept by hand - a list forgets the disk image, and the site's
+  # download button then points at a file that was never uploaded (it did, in 0.40.3).
+  assets=()
+  while IFS= read -r f; do assets+=("$f"); done < <(find "$out/v$version" -type f \( -name '*.zip' -o -name '*.dmg' \) | sort)
+  [ "${#assets[@]}" -gt 0 ] || { echo "no release files in $out/v$version" >&2; exit 1; }
+  # Whatever update.json and the page link to must be among them, or players get a 404 from a live page.
+  for url in $(sed -n 's/.*"url": "\(.*\)".*/\1/p' "$out/update.json" "$out/mods.json") "$(sed -n 's/.*class="btn" href="\([^"]*\)".*/\1/p' "$out/index.html" | head -1)"; do
+    case "$url" in */releases/download/*) ;; *) continue ;; esac
+    name="${url##*/}"
+    printf '%s\n' "${assets[@]}" | grep -q "/$name$" || { echo "$name is linked but was not built - nothing would be uploaded for it" >&2; exit 1; }
+  done
   if gh release view "$tag" >/dev/null 2>&1; then
-    gh release upload "$tag" "$out/v$version"/*.zip "$out/v$version"/mods/*.zip --clobber
+    gh release upload "$tag" "${assets[@]}" --clobber
   else
-    gh release create "$tag" "$out/v$version"/*.zip "$out/v$version"/mods/*.zip \
-      --title "Quarrowen $version" --notes "$notes"
+    gh release create "$tag" "${assets[@]}" --title "Quarrowen $version" --notes "$notes"
   fi
   echo "release $tag updated"
 fi

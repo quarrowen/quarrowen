@@ -18,9 +18,10 @@ name: CI
 # PRIVATE until somebody makes it public once, in Packages -> the package -> settings -> change
 # visibility. Public packages also have no storage limit, where private ones share a 500 MB quota.
 #
-# The macOS build made here is UNSIGNED and is a check that a clean checkout still exports, not something
-# to hand to anyone. Releases are cut on the maintainer's Mac with tools/make_release.sh, which signs and
-# notarizes with the Developer ID certificate (docs/distribution.md).
+# The `export` job's macOS build is UNSIGNED - a check that a clean checkout still exports, not something
+# to hand to anyone. The signed, notarized, published release comes from the `release` job below, which a
+# human has to approve before it can touch the Developer ID certificate. Doing it by hand on a Mac still
+# works and is the fallback: docs/distribution.md.
 on:
   push:
     branches: [main, master]
@@ -158,6 +159,98 @@ jobs:
           name: macos-unsigned
           path: build
           if-no-files-found: error
+
+  # The signed release, cut by CI so that nobody's laptop is a dependency.
+  #
+  # The certificate signs software as a named person, so this job is deliberately hard to reach: it runs
+  # only on a v* tag, and only after a human approves it in the "release" environment. A push cannot use
+  # the signing identity on its own, which is the property worth having - secrets are readable by any
+  # step in a job that can reach them, so the gate is *reaching the job*, not hiding the values.
+  #
+  # Set-up (once, see docs/distribution.md): an environment called "release" with yourself as a required
+  # reviewer, and six secrets. Rotating any of them is a matter of replacing the secret.
+  release:
+    name: Sign and publish
+    needs: [native-macos, test]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-14
+    environment: release
+    permissions:
+      contents: write        # create the GitHub release and push the pages branch
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # publish_site.sh works in a worktree on the pages branch
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-macos
+          path: native/bin/macos
+      - name: Install Godot and export templates
+        run: |
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_macos.universal.zip"
+          unzip -q godot.zip -d "$RUNNER_TEMP/godot"
+          echo "GODOT=$RUNNER_TEMP/godot/Godot.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
+          templates="$HOME/Library/Application Support/Godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$templates"
+          curl -fsSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q templates.tpz -d "$RUNNER_TEMP/tpz"
+          mv "$RUNNER_TEMP/tpz/templates/"* "$templates/"
+
+      # A keychain of its own, unlocked only for this run and deleted at the end, so the certificate is
+      # never added to the runner's default keychain where a later step could stumble on it.
+      - name: Unlock the signing identity
+        env:
+          CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/build.keychain"
+          password="$(openssl rand -base64 24)"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          printf '%s' "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$CERT_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/cert.p12"
+          # Lets codesign use the key without a UI prompt, which would hang a runner for ever.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
+          # Only this keychain is searched; system roots live elsewhere and are still found.
+          security list-keychains -d user -s "$keychain"
+          security find-identity -v -p codesigning "$keychain" | sed -n 's/.*"\(.*\)"/found identity: \1/p'
+
+      - name: Build, sign, notarize and publish
+        env:
+          QUARROWEN_REQUIRE_SIGNING: "1"   # fail rather than publish an ad-hoc signed build
+          QUARROWEN_NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          QUARROWEN_NOTARY_ISSUER: ${{ secrets.NOTARY_ISSUER_ID }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$NOTARY_KEY_P8" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          printf '%s' "$RELEASE_SIGNING_KEY" > "$RUNNER_TEMP/release_key.pem"
+          export QUARROWEN_NOTARY_KEY="$RUNNER_TEMP/notary.p8"
+          export QUARROWEN_RELEASE_KEY="$RUNNER_TEMP/release_key.pem"
+          version="${GITHUB_REF_NAME#v}"
+          # The tag's subject line, one line of it: the release notes end up inside a JSON string in
+          # update.json, and a commit message with a blank line in it would produce invalid JSON.
+          export NOTES="$(git tag -l --format='%(contents:subject)' "$GITHUB_REF_NAME" | head -1)"
+          [ -n "$NOTES" ] || NOTES="Quarrowen $version"
+          export BASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+          git config user.name "Quarrowen release"
+          git config user.email "releases@quarrowen.com"
+          tools/make_release.sh
+          tools/publish_site.sh --with-release
+          echo "published $version"
+
+      - name: Put the keys beyond use
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/notary.p8" "$RUNNER_TEMP/release_key.pem" "$RUNNER_TEMP/cert.p12"
+          security delete-keychain "$RUNNER_TEMP/build.keychain" 2>/dev/null || true
 
   # Windows is built but not published: nobody has played it, and it is unsigned, so Windows will warn
   # about it. This exists to prove the export still works and to give anyone who asks something to try.

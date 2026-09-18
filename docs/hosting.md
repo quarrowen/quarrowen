@@ -94,38 +94,19 @@ image so an update cannot leave stale content behind; everything else there is l
 
 ## 2. The Macs
 
-**Build the app** once, on the Mac with this project (needs the Godot editor and Rust installed, as for
-development):
+On each Mac, download from [quarrowen.com](https://quarrowen.com), open the disk image and drag
+**Quarrowen** into **Applications**. It is signed and notarized, so it opens by double-clicking, and it
+offers its own updates from then on - no copying builds around.
 
-```sh
-tools/package_mac.sh
-```
+Make sure the server and the Macs are on the same version. A client refuses a server whose protocol
+differs, and says so at the door, which is better than misbehaving quietly but is still a locked door.
+`QW_IMAGE` in `.env` pins the server's version; the client's is under Settings → Account.
 
-It makes `build/macos/Quarrowen-<version>-mac-arm64.zip`. Send the zip to each Mac (AirDrop works well).
-
-**Install on each Mac:**
-
-1. Double-click the zip, then drag **Quarrowen** into **Applications**.
-2. Open it. A **signed and notarized** build (any release built on a machine with the project's Developer
-   ID certificate - see below) opens straight away.
-3. An **unsigned** build - one you built yourself without the certificate - is blocked by macOS the first
-   time: right-click (or Control-click) **Quarrowen** in Applications, choose **Open**, then **Open**
-   again. If there is no Open button: try to open it once, then go to **System Settings → Privacy &
-   Security**, scroll down and click **Open Anyway**. (Or, in Terminal:
-   `xattr -dr com.apple.quarantine /Applications/Quarrowen.app`.) After that it opens normally.
-
-**Signing a release so nobody has to do step 3** (needs an Apple Developer account, $99/yr):
-
-```sh
-# once: a Developer ID Application certificate in your keychain, and a notarytool profile
-xcrun notarytool store-credentials quarrowen-notary --apple-id <you@example.com> \
-  --team-id <TEAM ID> --password <app-specific password>
-
-tools/make_release.sh            # signs, hardens, notarizes and staples automatically
-```
-
-`tools/package_mac.sh` looks for the certificate itself; without one it signs ad hoc and says so, so
-building on any other machine still works.
+**If you built the app yourself** rather than downloading it, macOS blocks it the first time: right-click
+(or Control-click) **Quarrowen** in Applications, choose **Open**, then **Open** again. If there is no
+Open button, try to open it once, then **System Settings → Privacy & Security → Open Anyway**. After that
+it opens normally. (`tools/package_mac.sh` builds one; it signs with a Developer ID certificate if the
+machine has one, and ad hoc if not, saying which.)
 
 A MacBook Air runs the game well on the default graphics. If it feels slow, open **Settings → Graphics** and
 choose **Fast**.
@@ -265,9 +246,20 @@ server ids, and those only exist once a server has started. So after the first `
 ```
 
 It reads each id, writes a `network.json` into each world naming the other two, and restarts them. Run it
-again after adding a world, or after deleting a volume - a new volume means a new id. Then in game:
+again after adding a world, or after deleting a volume - a new volume means a new id.
 
-- `/server oneblock`, `/server skyblock`, `/server hearthhold` - anyone may, and inventories come along.
+Two things it decides, both overridable:
+
+- **The address players are sent to.** Travelling hands the *client* an address to reconnect to, so it has
+  to be one the player's computer can reach. The script works out this machine's LAN address; if players
+  come in some other way (a hostname, a port forward), say so: `LINK_ADDRESS=quarrowen.example ./link-servers.sh`.
+- **Whether pockets come along.** Off by default - One Block is no challenge if you arrive with a chest
+  from Hearthhold. Each world remembers its own inventory, so nothing is lost by travelling and coming
+  back. `CARRY_INVENTORY=true ./link-servers.sh` if you would rather things travelled.
+
+Then in game:
+
+- `/server oneblock`, `/server skyblock`, `/server hearthhold` - anyone may.
 - Or build a **portal**: place Portal blocks (creative inventory), stand next to them and type
   `/portal oneblock`. Walking in takes you there. To choose where travellers arrive, stand on the spot on
   the far side and type `/network arrival dock`, then point portals at it with `/portal hearthhold dock`.
@@ -366,7 +358,8 @@ a server's id is printed at startup and by `/network id`). Moving a player (`/tr
 [arrival]`, `/server <name>` when `hop` is on, a **Portal** block pointed with `/portal <server> [arrival]`, or
 `player.transfer_to(server, arrival, data)` from mods) signs a two-minute ticket with the source server's
 identity key. The client connects to the destination and hands it over; the destination accepts it only from
-servers on its list, for this player and this server, once. Arrival points are named with `/network arrival
+servers on its list, for this player and this server, once. `address` is what the *client* is told to connect
+to, so it must be reachable from a player's computer - never `127.0.0.1`, which is theirs, not yours. Arrival points are named with `/network arrival
 <id>`. With `inventory` on both sides, inventories travel by item name (unknown items are reported) and the
 source keeps a copy until the player turns up, so a failed trip loses nothing. `admit` lets arrivals skip the
 allowlist. Events: `player_transfer {player, server, arrival, data, cancelled, reason}` (cancellable, data can be

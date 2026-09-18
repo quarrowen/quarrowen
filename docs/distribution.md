@@ -106,6 +106,56 @@ clears the macOS quarantine flag and starts the new one. A failed swap puts the 
 Servers never hand the client a download address. A server can only say which protocol version it
 needs; the client then offers the update from its own pinned source.
 
+### Releasing from CI
+
+A release can be cut by CI, so no particular machine has to be awake. It runs **only on a `v*` tag** and
+**only after a human approves it**, because the certificate signs software as a named person: a leaked
+Developer ID means somebody can ship malware that macOS tells your children came from you.
+
+The gate is *reaching the job*, not hiding the values. Any step inside a job that can read a secret can
+print it, so the protection that matters is the approval on the `release` environment - a pushed tag, or
+a workflow edit, cannot use the signing identity on its own.
+
+**Set up once.**
+
+1. **An environment called `release`** - repository Settings → Environments → New environment → add
+   yourself under *Required reviewers*. Without this the job runs unattended, which is the thing to avoid.
+
+2. **An App Store Connect API key** for notarisation, at appstoreconnect.apple.com → Users and Access →
+   Integrations → App Store Connect API → **+**, with the *Developer* role. Download the `.p8` **once**
+   (Apple will not show it again) and note the Key ID and Issuer ID. An API key rather than the
+   app-specific password in your keychain: it is scoped to notarisation and revocable on its own, where
+   an app-specific password authenticates as your whole Apple Account.
+
+3. **Your Developer ID certificate as a `.p12`** - Keychain Access → My Certificates → right-click
+   *Developer ID Application: …* → Export, and give it a strong password.
+
+4. **Six repository secrets** (Settings → Secrets and variables → Actions):
+
+   | Secret | What goes in it |
+   |---|---|
+   | `MACOS_CERT_P12` | `base64 -i cert.p12 \| pbcopy` |
+   | `MACOS_CERT_PASSWORD` | the password you gave the export |
+   | `NOTARY_KEY_P8` | `base64 -i AuthKey_XXXX.p8 \| pbcopy` |
+   | `NOTARY_KEY_ID` | the Key ID, e.g. `A1B2C3D4E5` |
+   | `NOTARY_ISSUER_ID` | the Issuer ID (a UUID) |
+   | `RELEASE_SIGNING_KEY` | the contents of `~/.config/quarrowen/release_key.pem` |
+
+   That last one is the key the *game* checks, not macOS: it signs `update.json` and `mods.json` so a
+   client will not install an update the project did not publish. Losing it means shipping a build with a
+   new key before updates can resume (§2b), so keep the original where it is as well.
+
+Then a release is: push a `v*` tag, approve the run, and the images, the signed app, the disk image, the
+GitHub release and the site all follow. Delete the local copies of the `.p12` and `.p8` afterwards - they
+are in GitHub now, and a spare copy in Downloads is one more place to lose them from.
+
+**Rotating or revoking.** The API key can be revoked in App Store Connect and replaced by changing one
+secret. A leaked certificate is revoked at developer.apple.com → Certificates, which invalidates future
+signatures; builds already notarised keep working, because the ticket is stapled into them.
+
+Signing on a Mac by hand still works exactly as before (`tools/make_release.sh` with a keychain profile),
+and is what to fall back on if CI is unavailable.
+
 ### Cutting a release
 
 In this order, because the middle step is what the children actually feel:
@@ -117,12 +167,16 @@ In this order, because the middle step is what the children actually feel:
    (`tools/make_save_fixture.tscn -- --out=tests/fixtures/saves/<version>`).
 4. **Bump the pinned image in `deploy/server/.env.example`** (`QW_IMAGE`, `QW_HUB_IMAGE`). It is pinned
    so a server never moves on its own; the cost of that is remembering to move it here.
-5. Tag `v<version>` and push it. CI builds the macOS export and both server images from the tag alone.
-6. `tools/make_release.sh` on the Mac with the Developer ID certificate: signs, notarizes, staples.
-7. Bring the family server up on the new version (edit its `.env`, `docker compose pull && up -d`)
-   **before** publishing the site. A client that updates itself cannot join a server still on the old
+5. Tag `v<version>` and push it. CI builds both server images from the tag alone, and waits for approval
+   before signing anything.
+6. Bring the family server up on the new version (edit its `.env`, `docker compose pull && up -d`)
+   **before** approving the release. A client that updates itself cannot join a server still on the old
    protocol, so publishing first locks everyone out for as long as the server takes to follow.
-8. `tools/publish_site.sh`, then a GitHub release with the same zip attached.
+7. Approve the `release` job (Actions → the run → Review deployments). It signs, notarizes, staples,
+   attaches the files to the GitHub release and publishes the site. By hand instead:
+   `tools/make_release.sh && tools/publish_site.sh --with-release` on a Mac with the certificate.
+8. Download the app from the site and open it, on a Mac that has never seen this build. Gatekeeper's
+   verdict on the real download is the only one that counts.
 
 ## 4. Mods: the problem
 

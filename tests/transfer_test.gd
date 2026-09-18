@@ -38,6 +38,18 @@ func _run() -> void:
 			"--data-dir=%s" % work.path_join(pair[0]), "--world=w", "--admins=Traveller", "--query-port=0"])
 		_pids.append(OS.create_process(OS.get_executable_path(), args))
 
+	# Which address a travelling client actually dials. A network.json full of 127.0.0.1 - which is what
+	# link-servers.sh used to write - would otherwise send every player to their own computer.
+	const GameClient = preload("res://engine/client/game_client.gd")
+	_check(GameClient.resolve_transfer_address("127.0.0.1", "192.168.1.20") == "192.168.1.20",
+		"a loopback destination becomes the host we are already connected to")
+	_check(GameClient.resolve_transfer_address("localhost", "quarrowen.example") == "quarrowen.example",
+		"and so does 'localhost'")
+	_check(GameClient.resolve_transfer_address("10.0.0.5", "192.168.1.20") == "10.0.0.5",
+		"a real address is left alone")
+	_check(GameClient.resolve_transfer_address("127.0.0.1", "127.0.0.1") == "127.0.0.1",
+		"playing on this computer, loopback is right and is kept")
+
 	var main := Node.new()
 	main.set_script(Main)
 	add_child(main)
