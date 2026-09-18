@@ -145,6 +145,8 @@ cat > "$out/index.html" <<EOF
          background: #4c8dff; color: #08101f; font-weight: 700; text-decoration: none; font-size: 17px; }
   .get:hover { background: #6ba0ff; }
   h2 { font-size: 21px; margin: 44px 0 10px; }
+  pre { background: #161b26; border: 1px solid #222838; border-radius: 10px; padding: 12px 14px;
+        overflow-x: auto; font-size: 13px; line-height: 1.5; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 8px; }
   .card { background: #161b26; border: 1px solid #222838; border-radius: 12px; padding: 14px 16px; }
   .card b { display: block; margin-bottom: 4px; }
@@ -203,6 +205,10 @@ three files, <code>docker compose pull</code>, and it is up. You can run several
 a survival world, an island, a story - and let players walk between them. The
 <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/hosting.md">hosting guide</a> is the whole
 setup, including the Macs that join it.</p>
+<p class="dim">The server for this release. A server and the games joining it must be the same version, so
+these are pinned rather than following <code>:latest</code> - put them in your <code>.env</code>:</p>
+<pre><code>QW_IMAGE=ghcr.io/quarrowen/quarrowen/server:$version
+QW_HUB_IMAGE=ghcr.io/quarrowen/quarrowen/hub:$version</code></pre>
 
 <h2>Source</h2>
 <p>Everything lives at <a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a>:

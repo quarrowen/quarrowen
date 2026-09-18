@@ -571,9 +571,16 @@ func _combat(c) -> void:
 	var zombie := await _wait_for_entity(c, "vanilla:zombie", 4.0)
 	_check(zombie >= 0, "bounty zombie spawned by JavaScript")
 	if zombie >= 0:
+		# Keep putting ourselves in its way until it swings, rather than giving it a fixed number of
+		# seconds: on a small CI runner a mob thinks and walks a good deal less in four seconds than it
+		# does here, and the test then reports "the zombie did not attack" for a zombie still crossing
+		# the ground. The assertion is unchanged - real damage, from a real mob. (CI, 2026-09-18)
 		var hurt := await _wait_until(func(): return c.health < 20.0, 4.0)
-		if not hurt and c._entities.has(zombie):
-			_teleport_near(c._entities[zombie].position)  # it may have got stuck on terrain
+		for attempt in 4:
+			if hurt:
+				break
+			if c._entities.has(zombie):
+				_teleport_near(c._entities[zombie].position)  # it may have got stuck on terrain
 			hurt = await _wait_until(func(): return c.health < 20.0, 6.0)
 		_check(hurt, "the zombie attacked (health %.1f)" % c.health)
 		_check(await _fight(c, zombie, 15.0), "killed the zombie")
