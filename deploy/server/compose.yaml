@@ -63,8 +63,7 @@ services:
       QW_PORT: "24565"
     volumes:
       - quarrowen-hearthhold:/data
-      # The mods the server loads live on the host: add a folder here and restart, no rebuild needed.
-      - ${MODS_DIR:-./mods}:/mods
+      - quarrowen-mods-hearthhold:/mods
 
   # One block over the void that comes back as something else each time it is broken.
   oneblock:
@@ -79,7 +78,7 @@ services:
       QW_PORT: "24567"
     volumes:
       - quarrowen-oneblock:/data
-      - ${MODS_DIR:-./mods}:/mods
+      - quarrowen-mods-oneblock:/mods
 
   # An island each, a cobblestone generator, and a list of challenges.
   skyblock:
@@ -94,7 +93,7 @@ services:
       QW_PORT: "24569"
     volumes:
       - quarrowen-skyblock:/data
-      - ${MODS_DIR:-./mods}:/mods
+      - quarrowen-mods-skyblock:/mods
 
   # The server list the three worlds announce themselves to.
   hub:
@@ -127,3 +126,21 @@ volumes:
     name: quarrowen-skyblock
   quarrowen-hub:
     name: quarrowen-hub
+  # One mods folder per world, not one shared between them. Two reasons, and both bit:
+  #
+  # A folder on the host is created by Docker as root when it does not exist, and the server runs as an
+  # ordinary user (uid 10001), so it could not write its own mods into it - the container died on start
+  # with "cp: cannot create directory '/mods/arcana': Permission denied". A named volume takes its
+  # ownership from the image, so it is right without anyone running chown.
+  #
+  # And every world refreshes the bundled mods on start: three of them doing rm -rf and cp over the same
+  # folder at the same moment is a race that would eventually eat a mod mid-copy. They are small, and the
+  # worlds want different ones anyway.
+  #
+  # To add your own mod: docker cp my_mod quarrowen-hearthhold:/mods/ && docker compose restart hearthhold
+  quarrowen-mods-hearthhold:
+    name: quarrowen-mods-hearthhold
+  quarrowen-mods-oneblock:
+    name: quarrowen-mods-oneblock
+  quarrowen-mods-skyblock:
+    name: quarrowen-mods-skyblock

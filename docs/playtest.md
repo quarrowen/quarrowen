@@ -61,20 +61,24 @@ sudo ufw allow 24565:24566/udp
 
 Note the machine's address on your network (something like `192.168.1.x`): `hostname -I`.
 
-**Mods live on the server, not inside the image.** The container holds the engine; the mods it loads sit in
-`deploy/server/mods/` on this machine (created on the first start, filled with the mods the engine shipped
-with). To add a game or an add-on, drop its folder there and restart:
+**Mods live beside each world, not inside the image.** The container holds the engine and a seed copy of
+the mods it shipped with; each world has its own mods folder, in a Docker volume of its own. To add a game
+or an add-on to one world:
 
 ```sh
-cp -r ~/my_mod deploy/server/mods/         # a mod folder with a mod.json inside
-nano .env                                   # add it to GAME=vanilla,my_mod
-docker compose restart
+docker cp ~/my_mod quarrowen-hearthhold:/mods/      # a mod folder with a mod.json inside
+nano .env                                           # HEARTHHOLD_MODS=hearthhold,my_mod
+docker compose up -d
 ```
 
-`MODS_DIR` in `.env` moves that folder somewhere else. On each start the mods that came with the engine
-(`base`, `vanilla`, the add-ons) are refreshed from the image so an update cannot leave stale content behind;
-everything else there is left alone. Set `SEED_MODS=missing` to keep your own edits to the bundled mods, or
-`SEED_MODS=never` to manage the whole folder yourself.
+A volume rather than a folder on the host, for two reasons that both showed up the first time this ran: a
+host folder is created by Docker as root and the server runs as an ordinary user, so it could not write
+its own mods into it; and three worlds refreshing the same folder on start is a race. `docker run --rm -v
+quarrowen-mods-hearthhold:/m -v "$PWD":/out debian cp -r /m /out/mods-hearthhold` copies one out to look at.
+
+On each start the mods that came with the engine (`base`, `vanilla`, the add-ons) are refreshed from the
+image so an update cannot leave stale content behind; everything else there is left alone. Set
+`SEED_MODS=missing` to keep your own edits to the bundled mods, or `SEED_MODS=never` to manage them yourself.
 
 ## 2. The Macs
 

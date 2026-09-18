@@ -16,8 +16,20 @@ seed_dir=/opt/quarrowen/mods-seed
 mods_dir="${QW_MODS_DIR:-/mods}"
 mode="${QW_SEED_MODS:-update}"
 
+# A folder bind-mounted from the host is created by Docker as root, and this runs as an ordinary user,
+# so the first thing that happens is a permission error in the middle of copying. Say so plainly instead:
+# the fix is either a named volume (what compose.yaml uses) or chowning the host folder to this user.
+if [ ! -d "$mods_dir" ] || [ ! -w "$mods_dir" ]; then
+  mkdir -p "$mods_dir" 2>/dev/null || true
+fi
+if [ ! -w "$mods_dir" ]; then
+  echo "[entrypoint] $mods_dir is not writable by this server (running as uid $(id -u))." >&2
+  echo "[entrypoint] If it is a folder from the host, either use a named volume or give it to this user:" >&2
+  echo "[entrypoint]   sudo chown -R $(id -u):$(id -g) <that folder>" >&2
+  exit 1
+fi
+
 if [ "$mode" != "never" ] && [ -d "$seed_dir" ]; then
-  mkdir -p "$mods_dir"
   copied=""
   for mod in "$seed_dir"/*; do
     [ -d "$mod" ] || continue
