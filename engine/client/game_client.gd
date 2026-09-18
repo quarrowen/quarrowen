@@ -236,6 +236,7 @@ var _debug_label: Label
 var _hotbar: HBoxContainer
 ## Name of what the player is holding, shown above the hotbar for a moment when it changes.
 var _held_label: Label
+var _look_label: Label
 var _held_shown := 0
 var _held_until := 0.0
 var _hotbar_slots: Array[Panel] = []
@@ -1382,6 +1383,7 @@ func _update_target() -> void:
 	_highlight.visible = _target.hit and _entity_target.is_empty()
 	if _target.hit:
 		_highlight.position = Vector3(_target.position) + Vector3(0.5, 0.5, 0.5)
+	_show_looking_at()
 
 
 func _handle_edits(delta: float) -> void:
@@ -1995,12 +1997,27 @@ func _set_inventory_open(open: bool) -> void:
 
 func on_crafting_open(station: Dictionary, stock: Dictionary) -> void:
 	_set_inventory_open(false)
+	# Opening the guide already closes crafting; crafting did not close the guide, and the guide is built
+	# later so it is drawn over the top - including its dim and its left page, which also ate the clicks.
+	# Whichever screen is opened last is the one wanted, so it closes the others and comes to the front.
+	_set_guide_open(false)
+	_pause_panel.visible = false
+	_tutorial_hud.panel.visible = false
 	_crafting_screen.visible = true
+	_bring_to_front(_crafting_screen)
 	_crafting_screen.open(station, stock)
 	if not _pending_lookup.is_empty():
 		_crafting_screen.show_lookup(_pending_lookup.item, _pending_lookup.mode)
 		_pending_lookup = {}
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+## Puts a full-screen panel above its siblings. The HUD is one CanvasLayer and nothing sets a z_index,
+## so what is drawn on top is simply whatever was added last - which made the order these screens happen
+## to be built in decide which one a player could read.
+func _bring_to_front(screen: Control) -> void:
+	if screen != null and screen.get_parent() == _hud_root:
+		_hud_root.move_child(screen, -1)
 
 
 func on_crafting_stock(stock: Dictionary) -> void:
@@ -2064,6 +2081,7 @@ func _set_guide_open(open: bool, page_id := "") -> void:
 		_tutorial_hud.panel.visible = false
 		if page_id.is_empty():
 			page_id = _tutorial_hud.preferred_page(_guide_screen.read)
+		_bring_to_front(_guide_screen)
 		_guide_screen.open(page_id)
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_sounds.play_name("engine:page", Vector3.ZERO, 0.7, 1.0, false)
@@ -2912,11 +2930,27 @@ func _build_hud() -> void:
 	_compass = Compass.new()
 	_compass.visible = bool(ClientSettings.shared().get_value("interface/compass"))
 	_hud_root.add_child(_compass)
+	# What the crosshair is on, under the compass. Asked for in the first playtest: a child pointing at
+	# something has no other way to learn its name, and the name is what the guide and the recipe book
+	# are indexed by. Only shown when there is something there, so it is not a permanent label.
+	_look_label = _shadow_label()
+	_look_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_look_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_look_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_look_label.position.y = 48  # the compass is 34 tall at the top, plus its own 8 of margin
+	_look_label.add_theme_font_size_override("font_size", 15)
+	_look_label.modulate.a = 0.0
+	_hud_root.add_child(_look_label)
+	# Above the whole status stack, not across it. Hearts sit 74 up and the armour row 100, and the name
+	# was at 72 - centred, so any item whose name was longer than a word or two ran underneath both rows
+	# and could not be read. The z_index is belt and braces: nothing else in the HUD sets one, so this
+	# keeps the name on top whatever gets added below it later. (playtest, 2026-09-18)
 	_held_label = _shadow_label()
 	_held_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_held_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_held_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_held_label.position.y -= 72
+	_held_label.position.y -= 128
+	_held_label.z_index = 1
 	_held_label.add_theme_font_size_override("font_size", 18)
 	_held_label.modulate.a = 0.0
 	_hud_root.add_child(_held_label)
@@ -3379,6 +3413,30 @@ static func _heart_image(fill: float) -> ImageTexture:
 
 
 ## Names what is in hand when the selection (or the item in that slot) changes.
+## Names whatever the crosshair is on: a creature if one is in the way, otherwise the block. Fades out
+## when there is nothing, so an empty sky is an empty screen.
+func _show_looking_at() -> void:
+	if _look_label == null:
+		return
+	var text := ""
+	if not _entity_target.is_empty():
+		var id := int(_entity_target.get("id", 0))
+		if int(_entity_target.get("kind", 0)) == 1:
+			var other = _remote_players.get(id)
+			text = str(other.player_name) if other != null and "player_name" in other else ""
+		else:
+			var view: EntityView = _entities.get(id)
+			text = str(view.type_def.get("display_name", "")) if view != null else ""
+	elif _target.hit and registry.is_valid(int(_target.block)):
+		text = str(registry.defs[int(_target.block)].get("display_name", ""))
+	if text.is_empty():
+		_look_label.modulate.a = maxf(_look_label.modulate.a - 0.08, 0.0)
+		return
+	if _look_label.text != text:
+		_look_label.text = text
+	_look_label.modulate.a = 0.85
+
+
 func _show_held_name() -> void:
 	if _held_label == null:
 		return

@@ -193,7 +193,12 @@ static func step(s: State, input: PlayerInput, world, rules: Rules) -> void:
 			part.z = 0.0
 		# Walking into something low (a slab, the first step of a stairs) lifts the player onto it and lets
 		# the same step carry on, so stairs are climbed by walking rather than jumping.
-		if (blocked_x or blocked_z) and (was_grounded or s.on_ground) and not s.flying and not input.sneak:
+		#
+		# Swimming counts as grounded for this. In water the jump key only eases the rise to swim_speed,
+		# which peaks about a quarter of a block short of a bank at the water's own level - so getting out
+		# meant breaking a block and climbing into the hole, and players mashed jump trying (which is also
+		# how one of them turned flight on by accident). (playtest, 2026-09-18)
+		if (blocked_x or blocked_z) and (was_grounded or s.on_ground or in_liquid) and not s.flying and not input.sneak:
 			var step_dir := Vector3(part.x if blocked_x else 0.0, 0.0, part.z if blocked_z else 0.0)
 			if step_dir.length_squared() > 0.0:
 				var top := BlockShapes.step_target(s.position, HALF_WIDTH, HEIGHT, step_dir, world, solid, shapes)

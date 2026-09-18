@@ -622,6 +622,10 @@ roughly twenty minutes, which is the usual lesson about real sessions.
    to a server" in the log. Both editor paths set the author from the same identity, so the cause is not
    yet known - waiting on the log around it. Note the server runs `CREATIONS=approval`, so an approval
    step is also in the way.
+11. **The tutorial does not lead into the story.** Hearthhold registers no tutorial, so vanilla's generic
+   `first_steps` and `survival` auto-start and a player follows those instead - chopping wood while the
+   charter board sits unread in the yard. Hearthhold should own the opening tutorial (three logs, light
+   the hearth, see the night out) rather than leaving the story to be noticed.
 8. **Experimenting is too hard.** The user, who wrote the game, could not work out how to make a torch
    ("that thing that burns" and "something that holds it"). If the author is stuck, a child is lost. The
    discovery system needs to say more about what is close, or the first few recipes should not need it.

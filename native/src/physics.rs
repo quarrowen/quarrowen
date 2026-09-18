@@ -288,7 +288,11 @@ pub fn step(s: &mut Body, input: &Input, world: &NativeVoxelWorld, rules: &Rules
         }
         // Walking into something low (a slab, the first step of a stairs) lifts the player onto it and lets
         // the same step carry on, so stairs are climbed by walking rather than jumping.
-        if (blocked_x || blocked_z) && (was_grounded || s.on_ground) && !input.flying && !input.sneak {
+        //
+        // Swimming counts as grounded for this, as in the GDScript twin: in water the jump key only eases
+        // the rise to swim_speed, which peaks short of a bank at the water's own level, so getting out
+        // meant breaking a block first.
+        if (blocked_x || blocked_z) && (was_grounded || s.on_ground || in_liquid) && !input.flying && !input.sneak {
             let wish = Vector3::new(
                 if blocked_x { part.x } else { 0.0 },
                 0.0,

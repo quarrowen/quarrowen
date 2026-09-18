@@ -58,8 +58,13 @@ static func default_rig() -> Dictionary:
 			{"name": "leg_l_upper", "parent": "", "pivot": [-2, 12, 0], "box": [-2, -6, -2], "size": [4, 6, 4], "region": "leg_l", "slice": [0, 6]},
 			{"name": "leg_l_lower", "parent": "leg_l_upper", "pivot": [0, -6, 0], "box": [-2, -6, -2], "size": [4, 6, 4], "region": "leg_l", "slice": [6, 12]},
 		],
+		# Accessories attach just clear of the head rather than exactly on it. The head's own mesh tops out
+		# at y 8 and its overlay shell (hair, a painted skin) at 8.5, so a hat whose lowest box started at
+		# 0 had faces exactly coplanar with one of them and the two fought for the same pixels - which is
+		# why a hat flickered, but only when hair was worn under it. 0.6 clears both and is 0.04 blocks,
+		# far too small to see. (playtest, 2026-09-18)
 		"attachments": {
-			"hat": {"part": "head", "position": [0, 8, 0], "rotation": [0, 0, 0]},
+			"hat": {"part": "head", "position": [0, 8.6, 0], "rotation": [0, 0, 0]},
 			"hair": {"part": "head", "position": [0, 4, 0], "rotation": [0, 0, 0]},
 			"face": {"part": "head", "position": [0, 4, -4], "rotation": [0, 0, 0]},
 			"back": {"part": "torso", "position": [0, 7, 2], "rotation": [0, 0, 0]},

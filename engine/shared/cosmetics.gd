@@ -154,13 +154,17 @@ const BUILTIN := [
 		{"region": "leg_l_overlay", "rows": [0, 5], "sides": ["back", "left", "front"]}]},
 
 	# Hats: voxel accessories on top of the head. They replace a helmet unless armor is shown.
+	#
+	# A hat that hugs the head must clear its overlay shell, which reaches half a pixel proud of the head
+	# on every side (Avatar.OVERLAY_INFLATE) and is where hair and painted skins are drawn. A box face at
+	# exactly +/-4.5 is coplanar with it and the two flicker. Sit outside it, at 5 or more.
 	{"name": "cap", "category": "hat", "display_name": "Cap", "color": "#d94c4c", "boxes": [
-		{"from": [-4.5, -1.5, -4.5], "size": [9, 2.5, 9]}, {"from": [-4, -1.5, -8], "size": [8, 0.75, 3.5], "shade": 0.85}]},
+		{"from": [-5, -1.5, -5], "size": [10, 2.5, 10]}, {"from": [-4, -1.5, -8.5], "size": [8, 0.75, 4], "shade": 0.85}]},
 	{"name": "top_hat", "category": "hat", "display_name": "Top hat", "color": "#2a2a2a", "boxes": [
 		{"from": [-6, 0, -6], "size": [12, 1, 12]}, {"from": [-4, 1, -4], "size": [8, 7, 8]},
 		{"from": [-4.2, 1, -4.2], "size": [8.4, 1.5, 8.4], "color": "#b03030"}]},
 	{"name": "beanie", "category": "hat", "display_name": "Beanie", "color": "#e8913a", "boxes": [
-		{"from": [-4.5, -3, -4.5], "size": [9, 4, 9]}, {"from": [-4.6, -3, -4.6], "size": [9.2, 1.2, 9.2], "shade": 0.8},
+		{"from": [-5, -3, -5], "size": [10, 4, 10]}, {"from": [-5.2, -3, -5.2], "size": [10.4, 1.2, 10.4], "shade": 0.8},
 		{"from": [-1, 1, -1], "size": [2, 2, 2], "color": "#f0f0f0"}]},
 	{"name": "crown", "category": "hat", "display_name": "Crown", "color": "#e8c040", "boxes": [
 		{"from": [-4.5, 0, -4.5], "size": [9, 2, 1]}, {"from": [-4.5, 0, 3.5], "size": [9, 2, 1]},
@@ -173,7 +177,7 @@ const BUILTIN := [
 		{"from": [-3, 4, -2.5], "size": [6, 3, 6]}, {"from": [-2, 7, -1.5], "size": [4, 3, 4]},
 		{"from": [-1, 10, -0.5], "size": [2, 2, 2]}, {"from": [-4.1, 1, -4.1], "size": [8.2, 1, 8.2], "color": "#e8c040"}]},
 	{"name": "headband", "category": "hat", "display_name": "Headband", "color": "#d94c4c", "covers": [], "boxes": [
-		{"from": [-4.4, -2.5, -4.4], "size": [8.8, 1.2, 8.8]}]},
+		{"from": [-5, -2.5, -5], "size": [10, 1.2, 10]}]},
 
 	# Glasses: on the front of the face, eye height.
 	{"name": "glasses", "category": "glasses", "display_name": "Glasses", "color": "#303030", "boxes": [

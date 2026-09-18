@@ -201,6 +201,13 @@ func _refusal(p, m: Dictionary) -> String:
 	if banned_creators.has(p.player_id):
 		return "you may not upload creations here"
 	if str(m.get("author", "")) != p.player_id:
+		# Says what it compared. "Only the author" with nothing else is impossible to act on when you are
+		# the author: an empty field and a mismatched one read exactly the same. (playtest, 2026-09-18)
+		var claimed := str(m.get("author", ""))
+		_server.dev_log.add("warn", "server", "%s offered creation %s made by '%s', but they are '%s'"
+			% [p.name, id, claimed if not claimed.is_empty() else "(nobody)", p.player_id])
+		if claimed.is_empty():
+			return "this creation has no author recorded, so it cannot be brought to a server"
 		return "only the author can bring a creation to a server"
 	if not str(m.get("kind", "")) in policy.kinds:
 		return "this server does not accept %ss" % m.get("kind", "creation")

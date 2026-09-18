@@ -77,6 +77,7 @@ func _ready() -> void:
 	await _roles()
 	await _playtest_fixes()
 	await _movement()
+	await _swimming()
 	await _server_panel()
 	await _mod_settings()
 	_housekeeping()
@@ -582,6 +583,44 @@ func _server_panel() -> void:
 	server.on_server_panel(61, "anticheat", {"mode": "log"})
 	_check(server.anticheat.mode == "log", "the panel switches the cheat checks to logging")
 	sent.append(true)
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Getting out of the water onto a bank at the water's own level, which used to need a pickaxe.
+func _swimming() -> void:
+	var server = _start("swim_%d" % Time.get_ticks_msec())
+	var stone: int = server.registry.id_of("base:stone")
+	var water: int = server.registry.id_of("base:water")
+	var o := Vector3i(40, 80, 40)
+	server._ensure_chunk(Vector2i(2, 2))
+	# A floor, a pool two blocks deep, and a bank whose top is level with the water's top.
+	for x in range(-3, 4):
+		for z in range(-4, 5):
+			server.set_block_authoritative(o + Vector3i(x, 0, z), stone)
+			server.set_block_authoritative(o + Vector3i(x, 1, z), stone)
+			if z <= 1:
+				server.set_block_authoritative(o + Vector3i(x, 2, z), water)
+				server.set_block_authoritative(o + Vector3i(x, 3, z), water)
+			else:
+				server.set_block_authoritative(o + Vector3i(x, 2, z), stone)
+				server.set_block_authoritative(o + Vector3i(x, 3, z), stone)
+	var bank_top: float = float(o.y + 4)
+	var p := ServerPlayer.new(server, 73, "Swimmer")
+	p.player_id = "swimmer"
+	server.players[73] = p
+	p.state.position = Vector3(o.x + 0.5, o.y + 3.0, o.z - 1.5)  # afloat, facing the bank
+	p.state.velocity = Vector3.ZERO
+	_check(server.rules.liquid_lut[server.world.get_block(o.x, o.y + 3, o.z - 1)] == 1, "the swimmer is in water")
+	for t in 120:
+		var i = PlayerPhysics.PlayerInput.new()
+		i.move = Vector2(0.0, 1.0)  # forward, towards the bank
+		i.jump = true               # holding jump, as anyone would
+		i.yaw = PI                  # +z
+		PlayerPhysics.step(p.state, i, server.world, server.rules)
+	_check(p.state.position.y >= bank_top - 0.05 and p.state.position.z > float(o.z) + 1.0,
+		"a swimmer can climb out onto a bank at the water's level (y %.2f of %.0f, z %.1f)"
+			% [p.state.position.y, bank_top, p.state.position.z - o.z])
 	server.queue_free()
 	await get_tree().process_frame
 
