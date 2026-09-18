@@ -106,6 +106,24 @@ clears the macOS quarantine flag and starts the new one. A failed swap puts the 
 Servers never hand the client a download address. A server can only say which protocol version it
 needs; the client then offers the update from its own pinned source.
 
+### Cutting a release
+
+In this order, because the middle step is what the children actually feel:
+
+1. `tools/run_tests.sh` and `QW_NATIVE=0 PORT_BASE=25700 tools/run_tests.sh` - both suites.
+2. Bump `GAME_VERSION` in `engine/shared/protocol.gd`, and `VERSION` too if anything the client and
+   server must agree on has changed (RPCs, or the block shape table).
+3. Write the release notes in PROGRESS.md, and regenerate the save fixture for the new version
+   (`tools/make_save_fixture.tscn -- --out=tests/fixtures/saves/<version>`).
+4. **Bump the pinned image in `deploy/server/.env.example`** (`QW_IMAGE`, `QW_HUB_IMAGE`). It is pinned
+   so a server never moves on its own; the cost of that is remembering to move it here.
+5. Tag `v<version>` and push it. CI builds the macOS export and both server images from the tag alone.
+6. `tools/make_release.sh` on the Mac with the Developer ID certificate: signs, notarizes, staples.
+7. Bring the family server up on the new version (edit its `.env`, `docker compose pull && up -d`)
+   **before** publishing the site. A client that updates itself cannot join a server still on the old
+   protocol, so publishing first locks everyone out for as long as the server takes to follow.
+8. `tools/publish_site.sh`, then a GitHub release with the same zip attached.
+
 ## 4. Mods: the problem
 
 Today the app carries `base`, `vanilla` and the add-ons inside `Quarrowen.app/Contents/Resources/mods`,

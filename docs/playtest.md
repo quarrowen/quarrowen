@@ -192,15 +192,19 @@ children to `ALLOWLIST` again, or let them join once with it turned off. Old dat
 longer read: on a Mac it stays in `~/Library/Application Support/Godot/app_userdata/Quarrowen`, and on the
 server in whatever volume it was in.
 
-**Updating.** Server and Macs must run the same version - a client is refused by a server on a different
-protocol. The images are tagged per release, and `:latest` follows the newest one, so on the server:
+**Updating.** Server and Macs must run the same version: a server refuses a client on a different
+protocol. `.env` pins the server to an exact version for that reason, so it never moves on its own while
+the children are still on the old client. To update, publish the release for the Macs first, then:
 
 ```sh
-cd ~/quarrowen && docker compose pull && docker compose up -d
+cd ~/quarrowen
+nano .env                                  # QW_IMAGE / QW_HUB_IMAGE -> the new version
+docker compose pull && docker compose up -d
 ```
 
-To stay on one release instead, put `QW_IMAGE` and `QW_HUB_IMAGE` in `.env` pinned to a version, e.g.
-`ghcr.io/quarrowen/quarrowen/server:0.40`. Re-download compose.yaml when it changes (rarely).
+Set them to `:latest` instead if you would rather follow every release automatically - with the caveat
+that any `docker compose pull`, whatever you ran it for, then moves all three worlds at once.
+Re-download compose.yaml when it changes (rarely).
 
 Then publish the release with `tools/make_release.sh` (it builds the app, the mod zips, the download page
 and the update manifest - see docs/distribution.md); the Macs pick it up by themselves. `tools/package_mac.sh`

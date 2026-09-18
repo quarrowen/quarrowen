@@ -580,9 +580,10 @@ The rules, and what enforces each:
 4. **Every release adds a fixture.** `tests/fixtures/saves/<version>` is a real world made by
    `tools/make_save_fixture.tscn` in a checkout of that tag; `save_compat_test` loads every fixture, checks
    blocks, chests, entities and inventories, saves again and reloads. The suite runs it on both engines.
-5. **The release checklist** (docs/playtest.md): run both suites (the fixture test included), cut the tag,
-   add the new fixture, and only then package. A deliberate break needs a note in the release and a backup
-   step for the family server.
+5. **The release checklist** is docs/distribution.md ("Cutting a release"): both suites, the version bump,
+   the new fixture, the pinned image in deploy/server/.env.example, the tag, the signed build, the family
+   server *before* the site, and only then publish. A deliberate break needs a note in the release and a
+   backup step for the family server.
 
 ## Test stability (2026-09-15)
 
