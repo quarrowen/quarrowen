@@ -298,6 +298,12 @@ func _init() -> void:
 	_save(_quicklamp(false), base + "quicklamp.png")
 	_save(_quicklamp(true), base + "quicklamp_lit.png")
 
+	# A SceneTree script runs until it is told not to. Without this the tool wrote every texture
+	# correctly and then sat there for ever; three of them were found still running an hour later,
+	# looking like a hung build rather than a finished one. (2026-09-19)
+	quit()
+
+
 func _part(part: String) -> Image:
 	var img := _blank()
 	for y in TILE:

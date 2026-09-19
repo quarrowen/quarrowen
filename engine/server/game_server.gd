@@ -32,6 +32,7 @@ const PlayerRig = preload("res://engine/shared/player_rig.gd")
 const Cosmetics = preload("res://engine/shared/cosmetics.gd")
 const EffectRegistry = preload("res://engine/shared/effect_registry.gd")
 const BlockTicks = preload("res://engine/server/block_ticks.gd")
+const TagRegistry = preload("res://engine/shared/tag_registry.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 const Stations = preload("res://engine/server/stations.gd")
@@ -254,6 +255,13 @@ var _save_meta_pending := false
 var _js_mods: Array = []  # keeps JavaScript runtimes alive
 ## Crafting recipes and categories (sent to clients for the recipe book).
 var recipes := RecipeRegistry.new()
+## Named groups of blocks and items (see engine/shared/tag_registry.gd). Server-side: a tag is a
+## question a mod asks while the world runs, not something a client has to know.
+var tags := TagRegistry.new()
+## Recipes whose inputs name a tag, held until every mod has loaded (see _expand_tag_recipes).
+var _tag_recipes: Array = []
+## Each mod's API object, by mod id. Mods are not obliged to keep their own, so the server does.
+var _mod_apis := {}
 ## Station tiers, workshop upgrades and multiblock structures.
 var stations := Stations.new(self)
 ## Co-op crafting at stations: presence, shared trays, timed jobs and projects.
@@ -444,6 +452,7 @@ func start(config: Dictionary) -> Error:
 	dev_log.drain()  # script parse errors from loading, so they reach the log file
 	if err != OK:
 		return err
+	_expand_tag_recipes()  # before part recipes: every mod has had its say about what is in a tag
 	_add_part_recipes()
 	_migrate_save_format()
 	if str(config.get("anticheat", "")) in ["kick", "log", "off"]:
@@ -628,7 +637,9 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 			start_error = "The mod '%s' is missing its setup(api) function." % manifest.id
 			printerr("[server] Mod '%s' has no setup(api) method" % manifest.id)
 			return ERR_INVALID_DATA
-		instance.setup(ModApi.new(self, manifest))
+		var mod_api := ModApi.new(self, manifest)
+		_mod_apis[manifest.id] = mod_api  # kept so deferred work can run as the mod that asked for it
+		instance.setup(mod_api)
 		_mods.append(instance)
 		mod_instances[manifest.id] = instance
 		server_info.mods.append("%s@%s" % [manifest.id, manifest.version])
@@ -4372,6 +4383,74 @@ func on_craft(peer_id: int, index: int, times: int) -> void:
 
 
 ## One recipe per part type and material, made at the part type's station (after all mods registered).
+## Recipes with a tag input are held back while mods load, because a mod loading later may add to the
+## tag, and then written out as one real recipe per member.
+##
+## Written out rather than matched at craft time on purpose: the recipe book can then show a child
+## exactly what to put where, which "any of eleven things" cannot. The cost is the product of the tags
+## in one recipe, so it is capped, and a recipe that would go past the cap is refused loudly rather
+## than quietly making three hundred entries nobody wants to scroll past.
+const MAX_TAG_RECIPES := 64
+
+
+func defer_tag_recipe(entry: Dictionary) -> void:
+	_tag_recipes.append(entry)
+
+
+func _expand_tag_recipes() -> void:
+	for entry: Dictionary in _tag_recipes:
+		var api = _api_for(str(entry.mod))
+		if api == null:
+			continue
+		# Each tag input becomes a list of choices; the recipe is written once per combination.
+		var fixed := {}
+		var choices := []  # [[input name, [member names]], ...]
+		var missing := false
+		for input_name: String in entry.inputs:
+			if not input_name.begins_with("#"):
+				fixed[input_name] = entry.inputs[input_name]
+				continue
+			var tag_name := input_name.substr(1)
+			var names: Array = tags.names_in(tag_name)
+			if names.is_empty():
+				dev_log.add("warn", entry.mod, "recipe for %s wants tag '%s', which nothing has put anything in" % [entry.output, tag_name])
+				missing = true
+				break
+			names.sort()  # so the recipe book is in the same order every run
+			choices.append([input_name, names, int(entry.inputs[input_name])])
+		if missing:
+			continue
+		var combinations := 1
+		for choice in choices:
+			combinations *= (choice[1] as Array).size()
+		if combinations > MAX_TAG_RECIPES:
+			dev_log.add("error", entry.mod, "recipe for %s would make %d recipes from its tags (limit %d)"
+				% [entry.output, combinations, MAX_TAG_RECIPES])
+			continue
+		for n in combinations:
+			var inputs := fixed.duplicate()
+			var rest := n
+			var suffix := ""
+			for choice in choices:
+				var names: Array = choice[1]
+				var picked: String = names[rest % names.size()]
+				rest /= names.size()
+				inputs[picked] = int(inputs.get(picked, 0)) + int(choice[2])
+				suffix += "_" + picked.get_slice(":", 1) if picked.contains(":") else "_" + picked
+			var options: Dictionary = entry.options.duplicate(true)
+			# A distinct id per combination, or they overwrite one another in the recipe book.
+			options.id = str(options.get("id", str(entry.output).get_slice(":", 1))) + suffix
+			api._register_recipe_now(inputs, str(entry.output), int(entry.count), options)
+	_tag_recipes.clear()
+
+
+## The mod API object a mod is using, so a deferred recipe is registered as that mod rather than as
+## the engine - its id, its permissions, its name in the recipe book. Held here rather than asked of
+## the mod, because a mod is not obliged to keep a reference to its own api and several do not.
+func _api_for(owner: String):
+	return _mod_apis.get(owner)
+
+
 func _add_part_recipes() -> void:
 	for part_name in assembly.part_types:
 		var part: Dictionary = assembly.part_types[part_name]

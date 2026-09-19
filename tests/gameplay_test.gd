@@ -73,6 +73,7 @@ func _ready() -> void:
 	await _music()
 	await _ambience()
 	await _weather()
+	await _tags()
 	await _signals()
 	await _realms()
 	await _simulation_distance()
@@ -3995,6 +3996,42 @@ func _scripts_compile() -> void:
 
 ## Atmosphere. The engine picks the moments; a mod says under what conditions.
 ## Weather: world state the engine keeps, whose look and timing belong to a mod.
+## Tags: named groups of blocks and items, and the thing that makes them worth having - a mod loading
+## later can add to a group an earlier one defined, and its recipes then accept the new thing.
+func _tags() -> void:
+	var server = _start("tags_%d" % Time.get_ticks_msec())
+	var base_api = server.mod_instances.get("base").signals.api
+	_check(base_api.tagged("base:nothing_defines_this").is_empty(), "a tag nobody defined is empty rather than an error")
+
+	base_api.tag("planky", ["base:oak_log"])
+	_check(base_api.tagged("planky") == ["base:oak_log"], "a bare name is the calling mod's own (%s)" % str(base_api.tagged("planky")))
+	_check(base_api.has_tag("base:oak_log", "base:planky"), "and can be asked for in full")
+
+	# What a second mod does: reach into base's tag deliberately, by writing it out.
+	var other_api = server.mod_instances.get("vanilla").api
+	other_api.tag("base:planky", ["base:birch_log"])
+	_check(base_api.tagged("planky").size() == 2, "another mod can add to it by naming it in full")
+	other_api.tag("planky", ["base:spruce_log"])
+	_check(base_api.tagged("planky").size() == 2 and other_api.tagged("planky").size() == 1,
+		"while a bare name from that mod makes its own, and leaves base's alone")
+	_check(other_api.tags_of("base:oak_log").has("base:planky"), "and a thing can say which tags it is in")
+	# The base mod tags its own woods, which is what a mod adding a tree would join.
+	_check(base_api.has_tag("base:birch_log", "base:logs"), "the base mod puts its woods in base:logs")
+
+	# The headline case, end to end: base tags its woods, and a recipe written against the tag turns
+	# into one real recipe per wood once every mod has had its say.
+	var woods: int = base_api.tagged("base:logs").size()
+	_check(woods == 3, "and there are three of them (%d)" % woods)
+	var before: int = server.recipes.recipes.size()
+	base_api.register_recipe({"#base:logs": 1}, "base:stick", 8, {"id": "tagtest"})
+	_check(server.recipes.recipes.size() == before, "a recipe naming a tag waits rather than resolving early")
+	server._expand_tag_recipes()
+	_check(server.recipes.recipes.size() == before + woods,
+		"and becomes one recipe per member once the mods have finished (%d new)" % (server.recipes.recipes.size() - before))
+	server.queue_free()
+	await get_tree().process_frame
+
+
 ## Signals: a level that spreads and fades, and blocks told when what reaches them changes. The engine
 ## ships no gate of any kind, so the test builds one the way a mod would.
 func _signals() -> void:

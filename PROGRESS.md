@@ -929,6 +929,42 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Tags: named groups of blocks and items (2026-09-19)
+
+`api.tag("logs", [...])` puts things in a group; `tagged`, `has_tag` and `tags_of` ask about them.
+`engine/shared/tag_registry.gd`, kept by name rather than by id because ids move whenever a mod is
+added.
+
+**The point is not saving typing**, though `mods/base` did have several loops registering one recipe
+per wood. It is that a group belongs to everybody: a mod adding cherry trees puts its wood in
+`base:logs`, and every recipe the base game already wrote for logs accepts it, without the base game
+knowing that mod exists. Any other arrangement means editing the base game every time somebody adds a
+tree, which amounts to saying nobody may.
+
+**A recipe input beginning with `#` names a tag**, and those recipes are **held until every mod has
+loaded** and then written out as one real recipe per member. Resolving at registration would silently
+miss whatever loads later, which is the entire feature. Written out rather than matched at craft time
+so the recipe book can show a child exactly what to put where; the cost is the product of the tags in
+one recipe, so it is capped at 64 and a recipe that would exceed it is refused loudly.
+
+**Naming follows the convention already in the API and the user pushed back on it**, fairly: a bare
+name is your own mod's, so `tag("logs")` from cherry means `cherry:logs`, and adding to base's tag
+means writing `tag("base:logs", ...)`. They dislike magic of this kind ("I never liked programming
+languages with magic methods"). Kept, for two reasons: it is how all 169 API functions already behave,
+so making tags the one exception would be worse than the magic; and it is opt-out - writing the full
+name always works and always means exactly what it says. What was wrong was that the magic was
+*invisible*, so warnings now print the **resolved** name. A tag in a namespace nothing owns is kept
+and warned about rather than refused, so an optional-integration mod need not guard every call.
+
+A note for whoever writes a mod against this: `base:oak_log` is not a thing. Oak's log is `base:log`;
+only birch, spruce and acacia are named woods, and only those three are in `base:logs`.
+
+## The texture tool never exited (2026-09-19)
+
+`tools/generate_textures.gd` is a `SceneTree` script with no `quit()`, so it wrote every texture
+correctly and then ran for ever. The user noticed three of them still going an hour later, looking
+like a hung build rather than a finished one. One line; it now exits in about a third of a second.
+
 ## World generation is per realm now (2026-09-19)
 
 The loose end from 2c. `set_world_generator`, `use_biome_generator`, `biome_generator`,

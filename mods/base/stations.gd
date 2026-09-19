@@ -85,6 +85,7 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	for wood in Nature.WOODS:
 		api.set_fuel("base:%s_log" % wood, 15.0)
 		api.register_process("smelting", "base:%s_log" % wood, "base:charcoal", 1, 10.0)
+		api.tag("logs", ["base:%s_log" % wood])  # so a mod that adds a tree can join in
 	for fuel in [["base:coal", 80.0], ["base:charcoal", 80.0], ["base:log", 15.0], ["base:planks", 15.0], ["base:crafting_table", 15.0],
 			["base:chest", 15.0], ["base:stick", 5.0], ["base:sapling", 5.0], ["base:wooden_pickaxe", 10.0], ["base:wooden_axe", 10.0],
 			["base:wooden_shovel", 10.0], ["base:wooden_sword", 10.0], ["base:wooden_hoe", 10.0]]:

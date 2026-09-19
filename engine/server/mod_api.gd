@@ -678,7 +678,19 @@ func item_display_name(id: int) -> String:
 ## `station: "<name>"`; without one it is crafted anywhere), category (recipe book tab: tools, weapons,
 ## armor, blocks, food, materials, misc or one from register_recipe_category), id (defaults to
 ## "<mod>:<output name>").
+## An input named "#base:logs" means *any* member of that tag. Held back until every mod has loaded and
+## then written out as one recipe per member, because the whole point of a tag is that a mod loading
+## later can add to it - resolving one here would silently miss whatever comes after.
 func register_recipe(inputs: Dictionary, output: String, count := 1, options := {}) -> void:
+	for input_name: String in inputs:
+		if input_name.begins_with("#"):
+			_server.defer_tag_recipe({"mod": mod_id, "inputs": inputs.duplicate(), "output": output,
+				"count": count, "options": options.duplicate(true)})
+			return
+	_register_recipe_now(inputs, output, count, options)
+
+
+func _register_recipe_now(inputs: Dictionary, output: String, count := 1, options := {}) -> void:
 	var resolved := {}
 	var pattern := []
 	if options.get("pattern") is Array and options.get("key") is Dictionary:
@@ -911,6 +923,41 @@ func block_display_name(id: int) -> String:
 # so a mod cannot yet address a second realm - nor can it make one, which is why this is a limit rather
 # than a bug today. When realms reach the mod API these gain a way to say where, most likely by the
 # event that supplied the position carrying its realm. (2026-09-19)
+
+## Puts blocks or items into a named group: "any log", "any ore", "anything a pipe may carry".
+##
+##     api.tag("logs", ["base:oak_log", "base:birch_log"])   # in base: defines base:logs
+##     api.tag("base:logs", ["cherry:cherry_log"])            # elsewhere: adds to base:logs
+##
+## A bare name is your own mod's, as everywhere else here; writing it out in full always means exactly
+## what it says. **Adding to another mod's tag is the point** - a mod that adds a tree can put its wood
+## in `base:logs` and every recipe the base game wrote for logs accepts it, without the base game
+## knowing that mod exists.
+##
+## A tag in a namespace no installed mod owns is kept and warned about rather than refused, so a mod
+## that integrates with another when it happens to be there does not have to guard every call.
+func tag(tag_name: String, names: Array) -> void:
+	var resolved := _qualify_ref(tag_name)
+	if resolved.is_empty():
+		push_error("[%s] tag: no name given" % mod_id)
+		return
+	_server.tags.add(resolved, names.map(func(n) -> String: return _qualify_ref(String(n))))
+
+
+## The names in a tag (empty if nothing has defined it).
+func tagged(tag_name: String) -> Array:
+	return _server.tags.names_in(_qualify_ref(tag_name))
+
+
+## Whether a block or item name is in a tag.
+func has_tag(name: String, tag_name: String) -> bool:
+	return _server.tags.has(_qualify_ref(tag_name), _qualify_ref(name))
+
+
+## Every tag a block or item is in.
+func tags_of(name: String) -> Array:
+	return _server.tags.tags_of(_qualify_ref(name))
+
 
 ## Tells `handler(ctx)` when the level arriving at a block of this type changes: a door that should
 ## open, a lamp that should light, a machine that should start. ctx = {position, block, level,
