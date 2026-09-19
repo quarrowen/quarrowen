@@ -8,6 +8,7 @@ var api
 func setup(mod_api) -> void:
 	api = mod_api
 	api.register_command("quickdemo", "build a quickdust circuit in front of you", _build, "admin")
+	api.register_command("wiredemo", "a generator lighting lamps over strung cable", _wires, "admin")
 	api.register_link_kind("cable", {"span": 14, "draw": "cable", "color": "#c8822e"})
 	api.register_link_kind("pipe", {"span": 6, "draw": "pipe", "color": "#8a9aa6"})
 
@@ -59,3 +60,35 @@ func _build(player, _args) -> void:
 	api.link("pipe", {"position": here + Vector3i(2, 2, -2), "face": 0},
 		{"position": here + Vector3i(7, 2, -2), "face": 0})
 	player.send_message("Quickdust demo built.")
+
+
+## A generator on one side, lamps on the other, and cable strung between poles across the gap. What
+## the networks work is actually for.
+func _wires(player, _args) -> void:
+	var here := Vector3i(player.position.floor()) + Vector3i(0, -1, 0)
+	var stone: int = api.block("base:stone")
+	var pole: int = api.block("industry:pole")
+	var gen: int = api.block("industry:coal_generator")
+	var lamp: int = api.block("industry:lamp")
+	if pole <= 0:
+		player.send_message("The industry mod is not loaded.")
+		return
+	# Two little platforms with a gap between them, so the cable has something to span.
+	for side in [0, 12]:
+		for dx in range(side, side + 5):
+			for dz in range(-2, 3):
+				api.set_block(here + Vector3i(dx, 0, dz), stone)
+				for dy in range(1, 6):
+					api.set_block(here + Vector3i(dx, dy, dz), 0)
+	for dy in range(1, 4):
+		api.set_block(here + Vector3i(2, dy, 0), pole)
+		api.set_block(here + Vector3i(14, dy, 0), pole)
+	api.set_block(here + Vector3i(1, 1, 0), gen)
+	api.set_block(here + Vector3i(15, 1, 0), lamp)
+	api.set_block(here + Vector3i(15, 1, 2), lamp)
+	api.set_block_data(here + Vector3i(1, 1, 0), {"burn": 600.0})
+	api.link("industry:cable", {"position": here + Vector3i(2, 3, 0), "face": 0},
+		{"position": here + Vector3i(14, 3, 0), "face": 0})
+	# The span is 12 and a cable reaches 14: any further and the engine refuses it, which is exactly
+	# what it should do and exactly what it did the first time this demo was written. (2026-09-19)
+	player.send_message("Wire demo built: %d links." % api.links_at(here + Vector3i(2, 3, 0)).size())
