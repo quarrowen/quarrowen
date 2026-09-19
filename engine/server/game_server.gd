@@ -375,7 +375,10 @@ func add_realm(realm_id: String, realm_name := "") -> Realm:
 	var made := Realm.new(self, realm_id, realm_name)
 	realms[realm_id] = made
 	made.attach()
-	made.seed_value = world_seed
+	# Derived from the world's seed and the realm's name rather than copied. Two realms given the same
+	# number are the same terrain with different blocks in it, which is a reskin and not a second world;
+	# derived means the Emberdeep is still the same Emberdeep every time this world is loaded.
+	made.seed_value = hash([world_seed, realm_id])
 	# Only once the world directory is known; before start() picks it, set_storage runs with the rest.
 	if not _save_dir.is_empty():
 		made.set_storage(_save_dir)

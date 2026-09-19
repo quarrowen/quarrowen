@@ -929,6 +929,18 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## World generation is per realm now (2026-09-19)
+
+The loose end from 2c. `set_world_generator`, `use_biome_generator`, `biome_generator`,
+`register_biome`, `register_feature`, `add_generation_pass` and `add_ore_pass` all take an optional
+realm id, so the Emberdeep can have its own ores rather than the overworld's at a different depth.
+
+**A bug worth naming: a new realm was given the overworld's seed exactly.** So two realms built with
+the same generator settings would have been the same landscape in different blocks - a reskin, not a
+second world. A realm's seed is derived from the world's seed and its own name now: still the same
+Emberdeep every time that world is loaded, but not the same shape as anywhere else. The ore pass salt
+gained the realm id for the same reason, so one ore does not land in identical places in two worlds.
+
 ## Signals, capability 3 (2026-09-19)
 
 `engine/server/signals.gd`, one per realm. Three block keys and one call: a block emits

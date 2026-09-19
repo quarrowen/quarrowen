@@ -4119,6 +4119,19 @@ func _realms() -> void:
 	_check(server.realm.generator != marker, "and setting one realm's does not touch another's")
 	deep.generator = null
 
+	# A realm's terrain is its own: its seed is derived from the world's and its name rather than
+	# copied, so it is stable across loads without being the overworld's landscape in other blocks.
+	_check(deep.seed_value != server.realm.seed_value, "a new realm does not share the overworld's seed")
+	var again = server.add_realm("test:deep2", "Deep Two")
+	_check(again.seed_value != deep.seed_value, "and two realms do not share one either")
+	var mod = server.mod_instances.get("vanilla")
+	_check(mod.api.biome_generator("test:deep") != mod.api.biome_generator(),
+		"biomes registered for a realm go to that realm's generator")
+	mod.api.add_ore_pass({"ore": "base:coal_ore", "replace": "base:stone", "veins": 2, "size": 3}, "test:deep")
+	_check(deep.generation_passes.size() == 1 and server.realm.generation_passes.size() > 1,
+		"and an ore pass lands in the realm it was given, not the overworld")
+
+
 	# Each realm keeps its own tick table, for the same reason.
 	_check(deep.block_ticks != server.realm.block_ticks, "and its own block ticks")
 	_check(deep.block_ticks.realm == deep, "which know the world they are in")

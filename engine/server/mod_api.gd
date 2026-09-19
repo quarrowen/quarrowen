@@ -952,7 +952,10 @@ func _realm_or_default(realm_id: String):
 ##     var deep := api.add_realm("emberdeep", {"name": "The Emberdeep", "generator": MyCaves.new()})
 ##
 ## options: name (shown when travelling), generator (as set_world_generator, but for this world),
-## passes (objects with decorate(chunk, seed), as ore passes are), seed (defaults to the world's).
+## passes (objects with decorate(chunk, seed), as ore passes are), seed (by default derived from the
+## world's seed and this realm's name, so it is stable but not the same terrain as the overworld).
+##
+## Ores, biomes and features go in with the realm's id: `api.add_ore_pass({...}, "emberdeep")`.
 ##
 ## Returns the realm, or null if the name is taken. The id is qualified with the mod's own name, so two
 ## mods may both have an "underworld" without meeting. A realm costs nothing until somebody is standing
@@ -989,39 +992,43 @@ func send_to_realm(player, realm_id: String, position: Vector3) -> bool:
 
 ## `generator` must implement `generate(chunk)`; write into a local copy of `chunk.blocks`
 ## (index with Chunk.index(x, y, z)) and assign it back for speed.
-func set_world_generator(generator: Object) -> void:
+func set_world_generator(generator: Object, realm_id := "") -> void:
 	if _static_during_reload("world generator", "", true):
 		return
-	_server.generator = generator
+	_realm_or_default(realm_id).generator = generator
 
 
 ## Turns on the engine biome generator (engine/server/worldgen/biome_generator.gd) for this world.
 ## options: sea_level, snow_level. Register biomes and features before or after; returns the generator.
-func use_biome_generator(options := {}) -> Object:
-	if reloading and _server.biome_generator != null:
-		return _server.biome_generator
-	var gen = biome_generator()
+func use_biome_generator(options := {}, realm_id := "") -> Object:
+	var into = _realm_or_default(realm_id)
+	if reloading and into.biome_generator != null:
+		return into.biome_generator
+	var gen = biome_generator(realm_id)
 	gen.sea_level = int(options.get("sea_level", gen.sea_level))
 	gen.snow_level = int(options.get("snow_level", gen.snow_level))
-	_server.generator = gen
+	into.generator = gen
 	return gen
 
 
 ## The shared biome generator (created on first use, even if the game uses its own generator).
-func biome_generator() -> Object:
-	if _server.biome_generator == null:
-		_server.biome_generator = BiomeGenerator.new(_server.world_seed, func(n: String) -> int: return block(n) if n.contains(":") else block(n), _server.registry)
-	return _server.biome_generator
+func biome_generator(realm_id := "") -> Object:
+	var into = _realm_or_default(realm_id)
+	if into.biome_generator == null:
+		# The realm's own seed, not the server's: two worlds generated from the same number are the same
+		# shape with different blocks in it, which is not a second world, it is a reskin.
+		into.biome_generator = BiomeGenerator.new(into.seed_value, func(n: String) -> int: return block(n) if n.contains(":") else block(n), _server.registry)
+	return into.biome_generator
 
 
 ## A biome for the biome generator: {climate, ocean, height, surface, features, plants}. See BiomeGenerator.
-func register_biome(biome_name: String, def: Dictionary) -> void:
+func register_biome(biome_name: String, def: Dictionary, realm_id := "") -> void:
 	if reloading:
 		return  # world generation is fixed once the world runs (a full reload applies changes)
 	var d := def.duplicate(true)
 	d.features = (def.get("features", []) as Array).map(func(f): return f.merged({"feature": _qualify_ref(str(f.get("feature", "")))}, true) if f is Dictionary else f) \
 		if def.get("features") is Array else []
-	biome_generator().add_biome(_qualify(biome_name), d)
+	biome_generator(realm_id).add_biome(_qualify(biome_name), d)
 
 
 ## Carves caves, caverns and ravines into the biome generator's terrain (see worldgen/cave_carver.gd).
@@ -1328,10 +1335,10 @@ func set_arrival_point(id: String, position: Vector3) -> void:
 
 ## A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from
 ## GDScript, a Callable(writer, origin: Vector3i, rng) run on worker threads. See worldgen/features.gd.
-func register_feature(feature_name: String, def) -> void:
+func register_feature(feature_name: String, def, realm_id := "") -> void:
 	if reloading:
 		return  # world generation is fixed once the world runs (a full reload applies changes)
-	biome_generator().add_feature(_qualify(feature_name), def)
+	biome_generator(realm_id).add_feature(_qualify(feature_name), def)
 
 
 ## What a ray from `origin` in `direction` hits: `{hit, position, normal, block}` (position and normal are
@@ -1382,15 +1389,17 @@ func set_rejoin_handler(handler: Callable) -> void:
 
 ## Adds a pass run after the world generator for every new chunk, on worker threads:
 ## `pass_object.decorate(chunk, world_seed)`. Lets add-on mods put ores or structures in any game.
-func add_generation_pass(pass_object: Object) -> void:
+func add_generation_pass(pass_object: Object, realm_id := "") -> void:
 	if reloading:
 		return
-	_server.generation_passes.append(pass_object)
+	_realm_or_default(realm_id).generation_passes.append(pass_object)
 
 
 ## Scatters veins of `ore` inside `replace` in every new chunk. def: ore, replace (block names),
 ## veins (per chunk), size (blocks per vein), min_y, max_y, chance (per vein, 0-1).
-func add_ore_pass(def: Dictionary) -> void:
+## `realm_id` puts the ore in another world instead of the one the server starts with - the Emberdeep
+## wants its own ores, and they are not the overworld's at a different depth.
+func add_ore_pass(def: Dictionary, realm_id := "") -> void:
 	if reloading:
 		return
 	var ore := block(String(def.get("ore", "")))
@@ -1401,8 +1410,9 @@ func add_ore_pass(def: Dictionary) -> void:
 	var resolved := def.duplicate()
 	resolved.ore = ore
 	resolved.replace = replace
-	resolved.salt = "%s:%s" % [mod_id, def.get("ore")]
-	add_generation_pass(OrePass.new(resolved))
+	# The realm is in the salt too: the same ore in two worlds must not land in the same places.
+	resolved.salt = "%s:%s:%s" % [mod_id, realm_id, def.get("ore")]
+	add_generation_pass(OrePass.new(resolved), realm_id)
 
 
 ## Movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`.
