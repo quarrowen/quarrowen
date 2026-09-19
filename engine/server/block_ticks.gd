@@ -57,9 +57,13 @@ func _init(game_server, in_realm) -> void:
 	realm = in_realm
 
 
+## options.random: false gives a block a handler for *scheduled* ticks only, and keeps it out of the
+## per-chunk index of randomly-ticked blocks. That index is also what marks a chunk as one that has to
+## be saved, so indexing a block as common as water means every chunk with a puddle in it is written
+## on every save. Liquids are driven entirely by scheduling, so they ask for this. (2026-09-19)
 func register(block: int, handler: Callable, options := {}, owner := "engine") -> void:
 	handlers[block] = {"handler": handler, "owner": owner, "interval": clampf(float(options.get("interval", 30.0)), STEP, 86400.0),
-		"catch_up": bool(options.get("catch_up", true))}
+		"catch_up": bool(options.get("catch_up", true)), "random": bool(options.get("random", true))}
 
 
 ## Calls the handler of the block at `pos` after `seconds` (reason "scheduled"). One per position; a
@@ -91,11 +95,15 @@ static func scan(blocks: PackedByteArray, ids: PackedInt32Array) -> Dictionary:
 
 ## Block ids the chunk jobs should index: [tickable ids, light-emitting ids].
 func scan_ids() -> Array:
+	var random_ids := []
+	for id in handlers:
+		if bool(handlers[id].get("random", true)):
+			random_ids.append(id)
 	var lights := PackedInt32Array()
 	for d in server.registry.defs:
 		if d.light > 0:
 			lights.append(d.id)
-	return [PackedInt32Array(handlers.keys()), lights]
+	return [PackedInt32Array(random_ids), lights]
 
 
 func load_chunk(coord: Vector2i, tickable: Dictionary, lights: Dictionary, saved) -> void:

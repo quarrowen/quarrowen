@@ -469,6 +469,17 @@ to whoever it belongs to. `dimension` (&quot;&quot; = the ordinary world) hides 
 <div class="card" id="api-set-world-marker" data-search="set_world_marker  puts a marker on everyone's map and compass (a village, a shared base, an event). saved with the world.
 `marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world)."><div class="sig"><code>api.set_world_marker(marker_id: String, marker: Dictionary) -&gt; void</code></div><p>Puts a marker on everyone's map and compass (a village, a shared base, an event). Saved with the world.<br>`marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world).</p></div>
 <div class="card" id="api-clear-world-marker" data-search="clear_world_marker  takes a marker off everyone's map."><div class="sig"><code>api.clear_world_marker(marker_id: String) -&gt; void</code></div><p>Takes a marker off everyone's map.</p></div>
+<div class="card" id="api-register-liquid" data-search="register_liquid  makes a block a liquid that goes somewhere: spreads, falls, and dries up when nothing feeds it.
+
+api.register_liquid(&quot;water&quot;, {&quot;range&quot;: 7, &quot;falls&quot;: true, &quot;speed&quot;: 0.25})
+
+def: `range` (how many blocks from a source before it runs out), `falls`, `speed` (seconds between
+steps - lava is slow, which is most of what makes it frightening).
+
+the level lives in the block's state: 0 is a source and never runs out, and each block outwards is
+one weaker. nothing new is written to disk or sent to clients, because states already were."><div class="sig"><code>api.register_liquid(block_name: String, def := {}) -&gt; void</code></div><p>Makes a block a liquid that goes somewhere: spreads, falls, and dries up when nothing feeds it.<br><br>api.register_liquid(&quot;water&quot;, {&quot;range&quot;: 7, &quot;falls&quot;: true, &quot;speed&quot;: 0.25})<br><br>def: `range` (how many blocks from a source before it runs out), `falls`, `speed` (seconds between<br>steps - lava is slow, which is most of what makes it frightening).<br><br>The level lives in the block's state: 0 is a source and never runs out, and each block outwards is<br>one weaker. Nothing new is written to disk or sent to clients, because states already were.</p></div>
+<div class="card" id="api-register-liquid-meeting" data-search="register_liquid_meeting  what forms where two different liquids meet - the black glass where lava meets water. the engine
+has never heard of obsidian; it only knows that two of them touching makes a third thing."><div class="sig"><code>api.register_liquid_meeting(a_name: String, b_name: String, result_name: String) -&gt; void</code></div><p>What forms where two different liquids meet - the black glass where lava meets water. The engine<br>has never heard of obsidian; it only knows that two of them touching makes a third thing.</p></div>
 <div class="card" id="api-keep-awake" data-search="keep_awake  keeps the world around a position awake when nobody is standing there, so a machine goes on running
 after its owner walks away. returns a claim id.
 

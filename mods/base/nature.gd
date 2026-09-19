@@ -25,6 +25,17 @@ func setup(api, sounds: Dictionary) -> void:
 	# Lava: fills the deepest caves; glows and burns.
 	api.register_block("lava", {"display_name": "Lava", "textures": "textures/lava.png", "liquid": true, "light": 15, "hazard": true,
 		"breakable": false, "placeable": false, "contact_damage": {"amount": 4.0, "interval": 0.5, "cause": "lava"}})
+	# The black glass, where lava meets water. Hard enough to be a proper errand rather than a detour,
+	# and the reason a bucket is worth carrying down a cave: it is the only way to make any.
+	api.register_block("blackglass", {"display_name": "Blackglass", "textures": "textures/blackglass.png",
+		"sounds": sounds.stone, "hardness": 22.0, "tier": 3, "tool": "pickaxe", "drops": "base:blackglass"})
+
+	# Liquids that go somewhere. Water spreads seven blocks and falls; lava creeps three and is slow,
+	# which is most of what makes it frightening rather than merely hot.
+	api.register_liquid("water", {"range": 7, "falls": true, "speed": 0.22})
+	api.register_liquid("lava", {"range": 3, "falls": true, "speed": 0.9})
+	api.register_liquid_meeting("water", "lava", "base:blackglass")
+
 	# Cobalt: a deep ore (below y 24) for later tool tiers; smelts into ingots.
 	api.register_block("cobalt_ore", {"display_name": "Cobalt Ore", "textures": "textures/cobalt_ore.png", "sounds": sounds.stone, "hardness": 4.5,
 		"tier": 3, "tool": "pickaxe"})

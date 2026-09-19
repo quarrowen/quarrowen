@@ -161,6 +161,10 @@ var block_ticks:
 var signals:
 	get:
 		return realm.signals
+## Liquids (see engine/server/liquids.gd). One per realm; this is the overworld's.
+var liquids:
+	get:
+		return realm.liquids
 ## Container types and open container screens (chests, furnaces, machines).
 var containers := Containers.new(self)
 ## Game-wide rules mods can change with set_gameplay.
@@ -4814,6 +4818,7 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0, int
 		clear_block_data(pos, into)
 	into.block_ticks.block_changed(pos, old, block)
 	into.signals.block_changed(pos, old, block)
+	into.liquids.block_changed(pos, old, block)
 	links.block_changed(into.id, pos, old, block)
 	if old != block:
 		connect.refresh_around(pos, into)

@@ -924,6 +924,51 @@ func block_display_name(id: int) -> String:
 # than a bug today. When realms reach the mod API these gain a way to say where, most likely by the
 # event that supplied the position carrying its realm. (2026-09-19)
 
+## Makes a block a liquid that goes somewhere: spreads, falls, and dries up when nothing feeds it.
+##
+##     api.register_liquid("water", {"range": 7, "falls": true, "speed": 0.25})
+##
+## def: `range` (how many blocks from a source before it runs out), `falls`, `speed` (seconds between
+## steps - lava is slow, which is most of what makes it frightening).
+##
+## The level lives in the block's state: 0 is a source and never runs out, and each block outwards is
+## one weaker. Nothing new is written to disk or sent to clients, because states already were.
+func register_liquid(block_name: String, def := {}) -> void:
+	var id := block(block_name)
+	if id <= 0:
+		push_error("[%s] register_liquid: unknown block '%s'" % [mod_id, block_name])
+		return
+	var settings := def.duplicate()
+	settings.name = _qualify_ref(block_name)
+	for r in _server.realms.values():
+		r.liquids.register(id, settings)
+	# The liquid thinks again on a scheduled tick; catch_up is off because a flow that has been asleep
+	# should work out where it is now rather than replay where it was going.
+	# random: false - a liquid is driven entirely by scheduling, and indexing something as common as
+	# water for random ticks would mark every chunk containing a puddle as one that must be saved.
+	register_block_tick(block_name, _flow_step, {"interval": 3600.0, "catch_up": false, "random": false})
+
+
+## One flow step, in the world the block is actually in.
+func _flow_step(ctx: Dictionary) -> void:
+	var in_realm = _server.realms.get(String(ctx.get("realm", "")))
+	if in_realm != null:
+		in_realm.liquids.step(ctx.position)
+
+
+## What forms where two different liquids meet - the black glass where lava meets water. The engine
+## has never heard of obsidian; it only knows that two of them touching makes a third thing.
+func register_liquid_meeting(a_name: String, b_name: String, result_name: String) -> void:
+	var a := block(a_name)
+	var b := block(b_name)
+	var result := block(result_name)
+	if a <= 0 or b <= 0 or result <= 0:
+		push_error("[%s] register_liquid_meeting: unknown block in %s + %s -> %s" % [mod_id, a_name, b_name, result_name])
+		return
+	for r in _server.realms.values():
+		r.liquids.register_meeting(a, b, result)
+
+
 ## Keeps the world around a position awake when nobody is standing there, so a machine goes on running
 ## after its owner walks away. Returns a claim id.
 ##

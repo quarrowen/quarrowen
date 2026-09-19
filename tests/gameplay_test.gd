@@ -78,6 +78,7 @@ func _ready() -> void:
 	await _parcels()
 	await _spool()
 	await _claims()
+	await _liquids()
 	await _tags()
 	await _signals()
 	await _realms()
@@ -4100,6 +4101,61 @@ func _flows() -> void:
 	_check(api.received("power", at.call(148)) == 0.0, "cutting the cable leaves the far end with nothing")
 	_check(is_equal_approx(api.received("power", at.call(144)), 25.0),
 		"and the near one now has the lot (%.1f)" % api.received("power", at.call(144)))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Liquids that go somewhere: the difference between a bucket being worth carrying and not.
+func _liquids() -> void:
+	var server = _start("liquids_%d" % Time.get_ticks_msec())
+	var reg = server.registry
+	var water: int = reg.id_of("base:water")
+	var lava: int = reg.id_of("base:lava")
+	var glass: int = reg.id_of("base:blackglass")
+	var stone: int = reg.id_of("base:stone")
+	_check(glass > 0, "the base mod registers blackglass")
+	_check(server.realm.liquids.is_liquid(water) and server.realm.liquids.is_liquid(lava),
+		"and declares water and lava as liquids that flow")
+
+	# A stone dish to pour into, so the water has somewhere to go and something to stop it.
+	var y: int = server.surface_height(400, 400) + 4
+	for dx in range(-4, 5):
+		for dz in range(-4, 5):
+			server.set_block_authoritative(Vector3i(400 + dx, y, 400 + dz), stone)
+			for dy in range(1, 4):
+				server.set_block_authoritative(Vector3i(400 + dx, y + dy, 400 + dz), 0)
+
+	var source := Vector3i(400, y + 1, 400)
+	server.set_block_authoritative(source, water)
+	_check(server.realm.block_state(source) == 0, "a placed liquid is a source, which never runs out")
+	for i in 12:
+		server.realm.liquids.step(source)
+		for dx in range(-3, 4):
+			for dz in range(-3, 4):
+				var at := Vector3i(400 + dx, y + 1, 400 + dz)
+				if server.world.get_block_v(at) == water:
+					server.realm.liquids.step(at)
+	_check(server.world.get_block_v(Vector3i(402, y + 1, 400)) == water, "it spreads out across the floor")
+	_check(server.realm.block_state(Vector3i(402, y + 1, 400)) == 2, "weakening by one a block (%d)" % server.realm.block_state(Vector3i(402, y + 1, 400)))
+	_check(server.world.get_block_v(Vector3i(400, y + 2, 400)) == 0, "and does not climb")
+
+	# Cut the source off and the flow dries up, because nothing is feeding it any more.
+	server.set_block_authoritative(source, 0)
+	for i in 12:
+		for dx in range(-3, 4):
+			for dz in range(-3, 4):
+				var at := Vector3i(400 + dx, y + 1, 400 + dz)
+				if server.world.get_block_v(at) == water:
+					server.realm.liquids.step(at)
+	_check(server.world.get_block_v(Vector3i(402, y + 1, 400)) == 0, "removing the source dries the flow up")
+
+	# Lava meeting water makes the black glass, which is the only way to get any.
+	var here := Vector3i(420, y + 1, 420)
+	server.set_block_authoritative(here + Vector3i.DOWN, stone)
+	server.set_block_authoritative(here, lava)
+	server.set_block_authoritative(here + Vector3i.RIGHT, water)
+	server.realm.liquids.step(here)
+	_check(server.world.get_block_v(here) == glass, "lava meeting water makes blackglass")
 	server.queue_free()
 	await get_tree().process_frame
 

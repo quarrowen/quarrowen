@@ -929,6 +929,34 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Liquids that go somewhere, capability 6 (2026-09-19)
+
+`engine/server/liquids.gd`, one per realm. Water spreads seven blocks and falls; lava creeps three and
+is slow, which is most of what makes it frightening rather than merely hot; and where they meet,
+**blackglass** - hard, tier 3, and the only way to get any, which is what finally makes a bucket worth
+carrying down a cave.
+
+**The level lives in the block's state.** States already existed, were already saved with the chunk and
+already sent to clients, so a flowing liquid needed nothing new on disk or on the wire. State 0 is a
+source - it never runs out and never dries up - and each block outwards is one weaker. A flow with
+nothing feeding it dries up, which is what makes cutting a source off work.
+
+The engine knows that *a* liquid spreads, how far, how fast, and that two meeting make a third thing.
+It has never heard of water, and `register_liquid_meeting` is how it learns about obsidian without
+learning what obsidian is.
+
+**A real regression the suite caught, and the right one.** Registering a block tick on water made
+*every chunk containing water* a ticking chunk - and a ticking chunk is one that must be saved, so
+every ocean chunk in the world would have been written on every save. `persistence` failed with
+"untouched chunk was not written", which is exactly the symptom. The fix is a `random: false` option on
+`register_block_tick`: a block can now have a handler for **scheduled** ticks without joining the
+per-chunk index of randomly-ticked blocks. Liquids are driven entirely by scheduling, so only chunks
+with something actually in motion are marked.
+
+**Known limit, written where somebody will read it**: the client draws every level at full height,
+because shapes are per block id and not per state. The simulation is right - water fills a hollow,
+finds its level and stops - but a thin sheet looks as deep as the source. Fixing that is a mesher job.
+
 ## Keeping the world awake, capability 4 (2026-09-19)
 
 `engine/server/claims.gd`. A claim keeps chunks running when nobody is standing in them, and it is the

@@ -303,6 +303,8 @@ func _init() -> void:
 	_save(_pole(), industry_late + "pole.png")
 	_save(_spool(), industry_late + "cable_spool.png")
 
+	_save(_blackglass(), base + "blackglass.png")
+
 	# A SceneTree script runs until it is told not to. Without this the tool wrote every texture
 	# correctly and then sat there for ever; three of them were found still running an hour later,
 	# looking like a hung build rather than a finished one. (2026-09-19)
@@ -1668,4 +1670,23 @@ func _spool() -> Image:
 				img.set_pixel(x, y, _vary(drum, 0.05))  # the cheeks of the drum
 	for spot in [Vector2i(9, 4), Vector2i(10, 5)]:
 		img.set_pixelv(spot, copper.lightened(0.35))  # a loose end catching the light
+	return img
+
+
+## Blackglass: what lava leaves behind when water finds it. Near-black with a cold purple sheen and a
+## few sharp highlights, so it reads as glassy rather than as another dark stone.
+func _blackglass() -> Image:
+	var img := _blank()
+	var base_colour := Color(0.09, 0.07, 0.13)
+	for y in TILE:
+		for x in TILE:
+			img.set_pixel(x, y, _vary(base_colour, 0.03))
+	for n in 14:  # facets catching what little light there is
+		var cx := rng.randi_range(0, 15)
+		var cy := rng.randi_range(0, 15)
+		var shade := Color(0.20, 0.14, 0.30).lerp(Color(0.32, 0.22, 0.44), rng.randf())
+		for d in rng.randi_range(2, 4):
+			img.set_pixel(clampi(cx + d, 0, 15), clampi(cy + d, 0, 15), _vary(shade, 0.04))
+	for n in 5:
+		img.set_pixel(rng.randi_range(0, 15), rng.randi_range(0, 15), Color(0.52, 0.42, 0.66))
 	return img
