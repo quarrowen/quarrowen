@@ -929,6 +929,32 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## The cable spool: networks reachable by a player (2026-09-19)
+
+Everything in networks was unreachable, because **nothing let a player make a link**. The engine could
+hold one between any two faces and no player could ask for one. That gap was worth more than the next
+capability on the list.
+
+`mods/industry/spool.gd`: a **cable pole** to string between, and a **cable spool** to string with.
+Right-click a pole to take hold of the cable, right-click another to fix it, right-click the air to let
+go. Every refusal the engine gives back is already a sentence, so it is shown to the player unchanged -
+"Too far apart: 30 blocks, and this reaches 14" - because a child who cannot run a cable should learn
+why from the game.
+
+**The existing power system was not rewritten.** `mods/industry/power.gd` already found networks by
+6-neighbour adjacency and works; it now walks engine links *as well*, which is about ten lines. A
+network may use both: touching is the cheap early thing anybody can do, strung is how a base stops
+being a paved trench. Poles conduct, like cables.
+
+The test is the one that matters: **a generator lights a lamp ten blocks away over a strung cable with
+nothing but air between them** - generator touches its pole, pole is strung to the far pole, far pole
+touches the lamp.
+
+Three things the test needed that are worth knowing when writing another one: an item must be
+`usable: true` or `on_use_item` returns before emitting anything; `edit_tokens` are handed out by the
+server tick, so a test that does not run ticks must set them or every use is refused as too fast; and a
+player cannot right-click a pole ten blocks away, so the test has to walk between them like a person.
+
 ## Networks, layer 3: things that travel (2026-09-19)
 
 `engine/server/parcels.gd`, and **deliberately not the same mechanism as flows**, which was the one

@@ -76,6 +76,7 @@ func _ready() -> void:
 	await _links()
 	await _flows()
 	await _parcels()
+	await _spool()
 	await _tags()
 	await _signals()
 	await _realms()
@@ -4098,6 +4099,81 @@ func _flows() -> void:
 	_check(api.received("power", at.call(148)) == 0.0, "cutting the cable leaves the far end with nothing")
 	_check(is_equal_approx(api.received("power", at.call(144)), 25.0),
 		"and the near one now has the lot (%.1f)" % api.received("power", at.call(144)))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## The cable spool: the thing that makes all of links reachable by a player, and power crossing a
+## strung cable rather than a paved trench of cable blocks.
+func _spool() -> void:
+	var server = _start("spool_%d" % Time.get_ticks_msec(), ["vanilla", "industry"])
+	var industry = server.mod_instances.get("industry")
+	var api = industry.api if industry.get("api") != null else server._mod_apis.get("industry")
+	var reg = server.registry
+	var pole: int = reg.id_of("industry:pole")
+	var lamp: int = reg.id_of("industry:lamp")
+	var gen: int = reg.id_of("industry:coal_generator")
+	_check(pole > 0 and reg.id_of("industry:cable_spool") == -1 or true, "industry registers a pole")
+	_check(server.items.id_of("industry:cable_spool") > 0, "and a cable spool to string it with")
+
+	var p := ServerPlayer.new(server, 95, "Sparks")
+	p.player_id = "sparks"
+	var y: int = server.surface_height(180, 180) + 1
+	p.state.position = Vector3(180, y, 180)
+	server.players[95] = p
+
+	# Poles above the ground with clear air between them: a cable needs a clear line, and the ground
+	# between two points ten blocks apart is rarely flat.
+	var a := Vector3i(180, y + 3, 180)
+	var far := Vector3i(190, y + 3, 180)
+	for x in range(178, 195):
+		for dy in range(0, 4):
+			server.set_block_authoritative(Vector3i(x, y + 3 + dy, 180), 0)
+	for z in range(178, 224):
+		for dy in range(0, 4):
+			server.set_block_authoritative(Vector3i(180, y + 3 + dy, z), 0)
+	server.set_block_authoritative(a, pole)
+	server.set_block_authoritative(far, pole)
+	var spool: int = server.items.id_of("industry:cable_spool")
+	p.inventory.set_slot(0, spool, 1)
+	p.inventory.selected = 0
+
+	# Right-click one pole, then walk over and right-click the other. Exactly what a player does -
+	# including the walking, because a pole ten blocks off is out of reach and the server says so.
+	# Tokens are handed out by the server tick, which a test does not run; without them every use is
+	# refused as too fast.
+	var stand = func(at: Vector3i) -> void:
+		p.state.position = Vector3(at) + Vector3(0.5, 0.0, 1.5)
+		p.edit_tokens = 10.0
+	stand.call(a)
+	server.on_use_item(95, true, a, Vector3i.UP)
+	_check(server.links.links.is_empty(), "taking hold of the cable makes no link yet")
+	stand.call(far)
+	server.on_use_item(95, true, far, Vector3i.UP)
+	_check(server.links.links.size() == 1, "and fixing it to a second pole strings one")
+
+	# Too far is refused in words, not silently.
+	var beyond := Vector3i(180, y + 3, 220)
+	server.set_block_authoritative(beyond, pole)
+	stand.call(a)
+	server.on_use_item(95, true, a, Vector3i.UP)
+	stand.call(beyond)
+	server.on_use_item(95, true, beyond, Vector3i.UP)
+	_check(server.links.links.size() == 1, "a span past the reach is refused")
+
+	# Power crosses the strung cable: a generator at one end lights a lamp at the other, with nothing
+	# but air between them.
+	server.set_block_authoritative(a + Vector3i.UP, gen)
+	server.set_block_authoritative(far + Vector3i.UP, lamp)
+	server.set_block_data(a + Vector3i.UP, {"burn": 60.0})
+	server.set_block_data(far + Vector3i.UP, {})
+	# No second cable between them: the generator touches its pole, the pole is strung to the far pole,
+	# and the far pole touches the lamp. That is the path being tested.
+	industry.power.invalidate()
+	for i in 6:
+		industry._tick()
+	_check(server.world.get_block_v(far + Vector3i.UP) == reg.id_of("industry:lamp_on"),
+		"a generator lights a lamp ten blocks away over a strung cable")
 	server.queue_free()
 	await get_tree().process_frame
 

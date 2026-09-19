@@ -1,6 +1,11 @@
 extends RefCounted
-## Finds power networks: connected groups of cables and machines (6-neighbour adjacency). Networks are
-## cached and rebuilt lazily after invalidate(); scans never load chunks.
+## Finds power networks: connected groups of cables and machines. Networks are cached and rebuilt
+## lazily after invalidate(); scans never load chunks.
+##
+## Two ways of being joined, and a network may use both. **Touching** - a cable laid against a machine -
+## is the cheap early one anybody can do. **Strung** - a cable spooled between two poles across a
+## valley - uses the engine's links, and is how a base stops being a paved trench. A network walks
+## through either without caring which. (2026-09-19)
 
 const SKY_CHECK_INTERVAL := 40  # rebuilds between re-checking solar sky access
 
@@ -20,7 +25,9 @@ func _init(mod_api, block_ids: Dictionary) -> void:
 
 
 func is_network_block(block: int) -> bool:
-	return block in [ids.cable, ids.generator, ids.solar, ids.battery, ids.lamp, ids.lamp_on, ids.miner]
+	# A pole carries power like a cable does - it is what a strung cable is fixed to, and a pole that
+	# did not conduct would make the whole thing decorative.
+	return block in [ids.cable, ids.pole, ids.generator, ids.solar, ids.battery, ids.lamp, ids.lamp_on, ids.miner]
 
 
 func invalidate() -> void:
@@ -81,12 +88,22 @@ func _rebuild() -> void:
 				if is_network_block(api.get_loaded_block(next)):
 					_by_position[next] = index
 					queue.append(next)
+			# And anything strung to this block from somewhere else entirely.
+			for id in api.links_at(pos):
+				var info: Dictionary = api.link_info(id)
+				if info.is_empty():
+					continue
+				var far: Vector3i = info.b.position if info.a.position == pos else info.a.position
+				if _by_position.has(far) or not is_network_block(api.get_loaded_block(far)):
+					continue
+				_by_position[far] = index
+				queue.append(far)
 		_networks.append(network)
 
 
 func _classify(network: Dictionary, pos: Vector3i, block: int) -> void:
 	match block:
-		ids.cable:
+		ids.cable, ids.pole:
 			network.cable_count += 1
 			return
 		ids.generator: network.generators.append(pos)

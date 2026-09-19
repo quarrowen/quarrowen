@@ -298,6 +298,11 @@ func _init() -> void:
 	_save(_quicklamp(false), base + "quicklamp.png")
 	_save(_quicklamp(true), base + "quicklamp_lit.png")
 
+	# The cable spool and the pole it is strung between (appended at the end, as everything is).
+	var industry_late := "res://mods/industry/textures/"
+	_save(_pole(), industry_late + "pole.png")
+	_save(_spool(), industry_late + "cable_spool.png")
+
 	# A SceneTree script runs until it is told not to. Without this the tool wrote every texture
 	# correctly and then sat there for ever; three of them were found still running an hour later,
 	# looking like a hung build rather than a finished one. (2026-09-19)
@@ -1624,4 +1629,43 @@ func _quicklamp(lit: bool) -> Image:
 			img.set_pixelv(spot, Color(1.0, 1.0, 0.95))  # sparks in the glass
 		for corner in [Vector2i(2, 2), Vector2i(13, 2), Vector2i(2, 13), Vector2i(13, 13)]:
 			img.set_pixelv(corner, shell.lightened(0.45))  # the frame catching the light
+	return img
+
+
+## A cable pole: creosoted timber, drawn as a post with its grain running up it. It is a fence shape in
+## the world, so only the middle of this tile is ever seen.
+func _pole() -> Image:
+	var img := _blank()
+	var wood := Color(0.34, 0.26, 0.20)
+	for y in TILE:
+		for x in TILE:
+			var post: bool = x >= 5 and x <= 10
+			img.set_pixel(x, y, _vary(wood if post else wood.darkened(0.35), 0.05))
+	for y in TILE:
+		if y % 5 != 2:
+			continue
+		for x in range(5, 11):  # the bands where the insulators would be
+			img.set_pixel(x, y, _vary(Color(0.52, 0.44, 0.34), 0.04))
+	return img
+
+
+## A spool of cable in the hand: a wound drum seen end on, with the copper showing through.
+func _spool() -> Image:
+	var img := _blank()
+	var drum := Color(0.42, 0.34, 0.26)
+	var copper := Color(0.80, 0.48, 0.20)
+	for y in range(3, 13):
+		for x in range(3, 13):
+			var d := Vector2(x - 7.5, y - 7.5).length()
+			if d > 5.0:
+				continue
+			# Rings of wound cable, so it reads as wound rather than as a disc.
+			var wound: bool = int(d) % 2 == 0
+			img.set_pixel(x, y, _vary(copper if wound else copper.darkened(0.3), 0.06))
+	for y in range(3, 13):
+		for x in [4, 11]:
+			if Vector2(x - 7.5, y - 7.5).length() <= 5.4:
+				img.set_pixel(x, y, _vary(drum, 0.05))  # the cheeks of the drum
+	for spot in [Vector2i(9, 4), Vector2i(10, 5)]:
+		img.set_pixelv(spot, copper.lightened(0.35))  # a loose end catching the light
 	return img

@@ -8,6 +8,7 @@ extends "res://engine/server/mod.gd"
 ## Right-click a machine for a live panel. Try /industry kit, /industry demo, and /time night.
 
 const Power = preload("power.gd")
+const Spool = preload("spool.gd")
 
 const TICK := 0.25
 const UI_ID := "industry:machine"
@@ -50,6 +51,8 @@ func setup(mod_api) -> void:
 	ids.lamp_on = api.register_block("lamp_on", {"display_name": "Electric Lamp (on)", "model": "models/lamp.glb",
 		"textures": "textures/lamp_icon.png", "light": 15, "drops": "industry:lamp", "placeable": false, "connect_group": "power"})
 	_register_recipes()
+	# After the machines: a cable may be fixed to any of them, so the spool needs their ids.
+	Spool.new().setup(api, ids)
 	power = Power.new(api, ids)
 
 	api.on("block_placed", _on_placed)
