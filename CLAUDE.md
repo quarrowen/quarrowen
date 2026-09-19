@@ -109,12 +109,21 @@ Run it after touching `engine/server/mod_api.gd`, any `## ` header comment liste
 
 ## Running the game rewrites project.godot
 
-Godot strips the MCP editor plugin's autoloads from `project.godot` whenever the game is run from this
-checkout, because `addons/godot_mcp/` is gitignored and it cannot see it. The change looks deliberate
-and is not; committing it quietly breaks the editor integration on the machine that has the addon.
+Godot strips the MCP editor plugin's three autoloads from `project.godot` whenever **the game** is run
+from this checkout. The change looks deliberate and is not; committing it quietly breaks the editor
+integration on the machine that has the addon.
 
 **Check `git diff project.godot` before committing after anything that launches the game**, and
-`git checkout -- project.godot` if those three autoload lines have gone. It has happened twice.
+`git checkout -- project.godot` if those three autoload lines have gone.
+
+Measured rather than assumed, after this was blamed on the wrong thing twice (2026-09-19). What is
+actually true: `addons/godot_mcp/` **is** present on disk, so "Godot cannot see it" was never the
+reason. A headless *tool* run (`mod_tool.tscn -- docs`) leaves the file alone. An **e2e test run strips
+it every time**, because those launch the game, and `tools/run_tests.sh` does not touch the file itself
+- it is Godot, dropping autoloads it will not load outside the editor and saving the result.
+
+So the open editor is not the culprit and closing it fixes nothing: it is the test suite, and any run
+including `e2e:*` will do it again.
 
 ## Right now: do not tag a release
 
