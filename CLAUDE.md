@@ -54,6 +54,23 @@ prints where its logs are - read them rather than guessing, especially for an e2
 A test that waits a fixed number of seconds for the server to do something will pass here and fail on a
 small CI runner, which simulates less in that time. Wait for the event, not for a stopwatch.
 
+Both suites together take about eight minutes. If a run appears to take far longer than that, suspect
+the thing watching it rather than the run.
+
+**Never wait for the suite with `pgrep -f` on its own command line.** This:
+
+```sh
+while pgrep -f "bash tools/run_tests.sh" >/dev/null; do sleep 20; done   # WRONG
+```
+
+`pgrep -f` matches full command lines, and the waiting shell's command line *contains that string*, so
+it finds itself and waits for ever. It cost hours once (2026-09-19): six of these accumulated, and one
+of them had the actual test run sequenced behind it, so a verification everybody believed was running
+had never started - the poll could not change, so the wait looked like a slow suite rather than a
+deadlock. Run the suite in the foreground, or in the background and read its output file when it
+reports; if a guard really is needed, match on something the waiter cannot contain (a pidfile, or the
+run's own exit).
+
 ## Before adding a capability, look for the one that exists
 
 The mod-facing API is 169 functions and the generated reference (`docs/api/index.html`) lists all of
