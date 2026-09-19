@@ -77,6 +77,7 @@ func _ready() -> void:
 	await _flows()
 	await _parcels()
 	await _spool()
+	await _claims()
 	await _tags()
 	await _signals()
 	await _realms()
@@ -4099,6 +4100,56 @@ func _flows() -> void:
 	_check(api.received("power", at.call(148)) == 0.0, "cutting the cable leaves the far end with nothing")
 	_check(is_equal_approx(api.received("power", at.call(144)), 25.0),
 		"and the near one now has the lot (%.1f)" % api.received("power", at.call(144)))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Keeping the world awake, and the budget that stops one player doing it to everybody else.
+func _claims() -> void:
+	var server = _start("claims_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	var far := Vector3i(600, 60, 600)
+	_check(not server.realm.is_awake(), "a world with nobody in it is asleep")
+
+	var id: int = api.keep_awake(far, {"radius": 1, "name": "workshop", "player_id": "nobody"})
+	server._refresh_simulation()
+	_check(id > 0 and server.realm.is_awake(), "a claim wakes it even with nobody there")
+	_check(server.realm.simulated.has(Vector2i(600 >> 4, 600 >> 4)), "the claimed chunk is one of the ones running")
+	_check(server.realm.simulated.size() == 9, "and so are the ones around it (radius 1 is nine)")
+
+	api.let_sleep(id)
+	server._refresh_simulation()
+	_check(not server.realm.is_awake(), "letting it sleep puts the world back to sleep")
+
+	# The budget. Costs are measured from what block ticks actually spend, so the test writes into the
+	# same table the measurement reads.
+	var cheap: int = api.keep_awake(Vector3i(0, 60, 0), {"radius": 0, "name": "a field", "player_id": "nobody"})
+	var dear: int = api.keep_awake(Vector3i(300, 60, 300), {"radius": 0, "name": "a sorting machine", "player_id": "nobody"})
+	server.claims.budget_usec = 100
+	var ticks := 5.0 * Engine.physics_ticks_per_second
+	server.realm.block_ticks.cost_by_chunk[Vector2i(0, 0)] = int(40 * ticks)
+	server.realm.block_ticks.cost_by_chunk[Vector2i(300 >> 4, 300 >> 4)] = int(500 * ticks)
+	var paused := []
+	server.add_handler("claim_paused", func(ev): paused.append(str(ev.name)), 0, "test")
+	server.claims.update(6.0)
+	_check(paused == ["a sorting machine"], "over budget, the dearest claim is paused and not the others (%s)" % str(paused))
+	_check(api.claim_info(dear).paused and not api.claim_info(cheap).paused, "so the modest one keeps running")
+	_check(api.claim_info(dear).chunks.size() == 1, "and nothing was deleted - the claim is still there, asleep")
+
+	server._refresh_simulation()
+	_check(server.realm.simulated.size() == 1, "a paused claim stops its chunks running")
+	_check(api.wake_claim(dear) and not api.claim_info(dear).paused, "and it can be let go again")
+
+	# /perf: the profiler has been behind the dev dashboard all along, which meant a lag complaint
+	# could only be answered by somebody who knew to restart the server with --dev.
+	var admin := ServerPlayer.new(server, 96, "Admin")
+	admin.player_id = "admin"
+	server.players[96] = admin
+	for topic in ["", "tick", "awake"]:
+		server._run_panel_command(admin, "perf", PackedStringArray([topic] if not topic.is_empty() else []))
+	_check(true, "/perf answers for mods, ticks and what is kept awake without erroring")
+	var names: String = str(api.claim_info(cheap).name) + str(api.claim_info(dear).name)
+	_check(names.contains("field") and names.contains("sorting"), "and a claim carries the name to report it by")
 	server.queue_free()
 	await get_tree().process_frame
 

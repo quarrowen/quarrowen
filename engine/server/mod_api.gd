@@ -924,6 +924,42 @@ func block_display_name(id: int) -> String:
 # than a bug today. When realms reach the mod API these gain a way to say where, most likely by the
 # event that supplied the position carrying its realm. (2026-09-19)
 
+## Keeps the world around a position awake when nobody is standing there, so a machine goes on running
+## after its owner walks away. Returns a claim id.
+##
+## options: `radius` (chunks either side, 0-8), `player_id` (who to tell if it has to be paused),
+## `name` (what to call the place when telling them), `realm`.
+##
+## **This costs somebody something, and the engine says so.** Claims are charged what their chunks
+## actually spend in block ticks, and when they exceed the share of a tick the host allows, the
+## dearest is paused first and its owner is told in plain words. Nothing is ever deleted - pausing
+## stops the ticking and leaves the blocks and their contents alone.
+##
+## Only things that *cannot* be caught up need this. Crops and furnaces work out what they missed when
+## somebody comes back; a pump feeding a network cannot, because what it did depended on the rest of
+## the world while it was doing it.
+func keep_awake(position: Vector3i, options := {}) -> int:
+	var settings := options.duplicate()
+	settings.owner = mod_id
+	return _server.claims.add(_qualify_ref(String(options.get("realm", ""))), position,
+		int(options.get("radius", 0)), settings)
+
+
+## Stops keeping it awake.
+func let_sleep(claim_id: int) -> bool:
+	return _server.claims.remove(claim_id)
+
+
+## One claim: {realm, chunks, owner, player_id, name, centre, cost, paused}, or {}.
+func claim_info(claim_id: int) -> Dictionary:
+	return _server.claims.claims.get(claim_id, {}).duplicate(true)
+
+
+## Lets a paused claim run again.
+func wake_claim(claim_id: int) -> bool:
+	return _server.claims.resume(claim_id)
+
+
 ## What a face will take, as items and tags. An empty filter takes anything, which is what an ordinary
 ## pipe end is; `deny: true` turns it inside out, which is how "everything except cobblestone" is said.
 ##

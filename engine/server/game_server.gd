@@ -36,6 +36,7 @@ const TagRegistry = preload("res://engine/shared/tag_registry.gd")
 const Links = preload("res://engine/server/links.gd")
 const Flows = preload("res://engine/server/flows.gd")
 const Parcels = preload("res://engine/server/parcels.gd")
+const Claims = preload("res://engine/server/claims.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 const Stations = preload("res://engine/server/stations.gd")
@@ -269,6 +270,9 @@ var flows := Flows.new(self)
 ## Things travelling along those links (see engine/server/parcels.gd). Not the same mechanism as
 ## flows, and the file says why.
 var parcels := Parcels.new(self)
+## Parts of the world kept awake when nobody is there, and the budget that stops one player doing it
+## to everybody else (see engine/server/claims.gd).
+var claims := Claims.new(self)
 ## Recipes whose inputs name a tag, held until every mod has loaded (see _expand_tag_recipes).
 var _tag_recipes: Array = []
 ## Each mod's API object, by mod id. Mods are not obliged to keep their own, so the server does.
@@ -458,6 +462,9 @@ func start(config: Dictionary) -> Error:
 	# Never more than the view: a chunk that runs where nobody has been sent it is work spent on a
 	# place the player finds already changed when they arrive.
 	simulation_distance = clampi(int(config.get("simulation_distance", DEFAULT_SIMULATION_DISTANCE)), 1, view_distance)
+	# A share of the tick, not a share of the machine: anything above about half a tick and the people
+	# actually playing start to feel the machines of the people who are not.
+	claims.budget_usec = clampi(int(config.get("awake_budget", 2000)), 0, 8000)
 	_register_builtin_commands()
 	# Before the mods load, so a mod can read its own settings while it is still starting up.
 	mod_settings.load_sources(_meta, data_dir, str(config.get("mod_settings", "")))
@@ -869,6 +876,7 @@ func _register_builtin_commands() -> void:
 	add_command("perms", "[player] - roles and what they allow", _cmd_perms, "engine")
 	add_command("network", "[list | id | reload | arrival <id> | arrivals] - servers players can travel to", _cmd_network, "engine", "admin")
 	add_command("realm", "[list | <id>] - the worlds on this server, and travel to one", _cmd_realm, "engine", "admin")
+	add_command("perf", "[mods | tick | awake] - where the server's time is going", _cmd_perf, "engine", "admin")
 	add_command("server", "[name] - list servers you can travel to, or go to one", _cmd_server, "engine")
 	add_command("transfer", "<player> <server> [arrival] - send a player to another server", _cmd_transfer, "engine", "admin")
 	add_command("portal", "<server> [arrival] - point the nearest portal block at a server", _cmd_portal, "engine", "admin")
@@ -1509,6 +1517,52 @@ func _cmd_portal(player, args: PackedStringArray) -> void:
 
 ## /realm            what worlds exist, and which one you are in
 ## /realm <id>       go to one, standing where you are standing now
+## /perf         which mods are costing what, worst first
+## /perf tick     where a tick goes, and how long the whole thing takes
+## /perf awake    what is being kept awake, what it costs, and what the budget is
+##
+## The profiler has been here all along behind the dev dashboard, which means it was only reachable by
+## somebody who knew to restart the server with --dev. A lag complaint arrives while people are
+## playing, so the answer should too. (2026-09-19)
+func _cmd_perf(player, args: PackedStringArray) -> void:
+	var what := args[0].to_lower() if args.size() > 0 else "mods"
+	match what:
+		"tick":
+			var m := _metrics
+			if m.is_empty() or int(m.get("ticks", 0)) == 0:
+				player.send_message("No tick figures yet - start the server with --metrics=10 to collect them.")
+				return
+			var average := float(m.total) / maxf(1.0, float(m.ticks)) / 1000.0
+			var lines := ["Tick: %.2f ms average, %.2f ms worst, over %d ticks" % [average, float(m.max) / 1000.0, int(m.ticks)]]
+			var sections: Dictionary = m.get("max_sections", {})
+			var worst := sections.keys()
+			worst.sort_custom(func(a, b): return float(sections[a]) > float(sections[b]))
+			for key in worst.slice(0, 6):
+				lines.append("  %s: %.2f ms in the worst tick" % [key, float(sections[key]) / 1000.0])
+			player.send_message("\n".join(lines))
+		"awake":
+			var lines := ["Kept awake: %d us of tick allowed, %d claims" % [claims.budget_usec, claims.claims.size()]]
+			var ids := claims.claims.keys()
+			ids.sort_custom(func(a, b): return int(claims.claims[a].cost) > int(claims.claims[b].cost))
+			for id in ids.slice(0, 8):
+				var c: Dictionary = claims.claims[id]
+				lines.append("  %s at %d, %d: %d us%s" % [c.name, int(c.centre.x), int(c.centre.z), int(c.cost),
+					" (asleep: over budget)" if c.paused else ""])
+			if ids.is_empty():
+				lines.append("  nothing - no machine is running while nobody is there")
+			player.send_message("\n".join(lines))
+		_:
+			var rows: Array = dev_tools.perf().filter(func(r: Dictionary) -> bool: return str(r.category) == "total")
+			if rows.is_empty():
+				player.send_message("Nothing has cost anything measurable in the last few seconds.")
+				return
+			var lines := ["Where the last %d seconds went, worst first:" % DevTools.WINDOWS]
+			for row: Dictionary in rows.slice(0, 8):
+				lines.append("  %s: %.2f ms/s over %d calls, worst single %.2f ms" % [row.owner, row.ms_per_s, int(row.calls), row.max_ms])
+			lines.append("Try /perf tick for where a tick goes, or /perf awake for machines running unattended.")
+			player.send_message("\n".join(lines))
+
+
 func _cmd_realm(player, args: PackedStringArray) -> void:
 	var here: Realm = realm_of(player)
 	if args.is_empty() or args[0] == "list":
@@ -1688,6 +1742,7 @@ func _physics_process(delta: float) -> void:
 	var t_blocks := Time.get_ticks_usec()
 	flows.settle()  # costs nothing on a tick where no network changed, which is nearly all of them
 	parcels.update(delta)
+	claims.update(delta)
 	containers.update(delta)
 	transfers.update(delta)
 	ambience.update(delta)
@@ -2604,6 +2659,12 @@ func links_for(realm_id: String) -> Array:
 	return out
 
 
+## Says the simulated set needs working out again. Claims call it; so does anything else that changes
+## which part of the world should be running.
+func mark_simulation_stale() -> void:
+	_simulation_dirty = true
+
+
 func realm_of(p: ServerPlayer) -> Realm:
 	return realms.get(p.realm_id, realm)
 
@@ -2672,6 +2733,11 @@ func _refresh_simulation() -> void:
 		var center := VoxelWorld.chunk_coord_of(p.state.position)
 		for offset in _simulation_offsets:
 			into.simulated[center + offset] = true
+	# And whatever is being kept awake on somebody's behalf. This is the only way a realm with nobody
+	# in it runs at all, which is why is_awake() asks the simulated set rather than counting players.
+	for r: Realm in realms.values():
+		for coord: Vector2i in claims.awake_chunks(r.id):
+			r.simulated[coord] = true
 
 
 ## Chunk offsets within `radius` chunks, as a disc rather than a square, so a player is not sent (or

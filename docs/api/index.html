@@ -110,6 +110,7 @@ messages go to the server console, &lt;world&gt;/logs/latest.log and the dev too
 <div class="card" id="api-warn" data-search="warn warn logs a warning from this mod (shown in yellow in the dev tools)."><div class="sig"><code>api.warn(message) -&gt; void</code><span class="tag js" title="warn(...parts: unknown[]): void">JS warn</span></div><p>Logs a warning from this mod (shown in yellow in the dev tools).</p></div>
 <div class="card" id="api-error" data-search="error error logs an error from the mod (grouped like script errors and shown to admins)."><div class="sig"><code>api.error(message) -&gt; void</code><span class="tag js" title="error(...parts: unknown[]): void">JS error</span></div><p>Logs an error from the mod (grouped like script errors and shown to admins).</p></div>
 <div class="card" id="api-set-server-info" data-search="set_server_info setserverinfo sets the server name/description shown to connecting clients."><div class="sig"><code>api.set_server_info(values: Dictionary) -&gt; void</code><span class="tag js" title="setServerInfo(values: { name?: string; description?: string; motd?: string }): void">JS setServerInfo</span></div><p>Sets the server name/description shown to connecting clients.</p></div>
+<div class="card" id="api-claim-info" data-search="claim_info  one claim: {realm, chunks, owner, player_id, name, centre, cost, paused}, or {}."><div class="sig"><code>api.claim_info(claim_id: int) -&gt; Dictionary</code></div><p>One claim: {realm, chunks, owner, player_id, name, centre, cost, paused}, or {}.</p></div>
 <div class="card" id="api-link-info" data-search="link_info  one link: {kind, a, b, length}, or {} if there is no such link."><div class="sig"><code>api.link_info(id: int) -&gt; Dictionary</code></div><p>One link: {kind, a, b, length}, or {} if there is no such link.</p></div>
 </section>
 <section id="api-events--commands-and-timers"><h2>Events, commands and timers</h2>
@@ -468,6 +469,22 @@ to whoever it belongs to. `dimension` (&quot;&quot; = the ordinary world) hides 
 <div class="card" id="api-set-world-marker" data-search="set_world_marker  puts a marker on everyone's map and compass (a village, a shared base, an event). saved with the world.
 `marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world)."><div class="sig"><code>api.set_world_marker(marker_id: String, marker: Dictionary) -&gt; void</code></div><p>Puts a marker on everyone's map and compass (a village, a shared base, an event). Saved with the world.<br>`marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world).</p></div>
 <div class="card" id="api-clear-world-marker" data-search="clear_world_marker  takes a marker off everyone's map."><div class="sig"><code>api.clear_world_marker(marker_id: String) -&gt; void</code></div><p>Takes a marker off everyone's map.</p></div>
+<div class="card" id="api-keep-awake" data-search="keep_awake  keeps the world around a position awake when nobody is standing there, so a machine goes on running
+after its owner walks away. returns a claim id.
+
+options: `radius` (chunks either side, 0-8), `player_id` (who to tell if it has to be paused),
+`name` (what to call the place when telling them), `realm`.
+
+**this costs somebody something, and the engine says so.** claims are charged what their chunks
+actually spend in block ticks, and when they exceed the share of a tick the host allows, the
+dearest is paused first and its owner is told in plain words. nothing is ever deleted - pausing
+stops the ticking and leaves the blocks and their contents alone.
+
+only things that *cannot* be caught up need this. crops and furnaces work out what they missed when
+somebody comes back; a pump feeding a network cannot, because what it did depended on the rest of
+the world while it was doing it."><div class="sig"><code>api.keep_awake(position: Vector3i, options := {}) -&gt; int</code></div><p>Keeps the world around a position awake when nobody is standing there, so a machine goes on running<br>after its owner walks away. Returns a claim id.<br><br>options: `radius` (chunks either side, 0-8), `player_id` (who to tell if it has to be paused),<br>`name` (what to call the place when telling them), `realm`.<br><br>**This costs somebody something, and the engine says so.** Claims are charged what their chunks<br>actually spend in block ticks, and when they exceed the share of a tick the host allows, the<br>dearest is paused first and its owner is told in plain words. Nothing is ever deleted - pausing<br>stops the ticking and leaves the blocks and their contents alone.<br><br>Only things that *cannot* be caught up need this. Crops and furnaces work out what they missed when<br>somebody comes back; a pump feeding a network cannot, because what it did depended on the rest of<br>the world while it was doing it.</p></div>
+<div class="card" id="api-let-sleep" data-search="let_sleep  stops keeping it awake."><div class="sig"><code>api.let_sleep(claim_id: int) -&gt; bool</code></div><p>Stops keeping it awake.</p></div>
+<div class="card" id="api-wake-claim" data-search="wake_claim  lets a paused claim run again."><div class="sig"><code>api.wake_claim(claim_id: int) -&gt; bool</code></div><p>Lets a paused claim run again.</p></div>
 <div class="card" id="api-set-accepts" data-search="set_accepts  what a face will take, as items and tags. an empty filter takes anything, which is what an ordinary
 pipe end is; `deny: true` turns it inside out, which is how &quot;everything except cobblestone&quot; is said.
 

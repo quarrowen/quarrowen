@@ -929,6 +929,42 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Keeping the world awake, capability 4 (2026-09-19)
+
+`engine/server/claims.gd`. A claim keeps chunks running when nobody is standing in them, and it is the
+only way a realm with no players in it ticks at all - which is why `is_awake()` was written to ask the
+simulated set rather than count players, back when none of this existed.
+
+**The budget is measured, not counted**, which was the user's call and is the whole design. A limit of
+"four chunks each" is generous to whoever is causing the problem and mean to everybody else, because
+two chunks of sorting machine cost more than twenty of wheat. So `block_ticks` now buckets the time
+its handlers spend **by chunk** - a block tick knows where it is, so this is a measurement - and a
+claim is charged what its chunks actually spent. `QW_AWAKE_BUDGET` (default 2000us) is the share of a
+tick all claims together may have.
+
+Over budget, in this order and all tested:
+
+- the **dearest claim is paused first**, not the oldest or newest - one runaway stops before ten modest
+  ones, and whoever built the expensive thing is the one who can fix it;
+- its owner is **told in plain words and where**: "Your workshop at 300, 300 went to sleep - it was
+  doing too much to keep running while you are away. Nothing has been lost.";
+- and **nothing is deleted, ever**. Pausing stops the ticking. The blocks and their contents are
+  exactly as they were, and `/perf awake` lists what is asleep and why.
+
+## /perf: answering a lag complaint while people are playing (2026-09-19)
+
+The server has had a good per-mod profiler all along - handlers, tasks, commands, block ticks and mob
+behaviours all timed per owner, plus a full tick breakdown - but it was only reachable through the dev
+web dashboard, which means only by somebody who knew to restart the server with `--dev`. A complaint
+about lag arrives while people are playing, so the answer should too.
+
+`/perf` (admin) now reports which mods are costing what, worst first; `/perf tick` where a tick goes
+and how long the worst one took; `/perf awake` what is being kept awake, what each claim costs, and
+which are asleep because they went over.
+
+The client keeps its F3 overlay - fps, ping, corrections, queues. That split is right: TPS problems
+belong to the server, and only the server can name the mod responsible.
+
 ## The cable spool: networks reachable by a player (2026-09-19)
 
 Everything in networks was unreachable, because **nothing let a player make a link**. The engine could

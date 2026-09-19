@@ -47,6 +47,9 @@ var _pending: Array = []  # [position, ticks, elapsed] catch-up calls to make on
 var _asleep_since := {}  # Vector2i chunk -> clock
 var _awake := {}  # Vector2i chunk -> true
 var _timer := 0.0
+## Microseconds spent in handlers, by chunk, since it was last read. This is what makes a claim's cost
+## a measurement rather than a guess: machines are block ticks, and a block tick knows where it is.
+var cost_by_chunk := {}  # Vector2i -> int
 
 
 func _init(game_server, in_realm) -> void:
@@ -254,7 +257,10 @@ func _call(pos: Vector3i, ticks: int, reason: String, payload: Dictionary, elaps
 	var t := Time.get_ticks_usec()
 	h.handler.call({"position": pos, "block": block, "state": realm.block_state(pos), "ticks": ticks,
 		"reason": reason, "payload": payload, "elapsed": elapsed})
-	server.dev_tools.record(h.owner, "block_tick:" + server.registry.defs[block].name, Time.get_ticks_usec() - t)
+	var spent := Time.get_ticks_usec() - t
+	server.dev_tools.record(h.owner, "block_tick:" + server.registry.defs[block].name, spent)
+	var coord := VoxelWorld.chunk_coord_at(pos.x, pos.z)
+	cost_by_chunk[coord] = int(cost_by_chunk.get(coord, 0)) + spent
 
 
 # --- Light --------------------------------------------------------------------------------------
