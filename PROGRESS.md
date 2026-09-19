@@ -909,6 +909,26 @@ built with now.
 Phase 2 is the part that touches the wire: a player belonging to a realm, chunk streaming and saving per
 realm, portals between them, and a dimension in the protocol.
 
+## The test suite never deleted its logs (2026-09-19)
+
+`tools/run_tests.sh` printed "logs are in ... (KEEP=1 to keep them)" and **nothing implemented KEEP**:
+`cleanup()` killed the servers and left the directory. Every run since the script was written had left
+one behind - **307 directories, 298MB** in the temp folder when it was noticed. Cleared, and a passing
+run now removes its own; a failing one keeps it, because the summary points straight at it.
+
+Two things worth keeping from getting it wrong first:
+
+- **`cleanup()` is called between tests as well as on the way out** (`restart_servers`, and once more
+  before the log scan). Putting the `rm -rf` in it deleted the working directory out from under the
+  run still using it, and the next gameplay run failed with its log file missing. The removal belongs
+  in an `on_exit` trap that calls `cleanup`, not in `cleanup`.
+- The trap takes `local status=$?` as its first line, so it keeps the logs after **any** non-zero exit,
+  not only the ones that reach the summary.
+
+Also fixed a self-inflicted one: a background "wait until the tests finish" loop written as
+`while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
+anything gated behind it never starts. Worth remembering before writing that shape again.
+
 ## Dimensions, phase 2a: everything indexed by chunk belongs to a world (2026-09-19)
 
 Phase 1 moved the blocks, the generator and the creatures onto `Realm`. This moves the rest of what is

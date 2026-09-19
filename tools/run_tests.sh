@@ -26,7 +26,20 @@ cleanup() {
   for pid in "${SERVERS[@]}"; do kill -TERM "$pid" 2>/dev/null; done
   wait 2>/dev/null
 }
-trap cleanup EXIT
+
+# Only on the way out, and deliberately not part of cleanup(): that is called between tests as well,
+# so removing the working directory there deletes the logs out from under the run still using them.
+on_exit() {
+  local status=$?
+  cleanup
+  # A run that passed leaves nothing anybody will read, and the message at the end has been offering a
+  # KEEP that was never implemented: 307 directories and 298MB of old logs had collected in the temp
+  # folder before anyone noticed. A failed run keeps them, because the summary points straight at them.
+  if [ -z "${KEEP:-}" ] && [ "$status" -eq 0 ]; then
+    rm -rf "$WORK"
+  fi
+}
+trap on_exit EXIT
 
 # Pin server certificates in a throwaway folder instead of the user's real known servers.
 export QW_KNOWN_SERVERS_DIR="$WORK/known_servers"
