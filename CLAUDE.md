@@ -54,6 +54,21 @@ prints where its logs are - read them rather than guessing, especially for an e2
 A test that waits a fixed number of seconds for the server to do something will pass here and fail on a
 small CI runner, which simulates less in that time. Wait for the event, not for a stopwatch.
 
+## Before adding a capability, look for the one that exists
+
+The mod-facing API is 169 functions and the generated reference (`docs/api/index.html`) lists all of
+them, so what gets reimplemented is never that. It is the **engine-internal shared pieces** — the
+readers, registries and helpers that turn mod-supplied data into something usable — because those are
+private and no document describes them.
+
+So before writing something that reads, normalises or validates data a mod supplied, grep the registries
+in `engine/shared/` for a function that already does it. Weather built its own particle emitter
+dictionary by hand and the client then asked it for a key it did not have; `EffectRegistry` had a reader
+for exactly that, with the defaults and the clamps already in it. (2026-09-19)
+
+And when a second system does need one of those helpers, **make it public rather than copying it**. A
+private function that two things use is a fact about the code that ought to be visible in the code.
+
 ## Things that look safe and are not
 
 - **Adding a texture in the middle of `tools/generate_textures.gd`.** One RNG, seeded once, drives every
