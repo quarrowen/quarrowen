@@ -73,6 +73,7 @@ func _ready() -> void:
 	await _music()
 	await _ambience()
 	await _weather()
+	await _simulation_distance()
 	_scripts_compile()
 	_mod_assets_exist()
 	await _map_from_mod()
@@ -1254,11 +1255,22 @@ func _farming() -> void:
 	var saved: Dictionary = ticks.save_chunk(coord)
 	_check(saved != null and saved.has("at"), "chunks with growing plants save a tick clock")
 	var positions: Dictionary = ticks._positions[coord].duplicate()
+	var near := {coord: true}  # the simulated set: this chunk is close enough to somebody to run
 	ticks.unload_chunk(coord)
 	ticks.clock += 3600.0
 	ticks.load_chunk(coord, positions, {}, saved)
-	ticks.update(BlockTicks.STEP)
+	ticks.update(BlockTicks.STEP, near)  # the chunk wakes and works out what it missed...
+	ticks.update(BlockTicks.STEP, near)  # ...which is handed over on the round after
 	_check(server.world.get_block_v(soil + Vector3i.UP) == wheat[3], "wheat kept growing while its chunk was unloaded")
+
+	# And the same when it was loaded the whole time but nobody was near enough to run it.
+	server.set_block_authoritative(soil + Vector3i.UP, wheat[0])
+	ticks.update(BlockTicks.STEP, {})  # everybody walked away
+	ticks.clock += 3600.0
+	_check(server.world.get_block_v(soil + Vector3i.UP) == wheat[0], "wheat does not grow with nobody near enough")
+	ticks.update(BlockTicks.STEP, near)
+	ticks.update(BlockTicks.STEP, near)
+	_check(server.world.get_block_v(soil + Vector3i.UP) == wheat[3], "coming back hands it the hour it stood still")
 
 	# Support: removing the farmland pops the wheat off as items.
 	var items_before: int = server.entities.entities.size()
@@ -1296,10 +1308,11 @@ func _farming() -> void:
 	# Saplings also grow on random ticks (about 1 in 240 per half-second round): keep those out of this check.
 	var growth_interval: float = ticks.handlers[sapling].interval
 	ticks.handlers[sapling].interval = 1.0e12
-	ticks.update(0.6)
+	var grove := {Vector2i(tree_spot.x >> 4, tree_spot.z >> 4): true}
+	ticks.update(0.6, grove)
 	ticks.handlers[sapling].interval = growth_interval
 	_check(server.world.get_block_v(tree_spot + Vector3i.UP) == sapling, "a scheduled tick waits until it is due")
-	ticks.update(0.6)
+	ticks.update(0.6, grove)
 	_check(server.world.get_block_v(tree_spot + Vector3i.UP) == reg.id_of("base:log"), "the scheduled tick grew the sapling into a tree")
 	server.queue_free()
 	await get_tree().process_frame
@@ -1337,6 +1350,9 @@ func _containers() -> void:
 	_check(server.entities.entities.size() == entities_before + 1 and p.open_container == null, "breaking a chest spills its contents and closes the screen")
 
 	# Furnace: fuel filter, take-only output, smelting over world time, lights while burning.
+	# Blocks only tick within simulation distance of somebody, and this test drives block_ticks by
+	# hand rather than through the server's tick, so it has to work out that set itself.
+	server._refresh_simulation()
 	var furnace_pos := Vector3i(10, y + 1, 10)
 	var furnace: int = reg.id_of("base:furnace")
 	var furnace_lit: int = reg.id_of("base:furnace_lit")
@@ -1359,11 +1375,11 @@ func _containers() -> void:
 	_check(box.get_item(0).count == 3 and box.get_item(1).item == 0 and server.world.get_block_v(furnace_pos) == furnace_lit,
 		"loading ore and coal lights the furnace and burns the coal")
 	server.block_ticks.clock += 25.0
-	server.block_ticks.update(0.6)
+	server.block_ticks.update(0.6, server.realm.simulated)
 	_check(box.get_item(2).item == ingot and box.get_item(2).count == 2 and box.get_item(0).count == 1, "25 seconds smelted two ingots (%s)" % box.get_item(2))
 	_check(box.get_progress("burn") > 0.0 and box.get_progress("cook") > 0.0, "progress bars follow fuel and smelting")
 	server.block_ticks.clock += 500.0
-	server.block_ticks.update(0.6)
+	server.block_ticks.update(0.6, server.realm.simulated)
 	_check(box.get_item(2).count == 3 and server.world.get_block_v(furnace_pos) == furnace, "it finished the ore, burned out and went dark")
 	server.on_inventory_click(81, 1002, 1, false)
 	_check(p.inventory.cursor_id == ingot and p.inventory.cursor_count == 3, "the output slot can be emptied")
@@ -3977,6 +3993,40 @@ func _scripts_compile() -> void:
 
 ## Atmosphere. The engine picks the moments; a mod says under what conditions.
 ## Weather: world state the engine keeps, whose look and timing belong to a mod.
+## How much of the world runs: a realm with nobody in it does nothing at all, and inside one that is
+## occupied only the chunks near somebody tick. See docs/roadmap.md, "How much of the world is running".
+func _simulation_distance() -> void:
+	var server = _start("simulation_%d" % Time.get_ticks_msec())
+	_check(server.simulation_distance <= server.view_distance, "simulation distance never exceeds the view (%d <= %d)"
+		% [server.simulation_distance, server.view_distance])
+
+	server._refresh_simulation()
+	_check(not server.realm.is_awake() and server.realm.simulated.is_empty(),
+		"a world with nobody in it is asleep, and so costs nothing")
+
+	var p := ServerPlayer.new(server, 91, "Wanderer")
+	p.player_id = "wanderer"
+	p.state.position = Vector3(8, 70, 8)  # chunk (0, 0)
+	server.players[91] = p
+	server._refresh_simulation()
+	_check(server.realm.is_awake(), "somebody standing in it wakes it")
+	_check(server.realm.simulated.has(Vector2i(0, 0)), "the chunk they are standing in runs")
+
+	var edge := Vector2i(server.simulation_distance, 0)
+	var beyond := Vector2i(server.simulation_distance + 1, 0)
+	_check(server.realm.simulated.has(edge) and not server.realm.simulated.has(beyond),
+		"and the world runs out to the simulation distance and no further")
+	# The point of two numbers: terrain they can see but which is not being run.
+	_check(beyond.x <= server.view_distance, "which is inside what they are sent (%d chunks), so they can see it standing still"
+		% server.view_distance)
+
+	server.players.erase(91)
+	server._refresh_simulation()
+	_check(not server.realm.is_awake(), "and it goes back to sleep when they leave")
+	server.queue_free()
+	await get_tree().process_frame
+
+
 func _weather() -> void:
 	var server = _start("weather_%d" % Time.get_ticks_msec())
 	var mod = server.mod_instances.get("vanilla")

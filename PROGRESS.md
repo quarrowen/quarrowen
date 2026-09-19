@@ -855,10 +855,10 @@ found no record of it. Exactly what "ideas do not evaporate" exists to stop; it 
 
 The method was to work backwards from what people build on top of voxel games - machines, magic,
 economies, dungeons, storage - and ask what the engine could not express. About a hundred such things
-collapse into **eighteen capabilities**, because most are different content over the same few gaps.
-Dimensions and networks first (one "a quantity moves between blocks along a network" capability covers
-power, items, fluids and magic, and is the foundation of some thirty of them), then signals, item
-modifiers, fluids, multiblocks.
+collapse into **twenty-three capabilities** (eighteen in the first draft), because most are different
+content over the same few gaps. Dimensions and networks first (one "a quantity moves between blocks
+along a network" capability covers power, items, fluids and magic, and is the foundation of some thirty
+of them), then signals, keeping the world awake, fluids, multiblocks.
 
 A useful negative result: a great deal needs **nothing**. Every decoration idea, ore types, larger
 chests, magnets, bins, music blocks, teleport stones, custom menus and permission tiers are content on
@@ -884,6 +884,89 @@ So: **work on master, push freely, tag nothing.** A push to master runs the test
 (`.github/workflows/ci.yml` is tag-only for images, exports and publishing), so normal work is safe.
 
 Lift this when the user says the playtest is over.
+
+## Dimensions, phase 1: one world pulled out of the server (2026-09-19)
+
+`engine/server/realm.gd` holds the per-world half of the server - blocks, seed, generator, generation
+passes, entities, block data, save directory - and `GameServer` keeps a dictionary of them with the
+overworld as `realms[""]`. **No behaviour changed**: `server.world`, `server.entities`,
+`server._block_data` and the rest are now computed properties forwarding to `server.realm`, so about
+170 call sites are untouched and both suites are green.
+
+The overworld's id is `""` on purpose, and that is a compatibility decision rather than a tidy one: it
+keeps the save folder a server already has, so a world written before realms existed is still a valid
+world afterwards. Every other realm gets `realms/<id>/` beside it.
+
+**Why not one coordinate space with the realms far apart**, which would have been a far smaller change:
+Godot's `Vector3` is 32-bit and at the separation that needs - a million blocks, so nobody can walk from
+one to another - a position is accurate to an eighth of a block. Everything would judder. Measured
+before it was ruled out.
+
+One bug worth keeping: the mob pathfinder reached for `server.world` during realm construction, so
+every realm's creatures would have pathed through the overworld's terrain. It takes the realm it was
+built with now.
+
+Phase 2 is the part that touches the wire: a player belonging to a realm, chunk streaming and saving per
+realm, portals between them, and a dimension in the protocol.
+
+## How much of the world is running (2026-09-19, the user: "we need to be performance conscious and
+## forward thinking about this")
+
+The user raised the right worry at the right moment - before phase 2, since the ticking model decides
+how per-realm updating gets written. The full statement is in **docs/roadmap.md, "How much of the world
+is running"**; the four decisions, so they are not retaken differently later:
+
+1. **An empty realm does not tick at all.** Not cheaply - not at all. Its clock runs, and arriving
+   blocks are told how long they slept, the way an unloaded chunk already is. This is what makes it safe
+   for a mod to register five realms: having one costs nothing until somebody goes there. Catch-up is
+   **bounded and expressed as elapsed time, not as a pile of ticks** - coming back after a week must not
+   run a week of simulation in one frame.
+   - **Catch-up is not a substitute for running.** The user's test case, and it is the right one: *a lava
+     pump in a remote place sending what it draws to a tank at the base*. Crops can be caught up because
+     what they do is a function of elapsed time and nothing else - an hour asleep is twelve stages, and
+     the answer is the same computed all at once. A pump is not: what it did depended on whether the tank
+     was full and what else was drawing while it ran. **It either runs or it did not happen.** So blocks
+     are of three kinds and the mod says which - *catches up* (time is the only input; sleeps freely),
+     *resumes* (sleeping loses nothing; sleeps freely), and *must run* (depends on things outside its own
+     chunk; needs a claim, and the claim costs budget). `register_block_tick`'s `catch_up` option already
+     separates the first two; the third arrives with claims.
+   - **Delivering into a sleeping chunk is free**, because storage is data and not simulation. The tank
+     need not be running to be filled - the pump is running, and a stored network's job is to move a
+     number into a buffer in block data. So the player claims **the pump**, not the pipeline and not the
+     base they are standing in anyway; and the same holds across realms, which is what "wirelessly to a
+     tank in my base" needs. Driven networks (rotation) are the opposite and we say so rather than
+     pretend: nothing is stored, so an unclaimed windmill in an empty realm stops.
+2. **Simulation distance splits from view distance.** One number (`VIEW_RADIUS`, 8) used to answer two
+   questions; seeing costs bandwidth and running costs the tick, and an owner short of CPU and an owner
+   short of upstream need different knobs.
+3. **A kept-awake chunk spends a budget, not a quota.** A count of chunks is generous to the player
+   causing the problem: two chunks of sorting machine outweigh twenty of wheat. The engine measures what
+   each claim costs in tick time, sheds **the most expensive claim first**, **tells that player in
+   plain words**, and **never deletes anything** - shedding pauses, the build stays.
+4. **The tick is time-sliced across realms, not divided between them**, resuming where it stopped, the
+   way `_drain_save_queue(SAVE_BUDGET_USEC)` already works. An even split would make the realm with
+   eight players in it judder to protect the one with nobody.
+
+Explicitly not doing: automatic throttling of machines, a per-player entity tax, or announcing who is
+slowest. And every number above is a guess until **per-realm and per-claim tick timings** exist -
+that instrumentation is the first thing to build when this starts, and the cheapest.
+
+**Rules 1 and 2 are built.** `view_distance` and `simulation_distance` are separate host settings
+(`QW_VIEW_DISTANCE`, `QW_SIMULATION_DISTANCE`, 8 and 6, simulation clamped to the view); a realm with
+nobody in it skips block ticks and `entities.tick` entirely; and a chunk that leaves the simulated set
+sleeps rather than stops, keeping the clock and being handed the missed ticks on waking. The handler
+context gained `elapsed` beside the capped `ticks`, so a mod can work the real answer out itself.
+
+A real bug turned up while writing it: catch-up used to run at chunk **load**, so a chunk streamed to
+somebody standing at the far edge of their view did a whole night of growth for nobody. It runs at
+**wake** now, which is also what makes a loaded-but-unsimulated chunk correct.
+
+**The pump question also reordered the roadmap.** "Keeping the world awake" was eleventh; it is now
+**capability 4**, straight after networks and signals. A machine you can build but cannot keep running
+is a machine that only works while you stand beside it, which is most of the point of building it
+gone - so claims belong with networks rather than long after them. `docs/parity.local.md` referred to
+capabilities by number and had already gone stale from an earlier draft; it refers to them by name now,
+so reordering cannot rot it again.
 
 ## Weather, and a channel on the wrong wire (2026-09-19)
 

@@ -45,6 +45,11 @@ x-world-env: &world-env
   QW_SEED_MODS: ${SEED_MODS:-update}
   QW_BACKUP_INTERVAL: "60"
   QW_BACKUP_KEEP: "48"
+  # How far each player is sent terrain, and how far around them the world actually runs. Separate
+  # because they cost different things: seeing costs upload, running costs CPU. Turn simulation down
+  # first if the box is struggling - players notice a shorter view long before they notice this.
+  QW_VIEW_DISTANCE: ${VIEW_DISTANCE:-8}
+  QW_SIMULATION_DISTANCE: ${SIMULATION_DISTANCE:-6}
   # Listed on the family's own hub, so the worlds appear in the menu by themselves.
   QW_HUB: ${HUB_URL:-http://127.0.0.1:24600}
   QW_PUBLIC_ADDRESS: ${PUBLIC_ADDRESS:-}

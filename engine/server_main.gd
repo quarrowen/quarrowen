@@ -15,6 +15,8 @@ extends Node
 ##   --anticheat=kick      QW_ANTICHEAT     kick | log (only tell moderators) | off
 ##   --default-role=member QW_DEFAULT_ROLE  the role every player has (visitor: look around and chat, no building)
 ##   --max-players=64      QW_MAX_PLAYERS
+##   --view-distance=8     QW_VIEW_DISTANCE chunks of terrain each player is sent (costs upload)
+##   --simulation-distance=6 QW_SIMULATION_DISTANCE chunks around each player that actually run (costs CPU)
 ##   --mods=vanilla        QW_MODS          comma-separated; dependencies load automatically
 ##   --mods-dir=/mods      QW_MODS_DIR      comma-separated folders searched before bundled mods
 ##   --data-dir=/data      QW_DATA_DIR      world saves (default user://worlds)
@@ -51,6 +53,8 @@ const DEFAULTS := {
 	"default-role": "",
 	"anticheat": "",
 	"max-players": "64",
+	"view-distance": "8",
+	"simulation-distance": "6",
 	"mods": "vanilla",
 	"mods-dir": "",
 	"data-dir": "user://worlds",
@@ -103,6 +107,8 @@ func _ready() -> void:
 		"default_role": options["default-role"],
 		"anticheat": options.anticheat,
 		"max_players": int(options["max-players"]),
+		"view_distance": int(options["view-distance"]),
+		"simulation_distance": int(options["simulation-distance"]),
 		"mods": mods,
 		"mod_dirs": String(options["mods-dir"]).replace(";", ",").split(",", false),
 		"data_dir": options["data-dir"],

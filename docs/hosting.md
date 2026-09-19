@@ -377,6 +377,13 @@ server lists) and `QW_QUERY_PORT`: status queries for menus (name, message, game
 are answered over UDP on the game port + 1 by default (0 turns them off; rate limited per address).
 `QW_HUB` lists the server on a hub (with `QW_PUBLIC_ADDRESS` and `QW_TAGS`).
 
+**How much world to run.** `QW_VIEW_DISTANCE` (default 8) is how many chunks of terrain each player is
+sent; `QW_SIMULATION_DISTANCE` (default 6, never more than the view) is how many chunks around them
+actually tick. They are separate because they cost different things - seeing costs upload, running
+costs CPU - so a machine short of one need not give up the other. Blocks outside the simulated set are
+not stopped but asleep: when somebody comes back they are handed the time they missed, so crops go on
+growing and furnaces go on burning while nobody is near. A world with nobody in it at all does no work.
+
 ### Hub service
 
 `services/hub` is a small Rust service (axum, SQLite) for the public server list, short invite codes

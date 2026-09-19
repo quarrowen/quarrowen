@@ -452,9 +452,15 @@ func play_effect(effect_name: String, position: Vector3, options := {}) -> void:
 
 
 ## Makes blocks of a type change over time. `handler(ctx)` gets {position, block, state, ticks, reason,
-## payload}: "random" ticks come about every options.interval seconds (default 30) per block, and a
-## chunk that was unloaded hands each block the ticks it missed at once (`ticks` > 1) unless
-## options.catch_up is false; "scheduled" ticks come from schedule_block_tick.
+## payload, elapsed}: "random" ticks come about every options.interval seconds (default 30) per block,
+## and "scheduled" ticks come from schedule_block_tick.
+##
+## Blocks only tick while somebody is near enough for the server to be running that part of the world.
+## A block that was asleep - because its chunk was unloaded, or because everybody walked away - is
+## handed the ticks it missed at once when it wakes (`ticks` > 1) unless options.catch_up is false.
+## `ticks` is capped, so returning to a world after a week does not run a week of growth in one frame;
+## `elapsed` is the true number of seconds it stood still, for a handler that would rather work the
+## answer out itself.
 func register_block_tick(block_name: String, handler: Callable, options := {}) -> void:
 	var id := block(block_name)
 	if id <= 0:

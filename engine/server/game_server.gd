@@ -76,7 +76,13 @@ const SAVE_FORMAT := 2
 const INTEREST_RADIUS := 96.0
 ## ...and beyond this distance only on every other snapshot.
 const NEAR_RADIUS := 32.0
-const VIEW_RADIUS := 8
+## How far a player is sent terrain, and how far the world around them actually runs. Two numbers
+## because they cost different things: seeing costs upstream bandwidth, running costs the tick. A
+## homelab short of CPU and a house short of upload need different knobs. Simulation never exceeds
+## view - a block that ticks where the player cannot see it has changed by the time they look.
+const DEFAULT_VIEW_DISTANCE := 8
+const DEFAULT_SIMULATION_DISTANCE := 6
+const MAX_VIEW_DISTANCE := 24
 const UNLOAD_MARGIN := 2
 const SPAWN_RADIUS := 2
 const CHUNK_SENDS_PER_PLAYER_PER_TICK := 3
@@ -261,6 +267,10 @@ var anticheat := AntiCheat.new(self)
 ## The game port (0 when offline).
 var port := 0
 var max_players := DEFAULT_MAX_PLAYERS
+## Chunks of terrain a player is sent, and chunks around them that the world actually runs in.
+## Both from the host's configuration; see the constants above for why they are separate.
+var view_distance := DEFAULT_VIEW_DISTANCE
+var simulation_distance := DEFAULT_SIMULATION_DISTANCE
 ## Quick reloads, the file watcher and full reloads (see engine/server/mod_reload.gd).
 var mod_reload := ModReload.new(self)
 ## Player creations: uploads, the server library and serving them (see engine/server/ugc.gd).
@@ -294,6 +304,9 @@ var _config_admins := {}
 var _save_timer := 0.0
 var _unload_timer := 0.0
 var _view_offsets: Array[Vector2i] = []
+var _simulation_offsets: Array[Vector2i] = []
+## Set when somebody crosses a chunk boundary, joins or leaves: the simulated set needs rebuilding.
+var _simulation_dirty := true
 var _started := false
 var _metrics_interval := 0.0
 var _metrics := {}
@@ -371,6 +384,10 @@ func start(config: Dictionary) -> Error:
 	if not _meta.has("created_at"):
 		_meta.created_at = int(Time.get_unix_time_from_system())
 	max_players = int(config.get("max_players", DEFAULT_MAX_PLAYERS))
+	view_distance = clampi(int(config.get("view_distance", DEFAULT_VIEW_DISTANCE)), 2, MAX_VIEW_DISTANCE)
+	# Never more than the view: a chunk that runs where nobody has been sent it is work spent on a
+	# place the player finds already changed when they arrive.
+	simulation_distance = clampi(int(config.get("simulation_distance", DEFAULT_SIMULATION_DISTANCE)), 1, view_distance)
 	_register_builtin_commands()
 	# Before the mods load, so a mod can read its own settings while it is still starting up.
 	mod_settings.load_sources(_meta, data_dir, str(config.get("mod_settings", "")))
@@ -1561,7 +1578,9 @@ func _physics_process(delta: float) -> void:
 	_poll_chunk_jobs()
 	var t_jobs := Time.get_ticks_usec()
 	_advance_time(delta)
-	block_ticks.update(delta)
+	if _simulation_dirty:
+		_refresh_simulation()
+	block_ticks.update(delta, realm.simulated)
 	var t_blocks := Time.get_ticks_usec()
 	containers.update(delta)
 	transfers.update(delta)
@@ -1591,7 +1610,10 @@ func _physics_process(delta: float) -> void:
 		sim_usec += b - a
 		stream_usec += Time.get_ticks_usec() - b
 	var te := Time.get_ticks_usec()
-	entities.tick(delta)
+	# An empty realm costs nothing rather than costing a little. A server the children have logged off
+	# from should be idle, and once there are several realms the ones nobody is in must be free.
+	if realm.is_awake():
+		entities.tick(delta)
 	for p: ServerPlayer in players.values():
 		_update_health(p, delta)
 	var t1 := Time.get_ticks_usec()
@@ -2313,6 +2335,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 		if spawn_point is Array and spawn_point.size() == 3:
 			p.spawn_point = Vector3(spawn_point[0], spawn_point[1], spawn_point[2])
 	players[peer_id] = p
+	_simulation_dirty = true
 	if first_time:
 		p.state.position = spawn_handler.call(p) if spawn_handler.is_valid() else _default_spawn()
 	elif rejoin_handler.is_valid():
@@ -2379,6 +2402,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	anticheat.player_left(peer_id)
 	_store_player(p)
 	players.erase(peer_id)
+	_simulation_dirty = true
 	for other: ServerPlayer in players.values():
 		Net.s_player_left.rpc_id(other.peer_id, peer_id)
 	if p.get_meta("transferring", false):
@@ -2406,17 +2430,45 @@ func _disconnect_peer(peer_id: int) -> void:
 # --- Chunk streaming ----------------------------------------------------------------------------
 
 func _build_view_offsets() -> void:
-	for x in range(-VIEW_RADIUS, VIEW_RADIUS + 1):
-		for z in range(-VIEW_RADIUS, VIEW_RADIUS + 1):
-			if x * x + z * z <= VIEW_RADIUS * VIEW_RADIUS + VIEW_RADIUS:
-				_view_offsets.append(Vector2i(x, z))
+	_view_offsets = _disc(view_distance)
 	_view_offsets.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.length_squared() < b.length_squared())
+	_simulation_offsets = _disc(simulation_distance)
+
+
+## Works out which chunks of each realm are close enough to somebody to run. Rebuilt only when
+## somebody crosses a chunk boundary, joins or leaves, since between those it is the same answer.
+##
+## This is deliberately not the same set as the chunks that stay loaded: a player is sent terrain out
+## to `view_distance` and it stays in memory a margin beyond that, but only `simulation_distance`
+## around them actually ticks. Walking away from a farm stops it rather than unloading it.
+func _refresh_simulation() -> void:
+	_simulation_dirty = false
+	for r: Realm in realms.values():
+		r.simulated.clear()
+	for p: ServerPlayer in players.values():
+		# Until players belong to a realm (dimensions, phase 2) everyone is in the overworld.
+		var into: Realm = realm
+		var center := VoxelWorld.chunk_coord_of(p.state.position)
+		for offset in _simulation_offsets:
+			into.simulated[center + offset] = true
+
+
+## Chunk offsets within `radius` chunks, as a disc rather than a square, so a player is not sent (or
+## running) a great deal more world diagonally than straight ahead.
+func _disc(radius: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for x in range(-radius, radius + 1):
+		for z in range(-radius, radius + 1):
+			if x * x + z * z <= radius * radius + radius:
+				out.append(Vector2i(x, z))
+	return out
 
 
 func _stream_chunks(p: ServerPlayer) -> void:
 	var center := VoxelWorld.chunk_coord_of(p.state.position)
 	if center != p.stream_center:
 		p.stream_center = center
+		_simulation_dirty = true
 		p.pending_chunks.clear()
 		for offset in _view_offsets:
 			var coord := center + offset
@@ -2424,7 +2476,7 @@ func _stream_chunks(p: ServerPlayer) -> void:
 				p.pending_chunks.append(coord)
 		for coord: Vector2i in p.sent_chunks.keys():
 			var d := coord - center
-			if maxi(absi(d.x), absi(d.y)) > VIEW_RADIUS + UNLOAD_MARGIN:
+			if maxi(absi(d.x), absi(d.y)) > view_distance + UNLOAD_MARGIN:
 				p.sent_chunks.erase(coord)
 				Net.s_unload_chunk.rpc_id(p.peer_id, coord)
 
@@ -2559,7 +2611,7 @@ func ensure_area_loaded(pos: Vector3) -> void:
 
 func _unload_unused_chunks() -> void:
 	var needed := {}
-	var r := VIEW_RADIUS + UNLOAD_MARGIN
+	var r := view_distance + UNLOAD_MARGIN
 	for p: ServerPlayer in players.values():
 		var center := VoxelWorld.chunk_coord_of(p.state.position)
 		for x in range(-r, r + 1):

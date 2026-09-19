@@ -1,13 +1,20 @@
 extends RefCounted
 ## Blocks that change over time, and an approximate server-side light level.
 ##
-## Random ticks: mods register a handler per block type with an average interval; each loaded block of
-## that type is called at random about that often. The engine indexes tickable blocks per chunk, so
-## only they are visited. When a chunk comes back after being unloaded, each block gets the ticks it
-## missed in one call (`ticks` > 1), so crops keep growing while nobody is near.
+## Random ticks: mods register a handler per block type with an average interval; each block of that
+## type *close enough to a player to be simulated* is called at random about that often. The engine
+## indexes tickable blocks per chunk, so only they are visited.
 ## Scheduled ticks: `schedule(pos, seconds, payload)` calls the block's handler once at that time (also
 ## after unloads and restarts, since they are saved with the chunk).
-## Handler: Callable(ctx) with ctx = {position, block, state, ticks, reason: "random" | "scheduled", payload}.
+## Handler: Callable(ctx) with ctx = {position, block, state, ticks, reason: "random" | "scheduled",
+## payload, elapsed}.
+##
+## **Chunks that are not being run keep time rather than losing it.** A chunk goes to sleep when it is
+## unloaded, and now also when the last player walks out of simulation range of it; the clock carries
+## on, and when it wakes each block is given the ticks it missed in one call (`ticks` > 1, and
+## `elapsed` seconds), so crops keep growing while nobody is near. The number of ticks is capped at
+## MAX_CATCH_UP on purpose: returning to a world after a week must not simulate a week in one frame.
+## A mod that wants the true figure reads `elapsed`, which is not capped.
 ##
 ## Light (0-15) is estimated from column heights (sky) and nearby light-emitting blocks (block light)
 ## without occlusion, which is close enough for growth and spawning rules. Clients compute real light.
@@ -31,7 +38,11 @@ var _lights := {}  # Vector2i chunk -> {local index: light level}
 var _scheduled := {}  # Vector2i chunk -> {local index: [due clock, payload]}
 const UNKNOWN_HEIGHT := -2
 var _heights := {}  # Vector2i chunk -> PackedInt32Array(256) highest opaque y per column (-1 open)
-var _pending: Array = []  # [position, ticks] catch-up calls to make on the next round
+var _pending: Array = []  # [position, ticks, elapsed] catch-up calls to make on the next round
+## Chunks that are loaded but not being run, and the clock reading from when they stopped. A chunk is
+## in exactly one of this and `_awake`.
+var _asleep_since := {}  # Vector2i chunk -> clock
+var _awake := {}  # Vector2i chunk -> true
 var _timer := 0.0
 
 
@@ -88,6 +99,10 @@ func load_chunk(coord: Vector2i, tickable: Dictionary, lights: Dictionary, saved
 		for index in lights:
 			levels[index] = server.registry.defs[lights[index]].light
 		_lights[coord] = levels
+	# A chunk arrives asleep and is caught up when a player comes near enough to run it - not here.
+	# Loading used to do the catching up itself, which meant a chunk streamed to somebody standing at
+	# the far edge of their view did a whole night of growth for nobody.
+	_asleep_since[coord] = clock
 	if not (saved is Dictionary):
 		return
 	var scheduled := {}
@@ -98,17 +113,7 @@ func load_chunk(coord: Vector2i, tickable: Dictionary, lights: Dictionary, saved
 				scheduled[int(key)] = [float(entries[key][0]), entries[key][1] if entries[key][1] is Dictionary else {}]
 	if not scheduled.is_empty():
 		_scheduled[coord] = scheduled
-	var elapsed := clock - float(saved.get("at", clock))
-	if elapsed <= STEP or not _positions.has(coord):
-		return
-	var origin := Vector3i(coord.x * 16, 0, coord.y * 16)
-	for index: int in _positions[coord]:
-		var h: Dictionary = handlers.get(_positions[coord][index], {})
-		if h.is_empty() or not h.catch_up:
-			continue
-		var ticks := mini(floori(elapsed / h.interval + randf()), MAX_CATCH_UP)
-		if ticks > 0:
-			_pending.append([origin + _local(index), ticks])
+	_asleep_since[coord] = float(saved.get("at", clock))
 
 
 ## What to save with a chunk (null when nothing).
@@ -135,6 +140,8 @@ func unload_chunk(coord: Vector2i) -> void:
 	_lights.erase(coord)
 	_scheduled.erase(coord)
 	_heights.erase(coord)
+	_asleep_since.erase(coord)
+	_awake.erase(coord)
 
 
 func block_changed(pos: Vector3i, old: int, block: int) -> void:
@@ -167,18 +174,24 @@ func block_changed(pos: Vector3i, old: int, block: int) -> void:
 		_lights[coord].erase(index)
 
 
-func update(delta: float) -> void:
+## `simulated` is the set of chunk coordinates close enough to somebody to be run; everything else
+## that is loaded is left alone. The clock advances either way, so a chunk that comes back is told how
+## long it was asleep rather than losing the time.
+func update(delta: float, simulated: Dictionary) -> void:
 	clock += delta
 	_timer += delta
 	if _timer < STEP:
 		return
 	var step := _timer
 	_timer = 0.0
+	_follow_simulation(simulated)
 	var pending := _pending
 	_pending = []
 	for entry in pending:
-		_call(entry[0], entry[1], "random", {})
+		_call(entry[0], entry[1], "random", {}, entry[2])
 	for coord: Vector2i in _positions.keys():
+		if not simulated.has(coord):
+			continue
 		var entries: Dictionary = _positions.get(coord, {})
 		var origin := Vector3i(coord.x * 16, 0, coord.y * 16)
 		for index: int in entries.keys():
@@ -186,6 +199,10 @@ func update(delta: float) -> void:
 			if not h.is_empty() and randf() < step / h.interval:
 				_call(origin + _local(index), 1, "random", {})
 	for coord: Vector2i in _scheduled.keys():
+		# A scheduled tick in a sleeping chunk is not lost, only late: the clock is past its due time
+		# already, so it fires on the round after somebody comes back.
+		if not simulated.has(coord):
+			continue
 		var entries: Dictionary = _scheduled.get(coord, {})
 		var origin := Vector3i(coord.x * 16, 0, coord.y * 16)
 		for index: int in entries.keys():
@@ -195,14 +212,44 @@ func update(delta: float) -> void:
 				_call(origin + _local(index), 1, "scheduled", entry[1])
 
 
-func _call(pos: Vector3i, ticks: int, reason: String, payload: Dictionary) -> void:
+## Moves chunks between awake and asleep, and hands the ones that just woke the time they missed.
+func _follow_simulation(simulated: Dictionary) -> void:
+	for coord: Vector2i in _awake.keys():
+		if not simulated.has(coord):
+			_awake.erase(coord)
+			_asleep_since[coord] = clock
+	for coord: Vector2i in simulated:
+		if _awake.has(coord) or not _asleep_since.has(coord):
+			continue
+		_awake[coord] = true
+		_catch_up(coord, clock - float(_asleep_since[coord]))
+		_asleep_since.erase(coord)
+
+
+## Tells every catching-up block in a chunk how long it has been standing still. The number of ticks
+## is capped, deliberately: coming back to a world after a week must not run a week of growth in one
+## frame. `elapsed` is uncapped alongside it, so a mod that wants to work out the real answer can.
+func _catch_up(coord: Vector2i, elapsed: float) -> void:
+	if elapsed <= STEP or not _positions.has(coord):
+		return
+	var origin := Vector3i(coord.x * 16, 0, coord.y * 16)
+	for index: int in _positions[coord]:
+		var h: Dictionary = handlers.get(_positions[coord][index], {})
+		if h.is_empty() or not h.catch_up:
+			continue
+		var ticks := mini(floori(elapsed / h.interval + randf()), MAX_CATCH_UP)
+		if ticks > 0:
+			_pending.append([origin + _local(index), ticks, elapsed])
+
+
+func _call(pos: Vector3i, ticks: int, reason: String, payload: Dictionary, elapsed := 0.0) -> void:
 	var block: int = server.world.get_block_v(pos)
 	var h: Dictionary = handlers.get(block, {})
 	if h.is_empty() or not h.handler.is_valid():
 		return
 	var t := Time.get_ticks_usec()
 	h.handler.call({"position": pos, "block": block, "state": server.get_block_state(pos), "ticks": ticks,
-		"reason": reason, "payload": payload})
+		"reason": reason, "payload": payload, "elapsed": elapsed})
 	server.dev_tools.record(h.owner, "block_tick:" + server.registry.defs[block].name, Time.get_ticks_usec() - t)
 
 

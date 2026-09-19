@@ -37,6 +37,12 @@ var save_dirty := {}  # Vector2i chunk -> true
 ## one of its own beside it, so an old save is still a valid new save.
 var save_dir := ""
 
+## Chunks close enough to somebody to be run. Everything else that is loaded is still there - a player
+## can still see it, it is still saved - it simply does not tick. Empty means the realm is asleep: its
+## clock keeps running and nothing in it does, which is what makes it cheap for a mod to register five
+## realms nobody is standing in. (2026-09-19, and see docs/roadmap.md "How much of the world is running")
+var simulated := {}  # Vector2i chunk -> true
+
 var _server
 
 
@@ -51,6 +57,13 @@ func _init(game_server, realm_id: String, realm_name := "") -> void:
 ## realm exists, so it would hand them somebody else's.
 func attach() -> void:
 	entities = Entities.new(_server, self)
+
+
+## Whether anything in this realm should be run this tick. A claim on a chunk (keeping a machine going
+## after its owner leaves) will wake a realm too, which is why this asks about the simulated set rather
+## than counting players.
+func is_awake() -> bool:
+	return not simulated.is_empty()
 
 
 ## Whether this is the world a server has always had. Kept as a question rather than a comparison
