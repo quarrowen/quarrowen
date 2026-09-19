@@ -73,6 +73,7 @@ func _ready() -> void:
 	await _music()
 	await _ambience()
 	await _weather()
+	await _links()
 	await _tags()
 	await _signals()
 	await _realms()
@@ -3996,6 +3997,57 @@ func _scripts_compile() -> void:
 
 ## Atmosphere. The engine picks the moments; a mod says under what conditions.
 ## Weather: world state the engine keeps, whose look and timing belong to a mod.
+## Links: what is joined to what. The graph the industrial half will stand on.
+func _links() -> void:
+	var server = _start("links_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	var deep = server.add_realm("test:deep", "The Deep")
+	_check(api.register_link_kind("cable", {"span": 10, "draw": "cable"}), "a mod can declare a kind of connection")
+	_check(api.register_link_kind("aerial", {"wireless": true, "span": 40, "crosses_realms": true}), "including a wireless one")
+	_check(not api.register_link_kind("cable", {}), "and cannot declare the same one twice")
+
+	var y: int = server.surface_height(100, 100) + 2
+	var node = func(x: int, z: int, face := 0, realm := "") -> Dictionary:
+		return {"realm": realm, "position": Vector3i(x, y, z), "face": face}
+
+	_check(api.link("cable", node.call(100, 100), node.call(106, 100)) > 0, "two faces within reach can be joined")
+	_check(api.link("cable", node.call(100, 100), node.call(130, 100)) == 0, "but not two that are too far apart")
+	_check(api.link_problem().contains("Too far"), "and it says so in words (%s)" % api.link_problem())
+	_check(api.link("cable", node.call(100, 100), node.call(106, 100)) == 0, "the same pair cannot be joined twice")
+
+	# A face is a node, not a block: the other side of the same block is somewhere else entirely.
+	_check(api.link("cable", node.call(100, 100, 1), node.call(106, 100, 1)) > 0,
+		"and the same two blocks join again on another face")
+
+	# Worlds. A cable is a physical thing; only wireless crosses.
+	_check(api.link("cable", node.call(100, 100, 2), node.call(100, 100, 2, "test:deep")) == 0,
+		"a cable refuses to run between worlds")
+	_check(api.link("aerial", node.call(100, 100, 2), node.call(100, 100, 2, "test:deep")) > 0,
+		"while a wireless link may cross, if its kind says so")
+
+	# Clear air, and staying clear.
+	var stone: int = server.registry.id_of("base:stone")
+	server.set_block_authoritative(Vector3i(103, y, 110), stone)
+	_check(api.link("cable", node.call(100, 110), node.call(106, 110)) == 0, "a wall in the way refuses the link")
+	server.set_block_authoritative(Vector3i(103, y, 110), 0)
+	var through: int = api.link("cable", node.call(100, 110), node.call(106, 110))
+	_check(through > 0, "and clearing it lets the link be made")
+	var cut_reason := []
+	server.add_handler("link_cut", func(ev): cut_reason.append(str(ev.reason)), 0, "test")
+	server.set_block_authoritative(Vector3i(103, y, 110), stone)
+	_check(api.link_info(through).is_empty(), "building into a span afterwards cuts it")
+	_check(cut_reason.size() == 1 and cut_reason[0].contains("built through"), "and says why (%s)" % str(cut_reason))
+
+	# Mining an end takes its links with it.
+	var ends: Array = api.links_at(Vector3i(100, y, 100))
+	_check(ends.size() >= 2, "a block knows the links that end on it (%d)" % ends.size())
+	server.set_block_authoritative(Vector3i(100, y, 100), stone)
+	server.break_block(Vector3i(100, y, 100))
+	_check(api.links_at(Vector3i(100, y, 100)).is_empty(), "and loses them when it goes")
+	server.queue_free()
+	await get_tree().process_frame
+
+
 ## Tags: named groups of blocks and items, and the thing that makes them worth having - a mod loading
 ## later can add to a group an earlier one defined, and its recipes then accept the new thing.
 func _tags() -> void:

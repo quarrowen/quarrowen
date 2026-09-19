@@ -33,6 +33,7 @@ const Cosmetics = preload("res://engine/shared/cosmetics.gd")
 const EffectRegistry = preload("res://engine/shared/effect_registry.gd")
 const BlockTicks = preload("res://engine/server/block_ticks.gd")
 const TagRegistry = preload("res://engine/shared/tag_registry.gd")
+const Links = preload("res://engine/server/links.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 const Stations = preload("res://engine/server/stations.gd")
@@ -258,6 +259,9 @@ var recipes := RecipeRegistry.new()
 ## Named groups of blocks and items (see engine/shared/tag_registry.gd). Server-side: a tag is a
 ## question a mod asks while the world runs, not something a client has to know.
 var tags := TagRegistry.new()
+## What is joined to what (see engine/server/links.gd). Server-wide, not per realm: a wireless link may
+## have one end in one world and the other somewhere else, so it belongs to neither.
+var links := Links.new(self)
 ## Recipes whose inputs name a tag, held until every mod has loaded (see _expand_tag_recipes).
 var _tag_recipes: Array = []
 ## Each mod's API object, by mod id. Mods are not obliged to keep their own, so the server does.
@@ -466,6 +470,9 @@ func start(config: Dictionary) -> Error:
 		loot.boosts = _meta.loot.get("boosts", {}) if _meta.loot.get("boosts") is Dictionary else {}
 	if _meta.get("world_markers") is Dictionary:
 		world_markers = _meta.world_markers  # markers mods put on everyone's map, from the last session
+	# After the mods have registered their link kinds, or every saved link would be dropped as belonging
+	# to a kind nothing knows about.
+	links.load_saved(_meta.get("links"))
 	if str(config.get("chat_filter", "")) in ["on", "true", "1", "yes"]:
 		gameplay.chat_filter = true
 	# A private server: only listed players (and admins) may join. Names given here are added to the list.
@@ -4688,6 +4695,7 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0, int
 		clear_block_data(pos, into)
 	into.block_ticks.block_changed(pos, old, block)
 	into.signals.block_changed(pos, old, block)
+	links.block_changed(into.id, pos, old, block)
 	if old != block:
 		connect.refresh_around(pos, into)
 	# Removing one half of a two-block piece removes the other (its drops come from the half broken).
@@ -4919,6 +4927,7 @@ func _drain_save_queue(budget_usec: int, wait := false) -> void:
 	_meta.last_played = int(Time.get_unix_time_from_system())
 	_meta.clock = block_ticks.clock
 	_meta.world_markers = world_markers
+	_meta.links = links.to_saved()
 	_meta.mod_settings = mod_settings.to_saved()
 	_meta.loot = {"rate": loot.rate, "boosts": loot.boosts}
 	_save_writes.append([_save_dir + "/world.json", JSON.stringify(_meta, "\t")])

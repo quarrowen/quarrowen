@@ -929,6 +929,48 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Networks, layer 1: links, the graph everything stands on (2026-09-19)
+
+`engine/server/links.gd`. Not power, not pipes - just **what is joined to what**, because power,
+fluids, items and rotation all need the same answer and building it four times would be building it
+four times.
+
+**A node is a face of a block, not the block** (the user's call). A machine takes power in one side
+and pushes items out of another, which is how a factory is actually built, and one node per block
+cannot say that. More to store and hard to undo, which is why it was decided before anything was
+written.
+
+**A link has a kind, and the kind decides nearly everything** - reach, cost, what it is drawn as,
+whether it needs clear air, whether it may leave the world. The engine holds the graph and knows none
+of it. Three kinds are already known to differ in ways that matter:
+
+- **cables sag** - the catenary is most of why a strung cable reads as a cable
+- **pipes do not** - a rigid line drawn with a droop looks broken, and wants a *shorter* reach, because
+  a long rigid tube hanging in the air looks wrong where a long cable does not
+- **wireless draws nothing**, and its range is a question rather than a constant, because a mod may
+  raise it with an upgrade. Asked through a `link_reach` event, which is where an aerial upgrade goes.
+
+**Only wireless may cross between worlds** (the user). A cable or a pipe is a physical thing and cannot
+run through the gap between realms; pretending otherwise makes nonsense of what a portal is for. So a
+link's endpoints are **(realm, position, face)**, and cross-realm is the one case where the two realms
+differ. It is what lets a quarry in the Emberdeep report to a base in the overworld.
+
+Other decisions made and built: laying a link costs the item it is made of by length, so a long run is
+a decision and a relay is earned; a cap on how many links meet at one face; and **building into a span
+cuts the link and says so** - the alternative is a cable quietly passing through a wall somebody put up
+later. Every refusal is a sentence a player can act on ("Too far apart: 30 blocks, and this reaches
+10") rather than a silent no.
+
+**Links are saved with the world**, unlike signal levels. A level follows from where the sources are; a
+link is a record of where somebody *chose* to run a cable and cannot be worked out again. They are
+saved with the world rather than with a chunk, because one end may be loaded while the other is not,
+and a link that vanished because half of it was asleep would be a miserable bug. A link whose kind no
+longer exists - the mod was removed - is dropped rather than half-restored.
+
+Still to come: layer 2, quantity transport (power, fluids, gases) with buffers, event-driven, equal
+shares when short; layer 3, item transport, discrete things with data on the same graph. And the client
+cannot draw a curve between two arbitrary points yet, so nothing is visible in game.
+
 ## Tags: named groups of blocks and items (2026-09-19)
 
 `api.tag("logs", [...])` puts things in a group; `tagged`, `has_tag` and `tags_of` ask about them.

@@ -74,10 +74,40 @@ wire... why does it need to stick to a block or surface?"*). Power, fluids, item
 for pipes would be building it twice. Adjacency stays for the cheap early thing a child lays along the
 floor; links are what a base looks like once it is a base.
 
+**A link has a *kind*, and the kind decides almost everything.** A mod declares a kind - "cable",
+"pipe", "beam" - and with it: what it is drawn as, how far it may reach, what it costs to lay, whether
+it needs clear air, and whether it may leave the world it is in. The engine holds links and knows none
+of that, which is what keeps it from deciding that everything is a wire.
+
+The three kinds already known to be wanted, and they are not variations of one:
+
+- **Cables sag.** Electricity strung between poles, a catenary, and the sag is most of why it reads as
+  a cable at all.
+- **Pipes do not.** A fluid line is rigid; drawn with the same droop it would look broken. Which also
+  means a pipe wants a *shorter* maximum span than a cable, because a long rigid tube hanging in air
+  looks wrong in a way a long cable does not.
+- **Wireless has nothing to draw.** Whether it is allowed at all is the mod's business, and so is its
+  range - which is not a constant but something a mod may raise with an upgrade, so the engine asks
+  rather than stores it.
+
+**Only wireless may leave the world it is in** (the user, 2026-09-19). A cable or a pipe joins two
+places in one realm, full stop: a physical thing cannot run through the gap between worlds, and
+pretending otherwise makes nonsense of what a portal is for. A wireless link may cross, if the mod
+that owns it says so - which is what lets a quarry in the Emberdeep report back to a base in the
+overworld without anybody laying a cable through a portal.
+
+That makes a link's endpoints **(realm, position, face)** rather than just a position - and cross-realm
+is the one case where the two realms differ.
+
 **The rules, decided with the user before it is built** (2026-09-19):
 
-- **A limit on how far apart two connectors may be** - of the order of 8 to 14 blocks, a server
-  setting, with a pole or relay needed to go further. Two things at once: it stops a player stringing a
+- **A node is a *face* of a block, not the block.** A machine takes power on one side and pushes items
+  out of another, which is how anybody actually builds a factory; one node per block cannot say that.
+  It costs more to store and is harder to undo later, which is why it is decided now.
+- **Laying a link costs the item it is made of**, by length. A long run is then a decision rather than
+  a formality, relays are earned rather than imposed, and copper has a job.
+- **A limit on how far apart two connectors may be** - of the order of 8 to 14 blocks for a cable and
+  shorter for a pipe, per kind and settable by the host, with a pole or relay needed to go further. Two things at once: it stops a player stringing a
   cable across a continent, and it keeps the **sag** believable, because a catenary over a hundred
   blocks either dips into the ground or is drawn as a straight line and stops looking like a cable.
 - **The span has to be clear air.** A cable that clips through a floor or a hillside looks broken, and
@@ -87,9 +117,14 @@ floor; links are what a base looks like once it is a base.
   the same reason: the alternative is a cable quietly passing through a wall somebody built later.
   Announced to whoever placed the block, because a link failing silently is a bug report.
 
-What it also needs that nothing here has yet: links saved with the world, broken when either end is
-mined, a cap on how many one connector may carry, and a client that can draw a sagging curve between
-two arbitrary points - which it currently cannot do at all.
+- **What a machine does when the network cannot supply it is the mod's business.** Stop dead, or run
+  slower, or run badly - the engine says "you asked for twenty and you have seven" and has no opinion
+  about what that means. A lamp and a smelter should not have to agree.
+
+What it also needs that nothing here has yet: links saved with the world - they are a record of where
+somebody *chose* to run a cable and cannot be re-derived from the blocks the way a signal level can -
+broken when either end is mined, a cap on how many one connector may carry, and a client that can draw
+a sagging curve between two arbitrary points, which it currently cannot do at all.
 
 ### 3. Signals
 

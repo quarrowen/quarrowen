@@ -924,6 +924,60 @@ func block_display_name(id: int) -> String:
 # than a bug today. When realms reach the mod API these gain a way to say where, most likely by the
 # event that supplied the position carrying its realm. (2026-09-19)
 
+## A kind of connection a player can lay: a cable, a pipe, an aerial.
+##
+##     api.register_link_kind("cable", {"span": 12, "item": "base:copper_wire", "draw": "cable"})
+##     api.register_link_kind("aerial", {"wireless": true, "span": 48, "crosses_realms": true})
+##
+## def: `span` (how far it reaches), `item` (what a block of it costs to lay), `draw` - "cable" sags,
+## "pipe" is rigid and wants a shorter span, "" draws nothing - `wireless` (nothing drawn, no clear
+## line needed), `crosses_realms` (wireless only; a cable is a physical thing and cannot run through
+## the gap between worlds), `needs_air`, `per_node` (how many may meet at one face).
+##
+## A node is a **face** of a block, so a machine can take power in one side and push items out of
+## another. Raise the reach of a particular connector by handling the `link_reach` event - that is
+## where an upgrade or a better aerial belongs, rather than in the kind itself.
+func register_link_kind(kind_name: String, def := {}) -> bool:
+	return _server.links.register_kind(_qualify(kind_name), def, mod_id)
+
+
+## Joins two faces. Each end is {realm, position, face} - realm "" is the world a server starts with,
+## face is 0..5 (up, down, north, south, west, east). Returns the link id, or 0; when it is 0,
+## `link_problem()` says why in a sentence a player can be shown.
+func link(kind_name: String, a: Dictionary, b: Dictionary) -> int:
+	return _server.links.join(_qualify_ref(kind_name), _link_node(a), _link_node(b))
+
+
+## Why the last link() was refused.
+func link_problem() -> String:
+	return _server.links.problem
+
+
+## Whether two faces could be joined, without joining them: "" means yes, anything else is the reason.
+func link_refused(kind_name: String, a: Dictionary, b: Dictionary) -> String:
+	return _server.links.why_not(_qualify_ref(kind_name), _link_node(a), _link_node(b))
+
+
+## Removes a link by id.
+func unlink(id: int, why := "removed") -> bool:
+	return _server.links.cut(id, why)
+
+
+## Every link touching a block, as ids.
+func links_at(position: Vector3i, realm_id := "") -> Array:
+	return _server.links.at_block(_qualify_ref(realm_id), position)
+
+
+## One link: {kind, a, b, length}, or {} if there is no such link.
+func link_info(id: int) -> Dictionary:
+	return _server.links.links.get(id, {}).duplicate(true)
+
+
+func _link_node(node: Dictionary) -> Dictionary:
+	return {"realm": _qualify_ref(String(node.get("realm", ""))),
+		"position": node.get("position", Vector3i.ZERO), "face": int(node.get("face", 0))}
+
+
 ## Puts blocks or items into a named group: "any log", "any ore", "anything a pipe may carry".
 ##
 ##     api.tag("logs", ["base:oak_log", "base:birch_log"])   # in base: defines base:logs
