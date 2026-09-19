@@ -405,6 +405,23 @@ story mode needed no new capability in the end: &quot;build&quot; has been a per
 the engine already refuses a break or a place without it, tells the player why (once every three
 seconds, not once a click) and puts the block back on the client that predicted it. all that was
 missing was a mod being able to say which role people start in. returns &quot;&quot; or why not."><div class="sig"><code>api.set_default_role(role_name: String) -&gt; String</code><span class="tag js" title="setDefaultRole(role: string): string">JS setDefaultRole</span></div><p>The role every player has unless somebody gives them another. This is how a mod makes a story: the<br>stock &quot;visitor&quot; role is chat and interact with no build, so the valley stays as its author left it<br>while doors, chests and levers still work.<br><br>api.set_default_role(&quot;visitor&quot;)   # a world to walk through, not one to change<br><br>Story mode needed no new capability in the end: &quot;build&quot; has been a permission since roles existed,<br>the engine already refuses a break or a place without it, tells the player why (once every three<br>seconds, not once a click) and puts the block back on the client that predicted it. All that was<br>missing was a mod being able to say which role people start in. Returns &quot;&quot; or why not.</p></div>
+<div class="card" id="api-register-weather" data-search="register_weather  registers a kind of weather. the engine draws it and keeps everyone in the same sky; the mod decides
+what it looks like and when it happens.
+
+api.register_weather(&quot;rain&quot;, {
+&quot;emitter&quot;: {&quot;amount&quot;: 220, &quot;lifetime&quot;: 1.1, &quot;speed&quot;: [16, 20], &quot;direction&quot;: [0, -1, 0],
+&quot;spread&quot;: 3, &quot;size&quot;: [0.05, 0.05], &quot;colors&quot;: [&quot;#9fc4e8aa&quot;], &quot;shape&quot;: &quot;box&quot;,
+&quot;extents&quot;: [18, 1, 18]},
+&quot;sound&quot;: &quot;rain&quot;, &quot;sky_tint&quot;: &quot;#6a7686&quot;, &quot;light_scale&quot;: 0.72})
+
+`emitter` is the same shape as an effect's (see register_effect), drawn continuously above whoever is
+out in it. `sound` loops while it falls, `sky_tint` colours the sky, `light_scale` darkens the world,
+`fog` closes the distance in.
+
+**when it rains is not here.** that is a mod's decision and games want wildly different answers - a
+survival world on a timer, a story where the storm arrives because the story says so."><div class="sig"><code>api.register_weather(weather_name: String, def: Dictionary) -&gt; int</code></div><p>Registers a kind of weather. The engine draws it and keeps everyone in the same sky; the mod decides<br>what it looks like and when it happens.<br><br>api.register_weather(&quot;rain&quot;, {<br>&quot;emitter&quot;: {&quot;amount&quot;: 220, &quot;lifetime&quot;: 1.1, &quot;speed&quot;: [16, 20], &quot;direction&quot;: [0, -1, 0],<br>&quot;spread&quot;: 3, &quot;size&quot;: [0.05, 0.05], &quot;colors&quot;: [&quot;#9fc4e8aa&quot;], &quot;shape&quot;: &quot;box&quot;,<br>&quot;extents&quot;: [18, 1, 18]},<br>&quot;sound&quot;: &quot;rain&quot;, &quot;sky_tint&quot;: &quot;#6a7686&quot;, &quot;light_scale&quot;: 0.72})<br><br>`emitter` is the same shape as an effect's (see register_effect), drawn continuously above whoever is<br>out in it. `sound` loops while it falls, `sky_tint` colours the sky, `light_scale` darkens the world,<br>`fog` closes the distance in.<br><br>**When it rains is not here.** That is a mod's decision and games want wildly different answers - a<br>survival world on a timer, a story where the storm arrives because the story says so.</p></div>
+<div class="card" id="api-set-weather" data-search="set_weather  starts weather for everyone, or stops it with &quot;&quot;. `seconds` of 0 leaves it until something changes it."><div class="sig"><code>api.set_weather(weather_name: String, options := {}) -&gt; void</code></div><p>Starts weather for everyone, or stops it with &quot;&quot;. `seconds` of 0 leaves it until something changes it.</p></div>
+<div class="card" id="api-get-weather" data-search="get_weather  what the sky is doing: {name, intensity}. `name` is &quot;&quot; when it is clear."><div class="sig"><code>api.get_weather() -&gt; Dictionary</code></div><p>What the sky is doing: {name, intensity}. `name` is &quot;&quot; when it is clear.</p></div>
 <div class="card" id="api-register-music" data-search="register_music registermusic registers a music track. `attribution` is required: say who made it and under what licence.
 
 api.register_music(&quot;valley&quot;, &quot;music/valley.ogg&quot;, {

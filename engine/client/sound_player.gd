@@ -81,6 +81,13 @@ func play(id: int, pos: Vector3, volume_scale := 1.0, pitch := 1.0, positional :
 		voice.play()
 
 
+## A decoded stream by sound name, for anything that wants to own its own playback rather than borrow a
+## voice from the pool - weather, which loops for as long as it is raining. null if unknown.
+func stream_named(sound_name: String) -> AudioStream:
+	var id := registry.id_of(sound_name)
+	return _stream_for(registry.defs[id]) if id >= 0 else null
+
+
 func _stream_for(def: Dictionary) -> AudioStream:
 	var files: Array = def.files
 	if files.is_empty():

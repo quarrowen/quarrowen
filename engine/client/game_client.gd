@@ -44,6 +44,7 @@ const EntityView = preload("res://engine/client/entity_view.gd")
 const EntityPhysics = preload("res://engine/shared/entity_physics.gd")
 const SoundPlayer = preload("res://engine/client/sound_player.gd")
 const MusicPlayer = preload("res://engine/client/music_player.gd")
+const WeatherView = preload("res://engine/client/weather_view.gd")
 const InventoryScreen = preload("res://engine/client/inventory_screen.gd")
 const Mining = preload("res://engine/shared/mining.gd")
 const ItemVisuals = preload("res://engine/client/item_visuals.gd")
@@ -185,6 +186,7 @@ var _attack_timer := 0.0
 var _step_distance := 0.0
 var _sounds: SoundPlayer
 var _music: MusicPlayer
+var _weather: WeatherView
 var _base_rules := {}
 var _mining := {}  # {position, started, seconds} while breaking a block in survival
 var _mining_sound_at := 0.0
@@ -491,7 +493,8 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	if content.get("rules") is Dictionary:
 		on_rules(content.rules)
 	if not entity_types.load_network(content.get("entities", [])) or not _sounds.registry.load_network(content.get("sounds", [])) \
-			or not _music.registry.load_network(content.get("music", [])):
+			or not _music.registry.load_network(content.get("music", [])) \
+			or not _weather.registry.load_network(content.get("weather", [])):
 		_leave("Server sent invalid entity or sound definitions")
 		return
 
@@ -642,6 +645,8 @@ func _finish_content() -> void:
 			_entity_sprites[d.id] = _asset_textures[d.sprite]
 	_sounds.manifest = _manifest
 	_music.manifest = _manifest
+	_weather.effects = _effects
+	_weather._sounds = _sounds
 	_crafting_screen.atlas = _atlas
 	_item_icons.items = items
 	_item_icons.atlas = _atlas
@@ -1188,6 +1193,12 @@ func on_player_event(peer_id: int, kind: int) -> void:
 
 ## The server's music instruction. Nothing here can fail loudly: the track may not have arrived yet, or
 ## may never arrive, and either way the game carries on without it.
+## What the sky is doing. Like music, nothing here can fail loudly: unknown weather simply is not drawn.
+func on_weather(weather_id: int, intensity: float) -> void:
+	if _weather != null:
+		_weather.apply(weather_id, intensity)
+
+
 func on_music(track_id: int, fade: float, restart: bool) -> void:
 	if _music != null:
 		_music.play(track_id, fade, restart)
@@ -1930,7 +1941,9 @@ func _color_models(mmi: MultiMeshInstance3D) -> void:
 func _update_time(delta: float) -> void:
 	if _day_length > 0.0:
 		_time_of_day = fposmod(_time_of_day + delta / _day_length, 1.0)
-	_daylight = WorldTime.daylight(_time_of_day)
+	# Weather dims the day. Applied here rather than in the sky alone so the world under it darkens too -
+	# a storm that leaves the grass bright is a storm happening to somebody else.
+	_daylight = WorldTime.daylight(_time_of_day) * (_weather.light_scale() if _weather != null else 1.0)
 	if absf(_daylight - _applied_daylight) < 0.005 or _solid_material == null:
 		return
 	_applied_daylight = _daylight
@@ -1944,7 +1957,14 @@ func _update_time(delta: float) -> void:
 		material.set_shader_parameter("sun_tint", Vector3(sun_tint.r, sun_tint.g, sun_tint.b))
 		material.set_shader_parameter("sun_direction", sun_direction)
 	var horizon := Color(0.05, 0.06, 0.12).lerp(Color(0.72, 0.84, 0.96), t)
-	_sky_material.sky_top_color = Color(0.01, 0.02, 0.06).lerp(Color(0.32, 0.54, 0.92), t)
+	var sky_top := Color(0.01, 0.02, 0.06).lerp(Color(0.32, 0.54, 0.92), t)
+	# Weather pulls the sky towards its own colour and the daylight down with it, so a storm is a thing
+	# you notice through a window rather than only by looking up.
+	var tint: Dictionary = _weather.sky_tint() if _weather != null else {}
+	if not tint.is_empty():
+		horizon = horizon.lerp(tint.color, float(tint.amount))
+		sky_top = sky_top.lerp(tint.color, float(tint.amount) * 0.8)
+	_sky_material.sky_top_color = sky_top
 	_sky_material.sky_horizon_color = horizon
 	_sky_material.ground_horizon_color = horizon
 	_sky_material.ground_bottom_color = Color(0.02, 0.02, 0.04).lerp(Color(0.3, 0.4, 0.55), t)
@@ -2969,6 +2989,9 @@ func _build_scene() -> void:
 	_music = MusicPlayer.new()
 	_music.fetch = fetch_lazy_asset
 	add_child(_music)
+	_weather = WeatherView.new()
+	_weather.camera = _camera
+	add_child(_weather)
 
 	_highlight = MeshInstance3D.new()
 	var box := BoxMesh.new()

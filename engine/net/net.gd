@@ -532,6 +532,14 @@ func s_transfer(address: String, port: int, server_name: String, ticket: String,
 		client.on_transfer(address, port, server_name, ticket, signature)
 
 
+## What the sky is doing: a weather id and how hard, or -1 for clear. Reliable, because a dropped one
+## leaves a player standing in sunshine while everybody else is in a storm.
+@rpc("authority", "call_remote", "reliable")
+func s_weather(weather_id: int, intensity: float) -> void:
+	if client:
+		client.on_weather(weather_id, intensity)
+
+
 ## Which music to play, or -1 for none. Reliable: a dropped one leaves the wrong music playing for as
 ## long as the player stays in that biome, which is exactly the kind of quiet wrongness nobody reports.
 @rpc("authority", "call_remote", "reliable")
@@ -558,7 +566,10 @@ func s_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> vo
 		client.on_server_info(info, content, manifest)
 
 
-@rpc("authority", "call_remote", "reliable")
+## On the bulk channel with terrain, for the same reason terrain is: sixty kilobytes of texture in flight
+## must not hold up a block change or a line of chat queued behind it. It was on the default channel,
+## which is where everything small and urgent lives, so the join burst competed with all of it. (2026-09-19)
+@rpc("authority", "call_remote", "reliable", BULK_CHANNEL)
 func s_asset_piece(hash: String, offset: int, total: int, bytes: PackedByteArray) -> void:
 	if client:
 		client.on_asset_piece(hash, offset, total, bytes)

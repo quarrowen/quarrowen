@@ -121,6 +121,7 @@ def main():
     # re-rolls all of them - which is what happened the first time this line went in, quietly changing
     # a dozen sounds that were fine. Same rule as tools/generate_textures.gd. (2026-09-18)
     ambient_sounds()
+    weather_sounds()
 
 
 def animal_sounds():
@@ -162,6 +163,26 @@ def crafting_sounds():
     # --- Engine: crafting (a separate function so it can be regenerated alone) ---
     chime = mix(tone(0.18, 1046, 1046, gain=0.3, curve=3.0), [0.0] * n(0.07) + tone(0.22, 1318, 1318, gain=0.28, curve=3.0),
                 [0.0] * n(0.14) + tone(0.35, 1568, 1568, gain=0.25, curve=3.0))
+
+
+def weather_sounds():
+    """Rain and a storm, as loops. Last in the file, same rule as everything else here.
+
+    Rain is filtered noise with no shape to it at all - shape is what makes a loop audible as a loop,
+    and this one plays for minutes. The storm is the same thing lower and heavier, so walking from one
+    into the other is a change of weight rather than a change of sound.
+    """
+    def hiss(seconds, cutoff, gain):
+        body = lowpass(noise_burst(seconds, cutoff, curve=0.0, gain=gain), 0.8)
+        # Ends where it begins, so the loop has no seam: the same lesson the music generator learned.
+        blend = n(0.25)
+        for i in range(blend):
+            f = i / blend
+            body[i] = body[i] * f + body[len(body) - blend + i] * (1 - f)
+        return body[:len(body) - blend]
+
+    write("mods/vanilla/sounds/rain.wav", hiss(4.0, 0.22, 0.30))
+    write("mods/vanilla/sounds/storm.wav", hiss(4.0, 0.10, 0.42))
 
 
 def ambient_sounds():

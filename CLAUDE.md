@@ -92,6 +92,15 @@ godot --headless --path . res://tools/mod_tool.tscn -- docs
 Run it after touching `engine/server/mod_api.gd`, any `## ` header comment listed in
 `tools/docs_generator.gd`, or `engine/server/js/quarrowen.d.ts`.
 
+## Running the game rewrites project.godot
+
+Godot strips the MCP editor plugin's autoloads from `project.godot` whenever the game is run from this
+checkout, because `addons/godot_mcp/` is gitignored and it cannot see it. The change looks deliberate
+and is not; committing it quietly breaks the editor integration on the machine that has the addon.
+
+**Check `git diff project.godot` before committing after anything that launches the game**, and
+`git checkout -- project.godot` if those three autoload lines have gone. It has happened twice.
+
 ## Right now: do not tag a release
 
 The children are on 0.41.1 and their clients update themselves from `update.json`, which a `v*` tag

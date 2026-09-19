@@ -188,6 +188,52 @@ It wants `networks` (driven kind) and `multiblocks` first, since it is what thos
 A private copy of a space, entered and left. Much cheaper once dimensions exist, being a dimension with
 a lifetime.
 
+## Touch controls, and the iPad
+
+Wanted for 1.0 (the user, 2026-09-19). An iOS build today would install and be unplayable: everything
+assumes a mouse, a keyboard and a captured pointer. What it needs is a control scheme rather than a
+port - a thumbstick, a look area, tap-to-break and hold-to-place, a reachable hotbar, and inventory
+screens that work with a finger rather than a hover.
+
+Order: touch controls first, then a local build, then TestFlight, then CI. Nothing about it is blocked
+by anything else on this page, and it is the only item here that would put the game in a child's hands
+somewhere other than a desk.
+
+## Sending less, before sending it differently
+
+A standing concern rather than a capability: the server streams a great deal — terrain, assets,
+entity snapshots — and lag is the thing a child feels first.
+
+**The transport is already reasonable.** ENet over UDP with DTLS, with three channels delivered
+independently, so a burst of terrain does not hold up chat or block changes behind it, and movement is
+unreliable-ordered on its own channel because a stale position is worth nothing. That is most of what a
+modern transport would buy.
+
+**All four of these are 1.0 work** (agreed 19 September 2026), in this order:
+
+1. **Instrument it.** Bytes per second by message kind, and how long a join actually takes. Everything
+   below is guesswork until this exists, and it is the cheapest item here.
+2. ~~**Fix what is on the wrong channel.**~~ Done the day it was noticed: `s_asset_piece` was on the
+   default channel, where everything small and urgent lives, so the join burst competed with chat, block
+   changes and UI. One line.
+3. **Compress chunk payloads.** Terrain is highly repetitive and is currently sent raw.
+4. **Interest management.** Send what is near a player rather than what exists — of the four, the one
+   that changes the shape of the problem rather than trimming it. It is also what makes a busy server
+   possible at all, and it will want care: the rule for *what is near* has to answer for entities,
+   block changes, sounds and effects, each of which has a different idea of how far away is too far.
+
+Today's lazy asset lane was this kind of win already, and took megabytes out of the join path outright.
+
+**QUIC: decided against** (19 September 2026), rather than deferred. ENet already gives independent
+channels, which is the main thing it would buy; DTLS covers the encryption; and the remaining benefit —
+better congestion control — is second-order. Against that, Godot's multiplayer sits on `ENetMultiplayerPeer`,
+so it means writing a `MultiplayerPeer` of our own: feasible, since the good QUIC libraries are Rust and
+there is already a Rust extension here, but a deep change to the one part of the system that currently
+works.
+
+The condition for reopening it is specific: **the instrumentation in item 1 showing the transport itself
+is the bottleneck**, rather than what is being put through it. Nobody should revisit this on a hunch.
+
 ## The content that matters most: what is in the ground
 
 Three ores and two metals is not a survival game. Today: coal, iron and cobalt, plus arcana's mana

@@ -155,6 +155,42 @@ func _setup_ambience() -> void:
 		"volume": 0.4})
 
 
+## Rain, and a storm that is rain with the weight turned up.
+##
+## Weather is world state the engine keeps; what it looks like and when it arrives are here. It is
+## written to be noticed and then lived with: showers are short and common, storms are rare and long,
+## and the sky goes grey a while before either really settles in, because the engine fades it.
+func _setup_weather() -> void:
+	api.register_sound("rain_loop", "sounds/rain.wav", {"volume": 0.9})
+	api.register_sound("storm_loop", "sounds/storm.wav", {"volume": 1.0})
+	# A flat box of drops overhead, falling fast and straight, small and pale. The box is wider than it
+	# is deep so the drops arrive across the view rather than down a funnel in front of the camera.
+	var drops := {"amount": 240, "lifetime": 1.0, "speed": [17.0, 21.0], "direction": [0.0, -1.0, 0.0],
+		"spread": 4.0, "size": [0.06, 0.06], "colors": ["#a8c8ecb0"], "shape": "box",
+		"extents": [16.0, 0.5, 16.0], "texture": "square", "gravity": 6.0}
+	api.register_weather("rain", {"emitter": drops, "sound": "rain_loop",
+		"sky_tint": "#6d7a8a", "light_scale": 0.74, "fog": 0.25})
+	var heavy := drops.duplicate()
+	heavy.amount = 420
+	heavy.speed = [22.0, 27.0]
+	heavy.colors = ["#8fb0d4c8"]
+	api.register_weather("storm", {"emitter": heavy, "sound": "storm_loop",
+		"sky_tint": "#4a5464", "light_scale": 0.55, "fog": 0.45})
+
+	# Only the game decides the sky. A story built on vanilla wants its own weather, or none.
+	if not api.is_game():
+		return
+	# Checked often, changed rarely: a shower every twenty minutes or so, a storm perhaps once a day.
+	api.every(60.0, func():
+		if not api.get_weather().name.is_empty():
+			return
+		var roll := randf()
+		if roll < 0.06:
+			api.set_weather("storm", {"intensity": randf_range(0.7, 1.0), "seconds": randf_range(240.0, 480.0)})
+		elif roll < 0.22:
+			api.set_weather("rain", {"intensity": randf_range(0.4, 0.9), "seconds": randf_range(120.0, 360.0)}))
+
+
 func _setup_mobs() -> void:
 	api.register_sound("zombie_ambient", "sounds/zombie_ambient.wav", {"range": 16.0})
 	api.register_sound("zombie_hurt", "sounds/zombie_hurt.wav")
@@ -290,6 +326,7 @@ func _setup_mobs() -> void:
 	# one of them loses; ambience simply adds, and Hearthhold's valley wants wind in it as much as a
 	# sandbox does.
 	_setup_ambience()
+	_setup_weather()
 
 
 ## Occasional mob noises, and zombies burn in daylight.

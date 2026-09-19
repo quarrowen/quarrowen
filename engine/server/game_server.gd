@@ -21,6 +21,7 @@ const Entities = preload("res://engine/server/entities.gd")
 const Entity = preload("res://engine/server/entity.gd")
 const SoundRegistry = preload("res://engine/shared/sound_registry.gd")
 const MusicRegistry = preload("res://engine/shared/music_registry.gd")
+const WeatherRegistry = preload("res://engine/shared/weather_registry.gd")
 const Ambience = preload("res://engine/server/ambience.gd")
 const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
@@ -111,6 +112,10 @@ var world_seed := 0
 var entities := Entities.new(self)
 var sounds := SoundRegistry.new()
 var music := MusicRegistry.new()
+var weather := WeatherRegistry.new()
+## What the sky is doing: {id, intensity, until}. World state, not per player - everyone standing in the
+## same world is standing in the same storm, and somebody joining halfway through arrives in it.
+var weather_now := {"id": -1, "intensity": 0.0, "until": 0.0}
 var ambience := Ambience.new(self)
 ## The character body every client draws players with (see PlayerRig; mods may replace it).
 var player_rig := PlayerRig.default_rig()
@@ -776,6 +781,7 @@ func _register_builtin_commands() -> void:
 	add_command("tutorial", "list | start <id> | skip | stop | tips on|off", _cmd_tutorial, "engine")
 	add_command("milestones", "What you have done, and what is still out there", _cmd_milestones, "engine")
 	add_command("music", "Who made the music this server plays", _cmd_music, "engine")
+	add_command("weather", "<kind> [seconds] | clear - change the sky", _cmd_weather, "engine", "admin")
 	add_command("gamemode", "survival | creative [player]", _cmd_gamemode, "engine", "admin")
 	add_command("fly", "Toggle flying (creative, or the \"fly\" permission)", _cmd_fly, "engine")
 	add_command("kill", "Die and respawn", func(p, _args): kill_player(p, "command", null), "engine")
@@ -1078,6 +1084,33 @@ func _cmd_music(player, _args: PackedStringArray) -> void:
 	player.send_message("Music on this server:")
 	for line in lines:
 		player.send_message("  " + line)
+
+
+func _cmd_weather(player, args: PackedStringArray) -> void:
+	if args.is_empty():
+		var now: Dictionary = weather_state()
+		var names := []
+		for d in weather.defs:
+			names.append(str(d.name))
+		player.send_message("Weather: %s. Kinds: %s" % [
+			"clear" if str(now.name).is_empty() else "%s (%d%%)" % [now.name, roundi(float(now.intensity) * 100)],
+			", ".join(names) if not names.is_empty() else "none on this server"])
+		return
+	if args[0] in ["clear", "none", "stop"]:
+		set_weather("")
+		player.send_message("The sky clears.")
+		return
+	var wanted := args[0] if args[0].contains(":") else ""
+	if wanted.is_empty():
+		for d in weather.defs:
+			if str(d.name).get_slice(":", 1) == args[0]:
+				wanted = str(d.name)
+				break
+	if weather.id_of(wanted) < 0:
+		player.send_message("No weather called '%s'." % args[0])
+		return
+	set_weather(wanted, 1.0, float(args[1]) if args.size() > 1 and args[1].is_valid_float() else 0.0)
+	player.send_message("Weather: %s." % wanted)
 
 
 func _cmd_whoami(player, _args: PackedStringArray) -> void:
@@ -1493,6 +1526,8 @@ func _physics_process(delta: float) -> void:
 	containers.update(delta)
 	transfers.update(delta)
 	ambience.update(delta)
+	if float(weather_now.until) > 0.0 and _time >= float(weather_now.until):
+		set_weather("")
 	anticheat.update(delta)
 	sessions.update(delta)
 	skill.update()
@@ -1876,6 +1911,31 @@ func send_music(p, track_id: int, fade := 2.0, restart := false) -> void:
 			Net.s_music.rpc_id(target.peer_id, track_id, clampf(fade, 0.0, 30.0), restart)
 
 
+## Starts weather, or stops it with an empty name. `seconds` of 0 means until something says otherwise.
+func set_weather(weather_name: String, intensity := 1.0, seconds := 0.0) -> void:
+	var id: int = weather.id_of(weather_name) if not weather_name.is_empty() else -1
+	if not weather_name.is_empty() and id < 0:
+		push_error("[server] No weather called '%s'" % weather_name)
+		return
+	weather_now.id = id
+	# A clear sky is not "no weather at full strength". Without this the state reads as intensity 1.0
+	# with no weather in it, which is nonsense to anything asking, and the client fades from it wrongly.
+	weather_now.intensity = clampf(intensity, 0.0, 1.0) if id >= 0 else 0.0
+	weather_now.until = (_time + seconds) if seconds > 0.0 else 0.0
+	_meta.weather = {"name": weather_name, "intensity": weather_now.intensity}
+	for p: ServerPlayer in players.values():
+		if p._online():
+			Net.s_weather.rpc_id(p.peer_id, weather_now.id, float(weather_now.intensity))
+	emit("weather_changed", {"weather": weather_name, "intensity": weather_now.intensity})
+
+
+## The weather as a mod sees it: {name, intensity}. "" when the sky is clear.
+func weather_state() -> Dictionary:
+	var id: int = weather_now.id
+	return {"name": weather.defs[id].name if weather.is_valid(id) else "",
+		"intensity": float(weather_now.intensity)}
+
+
 func play_sound_to(p: ServerPlayer, sound_name: String, volume := 1.0, pitch := 1.0) -> void:
 	var id := sounds.id_of(sound_name)
 	if id >= 0 and _started:
@@ -2080,7 +2140,7 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		if a.has("hash"):
 			manifest.append([asset_name, a.hash, a.size, 1 if a.get("lazy", false) else 0])
 	var content := {"blocks": registry.to_network(), "items": items.to_network(), "rules": rules.to_dict(),
-		"entities": entities.registry.to_network(), "sounds": sounds.to_network(), "music": music.to_network(),
+		"entities": entities.registry.to_network(), "sounds": sounds.to_network(), "music": music.to_network(), "weather": weather.to_network(),
 		"equipment_slots": items.slots.duplicate(true), "stats": items.stats.duplicate(),
 		"player_rig": player_rig, "cosmetics": cosmetics.to_network(), "effects": effects.to_network(), "recipes": recipes.to_network(), "processes": _processes,
 		"stations": stations.to_network(), "assembly": assembly.to_network(), "minigames": skill.to_network(), "guide": guide.registry.to_network(), "tutorials": tutorials.to_network(),
@@ -2228,6 +2288,9 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	Net.s_cosmetics.rpc_id(peer_id, PackedStringArray(p.owned_cosmetics.keys()), cosmetics.policy)
 	Net.s_known_recipes.rpc_id(peer_id, PackedStringArray(p.known_recipes.keys()), gameplay.recipe_discovery)
 	Net.s_time.rpc_id(peer_id, _time_of_day, _day_length)
+	# Somebody joining halfway through a storm arrives in it, rather than in sunshine everyone else lost.
+	if int(weather_now.id) >= 0:
+		Net.s_weather.rpc_id(peer_id, int(weather_now.id), float(weather_now.intensity))
 	p.sync_inventory()
 	refresh_stats(p)
 	sync_health(p)

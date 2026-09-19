@@ -72,6 +72,7 @@ func _ready() -> void:
 	await _fishing()
 	await _music()
 	await _ambience()
+	await _weather()
 	_scripts_compile()
 	_mod_assets_exist()
 	await _map_from_mod()
@@ -3975,6 +3976,49 @@ func _scripts_compile() -> void:
 
 
 ## Atmosphere. The engine picks the moments; a mod says under what conditions.
+## Weather: world state the engine keeps, whose look and timing belong to a mod.
+func _weather() -> void:
+	var server = _start("weather_%d" % Time.get_ticks_msec())
+	var mod = server.mod_instances.get("vanilla")
+	_check(server.weather.id_of("vanilla:rain") >= 0 and server.weather.id_of("vanilla:storm") >= 0,
+		"vanilla registers rain and a storm")
+	_check(server.weather_state().name.is_empty(), "and the sky starts clear")
+
+	# Heard about, not just drawn: a block or a creature can ask, and a mod is told when it changes.
+	var told := []
+	server.add_handler("weather_changed", func(ev): told.append("%s@%.2f" % [ev.weather, ev.intensity]), 0, "test")
+	mod.api.set_weather("rain", {"intensity": 0.5})
+	_check(server.weather_state().name == "vanilla:rain" and absf(server.weather_state().intensity - 0.5) < 0.01,
+		"a mod can start it (%s)" % server.weather_state())
+	_check(told.size() == 1 and told[0] == "vanilla:rain@0.50", "and everyone who asked to know is told (%s)" % ", ".join(told))
+
+	mod.api.set_weather("")
+	_check(server.weather_state().name.is_empty(), "an empty name clears it")
+	_check(told.size() == 2 and told[1] == "@0.00", "which is also announced (%s)" % ", ".join(told))
+
+	# A mod asking for weather nobody registered is a mistake worth reporting, not a silent no-op.
+	var before: String = server.weather_state().name
+	mod.api.set_weather("hurricane")
+	_check(server.weather_state().name == before, "asking for weather that does not exist changes nothing")
+
+	# Timed weather ends on its own rather than leaving a storm running for ever.
+	mod.api.set_weather("rain", {"intensity": 1.0, "seconds": 0.05})
+	_check(server.weather_state().name == "vanilla:rain", "timed weather starts")
+	server._time += 0.1
+	server._physics_process(0.0)  # the tick that expires it; tests drive it themselves
+	_check(server.weather_state().name.is_empty(), "and stops itself when its time is up")
+
+	# The look is the mod's and the engine does not know what rain is.
+	var rain: Dictionary = server.weather.defs[server.weather.id_of("vanilla:rain")]
+	_check((rain.emitter as Dictionary).has("colors") and float(rain.light_scale) < 1.0,
+		"the mod describes what it looks like and how far it darkens the day")
+	_check(float(server.weather.defs[server.weather.id_of("vanilla:storm")].light_scale) < float(rain.light_scale),
+		"and a storm is darker than rain, which is the mod's decision and not the engine's")
+
+	server.queue_free()
+	await get_tree().process_frame
+
+
 func _ambience() -> void:
 	var server = _start("amb_%d" % Time.get_ticks_msec())
 	var amb = server.ambience

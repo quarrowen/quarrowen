@@ -885,6 +885,38 @@ So: **work on master, push freely, tag nothing.** A push to master runs the test
 
 Lift this when the user says the playtest is over.
 
+## Weather, and a channel on the wrong wire (2026-09-19)
+
+**Weather exists.** It did not at all - the word appeared only in code comments. The engine keeps what
+the sky is doing as world state (everyone in the same place is in the same storm, somebody joining
+halfway through arrives in it, a block or a creature can ask), syncs it, and draws it. What weather *is*
+belongs to the mod: `register_weather` takes the same emitter vocabulary as effects, plus a sky tint, a
+sound and how far to darken the day. **When it rains is not in the engine at all** - a survival world
+wants a timer, a story wants the storm to arrive when the story says so.
+
+Vanilla registers rain and a storm, on a check every minute that rarely fires. `/weather` for admins.
+Protocol 40 -> 41.
+
+Two details worth keeping: the world darkens as well as the sky, because a storm that leaves the grass
+bright is a storm happening to somebody else; and the particles are parked above the camera rather than
+filling the world, since simulating rain where nobody is standing is a thousand particles spent on being
+right about somewhere nobody is looking.
+
+A test caught a real bug: clearing the sky left the intensity at 1.0, so the state read as "no weather,
+at full strength" - nonsense to anything asking, and wrong for the client's fade.
+
+**And the networking question, answered by looking.** The transport is better than assumed: ENet over
+UDP with DTLS and three independent channels, so terrain cannot hold up chat, and movement is
+unreliable-ordered on its own channel. That is most of what QUIC would buy, so QUIC is **decided
+against** rather than deferred - see docs/roadmap.md for the condition that would reopen it.
+
+But the question found a real bug all the same: `s_asset_piece` was on the **default** channel, where
+every small urgent message lives, so the join asset burst competed with chat, block changes and UI.
+One line. The other three items - instrument it, compress chunks, interest management - are 1.0 work.
+
+**Not caused by any of this**: `multiplayer` is flaky under load, a different assertion each time.
+Checked properly by stashing the change and running four times without it: two failed. It predates this.
+
 ## Open threads (2026-09-18)
 
 Everything discussed and not yet done, so none of it lives only in a conversation.

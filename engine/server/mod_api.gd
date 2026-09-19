@@ -336,6 +336,44 @@ func players() -> Array:
 	return _server.players.values()
 
 
+## Registers a kind of weather. The engine draws it and keeps everyone in the same sky; the mod decides
+## what it looks like and when it happens.
+##
+##   api.register_weather("rain", {
+##       "emitter": {"amount": 220, "lifetime": 1.1, "speed": [16, 20], "direction": [0, -1, 0],
+##           "spread": 3, "size": [0.05, 0.05], "colors": ["#9fc4e8aa"], "shape": "box",
+##           "extents": [18, 1, 18]},
+##       "sound": "rain", "sky_tint": "#6a7686", "light_scale": 0.72})
+##
+## `emitter` is the same shape as an effect's (see register_effect), drawn continuously above whoever is
+## out in it. `sound` loops while it falls, `sky_tint` colours the sky, `light_scale` darkens the world,
+## `fog` closes the distance in.
+##
+## **When it rains is not here.** That is a mod's decision and games want wildly different answers - a
+## survival world on a timer, a story where the storm arrives because the story says so.
+func register_weather(weather_name: String, def: Dictionary) -> int:
+	if reloading and _server.weather.id_of(_qualify(weather_name)) >= 0:
+		return _server.weather.id_of(_qualify(weather_name))
+	if _static_during_reload("weather", _qualify(weather_name)):
+		return -1
+	var d := def.duplicate(true)
+	d.name = _qualify(weather_name)
+	if def.get("sound") is String and not String(def.sound).is_empty():
+		d.sound = _qualify_ref(String(def.sound))
+	return _server.weather.register(d)
+
+
+## Starts weather for everyone, or stops it with "". `seconds` of 0 leaves it until something changes it.
+func set_weather(weather_name: String, options := {}) -> void:
+	var full := weather_name if weather_name.is_empty() or weather_name.contains(":") else _qualify(weather_name)
+	_server.set_weather(full, float(options.get("intensity", 1.0)), float(options.get("seconds", 0.0)))
+
+
+## What the sky is doing: {name, intensity}. `name` is "" when it is clear.
+func get_weather() -> Dictionary:
+	return _server.weather_state()
+
+
 ## Registers a music track. `attribution` is required: say who made it and under what licence.
 ##
 ##   api.register_music("valley", "music/valley.ogg", {

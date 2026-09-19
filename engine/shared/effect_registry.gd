@@ -74,7 +74,7 @@ func register(def: Dictionary) -> int:
 	var emitters := []
 	for e in (def.get("emitters") if def.get("emitters") is Array else []).slice(0, MAX_EMITTERS):
 		if e is Dictionary:
-			emitters.append(_emitter(e))
+			emitters.append(emitter(e))
 	var d := {
 		"name": effect_name,
 		"emitters": emitters,
@@ -155,7 +155,9 @@ static func _num(value, fallback: float) -> float:
 	return float(value) if value is float or value is int else fallback
 
 
-static func _emitter(e: Dictionary) -> Dictionary:
+## One emitter, read and clamped. Public because weather uses the same vocabulary: a mod should write an
+## emitter once and have it mean the same thing wherever it is used, defaults and limits included.
+static func emitter(e: Dictionary) -> Dictionary:
 	var speed = e.get("speed", [1.0, 2.0])
 	var size = e.get("size", [0.1, 0.05])
 	var colors := []
