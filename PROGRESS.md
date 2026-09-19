@@ -963,8 +963,20 @@ its chunks come back, and there is no new shape on disk to get wrong after 1.0.0
 There is also a cascade limit (32 deep): a mod may build a clock, it may not stop the server with one.
 The log says so once rather than every frame.
 
-Not done: no quickdust or quickstone blocks yet. That is content and wants textures, and the capability
-is what was missing.
+**The content exists now too** (mods/base/signals.gd): quickstone in the rock, the quickdust it grinds
+into, a lever to speak and a quicklamp to listen. All four give off light of their own - quickstone 4,
+carrying quickdust 7, a lit lamp 14 - so a seam shows up in a dark cave and a live wire reads as live.
+The textures are drawn with glow haloes around the bright pixels rather than bright pixels alone, which
+is the difference between a fleck of paint and something giving off light (the user, 2026-09-19:
+"really nice glowy sparkly looks").
+
+**Wires are adjacency-only, and that is a known limit rather than the intended end state.** The user
+asked why a wire has to stick to a surface at all - a strung cable between two connectors is the
+industrial look worth having. That is a *different* connection model (a link, not a neighbour), it is
+what power, fluids and rotation all want as well, and building it for signals alone would be building
+it twice. Recorded against capability 2 with the rules already agreed: a maximum span of the order of
+8-14 blocks with a relay needed beyond it (which also keeps the sag believable), a clear-air check when
+the link is made, and the link breaking if somebody later builds into the span.
 
 ## Dimensions, phase 2c: a mod can make a world, and a portal leads to it (2026-09-19)
 

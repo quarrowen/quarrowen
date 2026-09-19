@@ -60,6 +60,37 @@ Both are wanted (the user, 2026-09-19: gears, shafts, windmills). So `networks` 
   Speed and direction, resolved each tick, and conflicting sources are an error a mod is told about
   rather than an average the engine invents.
 
+**And a second way of being connected: links.** Everything above assumes a thing is joined to the six
+blocks touching it, which is how dust on a floor works and how signals were built. It is the least
+interesting way to wire anything, and it makes every machine sit in a paved trench.
+
+A **link** joins two connector blocks *directly*, whatever lies between them, with a cable drawn across
+the gap - sagging, because the sag is most of why a strung cable looks like a cable. The quantity jumps
+the link rather than walking the cells.
+
+This belongs here and not with signals (the user, 2026-09-19: *"why not make it look like an actual
+wire... why does it need to stick to a block or surface?"*). Power, fluids, items and rotation all want
+"these two are joined" without paving the ground between them, so building it once for wires and again
+for pipes would be building it twice. Adjacency stays for the cheap early thing a child lays along the
+floor; links are what a base looks like once it is a base.
+
+**The rules, decided with the user before it is built** (2026-09-19):
+
+- **A limit on how far apart two connectors may be** - of the order of 8 to 14 blocks, a server
+  setting, with a pole or relay needed to go further. Two things at once: it stops a player stringing a
+  cable across a continent, and it keeps the **sag** believable, because a catenary over a hundred
+  blocks either dips into the ground or is drawn as a straight line and stops looking like a cable.
+- **The span has to be clear air.** A cable that clips through a floor or a hillside looks broken, and
+  worse, it lets a player run power through a wall as if the wall were not there. So the line is
+  checked when the link is made and refused if anything solid is in the way.
+- **And it stays clear.** A block placed into an existing span breaks the link and drops the cable, for
+  the same reason: the alternative is a cable quietly passing through a wall somebody built later.
+  Announced to whoever placed the block, because a link failing silently is a bug report.
+
+What it also needs that nothing here has yet: links saved with the world, broken when either end is
+mined, a cap on how many one connector may carry, and a client that can draw a sagging curve between
+two arbitrary points - which it currently cannot do at all.
+
 ### 3. Signals
 
 A block can emit a level, a block can declare itself able to carry one, and a block can be told when the
@@ -71,6 +102,11 @@ which is not its business.
 In the bundled game the material is **quickdust**, laid in lines and gathered from **quickstone**, and a
 block carrying a signal is *quickened*. (Quick in the old sense: alive.) Another mod's wiring can look
 nothing like it.
+
+**Built, and adjacency-only.** A level spreads to the six blocks touching a cell, so quickdust is laid
+along a surface. That is the cheap thing worth having early, and it is not the interesting one: a
+strung cable between two connectors wants **links** (see capability 2), which signals will use as soon
+as they exist rather than growing a second kind of wiring of its own.
 
 ### 4. Keeping the world awake
 

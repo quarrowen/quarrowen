@@ -288,6 +288,16 @@ func _init() -> void:
 	# line was written, and it silently changed three textures that had already shipped. (2026-09-18)
 	_save(_float_bob(), vanilla + "float.png")
 
+	# Signals: quickstone in the rock, the quickdust it grinds into, the lever that wakes it and the
+	# lamp it lights. Appended at the end, like everything else, for the reason written above.
+	_save(_quickstone(), base + "quickstone.png")
+	_save(_quickdust(false), base + "quickdust.png")
+	_save(_quickdust(true), base + "quickdust_lit.png")
+	_save(_quickdust_item(), base + "quickdust_item.png")
+	_save(_lever(), base + "lever.png")
+	_save(_quicklamp(false), base + "quicklamp.png")
+	_save(_quicklamp(true), base + "quicklamp_lit.png")
+
 func _part(part: String) -> Image:
 	var img := _blank()
 	for y in TILE:
@@ -1486,4 +1496,126 @@ func _float_bob() -> Image:
 			img.set_pixel(x, 8, Color(0.97, 0.96, 0.92))  # the waterline band
 	for spot in [Vector2i(6, 5), Vector2i(7, 4)]:
 		img.set_pixel(spot.x, spot.y, red.lightened(0.4))  # a highlight, so it is not a flat disc
+	return img
+
+
+## Quickstone in the rock: not scattered specks like the other ores, but **crystal veins with a glow
+## around them**. The halo is the whole trick - a bright pixel on dark stone reads as a fleck of paint,
+## and the same pixel with two dimmer rings around it reads as something giving off light. Finding one
+## in a dark cave should feel like a find. (the user, 2026-09-19: "really nice glowy sparkly")
+func _quickstone() -> Image:
+	var img := _noise(Color(0.30, 0.29, 0.34), 0.06)
+	var core := Color(1.0, 0.86, 0.42)
+	var glow := Color(0.98, 0.62, 0.16)
+	var veins := []
+	for i in 3:
+		var x := rng.randi_range(3, 12)
+		var y := rng.randi_range(3, 12)
+		for n in rng.randi_range(3, 5):  # a short crooked run, like a crystal seam
+			veins.append(Vector2i(x, y))
+			x = clampi(x + rng.randi_range(-1, 1), 1, 14)
+			y = clampi(y + rng.randi_range(-1, 1), 1, 14)
+	# Two rings of halo first, then the bright cores on top, so the glow never paints over a core.
+	for cell: Vector2i in veins:
+		for dy in range(-2, 3):
+			for dx in range(-2, 3):
+				var d := Vector2(dx, dy).length()
+				if d < 0.5 or d > 2.4:
+					continue
+				var at := Vector2i(clampi(cell.x + dx, 0, 15), clampi(cell.y + dy, 0, 15))
+				var here := img.get_pixelv(at)
+				img.set_pixelv(at, here.lerp(glow, 0.55 if d < 1.5 else 0.22))
+	for cell: Vector2i in veins:
+		img.set_pixelv(cell, _vary(core, 0.05))
+	for n in 5:  # a few sparks off the seams, so it glitters rather than sits there
+		img.set_pixel(rng.randi_range(0, 15), rng.randi_range(0, 15), core.lightened(0.3))
+	return img
+
+
+## Quickdust laid on the ground: a bright line with a warm glow either side of it, drawn as a cross so
+## a run reads as joined up whichever way it turns. `lit` is the same dust carrying a level - brighter,
+## whiter at the core and sparkier - so a powered wire is plainly the *same thing* doing something,
+## rather than a different block.
+func _quickdust(lit: bool) -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			img.set_pixel(x, y, Color(0.16, 0.13, 0.11, 0.0))
+	var core := Color(1.0, 0.94, 0.66) if lit else Color(0.96, 0.68, 0.24)
+	var glow := Color(1.0, 0.72, 0.24) if lit else Color(0.72, 0.42, 0.12)
+	# The halo lines beside the run: this is what makes it glow instead of being a stripe.
+	for i in TILE:
+		for pair in [[5, 0.30 if lit else 0.16], [6, 0.75 if lit else 0.45], [9, 0.75 if lit else 0.45], [10, 0.30 if lit else 0.16]]:
+			var t: int = int(pair[0])
+			var a: float = float(pair[1])
+			img.set_pixel(i, t, Color(glow.r, glow.g, glow.b, a))
+			img.set_pixel(t, i, Color(glow.r, glow.g, glow.b, a))
+	for i in TILE:
+		for t in [7, 8]:
+			img.set_pixel(i, t, _vary(core, 0.06))
+			img.set_pixel(t, i, _vary(core, 0.06))
+	for n in (22 if lit else 14):  # grains, so it is dust and not paint
+		img.set_pixel(rng.randi_range(0, 15), rng.randi_range(6, 10), _vary(core.lightened(0.35), 0.08))
+	if lit:
+		for spot in [Vector2i(3, 7), Vector2i(11, 8), Vector2i(7, 12)]:
+			img.set_pixelv(spot, Color(1.0, 1.0, 0.92))  # bright sparks along the run
+	return img
+
+
+## The same dust in the hand: a small heap rather than a line, so the item and the block are plainly
+## the same stuff without the item looking like a length of wire.
+func _quickdust_item() -> Image:
+	var img := _blank()
+	var warm := Color(0.95, 0.66, 0.22)
+	for y in range(8, 13):
+		var half := 6 - (y - 8)
+		for x in range(8 - half, 8 + half):
+			img.set_pixel(x, y, _vary(warm.darkened(0.1 * (y - 8) * 0.3), 0.07))
+	for n in 10:
+		img.set_pixel(rng.randi_range(4, 11), rng.randi_range(8, 12), _vary(warm.lightened(0.3), 0.1))
+	return img
+
+
+## A lever: a pale base plate with a dark handle leaning out of it.
+func _lever() -> Image:
+	var img := _blank()
+	var stone := Color(0.52, 0.52, 0.55)
+	for y in range(9, 14):
+		for x in range(5, 11):
+			img.set_pixel(x, y, _vary(stone, 0.05))
+	var wood := Color(0.46, 0.32, 0.20)
+	for n in 7:
+		img.set_pixel(8 - n / 3, 10 - n, _vary(wood, 0.05))
+		img.set_pixel(9 - n / 3, 10 - n, _vary(wood.darkened(0.12), 0.05))
+	img.set_pixel(6, 3, Color(0.78, 0.62, 0.42))  # the knob on the end
+	img.set_pixel(7, 3, Color(0.78, 0.62, 0.42))
+	return img
+
+
+## A lamp, dark and lit. The lit one is the same lamp with the glow turned up rather than a different
+## design, so a child can see at a glance that it is one thing in two states.
+##
+## Lit is drawn as light *coming from the middle* rather than as a filled square: a flat yellow panel
+## reads as a yellow block, and the whole point is that it should read as switched on.
+func _quicklamp(lit: bool) -> Image:
+	var img := _blank()
+	var shell := Color(0.34, 0.31, 0.28)
+	var core := Color(1.0, 0.95, 0.72)
+	var edge_glass := Color(0.86, 0.52, 0.14) if lit else Color(0.26, 0.25, 0.24)
+	for y in TILE:
+		for x in TILE:
+			if x < 2 or x > 13 or y < 2 or y > 13:
+				img.set_pixel(x, y, _vary(shell.lightened(0.18 if lit else 0.0), 0.04))
+				continue
+			if not lit:
+				img.set_pixel(x, y, _vary(Color(0.28, 0.27, 0.26), 0.05))
+				continue
+			# Bright in the middle, falling off to the frame: light with somewhere to come from.
+			var d := Vector2(x - 7.5, y - 7.5).length() / 8.0
+			img.set_pixel(x, y, _vary(core.lerp(edge_glass, clampf(d * 1.25, 0.0, 1.0)), 0.04))
+	if lit:
+		for spot in [Vector2i(5, 5), Vector2i(10, 6), Vector2i(6, 10), Vector2i(9, 11)]:
+			img.set_pixelv(spot, Color(1.0, 1.0, 0.95))  # sparks in the glass
+		for corner in [Vector2i(2, 2), Vector2i(13, 2), Vector2i(2, 13), Vector2i(13, 13)]:
+			img.set_pixelv(corner, shell.lightened(0.45))  # the frame catching the light
 	return img

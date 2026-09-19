@@ -12,7 +12,7 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "name": "Camera"}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "name": "Camera"}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -30,6 +30,11 @@ func _ready() -> void:
 	for command in String(options.commands).split("|", false):
 		Net.c_chat.rpc_id(1, command.strip_edges())
 		await get_tree().create_timer(0.3).timeout
+	if String(options.get("hud", "")) == "0":
+		# --hud=0 for a picture of the world rather than of the interface.
+		client._debug_label.visible = false
+		if client._tutorial_hud != null:
+			client._tutorial_hud.visible = false
 	if not String(options.menu).is_empty():
 		Net.c_open_menu.rpc_id(1, options.menu)
 	if not String(options.map).is_empty():

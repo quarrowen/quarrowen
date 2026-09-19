@@ -4051,6 +4051,32 @@ func _signals() -> void:
 	_check(sig.level_at(out) == 0, "a mod's inverter goes quiet when it is fed")
 	sig.set_source(inverter + Vector3i.UP, 0)
 	_check(sig.level_at(out) == MAX_SIGNAL - 1, "and speaks up when it is not (%d)" % sig.level_at(out))
+	# And the content built on it: a lever, a run of quickdust, a lamp at the end. None of which the
+	# engine knows anything about - they are blocks and handlers in mods/base/signals.gd.
+	var dust: int = reg.id_of("base:quickdust")
+	var dust_lit: int = reg.id_of("base:quickdust_lit")
+	var lever: int = reg.id_of("base:lever")
+	var lamp_off: int = reg.id_of("base:quicklamp")
+	var lamp_lit: int = reg.id_of("base:quicklamp_lit")
+	_check(dust > 0 and lever > 0 and lamp_off > 0, "the base mod registers quickdust, a lever and a lamp")
+	_check(reg.defs[dust_lit].light > 0 and reg.defs[reg.id_of("base:quickstone")].light > 0,
+		"carrying quickdust and quickstone give off light of their own")
+
+	var row := func(n: int) -> Vector3i: return Vector3i(80 + n, y, 80)
+	server.set_block_authoritative(row.call(0), lever)
+	for n in range(1, 5):
+		server.set_block_authoritative(row.call(n), dust)
+	server.set_block_authoritative(row.call(5), lamp_off)
+	_check(server.world.get_block_v(row.call(5)) == lamp_off, "the lamp starts dark")
+
+	var base_mod = server.mod_instances.get("base")
+	base_mod.signals._flip(row.call(0), null)
+	_check(server.world.get_block_v(row.call(1)) == dust_lit, "flipping the lever lights the dust")
+	_check(server.world.get_block_v(row.call(5)) == lamp_lit, "and the lamp at the end of the run")
+	base_mod.signals._flip(row.call(0), null)
+	_check(server.world.get_block_v(row.call(1)) == dust and server.world.get_block_v(row.call(5)) == lamp_off,
+		"flipping it back puts everything out")
+
 	server.queue_free()
 	await get_tree().process_frame
 
