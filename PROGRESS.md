@@ -929,6 +929,29 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Dimensions, phase 2c: a mod can make a world, and a portal leads to it (2026-09-19)
+
+The capability is reachable now. `api.add_realm("emberdeep", {name, generator, passes, seed})` makes a
+world; `api.send_to_realm(player, id, position)` and `api.realm_of(player)` do the rest; `/realm` lists
+them and travels for an admin.
+
+**Portals reuse the block that already exists** rather than growing a second one. `base:portal` has
+carried players to other *servers* since the homelab work; its block data now says which kind of
+destination it is - `{portal: {server: "sky"}}` or `{portal: {realm: "mod:emberdeep", at: [x, y, z]}}`.
+To whoever is standing in it these are the same thing, so they share the block, the 1.2 seconds of
+standing still and the "Travelling to..." title. One guard had to change: `transfers.update` returned
+early when no other servers were configured, which would have meant a single machine could never have
+a portal to its own second world.
+
+Where they come out: what the portal says, else the same coordinates - the least surprising default for
+a hole in the ground that goes downwards - and a mod can rewrite it through `player_realm_change`,
+which can also refuse the trip.
+
+**Not done, deliberately**: `add_ore_pass` and the biome registry still only describe the overworld, so
+a second realm's terrain is whatever generator the mod hands it. That is enough for the Emberdeep to
+exist and be travelled to, which is the capability; making the *generation* API realm-aware is its own
+piece and wants doing when there is a second world worth decorating.
+
 ## Dimensions, phase 2b: a player is somewhere, and travel works (2026-09-19)
 
 `ServerPlayer.realm_id` exists and is saved, `realm_of(p)` answers from it, and `send_to_realm(p, id,

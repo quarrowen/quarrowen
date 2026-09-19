@@ -223,23 +223,39 @@ func set_arrival(id: String, position: Vector3) -> void:
 # --- Portals --------------------------------------------------------------------------------------
 
 func update(delta: float) -> void:
-	if servers.is_empty():
+	# Not `servers.is_empty()` any more: a portal to another *realm* needs no network.json at all, and
+	# gating on one meant a single-machine server could never have one.
+	if servers.is_empty() and _server.realms.size() < 2:
 		return
 	for p in _server.players.values():
 		if p.dead or p.get_meta("transferring", false) or Time.get_ticks_msec() - int(_arrived_at.get(p.peer_id, -100000)) < ARRIVAL_GRACE * 1000:
 			continue
-		var portal := portal_at(p.state.position)
+		var portal := portal_at(p.state.position, _server.realm_of(p))
 		if portal.is_empty():
 			if _portal_time.has(p.peer_id):
 				_portal_time.erase(p.peer_id)
 			continue
 		var t := float(_portal_time.get(p.peer_id, 0.0)) + delta
 		_portal_time[p.peer_id] = t
-		var entry := find(str(portal.get("server", "")))
+		# Another world on this server, or another server. The wait and the message are the same either
+		# way, because to whoever is standing in it they are the same thing.
+		var to_realm := str(portal.get("realm", ""))
+		var destination: String = str(_server.realms[to_realm].display_name) if _server.realms.has(to_realm) \
+			else str(find(str(portal.get("server", ""))).get("name", portal.get("server", "?")))
 		if t - delta <= 0.0:
-			p.show_title("", "Travelling to %s…" % entry.get("name", portal.get("server", "?")), PORTAL_SECONDS + 0.5)
+			p.show_title("", "Travelling to %s…" % destination, PORTAL_SECONDS + 0.5)
 		if t >= PORTAL_SECONDS:
 			_portal_time.erase(p.peer_id)
+			if not to_realm.is_empty():
+				# Where they arrive: the portal may say, and a mod may rewrite it (player_realm_change).
+				# Otherwise the same coordinates, which is the least surprising default for a hole in
+				# the ground that leads downwards.
+				var at = portal.get("at")
+				var arrive: Vector3 = Vector3(at[0], at[1], at[2]) if at is Array and at.size() == 3 else p.state.position
+				if not _server.send_to_realm(p, to_realm, arrive):
+					p.show_title("", "That way is shut", 2.5)
+				_arrived_at[p.peer_id] = Time.get_ticks_msec()
+				continue
 			var error := transfer(p, str(portal.get("server", "")), {"arrival": str(portal.get("arrival", ""))})
 			if not error.is_empty():
 				p.show_title("", error, 2.5)
@@ -247,14 +263,21 @@ func update(delta: float) -> void:
 
 
 ## The portal settings of a portal block at the player's feet or body, or {}.
-func portal_at(position: Vector3) -> Dictionary:
+## The portal a player is standing in, or {}. Its block data says where it goes: `server` for another
+## machine, or `realm` for another world on this one. Both are portals to a player, so both are read
+## here rather than growing a second block with a second timer that feels slightly different.
+func portal_at(position: Vector3, into = null) -> Dictionary:
 	var registry = _server.registry
+	var in_realm = into if into != null else _server.realm
 	for dy in [0.1, 1.0]:
 		var cell := Vector3i((position + Vector3(0, dy, 0)).floor())
-		var block: int = _server.world.get_block_v(cell)
+		var block: int = in_realm.world.get_block_v(cell)
 		if registry.is_valid(block) and bool(registry.defs[block].get("portal", false)):
-			var settings = _server.get_block_data(cell).get("portal", {})
-			return settings if settings is Dictionary and not str(settings.get("server", "")).is_empty() else {}
+			var settings = _server.get_block_data(cell, in_realm).get("portal", {})
+			if not (settings is Dictionary):
+				continue
+			if not str(settings.get("server", "")).is_empty() or not str(settings.get("realm", "")).is_empty():
+				return settings
 	return {}
 
 

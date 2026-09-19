@@ -912,6 +912,46 @@ func block_display_name(id: int) -> String:
 # than a bug today. When realms reach the mod API these gain a way to say where, most likely by the
 # event that supplied the position carrying its realm. (2026-09-19)
 
+## Adds another world to this server, reached through a portal. Call it while the mod is setting up.
+##
+##     var deep := api.add_realm("emberdeep", {"name": "The Emberdeep", "generator": MyCaves.new()})
+##
+## options: name (shown when travelling), generator (as set_world_generator, but for this world),
+## passes (objects with decorate(chunk, seed), as ore passes are), seed (defaults to the world's).
+##
+## Returns the realm, or null if the name is taken. The id is qualified with the mod's own name, so two
+## mods may both have an "underworld" without meeting. A realm costs nothing until somebody is standing
+## in it: an empty one is not ticked at all (see docs/roadmap.md, "How much of the world is running").
+##
+## To send somebody there: a portal block whose block data is {portal: {realm: "<mod>:emberdeep"}},
+## or send_to_realm. What the world is made of is the generator's business, and what it means is yours.
+func add_realm(realm_id: String, options := {}) -> Object:
+	if _static_during_reload("realm", realm_id, true):
+		return null
+	var made = _server.add_realm(_qualify(realm_id), str(options.get("name", "")))
+	if made == null:
+		return null
+	if options.get("generator") is Object:
+		made.generator = options.generator
+	if options.get("passes") is Array:
+		made.generation_passes = (options.passes as Array).duplicate()
+	made.seed_value = int(options.get("seed", _server.world_seed))
+	return made
+
+
+## Which world a player is standing in, as the id add_realm was given ("" is the one a server starts
+## with). Positions mean nothing without it: every world has a block at the same coordinates.
+func realm_of(player) -> String:
+	return _server.realm_of(player).id
+
+
+## Moves a player to another world, standing at `position`. Returns false if there is no such world, or
+## they are already in it. Cancellable by a mod through the `player_realm_change` event, which may also
+## change where they come out.
+func send_to_realm(player, realm_id: String, position: Vector3) -> bool:
+	return _server.send_to_realm(player, _qualify_ref(realm_id), position)
+
+
 ## `generator` must implement `generate(chunk)`; write into a local copy of `chunk.blocks`
 ## (index with Chunk.index(x, y, z)) and assign it back for speed.
 func set_world_generator(generator: Object) -> void:

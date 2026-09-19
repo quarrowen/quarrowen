@@ -4059,6 +4059,21 @@ func _realms() -> void:
 	_check(deep.world.get_block_v(edit) == glass, "a block they place lands in the world they are in")
 	_check(server.realm.world.get_block_v(edit) == overworld_before, "and the one they left is untouched")
 
+	# A portal block is how a player gets there without a command. The same block already carries
+	# players to other servers; block data says which kind of destination it is.
+	server.send_to_realm(traveller, "", Vector3(8, 70, 8))
+	var portal_block: int = server.registry.id_of("base:portal")
+	var gate := Vector3i(12, 70, 12)
+	server.set_block_authoritative(gate, portal_block)
+	server.set_block_data(gate, {"portal": {"realm": "test:deep", "at": [2, 41, 2]}})
+	traveller.state.position = Vector3(gate) + Vector3(0.5, 0.0, 0.5)
+	_check(not server.transfers.portal_at(traveller.state.position, server.realm).is_empty(),
+		"standing in it, the engine sees a portal")
+	for i in 4:
+		server.transfers.update(0.5)  # PORTAL_SECONDS is 1.2: a moment of standing still, not instant
+	_check(traveller.realm_id == "test:deep", "and after a moment it takes them through")
+	_check(traveller.state.position.is_equal_approx(Vector3(2, 41, 2)), "to where the portal said (%s)" % traveller.state.position)
+
 	server.players.erase(93)
 
 	# A realm nobody is in is asleep, however many are occupied.

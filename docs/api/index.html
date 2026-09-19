@@ -454,6 +454,24 @@ to whoever it belongs to. `dimension` (&quot;&quot; = the ordinary world) hides 
 <div class="card" id="api-set-world-marker" data-search="set_world_marker  puts a marker on everyone's map and compass (a village, a shared base, an event). saved with the world.
 `marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world)."><div class="sig"><code>api.set_world_marker(marker_id: String, marker: Dictionary) -&gt; void</code></div><p>Puts a marker on everyone's map and compass (a village, a shared base, an event). Saved with the world.<br>`marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world).</p></div>
 <div class="card" id="api-clear-world-marker" data-search="clear_world_marker  takes a marker off everyone's map."><div class="sig"><code>api.clear_world_marker(marker_id: String) -&gt; void</code></div><p>Takes a marker off everyone's map.</p></div>
+<div class="card" id="api-add-realm" data-search="add_realm  adds another world to this server, reached through a portal. call it while the mod is setting up.
+
+var deep := api.add_realm(&quot;emberdeep&quot;, {&quot;name&quot;: &quot;the emberdeep&quot;, &quot;generator&quot;: mycaves.new()})
+
+options: name (shown when travelling), generator (as set_world_generator, but for this world),
+passes (objects with decorate(chunk, seed), as ore passes are), seed (defaults to the world's).
+
+returns the realm, or null if the name is taken. the id is qualified with the mod's own name, so two
+mods may both have an &quot;underworld&quot; without meeting. a realm costs nothing until somebody is standing
+in it: an empty one is not ticked at all (see docs/roadmap.md, &quot;how much of the world is running&quot;).
+
+to send somebody there: a portal block whose block data is {portal: {realm: &quot;&lt;mod&gt;:emberdeep&quot;}},
+or send_to_realm. what the world is made of is the generator's business, and what it means is yours."><div class="sig"><code>api.add_realm(realm_id: String, options := {}) -&gt; Object</code></div><p>Adds another world to this server, reached through a portal. Call it while the mod is setting up.<br><br>var deep := api.add_realm(&quot;emberdeep&quot;, {&quot;name&quot;: &quot;The Emberdeep&quot;, &quot;generator&quot;: MyCaves.new()})<br><br>options: name (shown when travelling), generator (as set_world_generator, but for this world),<br>passes (objects with decorate(chunk, seed), as ore passes are), seed (defaults to the world's).<br><br>Returns the realm, or null if the name is taken. The id is qualified with the mod's own name, so two<br>mods may both have an &quot;underworld&quot; without meeting. A realm costs nothing until somebody is standing<br>in it: an empty one is not ticked at all (see docs/roadmap.md, &quot;How much of the world is running&quot;).<br><br>To send somebody there: a portal block whose block data is {portal: {realm: &quot;&lt;mod&gt;:emberdeep&quot;}},<br>or send_to_realm. What the world is made of is the generator's business, and what it means is yours.</p></div>
+<div class="card" id="api-realm-of" data-search="realm_of  which world a player is standing in, as the id add_realm was given (&quot;&quot; is the one a server starts
+with). positions mean nothing without it: every world has a block at the same coordinates."><div class="sig"><code>api.realm_of(player) -&gt; String</code></div><p>Which world a player is standing in, as the id add_realm was given (&quot;&quot; is the one a server starts<br>with). Positions mean nothing without it: every world has a block at the same coordinates.</p></div>
+<div class="card" id="api-send-to-realm" data-search="send_to_realm  moves a player to another world, standing at `position`. returns false if there is no such world, or
+they are already in it. cancellable by a mod through the `player_realm_change` event, which may also
+change where they come out."><div class="sig"><code>api.send_to_realm(player, realm_id: String, position: Vector3) -&gt; bool</code></div><p>Moves a player to another world, standing at `position`. Returns false if there is no such world, or<br>they are already in it. Cancellable by a mod through the `player_realm_change` event, which may also<br>change where they come out.</p></div>
 <div class="card" id="api-register-milestone" data-search="register_milestone registermilestone a milestone: something a player has done, remembered for the life of the world and paid out once
 (see engine/server/milestones.gd). goals are written exactly as tutorial goals are - {type, target,
 count}, type being an event goal (break, place, craft, kill, ...) or &quot;event&quot; - but the count is a

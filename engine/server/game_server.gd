@@ -833,6 +833,7 @@ func _register_builtin_commands() -> void:
 	add_command("role", "list | info <role> | give|take <player> <role> | create|delete|allow|deny|tag ... - roles and permissions", _cmd_role, "engine")
 	add_command("perms", "[player] - roles and what they allow", _cmd_perms, "engine")
 	add_command("network", "[list | id | reload | arrival <id> | arrivals] - servers players can travel to", _cmd_network, "engine", "admin")
+	add_command("realm", "[list | <id>] - the worlds on this server, and travel to one", _cmd_realm, "engine", "admin")
 	add_command("server", "[name] - list servers you can travel to, or go to one", _cmd_server, "engine")
 	add_command("transfer", "<player> <server> [arrival] - send a player to another server", _cmd_transfer, "engine", "admin")
 	add_command("portal", "<server> [arrival] - point the nearest portal block at a server", _cmd_portal, "engine", "admin")
@@ -1469,6 +1470,30 @@ func _cmd_portal(player, args: PackedStringArray) -> void:
 			if not done.has(next) and registry.is_valid(b) and bool(registry.defs[b].get("portal", false)):
 				todo.append(next)
 	player.send_message("Portal (%d blocks) now leads to %s%s" % [done.size(), args[0], " at '%s'" % settings.arrival if not settings.arrival.is_empty() else ""])
+
+
+## /realm            what worlds exist, and which one you are in
+## /realm <id>       go to one, standing where you are standing now
+func _cmd_realm(player, args: PackedStringArray) -> void:
+	var here: Realm = realm_of(player)
+	if args.is_empty() or args[0] == "list":
+		var names := []
+		for r: Realm in realms.values():
+			var who := players.values().filter(func(p: ServerPlayer) -> bool: return realm_of(p) == r).size()
+			names.append("%s%s (%s, %d here%s)" % ["-> " if r == here else "", r.display_name,
+				r.id if not r.id.is_empty() else "overworld", who, ", asleep" if not r.is_awake() else ""])
+		player.send_message("Worlds: %s" % ", ".join(names))
+		return
+	var wanted := args[0]
+	if wanted == "overworld":
+		wanted = ""
+	if not realms.has(wanted):
+		player.send_message("No world '%s' (/realm list)" % args[0])
+		return
+	if not send_to_realm(player, wanted, player.state.position):
+		player.send_message("You are already in %s" % here.display_name)
+		return
+	player.send_message("You are in %s" % realms[wanted].display_name)
 
 
 func _cmd_allow(player, args: PackedStringArray) -> void:
