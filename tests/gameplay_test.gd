@@ -73,6 +73,7 @@ func _ready() -> void:
 	await _music()
 	await _ambience()
 	await _weather()
+	await _signals()
 	await _realms()
 	await _simulation_distance()
 	_scripts_compile()
@@ -3994,6 +3995,66 @@ func _scripts_compile() -> void:
 
 ## Atmosphere. The engine picks the moments; a mod says under what conditions.
 ## Weather: world state the engine keeps, whose look and timing belong to a mod.
+## Signals: a level that spreads and fades, and blocks told when what reaches them changes. The engine
+## ships no gate of any kind, so the test builds one the way a mod would.
+func _signals() -> void:
+	const MAX_SIGNAL := 15
+	var server = _start("signals_%d" % Time.get_ticks_msec())
+	var reg = server.registry
+	var sig = server.realm.signals
+	var wire: int = reg.id_of("base:stone")
+	var lamp: int = reg.id_of("base:glass")
+	# A mod declares these in its block definitions; the test does it by hand so it needs no new assets.
+	reg.defs[wire]["signal_carry"] = true
+	var y: int = server.surface_height(60, 60) + 1
+	var at := func(n: int) -> Vector3i: return Vector3i(60 + n, y, 60)
+	for n in 20:
+		server.set_block_authoritative(at.call(n), wire)
+
+	sig.set_source(at.call(0), 15)
+	_check(sig.level_at(at.call(0)) == 15, "a source fills its own cell")
+	_check(sig.level_at(at.call(1)) == 14 and sig.level_at(at.call(5)) == 10, "and weakens by one a block")
+	_check(sig.level_at(at.call(15)) == 0, "so fifteen blocks away there is nothing left")
+	_check(sig.level_at(at.call(18)) == 0, "and nothing beyond that either")
+
+	# Breaking the line cuts everything past the break, which is the whole point of a wire.
+	server.set_block_authoritative(at.call(3), 0)
+	_check(sig.level_at(at.call(2)) == 13 and sig.level_at(at.call(4)) == 0, "cutting the line stops it there")
+	server.set_block_authoritative(at.call(3), wire)
+	_check(sig.level_at(at.call(4)) == 11, "and joining it up again carries it on")
+
+	sig.set_source(at.call(0), 0)
+	_check(sig.level_at(at.call(1)) == 0, "switching the source off empties the line")
+
+	# A receiver is told what arrives. It carries nothing itself - a lamp is just a lamp.
+	var told := []
+	var lamp_pos := Vector3i(60, y + 1, 60)
+	server.set_block_authoritative(lamp_pos, lamp)
+	sig.register(lamp, func(ctx): told.append(ctx.level))
+	sig.set_source(at.call(0), 9)
+	_check(told.size() == 1 and told[0] == 9, "a block beside the wire is told the level arriving (%s)" % str(told))
+	sig.set_source(at.call(0), 0)
+	_check(told.size() == 2 and told[1] == 0, "and told again when it stops")
+
+	# The engine ships no gates, so here is one a mod would write: a block that emits when nothing
+	# reaches it, and stops when something does. Four lines, and the engine knows nothing about it.
+	var inverter := Vector3i(70, y, 70)
+	server.set_block_authoritative(inverter, lamp)
+	sig.register(lamp, func(ctx):
+		if ctx.position == inverter:
+			sig.set_source(inverter, 0 if ctx.level > 0 else MAX_SIGNAL))
+	# Read through a wire beside it rather than by asking the gate about itself: a gate does not hear
+	# its own output, which is exactly what stops "emit when nothing reaches me" oscillating for ever.
+	var out := inverter + Vector3i.RIGHT
+	server.set_block_authoritative(out, wire)
+	sig.set_source(inverter + Vector3i.UP, 12)
+	_check(sig.level_at(out) == 0, "a mod's inverter goes quiet when it is fed")
+	sig.set_source(inverter + Vector3i.UP, 0)
+	_check(sig.level_at(out) == MAX_SIGNAL - 1, "and speaks up when it is not (%d)" % sig.level_at(out))
+	server.queue_free()
+	await get_tree().process_frame
+
+
 ## A second world on the same server: its own blocks, its own creatures, its own folder, and the same
 ## chunk coordinate meaning two different places.
 func _realms() -> void:

@@ -152,6 +152,10 @@ var effects := EffectRegistry.new()
 var block_ticks:
 	get:
 		return realm.block_ticks
+## Signal levels (see engine/server/signals.gd). One per realm; this is the overworld's.
+var signals:
+	get:
+		return realm.signals
 ## Container types and open container screens (chests, furnaces, machines).
 var containers := Containers.new(self)
 ## Game-wide rules mods can change with set_gameplay.
@@ -2799,6 +2803,7 @@ func _unload_unused_chunks() -> void:
 					or r.block_ticks.save_chunk(coord) != null:
 				writes.append(_serialize_chunk(r, coord, records))
 			r.block_ticks.unload_chunk(coord)
+			r.signals.unload_chunk(coord)
 			r.entity_chunks.erase(coord)
 			r.save_dirty.erase(coord)
 			r.deltas.erase(coord)
@@ -4600,6 +4605,7 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0, int
 			containers.block_removed(pos, get_block_data(pos, into), old)
 		clear_block_data(pos, into)
 	into.block_ticks.block_changed(pos, old, block)
+	into.signals.block_changed(pos, old, block)
 	if old != block:
 		connect.refresh_around(pos, into)
 	# Removing one half of a two-block piece removes the other (its drops come from the half broken).

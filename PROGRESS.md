@@ -929,6 +929,43 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Signals, capability 3 (2026-09-19)
+
+`engine/server/signals.gd`, one per realm. Three block keys and one call: a block emits
+(`signal: 0-15`, or `api.set_signal` for a lever that is only sometimes on), a block carries
+(`signal_carry: true`, one level weaker each block), and a block listens (`api.register_signal`).
+Nothing else. **No gate of any kind ships with the engine** - inverters, delays, latches and repeaters
+are blocks a mod writes, each listening and emitting, because a puzzle game and a factory want
+different answers and picking one is not the engine's business. The test builds an inverter to prove
+it, in four lines.
+
+**Nothing is saved.** A level is not a fact about the world, it is what follows from where the sources
+are, and the sources are saved already as blocks and their data. So a network is worked out again when
+its chunks come back, and there is no new shape on disk to get wrong after 1.0.0.
+
+**Three bugs, and the third is the interesting one.**
+
+1. A receiver is never part of the network it listens to - a door is just a door - so asking it
+   afterwards what changed compared the new state with itself. Who is listening, and what they hear,
+   has to be written down *before* the network moves.
+2. Switching off the last source in a run can leave nothing to recompute, because the run stops being
+   a network at all. The level it was carrying then sits there for ever, quietly powering its
+   neighbours. Cells that fall out of every component are cleared explicitly.
+3. **A gate must not hear its own voice - and not hearing its own *cell* is not the same thing.** The
+   first version had `reaching()` count what the block itself emitted, so "emit when nothing reaches
+   me" oscillated instantly; a stack overflow made that one obvious. Excluding its own cell was not
+   enough either: the gate's output travels into the wire beside it and that wire is a neighbour, so
+   it heard itself one block later instead. The fix is to record **where each powered cell's level came
+   from** and ignore a neighbour whose level originated at the listener. Real wiring games solve this
+   by making a torch read only the block it is attached to; tracking provenance is the general answer
+   and does not make the engine decide what a gate looks like.
+
+There is also a cascade limit (32 deep): a mod may build a clock, it may not stop the server with one.
+The log says so once rather than every frame.
+
+Not done: no quickdust or quickstone blocks yet. That is content and wants textures, and the capability
+is what was missing.
+
 ## Dimensions, phase 2c: a mod can make a world, and a portal leads to it (2026-09-19)
 
 The capability is reachable now. `api.add_realm("emberdeep", {name, generator, passes, seed})` makes a

@@ -454,6 +454,20 @@ to whoever it belongs to. `dimension` (&quot;&quot; = the ordinary world) hides 
 <div class="card" id="api-set-world-marker" data-search="set_world_marker  puts a marker on everyone's map and compass (a village, a shared base, an event). saved with the world.
 `marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world)."><div class="sig"><code>api.set_world_marker(marker_id: String, marker: Dictionary) -&gt; void</code></div><p>Puts a marker on everyone's map and compass (a village, a shared base, an event). Saved with the world.<br>`marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world).</p></div>
 <div class="card" id="api-clear-world-marker" data-search="clear_world_marker  takes a marker off everyone's map."><div class="sig"><code>api.clear_world_marker(marker_id: String) -&gt; void</code></div><p>Takes a marker off everyone's map.</p></div>
+<div class="card" id="api-register-signal" data-search="register_signal  tells `handler(ctx)` when the level arriving at a block of this type changes: a door that should
+open, a lamp that should light, a machine that should start. ctx = {position, block, level,
+previous, realm}.
+
+signals are three block keys and this one call. a block emits (`signal: 15` in its definition, or
+set_signal for a lever that is only sometimes on), a block carries (`signal_carry: true`, one level
+weaker each block, so fifteen blocks and it is gone), and a block listens - this.
+
+**gates, delays, inverters, latches and repeaters are blocks you write**, each one listening here
+and emitting with set_signal. the engine has no opinion about what logic looks like, because a
+puzzle game and a factory want different answers and it is not the engine's business to pick."><div class="sig"><code>api.register_signal(block_name: String, handler: Callable) -&gt; void</code></div><p>Tells `handler(ctx)` when the level arriving at a block of this type changes: a door that should<br>open, a lamp that should light, a machine that should start. ctx = {position, block, level,<br>previous, realm}.<br><br>Signals are three block keys and this one call. A block emits (`signal: 15` in its definition, or<br>set_signal for a lever that is only sometimes on), a block carries (`signal_carry: true`, one level<br>weaker each block, so fifteen blocks and it is gone), and a block listens - this.<br><br>**Gates, delays, inverters, latches and repeaters are blocks you write**, each one listening here<br>and emitting with set_signal. The engine has no opinion about what logic looks like, because a<br>puzzle game and a factory want different answers and it is not the engine's business to pick.</p></div>
+<div class="card" id="api-set-signal" data-search="set_signal  makes the block at `position` emit `level` (0 to 15; 0 stops it). for a lever being flipped, a plate
+being stood on, or a gate of your own working out what it should be saying."><div class="sig"><code>api.set_signal(position: Vector3i, level: int, realm_id := &quot;&quot;) -&gt; void</code></div><p>Makes the block at `position` emit `level` (0 to 15; 0 stops it). For a lever being flipped, a plate<br>being stood on, or a gate of your own working out what it should be saying.</p></div>
+<div class="card" id="api-signal-at" data-search="signal_at  the strongest level arriving at a position from anything touching it."><div class="sig"><code>api.signal_at(position: Vector3i, realm_id := &quot;&quot;) -&gt; int</code></div><p>The strongest level arriving at a position from anything touching it.</p></div>
 <div class="card" id="api-add-realm" data-search="add_realm  adds another world to this server, reached through a portal. call it while the mod is setting up.
 
 var deep := api.add_realm(&quot;emberdeep&quot;, {&quot;name&quot;: &quot;the emberdeep&quot;, &quot;generator&quot;: mycaves.new()})

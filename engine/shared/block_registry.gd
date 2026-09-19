@@ -160,6 +160,10 @@ func register(def: Dictionary, replace := false) -> int:
 	d.textures = expand_textures(def.get("textures"))
 	d.light = clampi(int(def.get("light", 0)), 0, 15)
 	d.interactive = bool(def.get("interactive", false))
+	## Signals (engine/server/signals.gd). Server-side only - a client draws a quickened block the same
+	## as an unquickened one, and a mod that wants them to look different registers two blocks.
+	d.signal = clampi(int(def.get("signal", 0)), 0, 15)
+	d.signal_carry = bool(def.get("signal_carry", false))
 	d.model = String(def.get("model", "")).left(256)
 	d.orientation = 1 if def.get("orientation") in ["horizontal", 1] else 0
 	d.shape = SHAPE_NAMES.get(String(def.get("shape", "full")), Shape.FULL) if def.get("shape") is String \

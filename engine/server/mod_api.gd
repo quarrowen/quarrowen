@@ -912,6 +912,41 @@ func block_display_name(id: int) -> String:
 # than a bug today. When realms reach the mod API these gain a way to say where, most likely by the
 # event that supplied the position carrying its realm. (2026-09-19)
 
+## Tells `handler(ctx)` when the level arriving at a block of this type changes: a door that should
+## open, a lamp that should light, a machine that should start. ctx = {position, block, level,
+## previous, realm}.
+##
+## Signals are three block keys and this one call. A block emits (`signal: 15` in its definition, or
+## set_signal for a lever that is only sometimes on), a block carries (`signal_carry: true`, one level
+## weaker each block, so fifteen blocks and it is gone), and a block listens - this.
+##
+## **Gates, delays, inverters, latches and repeaters are blocks you write**, each one listening here
+## and emitting with set_signal. The engine has no opinion about what logic looks like, because a
+## puzzle game and a factory want different answers and it is not the engine's business to pick.
+func register_signal(block_name: String, handler: Callable) -> void:
+	var id := block(block_name)
+	if id <= 0:
+		push_error("[%s] register_signal: unknown block '%s'" % [mod_id, block_name])
+		return
+	for r in _server.realms.values():
+		r.signals.register(id, handler, mod_id)
+
+
+## Makes the block at `position` emit `level` (0 to 15; 0 stops it). For a lever being flipped, a plate
+## being stood on, or a gate of your own working out what it should be saying.
+func set_signal(position: Vector3i, level: int, realm_id := "") -> void:
+	_realm_or_default(realm_id).signals.set_source(position, level)
+
+
+## The strongest level arriving at a position from anything touching it.
+func signal_at(position: Vector3i, realm_id := "") -> int:
+	return _realm_or_default(realm_id).signals.reaching(position)
+
+
+func _realm_or_default(realm_id: String):
+	return _server.realms.get(_qualify_ref(realm_id), _server.realm) if not realm_id.is_empty() else _server.realm
+
+
 ## Adds another world to this server, reached through a portal. Call it while the mod is setting up.
 ##
 ##     var deep := api.add_realm("emberdeep", {"name": "The Emberdeep", "generator": MyCaves.new()})

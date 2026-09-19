@@ -18,6 +18,7 @@ extends RefCounted
 const VoxelWorld = preload("res://engine/shared/voxel_world.gd")
 const Entities = preload("res://engine/server/entities.gd")
 const BlockTicks = preload("res://engine/server/block_ticks.gd")
+const Signals = preload("res://engine/server/signals.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 
 ## What a mod called it ("overworld", "mymod:emberdeep"). The overworld's name is "" for the world a
@@ -42,6 +43,9 @@ var generation_passes: Array = []
 ## one per server, because everything in it is indexed by chunk coordinate and every realm has a
 ## chunk (0, 0) - a single table would have the Emberdeep's furnaces and the overworld's sharing a key.
 var block_ticks: BlockTicks
+## Levels spreading from block to block in this realm (see engine/server/signals.gd). Per realm for
+## the same reason as everything else here: a position alone does not say which world.
+var signals: Signals
 
 ## Blocks that differ from freshly generated terrain, and which chunks still need writing.
 var block_data := {}  # Vector2i chunk -> {Vector3i: Dictionary}
@@ -80,6 +84,7 @@ func _init(game_server, realm_id: String, realm_name := "") -> void:
 func attach() -> void:
 	entities = Entities.new(_server, self)
 	block_ticks = BlockTicks.new(_server, self)
+	signals = Signals.new(_server, self)
 
 
 ## Whether anything in this realm should be run this tick. A claim on a chunk (keeping a machine going
