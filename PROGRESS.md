@@ -929,6 +929,36 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Networks, layer 2: a quantity that moves, and cables you can see (2026-09-19)
+
+`engine/server/flows.gd`. A mod declares a unit by name, says which faces offer it and which want it,
+and is told what each face actually got. The engine never learns what any of it is.
+
+Both rules were decided with the user before anything was written, and both are tested:
+
+- **Event-driven, not ticked.** A network works out an allocation - a rate per face - and it stands
+  until something changes. `settle()` on a tick where nothing changed does nothing at all, which is
+  nearly every tick, and there is a test that says so.
+- **Equal shares when short.** Everybody gets the same fraction of what they asked for, so a grid
+  under load dims all over rather than failing in an order nobody can see. What a shortfall *means* is
+  the mod's: the engine says "you asked for twenty and have seven" and has no view on whether that is
+  a slower furnace or a stopped pump.
+
+Storage is deliberately not here. A buffer is a number in block data, which a mod already owns, and an
+engine that stored it would be deciding what a battery is.
+
+**Cables are visible.** `engine/client/cable_view.gd` hangs them in a curve between their two ends.
+A real cable is a catenary; a parabola is within a pixel of one over the spans a link is allowed, so it
+is a parabola. Drawn as two crossed quads along the curve - the same trick the mesher already uses for
+plants - which is cheaper than a tube and indistinguishable at this thickness. A pipe is the same code
+with no dip, because a rigid line drawn with a droop looks broken. Protocol 42 -> 43; links are sent on
+joining a world and one at a time afterwards, and only if they draw anything, so a wireless link never
+goes on the wire to be ignored.
+
+**A trap worth remembering: do not name a method `_set`.** `Object` has a virtual `_set(StringName,
+Variant) -> bool`, and a mismatch is a parse error - which then fails the *armour* tests, because a
+script that will not load takes its dependents with it and the first thing to notice was unrelated.
+
 ## Networks, layer 1: links, the graph everything stands on (2026-09-19)
 
 `engine/server/links.gd`. Not power, not pipes - just **what is joined to what**, because power,

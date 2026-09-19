@@ -74,6 +74,7 @@ func _ready() -> void:
 	await _ambience()
 	await _weather()
 	await _links()
+	await _flows()
 	await _tags()
 	await _signals()
 	await _realms()
@@ -4044,6 +4045,58 @@ func _links() -> void:
 	server.set_block_authoritative(Vector3i(100, y, 100), stone)
 	server.break_block(Vector3i(100, y, 100))
 	_check(api.links_at(Vector3i(100, y, 100)).is_empty(), "and loses them when it goes")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Flows: a quantity moving along the graph, and what happens when there is not enough of it.
+func _flows() -> void:
+	var server = _start("flows_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	_check(api.register_link_kind("cable", {"span": 10}), "a kind to carry it on")
+	_check(api.register_unit("power"), "a mod declares a unit")
+	_check(not api.register_unit("power"), "and cannot declare it twice")
+
+	var told := []
+	api.on_received("power", func(ev): told.append([ev.position.x, ev.wanted, ev.got]))
+	var y: int = server.surface_height(140, 140) + 2
+	var at = func(x: int) -> Dictionary: return {"position": Vector3i(x, y, 140), "face": 0}
+
+	# A generator and two lamps on one run of cable.
+	api.link("cable", at.call(140), at.call(144))
+	api.link("cable", at.call(144), at.call(148))
+	api.set_supply("power", at.call(140), 100.0)
+	api.set_demand("power", at.call(144), 30.0)
+	api.set_demand("power", at.call(148), 20.0)
+	server.flows.settle()
+	_check(api.received("power", at.call(144)) == 30.0 and api.received("power", at.call(148)) == 20.0,
+		"with enough to go round, everybody gets what they asked for")
+
+	# Not enough: the same fraction each, so the grid dims all over rather than in a hidden order.
+	told.clear()
+	api.set_supply("power", at.call(140), 25.0)
+	server.flows.settle()
+	_check(is_equal_approx(api.received("power", at.call(144)), 15.0)
+		and is_equal_approx(api.received("power", at.call(148)), 10.0),
+		"and when short, the same fraction each (%.1f, %.1f)" % [api.received("power", at.call(144)), api.received("power", at.call(148))])
+	_check(told.size() == 2, "both were told what changed (%d)" % told.size())
+
+	# Nothing recomputes on a quiet tick: settle() with nothing dirty must tell nobody anything.
+	told.clear()
+	server.flows.settle()
+	server.flows.settle()
+	_check(told.is_empty(), "a tick where nothing changed tells nobody anything")
+
+	# Cutting the cable separates them: the far lamp is on its own network with no supply at all.
+	var joined: Array = api.links_at(Vector3i(144, y, 140))
+	for id in joined:
+		var info: Dictionary = api.link_info(id)
+		if info.a.position.x == 144 and info.b.position.x == 148:
+			api.unlink(id, "test")
+	server.flows.settle()
+	_check(api.received("power", at.call(148)) == 0.0, "cutting the cable leaves the far end with nothing")
+	_check(is_equal_approx(api.received("power", at.call(144)), 25.0),
+		"and the near one now has the lot (%.1f)" % api.received("power", at.call(144)))
 	server.queue_free()
 	await get_tree().process_frame
 

@@ -605,6 +605,21 @@ func s_unload_chunk(coord: Vector2i) -> void:
 		client.on_unload_chunk(coord)
 
 
+## The cables and pipes strung in the world this player is in. Sent once on joining, then one at a
+## time as they are made and cut. On BULK_CHANNEL with the chunks and the realm change, so a link
+## never arrives before the world it belongs to.
+@rpc("authority", "call_remote", "reliable", BULK_CHANNEL)
+func s_links(list: Array) -> void:
+	if client:
+		client.on_links(list)
+
+
+@rpc("authority", "call_remote", "reliable", BULK_CHANNEL)
+func s_link_gone(id: int) -> void:
+	if client:
+		client.on_link_gone(id)
+
+
 ## "You are now in this world." Everything the client holds belongs to the world it is leaving.
 ##
 ## On BULK_CHANNEL deliberately, with the chunks. The channels are delivered independently - which is

@@ -924,6 +924,37 @@ func block_display_name(id: int) -> String:
 # than a bug today. When realms reach the mod API these gain a way to say where, most likely by the
 # event that supplied the position carrying its realm. (2026-09-19)
 
+## A kind of quantity that moves along links: power, steam, water, mana. The engine keeps them apart
+## by name and learns nothing else about any of them.
+func register_unit(unit_name: String) -> bool:
+	return _server.flows.register_unit(_qualify(unit_name), mod_id)
+
+
+## This face offers this much per second (0 to stop). A generator running; a tank draining.
+func set_supply(unit_name: String, node: Dictionary, amount: float) -> void:
+	_server.flows.set_supply(_qualify_ref(unit_name), _link_node(node), amount)
+
+
+## This face wants this much per second (0 to stop asking).
+func set_demand(unit_name: String, node: Dictionary, amount: float) -> void:
+	_server.flows.set_demand(_qualify_ref(unit_name), _link_node(node), amount)
+
+
+## What a face is actually receiving, which is not always what it asked for.
+func received(unit_name: String, node: Dictionary) -> float:
+	return _server.flows.received(_qualify_ref(unit_name), _link_node(node))
+
+
+## Told when what a face receives changes: {realm, position, face, unit, wanted, got}.
+##
+## **What a shortfall means is yours to decide.** The engine says "you asked for twenty and you have
+## seven" and has no opinion about whether that is a furnace running slowly, a lamp going dim or a
+## pump stopping dead. When there is not enough to go round everybody gets the same fraction of what
+## they asked for, so a grid under load dims all over rather than failing in an order nobody can see.
+func on_received(unit_name: String, handler: Callable) -> void:
+	_server.flows.on_received(_qualify_ref(unit_name), handler)
+
+
 ## A kind of connection a player can lay: a cable, a pipe, an aerial.
 ##
 ##     api.register_link_kind("cable", {"span": 12, "item": "base:copper_wire", "draw": "cable"})

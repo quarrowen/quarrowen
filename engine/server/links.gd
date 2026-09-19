@@ -57,7 +57,7 @@ func _init(game_server) -> void:
 ## def: `span` (blocks, capped at MAX_SPAN), `wireless` (nothing is drawn and no clear line is needed),
 ## `crosses_realms` (wireless only), `needs_air` (refuse if anything solid is in the way; default true
 ## for anything not wireless), `item` (what a block of it costs to lay), `draw` ("cable" sags, "pipe"
-## does not, "" draws nothing).
+## does not, "" draws nothing), `color` (what it is drawn in).
 func register_kind(kind_name: String, def: Dictionary, owner := "engine") -> bool:
 	if kind_name.is_empty() or kinds.has(kind_name):
 		push_error("Invalid or duplicate link kind '%s'" % kind_name)
@@ -73,6 +73,7 @@ func register_kind(kind_name: String, def: Dictionary, owner := "engine") -> boo
 		"needs_air": bool(def.get("needs_air", not wireless)),
 		"item": String(def.get("item", "")),
 		"draw": String(def.get("draw", "" if wireless else "cable")),
+		"color": String(def.get("color", "#b87333")),
 		"per_node": clampi(int(def.get("per_node", 6)), 1, MAX_PER_NODE),
 	}
 	return true

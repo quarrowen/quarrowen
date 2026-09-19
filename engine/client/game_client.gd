@@ -61,6 +61,7 @@ const GuideScreen = preload("res://engine/client/guide_screen.gd")
 const TutorialHud = preload("res://engine/client/tutorial_hud.gd")
 const DevOverlay = preload("res://engine/client/dev_overlay.gd")
 const DebugDraw = preload("res://engine/client/debug_draw.gd")
+const CableView = preload("res://engine/client/cable_view.gd")
 const UgcClient = preload("res://engine/client/ugc_client.gd")
 const CreationLibrary = preload("res://engine/client/creation_library.gd")
 const UgcReview = preload("res://engine/client/ugc_review.gd")
@@ -280,6 +281,7 @@ var _tutorial_hud: TutorialHud
 var _dev_alerts: VBoxContainer
 var _dev_overlay: DevOverlay
 var _debug_draw: DebugDraw
+var _cables: CableView
 ## Player creations: uploads, downloads and the server library (see engine/client/ugc_client.gd).
 var ugc := UgcClient.new(self)
 ## Model files of downloaded creations: asset name -> GLB bytes.
@@ -1223,6 +1225,7 @@ func on_sound(sound_id: int, pos: Vector3, volume: float, pitch: float, position
 func on_realm(realm_id: String, display_name: String) -> void:
 	realm = realm_id
 	realm_name = display_name
+	_cables.clear()  # the cables strung in the world being left belong to it
 	for coord: Vector2i in world.chunks.keys():
 		on_unload_chunk(coord)
 	for id: int in _entities.keys():
@@ -1231,6 +1234,19 @@ func on_realm(realm_id: String, display_name: String) -> void:
 		view.despawn()
 	for peer_id: int in _remote_players.keys():
 		on_player_left(peer_id)
+
+
+## Cables and pipes: the whole lot on joining, then one at a time as they are made.
+func on_links(list: Array) -> void:
+	for entry in list:
+		if entry is Dictionary:
+			_cables.add_link({"id": int(entry.get("id", 0)), "draw": String(entry.get("draw", "cable")),
+				"a": entry.get("a", Vector3.ZERO), "b": entry.get("b", Vector3.ZERO),
+				"color": String(entry.get("color", "#b87333"))})
+
+
+func on_link_gone(id: int) -> void:
+	_cables.remove_link(id)
 
 
 func on_player_left(peer_id: int) -> void:
@@ -3272,6 +3288,8 @@ func _build_hud() -> void:
 	_hud_root.add_child(_dev_alerts)
 	_debug_draw = DebugDraw.new()
 	add_child(_debug_draw)
+	_cables = CableView.new()
+	add_child(_cables)
 	_tutorial_hud = TutorialHud.new()
 	_tutorial_hud.client = self
 	_tutorial_hud.action_requested.connect(func(action, arg): Net.c_tutorial.rpc_id(1, action, arg))

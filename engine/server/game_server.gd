@@ -34,6 +34,7 @@ const EffectRegistry = preload("res://engine/shared/effect_registry.gd")
 const BlockTicks = preload("res://engine/server/block_ticks.gd")
 const TagRegistry = preload("res://engine/shared/tag_registry.gd")
 const Links = preload("res://engine/server/links.gd")
+const Flows = preload("res://engine/server/flows.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 const Stations = preload("res://engine/server/stations.gd")
@@ -262,6 +263,8 @@ var tags := TagRegistry.new()
 ## What is joined to what (see engine/server/links.gd). Server-wide, not per realm: a wireless link may
 ## have one end in one world and the other somewhere else, so it belongs to neither.
 var links := Links.new(self)
+## Quantities moving along those links - power, fluid, gas (see engine/server/flows.gd).
+var flows := Flows.new(self)
 ## Recipes whose inputs name a tag, held until every mod has loaded (see _expand_tag_recipes).
 var _tag_recipes: Array = []
 ## Each mod's API object, by mod id. Mods are not obliged to keep their own, so the server does.
@@ -370,6 +373,9 @@ var _entity_chunks: Dictionary:
 ## things reach for it long before start() - mod validation among them - so the realm holding it has to
 ## be ready just as early.
 func _init() -> void:
+	# Whoever is standing in that world sees a cable appear or vanish as it happens.
+	add_handler("link_made", func(ev): _broadcast_link(int(ev.id)); flows.link_changed(ev.a, ev.b), 0, "engine")
+	add_handler("link_cut", func(ev): _broadcast_link_gone(int(ev.id), String(ev.a.realm)); flows.link_changed(ev.a, ev.b), 0, "engine")
 	realm = Realm.new(self, "", "Overworld")
 	realms[""] = realm
 	realm.attach()
@@ -1676,6 +1682,7 @@ func _physics_process(delta: float) -> void:
 	for r: Realm in realms.values():
 		r.block_ticks.update(delta, r.simulated)
 	var t_blocks := Time.get_ticks_usec()
+	flows.settle()  # costs nothing on a tick where no network changed, which is nearly all of them
 	containers.update(delta)
 	transfers.update(delta)
 	ambience.update(delta)
@@ -2469,6 +2476,9 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	ensure_area_loaded(p.state.position, realm_of(p))
 
 	Net.s_welcome.rpc_id(peer_id, peer_id, p.state.position, 0.0)
+	var strung := links_for(realm_of(p).id)
+	if not strung.is_empty():
+		Net.s_links.rpc_id(peer_id, strung)
 	_set_client_avatar(p, avatar, true)
 	Net.s_cosmetics.rpc_id(peer_id, PackedStringArray(p.owned_cosmetics.keys()), cosmetics.policy)
 	Net.s_known_recipes.rpc_id(peer_id, PackedStringArray(p.known_recipes.keys()), gameplay.recipe_discovery)
@@ -2554,6 +2564,41 @@ func _disconnect_peer(peer_id: int) -> void:
 ## Which world a player is standing in. The one place that answers this, so that when players really
 ## do belong to a realm it is one function that changes rather than every caller. Until then everybody
 ## is in the overworld, which is exactly what the server did before realms existed.
+## The drawable links in a realm, as the client wants them. A wireless link draws nothing, so it is
+## not sent at all - there is no point putting it on the wire to be ignored.
+func _broadcast_link(id: int) -> void:
+	var link: Dictionary = links.links.get(id, {})
+	if link.is_empty():
+		return
+	var drawable := links_for(String(link.a.realm)).filter(func(e: Dictionary) -> bool: return int(e.id) == id)
+	if drawable.is_empty():
+		return  # wireless, or a kind that draws nothing
+	for p: ServerPlayer in players.values():
+		if realm_of(p).id == String(link.a.realm):
+			Net.s_links.rpc_id(p.peer_id, drawable)
+
+
+func _broadcast_link_gone(id: int, realm_id: String) -> void:
+	for p: ServerPlayer in players.values():
+		if realm_of(p).id == realm_id:
+			Net.s_link_gone.rpc_id(p.peer_id, id)
+
+
+func links_for(realm_id: String) -> Array:
+	var out := []
+	for id: int in links.links:
+		var link: Dictionary = links.links[id]
+		var kind: Dictionary = links.kinds.get(link.kind, {})
+		if kind.is_empty() or String(kind.get("draw", "")).is_empty():
+			continue
+		if link.a.realm != realm_id or link.b.realm != realm_id:
+			continue
+		out.append({"id": id, "draw": kind.draw, "color": String(kind.get("color", "#b87333")),
+			"a": Vector3(link.a.position) + Vector3(0.5, 0.5, 0.5) + Vector3(Links.FACE_OFFSETS[link.a.face]) * 0.5,
+			"b": Vector3(link.b.position) + Vector3(0.5, 0.5, 0.5) + Vector3(Links.FACE_OFFSETS[link.b.face]) * 0.5})
+	return out
+
+
 func realm_of(p: ServerPlayer) -> Realm:
 	return realms.get(p.realm_id, realm)
 
@@ -2587,6 +2632,9 @@ func send_to_realm(p: ServerPlayer, realm_id: String, position: Vector3) -> bool
 	# Then the client, which drops the whole world it is holding - and only then may a chunk of the new
 	# one be sent. Both travel on BULK_CHANNEL so this order survives the wire (see Net.s_realm).
 	Net.s_realm.rpc_id(p.peer_id, into.id, into.display_name)
+	var arriving := links_for(into.id)
+	if not arriving.is_empty():
+		Net.s_links.rpc_id(p.peer_id, arriving)
 	p.sent_chunks.clear()
 	p.pending_chunks.clear()
 	p.stream_center = Vector2i(1 << 30, 0)  # no chunk coordinate, so the next tick rebuilds the list
