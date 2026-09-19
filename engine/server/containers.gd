@@ -64,14 +64,16 @@ func type_of_block(block: int) -> Dictionary:
 
 ## The container at a position (loads its chunk), or null if the block there is not a container.
 func get_container(pos: Vector3i, player = null):
-	var block: int = _server.get_block_loaded(pos)
+	# A container is a block, and a block is in a world. When a player opened it, it is theirs.
+	var into = _server.realm_of(player) if player != null else _server.realm
+	var block: int = _server.get_block_loaded(pos, into)
 	var t := type_of_block(block)
 	if t.is_empty():
 		return null
-	var store: Dictionary = _server.get_block_data(pos)
+	var store: Dictionary = _server.get_block_data(pos, into)
 	if store.is_empty():
-		_server.set_block_data(pos, store)
-		store = _server.get_block_data(pos)
+		_server.set_block_data(pos, store, into)
+		store = _server.get_block_data(pos, into)
 	var view := ContainerView.new(_server, pos, t, store)
 	if store.has("loot"):
 		_server.loot.fill(view, player)  # structure chests roll their loot on first use
@@ -137,7 +139,7 @@ func update(delta: float) -> void:
 			continue
 		var pos: Vector3i = p.open_container
 		var far: bool = p.get_eye_position().distance_to(Vector3(pos) + Vector3.ONE * 0.5) > MAX_DISTANCE
-		if far or p.dead or type_of_block(_server.world.get_block_v(pos)).is_empty():
+		if far or p.dead or type_of_block(_server.realm_of(p).world.get_block_v(pos)).is_empty():
 			close(p)
 
 

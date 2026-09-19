@@ -26,29 +26,30 @@ func _init(server) -> void:
 
 
 ## Called when a block is placed or broken: fixes up that cell and the four around it.
-func refresh_around(pos: Vector3i) -> void:
+func refresh_around(pos: Vector3i, into = null) -> void:
 	if _busy:
 		return
 	_busy = true
-	refresh(pos)
+	refresh(pos, into)
 	for step in NEIGHBOURS:
-		refresh(pos + step)
+		refresh(pos + step, into)
 	_busy = false
 
 
 ## Puts the right form of a connecting block at `pos`, if what is there is one.
-func refresh(pos: Vector3i) -> void:
-	var block: int = _server.world.get_block_v(pos)
+func refresh(pos: Vector3i, into = null) -> void:
+	var in_realm = into if into != null else _server.realm
+	var block: int = in_realm.world.get_block_v(pos)
 	var forms := _forms(block)
 	if forms.is_empty():
 		return
 	var mask := 0
 	for i in NEIGHBOURS.size():
-		if _joins(block, int(_server.world.get_block_v(pos + NEIGHBOURS[i]))):
+		if _joins(block, int(in_realm.world.get_block_v(pos + NEIGHBOURS[i]))):
 			mask |= 1 << i
 	var wanted: int = _server.registry.id_of(str(forms[mask]))
 	if wanted > 0 and wanted != block:
-		_server.set_block_authoritative(pos, wanted, true)
+		_server.set_block_authoritative(pos, wanted, true, 0, in_realm)
 
 
 ## Whether these two join up. A block joins its own family, and anything solid it is set against, so a

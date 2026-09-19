@@ -20,6 +20,10 @@ func setup() -> void:
 			_server.block_ticks.register(i, _tick, {"interval": 6.0, "catch_up": false})
 
 
+## KNOWN LIMIT: overworld only. Spawner blocks are found and ticked through the server's default
+## realm, so a spawner placed in another world does nothing. It needs the same treatment as block
+## ticks - registered per realm rather than per server - and is left until a mod can actually make a
+## second realm. (2026-09-19)
 func settings(pos: Vector3i) -> Dictionary:
 	var data: Dictionary = _server.get_block_data(pos)
 	var s: Dictionary = DEFAULTS.duplicate(true)

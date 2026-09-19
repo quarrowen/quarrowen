@@ -274,7 +274,7 @@ func _inspect(query: Dictionary) -> Dictionary:
 func _looked_at(p) -> Dictionary:
 	var eye: Vector3 = p.get_eye_position()
 	var dir := PlayerPhysics.look_direction(p.yaw, p.pitch)
-	var ray := VoxelRaycast.cast(_server.world, _server.registry.solid_lut, eye, dir, 64.0)
+	var ray := VoxelRaycast.cast(_server.realm_of(p).world, _server.registry.solid_lut, eye, dir, 64.0)
 	var best: float = eye.distance_to(Vector3(ray.position) + Vector3(0.5, 0.5, 0.5)) if ray.hit else 64.0
 	var target := {"pos": ray.position} if ray.hit else {"player": p.peer_id}
 	for e in _server.entities.in_radius(eye, best):

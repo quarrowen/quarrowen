@@ -605,6 +605,17 @@ func s_unload_chunk(coord: Vector2i) -> void:
 		client.on_unload_chunk(coord)
 
 
+## "You are now in this world." Everything the client holds belongs to the world it is leaving.
+##
+## On BULK_CHANNEL deliberately, with the chunks. The channels are delivered independently - which is
+## what stops terrain holding up chat - so a chunk sent just before the move could otherwise arrive
+## after it and be built into the wrong world. Ordering exists only within a channel.
+@rpc("authority", "call_remote", "reliable", BULK_CHANNEL)
+func s_realm(realm_id: String, display_name: String) -> void:
+	if client:
+		client.on_realm(realm_id, display_name)
+
+
 @rpc("authority", "call_remote", "reliable")
 func s_block_changed(position: Vector3i, block: int, state: int) -> void:
 	if client:

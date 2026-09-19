@@ -25,6 +25,10 @@ var hunger := 20.0
 var saturation := 5.0
 var exhaustion := 0.0
 var dead := false
+## Which of the server's worlds this player is standing in; "" is the overworld. Saved with them, so
+## somebody who logged out in another realm comes back to it rather than falling into the overworld at
+## the same coordinates - which would be a different place entirely.
+var realm_id := ""
 ## Where the player respawns; Vector3.INF uses their bed, then the game's spawn handler.
 var spawn_point := Vector3.INF
 ## The bed they last used (Vector3i, foot) or null; checked when respawning.
@@ -152,7 +156,9 @@ func teleport(pos: Vector3) -> void:
 	state.velocity = Vector3.ZERO
 	fall_velocity = 0.0
 	known_entities_stale = true
-	_server.ensure_area_loaded(pos)
+	# Their own world, not the overworld: teleporting inside the Emberdeep must not quietly load - and
+	# drop them onto - the overworld's ground at the same coordinates.
+	_server.ensure_area_loaded(pos, _server.realm_of(self))
 
 
 ## Deals damage from `attacker` (player, entity or null). Creative players are unaffected. Returns

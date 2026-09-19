@@ -929,6 +929,41 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Dimensions, phase 2b: a player is somewhere, and travel works (2026-09-19)
+
+`ServerPlayer.realm_id` exists and is saved, `realm_of(p)` answers from it, and `send_to_realm(p, id,
+position)` moves somebody. Protocol 41 -> 42.
+
+**The shape of the work was wide rather than deep.** A hundred or so places said *where* (`pos`) and had
+to start saying *which world* too, because every realm has a (6, 41, 6). A subagent mapped them first,
+which was worth it: it found several I would not have looked for, including two that would have been
+silent rather than loud.
+
+- **`_apply_block` broadcast block changes to every player holding that chunk coordinate.** Chunk (0, 0)
+  has been sent to somebody in every realm, so an edit in the Emberdeep would have been redrawn in the
+  overworld. Now filtered by realm.
+- **Explosions hurt everybody within the radius, wherever they were.** A blast at the same coordinates
+  in another world would have injured people standing in this one.
+
+**Snapshots are grouped by realm rather than filtered inside the builder.** Interest radius cannot
+express "not in this world at all" - two players in different realms can be standing on exactly the
+same coordinates - and the native snapshot builder has a GDScript twin that must agree with it exactly.
+Grouping the players before calling it means neither had to change.
+
+**The move itself is an ordering problem.** `send_to_realm` tells the other people in the old world
+first (while it is still a world they share), then moves the player, then tells their client, and only
+then may a chunk of the new world go out. The client drops everything it holds - terrain, creatures,
+people - because all of it belonged to the world it left.
+
+**Deliberately left, and marked in the code so they are not forgotten:**
+- `spawners.gd` is overworld-only (it finds and ticks spawner blocks through the default realm).
+- The whole `# --- World ---` section of `mod_api.gd` is overworld-only. A mod cannot name a realm -
+  but it cannot make one either, so this is a limit rather than a bug. When realms reach the mod API
+  the likely answer is that the *event* carrying a position carries its realm too.
+
+Nothing reaches `send_to_realm` yet: no portal, no command, no mod API. So on a real server the
+overworld is still the only world and the behaviour is what it always was.
+
 ## Dimensions, phase 2a: everything indexed by chunk belongs to a world (2026-09-19)
 
 Phase 1 moved the blocks, the generator and the creatures onto `Realm`. This moves the rest of what is

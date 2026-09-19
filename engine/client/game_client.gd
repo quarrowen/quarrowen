@@ -117,6 +117,10 @@ var registry := BlockRegistry.new()
 var items := ItemRegistry.new(registry)
 var rules := PlayerPhysics.Rules.new()
 var world := VoxelWorld.new()
+## Which of the server's worlds this player is standing in ("" is the overworld), and what to call it.
+## Everything in `world` belongs to this realm and nothing outlives a move to another (see on_realm).
+var realm := ""
+var realm_name := ""
 var inventory := Inventory.new()
 var cosmetics := Cosmetics.new()
 var recipes := RecipeRegistry.new()
@@ -1206,6 +1210,27 @@ func on_music(track_id: int, fade: float, restart: bool) -> void:
 
 func on_sound(sound_id: int, pos: Vector3, volume: float, pitch: float, positional: bool) -> void:
 	_sounds.play(sound_id, pos, volume, pitch, positional)
+
+
+## The server has put this player in another world. Everything on screen belongs to the one they have
+## left - its terrain, its creatures, the people standing in it - so all of it goes, and the server
+## streams the new world from scratch.
+##
+## This arrives on the same channel as chunks, and that is not incidental: the three channels are
+## delivered independently, so a chunk sent a moment before the move would otherwise be free to arrive
+## *after* it and be built into the world the player just walked into. Ordering only exists within a
+## channel, so the message that ends a world travels in the same queue as the chunks it invalidates.
+func on_realm(realm_id: String, display_name: String) -> void:
+	realm = realm_id
+	realm_name = display_name
+	for coord: Vector2i in world.chunks.keys():
+		on_unload_chunk(coord)
+	for id: int in _entities.keys():
+		var view: EntityView = _entities[id]
+		_entities.erase(id)
+		view.despawn()
+	for peer_id: int in _remote_players.keys():
+		on_player_left(peer_id)
 
 
 func on_player_left(peer_id: int) -> void:

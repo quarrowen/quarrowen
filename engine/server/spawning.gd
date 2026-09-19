@@ -154,7 +154,7 @@ func run(for_players: Array = []) -> void:
 
 ## A spot for a rule's mob around `center` (surface or caves), or Vector3.INF.
 func find_spot(center: Vector3, rule: Dictionary, daylight: float, min_distance := -1.0, max_distance := -1.0) -> Vector3:
-	var world = _server.world
+	var world = _entities.realm.world
 	var solid: PackedByteArray = _server.registry.solid_lut
 	var liquid: PackedByteArray = _server.registry.liquid_lut
 	var allowed: Array = rule.get("on", [])

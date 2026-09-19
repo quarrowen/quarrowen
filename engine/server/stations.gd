@@ -174,7 +174,8 @@ func upgrade(p, pos: Vector3i) -> bool:
 	if next.kit > 0 and not p.inventory.creative:
 		if not p.take(next.kit, 1):
 			return false
-	_server.set_block_authoritative(pos, next.block, true, _server.get_block_state(pos))
+	var into = _server.realm_of(p)
+	_server.set_block_authoritative(pos, next.block, true, _server.get_block_state(pos, into), into)
 	_server.play_effect("engine:sparkle", Vector3(pos) + Vector3(0.5, 0.9, 0.5), {"scale": 1.4, "color": "#ffe08a"})
 	_server.play_sound_at("engine:craft", Vector3(pos) + Vector3.ONE * 0.5, 1.0, 0.8)
 	_server.emit("station_upgraded", {"player": p, "position": pos, "station": info.name, "tier": info.tier + 1})

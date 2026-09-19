@@ -4037,6 +4037,30 @@ func _realms() -> void:
 	_check(deep.block_ticks.realm == deep, "which know the world they are in")
 	_check(deep.entities != server.realm.entities, "and its own creatures")
 
+	# Travel. The point of all of it: a player in another world edits that world and not this one.
+	var traveller := ServerPlayer.new(server, 93, "Traveller")
+	traveller.player_id = "traveller"
+	traveller.state.position = Vector3(8, 70, 8)
+	server.players[93] = traveller
+	_check(server.realm_of(traveller) == server.realm, "a player starts in the overworld")
+	_check(not server.send_to_realm(traveller, "test:nowhere", Vector3.ZERO), "a realm that does not exist refuses")
+	_check(server.send_to_realm(traveller, "test:deep", Vector3(4, 41, 4)), "and one that does accepts")
+	_check(traveller.realm_id == "test:deep" and server.realm_of(traveller) == deep, "they are in it")
+	_check(not server.send_to_realm(traveller, "test:deep", Vector3.ZERO), "going where you already are does nothing")
+	_check(traveller.sent_chunks.is_empty() and traveller.pending_chunks.is_empty(),
+		"and the world they were sent is forgotten, so the new one streams from nothing")
+
+	# Compared with what the overworld had there before, not with "not stone": the overworld is solid
+	# rock at that depth, so the naive check passes whether or not the edit leaked.
+	var edit := Vector3i(6, 41, 6)
+	server._ensure_chunk(Vector2i.ZERO)
+	var overworld_before: int = server.realm.world.get_block_v(edit)
+	server.set_block_authoritative(edit, glass, false, 0, server.realm_of(traveller))
+	_check(deep.world.get_block_v(edit) == glass, "a block they place lands in the world they are in")
+	_check(server.realm.world.get_block_v(edit) == overworld_before, "and the one they left is untouched")
+
+	server.players.erase(93)
+
 	# A realm nobody is in is asleep, however many are occupied.
 	server._refresh_simulation()
 	_check(not deep.is_awake() and not server.realm.is_awake(), "both start asleep")

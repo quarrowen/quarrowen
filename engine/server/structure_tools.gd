@@ -102,7 +102,7 @@ func place(template_name: String, at: Vector3i, rotation := 0) -> bool:
 
 func _aimed(player) -> Vector3i:
 	var eye: Vector3 = player.get_eye_position()
-	var ray: Dictionary = VoxelRaycast.cast(_server.world, _server.registry.solid_lut, eye, PlayerPhysics.look_direction(player.yaw, player.pitch), 8.0)
+	var ray: Dictionary = VoxelRaycast.cast(_server.realm_of(player).world, _server.registry.solid_lut, eye, PlayerPhysics.look_direction(player.yaw, player.pitch), 8.0)
 	if ray.hit:
 		return ray.position
 	return Vector3i(floori(player.state.position.x), floori(player.state.position.y) - 1, floori(player.state.position.z))

@@ -42,15 +42,20 @@ func blast_resistance(block: int) -> float:
 	return float(def.get("hardness", 0.5)) * 1.2
 
 
+## options.realm: the world it goes off in (a Realm, or null for the overworld). An explosion is a
+## thing that happens in a place, and a position alone no longer says where.
 func explode(center: Vector3, power: float, options := {}) -> Dictionary:
 	power = clampf(power, 0.1, MAX_POWER)
+	var into = options.get("realm")
+	if into == null:
+		into = _server.realm
 	var source = options.get("source")
 	var from_mob: bool = source != null and source.get("brain") != null
 	var break_blocks: bool = bool(options.get("break_blocks", true)) and (not from_mob or bool(_server.gameplay.get("mob_griefing", true)))
 	var blocks := []
 	if break_blocks:
 		var seen := {}
-		var world = _server.world
+		var world = into.world
 		for dir in _directions:
 			var strength := power * randf_range(0.7, 1.3)
 			var pos := center
@@ -71,54 +76,58 @@ func explode(center: Vector3, power: float, options := {}) -> Dictionary:
 		return ev
 	var drop_chance := float(options.get("drop_chance", 1.0 / power))
 	for cell in (ev.blocks if ev.blocks is Array else []):
-		var block: int = _server.world.get_block_v(cell)
+		var block: int = into.world.get_block_v(cell)
 		if block == BlockRegistry.AIR or block == BlockRegistry.UNLOADED:
 			continue
 		var drops: Array = _server._default_drops(block) if randf() < drop_chance else []
 		_server._apply_block(cell, BlockRegistry.AIR)
 		for d in drops:
 			if d is Array and d.size() == 2 and _server.items.is_valid(int(d[0])):
-				_server.entities.drop_item(int(d[0]), int(d[1]), Vector3(cell) + Vector3(0.5, 0.5, 0.5))
-	_hurt_around(center, power, source, float(options.get("damage", 1.0)))
+				into.entities.drop_item(int(d[0]), int(d[1]), Vector3(cell) + Vector3(0.5, 0.5, 0.5))
+	_hurt_around(center, power, source, float(options.get("damage", 1.0)), into)
 	_server.play_effect(str(options.get("effect", "engine:explosion")), center, {"scale": clampf(power / 3.0, 0.4, 3.0)})
 	_server.play_sound_at(str(options.get("sound", "engine:explosion")), center, 1.0, randf_range(0.85, 1.05))
-	_server.entities.ai.make_noise(center, 16.0 + power * 4.0, source, true)
+	into.entities.ai.make_noise(center, 16.0 + power * 4.0, source, true)
 	return ev
 
 
 ## Damage and knockback for players and entities in range: falls off with distance and with how much
 ## of the target the blast can see.
-func _hurt_around(center: Vector3, power: float, source, multiplier: float) -> void:
+func _hurt_around(center: Vector3, power: float, source, multiplier: float, into = null) -> void:
 	var radius := power * 2.0
 	var solid: PackedByteArray = _server.registry.solid_lut
+	if into == null:
+		into = _server.realm
 	for p in _server.players.values():
-		if p.dead:
+		# Only people standing in the world it went off in: a blast in the Emberdeep must not hurt
+		# somebody at the same coordinates in the overworld.
+		if p.dead or _server.realm_of(p) != into:
 			continue
-		var impact := _impact(center, p.state.position, 1.8, radius, solid)
+		var impact := _impact(center, p.state.position, 1.8, radius, solid, into)
 		if impact > 0.0:
 			var damage := ((impact * impact + impact) * 0.5 * 7.0 * power + 1.0) * multiplier * 0.5
 			_server.damage_player(p, damage, "explosion", source if source != p else null, p.state.position - center, true, 10.0 * impact)
-	for e in _server.entities.in_radius(center, radius + 1.0):
+	for e in into.entities.in_radius(center, radius + 1.0):
 		if e == source or not e.is_alive():
 			continue
-		var impact := _impact(center, e.body.position, e.def.height, radius, solid)
+		var impact := _impact(center, e.body.position, e.def.height, radius, solid, into)
 		if impact <= 0.0:
 			continue
 		if e.def.kind == "mob":
-			_server.entities.damage(e, ((impact * impact + impact) * 0.5 * 7.0 * power + 1.0) * multiplier * 0.5, "explosion", source, e.body.position - center)
+			into.entities.damage(e, ((impact * impact + impact) * 0.5 * 7.0 * power + 1.0) * multiplier * 0.5, "explosion", source, e.body.position - center)
 		var push: Vector3 = (e.body.position + Vector3(0, e.def.height * 0.5, 0) - center).normalized() * 10.0 * impact
 		e.body.velocity += push + Vector3(0, 3.0 * impact, 0)
 		e.wake()
 
 
-func _impact(center: Vector3, feet: Vector3, height: float, radius: float, solid: PackedByteArray) -> float:
+func _impact(center: Vector3, feet: Vector3, height: float, radius: float, solid: PackedByteArray, into = null) -> float:
 	var distance := center.distance_to(feet + Vector3(0, height * 0.5, 0))
 	if distance >= radius:
 		return 0.0
 	var visible := 0
 	for t in [0.1, 0.5, 0.9]:
 		var point := feet + Vector3(0, height * t, 0)
-		var ray: Dictionary = VoxelRaycast.cast(_server.world, solid, center, point - center, center.distance_to(point))
+		var ray: Dictionary = VoxelRaycast.cast((into if into != null else _server.realm).world, solid, center, point - center, center.distance_to(point))
 		if not ray.hit or Vector3(ray.position).distance_to(point) < 1.0:
 			visible += 1
 	return (1.0 - distance / radius) * visible / 3.0

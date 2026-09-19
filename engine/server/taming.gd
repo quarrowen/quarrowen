@@ -158,7 +158,7 @@ func update() -> void:
 
 
 func _near(center: Vector3) -> Vector3:
-	var world = _server.world
+	var world = _entities.realm.world
 	var solid: PackedByteArray = _server.registry.solid_lut
 	for offset in [Vector3i(2, 0, 0), Vector3i(-2, 0, 0), Vector3i(0, 0, 2), Vector3i(0, 0, -2), Vector3i(1, 0, 1), Vector3i(-1, 0, -1)]:
 		var feet: Vector3i = Vector3i(floori(center.x), floori(center.y), floori(center.z)) + offset

@@ -102,12 +102,13 @@ func _reset(entry: Dictionary) -> float:
 
 ## Where this ambience should come from for this player, or Vector3.INF if its conditions do not hold.
 func _where(p, entry: Dictionary) -> Vector3:
+	var into = _server.realm_of(p)  # what they can hear is what is around them, in their own world
 	var feet: Vector3 = p.state.position
 	var cell := Vector3i(feet.floor())
 	if entry.depth is Array and (entry.depth as Array).size() == 2:
 		if cell.y < int(entry.depth[0]) or cell.y > int(entry.depth[1]):
 			return Vector3.INF
-	if entry.sky != null and bool(entry.sky) != _sees_sky(cell):
+	if entry.sky != null and bool(entry.sky) != _sees_sky(cell, into):
 		return Vector3.INF
 	if entry.biome != null and _server.biome_generator != null:
 		var here: String = _server.biome_generator.biome_at(cell.x, cell.z)
@@ -118,7 +119,7 @@ func _where(p, entry: Dictionary) -> Vector3:
 	# `near` means "and it comes from over there": find the block it is about, so water laps from the
 	# water rather than from inside the listener's head.
 	if entry.near != null:
-		return _find_near(cell, entry)
+		return _find_near(cell, entry, into)
 	# Otherwise somewhere close by, off to one side, so it is not dead centre every time.
 	var angle := randf() * TAU
 	var distance := randf_range(2.0, float(entry.radius))
@@ -127,10 +128,10 @@ func _where(p, entry: Dictionary) -> Vector3:
 
 ## Whether there is open air above: nothing solid between here and the top of the world. Cheap, and it
 ## is the honest answer to "am I outside", which is what a mod means by `sky`.
-func _sees_sky(cell: Vector3i) -> bool:
+func _sees_sky(cell: Vector3i, into = null) -> bool:
 	var registry = _server.registry
 	for y in range(cell.y + 2, mini(cell.y + 40, 255)):
-		var block: int = _server.world.get_block(cell.x, y, cell.z)
+		var block: int = (into if into != null else _server.realm).world.get_block(cell.x, y, cell.z)
 		if block == BlockRegistry.UNLOADED:
 			return true
 		if registry.is_valid(block) and registry.solid_lut[block] == 1:
@@ -145,7 +146,8 @@ func _sees_sky(cell: Vector3i) -> bool:
 ## less than half the time and the water beside you was silent for no reason you could see. The sweep
 ## costs about fifteen hundred array lookups, and it runs once per ambience per player per interval -
 ## which is once every ten or twenty seconds, not once a frame.
-func _find_near(cell: Vector3i, entry: Dictionary) -> Vector3:
+func _find_near(cell: Vector3i, entry: Dictionary, into = null) -> Vector3:
+	var in_world = (into if into != null else _server.realm).world
 	var wanted := {}
 	for name in (entry.near if entry.near is Array else [entry.near]):
 		var id: int = _server.registry.id_of(str(name))
@@ -162,7 +164,7 @@ func _find_near(cell: Vector3i, entry: Dictionary) -> Vector3:
 		for dz in range(-radius, radius + 1):
 			for dy in range(-vertical, vertical + 1):
 				var at := cell + Vector3i(dx, dy, dz)
-				if wanted.has(_server.world.get_block_v(at)):
+				if wanted.has(in_world.get_block_v(at)):
 					seen += 1
 					if randi() % seen == 0:
 						found = at

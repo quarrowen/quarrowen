@@ -1435,11 +1435,12 @@ func _cmd_portal(player, args: PackedStringArray) -> void:
 	var best := Vector3i(0, -9999, 0)
 	var best_d := INF
 	var center := Vector3i(player.state.position.floor())
+	var into: Realm = realm_of(player)
 	for x in range(-4, 5):
 		for y in range(-2, 4):
 			for z in range(-4, 5):
 				var cell := center + Vector3i(x, y, z)
-				var block := world.get_block_v(cell)
+				var block := into.world.get_block_v(cell)
 				if registry.is_valid(block) and bool(registry.defs[block].get("portal", false)):
 					var d := Vector3(cell).distance_to(player.state.position)
 					if d < best_d:
@@ -1459,12 +1460,12 @@ func _cmd_portal(player, args: PackedStringArray) -> void:
 		if done.has(cell):
 			continue
 		done[cell] = true
-		var data := get_block_data(cell).duplicate()
+		var data := get_block_data(cell, into).duplicate()
 		data.portal = settings
-		set_block_data(cell, data)
+		set_block_data(cell, data, into)
 		for d in [Vector3i.UP, Vector3i.DOWN, Vector3i.LEFT, Vector3i.RIGHT, Vector3i.FORWARD, Vector3i.BACK]:
 			var next: Vector3i = cell + d
-			var b := world.get_block_v(next)
+			var b := into.world.get_block_v(next)
 			if not done.has(next) and registry.is_valid(b) and bool(registry.defs[b].get("portal", false)):
 				todo.append(next)
 	player.send_message("Portal (%d blocks) now leads to %s%s" % [done.size(), args[0], " at '%s'" % settings.arrival if not settings.arrival.is_empty() else ""])
@@ -1672,7 +1673,12 @@ func _physics_process(delta: float) -> void:
 	if tick % SNAPSHOT_INTERVAL_TICKS == 0 and not players.is_empty():
 		_send_snapshots()
 		t_snap = Time.get_ticks_usec()
-		entities.replicate(players.values())
+		# Each world replicates its own creatures to its own people; a realm nobody is in has nobody to
+		# tell, which is most of why an empty one costs nothing.
+		for r: Realm in realms.values():
+			var watchers := players.values().filter(func(p: ServerPlayer) -> bool: return realm_of(p) == r)
+			if not watchers.is_empty():
+				r.entities.replicate(watchers)
 	var t3 := Time.get_ticks_usec()
 	dev_tools.record("engine", "tick:snapshots", t3 - t2)
 	dev_tools.record("engine", "tick:whole server tick", t3 - t0)
@@ -1774,7 +1780,7 @@ func _simulate_player(p: ServerPlayer) -> void:
 	while budget > 0 and not p.input_queue.is_empty():
 		var input = p.input_queue.pop_front()
 		var falling_speed := -p.state.velocity.y
-		PlayerPhysics.step(p.state, input, world, p.physics_rules if p.physics_rules != null else rules)
+		PlayerPhysics.step(p.state, input, realm_of(p).world, p.physics_rules if p.physics_rules != null else rules)
 		p.last_processed_seq = input.seq
 		budget -= 1
 		p.input_credit -= 1.0
@@ -1788,7 +1794,7 @@ func _simulate_player(p: ServerPlayer) -> void:
 
 
 func _track_fall(p: ServerPlayer, speed_before: float) -> void:
-	var feet := world.get_block(floori(p.state.position.x), floori(p.state.position.y + 0.2), floori(p.state.position.z))
+	var feet := realm_of(p).world.get_block(floori(p.state.position.x), floori(p.state.position.y + 0.2), floori(p.state.position.z))
 	if registry.liquid_lut[feet] == 1:
 		p.fall_velocity = 0.0
 		return
@@ -1832,8 +1838,9 @@ func _update_health(p: ServerPlayer, delta: float) -> void:
 ## Blocks with `contact_damage: {amount, interval, cause}` (lava) hurt a player standing or swimming in them.
 func _contact_damage(p: ServerPlayer, delta: float) -> void:
 	var worst := {}
+	var pw = realm_of(p).world
 	for dy in [0.2, 1.2]:
-		var block := world.get_block(floori(p.state.position.x), floori(p.state.position.y + dy), floori(p.state.position.z))
+		var block := pw.get_block(floori(p.state.position.x), floori(p.state.position.y + dy), floori(p.state.position.z))
 		if registry.is_valid(block) and registry.defs[block].get("contact_damage") is Dictionary:
 			worst = registry.defs[block].contact_damage
 	if worst.is_empty():
@@ -2064,7 +2071,23 @@ func block_sound(block: int, action: String) -> String:
 func _send_snapshots() -> void:
 	_snapshot_round += 1
 	var full_rate := _snapshot_round % 2 == 0
-	var list: Array = players.values()
+	# One world at a time. Somebody in the Emberdeep is not far away from somebody in the overworld,
+	# they are not there at all, and interest radius cannot express that - they may be standing on the
+	# same coordinates. Grouping here rather than teaching the builder about realms is deliberate: the
+	# native snapshot code and its GDScript twin must agree exactly, and neither has to change.
+	if realms.size() == 1:
+		_send_snapshots_to(players.values(), full_rate)
+		return
+	var by_realm := {}
+	for p: ServerPlayer in players.values():
+		if not by_realm.has(p.realm_id):
+			by_realm[p.realm_id] = []
+		by_realm[p.realm_id].append(p)
+	for group: Array in by_realm.values():
+		_send_snapshots_to(group, full_rate)
+
+
+func _send_snapshots_to(list: Array, full_rate: bool) -> void:
 	if Native.enabled():
 		var ids := PackedInt32Array()
 		var seqs := PackedInt32Array()
@@ -2378,6 +2401,11 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 		var spawn_point = saved.get("spawn_point")
 		if spawn_point is Array and spawn_point.size() == 3:
 			p.spawn_point = Vector3(spawn_point[0], spawn_point[1], spawn_point[2])
+		# A realm a mod no longer registers puts them back in the overworld rather than nowhere: the
+		# position is meaningless there, but the overworld is at least somewhere to stand.
+		p.realm_id = String(saved.get("realm", ""))
+		if not realms.has(p.realm_id):
+			p.realm_id = ""
 	players[peer_id] = p
 	_simulation_dirty = true
 	if first_time:
@@ -2388,7 +2416,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 			p.state.position = at
 	if not transfer.is_empty() and transfers.arrival_position(transfer) != Vector3.INF:
 		p.state.position = transfers.arrival_position(transfer)
-	ensure_area_loaded(p.state.position)
+	ensure_area_loaded(p.state.position, realm_of(p))
 
 	Net.s_welcome.rpc_id(peer_id, peer_id, p.state.position, 0.0)
 	_set_client_avatar(p, avatar, true)
@@ -2476,8 +2504,48 @@ func _disconnect_peer(peer_id: int) -> void:
 ## Which world a player is standing in. The one place that answers this, so that when players really
 ## do belong to a realm it is one function that changes rather than every caller. Until then everybody
 ## is in the overworld, which is exactly what the server did before realms existed.
-func realm_of(_p: ServerPlayer) -> Realm:
-	return realm
+func realm_of(p: ServerPlayer) -> Realm:
+	return realms.get(p.realm_id, realm)
+
+
+## Moves a player to another world, standing at `position`. Portals, the command and the mod API all
+## end here, so the order below is the only place it has to be right.
+##
+## Returns false when there is no such realm, or they are already in it.
+func send_to_realm(p: ServerPlayer, realm_id: String, position: Vector3) -> bool:
+	var into: Realm = realms.get(realm_id)
+	if into == null or p.realm_id == realm_id:
+		return false
+	var from := realm_of(p)
+	var ev: Dictionary = emit("player_realm_change", {"player": p, "from": from.id, "to": realm_id,
+		"position": position, "cancelled": false})
+	if bool(ev.get("cancelled", false)):
+		return false
+	position = ev.get("position", position)
+
+	# Everybody watching loses sight of them: they are not somewhere else in this world, they are not
+	# in it at all. Told before the move so the message describes a world they are both still in.
+	for other: ServerPlayer in players.values():
+		if other.peer_id != p.peer_id and realm_of(other) == from:
+			Net.s_player_left.rpc_id(other.peer_id, p.peer_id)
+
+	p.realm_id = realm_id
+	p.state.position = position
+	p.state.velocity = Vector3.ZERO
+	p.fall_velocity = 0.0
+
+	# Then the client, which drops the whole world it is holding - and only then may a chunk of the new
+	# one be sent. Both travel on BULK_CHANNEL so this order survives the wire (see Net.s_realm).
+	Net.s_realm.rpc_id(p.peer_id, into.id, into.display_name)
+	p.sent_chunks.clear()
+	p.pending_chunks.clear()
+	p.stream_center = Vector2i(1 << 30, 0)  # no chunk coordinate, so the next tick rebuilds the list
+	p.known_entities.clear()
+	p.known_entities_stale = true
+	_simulation_dirty = true
+	ensure_area_loaded(position, into)
+	emit("player_arrived_realm", {"player": p, "from": from.id, "to": realm_id})
+	return true
 
 
 func _build_view_offsets() -> void:
@@ -2668,11 +2736,11 @@ func _ensure_chunk(coord: Vector2i, into: Realm = null):
 
 
 ## Loads the chunks around a position so players placed there have ground to stand on.
-func ensure_area_loaded(pos: Vector3) -> void:
+func ensure_area_loaded(pos: Vector3, into: Realm = null) -> void:
 	var center := VoxelWorld.chunk_coord_of(pos)
 	for x in range(-1, 2):
 		for z in range(-1, 2):
-			_ensure_chunk(center + Vector2i(x, z))
+			_ensure_chunk(center + Vector2i(x, z), into)
 
 
 func _unload_unused_chunks() -> void:
@@ -2718,26 +2786,32 @@ func _unload_unused_chunks() -> void:
 
 # --- World access for mods ----------------------------------------------------------------------
 
-func get_block_loaded(pos: Vector3i) -> int:
+## Every function here takes the world to act in, and `null` means the overworld. A position alone
+## does not say which world any more - the same coordinates exist in all of them - so anything acting
+## for a player passes `realm_of(p)`, and anything acting for a creature passes its realm.
+func get_block_loaded(pos: Vector3i, into: Realm = null) -> int:
+	into = into if into != null else realm
 	if pos.y >= 0 and pos.y < Chunk.SIZE_Y:
-		_ensure_chunk(VoxelWorld.chunk_coord_at(pos.x, pos.z))
-	return world.get_block_v(pos)
+		_ensure_chunk(VoxelWorld.chunk_coord_at(pos.x, pos.z), into)
+	return into.world.get_block_v(pos)
 
 
-func set_block_authoritative(pos: Vector3i, id: int, keep_data := false, state := 0) -> void:
+func set_block_authoritative(pos: Vector3i, id: int, keep_data := false, state := 0, into: Realm = null) -> void:
+	into = into if into != null else realm
 	if not registry.is_valid(id) or pos.y < 0 or pos.y >= Chunk.SIZE_Y:
 		return
-	_ensure_chunk(VoxelWorld.chunk_coord_at(pos.x, pos.z))
-	if world.get_block_v(pos) != id or get_block_state(pos) != state:
-		_apply_block(pos, id, keep_data, state)
+	_ensure_chunk(VoxelWorld.chunk_coord_at(pos.x, pos.z), into)
+	if into.world.get_block_v(pos) != id or into.block_state(pos) != state:
+		_apply_block(pos, id, keep_data, state, into)
 
 
 ## Y of the highest solid or liquid block in the column (loading it if needed), or -1. Plants and
 ## other non-solid decorations are skipped, so things placed on the surface stand on the ground.
-func surface_height(x: int, z: int) -> int:
-	_ensure_chunk(VoxelWorld.chunk_coord_at(x, z))
+func surface_height(x: int, z: int, into: Realm = null) -> int:
+	into = into if into != null else realm
+	_ensure_chunk(VoxelWorld.chunk_coord_at(x, z), into)
 	for y in range(Chunk.SIZE_Y - 1, -1, -1):
-		var block := world.get_block(x, y, z)
+		var block := into.world.get_block(x, y, z)
 		if block != BlockRegistry.AIR and (registry.solid_lut[block] == 1 or registry.liquid_lut[block] == 1):
 			return y
 	return -1
@@ -2757,45 +2831,46 @@ func raycast_lut_with_liquids() -> PackedByteArray:
 	return _liquid_ray_lut
 
 
-func get_block_state(pos: Vector3i) -> int:
-	var chunk = world.chunks.get(VoxelWorld.chunk_coord_at(pos.x, pos.z))
-	if chunk == null or pos.y < 0 or pos.y >= Chunk.SIZE_Y:
-		return 0
-	return chunk.states.get(Chunk.index(pos.x & 15, pos.y, pos.z & 15), 0)
+func get_block_state(pos: Vector3i, into: Realm = null) -> int:
+	return (into if into != null else realm).block_state(pos)
 
 
 # --- Block data (block entities) ----------------------------------------------------------------
 
 ## Live dictionary for the block at `pos`, or an empty one if it has none. Mutations to a returned
 ## dictionary are saved; call set_block_data to attach data to a block that has none yet.
-func get_block_data(pos: Vector3i) -> Dictionary:
-	return _block_data.get(VoxelWorld.chunk_coord_at(pos.x, pos.z), {}).get(pos, {})
+func get_block_data(pos: Vector3i, into: Realm = null) -> Dictionary:
+	into = into if into != null else realm
+	return into.block_data.get(VoxelWorld.chunk_coord_at(pos.x, pos.z), {}).get(pos, {})
 
 
-func set_block_data(pos: Vector3i, data: Dictionary) -> void:
+func set_block_data(pos: Vector3i, data: Dictionary, into: Realm = null) -> void:
+	into = into if into != null else realm
 	var coord := VoxelWorld.chunk_coord_at(pos.x, pos.z)
-	_ensure_chunk(coord)
-	if not _block_data.has(coord):
-		_block_data[coord] = {}
-	_block_data[coord][pos] = data
-	_save_dirty[coord] = true
+	_ensure_chunk(coord, into)
+	if not into.block_data.has(coord):
+		into.block_data[coord] = {}
+	into.block_data[coord][pos] = data
+	into.save_dirty[coord] = true
 
 
-func clear_block_data(pos: Vector3i) -> void:
+func clear_block_data(pos: Vector3i, into: Realm = null) -> void:
+	into = into if into != null else realm
 	var coord := VoxelWorld.chunk_coord_at(pos.x, pos.z)
-	var entries: Dictionary = _block_data.get(coord, {})
+	var entries: Dictionary = into.block_data.get(coord, {})
 	if entries.erase(pos):
-		_save_dirty[coord] = true
+		into.save_dirty[coord] = true
 		if entries.is_empty():
-			_block_data.erase(coord)
+			into.block_data.erase(coord)
 
 
 ## Positions of loaded blocks that have data, optionally only of one block type.
-func find_block_data(block := -1) -> Array[Vector3i]:
+func find_block_data(block := -1, into: Realm = null) -> Array[Vector3i]:
+	into = into if into != null else realm
 	var out: Array[Vector3i] = []
-	for entries: Dictionary in _block_data.values():
+	for entries: Dictionary in into.block_data.values():
 		for pos: Vector3i in entries:
-			if block < 0 or world.get_block_v(pos) == block:
+			if block < 0 or into.world.get_block_v(pos) == block:
 				out.append(pos)
 	return out
 
@@ -2917,7 +2992,8 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null:
 		return
-	var current := world.get_block_v(pos)
+	var into := realm_of(p)
+	var current := into.world.get_block_v(pos)
 	if not _may(p, "build", "You can't build on this server"):
 		_reject_edit(p, pos)
 		return
@@ -2950,8 +3026,8 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 		return
 	if harvest and not p.inventory.creative and ev.drops is Array:
 		loot.awarded(loot_table, ev.drops, loot_context)
-	_apply_block(pos, BlockRegistry.AIR)
-	entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 10.0, p)
+	_apply_block(pos, BlockRegistry.AIR, false, 0, into)
+	into.entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 10.0, p)
 	play_sound_at(block_sound(current, "break"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
 	if not p.inventory.creative and ev.drops is Array:
 		for drop in ev.drops:
@@ -2974,13 +3050,14 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null:
 		return
+	var into := realm_of(p)
 	var block := p.inventory.selected_block()
-	var current := world.get_block_v(pos)
+	var current := into.world.get_block_v(pos)
 	if block > 0 and not _may(p, "build", "You can't build on this server"):
 		_reject_edit(p, pos)
 		return
 	var valid: bool = _can_edit(p, pos) and block > 0 and registry.placeable_lut[block] == 1 \
-		and _can_replace(current) and _has_solid_neighbor(pos) and is_supported(pos, block)
+		and _can_replace(current) and _has_solid_neighbor(pos, into) and is_supported(pos, block, into)
 	var state := BlockRegistry.facing_from_yaw(yaw) if valid and registry.defs[block].orientation == 1 and is_finite(yaw) else 0
 	# Stairs and the like: the carried block places the variant that faces the player.
 	var variants: Array = registry.defs[block].get("facing_blocks", []) if valid else []
@@ -3002,7 +3079,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 		p.inventory.consume_selected()
 		if not p.inventory.creative:
 			p.sync_inventory()
-		_apply_block(merge.position, merge.block, true)
+		_apply_block(merge.position, merge.block, true, 0, into)
 		_reject_edit(p, pos)  # the client guessed the cell next door; put it back
 		play_sound_at(block_sound(merge.block, "place"), Vector3(merge.position) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1))
 		broadcast_player_event(p, Entities.Event.SWING)
@@ -3016,7 +3093,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 	if pair is Dictionary:
 		pair_pos = pos + pair_offset(pair, state)
 		pair_block = registry.id_of(str(pair.block))
-		valid = pair_block > 0 and _can_edit(p, pair_pos) and _can_replace(world.get_block_v(pair_pos)) and is_supported(pair_pos, pair_block)
+		valid = pair_block > 0 and _can_edit(p, pair_pos) and _can_replace(into.world.get_block_v(pair_pos)) and is_supported(pair_pos, pair_block, into)
 	if valid:
 		for other: ServerPlayer in players.values():
 			for cell in ([pos, pair_pos] if pair_block > 0 else [pos]):
@@ -3030,12 +3107,12 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 	p.inventory.consume_selected()
 	if not p.inventory.creative:
 		p.sync_inventory()
-	_apply_block(pos, block, false, state)
+	_apply_block(pos, block, false, state, into)
 	if pair_block > 0:
-		_apply_block(pair_pos, pair_block, false, state)
+		_apply_block(pair_pos, pair_block, false, state, into)
 	if not str(registry.defs[block].get("station", "")).is_empty():
 		sessions.claim(pos, p)
-	entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 8.0, p)
+	into.entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 8.0, p)
 	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
 	broadcast_player_event(p, Entities.Event.SWING)
 	emit("block_placed", {"player": p, "position": pos, "block": block})
@@ -3045,7 +3122,7 @@ func on_interact(peer_id: int, pos: Vector3i) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null:
 		return
-	var block := world.get_block_v(pos)
+	var block := realm_of(p).world.get_block_v(pos)
 	if block == BlockRegistry.UNLOADED or registry.interactive_lut[block] == 0 or not _can_edit(p, pos):
 		return
 	if not _may(p, "interact", "You can't use that here"):
@@ -3120,7 +3197,7 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 	if teaches is Array and not teaches.is_empty():
 		_read_blueprint(p, teaches)
 		return
-	if has_target and (not world.has_chunk(VoxelWorld.chunk_coord_at(target.x, target.z)) \
+	if has_target and (not realm_of(p).world.has_chunk(VoxelWorld.chunk_coord_at(target.x, target.z)) \
 			or p.get_eye_position().distance_to(Vector3(target) + Vector3.ONE * 0.5) > REACH + 0.87):
 		has_target = false
 	broadcast_player_event(p, Entities.Event.SWING)
@@ -3263,7 +3340,7 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 			anticheat.record(p, "reach", 1.0, "a hit %.1f blocks away" % distance)
 		return
 	var center := box.get_center()
-	var ray := VoxelRaycast.cast(world, registry.solid_lut, eye, center - eye, eye.distance_to(center))
+	var ray := VoxelRaycast.cast(realm_of(p).world, registry.solid_lut, eye, center - eye, eye.distance_to(center))
 	if ray.hit and eye.distance_to(Vector3(ray.position) + Vector3.ONE * 0.5) < distance - 0.5:
 		return  # a wall is in the way
 	p.last_attack_time = _time
@@ -3412,7 +3489,7 @@ func on_mine_start(peer_id: int, pos: Vector3i) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null or p.dead or p.get_eye_position().distance_to(Vector3(pos) + Vector3.ONE * 0.5) > REACH + 1.5:
 		return
-	var block := world.get_block_v(pos)
+	var block := realm_of(p).world.get_block_v(pos)
 	if block == BlockRegistry.UNLOADED or registry.breakable_lut[block] == 0:
 		return
 	p.mining = {"position": pos, "started": _time}
@@ -3985,7 +4062,7 @@ func _at_station(p: ServerPlayer, recipe: Dictionary) -> bool:
 ## The player's crafting station still exists and is within reach.
 func _station_valid(p: ServerPlayer) -> bool:
 	var s: Dictionary = p.crafting_station
-	if s.is_empty() or not s.has("position") or str(registry.defs[world.get_block_v(s.position)].get("station", "")) != s.name:
+	if s.is_empty() or not s.has("position") or str(registry.defs[realm_of(p).world.get_block_v(s.position)].get("station", "")) != s.name:
 		return false
 	return p.get_eye_position().distance_to(Vector3(s.position) + Vector3.ONE * 0.5) <= Containers.MAX_DISTANCE
 
@@ -4007,7 +4084,7 @@ func _stock_containers(p: ServerPlayer) -> Array:
 		return out
 	var center: Vector3i = p.crafting_station.position
 	var r := STATION_PULL_RADIUS + int(p.crafting_station.get("pull_radius", 0))
-	for pos: Vector3i in find_block_data():
+	for pos: Vector3i in find_block_data(-1, realm_of(p)):
 		if absi(pos.x - center.x) <= r and absi(pos.y - center.y) <= r and absi(pos.z - center.z) <= r:
 			var c = containers.get_container(pos)
 			if c != null:
@@ -4410,7 +4487,7 @@ func _can_edit(p: ServerPlayer, pos: Vector3i) -> bool:
 	if p.edit_tokens < 1.0:
 		return false
 	p.edit_tokens -= 1.0
-	if pos.y < 0 or pos.y >= Chunk.SIZE_Y or not world.has_chunk(VoxelWorld.chunk_coord_at(pos.x, pos.z)):
+	if pos.y < 0 or pos.y >= Chunk.SIZE_Y or not realm_of(p).world.has_chunk(VoxelWorld.chunk_coord_at(pos.x, pos.z)):
 		return false
 	var distance := p.get_eye_position().distance_to(Vector3(pos) + Vector3(0.5, 0.5, 0.5))
 	if distance > REACH + 3.0:
@@ -4424,7 +4501,7 @@ func _can_edit(p: ServerPlayer, pos: Vector3i) -> bool:
 func _aimed_high(p: ServerPlayer, pos: Vector3i) -> bool:
 	var origin := p.get_eye_position()
 	var direction := PlayerPhysics.look_direction(p.yaw, p.pitch)
-	var hit := VoxelRaycast.cast(world, registry.targetable_lut, origin, direction, REACH)
+	var hit := VoxelRaycast.cast(realm_of(p).world, registry.targetable_lut, origin, direction, REACH)
 	if not hit.hit or hit.position + hit.normal != pos:
 		return false
 	if hit.normal.y != 0:
@@ -4445,11 +4522,12 @@ func _slab_merge(p: ServerPlayer, block: int, pos: Vector3i) -> Dictionary:
 	var material := str(registry.defs[block].get("full_block", ""))
 	if material.is_empty():
 		return {}
-	var hit := VoxelRaycast.cast(world, registry.targetable_lut, p.get_eye_position(),
+	var into := realm_of(p)
+	var hit := VoxelRaycast.cast(into.world, registry.targetable_lut, p.get_eye_position(),
 		PlayerPhysics.look_direction(p.yaw, p.pitch), REACH)
 	if not hit.hit or hit.position + hit.normal != pos or not _can_edit(p, hit.position):
 		return {}
-	var there := world.get_block_v(hit.position)
+	var there := into.world.get_block_v(hit.position)
 	if str(registry.defs[there].get("full_block", "")) != material:
 		return {}  # empty, another material, or not a slab at all
 	var shape := registry.shape_lut[there]
@@ -4461,55 +4539,59 @@ func _slab_merge(p: ServerPlayer, block: int, pos: Vector3i) -> Dictionary:
 	return {"position": hit.position, "block": full} if full > 0 else {}
 
 
-func _has_solid_neighbor(pos: Vector3i) -> bool:
+func _has_solid_neighbor(pos: Vector3i, into: Realm = null) -> bool:
+	var w = (into if into != null else realm).world
 	for dir in [Vector3i.UP, Vector3i.DOWN, Vector3i.LEFT, Vector3i.RIGHT, Vector3i.FORWARD, Vector3i.BACK]:
-		if registry.solid_lut[world.get_block_v(pos + dir)] == 1 and world.get_block_v(pos + dir) != BlockRegistry.UNLOADED:
+		if registry.solid_lut[w.get_block_v(pos + dir)] == 1 and w.get_block_v(pos + dir) != BlockRegistry.UNLOADED:
 			return true
 	return false
 
 
-func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0) -> void:
+func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0, into: Realm = null) -> void:
+	into = into if into != null else realm
 	var coord := VoxelWorld.chunk_coord_at(pos.x, pos.z)
-	var chunk = world.chunks.get(coord)
+	var chunk = into.world.chunks.get(coord)
 	if chunk == null:
 		return
-	if not _generated.has(coord):
-		_generated[coord] = chunk.blocks.duplicate()
-	var old := world.get_block_v(pos)
-	var old_state := get_block_state(pos)
-	world.set_block(pos.x, pos.y, pos.z, block)
+	if not into.generated.has(coord):
+		into.generated[coord] = chunk.blocks.duplicate()
+	var old := into.world.get_block_v(pos)
+	var old_state := into.block_state(pos)
+	into.world.set_block(pos.x, pos.y, pos.z, block)
 	var index := Chunk.index(pos.x & 15, pos.y, pos.z & 15)
-	if not _deltas.has(coord):
-		_deltas[coord] = {}
-	if _generated[coord].decode_u16(index << 1) == block:
-		_deltas[coord].erase(index)
+	if not into.deltas.has(coord):
+		into.deltas[coord] = {}
+	if into.generated[coord].decode_u16(index << 1) == block:
+		into.deltas[coord].erase(index)
 	else:
-		_deltas[coord][index] = block
+		into.deltas[coord][index] = block
 	if state > 0:
 		chunk.states[index] = state & 255
 	else:
 		chunk.states.erase(index)
-	_save_dirty[coord] = true
+	into.save_dirty[coord] = true
 	if old != block and not keep_data:
 		if not containers.type_of_block(old).is_empty():
-			containers.block_removed(pos, get_block_data(pos), old)
-		clear_block_data(pos)
-	block_ticks.block_changed(pos, old, block)
+			containers.block_removed(pos, get_block_data(pos, into), old)
+		clear_block_data(pos, into)
+	into.block_ticks.block_changed(pos, old, block)
 	if old != block:
-		connect.refresh_around(pos)
+		connect.refresh_around(pos, into)
 	# Removing one half of a two-block piece removes the other (its drops come from the half broken).
 	if old != block and registry.defs[old].get("pair") is Dictionary:
 		var other: Vector3i = pos + pair_offset(registry.defs[old].pair, old_state)
-		if world.get_block_v(other) == registry.id_of(str(registry.defs[old].pair.block)):
-			_apply_block(other, BlockRegistry.AIR)
+		if into.world.get_block_v(other) == registry.id_of(str(registry.defs[old].pair.block)):
+			_apply_block(other, BlockRegistry.AIR, false, 0, into)
+	# Only the people standing in this world: chunk (0, 0) has been sent to somebody in every realm,
+	# and a coordinate alone would have the Emberdeep's edits redrawn in the overworld.
 	for p: ServerPlayer in players.values():
-		if p.sent_chunks.has(coord):
+		if p.sent_chunks.has(coord) and realm_of(p) == into:
 			Net.s_block_changed.rpc_id(p.peer_id, pos, block, state & 255)
 	# Blocks that need support (plants, torches) break when what holds them goes away.
 	if old != block and pos.y + 1 < Chunk.SIZE_Y:
-		var above := world.get_block_v(pos + Vector3i.UP)
-		if above != BlockRegistry.AIR and above != BlockRegistry.UNLOADED and not is_supported(pos + Vector3i.UP, above):
-			break_block(pos + Vector3i.UP, true)
+		var above := into.world.get_block_v(pos + Vector3i.UP)
+		if above != BlockRegistry.AIR and above != BlockRegistry.UNLOADED and not is_supported(pos + Vector3i.UP, above, into):
+			break_block(pos + Vector3i.UP, true, into)
 
 
 func _can_replace(current: int) -> bool:
@@ -4531,18 +4613,19 @@ static func pair_offset(pair: Dictionary, state: int) -> Vector3i:
 
 
 ## The other half of a two-block piece at `pos`, or `pos` itself.
-func pair_position(pos: Vector3i) -> Vector3i:
-	var block := world.get_block_v(pos)
+func pair_position(pos: Vector3i, into: Realm = null) -> Vector3i:
+	into = into if into != null else realm
+	var block := into.world.get_block_v(pos)
 	if not registry.is_valid(block) or not (registry.defs[block].get("pair") is Dictionary):
 		return pos
 	var pair: Dictionary = registry.defs[block].pair
-	var other := pos + pair_offset(pair, get_block_state(pos))
-	return other if world.get_block_v(other) == registry.id_of(str(pair.block)) else pos
+	var other := pos + pair_offset(pair, into.block_state(pos))
+	return other if into.world.get_block_v(other) == registry.id_of(str(pair.block)) else pos
 
 
 ## Whether `block` may stand at `pos`: its `support` rule ("solid" or [block names]) must accept the block
 ## below. Blocks without a rule always can.
-func is_supported(pos: Vector3i, block: int) -> bool:
+func is_supported(pos: Vector3i, block: int, into: Realm = null) -> bool:
 	if not _support_rules.has(block):
 		var rule = registry.defs[block].get("support")
 		var resolved = null
@@ -4558,30 +4641,32 @@ func is_supported(pos: Vector3i, block: int) -> bool:
 	var needed = _support_rules[block]
 	if needed == null:
 		return true
-	var below := world.get_block_v(pos + Vector3i.DOWN)
+	var below := (into if into != null else realm).world.get_block_v(pos + Vector3i.DOWN)
 	return registry.solid_lut[below] == 1 and below != BlockRegistry.UNLOADED if needed is bool else needed.has(below)
 
 
 ## Breaks a block without a player (support lost, explosions, mods): drops items, plays its sound.
-func break_block(pos: Vector3i, drop := true) -> void:
-	var block := world.get_block_v(pos)
+func break_block(pos: Vector3i, drop := true, into: Realm = null) -> void:
+	into = into if into != null else realm
+	var block := into.world.get_block_v(pos)
 	if block == BlockRegistry.AIR or block == BlockRegistry.UNLOADED:
 		return
 	var drops := _default_drops(block) if drop else []
-	var ev := emit("block_destroyed", {"position": pos, "block": block, "drops": drops})
-	_apply_block(pos, BlockRegistry.AIR)
+	var ev := emit("block_destroyed", {"position": pos, "block": block, "drops": drops, "realm": into.id})
+	_apply_block(pos, BlockRegistry.AIR, false, 0, into)
 	play_sound_at(block_sound(block, "break"), Vector3(pos) + Vector3.ONE * 0.5, 0.8, randf_range(0.9, 1.1))
 	for d in (ev.drops if ev.drops is Array else []):
 		if d is Array and d.size() == 2 and items.is_valid(int(d[0])) and int(d[1]) > 0:
-			entities.drop_item(int(d[0]), int(d[1]), Vector3(pos) + Vector3(0.5, 0.3, 0.5),
+			into.entities.drop_item(int(d[0]), int(d[1]), Vector3(pos) + Vector3(0.5, 0.3, 0.5),
 				Vector3(randf_range(-1.0, 1.0), randf_range(2.0, 3.5), randf_range(-1.0, 1.0)), 0.3)
 
 
 ## Tells the client the authoritative block and inventory so it can roll back its prediction.
 func _reject_edit(p: ServerPlayer, pos: Vector3i) -> void:
-	var block := world.get_block_v(pos)
+	var into := realm_of(p)
+	var block := into.world.get_block_v(pos)
 	if block != BlockRegistry.UNLOADED and _started:
-		Net.s_block_changed.rpc_id(p.peer_id, pos, block, get_block_state(pos))
+		Net.s_block_changed.rpc_id(p.peer_id, pos, block, into.block_state(pos))
 	p.sync_inventory()
 
 
@@ -4666,6 +4751,7 @@ func _store_player(p: ServerPlayer) -> void:
 		"saturation": p.saturation,
 		"exhaustion": p.exhaustion,
 		"spawn_point": [p.spawn_point.x, p.spawn_point.y, p.spawn_point.z] if p.spawn_point != Vector3.INF else null,
+		"realm": p.realm_id,
 		"guide": guide.save_player(p),
 		"tutorial": tutorials.save_player(p),
 		"spawn_bed": [p.spawn_bed.x, p.spawn_bed.y, p.spawn_bed.z] if p.spawn_bed != null else null,

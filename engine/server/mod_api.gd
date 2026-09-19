@@ -905,6 +905,12 @@ func block_display_name(id: int) -> String:
 
 
 # --- World --------------------------------------------------------------------------------------
+#
+# KNOWN LIMIT while dimensions are being built: every function in this section acts on the
+# **overworld**. A position on its own no longer says which world it is in, and none of these take one,
+# so a mod cannot yet address a second realm - nor can it make one, which is why this is a limit rather
+# than a bug today. When realms reach the mod API these gain a way to say where, most likely by the
+# event that supplied the position carrying its realm. (2026-09-19)
 
 ## `generator` must implement `generate(chunk)`; write into a local copy of `chunk.blocks`
 ## (index with Chunk.index(x, y, z)) and assign it back for speed.

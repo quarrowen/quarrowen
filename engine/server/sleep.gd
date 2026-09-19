@@ -109,7 +109,7 @@ func update(delta: float) -> void:
 	for p in _server.players.values():
 		if p.sleeping.is_empty():
 			continue
-		if p.dead or not is_bed(_server.world.get_block_v(Vector3i(p.sleeping.bed))):
+		if p.dead or not is_bed(_server.realm_of(p).world.get_block_v(Vector3i(p.sleeping.bed))):
 			wake(p, "bed")
 		elif not is_night():
 			wake(p, "day")
@@ -184,7 +184,7 @@ func stand_spot(anchor: Vector3i) -> Vector3:
 func respawn_position(p) -> Vector3:
 	if p.spawn_bed == null:
 		return Vector3.INF
-	_server.ensure_area_loaded(Vector3(p.spawn_bed))
+	_server.ensure_area_loaded(Vector3(p.spawn_bed), _server.realm_of(p))
 	var spot := stand_spot(Vector3i(p.spawn_bed))
 	if spot == Vector3.INF:
 		p.spawn_bed = null

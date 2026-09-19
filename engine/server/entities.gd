@@ -147,7 +147,7 @@ var last_sections := {}
 
 
 func tick(delta: float) -> void:
-	var world = _server.world
+	var world = realm.world
 	var t0 := Time.get_ticks_usec()
 	ai.tick(delta)
 	var t1 := Time.get_ticks_usec()
@@ -212,7 +212,7 @@ func _needs_step(e: Entity) -> bool:
 func _step_bodies(list: Array[Entity], delta: float) -> void:
 	if list.is_empty():
 		return
-	var world = _server.world
+	var world = realm.world
 	var before := PackedVector3Array()
 	before.resize(list.size())
 	if world.native:
@@ -275,7 +275,7 @@ func _step_projectile(e: Entity, delta: float) -> void:
 	var dir := motion / distance
 	var from := b.position
 	var hit := {"t": INF}
-	var ray: Dictionary = VoxelRaycast.cast(_server.world, _server.registry.solid_lut, from, dir, distance)
+	var ray: Dictionary = VoxelRaycast.cast(realm.world, _server.registry.solid_lut, from, dir, distance)
 	if ray.hit:
 		var cell := Vector3(ray.position)
 		var t := EntityPhysics.segment_hits_box(from, dir, distance + 0.001, cell, cell + Vector3.ONE)
@@ -528,7 +528,7 @@ func _contact_damage() -> void:
 		if e.def.kind != "mob" or not e.is_alive():
 			continue
 		var p := e.body.position
-		var block: int = _server.world.get_block(floori(p.x), floori(p.y + 0.3), floori(p.z))
+		var block: int = realm.world.get_block(floori(p.x), floori(p.y + 0.3), floori(p.z))
 		if registry_blocks.is_valid(block) and registry_blocks.defs[block].get("contact_damage") is Dictionary:
 			var c: Dictionary = registry_blocks.defs[block].contact_damage
 			damage(e, float(c.get("amount", 2.0)) / maxf(float(c.get("interval", 0.5)), 0.1), str(c.get("cause", "contact")))

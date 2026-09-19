@@ -98,7 +98,7 @@ func update(p, delta: float, moved: Vector3, move_time: float, was_on_ground: bo
 	if p.hunger <= SPRINT_MIN_HUNGER and not p.modifiers.has("engine:hunger"):
 		_update_sprint(p)  # back in survival while starving
 	var flat := Vector2(moved.x, moved.z).length()
-	var feet: int = _server.world.get_block(floori(p.state.position.x), floori(p.state.position.y + 0.2), floori(p.state.position.z))
+	var feet: int = _server.realm_of(p).world.get_block(floori(p.state.position.x), floori(p.state.position.y + 0.2), floori(p.state.position.z))
 	var gained := 0.0
 	if _server.registry.liquid_lut[feet] == 1:
 		gained += flat * SWIM_PER_METER
