@@ -73,6 +73,7 @@ func _ready() -> void:
 	await _music()
 	await _ambience()
 	await _weather()
+	await _realms()
 	await _simulation_distance()
 	_scripts_compile()
 	_mod_assets_exist()
@@ -3993,6 +3994,63 @@ func _scripts_compile() -> void:
 
 ## Atmosphere. The engine picks the moments; a mod says under what conditions.
 ## Weather: world state the engine keeps, whose look and timing belong to a mod.
+## A second world on the same server: its own blocks, its own creatures, its own folder, and the same
+## chunk coordinate meaning two different places.
+func _realms() -> void:
+	var server = _start("realms_%d" % Time.get_ticks_msec())
+	var deep = server.add_realm("test:deep", "The Deep")
+	_check(deep != null and server.realms.size() == 2, "a mod can add a world beside the overworld")
+	_check(server.add_realm("test:deep") == null, "and cannot add the same one twice")
+	_check(server.add_realm("") == null, "or one with no name")
+
+	# The overworld keeps the folder every save already has; the new realm gets one beside it. This is
+	# the whole reason the overworld's id is "", so it matters that it stays true.
+	_check(server.realm.is_overworld() and not deep.is_overworld(), "the overworld knows it is the overworld")
+	_check(server.realm.save_dir == server._save_dir, "which keeps the folder a world already had")
+	_check(deep.save_dir.contains("realms") and deep.save_dir.ends_with("test_deep"),
+		"and the new realm gets its own beside it (%s)" % deep.save_dir)
+	_check(DirAccess.dir_exists_absolute(deep.save_dir + "/chunks"), "made, so it has somewhere to write")
+
+	# The point of the whole exercise: one coordinate, two worlds, two different blocks.
+	var stone: int = server.registry.id_of("base:stone")
+	var glass: int = server.registry.id_of("base:glass")
+	var pos := Vector3i(4, 40, 4)
+	server._ensure_chunk(Vector2i.ZERO)
+	server._ensure_chunk(Vector2i.ZERO, deep)
+	server.realm.world.set_block(pos.x, pos.y, pos.z, stone)
+	deep.world.set_block(pos.x, pos.y, pos.z, glass)
+	_check(server.realm.world.get_block_v(pos) == stone and deep.world.get_block_v(pos) == glass,
+		"the same position is a different block in each world")
+
+	# Two fields, not one. A game can set its own world generator and still use the engine's biomes for
+	# spawning and for "what biome am I in"; mapping one onto the other handed chunk workers the biome
+	# generator to make terrain with, and no test noticed. (2026-09-19)
+	var marker := RefCounted.new()
+	deep.generator = marker
+	_check(deep.generator == marker and deep.biome_generator == null,
+		"a realm's world generator and its biome generator are separate")
+	_check(server.realm.generator != marker, "and setting one realm's does not touch another's")
+	deep.generator = null
+
+	# Each realm keeps its own tick table, for the same reason.
+	_check(deep.block_ticks != server.realm.block_ticks, "and its own block ticks")
+	_check(deep.block_ticks.realm == deep, "which know the world they are in")
+	_check(deep.entities != server.realm.entities, "and its own creatures")
+
+	# A realm nobody is in is asleep, however many are occupied.
+	server._refresh_simulation()
+	_check(not deep.is_awake() and not server.realm.is_awake(), "both start asleep")
+	var p := ServerPlayer.new(server, 92, "Delver")
+	p.player_id = "delver"
+	p.state.position = Vector3(8, 70, 8)
+	server.players[92] = p
+	server._refresh_simulation()
+	_check(server.realm.is_awake() and not deep.is_awake(),
+		"a player wakes the world they are in and not the other one")
+	server.queue_free()
+	await get_tree().process_frame
+
+
 ## How much of the world runs: a realm with nobody in it does nothing at all, and inside one that is
 ## occupied only the chunks near somebody tick. See docs/roadmap.md, "How much of the world is running".
 func _simulation_distance() -> void:

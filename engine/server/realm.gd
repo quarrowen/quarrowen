@@ -17,6 +17,8 @@ extends RefCounted
 
 const VoxelWorld = preload("res://engine/shared/voxel_world.gd")
 const Entities = preload("res://engine/server/entities.gd")
+const BlockTicks = preload("res://engine/server/block_ticks.gd")
+const Chunk = preload("res://engine/shared/chunk.gd")
 
 ## What a mod called it ("overworld", "mymod:emberdeep"). The overworld's name is "" for the world a
 ## server has always had, so a save written before realms existed is still where it was.
@@ -25,14 +27,34 @@ var display_name := ""
 
 var world := VoxelWorld.new()
 var seed_value := 0
-var entities
-## Set once the mods have run: the terrain this realm is made of. Realms differ mostly by this.
+var entities: Entities
+## Set once the mods have run: the terrain this realm is made of. Realms differ mostly by this, and it
+## is what a chunk job is handed. A mod supplies it with set_world_generator, or asks for the engine's
+## biome generator, which is then usually - but not always - the same object.
 var generator = null
+## The engine biome generator, if this realm uses one. **Not** the same field as `generator`: a game can
+## use its own world generator and still want biomes for spawning and for "what biome am I in", which
+## is why conflating the two broke chunk generation for the games that do. (2026-09-19)
+var biome_generator = null
 var generation_passes: Array = []
+
+## Blocks that change over time in this realm, and the light it is lit by. One per realm rather than
+## one per server, because everything in it is indexed by chunk coordinate and every realm has a
+## chunk (0, 0) - a single table would have the Emberdeep's furnaces and the overworld's sharing a key.
+var block_ticks: BlockTicks
 
 ## Blocks that differ from freshly generated terrain, and which chunks still need writing.
 var block_data := {}  # Vector2i chunk -> {Vector3i: Dictionary}
 var save_dirty := {}  # Vector2i chunk -> true
+## Delta persistence: what each chunk's terrain was when generated, and how it differs now.
+var deltas := {}  # Vector2i chunk -> {local index: block id}
+var generated := {}  # Vector2i chunk -> PackedByteArray as generated (kept while the chunk has edits)
+## Chunks waiting to be serialized, and chunks being loaded or generated on a worker thread. Both are
+## per realm for the same reason as block_ticks: the coordinate alone does not say which world.
+var save_queue := {}  # Vector2i chunk -> true
+var chunk_jobs := {}  # Vector2i chunk -> job Dictionary
+## Chunks whose saved file lists persistent creatures; resaved so ones that walked away are dropped.
+var entity_chunks := {}  # Vector2i chunk -> true
 ## Where this realm's chunks live. The overworld keeps the folder it always had; every other realm gets
 ## one of its own beside it, so an old save is still a valid new save.
 var save_dir := ""
@@ -57,6 +79,7 @@ func _init(game_server, realm_id: String, realm_name := "") -> void:
 ## realm exists, so it would hand them somebody else's.
 func attach() -> void:
 	entities = Entities.new(_server, self)
+	block_ticks = BlockTicks.new(_server, self)
 
 
 ## Whether anything in this realm should be run this tick. A claim on a chunk (keeping a machine going
@@ -72,6 +95,25 @@ func is_overworld() -> bool:
 	return id.is_empty()
 
 
-## `<save dir>/chunks/x_z.json` for the overworld, `<save dir>/realms/<id>/chunks/x_z.json` for the rest.
+## The block state (its rotation, its stage, whatever the block means by it) at a position in *this*
+## world. On the realm rather than the server because a position alone does not say which world.
+func block_state(pos: Vector3i) -> int:
+	var chunk = world.chunks.get(VoxelWorld.chunk_coord_at(pos.x, pos.z))
+	if chunk == null or pos.y < 0 or pos.y >= Chunk.SIZE_Y:
+		return 0
+	return chunk.states.get(Chunk.index(pos.x & 15, pos.y, pos.z & 15), 0)
+
+
+## Decides where this realm keeps its chunks, under the world's folder, and makes the folder.
+##
+## The overworld keeps `<world>/chunks`, which is the folder every save already has; every other realm
+## gets `<world>/realms/<id>/chunks` beside it. That is the whole of why the overworld's id is "": a
+## world written before realms existed is still a valid world afterwards, with no migration.
+func set_storage(world_dir: String) -> void:
+	save_dir = world_dir if is_overworld() else world_dir.path_join("realms").path_join(id.validate_filename())
+	DirAccess.make_dir_recursive_absolute(save_dir + "/chunks")
+
+
+## `<save dir>/chunks/x_z.json`.
 func chunk_path(coord: Vector2i) -> String:
 	return "%s/chunks/%d_%d.json" % [save_dir, coord.x, coord.y]

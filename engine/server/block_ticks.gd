@@ -28,6 +28,9 @@ const SKY_SEARCH := 6  # columns searched sideways for open sky
 const LIGHT_RANGE := 15
 
 var server
+## The world these blocks are in. Everything here is indexed by chunk coordinate, and every realm has
+## a chunk (0, 0), so the table has to belong to one world rather than to the server.
+var realm
 ## Seconds of simulated world time (persists across restarts).
 var clock := 0.0
 ## Block id -> {handler, interval, catch_up}.
@@ -46,8 +49,9 @@ var _awake := {}  # Vector2i chunk -> true
 var _timer := 0.0
 
 
-func _init(game_server) -> void:
+func _init(game_server, in_realm) -> void:
 	server = game_server
+	realm = in_realm
 
 
 func register(block: int, handler: Callable, options := {}, owner := "engine") -> void:
@@ -59,7 +63,7 @@ func register(block: int, handler: Callable, options := {}, owner := "engine") -
 ## new schedule replaces the old one.
 func schedule(pos: Vector3i, seconds: float, payload := {}) -> void:
 	var coord := VoxelWorld.chunk_coord_at(pos.x, pos.z)
-	if pos.y < 0 or pos.y >= Chunk.SIZE_Y or not server.world.chunks.has(coord):
+	if pos.y < 0 or pos.y >= Chunk.SIZE_Y or not realm.world.chunks.has(coord):
 		return
 	if not _scheduled.has(coord):
 		_scheduled[coord] = {}
@@ -243,12 +247,12 @@ func _catch_up(coord: Vector2i, elapsed: float) -> void:
 
 
 func _call(pos: Vector3i, ticks: int, reason: String, payload: Dictionary, elapsed := 0.0) -> void:
-	var block: int = server.world.get_block_v(pos)
+	var block: int = realm.world.get_block_v(pos)
 	var h: Dictionary = handlers.get(block, {})
 	if h.is_empty() or not h.handler.is_valid():
 		return
 	var t := Time.get_ticks_usec()
-	h.handler.call({"position": pos, "block": block, "state": server.get_block_state(pos), "ticks": ticks,
+	h.handler.call({"position": pos, "block": block, "state": realm.block_state(pos), "ticks": ticks,
 		"reason": reason, "payload": payload, "elapsed": elapsed})
 	server.dev_tools.record(h.owner, "block_tick:" + server.registry.defs[block].name, Time.get_ticks_usec() - t)
 
@@ -298,7 +302,7 @@ func block_light(pos: Vector3i) -> int:
 
 func _column_height(x: int, z: int) -> int:
 	var coord := VoxelWorld.chunk_coord_at(x, z)
-	var chunk = server.world.chunks.get(coord)
+	var chunk = realm.world.chunks.get(coord)
 	if chunk == null:
 		return -1  # unloaded: treat as open sky
 	var heights: PackedInt32Array = _heights.get(coord, PackedInt32Array())

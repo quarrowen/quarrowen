@@ -909,6 +909,65 @@ built with now.
 Phase 2 is the part that touches the wire: a player belonging to a realm, chunk streaming and saving per
 realm, portals between them, and a dimension in the protocol.
 
+## Dimensions, phase 2a: everything indexed by chunk belongs to a world (2026-09-19)
+
+Phase 1 moved the blocks, the generator and the creatures onto `Realm`. This moves the rest of what is
+**keyed by chunk coordinate**, which is the real test: every realm has a chunk (0, 0), so a single
+table would have the Emberdeep's furnaces and the overworld's sharing a key. Now per realm:
+`block_ticks`, `deltas`, `generated`, `save_queue`, `chunk_jobs`, and the save directory.
+
+`BlockTicks` takes the realm it belongs to and reads `realm.world` rather than `server.world`, which is
+the same bug the mob pathfinder had in phase 1 and would have been the same silent kind: the Emberdeep's
+crops growing according to the overworld's blocks.
+
+The loops that used to run once now run per realm - ticking, saving, draining the save queue, unloading,
+and waiting for chunk jobs at shutdown. Two rules came out of doing it:
+
+- **The worker budget is the machine's, not each world's.** `_running_chunk_jobs()` counts across every
+  realm, so a second realm loading its spawn cannot quietly take another core's worth of jobs.
+- **A chunk job copies what it needs out of its realm on the main thread.** It already did this for the
+  generator and the seed; it now carries the realm id too, and `_integrate_chunk` looks the realm up
+  rather than assuming. A job must never reach back into a realm another tick is changing.
+
+**A bug of my own, caught by reading rather than by the suite.** Phase 1 had mapped the server's
+`biome_generator` onto `Realm.generator`, so when the chunk job started taking its generator from the
+realm it handed workers the *biome* generator to make terrain with. Those are different things:
+`set_world_generator` says what terrain is made of, while `use_biome_generator`/`register_biome` can be
+in use at the same time purely for spawning and for "what biome am I in" - the API comment says so
+outright ("created on first use, **even if the game uses its own generator**"). `Realm` carries the two
+separately now, with a test.
+
+**Why the suite went green through it anyway**, which is the more useful half: the only two games that
+set their own world generator are Skyblock and One Block, both `VoidGenerator`, and the broken path
+passed `null` instead - and skipping generation produces the same empty chunks that a void generator
+does. So it was latent rather than breaking, and would have bitten the first game with a generator that
+actually generates something. Two fields with similar names and one assignment between them is not
+something a test notices; reading the field's own comment is what found it.
+
+**`realm_of(player)` is the seam for phase 2b.** It returns the overworld for everybody today, and it is
+the *only* place that answers "which world is this player in" - so when players really do belong to a
+realm, one function changes rather than every caller. Streaming, unloading and the simulated set all ask
+it already.
+
+**`add_realm(id, name)`** exists and is tested: a mod adds a world beside the overworld, gets `<world>/
+realms/<id>/chunks` made for it, and the same coordinate is then two different places. The overworld
+keeps `<world>/chunks` - that is the whole reason its id is `""`, and there is now a test that says so.
+
+Still to come in 2b: players belonging to a realm, a dimension on the wire, the client unloading and
+reloading when it changes, portals, and the mod API for sending somebody somewhere.
+
+**Two decisions about the wire, taken before writing it** (2026-09-19):
+
+- **Chunks do not carry a realm id.** A client only ever renders the world its own player is standing
+  in, so between two "you are now in <realm>" messages every chunk it receives belongs to the same
+  world. Tagging each chunk would put bytes on the hottest path in the protocol to say something the
+  client already knows - and docs/roadmap.md's networking section is about sending *less*.
+- **That message rides `BULK_CHANNEL`, the same channel as chunks**, and this is the subtle half. The
+  three ENet channels are delivered independently, which is exactly why terrain cannot block chat - but
+  it also means a chunk sent before the switch can arrive *after* a switch sent on another channel, and
+  be drawn into the wrong world. Ordering only exists within a channel, so the message that ends one
+  realm has to be in the same queue as the chunks it invalidates.
+
 ## How much of the world is running (2026-09-19, the user: "we need to be performance conscious and
 ## forward thinking about this")
 
