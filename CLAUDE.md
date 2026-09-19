@@ -92,6 +92,17 @@ godot --headless --path . res://tools/mod_tool.tscn -- docs
 Run it after touching `engine/server/mod_api.gd`, any `## ` header comment listed in
 `tools/docs_generator.gd`, or `engine/server/js/quarrowen.d.ts`.
 
+## Saves, until 1.0.0
+
+Breaking the save format is **allowed** before 1.0.0 (the user, 2026-09-19: worlds will be reset, and
+migrations are not worth writing yet). A break must still be deliberate, announced in the release notes,
+and refuse an old world clearly rather than half-loading it. Drop the fixtures that no longer load and
+add one for the new version.
+
+Keep doing the four things that cost nothing: save by name not by id, version every saved shape, write
+back content whose mod is missing, and add a fixture each release. After 1.0.0 all of this becomes a
+promise instead of a habit, and corruption-proofing starts to matter.
+
 ## Releases
 
 The checklist is in `docs/distribution.md` ("Cutting a release"). The two steps that are easy to get wrong:

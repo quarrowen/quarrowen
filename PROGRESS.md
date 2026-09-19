@@ -557,84 +557,54 @@ client, stairs, a map, graves/teleports. "Can't smelt with wood" is fixed and wa
 planks were fuel, so a child who started in a birch forest or a savanna had nothing to burn (mods/base/
 stations.gd; a test now checks every wood burns and chars, rather than a list).
 
-## Save compatibility: the standing plan (2026-09-16, user: "moving forward it shouldn't break";
-## reset at alpha 4, 2026-09-17, user: "We don't expect to keep anything from pre alpha 4 times")
+## Save compatibility: suspended until 1.0.0 (2026-09-19, the user's call)
 
-From alpha 4 (0.40.0) on, updates must keep worlds, builds and inventories. Everything from before it was
-dropped: the format-1 inventory converter, the id-based inventory path, the old admin list, the pre-rename
-invite prefix and the 0.37-0.39 fixtures. A world in an older format is now refused with a clear line in
-the log rather than relabelled as current, which is what the old code did.
+**Replaces the standing plan of 16 September**, which said updates must keep worlds, builds and
+inventories from alpha 4 onwards. They need not, until 1.0.0:
 
-The rules, and what enforces each:
+> "I don't care about existing worlds YET. So don't bother about migrations for now. We will reset
+> existing saves and worlds. Until we release version 1.0.0 we don't worry about migration. After 1.0.0
+> migration and anti world/save corruption becomes important."
 
-1. **Nothing persisted refers to a runtime id.** Chunk edits are saved with a per-chunk name palette,
-   inventories by item name (save format 2), entities, block data and roles by name. Ids shift whenever a
-   block or item is added anywhere; names do not. A new bundled block must therefore never change what an
-   old save means - and the save fixture test fails loudly when it does (it caught `base:grave` once).
-2. **A version on every saved shape.** `world.json.format` (SAVE_FORMAT) and `version` in chunk files. A
-   change the old code cannot read bumps the number and ships a migration written to run on load. There is
-   no migration in the tree today, on purpose: the next one will be the first.
-3. **Content that is missing is kept, not dropped.** A stack whose mod is not loaded is written back exactly
-   as it was (ServerPlayer.kept_items), so turning a mod off and on again returns the items. Chunk palette
-   entries the server does not know leave the terrain as generated rather than punching holes.
-4. **Every release adds a fixture.** `tests/fixtures/saves/<version>` is a real world made by
-   `tools/make_save_fixture.tscn` in a checkout of that tag; `save_compat_test` loads every fixture, checks
-   blocks, chests, entities and inventories, saves again and reloads. The suite runs it on both engines.
-5. **The release checklist** is docs/distribution.md ("Cutting a release"): both suites, the version bump,
-   the new fixture, the pinned image in deploy/server/.env.example, the tag, the signed build, the family
-   server *before* the site, and only then publish. A deliberate break needs a note in the release and a
-   backup step for the family server.
+So until 1.0.0, a change that breaks the save format is allowed. It still has to be **deliberate,
+announced in the release notes, and obvious** - a world in an old format is refused with a clear line in
+the log rather than half-loaded, which is the behaviour that already exists and is worth keeping whatever
+the policy is. What changes is that nobody has to write a migration to get the change in.
 
-## The guild flake was a real race, not just load (2026-09-18)
+This matters right now because **dimensions will break the format**, and that is the next big thing.
+Doing it properly instead of bolting it onto a shape that cannot hold it is exactly what this permission
+buys.
 
-`e2e:guild` failed on CI and passed 3/3 here. The improved failure summary made it readable in one look:
-"shop sold glass for a coin (coins 3, glass 0)" - the coin had gone, the glass had not arrived. The test
-waited for the *payment* and then read the *goods* immediately, and those reach the client in separate
-inventory syncs. Always a race; it simply won on this machine and lost on a slower runner. Now it waits
-for the glass too.
+**The machinery stays.** `tests/fixtures/saves/<version>` and `save_compat_test` are what make 1.0 an
+achievable promise rather than an aspiration, and they still catch accidental breaks *within* a version,
+which is a different thing from a deliberate one. When a change breaks the format on purpose: drop the
+fixtures that no longer load, add one for the new version, and say so in the release notes. The rules
+that still hold regardless, because they cost nothing and are what a migration would otherwise have to
+undo:
 
-So part of what was written up earlier as "load, not any one assertion" was a real, fixable bug. The
-lesson holds either way: wait for the event you are about to assert on, not for a different one that
-happens to arrive near it.
+1. **Nothing persisted refers to a runtime id.** Chunk edits save a per-chunk name palette, inventories
+   save by item name, entities and roles by name. Ids shift whenever a block is added anywhere; names do
+   not.
+2. **A version on every saved shape.** `world.json.format` (SAVE_FORMAT) and `version` in chunk files.
+   The number goes up when the meaning changes, whether or not anything migrates.
+3. **Content that is missing is kept, not dropped.** A stack whose mod is not loaded is written back
+   exactly as it was, so turning a mod off and on again returns the items.
+4. **Every release still adds a fixture.** It is one command, and it is the record of what that version
+   could read.
 
-Also: the `:=` inference trap was walked into **four times in one day** - in engine code, in a mod and
-twice in tests - and each time it surfaced as something unrelated, because a parse error makes the whole
-script fail to load silently. A note in CLAUDE.md was not enough, so `_scripts_compile` now covers
-`mods/` and `tests/` as well as `engine/`: 200 scripts, a couple of seconds, and it names the file.
+## After 1.0.0
 
-## A silent coin, and the check that would have caught it (2026-09-18)
+Migration becomes a promise: every format change ships with code that runs on load, and the fixture for
+every released version has to keep loading. Corruption becomes a separate concern from compatibility -
+torn writes, a full disk, a server killed mid-save - and wants its own work: write-then-rename
+everywhere, a checksum per chunk file, and a backup that is verified rather than assumed.
 
-Cutting 0.41.1 turned up `Asset not found: guild:sounds/coin.wav` while building the save fixture. Two
-causes stacked: the search that repointed sound references at Kenney's `.ogg` files only looked at
-GDScript, so `mods/guild/main.js` was missed from the start - and a `git checkout -- mods`, used to undo
-a bad sound regeneration, quietly reverted the fishing float as well. A wide checkout is a blunt tool.
+**Whether we are ready for 1.0.0 is a call to make after the current roadmap**, not before. What it
+would reasonably mean: the capabilities in docs/roadmap.md that the bundled games actually need are in,
+the survival game is deep enough to hold a child for a season, the format has settled down enough that
+freezing it is not painful, and somebody other than its author has run a server on it.
 
-The failure mode is the thing worth remembering: a missing asset is only a `push_error` at startup. The
-mod loads, the sound is simply silent, and nobody finds out until somebody notices the coins stopped
-clinking - which for a family server might be never. So the suite now walks every `.gd` and `.js` in
-`mods/` and checks that each "sounds/..." / "textures/..." / "models/..." / "music/..." it names really
-exists (268 of them; format strings are skipped, since those are built at runtime). Proved by putting
-the bug back: it names the file and the reference.
-
-## Test stability: a flake worth naming rather than fixing blind (2026-09-18)
-
-A full suite run fails about one time in three, a *different* e2e test each time (`e2e:vanilla` once,
-`e2e:combat` the next), and the same test passes 5/5 when run on its own. So it is load, not any one
-assertion. Two things ruled out by looking rather than guessing: the new ambience sweep cannot generate
-chunks (`get_block_v` returns UNLOADED and never generates, so it is ~1500 array lookups every ten or
-twenty seconds), and the music wait was made generous (90s) since it asks "did it ever arrive", not how
-fast.
-
-Not fixed, and not claimed to be. What *was* fixed is that it can now be diagnosed: `run_tests.sh`
-repeats the failing assertions in the summary at the end, so reading the tail of a long run is enough.
-Three of these were lost this session to `| tail -6` cutting the detail off, and an intermittent you
-only get one look at is exactly the one you cannot afford to lose. Assertions are shown in preference to
-script errors, so the deliberate crash in `tests/mods/buggy` stops heading every summary like a cause.
-
-A flaky *failure* is safe - it fails loudly and the release stops. A flaky pass would not be, and that
-is not what this is.
-
-## Test stability (2026-09-15)
+## Test stability (2026-09-15)## Test stability (2026-09-15)
 
 `ONLY=` and `REPEAT=` in tools/run_tests.sh reproduce flaky tests (e.g. `REPEAT=10 ONLY=e2e:combat`, or loop
 `ONLY='e2e:*,auth,multiplayer'` for the shared-server sequence). Fixed causes: combat checks drifting away
