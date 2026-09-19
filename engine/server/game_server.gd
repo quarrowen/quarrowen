@@ -35,6 +35,7 @@ const BlockTicks = preload("res://engine/server/block_ticks.gd")
 const TagRegistry = preload("res://engine/shared/tag_registry.gd")
 const Links = preload("res://engine/server/links.gd")
 const Flows = preload("res://engine/server/flows.gd")
+const Parcels = preload("res://engine/server/parcels.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 const Stations = preload("res://engine/server/stations.gd")
@@ -265,6 +266,9 @@ var tags := TagRegistry.new()
 var links := Links.new(self)
 ## Quantities moving along those links - power, fluid, gas (see engine/server/flows.gd).
 var flows := Flows.new(self)
+## Things travelling along those links (see engine/server/parcels.gd). Not the same mechanism as
+## flows, and the file says why.
+var parcels := Parcels.new(self)
 ## Recipes whose inputs name a tag, held until every mod has loaded (see _expand_tag_recipes).
 var _tag_recipes: Array = []
 ## Each mod's API object, by mod id. Mods are not obliged to keep their own, so the server does.
@@ -1683,6 +1687,7 @@ func _physics_process(delta: float) -> void:
 		r.block_ticks.update(delta, r.simulated)
 	var t_blocks := Time.get_ticks_usec()
 	flows.settle()  # costs nothing on a tick where no network changed, which is nearly all of them
+	parcels.update(delta)
 	containers.update(delta)
 	transfers.update(delta)
 	ambience.update(delta)

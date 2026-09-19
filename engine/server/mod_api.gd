@@ -924,6 +924,44 @@ func block_display_name(id: int) -> String:
 # than a bug today. When realms reach the mod API these gain a way to say where, most likely by the
 # event that supplied the position carrying its realm. (2026-09-19)
 
+## What a face will take, as items and tags. An empty filter takes anything, which is what an ordinary
+## pipe end is; `deny: true` turns it inside out, which is how "everything except cobblestone" is said.
+##
+##     api.set_accepts(node, {"tags": ["base:logs"]})
+func set_accepts(node: Dictionary, filter := {}) -> void:
+	var resolved := filter.duplicate(true)
+	if resolved.get("items") is Array:
+		resolved.items = (resolved.items as Array).map(func(n) -> String: return _qualify_ref(String(n)))
+	if resolved.get("tags") is Array:
+		resolved.tags = (resolved.tags as Array).map(func(n) -> String: return _qualify_ref(String(n)))
+	_server.parcels.set_accepts(_link_node(node), resolved)
+
+
+func stop_accepting(node: Dictionary) -> void:
+	_server.parcels.stop_accepting(_link_node(node))
+
+
+## Sends a thing along the links to whichever connected face will take it. Returns false if nothing
+## would, which is how a machine knows to hold on to it rather than dropping it on the floor.
+##
+## **Things are not a quantity.** A pickaxe with twelve durability and a name somebody gave it cannot
+## be halved and is not interchangeable with the next one, so this is its own mechanism rather than
+## power with a different unit - though it travels the same links. Destinations take turns, so a line
+## of chests fills evenly rather than the first one found swallowing everything.
+func send_item(from: Dictionary, item_name: String, count := 1, data := {}) -> bool:
+	return _server.parcels.send(_link_node(from), _qualify_ref(item_name), count, data)
+
+
+## Whether anything connected would take this, without sending it.
+func would_accept(from: Dictionary, item_name: String) -> bool:
+	return _server.parcels.would_accept(_link_node(from), _qualify_ref(item_name))
+
+
+## Told when something arrives: {realm, position, face, item, count, data, from}.
+func on_item_arrived(handler: Callable) -> void:
+	_server.parcels.on_arrived(handler)
+
+
 ## A kind of quantity that moves along links: power, steam, water, mana. The engine keeps them apart
 ## by name and learns nothing else about any of them.
 func register_unit(unit_name: String) -> bool:

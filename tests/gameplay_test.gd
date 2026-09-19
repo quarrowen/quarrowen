@@ -75,6 +75,7 @@ func _ready() -> void:
 	await _weather()
 	await _links()
 	await _flows()
+	await _parcels()
 	await _tags()
 	await _signals()
 	await _realms()
@@ -4097,6 +4098,52 @@ func _flows() -> void:
 	_check(api.received("power", at.call(148)) == 0.0, "cutting the cable leaves the far end with nothing")
 	_check(is_equal_approx(api.received("power", at.call(144)), 25.0),
 		"and the near one now has the lot (%.1f)" % api.received("power", at.call(144)))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Parcels: things travelling the same links, but not by the same mechanism as power.
+func _parcels() -> void:
+	var server = _start("parcels_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	api.register_link_kind("tube", {"span": 10})
+	var arrived := []
+	api.on_item_arrived(func(ev): arrived.append(ev))
+	var y: int = server.surface_height(160, 160) + 2
+	var at = func(x: int) -> Dictionary: return {"position": Vector3i(x, y, 160), "face": 0}
+	api.link("tube", at.call(160), at.call(164))
+	api.link("tube", at.call(164), at.call(168))
+
+	# Nowhere is taking anything yet, so a machine knows to hold on to it.
+	_check(not api.send_item(at.call(160), "base:stone"), "with nothing accepting, sending fails rather than dropping it")
+
+	# A filter by tag - which is what tags were built for.
+	api.set_accepts(at.call(168), {"tags": ["base:logs"]})
+	_check(not api.would_accept(at.call(160), "base:stone"), "a filtered end refuses what it does not want")
+	_check(api.would_accept(at.call(160), "base:birch_log"), "and takes what it does")
+
+	# A thing keeps its data on the way, which is the whole reason this is not the quantity code.
+	_check(api.send_item(at.call(160), "base:birch_log", 3, {"note": "kept"}), "sending a thing that is wanted works")
+	_check(server.parcels.in_transit() == 1, "and it is on its way rather than there at once")
+	for i in 20:
+		server.parcels.update(0.5)
+	_check(arrived.size() == 1, "it arrives after a journey (%d)" % arrived.size())
+	_check(arrived[0].count == 3 and arrived[0].data.get("note") == "kept",
+		"with its count and its data intact")
+	_check(arrived[0].position == Vector3i(168, y, 160), "at the face that wanted it")
+
+	# Two destinations take turns, so a line of chests fills evenly.
+	api.set_accepts(at.call(164), {})  # an empty filter takes anything
+	api.set_accepts(at.call(168), {})
+	var went_to := {}
+	for i in 4:
+		api.send_item(at.call(160), "base:stone", 1)
+	for i in 20:
+		server.parcels.update(0.5)
+	for ev in arrived.slice(1):
+		went_to[ev.position.x] = int(went_to.get(ev.position.x, 0)) + 1
+	_check(went_to.size() == 2 and went_to.values().max() == 2,
+		"four things to two ends is two each, not four to whichever was found first (%s)" % str(went_to))
 	server.queue_free()
 	await get_tree().process_frame
 

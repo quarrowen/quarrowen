@@ -929,6 +929,32 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Networks, layer 3: things that travel (2026-09-19)
+
+`engine/server/parcels.gd`, and **deliberately not the same mechanism as flows**, which was the one
+design question I was least sure about and the user pushed back on hardest.
+
+The resolution: a quantity is fungible - five hundred power splits into two lots of two hundred and
+fifty and the halves are indistinguishable. A thing is not. A pickaxe with twelve durability and a
+name somebody gave it cannot be halved, is not interchangeable with the next one, and must arrive
+intact and in order. Making items ride the quantity code would have ended with either items losing
+their data or the quantity code growing special cases until it was two systems under one name.
+
+What *is* shared is the graph: links, faces, reach, connectivity. Which is the entire reason links
+were built as a layer of their own rather than inside power.
+
+- A face says what it will take, by **item or by tag** - which is what tags were built for, and means
+  "any log" works for a mod that adds a tree. An empty filter takes anything (an ordinary pipe end);
+  `deny` turns it inside out ("everything except cobblestone").
+- **Destinations take turns.** Four things to two accepting ends is two each, not four into whichever
+  was found first - the same fairness rule as equal shares, for the same reason.
+- **Sending fails rather than dropping.** A machine with nowhere to send something is told so and
+  keeps holding it, which is what makes a backed-up factory behave sensibly instead of leaking items.
+- A journey takes time proportional to distance, so a thing is in flight rather than teleporting.
+
+Sorters, filters and splitters are blocks a mod writes on top of this. The engine moves things between
+faces and has no idea what any of them are for.
+
 ## Networks, layer 2: a quantity that moves, and cables you can see (2026-09-19)
 
 `engine/server/flows.gd`. A mod declares a unit by name, says which faces offer it and which want it,
