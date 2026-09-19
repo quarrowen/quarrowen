@@ -42,7 +42,7 @@ var _ticks := 0
 func _init(game_server, entity_system) -> void:
 	server = game_server
 	entities = entity_system
-	pathfinder = Pathfinder.new(server.world)
+	pathfinder = Pathfinder.new(entity_system.realm.world if entity_system.realm != null else server.world)
 
 
 func update_tables() -> void:

@@ -23,6 +23,7 @@ const SoundRegistry = preload("res://engine/shared/sound_registry.gd")
 const MusicRegistry = preload("res://engine/shared/music_registry.gd")
 const WeatherRegistry = preload("res://engine/shared/weather_registry.gd")
 const Ambience = preload("res://engine/server/ambience.gd")
+const Realm = preload("res://engine/server/realm.gd")
 const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const Mining = preload("res://engine/shared/mining.gd")
@@ -107,9 +108,26 @@ const AVATAR_CHANGE_INTERVAL := 0.2
 var registry := BlockRegistry.new()
 var items := ItemRegistry.new(registry)
 var rules := PlayerPhysics.Rules.new()
-var world := VoxelWorld.new()
-var world_seed := 0
-var entities := Entities.new(self)
+## The worlds this server is running. "" is the overworld - the one a server has always had, and the
+## one an old save belongs to. Realms are added by mods before the world loads.
+var realms := {}
+## The realm everything without a realm of its own means. Every field below that used to hold the world
+## directly now reads through it, so the hundred and seventy places that say `world.get_block(...)` did
+## not all have to change on the same day. They will change as each becomes realm-aware; until then
+## this is the overworld and the behaviour is exactly what it was.
+var realm: Realm
+
+var world: VoxelWorld:
+	get:
+		return realm.world
+var world_seed: int:
+	get:
+		return realm.seed_value
+	set(value):
+		realm.seed_value = value
+var entities: Entities:
+	get:
+		return realm.entities
 var sounds := SoundRegistry.new()
 var music := MusicRegistry.new()
 var weather := WeatherRegistry.new()
@@ -156,9 +174,17 @@ var map_markers := {}
 var world_markers := {}
 var generator: Object = null
 ## Objects with decorate(chunk, world_seed) run after the generator on worker threads (e.g. ores).
-var generation_passes: Array = []
+var generation_passes: Array:
+	get:
+		return realm.generation_passes
+	set(value):
+		realm.generation_passes = value
 ## The engine biome generator once a mod registers biomes (may also be the world generator).
-var biome_generator = null
+var biome_generator:
+	get:
+		return realm.generator
+	set(value):
+		realm.generator = value
 var spawn_handler := Callable()
 ## Where a *returning* player appears, if a mod wants a say - a lobby, a hub, wherever their story left
 ## them. Separate from spawn_handler because "where does a new player start" and "where does somebody
@@ -187,8 +213,12 @@ var _save_task := -1
 ## Delta persistence: only edits relative to freshly generated terrain are saved.
 var _deltas := {}  # Vector2i chunk -> {local index: block id}
 var _generated := {}  # Vector2i chunk -> PackedByteArray as generated (kept while the chunk has edits)
-var _block_data := {}  # Vector2i chunk -> {Vector3i: Dictionary}
-var _save_dirty := {}  # Vector2i chunk -> true
+var _block_data: Dictionary:
+	get:
+		return realm.block_data
+var _save_dirty: Dictionary:
+	get:
+		return realm.save_dirty
 var _save_queue := {}  # Vector2i chunk -> true: waiting to be serialized (see _save_all)
 var _save_writes: Array = []  # serialized [path, text] waiting for the rest of the save
 var _save_meta_pending := false
@@ -285,6 +315,15 @@ var _entity_chunks := {}
 ##   offline (true = load mods and world without opening a socket, for benchmarks),
 ##   backup_interval (minutes between automatic backups, 0 = off), backup_keep (archives kept),
 ##   restore ("latest", a backup file name or an archive path to restore before loading)
+## The overworld exists from the moment the server does. `entities` used to be built here and plenty of
+## things reach for it long before start() - mod validation among them - so the realm holding it has to
+## be ready just as early.
+func _init() -> void:
+	realm = Realm.new(self, "", "Overworld")
+	realms[""] = realm
+	realm.attach()
+
+
 func start(config: Dictionary) -> Error:
 	_admin_token = config.get("admin_token", "")
 	for entry in String(config.get("admins", "")).split(",", false):
@@ -294,6 +333,7 @@ func start(config: Dictionary) -> Error:
 	var data_dir := String(config.get("data_dir", "user://worlds"))
 	var world_name := String(config.get("world", "world")).validate_filename()
 	_save_dir = data_dir.path_join(world_name)
+	realm.save_dir = _save_dir
 	dev_mode = bool(config.get("dev", false))
 	for entry in String(config.get("log_level", "")).split(",", false):
 		var parts := entry.strip_edges().split(":")

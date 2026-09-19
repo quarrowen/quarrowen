@@ -25,6 +25,7 @@ var shown := 0.0
 var _wanted := -1
 var _target := 0.0
 var _particles: CPUParticles3D = null
+var _base_amount := 1
 var _voice: AudioStreamPlayer = null
 var _sounds
 
@@ -50,6 +51,7 @@ func _build(weather_id: int) -> void:
 		# because weather does not end on a timer; it ends when the server says so.
 		_particles = effects._emitter(def.emitter, 1.0, Color.WHITE, -1.0)
 		if _particles != null:
+			_base_amount = maxi(_particles.amount, 1)
 			add_child(_particles)
 			_particles.emitting = true
 	var sound_name := String(def.sound)
@@ -84,7 +86,12 @@ func _process(delta: float) -> void:
 	if camera != null and _particles != null:
 		# Above and slightly ahead: rain you fly into rather than rain that follows you about.
 		global_position = camera.global_position + Vector3(0, 6, 0) - camera.global_basis.z * 3.0
-		_particles.amount_ratio = shown
+		# How many drops, rather than a ratio: amount_ratio belongs to GPUParticles3D and these are CPU
+		# ones, which the effect player builds. Only when the whole number changes, because writing
+		# `amount` restarts the system - over a two-second fade that is a few restarts, not sixty.
+		var want: int = maxi(1, int(round(_base_amount * shown)))
+		if want != _particles.amount:
+			_particles.amount = want
 	if _voice != null:
 		_voice.volume_db = linear_to_db(maxf(shown * 0.6, 0.0001))
 

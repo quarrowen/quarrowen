@@ -52,6 +52,8 @@ var breeding
 ## Owners, following, sitting and defending (see engine/server/taming.gd).
 var taming
 
+## The realm these creatures are in.
+var realm
 var _server
 var _next_id := 1
 var _round := 0
@@ -60,8 +62,11 @@ var _spawn_slot := 0
 var _removed_ids := PackedInt32Array()
 
 
-func _init(server) -> void:
+## `home` is the realm these creatures live in. They path through its blocks and no one else's - without
+## it every realm's mobs would think their way around the overworld's terrain. (2026-09-19)
+func _init(server, home = null) -> void:
 	_server = server
+	realm = home
 	ai = MobAI.new(server, self)
 	spawning = Spawning.new(self)
 	breeding = Breeding.new(self)
