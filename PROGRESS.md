@@ -874,6 +874,17 @@ them in the public doc, and the user caught it: "we dont want to clash with mine
 microsoft, roblox". A list of a hundred third-party mods in a public repo reads as a plan to clone them,
 whatever the intent, and the analysis stands perfectly well without it.)
 
+## STANDING: do not tag a release (2026-09-19)
+
+The children are playing **0.41.1** from today. A `v*` tag builds images, publishes the site and moves
+`update.json`, and their clients update themselves from it - which would put them on a protocol the
+family server does not speak and lock them out of their own world mid-week.
+
+So: **work on master, push freely, tag nothing.** A push to master runs the tests and builds nothing
+(`.github/workflows/ci.yml` is tag-only for images, exports and publishing), so normal work is safe.
+
+Lift this when the user says the playtest is over.
+
 ## Open threads (2026-09-18)
 
 Everything discussed and not yet done, so none of it lives only in a conversation.

@@ -92,6 +92,13 @@ godot --headless --path . res://tools/mod_tool.tscn -- docs
 Run it after touching `engine/server/mod_api.gd`, any `## ` header comment listed in
 `tools/docs_generator.gd`, or `engine/server/js/quarrowen.d.ts`.
 
+## Right now: do not tag a release
+
+The children are on 0.41.1 and their clients update themselves from `update.json`, which a `v*` tag
+republishes. Tagging mid-playtest moves them to a protocol the family server does not speak. Push to
+master as much as you like — that only runs tests — but do not tag until the user says the playtest is
+over. (2026-09-19)
+
 ## Saves, until 1.0.0
 
 Breaking the save format is **allowed** before 1.0.0 (the user, 2026-09-19: worlds will be reset, and

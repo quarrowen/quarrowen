@@ -6,7 +6,7 @@ of capabilities it does not have yet, in the order that unlocks the most.
 It comes from working backwards: taking the things people build on top of voxel games — the machines,
 the magic, the economies, the dungeons, the storage systems — and asking not "how would we write that"
 but **"what could our engine not express, that whoever built it had to reach past the game to do?"**
-About a hundred such things collapse into twenty-one answers, because most of them are different
+About a hundred such things collapse into twenty-two answers, because most of them are different
 content over the same few gaps.
 
 **The test each of these has to pass**: could two mods build genuinely *different* things on it, or
@@ -48,13 +48,17 @@ never learns what electricity is.
 If only one thing after dimensions gets built, it is this. It is the foundation of every machine, every
 pipe, every storage system and every mana pool anyone will ever want to write here.
 
-**Where this does not reach, and it should be decided rather than discovered.** "A quantity that moves"
-assumes something *stored and conserved*, which buffers, fills and runs out. Mechanical power is not
-that shape: rotation is a speed and a twist, it arrives the instant the shaft turns, nothing accumulates
-in the gearbox, and a network with two sources fights rather than adds. A mod wanting gears, shafts and
-windmills cannot build them on this. Either the capability covers propagation-without-storage as a
-second kind of network, or it is written down as a thing the engine will not do — but not left to be
-found out by whoever tries.
+**Two kinds of network, and the second was nearly missed.** "A quantity that moves" assumes something
+*stored and conserved* — it buffers, fills and runs out. Mechanical power is not that shape. Rotation is
+a speed and a twist; it arrives the instant the shaft turns, nothing accumulates in the gearbox, and a
+network with two sources fights rather than adds.
+
+Both are wanted (the user, 2026-09-19: gears, shafts, windmills). So `networks` carries two kinds:
+
+- **Stored** — a quantity with a capacity, which fills, drains and can run out. Power, items, fluids, mana.
+- **Driven** — a value propagated from a source through everything connected, with no buffer anywhere.
+  Speed and direction, resolved each tick, and conflicting sources are an error a mod is told about
+  rather than an average the engine invents.
 
 ### 3. Signals
 
@@ -153,7 +157,21 @@ a way to put a live value inside a piece of text.
 
 An item that contains an inventory, and a container that is the same container wherever you open it.
 
-### 21. Instances
+### 21. Moving assemblies
+
+A group of blocks that leaves the grid and becomes one moving thing — a platform on a track, a drawbridge
+swinging, a windmill's sails, a whole contraption a player built and set going — then sets back down and
+becomes blocks again.
+
+**This is the hardest capability on the page**, and it is here because the mechanical half is wanted
+properly rather than as decoration. A voxel world is a grid, and this is the one thing that asks it not
+to be: the assembly needs its own position and rotation, its own collision, a player able to stand on it
+and be carried, and blocks that keep working while they are off the grid. Nothing else on this list
+fights the engine's basic shape in that way.
+
+It wants `networks` (driven kind) and `multiblocks` first, since it is what those two are *for*.
+
+### 22. Instances
 
 A private copy of a space, entered and left. Much cheaper once dimensions exist, being a dimension with
 a lifetime.
@@ -195,14 +213,28 @@ Ten, rather than the sprawl this could become:
 
 ## Order
 
-Dimensions and networks first; nearly everything assumes one or the other. Signals third, because the
-survival game needs wiring on its own account and machines are poor without it. Then item modifiers,
-fluids and multiblocks, which together turn `machines` from a demonstration into a game.
+Decided 19 September 2026. The reasoning matters more than the list, because the list will change.
 
-The social half — objectives, experience, balances, claims, companies — depends on none of that and can
-happen whenever it is wanted. It is what a *server* needs rather than what a *world* needs, and each of
-those five is small on its own, which is why they are listed separately: bundled together they looked
-like one large job and put themselves off.
+1. **Weather.** Small, visible, blocked by nothing, and absent entirely. Rain over the valley is
+   something a player notices the same afternoon. A good thing to do before a long careful piece.
+2. **Dimensions.** Before anything else structural, because it is the one change to the *data model*:
+   every capability built after it can be dimension-aware from the start, and every capability built
+   before it has to be retrofitted. ("Do networks cross worlds?" is a question best answered while
+   writing networks, not afterwards.) It breaks the save format, which is free until 1.0.0 — so it gets
+   done properly rather than bolted onto a shape that cannot hold it.
+3. **Signals.** Small, needed for the survival game on its own account, and machines feel dead without
+   it. Touches no saved format.
+4. **Networks**, stored kind. The big unlock: around thirty of the things studied are this plus content.
+5. **Fluids**, which ride on networks and are half of what machines move.
+6. **Multiblocks.** Turns `machines` from a demonstration into a game.
+7. **Networks**, driven kind, then **moving assemblies**. The mechanical family, left until last of the
+   structural work because assemblies are the hardest thing on this page and want the other two behind
+   them.
+8. **Item modifiers** and **applied effects** — the depth pass on gear and potions.
+9. **The social half**: objectives, experience, balances, claims, companies, keeping the world awake.
+   Depends on none of the above and can be taken whenever it is wanted. It is what a *server* needs
+   rather than what a *world* needs, and each piece is small.
 
-**Weather** is small, visible, blocked by nothing, and does not exist at all. It is the cheapest thing on
-this page.
+Everything else — characters, creature abilities, companions, vehicles, area tools, text in the world,
+nested inventories, instances — is independent and can be picked up when a game actually needs it,
+which is the honest test of whether a capability is worth building.
