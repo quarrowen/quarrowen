@@ -41,6 +41,8 @@ const Assemblies = preload("res://engine/server/assemblies.gd")
 const Modifiers = preload("res://engine/server/modifiers.gd")
 const Ledgers = preload("res://engine/server/ledgers.gd")
 const Objectives = preload("res://engine/server/objectives.gd")
+const Companies = preload("res://engine/server/companies.gd")
+const Plots = preload("res://engine/server/plots.gd")
 const Claims = preload("res://engine/server/claims.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
@@ -301,6 +303,10 @@ var modifiers := Modifiers.new(self)
 var ledgers := Ledgers.new(self)
 ## Things a player has been asked to do (see engine/server/objectives.gd).
 var objectives := Objectives.new(self)
+## Groups of players that things can belong to (see engine/server/companies.gd).
+var companies := Companies.new(self)
+## Ground with an owner, consulted before an edit (see engine/server/plots.gd).
+var plots := Plots.new(self)
 ## Parts of the world kept awake when nobody is there, and the budget that stops one player doing it
 ## to everybody else (see engine/server/claims.gd).
 var claims := Claims.new(self)
@@ -521,6 +527,8 @@ func start(config: Dictionary) -> Error:
 	# After the mods have registered their link kinds, or every saved link would be dropped as belonging
 	# to a kind nothing knows about.
 	links.load_saved(_meta.get("links"))
+	companies.load_saved(_meta.get("companies"))
+	plots.load_saved(_meta.get("plots"))
 	if str(config.get("chat_filter", "")) in ["on", "true", "1", "yes"]:
 		gameplay.chat_filter = true
 	# A private server: only listed players (and admins) may join. Names given here are added to the list.
@@ -4910,7 +4918,15 @@ func _can_edit(p: ServerPlayer, pos: Vector3i) -> bool:
 	var distance := p.get_eye_position().distance_to(Vector3(pos) + Vector3(0.5, 0.5, 0.5))
 	if distance > REACH + 3.0:
 		anticheat.record(p, "reach", 1.0, "a block %.1f blocks away" % distance)
-	return distance <= REACH + 0.87
+	if distance > REACH + 0.87:
+		return false
+	# Somebody else's ground. Checked here rather than in each of break, place and interact, so a
+	# capability added later cannot quietly miss one of them.
+	if not plots.may_build(p, realm_of(p).id, pos):
+		var plot := plots.at(realm_of(p).id, pos)
+		p.send_message("This is %s." % (String(plot.name) if not String(plot.name).is_empty() else "somebody else's ground"))
+		return false
+	return true
 
 
 ## Whether the player was looking at the upper half of the cell they are placing into: the underside of
@@ -5229,6 +5245,8 @@ func _drain_save_queue(budget_usec: int, wait := false) -> void:
 	_meta.clock = block_ticks.clock
 	_meta.world_markers = world_markers
 	_meta.links = links.to_saved()
+	_meta.companies = companies.to_saved()
+	_meta.plots = plots.to_saved()
 	_meta.mod_settings = mod_settings.to_saved()
 	_meta.loot = {"rate": loot.rate, "boosts": loot.boosts}
 	_save_writes.append([_save_dir + "/world.json", JSON.stringify(_meta, "\t")])

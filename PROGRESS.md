@@ -929,6 +929,33 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Plots and companies: ground with an owner (2026-09-20)
+
+Capability 14 is called a **plot** here, not a claim: `claims.gd` already means keeping part of the
+world awake, and two things with one name in one engine is how somebody reads the wrong file at
+midnight.
+
+The engine stores a box and an owner and **consults it on every edit**, in `_can_edit` - one place
+rather than in break, place and interact separately, so a capability added later cannot quietly miss
+one of them. What may be claimed, how much and what it costs are the mod's; the engine has no view on
+whether land is bought, earned, granted or taken.
+
+Three opinions it does hold. **Plots may not overlap** - two owners of one block is a question with no
+good answer and every game that has tried has regretted it. **Admins are never stopped**, because
+somebody has to be able to put right a plot marked over a village. And **the last owner of a company
+cannot leave or be demoted**, because a company nobody owns cannot be wound up and everything it holds
+becomes unreachable.
+
+Companies are deliberately separate from plots even though a plot is the obvious thing to own: plenty
+of servers want groups without land, and plenty want land without groups.
+
+**A test that was passing for the wrong reason, caught by insisting on a baseline.** "A stranger's
+block is refused" passed - but so would it have if *nothing* could be placed, which turned out to be
+the case: a player built by hand in a test has no edit tokens, no creative flag, and was standing
+inside the block it was trying to place. Adding "this player can build where nobody owns the ground"
+first turned a meaningless pass into a real one. The same trap is already noted in an older test
+nearby, which is how it was recognised.
+
 ## The social half begins: ledgers and objectives (2026-09-20)
 
 **The roadmap listed balances and experience as two capabilities. They are one.** A balance is a

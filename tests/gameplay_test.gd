@@ -85,6 +85,7 @@ func _ready() -> void:
 	await _modifiers()
 	await _effects_extra()
 	await _social()
+	await _plots()
 	await _tags()
 	await _signals()
 	await _realms()
@@ -4107,6 +4108,86 @@ func _flows() -> void:
 	_check(api.received("power", at.call(148)) == 0.0, "cutting the cable leaves the far end with nothing")
 	_check(is_equal_approx(api.received("power", at.call(144)), 25.0),
 		"and the near one now has the lot (%.1f)" % api.received("power", at.call(144)))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Plots and companies: ground with an owner, and groups that can own it.
+func _plots() -> void:
+	var server = _start("plots_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	var reg = server.registry
+	var stone: int = reg.id_of("base:stone")
+	var y: int = server.surface_height(700, 700) + 2
+
+	var owner := ServerPlayer.new(server, 110, "Rowan")
+	owner.player_id = "rowan"
+	var stranger := ServerPlayer.new(server, 111, "Passerby")
+	stranger.player_id = "passerby"
+	for p in [owner, stranger]:
+		p.state.position = Vector3(700.5, y, 703.5)  # clear of the block they will place
+		p.edit_tokens = 100.0  # handed out by _spawn_player, which a player built by hand never met
+		p.inventory.creative = true
+		p.inventory.ids[0] = reg.id_of("base:stone")
+		p.inventory.counts[0] = 64
+		p.inventory.selected = 0
+		server.players[p.peer_id] = p
+
+	var plot: int = api.claim_plot(Vector3i(698, y - 2, 698), Vector3i(702, y + 2, 702),
+		{"owner": "rowan", "name": "Rowan's garden"})
+	_check(plot > 0, "a piece of ground can be claimed")
+	_check(api.plot_at(Vector3i(700, y, 700)).name == "Rowan's garden", "and asked about by position")
+	_check(api.plot_at(Vector3i(720, y, 720)).is_empty(), "with everywhere else belonging to nobody")
+
+	# Two owners of one block is a question with no good answer, so overlapping is refused.
+	_check(api.claim_plot(Vector3i(700, y, 700), Vector3i(706, y, 706), {"owner": "passerby"}) == 0,
+		"a plot cannot overlap another")
+	_check(api.plot_problem().contains("overlaps"), "and says so (%s)" % api.plot_problem())
+
+	# The point of the whole thing: it stops an edit, on every path at once.
+	_check(api.may_build(owner, Vector3i(700, y, 700)), "the owner may build there")
+	_check(not api.may_build(stranger, Vector3i(700, y, 700)), "and a stranger may not")
+	_check(api.may_build(stranger, Vector3i(720, y, 720)), "though anywhere else is fine")
+
+	# A baseline first: this player can place a block somewhere nobody owns. Without it, "the stranger
+	# was refused" could be passing because *nothing* can be placed, which would prove nothing at all.
+	var open_ground := Vector3i(720, y, 720)
+	server.set_block_authoritative(open_ground, 0)
+	server.set_block_authoritative(open_ground + Vector3i.DOWN, stone)
+	# Standing clear of it: a block is not placed inside a player, and standing on the spot would have
+	# refused the placement for a reason that has nothing to do with who owns the ground.
+	stranger.state.position = Vector3(open_ground) + Vector3(0.5, 0.0, 3.0)
+	stranger.edit_tokens = 100.0
+	server.on_place_block(111, open_ground, 0.0)
+	_check(server.world.get_block_v(open_ground) == stone, "a player can build where nobody owns the ground")
+	stranger.state.position = Vector3(700.5, y, 703.5)
+	stranger.edit_tokens = 100.0
+
+	var at := Vector3i(700, y, 700)
+	server.set_block_authoritative(at, 0)
+	server.set_block_authoritative(at + Vector3i.DOWN, stone)  # something to place against
+	server.on_place_block(111, at, 0.0)
+	_check(server.world.get_block_v(at) == 0, "a stranger's block is refused rather than placed")
+	server.on_place_block(110, at, 0.0)
+	_check(server.world.get_block_v(at) == stone, "and the owner's goes down (item %d, held %d, block now %d)" % [server.items.id_of("base:stone"), owner.inventory.selected_block(), server.world.get_block_v(at)])
+
+	# Letting somebody in, and a company owning land instead of a person.
+	api.add_plot_member(plot, "passerby")
+	_check(api.may_build(stranger, Vector3i(700, y, 700)), "somebody let in may build")
+	api.remove_plot_member(plot, "passerby")
+
+	var guild: int = api.found_company("The Delvers", "rowan")
+	_check(guild > 0 and api.company_rank(guild, "rowan") == "owner", "a company can be founded")
+	_check(api.set_company_rank(guild, "passerby", "member"), "and somebody added to it")
+	_check(not api.set_company_rank(guild, "rowan", "member"),
+		"but the last owner cannot be demoted, or nobody could ever wind it up")
+	_check(not api.remove_from_company(guild, "rowan"), "nor leave")
+
+	var yard: int = api.claim_plot(Vector3i(710, y - 2, 710), Vector3i(714, y + 2, 714), {"company": guild})
+	_check(yard > 0, "a company can own ground")
+	_check(api.may_build(stranger, Vector3i(712, y, 712)), "and its members may build on it")
+	api.remove_from_company(guild, "passerby")
+	_check(not api.may_build(stranger, Vector3i(712, y, 712)), "and stop being able to when they leave")
 	server.queue_free()
 	await get_tree().process_frame
 

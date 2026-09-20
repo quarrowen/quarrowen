@@ -966,6 +966,95 @@ func stop_effect(handle: int) -> bool:
 	return _server.stop_effect(handle)
 
 
+## A group of players that things can belong to: a guild, a town, a crew. Returns its id, or 0.
+##
+## **Separate from plots on purpose**, though a plot is the obvious thing for one to own: plenty of
+## servers want groups without land, and plenty want land without groups. What a rank means is yours -
+## the engine only keeps who is in what and what they are called, and holds one opinion of its own:
+## the last owner cannot leave or be demoted, because a company nobody owns cannot be wound up and
+## everything it holds becomes unreachable.
+func found_company(company_name: String, founder_id: String) -> int:
+	return _server.companies.create(company_name, founder_id)
+
+
+func disband_company(company_id: int) -> bool:
+	return _server.companies.disband(company_id)
+
+
+## Ranks are "member", "officer", "owner", least to most.
+func set_company_rank(company_id: int, player_id: String, rank: String) -> bool:
+	return _server.companies.set_rank(company_id, player_id, rank)
+
+
+func remove_from_company(company_id: int, player_id: String) -> bool:
+	return _server.companies.remove(company_id, player_id)
+
+
+func company_rank(company_id: int, player_id: String) -> String:
+	return _server.companies.rank_of(company_id, player_id)
+
+
+## Whether somebody is at least this rank.
+func company_at_least(company_id: int, player_id: String, rank: String) -> bool:
+	return _server.companies.at_least(company_id, player_id, rank)
+
+
+## Every company somebody is in: [{id, name, rank}].
+func companies_of(player_id: String) -> Array:
+	return _server.companies.of_player(player_id)
+
+
+func company_info(company_id: int) -> Dictionary:
+	return _server.companies.info(company_id)
+
+
+## Marks out a piece of ground with an owner. The engine asks before letting anybody change a block
+## inside it, on every edit path at once. Returns the plot id, or 0 - and `plot_problem()` says why.
+##
+##     api.claim_plot(from, to, {"owner": player.player_id, "name": "Rowan's garden"})
+##     api.claim_plot(from, to, {"company": guild_id})
+##
+## **What may be claimed, how much and what it costs are yours.** The engine stores a box and an owner
+## and enforces it. Plots may not overlap - two owners of one block is a question with no good answer -
+## and admins are never stopped, because somebody has to be able to put right a plot marked over a
+## village.
+func claim_plot(from: Vector3i, to: Vector3i, options := {}) -> int:
+	return _server.plots.claim(_qualify_ref(String(options.get("realm", ""))), from, to, options)
+
+
+func release_plot(plot_id: int) -> bool:
+	return _server.plots.release(plot_id)
+
+
+func plot_problem() -> String:
+	return _server.plots.problem
+
+
+## The plot a block is in, or {}.
+func plot_at(position: Vector3i, realm_id := "") -> Dictionary:
+	var found: Dictionary = _server.plots.at(_qualify_ref(realm_id), position)
+	return {} if found.is_empty() else _server.plots.info(int(found.id))
+
+
+## Whether this player may change a block here. The engine already asks this itself before any edit;
+## this is for a mod that wants to check before offering something.
+func may_build(player, position: Vector3i, realm_id := "") -> bool:
+	return _server.plots.may_build(player, _qualify_ref(realm_id), position)
+
+
+func add_plot_member(plot_id: int, player_id: String) -> bool:
+	return _server.plots.add_member(plot_id, player_id)
+
+
+func remove_plot_member(plot_id: int, player_id: String) -> bool:
+	return _server.plots.remove_member(plot_id, player_id)
+
+
+## Every plot somebody has a say in.
+func plots_of(player_id: String) -> Array:
+	return _server.plots.of_player(player_id)
+
+
 ## Something a player has been asked to do: a story, a daily errand, a contract, a delivery.
 ##
 ##     api.register_objective("deliver_the_post", {"display_name": "The Post",
