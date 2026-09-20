@@ -76,6 +76,23 @@ func setup(api) -> void:
 	api.register_item("coal", {"icon": "textures/coal.png"})
 	api.register_block("coal_ore", {"textures": "textures/coal_ore.png", "display_name": "Coal Ore", "drops": "base:coal", "sounds": stone, "hardness": 3.0, "tier": 1, "tool": "pickaxe"})
 	api.register_block("iron_ore", {"textures": "textures/iron_ore.png", "display_name": "Iron Ore", "sounds": stone, "hardness": 3.0, "tier": 2, "tool": "pickaxe"})
+	# Copper is shallow and everywhere and a wooden pickaxe brings it up: the first metal a child meets
+	# should not be gated behind the second one.
+	api.register_block("copper_ore", {"textures": "textures/copper_ore.png", "display_name": "Copper Ore", "sounds": stone, "hardness": 3.0, "tier": 1, "tool": "pickaxe"})
+	api.register_block("gold_ore", {"textures": "textures/gold_ore.png", "display_name": "Gold Ore", "sounds": stone, "hardness": 3.0, "tier": 2, "tool": "pickaxe"})
+	# Named for what it looks like rather than where it is: a stone that holds the light, found where
+	# there is none. Deep, rare, and only cobalt tools will lift it.
+	api.register_block("sunstone_ore", {"textures": "textures/sunstone_ore.png", "display_name": "Sunstone Ore",
+		"drops": "base:sunstone", "sounds": stone, "hardness": 5.0, "tier": 4, "tool": "pickaxe"})
+	# The same metals again, set in deepstone instead of stone. Harder to break and they look different,
+	# so mining *down* is a different activity from mining *along* rather than the same one lower - and
+	# the wall tells a child how deep they are without reading a coordinate.
+	for deep in [["coal", "Coal", "base:coal", 1], ["iron", "Iron", "", 2], ["copper", "Copper", "", 1], ["gold", "Gold", "", 2]]:
+		var def := {"textures": "textures/deep_%s_ore.png" % deep[0], "display_name": "Deep %s Ore" % deep[1],
+			"sounds": stone, "hardness": 4.5, "tier": int(deep[3]), "tool": "pickaxe"}
+		if not String(deep[2]).is_empty():
+			def["drops"] = String(deep[2])
+		api.register_block("deep_%s_ore" % deep[0], def)
 	api.register_block("water", {"textures": "textures/water.png", "render": "translucent", "liquid": true})
 	# The thin form, for water that has spread a few blocks: a slab, so it looks shallow and a player
 	# wades through it rather than swimming - shapes decide collision as well as drawing.
@@ -145,6 +162,9 @@ func _register_tools(api) -> void:
 	api.register_item("stick", {"icon": "textures/stick.png"})
 	api.register_item("iron_ingot", {"display_name": "Iron Ingot", "icon": "textures/iron_ingot.png"})
 	api.register_item("cobalt_ingot", {"display_name": "Cobalt Ingot", "icon": "textures/cobalt_ingot.png"})
+	api.register_item("copper_ingot", {"display_name": "Copper Ingot", "icon": "textures/copper_ingot.png"})
+	api.register_item("gold_ingot", {"display_name": "Gold Ingot", "icon": "textures/gold_ingot.png"})
+	api.register_item("sunstone", {"display_name": "Sunstone", "icon": "textures/sunstone.png"})
 	api.register_recipe({"base:planks": 2}, "base:stick", 4, {"unlock": "known"})
 	var materials := [
 		{"name": "wooden", "display": "Wooden", "tier": 1, "speed": 2.0, "durability": 60, "damage": 4.0, "input": "base:planks"},
@@ -153,6 +173,16 @@ func _register_tools(api) -> void:
 			"armor": {"durability": 180, "points": [2.0, 6.0, 5.0, 2.0], "cost": [5, 8, 7, 4]}},
 		{"name": "cobalt", "display": "Cobalt", "tier": 4, "speed": 8.5, "durability": 520, "damage": 7.0, "input": "base:cobalt_ingot",
 			"armor": {"durability": 420, "points": [3.0, 8.0, 6.0, 3.0], "cost": [5, 8, 7, 4], "toughness": 1.0}},
+		# Sidegrades, not rungs. Copper sits between stone and iron and is far easier to come by, so the
+		# long stretch where a child has a stone pickaxe and nothing better is shorter. Gold is the
+		# opposite bargain: quicker than anything until cobalt, and it breaks while you watch - which is
+		# a lesson about trade-offs that costs nothing to learn.
+		{"name": "copper", "display": "Copper", "tier": 2, "speed": 5.0, "durability": 180, "damage": 5.5, "input": "base:copper_ingot",
+			"armor": {"durability": 140, "points": [2.0, 5.0, 4.0, 2.0], "cost": [5, 8, 7, 4]}},
+		{"name": "gold", "display": "Gold", "tier": 3, "speed": 11.0, "durability": 70, "damage": 5.0, "input": "base:gold_ingot",
+			"armor": {"durability": 90, "points": [2.0, 6.0, 5.0, 2.0], "cost": [5, 8, 7, 4]}},
+		{"name": "sunstone", "display": "Sunstone", "tier": 5, "speed": 10.0, "durability": 900, "damage": 8.0, "input": "base:sunstone",
+			"armor": {"durability": 700, "points": [3.0, 9.0, 7.0, 3.0], "cost": [5, 8, 7, 4], "toughness": 2.0}},
 	]
 	for m in materials:
 		var station: Dictionary = METALWORK if m.tier >= 3 else TABLE

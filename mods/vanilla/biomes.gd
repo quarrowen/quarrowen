@@ -18,6 +18,15 @@ func setup(mod_api) -> void:
 	api.add_ore_pass({"ore": "base:coal_ore", "replace": "base:stone", "veins": 14, "size": 9, "min_y": 20, "max_y": 110})
 	api.add_ore_pass({"ore": "base:iron_ore", "replace": "base:stone", "veins": 9, "size": 6, "min_y": 5, "max_y": 64})
 	api.add_ore_pass({"ore": "base:cobalt_ore", "replace": "base:stone", "veins": 3, "size": 4, "min_y": 4, "max_y": 24})
+	# Copper is the one you trip over: shallow, common, and overlapping coal so the first dig finds both.
+	api.add_ore_pass({"ore": "base:copper_ore", "replace": "base:stone", "veins": 13, "size": 8, "min_y": 18, "max_y": 100})
+	api.add_ore_pass({"ore": "base:gold_ore", "replace": "base:stone", "veins": 4, "size": 5, "min_y": 4, "max_y": 36})
+	# Rare enough that finding one is an event, in the band where only cobalt tools reach.
+	api.add_ore_pass({"ore": "base:sunstone_ore", "replace": "base:stone", "veins": 2, "size": 3, "min_y": 2, "max_y": 16})
+	# In deepstone rather than stone, and richer than the shallow bands: going down is meant to pay.
+	for deep in [["coal", 10, 8], ["iron", 9, 6], ["copper", 8, 6], ["gold", 5, 4]]:
+		api.add_ore_pass({"ore": "base:deep_%s_ore" % deep[0], "replace": "base:deepstone",
+			"veins": int(deep[1]), "size": int(deep[2]), "min_y": 1, "max_y": 14})
 	# Quickstone: deep and in quantity, because wiring anything takes a lot of dust and running out of
 	# it halfway through a contraption is a miserable way to learn how much you need.
 	api.add_ore_pass({"ore": "base:quickstone", "replace": "base:stone", "veins": 8, "size": 7, "min_y": 3, "max_y": 30})

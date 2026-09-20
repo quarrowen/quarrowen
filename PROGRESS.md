@@ -2198,10 +2198,66 @@ binding and nothing said. Both fixed; `unbound.txt` now covers Player and Entity
 - Entity has no `set_health`, and `player.health = 0` bypasses the clamp, sync and death that
   `set_health` performs.
 
-## The multiplayer test is flaky on the fallback suite (2026-09-20)
+## Two e2e tests are flaky on the fallback suite (2026-09-20)
 
 "Alice sees Bob walk (interpolated snapshots)" failed once under `QW_NATIVE=0`, then passed on a
 re-run and passed again on a clean tree with the same seed and a different port base. It is the
 fixed-wait problem CLAUDE.md already warns about: the fallback suite simulates less in the same
 wall-clock time, so a test that waits a number of seconds rather than for the event is marginal there.
 Not chased further today; it should wait for the event.
+
+`e2e:combat` ("killed the pig with the sword") did the same thing on the same day, and its log says
+why plainly: `Buffer full, dropping packets!` from the UDP peer, then `entity target { }` - the client
+never acquired the target because the snapshot carrying it was dropped. Passed on a re-run. Same
+cause, same fix: wait for the event rather than for a number of seconds, and the fallback suite stops
+being marginal.
+
+## Not doing: validating option-dictionary keys (2026-09-20, user: "Naa it's ok")
+
+GDScript 4.7.2 has no named arguments (`f(b = 5)` is a parse error) and no destructuring, so the
+options dictionary is the idiom, and this codebase uses it widely. The cost is that a misspelled key
+is not an error - it silently takes the default, which is the same class of quiet wrongness as the
+`damage` argument order and arguably worse, because there is no position to get right or wrong.
+
+The mitigation would be one shared helper that warns on a key not in the documented set, called from
+every options-taking function. Offered and declined; recorded so it is not proposed again from
+scratch. If it comes back, note that the probe also found **typed dictionaries**
+(`Dictionary[String, int]`) and **user-defined varargs** (`f(...rest)`) both work in 4.7.2, neither of
+which the codebase uses - typed dictionaries would catch a wrong value type though not a wrong key.
+
+The related inconsistency (`spawn_entity` takes options, `spawn_projectile` takes the same two things
+positionally) stays on the audit list above.
+
+## What is in the ground (2026-09-20)
+
+Copper, gold and sunstone, plus deep variants of coal, iron, copper and gold. The roadmap called this
+the single biggest gap between the survival game and what a child expects, and it needed no engine work
+at all - `add_ore_pass` and `register_material` were already waiting, and the material table in
+`mods/base/main.gd` is still one row per metal, which is what made it cheap.
+
+The ladder is wood → stone/copper → iron/gold → cobalt → sunstone. **Copper and gold are sidegrades,
+not rungs.** Copper sits between stone and iron and is shallow and everywhere, which shortens the long
+stretch where a child has a stone pickaxe and nothing better. Gold is the opposite bargain: quicker
+than anything short of cobalt and it breaks while you watch.
+
+**Sunstone** rather than the obvious gem name. The world already mixes real names (cobalt) with
+invented compounds (quickstone, deepstone, blackglass), and a stone that holds the light found where
+there is none fits that better - and reads as ours rather than as somebody else's ladder.
+
+Deep variants sit in deepstone rather than stone and are richer, so mining *down* is a different
+activity from mining *along*, and the wall tells a child how deep they are without reading a coordinate.
+
+The test asserts the ladder **as a ladder** - each rung must be able to mine the ore the next rung is
+made of - rather than checking rows one at a time, and then scans a real generated world to confirm
+every ore actually appears. A vein nobody can find is not content.
+
+### Left over
+
+- `mods/guild/` registers its own `guild:gold_ore` as currency, which now sits beside `base:gold_ore`.
+  Both can be installed at once. Guild is a JavaScript demo mod and should probably smelt base's gold
+  instead; not touched here because it is also the mod waiting to be rewritten on the generated
+  bindings.
+- No guide pages for the new ores. The guidebook covers the older ones, so a child meeting copper has
+  nothing to read about it.
+- Copper is described in the roadmap as the metal for "wire, pipes, fittings", and `mods/industry`
+  still makes cable out of iron. Wiring copper into the industry recipes is the natural follow-up.

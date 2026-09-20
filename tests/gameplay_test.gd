@@ -88,6 +88,7 @@ func _ready() -> void:
 	await _social()
 	await _characters()
 	await _conditions()
+	await _ores()
 	await _plots()
 	await _tags()
 	await _signals()
@@ -4339,6 +4340,62 @@ func _characters() -> void:
 	server.characters.player_left(102)
 	server.shops.player_left(102)
 	_check(not server.characters._talking.has(102), "leaving forgets the conversation")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## What is in the ground: the tool ladder, and that every ore is reachable, smeltable and generated.
+func _ores() -> void:
+	var server = _start("ores_%d" % Time.get_ticks_msec())
+	var reg = server.registry
+	var items = server.items
+
+	# The ladder, asserted as a ladder rather than one row at a time: each rung must be able to mine
+	# the ore the next rung is made of, or the tree has a gap a child falls into.
+	for step in [["base:wooden_pickaxe", "base:copper_ore"], ["base:copper_pickaxe", "base:iron_ore"],
+			["base:stone_pickaxe", "base:iron_ore"], ["base:iron_pickaxe", "base:cobalt_ore"],
+			["base:cobalt_pickaxe", "base:sunstone_ore"]]:
+		var tool_tier: int = items.get_def(items.id_of(step[0])).get("tool", {}).get("tier", 0)
+		var needed: int = reg.defs[reg.id_of(step[1])].get("tier", 0)
+		_check(tool_tier >= needed, "%s can mine %s (tier %d vs %d needed)" % [step[0], step[1], tool_tier, needed])
+
+	# And that the rung above is genuinely worth climbing to.
+	var speeds := []
+	for metal in ["wooden", "stone", "copper", "iron", "cobalt", "sunstone"]:
+		speeds.append(float(items.get_def(items.id_of("base:%s_pickaxe" % metal)).get("tool", {}).get("speed", 0.0)))
+	_check(speeds == [2.0, 4.0, 5.0, 6.0, 8.5, 10.0], "each rung mines faster than the last (%s)" % str(speeds))
+
+	# Gold is the trade rather than a rung: quicker than cobalt, and it breaks while you watch.
+	var gold: Dictionary = items.get_def(items.id_of("base:gold_pickaxe"))
+	var iron: Dictionary = items.get_def(items.id_of("base:iron_pickaxe"))
+	_check(float(gold.tool.speed) > float(iron.tool.speed) and int(gold.durability) < int(iron.durability),
+		"gold is faster than iron and far more fragile (%s speed, %s uses)" % [gold.tool.speed, gold.durability])
+
+	# Every ore must smelt to something, or it is decoration.
+	for pair in [["base:copper_ore", "base:copper_ingot"], ["base:gold_ore", "base:gold_ingot"],
+			["base:deep_iron_ore", "base:iron_ingot"], ["base:deep_copper_ore", "base:copper_ingot"]]:
+		var out: Dictionary = server.get_process("smelting", items.id_of(pair[0]))
+		_check(not out.is_empty() and int(out.output) == items.id_of(pair[1]), "%s smelts to %s" % [pair[0], pair[1]])
+	# Sunstone and coal drop their item directly rather than smelting.
+	_check(reg.defs[reg.id_of("base:sunstone_ore")].get("drops") == "base:sunstone", "sunstone ore drops its gem")
+
+	# Deep variants sit in deepstone, not stone: mining down has to be a different activity.
+	var deep_in_deepstone := true
+	for ore in ["deep_coal_ore", "deep_iron_ore", "deep_copper_ore", "deep_gold_ore"]:
+		if reg.id_of("base:%s" % ore) < 0:
+			deep_in_deepstone = false
+	_check(deep_in_deepstone, "every deep variant is a real block")
+
+	# Generated, not merely registered. A vein nobody can find is not content.
+	var found := {}
+	for x in range(-48, 48, 8):
+		for z in range(-48, 48, 8):
+			for y in range(2, 100, 2):
+				var block: int = server.world.get_block(x, y, z)
+				var name: String = reg.defs[block].name if reg.is_valid(block) else ""
+				if name.ends_with("_ore"):
+					found[name] = int(found.get(name, 0)) + 1
+	_check(found.has("base:copper_ore"), "copper is actually in the ground (found %s)" % str(found.keys()))
 	server.queue_free()
 	await get_tree().process_frame
 

@@ -91,7 +91,10 @@ func setup(mod_api, sounds: Dictionary) -> void:
 			["base:wooden_shovel", 10.0], ["base:wooden_sword", 10.0], ["base:wooden_hoe", 10.0]]:
 		api.set_fuel(fuel[0], fuel[1])
 	for recipe in [["base:iron_ore", "base:iron_ingot"], ["base:cobalt_ore", "base:cobalt_ingot"], ["base:sand", "base:glass"], ["base:cobblestone", "base:stone"],
-			["base:log", "base:charcoal"], ["base:clay", "base:brick"]]:
+			["base:log", "base:charcoal"], ["base:clay", "base:brick"],
+			["base:copper_ore", "base:copper_ingot"], ["base:gold_ore", "base:gold_ingot"],
+			["base:deep_iron_ore", "base:iron_ingot"], ["base:deep_copper_ore", "base:copper_ingot"],
+			["base:deep_gold_ore", "base:gold_ingot"]]:
 		if api.item(recipe[0]) > 0:
 			api.register_process("smelting", recipe[0], recipe[1], 1, 10.0)
 

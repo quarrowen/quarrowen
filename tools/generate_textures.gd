@@ -307,6 +307,30 @@ func _init() -> void:
 	_save(_full_bucket(Color(0.25, 0.48, 0.80), Color(0.42, 0.66, 0.92)), vanilla + "water_bucket.png")
 	_save(_full_bucket(Color(0.86, 0.32, 0.08), Color(1.0, 0.68, 0.18)), vanilla + "lava_bucket.png")
 
+	# Copper, gold and sunstone (appended last so earlier textures keep their random sequence).
+	# Three ores and two metals was not a survival game: every tool tree ended in the same place.
+	var copper := Color(0.76, 0.44, 0.24)
+	var gold := Color(0.95, 0.76, 0.26)
+	var sunstone := Color(1.0, 0.6, 0.2)
+	_save(_ore(stone, copper.lightened(0.1)), base + "copper_ore.png")
+	_save(_ore(stone, gold), base + "gold_ore.png")
+	_save(_ore(stone, sunstone), base + "sunstone_ore.png")
+	_save(_item(copper, "ingot"), base + "copper_ingot.png")
+	_save(_item(gold, "ingot"), base + "gold_ingot.png")
+	_save(_item(sunstone, "shard"), base + "sunstone.png")
+	for metal in [[copper, "copper"], [gold, "gold"], [sunstone, "sunstone"]]:
+		for tool in ["pickaxe", "axe", "shovel", "sword", "helmet", "chestplate", "leggings", "boots"]:
+			_save(_item(metal[0], tool), base + "%s_%s.png" % [metal[1], tool])
+		_save(_armor_layer(metal[0], (metal[0] as Color).darkened(0.35)), base + "%s_armor.png" % metal[1])
+
+	# Deep variants (appended last so earlier textures keep their random sequence). The same metal in
+	# deepstone rather than stone, so the wall tells you how far down you are without a coordinate.
+	var deepstone := Color(0.17, 0.17, 0.21)
+	_save(_ore(deepstone, Color(0.1, 0.1, 0.1)), base + "deep_coal_ore.png")
+	_save(_ore(deepstone, Color(0.85, 0.68, 0.52)), base + "deep_iron_ore.png")
+	_save(_ore(deepstone, copper.lightened(0.1)), base + "deep_copper_ore.png")
+	_save(_ore(deepstone, gold), base + "deep_gold_ore.png")
+
 	# A SceneTree script runs until it is told not to. Without this the tool wrote every texture
 	# correctly and then sat there for ever; three of them were found still running an hour later,
 	# looking like a hung build rather than a finished one. (2026-09-19)

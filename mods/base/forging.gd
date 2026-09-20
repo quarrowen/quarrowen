@@ -33,6 +33,15 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	api.register_material("iron", {"display_name": "Iron", "item": "base:iron_ingot", "color": "#dcdce2", "tier": 3, "speed": 6.0,
 		"durability": 250, "damage": 2.0, "handle": 1.2,
 		"trait": {"name": "Balanced", "description": "+10% mining speed", "speed_mult": 0.1}})
+	api.register_material("copper", {"display_name": "Copper", "item": "base:copper_ingot", "color": "#c2703c", "tier": 2, "speed": 5.0,
+		"durability": 180, "damage": 1.5, "handle": 1.0,
+		"trait": {"name": "Soft", "description": "+25% durability from the handle", "durability_mult": 0.25}})
+	api.register_material("gold", {"display_name": "Gold", "item": "base:gold_ingot", "color": "#f2c243", "tier": 3, "speed": 11.0,
+		"durability": 70, "damage": 1.0, "handle": 0.6,
+		"trait": {"name": "Quick", "description": "+35% mining speed", "speed_mult": 0.35}})
+	api.register_material("sunstone", {"display_name": "Sunstone", "item": "base:sunstone", "color": "#ff9930", "tier": 5, "speed": 10.0,
+		"durability": 900, "damage": 3.0, "handle": 1.4,
+		"trait": {"name": "Keen", "description": "+20% damage", "modifiers": [{"stat": "attack_damage", "amount": 0.2, "op": "multiply"}]}})
 
 	var tool_slots := func(head: String) -> Array:
 		return [{"name": "head", "part": head, "label": "Head"}, {"name": "handle", "part": "tool_handle", "label": "Handle"},

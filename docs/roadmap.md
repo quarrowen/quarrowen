@@ -251,10 +251,15 @@ how much, and what it costs are the mod's.
 Groups of players that other things can be owned by — a claim, a balance, a base. Deliberately separate
 from claims: plenty of servers want one without the other.
 
-### 16. Applied effects
+### 16. Applied effects — built
 
-Food already applies timed modifiers to any stat. This generalises it to anything that can apply an
-effect to anybody, and gives mods a station to brew them at.
+Built as **conditions** (`engine/server/conditions.gd`), named that way because `effect_registry.gd`
+already means particles. A condition is a stat change, or something that repeats on a timer, or both -
+and the timer is the half a plain timed modifier could never express, which is what poison,
+regeneration and burning all are. Creatures get the ticking half; they have no stat table, so
+swiftness on a cow does nothing yet.
+
+A station to brew them at is still content, and nothing in the engine is in the way of it.
 
 ### 17. Companions
 
@@ -446,7 +451,18 @@ works.
 The condition for reopening it is specific: **the instrumentation in item 1 showing the transport itself
 is the bottleneck**, rather than what is being put through it. Nobody should revisit this on a hunch.
 
-## The content that matters most: what is in the ground
+## The content that matters most: what is in the ground — done
+
+**Built 20 September.** Copper, gold and sunstone went in, with deep variants of coal, iron, copper and
+gold set in deepstone rather than stone. Quickstone and blackglass had already landed with the signal
+and liquid capabilities. The ladder is now wood → stone/copper → iron/gold → cobalt → sunstone, with
+copper and gold as sidegrades rather than rungs: copper shortens the long stretch where a child has a
+stone pickaxe and nothing better, and gold is quicker than anything short of cobalt and breaks while
+you watch, which is a lesson about trade-offs that costs nothing to learn.
+
+Named sunstone rather than the obvious thing: a stone that holds the light, found where there is none.
+
+What is below is the original entry, kept because the reasoning still explains the shape.
 
 Three ores and two metals is not a survival game. Today: coal, iron and cobalt, plus arcana's mana
 crystal — so every tool tree ends at the same place and there is nothing to find at depth that changes
@@ -519,15 +535,11 @@ follows is what is left, in the order that now unlocks the most.
 at all: structures, facilities, jobs, ownership, conversation and trade all exist. What a village needs
 now is content - somebody to write the villagers.
 
-1. **Applied effects.** The depth pass on potions, finishing what item modifiers began on gear.
-2. **Ore content.** Not a capability at all - `add_ore_pass` and `register_material` are waiting - but
-   the single biggest gap between the survival game and what a child expects. See "what is in the
-   ground" above.
-3. **Creature abilities.** Data-driven fights, so a mod can script a boss without writing a brain.
-4. **Companions**, then **vehicles**. Both now have characters behind them.
-5. **The small three**: area tools, text in the world, inventories inside things. Independent, and each
+1. **Creature abilities.** Data-driven fights, so a mod can script a boss without writing a brain.
+2. **Companions**, then **vehicles**. Both now have characters behind them.
+3. **The small three**: area tools, text in the world, inventories inside things. Independent, and each
    one an afternoon.
-6. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.
+4. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.
 
 ## Where the built things stop
 
