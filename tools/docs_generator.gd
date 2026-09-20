@@ -211,6 +211,50 @@ static func js_reachable() -> Dictionary:
 	return out
 
 
+## Events emitted by engine/server that the `## Events` block in mod_api.gd does not describe, sorted.
+##
+## 46 of 112 were undocumented when this was first counted (2026-09-21), including whole families - the
+## condition_*, field_*, objective_* and vehicle_* events among them - which made several capabilities
+## look absent to a mod author when they were merely unwritten. Emitting an event nobody can discover
+## is most of the way to not having it.
+static func undocumented_events() -> Array:
+	var source := FileAccess.get_file_as_string(MOD_API)
+	var documented := {}
+	for line in _header_block(source, "Events").split("\n"):
+		var name := line.strip_edges().get_slice(" ", 0).strip_edges()
+		if not name.is_empty():
+			documented[name] = true
+		# Some lines describe two events, the second after the first one's payload.
+		var extra := RegEx.create_from_string("\\}\\s+([a-z_]+)\\s+\\{")
+		for m in extra.search_all(line):
+			documented[m.get_string(1)] = true
+	var emitted := {}
+	var call := RegEx.create_from_string('emit\\("([a-z_]+)"')
+	for path in _scripts_under("res://engine/server"):
+		for m in call.search_all(FileAccess.get_file_as_string(path)):
+			emitted[m.get_string(1)] = true
+	var out := []
+	for name: String in emitted:
+		if not documented.has(name):
+			out.append(name)
+	out.sort()
+	return out
+
+
+## Every .gd under a folder, walked once.
+static func _scripts_under(root: String) -> Array:
+	var out := []
+	var dirs := [root]
+	while not dirs.is_empty():
+		var dir: String = dirs.pop_back()
+		for name in DirAccess.get_directories_at(dir):
+			dirs.append(dir.path_join(name))
+		for name in DirAccess.get_files_at(dir):
+			if String(name).ends_with(".gd"):
+				out.append(dir.path_join(name))
+	return out
+
+
 ## Host methods the prelude calls that `js_mod.gd` does not answer. Checked against the prelude rather
 ## than the TypeScript because the prelude is what actually calls across, and it renames on the way
 ## (`registerLootTable` asks for `registerLoot`) - comparing declared names instead reports both of

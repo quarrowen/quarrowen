@@ -73,6 +73,41 @@ extends RefCounted
 ##   mob_phase      {entity, phase, message}                  a boss crosses a phase threshold; message may be changed
 ##   projectile_hit {entity, owner, hit ("block" | "entity" | "player"), target, position, block, damage,
 ##                  cancelled (no damage), keep (do not remove the projectile)}
+##   entity_tamed   {player, entity}   entity_sit {player, entity, sitting}
+##   entity_ordered {entity, order, at}                       a companion was told something new
+##   companion_orders {entity, orders}                        edit `orders` to restrict what it may be told
+##   vehicle_mount  {player, entity, cancelled}   vehicle_dismount {player, entity}
+##
+##   -- Conditions, the things somebody is temporarily under (see engine/server/conditions.gd)
+##   condition_given {target, condition, level, seconds, good}
+##   condition_cleared {target, condition}   condition_expired {target, condition}
+##   field_placed   {field, kind, position, realm}   field_cleared {field, kind}
+##
+##   -- People, money and what they have been asked to do
+##   character_choice {player, character, entity, line, choice}   an option with `does` was picked
+##   shop_traded    {player, shop, index, item, count, sold}
+##   ledger_changed {player, ledger, was, value, level, levelled}
+##   objective_given {player, objective}   objective_abandoned {player, objective}
+##   objective_step {player, objective, step, text}   objective_done {player, objective, times}
+##
+##   -- Ground, groups and the things built on it
+##   plot_claimed   {plot, realm, from, to, owner, company}   plot_released {plot, realm}
+##   company_founded {company, name, founder}   company_disbanded {company, name}
+##   company_rank   {company, player_id, rank}   company_left {company, player_id}
+##   multiblock_formed {position, pattern, blocks}   multiblock_broken {position, pattern}
+##   assembly_lifted {assembly, blocks}   assembly_settled {assembly, position}
+##
+##   -- Wires, power and what runs through them
+##   link_made      {realm, from, to, kind}   link_cut {realm, from, to, kind}
+##   link_reach     {kind, from, to, span, cancelled}          refuse a link that is too far
+##   claim_paused   {claim, owner, reason}                     a kept-awake area ran out of budget
+##
+##   -- The world and the server itself
+##   weather_changed {weather, previous, realm}
+##   player_realm_change {player, from, to, cancelled}   player_arrived_realm {player, realm, first_time}
+##   explosion      {position, power, source, blocks, cancelled}   `blocks` may be edited
+##   settings_changed {mod, values}   mod_reloaded {mod, full}
+##   backup         {path, reason}                             a world backup was written
 
 const BlockRegistry = preload("res://engine/shared/block_registry.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")

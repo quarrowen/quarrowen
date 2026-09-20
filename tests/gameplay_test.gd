@@ -6037,6 +6037,13 @@ func _api_docs() -> void:
 	var unkept: Array = Docs.unkept_js()
 	_check(unkept.is_empty(), "and every host method the prelude calls exists (missing %s)" % ", ".join(unkept))
 
+	# An event nobody can discover is most of the way to not having it: 39 of 112 were undocumented
+	# when this was first counted, whole families among them, which made capabilities that exist look
+	# absent. (2026-09-21)
+	var undocumented: Array = Docs.undocumented_events()
+	_check(undocumented.is_empty(),
+		"every event engine/server emits is described in mod_api.gd's Events block (missing %s)" % ", ".join(undocumented))
+
 
 func _creations() -> void:
 	var C = preload("res://engine/shared/creations.gd")

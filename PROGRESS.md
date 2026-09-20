@@ -2541,3 +2541,57 @@ moves the bar.
 whose text matched the name. Moving that label inside a nameplate broke it - a change to how a player
 is *drawn* failing a test about who can see whom. It asks `remote.player_name` now. Worth watching for
 elsewhere: a test that reaches into a node tree by shape is a test that fails for the wrong reasons.
+
+## Event-driven review (2026-09-21, user: "Any other areas that would benefit an event driven design?")
+
+A full audit of `engine/server/` and `engine/client/`. Two things are already right and are the bar the
+rest was measured against: `ledgers.gd` (one write funnel, post-event, result in the payload) and the
+`condition_*` family. **No client findings at all** - client `_process` work is animation,
+interpolation and fades, which is what per-frame code is for.
+
+### Done immediately: 39 events nobody could discover
+
+112 events are emitted by `engine/server`; **39 were absent from the `## Events` block** in
+`mod_api.gd`, including whole families - every `condition_*`, `field_*`, `objective_*`, `vehicle_*`,
+`company_*` and `plot_*` event, plus `ledger_changed` and `weather_changed`. Emitting an event nobody
+can discover is most of the way to not having it, and it made capabilities that exist look absent.
+
+All 39 are now written up, and `tools/docs_generator.gd` grew `undocumented_events()` with a test that
+fails when an emitted event is not described - the same ratchet that stopped the JavaScript bindings
+drifting. Much of this was my own debt from the last two days.
+
+### The findings worth acting on, in order
+
+1. **`block_changed`.** `_apply_block` (`game_server.gd:5131-5137`) hand-calls six subsystems, and
+   every future one has to be added to that list. Worse, `block_placed`/`block_broken` only fire when
+   a *player* does it: liquid spread, `api.set_block`, structure paste, assembly place, support
+   collapse and **explosions** are all silent. `explosions.gd:83` calls the private `_apply_block`
+   directly, so a blast removing blocks fires no break event of any kind - a protection or world-log
+   mod sees a hole appear with no record. ~10 lines, and it also removes a reach-in.
+2. **`player_damaged` / `entity_damaged`.** The engine already keeps a pre/post naming convention
+   (`block_break`/`block_broken`, `block_place`/`block_placed`); damage keeps only the pre half. This
+   is what nameplates wanted. It would also fix a live bug: `mods/vanilla` draws its damage numbers
+   off the *pre*-event's amount, so a handler that absorbs damage at a lower priority makes the
+   number shown wrong.
+3. **`time_changed`.** `weather_changed` exists and its time equivalent does not, which looks like an
+   oversight rather than a decision. Three shipped mods poll `get_daylight()` every five seconds
+   because of it.
+4. **`inventory_changed`.** `sync_inventory` has 37 call sites and is the funnel. Two consumers
+   already sit inside it re-deriving what changed, `tutorials.gd` rescans every player's inventory
+   twice a second, and **`milestones.gd` cannot express a "have" goal at all** - the comment there
+   rationalises the gap as a design principle when it is a missing event.
+5. **`container_changed` fires only on a player click.** The real funnel is `mark_changed`, which
+   hoppers, parcels, loot and mods all pass through.
+6. **`chunk_loaded`.** `mods/industry` rebuilds its whole power network every five seconds with a
+   comment saying why.
+
+### Deliberately not recommended
+
+A cancel-only pre-event does **not** need a post twin: a handler at lowest priority reading
+`ev.cancelled` already is one, which is what `tutorials.gd` and `milestones.gd` do at priority
+-1000000. So `block_interact`, `mob_target`, `entity_fed`, `vehicle_mount`, `chat` and friends are
+fine as they are.
+
+Genuine timers stay timers: `conditions.gd`, `fields.gd`, `parcels.gd`, mob AI, anticheat decay, the
+container distance check. The skyblock/oneblock void polls are cheaper than the per-player position
+event that would replace them.
