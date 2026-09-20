@@ -929,6 +929,36 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Moving assemblies, capability 22 - the hard one (2026-09-20)
+
+`engine/server/assemblies.gd`. Blocks leave the grid, move as one thing, and set back down: a platform
+on a track, a drawbridge, a contraption somebody built and started.
+
+This is the capability that fights the engine's shape. Everything else assumes a block sits at
+whole-number coordinates; an assembly is between two cells most of the time. Three rules keep it
+honest, and all three are tested:
+
+- **Lifting takes the blocks out of the world** with their state and their block data, and the cells
+  they came from become air in the same breath. There is no instant where a block exists twice, which
+  is where this sort of thing goes wrong.
+- **Setting down is refused, never forced.** If something is in the way the assembly stays up and says
+  so. Landing anyway would delete whatever was there, and this engine does not get to destroy what
+  somebody built - the same rule as shedding a claim.
+- **Whoever is standing on it is carried**, which is the whole difference between a lift and scenery.
+
+A bug worth keeping: the first version worked out who was riding *after* moving the platform, by which
+point nobody was above it any more, so it left everybody standing in the air. Riders are found first.
+
+On the wire: everything it is made of once, then only where it has got to - unreliable and ordered on
+the movement channel, because a position that arrives late is worth nothing and the next is along in a
+moment. The client slides towards the last position it heard rather than stepping to it.
+
+**Not done**: an assembly is not solid while it moves. You can stand on it and be carried, but you can
+walk through its side. Making it collide means teaching the voxel physics about boxes that are not on
+the grid, which is the physics/Rust twin pair, and a platform you can ride is most of the value.
+Rotation while moving is also not there - a drawbridge swings in the sense of moving along an arc, not
+of turning its blocks.
+
 ## Driven networks, and wheels that actually turn (2026-09-20)
 
 `engine/server/drives.gd`, the second kind of network and deliberately not the first. A quantity is

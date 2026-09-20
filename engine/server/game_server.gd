@@ -37,6 +37,7 @@ const Links = preload("res://engine/server/links.gd")
 const Flows = preload("res://engine/server/flows.gd")
 const Parcels = preload("res://engine/server/parcels.gd")
 const Drives = preload("res://engine/server/drives.gd")
+const Assemblies = preload("res://engine/server/assemblies.gd")
 const Claims = preload("res://engine/server/claims.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
@@ -289,6 +290,8 @@ var flows := Flows.new(self)
 var parcels := Parcels.new(self)
 ## Values driven through the graph with nothing stored - rotation (see engine/server/drives.gd).
 var drives := Drives.new(self)
+## Blocks that have left the grid and move as one thing (see engine/server/assemblies.gd).
+var assemblies := Assemblies.new(self)
 ## Parts of the world kept awake when nobody is there, and the budget that stops one player doing it
 ## to everybody else (see engine/server/claims.gd).
 var claims := Claims.new(self)
@@ -2696,6 +2699,36 @@ const DRIVE_STEP := 0.02
 ## A face is being driven at a new speed: tell whoever is standing in that world and holds the chunk.
 ## Only for blocks that say they turn, because telling a client about a shaft it will not animate is
 ## bytes spent on nothing.
+## Everything an assembly is made of, once, to whoever is in that world.
+func tell_assembly(id: int) -> void:
+	var assembly: Dictionary = assemblies.assemblies.get(id, {})
+	if assembly.is_empty():
+		return
+	var packed := PackedInt32Array()
+	for cell: Dictionary in assembly.cells:
+		var at: Vector3i = cell.offset
+		packed.append_array([int(cell.block), at.x, at.y, at.z, int(cell.state)])
+	for p: ServerPlayer in players.values():
+		if realm_of(p).id == assembly.realm:
+			Net.s_assembly.rpc_id(p.peer_id, id, assembly.origin, packed)
+
+
+## Where it has got to. Unreliable and ordered, like movement: a position that arrives late is worth
+## nothing, and the next one is along in a moment.
+func tell_assembly_moved(id: int) -> void:
+	var assembly: Dictionary = assemblies.assemblies.get(id, {})
+	if assembly.is_empty():
+		return
+	for p: ServerPlayer in players.values():
+		if realm_of(p).id == assembly.realm:
+			Net.s_assembly_at.rpc_id(p.peer_id, id, assembly.offset)
+
+
+func tell_assembly_gone(id: int) -> void:
+	for p: ServerPlayer in players.values():
+		Net.s_assembly_gone.rpc_id(p.peer_id, id)
+
+
 func drive_changed(node: Dictionary, value: float) -> void:
 	var pos: Vector3i = node.position
 	var in_realm: String = String(node.get("realm", ""))

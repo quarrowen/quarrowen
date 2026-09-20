@@ -620,6 +620,26 @@ func s_link_gone(id: int) -> void:
 		client.on_link_gone(id)
 
 
+## A set of blocks that has left the grid and is moving as one thing. Sent once with everything it is
+## made of, then only its position as it moves, then a message when it sets back down.
+@rpc("authority", "call_remote", "reliable", BULK_CHANNEL)
+func s_assembly(id: int, origin: Vector3i, blocks: PackedInt32Array) -> void:
+	if client:
+		client.on_assembly(id, origin, blocks)
+
+
+@rpc("authority", "call_remote", "unreliable_ordered", MOVEMENT_CHANNEL)
+func s_assembly_at(id: int, offset: Vector3) -> void:
+	if client:
+		client.on_assembly_at(id, offset)
+
+
+@rpc("authority", "call_remote", "reliable", BULK_CHANNEL)
+func s_assembly_gone(id: int) -> void:
+	if client:
+		client.on_assembly_gone(id)
+
+
 ## What is turning, and how fast. Sent when a *speed* changes, which is rare even though the thing
 ## turns constantly - the client animates from the value it was given. Positions are block positions;
 ## a value of 0 means stopped.

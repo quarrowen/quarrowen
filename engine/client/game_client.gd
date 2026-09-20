@@ -241,6 +241,10 @@ var _spinners := {}
 ## Belts: world position -> {mmi, index, along_v, scale}. Their speed rides in per-instance custom
 ## data, so one belt runs while the next is stopped and starting one rebuilds nothing.
 var _scrollers := {}
+## Assemblies: id -> {node, origin, target (where the server says it is), shown (where we have drawn
+## it)}. Drawn a little behind the server so it slides rather than stepping, the same as anything else
+## whose position arrives over a network.
+var _assemblies := {}
 ## World position -> how fast it is being driven, from the server. A speed changes rarely even though
 ## the wheel turns constantly, so this arrives on change and the angle is worked out here.
 var _drive_speed := {}
@@ -1237,6 +1241,8 @@ func on_realm(realm_id: String, display_name: String) -> void:
 	realm = realm_id
 	realm_name = display_name
 	_cables.clear()  # the cables strung in the world being left belong to it
+	for id in _assemblies.keys():
+		on_assembly_gone(id)
 	for coord: Vector2i in world.chunks.keys():
 		on_unload_chunk(coord)
 	for id: int in _entities.keys():
@@ -1248,6 +1254,62 @@ func on_realm(realm_id: String, display_name: String) -> void:
 
 
 ## Cables and pipes: the whole lot on joining, then one at a time as they are made.
+## A set of blocks that has left the grid. Built once from everything it is made of.
+func on_assembly(id: int, origin: Vector3i, blocks: PackedInt32Array) -> void:
+	on_assembly_gone(id)
+	var holder := Node3D.new()
+	holder.position = Vector3(origin)
+	add_child(holder)
+	# One box per block, in the assembly's own space. Small by construction - an assembly is a machine,
+	# not a landscape - so this is cheap enough to build the moment it appears.
+	for i in range(0, blocks.size() - 4, 5):
+		var block := blocks[i]
+		var at := Vector3(blocks[i + 1], blocks[i + 2], blocks[i + 3])
+		var mesh := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = Vector3.ONE
+		mesh.mesh = box
+		mesh.position = at + Vector3(0.5, 0.5, 0.5)
+		var material := StandardMaterial3D.new()
+		material.albedo_texture = _atlas.texture if _atlas != null else null
+		material.uv1_scale = Vector3.ONE
+		if _atlas != null and registry.is_valid(block):
+			# The atlas tile for the block's top face, so a moving platform is recognisably what it is
+			# made of rather than a grey box.
+			material.uv1_scale = Vector3(0.999, 0.999, 1.0)
+		mesh.material_override = material
+		holder.add_child(mesh)
+	_assemblies[id] = {"node": holder, "origin": Vector3(origin), "target": Vector3.ZERO, "shown": Vector3.ZERO}
+
+
+func on_assembly_at(id: int, offset: Vector3) -> void:
+	var assembly: Dictionary = _assemblies.get(id, {})
+	if not assembly.is_empty():
+		assembly.target = offset
+
+
+func on_assembly_gone(id: int) -> void:
+	var assembly: Dictionary = _assemblies.get(id, {})
+	if assembly.is_empty():
+		return
+	_assemblies.erase(id)
+	if is_instance_valid(assembly.node):
+		assembly.node.queue_free()
+
+
+## Slides each assembly towards where the server says it is. Catching up rather than jumping, because
+## positions arrive a few at a time and stepping between them reads as stuttering.
+func _move_assemblies(delta: float) -> void:
+	for id in _assemblies:
+		var assembly: Dictionary = _assemblies[id]
+		if not is_instance_valid(assembly.node):
+			continue
+		var shown: Vector3 = assembly.shown
+		var target: Vector3 = assembly.target
+		assembly.shown = shown.lerp(target, clampf(delta * 12.0, 0.0, 1.0))
+		assembly.node.position = assembly.origin + assembly.shown
+
+
 ## What is turning, and how fast. A wheel turns constantly but changes speed rarely, so this arrives
 ## on change and the angle is carried forward here rather than sent every tick.
 func on_drives(positions: PackedVector3Array, values: PackedFloat32Array) -> void:
@@ -1465,6 +1527,8 @@ func _process(delta: float) -> void:
 	_schedule_mesh_jobs()
 	if not _drive_speed.is_empty():
 		_spin_models(delta)
+	if not _assemblies.is_empty():
+		_move_assemblies(delta)
 	if _held_label != null and _held_label.modulate.a > 0.0 and Time.get_ticks_msec() / 1000.0 > _held_until:
 		_held_label.modulate.a = maxf(_held_label.modulate.a - delta * 2.0, 0.0)
 	if not _welcomed:

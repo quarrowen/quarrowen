@@ -923,6 +923,47 @@ func block_display_name(id: int) -> String:
 # `realm_id` and defaults to the world a server starts with. The event that gave you the position
 # usually carries its realm: block ticks, signals and flows all put it in the context. (2026-09-20)
 
+## Takes a set of blocks out of the world and holds them as one moving thing: a platform on a track, a
+## drawbridge, a contraption somebody built and started. Returns an assembly id, or 0 - and then
+## `assembly_problem()` says why in words a player can be shown.
+##
+## The blocks leave the world at once, keeping their state and their data, so nothing is ever in two
+## places. What moves it, how fast and when it stops are yours; the engine moves blocks and has never
+## heard of a piston.
+func lift_assembly(positions: Array, options := {}) -> int:
+	var settings := options.duplicate()
+	settings.owner = mod_id
+	return _server.assemblies.lift(_qualify_ref(String(options.get("realm", ""))), positions, settings)
+
+
+## Moves it, and carries whoever is standing on it. `by` may be fractional - being off the grid is the
+## entire point.
+func move_assembly(assembly_id: int, by: Vector3) -> bool:
+	return _server.assemblies.move(assembly_id, by)
+
+
+## Puts it back into the world where it has got to. **Refused if something is in the way**, rather than
+## landing on top of it - an engine that deletes what somebody built because a machine arrived is not
+## one to build with. Returns false, and `assembly_problem()` says so.
+func settle_assembly(assembly_id: int) -> bool:
+	return _server.assemblies.settle(assembly_id)
+
+
+## Puts it back exactly where it was lifted from.
+func cancel_assembly(assembly_id: int) -> bool:
+	return _server.assemblies.cancel(assembly_id)
+
+
+## {id, realm, origin, offset, cells, name}, or {}.
+func assembly_info(assembly_id: int) -> Dictionary:
+	return _server.assemblies.info(assembly_id)
+
+
+## Why the last lift or settle was refused.
+func assembly_problem() -> String:
+	return _server.assemblies.problem
+
+
 ## A machine somebody assembles out of blocks. Described as layers of characters, bottom first, the
 ## way anybody would draw it on paper:
 ##

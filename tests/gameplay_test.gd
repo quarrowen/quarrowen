@@ -81,6 +81,7 @@ func _ready() -> void:
 	await _liquids()
 	await _multiblocks()
 	await _drives()
+	await _assemblies()
 	await _tags()
 	await _signals()
 	await _realms()
@@ -4103,6 +4104,57 @@ func _flows() -> void:
 	_check(api.received("power", at.call(148)) == 0.0, "cutting the cable leaves the far end with nothing")
 	_check(is_equal_approx(api.received("power", at.call(144)), 25.0),
 		"and the near one now has the lot (%.1f)" % api.received("power", at.call(144)))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Moving assemblies: blocks that leave the grid, move as one thing, and set back down.
+func _assemblies() -> void:
+	var server = _start("assembly_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	var reg = server.registry
+	var stone: int = reg.id_of("base:stone")
+	var chest: int = reg.id_of("base:chest")
+	var y: int = server.surface_height(540, 540) + 3
+	for dx in range(-1, 6):
+		for dz in range(-1, 3):
+			for dy in range(0, 4):
+				server.set_block_authoritative(Vector3i(540 + dx, y + dy, 540 + dz), 0)
+
+	# A little platform with a chest on it, so there is block data to carry as well as blocks.
+	var cells := []
+	for dx in 3:
+		var at := Vector3i(540 + dx, y, 540)
+		server.set_block_authoritative(at, stone)
+		cells.append(at)
+	server.set_block_authoritative(Vector3i(540, y + 1, 540), chest)
+	server.set_block_data(Vector3i(540, y + 1, 540), {"slots": {"0": ["base:stone", 5]}})
+	cells.append(Vector3i(540, y + 1, 540))
+
+	var id: int = api.lift_assembly(cells)
+	_check(id > 0, "a mod can lift a set of blocks off the grid")
+	_check(server.world.get_block_v(Vector3i(540, y, 540)) == 0, "and the world where they were is empty")
+	_check(server.get_block_data(Vector3i(540, y + 1, 540)).is_empty(), "with nothing left behind")
+	_check(api.assembly_info(id).cells == 4, "the assembly holds all four blocks")
+
+	# Somebody standing on it is carried, which is the difference between a lift and scenery.
+	var rider := ServerPlayer.new(server, 98, "Passenger")
+	rider.player_id = "passenger"
+	rider.state.position = Vector3(540.5, y + 1.0, 540.5)
+	server.players[98] = rider
+	api.move_assembly(id, Vector3(0, 0, 2))
+	_check(is_equal_approx(rider.state.position.z, 542.5), "whoever is standing on it is carried (%.1f)" % rider.state.position.z)
+
+	# Setting down is refused rather than forced, because forcing it deletes what was there.
+	server.set_block_authoritative(Vector3i(541, y, 542), stone)
+	_check(not api.settle_assembly(id), "it will not set down on top of something")
+	_check(api.assembly_problem().contains("way"), "and says why (%s)" % api.assembly_problem())
+	server.set_block_authoritative(Vector3i(541, y, 542), 0)
+	_check(api.settle_assembly(id), "with the way clear it sets down")
+	_check(server.world.get_block_v(Vector3i(540, y, 542)) == stone, "the blocks are back in the world")
+	_check(server.get_block_data(Vector3i(540, y + 1, 542)).get("slots") != null,
+		"and the chest still has what was in it")
+	_check(api.assembly_info(id).is_empty(), "and it is no longer an assembly")
 	server.queue_free()
 	await get_tree().process_frame
 
