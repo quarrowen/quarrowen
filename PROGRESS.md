@@ -2444,3 +2444,21 @@ the next thing to do here, and it is a content job with an art dependency rather
 
 Candidates that need no new art are all poor: a rideable cow is silly, and the obvious saddled-animal
 idea is somebody else's vocabulary. A raft or a cart wants a model.
+
+## Art the engine is waiting for (running list, started 2026-09-20)
+
+**Kept in one place on purpose.** Several capabilities are finished in code and cannot be *used* until
+somebody makes an asset, and that fact kept being buried at the bottom of whichever entry raised it.
+Anything added here should say what is blocked, what would unblock it, and whether a placeholder would
+genuinely do.
+
+| Needed | Blocks | Placeholder acceptable? |
+|---|---|---|
+| **A raft or cart model (GLB)** | Vehicles (capability 18). No bundled vehicle exists, so the riding path has never been driven by a real client - the client half of it is untested. | Yes. A flat plank box would do: it only has to be rideable, not handsome. |
+| **Creature voices** | 25 creatures use placeholder sounds. Noted long before today; no generic pack has the animals this game has. | Partly - the placeholders work, they are just wrong. |
+| **Ore guide art** | Nothing, strictly. The guidebook has pages for older ores, so copper, gold and sunstone have nothing for a child to read. Text, not art, but it belongs on the same list of "built but not usable". | n/a |
+
+The 33 ore, tool and armour textures added today came from `tools/generate_textures.gd`, which paints
+placeholders in code. **That is the pattern worth reaching for first**: if a thing can be drawn by a
+16x16 procedure it needs no artist at all. It does not extend to models, which is why the raft is
+stuck.
