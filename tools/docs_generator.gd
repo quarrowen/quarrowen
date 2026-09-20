@@ -166,14 +166,30 @@ static func build() -> String:
 ## Bound means the same thing the reference page means by it - a declaration in the `Api` interface, or
 ## a prelude entry - so the page and the test can never disagree about what a JavaScript mod can call.
 static func unbound_js() -> Array:
-	var api := parse_gdscript(FileAccess.get_file_as_string(MOD_API), "")
 	var reachable := js_reachable()
 	var out := []
-	for fn in api:
-		if String(fn.signature).ends_with("(property)"):
-			continue
-		if not reachable.has(_camel(fn.name)):
+	for fn in parse_gdscript(FileAccess.get_file_as_string(MOD_API), ""):
+		if not String(fn.signature).ends_with("(property)") and not reachable.has(_camel(fn.name)):
 			out.append(String(fn.name))
+	# Player and Entity too. Leaving them out let Entity.kill and Entity.teleport be added with no
+	# JavaScript binding and nothing said about it, which is exactly what this list is for. (2026-09-20)
+	for obj in OBJECTS:
+		var source := FileAccess.get_file_as_string(obj[1])
+		var marker := source.find("# --- Mod API")
+		var declared := {}
+		for m in parse_ts_interface(FileAccess.get_file_as_string(TYPES), obj[0]):
+			declared[m.name] = true
+		var prelude := FileAccess.get_file_as_string(PRELUDE)
+		for fn in parse_gdscript(source.substr(marker) if marker >= 0 else source, ""):
+			if String(fn.signature).ends_with("(property)"):
+				continue
+			var camel := _camel(fn.name)
+			if declared.has(camel) or prelude.contains("    %s(" % camel) or prelude.contains("    %s:" % camel):
+				continue
+			# What is left is mostly the rename class - perform_attack is reachable as `attack`, is_alive
+			# as `alive`. Listed anyway: a name that differs between the two languages is worth knowing
+			# about, and the ratchet only cares that the list does not grow.
+			out.append("%s.%s" % [String(obj[0]).to_lower(), String(fn.name)])
 	out.sort()
 	return out
 
@@ -251,11 +267,18 @@ static func parse_gdscript(source: String, _prefix: String) -> Array:
 	return out
 
 
-## Members of `export interface <name> { ... }`: [{name, signature, doc}].
+## Members of `export interface <name>` or `export class <name>`: [{name, signature, doc}].
 static func parse_ts_interface(source: String, interface_name: String) -> Array:
-	var start := source.find("export interface %s {" % interface_name)
-	if start < 0:
-		start = source.find("export interface %s " % interface_name)
+	var start := -1
+	# Player and Entity are declared as classes, not interfaces, and looking only for interfaces meant
+	# the reference page never tagged a single one of their methods as reachable from JavaScript -
+	# quietly, for as long as the page has existed. (2026-09-20)
+	for keyword in ["interface", "class"]:
+		start = source.find("export %s %s {" % [keyword, interface_name])
+		if start < 0:
+			start = source.find("export %s %s " % [keyword, interface_name])
+		if start >= 0:
+			break
 	if start < 0:
 		return []
 	var i := source.find("{", start) + 1

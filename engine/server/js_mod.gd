@@ -466,6 +466,7 @@ func _call_player(method: String, a: Array):
 		"isDead": return player.dead
 		"setHealth": player.set_health(float(a[1]) if a.size() > 1 else player.max_health)
 		"heal": player.heal(float(a[1]) if a.size() > 1 else 1.0)
+		"isAlive": return player.is_alive()
 		"damage": return player.damage(float(a[1]) if a.size() > 1 else 1.0, _str(a, 2) if a.size() > 2 else "magic", _any_ref(a, 3))
 		"playSound": player.play_sound(_str(a, 1), float(a[2]) if a.size() > 2 else 1.0, float(a[3]) if a.size() > 3 else 1.0)
 		"drop": player.drop(_int(a, 1), _int(a, 2, 1))
@@ -504,9 +505,11 @@ func _call_entity(method: String, a: Array):
 		"push": e.push(_vec3(a, 1))
 		"health": return e.health
 		"maxHealth": return e.max_health
-		"damage": return e.damage(float(a[1]) if a.size() > 1 else 1.0, _any_ref(a, 2), _str(a, 3) if a.size() > 3 else "magic")
+		"damage": return e.damage(float(a[1]) if a.size() > 1 else 1.0, _str(a, 2) if a.size() > 2 else "magic", _any_ref(a, 3))
 		"heal": e.heal(float(a[1]) if a.size() > 1 else 1.0)
 		"remove": e.remove()
+		"kill": e.kill(_str(a, 1) if a.size() > 1 else "magic")
+		"teleport": e.teleport(_vec3(a, 1))
 		"setGoal": e.set_goal(_vec3(a, 1) if a.size() > 1 and a[1] != null else Vector3.INF)
 		"target": return e.get_target()
 		"setTarget": e.set_target(_any_ref(a, 1))

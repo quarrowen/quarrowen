@@ -234,21 +234,16 @@ func tick(_delta: float) -> void:
 
 func _do_tick(target, kind: Dictionary, level: int) -> void:
 	var tick: Dictionary = kind.tick
-	var player := _is_player(target)
 	if float(tick.heal) > 0.0:
 		target.heal(float(tick.heal) * level)
 	if float(tick.damage) > 0.0:
 		var amount := float(tick.damage) * level
-		# Told apart rather than duck-typed: both have damage(), and they take their arguments in the
-		# *opposite* order - ServerPlayer.damage(amount, cause, attacker) against
-		# Entity.damage(amount, attacker, cause). Calling the wrong one files the cause as the attacker
-		# and loses the death message, silently.
-		if player:
-			# Through the server so armour, the death message and everything watching player_damaged
-			# behave exactly as they do for any other hurt.
+		if _is_player(target):
+			# The long way round only to pass bypass_cooldown: poison that respected the hurt cooldown
+			# would skip most of its own ticks. Creatures have no such cooldown on this path.
 			server.damage_player(target, amount, String(tick.cause), null, Vector3.ZERO, true)
 		else:
-			target.damage(amount, null, String(tick.cause))
+			target.damage(amount, String(tick.cause))
 
 
 static func _is_player(target) -> bool:
@@ -256,7 +251,7 @@ static func _is_player(target) -> bool:
 
 
 static func _alive(target) -> bool:
-	return float(target.health) > 0.0 if target.get("health") != null else true
+	return bool(target.is_alive())
 
 
 ## Puts a target back on the ticking list after a load: conditions live in saved data, so somebody who

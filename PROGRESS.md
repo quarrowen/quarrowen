@@ -2158,3 +2158,50 @@ had it been done the way JavaScript was.
 
 Not started, and not obviously next: nobody has asked for a Lua mod yet. Worth doing when somebody
 does, or if a second language would bring modders who are not coming otherwise.
+
+## Consistency pass over the mod API (2026-09-20, user: "make the damage api consistent. Any other places with such issues?")
+
+`Entity.damage` now takes `(amount, cause, attacker)` like `ServerPlayer.damage` and
+`EntityManager.damage` - it was the sole outlier, and the engine already voted cause-before-attacker
+nine sites to one. **A breaking change to the mod API**, deliberate, pre-1.0: a mod calling
+`mob.damage(4.0, null, "sun")` now passes `"sun"` as the attacker. One bundled mod needed updating.
+
+Also done, all additive:
+
+- `Entity.kill(cause)` and `Entity.teleport(pos)`, so "kill this" and "move this" have one spelling
+  whichever kind of thing you have. `kill` clears the hurt cooldown first: one that quietly did
+  nothing because the creature was hit a moment ago is an hour of somebody's debugging.
+- `ServerPlayer.is_alive()`, matching `Entity.is_alive()`. `dead` stays.
+- `has_tag(name, tag_name)` warns when the arguments look swapped. Both are strings and both are
+  namespaced, so getting them round the wrong way returned a silent `false` and a mod that simply
+  never matched.
+
+**Two bugs found by doing it.** `parse_ts_interface` looked only for `export interface`, but `Player`
+and `Entity` are `export class` - so the reference page has never tagged a single one of their methods
+as reachable from JavaScript, quietly, for as long as the page has existed. And the drift ratchet only
+covered `api.*`, which is how `Entity.kill` and `Entity.teleport` were added with no JavaScript
+binding and nothing said. Both fixed; `unbound.txt` now covers Player and Entity too.
+
+### Not done, from the same audit
+
+- `player.give()` returns how many were **dropped**, so `if player.give(...)` reads as "if it worked"
+  and means "if it failed". 71 call sites; changing the return type is expensive and the cheaper
+  mitigation is a loud comment or a `gave_all()` sibling. Worth doing before 1.0.
+- `*_of()` accessors disagree: `companies_of`/`plots_of` take a player id String, `objectives_of`/
+  `balances_of` take the object, `conditions_of` takes either. Five call sites total - nearly free,
+  but it is a breaking change and there was no reason to bundle it with the damage one.
+- `ServerPlayer.play_sound(name, volume, pitch)` against `api.play_sound(name, position, volume,
+  pitch)` - same name, argument two is a volume on one and a position on the other. Renaming the
+  player one is a three-site change.
+- `register_*` returns `int`, `String`, `bool` or `void` depending which one, so `if
+  api.register_X(...)` means three different things across the API.
+- Entity has no `set_health`, and `player.health = 0` bypasses the clamp, sync and death that
+  `set_health` performs.
+
+## The multiplayer test is flaky on the fallback suite (2026-09-20)
+
+"Alice sees Bob walk (interpolated snapshots)" failed once under `QW_NATIVE=0`, then passed on a
+re-run and passed again on a clean tree with the same seed and a different port base. It is the
+fixed-wait problem CLAUDE.md already warns about: the fallback suite simulates less in the same
+wall-clock time, so a test that waits a number of seconds rather than for the event is marginal there.
+Not chased further today; it should wait for the event.

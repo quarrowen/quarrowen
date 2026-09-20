@@ -272,7 +272,7 @@ func _boss_phases() -> void:
 	_check(_run_until(func(): return near.health < 20.0, 4.0), "boss slam hit the adjacent player")
 	_check(far.health == 20.0, "players outside the slam radius are unharmed")
 	boss.hurt_timer = 0.0
-	boss.damage(60.0, near, "attack")
+	boss.damage(60.0, "attack", near)
 	_run(1.0)
 	_check(phases == [0], "boss entered phase two below half health (%s)" % str(phases))
 	near.health = 20.0

@@ -112,8 +112,30 @@ func remove() -> void:
 
 
 ## Deals damage as if from `attacker` (a ServerPlayer, entity or null). Returns true if it applied.
-func damage(amount: float, attacker = null, cause := "magic") -> bool:
+##
+## `cause` comes before `attacker` to match ServerPlayer.damage and EntityManager.damage. It used to be
+## the other way round on this one object alone, which meant `target.damage(5, "poison")` filed the
+## cause as the attacker on a creature and as the cause on a player - no error either way, because an
+## attacker is untyped. Conditions had to tell the two apart rather than just calling it. (2026-09-20)
+func damage(amount: float, cause := "magic", attacker = null) -> bool:
 	return _manager.damage(self, amount, cause, attacker)
+
+
+## Kills it outright, with drops and a death, as opposed to `remove()` which takes it away as though it
+## had never been there. Player has had `kill` all along; this is the same verb for a creature.
+func kill(cause := "magic") -> void:
+	if not is_alive():
+		return
+	# Past the hurt cooldown on purpose. A kill that quietly did nothing because the creature was hit a
+	# moment ago is the sort of thing a mod author debugs for an hour. (2026-09-20)
+	hurt_timer = 0.0
+	_manager.damage(self, health + 1000.0, cause, null)
+
+
+## Puts it somewhere, stopping it dead. The same spelling as ServerPlayer.teleport, so code that moves
+## "a thing" does not have to know which kind of thing it has.
+func teleport(pos: Vector3) -> void:
+	position = pos
 
 
 ## Gives back health, up to the type's maximum.

@@ -342,7 +342,7 @@ func _mob_tick() -> void:
 				api.play_sound(mob.def.sounds.ambient, mob.position + Vector3(0, 1, 0))
 			if api.setting("zombies_burn") and mob.type in [ids.zombie, ids.skeleton] and daylight > 0.75 \
 					and api.sees_sky(Vector3i(mob.position.floor()) + Vector3i.UP):
-				mob.damage(4.0, null, "sun")
+				mob.damage(4.0, "sun")
 
 
 ## A bow, and something to shoot from it.

@@ -1650,9 +1650,17 @@ func tagged(tag_name: String) -> Array:
 	return _server.tags.names_in(_qualify_ref(tag_name))
 
 
-## Whether a block or item name is in a tag.
+## Whether a block or item name is in a tag. Reads as "does this thing have this tag", which is why the
+## thing comes first here and the tag comes first in `tag` and `tagged`.
+##
+## Both arguments are strings, so getting them the wrong way round used to return a quiet `false` and a
+## mod that simply never matched anything. Now it says so. (2026-09-20)
 func has_tag(name: String, tag_name: String) -> bool:
-	return _server.tags.has(_qualify_ref(tag_name), _qualify_ref(name))
+	var thing := _qualify_ref(name)
+	var group := _qualify_ref(tag_name)
+	if not _server.tags.exists(group) and _server.tags.exists(thing):
+		push_warning("[%s] has_tag('%s', '%s'): '%s' is the tag - the thing to test comes first" % [mod_id, name, tag_name, name])
+	return _server.tags.has(group, thing)
 
 
 ## Every tag a block or item is in.

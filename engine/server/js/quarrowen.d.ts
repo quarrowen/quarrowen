@@ -168,7 +168,11 @@ declare module "quarrowen" {
     readonly health: number;
     readonly maxHealth: number;
     push(impulse: Vec3): void;
-    damage(amount: number, attacker?: Player | Entity | null, cause?: string): boolean;
+    damage(amount: number, cause?: string, attacker?: Player | Entity | null): boolean;
+    /** Kills it with drops and a death, unlike remove() which takes it away as if it never was. */
+    kill(cause?: string): void;
+    /** Puts it somewhere, stopping it dead. Spelled like Player.teleport on purpose. */
+    teleport(position: Vec3): void;
     heal(amount: number): void;
     remove(): void;
     setGoal(position: Vec3 | null): void;
@@ -298,6 +302,8 @@ declare module "quarrowen" {
     readonly health: number;
     readonly maxHealth: number;
     readonly dead: boolean;
+    /** The same question Entity.alive answers, spelled the same way. */
+    isAlive(): boolean;
     setHealth(value: number): void;
     heal(amount: number): void;
     damage(amount: number, cause?: string, attacker?: Player | Entity | null): boolean;

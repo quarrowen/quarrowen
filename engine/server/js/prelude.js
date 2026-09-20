@@ -124,6 +124,8 @@
     get health() { return host("player.health", this.id); }
     get maxHealth() { return host("player.maxHealth", this.id); }
     get dead() { return host("player.isDead", this.id); }
+    /** The same question Entity.alive answers, spelled the same way. */
+    isAlive() { return host("player.isAlive", this.id); }
     setHealth(value) { host("player.setHealth", this.id, value); }
     heal(amount) { host("player.heal", this.id, amount); }
     damage(amount, cause = "magic", attacker = null) { return host("player.damage", this.id, amount, cause, attacker); }
@@ -151,7 +153,11 @@
     get health() { return host("entity.health", this); }
     get maxHealth() { return host("entity.maxHealth", this); }
     push(impulse) { host("entity.push", this, impulse); }
-    damage(amount, attacker = null, cause = "magic") { return host("entity.damage", this, amount, attacker, cause); }
+    damage(amount, cause = "magic", attacker = null) { return host("entity.damage", this, amount, cause, attacker); }
+    /** Kills it with drops and a death, as opposed to remove() which takes it away as if it never was. */
+    kill(cause = "magic") { host("entity.kill", this, cause); }
+    /** Puts it somewhere, stopping it dead. Spelled like Player.teleport on purpose. */
+    teleport(position) { host("entity.teleport", this, position); }
     heal(amount) { host("entity.heal", this, amount); }
     remove() { host("entity.remove", this); }
     /** Walk toward a position (mobs); null resumes normal behaviour. */

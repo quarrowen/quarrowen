@@ -6,4 +6,20 @@
 #
 # Regenerate with: godot --headless --path . res://tools/mod_tool.tscn -- bindings
 add_generation_pass
+entity.aabb
+entity.get_behavior
+entity.get_target
+entity.perform_attack
+entity.set_look
+entity.wake
+player.add_exhaustion
+player.clear_inventory
+player.feed
+player.get_eye_position
+player.get_stats
+player.load_items
+player.save_items
+player.set_hunger
+player.set_max_health
+player.sync_inventory
 set_world_generator

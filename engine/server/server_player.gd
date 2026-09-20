@@ -172,6 +172,12 @@ func heal(amount: float) -> void:
 	_server.heal_player(self, amount)
 
 
+## The same question Entity.is_alive answers, spelled the same way, so code that asks "is this thing
+## still around" does not have to know which kind of thing it has. `dead` stays as it was.
+func is_alive() -> bool:
+	return not dead
+
+
 ## Sets hunger (0-20) and optionally saturation.
 func set_hunger(value: float, new_saturation := -1.0) -> void:
 	_server.hunger.set_hunger(self, value, new_saturation)

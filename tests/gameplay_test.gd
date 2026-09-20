@@ -875,10 +875,10 @@ func _server_rules() -> void:
 		events.append("death")
 		ev.drops = [[coal, 2]], 0)
 	var zombie = server.entities.spawn(zombie_type, pos + Vector3(3, 0, 0))
-	_check(zombie.damage(5.0, null, "magic") and zombie.health == 15.0, "damage applied (%.1f)" % zombie.health)
-	_check(not zombie.damage(5.0, null, "magic"), "hurt cooldown blocks immediate repeat damage")
+	_check(zombie.damage(5.0, "magic") and zombie.health == 15.0, "damage applied (%.1f)" % zombie.health)
+	_check(not zombie.damage(5.0, "magic"), "hurt cooldown blocks immediate repeat damage")
 	zombie.hurt_timer = 0.0
-	zombie.damage(100.0, null, "magic")
+	zombie.damage(100.0, "magic")
 	_check(zombie.removed and events == ["damage magic", "damage magic", "death"], "death event fired (%s)" % str(events))
 	var dropped: Array = server.entities.in_radius(pos + Vector3(3, 0, 0), 2.0, EntityRegistry.ITEM)
 	_check(dropped.size() == 1 and dropped[0].item_count == 2, "entity_death handler replaced the drops")
@@ -4414,6 +4414,23 @@ func _conditions() -> void:
 	server.conditions.tick(0.1)
 	_check(mob.health == 8.0, "and it hurts them on the same timer (%s)" % mob.health)
 	_check(api.clear_condition(mob, "poison"), "and can be cured")
+
+	# The twins agree now. Both take (amount, cause, attacker), so code that hurts "a thing" can call
+	# the same way whichever it has - which is what caught this: filing the cause as the attacker was
+	# silent, because an attacker is untyped.
+	mob.health = 10.0
+	p.health = 20.0
+	mob.hurt_timer = 0.0
+	p.hurt_timer = 0.0  # both were just poisoned, and a recent hit blocks the next one
+	for target in [mob, p]:
+		target.damage(2.0, "scald")
+	_check(mob.health == 8.0 and p.health == 18.0,
+		"one call hurts a player or a creature the same way (%s, %s)" % [mob.health, p.health])
+	_check(mob.is_alive() and p.is_alive(), "and both answer is_alive the same way")
+	mob.teleport(Vector3(20, 64, 20))
+	_check(mob.body.position.distance_to(Vector3(20, 64, 20)) < 1.0, "a creature can be teleported like a player")
+	mob.kill("tested")
+	_check(not mob.is_alive(), "and killed outright rather than only removed")
 
 	# Surviving a save: server time restarts, so what is stored has to be how long is left.
 	api.give_condition(p, "swiftness", {"seconds": 40.0})
