@@ -388,6 +388,7 @@ func _coerce(kind: String, a: Array, i: int):
 		"vec3": return _vec3(a, i)
 		"vec3i": return _block_pos(a, i)
 		"player": return _player_ref(a, i)
+		"ref": return _any_ref(a, i)
 		"callback":
 			var id := _int(a, i, -1)
 			# The prelude turns a function into an id before it crosses; anything else is a mod calling

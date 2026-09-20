@@ -41,6 +41,7 @@ const Assemblies = preload("res://engine/server/assemblies.gd")
 const Modifiers = preload("res://engine/server/modifiers.gd")
 const Ledgers = preload("res://engine/server/ledgers.gd")
 const Objectives = preload("res://engine/server/objectives.gd")
+const Conditions = preload("res://engine/server/conditions.gd")
 const Characters = preload("res://engine/server/characters.gd")
 const Shops = preload("res://engine/server/shops.gd")
 const Companies = preload("res://engine/server/companies.gd")
@@ -309,6 +310,8 @@ var objectives := Objectives.new(self)
 var characters := Characters.new(self)
 ## Buying and selling, drawn the same way everywhere (see engine/server/shops.gd).
 var shops := Shops.new(self)
+## What somebody is temporarily under - swiftness, poison (see engine/server/conditions.gd).
+var conditions := Conditions.new(self)
 ## Groups of players that things can belong to (see engine/server/companies.gd).
 var companies := Companies.new(self)
 ## Ground with an owner, consulted before an edit (see engine/server/plots.gd).
@@ -1825,6 +1828,7 @@ func _physics_process(delta: float) -> void:
 			r.entities.tick(delta)
 	for p: ServerPlayer in players.values():
 		_update_health(p, delta)
+	conditions.tick(delta)
 	var t1 := Time.get_ticks_usec()
 	dev_tools.record("engine", "tick:entities and AI", t1 - te)
 	dev_tools.record("engine", "tick:players", sim_usec)
@@ -2690,6 +2694,8 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 		p.send_message(server_info.motd)
 	broadcast_chat("%s is here" % player_name)
 	print("[server] %s joined (peer %d, player id %s%s)" % [player_name, peer_id, player_id, ", admin" if is_admin(p) else ""])
+	# Before the event, so a mod asking what somebody is under during player_join gets the truth.
+	conditions.resume(p)
 	emit("player_join", {"player": p, "first_time": first_time})
 	transfers.settle_escrow(p, not transfer.is_empty())
 	if not transfer.is_empty():
@@ -2722,6 +2728,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	anticheat.player_left(peer_id)
 	characters.player_left(peer_id)
 	shops.player_left(peer_id)
+	conditions.before_save(p)  # how long is *left*, since server time restarts with the server
+	conditions.forget(p)
 	_store_player(p)
 	players.erase(peer_id)
 	_simulation_dirty = true

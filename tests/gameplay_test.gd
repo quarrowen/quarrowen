@@ -87,6 +87,7 @@ func _ready() -> void:
 	await _effects_extra()
 	await _social()
 	await _characters()
+	await _conditions()
 	await _plots()
 	await _tags()
 	await _signals()
@@ -4338,6 +4339,92 @@ func _characters() -> void:
 	server.characters.player_left(102)
 	server.shops.player_left(102)
 	_check(not server.characters._talking.has(102), "leaving forgets the conversation")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Conditions: what somebody is temporarily under, and the tick a timed modifier could not express.
+func _conditions() -> void:
+	var server = _start("cond_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	var p := ServerPlayer.new(server, 104, "Patient")
+	p.player_id = "patient"
+	p.state.position = Vector3(0, 64, 0)
+	server.players[104] = p
+
+	_check(api.register_condition("swiftness", {"display_name": "Swiftness", "max_level": 3,
+		"modifiers": [{"stat": "move_speed", "amount": 0.2, "op": "multiply"}]}), "a mod registers a condition")
+	_check(api.register_condition("poison", {"display_name": "Poison", "good": false,
+		"tick": {"seconds": 1.0, "damage": 2.0, "cause": "poison"}}), "and one that works on a timer")
+	_check(not api.register_condition("nothing", {"display_name": "Nothing"}),
+		"but not one that neither changes a stat nor does anything")
+
+	var base := p.get_stat("move_speed")
+	_check(api.give_condition(p, "swiftness", {"seconds": 30.0, "level": 2}), "it can be given")
+	_check(api.condition_level(p, "swiftness") == 2, "at a level")
+	_check(p.get_stat("move_speed") > base, "and it changes the stat (%s -> %s)" % [base, p.get_stat("move_speed")])
+
+	# "strongest": a weaker or shorter helping must not cut short what is already running.
+	_check(not api.give_condition(p, "swiftness", {"seconds": 60.0, "level": 1}),
+		"a weaker helping is refused rather than replacing a stronger one")
+	_check(api.condition_level(p, "swiftness") == 2, "and the stronger one is still there")
+	_check(not api.give_condition(p, "swiftness", {"seconds": 5.0, "level": 2}),
+		"and a shorter one at the same strength is refused too")
+	_check(api.give_condition(p, "swiftness", {"seconds": 90.0, "level": 2}), "a longer one at the same strength wins")
+	_check(api.give_condition(p, "swiftness", {"seconds": 5.0, "level": 3}), "and a stronger one always wins")
+
+	var listed: Array = api.conditions_of(p)
+	_check(listed.size() == 1 and listed[0].display_name == "Swiftness" and listed[0].level == 3,
+		"a player can be asked what they are under (%s)" % str(listed))
+
+	# The tick: the thing a timed stat modifier could never say.
+	p.health = 20.0
+	_check(api.give_condition(p, "poison", {"seconds": 10.0}), "poison is given")
+	server._time += 1.1
+	server.conditions.tick(0.1)
+	_check(p.health == 18.0, "and it hurts on its own timer (%s)" % p.health)
+	server.conditions.tick(0.1)
+	_check(p.health == 18.0, "but only when the timer comes round, not every frame")
+	server._time += 1.1
+	server.conditions.tick(0.1)
+	_check(p.health == 16.0, "and again when it does (%s)" % p.health)
+
+	# Running out.
+	server._time += 20.0
+	server.conditions.tick(0.1)
+	_check(not api.has_condition(p, "poison") and not api.has_condition(p, "swiftness"),
+		"both run out when their time is up")
+	_check(is_equal_approx(p.get_stat("move_speed"), base), "and the stat goes back to what it was")
+
+	# A cure takes the bad away and leaves the good, without a mod listing either.
+	api.give_condition(p, "swiftness", {"seconds": 30.0})
+	api.give_condition(p, "poison", {"seconds": 30.0})
+	_check(api.clear_conditions(p, true) == 1, "a cure takes away what is unpleasant")
+	_check(api.has_condition(p, "swiftness") and not api.has_condition(p, "poison"),
+		"and leaves what is not")
+
+	# A creature. It has no stat table, but the ticking half has to work on it.
+	# Asserted rather than skipped when the spawn fails: "base:pig" does not exist and this quietly
+	# tested nothing at all the first time round.
+	var mob = api.spawn_entity("cow", Vector3(2, 64, 2), {})
+	_check(mob != null, "a creature to try it on")
+	mob.health = 10.0
+	_check(api.give_condition(mob, "poison", {"seconds": 10.0}), "a creature can be poisoned too")
+	server._time += 1.1
+	server.conditions.tick(0.1)
+	_check(mob.health == 8.0, "and it hurts them on the same timer (%s)" % mob.health)
+	_check(api.clear_condition(mob, "poison"), "and can be cured")
+
+	# Surviving a save: server time restarts, so what is stored has to be how long is left.
+	api.give_condition(p, "swiftness", {"seconds": 40.0})
+	server.conditions.before_save(p)
+	_check(p.data["_conditions"]["vanilla:swiftness"].has("left"), "what is saved is how long is left, not when it ends")
+	server._time += 500.0  # a restart
+	server.conditions.forget(p)
+	server.conditions.resume(p)
+	var after: Array = api.conditions_of(p)
+	_check(after.size() == 1 and after[0].seconds > 0.0,
+		"so somebody who logs out under something logs back in under it (%s)" % str(after))
 	server.queue_free()
 	await get_tree().process_frame
 

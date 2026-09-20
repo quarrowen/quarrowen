@@ -287,6 +287,29 @@
 			],
 			"gd": "clear_block_data"
 		},
+		"clearCondition": {
+			"args": [
+				{
+					"kind": "ref"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "clear_condition"
+		},
+		"clearConditions": {
+			"args": [
+				{
+					"kind": "ref"
+				},
+				{
+					"default": false,
+					"kind": "bool"
+				}
+			],
+			"gd": "clear_conditions"
+		},
 		"clearMapMarker": {
 			"args": [
 				{
@@ -346,6 +369,25 @@
 				}
 			],
 			"gd": "company_rank"
+		},
+		"conditionLevel": {
+			"args": [
+				{
+					"kind": "ref"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "condition_level"
+		},
+		"conditionsOf": {
+			"args": [
+				{
+					"kind": "ref"
+				}
+			],
+			"gd": "conditions_of"
 		},
 		"debug": {
 			"args": [
@@ -797,6 +839,21 @@
 			"args": [],
 			"gd": "get_world_clock"
 		},
+		"giveCondition": {
+			"args": [
+				{
+					"kind": "ref"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "give_condition"
+		},
 		"giveObjective": {
 			"args": [
 				{
@@ -807,6 +864,17 @@
 				}
 			],
 			"gd": "give_objective"
+		},
+		"hasCondition": {
+			"args": [
+				{
+					"kind": "ref"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "has_condition"
 		},
 		"hasGuideFlag": {
 			"args": [
@@ -1522,6 +1590,17 @@
 				}
 			],
 			"gd": "register_command"
+		},
+		"registerCondition": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_condition"
 		},
 		"registerContainer": {
 			"args": [

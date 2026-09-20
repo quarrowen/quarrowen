@@ -61,9 +61,14 @@ static func _args(signature: String):
 			if text.contains("="):
 				fallback = _literal(text.get_slice("=", 1).strip_edges())
 		else:
-			# Untyped by convention here. `player` is the only one that means something particular; the
-			# rest are genuinely Variant and cross as whatever JSON made of them.
-			kind = "player" if name == "player" else "any"
+			# Untyped by convention here. Two names mean something particular: `player` is always a
+			# player, and `target` is whichever of a player or a creature was passed - conditions apply
+			# to both, and sending the raw {__player: 3} through would hand mod_api.gd a dictionary
+			# where it expected somebody. The rest are genuinely Variant.
+			match name:
+				"player": kind = "player"
+				"target": kind = "ref"
+				_: kind = "any"
 		if kind.is_empty():
 			return "argument '%s' has a type this does not know how to convert" % name
 		var arg := {"kind": kind}

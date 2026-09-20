@@ -1172,6 +1172,56 @@ func shop_offers(player, shop_name: String) -> Array:
 	return _server.shops.offers_for(player, _qualify_ref(shop_name))
 
 
+## Something a player or a creature is temporarily under: swiftness, poison, a well-fed glow.
+##
+##     api.register_condition("swiftness", {"display_name": "Swiftness", "color": "#7fd6ff",
+##         "modifiers": [{"stat": "move_speed", "amount": 0.2, "op": "multiply"}], "max_level": 3})
+##
+##     api.register_condition("poison", {"display_name": "Poison", "good": false,
+##         "tick": {"seconds": 1.5, "damage": 1.0, "cause": "poison"}})
+##
+## **Called a condition because `register_effect` already means particles.** A condition is a stat
+## change, or something that repeats on a timer, or both - and the timer is the part a plain timed
+## modifier could never express, which is what poison, regeneration and burning all need.
+##
+## Levels multiply rather than re-describe: Swiftness II is the same modifiers doubled. `stacks` says
+## what a second helping does - "strongest" (the default), "refresh" or "extend".
+##
+## What stays yours: what conditions exist, what brews or cures them, and what a level means.
+func register_condition(condition_name: String, def: Dictionary) -> bool:
+	return _server.conditions.register(_qualify(condition_name), def, mod_id)
+
+
+## Gives one to a player or a creature. options: seconds (0 = until taken away), level.
+func give_condition(target, condition_name: String, options := {}) -> bool:
+	return _server.conditions.give(target, _qualify_ref(condition_name), options)
+
+
+func clear_condition(target, condition_name: String) -> bool:
+	return _server.conditions.clear(target, _qualify_ref(condition_name))
+
+
+## Takes everything away, or with `only_bad` everything unpleasant - which is the whole of what a cure
+## is, and saves listing every affliction in the game. Returns how many went.
+func clear_conditions(target, only_bad := false) -> int:
+	return _server.conditions.clear_all(target, only_bad)
+
+
+func has_condition(target, condition_name: String) -> bool:
+	return _server.conditions.has(target, _qualify_ref(condition_name))
+
+
+## 0 when they do not have it.
+func condition_level(target, condition_name: String) -> int:
+	return _server.conditions.level_of(target, _qualify_ref(condition_name))
+
+
+## What they are under: [{name, display_name, color, level, good, seconds}], `seconds` -1 for one that
+## does not run out.
+func conditions_of(target) -> Array:
+	return _server.conditions.of_target(target)
+
+
 ## A named number a player owns: coins, reputation, contribution, experience, a guild's standing.
 ##
 ##     api.register_ledger("coins", {"display_name": "Coins", "min": 0})
