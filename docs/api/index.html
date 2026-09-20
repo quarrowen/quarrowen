@@ -427,6 +427,11 @@ engine:dust, engine:explosion."><div class="sig"><code>api.play_effect(effect_na
 options: {lazy} - a lazy asset is listed for the client but not part of the download it waits through
 to join; it is fetched the first time something needs it. use it for anything big and optional (music
 is the reason it exists). anything the world cannot be drawn without must stay eager."><div class="sig"><code>api.register_asset(relative_path: String, options := {}) -&gt; String</code></div><p>Makes a file from this mod's folder downloadable by clients. Returns its asset name.<br>options: {lazy} - a lazy asset is listed for the client but not part of the download it waits through<br>to join; it is fetched the first time something needs it. Use it for anything big and optional (music<br>is the reason it exists). Anything the world cannot be drawn without must stay eager.</p></div>
+<div class="card" id="api-start-effect" data-search="start_effect  an effect that keeps going until you stop it, at a place. returns a handle, or 0.
+
+`play_effect` is a burst that forgets itself, which cannot say &quot;this machine is working now&quot;.
+whoever walks up to a running machine sees it working, not only whoever was there when it started."><div class="sig"><code>api.start_effect(effect_name: String, position: Vector3, options := {}, realm_id := &quot;&quot;) -&gt; int</code></div><p>An effect that keeps going until you stop it, at a place. Returns a handle, or 0.<br><br>`play_effect` is a burst that forgets itself, which cannot say &quot;this machine is working now&quot;.<br>Whoever walks up to a running machine sees it working, not only whoever was there when it started.</p></div>
+<div class="card" id="api-stop-effect" data-search="stop_effect  stops one started with start_effect."><div class="sig"><code>api.stop_effect(handle: int) -&gt; bool</code></div><p>Stops one started with start_effect.</p></div>
 </section>
 <section id="api-server"><h2>Server</h2>
 <div class="card" id="api-storage" data-search="storage storage persistent dictionary owned by this mod, saved with the world."><div class="sig"><code>api.storage: Dictionary  (property)</code><span class="tag js" title="storage">JS storage</span></div><p>Persistent Dictionary owned by this mod, saved with the world.</p></div>
@@ -502,6 +507,40 @@ to whoever it belongs to. `dimension` (&quot;&quot; = the ordinary world) hides 
 <div class="card" id="api-set-world-marker" data-search="set_world_marker  puts a marker on everyone's map and compass (a village, a shared base, an event). saved with the world.
 `marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world)."><div class="sig"><code>api.set_world_marker(marker_id: String, marker: Dictionary) -&gt; void</code></div><p>Puts a marker on everyone's map and compass (a village, a shared base, an event). Saved with the world.<br>`marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world).</p></div>
 <div class="card" id="api-clear-world-marker" data-search="clear_world_marker  takes a marker off everyone's map."><div class="sig"><code>api.clear_world_marker(marker_id: String) -&gt; void</code></div><p>Takes a marker off everyone's map.</p></div>
+<div class="card" id="api-play-decal" data-search="play_decal  leaves a mark on the world: scorch where a blast went off, a stain under something leaking.
+look: {color, size, seconds} - no seconds leaves it until older marks push it out.
+
+it projects onto whatever is underneath, so it follows the shape of the ground and does not have to
+know what it landed on. `normal` turns it to lie on a wall rather than the floor."><div class="sig"><code>api.play_decal(position: Vector3, normal := Vector3i.UP, look := {}, realm_id := &quot;&quot;) -&gt; void</code></div><p>Leaves a mark on the world: scorch where a blast went off, a stain under something leaking.<br>look: {color, size, seconds} - no seconds leaves it until older marks push it out.<br><br>It projects onto whatever is underneath, so it follows the shape of the ground and does not have to<br>know what it landed on. `normal` turns it to lie on a wall rather than the floor.</p></div>
+<div class="card" id="api-screen-tint" data-search="screen_tint  washes a colour over one player's view: underwater, poisoned, standing too near the fire.
+look: {color, strength 0-1, seconds} - no seconds holds it until it is changed or cleared, which is
+what &quot;underwater&quot; wants; seconds fades it out, which is what a flash wants. strength 0 clears it.
+
+a tint on the *view*, which nothing could do before - weather colours the sky and the fog, and that
+is not the same thing. it obeys the player's accessibility setting for flashes, because a
+full-screen colour is exactly what somebody may need turned down and a mod should not overrule it."><div class="sig"><code>api.screen_tint(player, look := {}) -&gt; void</code></div><p>Washes a colour over one player's view: underwater, poisoned, standing too near the fire.<br>look: {color, strength 0-1, seconds} - no seconds holds it until it is changed or cleared, which is<br>what &quot;underwater&quot; wants; seconds fades it out, which is what a flash wants. strength 0 clears it.<br><br>A tint on the *view*, which nothing could do before - weather colours the sky and the fog, and that<br>is not the same thing. It obeys the player's accessibility setting for flashes, because a<br>full-screen colour is exactly what somebody may need turned down and a mod should not overrule it.</p></div>
+<div class="card" id="api-play-beam" data-search="play_beam  draws a line between two places for a moment: a spell going off, an arc of lightning, a beam
+holding something up. look: color, width, seconds, sag (0 is straight, higher hangs).
+
+its own call rather than an effect with a shape, because an emitter says &quot;from here, outwards&quot; and
+can never say &quot;from here to there&quot;."><div class="sig"><code>api.play_beam(from: Vector3, to: Vector3, look := {}, realm_id := &quot;&quot;) -&gt; void</code></div><p>Draws a line between two places for a moment: a spell going off, an arc of lightning, a beam<br>holding something up. look: color, width, seconds, sag (0 is straight, higher hangs).<br><br>Its own call rather than an effect with a shape, because an emitter says &quot;from here, outwards&quot; and<br>can never say &quot;from here to there&quot;.</p></div>
+<div class="card" id="api-register-modifier" data-search="register_modifier  a named mark that can be put on a particular item and changes what it does - an enchantment, in
+your own words.
+
+api.register_modifier(&quot;keen&quot;, {&quot;display_name&quot;: &quot;keen&quot;, &quot;max_level&quot;: 3,
+&quot;per_level&quot;: [{&quot;stat&quot;: &quot;damage&quot;, &quot;amount&quot;: 1.0}], &quot;applies_to&quot;: [&quot;#base:axes&quot;]})
+
+`applies_to` names items or tags; empty means anything. the stat changes are worked out per level,
+and a line of lore is written into the item so its tooltip says &quot;keen ii&quot; without anything new on
+the wire.
+
+**there is no hook system here on purpose.** a mark that should set things alight is a mod listening
+to the hit event it already has and asking whether the weapon is kindled. a second way of doing what
+events already do would be worse than one."><div class="sig"><code>api.register_modifier(modifier_name: String, def: Dictionary) -&gt; bool</code></div><p>A named mark that can be put on a particular item and changes what it does - an enchantment, in<br>your own words.<br><br>api.register_modifier(&quot;keen&quot;, {&quot;display_name&quot;: &quot;Keen&quot;, &quot;max_level&quot;: 3,<br>&quot;per_level&quot;: [{&quot;stat&quot;: &quot;damage&quot;, &quot;amount&quot;: 1.0}], &quot;applies_to&quot;: [&quot;#base:axes&quot;]})<br><br>`applies_to` names items or tags; empty means anything. The stat changes are worked out per level,<br>and a line of lore is written into the item so its tooltip says &quot;Keen II&quot; without anything new on<br>the wire.<br><br>**There is no hook system here on purpose.** A mark that should set things alight is a mod listening<br>to the hit event it already has and asking whether the weapon is kindled. A second way of doing what<br>events already do would be worse than one.</p></div>
+<div class="card" id="api-apply-modifier" data-search="apply_modifier  puts a mark on an item, returning the new item data (level 0 takes it off). the item is returned
+unchanged if the mark does not belong on it, so a mistake gives back an item rather than a mess."><div class="sig"><code>api.apply_modifier(item_data: Dictionary, item_name: String, modifier_name: String, level := 1) -&gt; Dictionary</code></div><p>Puts a mark on an item, returning the new item data (level 0 takes it off). The item is returned<br>unchanged if the mark does not belong on it, so a mistake gives back an item rather than a mess.</p></div>
+<div class="card" id="api-modifier-level" data-search="modifier_level  what level of a mark an item carries, or 0."><div class="sig"><code>api.modifier_level(item_data: Dictionary, modifier_name: String) -&gt; int</code></div><p>What level of a mark an item carries, or 0.</p></div>
+<div class="card" id="api-modifiers-on" data-search="modifiers_on  every mark on an item: [{name, level, display_name}]."><div class="sig"><code>api.modifiers_on(item_data: Dictionary) -&gt; Array</code></div><p>Every mark on an item: [{name, level, display_name}].</p></div>
 <div class="card" id="api-register-liquid" data-search="register_liquid  makes a block a liquid that goes somewhere: spreads, falls, and dries up when nothing feeds it.
 
 api.register_liquid(&quot;water&quot;, {&quot;range&quot;: 7, &quot;falls&quot;: true, &quot;speed&quot;: 0.25})

@@ -82,6 +82,8 @@ func _ready() -> void:
 	await _multiblocks()
 	await _drives()
 	await _assemblies()
+	await _modifiers()
+	await _effects_extra()
 	await _tags()
 	await _signals()
 	await _realms()
@@ -4104,6 +4106,75 @@ func _flows() -> void:
 	_check(api.received("power", at.call(148)) == 0.0, "cutting the cable leaves the far end with nothing")
 	_check(is_equal_approx(api.received("power", at.call(144)), 25.0),
 		"and the near one now has the lot (%.1f)" % api.received("power", at.call(144)))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Special effects: the four things emitters could not say.
+func _effects_extra() -> void:
+	var server = _start("fx_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	var watcher := ServerPlayer.new(server, 99, "Watcher")
+	watcher.player_id = "watcher"
+	watcher.state.position = Vector3(0, 64, 0)
+	server.players[99] = watcher
+
+	# An effect that keeps going, which a burst cannot express: a machine smoking *while* it works.
+	var handle: int = api.start_effect("engine:smoke", Vector3(0, 64, 2))
+	_check(handle > 0, "an effect can be started and left running")
+	_check(server._running_effects.has(handle), "and the server remembers it is going")
+	_check(api.stop_effect(handle) and not server._running_effects.has(handle), "and it can be stopped")
+	_check(not api.stop_effect(handle), "stopping it twice is not a thing")
+
+	# Somebody arriving should see a machine that is already working, not only those who were there.
+	var running: int = api.start_effect("engine:smoke", Vector3(0, 64, 2))
+	_check(server._running_effects.size() == 1, "one machine is working")
+	server._send_running_effects(watcher)
+	_check(true, "and somebody arriving is told about it")
+	api.stop_effect(running)
+
+	# The other three take no state on the server: they are told to whoever is near and then forgotten.
+	api.play_beam(Vector3(0, 64, 0), Vector3(0, 64, 6), {"color": "#88ddff", "seconds": 0.4})
+	api.play_decal(Vector3(0, 63, 0), Vector3i.UP, {"color": "#111111", "size": 2.0})
+	api.screen_tint(watcher, {"color": "#3366aa", "strength": 0.4})
+	api.screen_tint(watcher, {})
+	_check(true, "beams, marks on the ground and a wash over the view all send without erroring")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Item modifiers: named marks on a particular item.
+func _modifiers() -> void:
+	var server = _start("mods_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	api.tag("axes", ["base:iron_axe"])
+	_check(api.register_modifier("keen", {"display_name": "Keen", "max_level": 3,
+		"per_level": [{"stat": "damage", "amount": 1.0}], "applies_to": ["#vanilla:axes"]}),
+		"a mod registers a named mark")
+
+	var data: Dictionary = api.apply_modifier({}, "base:iron_axe", "keen", 2)
+	_check(api.modifier_level(data, "keen") == 2, "it goes on an item it belongs on")
+	_check(data.get("modifiers", []).size() == 1 and is_equal_approx(data.modifiers[0].amount, 2.0),
+		"and its stat change is worked out per level (%s)" % str(data.get("modifiers")))
+	_check(data.get("lore", []).has("Keen II"), "with a line of lore, so the tooltip says so (%s)" % str(data.get("lore")))
+
+	# It will not go on something it does not belong on, and says nothing rather than half-doing it.
+	var wrong: Dictionary = api.apply_modifier({}, "base:stone", "keen", 2)
+	_check(api.modifier_level(wrong, "keen") == 0, "and not on an item it does not belong on")
+
+	# Levels are capped, and taking it off leaves nothing behind - which is how this usually rots.
+	var maxed: Dictionary = api.apply_modifier({}, "base:iron_axe", "keen", 9)
+	_check(api.modifier_level(maxed, "keen") == 3, "levels are capped at what the mark allows")
+	var bare: Dictionary = api.apply_modifier(maxed, "base:iron_axe", "keen", 0)
+	_check(api.modifier_level(bare, "keen") == 0 and not bare.has("modifiers") and not bare.has("lore"),
+		"and taking it off leaves no stat change and no lore behind")
+
+	# Two marks on one item, and the stats are rebuilt from both rather than added up as they arrive.
+	api.register_modifier("sturdy", {"display_name": "Sturdy", "max_level": 2,
+		"per_level": [{"stat": "armor", "amount": 0.5}]})
+	var both: Dictionary = api.apply_modifier(api.apply_modifier({}, "base:iron_axe", "keen", 1), "base:iron_axe", "sturdy", 2)
+	_check(api.modifiers_on(both).size() == 2, "an item can carry more than one")
+	_check(both.modifiers.size() == 2, "and both change what it does")
 	server.queue_free()
 	await get_tree().process_frame
 

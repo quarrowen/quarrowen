@@ -929,6 +929,57 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Special effects: the four things emitters could not say (2026-09-20)
+
+The user asked for "a good set of capabilities for particle effects, glow effects and other special
+effects". Most of it was already there and worth saying so: particles fully parameterised (amount,
+lifetime, speed, spread, gravity, drag, size and colour over life, emission shape, texture, blending),
+light flashes, camera shake with a radius, a sound, effects that follow a mob or player, held effects,
+item glow and trails, emissive blocks feeding the bloom pass, and weather sharing the same emitter
+vocabulary deliberately so there are not two dialects.
+
+Four things it genuinely could not do, now added:
+
+1. **An effect that keeps going until stopped, at a place.** `play_effect` is a burst that forgets
+   itself, which cannot say "this machine is working now". `start_effect` returns a handle;
+   `stop_effect` ends it. Running ones are **re-sent to somebody who arrives**, so walking up to a
+   working machine shows it working rather than only rewarding whoever was there when it started.
+2. **Beams.** A line from here to *there*, which an emitter can never say - it says "from here,
+   outwards". Reuses the cable's geometry, because drawing between two arbitrary points was already
+   solved and there was no reason to write it twice.
+3. **A wash of colour over the view** - underwater, poisoned, too near the fire. Weather could tint the
+   sky and the fog, which is not the same thing. It obeys the player's accessibility setting for
+   flashes, because a full-screen colour is exactly what somebody may need turned down and a mod
+   should not be able to insist.
+4. **Marks left on the world** - scorch, stains. Godot's decals project onto whatever is underneath,
+   so a mark follows the shape of the ground without knowing what it landed on. Capped and fading,
+   because a mod that marks the ground on every event will otherwise fill a scene.
+
+**One real fix on the way**: `start_effect` used to refuse when the server had no socket open, which
+meant an offline server silently knew nothing about what was running. What the server knows is
+running is a fact about the world; only *telling* somebody needs a network. Recorded always now, sent
+only when there is somewhere to send it.
+
+## Item modifiers, capability 5 (2026-09-20)
+
+`engine/server/modifiers.gd`. Named marks on a *particular* item that change what it does - an
+enchantment, in our own words.
+
+**Most of this already worked and nobody had noticed.** An item's data could always carry raw stat
+modifiers and `player_stats.gd` has always folded them in. What was missing was that they had no
+*names*: nothing could say "this axe is Keen II", ask whether it was, take it off again, or tell the
+player. So this is a registry and four small operations rather than a new system.
+
+Two details worth keeping. The stat changes are **rebuilt wholesale from the marks** rather than added
+and subtracted as marks come and go - which is how this sort of thing usually rots, with half a
+removed mark left behind. And applying a mark writes a line of **lore** into the item data, which the
+client already displays, so a tooltip reads "Keen II" with nothing new on the wire and nothing new for
+a mod to remember.
+
+**No hook system, deliberately.** A mark that should set things alight is a mod listening to the hit
+event it already has and asking whether the weapon is kindled. A second way of doing what events
+already do would be worse than one way.
+
 ## Moving assemblies, capability 22 - the hard one (2026-09-20)
 
 `engine/server/assemblies.gd`. Blocks leave the grid, move as one thing, and set back down: a platform

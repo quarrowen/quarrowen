@@ -620,6 +620,44 @@ func s_link_gone(id: int) -> void:
 		client.on_link_gone(id)
 
 
+## A mark left on the world: scorch where an explosion went off, a stain under something leaking.
+@rpc("authority", "call_remote", "reliable")
+func s_decal(pos: Vector3, normal: Vector3i, look: Dictionary) -> void:
+	if client:
+		client.on_decal(pos, normal, look)
+
+
+## A wash of colour over one player's view: hurt, underwater, standing too near the lava. A tint on
+## the *view* rather than on the world, which nothing could do before - weather could colour the sky
+## and the fog, and that is not the same thing.
+@rpc("authority", "call_remote", "reliable")
+func s_screen(look: Dictionary) -> void:
+	if client:
+		client.on_screen(look)
+
+
+## A line drawn between two points for a moment: a spell, an arc, a tractor beam. Emitters cannot say
+## "from here to there", which is why this is its own thing rather than an effect with a shape.
+@rpc("authority", "call_remote", "reliable")
+func s_beam(from: Vector3, to: Vector3, look: Dictionary) -> void:
+	if client:
+		client.on_beam(from, to, look)
+
+
+## An effect that keeps going until it is told to stop - a machine smoking while it runs. Sent with a
+## handle so it can be stopped, and re-sent to anybody who arrives while it is still going.
+@rpc("authority", "call_remote", "reliable")
+func s_effect_start(handle: int, effect_id: int, pos: Vector3, options: Dictionary) -> void:
+	if client:
+		client.on_effect_start(handle, effect_id, pos, options)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_effect_stop(handle: int) -> void:
+	if client:
+		client.on_effect_stop(handle)
+
+
 ## A set of blocks that has left the grid and is moving as one thing. Sent once with everything it is
 ## made of, then only its position as it moves, then a message when it sets back down.
 @rpc("authority", "call_remote", "reliable", BULK_CHANNEL)

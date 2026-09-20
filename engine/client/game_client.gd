@@ -63,6 +63,8 @@ const DevOverlay = preload("res://engine/client/dev_overlay.gd")
 const DebugDraw = preload("res://engine/client/debug_draw.gd")
 const CableView = preload("res://engine/client/cable_view.gd")
 const ScrollingMaterial = preload("res://engine/client/scrolling_material.gd")
+const BeamView = preload("res://engine/client/beam_view.gd")
+const DecalView = preload("res://engine/client/decal_view.gd")
 const UgcClient = preload("res://engine/client/ugc_client.gd")
 const CreationLibrary = preload("res://engine/client/creation_library.gd")
 const UgcReview = preload("res://engine/client/ugc_review.gd")
@@ -279,6 +281,10 @@ var _hunger_bar: HBoxContainer
 var _hunger_textures := []  # [full, half, empty]
 var _eating := {}  # {item, next_chomp} while holding use on food
 var _hurt_flash: ColorRect
+## A wash of colour over the view that a mod controls: underwater, poisoned, too near the fire. Kept
+## apart from the hurt flash so one cannot cancel the other out.
+var _screen_tint: ColorRect
+var _screen_fade := 0.0
 var _death_panel: Control
 ## {sleeping, since, asleep, needed, seconds, head_dir, started (local)} while in bed.
 var _sleep := {}
@@ -297,6 +303,8 @@ var _dev_alerts: VBoxContainer
 var _dev_overlay: DevOverlay
 var _debug_draw: DebugDraw
 var _cables: CableView
+var _beams: BeamView
+var _decals: DecalView
 ## Player creations: uploads, downloads and the server library (see engine/client/ugc_client.gd).
 var ugc := UgcClient.new(self)
 ## Model files of downloaded creations: asset name -> GLB bytes.
@@ -1056,6 +1064,47 @@ func _dress_held(node: Node3D, look: Dictionary) -> void:
 		_effects.play(held_effect, Vector3.ZERO, {"duration": -1, "scale": 0.5}, tip if tip != null else node)
 
 
+## Effects still running, by the handle the server gave them: a machine smoking while it works.
+var _running_effects := {}
+
+
+## look: {color, strength (0-1), seconds (0 holds until changed)}. An empty colour clears it.
+##
+## Respects the accessibility setting for flashes, like the hurt overlay: a full-screen colour is
+## exactly the thing somebody may need turned down, and a mod should not be able to insist.
+func on_screen(look: Dictionary) -> void:
+	var allowed := float(ClientSettings.shared().get_value("accessibility/flashes"))
+	var strength := clampf(float(look.get("strength", 0.0)), 0.0, 1.0) * allowed
+	var colour := Color(String(look.get("color", "#000000")))
+	colour.a = strength
+	_screen_tint.color = colour
+	_screen_fade = float(look.get("seconds", 0.0))
+
+
+## A mark left on the world.
+func on_decal(pos: Vector3, normal: Vector3i, look: Dictionary) -> void:
+	_decals.add(pos, normal, look)
+
+
+## A line drawn from one place to another for a moment.
+func on_beam(from: Vector3, to: Vector3, look: Dictionary) -> void:
+	_beams.add(from, to, look)
+
+
+func on_effect_start(handle: int, effect_id: int, pos: Vector3, options: Dictionary) -> void:
+	on_effect_stop(handle)
+	var node: Node3D = _effects.play(effect_id, pos, options, null, _camera.global_position)
+	if node != null:
+		_running_effects[handle] = node
+
+
+func on_effect_stop(handle: int) -> void:
+	var node = _running_effects.get(handle)
+	_running_effects.erase(handle)
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+
+
 func on_effect(effect_id: int, pos: Vector3, options: Dictionary) -> void:
 	if _effects.registry.is_valid(effect_id):
 		var effect_name: String = _effects.registry.defs[effect_id].name
@@ -1243,6 +1292,10 @@ func on_realm(realm_id: String, display_name: String) -> void:
 	_cables.clear()  # the cables strung in the world being left belong to it
 	for id in _assemblies.keys():
 		on_assembly_gone(id)
+	for handle in _running_effects.keys():
+		on_effect_stop(handle)  # whatever was working belongs to the world being left
+	_beams.clear()
+	_decals.clear()
 	for coord: Vector2i in world.chunks.keys():
 		on_unload_chunk(coord)
 	for id: int in _entities.keys():
@@ -1563,6 +1616,10 @@ func _process(delta: float) -> void:
 	_update_cracks()
 	_update_hud()
 	_hurt_flash.color.a = move_toward(_hurt_flash.color.a, 0.0, delta * 1.2)
+	# A tint with no time on it is held until the server says otherwise - that is what "underwater"
+	# wants; one with a time fades out by itself, which is what a flash wants.
+	if _screen_fade > 0.0 and _screen_tint.color.a > 0.0:
+		_screen_tint.color.a = maxf(_screen_tint.color.a - delta / _screen_fade, 0.0)
 
 
 ## Your own character: hidden in first person; in third person the camera pulls back (stopping at
@@ -3353,6 +3410,12 @@ func _build_hud() -> void:
 	_hurt_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud_root.add_child(_hurt_flash)
 
+	_screen_tint = ColorRect.new()
+	_screen_tint.color = Color(0, 0, 0, 0)
+	_screen_tint.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_screen_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_root.add_child(_screen_tint)
+
 	_chat_log = VBoxContainer.new()
 	_chat_log.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	_chat_log.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -3462,6 +3525,10 @@ func _build_hud() -> void:
 	add_child(_debug_draw)
 	_cables = CableView.new()
 	add_child(_cables)
+	_beams = BeamView.new()
+	add_child(_beams)
+	_decals = DecalView.new()
+	add_child(_decals)
 	_tutorial_hud = TutorialHud.new()
 	_tutorial_hud.client = self
 	_tutorial_hud.action_requested.connect(func(action, arg): Net.c_tutorial.rpc_id(1, action, arg))

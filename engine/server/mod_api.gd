@@ -923,6 +923,87 @@ func block_display_name(id: int) -> String:
 # `realm_id` and defaults to the world a server starts with. The event that gave you the position
 # usually carries its realm: block ticks, signals and flows all put it in the context. (2026-09-20)
 
+## Leaves a mark on the world: scorch where a blast went off, a stain under something leaking.
+## look: {color, size, seconds} - no seconds leaves it until older marks push it out.
+##
+## It projects onto whatever is underneath, so it follows the shape of the ground and does not have to
+## know what it landed on. `normal` turns it to lie on a wall rather than the floor.
+func play_decal(position: Vector3, normal := Vector3i.UP, look := {}, realm_id := "") -> void:
+	_server.play_decal(position, normal, look, _qualify_ref(realm_id))
+
+
+## Washes a colour over one player's view: underwater, poisoned, standing too near the fire.
+## look: {color, strength 0-1, seconds} - no seconds holds it until it is changed or cleared, which is
+## what "underwater" wants; seconds fades it out, which is what a flash wants. strength 0 clears it.
+##
+## A tint on the *view*, which nothing could do before - weather colours the sky and the fog, and that
+## is not the same thing. It obeys the player's accessibility setting for flashes, because a
+## full-screen colour is exactly what somebody may need turned down and a mod should not overrule it.
+func screen_tint(player, look := {}) -> void:
+	if player != null:
+		Net.s_screen.rpc_id(player.peer_id, look)
+
+
+## Draws a line between two places for a moment: a spell going off, an arc of lightning, a beam
+## holding something up. look: color, width, seconds, sag (0 is straight, higher hangs).
+##
+## Its own call rather than an effect with a shape, because an emitter says "from here, outwards" and
+## can never say "from here to there".
+func play_beam(from: Vector3, to: Vector3, look := {}, realm_id := "") -> void:
+	_server.play_beam(from, to, look, _qualify_ref(realm_id))
+
+
+## An effect that keeps going until you stop it, at a place. Returns a handle, or 0.
+##
+## `play_effect` is a burst that forgets itself, which cannot say "this machine is working now".
+## Whoever walks up to a running machine sees it working, not only whoever was there when it started.
+func start_effect(effect_name: String, position: Vector3, options := {}, realm_id := "") -> int:
+	return _server.start_effect(_qualify_ref(effect_name), position, options, _qualify_ref(realm_id))
+
+
+## Stops one started with start_effect.
+func stop_effect(handle: int) -> bool:
+	return _server.stop_effect(handle)
+
+
+## A named mark that can be put on a particular item and changes what it does - an enchantment, in
+## your own words.
+##
+##     api.register_modifier("keen", {"display_name": "Keen", "max_level": 3,
+##         "per_level": [{"stat": "damage", "amount": 1.0}], "applies_to": ["#base:axes"]})
+##
+## `applies_to` names items or tags; empty means anything. The stat changes are worked out per level,
+## and a line of lore is written into the item so its tooltip says "Keen II" without anything new on
+## the wire.
+##
+## **There is no hook system here on purpose.** A mark that should set things alight is a mod listening
+## to the hit event it already has and asking whether the weapon is kindled. A second way of doing what
+## events already do would be worse than one.
+func register_modifier(modifier_name: String, def: Dictionary) -> bool:
+	var resolved := def.duplicate(true)
+	if resolved.get("applies_to") is Array:
+		resolved.applies_to = (resolved.applies_to as Array).map(func(n) -> String:
+			var spec := String(n)
+			return "#" + _qualify_ref(spec.substr(1)) if spec.begins_with("#") else _qualify_ref(spec))
+	return _server.modifiers.register(_qualify(modifier_name), resolved, mod_id)
+
+
+## Puts a mark on an item, returning the new item data (level 0 takes it off). The item is returned
+## unchanged if the mark does not belong on it, so a mistake gives back an item rather than a mess.
+func apply_modifier(item_data: Dictionary, item_name: String, modifier_name: String, level := 1) -> Dictionary:
+	return _server.modifiers.apply(item_data, _qualify_ref(item_name), _qualify_ref(modifier_name), level)
+
+
+## What level of a mark an item carries, or 0.
+func modifier_level(item_data: Dictionary, modifier_name: String) -> int:
+	return _server.modifiers.level_of(item_data, _qualify_ref(modifier_name))
+
+
+## Every mark on an item: [{name, level, display_name}].
+func modifiers_on(item_data: Dictionary) -> Array:
+	return _server.modifiers.marks_on(item_data)
+
+
 ## Takes a set of blocks out of the world and holds them as one moving thing: a platform on a track, a
 ## drawbridge, a contraption somebody built and started. Returns an assembly id, or 0 - and then
 ## `assembly_problem()` says why in words a player can be shown.

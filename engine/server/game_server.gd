@@ -38,6 +38,7 @@ const Flows = preload("res://engine/server/flows.gd")
 const Parcels = preload("res://engine/server/parcels.gd")
 const Drives = preload("res://engine/server/drives.gd")
 const Assemblies = preload("res://engine/server/assemblies.gd")
+const Modifiers = preload("res://engine/server/modifiers.gd")
 const Claims = preload("res://engine/server/claims.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
@@ -292,6 +293,8 @@ var parcels := Parcels.new(self)
 var drives := Drives.new(self)
 ## Blocks that have left the grid and move as one thing (see engine/server/assemblies.gd).
 var assemblies := Assemblies.new(self)
+## Named marks on particular items - keen, sturdy (see engine/server/modifiers.gd).
+var modifiers := Modifiers.new(self)
 ## Parts of the world kept awake when nobody is there, and the budget that stops one player doing it
 ## to everybody else (see engine/server/claims.gd).
 var claims := Claims.new(self)
@@ -2130,6 +2133,86 @@ func play_sound_at(sound_name: String, pos: Vector3, volume := 1.0, pitch := 1.0
 
 ## Plays a registered effect at a position for players in range. options: see EffectRegistry
 ## (color, scale, direction, duration, follow: an entity or player).
+## Effects that are still going: handle -> {realm, effect, position, options}. Remembered so somebody
+## who walks up to a running machine sees it working, rather than only those who were there when it
+## started. (2026-09-20)
+var _running_effects := {}
+var _next_effect_handle := 1
+
+
+## Starts an effect that keeps going until stop_effect. Returns a handle, or 0.
+##
+## For a machine that should smoke *while it runs*: play_effect is a burst and forgets itself, which
+## cannot express "this is working now".
+## Leaves a mark on the world for everyone near enough to see it.
+func play_decal(pos: Vector3, normal: Vector3i, look := {}, realm_id := "") -> void:
+	if not _started:
+		return
+	var clean := {"color": String(look.get("color", "#000000")),
+		"size": clampf(float(look.get("size", 1.0)), 0.1, 8.0),
+		"seconds": clampf(float(look.get("seconds", 0.0)), 0.0, 600.0)}
+	for p: ServerPlayer in players.values():
+		if realm_of(p).id == realm_id and p.state.position.distance_to(pos) <= 64.0:
+			Net.s_decal.rpc_id(p.peer_id, pos, normal, clean)
+
+
+## Draws a line between two places for a moment, for everyone near enough to see it.
+func play_beam(from: Vector3, to: Vector3, look := {}, realm_id := "") -> void:
+	if not _started:
+		return
+	var clean := {"color": String(look.get("color", "#ffffff")),
+		"width": clampf(float(look.get("width", 0.08)), 0.01, 1.0),
+		"seconds": clampf(float(look.get("seconds", 0.25)), 0.02, 10.0),
+		"sag": clampf(float(look.get("sag", 0.0)), 0.0, 1.0)}
+	var middle := (from + to) * 0.5
+	var reach := 64.0 + from.distance_to(to) * 0.5
+	for p: ServerPlayer in players.values():
+		if realm_of(p).id == realm_id and p.state.position.distance_to(middle) <= reach:
+			Net.s_beam.rpc_id(p.peer_id, from, to, clean)
+
+
+func start_effect(effect_name: String, pos: Vector3, options := {}, realm_id := "") -> int:
+	var id := effects.id_of(effect_name)
+	if id < 0:
+		return 0
+	var handle := _next_effect_handle
+	_next_effect_handle += 1
+	var clean := EffectRegistry.clean_options(options)
+	# Recorded whether or not there is a socket open. What the server knows is running is a fact about
+	# the world; only telling somebody about it needs a network. (2026-09-20)
+	_running_effects[handle] = {"realm": realm_id, "effect": id, "position": pos, "options": clean}
+	if not _started:
+		return handle
+	var reach: float = effects.defs[id].range
+	for p: ServerPlayer in players.values():
+		if realm_of(p).id == realm_id and p.state.position.distance_to(pos) <= reach:
+			Net.s_effect_start.rpc_id(p.peer_id, handle, id, pos, clean)
+	return handle
+
+
+func stop_effect(handle: int) -> bool:
+	if not _running_effects.erase(handle):
+		return false
+	if not _started:
+		return true
+	for p: ServerPlayer in players.values():
+		Net.s_effect_stop.rpc_id(p.peer_id, handle)
+	return true
+
+
+## Everything still going in a world, for somebody who has just arrived in it.
+func _send_running_effects(p: ServerPlayer) -> void:
+	if not _started:
+		return
+	var in_realm: String = realm_of(p).id
+	for handle: int in _running_effects:
+		var running: Dictionary = _running_effects[handle]
+		if running.realm != in_realm:
+			continue
+		if p.state.position.distance_to(running.position) <= float(effects.defs[running.effect].range):
+			Net.s_effect_start.rpc_id(p.peer_id, handle, running.effect, running.position, running.options)
+
+
 func play_effect(effect_name: String, pos: Vector3, options := {}, exclude := 0) -> void:
 	var id := effects.id_of(effect_name)
 	if id < 0 or not _started:
@@ -2562,6 +2645,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	var strung := links_for(realm_of(p).id)
 	if not strung.is_empty():
 		Net.s_links.rpc_id(peer_id, strung)
+	_send_running_effects(p)
 	_set_client_avatar(p, avatar, true)
 	Net.s_cosmetics.rpc_id(peer_id, PackedStringArray(p.owned_cosmetics.keys()), cosmetics.policy)
 	Net.s_known_recipes.rpc_id(peer_id, PackedStringArray(p.known_recipes.keys()), gameplay.recipe_discovery)
