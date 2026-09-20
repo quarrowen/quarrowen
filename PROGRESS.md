@@ -2516,11 +2516,17 @@ adding to the art list.
 
 ### "Chokepoint? Why? Is it not event driven?" - the user, and they were right to ask
 
-Checking the answer changed the design. There is **no `player_damaged` or `player_healed` event at
-all**; the only health event is `entity_damage`, and that is a *pre*-event fired before the change, so
-listening to it reports the old value. For players, `sync_health` really is the funnel - eight call
-sites covering damage, heal, respawn, max-health, transfer and set_health - so hooking it is accurate
-rather than lazy.
+Checking the answer changed the design.
+
+**Correction, written the next day.** The first version of this note said there was "no `player_damaged`
+or `player_healed` event at all". That was wrong and came from grepping the past tense: `player_damage`
+exists (`game_server.gd:2087`), as does `entity_damage`. The substantive point survives intact, because
+**both are pre-events** - cancellable, fired *before* health changes - so a listener sees the old
+value and cannot be used to update a health bar. What is genuinely missing is a **post**-event for
+either, and any event at all for healing.
+
+Given that, `sync_health` really is the funnel for players - eight call sites covering damage, heal,
+respawn, max-health, transfer and set_health - so hooking it is accurate rather than lazy.
 
 For **entities it was wrong**, and the question is what exposed it. `Entity.health` was a plain
 writable field, so hooking the two places the engine changes it left every other writer silent: a mod
