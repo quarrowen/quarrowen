@@ -77,6 +77,10 @@ func setup(api) -> void:
 	api.register_block("coal_ore", {"textures": "textures/coal_ore.png", "display_name": "Coal Ore", "drops": "base:coal", "sounds": stone, "hardness": 3.0, "tier": 1, "tool": "pickaxe"})
 	api.register_block("iron_ore", {"textures": "textures/iron_ore.png", "display_name": "Iron Ore", "sounds": stone, "hardness": 3.0, "tier": 2, "tool": "pickaxe"})
 	api.register_block("water", {"textures": "textures/water.png", "render": "translucent", "liquid": true})
+	# The thin form, for water that has spread a few blocks: a slab, so it looks shallow and a player
+	# wades through it rather than swimming - shapes decide collision as well as drawing.
+	api.register_block("water_shallow", {"display_name": "Water", "textures": "textures/water.png",
+		"render": "translucent", "liquid": true, "shape": "slab_bottom", "placeable": false, "drops": ""})
 	api.register_block("bedrock", {"textures": "textures/bedrock.png", "breakable": false, "placeable": false, "sounds": stone})
 
 	# Food: hold use to eat (hunger points out of 20; saturation keeps you full for longer).

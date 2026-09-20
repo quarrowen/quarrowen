@@ -928,7 +928,8 @@ func block_display_name(id: int) -> String:
 ##     api.register_liquid("water", {"range": 7, "falls": true, "speed": 0.25})
 ##
 ## def: `range` (how many blocks from a source before it runs out), `falls`, `speed` (seconds between
-## steps - lava is slow, which is most of what makes it frightening).
+## steps - lava is slow, which is most of what makes it frightening), `shallow` (a block to use once it
+## has spread `shallow_from` blocks - give it a slab shape and a thin sheet looks and wades like one).
 ##
 ## The level lives in the block's state: 0 is a source and never runs out, and each block outwards is
 ## one weaker. Nothing new is written to disk or sent to clients, because states already were.
@@ -939,6 +940,10 @@ func register_liquid(block_name: String, def := {}) -> void:
 		return
 	var settings := def.duplicate()
 	settings.name = _qualify_ref(block_name)
+	if not String(def.get("shallow", "")).is_empty():
+		settings.shallow = block(String(def.shallow))
+		# The thin form ticks too, or a sheet would never dry up once it had thinned.
+		register_block_tick(String(def.shallow), _flow_step, {"interval": 3600.0, "catch_up": false, "random": false})
 	_server.realm.liquids.register(id, settings)
 	# The liquid thinks again on a scheduled tick; catch_up is off because a flow that has been asleep
 	# should work out where it is now rather than replay where it was going.

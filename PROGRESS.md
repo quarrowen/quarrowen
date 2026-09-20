@@ -954,10 +954,19 @@ spawners use it, and the mod API says to.
 data, find_block_data, break_block, fill, surface_y, sees_sky and raycast. Default is the world a
 server starts with, so nothing that exists had to change.
 
-**Still not fixed, deliberately: liquid rendering.** Every level draws at full height because shapes
-are per block id and not per state. Fixing it means changing the mesher *and* its Rust twin, which
-must agree exactly, for a cosmetic gain. It is the next thing worth doing if fluids should look right
-as well as behave right, and it is a bigger piece than it appears.
+**And liquid depth, done the cheap way on purpose.** A liquid may name a `shallow` twin - an ordinary
+block with a slab shape - and once a flow has travelled `shallow_from` blocks it is placed as that
+instead. Water four blocks from its source is now visibly a thin sheet, and because shapes decide
+collision as well as drawing, a player *wades* through it rather than swimming.
+
+The expensive alternative was an arbitrary height per level, which needs block states sent to the
+mesher and the key its greedy merging packs re-cut - in the GDScript mesher **and** its Rust twin,
+which must agree exactly. That is the most delicate pair in the codebase and the gain is cosmetic.
+Two depths is most of the look for none of the risk. If arbitrary heights are ever wanted, nothing
+here is in the way.
+
+The two forms are one liquid everywhere it matters: flowing, drying up and meeting lava all compare
+by family, so a thin sheet still knows it has met lava.
 
 ## Liquids that go somewhere, capability 6 (2026-09-19)
 

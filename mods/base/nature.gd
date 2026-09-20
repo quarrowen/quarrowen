@@ -32,7 +32,8 @@ func setup(api, sounds: Dictionary) -> void:
 
 	# Liquids that go somewhere. Water spreads seven blocks and falls; lava creeps three and is slow,
 	# which is most of what makes it frightening rather than merely hot.
-	api.register_liquid("water", {"range": 7, "falls": true, "speed": 0.22})
+	api.register_liquid("water", {"range": 7, "falls": true, "speed": 0.22,
+		"shallow": "base:water_shallow", "shallow_from": 4})
 	api.register_liquid("lava", {"range": 3, "falls": true, "speed": 0.9})
 	api.register_liquid_meeting("water", "lava", "base:blackglass")
 

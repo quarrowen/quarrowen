@@ -18,9 +18,15 @@ extends RefCounted
 ## upwards are flow, weakening by one a block, and a flow with nothing feeding it dries up. Nothing new
 ## had to be put on disk or on the wire for any of this.
 ##
-## Known limit: the client draws every level at full height, because shapes are per block id and not
-## per state. The simulation is right - water fills a hollow, finds a level and stops - but a thin
-## sheet of it looks as deep as the source. Fixing that is a mesher job. (2026-09-19)
+## **Depth is shown by swapping the block, not by the level alone.** A mod gives a liquid a `shallow`
+## twin - an ordinary block with a slab shape - and everything past `shallow_from` blocks of travel is
+## placed as that instead. A thin sheet then reads as a thin sheet, and a player wades through it
+## rather than swimming, because shapes decide collision as well as drawing.
+##
+## Done this way on purpose. Rendering an arbitrary height per level would mean sending block states to
+## the mesher and re-packing the key its greedy merging uses, in both the GDScript mesher and its Rust
+## twin, which must agree exactly - a great deal of risk in the most delicate pair in the codebase, for
+## a cosmetic gain. Two depths is most of the look for none of that. (2026-09-20)
 
 const Chunk = preload("res://engine/shared/chunk.gd")
 const VoxelWorld = preload("res://engine/shared/voxel_world.gd")
@@ -44,7 +50,15 @@ func _init(game_server, in_realm) -> void:
 	realm = in_realm
 
 
+## `shallow` is the block id to use once it has travelled `shallow_from` blocks (0 for none). Both ids
+## are the same liquid as far as flowing, drying and meeting are concerned.
 func register(block: int, def: Dictionary) -> void:
+	var shallow := int(def.get("shallow", 0))
+	if shallow > 0:
+		# The thin form is the same liquid wearing a different shape, so it answers to the deep one.
+		kinds[shallow] = {"name": String(def.get("name", "")), "range": clampi(int(def.get("range", 7)), 1, 15),
+			"falls": bool(def.get("falls", true)), "speed": clampf(float(def.get("speed", 0.25)), 0.05, 10.0),
+			"family": block, "shallow": shallow, "shallow_from": int(def.get("shallow_from", 4))}
 	kinds[block] = {
 		"name": String(def.get("name", "")),
 		# How many blocks it travels from its source before it runs out. Water goes further than lava,
@@ -52,6 +66,9 @@ func register(block: int, def: Dictionary) -> void:
 		"range": clampi(int(def.get("range", 7)), 1, 15),
 		"falls": bool(def.get("falls", true)),
 		"speed": clampf(float(def.get("speed", 0.25)), 0.05, 10.0),
+		"family": block,
+		"shallow": shallow,
+		"shallow_from": int(def.get("shallow_from", 4)),
 	}
 
 
@@ -62,6 +79,21 @@ func register_meeting(a: int, b: int, result: int) -> void:
 
 func is_liquid(block: int) -> bool:
 	return kinds.has(block)
+
+
+## The deep form of whatever liquid this is, so the two forms are one thing everywhere it matters.
+func family_of(block: int) -> int:
+	return int(kinds.get(block, {}).get("family", 0))
+
+
+## Which block a flow at this level should be: the thin form once it has travelled far enough.
+func _form_for(block: int, level: int) -> int:
+	var kind: Dictionary = kinds.get(block, {})
+	var shallow := int(kind.get("shallow", 0))
+	var from := int(kind.get("shallow_from", 0))
+	if shallow > 0 and from > 0 and level >= from:
+		return shallow
+	return int(kind.get("family", block))
 
 
 static func _pair(a: int, b: int) -> String:
@@ -109,19 +141,21 @@ func step(pos: Vector3i) -> void:
 		return
 	var level: int = realm.block_state(pos)
 
-	# Meeting something else it does not mix with turns both into whatever the mod said.
+	var mine := family_of(block)
+	# Meeting something else it does not mix with turns both into whatever the mod said. Compared by
+	# family, or a thin sheet of water would not know it had met lava.
 	for step_dir in SIDES + [Vector3i.UP, Vector3i.DOWN]:
 		var other: int = realm.world.get_block_v(pos + step_dir)
-		if other == block or not kinds.has(other):
+		if not kinds.has(other) or family_of(other) == mine:
 			continue
-		var result: int = int(meetings.get(_pair(block, other), -1))
+		var result: int = int(meetings.get(_pair(mine, family_of(other)), -1))
 		if result >= 0:
 			server.set_block_authoritative(pos, result, false, 0, realm)
 			return
 
 	# A flow with nothing feeding it dries up. A source (level 0) never does, which is what makes it a
 	# source and why a bucket is worth carrying.
-	if level > 0 and not _is_fed(pos, block, level):
+	if level > 0 and not _is_fed(pos, mine, level):
 		server.set_block_authoritative(pos, 0, false, 0, realm)
 		return
 
@@ -129,7 +163,8 @@ func step(pos: Vector3i) -> void:
 	if bool(kind.falls):
 		var below: Vector3i = pos + Vector3i.DOWN
 		if below.y >= 0 and _can_flow_into(realm.world.get_block_v(below)):
-			server.set_block_authoritative(below, block, false, mini(level, 1), realm)
+			# Falling does not weaken it, so what lands below is the deep form however far it has come.
+			server.set_block_authoritative(below, _form_for(mine, 1), false, mini(level, 1), realm)
 			return
 		# Sitting on something solid, water spreads out; falling water does not spread on the way down.
 		if not _is_solid_enough(realm.world.get_block_v(below)):
@@ -141,20 +176,20 @@ func step(pos: Vector3i) -> void:
 		var at: Vector3i = pos + side
 		var there: int = realm.world.get_block_v(at)
 		if _can_flow_into(there):
-			server.set_block_authoritative(at, block, false, level + 1, realm)
-		elif there == block and realm.block_state(at) > level + 1:
+			server.set_block_authoritative(at, _form_for(mine, level + 1), false, level + 1, realm)
+		elif kinds.has(there) and family_of(there) == mine and realm.block_state(at) > level + 1:
 			# A weaker flow beside a stronger one is refreshed rather than left to dry, or a pool would
 			# ripple oddly as it settled.
-			server.set_block_authoritative(at, block, false, level + 1, realm)
+			server.set_block_authoritative(at, _form_for(mine, level + 1), false, level + 1, realm)
 
 
 ## Whether anything is keeping this flow alive: the same liquid above it, or a stronger one beside it.
-func _is_fed(pos: Vector3i, block: int, level: int) -> bool:
-	if realm.world.get_block_v(pos + Vector3i.UP) == block:
+func _is_fed(pos: Vector3i, mine: int, level: int) -> bool:
+	if family_of(realm.world.get_block_v(pos + Vector3i.UP)) == mine:
 		return true
 	for side in SIDES:
 		var at: Vector3i = pos + side
-		if realm.world.get_block_v(at) == block and realm.block_state(at) < level:
+		if family_of(realm.world.get_block_v(at)) == mine and realm.block_state(at) < level:
 			return true
 	return false
 

@@ -4139,6 +4139,15 @@ func _liquids() -> void:
 	_check(server.realm.block_state(Vector3i(402, y + 1, 400)) == 2, "weakening by one a block (%d)" % server.realm.block_state(Vector3i(402, y + 1, 400)))
 	_check(server.world.get_block_v(Vector3i(400, y + 2, 400)) == 0, "and does not climb")
 
+	# Depth: far from the source it is a thin sheet, which is a different block with a slab shape, so
+	# it looks shallow and can be waded through rather than swum.
+	var shallow: int = reg.id_of("base:water_shallow")
+	_check(shallow > 0 and reg.defs[shallow].shape == 1, "the thin form of water is a slab (shape %d)" % reg.defs[shallow].shape)
+	_check(server.realm.liquids.family_of(shallow) == water, "and is the same liquid as the deep form")
+	var thin := Vector3i(404, y + 1, 400)
+	_check(server.world.get_block_v(thin) == shallow, "water four blocks out is the thin form (%s)" % reg.defs[server.world.get_block_v(thin)].name)
+	_check(server.world.get_block_v(Vector3i(401, y + 1, 400)) == water, "and close in it is still deep")
+
 	# Cut the source off and the flow dries up, because nothing is feeding it any more.
 	server.set_block_authoritative(source, 0)
 	for i in 12:
