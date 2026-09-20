@@ -329,6 +329,14 @@
 			],
 			"gd": "clear_map_marker"
 		},
+		"clearNameplate": {
+			"args": [
+				{
+					"kind": "ref"
+				}
+			],
+			"gd": "clear_nameplate"
+		},
 		"clearWorldMarker": {
 			"args": [
 				{
@@ -1267,6 +1275,14 @@
 				}
 			],
 			"gd": "multiblock_at"
+		},
+		"nameplateOf": {
+			"args": [
+				{
+					"kind": "ref"
+				}
+			],
+			"gd": "nameplate_of"
 		},
 		"networkServers": {
 			"args": [],
@@ -2555,6 +2571,18 @@
 				}
 			],
 			"gd": "set_map_marker"
+		},
+		"setNameplate": {
+			"args": [
+				{
+					"kind": "ref"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "set_nameplate"
 		},
 		"setPhysics": {
 			"args": [

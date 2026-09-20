@@ -2,6 +2,8 @@ extends Node3D
 ## Another player. Renders slightly in the past, interpolating between server snapshots, and drives an
 ## Avatar with the movement it sees (walking, jumping, looking around).
 
+const NameplateScene = preload("res://engine/client/nameplate.gd")
+
 const Avatar = preload("res://engine/client/avatar/avatar.gd")
 
 const INTERPOLATION_DELAY := 0.1
@@ -11,6 +13,7 @@ const STALE_AFTER := 1.0
 
 var peer_id := 0
 var player_name := ""
+var plate = null  # Nameplate
 var avatar := Avatar.new()
 var _buffer: Array = []  # [{time, position, yaw, pitch}]
 var _last_position := Vector3.INF
@@ -23,15 +26,12 @@ func setup(id: int, name_text: String, rig: Dictionary) -> void:
 	player_name = name_text
 	add_child(avatar)
 	avatar.build(rig)
-	var label := Label3D.new()
-	label.text = name_text
-	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.position.y = float(rig.get("height", 1.8)) + 0.35
-	label.pixel_size = 0.006
-	label.font_size = 40
-	label.outline_size = 10
-	label.no_depth_test = true
-	add_child(label)
+	# The same plate creatures get, rather than a second hand-rolled label: a player with a health bar
+	# and a mod's extra line should look like everything else with one. (2026-09-20)
+	plate = NameplateScene.new()
+	add_child(plate)
+	plate.setup(float(rig.get("height", 1.8)))
+	plate.apply({"name": name_text, "show_health": false})
 
 
 func hurt() -> void:

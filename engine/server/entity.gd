@@ -10,7 +10,19 @@ var type := 0
 var def: Dictionary
 var body := EntityPhysics.Body.new()
 var yaw := 0.0
-var health := 0.0
+## Health is a property rather than a plain field so the label over its head cannot go stale. A mod
+## writing `e.health = 5` is not a rare case - it is how half the tests and several mods change it -
+## and hooking the two places the engine happens to change it left every other writer silent.
+## (2026-09-20, after the user asked why this was not event driven: there is no entity_healed event to
+## listen to, and entity_damage fires *before* the change.)
+var health := 0.0:
+	set(value):
+		if is_equal_approx(health, value):
+			return
+		health = value
+		# Guarded: the setter runs during construction, before there is a manager or a server.
+		if _manager != null and _manager._server != null:
+			_manager._server.nameplates.health_changed(self)
 ## Free-form data owned by mods; saved with persistent entities. Namespace your keys.
 var data := {}
 ## Seconds since spawning.
@@ -95,6 +107,10 @@ func set_look(values: Dictionary) -> void:
 			if Color.html_is_valid(str(values.tint[key])):
 				tint[str(key).left(32)] = str(values.tint[key])
 		look.tint = tint
+	# The label over its head (see engine/server/nameplates.gd). Carried here because `look` is already
+	# the per-entity visual channel that syncs on change, saves, and is sent on spawn.
+	if values.get("nameplate") is Dictionary:
+		look.nameplate = values.nameplate
 	if look == data.get("look"):
 		return
 	data.look = look

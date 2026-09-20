@@ -2492,3 +2492,46 @@ vehicles is missing and could not have, because nothing bundled is rideable.
 
 Worth generalising: when a capability's client half matters, find an existing e2e test that already
 does the thing and add one counter to it. It cost three lines here.
+
+## Nameplates (2026-09-21)
+
+The label over a thing's head: name, health bar, and lines a mod adds. `engine/server/nameplates.gd`
+and `engine/client/nameplate.gd`.
+
+Players already had a name label, hardcoded in `remote_player.gd`, with no health and nothing a mod
+could touch. Creatures had none. Bosses had a `boss` block in their AI config describing a bar nobody
+had ever drawn. All three use the same plate now.
+
+**It rides on `look`.** An entity already had a per-entity, sparse, saved channel for visual state -
+scale, hidden parts, tint - and a nameplate is that kind of fact. A second channel would have meant a
+second thing to sync, save and send on spawn.
+
+**Creatures are quiet by default.** A type only gets a plate if its definition asks, or a mod sets one
+on a particular creature: a field of forty sheep each wearing a label is worse than no labels at all.
+
+The bar is two `Sprite3D`s with a 1x1 white texture made in code - no artist, no file - tinted green
+through to red and anchored left so it empties from the right. Same trick as the procedural textures:
+**if a thing can be drawn by a few lines of code it needs no art**, which is worth reaching for before
+adding to the art list.
+
+### "Chokepoint? Why? Is it not event driven?" - the user, and they were right to ask
+
+Checking the answer changed the design. There is **no `player_damaged` or `player_healed` event at
+all**; the only health event is `entity_damage`, and that is a *pre*-event fired before the change, so
+listening to it reports the old value. For players, `sync_health` really is the funnel - eight call
+sites covering damage, heal, respawn, max-health, transfer and set_health - so hooking it is accurate
+rather than lazy.
+
+For **entities it was wrong**, and the question is what exposed it. `Entity.health` was a plain
+writable field, so hooking the two places the engine changes it left every other writer silent: a mod
+doing `e.health = 5` would have had a stale bar, and that is how half the tests already write it.
+`health` is now a property with a setter that notifies, which is transparent to all 41 assignment
+sites and also part of what the API audit flagged as issue 8. The test asserts that direct assignment
+moves the bar.
+
+### A brittle test found by accident
+
+`multiplayer_test._remote()` identified another player by walking their node tree for a `Label3D`
+whose text matched the name. Moving that label inside a nameplate broke it - a change to how a player
+is *drawn* failing a test about who can see whom. It asks `remote.player_name` now. Worth watching for
+elsewhere: a test that reaches into a node tree by shape is a test that fails for the wrong reasons.

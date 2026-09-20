@@ -4625,6 +4625,27 @@ func _conditions() -> void:
 	_check(mob.health == 8.0, "and it hurts them on the same timer (%s)" % mob.health)
 	_check(api.clear_condition(mob, "poison"), "and can be cured")
 
+	# Nameplates. The label over a thing's head, and the health on it staying true however health moved.
+	_check(api.nameplate_of(mob).is_empty(), "a creature has no label unless somebody asks for one")
+	_check(api.set_nameplate(mob, {"name": "Daisy", "show_health": true, "lines": ["Wants: wheat"]}),
+		"a mod puts one over a creature")
+	var plate: Dictionary = api.nameplate_of(mob)
+	_check(plate.name == "Daisy" and plate.lines == ["Wants: wheat"], "which says what it was told (%s)" % str(plate))
+	_check(mob.data.look.nameplate.name == "Daisy", "and rides on `look`, which already syncs and saves")
+
+	mob.health = mob.max_health
+	var full: float = float(api.nameplate_of(mob).get("health", -1.0))
+	mob.health = mob.max_health * 0.5
+	var half: float = float(api.nameplate_of(mob).get("health", -1.0))
+	# Health is a property, not a plain field: assigning it directly still updates the label. Hooking
+	# only the two places the engine changes health left every other writer silent.
+	_check(half < full and is_equal_approx(half, 0.5), "setting health directly still moves the bar (%s -> %s)" % [full, half])
+
+	# Merging, so a mod can add a line without knowing whether health was being shown.
+	api.set_nameplate(mob, {"lines": ["Full"]})
+	_check(bool(api.nameplate_of(mob).get("show_health", false)), "adding a line leaves the health alone")
+	_check(api.clear_nameplate(mob) and bool(api.nameplate_of(mob).get("hidden", false)), "and it can be taken away")
+
 	# A creature that poisons what it bites, written as data rather than as a handler. This is the
 	# whole of "script a fight without writing a brain": before conditions existed, a venomous spider
 	# meant a mod catching entity_damage and reaching for the victim itself.

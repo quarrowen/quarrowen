@@ -164,11 +164,14 @@ func _bob() -> void:
 	get_tree().quit(0)
 
 
+## Asked by the field rather than by walking the node tree looking for a Label3D with the right text.
+## The old way broke the moment the name label moved inside a nameplate, which is a change to how a
+## player is *drawn* and should never have been able to fail a test about who can see whom.
+## (2026-09-20)
 func _remote(player_name: String):
 	for remote in _client._remote_players.values():
-		for child in remote.get_children():
-			if child is Label3D and child.text == player_name:
-				return remote
+		if String(remote.player_name) == player_name:
+			return remote
 	return null
 
 

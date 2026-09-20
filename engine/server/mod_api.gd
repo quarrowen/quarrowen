@@ -1184,6 +1184,30 @@ func shop_offers(player, shop_name: String) -> Array:
 	return _server.shops.offers_for(player, _qualify_ref(shop_name))
 
 
+## The label over a thing's head: what it is called, how hurt it is, and anything you want to add.
+##
+##     api.set_nameplate(mob, {"lines": ["Wants: wheat"], "show_health": true})
+##     api.register_entity("cow", {..., "nameplate": {"show_health": true}})
+##
+## Creatures are quiet by default - a field of forty sheep each wearing a label is worse than no
+## labels - so a type only gets one if its definition says so, or a mod sets one on a particular
+## creature. Players always have their name.
+##
+## `spec` merges with what is already there, so you can add a line without knowing whether health is
+## being shown. Keys: name, lines (up to 4), show_health, color, range, hidden.
+func set_nameplate(target, spec := {}) -> bool:
+	return _server.nameplates.set_plate(target, spec)
+
+
+## What is over its head now, defaults included.
+func nameplate_of(target) -> Dictionary:
+	return _server.nameplates.plate_of(target)
+
+
+func clear_nameplate(target) -> bool:
+	return _server.nameplates.clear(target)
+
+
 ## A word that floats in the world for a moment and then goes: the damage off a hit, "+3" over a
 ## chest, a name over a thing.
 ##

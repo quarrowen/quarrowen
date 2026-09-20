@@ -1070,6 +1070,13 @@ func s_sleep(state: Dictionary) -> void:
 		client.on_sleep(state)
 
 
+## The label over another player's head: {name, lines, show_health, health, color, hidden}.
+@rpc("authority", "call_remote", "reliable")
+func s_player_nameplate(peer_id: int, plate: Dictionary) -> void:
+	if client:
+		client.on_player_nameplate(peer_id, plate)
+
+
 ## A word that floats in the world for a moment: damage off a hit, a name over a thing.
 @rpc("authority", "call_remote", "unreliable")
 func s_float_text(text: String, pos: Vector3, options: Dictionary) -> void:

@@ -1,4 +1,6 @@
 extends Node3D
+
+const NameplateScene = preload("res://engine/client/nameplate.gd")
 ## Visual for a replicated entity: interpolates server positions, animates walking (model parts named
 ## leg_a / leg_b / arm_a / arm_b swing, head bobs), flashes red when hurt, tips over when it dies and
 ## flies to the collector when an item is picked up.
@@ -29,6 +31,7 @@ var _model_scale := 1.0
 var _part_meshes := {}  # lowercased part name -> MeshInstance3D
 var _pose := ""  # "" or "sit"
 var _walk_phase := 0.0
+var _plate = null  # Nameplate, made only when this creature actually has one
 var _last_position := Vector3.INF
 var _hurt_until := 0.0
 var _died_at := -1.0
@@ -108,7 +111,25 @@ func setup(id: int, def: Dictionary, parts: Array, sprite: Texture2D, pos: Vecto
 
 ## {scale, hide: [part prefixes], tint: {part prefix: "#rrggbb"}} from the server (babies, sheared or
 ## dyed sheep, ...).
+## Where the camera is, so the plate can fade with distance. Set by the client each frame.
+func update_plate(camera_position: Vector3) -> void:
+	if _plate != null:
+		_plate.update_for_camera(camera_position)
+
+
 func set_look(look: Dictionary) -> void:
+	# Made on first use: most creatures never have a plate, and a field of forty sheep should not be
+	# forty labels nobody asked for.
+	var plate = look.get("nameplate")
+	if plate is Dictionary and not (plate as Dictionary).is_empty():
+		if _plate == null:
+			_plate = NameplateScene.new()
+			add_child(_plate)
+			_plate.setup(height)
+		_plate.apply(plate)
+	elif _plate != null:
+		_plate.apply({})
+
 	if _holder != null:
 		_holder.scale = Vector3.ONE * _model_scale * clampf(float(look.get("scale", 1.0)), 0.05, 10.0)
 	elif not _meshes.is_empty() and _meshes[0] is Node3D:

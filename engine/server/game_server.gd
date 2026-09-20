@@ -45,6 +45,7 @@ const Conditions = preload("res://engine/server/conditions.gd")
 const Fields = preload("res://engine/server/fields.gd")
 const Companions = preload("res://engine/server/companions.gd")
 const Vehicles = preload("res://engine/server/vehicles.gd")
+const Nameplates = preload("res://engine/server/nameplates.gd")
 const Characters = preload("res://engine/server/characters.gd")
 const Shops = preload("res://engine/server/shops.gd")
 const Companies = preload("res://engine/server/companies.gd")
@@ -321,6 +322,8 @@ var fields := Fields.new(self)
 var companions := Companions.new(self)
 ## Things you can sit on and steer (see engine/server/vehicles.gd).
 var vehicles := Vehicles.new(self)
+## The label over a thing's head (see engine/server/nameplates.gd).
+var nameplates := Nameplates.new(self)
 ## Groups of players that things can belong to (see engine/server/companies.gd).
 var companies := Companies.new(self)
 ## Ground with an owner, consulted before an edit (see engine/server/plots.gd).
@@ -2121,6 +2124,8 @@ func heal_player(p: ServerPlayer, amount: float) -> void:
 
 
 func sync_health(p: ServerPlayer, hurt := false) -> void:
+	# One place rather than beside every call to this: damage and healing both come through here.
+	nameplates.health_changed(p)
 	if _started:
 		Net.s_health.rpc_id(p.peer_id, p.health, p.max_health, p.dead, hurt)
 

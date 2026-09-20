@@ -616,6 +616,19 @@ somewhere worth going back to. leave `stock` out for an offer that never runs dr
 it cannot happen, and `shop_problem` says why in words a child can read."><div class="sig"><code>api.shop_trade(player, shop_name: String, index: int) -&gt; bool</code><span class="tag js" title="shopTrade">JS shopTrade</span></div><p>Does one trade directly, for a shop with no panel - a vending block, a delivery chute. False when<br>it cannot happen, and `shop_problem` says why in words a child can read.</p></div>
 <div class="card" id="api-shop-problem" data-search="shop_problem shopproblem "><div class="sig"><code>api.shop_problem() -&gt; String</code><span class="tag js" title="shopProblem">JS shopProblem</span></div><p class="muted">No description yet.</p></div>
 <div class="card" id="api-shop-offers" data-search="shop_offers shopoffers what is on the shelves: [{index, item, name, count, price, ledger, cost, sells, left, can}]."><div class="sig"><code>api.shop_offers(player, shop_name: String) -&gt; Array</code><span class="tag js" title="shopOffers">JS shopOffers</span></div><p>What is on the shelves: [{index, item, name, count, price, ledger, cost, sells, left, can}].</p></div>
+<div class="card" id="api-set-nameplate" data-search="set_nameplate setnameplate the label over a thing's head: what it is called, how hurt it is, and anything you want to add.
+
+api.set_nameplate(mob, {&quot;lines&quot;: [&quot;wants: wheat&quot;], &quot;show_health&quot;: true})
+api.register_entity(&quot;cow&quot;, {..., &quot;nameplate&quot;: {&quot;show_health&quot;: true}})
+
+creatures are quiet by default - a field of forty sheep each wearing a label is worse than no
+labels - so a type only gets one if its definition says so, or a mod sets one on a particular
+creature. players always have their name.
+
+`spec` merges with what is already there, so you can add a line without knowing whether health is
+being shown. keys: name, lines (up to 4), show_health, color, range, hidden."><div class="sig"><code>api.set_nameplate(target, spec := {}) -&gt; bool</code><span class="tag js" title="setNameplate">JS setNameplate</span></div><p>The label over a thing's head: what it is called, how hurt it is, and anything you want to add.<br><br>api.set_nameplate(mob, {&quot;lines&quot;: [&quot;Wants: wheat&quot;], &quot;show_health&quot;: true})<br>api.register_entity(&quot;cow&quot;, {..., &quot;nameplate&quot;: {&quot;show_health&quot;: true}})<br><br>Creatures are quiet by default - a field of forty sheep each wearing a label is worse than no<br>labels - so a type only gets one if its definition says so, or a mod sets one on a particular<br>creature. Players always have their name.<br><br>`spec` merges with what is already there, so you can add a line without knowing whether health is<br>being shown. Keys: name, lines (up to 4), show_health, color, range, hidden.</p></div>
+<div class="card" id="api-nameplate-of" data-search="nameplate_of nameplateof what is over its head now, defaults included."><div class="sig"><code>api.nameplate_of(target) -&gt; Dictionary</code><span class="tag js" title="nameplateOf">JS nameplateOf</span></div><p>What is over its head now, defaults included.</p></div>
+<div class="card" id="api-clear-nameplate" data-search="clear_nameplate clearnameplate "><div class="sig"><code>api.clear_nameplate(target) -&gt; bool</code><span class="tag js" title="clearNameplate">JS clearNameplate</span></div><p class="muted">No description yet.</p></div>
 <div class="card" id="api-float-text" data-search="float_text floattext a word that floats in the world for a moment and then goes: the damage off a hit, &quot;+3&quot; over a
 chest, a name over a thing.
 

@@ -1100,6 +1100,16 @@ func on_beam(from: Vector3, to: Vector3, look: Dictionary) -> void:
 	_beams.add(from, to, look)
 
 
+## The label over another player's head changed.
+func on_player_nameplate(peer_id: int, plate: Dictionary) -> void:
+	var remote = _remote_players.get(peer_id)
+	if remote != null and remote.plate != null:
+		if not plate.has("name"):
+			plate = plate.duplicate()
+			plate["name"] = String(remote.player_name)
+		remote.plate.apply(plate)
+
+
 ## A word that floats in the world for a moment: damage off a hit, a name over a thing.
 func on_float_text(text: String, pos: Vector3, options: Dictionary) -> void:
 	_float_texts += 1  # counted so an e2e test can prove these really arrive, not just that they send
@@ -1654,6 +1664,14 @@ func _process(delta: float) -> void:
 	_update_target()
 	_handle_edits(delta)
 	_update_footsteps(render_position)
+	# Plates fade with distance, and only a plate that exists costs anything here.
+	var plate_eye := _camera.global_position
+	for id: int in _entities:
+		(_entities[id] as EntityView).update_plate(plate_eye)
+	for peer: int in _remote_players:
+		var remote = _remote_players[peer]
+		if remote.plate != null:
+			remote.plate.update_for_camera(plate_eye)
 	_update_cracks()
 	_update_hud()
 	_hurt_flash.color.a = move_toward(_hurt_flash.color.a, 0.0, delta * 1.2)
