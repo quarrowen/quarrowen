@@ -547,6 +547,9 @@ func start(config: Dictionary) -> Error:
 		world_markers = _meta.world_markers  # markers mods put on everyone's map, from the last session
 	# After the mods have registered their link kinds, or every saved link would be dropped as belonging
 	# to a kind nothing knows about.
+	# The engine listening to its own event, the way it already does for link_made and link_cut, rather
+	# than sync_inventory reaching into the server to call this by name.
+	add_handler("inventory_changed", func(ev): check_discoveries(ev.player), 0, "engine")
 	links.load_saved(_meta.get("links"))
 	companies.load_saved(_meta.get("companies"))
 	plots.load_saved(_meta.get("plots"))
@@ -2124,8 +2127,14 @@ func heal_player(p: ServerPlayer, amount: float) -> void:
 
 
 func sync_health(p: ServerPlayer, hurt := false) -> void:
-	# One place rather than beside every call to this: damage and healing both come through here.
+	# One place rather than beside every call to this: damage and healing both come through here, and
+	# so do respawn, the max-health clamp, loading and arriving from another server.
 	nameplates.health_changed(p)
+	# The post half of `player_damage`. The engine already keeps this convention - block_break has
+	# block_broken, block_place has block_placed - and damage kept only the pre half, so nothing could
+	# react to what health actually ended up being. (2026-09-21)
+	emit("player_damaged", {"player": p, "health": p.health, "max_health": p.max_health,
+		"hurt": hurt, "dead": p.dead})
 	if _started:
 		Net.s_health.rpc_id(p.peer_id, p.health, p.max_health, p.dead, hurt)
 
@@ -2500,7 +2509,15 @@ func _build_snapshot(p: ServerPlayer, full_rate: bool) -> PackedByteArray:
 
 func _advance_time(delta: float) -> void:
 	if _day_length > 0.0:
+		var was := WorldTime.phase(_time_of_day)
 		_time_of_day = fposmod(_time_of_day + delta / _day_length, 1.0)
+		# `weather_changed` existed and its time equivalent did not, so three bundled mods polled
+		# get_daylight() every five seconds to notice nightfall. Only on a crossing, not every tick.
+		# (2026-09-21)
+		var now := WorldTime.phase(_time_of_day)
+		if now != was:
+			emit("time_changed", {"phase": now, "previous": was, "time_of_day": _time_of_day,
+				"daylight": WorldTime.daylight(_time_of_day)})
 	_time_sync_timer += delta
 	if _time_sync_timer >= TIME_SYNC_INTERVAL:
 		_time_sync_timer = 0.0
@@ -2509,9 +2526,14 @@ func _advance_time(delta: float) -> void:
 
 ## `time_of_day`: 0 = midnight, 0.25 = sunrise, 0.5 = noon. `day_length` in seconds, 0 = frozen.
 func set_world_time(time_of_day: float, day_length: float) -> void:
+	var was := WorldTime.phase(_time_of_day)
 	_time_of_day = fposmod(time_of_day, 1.0)
 	_day_length = maxf(day_length, 0.0)
 	_broadcast_time()
+	# Setting the clock counts as crossing: /time night should wake whatever nightfall wakes.
+	if WorldTime.phase(_time_of_day) != was:
+		emit("time_changed", {"phase": WorldTime.phase(_time_of_day), "previous": was,
+			"time_of_day": _time_of_day, "daylight": WorldTime.daylight(_time_of_day)})
 
 
 func get_time_of_day() -> float:
@@ -3175,6 +3197,9 @@ func _integrate_chunk(job: Dictionary) -> void:
 	if not r.entities.is_empty():
 		into.entity_chunks[job.coord] = true
 		into.entities.load_chunk(r.entities)
+	# Emitted once the chunk is fully live, so a mod indexing machines by position finds them present.
+	# mods/industry rebuilt its whole power network every five seconds for want of this. (2026-09-21)
+	emit("chunk_loaded", {"realm": into.id, "chunk": job.coord})
 	if not _metrics.is_empty():
 		_metrics.gen += 1
 		_metrics.gen_usec += r.usec
@@ -3244,6 +3269,7 @@ func _unload_unused_chunks() -> void:
 			r.generated.erase(coord)
 			r.block_data.erase(coord)
 			r.world.remove_chunk(coord)
+			emit("chunk_unloaded", {"realm": r.id, "chunk": coord})
 	if not writes.is_empty():
 		_write_async(writes, false)
 
@@ -4981,7 +5007,9 @@ func on_station_coop(peer_id: int, action: String, arg: int) -> void:
 
 
 ## Tells players crafting near a changed container what their station can draw from now.
-func _refresh_crafting_stock(pos: Vector3i) -> void:
+## Called from containers.gd when a container a station draws from changed. Public because it is
+## reached across files: a leading underscore that another script calls is a lie about what is private.
+func refresh_crafting_stock(pos: Vector3i) -> void:
 	for p: ServerPlayer in players.values():
 		if not p.crafting_station.has("position") or not p._online():
 			continue
@@ -5135,6 +5163,12 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0, int
 	links.block_changed(into.id, pos, old, block)
 	if old != block:
 		connect.refresh_around(pos, into)
+	# Every change to the world, however it happened: a player, liquid spreading, a structure pasted, a
+	# support collapsing, a blast. block_placed and block_broken only ever fired for a player, so a
+	# protection or world-log mod could watch somebody build and never see a blast take the same wall
+	# down. Emitted after the subsystems above, so a handler sees a consistent world. (2026-09-21)
+	if old != block:
+		emit("block_changed", {"realm": into.id, "position": pos, "block": block, "previous": old})
 	# Removing one half of a two-block piece removes the other (its drops come from the half broken).
 	if old != block and registry.defs[old].get("pair") is Dictionary:
 		var other: Vector3i = pos + pair_offset(registry.defs[old].pair, old_state)
@@ -5204,7 +5238,10 @@ func is_supported(pos: Vector3i, block: int, into: Realm = null) -> bool:
 
 
 ## Breaks a block without a player (support lost, explosions, mods): drops items, plays its sound.
-func break_block(pos: Vector3i, drop := true, into: Realm = null) -> void:
+##
+## `sound` is off for a blast, which breaks fifty blocks in one instant: fifty break sounds on top of
+## the explosion is a noise, not fifty pieces of feedback.
+func break_block(pos: Vector3i, drop := true, into: Realm = null, sound := true) -> void:
 	into = into if into != null else realm
 	var block := into.world.get_block_v(pos)
 	if block == BlockRegistry.AIR or block == BlockRegistry.UNLOADED:
@@ -5212,7 +5249,8 @@ func break_block(pos: Vector3i, drop := true, into: Realm = null) -> void:
 	var drops := _default_drops(block) if drop else []
 	var ev := emit("block_destroyed", {"position": pos, "block": block, "drops": drops, "realm": into.id})
 	_apply_block(pos, BlockRegistry.AIR, false, 0, into)
-	play_sound_at(block_sound(block, "break"), Vector3(pos) + Vector3.ONE * 0.5, 0.8, randf_range(0.9, 1.1))
+	if sound:
+		play_sound_at(block_sound(block, "break"), Vector3(pos) + Vector3.ONE * 0.5, 0.8, randf_range(0.9, 1.1))
 	for d in (ev.drops if ev.drops is Array else []):
 		if d is Array and d.size() == 2 and items.is_valid(int(d[0])) and int(d[1]) > 0:
 			into.entities.drop_item(int(d[0]), int(d[1]), Vector3(pos) + Vector3(0.5, 0.3, 0.5),

@@ -47,6 +47,15 @@ const EVENT_GOALS := {
 	"assemble": ["tool_assembled", "player", "assembly"],
 }
 const POLL_GOALS := ["have", "depth", "reach", "biome", "hunger_below", "health_below", "night", "flag", "manual"]
+## Of those, the ones an event can now tell us about the moment they change, so they are answered at
+## once instead of up to POLL_INTERVAL late.
+##
+## **The poll stays as well, and that is deliberate.** Taking `have` out of it broke every have goal:
+## `Inventory.set_slot` writes without calling `sync_inventory`, so nothing announced the change. Any
+## code doing that leaves the client out of step too and is arguably already wrong - but a safety net
+## that costs one inventory walk twice a second is cheaper than a tutorial that silently never
+## advances. The event buys responsiveness here, not saved work. (2026-09-21)
+const EVENT_DRIVEN := {"have": "inventory_changed", "health_below": "player_damaged", "night": "time_changed"}
 ## Goal fields holding names that belong to a mod (qualified with the registering mod's id).
 const NAMED_FIELDS := ["block", "item", "entity", "baby", "recipe", "page", "assembly", "biome", "flag"]
 const POLL_INTERVAL := 0.5
@@ -62,6 +71,22 @@ var _poll := 0.0
 
 func _init(game_server) -> void:
 	_server = game_server
+	# The goals that used to wait for the next poll now hear about the change as it happens. Checked
+	# for one player where the event names one, rather than sweeping everybody.
+	for goal_type: String in EVENT_DRIVEN:
+		_server.add_handler(String(EVENT_DRIVEN[goal_type]), _on_state_change, -1000000, "engine")
+
+
+func _on_state_change(ev: Dictionary) -> void:
+	var p = ev.get("player")
+	if p != null:
+		if not p.dead:
+			_check_polled(p)
+		return
+	# time_changed names nobody, so nightfall is the one that still sweeps - once, when it happens.
+	for other in _server.players.values():
+		if not other.dead:
+			_check_polled(other)
 
 
 # --- Registration -----------------------------------------------------------------------------------

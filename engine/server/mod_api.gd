@@ -9,8 +9,14 @@ extends RefCounted
 ##   block_break    {player, position, block, drops: [[id, count]...], cancelled}
 ##   block_broken   {player, position, block}
 ##   block_destroyed {position, block, drops}                broken without a player (support lost, break_block)
+##   inventory_changed {player}                              anything in their pack or equipment moved
+##   time_changed   {phase ("night"|"dawn"|"day"|"dusk"), previous, time_of_day, daylight}
+##   chunk_loaded   {realm, chunk}   chunk_unloaded {realm, chunk}
+##   block_changed  {realm, position, block, previous}       *any* change to the world, by any cause:
+##                  a player, liquid spreading, a structure pasted, a support collapsing, a blast
 ##   container_open {player, position, container, cancelled} container_close {player, position}
-##   container_changed {player, position, container, slot}  a player moved items in or out
+##   container_changed {player, position, container, slot}  a player moved items in or out. Automation
+##                  (hoppers, parcels, stations) does not raise it - see mark_changed in containers.gd
 ##   station_upgraded {player, position, station, tier}      a kit upgraded a station
 ##   craft_job_started {player, position, recipe, times}     a timed recipe joined a station's queue
 ##   craft_job_finished {player_id, position, recipe, times, helpers}
@@ -55,11 +61,13 @@ extends RefCounted
 ##   item_pickup    {player, entity, item, count, cancelled}
 ##   player_attack  {player, target, target_kind ("entity" | "player"), item, damage, cancelled}   damage may be changed
 ##   player_damage  {player, amount, cause, attacker, cancelled}   amount may be changed; cause: attack, mob,
+##   player_damaged {player, health, max_health, hurt, dead}  after the change, healing included
 ##                  projectile, fall, void, starvation, magic, ...
 ##   player_death   {player, cause, attacker, keep_inventory, message}   keep_inventory and message may be changed
 ##   player_respawn {player, position}                        position may be changed
 ##   entity_spawned {entity}          entity_removed {entity}
 ##   entity_damage  {entity, amount, cause, attacker, cancelled}
+##   entity_damaged {entity, health, max_health, alive}      after the change, however health moved
 ##   entity_death   {entity, cause, attacker, drops: [[id, count, data]...]}   drops may be changed
 ##   loot_generated {position, table, player}                a chest rolled its loot
 ##   loot_first_time {player, table, source}                 this player met that table for the first time

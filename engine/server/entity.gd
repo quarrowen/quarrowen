@@ -23,6 +23,10 @@ var health := 0.0:
 		# Guarded: the setter runs during construction, before there is a manager or a server.
 		if _manager != null and _manager._server != null:
 			_manager._server.nameplates.health_changed(self)
+			# The post half of `entity_damage`, and the only signal for healing, loading or a mod
+			# writing health directly. (2026-09-21)
+			_manager._server.emit("entity_damaged", {"entity": self, "health": health,
+				"max_health": max_health, "alive": is_alive()})
 ## Free-form data owned by mods; saved with persistent entities. Namespace your keys.
 var data := {}
 ## Seconds since spawning.

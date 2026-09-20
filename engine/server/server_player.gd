@@ -383,7 +383,11 @@ func refresh_stats() -> void:
 ## Sends the inventory to the player after changing it directly (give and take do this for you).
 func sync_inventory() -> void:
 	_stats_dirty = true
-	_server.check_discoveries(self)
+	# The one funnel every inventory change passes through - 37 call sites. Emitted rather than
+	# hand-calling the two things that cared, because tutorials was rescanning every player's pack
+	# twice a second and milestones had written the absence of this event up as a design principle.
+	# (2026-09-21)
+	_server.emit("inventory_changed", {"player": self})
 	if _online():
 		Net.s_inventory.rpc_id(peer_id, inventory.to_packed(), inventory.selected, inventory.creative, inventory.data_to_network())
 		_server.refresh_stats(self)

@@ -2595,3 +2595,49 @@ fine as they are.
 Genuine timers stay timers: `conditions.gd`, `fields.gd`, `parcels.gd`, mob AI, anticheat decay, the
 container distance check. The skyblock/oneblock void polls are cheaper than the per-player position
 event that would replace them.
+
+## Acting on the event review (2026-09-21, user: "Fix all your findings")
+
+Five of six landed. **Six new events**, all documented and covered by tests:
+
+| Event | What was silent before |
+|---|---|
+| `block_changed` | every change not made by a player: liquid spread, `set_block`, structure paste, support collapse, **explosions** |
+| `player_damaged` | the health that actually resulted, and healing at all |
+| `entity_damaged` | same, however health moved - direct writes included |
+| `time_changed` | nightfall; three bundled mods polled `get_daylight()` for it |
+| `inventory_changed` | anything moving in a pack |
+| `chunk_loaded` / `chunk_unloaded` | a chunk arriving; industry rebuilt its whole network every 5s for want of it |
+
+`explosions.gd` now goes through `break_block` rather than reaching into the private `_apply_block`,
+so a blast finally raises `block_destroyed`. `break_block` gained a `sound` switch, off for a blast:
+fifty break sounds under one explosion is a noise, not fifty pieces of feedback.
+`_refresh_crafting_stock` lost its underscore - a leading underscore another script calls is a lie.
+
+### The one that did not land, and why it matters
+
+**`container_changed` cannot move to `mark_changed`.** It was moved, and it broke: `mark_changed` is a
+hot path that runs *inside mod code*, so a JavaScript block tick writing an item dispatched an event
+back into the same QuickJS runtime while it was still executing the tick. A runtime cannot be
+re-entered; it failed with "Invalid call error code 1337", which reads like nothing at all.
+
+Guarding re-entry per container position was not enough - the second entry came through a different
+path into the same runtime.
+
+**The general rule this exposes: an event raised on a hot path that runs inside mod code cannot be
+emitted inline.** Doing it properly means either deferring such events to the end of the tick, or
+making the script bridges re-entrant (queue a callback when the runtime is busy). Both are real pieces
+of work and neither belongs to containers. Until then automation stays silent and `mark_changed` says
+so in a comment.
+
+This is also a warning for the events that *did* land: `block_changed` fires from `_apply_block`,
+which a mod can reach via `api.set_block`. It has not bitten because nothing yet writes blocks from
+inside a `block_changed` handler, but it is the same shape.
+
+### Tutorials: the poll stays
+
+Taking `have` out of the tutorial poll broke every have goal, because `Inventory.set_slot` writes
+without calling `sync_inventory` and nothing announced it. The events were added anyway - goals now
+answer at once instead of up to half a second late - but **the poll remains as the backstop**. The event
+bought responsiveness here, not saved work, and pretending otherwise would have shipped tutorials that
+silently stop advancing.

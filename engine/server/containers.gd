@@ -111,6 +111,19 @@ func close(p, tell_client := true) -> void:
 		Net.s_container_close.rpc_id(p.peer_id)
 
 
+## Every write to a container passes through here - a player clicking, a hopper, a parcel arriving, a
+## station consuming its inputs, loot filling a chest, a mod.
+##
+## **`container_changed` is deliberately NOT emitted from here**, though that is where it belongs and
+## it was moved here once. This is a hot path that runs *inside* mod code: a JavaScript block tick
+## writes an item, which lands here, which would dispatch an event back into the same QuickJS runtime
+## while it is still executing the tick - and a runtime cannot be re-entered. It failed with "Invalid
+## call error code 1337" rather than anything that reads like the cause.
+##
+## Suppressing the nested call per position was not enough: the re-entry came from a different entry
+## point into the same runtime. Doing this properly means either deferring every event raised on a hot
+## path to the end of the tick, or making the script bridges re-entrant - both real pieces of work, and
+## neither of them a container's business. Written up in PROGRESS.md. (2026-09-21)
 func mark_changed(pos: Vector3i) -> void:
 	if _viewers.has(pos):
 		_dirty[pos] = true
@@ -128,7 +141,7 @@ func update(delta: float) -> void:
 				Net.s_container_update.rpc_id(peer_id, view)
 	_dirty.clear()
 	for pos: Vector3i in _stock_dirty:
-		_server._refresh_crafting_stock(pos)
+		_server.refresh_crafting_stock(pos)
 	_stock_dirty.clear()
 	_check_timer += delta
 	if _check_timer < 0.5:

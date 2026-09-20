@@ -79,11 +79,10 @@ func explode(center: Vector3, power: float, options := {}) -> Dictionary:
 		var block: int = into.world.get_block_v(cell)
 		if block == BlockRegistry.AIR or block == BlockRegistry.UNLOADED:
 			continue
-		var drops: Array = _server._default_drops(block) if randf() < drop_chance else []
-		_server._apply_block(cell, BlockRegistry.AIR)
-		for d in drops:
-			if d is Array and d.size() == 2 and _server.items.is_valid(int(d[0])):
-				into.entities.drop_item(int(d[0]), int(d[1]), Vector3(cell) + Vector3(0.5, 0.5, 0.5))
+		# The ordinary path rather than reaching past it into _apply_block: that bypassed
+		# block_destroyed entirely, so a blast was the one way to remove a block that nothing could
+		# observe. Silent, because fifty break sounds under one explosion is a noise. (2026-09-21)
+		_server.break_block(cell, randf() < drop_chance, into, false)
 	_hurt_around(center, power, source, float(options.get("damage", 1.0)), into)
 	_server.play_effect(str(options.get("effect", "engine:explosion")), center, {"scale": clampf(power / 3.0, 0.4, 3.0)})
 	_server.play_sound_at(str(options.get("sound", "engine:explosion")), center, 1.0, randf_range(0.85, 1.05))

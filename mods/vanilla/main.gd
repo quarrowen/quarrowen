@@ -35,15 +35,21 @@ func setup(mod_api) -> void:
 	api = mod_api
 	biomes.setup(api)
 	# Damage numbers. A game choice rather than an engine one - a quiet survival game might want none -
-	# so it lives here, and the engine only knows how to make a word float. Shown after the handlers
-	# that can cancel or change the amount, so the number is the one that actually landed.
-	api.on("entity_damage", func(ev):
-		if ev.cancelled or float(ev.amount) <= 0.0:
-			return
-		api.float_text("%d" % maxi(roundi(float(ev.amount)), 1),
-			ev.entity.body.position + Vector3(0, ev.entity.def.height * 0.9, 0),
-			{"color": "#ffd166" if ev.get("attacker") != null else "#ff8866", "follow": ev.entity,
-				"seconds": 0.9, "rise": 1.1}), 100)
+	# so it lives here, and the engine only knows how to make a word float.
+	#
+	# Off `entity_damaged`, the post event, rather than `entity_damage`, the pre one. Running late on
+	# the pre event was not enough: a handler at a lower priority that absorbs damage still ran after,
+	# and the number shown was one that never landed. The post event carries the health that actually
+	# resulted, so the number is the difference. (2026-09-21)
+	api.on("entity_damaged", func(ev):
+		var e = ev.entity
+		var was := float(e.data.get("_shown_health", ev.health))
+		e.data["_shown_health"] = float(ev.health)
+		var lost := was - float(ev.health)
+		if lost < 0.5:
+			return  # healing, or a change too small to round to anything
+		api.float_text("%d" % roundi(lost), e.body.position + Vector3(0, e.def.height * 0.9, 0),
+			{"color": "#ffd166", "follow": e, "seconds": 0.9, "rise": 1.1}))
 	# What a host can change without editing this mod: the admin screen, /modsettings and the server's
 	# mod_settings.json all end up here.
 	api.register_settings({

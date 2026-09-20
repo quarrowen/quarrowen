@@ -91,6 +91,7 @@ func _ready() -> void:
 	await _conditions()
 	await _ores()
 	await _fields()
+	await _events()
 	await _vehicles()
 	await _plots()
 	await _tags()
@@ -4362,6 +4363,76 @@ func _characters() -> void:
 	server.characters.player_left(102)
 	server.shops.player_left(102)
 	_check(not server.characters._talking.has(102), "leaving forgets the conversation")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## The events added after the event-driven review: the ones that cover what was previously silent.
+func _events() -> void:
+	var server = _start("events_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	var seen := {}
+	for name in ["block_changed", "player_damaged", "entity_damaged", "time_changed", "inventory_changed",
+			"container_changed", "chunk_loaded"]:
+		var key := String(name)
+		seen[key] = []
+		api.on(key, func(ev): seen[key].append(ev))
+
+	var p := ServerPlayer.new(server, 130, "Watcher")
+	p.player_id = "watcher"
+	var y: int = server.surface_height(8, 8)
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	server.players[130] = p
+
+	# A blast used to be the one way to remove a block that nothing could observe: it reached past the
+	# ordinary path straight into _apply_block.
+	var wall := Vector3i(12, y + 1, 12)
+	server.set_block_authoritative(wall, server.registry.id_of("base:stone"))
+	seen.block_changed.clear()
+	var destroyed := []
+	api.on("block_destroyed", func(ev): destroyed.append(ev.position))
+	server.explosions.explode(Vector3(wall) + Vector3(0.5, 0.5, 0.5), 3.0, {})
+	_check(not destroyed.is_empty(), "a blast now says which blocks it destroyed (%d)" % destroyed.size())
+	_check(not seen.block_changed.is_empty(), "and every change to the world is reported (%d)" % seen.block_changed.size())
+
+	# Set a block by any other means: block_placed only ever fired for a player.
+	seen.block_changed.clear()
+	api.set_block(Vector3i(14, y + 40, 14), server.registry.id_of("base:stone"))  # well clear of the ground
+	_check(seen.block_changed.size() == 1 and seen.block_changed[0].block == server.registry.id_of("base:stone"),
+		"a mod setting a block is a change like any other (%d events)" % seen.block_changed.size())
+
+	# The post half of the damage events: the health that actually resulted.
+	p.health = 20.0
+	p.hurt_timer = 0.0
+	seen.player_damaged.clear()
+	var hurt_ok: bool = server.damage_player(p, 3.0, "test", null, Vector3.ZERO, true)
+	_check(hurt_ok and p.health == 17.0, "the test player can actually be hurt (%s, health %s, creative %s)" % [hurt_ok, p.health, p.inventory.creative])
+	_check(seen.player_damaged.size() >= 1 and is_equal_approx(float(seen.player_damaged[-1].health), 17.0),
+		"player_damaged carries the health that resulted (%s)" % str(seen.player_damaged.map(func(e): return e.health)))
+	seen.player_damaged.clear()
+	server.heal_player(p, 2.0)
+	_check(not seen.player_damaged.is_empty(), "and healing reports too, which nothing used to")
+
+	var mob = api.spawn_entity("cow", Vector3(10, y + 1, 10), {})
+	seen.entity_damaged.clear()
+	mob.health = mob.max_health * 0.5
+	_check(not seen.entity_damaged.is_empty() and is_equal_approx(float(seen.entity_damaged[-1].health), mob.health),
+		"entity_damaged fires however health moved, direct writes included")
+
+	# Nightfall, which three bundled mods polled for.
+	seen.time_changed.clear()
+	server.set_world_time(0.5, 60.0)   # noon first, so crossing into night is a crossing
+	seen.time_changed.clear()
+	server.set_world_time(0.9, 60.0)
+	_check(seen.time_changed.size() == 1 and seen.time_changed[0].phase == "night",
+		"crossing into night says so (%s)" % str(seen.time_changed))
+	seen.time_changed.clear()
+	server.set_world_time(0.95, 60.0)
+	_check(seen.time_changed.is_empty(), "and staying in it says nothing")
+
+	seen.inventory_changed.clear()
+	p.give(server.items.id_of("base:stone"), 4)
+	_check(not seen.inventory_changed.is_empty(), "anything moving in a pack is reported")
 	server.queue_free()
 	await get_tree().process_frame
 
