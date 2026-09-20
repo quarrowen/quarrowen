@@ -2124,3 +2124,37 @@ layout of a village worth walking into. That is a mod, and a large one.
 Hearthhold is the obvious home for the first one, and its phase two is where it belongs. Bramble has
 no shop yet on purpose: Hearthhold has no currency, and inventing one for her would be deciding the
 story game's economy in passing. Barter works today if that turns out to be the answer.
+
+## The JavaScript bridge is generated now (2026-09-20, user: "js bindings should be kept in sync yes")
+
+Closed the 139 by generating rather than by writing 139 bindings. `tools/bindings_generator.gd` reads
+the signatures in `mod_api.gd` and writes `engine/server/js/bindings.json`; `js_mod.gd` falls through
+to it when no hand-written case matches, and `prelude.js` builds an `api` entry for every name it does
+not already have. Unbound went from 139 to 2.
+
+The table carries only what JSON cannot say for itself: which argument is a player reference, which is
+a callback, and what a missing argument should default to. Everything else the existing accessors
+already coerce, which is why this is a small file rather than a code generator.
+
+The two that stay GDScript-only are `set_world_generator` and `add_generation_pass`: both take a
+GDScript object, and there is nothing to send.
+
+**Hand-written bindings still win.** Several rename on the way across (`registerLootTable` asks for
+`registerLoot`) or take friendlier arguments, and a generated table should not overrule a decision
+somebody made on purpose.
+
+`tests/mods/js_generated/` is a JavaScript mod built *entirely* on generated bindings - ledgers,
+objectives, shops, characters, a player reference, a number, an argument left off, and a command
+callback. If the generated half breaks, that mod fails to load in our suite rather than in somebody's
+game.
+
+**Lua is now a runtime and a prelude**, not a third list to keep in step, which was the question that
+started this. `native/src/js.rs` is 162 lines and the dispatch it feeds is language-neutral - it takes
+a method name and an array of JSON-decoded values. What Lua needs: a `lua.rs` of about the same size
+(mlua; Luau has a proper interrupt callback for the time budget and real sandboxing, where Lua 5.4
+needs a debug hook), a `prelude.lua` that walks the same `bindings.json`, and a `lua_mod.gd` that is
+mostly runtime lifecycle because `_call_host` can be shared. Two to three days, against about a week
+had it been done the way JavaScript was.
+
+Not started, and not obviously next: nobody has asked for a Lua mod yet. Worth doing when somebody
+does, or if a second language would bring modders who are not coming otherwise.

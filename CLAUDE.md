@@ -24,11 +24,16 @@ else entirely.
   A test (`_shape_twins`) compares them, but it reads the Rust *source*, so it cannot tell you the built
   library is stale - see below.
 - **Mesher and pathfinder** have the same GDScript/Rust arrangement.
-- **The two mod APIs.** `engine/server/mod_api.gd` ⇄ `engine/server/js/prelude.js` + `quarrowen.d.ts`
-  + the dispatch in `js_mod.gd`. Written by hand, so they drifted to 139 of 262 functions before
-  anybody counted (2026-09-20). `engine/server/js/unbound.txt` is a ratchet the suite enforces: the
-  list may only shrink, and a new `api.*` function that is not in it fails the tests. Add the binding,
-  or regenerate deliberately with `mod_tool.tscn -- bindings` when something genuinely cannot cross.
+- **The two mod APIs.** `engine/server/mod_api.gd` ⇄ the JavaScript bridge. Written by hand, they
+  drifted to 139 of 262 functions before anybody counted (2026-09-20), so the bridge is now generated:
+  `engine/server/js/bindings.json` comes from the GDScript signatures and both `js_mod.gd` and
+  `prelude.js` fall back to it, which means **a new `api.*` function reaches JavaScript the moment it
+  exists**. Hand-written entries in `prelude.js` still win where one exists, because several rename or
+  reorder on purpose.
+
+  After adding to `mod_api.gd`, run `mod_tool.tscn -- bindings`; the suite fails when
+  `bindings.json` or `unbound.txt` is stale. `unbound.txt` is down to the two functions that take a
+  GDScript object and genuinely cannot cross JSON.
 
 **The GDExtension is a checked-in build artifact.** `tools/run_tests.sh` rebuilds it when `native/src` is
 newer and stops if that build fails. It did not always: a Rust file that did not compile once left the old
@@ -111,6 +116,11 @@ private function that two things use is a fact about the code that ought to be v
   cannot be constructed, a test that fails on an assertion it never reached. `_server`, `api`, `c` and
   `player` are all untyped by convention here, so annotate: `var x: String = ...`. The suite checks
   every script under `engine/`, `mods/` and `tests/` really parses, which is the fast way to find it.
+
+  In a **tool scene** the same mistake looks like a hang rather than a failure: the script does not
+  compile, so the `get_tree().quit()` at the end of it never runs and `mod_tool.tscn` sits there for
+  ever. Run tool scenes with `timeout` - and with the full path to Godot, because `godot` is a shell
+  function here and `timeout` cannot see it. (2026-09-20)
 - **`godot --check-only --script <file>`.** It reports success on a file that does not parse. To check a
   script really compiles, `load()` it and ask `can_instantiate()` - which is what the suite does for every
   script under `engine/`.

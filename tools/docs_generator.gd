@@ -12,6 +12,8 @@ const PRELUDE := "res://engine/server/js/prelude.js"
 ## The API a JavaScript mod cannot reach. A baseline rather than a target: it may shrink, and anything
 ## new in it fails the suite. Regenerate deliberately with `mod_tool.tscn -- bindings`.
 const UNBOUND := "res://engine/server/js/unbound.txt"
+## The generated half of the JavaScript API (tools/bindings_generator.gd).
+const BINDINGS := "res://engine/server/js/bindings.json"
 const UNBOUND_HEADER := """# Functions in engine/server/mod_api.gd that a JavaScript mod cannot call.
 #
 # This list may only get shorter. tests/gameplay_test.gd fails when a name appears that is not already
@@ -85,7 +87,7 @@ static func build() -> String:
 	var js_names := {}
 	for m in js_members:
 		js_names[m.name] = m
-	var prelude := FileAccess.get_file_as_string(PRELUDE)
+	var reachable := js_reachable()
 	var nav := PackedStringArray()
 	var body := PackedStringArray()
 
@@ -110,12 +112,7 @@ static func build() -> String:
 		body.append('<section id="%s"><h2>%s</h2>' % [anchor, _esc(s[0])])
 		for fn in s[1]:
 			var camel := _camel(fn.name)
-			var js := ""
-			if js_names.has(camel):
-				js = camel
-			elif prelude.contains("    %s:" % camel) or prelude.contains("    %s(" % camel):
-				js = camel
-			body.append(_function_card("api", fn, js, js_names.get(camel, {})))
+			body.append(_function_card("api", fn, camel if reachable.has(camel) else "", js_names.get(camel, {})))
 		body.append("</section>")
 
 	# Events.
@@ -170,19 +167,31 @@ static func build() -> String:
 ## a prelude entry - so the page and the test can never disagree about what a JavaScript mod can call.
 static func unbound_js() -> Array:
 	var api := parse_gdscript(FileAccess.get_file_as_string(MOD_API), "")
-	var declared := {}
-	for m in parse_ts_interface(FileAccess.get_file_as_string(TYPES), "Api"):
-		declared[m.name] = true
-	var prelude := FileAccess.get_file_as_string(PRELUDE)
+	var reachable := js_reachable()
 	var out := []
 	for fn in api:
 		if String(fn.signature).ends_with("(property)"):
 			continue
-		var camel := _camel(fn.name)
-		if declared.has(camel) or prelude.contains("    %s:" % camel) or prelude.contains("    %s(" % camel):
-			continue
-		out.append(String(fn.name))
+		if not reachable.has(_camel(fn.name)):
+			out.append(String(fn.name))
 	out.sort()
+	return out
+
+
+## Every camelCase name a JavaScript mod can call: declared in the TypeScript, written by hand in the
+## prelude, or generated into bindings.json. One answer, so the reference page and the suite cannot
+## disagree about what a JavaScript mod can reach.
+static func js_reachable() -> Dictionary:
+	var out := {}
+	for m in parse_ts_interface(FileAccess.get_file_as_string(TYPES), "Api"):
+		out[m.name] = true
+	var prelude := FileAccess.get_file_as_string(PRELUDE)
+	for name in (JSON.parse_string(FileAccess.get_file_as_string(BINDINGS)) as Dictionary).get("methods", {}):
+		out[String(name)] = true
+	for fn in parse_gdscript(FileAccess.get_file_as_string(MOD_API), ""):
+		var camel := _camel(fn.name)
+		if prelude.contains("    %s:" % camel) or prelude.contains("    %s(" % camel):
+			out[camel] = true
 	return out
 
 
@@ -328,6 +337,12 @@ static func _header_block(source: String, title: String) -> String:
 ## Short keys must match the whole name; longer ones anywhere in it.
 static func _matches(name: String, key: String) -> bool:
 	return name == key or (key.length() > 3 and name.contains(key))
+
+
+## Shared with tools/bindings_generator.gd, which must name a host method exactly the way the reference
+## page says it is named.
+static func camel(snake: String) -> String:
+	return _camel(snake)
 
 
 static func _camel(snake: String) -> String:

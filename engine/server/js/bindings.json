@@ -1,0 +1,2899 @@
+{
+	"methods": {
+		"abandonObjective": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "abandon_objective"
+		},
+		"addBalance": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "float"
+				}
+			],
+			"gd": "add_balance"
+		},
+		"addCaveCarver": {
+			"args": [
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "add_cave_carver"
+		},
+		"addDeathMessages": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "arr"
+				}
+			],
+			"gd": "add_death_messages"
+		},
+		"addOrePass": {
+			"args": [
+				{
+					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "add_ore_pass"
+		},
+		"addPlotMember": {
+			"args": [
+				{
+					"kind": "int"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "add_plot_member"
+		},
+		"addRealm": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "add_realm"
+		},
+		"addSpawnRule": {
+			"args": [
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "add_spawn_rule"
+		},
+		"advanceObjective": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": 1,
+					"kind": "int"
+				}
+			],
+			"gd": "advance_objective"
+		},
+		"advanceTutorial": {
+			"args": [
+				{
+					"kind": "player"
+				}
+			],
+			"gd": "advance_tutorial"
+		},
+		"after": {
+			"args": [
+				{
+					"kind": "float"
+				},
+				{
+					"kind": "callback"
+				}
+			],
+			"gd": "after"
+		},
+		"applyModifier": {
+			"args": [
+				{
+					"kind": "dict"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": 1,
+					"kind": "int"
+				}
+			],
+			"gd": "apply_modifier"
+		},
+		"assemblyInfo": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "assembly_info"
+		},
+		"assemblyProblem": {
+			"args": [],
+			"gd": "assembly_problem"
+		},
+		"balanceOf": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "balance_of"
+		},
+		"balancesOf": {
+			"args": [
+				{
+					"kind": "player"
+				}
+			],
+			"gd": "balances_of"
+		},
+		"biomeGenerator": {
+			"args": [
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "biome_generator"
+		},
+		"block": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "block"
+		},
+		"blockDisplayName": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "block_display_name"
+		},
+		"blockName": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "block_name"
+		},
+		"blockTextures": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "block_textures"
+		},
+		"breakBlock": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": true,
+					"kind": "bool"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "break_block"
+		},
+		"broadcast": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "broadcast"
+		},
+		"cancel": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "cancel"
+		},
+		"cancelAssembly": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "cancel_assembly"
+		},
+		"claimInfo": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "claim_info"
+		},
+		"claimPlot": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "claim_plot"
+		},
+		"clearBlockData": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "clear_block_data"
+		},
+		"clearMapMarker": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "clear_map_marker"
+		},
+		"clearWorldMarker": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "clear_world_marker"
+		},
+		"companiesOf": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "companies_of"
+		},
+		"companyAtLeast": {
+			"args": [
+				{
+					"kind": "int"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "company_at_least"
+		},
+		"companyInfo": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "company_info"
+		},
+		"companyRank": {
+			"args": [
+				{
+					"kind": "int"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "company_rank"
+		},
+		"debug": {
+			"args": [
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "debug"
+		},
+		"debugBox": {
+			"args": [
+				{
+					"kind": "vec3"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": "#ffcc00",
+					"kind": "str"
+				},
+				{
+					"default": 2.0,
+					"kind": "float"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "debug_box"
+		},
+		"debugLine": {
+			"args": [
+				{
+					"kind": "vec3"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": "#ffcc00",
+					"kind": "str"
+				},
+				{
+					"default": 2.0,
+					"kind": "float"
+				}
+			],
+			"gd": "debug_line"
+		},
+		"debugPath": {
+			"args": [
+				{
+					"kind": "arr"
+				},
+				{
+					"default": "#60ff90",
+					"kind": "str"
+				},
+				{
+					"default": 2.0,
+					"kind": "float"
+				}
+			],
+			"gd": "debug_path"
+		},
+		"debugSphere": {
+			"args": [
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": 0.5,
+					"kind": "float"
+				},
+				{
+					"default": "#6090ff",
+					"kind": "str"
+				},
+				{
+					"default": 2.0,
+					"kind": "float"
+				}
+			],
+			"gd": "debug_sphere"
+		},
+		"debugText": {
+			"args": [
+				{
+					"kind": "vec3"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": "#ffffff",
+					"kind": "str"
+				},
+				{
+					"default": 2.0,
+					"kind": "float"
+				}
+			],
+			"gd": "debug_text"
+		},
+		"disbandCompany": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "disband_company"
+		},
+		"driveJammed": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "drive_jammed"
+		},
+		"drivenAt": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "driven_at"
+		},
+		"dropItem": {
+			"args": [
+				{
+					"kind": "int"
+				},
+				{
+					"kind": "int"
+				},
+				{
+					"kind": "vec3"
+				}
+			],
+			"gd": "drop_item"
+		},
+		"entityType": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "entity_type"
+		},
+		"error": {
+			"args": [
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "error"
+		},
+		"every": {
+			"args": [
+				{
+					"kind": "float"
+				},
+				{
+					"kind": "callback"
+				}
+			],
+			"gd": "every"
+		},
+		"explode": {
+			"args": [
+				{
+					"kind": "vec3"
+				},
+				{
+					"kind": "float"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "explode"
+		},
+		"extendLoot": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "extend_loot"
+		},
+		"facingDirection": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "facing_direction"
+		},
+		"facingFromYaw": {
+			"args": [
+				{
+					"kind": "float"
+				}
+			],
+			"gd": "facing_from_yaw"
+		},
+		"fill": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"kind": "vec3i"
+				},
+				{
+					"kind": "int"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "fill"
+		},
+		"findBlockData": {
+			"args": [
+				{
+					"default": -1,
+					"kind": "int"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "find_block_data"
+		},
+		"findPlayer": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "find_player"
+		},
+		"foundCompany": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "found_company"
+		},
+		"gameId": {
+			"args": [],
+			"gd": "game_id"
+		},
+		"getBiome": {
+			"args": [
+				{
+					"kind": "vec3"
+				}
+			],
+			"gd": "get_biome"
+		},
+		"getBlock": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "get_block"
+		},
+		"getBlockData": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "get_block_data"
+		},
+		"getBlockState": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "get_block_state"
+		},
+		"getContainer": {
+			"args": [
+				{
+					"kind": "vec3i"
+				}
+			],
+			"gd": "get_container"
+		},
+		"getDaylight": {
+			"args": [],
+			"gd": "get_daylight"
+		},
+		"getDrops": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "get_drops"
+		},
+		"getEntities": {
+			"args": [
+				{
+					"kind": "vec3"
+				},
+				{
+					"kind": "float"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "get_entities"
+		},
+		"getEntity": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "get_entity"
+		},
+		"getFuel": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "get_fuel"
+		},
+		"getGameplay": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "get_gameplay"
+		},
+		"getLight": {
+			"args": [
+				{
+					"kind": "vec3i"
+				}
+			],
+			"gd": "get_light"
+		},
+		"getLightLevels": {
+			"args": [
+				{
+					"kind": "vec3i"
+				}
+			],
+			"gd": "get_light_levels"
+		},
+		"getLoadedBlock": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "get_loaded_block"
+		},
+		"getLootRate": {
+			"args": [],
+			"gd": "get_loot_rate"
+		},
+		"getPlayers": {
+			"args": [],
+			"gd": "get_players"
+		},
+		"getProcess": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "get_process"
+		},
+		"getStation": {
+			"args": [
+				{
+					"kind": "vec3i"
+				}
+			],
+			"gd": "get_station"
+		},
+		"getTimeOfDay": {
+			"args": [],
+			"gd": "get_time_of_day"
+		},
+		"getTutorialState": {
+			"args": [
+				{
+					"kind": "player"
+				}
+			],
+			"gd": "get_tutorial_state"
+		},
+		"getWeather": {
+			"args": [],
+			"gd": "get_weather"
+		},
+		"getWorldClock": {
+			"args": [],
+			"gd": "get_world_clock"
+		},
+		"giveObjective": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "give_objective"
+		},
+		"hasGuideFlag": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "has_guide_flag"
+		},
+		"hasMet": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "has_met"
+		},
+		"hasObjective": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "has_objective"
+		},
+		"hasTag": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "has_tag"
+		},
+		"info": {
+			"args": [
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "info"
+		},
+		"isBreakable": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "is_breakable"
+		},
+		"isGame": {
+			"args": [],
+			"gd": "is_game"
+		},
+		"isGuidePageUnlocked": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "is_guide_page_unlocked"
+		},
+		"isLiquid": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "is_liquid"
+		},
+		"isSolid": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "is_solid"
+		},
+		"item": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "item"
+		},
+		"itemDisplayName": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "item_display_name"
+		},
+		"itemMaxStack": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "item_max_stack"
+		},
+		"itemName": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "item_name"
+		},
+		"keepAwake": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "keep_awake"
+		},
+		"letSleep": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "let_sleep"
+		},
+		"levelOf": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "level_of"
+		},
+		"levelProgress": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "level_progress"
+		},
+		"liftAssembly": {
+			"args": [
+				{
+					"kind": "arr"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "lift_assembly"
+		},
+		"link": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "link"
+		},
+		"linkInfo": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "link_info"
+		},
+		"linkProblem": {
+			"args": [],
+			"gd": "link_problem"
+		},
+		"linkRefused": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "link_refused"
+		},
+		"linksAt": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "links_at"
+		},
+		"lookDirection": {
+			"args": [
+				{
+					"kind": "player"
+				}
+			],
+			"gd": "look_direction"
+		},
+		"lootSources": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "loot_sources"
+		},
+		"makeNoise": {
+			"args": [
+				{
+					"kind": "vec3"
+				},
+				{
+					"kind": "float"
+				},
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "make_noise"
+		},
+		"mayBuild": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "may_build"
+		},
+		"milestoneReached": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "milestone_reached"
+		},
+		"modifierLevel": {
+			"args": [
+				{
+					"kind": "dict"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "modifier_level"
+		},
+		"modifiersOn": {
+			"args": [
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "modifiers_on"
+		},
+		"moveAssembly": {
+			"args": [
+				{
+					"kind": "int"
+				},
+				{
+					"kind": "vec3"
+				}
+			],
+			"gd": "move_assembly"
+		},
+		"multiblockAt": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "multiblock_at"
+		},
+		"networkServers": {
+			"args": [],
+			"gd": "network_servers"
+		},
+		"objectiveFinished": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "objective_finished"
+		},
+		"objectivesOf": {
+			"args": [
+				{
+					"kind": "player"
+				}
+			],
+			"gd": "objectives_of"
+		},
+		"on": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "callback"
+				},
+				{
+					"default": 0,
+					"kind": "int"
+				}
+			],
+			"gd": "on"
+		},
+		"onDriven": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "callback"
+				}
+			],
+			"gd": "on_driven"
+		},
+		"onItemArrived": {
+			"args": [
+				{
+					"kind": "callback"
+				}
+			],
+			"gd": "on_item_arrived"
+		},
+		"onReceived": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "callback"
+				}
+			],
+			"gd": "on_received"
+		},
+		"openContainer": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "vec3i"
+				}
+			],
+			"gd": "open_container"
+		},
+		"openGuide": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "open_guide"
+		},
+		"placeStructure": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": 0,
+					"kind": "int"
+				}
+			],
+			"gd": "place_structure"
+		},
+		"playBeam": {
+			"args": [
+				{
+					"kind": "vec3"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "play_beam"
+		},
+		"playDecal": {
+			"args": [
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": {
+						"x": 0,
+						"y": 1,
+						"z": 0
+					},
+					"kind": "vec3i"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "play_decal"
+		},
+		"playEffect": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "play_effect"
+		},
+		"playMusic": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "play_music"
+		},
+		"playSound": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": 1.0,
+					"kind": "float"
+				},
+				{
+					"default": 1.0,
+					"kind": "float"
+				}
+			],
+			"gd": "play_sound"
+		},
+		"playerRoles": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "player_roles"
+		},
+		"players": {
+			"args": [],
+			"gd": "players"
+		},
+		"plotAt": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "plot_at"
+		},
+		"plotProblem": {
+			"args": [],
+			"gd": "plot_problem"
+		},
+		"plotsOf": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "plots_of"
+		},
+		"qualified": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "qualified"
+		},
+		"raycast": {
+			"args": [
+				{
+					"kind": "vec3"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": 5.0,
+					"kind": "float"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "raycast"
+		},
+		"realmOf": {
+			"args": [
+				{
+					"kind": "player"
+				}
+			],
+			"gd": "realm_of"
+		},
+		"received": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "received"
+		},
+		"registerAmbience": {
+			"args": [
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_ambience"
+		},
+		"registerAssembly": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_assembly"
+		},
+		"registerAsset": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_asset"
+		},
+		"registerBiome": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "register_biome"
+		},
+		"registerBlock": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_block"
+		},
+		"registerBlockTick": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "callback"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_block_tick"
+		},
+		"registerCharacter": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_character"
+		},
+		"registerCommand": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "callback"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "register_command"
+		},
+		"registerContainer": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_container"
+		},
+		"registerCosmetic": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_cosmetic"
+		},
+		"registerCosmeticCategory": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_cosmetic_category"
+		},
+		"registerDrive": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "register_drive"
+		},
+		"registerEffect": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_effect"
+		},
+		"registerEntity": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_entity"
+		},
+		"registerEquipmentSlot": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_equipment_slot"
+		},
+		"registerFeature": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "any"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "register_feature"
+		},
+		"registerGuideChapter": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_guide_chapter"
+		},
+		"registerGuidePage": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_guide_page"
+		},
+		"registerItem": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_item"
+		},
+		"registerLedger": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_ledger"
+		},
+		"registerLinkKind": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_link_kind"
+		},
+		"registerLiquid": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_liquid"
+		},
+		"registerLiquidMeeting": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "register_liquid_meeting"
+		},
+		"registerLoot": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_loot"
+		},
+		"registerLootTable": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_loot_table"
+		},
+		"registerMaterial": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_material"
+		},
+		"registerMilestone": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_milestone"
+		},
+		"registerMinigame": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_minigame"
+		},
+		"registerMobBehavior": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_mob_behavior"
+		},
+		"registerModifier": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_modifier"
+		},
+		"registerMultiblock": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_multiblock"
+		},
+		"registerMusic": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_music"
+		},
+		"registerObjective": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_objective"
+		},
+		"registerPartType": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_part_type"
+		},
+		"registerPermission": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": [],
+					"kind": "arr"
+				}
+			],
+			"gd": "register_permission"
+		},
+		"registerProcess": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": 1,
+					"kind": "int"
+				},
+				{
+					"default": 10.0,
+					"kind": "float"
+				}
+			],
+			"gd": "register_process"
+		},
+		"registerRecipe": {
+			"args": [
+				{
+					"kind": "dict"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": 1,
+					"kind": "int"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_recipe"
+		},
+		"registerRecipeCategory": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_recipe_category"
+		},
+		"registerSettings": {
+			"args": [
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_settings"
+		},
+		"registerShop": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_shop"
+		},
+		"registerSignal": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "callback"
+				}
+			],
+			"gd": "register_signal"
+		},
+		"registerSound": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "any"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_sound"
+		},
+		"registerStat": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "float"
+				}
+			],
+			"gd": "register_stat"
+		},
+		"registerStation": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_station"
+		},
+		"registerStructure": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_structure"
+		},
+		"registerStructureTemplate": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "register_structure_template"
+		},
+		"registerTip": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_tip"
+		},
+		"registerTutorial": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_tutorial"
+		},
+		"registerUnit": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "register_unit"
+		},
+		"registerWeather": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_weather"
+		},
+		"releasePlot": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "release_plot"
+		},
+		"removeFromCompany": {
+			"args": [
+				{
+					"kind": "int"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "remove_from_company"
+		},
+		"removePlotMember": {
+			"args": [
+				{
+					"kind": "int"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "remove_plot_member"
+		},
+		"rollLoot": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "roll_loot"
+		},
+		"scheduleBlockTick": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"kind": "float"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "schedule_block_tick"
+		},
+		"screenTint": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "screen_tint"
+		},
+		"seesSky": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "sees_sky"
+		},
+		"sendItem": {
+			"args": [
+				{
+					"kind": "dict"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": 1,
+					"kind": "int"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "send_item"
+		},
+		"sendToRealm": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3"
+				}
+			],
+			"gd": "send_to_realm"
+		},
+		"setAccepts": {
+			"args": [
+				{
+					"kind": "dict"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "set_accepts"
+		},
+		"setArrivalPoint": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3"
+				}
+			],
+			"gd": "set_arrival_point"
+		},
+		"setBalance": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "float"
+				}
+			],
+			"gd": "set_balance"
+		},
+		"setBlock": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"kind": "int"
+				},
+				{
+					"default": false,
+					"kind": "bool"
+				},
+				{
+					"default": 0,
+					"kind": "int"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "set_block"
+		},
+		"setBlockData": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "set_block_data"
+		},
+		"setCompanyRank": {
+			"args": [
+				{
+					"kind": "int"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "set_company_rank"
+		},
+		"setCosmeticsPolicy": {
+			"args": [
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "set_cosmetics_policy"
+		},
+		"setDefaultRole": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "set_default_role"
+		},
+		"setDemand": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				},
+				{
+					"kind": "float"
+				}
+			],
+			"gd": "set_demand"
+		},
+		"setDrive": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				},
+				{
+					"kind": "float"
+				}
+			],
+			"gd": "set_drive"
+		},
+		"setFuel": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "float"
+				}
+			],
+			"gd": "set_fuel"
+		},
+		"setGameplay": {
+			"args": [
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "set_gameplay"
+		},
+		"setGuideFlag": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": true,
+					"kind": "bool"
+				}
+			],
+			"gd": "set_guide_flag"
+		},
+		"setLootBoost": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "float"
+				},
+				{
+					"default": 0.0,
+					"kind": "float"
+				}
+			],
+			"gd": "set_loot_boost"
+		},
+		"setLootRate": {
+			"args": [
+				{
+					"kind": "float"
+				}
+			],
+			"gd": "set_loot_rate"
+		},
+		"setMapMarker": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "set_map_marker"
+		},
+		"setPhysics": {
+			"args": [
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "set_physics"
+		},
+		"setPlayerRig": {
+			"args": [
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "set_player_rig"
+		},
+		"setPlayerRole": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": true,
+					"kind": "bool"
+				}
+			],
+			"gd": "set_player_role"
+		},
+		"setRejoinHandler": {
+			"args": [
+				{
+					"kind": "callback"
+				}
+			],
+			"gd": "set_rejoin_handler"
+		},
+		"setServerInfo": {
+			"args": [
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "set_server_info"
+		},
+		"setSetting": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "set_setting"
+		},
+		"setSignal": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"kind": "int"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "set_signal"
+		},
+		"setSpawnCaps": {
+			"args": [
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "set_spawn_caps"
+		},
+		"setSpawnHandler": {
+			"args": [
+				{
+					"kind": "callback"
+				}
+			],
+			"gd": "set_spawn_handler"
+		},
+		"setSupply": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				},
+				{
+					"kind": "float"
+				}
+			],
+			"gd": "set_supply"
+		},
+		"setUgcPolicy": {
+			"args": [
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "set_ugc_policy"
+		},
+		"setWeather": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "set_weather"
+		},
+		"setWorldMarker": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "set_world_marker"
+		},
+		"setWorldTime": {
+			"args": [
+				{
+					"kind": "float"
+				},
+				{
+					"default": -1.0,
+					"kind": "float"
+				}
+			],
+			"gd": "set_world_time"
+		},
+		"setting": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "setting"
+		},
+		"settings": {
+			"args": [],
+			"gd": "settings"
+		},
+		"settleAssembly": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "settle_assembly"
+		},
+		"shopOffers": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "shop_offers"
+		},
+		"shopProblem": {
+			"args": [],
+			"gd": "shop_problem"
+		},
+		"shopTrade": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "shop_trade"
+		},
+		"showCrafting": {
+			"args": [
+				{
+					"kind": "player"
+				}
+			],
+			"gd": "show_crafting"
+		},
+		"showShop": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "show_shop"
+		},
+		"showTip": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "show_tip"
+		},
+		"signalAt": {
+			"args": [
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "signal_at"
+		},
+		"spawnEntity": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "spawn_entity"
+		},
+		"spawnProjectile": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "spawn_projectile"
+		},
+		"spendBalance": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "float"
+				}
+			],
+			"gd": "spend_balance"
+		},
+		"startEffect": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "start_effect"
+		},
+		"startTutorial": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "start_tutorial"
+		},
+		"stopAccepting": {
+			"args": [
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "stop_accepting"
+		},
+		"stopEffect": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "stop_effect"
+		},
+		"stopMusic": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "stop_music"
+		},
+		"stopTutorial": {
+			"args": [
+				{
+					"kind": "player"
+				}
+			],
+			"gd": "stop_tutorial"
+		},
+		"surfaceY": {
+			"args": [
+				{
+					"kind": "int"
+				},
+				{
+					"kind": "int"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "surface_y"
+		},
+		"tag": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "arr"
+				}
+			],
+			"gd": "tag"
+		},
+		"tagged": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "tagged"
+		},
+		"tagsOf": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "tags_of"
+		},
+		"talkTo": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "talk_to"
+		},
+		"ugcBan": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": true,
+					"kind": "bool"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "ugc_ban"
+		},
+		"ugcGet": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "ugc_get"
+		},
+		"ugcList": {
+			"args": [
+				{
+					"default": "approved",
+					"kind": "str"
+				}
+			],
+			"gd": "ugc_list"
+		},
+		"ugcReport": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": "other",
+					"kind": "str"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "ugc_report"
+		},
+		"ugcSetStatus": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "ugc_set_status"
+		},
+		"ugcTrust": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": true,
+					"kind": "bool"
+				}
+			],
+			"gd": "ugc_trust"
+		},
+		"unlink": {
+			"args": [
+				{
+					"kind": "int"
+				},
+				{
+					"default": "removed",
+					"kind": "str"
+				}
+			],
+			"gd": "unlink"
+		},
+		"unlockGuidePage": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": true,
+					"kind": "bool"
+				}
+			],
+			"gd": "unlock_guide_page"
+		},
+		"useBiomeGenerator": {
+			"args": [
+				{
+					"default": {},
+					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "use_biome_generator"
+		},
+		"wakeClaim": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "wake_claim"
+		},
+		"warn": {
+			"args": [
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "warn"
+		},
+		"wouldAccept": {
+			"args": [
+				{
+					"kind": "dict"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "would_accept"
+		}
+	},
+	"refused": {
+		"add_generation_pass": "takes a Object, which needs a GDScript object on the other side",
+		"set_world_generator": "takes a Object, which needs a GDScript object on the other side"
+	}
+}

@@ -1,0 +1,9 @@
+{
+	"id": "js_generated",
+	"name": "Generated JavaScript bindings (tests)",
+	"version": "1.0.0",
+	"description": "Calls api.* functions nobody hand-wrote a binding for, for tests/gameplay_test.tscn.",
+	"depends": ["base"],
+	"game": false,
+	"main": "main.js"
+}

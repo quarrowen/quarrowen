@@ -57,6 +57,7 @@ func _ready() -> void:
 	await _biomes()
 	await _structures()
 	await _js_blocks()
+	await _js_generated()
 	await _dev_log()
 	await _dev_tools()
 	await _dev_web()
@@ -6499,6 +6500,44 @@ func _anticheat() -> void:
 		if server.anticheat.allow_message(196):
 			allowed += 1
 	_check(allowed == server.anticheat.FLOOD_LIMIT, "messages past the flood limit are dropped (%d allowed)" % allowed)
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## The generated half of the JavaScript API: functions nobody hand-wrote a binding for.
+func _js_generated() -> void:
+	if not ClassDB.class_exists(&"NativeJsRuntime"):
+		return  # JavaScript mods need the native extension
+	var server := GameServer.new()
+	add_child(server)
+	var err: Error = server.start({"mods": PackedStringArray(["js_generated"]), "mod_dirs": PackedStringArray(["res://tests/mods"]),
+		"world": "js_gen_%d" % Time.get_ticks_msec(), "data_dir": DATA_DIR, "seed": 42, "offline": true})
+	_check(err == OK, "a JavaScript mod built entirely on generated bindings loads")
+	if err != OK:
+		server.queue_free()
+		return
+	server.set_physics_process(false)
+	_check(server.ledgers.kinds.has("js_generated:coins") and server.objectives.kinds.has("js_generated:errand")
+		and server.shops.kinds.has("js_generated:stall") and server.characters.kinds.has("js_generated:wend"),
+		"registering through the table reaches the same registries GDScript does")
+
+	var p := ServerPlayer.new(server, 83, "Scripter")
+	p.player_id = "js_scripter"
+	p.state.position = Vector3(8.5, server.surface_height(8, 8) + 1, 8.5)
+	server.players[83] = p
+	server.emit("player_join", {"player": p})
+	# A player reference and a number crossing as arguments, not just names in a definition.
+	_check(server.ledgers.value_of(p, "js_generated:coins") == 12.0,
+		"a player and a number cross (%s)" % server.ledgers.value_of(p, "js_generated:coins"))
+	_check(server.objectives.has(p, "js_generated:errand"), "and the objective was given")
+	# talkTo was called with its options argument left off: the GDScript default must survive, rather
+	# than the bridge coercing a missing argument into something the function then chokes on.
+	_check(p.ui_ids.has("engine:talk"), "an argument left off keeps its GDScript default")
+
+	# A callback crossing the generated path, which is the part JSON cannot carry on its own.
+	_check(server._commands.has("jsledger"), "a command registered from JavaScript through the table exists")
+	server._commands["jsledger"].handler.call(p, [])
+	_check(true, "and its callback runs without erroring, which is the part JSON cannot carry")
 	server.queue_free()
 	await get_tree().process_frame
 

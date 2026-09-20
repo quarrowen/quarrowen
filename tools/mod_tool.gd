@@ -41,6 +41,10 @@ func _run() -> void:
 		get_tree().quit(0)
 		return
 	if positional.size() >= 1 and positional[0] == "bindings":
+		var BindingsGenerator = preload("res://tools/bindings_generator.gd")
+		_out("wrote %s (%d methods)" % [BindingsGenerator.OUT, BindingsGenerator.write()])
+		for name in (BindingsGenerator.build().refused as Dictionary):
+			_out("  stays GDScript-only: %s - %s" % [name, BindingsGenerator.build().refused[name]])
 		var unbound: Array = DocsGenerator.unbound_js()
 		var file := FileAccess.open(DocsGenerator.UNBOUND, FileAccess.WRITE)
 		file.store_string(DocsGenerator.UNBOUND_HEADER + "\n".join(unbound) + "\n")
