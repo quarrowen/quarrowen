@@ -2261,3 +2261,50 @@ every ore actually appears. A vein nobody can find is not content.
   nothing to read about it.
 - Copper is described in the roadmap as the metal for "wire, pipes, fittings", and `mods/industry`
   still makes cable out of iron. Wiring copper into the industry recipes is the natural follow-up.
+
+## Idea: image to avatar (2026-09-20, user: "I upload an image or a photo and it gets converted to my avatar!")
+
+**Much smaller than it sounds, because nearly all of it exists.** Player-made skins already work end to
+end: `engine/client/avatar/skin_painter.gd` already imports a PNG through a native FileDialog,
+`engine/shared/creations.gd` is the format (kind "skin" = a 64x64 PNG in the skin layout),
+`engine/server/ugc.gd` uploads, validates, stores, moderates and distributes them, and
+`model_importer.gd` is the precedent for "pick a file, check it, turn it into a creation".
+
+So this is **an importer, not a system**. What is missing is the conversion in the middle.
+
+### The three honest options for the conversion
+
+1. **Colours only.** Pull the dominant colours out of the photo - hair, skin, shirt - and set the
+   avatar's `skin` and `body` colours and pick cosmetics to match. The output is a few hex values, so
+   it is *avatar data*, never a creation: nothing is uploaded, nothing needs moderating. Smallest by
+   far. But "coloured like me" is not "converted to me".
+2. **The face on the head.** The part that actually delivers the idea: the child's face becomes the
+   8x8 head front of the 64x64 skin. Uses the creation path that already exists, so moderation,
+   limits and distribution come free.
+3. **The whole photo across the layout.** Looks like mud. Not worth building.
+
+**2 and 1 together** is the answer: the face from the photo, and the skin tone from the same photo
+applied to the rest of the body - otherwise you get a photo face on a default-coloured body, which
+reads as broken rather than as a likeness.
+
+### The two things that decide whether it is any good
+
+- **No face detection.** Show the photo with a draggable square and let the child put it over their own
+  face. Better than automatic: no model to ship, nothing to fail, more agency, and children enjoy the
+  doing of it. This removes the only genuinely hard dependency.
+- **An 8x8 face from a photograph is mud** unless it is quantised to a small palette with the contrast
+  pushed. Import should land the child in `skin_painter` with the result already on the canvas, so the
+  first thing they can do is fix it. Import-then-edit, never import-and-accept.
+
+### The thing to be deliberate about
+
+It routes **photographs of children** into a path whose whole purpose is to upload to the server and
+distribute to every other client, where it is stored in `<world>/ugc/` and cached on other children's
+machines. On a family homelab that is probably fine, and `policy.accept` already has an "approval"
+mode which is the right default here. But it is a different act from picking a skin colour, and the
+difference should be a deliberate decision rather than a side effect of reusing the pipe. Option 1
+alone has none of this, because it never leaves the avatar data.
+
+Worth saying plainly: this is a delighter, not a gap. It is also cheap - a day or two, mostly the crop
+UI - and the sort of thing a child shows somebody else. Not scheduled against the roadmap items;
+raised here so it does not evaporate.
