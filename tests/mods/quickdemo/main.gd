@@ -9,6 +9,7 @@ func setup(mod_api) -> void:
 	api = mod_api
 	api.register_command("quickdemo", "build a quickdust circuit in front of you", _build, "admin")
 	api.register_command("wiredemo", "a generator lighting lamps over strung cable", _wires, "admin")
+	api.register_command("fxdemo", "beams, marks and a machine working", _fx, "admin")
 	api.register_link_kind("cable", {"span": 14, "draw": "cable", "color": "#c8822e"})
 	api.register_link_kind("pipe", {"span": 6, "draw": "pipe", "color": "#8a9aa6"})
 
@@ -92,3 +93,37 @@ func _wires(player, _args) -> void:
 	# The span is 12 and a cable reaches 14: any further and the engine refuses it, which is exactly
 	# what it should do and exactly what it did the first time this demo was written. (2026-09-19)
 	player.send_message("Wire demo built: %d links." % api.links_at(here + Vector3i(2, 3, 0)).size())
+
+
+## The effects that emitters could not express: a line from here to there, marks left on the ground,
+## and something that keeps working rather than puffing once.
+func _fx(player, _args) -> void:
+	var here := Vector3i(player.position.floor())
+	var stone: int = api.block("base:stone")
+	for dx in range(-6, 7):
+		for dz in range(-6, 7):
+			api.set_block(here + Vector3i(dx, -1, dz), stone)
+			for dy in range(0, 6):
+				api.set_block(here + Vector3i(dx, dy, dz), 0)
+	# Four posts with beams strung between them, in different colours.
+	var posts := [Vector3i(-5, 0, -5), Vector3i(5, 0, -5), Vector3i(5, 0, 5), Vector3i(-5, 0, 5)]
+	for p in posts:
+		for dy in 3:
+			api.set_block(here + p + Vector3i(0, dy, 0), stone)
+	var colours := ["#88ddff", "#ffcc44", "#ff6688", "#88ff99"]
+	for i in posts.size():
+		var a: Vector3 = Vector3(here + posts[i]) + Vector3(0.5, 3.2, 0.5)
+		var b: Vector3 = Vector3(here + posts[(i + 1) % posts.size()]) + Vector3(0.5, 3.2, 0.5)
+		api.play_beam(a, b, {"color": colours[i], "width": 0.12, "seconds": 30.0})
+	# A cross of beams through the middle, and one hanging like a rope.
+	api.play_beam(Vector3(here + posts[0]) + Vector3(0.5, 3.2, 0.5),
+		Vector3(here + posts[2]) + Vector3(0.5, 3.2, 0.5), {"color": "#ffffff", "width": 0.06, "seconds": 30.0})
+	api.play_beam(Vector3(here + posts[1]) + Vector3(0.5, 3.2, 0.5),
+		Vector3(here + posts[3]) + Vector3(0.5, 3.2, 0.5), {"color": "#ffaa22", "width": 0.06, "seconds": 30.0, "sag": 0.6})
+	# Scorch marks on the floor, and two things working away.
+	for spot in [Vector3i(-2, 0, 0), Vector3i(2, 0, 2), Vector3i(0, 0, -3), Vector3i(3, 0, -1)]:
+		api.play_decal(Vector3(here + spot) + Vector3(0.5, 0.02, 0.5), Vector3i.UP,
+			{"color": "#1a1016", "size": 2.6})
+	api.start_effect("engine:smoke", Vector3(here) + Vector3(0.5, 0.5, 0.5))
+	api.start_effect("engine:magic", Vector3(here) + Vector3(-2.5, 0.6, 2.5))
+	player.send_message("Effects demo built.")
