@@ -1070,6 +1070,13 @@ func s_sleep(state: Dictionary) -> void:
 		client.on_sleep(state)
 
 
+## A word that floats in the world for a moment: damage off a hit, a name over a thing.
+@rpc("authority", "call_remote", "unreliable")
+func s_float_text(text: String, pos: Vector3, options: Dictionary) -> void:
+	if client:
+		client.on_float_text(text, pos, options)
+
+
 ## What this player is riding: {entity, seat_height, driver} or {} when they get off. The client stops
 ## predicting its own movement while this is set and follows the vehicle instead - without it the
 ## client walks where it thinks it should be and the server puts it back, which is rubber-banding.

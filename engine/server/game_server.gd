@@ -2305,6 +2305,36 @@ func play_effect(effect_name: String, pos: Vector3, options := {}, exclude := 0)
 			Net.s_effect.rpc_id(p.peer_id, id, pos, clean)
 
 
+## How far a floating word carries. Past this it is unreadable anyway, and sending it costs a packet
+## to somebody who will never see it.
+const TEXT_RANGE := 48.0
+
+
+## Words that float in the world for a moment and then go: damage off a hit, "+3 copper" over a
+## chest, a name over a thing. Transient on purpose - nothing is stored, nobody has to clean it up, and
+## a client that was not listening has missed nothing that matters.
+##
+## options: color, seconds, rise (how far it drifts up), size, follow (a player or entity it sticks to).
+func float_text(text: String, pos: Vector3, options := {}, realm_id := "") -> void:
+	if not _started or text.is_empty():
+		return
+	var clean := {
+		"color": String(options.get("color", "#ffffff")),
+		"seconds": clampf(float(options.get("seconds", 1.2)), 0.1, 10.0),
+		"rise": clampf(float(options.get("rise", 1.0)), -4.0, 8.0),
+		"size": clampf(float(options.get("size", 1.0)), 0.3, 4.0),
+	}
+	var follow = options.get("follow")
+	if follow is ServerPlayer:
+		clean["follow_player"] = follow.peer_id
+	elif follow != null and follow is Object and follow.get("id") is int:
+		clean["follow_entity"] = follow.id
+	var cut := text.left(64)
+	for p: ServerPlayer in players.values():
+		if p.realm_id == realm_id and p.state.position.distance_to(pos) <= TEXT_RANGE:
+			Net.s_float_text.rpc_id(p.peer_id, cut, pos, clean)
+
+
 ## Tells a player (or everyone, when `p` is null) what music to play. -1 means stop. The track each
 ## player is on is remembered so a mod can call this on every biome change without restarting anything,
 ## and so a player who reconnects hears the same thing rather than silence.

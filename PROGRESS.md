@@ -2462,3 +2462,33 @@ The 33 ore, tool and armour textures added today came from `tools/generate_textu
 placeholders in code. **That is the pattern worth reaching for first**: if a thing can be drawn by a
 16x16 procedure it needs no artist at all. It does not extend to models, which is why the raft is
 stuck.
+
+## Text in the world (2026-09-20)
+
+Half the roadmap entry was already built, which is now the fifth time reading first has paid:
+"mod-defined corners of the interface" is `show_ui` with an anchor and it already has all four
+corners, and "a live value inside a piece of text" is calling `show_ui` again, which is how every
+panel here updates.
+
+What was genuinely missing was words in the *world*. `api.float_text(text, position, options)` sends a
+`Label3D` that rises, fades and frees itself. **Protocol 48.**
+
+Two decisions:
+
+- **Drawn through walls** (`no_depth_test`). A damage number that vanishes because the thing you hit
+  stepped behind a post is a number nobody can read, and readable-at-a-glance is the entire point.
+- **A Label3D, not a Control projected from 3D to 2D.** It already faces the camera, already sorts
+  against the world and already holds a fixed screen size - three fiddly things not worth redoing.
+
+Damage numbers are **content, in `mods/vanilla`**, not engine: a quieter survival game might want
+none. They are shown at priority 100 so the number is the one that actually landed, after anything
+that cancels or changes the amount.
+
+### The check vehicles should have had
+
+`e2e:combat` now asserts `c._float_texts > 0` after the pig fight - a **real client** received two
+damage numbers over a real socket. That is end-to-end proof of the client path, which is exactly what
+vehicles is missing and could not have, because nothing bundled is rideable.
+
+Worth generalising: when a capability's client half matters, find an existing e2e test that already
+does the thing and add one counter to it. It cost three lines here.

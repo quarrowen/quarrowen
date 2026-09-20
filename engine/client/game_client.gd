@@ -41,6 +41,7 @@ const MenuTheme = preload("res://engine/client/menu/menu_theme.gd")
 const Identity = preload("res://engine/shared/identity.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const EntityView = preload("res://engine/client/entity_view.gd")
+const FloatText = preload("res://engine/client/float_text.gd")
 const EntityPhysics = preload("res://engine/shared/entity_physics.gd")
 const SoundPlayer = preload("res://engine/client/sound_player.gd")
 const MusicPlayer = preload("res://engine/client/music_player.gd")
@@ -289,6 +290,9 @@ var _death_panel: Control
 ## {entity, seat_height, driver} while riding, {} otherwise. While it is set this client does not
 ## predict its own movement: it sits where the vehicle is and its input is steering. Predicting and
 ## being corrected is exactly what rubber-banding is. (2026-09-20)
+## How many floating words this client has been sent. Only the e2e test reads it.
+var _float_texts := 0
+
 var _riding := {}
 
 ## {sleeping, since, asleep, needed, seconds, head_dir, started (local)} while in bed.
@@ -1094,6 +1098,23 @@ func on_decal(pos: Vector3, normal: Vector3i, look: Dictionary) -> void:
 ## A line drawn from one place to another for a moment.
 func on_beam(from: Vector3, to: Vector3, look: Dictionary) -> void:
 	_beams.add(from, to, look)
+
+
+## A word that floats in the world for a moment: damage off a hit, a name over a thing.
+func on_float_text(text: String, pos: Vector3, options: Dictionary) -> void:
+	_float_texts += 1  # counted so an e2e test can prove these really arrive, not just that they send
+	var node := FloatText.new()
+	add_child(node)
+	node.setup(text, pos, options)
+	# Stuck to whatever it came off, so a number follows the thing that was hit rather than hanging in
+	# the air where the blow landed.
+	var follow: Node3D = null
+	if options.get("follow_entity") != null:
+		follow = _entities.get(int(options.follow_entity))
+	elif options.get("follow_player") != null:
+		follow = _remote_players.get(int(options.follow_player))
+	if follow != null:
+		node.follow(follow)
 
 
 func on_effect_start(handle: int, effect_id: int, pos: Vector3, options: Dictionary) -> void:

@@ -1184,6 +1184,19 @@ func shop_offers(player, shop_name: String) -> Array:
 	return _server.shops.offers_for(player, _qualify_ref(shop_name))
 
 
+## A word that floats in the world for a moment and then goes: the damage off a hit, "+3" over a
+## chest, a name over a thing.
+##
+##     api.float_text("12", position, {"color": "#ff6666", "follow": mob})
+##
+## Transient on purpose - nothing is stored and nobody has to clean it up. It is drawn through walls,
+## because a number that vanishes behind a post is a number nobody can read.
+##
+## options: color, seconds, rise (how far it drifts up), size, follow (a player or entity it sticks to).
+func float_text(text: String, position: Vector3, options := {}, realm_id := "") -> void:
+	_server.float_text(text, position, options, _qualify_ref(realm_id))
+
+
 ## Puts a player on a vehicle - an entity whose type has a `vehicle` block. Returns false when it is
 ## full, too far away, or they are already riding something.
 ##

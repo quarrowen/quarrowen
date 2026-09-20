@@ -34,6 +34,16 @@ var ids := {}
 func setup(mod_api) -> void:
 	api = mod_api
 	biomes.setup(api)
+	# Damage numbers. A game choice rather than an engine one - a quiet survival game might want none -
+	# so it lives here, and the engine only knows how to make a word float. Shown after the handlers
+	# that can cancel or change the amount, so the number is the one that actually landed.
+	api.on("entity_damage", func(ev):
+		if ev.cancelled or float(ev.amount) <= 0.0:
+			return
+		api.float_text("%d" % maxi(roundi(float(ev.amount)), 1),
+			ev.entity.body.position + Vector3(0, ev.entity.def.height * 0.9, 0),
+			{"color": "#ffd166" if ev.get("attacker") != null else "#ff8866", "follow": ev.entity,
+				"seconds": 0.9, "rise": 1.1}), 100)
 	# What a host can change without editing this mod: the admin screen, /modsettings and the server's
 	# mod_settings.json all end up here.
 	api.register_settings({

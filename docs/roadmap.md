@@ -322,10 +322,20 @@ has not been driven by a real client.
 Placing or breaking many blocks at once with a preview, respecting permissions and the edit budget.
 Mining a whole vein is the same capability with a different rule for choosing the blocks.
 
-### 20. Text in the world
+### 20. Text in the world — built
 
-Words that float where a thing is, numbers that fly off a hit, mod-defined corners of the interface, and
-a way to put a live value inside a piece of text.
+Half of this entry already existed: **mod-defined corners of the interface** are `show_ui` with an
+anchor, all four corners included, and **a live value inside a piece of text** is calling `show_ui`
+again with the new number, which is how every other panel here updates.
+
+What was missing was words in the *world*, and that is `api.float_text` - a `Label3D` that rises,
+fades and goes. Drawn through walls on purpose: a damage number that disappears because the thing you
+hit stepped behind a post is a number nobody can read, and being readable at a glance is the whole
+value of it. It can follow a player or a creature, so a number stays with what it came off rather than
+hanging where the blow landed.
+
+Damage numbers themselves are **content, in vanilla**, because a quieter survival game might want
+none. The engine only knows how to make a word float. **Protocol 48.**
 
 ### 21. Inventories inside things
 

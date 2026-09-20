@@ -677,6 +677,25 @@
 			],
 			"gd": "find_player"
 		},
+		"floatText": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "float_text"
+		},
 		"foundCompany": {
 			"args": [
 				{

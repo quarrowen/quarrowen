@@ -591,6 +591,9 @@ func _combat(c) -> void:
 		var porkchop: int = c.items.id_of("vanilla:porkchop")
 		_check(await _collect(c, porkchop, 10.0), "picked up the porkchop the pig dropped")
 		_check(c._sounds.played > sounds_before, "combat played sounds (%d)" % (c._sounds.played - sounds_before))
+		# The damage numbers really arrived at a real client, rather than the server merely sending
+		# them. Vehicles shipped without this kind of check and it is the one thing missing there.
+		_check(c._float_texts > 0, "damage numbers floated off the hits (%d)" % c._float_texts)
 
 	# A bounty zombie from the JavaScript guild mod: it attacks us; killing it pays coins.
 	var coin: int = c.items.id_of("guild:gold_coin")

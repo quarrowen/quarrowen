@@ -616,6 +616,15 @@ somewhere worth going back to. leave `stock` out for an offer that never runs dr
 it cannot happen, and `shop_problem` says why in words a child can read."><div class="sig"><code>api.shop_trade(player, shop_name: String, index: int) -&gt; bool</code><span class="tag js" title="shopTrade">JS shopTrade</span></div><p>Does one trade directly, for a shop with no panel - a vending block, a delivery chute. False when<br>it cannot happen, and `shop_problem` says why in words a child can read.</p></div>
 <div class="card" id="api-shop-problem" data-search="shop_problem shopproblem "><div class="sig"><code>api.shop_problem() -&gt; String</code><span class="tag js" title="shopProblem">JS shopProblem</span></div><p class="muted">No description yet.</p></div>
 <div class="card" id="api-shop-offers" data-search="shop_offers shopoffers what is on the shelves: [{index, item, name, count, price, ledger, cost, sells, left, can}]."><div class="sig"><code>api.shop_offers(player, shop_name: String) -&gt; Array</code><span class="tag js" title="shopOffers">JS shopOffers</span></div><p>What is on the shelves: [{index, item, name, count, price, ledger, cost, sells, left, can}].</p></div>
+<div class="card" id="api-float-text" data-search="float_text floattext a word that floats in the world for a moment and then goes: the damage off a hit, &quot;+3&quot; over a
+chest, a name over a thing.
+
+api.float_text(&quot;12&quot;, position, {&quot;color&quot;: &quot;#ff6666&quot;, &quot;follow&quot;: mob})
+
+transient on purpose - nothing is stored and nobody has to clean it up. it is drawn through walls,
+because a number that vanishes behind a post is a number nobody can read.
+
+options: color, seconds, rise (how far it drifts up), size, follow (a player or entity it sticks to)."><div class="sig"><code>api.float_text(text: String, position: Vector3, options := {}, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="floatText">JS floatText</span></div><p>A word that floats in the world for a moment and then goes: the damage off a hit, &quot;+3&quot; over a<br>chest, a name over a thing.<br><br>api.float_text(&quot;12&quot;, position, {&quot;color&quot;: &quot;#ff6666&quot;, &quot;follow&quot;: mob})<br><br>Transient on purpose - nothing is stored and nobody has to clean it up. It is drawn through walls,<br>because a number that vanishes behind a post is a number nobody can read.<br><br>options: color, seconds, rise (how far it drifts up), size, follow (a player or entity it sticks to).</p></div>
 <div class="card" id="api-mount" data-search="mount mount puts a player on a vehicle - an entity whose type has a `vehicle` block. returns false when it is
 full, too far away, or they are already riding something.
 
