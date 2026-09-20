@@ -21,16 +21,29 @@ project and stays one.
 
 ## Where we are
 
-169 mod API functions. Already built: graves, roles and permissions, travel between worlds, cosmetics, a
-guidebook, tutorials, milestones, loot tables, structures as data, worlds a mod can ship, crafting
-minigames and forging, containers and stations, recipe discovery, held-use charging, ambience,
-server-chosen music, weather, a map with markers, "what am I looking at", UGC moderation, and a hub.
+**Seventeen of the twenty-three capabilities below are built** (20 September 2026). Each one is marked
+where it appears, so this page stays a list of what is *left* rather than a record of what was wanted.
 
-Twelve biomes, seventy-five blocks, eleven creatures, a boss, four games.
+Before all that: graves, roles and permissions, travel between servers, cosmetics, a guidebook,
+tutorials, milestones, loot tables, structures as data, worlds a mod can ship, crafting minigames and
+forging, containers and stations, recipe discovery, held-use charging, ambience, server-chosen music,
+weather, a map with markers, "what am I looking at", UGC moderation, and a hub.
+
+Twelve biomes, eighty blocks, eleven creatures, a boss, four games.
+
+### What is left, shortest honest answer
+
+- **Six capabilities**: creature abilities, **characters**, applied effects, companions, vehicles,
+  instances, and the three small ones (area tools, text in the world, nested inventories).
+- **Three known limits** in things that *are* built - see "Where the built things stop" below.
+- **Content**, which is not capability: ores worth digging for, creature voices, a reason to build a
+  factory, Hearthhold's second phase.
+- **Four things for 1.0**: touch controls, instrumenting the network, compressing chunks, interest
+  management.
 
 ## The capabilities
 
-### 1. Dimensions
+### 1. Dimensions — built
 
 Separate worlds with their own generator, chunk storage and rules, reached through a portal, with
 entities and items crossing between them. About a quarter of everything below assumes this exists, and it
@@ -39,7 +52,7 @@ changes the save format, so it wants doing early rather than bolted on.
 The two the bundled game wants: **the Emberdeep**, hot and dark and under everything, and **the Hush**, a
 still strange place at the edge of the map.
 
-### 2. Networks
+### 2. Networks — built (all three layers)
 
 One capability, stated once: **a quantity that moves between blocks along a network**. Power, items,
 fluids and magic are the same problem with different units, so a mod declares its unit and the engine
@@ -126,7 +139,7 @@ somebody *chose* to run a cable and cannot be re-derived from the blocks the way
 broken when either end is mined, a cap on how many one connector may carry, and a client that can draw
 a sagging curve between two arbitrary points, which it currently cannot do at all.
 
-### 3. Signals
+### 3. Signals — built
 
 A block can emit a level, a block can declare itself able to carry one, and a block can be told when the
 level reaching it changes. That is the whole capability, and it is deliberately less than it first
@@ -143,7 +156,7 @@ along a surface. That is the cheap thing worth having early, and it is not the i
 strung cable between two connectors wants **links** (see capability 2), which signals will use as soon
 as they exist rather than growing a second kind of wiring of its own.
 
-### 4. Keeping the world awake
+### 4. Keeping the world awake — built
 
 An area that keeps ticking when nobody is standing in it. Small, and not optional once machines exist:
 a pump in a far-off place feeding a tank back at the base is the ordinary case, and it is one of the
@@ -161,13 +174,13 @@ another dimension feeding a tank at their base. The honest answer was that it st
 that only runs while you stand beside it is most of the point of building it gone. So this belongs
 with networks rather than long after them: the two capabilities are only half a feature apart.
 
-### 5. Item modifiers
+### 5. Item modifiers — built
 
 Named modifiers on an item that change its stats and hook events, applied at a station and readable in
 the tooltip. Items already carry data, quality and stats, so this is an extension rather than a new
 system.
 
-### 6. Flowing liquids
+### 6. Flowing liquids — built
 
 Water and lava exist as blocks and sit exactly where they are put. They do not spread, do not fall, do
 not fill a hollow, and do not meet each other. That absence is larger than it sounds: **a bucket is not
@@ -179,12 +192,12 @@ A block-level flow, with a source, a level that decreases with distance, and a r
 where two liquids meet. It is the last purely-vanilla system missing, and it is the reason to do it
 before the industrial half rather than after.
 
-### 7. Fluids in containers
+### 7. Fluids in containers — built
 
 A fluid as a quantity that can sit in a tank and travel a network — which is a different problem from
 the one above, and neither gives you the other. A tank does not spread; a puddle does not pipe.
 
-### 8. Multiblocks
+### 8. Multiblocks — built
 
 Recognise a shape a player has assembled and treat it as one machine with one inventory and one
 controller. Structure templates already describe shapes for world generation; this is noticing one that
@@ -200,29 +213,29 @@ attacks exist; what is missing is a mod scripting a fight without writing a brai
 People who stand somewhere, have a name and a face, hold a conversation and offer something. Bramble is
 one, written by hand; this makes her a capability so a mod can have a hundred.
 
-### 11. Objectives
+### 11. Objectives — built
 
 Steps, conditions and rewards, given and tracked. Tutorials teach and milestones commemorate; this is
 neither, and a mod should be able to hang a story, a daily errand or a contract on the same frame.
 
-### 12. Experience
+### 12. Experience — built, as one thing with balances
 
 A number that goes up when a player does a thing, with thresholds a mod reads. What counts, what the
 levels mean and whether they unlock anything at all is the mod's business — the engine counts and
 remembers.
 
-### 13. Balances
+### 13. Balances — built (see 12: they are one capability)
 
 A named quantity a player owns, that mods can read and change without agreeing on what it is. Coins,
 reputation, contribution, a guild's standing: the engine stores a number against a player and a name,
 and never learns that one of them is money.
 
-### 14. Claims
+### 14. Claims — built, as *plots*
 
 An area with an owner and permissions, which the engine consults before an edit. What may be claimed,
 how much, and what it costs are the mod's.
 
-### 15. Companies
+### 15. Companies — built
 
 Groups of players that other things can be owned by — a claim, a balance, a base. Deliberately separate
 from claims: plenty of servers want one without the other.
@@ -254,7 +267,7 @@ a way to put a live value inside a piece of text.
 
 An item that contains an inventory, and a container that is the same container wherever you open it.
 
-### 22. Moving assemblies
+### 22. Moving assemblies — built, with limits
 
 A group of blocks that leaves the grid and becomes one moving thing — a platform on a track, a drawbridge
 swinging, a windmill's sails, a whole contraption a player built and set going — then sets back down and
@@ -486,31 +499,56 @@ Ten, rather than the sprawl this could become:
 
 ## Order
 
-Decided 19 September 2026. The reasoning matters more than the list, because the list will change.
+**The 19 September list is done.** Weather, dimensions, signals, networks, keeping the world awake,
+fluids, multiblocks, driven networks and moving assemblies were built in that order over the two days
+after it was written, and item modifiers, objectives, ledgers, plots and companies with them. What
+follows is what is left, in the order that now unlocks the most.
 
-1. **Weather.** Small, visible, blocked by nothing, and absent entirely. Rain over the valley is
-   something a player notices the same afternoon. A good thing to do before a long careful piece.
-2. **Dimensions.** Before anything else structural, because it is the one change to the *data model*:
-   every capability built after it can be dimension-aware from the start, and every capability built
-   before it has to be retrofitted. ("Do networks cross worlds?" is a question best answered while
-   writing networks, not afterwards.) It breaks the save format, which is free until 1.0.0 — so it gets
-   done properly rather than bolted onto a shape that cannot hold it.
-3. **Signals.** Small, needed for the survival game on its own account, and machines feel dead without
-   it. Touches no saved format.
-4. **Networks**, stored kind. The big unlock: around thirty of the things studied are this plus content.
-5. **Keeping the world awake.** Immediately after networks rather than with the social half, where it
-   used to sit: the first machine anybody builds out of sight of their base stops the moment they walk
-   away, and there is no catching it up afterwards. Small, and it makes the previous item real.
-6. **Fluids**, which ride on networks and are half of what machines move.
-7. **Multiblocks.** Turns `machines` from a demonstration into a game.
-8. **Networks**, driven kind, then **moving assemblies**. The mechanical family, left until last of the
-   structural work because assemblies are the hardest thing on this page and want the other two behind
-   them.
-9. **Item modifiers** and **applied effects** — the depth pass on gear and potions.
-10. **The social half**: objectives, experience, balances, claims, companies.
-    Depends on none of the above and can be taken whenever it is wanted. It is what a *server* needs
-    rather than what a *world* needs, and each piece is small.
+1. **Characters.** The largest remaining capability and the one most asked for: people who stand
+   somewhere, have a name and a face, hold a conversation and offer something. Bramble is written by
+   hand in Hearthhold; this makes her a capability so a mod can have a hundred. It is also what a
+   **village** needs that nothing else provides - structures, facilities, jobs, trade and ownership all
+   exist now, and the villagers are the gap.
+2. **Applied effects.** The depth pass on potions, finishing what item modifiers began on gear.
+3. **Ore content.** Not a capability at all - `add_ore_pass` and `register_material` are waiting - but
+   the single biggest gap between the survival game and what a child expects. See "what is in the
+   ground" above.
+4. **Creature abilities.** Data-driven fights, so a mod can script a boss without writing a brain.
+5. **Companions**, then **vehicles**. Both want characters behind them.
+6. **The small three**: area tools, text in the world, inventories inside things. Independent, and each
+   one an afternoon.
+7. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.
 
-Everything else — characters, creature abilities, companions, vehicles, area tools, text in the world,
-nested inventories, instances — is independent and can be picked up when a game actually needs it,
-which is the honest test of whether a capability is worth building.
+## Where the built things stop
+
+Limits in capabilities that *are* built, recorded so they are found on purpose rather than discovered.
+
+- **A moving assembly is not solid.** You can stand on one and be carried; you can walk through its
+  side. Making it collide means teaching the voxel physics about boxes that are not on the grid, which
+  is the physics/Rust twin pair, for a platform that is already rideable.
+- **A moving assembly does not turn.** A drawbridge travels along an arc; its blocks do not rotate.
+- **Liquid depth is two states, not eight.** A flow past a few blocks becomes a thin slab. Per-level
+  heights need block states sent to the mesher and its greedy-merging key re-cut, in the GDScript
+  mesher *and* the Rust one, which must agree exactly - a great deal of risk for a cosmetic gain.
+- **Belts scroll, conveyed items do not slide.** The belt surface moves; what is being carried is a
+  parcel in flight with no position of its own to draw.
+
+## Content the capabilities are waiting for
+
+None of this needs engine work. All of it is what makes the engine worth having.
+
+- **Ores worth digging for** - copper, gold, a hard gem, deep variants. Quickstone landed with signals;
+  the rest did not.
+- **A reason to build a factory.** Power, pipes, belts, machines and rotation all exist; what is
+  missing is a progression that makes a child want one.
+- **Twenty-five creature voices**, still generated. The clearest brief the AI-audio phase could have,
+  and `stalker_screech` and `colossus_roar` are the two that would change the game most.
+- **Hearthhold's second phase.** Settlers, dwellings and a charter exist at phase one.
+
+## For 1.0
+
+- **Touch controls**, and then an iPad build - see above; the only item that puts the game in a child's
+  hands somewhere other than a desk.
+- **Instrument the network**, then **compress chunk payloads**, then **interest management** - in that
+  order, because the first makes the other two answerable rather than guesswork.
+- **Migration and corruption-proofing** become real work the day 1.0.0 ships, and not before.
