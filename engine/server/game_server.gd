@@ -41,6 +41,8 @@ const Assemblies = preload("res://engine/server/assemblies.gd")
 const Modifiers = preload("res://engine/server/modifiers.gd")
 const Ledgers = preload("res://engine/server/ledgers.gd")
 const Objectives = preload("res://engine/server/objectives.gd")
+const Characters = preload("res://engine/server/characters.gd")
+const Shops = preload("res://engine/server/shops.gd")
 const Companies = preload("res://engine/server/companies.gd")
 const Plots = preload("res://engine/server/plots.gd")
 const Claims = preload("res://engine/server/claims.gd")
@@ -303,6 +305,10 @@ var modifiers := Modifiers.new(self)
 var ledgers := Ledgers.new(self)
 ## Things a player has been asked to do (see engine/server/objectives.gd).
 var objectives := Objectives.new(self)
+## People who stand somewhere and hold a conversation (see engine/server/characters.gd).
+var characters := Characters.new(self)
+## Buying and selling, drawn the same way everywhere (see engine/server/shops.gd).
+var shops := Shops.new(self)
 ## Groups of players that things can belong to (see engine/server/companies.gd).
 var companies := Companies.new(self)
 ## Ground with an owner, consulted before an edit (see engine/server/plots.gd).
@@ -529,6 +535,7 @@ func start(config: Dictionary) -> Error:
 	links.load_saved(_meta.get("links"))
 	companies.load_saved(_meta.get("companies"))
 	plots.load_saved(_meta.get("plots"))
+	shops.load_saved(_meta.get("shop_stock"))
 	if str(config.get("chat_filter", "")) in ["on", "true", "1", "yes"]:
 		gameplay.chat_filter = true
 	# A private server: only listed players (and admins) may join. Names given here are added to the list.
@@ -2713,6 +2720,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	transfers.player_left(peer_id)
 	ambience.player_left(peer_id)
 	anticheat.player_left(peer_id)
+	characters.player_left(peer_id)
+	shops.player_left(peer_id)
 	_store_player(p)
 	players.erase(peer_id)
 	_simulation_dirty = true
@@ -4883,6 +4892,12 @@ func on_ui_action(peer_id: int, ui_id: String, action: String) -> void:
 	if not p or not p.ui_ids.has(ui_id):
 		return
 	emit("ui_action", {"player": p, "ui_id": ui_id.left(64), "action": action.left(64)})
+	# The engine drew these panels, so the engine answers their buttons. Both say whether the action
+	# was theirs, so a mod's own "say:"-prefixed action in its own panel still reaches the mod.
+	if ui_id == "engine:talk" and characters.on_action(p, action):
+		return
+	if ui_id == "engine:shop" and shops.on_action(p, action):
+		return
 	# "close" is handled here rather than left to the mod. The engine writes Close buttons into its own
 	# panels, and every mod copied that, but nothing ever acted on the action - so a modal panel with a
 	# Close button trapped the player until they quit the game. The event is still emitted first, so a
@@ -5247,6 +5262,7 @@ func _drain_save_queue(budget_usec: int, wait := false) -> void:
 	_meta.links = links.to_saved()
 	_meta.companies = companies.to_saved()
 	_meta.plots = plots.to_saved()
+	_meta.shop_stock = shops.to_saved()
 	_meta.mod_settings = mod_settings.to_saved()
 	_meta.loot = {"rate": loot.rate, "boosts": loot.boosts}
 	_save_writes.append([_save_dir + "/world.json", JSON.stringify(_meta, "\t")])

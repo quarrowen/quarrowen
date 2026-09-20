@@ -1102,6 +1102,76 @@ func objective_finished(player, objective_name: String) -> int:
 	return _server.objectives.finished(player, _qualify_ref(objective_name))
 
 
+## Somebody to talk to: a villager, a guide, a shopkeeper, a character in a story.
+##
+##     api.register_character("bramble", {"display_name": "Bramble", "color": "#ffd166", "lines": {
+##         "start": {"text": "Oh - somebody. I saw your fire from the ridge.", "options": [
+##             {"text": "What have you got?", "sells": "bramble_wares"},
+##             {"text": "Need anything doing?", "gives": "deliver_the_post"},
+##             {"text": "Who are you?", "goes_to": "who"}]},
+##         "who": {"text": "Bramble. I mend things, mostly.",
+##             "options": [{"text": "I see", "goes_to": "start"}]}}})
+##
+## The engine draws the conversation, so every character in every mod looks and works the same way - a
+## child who has learned to talk to one has learned to talk to all of them. It knows a conversation is
+## lines with options and nothing else about what any of it means.
+##
+## `goes_to` moves to another line, `gives` hands over an objective, `sells` opens a shop, and `does`
+## fires `character_choice` for anything else at all.
+func register_character(character_name: String, def: Dictionary) -> bool:
+	return _server.characters.register(_qualify(character_name), def, mod_id)
+
+
+## Starts a conversation, usually from an `entity_interact` handler. `line` is where to open - which
+## is yours, because whether somebody has settled in or is still a stranger is a fact about your story
+## and not about conversations.
+func talk_to(player, character_name: String, options := {}) -> bool:
+	return _server.characters.talk(player, _qualify_ref(character_name), options)
+
+
+## Whether this player has ever spoken to them, which is most of what "we have met before" needs.
+func has_met(player, character_name: String) -> bool:
+	return _server.characters.has_met(player, _qualify_ref(character_name))
+
+
+## Somewhere to buy and sell: a village stall, a pedlar, a vending machine.
+##
+##     api.register_shop("bramble_wares", {"display_name": "Bramble's Wares", "offers": [
+##         {"item": "rope", "count": 2, "price": 4, "ledger": "coins", "stock": 10, "restock": 600.0},
+##         {"item": "apple", "price": 1, "ledger": "coins", "sells": true},
+##         {"item": "lantern", "cost": [{"item": "iron_bar", "count": 2}, {"item": "coal"}]}]})
+##
+## **Coins are not assumed.** A price is a number out of a ledger, or a list of items, or both, so a
+## game with no money barters perfectly well. `sells: true` turns an offer round - the player hands
+## the item over and is paid for it.
+##
+## **Stock is the part that matters.** A shop with unlimited everything is a creative menu with an
+## extra step; `stock` and `restock` are what make the blacksmith who has three swords this week
+## somewhere worth going back to. Leave `stock` out for an offer that never runs dry.
+func register_shop(shop_name: String, def: Dictionary) -> bool:
+	return _server.shops.register(_qualify(shop_name), def, mod_id)
+
+
+## Opens the stall. Drawn by the engine, like a conversation, so every shop works the same way.
+func show_shop(player, shop_name: String) -> bool:
+	return _server.shops.show(player, _qualify_ref(shop_name))
+
+
+## Does one trade directly, for a shop with no panel - a vending block, a delivery chute. False when
+## it cannot happen, and `shop_problem` says why in words a child can read.
+func shop_trade(player, shop_name: String, index: int) -> bool:
+	return _server.shops.trade(player, _qualify_ref(shop_name), index)
+
+
+func shop_problem() -> String:
+	return _server.shops.problem
+
+
+## What is on the shelves: [{index, item, name, count, price, ledger, cost, sells, left, can}].
+func shop_offers(player, shop_name: String) -> Array:
+	return _server.shops.offers_for(player, _qualify_ref(shop_name))
+
+
 ## A named number a player owns: coins, reputation, contribution, experience, a guild's standing.
 ##
 ##     api.register_ledger("coins", {"display_name": "Coins", "min": 0})
@@ -2301,4 +2371,12 @@ func _qualify(local_name: String) -> String:
 
 ## Names that already have a namespace ("base:stone", "engine:hurt") are kept as they are.
 func _qualify_ref(ref: String) -> String:
-	return ref if ref.contains(":") or ref.is_empty() else _qualify(ref)
+	return qualified(ref, mod_id)
+
+
+## The same rule, for the capabilities that hold names a mod wrote inside a definition - a shop's
+## ledger, a character's shop - and so must qualify them against that mod rather than against
+## whoever happens to be asking later. Public because three things need it and a private function two
+## systems copy is a fact about the code that ought to be visible in the code.
+static func qualified(ref: String, owner: String) -> String:
+	return ref if ref.contains(":") or ref.is_empty() or owner.is_empty() else "%s:%s" % [owner, ref]

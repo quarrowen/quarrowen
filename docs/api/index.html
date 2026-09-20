@@ -577,6 +577,45 @@ a reward belongs - the engine has no idea what a reward would be."><div class="s
 <div class="card" id="api-objectives-of" data-search="objectives_of  what they are doing now: [{name, display_name, step, of, text, progress, needed}]."><div class="sig"><code>api.objectives_of(player) -&gt; Array</code></div><p>What they are doing now: [{name, display_name, step, of, text, progress, needed}].</p></div>
 <div class="card" id="api-has-objective" data-search="has_objective  "><div class="sig"><code>api.has_objective(player, objective_name: String) -&gt; bool</code></div><p class="muted">No description yet.</p></div>
 <div class="card" id="api-objective-finished" data-search="objective_finished  how many times they have finished it."><div class="sig"><code>api.objective_finished(player, objective_name: String) -&gt; int</code></div><p>How many times they have finished it.</p></div>
+<div class="card" id="api-register-character" data-search="register_character  somebody to talk to: a villager, a guide, a shopkeeper, a character in a story.
+
+api.register_character(&quot;bramble&quot;, {&quot;display_name&quot;: &quot;bramble&quot;, &quot;color&quot;: &quot;#ffd166&quot;, &quot;lines&quot;: {
+&quot;start&quot;: {&quot;text&quot;: &quot;oh - somebody. i saw your fire from the ridge.&quot;, &quot;options&quot;: [
+{&quot;text&quot;: &quot;what have you got?&quot;, &quot;sells&quot;: &quot;bramble_wares&quot;},
+{&quot;text&quot;: &quot;need anything doing?&quot;, &quot;gives&quot;: &quot;deliver_the_post&quot;},
+{&quot;text&quot;: &quot;who are you?&quot;, &quot;goes_to&quot;: &quot;who&quot;}]},
+&quot;who&quot;: {&quot;text&quot;: &quot;bramble. i mend things, mostly.&quot;,
+&quot;options&quot;: [{&quot;text&quot;: &quot;i see&quot;, &quot;goes_to&quot;: &quot;start&quot;}]}}})
+
+the engine draws the conversation, so every character in every mod looks and works the same way - a
+child who has learned to talk to one has learned to talk to all of them. it knows a conversation is
+lines with options and nothing else about what any of it means.
+
+`goes_to` moves to another line, `gives` hands over an objective, `sells` opens a shop, and `does`
+fires `character_choice` for anything else at all."><div class="sig"><code>api.register_character(character_name: String, def: Dictionary) -&gt; bool</code></div><p>Somebody to talk to: a villager, a guide, a shopkeeper, a character in a story.<br><br>api.register_character(&quot;bramble&quot;, {&quot;display_name&quot;: &quot;Bramble&quot;, &quot;color&quot;: &quot;#ffd166&quot;, &quot;lines&quot;: {<br>&quot;start&quot;: {&quot;text&quot;: &quot;Oh - somebody. I saw your fire from the ridge.&quot;, &quot;options&quot;: [<br>{&quot;text&quot;: &quot;What have you got?&quot;, &quot;sells&quot;: &quot;bramble_wares&quot;},<br>{&quot;text&quot;: &quot;Need anything doing?&quot;, &quot;gives&quot;: &quot;deliver_the_post&quot;},<br>{&quot;text&quot;: &quot;Who are you?&quot;, &quot;goes_to&quot;: &quot;who&quot;}]},<br>&quot;who&quot;: {&quot;text&quot;: &quot;Bramble. I mend things, mostly.&quot;,<br>&quot;options&quot;: [{&quot;text&quot;: &quot;I see&quot;, &quot;goes_to&quot;: &quot;start&quot;}]}}})<br><br>The engine draws the conversation, so every character in every mod looks and works the same way - a<br>child who has learned to talk to one has learned to talk to all of them. It knows a conversation is<br>lines with options and nothing else about what any of it means.<br><br>`goes_to` moves to another line, `gives` hands over an objective, `sells` opens a shop, and `does`<br>fires `character_choice` for anything else at all.</p></div>
+<div class="card" id="api-talk-to" data-search="talk_to  starts a conversation, usually from an `entity_interact` handler. `line` is where to open - which
+is yours, because whether somebody has settled in or is still a stranger is a fact about your story
+and not about conversations."><div class="sig"><code>api.talk_to(player, character_name: String, options := {}) -&gt; bool</code></div><p>Starts a conversation, usually from an `entity_interact` handler. `line` is where to open - which<br>is yours, because whether somebody has settled in or is still a stranger is a fact about your story<br>and not about conversations.</p></div>
+<div class="card" id="api-has-met" data-search="has_met  whether this player has ever spoken to them, which is most of what &quot;we have met before&quot; needs."><div class="sig"><code>api.has_met(player, character_name: String) -&gt; bool</code></div><p>Whether this player has ever spoken to them, which is most of what &quot;we have met before&quot; needs.</p></div>
+<div class="card" id="api-register-shop" data-search="register_shop  somewhere to buy and sell: a village stall, a pedlar, a vending machine.
+
+api.register_shop(&quot;bramble_wares&quot;, {&quot;display_name&quot;: &quot;bramble's wares&quot;, &quot;offers&quot;: [
+{&quot;item&quot;: &quot;rope&quot;, &quot;count&quot;: 2, &quot;price&quot;: 4, &quot;ledger&quot;: &quot;coins&quot;, &quot;stock&quot;: 10, &quot;restock&quot;: 600.0},
+{&quot;item&quot;: &quot;apple&quot;, &quot;price&quot;: 1, &quot;ledger&quot;: &quot;coins&quot;, &quot;sells&quot;: true},
+{&quot;item&quot;: &quot;lantern&quot;, &quot;cost&quot;: [{&quot;item&quot;: &quot;iron_bar&quot;, &quot;count&quot;: 2}, {&quot;item&quot;: &quot;coal&quot;}]}]})
+
+**coins are not assumed.** a price is a number out of a ledger, or a list of items, or both, so a
+game with no money barters perfectly well. `sells: true` turns an offer round - the player hands
+the item over and is paid for it.
+
+**stock is the part that matters.** a shop with unlimited everything is a creative menu with an
+extra step; `stock` and `restock` are what make the blacksmith who has three swords this week
+somewhere worth going back to. leave `stock` out for an offer that never runs dry."><div class="sig"><code>api.register_shop(shop_name: String, def: Dictionary) -&gt; bool</code></div><p>Somewhere to buy and sell: a village stall, a pedlar, a vending machine.<br><br>api.register_shop(&quot;bramble_wares&quot;, {&quot;display_name&quot;: &quot;Bramble's Wares&quot;, &quot;offers&quot;: [<br>{&quot;item&quot;: &quot;rope&quot;, &quot;count&quot;: 2, &quot;price&quot;: 4, &quot;ledger&quot;: &quot;coins&quot;, &quot;stock&quot;: 10, &quot;restock&quot;: 600.0},<br>{&quot;item&quot;: &quot;apple&quot;, &quot;price&quot;: 1, &quot;ledger&quot;: &quot;coins&quot;, &quot;sells&quot;: true},<br>{&quot;item&quot;: &quot;lantern&quot;, &quot;cost&quot;: [{&quot;item&quot;: &quot;iron_bar&quot;, &quot;count&quot;: 2}, {&quot;item&quot;: &quot;coal&quot;}]}]})<br><br>**Coins are not assumed.** A price is a number out of a ledger, or a list of items, or both, so a<br>game with no money barters perfectly well. `sells: true` turns an offer round - the player hands<br>the item over and is paid for it.<br><br>**Stock is the part that matters.** A shop with unlimited everything is a creative menu with an<br>extra step; `stock` and `restock` are what make the blacksmith who has three swords this week<br>somewhere worth going back to. Leave `stock` out for an offer that never runs dry.</p></div>
+<div class="card" id="api-show-shop" data-search="show_shop  opens the stall. drawn by the engine, like a conversation, so every shop works the same way."><div class="sig"><code>api.show_shop(player, shop_name: String) -&gt; bool</code></div><p>Opens the stall. Drawn by the engine, like a conversation, so every shop works the same way.</p></div>
+<div class="card" id="api-shop-trade" data-search="shop_trade  does one trade directly, for a shop with no panel - a vending block, a delivery chute. false when
+it cannot happen, and `shop_problem` says why in words a child can read."><div class="sig"><code>api.shop_trade(player, shop_name: String, index: int) -&gt; bool</code></div><p>Does one trade directly, for a shop with no panel - a vending block, a delivery chute. False when<br>it cannot happen, and `shop_problem` says why in words a child can read.</p></div>
+<div class="card" id="api-shop-problem" data-search="shop_problem  "><div class="sig"><code>api.shop_problem() -&gt; String</code></div><p class="muted">No description yet.</p></div>
+<div class="card" id="api-shop-offers" data-search="shop_offers  what is on the shelves: [{index, item, name, count, price, ledger, cost, sells, left, can}]."><div class="sig"><code>api.shop_offers(player, shop_name: String) -&gt; Array</code></div><p>What is on the shelves: [{index, item, name, count, price, ledger, cost, sells, left, can}].</p></div>
 <div class="card" id="api-register-ledger" data-search="register_ledger  a named number a player owns: coins, reputation, contribution, experience, a guild's standing.
 
 api.register_ledger(&quot;coins&quot;, {&quot;display_name&quot;: &quot;coins&quot;, &quot;min&quot;: 0})
@@ -826,6 +865,10 @@ differently depending on the game it has been added to."><div class="sig"><code>
 <div class="card" id="api-settings" data-search="settings  every setting of this mod as {key: value}, for passing to something that wants a config dictionary."><div class="sig"><code>api.settings() -&gt; Dictionary</code></div><p>Every setting of this mod as {key: value}, for passing to something that wants a config dictionary.</p></div>
 <div class="card" id="api-set-setting" data-search="set_setting  changes one of this mod's settings from code (the same path the admin screen uses, so handlers of
 `settings_changed` run). returns &quot;&quot; or why it was refused."><div class="sig"><code>api.set_setting(key: String, value) -&gt; String</code></div><p>Changes one of this mod's settings from code (the same path the admin screen uses, so handlers of<br>`settings_changed` run). Returns &quot;&quot; or why it was refused.</p></div>
+<div class="card" id="api-qualified" data-search="qualified  the same rule, for the capabilities that hold names a mod wrote inside a definition - a shop's
+ledger, a character's shop - and so must qualify them against that mod rather than against
+whoever happens to be asking later. public because three things need it and a private function two
+systems copy is a fact about the code that ought to be visible in the code."><div class="sig"><code>api.static qualified(ref: String, owner: String) -&gt; String</code></div><p>The same rule, for the capabilities that hold names a mod wrote inside a definition - a shop's<br>ledger, a character's shop - and so must qualify them against that mod rather than against<br>whoever happens to be asking later. Public because three things need it and a private function two<br>systems copy is a fact about the code that ought to be visible in the code.</p></div>
 </section>
 <section id="events"><h2>Events</h2><p>Register with <code>api.on(event, handler, priority)</code> (JS: <code>api.on</code>). Handlers get one dictionary; set <code>cancelled = true</code> where noted.</p><pre class="block">  player_join    {player, first_time}
   player_leave   {player}

@@ -85,6 +85,7 @@ func _ready() -> void:
 	await _modifiers()
 	await _effects_extra()
 	await _social()
+	await _characters()
 	await _plots()
 	await _tags()
 	await _signals()
@@ -4240,6 +4241,102 @@ func _social() -> void:
 	_check(api.objective_finished(p, "post") == 1 and not api.has_objective(p, "post"),
 		"which is remembered, and it is no longer being carried")
 	_check(not api.give_objective(p, "post"), "one that does not repeat cannot be given again")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Characters and shops: somebody to talk to, and somewhere to buy and sell.
+func _characters() -> void:
+	var server = _start("talk_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	var p := ServerPlayer.new(server, 102, "Buyer")
+	p.player_id = "buyer"
+	p.state.position = Vector3(0, 64, 0)
+	server.players[102] = p
+	api.register_ledger("coins", {"display_name": "Coins", "min": 0})
+	api.register_objective("errand", {"display_name": "An Errand", "steps": [{"text": "Go there"}]})
+
+	var stone: int = api.item("base:stone")
+	var torch: int = api.item("base:torch")
+
+	# A shop. One offer that runs out, one bought with goods rather than coin, one that buys.
+	_check(api.register_shop("stall", {"display_name": "The Stall", "offers": [
+		{"item": "base:torch", "count": 2, "price": 5, "ledger": "coins", "stock": 1},
+		{"item": "base:stone", "count": 4, "cost": [{"item": "base:torch", "count": 1}]},
+		{"item": "base:stone", "price": 2, "ledger": "coins", "sells": true}]}),
+		"a mod opens a shop")
+	_check(not api.register_shop("empty", {"offers": []}), "but not one with nothing to trade")
+
+	# Nothing to spend: the refusal has to happen before anything moves.
+	_check(not api.shop_trade(p, "stall", 0), "a player with no coins cannot buy")
+	_check(api.shop_problem() == "You cannot afford that.", "and is told why (%s)" % api.shop_problem())
+	_check(p.count_of(torch) == 0, "and has nothing to show for it")
+
+	api.add_balance(p, "coins", 20.0)
+	_check(api.shop_trade(p, "stall", 0), "with coins in hand, they can")
+	_check(p.count_of(torch) == 2 and api.balance_of(p, "coins") == 15.0,
+		"the goods arrive and the coin goes (%d torches, %d coins)" % [p.count_of(torch), api.balance_of(p, "coins")])
+
+	# Stock is the part that makes a shop a shop rather than a creative menu.
+	_check(api.shop_offers(p, "stall")[0].left == 0, "the last one on the shelf is gone")
+	_check(not api.shop_trade(p, "stall", 0) and api.shop_problem() == "Sold out. Come back later.",
+		"and the shelf is empty until it is restocked")
+	_check(api.balance_of(p, "coins") == 15.0, "a sold-out offer takes no money")
+
+	# Barter: a game with no money at all still has shops.
+	_check(api.shop_trade(p, "stall", 1), "goods buy goods")
+	_check(p.count_of(stone) == 4 and p.count_of(torch) == 1, "the trade goes both ways at once")
+
+	# And the shop buying from the player, which is the same offer turned round.
+	_check(api.shop_trade(p, "stall", 2), "the shop buys")
+	_check(p.count_of(stone) == 3 and api.balance_of(p, "coins") == 17.0,
+		"the player is paid and the item is gone (%d stone, %d coins)" % [p.count_of(stone), api.balance_of(p, "coins")])
+	p.take(stone, 3)
+	_check(not api.shop_trade(p, "stall", 2), "and cannot sell what they do not have")
+
+	# A character, and the two things characters are for.
+	_check(api.register_character("shopkeep", {"display_name": "Wend", "lines": {
+		"start": {"text": "Morning.", "options": [
+			{"text": "What have you got?", "sells": "stall"},
+			{"text": "Anything needing doing?", "gives": "errand"},
+			{"text": "Who are you?", "goes_to": "who"},
+			{"text": "Nothing, thanks", "does": "wave"}]},
+		"who": {"text": "Wend. I keep the stall.", "options": [{"text": "I see", "goes_to": "start"}]}}}),
+		"a mod registers somebody to talk to")
+	_check(not api.register_character("mute", {"lines": {}}), "but not somebody with nothing to say")
+
+	_check(not api.has_met(p, "shopkeep"), "they have not met")
+	_check(api.talk_to(p, "shopkeep"), "the player says hello")
+	_check(api.has_met(p, "shopkeep"), "and now they have")
+	_check(p.ui_ids.has("engine:talk"), "a conversation is on the screen")
+
+	# The engine draws it, so the engine answers its buttons.
+	server.on_ui_action(102, "engine:talk", "say:start:2")
+	_check(server.characters._talking[102].line == "who", "an option moves to another line")
+	server.on_ui_action(102, "engine:talk", "say:who:0")
+	_check(server.characters._talking[102].line == "start", "and back again")
+
+	var waved := []
+	server.add_handler("character_choice", func(ev): waved.append(str(ev.choice)), 0, "test")
+	server.on_ui_action(102, "engine:talk", "say:start:3")
+	_check(waved == ["wave"], "anything else is handed to the mod (%s)" % str(waved))
+	_check(not p.ui_ids.has("engine:talk"), "and an option going nowhere ends the conversation")
+
+	api.talk_to(p, "shopkeep")
+	server.on_ui_action(102, "engine:talk", "say:start:1")
+	_check(api.has_objective(p, "errand"), "a character hands over a quest")
+
+	api.talk_to(p, "shopkeep")
+	server.on_ui_action(102, "engine:talk", "say:start:0")
+	_check(p.ui_ids.has("engine:shop") and not p.ui_ids.has("engine:talk"),
+		"and opens the stall in place of the conversation, never both at once")
+
+	# A stale button from a panel that has moved on must do nothing at all.
+	server.on_ui_action(102, "engine:shop", "shop:0")
+	_check(api.balance_of(p, "coins") == 17.0, "a sold-out button on the panel spends nothing")
+	server.characters.player_left(102)
+	server.shops.player_left(102)
+	_check(not server.characters._talking.has(102), "leaving forgets the conversation")
 	server.queue_free()
 	await get_tree().process_frame
 
