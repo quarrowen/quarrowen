@@ -28,6 +28,7 @@ const FUEL := {"base:coal": 40.0, "base:coal_ore": 40.0, "base:log": 15.0, "base
 var api
 var ids := {}
 var power: Power
+var spool
 var _ui_viewers := {}  # peer_id -> Vector3i being viewed
 var _ui_timer := 0.0
 var _rebuild_timer := 0.0
@@ -51,8 +52,10 @@ func setup(mod_api) -> void:
 	ids.lamp_on = api.register_block("lamp_on", {"display_name": "Electric Lamp (on)", "model": "models/lamp.glb",
 		"textures": "textures/lamp_icon.png", "light": 15, "drops": "industry:lamp", "placeable": false, "connect_group": "power"})
 	_register_recipes()
-	# After the machines: a cable may be fixed to any of them, so the spool needs their ids.
-	Spool.new().setup(api, ids)
+	# After the machines: a cable may be fixed to any of them, so the spool needs their ids. Kept as a
+	# member because it registers handlers, and nothing else would hold it.
+	spool = Spool.new()
+	spool.setup(api, ids)
 	power = Power.new(api, ids)
 
 	api.on("block_placed", _on_placed)

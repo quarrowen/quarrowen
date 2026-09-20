@@ -929,6 +929,23 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Buckets: the thing liquids were for (2026-09-20)
+
+A bucket existed already, for milking cows. It carries water and lava now, which is what turns flowing
+liquid from a simulation into something a child does something with: a moat gets dug, a farm gets
+watered, a cave gets flooded on purpose.
+
+Two rules, and both are about not wasting somebody's time. **Only a source goes in** - a flow is water
+already on its way somewhere and scooping it would be scooping something about to vanish, so trying
+says "that is only a trickle, find where it comes from" rather than failing quietly. And **what comes
+out is always a source**, so water carried uphill works when it gets there. Lava in a bucket burns for
+a thousand seconds in a furnace, because that is the first thing anybody tries.
+
+**A trap that cost an hour, now in CLAUDE.md**: `preload("buckets.gd").new().setup(api)` registers the
+handler and then frees the object on the same line, because nothing holds the RefCounted. The handler
+goes with it and registration reported success. The spool had the same bug and had been passing its
+test by luck. Mod submodules are kept as members for this reason.
+
 ## The realm limits, cleared (2026-09-20)
 
 Three "KNOWN LIMIT" notes were outstanding. Two were correctness and are fixed; the third is cosmetic

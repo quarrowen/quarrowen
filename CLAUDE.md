@@ -92,6 +92,10 @@ private function that two things use is a fact about the code that ought to be v
   texture in order: inserting a call changes every texture after it. Append new ones at the end, as the
   file says.
 - **Reordering mod registration.** A recipe cannot name an item registered later in the same run.
+- **`Thing.new().setup(api)` without keeping the object.** A RefCounted nobody holds is freed as soon
+  the line finishes, and any handler it registered goes with it - silently, because registration
+  succeeded. Mod submodules are kept as members (`var buckets` ... `buckets = Buckets.new()`) for this
+  reason, and it cost an hour the first time. (2026-09-20)
 - **`queue_free()` when rebuilding a panel.** It frees at the end of the frame, so a rebuild that runs
   twice in one frame frees the new children too. Take the child out of the tree first.
 - **Changing a block or item id.** Saves are by name (`SAVE_FORMAT 2`); ids shift whenever anything is

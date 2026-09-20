@@ -4158,6 +4158,36 @@ func _liquids() -> void:
 					server.realm.liquids.step(at)
 	_check(server.world.get_block_v(Vector3i(402, y + 1, 400)) == 0, "removing the source dries the flow up")
 
+	# The bucket: the thing liquids were for. Only a source goes in, and what comes out is a source.
+	var bucket: int = server.items.id_of("vanilla:bucket")
+	var water_bucket: int = server.items.id_of("vanilla:water_bucket")
+	if bucket > 0:
+		var carrier := ServerPlayer.new(server, 97, "Digger")
+		carrier.player_id = "digger"
+		server.players[97] = carrier
+		var spring := Vector3i(410, y + 1, 410)
+		server.set_block_authoritative(spring + Vector3i.DOWN, stone)
+		server.set_block_authoritative(spring, water)
+		carrier.state.position = Vector3(spring) + Vector3(0.5, 0.0, 1.2)
+		carrier.edit_tokens = 10.0
+		carrier.inventory.set_slot(0, bucket, 1)
+		carrier.inventory.selected = 0
+		server.on_use_item(97, true, spring, Vector3i.UP)
+		_check(server.world.get_block_v(spring) == 0, "a bucket takes the spring out of the ground")
+		_check(carrier.inventory.count_of(water_bucket) == 1, "and the player is carrying it")
+
+		# Pour it back somewhere else, and it is a source again - water carried uphill still works.
+		var poured := Vector3i(412, y + 1, 410)
+		server.set_block_authoritative(poured + Vector3i.DOWN, stone)
+		carrier.state.position = Vector3(poured) + Vector3(0.5, 0.0, 1.2)
+		carrier.edit_tokens = 10.0
+		carrier.inventory.selected = 0
+		server.on_use_item(97, true, poured + Vector3i.DOWN, Vector3i.UP)
+		_check(server.world.get_block_v(poured) == water, "pouring it out puts water back")
+		_check(server.realm.block_state(poured) == 0, "as a source, not a trickle")
+		_check(carrier.inventory.count_of(bucket) == 1, "and the bucket is empty again")
+		server.players.erase(97)
+
 	# Lava meeting water makes the black glass, which is the only way to get any.
 	var here := Vector3i(420, y + 1, 420)
 	server.set_block_authoritative(here + Vector3i.DOWN, stone)

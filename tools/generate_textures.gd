@@ -304,6 +304,8 @@ func _init() -> void:
 	_save(_spool(), industry_late + "cable_spool.png")
 
 	_save(_blackglass(), base + "blackglass.png")
+	_save(_full_bucket(Color(0.25, 0.48, 0.80), Color(0.42, 0.66, 0.92)), vanilla + "water_bucket.png")
+	_save(_full_bucket(Color(0.86, 0.32, 0.08), Color(1.0, 0.68, 0.18)), vanilla + "lava_bucket.png")
 
 	# A SceneTree script runs until it is told not to. Without this the tool wrote every texture
 	# correctly and then sat there for ever; three of them were found still running an hour later,
@@ -1689,4 +1691,28 @@ func _blackglass() -> Image:
 			img.set_pixel(clampi(cx + d, 0, 15), clampi(cy + d, 0, 15), _vary(shade, 0.04))
 	for n in 5:
 		img.set_pixel(rng.randi_range(0, 15), rng.randi_range(0, 15), Color(0.52, 0.42, 0.66))
+	return img
+
+
+## A bucket with something in it: the same pail as the empty one, with a surface near the top and a
+## lighter band on it so it reads as full rather than as a painted bucket.
+func _full_bucket(liquid: Color, shine: Color) -> Image:
+	var img := _blank()
+	var tin := Color(0.62, 0.64, 0.68)
+	for y in range(5, 14):
+		var inset := 0 if y < 12 else 1
+		for x in range(3 + inset, 13 - inset):
+			var wall: bool = x <= 4 + inset or x >= 11 - inset or y >= 12
+			img.set_pixel(x, y, _vary(tin.darkened(0.25) if wall else liquid, 0.05))
+	for x in range(5, 11):
+		img.set_pixel(x, 6, _vary(shine, 0.05))  # the surface catching the light
+	for x in range(3, 13):
+		img.set_pixel(x, 5, _vary(tin.lightened(0.15), 0.04))  # the rim
+	img.set_pixel(3, 4, tin.darkened(0.1))
+	img.set_pixel(12, 4, tin.darkened(0.1))
+	for x in range(4, 12):  # the handle, arching over
+		if x == 4 or x == 11:
+			img.set_pixel(x, 3, tin)
+		elif x % 2 == 0:
+			img.set_pixel(x, 2, tin)
 	return img

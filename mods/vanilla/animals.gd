@@ -18,6 +18,7 @@ const REGROW_SECONDS := [60.0, 150.0]
 const EGG_SECONDS := [150.0, 300.0]
 
 var api
+var buckets
 var ids := {}
 
 
@@ -70,8 +71,14 @@ func _register_items() -> void:
 	api.register_process("smelting", "vanilla:raw_chicken", "vanilla:cooked_chicken", 1, 8.0)
 	ids.feather = api.register_item("feather", {"display_name": "Feather", "icon": "textures/feather.png"})
 	ids.egg = api.register_item("egg", {"display_name": "Egg", "icon": "textures/egg.png", "max_stack": 16})
-	ids.bucket = api.register_item("bucket", {"display_name": "Bucket", "icon": "textures/bucket.png", "max_stack": 16})
+	# usable: it is right-clicked on a spring to fill it, not only on a cow.
+	ids.bucket = api.register_item("bucket", {"display_name": "Bucket", "icon": "textures/bucket.png",
+		"max_stack": 16, "usable": true})
 	api.register_recipe({"base:iron_ingot": 3}, "vanilla:bucket", 1, {"station": "crafting_table", "category": "tools"})
+	# Kept as a member: it registers a handler, and a RefCounted nobody holds is freed the moment this
+	# function returns, taking its handler with it. (2026-09-20)
+	buckets = preload("buckets.gd").new()
+	buckets.setup(api, ids.bucket)
 	ids.milk = api.register_item("milk_bucket", {"display_name": "Milk Bucket", "icon": "textures/milk_bucket.png", "max_stack": 1,
 		"food": {"hunger": 1, "saturation": 1.0, "always": true, "eat_time": 1.6, "style": "drink", "color": "#f8f8f4", "remainder": "vanilla:bucket"},
 		"lore": ["Cures food poisoning"]})
