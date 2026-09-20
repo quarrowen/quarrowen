@@ -929,6 +929,30 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Multiblocks, capability 8 (2026-09-20)
+
+`engine/server/multiblocks.gd`. A mod draws the machine as layers of characters, bottom layer first,
+which is how anybody would draw it on paper; a space means "do not care", and a key may name a **tag**
+with `#`, so "any log" works and a mod that adds a tree joins in. The controller is where the machine's
+data lives.
+
+**The engine does not remember which machines are built.** It answers "is there one here, now?" -
+cheap, because a pattern is a handful of cells - and tells a mod when the answer changes near a block
+somebody placed or broke. Remembering would mean saving a fact that can be worked out from the blocks,
+and a saved fact can disagree with them.
+
+**The user asked two questions and the second found a bug.** Can a machine be taken apart and put back
+without losing its contents, and can parts be swapped to upgrade it?
+
+The first was already true and is now tested: the engine consumes nothing, a broken block drops as
+usual, and what the machine held lives in block data on the *controller* - untouched, because block
+data is per position. Only breaking the controller loses it, and a mod should spill that like a chest.
+
+The second was broken. `_standing` was keyed by controller position alone, but an upgrade is **two
+patterns sharing one controller** - swap brick walls for stone and the old machine must break while the
+better one forms. Keyed by position, the two changes cancelled out and neither event fired, depending
+on dictionary order. Keyed by controller *and* pattern, both fire. Tested by actually upgrading one.
+
 ## Buckets: the thing liquids were for (2026-09-20)
 
 A bucket existed already, for milking cows. It carries water and lava now, which is what turns flowing

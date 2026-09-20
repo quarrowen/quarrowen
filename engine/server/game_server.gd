@@ -165,6 +165,10 @@ var signals:
 var liquids:
 	get:
 		return realm.liquids
+## Machines assembled out of blocks (see engine/server/multiblocks.gd).
+var multiblocks:
+	get:
+		return realm.multiblocks
 ## Container types and open container screens (chests, furnaces, machines).
 var containers := Containers.new(self)
 ## Game-wide rules mods can change with set_gameplay.
@@ -273,6 +277,7 @@ var block_tick_handlers := {}
 var signal_handlers := {}
 var liquid_kinds := {}
 var liquid_meetings := {}
+var multiblock_patterns := {}
 ## What is joined to what (see engine/server/links.gd). Server-wide, not per realm: a wireless link may
 ## have one end in one world and the other somewhere else, so it belongs to neither.
 var links := Links.new(self)
@@ -4826,6 +4831,7 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0, int
 	into.block_ticks.block_changed(pos, old, block)
 	into.signals.block_changed(pos, old, block)
 	into.liquids.block_changed(pos, old, block)
+	into.multiblocks.block_changed(pos, old, block)
 	links.block_changed(into.id, pos, old, block)
 	if old != block:
 		connect.refresh_around(pos, into)

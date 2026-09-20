@@ -20,6 +20,7 @@ const Entities = preload("res://engine/server/entities.gd")
 const BlockTicks = preload("res://engine/server/block_ticks.gd")
 const Signals = preload("res://engine/server/signals.gd")
 const Liquids = preload("res://engine/server/liquids.gd")
+const Multiblocks = preload("res://engine/server/multiblocks.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 
 ## What a mod called it ("overworld", "mymod:emberdeep"). The overworld's name is "" for the world a
@@ -49,6 +50,8 @@ var block_ticks: BlockTicks
 var signals: Signals
 ## Liquids flowing in this realm (see engine/server/liquids.gd).
 var liquids: Liquids
+## Machines assembled out of blocks (see engine/server/multiblocks.gd).
+var multiblocks: Multiblocks
 
 ## Blocks that differ from freshly generated terrain, and which chunks still need writing.
 var block_data := {}  # Vector2i chunk -> {Vector3i: Dictionary}
@@ -89,12 +92,14 @@ func attach() -> void:
 	block_ticks = BlockTicks.new(_server, self)
 	signals = Signals.new(_server, self)
 	liquids = Liquids.new(_server, self)
+	multiblocks = Multiblocks.new(_server, self)
 	# Shared with every other realm: what a block type *does* is true everywhere, and only where each
 	# block happens to be differs. A realm added after a mod registered would otherwise be inert.
 	block_ticks.handlers = _server.block_tick_handlers
 	signals.handlers = _server.signal_handlers
 	liquids.kinds = _server.liquid_kinds
 	liquids.meetings = _server.liquid_meetings
+	multiblocks.patterns = _server.multiblock_patterns
 
 
 ## Whether anything in this realm should be run this tick. A claim on a chunk (keeping a machine going

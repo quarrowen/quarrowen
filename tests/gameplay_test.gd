@@ -79,6 +79,7 @@ func _ready() -> void:
 	await _spool()
 	await _claims()
 	await _liquids()
+	await _multiblocks()
 	await _tags()
 	await _signals()
 	await _realms()
@@ -4101,6 +4102,88 @@ func _flows() -> void:
 	_check(api.received("power", at.call(148)) == 0.0, "cutting the cable leaves the far end with nothing")
 	_check(is_equal_approx(api.received("power", at.call(144)), 25.0),
 		"and the near one now has the lot (%.1f)" % api.received("power", at.call(144)))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Multiblocks: noticing a shape somebody built and treating it as one machine.
+func _multiblocks() -> void:
+	var server = _start("multi_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	var reg = server.registry
+	var brick: int = reg.id_of("base:brick")
+	var furnace: int = reg.id_of("base:furnace")
+	_check(api.register_multiblock("forge", {
+		"layers": [["BBB", "BBB", "BBB"], ["BBB", "BCB", "BBB"]],
+		"key": {"B": "base:brick", "C": "base:furnace"}, "controller": "C"}),
+		"a mod can describe a machine as layers of characters")
+	_check(not api.register_multiblock("bad", {"layers": [["X"]], "key": {}}),
+		"and a key that does not name a character is refused")
+
+	var formed := []
+	var broken := []
+	server.add_handler("multiblock_formed", func(ev): formed.append(str(ev.name)), 0, "test")
+	server.add_handler("multiblock_broken", func(ev): broken.append(str(ev.name)), 0, "test")
+
+	var y: int = server.surface_height(500, 500) + 2
+	var origin := Vector3i(500, y, 500)
+	# Everything but the last brick, so the machine is one block short of finished.
+	for lx in 3:
+		for lz in 3:
+			for ly in 2:
+				var at := origin + Vector3i(lx, ly, lz)
+				if lx == 1 and lz == 1 and ly == 1:
+					continue
+				if lx == 2 and lz == 2 and ly == 1:
+					continue  # the one held back
+				server.set_block_authoritative(at, brick)
+	server.set_block_authoritative(origin + Vector3i(1, 1, 1), furnace)
+	_check(formed.is_empty(), "an unfinished machine is not a machine")
+
+	# (x, y, z): y is the layer, z is the row within it - the held-back cell is x 2, layer 1, row 2.
+	server.set_block_authoritative(origin + Vector3i(2, 1, 2), brick)
+	_check(formed == ["vanilla:forge"], "putting the last block in finishes it (%s)" % str(formed))
+	var found: Dictionary = api.multiblock_at(origin + Vector3i(1, 1, 1))
+	_check(found.get("name") == "vanilla:forge", "and it can be asked about at its controller")
+	_check(found.cells.size() == 18, "which knows every block it is made of (%d)" % found.cells.size())
+
+	# Take one away and it is spoiled - the mod is told, and the answer changes at once.
+	server.set_block_authoritative(origin + Vector3i(0, 0, 0), 0)
+	_check(broken == ["vanilla:forge"], "taking a block out spoils it (%s)" % str(broken))
+	_check(api.multiblock_at(origin + Vector3i(1, 1, 1)).is_empty(), "and it is no longer there when asked")
+
+	# Taking it apart keeps everything. The engine consumes nothing, the broken block drops as usual,
+	# and what the machine held lives on its controller - untouched, because block data is per position.
+	var controller := origin + Vector3i(1, 1, 1)
+	server.set_block_data(controller, {"stored": "a bar of iron"})
+	server.set_block_authoritative(origin + Vector3i(0, 1, 0), 0)
+	_check(api.multiblock_at(controller).is_empty(), "taking another block out spoils it again")
+	_check(server.get_block_data(controller).get("stored") == "a bar of iron",
+		"but what it was holding is still there, because the controller was not touched")
+	server.set_block_authoritative(origin + Vector3i(0, 0, 0), brick)
+	server.set_block_authoritative(origin + Vector3i(0, 1, 0), brick)
+	_check(api.multiblock_at(controller).get("name") == "vanilla:forge", "putting them back builds it again")
+	_check(server.get_block_data(controller).get("stored") == "a bar of iron", "with its contents intact")
+
+	# Upgrading: the same controller, better walls. Two patterns share a controller, so the engine has
+	# to notice both changes - which it did not, when a standing machine was keyed by position alone.
+	var stone: int = reg.id_of("base:stone")
+	_check(api.register_multiblock("forge_better", {
+		"layers": [["SSS", "SSS", "SSS"], ["SSS", "SCS", "SSS"]],
+		"key": {"S": "base:stone", "C": "base:furnace"}, "controller": "C"}),
+		"a mod can describe a better version of the same machine")
+	formed.clear()
+	broken.clear()
+	for lx in 3:
+		for lz in 3:
+			for ly in 2:
+				if lx == 1 and lz == 1 and ly == 1:
+					continue
+				server.set_block_authoritative(origin + Vector3i(lx, ly, lz), stone)
+	_check(broken.has("vanilla:forge") and formed.has("vanilla:forge_better"),
+		"swapping the walls breaks the old machine and finishes the better one (%s, %s)" % [str(broken), str(formed)])
+	_check(api.multiblock_at(controller).get("name") == "vanilla:forge_better", "and asking gives the new one")
+	_check(server.get_block_data(controller).get("stored") == "a bar of iron", "with everything it held still in it")
 	server.queue_free()
 	await get_tree().process_frame
 

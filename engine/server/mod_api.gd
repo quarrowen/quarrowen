@@ -923,6 +923,38 @@ func block_display_name(id: int) -> String:
 # `realm_id` and defaults to the world a server starts with. The event that gave you the position
 # usually carries its realm: block ticks, signals and flows all put it in the context. (2026-09-20)
 
+## A machine somebody assembles out of blocks. Described as layers of characters, bottom first, the
+## way anybody would draw it on paper:
+##
+##     api.register_multiblock("forge", {
+##         "layers": [["BBB", "BBB", "BBB"],
+##                    ["B B", " C ", "B B"]],
+##         "key": {"B": "base:brick", "C": "base:furnace"},
+##         "controller": "C"})
+##
+## A space means "do not care". A key may name a **tag** with `#`, so "any log" works and a mod adding
+## a tree joins in. The controller is where the machine's data lives - where a player right-clicks and
+## where the inventory hangs.
+##
+## You are told when one is finished or spoiled (`multiblock_formed`, `multiblock_broken`), and can ask
+## at any time with `multiblock_at`. The engine does not *remember* which are built: that would mean
+## saving a fact that can be worked out from the blocks, and a saved fact can disagree with them.
+func register_multiblock(pattern_name: String, def: Dictionary) -> bool:
+	var resolved := def.duplicate(true)
+	if resolved.get("key") is Dictionary:
+		var key := {}
+		for ch in resolved.key:
+			var spec := String(resolved.key[ch])
+			key[ch] = "#" + _qualify_ref(spec.substr(1)) if spec.begins_with("#") else _qualify_ref(spec)
+		resolved.key = key
+	return _server.realm.multiblocks.register(_qualify(pattern_name), resolved, mod_id)
+
+
+## The machine whose controller is at this position, or {}: {name, controller, origin, cells}.
+func multiblock_at(controller: Vector3i, pattern_name := "", realm_id := "") -> Dictionary:
+	return _realm_or_default(realm_id).multiblocks.at(controller, _qualify_ref(pattern_name) if not pattern_name.is_empty() else "")
+
+
 ## Makes a block a liquid that goes somewhere: spreads, falls, and dries up when nothing feeds it.
 ##
 ##     api.register_liquid("water", {"range": 7, "falls": true, "speed": 0.25})
