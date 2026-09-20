@@ -215,11 +215,19 @@ So a spider that poisons and a boss that slows you are now data - `"condition": 
 `entity_damage` and reaching for the victim itself. Ranged attacks carry it on the projectile, because
 by the time an arrow lands the mob may be dead or shooting at somebody else.
 
-Still missing, and the honest remainder of "area effects": **nothing lingers**. A slam damages what is
-near it at that instant; a pool of fire left burning, or a cloud that hangs about, has nowhere to
-live. That wants a small capability of its own - somewhere on the ground that does something to
-whoever stands in it, for a while - which is useful well beyond fights (a campfire's warmth, a gas
-leak from a broken machine, a healing circle in a village). Not built.
+The remainder - **lingering areas** - was built straight after as `fields.gd`, and `"lingers"` on an
+attack is how a slam leaves a pool burning where it landed.
+
+### 9a. Fields — built
+
+Ground that does something to whoever stands in it, for a while. Not on the original list and needed
+the moment creature abilities were finished: a slam hurts what is near it at that instant, and a pool
+of fire left burning had nowhere to live. Useful well beyond fights - a campfire's warmth, gas from a
+cracked pipe, a healing circle in a village.
+
+Always visible: placing one starts a running effect and letting it go stops it, because an invisible
+thing on the floor that hurts a child is not a hazard but a trick. Each field keeps its own next-tick
+time, so forty campfires cost forty radius searches a second between them rather than forty a frame.
 
 ### 10. Characters — built
 
@@ -548,12 +556,10 @@ follows is what is left, in the order that now unlocks the most.
 at all: structures, facilities, jobs, ownership, conversation and trade all exist. What a village needs
 now is content - somebody to write the villagers.
 
-1. **Lingering areas.** The remainder of creature abilities and useful far beyond them: somewhere on
-   the ground that does something to whoever stands in it, for a while.
-2. **Companions**, then **vehicles**. Both now have characters behind them.
-3. **The small three**: area tools, text in the world, inventories inside things. Independent, and each
+1. **Companions**, then **vehicles**. Both now have characters behind them.
+2. **The small three**: area tools, text in the world, inventories inside things. Independent, and each
    one an afternoon.
-4. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.
+3. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.
 
 ## Where the built things stop
 

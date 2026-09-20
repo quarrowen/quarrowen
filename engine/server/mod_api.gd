@@ -1184,6 +1184,46 @@ func shop_offers(player, shop_name: String) -> Array:
 	return _server.shops.offers_for(player, _qualify_ref(shop_name))
 
 
+## Ground that does something to whoever stands in it, for a while: a pool of fire left where a boss
+## landed, gas from a cracked pipe, the warmth of a campfire, a healing circle in a village.
+##
+##     api.register_field("fire_pool", {"radius": 3.0, "seconds": 10.0, "effect": "engine:flame",
+##         "tick": {"seconds": 1.0, "damage": 2.0, "cause": "fire"},
+##         "condition": {"condition": "burning", "seconds": 4.0}})
+##
+##     api.place_field("fire_pool", position, {"seconds": 20.0, "owner": mob})
+##
+## **Called a field because plots and claims are taken** - plots are ground with an owner, claims are
+## ground kept awake. **It is always visible**: an invisible thing on the floor that hurts a child is
+## not a hazard but a trick, so placing one starts a running effect. You choose which; you cannot
+## choose none.
+##
+## `affects` is "everyone", "players" or "creatures" - not "enemies", which would mean the engine
+## learning about sides. `except_owner` (on by default) keeps whoever left it out of their own fire.
+func register_field(field_name: String, def: Dictionary) -> bool:
+	# The condition name inside it is this mod's, the same way an attack's is. A bare name reaching the
+	# field unqualified is not an error - it is a fire that burns and leaves nothing, silently.
+	var d := def.duplicate(true)
+	_qualify_condition(d)
+	d["effect"] = _qualify_ref(String(d.get("effect", "engine:sparkle")))
+	return _server.fields.register(_qualify(field_name), d, mod_id)
+
+
+## Puts one down. options: seconds, radius, level (multiplies damage, heal and the condition's level),
+## owner (a player or creature it will not touch), realm. Returns its id, or 0.
+func place_field(field_name: String, position: Vector3, options := {}) -> int:
+	return _server.fields.place(_qualify_ref(field_name), position, options)
+
+
+func clear_field(id: int) -> bool:
+	return _server.fields.clear(id)
+
+
+## Every field a point is inside: [{id, kind, realm, position, radius, level, seconds}].
+func fields_at(position: Vector3, realm_id := "") -> Array:
+	return _server.fields.at(position, _qualify_ref(realm_id))
+
+
 ## Something a player or a creature is temporarily under: swiftness, poison, a well-fed glow.
 ##
 ##     api.register_condition("swiftness", {"display_name": "Swiftness", "color": "#7fd6ff",

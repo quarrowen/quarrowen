@@ -2341,3 +2341,41 @@ healing circle in a village.
 
 Naming will need care. `plots` is ground with an owner and `claims` is ground kept awake, so a third
 word is needed rather than a third meaning for "area". `fields` is the current candidate.
+
+## Lingering areas: fields (2026-09-20)
+
+`engine/server/fields.gd`. Ground that does something to whoever stands in it, for a while, and
+`"lingers": {"field": "...", "seconds": 8}` on an attack is how a slam leaves a pool burning where it
+landed.
+
+**Named a field because the other two words were already taken** - `plots` is ground with an owner,
+`claims` is ground kept awake. Three meanings for "area" in one engine is how somebody reads the wrong
+file at midnight, and this is the third time that naming pressure has come up (plots/claims was the
+first, conditions/effects the second). Worth noticing as a pattern rather than solving again each time.
+
+Two decisions worth keeping:
+
+- **Always visible.** Placing one starts a running effect and clearing it stops that effect. A mod
+  picks which effect; it cannot pick none. An invisible thing on the floor that hurts a child is not a
+  hazard, it is a trick.
+- **It does not tick per frame.** Each field carries its own next-tick time, so forty campfires cost
+  forty radius searches a second between them rather than forty every frame.
+
+Reuses rather than repeats: the condition reader in `mob_config.gd` was made public as `condition_of`
+(a field and a bite leave the same kind of thing behind), and `MobAttacks.apply_condition` does the
+applying for both.
+
+### Three bugs, all the same shape
+
+1. The condition name inside a field def was not namespaced, so `{"condition": "scorched"}` stayed
+   "scorched" while the registered one was "vanilla:scorched" - a fire that burns and leaves nothing,
+   silently. Exactly the bug fixed for attacks an hour earlier, in a new place. **Any mod-written name
+   nested inside a definition needs qualifying at the API boundary**, and this is now the third time:
+   sounds, attack conditions, field conditions.
+2. The owner-exclusion test failed because the *previous* field was still burning at the same spot, so
+   the cow was in two fires and took double damage. A test bug that read exactly like the feature
+   being broken.
+3. `Entity` has no `realm_id` - an entity does not carry its realm, the manager it belongs to is the
+   realm it is in.
+
+The drift ratchet caught the four new `api.*` functions immediately, for the second capability running.

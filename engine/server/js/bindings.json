@@ -310,6 +310,14 @@
 			],
 			"gd": "clear_conditions"
 		},
+		"clearField": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "clear_field"
+		},
 		"clearMapMarker": {
 			"args": [
 				{
@@ -606,6 +614,18 @@
 				}
 			],
 			"gd": "facing_from_yaw"
+		},
+		"fieldsAt": {
+			"args": [
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "fields_at"
 		},
 		"fill": {
 			"args": [
@@ -1298,6 +1318,21 @@
 			],
 			"gd": "open_guide"
 		},
+		"placeField": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "place_field"
+		},
 		"placeStructure": {
 			"args": [
 				{
@@ -1692,6 +1727,17 @@
 				}
 			],
 			"gd": "register_feature"
+		},
+		"registerField": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_field"
 		},
 		"registerGuideChapter": {
 			"args": [

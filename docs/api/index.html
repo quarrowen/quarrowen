@@ -616,6 +616,26 @@ somewhere worth going back to. leave `stock` out for an offer that never runs dr
 it cannot happen, and `shop_problem` says why in words a child can read."><div class="sig"><code>api.shop_trade(player, shop_name: String, index: int) -&gt; bool</code><span class="tag js" title="shopTrade">JS shopTrade</span></div><p>Does one trade directly, for a shop with no panel - a vending block, a delivery chute. False when<br>it cannot happen, and `shop_problem` says why in words a child can read.</p></div>
 <div class="card" id="api-shop-problem" data-search="shop_problem shopproblem "><div class="sig"><code>api.shop_problem() -&gt; String</code><span class="tag js" title="shopProblem">JS shopProblem</span></div><p class="muted">No description yet.</p></div>
 <div class="card" id="api-shop-offers" data-search="shop_offers shopoffers what is on the shelves: [{index, item, name, count, price, ledger, cost, sells, left, can}]."><div class="sig"><code>api.shop_offers(player, shop_name: String) -&gt; Array</code><span class="tag js" title="shopOffers">JS shopOffers</span></div><p>What is on the shelves: [{index, item, name, count, price, ledger, cost, sells, left, can}].</p></div>
+<div class="card" id="api-register-field" data-search="register_field registerfield ground that does something to whoever stands in it, for a while: a pool of fire left where a boss
+landed, gas from a cracked pipe, the warmth of a campfire, a healing circle in a village.
+
+api.register_field(&quot;fire_pool&quot;, {&quot;radius&quot;: 3.0, &quot;seconds&quot;: 10.0, &quot;effect&quot;: &quot;engine:flame&quot;,
+&quot;tick&quot;: {&quot;seconds&quot;: 1.0, &quot;damage&quot;: 2.0, &quot;cause&quot;: &quot;fire&quot;},
+&quot;condition&quot;: {&quot;condition&quot;: &quot;burning&quot;, &quot;seconds&quot;: 4.0}})
+
+api.place_field(&quot;fire_pool&quot;, position, {&quot;seconds&quot;: 20.0, &quot;owner&quot;: mob})
+
+**called a field because plots and claims are taken** - plots are ground with an owner, claims are
+ground kept awake. **it is always visible**: an invisible thing on the floor that hurts a child is
+not a hazard but a trick, so placing one starts a running effect. you choose which; you cannot
+choose none.
+
+`affects` is &quot;everyone&quot;, &quot;players&quot; or &quot;creatures&quot; - not &quot;enemies&quot;, which would mean the engine
+learning about sides. `except_owner` (on by default) keeps whoever left it out of their own fire."><div class="sig"><code>api.register_field(field_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerField">JS registerField</span></div><p>Ground that does something to whoever stands in it, for a while: a pool of fire left where a boss<br>landed, gas from a cracked pipe, the warmth of a campfire, a healing circle in a village.<br><br>api.register_field(&quot;fire_pool&quot;, {&quot;radius&quot;: 3.0, &quot;seconds&quot;: 10.0, &quot;effect&quot;: &quot;engine:flame&quot;,<br>&quot;tick&quot;: {&quot;seconds&quot;: 1.0, &quot;damage&quot;: 2.0, &quot;cause&quot;: &quot;fire&quot;},<br>&quot;condition&quot;: {&quot;condition&quot;: &quot;burning&quot;, &quot;seconds&quot;: 4.0}})<br><br>api.place_field(&quot;fire_pool&quot;, position, {&quot;seconds&quot;: 20.0, &quot;owner&quot;: mob})<br><br>**Called a field because plots and claims are taken** - plots are ground with an owner, claims are<br>ground kept awake. **It is always visible**: an invisible thing on the floor that hurts a child is<br>not a hazard but a trick, so placing one starts a running effect. You choose which; you cannot<br>choose none.<br><br>`affects` is &quot;everyone&quot;, &quot;players&quot; or &quot;creatures&quot; - not &quot;enemies&quot;, which would mean the engine<br>learning about sides. `except_owner` (on by default) keeps whoever left it out of their own fire.</p></div>
+<div class="card" id="api-place-field" data-search="place_field placefield puts one down. options: seconds, radius, level (multiplies damage, heal and the condition's level),
+owner (a player or creature it will not touch), realm. returns its id, or 0."><div class="sig"><code>api.place_field(field_name: String, position: Vector3, options := {}) -&gt; int</code><span class="tag js" title="placeField">JS placeField</span></div><p>Puts one down. options: seconds, radius, level (multiplies damage, heal and the condition's level),<br>owner (a player or creature it will not touch), realm. Returns its id, or 0.</p></div>
+<div class="card" id="api-clear-field" data-search="clear_field clearfield "><div class="sig"><code>api.clear_field(id: int) -&gt; bool</code><span class="tag js" title="clearField">JS clearField</span></div><p class="muted">No description yet.</p></div>
+<div class="card" id="api-fields-at" data-search="fields_at fieldsat every field a point is inside: [{id, kind, realm, position, radius, level, seconds}]."><div class="sig"><code>api.fields_at(position: Vector3, realm_id := &quot;&quot;) -&gt; Array</code><span class="tag js" title="fieldsAt">JS fieldsAt</span></div><p>Every field a point is inside: [{id, kind, realm, position, radius, level, seconds}].</p></div>
 <div class="card" id="api-register-condition" data-search="register_condition registercondition something a player or a creature is temporarily under: swiftness, poison, a well-fed glow.
 
 api.register_condition(&quot;swiftness&quot;, {&quot;display_name&quot;: &quot;swiftness&quot;, &quot;color&quot;: &quot;#7fd6ff&quot;,
@@ -1832,7 +1852,8 @@ Type ids are indexes into `defs`; &quot;engine:item&quot; (dropped item stacks) 
     &quot;step_up&quot;: 1, &quot;max_drop&quot;: 3, &quot;can_swim&quot;: false,
     &quot;attack_interval&quot;: 1.0,     minimum seconds between any two attacks (scaled by aggression)
     &quot;attacks&quot;: [ {...} ],       see ATTACK_DEFAULTS; &quot;condition&quot; on one applies a condition to
-                                whoever it hits: {&quot;condition&quot;: &quot;vanilla:poison&quot;, &quot;seconds&quot;: 8, &quot;chance&quot;: 0.5}
+                                whoever it hits: {&quot;condition&quot;: &quot;vanilla:poison&quot;, &quot;seconds&quot;: 8, &quot;chance&quot;: 0.5};
+                                &quot;lingers&quot; leaves a field behind: {&quot;field&quot;: &quot;my_mod:fire_pool&quot;, &quot;seconds&quot;: 8}
     &quot;phases&quot;: [ {&quot;health_below&quot;: 0.5, &quot;message&quot;: &quot;...&quot;, &quot;speed_multiplier&quot;: 1.3, &quot;aggression&quot;: 1,
                  &quot;add_attacks&quot;: [...], &quot;attacks&quot;: [...]} ],
     &quot;boss&quot;: {&quot;name&quot;: &quot;Ancient Colossus&quot;, &quot;bar_range&quot;: 48},

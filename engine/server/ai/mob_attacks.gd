@@ -156,6 +156,7 @@ static func _execute(brain) -> void:
 		var at_feet: bool = a.type in ["slam", "summon"]
 		ai.server.play_effect(String(a.effect), e.body.position if at_feet else front,
 			{"scale": maxf(float(a.radius) / 3.0, 0.5) if at_feet else maxf(e.def.width, 0.5), "direction": Vector3(-sin(e.yaw), 0.3, -cos(e.yaw))})
+	_leave_field(brain, a, ai.position_of(target) if a.type in ["ranged"] else e.body.position)
 	match a.type:
 		"melee":
 			var edge: float = ai.edge_distance(e, target)
@@ -224,6 +225,23 @@ static func _finish(brain) -> void:
 	brain.next_attack_time = ai.time + brain.config.attack_interval * (1.4 - 0.8 * brain.config.aggression)
 	brain.recover_until = ai.time + a.recovery
 	brain.attack = {}
+
+
+## The pool a slam leaves burning. Placed where the attack happens rather than where the target was,
+## because a field a player has already walked out of is not a hazard, it is a decoration.
+static func _leave_field(brain, a: Dictionary, at: Vector3) -> void:
+	var lingers: Dictionary = a.get("lingers", {})
+	if lingers.is_empty():
+		return
+	# An entity does not carry its realm; the manager it belongs to is the realm it is in.
+	var realm = brain.ai.entities.realm
+	var options := {"owner": brain.entity, "level": int(lingers.level),
+		"realm": String(realm.id) if realm != null else ""}
+	if float(lingers.seconds) > 0.0:
+		options["seconds"] = float(lingers.seconds)
+	if float(lingers.radius) > 0.0:
+		options["radius"] = float(lingers.radius)
+	brain.ai.server.fields.place(String(lingers.field), at, options)
 
 
 static func _hit(brain, victim, damage: float, direction: Vector3, knockback: float) -> void:

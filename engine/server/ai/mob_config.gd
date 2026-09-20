@@ -19,7 +19,8 @@ extends RefCounted
 ##     "step_up": 1, "max_drop": 3, "can_swim": false,
 ##     "attack_interval": 1.0,     minimum seconds between any two attacks (scaled by aggression)
 ##     "attacks": [ {...} ],       see ATTACK_DEFAULTS; "condition" on one applies a condition to
-##                                 whoever it hits: {"condition": "vanilla:poison", "seconds": 8, "chance": 0.5}
+##                                 whoever it hits: {"condition": "vanilla:poison", "seconds": 8, "chance": 0.5};
+##                                 "lingers" leaves a field behind: {"field": "my_mod:fire_pool", "seconds": 8}
 ##     "phases": [ {"health_below": 0.5, "message": "...", "speed_multiplier": 1.3, "aggression": 1,
 ##                  "add_attacks": [...], "attacks": [...]} ],
 ##     "boss": {"name": "Ancient Colossus", "bar_range": 48},
@@ -118,6 +119,9 @@ const ATTACK_DEFAULTS := {
 	# a boss that slows you were both a mod catching entity_damage and doing it by hand until conditions
 	# existed to be applied. (2026-09-20)
 	"condition": {},
+	# What it leaves on the ground: {"field": "my_mod:fire_pool", "seconds": 8.0}. A slam hurts what is
+	# near it at that instant; this is how it leaves a pool burning behind. (2026-09-20)
+	"lingers": {},
 }
 
 
@@ -202,13 +206,25 @@ static func sanitize(config: Dictionary, resolve_entity: Callable) -> Dictionary
 
 ## {condition, seconds, level, chance} or {} - read here rather than where it is applied, so a malformed
 ## one is a dull default at load instead of a surprise mid-fight.
-static func _condition(value) -> Dictionary:
+##
+## Public because `fields.gd` needs exactly this reader: a field and a bite leave the same kind of thing
+## behind, and a second copy would drift from this one.
+static func condition_of(value) -> Dictionary:
 	if not (value is Dictionary) or String(value.get("condition", value.get("name", ""))).is_empty():
 		return {}
 	return {"condition": String(value.get("condition", value.get("name", ""))),
 		"seconds": maxf(float(value.get("seconds", 5.0)), 0.0),
 		"level": clampi(int(value.get("level", 1)), 1, 10),
 		"chance": clampf(float(value.get("chance", 1.0)), 0.0, 1.0)}
+
+
+## {field, seconds, radius, level} or {}. Read at load like the rest, so a typo is a field that never
+## appears rather than an error thrown in the middle of a fight.
+static func _lingers(value) -> Dictionary:
+	if not (value is Dictionary) or String(value.get("field", "")).is_empty():
+		return {}
+	return {"field": String(value.field), "seconds": maxf(float(value.get("seconds", 0.0)), 0.0),
+		"radius": maxf(float(value.get("radius", 0.0)), 0.0), "level": clampi(int(value.get("level", 1)), 1, 10)}
 
 
 static func _attacks(list, resolve_entity: Callable) -> Array:
@@ -228,7 +244,8 @@ static func _attacks(list, resolve_entity: Callable) -> Array:
 		a.cooldown = clampf(a.cooldown, 0.0, 600.0)
 		a.count = clampi(int(a.count), 1, 16)
 		a.max_summons = clampi(int(a.max_summons), 0, 32)
-		a.condition = _condition(a.get("condition"))
+		a.condition = condition_of(a.get("condition"))
+		a.lingers = _lingers(a.get("lingers"))
 		a.projectile_type = int(resolve_entity.call(String(a.projectile))) if not String(a.projectile).is_empty() else -1
 		a.entity_type = int(resolve_entity.call(String(a.entity))) if not String(a.entity).is_empty() else -1
 		out.append(a)

@@ -90,6 +90,7 @@ func _ready() -> void:
 	await _characters()
 	await _conditions()
 	await _ores()
+	await _fields()
 	await _plots()
 	await _tags()
 	await _signals()
@@ -4341,6 +4342,72 @@ func _characters() -> void:
 	server.characters.player_left(102)
 	server.shops.player_left(102)
 	_check(not server.characters._talking.has(102), "leaving forgets the conversation")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Fields: ground that does something to whoever stands in it.
+func _fields() -> void:
+	var server = _start("fields_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	api.register_condition("scorched", {"display_name": "Scorched", "good": false,
+		"modifiers": [{"stat": "move_speed", "amount": -0.2, "op": "multiply"}]})
+	_check(api.register_field("fire_pool", {"radius": 3.0, "seconds": 10.0, "effect": "engine:smoke",
+		"tick": {"seconds": 1.0, "damage": 2.0, "cause": "fire"},
+		"condition": {"condition": "scorched", "seconds": 5.0}}), "a mod registers a patch of ground")
+	_check(not api.register_field("inert", {"radius": 2.0}), "but not one that does nothing to anybody")
+
+	var p := ServerPlayer.new(server, 105, "Walker")
+	p.player_id = "walker"
+	p.state.position = Vector3(0, 64, 0)
+	server.players[105] = p
+
+	var id: int = api.place_field("fire_pool", Vector3(0, 64, 0), {"seconds": 6.0})
+	_check(id > 0, "and puts one down")
+	# An invisible thing on the floor that hurts a child is a trick, not a hazard.
+	_check(int(server.fields.fields[id].handle) > 0, "which is visible while it burns")
+
+	p.health = 20.0
+	p.hurt_timer = 0.0
+	server._time += 1.1
+	server.fields.tick(0.1)
+	_check(p.health == 18.0, "standing in it hurts (%s)" % p.health)
+	_check(api.has_condition(p, "scorched"), "and leaves what it leaves")
+	server.fields.tick(0.1)
+	_check(p.health == 18.0, "but only on its own timer, not every frame")
+
+	# Out of the circle is out of the fire.
+	p.state.position = Vector3(20, 64, 20)
+	p.hurt_timer = 0.0
+	server._time += 1.1
+	server.fields.tick(0.1)
+	_check(p.health == 18.0, "stepping out of it stops it (%s)" % p.health)
+
+	# Whoever left it behind does not stand in their own fire. Well away from the first pool, which is
+	# still burning: two fields on one cow burned it twice and read as the exclusion failing.
+	var mob = api.spawn_entity("cow", Vector3(40, 64, 40), {})
+	_check(mob != null, "a creature to stand in it")
+	mob.health = 10.0
+	var theirs: int = api.place_field("fire_pool", Vector3(40, 64, 40), {"seconds": 6.0, "owner": mob})
+	server._time += 1.1
+	server.fields.tick(0.1)
+	_check(mob.health == 10.0, "the one who left it is not burned by it (%s)" % mob.health)
+	api.clear_field(theirs)
+	mob.hurt_timer = 0.0
+	api.place_field("fire_pool", Vector3(40, 64, 40), {"seconds": 6.0})
+	server._time += 1.1
+	server.fields.tick(0.1)
+	_check(mob.health == 8.0, "but somebody else's fire burns them (%s)" % mob.health)
+
+	_check(api.fields_at(Vector3(0, 64, 0)).size() >= 1, "a point can be asked what it is standing in")
+	_check(api.fields_at(Vector3(60, 64, 60)).is_empty(), "and says nothing where there is nothing")
+
+	# Running out, and taking its effect with it.
+	var handle: int = int(server.fields.fields[id].handle)
+	server._time += 30.0
+	server.fields.tick(0.1)
+	_check(not server.fields.fields.has(id), "it goes out when its time is up")
+	_check(not server._running_effects.has(handle), "and stops being drawn when it does")
 	server.queue_free()
 	await get_tree().process_frame
 

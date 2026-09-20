@@ -42,6 +42,7 @@ const Modifiers = preload("res://engine/server/modifiers.gd")
 const Ledgers = preload("res://engine/server/ledgers.gd")
 const Objectives = preload("res://engine/server/objectives.gd")
 const Conditions = preload("res://engine/server/conditions.gd")
+const Fields = preload("res://engine/server/fields.gd")
 const Characters = preload("res://engine/server/characters.gd")
 const Shops = preload("res://engine/server/shops.gd")
 const Companies = preload("res://engine/server/companies.gd")
@@ -312,6 +313,8 @@ var characters := Characters.new(self)
 var shops := Shops.new(self)
 ## What somebody is temporarily under - swiftness, poison (see engine/server/conditions.gd).
 var conditions := Conditions.new(self)
+## Ground that does something to whoever stands in it (see engine/server/fields.gd).
+var fields := Fields.new(self)
 ## Groups of players that things can belong to (see engine/server/companies.gd).
 var companies := Companies.new(self)
 ## Ground with an owner, consulted before an edit (see engine/server/plots.gd).
@@ -539,6 +542,7 @@ func start(config: Dictionary) -> Error:
 	companies.load_saved(_meta.get("companies"))
 	plots.load_saved(_meta.get("plots"))
 	shops.load_saved(_meta.get("shop_stock"))
+	fields.load_saved(_meta.get("fields"))
 	if str(config.get("chat_filter", "")) in ["on", "true", "1", "yes"]:
 		gameplay.chat_filter = true
 	# A private server: only listed players (and admins) may join. Names given here are added to the list.
@@ -1829,6 +1833,7 @@ func _physics_process(delta: float) -> void:
 	for p: ServerPlayer in players.values():
 		_update_health(p, delta)
 	conditions.tick(delta)
+	fields.tick(delta)
 	var t1 := Time.get_ticks_usec()
 	dev_tools.record("engine", "tick:entities and AI", t1 - te)
 	dev_tools.record("engine", "tick:players", sim_usec)
@@ -5271,6 +5276,7 @@ func _drain_save_queue(budget_usec: int, wait := false) -> void:
 	_meta.companies = companies.to_saved()
 	_meta.plots = plots.to_saved()
 	_meta.shop_stock = shops.to_saved()
+	_meta.fields = fields.to_saved()
 	_meta.mod_settings = mod_settings.to_saved()
 	_meta.loot = {"rate": loot.rate, "boosts": loot.boosts}
 	_save_writes.append([_save_dir + "/world.json", JSON.stringify(_meta, "\t")])
