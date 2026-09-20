@@ -1184,6 +1184,34 @@ func shop_offers(player, shop_name: String) -> Array:
 	return _server.shops.offers_for(player, _qualify_ref(shop_name))
 
 
+## Puts a player on a vehicle - an entity whose type has a `vehicle` block. Returns false when it is
+## full, too far away, or they are already riding something.
+##
+##     api.register_entity("boat", {"kind": "mob", "model": "models/boat.glb", "ai": {"preset": "none"},
+##         "vehicle": {"seats": 2, "speed": 6.0, "turn_speed": 3.0, "floats": true}})
+##
+## A rider stops simulating themselves: their position comes from the vehicle and their input becomes
+## steering - throttle forward and back, and the vehicle turns towards wherever they are looking.
+## Sneak gets off. The player's own physics is untouched, which is why riding cannot break walking.
+func mount(player, entity) -> bool:
+	return _server.vehicles.mount(player, entity)
+
+
+## Takes a player off. `to` is where to put them down; by default beside the vehicle.
+func dismount(player, to = null) -> bool:
+	return _server.vehicles.dismount(player, to)
+
+
+## The entity a player is riding, or null.
+func riding(player):
+	return _server.entities.entities.get(player.riding) if player != null and player.riding > 0 else null
+
+
+## Who is aboard, as player ids.
+func riders_of(entity) -> Array:
+	return _server.vehicles.riders_of(entity)
+
+
 ## Something a tamed creature can be told to do.
 ##
 ##     api.register_order("fetch", {"display_name": "Fetch that", "behavior": "my_mod:fetch"})

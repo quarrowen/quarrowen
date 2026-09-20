@@ -286,6 +286,11 @@ var _hurt_flash: ColorRect
 var _screen_tint: ColorRect
 var _screen_fade := 0.0
 var _death_panel: Control
+## {entity, seat_height, driver} while riding, {} otherwise. While it is set this client does not
+## predict its own movement: it sits where the vehicle is and its input is steering. Predicting and
+## being corrected is exactly what rubber-banding is. (2026-09-20)
+var _riding := {}
+
 ## {sleeping, since, asleep, needed, seconds, head_dir, started (local)} while in bed.
 var _sleep := {}
 var _sleep_panel: Control
@@ -1495,6 +1500,11 @@ func _physics_process(_delta: float) -> void:
 		var wants_up := Input.get_vector("move_left", "move_right", "move_back", "move_forward").length() > 0.2 or Input.is_action_pressed("jump")
 		if wants_up and not _chat_input.visible:
 			leave_bed()
+	elif not _riding.is_empty() and _gameplay_input_enabled():
+		# Steering, in the fields that already exist: forward and back is throttle, sneak gets off, and
+		# the vehicle turns towards wherever this player is looking.
+		input.move = Input.get_vector("move_left", "move_right", "move_back", "move_forward")
+		input.sneak = Input.is_action_pressed("sneak")
 	elif _gameplay_input_enabled():
 		input.move = Input.get_vector("move_left", "move_right", "move_back", "move_forward")
 		input.jump = Input.is_action_pressed("jump")
@@ -1526,8 +1536,13 @@ func _physics_process(_delta: float) -> void:
 	input = PlayerPhysics.PlayerInput.read(buf)
 
 	_prev_position = state.position
-	PlayerPhysics.step(state, input, world, rules)
-	_pending_inputs.append(input)
+	if _riding.is_empty():
+		PlayerPhysics.step(state, input, world, rules)
+		_pending_inputs.append(input)
+	else:
+		# The vehicle is somebody else's to move. Follow the view the server is already sending, so the
+		# ride is as smooth as every other entity rather than a prediction that keeps being wrong.
+		_follow_vehicle()
 	if _pending_inputs.size() > MAX_PENDING_INPUTS:
 		_pending_inputs.pop_front()
 
@@ -1547,6 +1562,11 @@ func _reconcile(last_seq: int, pos: Vector3, vel: Vector3, on_ground: bool) -> v
 	state.on_ground = on_ground
 	while not _pending_inputs.is_empty() and _pending_inputs[0].seq <= last_seq:
 		_pending_inputs.pop_front()
+	if not _riding.is_empty():
+		# Nothing to replay: the rider did not walk any of those steps, the vehicle carried them.
+		_pending_inputs.clear()
+		_render_offset = Vector3.ZERO
+		return
 	if _can_simulate():
 		for input in _pending_inputs:
 			PlayerPhysics.step(state, input, world, rules)
@@ -3635,6 +3655,25 @@ func leave_bed() -> void:
 	if now - _leave_bed_sent > 0.5:
 		_leave_bed_sent = now
 		Net.c_leave_bed.rpc_id(1)
+
+
+## The server says this player got on or off something.
+func on_riding(state_info: Dictionary) -> void:
+	_riding = state_info.duplicate() if state_info.get("entity") != null else {}
+	# Anything queued was about walking and will never be replayed now, or was about steering and is
+	# already spent. Either way replaying it would move this player somewhere nobody asked for.
+	_pending_inputs.clear()
+	_render_offset = Vector3.ZERO
+
+
+## Sits this player where the vehicle is drawn, so the ride is as smooth as the vehicle looks.
+func _follow_vehicle() -> void:
+	var view: EntityView = _entities.get(int(_riding.get("entity", -1)))
+	if view == null:
+		return  # not streamed in yet; the server's own position updates still arrive
+	state.position = view.position + Vector3(0.0, float(_riding.get("seat_height", 0.4)), 0.0)
+	state.velocity = Vector3.ZERO
+	state.on_ground = true
 
 
 func on_sleep(state_info: Dictionary) -> void:

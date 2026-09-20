@@ -2409,3 +2409,38 @@ earlier paid for itself.
 
 If a fifth appears, the fix is probably one shared walk at registration rather than remembering each
 time.
+
+## Vehicles, and the one that was genuinely new (2026-09-20)
+
+Four roadmap entries in a row turned out to be mostly built already. This one was not: there was no
+riding, no mounting and no passenger anywhere in the engine. **Protocol is now 47.**
+
+**The design decision worth keeping.** A rider stops simulating themselves, which is the third case of
+a shape `_simulate_player` already had twice - a dead player and a sleeping one both drain their input
+queue and stay put. Riding slots in beside them rather than threading a new idea through the physics,
+and as a result **`player_physics.gd` and `physics.rs` were not touched at all**. Those two have to
+agree step for step or the client rubber-bands, so a vehicle that avoids both is a vehicle that cannot
+break walking. Every e2e test passing is the evidence for that.
+
+Steering reuses input fields that already exist - throttle on forward/back, heading from the rider's
+own yaw, sneak to get off - so `PlayerPhysics.INPUT_SIZE` and the wire format are untouched. The only
+new thing crossing is `s_riding`, and the client genuinely needs it: without it the client predicts
+walking, the server puts it back, and that is rubber-banding by definition.
+
+### What is not done, plainly
+
+**There is no vehicle to ride.** A boat needs a model and nothing bundled has one; the models folder
+has cows and skeletons, not rafts. So:
+
+- The server half has fourteen checks: mounting, refusing somebody across the map, refusing a second
+  mount, throttle, the rider being carried, inputs draining rather than stalling, sneak dismount,
+  being put down beside the vehicle rather than inside it, and a removed vehicle putting its riders
+  down.
+- The client half is only covered **negatively** - every e2e test still passes with riding never
+  switched on, which proves normal walking is unharmed and proves nothing about riding.
+
+Until something bundled is rideable, the riding path has never been driven by a real client. That is
+the next thing to do here, and it is a content job with an art dependency rather than an engine one.
+
+Candidates that need no new art are all poor: a rideable cow is silly, and the obvious saddled-animal
+idea is somebody else's vocabulary. A raft or a cart wants a model.

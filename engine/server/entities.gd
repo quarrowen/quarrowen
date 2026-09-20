@@ -120,6 +120,10 @@ func drop_item(item: int, count: int, pos: Vector3, velocity := Vector3.INF, pic
 
 
 func remove(e: Entity) -> void:
+	# Anybody aboard is put down first: a rider left attached to an entity that no longer exists keeps
+	# their position from a thing that is not there.
+	if e.data.get("riders") is Array and not (e.data.riders as Array).is_empty():
+		_server.vehicles.empty(e)
 	if e.removed:
 		return
 	e.removed = true

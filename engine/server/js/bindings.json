@@ -510,6 +510,17 @@
 			],
 			"gd": "disband_company"
 		},
+		"dismount": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "dismount"
+		},
 		"driveJammed": {
 			"args": [
 				{
@@ -1199,6 +1210,17 @@
 				}
 			],
 			"gd": "modifiers_on"
+		},
+		"mount": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "mount"
 		},
 		"moveAssembly": {
 			"args": [
@@ -2210,6 +2232,22 @@
 				}
 			],
 			"gd": "remove_plot_member"
+		},
+		"ridersOf": {
+			"args": [
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "riders_of"
+		},
+		"riding": {
+			"args": [
+				{
+					"kind": "player"
+				}
+			],
+			"gd": "riding"
 		},
 		"rollLoot": {
 			"args": [

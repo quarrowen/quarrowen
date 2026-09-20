@@ -35,6 +35,9 @@ var spawn_point := Vector3.INF
 var spawn_bed = null
 ## {bed, since, head_dir, return} while asleep in a bed.
 var sleeping := {}
+## The entity this player is riding, or 0. While it is set they do not walk: their position comes from
+## the vehicle and their input is steering (see engine/server/vehicles.gd).
+var riding := 0
 ## Timed stat modifiers: id -> {stat, amount, op, expires (server time, 0 = permanent)}.
 var modifiers := {}
 

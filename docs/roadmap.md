@@ -297,9 +297,25 @@ way talking to a character opens a conversation - a child cannot discover what t
 `sitting` was kept rather than replaced: the sit behaviour and its pose were proven, and "stay" is
 exactly what they already did.
 
-### 18. Vehicles
+### 18. Vehicles — built (capability; no bundled vehicle yet)
 
-Rideable entities that carry a player and change how they move.
+An entity type with a `vehicle` block becomes rideable. **Protocol 47.**
+
+The design decision that matters: **a rider stops simulating themselves**. That is the third case of a
+shape the server already had twice - a dead player and a sleeping one both drain their input queue and
+stay put - so riding slots in beside them instead of threading a new idea through the physics. It also
+means `player_physics.gd` and `physics.rs` were not touched at all, which is the difference between a
+vehicle that might break walking and one that cannot.
+
+Steering reuses the input fields that already exist: throttle forward and back, the vehicle turns
+towards wherever the rider looks, sneak gets off. Nothing new crosses the wire except "you are riding
+that" - and the client needs that one message, because otherwise it predicts walking, the server puts
+it back, and that is rubber-banding.
+
+**Not finished: there is no vehicle to ride.** A boat needs a model, and nothing bundled has one. The
+server half is covered by fourteen checks; the client half is only covered negatively, in that every
+e2e test still passes with riding never switched on. Until a bundled vehicle exists, the riding path
+has not been driven by a real client.
 
 ### 19. Area tools
 
@@ -567,10 +583,9 @@ follows is what is left, in the order that now unlocks the most.
 at all: structures, facilities, jobs, ownership, conversation and trade all exist. What a village needs
 now is content - somebody to write the villagers.
 
-1. **Vehicles.** Rideable entities that carry a player and change how they move.
-2. **The small three**: area tools, text in the world, inventories inside things. Independent, and each
+1. **The small three**: area tools, text in the world, inventories inside things. Independent, and each
    one an afternoon.
-3. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.
+2. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.
 
 ## Where the built things stop
 

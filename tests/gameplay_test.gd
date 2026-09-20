@@ -91,6 +91,7 @@ func _ready() -> void:
 	await _conditions()
 	await _ores()
 	await _fields()
+	await _vehicles()
 	await _plots()
 	await _tags()
 	await _signals()
@@ -4361,6 +4362,71 @@ func _characters() -> void:
 	server.characters.player_left(102)
 	server.shops.player_left(102)
 	_check(not server.characters._talking.has(102), "leaving forgets the conversation")
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Vehicles: sitting on something and steering it.
+func _vehicles() -> void:
+	var server = _start("vehicles_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	var boat_type: int = api.register_entity("raft", {"kind": "mob", "display_name": "Raft",
+		"width": 1.2, "height": 0.5, "health": 20, "speed": 1.0, "category": "misc", "persistent": true,
+		"ai": {"preset": "none"},
+		"vehicle": {"seats": 2, "speed": 6.0, "turn_speed": 10.0, "floats": true, "seat_height": 0.4}})
+	_check(boat_type > 0, "a mod registers something to sit on")
+
+	var p := ServerPlayer.new(server, 110, "Sailor")
+	p.player_id = "sailor"
+	var y: int = server.surface_height(8, 8)
+	p.state.position = Vector3(8.5, y + 1, 8.5)
+	server.players[110] = p
+	var raft = api.spawn_entity("raft", Vector3(9.0, y + 1, 8.5), {})
+	_check(raft != null, "and puts one in the world")
+
+	_check(api.mount(p, raft), "a player gets on")
+	_check(p.riding == raft.id and api.riders_of(raft) == ["sailor"], "and is aboard (%s)" % str(api.riders_of(raft)))
+	_check(p.state.position.distance_to(raft.body.position) < 1.0, "sitting where the raft is")
+	_check(bool(raft.data.get("no_despawn", false)), "and the raft will not vanish under them")
+
+	# Too far away, and already riding, are both refused.
+	var other := ServerPlayer.new(server, 111, "Bystander")
+	other.player_id = "bystander"
+	other.state.position = Vector3(80, y + 1, 80)
+	server.players[111] = other
+	_check(not api.mount(other, raft), "somebody across the map cannot get on")
+	_check(not api.mount(p, raft), "and nobody gets on twice")
+
+	# Steering: throttle forward, and the raft turns towards where the rider looks.
+	var before: Vector3 = raft.body.position
+	p.yaw = 0.0
+	var input = PlayerPhysics.PlayerInput.new()
+	input.seq = 1
+	input.move = Vector2(0.0, 1.0)
+	input.yaw = 0.0
+	p.input_queue.append(input)
+	server.vehicles.simulate(p)
+	_check(raft.body.velocity.length() > 1.0, "throttle moves it (%s)" % raft.body.velocity.length())
+	_check(p.input_queue.is_empty() and p.last_processed_seq == 1, "and the rider's inputs are drained, not stalled")
+	# The rider is carried rather than walking: the server never stepped their physics.
+	raft.body.position = before + Vector3(0, 0, -3)
+	server.vehicles.simulate(p)
+	_check(p.state.position.distance_to(raft.body.position) < 1.0, "the rider goes where the raft went")
+
+	# Sneak gets off.
+	var dismount_input = PlayerPhysics.PlayerInput.new()
+	dismount_input.seq = 2
+	dismount_input.sneak = true
+	p.input_queue.append(dismount_input)
+	server.vehicles.simulate(p)
+	_check(p.riding == 0 and api.riders_of(raft).is_empty(), "sneak gets off")
+	_check(p.state.position.distance_to(raft.body.position) > 0.5, "and puts them beside it, not inside it")
+
+	# A vehicle that is removed does not leave a rider attached to nothing.
+	api.mount(p, raft)
+	_check(p.riding == raft.id, "back aboard")
+	raft.remove()
+	_check(p.riding == 0, "a raft that is taken away puts its riders down")
 	server.queue_free()
 	await get_tree().process_frame
 

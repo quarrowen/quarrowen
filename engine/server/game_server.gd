@@ -44,6 +44,7 @@ const Objectives = preload("res://engine/server/objectives.gd")
 const Conditions = preload("res://engine/server/conditions.gd")
 const Fields = preload("res://engine/server/fields.gd")
 const Companions = preload("res://engine/server/companions.gd")
+const Vehicles = preload("res://engine/server/vehicles.gd")
 const Characters = preload("res://engine/server/characters.gd")
 const Shops = preload("res://engine/server/shops.gd")
 const Companies = preload("res://engine/server/companies.gd")
@@ -318,6 +319,8 @@ var conditions := Conditions.new(self)
 var fields := Fields.new(self)
 ## What a tamed creature is being told to do (see engine/server/companions.gd).
 var companions := Companions.new(self)
+## Things you can sit on and steer (see engine/server/vehicles.gd).
+var vehicles := Vehicles.new(self)
 ## Groups of players that things can belong to (see engine/server/companies.gd).
 var companies := Companies.new(self)
 ## Ground with an owner, consulted before an edit (see engine/server/plots.gd).
@@ -1223,6 +1226,40 @@ func _player_id_for(player_name: String) -> String:
 	return str(_meta.names.get(player_name.to_lower(), ""))
 
 
+## Tells a client whether it is riding, and on what. The client stops predicting its own movement while
+## it is, which is the whole reason this crosses the wire at all.
+func tell_riding(p: ServerPlayer) -> void:
+	if p == null or not players.has(p.peer_id):
+		return
+	var entity = entities.entities.get(p.riding) if p.riding > 0 else null
+	if entity == null:
+		Net.s_riding.rpc_id(p.peer_id, {})
+		return
+	var c := Vehicles.config(entity.def)
+	Net.s_riding.rpc_id(p.peer_id, {"entity": int(entity.id), "seat_height": float(c.get("seat_height", 0.4)),
+		"driver": Vehicles.riders_of(entity).find(String(p.player_id)) == 0})
+
+
+func on_ride(peer_id: int, entity_id: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null:
+		return
+	if p.riding > 0:
+		vehicles.dismount(p)
+		return
+	var entity = entities.entities.get(entity_id)
+	if entity != null:
+		vehicles.mount(p, entity)
+
+
+## The online player with this id, or null. Two loops already did this by hand.
+func player_by_id(player_id: String):
+	for p: ServerPlayer in players.values():
+		if p.player_id == player_id:
+			return p
+	return null
+
+
 func _name_for(player_id: String) -> String:
 	for p: ServerPlayer in players.values():
 		if p.player_id == player_id:
@@ -1927,6 +1964,12 @@ func _simulate_player(p: ServerPlayer) -> void:
 		if not p.input_queue.is_empty():
 			p.last_processed_seq = p.input_queue.back().seq
 			p.input_queue.clear()
+		return
+	# Riding is the third of these: the rider's position comes from the vehicle and their input is
+	# steering, so they do not walk. Beside dead and sleeping on purpose - a player who is not moving
+	# themselves is a shape this function already knew. (2026-09-20)
+	if p.riding > 0:
+		vehicles.simulate(p)
 		return
 	# Normally one input per tick; consume two when the client is ahead to drain jitter backlog.
 	if not p.sleeping.is_empty():
@@ -2737,6 +2780,8 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	characters.player_left(peer_id)
 	shops.player_left(peer_id)
 	companions.player_left(peer_id)
+	if p.riding > 0:
+		vehicles.dismount(p)  # a rider who logs off leaves the boat where it is, rather than inside it
 	conditions.before_save(p)  # how long is *left*, since server time restarts with the server
 	conditions.forget(p)
 	_store_player(p)
@@ -3779,7 +3824,13 @@ func on_interact_entity(peer_id: int, target_id: int) -> void:
 	if p.get_eye_position().distance_to(e.aabb().get_center()) > ATTACK_REACH + e.def.width:
 		return
 	var ev := emit("entity_interact", {"player": p, "entity": e, "item": p.inventory.selected_item(), "cancelled": false})
-	if not ev.cancelled and not entities.taming.interact(p, e):
+	if ev.cancelled:
+		return
+	# Getting on comes before taming and feeding: a horse you have already tamed should carry you when
+	# you click it, not sit down.
+	if vehicles.is_vehicle(e) and vehicles.mount(p, e):
+		return
+	if not entities.taming.interact(p, e):
 		entities.breeding.feed(p, e)
 
 

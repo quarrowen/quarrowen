@@ -1070,6 +1070,23 @@ func s_sleep(state: Dictionary) -> void:
 		client.on_sleep(state)
 
 
+## What this player is riding: {entity, seat_height, driver} or {} when they get off. The client stops
+## predicting its own movement while this is set and follows the vehicle instead - without it the
+## client walks where it thinks it should be and the server puts it back, which is rubber-banding.
+@rpc("authority", "call_remote", "reliable")
+func s_riding(state: Dictionary) -> void:
+	if client:
+		client.on_riding(state)
+
+
+## Asks to get on or off whatever is being looked at. Getting off is also sneak while riding; this is
+## for a button that says so.
+@rpc("any_peer", "call_remote", "reliable")
+func c_ride(entity_id: int) -> void:
+	if server:
+		server.on_ride(multiplayer.get_remote_sender_id(), entity_id)
+
+
 ## A player started eating an item (0 = stopped or finished), for the eating animation.
 @rpc("authority", "call_remote", "reliable")
 func s_player_eating(peer_id: int, item: int) -> void:
