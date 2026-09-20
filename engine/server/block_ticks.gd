@@ -7,7 +7,8 @@ extends RefCounted
 ## Scheduled ticks: `schedule(pos, seconds, payload)` calls the block's handler once at that time (also
 ## after unloads and restarts, since they are saved with the chunk).
 ## Handler: Callable(ctx) with ctx = {position, block, state, ticks, reason: "random" | "scheduled",
-## payload, elapsed}.
+## payload, elapsed, realm}. **`realm` matters**: a position alone does not say which world it is in,
+## and a handler that assumes the overworld works until the day there is a second one. (2026-09-20)
 ##
 ## **Chunks that are not being run keep time rather than losing it.** A chunk goes to sleep when it is
 ## unloaded, and now also when the last player walks out of simulation range of it; the clock carries
@@ -264,7 +265,7 @@ func _call(pos: Vector3i, ticks: int, reason: String, payload: Dictionary, elaps
 		return
 	var t := Time.get_ticks_usec()
 	h.handler.call({"position": pos, "block": block, "state": realm.block_state(pos), "ticks": ticks,
-		"reason": reason, "payload": payload, "elapsed": elapsed})
+		"reason": reason, "payload": payload, "elapsed": elapsed, "realm": realm.id})
 	var spent := Time.get_ticks_usec() - t
 	server.dev_tools.record(h.owner, "block_tick:" + server.registry.defs[block].name, spent)
 	var coord := VoxelWorld.chunk_coord_at(pos.x, pos.z)

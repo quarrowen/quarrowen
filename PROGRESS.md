@@ -929,6 +929,36 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## The realm limits, cleared (2026-09-20)
+
+Three "KNOWN LIMIT" notes were outstanding. Two were correctness and are fixed; the third is cosmetic
+and is argued about below.
+
+**The root cause was bigger than the notes said.** `register_block_tick` registered on
+`_server.block_ticks` - the overworld's - so **every mod's block ticks were overworld-only**, not just
+spawners. Signals and liquids had the same shape by a different route: they looped
+`_server.realms.values()` at registration time, which is correct for the realms that exist *then* and
+silently wrong for any a mod adds afterwards.
+
+The fix is that **what a block type does belongs to the server, not to a realm**. `block_tick_handlers`,
+`signal_handlers`, `liquid_kinds` and `liquid_meetings` live on the server and every realm's machinery
+reads the same table. A realm created at any point gets all of them. Tested by asserting a newly added
+realm shares the tables and knows water is a liquid.
+
+**And a block tick now carries its realm.** It never did, so a handler could not tell which world it
+was in even if it wanted to - which made the liquid step I wrote yesterday quietly overworld-only, a
+bug that had not surfaced because nothing else makes realms yet. `ctx.realm` is in the context now,
+spawners use it, and the mod API says to.
+
+**The whole world section of the mod API takes an optional `realm_id`** - get_block, set_block, block
+data, find_block_data, break_block, fill, surface_y, sees_sky and raycast. Default is the world a
+server starts with, so nothing that exists had to change.
+
+**Still not fixed, deliberately: liquid rendering.** Every level draws at full height because shapes
+are per block id and not per state. Fixing it means changing the mesher *and* its Rust twin, which
+must agree exactly, for a cosmetic gain. It is the next thing worth doing if fluids should look right
+as well as behave right, and it is a bigger piece than it appears.
+
 ## Liquids that go somewhere, capability 6 (2026-09-19)
 
 `engine/server/liquids.gd`, one per realm. Water spreads seven blocks and falls; lava creeps three and

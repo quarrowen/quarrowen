@@ -4548,6 +4548,23 @@ func _realms() -> void:
 
 	server.players.erase(93)
 
+	# What a block *type* does is true in every world. Registering per realm looked equivalent and was
+	# not: a realm a mod adds later would have had no handlers at all, and nothing would have said so.
+	_check(deep.block_ticks.handlers == server.realm.block_ticks.handlers,
+		"a realm added later shares the block tick handlers mods registered")
+	_check(deep.signals.handlers == server.realm.signals.handlers, "and the signal handlers")
+	_check(deep.liquids.kinds == server.realm.liquids.kinds, "and knows which blocks are liquids")
+	_check(deep.liquids.is_liquid(server.registry.id_of("base:water")), "so water flows in the new world too")
+
+	# And a tick fired in one world acts on that world, because the context says which.
+	var seen := []
+	var probe: int = server.registry.id_of("base:sapling")
+	deep.block_ticks.register(probe, func(ctx): seen.append(str(ctx.realm)), {}, "test")
+	server._ensure_chunk(Vector2i.ZERO, deep)
+	deep.world.set_block(3, 40, 3, probe)
+	deep.block_ticks._call(Vector3i(3, 40, 3), 1, "scheduled", {})
+	_check(seen == ["test:deep"], "a block tick knows which world it is in (%s)" % str(seen))
+
 	# A realm nobody is in is asleep, however many are occupied.
 	server._refresh_simulation()
 	_check(not deep.is_awake() and not server.realm.is_awake(), "both start asleep")

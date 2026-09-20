@@ -13,19 +13,16 @@ func _init(game_server) -> void:
 	_server = game_server
 
 
-## Hooks every spawner block up to block ticks (after all mods registered their blocks).
+## Hooks every spawner block up to block ticks (after all mods registered their blocks). One shared
+## handler table, so a realm added later gets them too.
 func setup() -> void:
 	for i in _server.registry.defs.size():
 		if bool(_server.registry.defs[i].get("spawner", false)):
-			_server.block_ticks.register(i, _tick, {"interval": 6.0, "catch_up": false})
+			_server.realm.block_ticks.register(i, _tick, {"interval": 6.0, "catch_up": false})
 
 
-## KNOWN LIMIT: overworld only. Spawner blocks are found and ticked through the server's default
-## realm, so a spawner placed in another world does nothing. It needs the same treatment as block
-## ticks - registered per realm rather than per server - and is left until a mod can actually make a
-## second realm. (2026-09-19)
-func settings(pos: Vector3i) -> Dictionary:
-	var data: Dictionary = _server.get_block_data(pos)
+func settings(pos: Vector3i, into = null) -> Dictionary:
+	var data: Dictionary = _server.get_block_data(pos, into)
 	var s: Dictionary = DEFAULTS.duplicate(true)
 	if data.get("spawner") is Dictionary:
 		s.merge(data.spawner, true)
@@ -40,19 +37,22 @@ func settings(pos: Vector3i) -> Dictionary:
 
 func _tick(ctx: Dictionary) -> void:
 	var pos: Vector3i = ctx.position
-	var s := settings(pos)
-	var type_id: int = _server.entities.registry.id_of(str(s.entity))
+	# The world the tick came from, not the one the server starts with: a spawner in the Emberdeep
+	# should fill the Emberdeep. (2026-09-20)
+	var into = _server.realms.get(String(ctx.get("realm", "")), _server.realm)
+	var s := settings(pos, into)
+	var type_id: int = into.entities.registry.id_of(str(s.entity))
 	if type_id < 0:
 		return
 	var center := Vector3(pos) + Vector3(0.5, 0.5, 0.5)
 	var near := false
 	for p in _server.players.values():
-		if not p.dead and p.state.position.distance_to(center) <= float(s.player_range):
+		if not p.dead and _server.realm_of(p) == into and p.state.position.distance_to(center) <= float(s.player_range):
 			near = true
-	if not near or _server.entities.in_radius(center, 8.0, type_id).size() >= int(s.max_nearby):
+	if not near or into.entities.in_radius(center, 8.0, type_id).size() >= int(s.max_nearby):
 		return
 	var solid: PackedByteArray = _server.registry.solid_lut
-	var world = _server.world
+	var world = into.world
 	var count: Array = s.count if s.count is Array and s.count.size() == 2 else [1, 3]
 	var spawned := 0
 	for attempt in 12:
@@ -62,9 +62,9 @@ func _tick(ctx: Dictionary) -> void:
 		var spot := pos + Vector3i(randi_range(-r, r), randi_range(-1, 1), randi_range(-r, r))
 		if solid[world.get_block_v(spot)] == 1 or solid[world.get_block_v(spot + Vector3i.UP)] == 1 or solid[world.get_block_v(spot + Vector3i.DOWN)] == 0:
 			continue
-		if _server.block_ticks.light_at(spot, 0.0) > int(s.max_light):
+		if into.block_ticks.light_at(spot, 0.0) > int(s.max_light):
 			continue
-		var e = _server.entities.spawn(type_id, Vector3(spot) + Vector3(0.5, 0.0, 0.5))
+		var e = into.entities.spawn(type_id, Vector3(spot) + Vector3(0.5, 0.0, 0.5))
 		if e != null:
 			spawned += 1
 			_server.play_effect("engine:smoke", Vector3(spot) + Vector3(0.5, 0.5, 0.5), {"scale": 0.6})

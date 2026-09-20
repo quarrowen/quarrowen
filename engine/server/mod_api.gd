@@ -452,8 +452,9 @@ func play_effect(effect_name: String, position: Vector3, options := {}) -> void:
 
 
 ## Makes blocks of a type change over time. `handler(ctx)` gets {position, block, state, ticks, reason,
-## payload, elapsed}: "random" ticks come about every options.interval seconds (default 30) per block,
-## and "scheduled" ticks come from schedule_block_tick.
+## payload, elapsed, realm}: "random" ticks come about every options.interval seconds (default 30) per
+## block, and "scheduled" ticks come from schedule_block_tick. **Use ctx.realm** when reading or
+## writing blocks: a position does not say which world it is in.
 ##
 ## Blocks only tick while somebody is near enough for the server to be running that part of the world.
 ## A block that was asleep - because its chunk was unloaded, or because everybody walked away - is
@@ -492,8 +493,8 @@ func get_world_clock() -> float:
 
 ## Breaks a block as if mined without a player: drops its items (when `drop`) and plays its sound.
 ## Fires block_destroyed {position, block, drops} (drops may be changed).
-func break_block(position: Vector3i, drop := true) -> void:
-	_server.break_block(position, drop)
+func break_block(position: Vector3i, drop := true, realm_id := "") -> void:
+	_server.break_block(position, drop, _realm_or_default(realm_id))
 
 
 ## Plays a sound at a world position for everyone in range.
@@ -918,11 +919,9 @@ func block_display_name(id: int) -> String:
 
 # --- World --------------------------------------------------------------------------------------
 #
-# KNOWN LIMIT while dimensions are being built: every function in this section acts on the
-# **overworld**. A position on its own no longer says which world it is in, and none of these take one,
-# so a mod cannot yet address a second realm - nor can it make one, which is why this is a limit rather
-# than a bug today. When realms reach the mod API these gain a way to say where, most likely by the
-# event that supplied the position carrying its realm. (2026-09-19)
+# A position on its own does not say which world it is in, so everything here takes an optional
+# `realm_id` and defaults to the world a server starts with. The event that gave you the position
+# usually carries its realm: block ticks, signals and flows all put it in the context. (2026-09-20)
 
 ## Makes a block a liquid that goes somewhere: spreads, falls, and dries up when nothing feeds it.
 ##
@@ -940,8 +939,7 @@ func register_liquid(block_name: String, def := {}) -> void:
 		return
 	var settings := def.duplicate()
 	settings.name = _qualify_ref(block_name)
-	for r in _server.realms.values():
-		r.liquids.register(id, settings)
+	_server.realm.liquids.register(id, settings)
 	# The liquid thinks again on a scheduled tick; catch_up is off because a flow that has been asleep
 	# should work out where it is now rather than replay where it was going.
 	# random: false - a liquid is driven entirely by scheduling, and indexing something as common as
@@ -965,8 +963,7 @@ func register_liquid_meeting(a_name: String, b_name: String, result_name: String
 	if a <= 0 or b <= 0 or result <= 0:
 		push_error("[%s] register_liquid_meeting: unknown block in %s + %s -> %s" % [mod_id, a_name, b_name, result_name])
 		return
-	for r in _server.realms.values():
-		r.liquids.register_meeting(a, b, result)
+	_server.realm.liquids.register_meeting(a, b, result)
 
 
 ## Keeps the world around a position awake when nobody is standing there, so a machine goes on running
@@ -1179,8 +1176,7 @@ func register_signal(block_name: String, handler: Callable) -> void:
 	if id <= 0:
 		push_error("[%s] register_signal: unknown block '%s'" % [mod_id, block_name])
 		return
-	for r in _server.realms.values():
-		r.signals.register(id, handler, mod_id)
+	_server.realm.signals.register(id, handler, mod_id)  # one shared table; every realm reads it
 
 
 ## Makes the block at `position` emit `level` (0 to 15; 0 stops it). For a lever being flipped, a plate
@@ -1601,11 +1597,13 @@ func register_feature(feature_name: String, def, realm_id := "") -> void:
 ##
 ##   var look := api.look_direction(player)
 ##   var hit := api.raycast(player.get_eye_position(), look, 6.0, {"liquids": true})
+## options.realm names the world to cast in; without it, the one a server starts with.
 func raycast(origin: Vector3, direction: Vector3, max_distance := 5.0, options := {}) -> Dictionary:
 	var lut: PackedByteArray = _server.registry.targetable_lut
 	if bool(options.get("liquids", false)):
 		lut = _server.raycast_lut_with_liquids()
-	return VoxelRaycast.cast(_server.world, lut, origin, direction, clampf(max_distance, 0.0, 256.0))
+	return VoxelRaycast.cast(_realm_or_default(String(options.get("realm", ""))).world, lut, origin, direction,
+		clampf(max_distance, 0.0, 256.0))
 
 
 ## Where a player is looking, as a unit vector. The same direction the engine uses for their reach.
@@ -1672,13 +1670,13 @@ func set_physics(values: Dictionary) -> void:
 
 
 ## Loads the chunk if needed. Use get_loaded_block when scanning large areas.
-func get_block(pos: Vector3i) -> int:
-	return _server.get_block_loaded(pos)
+func get_block(pos: Vector3i, realm_id := "") -> int:
+	return _server.get_block_loaded(pos, _realm_or_default(realm_id))
 
 
 ## Block id without loading anything; BlockRegistry.UNLOADED (255) if the chunk is not in memory.
-func get_loaded_block(pos: Vector3i) -> int:
-	return _server.world.get_block_v(pos)
+func get_loaded_block(pos: Vector3i, realm_id := "") -> int:
+	return _realm_or_default(realm_id).world.get_block_v(pos)
 
 
 ## Whether a block id collides (unloaded space counts as solid).
@@ -1703,13 +1701,13 @@ func get_drops(block: int) -> Array:
 
 ## Sets a block authoritatively (loading its chunk if needed) and replicates it to players. Block
 ## data at the position is cleared when the block type changes unless `keep_data` is true.
-func set_block(pos: Vector3i, id: int, keep_data := false, state := 0) -> void:
-	_server.set_block_authoritative(pos, id, keep_data, state)
+func set_block(pos: Vector3i, id: int, keep_data := false, state := 0, realm_id := "") -> void:
+	_server.set_block_authoritative(pos, id, keep_data, state, _realm_or_default(realm_id))
 
 
 ## Per-block state byte (e.g. facing 0-3 for "orientation": "horizontal" blocks).
-func get_block_state(pos: Vector3i) -> int:
-	return _server.get_block_state(pos)
+func get_block_state(pos: Vector3i, realm_id := "") -> int:
+	return _server.get_block_state(pos, _realm_or_default(realm_id))
 
 
 ## Facing (0-3) an oriented block gets when placed by someone looking along `yaw`.
@@ -1729,23 +1727,23 @@ func show_crafting(player) -> void:
 
 ## Block data ("block entities"): a Dictionary of JSON-compatible values stored with the world and
 ## removed automatically when the block is broken or replaced.
-func get_block_data(pos: Vector3i) -> Dictionary:
-	return _server.get_block_data(pos)
+func get_block_data(pos: Vector3i, realm_id := "") -> Dictionary:
+	return _server.get_block_data(pos, _realm_or_default(realm_id))
 
 
 ## Replaces the data dictionary stored with the block at a position (saved with the world).
-func set_block_data(pos: Vector3i, data: Dictionary) -> void:
-	_server.set_block_data(pos, data)
+func set_block_data(pos: Vector3i, data: Dictionary, realm_id := "") -> void:
+	_server.set_block_data(pos, data, _realm_or_default(realm_id))
 
 
 ## Removes the data stored with the block at a position.
-func clear_block_data(pos: Vector3i) -> void:
-	_server.clear_block_data(pos)
+func clear_block_data(pos: Vector3i, realm_id := "") -> void:
+	_server.clear_block_data(pos, _realm_or_default(realm_id))
 
 
 ## Loaded positions that carry block data, optionally filtered to one block id.
-func find_block_data(block := -1) -> Array[Vector3i]:
-	return _server.find_block_data(block)
+func find_block_data(block := -1, realm_id := "") -> Array[Vector3i]:
+	return _server.find_block_data(block, _realm_or_default(realm_id))
 
 
 ## time_of_day: 0 = midnight, 0.25 = sunrise, 0.5 = noon. day_length in seconds (0 freezes time).
@@ -1764,25 +1762,25 @@ func get_daylight() -> float:
 
 
 ## True if nothing opaque or solid is above the block (it can see the sky).
-func sees_sky(pos: Vector3i) -> bool:
+func sees_sky(pos: Vector3i, realm_id := "") -> bool:
 	for y in range(pos.y + 1, Chunk.SIZE_Y):
-		var id := get_block(Vector3i(pos.x, y, pos.z))
+		var id := get_block(Vector3i(pos.x, y, pos.z), realm_id)
 		if _server.registry.opaque_lut[id] == 1 or _server.registry.solid_lut[id] == 1:
 			return false
 	return true
 
 
 ## Sets every block in the box between two corners (inclusive) to a block id.
-func fill(from: Vector3i, to: Vector3i, id: int) -> void:
+func fill(from: Vector3i, to: Vector3i, id: int, realm_id := "") -> void:
 	for x in range(mini(from.x, to.x), maxi(from.x, to.x) + 1):
 		for y in range(mini(from.y, to.y), maxi(from.y, to.y) + 1):
 			for z in range(mini(from.z, to.z), maxi(from.z, to.z) + 1):
-				_server.set_block_authoritative(Vector3i(x, y, z), id)
+				_server.set_block_authoritative(Vector3i(x, y, z), id, false, 0, _realm_or_default(realm_id))
 
 
 ## Y of the highest non-air block in the column, or -1.
-func surface_y(x: int, z: int) -> int:
-	return _server.surface_height(x, z)
+func surface_y(x: int, z: int, realm_id := "") -> int:
+	return _server.surface_height(x, z, _realm_or_default(realm_id))
 
 
 # --- Players ------------------------------------------------------------------------------------

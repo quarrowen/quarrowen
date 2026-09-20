@@ -89,6 +89,12 @@ func attach() -> void:
 	block_ticks = BlockTicks.new(_server, self)
 	signals = Signals.new(_server, self)
 	liquids = Liquids.new(_server, self)
+	# Shared with every other realm: what a block type *does* is true everywhere, and only where each
+	# block happens to be differs. A realm added after a mod registered would otherwise be inert.
+	block_ticks.handlers = _server.block_tick_handlers
+	signals.handlers = _server.signal_handlers
+	liquids.kinds = _server.liquid_kinds
+	liquids.meetings = _server.liquid_meetings
 
 
 ## Whether anything in this realm should be run this tick. A claim on a chunk (keeping a machine going

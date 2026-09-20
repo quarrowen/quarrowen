@@ -266,6 +266,13 @@ var recipes := RecipeRegistry.new()
 ## Named groups of blocks and items (see engine/shared/tag_registry.gd). Server-side: a tag is a
 ## question a mod asks while the world runs, not something a client has to know.
 var tags := TagRegistry.new()
+## What a block *type* does is true of every world, so these tables belong to the server and every
+## realm's machinery reads the same one. Registering per realm looked equivalent and was not: a realm
+## a mod adds later would have had no handlers at all, silently. (2026-09-20)
+var block_tick_handlers := {}
+var signal_handlers := {}
+var liquid_kinds := {}
+var liquid_meetings := {}
 ## What is joined to what (see engine/server/links.gd). Server-wide, not per realm: a wireless link may
 ## have one end in one world and the other somewhere else, so it belongs to neither.
 var links := Links.new(self)
