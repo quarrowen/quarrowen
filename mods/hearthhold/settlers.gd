@@ -30,7 +30,20 @@ func setup(mod_api, dwellings_ref) -> void:
 		"taming": {"items": [], "chance": 0.0, "follow_distance": FOLLOW_DISTANCE, "teleport_distance": TELEPORT_DISTANCE},
 		"ai": {"preset": "passive", "wander_radius": 4, "flee_from": [], "sight_range": 12},
 	})
+	# Three lines, never more. Which one she opens on is decided below, because where she is in her own
+	# small story is a fact about Hearthhold and not something the engine should learn.
+	api.register_character("bramble", {"display_name": "Bramble", "color": "#ffd166", "lines": {
+		"stranger": {"text": "Oh - somebody. I saw your fire from the ridge and I have been walking since.",
+			"options": [{"text": "Come with me", "does": "recruit"},
+				{"text": "What can you do?", "goes_to": "able"}]},
+		"able": {"text": "I can cook, if there is anything to cook on. Is there a roof where you came from?",
+			"options": [{"text": "Come with me", "does": "recruit"}]},
+		"following": {"text": "Still with you. Somewhere to sleep and I will stop following you about.",
+			"options": [{"text": "What sort of somewhere?", "goes_to": "roof"}]},
+		"roof": {"text": "A roof, a bed, a door and a light. I am building it."},
+		"home": {"text": "This will do nicely. Come in when the pot is on."}}})
 	api.on("entity_interact", _on_talk)
+	api.on("character_choice", _on_choice)
 	api.on("entity_damage", _protect)
 	api.every(2.0, _settle_in)
 
@@ -41,35 +54,24 @@ func _protect(ev: Dictionary) -> void:
 		ev.cancelled = true
 
 
-## Three lines, never more. What she says depends only on where she is in her own small story, so a child
-## always gets an answer that makes sense from wherever they pick her up.
+## Where she is in her own small story decides which line she opens on, so a child always gets an answer
+## that makes sense from wherever they pick her up. The conversation itself is the engine's.
 func _on_talk(ev: Dictionary) -> void:
 	if ev.entity.type != ids.bramble:
 		return
 	ev.cancelled = true
 	var e = ev.entity
-	var player = ev.player
-	if not str(e.data.get("owner", "")).is_empty() and e.data.get("home") == null:
-		_say(player, e, "Still with you. Somewhere to sleep and I will stop following you about.",
-			["A roof, a bed, a door and a light. I am building it."])
-		return
+	var line := "stranger"
 	if e.data.get("home") != null:
-		_say(player, e, "This will do nicely. Come in when the pot is on.", ["Anything you need?"])
-		return
-	_say(player, e, "Oh - somebody. I saw your fire from the ridge and I have been walking since.",
-		["I can cook, if there is anything to cook on. Is there a roof where you came from?"], true)
+		line = "home"
+	elif not str(e.data.get("owner", "")).is_empty():
+		line = "following"
+	api.talk_to(ev.player, "bramble", {"entity": e, "line": line})
 
 
-func _say(player, entity, line: String, extra: Array, offer := false) -> void:
-	var children: Array = [{"type": "label", "text": "Bramble", "size": 20, "color": "#ffd166"},
-		{"type": "label", "text": line}]
-	for more in extra:
-		children.append({"type": "label", "text": str(more)})
-	children.append({"type": "spacer", "size": 6})
-	if offer:
-		children.append({"type": "button", "text": "Come with me", "action": "recruit:%d" % entity.id})
-	children.append({"type": "button", "text": "Close", "action": "close"})
-	player.show_ui("hearthhold:talk", {"anchor": "center", "modal": true, "children": children})
+func _on_choice(ev: Dictionary) -> void:
+	if ev.character == "hearthhold:bramble" and ev.choice == "recruit":
+		recruit(ev.player, int(ev.entity))
 
 
 ## Agreeing to come is the whole of chapter two. She follows from here, and the guide says what to do next.

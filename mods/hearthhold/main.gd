@@ -56,9 +56,6 @@ func setup(mod_api) -> void:
 		_build_the_valley()
 		var at: Array = api.storage.outpost
 		return Vector3(at[0], at[1] + 1, at[2] + 3))
-	api.on("ui_action", func(ev):
-		if ev.ui_id == "hearthhold:talk" and str(ev.action).begins_with("recruit:"):
-			settlers.recruit(ev.player, int(str(ev.action).get_slice(":", 1))))
 	# Chapter two begins when the hearth is lit: the smoke is what somebody sees from the ridge.
 	api.register_command("bramble", "Ask where Bramble was last seen", func(player, _args):
 		player.send_message(settlers.whereabouts(player)))

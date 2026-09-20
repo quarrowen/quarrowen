@@ -2088,3 +2088,39 @@ progression (items that level up with use), upgrades, and engine-provided visual
   errors, scene tree, screenshots, running scenes, input simulation. Headless CLI testing still
   works without it.
 - macOS; Godot at `/Applications/Godot.app/Contents/MacOS/Godot`; Docker via OrbStack.
+
+## The JavaScript API has fallen behind the GDScript one (noticed 2026-09-20)
+
+Every capability built in the last two days - links, flows, parcels, drives, assemblies, item
+modifiers, ledgers, objectives, companies, plots, characters, shops - exists in `mod_api.gd` and in
+nothing else. `js_mod.gd` and `js/quarrowen.d.ts` have no binding for any of them, so a JavaScript mod
+cannot use a single one.
+
+It shows most clearly in `mods/guild/main.js`, which is the demo mod for the JavaScript API: it
+hand-writes a shop (a list of items and prices), hand-writes quests with their own progress counters,
+and hand-writes the panels for both. All three are now capabilities. It is the same argument that made
+characters worth building, one language over.
+
+**Not being fixed piecemeal**, because one binding at a time is how the two APIs drifted apart in the
+first place. The job is a pass over the whole batch at once, plus a test that fails when a
+`register_*` exists in `mod_api.gd` and not in the `.d.ts` - the drift should be caught by the suite
+rather than by somebody noticing a demo mod looks dated.
+
+Rewriting `mods/guild/main.js` on the capabilities is the proof it worked, the way Bramble was for
+characters.
+
+## Villages need no more capabilities (2026-09-20, user: "for villages etc I would expect the
+## characters to just give quests and for lore ideally we have shops in villages for selling and buying")
+
+With characters and shops built, a village has every capability it needs: structures place the
+buildings, facilities and jobs give them a purpose, plots and companies say who owns the ground,
+objectives are the quests, characters hold the conversation and shops do the trade. The two shortcuts
+on a character option (`gives` an objective, `sells` a shop) exist because of this conversation - they
+are what a villager is overwhelmingly for.
+
+What is missing is **content**: somebody to write the villagers, their lines, their trades and the
+layout of a village worth walking into. That is a mod, and a large one.
+
+Hearthhold is the obvious home for the first one, and its phase two is where it belongs. Bramble has
+no shop yet on purpose: Hearthhold has no currency, and inventing one for her would be deciding the
+story game's economy in passing. Barter works today if that turns out to be the answer.

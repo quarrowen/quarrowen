@@ -208,10 +208,21 @@ somebody built by hand.
 Data-driven fights: phases, timed abilities, summons, area effects, telegraphs. The AI presets and
 attacks exist; what is missing is a mod scripting a fight without writing a brain.
 
-### 10. Characters
+### 10. Characters — built
 
-People who stand somewhere, have a name and a face, hold a conversation and offer something. Bramble is
-one, written by hand; this makes her a capability so a mod can have a hundred.
+People who stand somewhere, have a name and a face, hold a conversation and offer something. A character
+is a name, a colour and lines with options; the engine draws every one of them the same way, so a child
+who has learned to talk to one has learned to talk to all. `goes_to` moves along, `does` hands anything
+at all to the mod, and two shortcuts cover what characters are overwhelmingly for: `gives` hands over an
+objective, `sells` opens a shop. Bramble was rewritten on top of it and her hand-built panel is gone.
+
+### 10a. Shops — built
+
+Not on the original list, and needed the moment characters existed: a village stall, a pedlar, a vending
+block. Prices are paid out of a ledger, or in goods, or both, so a game with no money barters; `sells`
+turns an offer round and the player is paid. The half that matters is **stock** - a shop with unlimited
+everything is a creative menu with an extra step - and it refills on the way past, so a village of forty
+stalls is not forty things ticking for nobody.
 
 ### 11. Objectives — built
 
@@ -504,20 +515,19 @@ fluids, multiblocks, driven networks and moving assemblies were built in that or
 after it was written, and item modifiers, objectives, ledgers, plots and companies with them. What
 follows is what is left, in the order that now unlocks the most.
 
-1. **Characters.** The largest remaining capability and the one most asked for: people who stand
-   somewhere, have a name and a face, hold a conversation and offer something. Bramble is written by
-   hand in Hearthhold; this makes her a capability so a mod can have a hundred. It is also what a
-   **village** needs that nothing else provides - structures, facilities, jobs, trade and ownership all
-   exist now, and the villagers are the gap.
-2. **Applied effects.** The depth pass on potions, finishing what item modifiers began on gear.
-3. **Ore content.** Not a capability at all - `add_ore_pass` and `register_material` are waiting - but
+**Characters and shops went first** and are done, which leaves a **village** with no missing capability
+at all: structures, facilities, jobs, ownership, conversation and trade all exist. What a village needs
+now is content - somebody to write the villagers.
+
+1. **Applied effects.** The depth pass on potions, finishing what item modifiers began on gear.
+2. **Ore content.** Not a capability at all - `add_ore_pass` and `register_material` are waiting - but
    the single biggest gap between the survival game and what a child expects. See "what is in the
    ground" above.
-4. **Creature abilities.** Data-driven fights, so a mod can script a boss without writing a brain.
-5. **Companions**, then **vehicles**. Both want characters behind them.
-6. **The small three**: area tools, text in the world, inventories inside things. Independent, and each
+3. **Creature abilities.** Data-driven fights, so a mod can script a boss without writing a brain.
+4. **Companions**, then **vehicles**. Both now have characters behind them.
+5. **The small three**: area tools, text in the world, inventories inside things. Independent, and each
    one an afternoon.
-7. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.
+6. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.
 
 ## Where the built things stop
 
