@@ -966,6 +966,103 @@ func stop_effect(handle: int) -> bool:
 	return _server.stop_effect(handle)
 
 
+## Something a player has been asked to do: a story, a daily errand, a contract, a delivery.
+##
+##     api.register_objective("deliver_the_post", {"display_name": "The Post",
+##         "steps": [{"text": "Take the letter to Bramble"}, {"text": "Bring her answer back"}]})
+##
+## **Not a tutorial and not a milestone**, both of which exist already. A tutorial teaches, starts
+## itself and is the same for everybody; a milestone notices something that already happened. An
+## objective is given, can be refused, runs alongside others, has steps in an order, and can be
+## abandoned.
+##
+## **The engine never decides whether a step is done.** It counts, remembers and tells you; you watch
+## whatever event means "they did it" and call advance_objective. Otherwise the engine would have to
+## learn what delivering a letter is.
+func register_objective(objective_name: String, def: Dictionary) -> bool:
+	return _server.objectives.register(_qualify(objective_name), def, mod_id)
+
+
+## Gives one to a player. False if they have it, have finished one that does not repeat, or are
+## carrying as many as they may.
+func give_objective(player, objective_name: String) -> bool:
+	return _server.objectives.give(player, _qualify_ref(objective_name))
+
+
+## Counts towards the step they are on; finishing the last step fires `objective_done`, which is where
+## a reward belongs - the engine has no idea what a reward would be.
+func advance_objective(player, objective_name: String, amount := 1) -> bool:
+	return _server.objectives.advance(player, _qualify_ref(objective_name), amount)
+
+
+func abandon_objective(player, objective_name: String) -> bool:
+	return _server.objectives.abandon(player, _qualify_ref(objective_name))
+
+
+## What they are doing now: [{name, display_name, step, of, text, progress, needed}].
+func objectives_of(player) -> Array:
+	return _server.objectives.active_for(player)
+
+
+func has_objective(player, objective_name: String) -> bool:
+	return _server.objectives.has(player, _qualify_ref(objective_name))
+
+
+## How many times they have finished it.
+func objective_finished(player, objective_name: String) -> int:
+	return _server.objectives.finished(player, _qualify_ref(objective_name))
+
+
+## A named number a player owns: coins, reputation, contribution, experience, a guild's standing.
+##
+##     api.register_ledger("coins", {"display_name": "Coins", "min": 0})
+##     api.register_ledger("delving", {"display_name": "Delving", "levels": [0, 50, 150, 400]})
+##
+## **Balances and experience are one thing here, not two.** They are the same storage asked a
+## different question - a balance is a number you care about the value of, experience is one you care
+## about the level of - so a ledger given thresholds answers about levels as well.
+##
+## The engine stores a number against a player and a name and never learns that one of them is money.
+## What a level unlocks, whether anything unlocks at all, whether coins may go negative: all yours.
+func register_ledger(ledger_name: String, def := {}) -> bool:
+	return _server.ledgers.register(_qualify(ledger_name), def, mod_id)
+
+
+func balance_of(player, ledger_name: String) -> float:
+	return _server.ledgers.value_of(player, _qualify_ref(ledger_name))
+
+
+## Adds (or, with a negative amount, takes away). Returns what it ended up as, which is not always what
+## was asked for when the ledger has a floor or a ceiling.
+func add_balance(player, ledger_name: String, amount: float) -> float:
+	return _server.ledgers.add(player, _qualify_ref(ledger_name), amount)
+
+
+func set_balance(player, ledger_name: String, value: float) -> float:
+	return _server.ledgers.set_value(player, _qualify_ref(ledger_name), value)
+
+
+## Takes `amount` only if there is that much. Written as one call on purpose: a shop that checks and
+## then subtracts has a gap between the two, and this does not.
+func spend_balance(player, ledger_name: String, amount: float) -> bool:
+	return _server.ledgers.spend(player, _qualify_ref(ledger_name), amount)
+
+
+## What level they are at (0 when the ledger has no thresholds).
+func level_of(player, ledger_name: String) -> int:
+	return _server.ledgers.level_of(player, _qualify_ref(ledger_name))
+
+
+## {level, value, into (0-1 through this level), needed, next} - for a bar on the screen.
+func level_progress(player, ledger_name: String) -> Dictionary:
+	return _server.ledgers.progress_of(player, _qualify_ref(ledger_name))
+
+
+## Everything a player has any of: [{name, display_name, value, level}].
+func balances_of(player) -> Array:
+	return _server.ledgers.all_of(player)
+
+
 ## A named mark that can be put on a particular item and changes what it does - an enchantment, in
 ## your own words.
 ##

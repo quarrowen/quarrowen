@@ -84,6 +84,7 @@ func _ready() -> void:
 	await _assemblies()
 	await _modifiers()
 	await _effects_extra()
+	await _social()
 	await _tags()
 	await _signals()
 	await _realms()
@@ -4106,6 +4107,58 @@ func _flows() -> void:
 	_check(api.received("power", at.call(148)) == 0.0, "cutting the cable leaves the far end with nothing")
 	_check(is_equal_approx(api.received("power", at.call(144)), 25.0),
 		"and the near one now has the lot (%.1f)" % api.received("power", at.call(144)))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Ledgers and objectives: the social half.
+func _social() -> void:
+	var server = _start("social_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	var p := ServerPlayer.new(server, 101, "Trader")
+	p.player_id = "trader"
+	server.players[101] = p
+
+	# A balance and an experience are the same storage asked a different question, so they are one
+	# capability here rather than two.
+	_check(api.register_ledger("coins", {"display_name": "Coins", "min": 0}), "a mod registers a balance")
+	_check(api.register_ledger("delving", {"display_name": "Delving", "levels": [10, 30, 60]}),
+		"and one with levels, which is what experience is")
+
+	api.add_balance(p, "coins", 25.0)
+	_check(api.balance_of(p, "coins") == 25.0, "a balance goes up")
+	_check(api.add_balance(p, "coins", -40.0) == 0.0, "and stops at its floor rather than going negative")
+
+	api.set_balance(p, "coins", 30.0)
+	_check(api.spend_balance(p, "coins", 10.0) and api.balance_of(p, "coins") == 20.0, "spending takes it")
+	_check(not api.spend_balance(p, "coins", 100.0) and api.balance_of(p, "coins") == 20.0,
+		"and spending more than there is takes nothing at all")
+
+	api.add_balance(p, "delving", 35.0)
+	_check(api.level_of(p, "delving") == 2, "thresholds give a level (%d)" % api.level_of(p, "delving"))
+	var bar: Dictionary = api.level_progress(p, "delving")
+	_check(bar.next == 60.0 and is_equal_approx(bar.needed, 25.0), "and how far to the next (%s)" % str(bar))
+	_check(api.balances_of(p).size() == 2, "and a player can be asked for everything they have")
+
+	# Objectives: given, stepped through, finished.
+	var done := []
+	server.add_handler("objective_done", func(ev): done.append(str(ev.objective)), 0, "test")
+	_check(api.register_objective("post", {"display_name": "The Post",
+		"steps": [{"text": "Take the letter"}, {"text": "Bring the answer", "count": 2}]}),
+		"a mod registers something to be done")
+	_check(api.give_objective(p, "post"), "it can be given")
+	_check(not api.give_objective(p, "post"), "and not given twice")
+	_check(api.objectives_of(p)[0].text == "Take the letter", "the player is on the first step")
+
+	api.advance_objective(p, "post")
+	_check(api.objectives_of(p)[0].step == 1, "finishing a step moves on")
+	api.advance_objective(p, "post")
+	_check(done.is_empty(), "a step that needs two is not done after one")
+	api.advance_objective(p, "post")
+	_check(done == ["vanilla:post"], "and the last step finishes the whole thing (%s)" % str(done))
+	_check(api.objective_finished(p, "post") == 1 and not api.has_objective(p, "post"),
+		"which is remembered, and it is no longer being carried")
+	_check(not api.give_objective(p, "post"), "one that does not repeat cannot be given again")
 	server.queue_free()
 	await get_tree().process_frame
 

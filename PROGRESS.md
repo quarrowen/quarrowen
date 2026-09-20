@@ -929,6 +929,32 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## The social half begins: ledgers and objectives (2026-09-20)
+
+**The roadmap listed balances and experience as two capabilities. They are one.** A balance is a
+number you care about the *value* of; experience is a number you care about the *level* of. Same
+storage, different question. So `engine/server/ledgers.gd` is one thing, and a ledger given a table of
+thresholds answers about levels too - coins, reputation, contribution, standing and experience are all
+the same call. Building both would have been building one thing twice, and the merge is written down
+where somebody would otherwise "fix" it.
+
+`spend_balance` is one call rather than a check and a subtraction, deliberately: a shop written as
+"have they got enough? then take it" has a gap between the two questions, and this has none.
+
+**Objectives are genuinely not tutorials and not milestones**, both of which already existed, and it
+is worth saying why so nobody merges these three the way balances and experience deserved to be. A
+tutorial *teaches*: it starts itself, it is about the game rather than the world, everybody gets the
+same one. A milestone *commemorates*: it notices something that already happened. An objective is
+given, can be refused, runs alongside others, has steps in an order, and can be abandoned or fail.
+Bending either of the others into that shape would have spoiled both.
+
+**The engine never decides whether a step is done.** It counts, remembers and announces; the mod
+watches whatever event means "they did it". Otherwise the engine would have to learn what delivering a
+letter is - and `objective_done` is where a reward goes, because the engine has no idea what a reward
+would be.
+
+Both are kept in the player's own saved data, so they travel with the player and needed no new file.
+
 ## Special effects: the four things emitters could not say (2026-09-20)
 
 The user asked for "a good set of capabilities for particle effects, glow effects and other special

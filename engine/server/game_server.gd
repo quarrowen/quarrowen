@@ -39,6 +39,8 @@ const Parcels = preload("res://engine/server/parcels.gd")
 const Drives = preload("res://engine/server/drives.gd")
 const Assemblies = preload("res://engine/server/assemblies.gd")
 const Modifiers = preload("res://engine/server/modifiers.gd")
+const Ledgers = preload("res://engine/server/ledgers.gd")
+const Objectives = preload("res://engine/server/objectives.gd")
 const Claims = preload("res://engine/server/claims.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
@@ -295,6 +297,10 @@ var drives := Drives.new(self)
 var assemblies := Assemblies.new(self)
 ## Named marks on particular items - keen, sturdy (see engine/server/modifiers.gd).
 var modifiers := Modifiers.new(self)
+## Named numbers a player owns - coins, reputation, experience (see engine/server/ledgers.gd).
+var ledgers := Ledgers.new(self)
+## Things a player has been asked to do (see engine/server/objectives.gd).
+var objectives := Objectives.new(self)
 ## Parts of the world kept awake when nobody is there, and the budget that stops one player doing it
 ## to everybody else (see engine/server/claims.gd).
 var claims := Claims.new(self)

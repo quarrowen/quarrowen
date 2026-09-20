@@ -524,6 +524,47 @@ holding something up. look: color, width, seconds, sag (0 is straight, higher ha
 
 its own call rather than an effect with a shape, because an emitter says &quot;from here, outwards&quot; and
 can never say &quot;from here to there&quot;."><div class="sig"><code>api.play_beam(from: Vector3, to: Vector3, look := {}, realm_id := &quot;&quot;) -&gt; void</code></div><p>Draws a line between two places for a moment: a spell going off, an arc of lightning, a beam<br>holding something up. look: color, width, seconds, sag (0 is straight, higher hangs).<br><br>Its own call rather than an effect with a shape, because an emitter says &quot;from here, outwards&quot; and<br>can never say &quot;from here to there&quot;.</p></div>
+<div class="card" id="api-register-objective" data-search="register_objective  something a player has been asked to do: a story, a daily errand, a contract, a delivery.
+
+api.register_objective(&quot;deliver_the_post&quot;, {&quot;display_name&quot;: &quot;the post&quot;,
+&quot;steps&quot;: [{&quot;text&quot;: &quot;take the letter to bramble&quot;}, {&quot;text&quot;: &quot;bring her answer back&quot;}]})
+
+**not a tutorial and not a milestone**, both of which exist already. a tutorial teaches, starts
+itself and is the same for everybody; a milestone notices something that already happened. an
+objective is given, can be refused, runs alongside others, has steps in an order, and can be
+abandoned.
+
+**the engine never decides whether a step is done.** it counts, remembers and tells you; you watch
+whatever event means &quot;they did it&quot; and call advance_objective. otherwise the engine would have to
+learn what delivering a letter is."><div class="sig"><code>api.register_objective(objective_name: String, def: Dictionary) -&gt; bool</code></div><p>Something a player has been asked to do: a story, a daily errand, a contract, a delivery.<br><br>api.register_objective(&quot;deliver_the_post&quot;, {&quot;display_name&quot;: &quot;The Post&quot;,<br>&quot;steps&quot;: [{&quot;text&quot;: &quot;Take the letter to Bramble&quot;}, {&quot;text&quot;: &quot;Bring her answer back&quot;}]})<br><br>**Not a tutorial and not a milestone**, both of which exist already. A tutorial teaches, starts<br>itself and is the same for everybody; a milestone notices something that already happened. An<br>objective is given, can be refused, runs alongside others, has steps in an order, and can be<br>abandoned.<br><br>**The engine never decides whether a step is done.** It counts, remembers and tells you; you watch<br>whatever event means &quot;they did it&quot; and call advance_objective. Otherwise the engine would have to<br>learn what delivering a letter is.</p></div>
+<div class="card" id="api-give-objective" data-search="give_objective  gives one to a player. false if they have it, have finished one that does not repeat, or are
+carrying as many as they may."><div class="sig"><code>api.give_objective(player, objective_name: String) -&gt; bool</code></div><p>Gives one to a player. False if they have it, have finished one that does not repeat, or are<br>carrying as many as they may.</p></div>
+<div class="card" id="api-advance-objective" data-search="advance_objective  counts towards the step they are on; finishing the last step fires `objective_done`, which is where
+a reward belongs - the engine has no idea what a reward would be."><div class="sig"><code>api.advance_objective(player, objective_name: String, amount := 1) -&gt; bool</code></div><p>Counts towards the step they are on; finishing the last step fires `objective_done`, which is where<br>a reward belongs - the engine has no idea what a reward would be.</p></div>
+<div class="card" id="api-abandon-objective" data-search="abandon_objective  "><div class="sig"><code>api.abandon_objective(player, objective_name: String) -&gt; bool</code></div><p class="muted">No description yet.</p></div>
+<div class="card" id="api-objectives-of" data-search="objectives_of  what they are doing now: [{name, display_name, step, of, text, progress, needed}]."><div class="sig"><code>api.objectives_of(player) -&gt; Array</code></div><p>What they are doing now: [{name, display_name, step, of, text, progress, needed}].</p></div>
+<div class="card" id="api-has-objective" data-search="has_objective  "><div class="sig"><code>api.has_objective(player, objective_name: String) -&gt; bool</code></div><p class="muted">No description yet.</p></div>
+<div class="card" id="api-objective-finished" data-search="objective_finished  how many times they have finished it."><div class="sig"><code>api.objective_finished(player, objective_name: String) -&gt; int</code></div><p>How many times they have finished it.</p></div>
+<div class="card" id="api-register-ledger" data-search="register_ledger  a named number a player owns: coins, reputation, contribution, experience, a guild's standing.
+
+api.register_ledger(&quot;coins&quot;, {&quot;display_name&quot;: &quot;coins&quot;, &quot;min&quot;: 0})
+api.register_ledger(&quot;delving&quot;, {&quot;display_name&quot;: &quot;delving&quot;, &quot;levels&quot;: [0, 50, 150, 400]})
+
+**balances and experience are one thing here, not two.** they are the same storage asked a
+different question - a balance is a number you care about the value of, experience is one you care
+about the level of - so a ledger given thresholds answers about levels as well.
+
+the engine stores a number against a player and a name and never learns that one of them is money.
+what a level unlocks, whether anything unlocks at all, whether coins may go negative: all yours."><div class="sig"><code>api.register_ledger(ledger_name: String, def := {}) -&gt; bool</code></div><p>A named number a player owns: coins, reputation, contribution, experience, a guild's standing.<br><br>api.register_ledger(&quot;coins&quot;, {&quot;display_name&quot;: &quot;Coins&quot;, &quot;min&quot;: 0})<br>api.register_ledger(&quot;delving&quot;, {&quot;display_name&quot;: &quot;Delving&quot;, &quot;levels&quot;: [0, 50, 150, 400]})<br><br>**Balances and experience are one thing here, not two.** They are the same storage asked a<br>different question - a balance is a number you care about the value of, experience is one you care<br>about the level of - so a ledger given thresholds answers about levels as well.<br><br>The engine stores a number against a player and a name and never learns that one of them is money.<br>What a level unlocks, whether anything unlocks at all, whether coins may go negative: all yours.</p></div>
+<div class="card" id="api-balance-of" data-search="balance_of  "><div class="sig"><code>api.balance_of(player, ledger_name: String) -&gt; float</code></div><p class="muted">No description yet.</p></div>
+<div class="card" id="api-add-balance" data-search="add_balance  adds (or, with a negative amount, takes away). returns what it ended up as, which is not always what
+was asked for when the ledger has a floor or a ceiling."><div class="sig"><code>api.add_balance(player, ledger_name: String, amount: float) -&gt; float</code></div><p>Adds (or, with a negative amount, takes away). Returns what it ended up as, which is not always what<br>was asked for when the ledger has a floor or a ceiling.</p></div>
+<div class="card" id="api-set-balance" data-search="set_balance  "><div class="sig"><code>api.set_balance(player, ledger_name: String, value: float) -&gt; float</code></div><p class="muted">No description yet.</p></div>
+<div class="card" id="api-spend-balance" data-search="spend_balance  takes `amount` only if there is that much. written as one call on purpose: a shop that checks and
+then subtracts has a gap between the two, and this does not."><div class="sig"><code>api.spend_balance(player, ledger_name: String, amount: float) -&gt; bool</code></div><p>Takes `amount` only if there is that much. Written as one call on purpose: a shop that checks and<br>then subtracts has a gap between the two, and this does not.</p></div>
+<div class="card" id="api-level-of" data-search="level_of  what level they are at (0 when the ledger has no thresholds)."><div class="sig"><code>api.level_of(player, ledger_name: String) -&gt; int</code></div><p>What level they are at (0 when the ledger has no thresholds).</p></div>
+<div class="card" id="api-level-progress" data-search="level_progress  {level, value, into (0-1 through this level), needed, next} - for a bar on the screen."><div class="sig"><code>api.level_progress(player, ledger_name: String) -&gt; Dictionary</code></div><p>{level, value, into (0-1 through this level), needed, next} - for a bar on the screen.</p></div>
+<div class="card" id="api-balances-of" data-search="balances_of  everything a player has any of: [{name, display_name, value, level}]."><div class="sig"><code>api.balances_of(player) -&gt; Array</code></div><p>Everything a player has any of: [{name, display_name, value, level}].</p></div>
 <div class="card" id="api-register-modifier" data-search="register_modifier  a named mark that can be put on a particular item and changes what it does - an enchantment, in
 your own words.
 
