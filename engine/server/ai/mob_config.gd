@@ -18,7 +18,8 @@ extends RefCounted
 ##     "leash": 0,                 return home when further than this (0 = roam); "reset_on_leash" heals
 ##     "step_up": 1, "max_drop": 3, "can_swim": false,
 ##     "attack_interval": 1.0,     minimum seconds between any two attacks (scaled by aggression)
-##     "attacks": [ {...} ],       see ATTACK_DEFAULTS
+##     "attacks": [ {...} ],       see ATTACK_DEFAULTS; "condition" on one applies a condition to
+##                                 whoever it hits: {"condition": "vanilla:poison", "seconds": 8, "chance": 0.5}
 ##     "phases": [ {"health_below": 0.5, "message": "...", "speed_multiplier": 1.3, "aggression": 1,
 ##                  "add_attacks": [...], "attacks": [...]} ],
 ##     "boss": {"name": "Ancient Colossus", "bar_range": 48},
@@ -113,6 +114,10 @@ const ATTACK_DEFAULTS := {
 	"effect": "",         # effect when the attack lands: at the mob's front, or its feet for slam / summon
 	"power": 3.0,         # explode: blast power; the mob is used up. Fizzles if the target got `fuse_escape` blocks away
 	"fuse_escape": 2.5,
+	# What it leaves on whoever it hits: {condition, seconds, level, chance}. A spider that poisons and
+	# a boss that slows you were both a mod catching entity_damage and doing it by hand until conditions
+	# existed to be applied. (2026-09-20)
+	"condition": {},
 }
 
 
@@ -195,6 +200,17 @@ static func sanitize(config: Dictionary, resolve_entity: Callable) -> Dictionary
 	return c
 
 
+## {condition, seconds, level, chance} or {} - read here rather than where it is applied, so a malformed
+## one is a dull default at load instead of a surprise mid-fight.
+static func _condition(value) -> Dictionary:
+	if not (value is Dictionary) or String(value.get("condition", value.get("name", ""))).is_empty():
+		return {}
+	return {"condition": String(value.get("condition", value.get("name", ""))),
+		"seconds": maxf(float(value.get("seconds", 5.0)), 0.0),
+		"level": clampi(int(value.get("level", 1)), 1, 10),
+		"chance": clampf(float(value.get("chance", 1.0)), 0.0, 1.0)}
+
+
 static func _attacks(list, resolve_entity: Callable) -> Array:
 	var out := []
 	for entry in (list if list is Array else []):
@@ -212,6 +228,7 @@ static func _attacks(list, resolve_entity: Callable) -> Array:
 		a.cooldown = clampf(a.cooldown, 0.0, 600.0)
 		a.count = clampi(int(a.count), 1, 16)
 		a.max_summons = clampi(int(a.max_summons), 0, 32)
+		a.condition = _condition(a.get("condition"))
 		a.projectile_type = int(resolve_entity.call(String(a.projectile))) if not String(a.projectile).is_empty() else -1
 		a.entity_type = int(resolve_entity.call(String(a.entity))) if not String(a.entity).is_empty() else -1
 		out.append(a)

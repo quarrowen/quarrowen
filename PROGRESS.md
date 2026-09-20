@@ -2308,3 +2308,36 @@ alone has none of this, because it never leaves the avatar data.
 Worth saying plainly: this is a delighter, not a gap. It is also cheap - a day or two, mostly the crop
 UI - and the sort of thing a child shows somebody else. Not scheduled against the roadmap items;
 raised here so it does not evaporate.
+
+## Creature abilities: the roadmap entry was stale (2026-09-20)
+
+Read the entry, then read `engine/server/ai/mob_config.gd`, and nearly all of it was already there:
+phases gated on health that change speed, aggression and the whole attack list; boss bars; summon,
+explode, charge, leap and slam attack types; and a wind-up telegraph on every single attack so a
+player can dodge, block the line or interrupt it.
+
+One thing was genuinely missing, and it was not possible until this morning: **an attack could not
+apply a condition**. That is now `"condition": {"condition": "vanilla:poison", "seconds": 8,
+"chance": 0.5}` on any attack. Ranged attacks stash it on the projectile rather than the mob
+remembering, because by the time an arrow lands the mob may be dead or shooting at somebody else -
+which also means a mod's own tipped arrow gets the same behaviour for free.
+
+Condition names inside attacks are namespaced the way sounds already were, so a mod writing "poison"
+means its own. The test asserts that specifically, because a bare name reaching the AI unqualified
+would simply never be found and the bite would do nothing, silently.
+
+**Lesson worth keeping:** the roadmap said "the AI presets and attacks exist; what is missing is a mod
+scripting a fight without writing a brain", which read as a large job and was a small one. Reading the
+code before believing the roadmap turned a week into an afternoon. Worth doing for the remaining
+entries too - several were written before the capabilities underneath them landed.
+
+### The honest remainder: nothing lingers
+
+"Area effects" in the original entry is only half done. A slam hurts what is near it at that instant;
+a pool of fire left burning, or a cloud that hangs about, has nowhere to live. That wants a small
+capability of its own - somewhere on the ground that does something to whoever stands in it, for a
+while - and it is useful well beyond fights: a campfire's warmth, a gas leak from a broken machine, a
+healing circle in a village.
+
+Naming will need care. `plots` is ground with an owner and `claims` is ground kept awake, so a third
+word is needed rather than a third meaning for "area". `fields` is the current candidate.

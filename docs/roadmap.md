@@ -203,10 +203,23 @@ Recognise a shape a player has assembled and treat it as one machine with one in
 controller. Structure templates already describe shapes for world generation; this is noticing one that
 somebody built by hand.
 
-### 9. Creature abilities
+### 9. Creature abilities — built
 
-Data-driven fights: phases, timed abilities, summons, area effects, telegraphs. The AI presets and
-attacks exist; what is missing is a mod scripting a fight without writing a brain.
+**This entry was badly out of date.** Phases (`ai.phases`, gated on health, changing speed, aggression
+and the attack list), boss bars (`ai.boss`), summons, explode, charge, leap, slam and a wind-up
+telegraph on every attack all existed already. What was genuinely missing was one thing: an attack
+could not **apply a condition**, which was not possible until conditions were built the same day.
+
+So a spider that poisons and a boss that slows you are now data - `"condition": {"condition":
+"vanilla:poison", "seconds": 8, "chance": 0.5}` on any attack - where before they meant a mod catching
+`entity_damage` and reaching for the victim itself. Ranged attacks carry it on the projectile, because
+by the time an arrow lands the mob may be dead or shooting at somebody else.
+
+Still missing, and the honest remainder of "area effects": **nothing lingers**. A slam damages what is
+near it at that instant; a pool of fire left burning, or a cloud that hangs about, has nowhere to
+live. That wants a small capability of its own - somewhere on the ground that does something to
+whoever stands in it, for a while - which is useful well beyond fights (a campfire's warmth, a gas
+leak from a broken machine, a healing circle in a village). Not built.
 
 ### 10. Characters — built
 
@@ -535,7 +548,8 @@ follows is what is left, in the order that now unlocks the most.
 at all: structures, facilities, jobs, ownership, conversation and trade all exist. What a village needs
 now is content - somebody to write the villagers.
 
-1. **Creature abilities.** Data-driven fights, so a mod can script a boss without writing a brain.
+1. **Lingering areas.** The remainder of creature abilities and useful far beyond them: somewhere on
+   the ground that does something to whoever stands in it, for a while.
 2. **Companions**, then **vehicles**. Both now have characters behind them.
 3. **The small three**: area tools, text in the world, inventories inside things. Independent, and each
    one an afternoon.

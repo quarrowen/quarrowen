@@ -1831,7 +1831,8 @@ Type ids are indexes into `defs`; &quot;engine:item&quot; (dropped item stacks) 
     &quot;leash&quot;: 0,                 return home when further than this (0 = roam); &quot;reset_on_leash&quot; heals
     &quot;step_up&quot;: 1, &quot;max_drop&quot;: 3, &quot;can_swim&quot;: false,
     &quot;attack_interval&quot;: 1.0,     minimum seconds between any two attacks (scaled by aggression)
-    &quot;attacks&quot;: [ {...} ],       see ATTACK_DEFAULTS
+    &quot;attacks&quot;: [ {...} ],       see ATTACK_DEFAULTS; &quot;condition&quot; on one applies a condition to
+                                whoever it hits: {&quot;condition&quot;: &quot;vanilla:poison&quot;, &quot;seconds&quot;: 8, &quot;chance&quot;: 0.5}
     &quot;phases&quot;: [ {&quot;health_below&quot;: 0.5, &quot;message&quot;: &quot;...&quot;, &quot;speed_multiplier&quot;: 1.3, &quot;aggression&quot;: 1,
                  &quot;add_attacks&quot;: [...], &quot;attacks&quot;: [...]} ],
     &quot;boss&quot;: {&quot;name&quot;: &quot;Ancient Colossus&quot;, &quot;bar_range&quot;: 48},

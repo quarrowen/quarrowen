@@ -232,6 +232,19 @@ static func _hit(brain, victim, damage: float, direction: Vector3, knockback: fl
 		ai.server.damage_player(victim, damage, "mob", brain.entity, direction, false, knockback)
 	else:
 		ai.entities.damage(victim, damage, "mob", brain.entity, direction)
+	if not brain.attack.is_empty():
+		apply_condition(ai.server, victim, brain.attack.def.get("condition", {}))
+
+
+## What an attack leaves behind on whoever it hit. Applied after the damage, so a condition that kills
+## does not race the blow that would have.
+static func apply_condition(server, victim, condition: Dictionary) -> void:
+	if condition.is_empty() or victim == null:
+		return
+	if float(condition.chance) < 1.0 and randf() > float(condition.chance):
+		return
+	server.conditions.give(victim, String(condition.condition),
+		{"seconds": float(condition.seconds), "level": int(condition.level)})
 
 
 static func _fire(brain, a: Dictionary, target) -> void:
@@ -255,7 +268,11 @@ static func _fire(brain, a: Dictionary, target) -> void:
 		var spread := deg_to_rad(a.spread * (1.6 - brain.config.intelligence) + 3.0 * i)
 		velocity = velocity.rotated(Vector3.UP, randf_range(-spread, spread)).rotated(velocity.cross(Vector3.UP).normalized() if absf(velocity.normalized().y) < 0.99 else Vector3.RIGHT, randf_range(-spread, spread) * 0.5)
 		var start: Vector3 = from + velocity.normalized() * (e.def.width * 0.5 + 0.35)
-		ai.entities.spawn(a.projectile_type, start, {"velocity": velocity, "owner": e, "yaw": atan2(-velocity.x, -velocity.z)})
+		var shot = ai.entities.spawn(a.projectile_type, start, {"velocity": velocity, "owner": e, "yaw": atan2(-velocity.x, -velocity.z)})
+		# The arrow carries it rather than the mob remembering: by the time it lands the mob may be
+		# dead, or shooting at somebody else entirely.
+		if shot != null and not (a.condition as Dictionary).is_empty():
+			shot.data["condition"] = a.condition
 
 
 static func _summon(brain, a: Dictionary, target) -> void:

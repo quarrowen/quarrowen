@@ -10,6 +10,7 @@ const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const SoundRegistry = preload("res://engine/shared/sound_registry.gd")
 const Loot = preload("res://engine/server/loot.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
+const MobAttacks = preload("res://engine/server/ai/mob_attacks.gd")
 const MusicRegistryScript = preload("res://engine/shared/music_registry.gd")
 const UserPaths = preload("res://engine/shared/user_paths.gd")
 const ContentCacheScript = preload("res://engine/client/content_cache.gd")
@@ -4471,6 +4472,32 @@ func _conditions() -> void:
 	server.conditions.tick(0.1)
 	_check(mob.health == 8.0, "and it hurts them on the same timer (%s)" % mob.health)
 	_check(api.clear_condition(mob, "poison"), "and can be cured")
+
+	# A creature that poisons what it bites, written as data rather than as a handler. This is the
+	# whole of "script a fight without writing a brain": before conditions existed, a venomous spider
+	# meant a mod catching entity_damage and reaching for the victim itself.
+	var venom: int = api.register_entity("venomspider", {"kind": "mob", "display_name": "Venomspider",
+		"width": 0.8, "height": 0.6, "health": 8, "speed": 3.0, "category": "misc",
+		"ai": {"preset": "hostile", "attacks": [{"name": "bite", "type": "melee", "damage": 1.0, "range": 3.0,
+			"condition": {"condition": "poison", "seconds": 6.0, "level": 1}}]}})
+	_check(venom > 0, "a mod registers a creature whose bite carries something")
+	var biter = api.spawn_entity("venomspider", p.state.position + Vector3(1, 0, 0), {})
+	_check(biter != null and not biter.brain.config.attacks[0].condition.is_empty(),
+		"the attack kept its condition through the config reader")
+	_check(biter.brain.config.attacks[0].condition.condition == "vanilla:poison",
+		"and the name was namespaced to the mod that wrote it (%s)" % biter.brain.config.attacks[0].condition.condition)
+
+	p.health = 20.0
+	p.hurt_timer = 0.0
+	api.clear_conditions(p)
+	MobAttacks._hit(biter.brain, p, 1.0, Vector3.FORWARD, 0.0)
+	_check(not api.has_condition(p, "poison"), "an attack that is not running leaves nothing behind")
+	biter.brain.attack = {"def": biter.brain.config.attacks[0]}
+	p.hurt_timer = 0.0
+	MobAttacks._hit(biter.brain, p, 1.0, Vector3.FORWARD, 0.0)
+	_check(api.has_condition(p, "poison"), "and a bite that lands does")
+	biter.remove()
+	api.clear_conditions(p)  # the checks below count what is on this player
 
 	# The twins agree now. Both take (amount, cause, attacker), so code that hurts "a thing" can call
 	# the same way whichever it has - which is what caught this: filing the cause as the attacker was

@@ -10,6 +10,7 @@ const Entity = preload("res://engine/server/entity.gd")
 const EntityPhysics = preload("res://engine/shared/entity_physics.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
+const MobAttacks = preload("res://engine/server/ai/mob_attacks.gd")
 const VoxelWorld = preload("res://engine/shared/voxel_world.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
@@ -313,6 +314,9 @@ func _step_projectile(e: Entity, delta: float) -> void:
 			_server.damage_player(hit.target, ev.damage, "projectile", e.owner if e.owner != null else e, dir)
 		else:
 			damage(hit.target, ev.damage, "projectile", e.owner if e.owner != null else e, dir)
+		# Anything a projectile was sent out carrying: a mob's venom shot, or a mod's own tipped arrow.
+		if e.data.get("condition") is Dictionary:
+			MobAttacks.apply_condition(_server, hit.target, e.data.condition)
 	if not ev.keep:
 		remove(e)
 

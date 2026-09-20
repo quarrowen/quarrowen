@@ -258,6 +258,18 @@ func register_entity(entity_name: String, def: Dictionary) -> int:
 		d.sounds = {}
 		for action in def.sounds:
 			d.sounds[action] = _qualify_ref(String(def.sounds[action]))
+	# Condition names inside attacks, the same way sounds are: a mod writing {"condition": "poison"}
+	# means its own, and a bare name reaching the AI unqualified would simply never be found.
+	if d.get("ai") is Dictionary:
+		for list_key in ["attacks", "phases"]:
+			for entry in (d.ai.get(list_key, []) if d.ai.get(list_key) is Array else []):
+				if not (entry is Dictionary):
+					continue
+				_qualify_condition(entry)
+				for nested in ["attacks", "add_attacks"]:
+					for inner in (entry.get(nested, []) if entry.get(nested) is Array else []):
+						if inner is Dictionary:
+							_qualify_condition(inner)
 	if reloading:
 		if _server.entities.registry.id_of(d.name) < 0:
 			reload_notes.append("new entity %s needs a full reload (/reload full)" % d.name)
@@ -2421,6 +2433,15 @@ func _static_during_reload(kind: String, full_name: String, quiet := false) -> b
 	if not quiet:
 		reload_notes.append("new %s %s needs a full reload (/reload full)" % [kind, full_name])
 	return true
+
+
+func _qualify_condition(attack: Dictionary) -> void:
+	var condition = attack.get("condition")
+	if not (condition is Dictionary):
+		return
+	var key := "condition" if condition.has("condition") else "name"
+	if condition.has(key):
+		condition[key] = _qualify_ref(String(condition[key]))
 
 
 func _qualify(local_name: String) -> String:
