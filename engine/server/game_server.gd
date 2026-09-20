@@ -36,6 +36,7 @@ const TagRegistry = preload("res://engine/shared/tag_registry.gd")
 const Links = preload("res://engine/server/links.gd")
 const Flows = preload("res://engine/server/flows.gd")
 const Parcels = preload("res://engine/server/parcels.gd")
+const Drives = preload("res://engine/server/drives.gd")
 const Claims = preload("res://engine/server/claims.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
@@ -286,6 +287,8 @@ var flows := Flows.new(self)
 ## Things travelling along those links (see engine/server/parcels.gd). Not the same mechanism as
 ## flows, and the file says why.
 var parcels := Parcels.new(self)
+## Values driven through the graph with nothing stored - rotation (see engine/server/drives.gd).
+var drives := Drives.new(self)
 ## Parts of the world kept awake when nobody is there, and the budget that stops one player doing it
 ## to everybody else (see engine/server/claims.gd).
 var claims := Claims.new(self)
@@ -398,8 +401,8 @@ var _entity_chunks: Dictionary:
 ## be ready just as early.
 func _init() -> void:
 	# Whoever is standing in that world sees a cable appear or vanish as it happens.
-	add_handler("link_made", func(ev): _broadcast_link(int(ev.id)); flows.link_changed(ev.a, ev.b), 0, "engine")
-	add_handler("link_cut", func(ev): _broadcast_link_gone(int(ev.id), String(ev.a.realm)); flows.link_changed(ev.a, ev.b), 0, "engine")
+	add_handler("link_made", func(ev): _broadcast_link(int(ev.id)); flows.link_changed(ev.a, ev.b); drives.link_changed(ev.a, ev.b), 0, "engine")
+	add_handler("link_cut", func(ev): _broadcast_link_gone(int(ev.id), String(ev.a.realm)); flows.link_changed(ev.a, ev.b); drives.link_changed(ev.a, ev.b), 0, "engine")
 	realm = Realm.new(self, "", "Overworld")
 	realms[""] = realm
 	realm.attach()
@@ -1757,6 +1760,7 @@ func _physics_process(delta: float) -> void:
 		r.block_ticks.update(delta, r.simulated)
 	var t_blocks := Time.get_ticks_usec()
 	flows.settle()  # costs nothing on a tick where no network changed, which is nearly all of them
+	drives.settle()
 	parcels.update(delta)
 	claims.update(delta)
 	containers.update(delta)
@@ -2679,6 +2683,26 @@ func links_for(realm_id: String) -> Array:
 ## which part of the world should be running.
 func mark_simulation_stale() -> void:
 	_simulation_dirty = true
+
+
+## A face is being driven at a new speed: tell whoever is standing in that world and holds the chunk.
+## Only for blocks that say they turn, because telling a client about a shaft it will not animate is
+## bytes spent on nothing.
+func drive_changed(node: Dictionary, value: float) -> void:
+	var pos: Vector3i = node.position
+	var in_realm: String = String(node.get("realm", ""))
+	var world_of: Realm = realms.get(in_realm)
+	if world_of == null:
+		return
+	var block: int = world_of.world.get_block_v(pos)
+	if not registry.is_valid(block) or (registry.defs[block].get("spins") as Dictionary).is_empty():
+		return
+	var coord := VoxelWorld.chunk_coord_at(pos.x, pos.z)
+	var where := PackedVector3Array([Vector3(pos)])
+	var how_fast := PackedFloat32Array([value])
+	for p: ServerPlayer in players.values():
+		if realm_of(p).id == in_realm and p.sent_chunks.has(coord):
+			Net.s_drives.rpc_id(p.peer_id, where, how_fast)
 
 
 func realm_of(p: ServerPlayer) -> Realm:

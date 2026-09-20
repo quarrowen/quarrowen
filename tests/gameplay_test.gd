@@ -80,6 +80,7 @@ func _ready() -> void:
 	await _claims()
 	await _liquids()
 	await _multiblocks()
+	await _drives()
 	await _tags()
 	await _signals()
 	await _realms()
@@ -4102,6 +4103,48 @@ func _flows() -> void:
 	_check(api.received("power", at.call(148)) == 0.0, "cutting the cable leaves the far end with nothing")
 	_check(is_equal_approx(api.received("power", at.call(144)), 25.0),
 		"and the near one now has the lot (%.1f)" % api.received("power", at.call(144)))
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## Drives: rotation. Nothing is stored, and two sources fight rather than add.
+func _drives() -> void:
+	var server = _start("drives_%d" % Time.get_ticks_msec())
+	var api = server.mod_instances.vanilla.api
+	api.register_link_kind("shaft", {"span": 8})
+	_check(api.register_drive("rotation"), "a mod declares a driven value")
+
+	var told := []
+	api.on_driven("rotation", func(ev): told.append([ev.value, ev.jammed]))
+	var y: int = server.surface_height(520, 520) + 2
+	var at = func(x: int) -> Dictionary: return {"position": Vector3i(x, y, 520), "face": 0}
+	api.link("shaft", at.call(520), at.call(524))
+	api.link("shaft", at.call(524), at.call(528))
+
+	api.set_drive("rotation", at.call(520), 4.0)
+	server.drives.settle()
+	_check(api.driven_at("rotation", at.call(528)) == 4.0,
+		"the far end turns as fast as the near end - a shaft does not tire (%.1f)" % api.driven_at("rotation", at.call(528)))
+	_check(not api.drive_jammed("rotation", at.call(524)), "and nothing is jammed")
+
+	# A second source turning the same way at the same speed is agreement, not a fight.
+	api.set_drive("rotation", at.call(528), 4.0)
+	server.drives.settle()
+	_check(api.driven_at("rotation", at.call(524)) == 4.0, "two sources that agree drive it together")
+
+	# Turning the other way is a fight. The engine does not average them into something that turns
+	# slowly; the line stops, and the mod is told why.
+	api.set_drive("rotation", at.call(528), -4.0)
+	server.drives.settle()
+	_check(api.drive_jammed("rotation", at.call(524)), "two sources that disagree jam the line")
+	_check(api.driven_at("rotation", at.call(524)) == 0.0, "and a jammed line does not turn")
+	_check(told.back()[1] == true, "and the mod is told it is jammed rather than left to guess")
+
+	# Take one away and it frees.
+	api.set_drive("rotation", at.call(528), 0.0)
+	server.drives.settle()
+	_check(not api.drive_jammed("rotation", at.call(524)) and api.driven_at("rotation", at.call(524)) == 4.0,
+		"taking the second source off frees it again")
 	server.queue_free()
 	await get_tree().process_frame
 

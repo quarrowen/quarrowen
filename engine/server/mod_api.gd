@@ -1077,6 +1077,41 @@ func on_item_arrived(handler: Callable) -> void:
 	_server.parcels.on_arrived(handler)
 
 
+## A kind of value *driven* through the links rather than stored in them: rotation, and anything else
+## that means "this end turns, so that end turns".
+##
+## **Not the same as a quantity.** Power buffers, fills and runs out, and two generators on one grid
+## add up. Rotation is a speed and a direction, it arrives the instant the shaft turns, nothing
+## accumulates anywhere, and two sources driving one line do not add - they fight, and the engine says
+## so rather than inventing an average nobody asked for.
+##
+## Gearing is not here. A gearbox is a block that reads one line and drives another at a different
+## speed, which is a few lines in a mod - and then the engine has no opinion about what ratios exist.
+func register_drive(unit_name: String) -> bool:
+	return _server.drives.register_unit(_qualify(unit_name), mod_id)
+
+
+## This face drives at `value` - a speed, with a sign for which way round. 0 stops driving.
+func set_drive(unit_name: String, node: Dictionary, value: float) -> void:
+	_server.drives.set_source(_qualify_ref(unit_name), _link_node(node), value)
+
+
+## What a face is being driven at. Zero when nothing drives it, and zero when the line is jammed,
+## because a jammed line does not turn.
+func driven_at(unit_name: String, node: Dictionary) -> float:
+	return _server.drives.value_at(_qualify_ref(unit_name), _link_node(node))
+
+
+## Whether two sources are fighting over the line this face is on.
+func drive_jammed(unit_name: String, node: Dictionary) -> bool:
+	return _server.drives.jammed_at(_qualify_ref(unit_name), _link_node(node))
+
+
+## Told when what a face is driven at changes: {realm, position, face, unit, value, jammed}.
+func on_driven(unit_name: String, handler: Callable) -> void:
+	_server.drives.on_changed(_qualify_ref(unit_name), handler)
+
+
 ## A kind of quantity that moves along links: power, steam, water, mana. The engine keeps them apart
 ## by name and learns nothing else about any of them.
 func register_unit(unit_name: String) -> bool:

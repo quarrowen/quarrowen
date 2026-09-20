@@ -929,6 +929,38 @@ Also fixed a self-inflicted one: a background "wait until the tests finish" loop
 `while pgrep -f "bash tools/run_tests.sh"` **matches its own command line**, so it waits forever and
 anything gated behind it never starts. Worth remembering before writing that shape again.
 
+## Driven networks, and wheels that actually turn (2026-09-20)
+
+`engine/server/drives.gd`, the second kind of network and deliberately not the first. A quantity is
+stored and conserved and two generators on a grid add up; rotation is a speed and a direction, it
+arrives the instant the shaft turns, nothing accumulates, and **two sources driving one line fight**.
+
+The rule worth defending: when two sources disagree the line **jams and stops**, and the mod is told.
+The engine does not average them into something that turns slowly, because an average is a made-up
+answer to a question with a real one - somebody has connected a windmill to a water wheel turning the
+other way, and the interesting thing is to stop and say so. A shaft is also undiminished by distance,
+because a shaft does not get tired half way along.
+
+Gearing is not in the engine. A gearbox is a block that reads one line and drives another at a
+different speed - a few lines in a mod - and the engine then has no opinion about what ratios exist.
+
+**And they turn on screen** (the user, 2026-09-20: "moving assemblies do need to visually move too,
+like a wheel rotating"). A block may declare `spins: {axis, turns}`; the server tells whoever holds
+that chunk when its *speed* changes, and the client carries the angle forward itself. That split is
+the whole trick: a wheel turns constantly but changes speed rarely, so this is a handful of bytes when
+somebody starts a mill rather than a stream of them while it runs. One transform write per spinning
+block per frame, no remeshing, and nothing at all when nothing is turning. A stopped wheel is put back
+to its resting angle rather than frozen mid-turn, which would read as broken. Protocol 43 -> 44.
+
+**Not done: belts that scroll.** A conveyor moving its surface means offsetting UVs per block, and
+the per-block channel that would carry it is set at mesh time - so a belt starting would remesh its
+chunk. It wants a shader that reads the speed from somewhere cheaper. Rotation covers wheels, gears,
+shafts and windmill sails, which is the visible majority; belts are their own piece.
+
+**Worth watching in the playtest**: water now flows, and a flow replaces `replaceable` blocks - which
+includes crops. Digging a channel past a field will wash it away. That is what most games do and is
+probably right, but it is new behaviour and the children have not met it.
+
 ## Multiblocks, capability 8 (2026-09-20)
 
 `engine/server/multiblocks.gd`. A mod draws the machine as layers of characters, bottom layer first,

@@ -23,7 +23,7 @@ const RENDER_NAMES := {
 ## Fields sent to clients. Anything else in a definition (e.g. drops) stays on the server.
 const NETWORK_FIELDS := ["name", "display_name", "render", "solid", "liquid", "cull_same", "breakable", "placeable",
 	"textures", "light", "interactive", "model", "orientation", "connect_group", "model_arm", "sway", "sounds",
-	"hardness", "tier", "tool", "replaceable", "shape", "facing_blocks"]
+	"hardness", "tier", "tool", "replaceable", "shape", "facing_blocks", "spins"]
 
 ## Blocks that do not fill their cell. The shape decides both what is drawn and what a player or a mob
 ## walks into, so the two can never disagree; every shape is a list of boxes in block space (0..1).
@@ -162,6 +162,10 @@ func register(def: Dictionary, replace := false) -> int:
 	d.interactive = bool(def.get("interactive", false))
 	## Signals (engine/server/signals.gd). Server-side only - a client draws a quickened block the same
 	## as an unquickened one, and a mod that wants them to look different registers two blocks.
+	## A model block that turns when something drives it: {axis: "x"|"y"|"z", turns: revolutions per
+	## second at a drive value of 1}. The client spins the instance; nothing is remeshed, because the
+	## *speed* of a wheel changes rarely even though the wheel turns constantly. (2026-09-20)
+	d.spins = def.get("spins") if def.get("spins") is Dictionary else {}
 	d.signal = clampi(int(def.get("signal", 0)), 0, 15)
 	d.signal_carry = bool(def.get("signal_carry", false))
 	d.model = String(def.get("model", "")).left(256)

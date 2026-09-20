@@ -234,6 +234,13 @@ var _model_meshes := {}  # block id -> ArrayMesh
 var _arm_meshes := {}  # block id -> ArrayMesh drawn toward connected neighbours
 var _connect_groups := {}  # block id -> group name
 var _model_nodes := {}  # Vector2i chunk -> Array of MultiMeshInstance3D
+## Blocks that turn: world position -> {mmi, index, rest (its Transform3D), axis, turns}. Built while
+## the models are, so spinning one costs a transform write per frame and no remeshing at all.
+var _spinners := {}
+## World position -> how fast it is being driven, from the server. A speed changes rarely even though
+## the wheel turns constantly, so this arrives on change and the angle is worked out here.
+var _drive_speed := {}
+var _spin_angle := {}
 var _time_of_day := 0.5
 var _day_length := 0.0
 var _daylight := 1.0
@@ -1237,6 +1244,45 @@ func on_realm(realm_id: String, display_name: String) -> void:
 
 
 ## Cables and pipes: the whole lot on joining, then one at a time as they are made.
+## What is turning, and how fast. A wheel turns constantly but changes speed rarely, so this arrives
+## on change and the angle is carried forward here rather than sent every tick.
+func on_drives(positions: PackedVector3Array, values: PackedFloat32Array) -> void:
+	for i in mini(positions.size(), values.size()):
+		var at := Vector3i(positions[i])
+		if absf(values[i]) < 0.001:
+			_drive_speed.erase(at)
+			_settle_spinner(at)
+		else:
+			_drive_speed[at] = values[i]
+
+
+## Puts a stopped wheel back where it started, so it does not freeze at whatever angle it happened to
+## be at - which reads as broken rather than as stopped.
+func _settle_spinner(at: Vector3i) -> void:
+	_spin_angle.erase(at)
+	var spinner: Dictionary = _spinners.get(at, {})
+	if spinner.get("mmi") != null and is_instance_valid(spinner.mmi):
+		spinner.mmi.multimesh.set_instance_transform(int(spinner.index), spinner.rest)
+
+
+## Turns whatever is being driven. One transform per spinning block per frame, and nothing at all when
+## nothing is turning - which is the usual case.
+func _spin_models(delta: float) -> void:
+	for at: Vector3i in _drive_speed:
+		var spinner: Dictionary = _spinners.get(at, {})
+		if spinner.is_empty() or spinner.get("mmi") == null or not is_instance_valid(spinner.mmi):
+			continue
+		var angle := float(_spin_angle.get(at, 0.0)) + float(_drive_speed[at]) * float(spinner.turns) * TAU * delta
+		_spin_angle[at] = fmod(angle, TAU)
+		var axis := Vector3.UP
+		match String(spinner.axis):
+			"x": axis = Vector3.RIGHT
+			"z": axis = Vector3.BACK
+		var rest: Transform3D = spinner.rest
+		spinner.mmi.multimesh.set_instance_transform(int(spinner.index),
+			Transform3D(rest.basis * Basis(axis, _spin_angle[at]), rest.origin))
+
+
 func on_links(list: Array) -> void:
 	for entry in list:
 		if entry is Dictionary:
@@ -1401,6 +1447,8 @@ func _can_simulate() -> bool:
 func _process(delta: float) -> void:
 	_poll_mesh_jobs()
 	_schedule_mesh_jobs()
+	if not _drive_speed.is_empty():
+		_spin_models(delta)
 	if _held_label != null and _held_label.modulate.a > 0.0 and Time.get_ticks_msec() / 1000.0 > _held_until:
 		_held_label.modulate.a = maxf(_held_label.modulate.a - delta * 2.0, 0.0)
 	if not _welcomed:
@@ -1898,6 +1946,10 @@ func _apply_mesh(coord: Vector2i, result: Array) -> void:
 ## blocks). Instance colors carry light; oriented blocks rotate by their state.
 func _apply_models(coord: Vector2i, instances: PackedInt32Array) -> void:
 	_clear_models(coord)
+	# Whatever was turning in this chunk is about to be rebuilt; its instance indices are stale.
+	for at: Vector3i in _spinners.keys():
+		if _spinners[at].get("coord") == coord:
+			_spinners.erase(at)
 	var chunk = world.chunks.get(coord)
 	if chunk == null:
 		return
@@ -1914,7 +1966,14 @@ func _apply_models(coord: Vector2i, instances: PackedInt32Array) -> void:
 		var center := Vector3(local) + (Vector3(0.5, 0.5, 0.5) if centered else Vector3(0.5, 0.0, 0.5))
 		var state: int = chunk.states.get(Chunk.index(local.x, local.y, local.z), 0)
 		var basis := Basis(Vector3.UP, (state & 3) * PI * 0.5) if registry.defs[block].orientation == 1 else Basis.IDENTITY
-		_batch(batches, _model_meshes[block], Transform3D(basis, center), light)
+		var rest := Transform3D(basis, center)
+		var spins: Dictionary = registry.defs[block].get("spins", {})
+		if not spins.is_empty():
+			# Remembered by world position so a drive update can find its instance without a search.
+			_spinners[origin + local] = {"mesh": _model_meshes[block], "rest": rest,
+				"axis": String(spins.get("axis", "y")), "turns": float(spins.get("turns", 1.0)),
+				"index": batches.get(_model_meshes[block], {}).get("transforms", []).size(), "coord": coord}
+		_batch(batches, _model_meshes[block], rest, light)
 		if registry.emission_lut[block] > 0:
 			batches[_model_meshes[block]].emissive = true
 		if _arm_meshes.has(block) and not group.is_empty():
@@ -1942,6 +2001,15 @@ func _apply_models(coord: Vector2i, instances: PackedInt32Array) -> void:
 		nodes.append(mmi)
 	if not nodes.is_empty():
 		_model_nodes[coord] = nodes
+	# The instance index was recorded while batching; the node it ended up in is only known now.
+	for at: Vector3i in _spinners:
+		var spinner: Dictionary = _spinners[at]
+		if spinner.coord != coord:
+			continue
+		for mmi: MultiMeshInstance3D in nodes:
+			if mmi.multimesh.mesh == spinner.mesh:
+				spinner.mmi = mmi
+				break
 
 
 ## Rotations taking an arm modelled along -Z to each neighbour direction.

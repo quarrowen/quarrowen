@@ -620,6 +620,15 @@ func s_link_gone(id: int) -> void:
 		client.on_link_gone(id)
 
 
+## What is turning, and how fast. Sent when a *speed* changes, which is rare even though the thing
+## turns constantly - the client animates from the value it was given. Positions are block positions;
+## a value of 0 means stopped.
+@rpc("authority", "call_remote", "reliable")
+func s_drives(positions: PackedVector3Array, values: PackedFloat32Array) -> void:
+	if client:
+		client.on_drives(positions, values)
+
+
 ## "You are now in this world." Everything the client holds belongs to the world it is leaving.
 ##
 ## On BULK_CHANNEL deliberately, with the chunks. The channels are delivered independently - which is
