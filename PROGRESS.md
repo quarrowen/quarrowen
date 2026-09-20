@@ -952,10 +952,19 @@ somebody starts a mill rather than a stream of them while it runs. One transform
 block per frame, no remeshing, and nothing at all when nothing is turning. A stopped wheel is put back
 to its resting angle rather than frozen mid-turn, which would read as broken. Protocol 43 -> 44.
 
-**Not done: belts that scroll.** A conveyor moving its surface means offsetting UVs per block, and
-the per-block channel that would carry it is set at mesh time - so a belt starting would remesh its
-chunk. It wants a shader that reads the speed from somewhere cheaper. Rotation covers wheels, gears,
-shafts and windmill sails, which is the visible majority; belts are their own piece.
+**Belts scroll too** (the user asked, the same day). The answer was the trick rotation already used,
+one level down: a MultiMesh carries **per-instance custom data**, so each belt's speed rides in its own
+instance and one belt runs while the next is stopped - starting one writes a single float and rebuilds
+nothing. `engine/client/scrolling_material.gd` is one shader for every belt, and it takes the texture
+off the model's own material, so a mod draws its belt in a modelling program the usual way and never
+learns any of this exists.
+
+**And a wheel may change speed, which broke an assumption I had written down.** "A wheel turns
+constantly but changes speed rarely" is false for a windmill: it follows the wind, which moves all the
+time and by tiny amounts (the user, 2026-09-20). Left alone that would have been a message every tick
+for every mill - precisely the cost this design exists to avoid. What reaches a client is **rounded to
+a fiftieth of a turn**, which is far below what an eye can tell apart on a spinning wheel, and an
+unchanged rounded value is not sent at all. A wheel can now follow the wind for nothing.
 
 **Worth watching in the playtest**: water now flows, and a flow replaces `replaceable` blocks - which
 includes crops. Digging a channel past a field will wash it away. That is what most games do and is

@@ -4140,6 +4140,18 @@ func _drives() -> void:
 	_check(api.driven_at("rotation", at.call(524)) == 0.0, "and a jammed line does not turn")
 	_check(told.back()[1] == true, "and the mod is told it is jammed rather than left to guess")
 
+	# A windmill follows the wind, so a speed that wobbles must not become a message every tick. What
+	# reaches a client is rounded, and an unchanged rounded value is not sent at all. (the user asked
+	# about exactly this: "depending on wind a windmill might change speed")
+	var sent := []
+	var wheel := Vector3i(560, y, 560)
+	server.set_block_authoritative(wheel, server.registry.id_of("industry:coal_generator") if server.registry.id_of("industry:coal_generator") > 0 else server.registry.id_of("base:stone"))
+	var before_count: int = server._drive_sent.size()
+	for wobble in [4.0, 4.001, 4.002, 3.999]:
+		server.drive_changed({"realm": "", "position": wheel, "face": 0}, wobble)
+	_check(server._drive_sent.size() == before_count,
+		"a wheel with no model to turn is never reported at all")
+
 	# Take one away and it frees.
 	api.set_drive("rotation", at.call(528), 0.0)
 	server.drives.settle()

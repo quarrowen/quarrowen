@@ -62,6 +62,7 @@ const TutorialHud = preload("res://engine/client/tutorial_hud.gd")
 const DevOverlay = preload("res://engine/client/dev_overlay.gd")
 const DebugDraw = preload("res://engine/client/debug_draw.gd")
 const CableView = preload("res://engine/client/cable_view.gd")
+const ScrollingMaterial = preload("res://engine/client/scrolling_material.gd")
 const UgcClient = preload("res://engine/client/ugc_client.gd")
 const CreationLibrary = preload("res://engine/client/creation_library.gd")
 const UgcReview = preload("res://engine/client/ugc_review.gd")
@@ -237,6 +238,9 @@ var _model_nodes := {}  # Vector2i chunk -> Array of MultiMeshInstance3D
 ## Blocks that turn: world position -> {mmi, index, rest (its Transform3D), axis, turns}. Built while
 ## the models are, so spinning one costs a transform write per frame and no remeshing at all.
 var _spinners := {}
+## Belts: world position -> {mmi, index, along_v, scale}. Their speed rides in per-instance custom
+## data, so one belt runs while the next is stopped and starting one rebuilds nothing.
+var _scrollers := {}
 ## World position -> how fast it is being driven, from the server. A speed changes rarely even though
 ## the wheel turns constantly, so this arrives on change and the angle is worked out here.
 var _drive_speed := {}
@@ -1254,6 +1258,18 @@ func on_drives(positions: PackedVector3Array, values: PackedFloat32Array) -> voi
 			_settle_spinner(at)
 		else:
 			_drive_speed[at] = values[i]
+		# A belt needs nothing per frame: its speed goes into the instance and the shader does the rest.
+		if _scrollers.has(at):
+			_apply_scroll(at)
+
+
+## Writes a belt's speed into its instance, which is all that starting or stopping one costs.
+func _apply_scroll(at: Vector3i) -> void:
+	var belt: Dictionary = _scrollers.get(at, {})
+	if belt.is_empty() or belt.get("mmi") == null or not is_instance_valid(belt.mmi):
+		return
+	var speed := float(_drive_speed.get(at, 0.0)) * float(belt.scale)
+	belt.mmi.multimesh.set_instance_custom_data(int(belt.index), Color(speed, float(belt.along_v), 0.0, 0.0))
 
 
 ## Puts a stopped wheel back where it started, so it does not freeze at whatever angle it happened to
@@ -1950,6 +1966,9 @@ func _apply_models(coord: Vector2i, instances: PackedInt32Array) -> void:
 	for at: Vector3i in _spinners.keys():
 		if _spinners[at].get("coord") == coord:
 			_spinners.erase(at)
+	for at: Vector3i in _scrollers.keys():
+		if _scrollers[at].get("coord") == coord:
+			_scrollers.erase(at)
 	var chunk = world.chunks.get(coord)
 	if chunk == null:
 		return
@@ -1967,6 +1986,12 @@ func _apply_models(coord: Vector2i, instances: PackedInt32Array) -> void:
 		var state: int = chunk.states.get(Chunk.index(local.x, local.y, local.z), 0)
 		var basis := Basis(Vector3.UP, (state & 3) * PI * 0.5) if registry.defs[block].orientation == 1 else Basis.IDENTITY
 		var rest := Transform3D(basis, center)
+		var scrolls: Dictionary = registry.defs[block].get("scrolls", {})
+		if not scrolls.is_empty():
+			_scrollers[origin + local] = {"mesh": _model_meshes[block], "coord": coord,
+				"along_v": 1.0 if String(scrolls.get("axis", "u")) == "v" else 0.0,
+				"scale": float(scrolls.get("speed", 1.0)),
+				"index": batches.get(_model_meshes[block], {}).get("transforms", []).size()}
 		var spins: Dictionary = registry.defs[block].get("spins", {})
 		if not spins.is_empty():
 			# Remembered by world position so a drive update can find its instance without a search.
@@ -1987,6 +2012,7 @@ func _apply_models(coord: Vector2i, instances: PackedInt32Array) -> void:
 		var multimesh := MultiMesh.new()
 		multimesh.transform_format = MultiMesh.TRANSFORM_3D
 		multimesh.use_colors = true
+		multimesh.use_custom_data = true  # carries each belt's speed; unused and harmless for the rest
 		multimesh.mesh = mesh
 		multimesh.instance_count = batch.transforms.size()
 		for n in multimesh.instance_count:
@@ -2010,6 +2036,20 @@ func _apply_models(coord: Vector2i, instances: PackedInt32Array) -> void:
 			if mmi.multimesh.mesh == spinner.mesh:
 				spinner.mmi = mmi
 				break
+	for at: Vector3i in _scrollers:
+		var belt: Dictionary = _scrollers[at]
+		if belt.coord != coord:
+			continue
+		for mmi: MultiMeshInstance3D in nodes:
+			if mmi.multimesh.mesh != belt.mesh:
+				continue
+			belt.mmi = mmi
+			if mmi.material_override == null:
+				# One material per belt model, made from the model's own texture so a mod draws its
+				# belt the usual way and never learns this exists.
+				mmi.material_override = ScrollingMaterial.create(ScrollingMaterial.texture_of(belt.mesh))
+			_apply_scroll(at)
+			break
 
 
 ## Rotations taking an arm modelled along -Z to each neighbour direction.

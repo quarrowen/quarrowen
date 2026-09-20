@@ -2685,6 +2685,14 @@ func mark_simulation_stale() -> void:
 	_simulation_dirty = true
 
 
+## What each spinning block was last *told* to be doing, so a speed that wobbles does not become a
+## message every tick. A windmill follows the wind, which changes constantly and by tiny amounts.
+var _drive_sent := {}
+## How finely a speed is reported. Two hundredths of a turn is far below what an eye can tell apart on
+## a spinning wheel, and it turns "the wind moved a hair" into no message at all. (2026-09-20)
+const DRIVE_STEP := 0.02
+
+
 ## A face is being driven at a new speed: tell whoever is standing in that world and holds the chunk.
 ## Only for blocks that say they turn, because telling a client about a shaft it will not animate is
 ## bytes spent on nothing.
@@ -2697,9 +2705,18 @@ func drive_changed(node: Dictionary, value: float) -> void:
 	var block: int = world_of.world.get_block_v(pos)
 	if not registry.is_valid(block) or (registry.defs[block].get("spins") as Dictionary).is_empty():
 		return
+	# Rounded before comparing: a wheel that speeds up and slows with the wind would otherwise send a
+	# message for every hair's breadth of change, which is exactly the cost this design avoids.
+	var rounded := snappedf(value, DRIVE_STEP)
+	if is_equal_approx(float(_drive_sent.get(pos, 0.0)), rounded):
+		return
+	if absf(rounded) < DRIVE_STEP:
+		_drive_sent.erase(pos)
+	else:
+		_drive_sent[pos] = rounded
 	var coord := VoxelWorld.chunk_coord_at(pos.x, pos.z)
 	var where := PackedVector3Array([Vector3(pos)])
-	var how_fast := PackedFloat32Array([value])
+	var how_fast := PackedFloat32Array([rounded])
 	for p: ServerPlayer in players.values():
 		if realm_of(p).id == in_realm and p.sent_chunks.has(coord):
 			Net.s_drives.rpc_id(p.peer_id, where, how_fast)
