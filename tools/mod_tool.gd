@@ -40,6 +40,16 @@ func _run() -> void:
 		_out("wrote %s" % written)
 		get_tree().quit(0)
 		return
+	if positional.size() >= 1 and positional[0] == "bindings":
+		var unbound: Array = DocsGenerator.unbound_js()
+		var file := FileAccess.open(DocsGenerator.UNBOUND, FileAccess.WRITE)
+		file.store_string(DocsGenerator.UNBOUND_HEADER + "\n".join(unbound) + "\n")
+		file.close()
+		_out("wrote %s (%d unbound)" % [DocsGenerator.UNBOUND, unbound.size()])
+		for name in DocsGenerator.unkept_js():
+			_out("warning: the TypeScript declares %s but js_mod.gd has no host method for it" % name)
+		get_tree().quit(0)
+		return
 	if positional.size() >= 2 and positional[0] == "new":
 		var parent := ProjectSettings.globalize_path(str(options.get("dir", "res://mods")))
 		var created := ModTemplates.create(parent, {"id": str(positional[1]), "name": options.get("name", ""), "language": options.get("lang", "gdscript"),

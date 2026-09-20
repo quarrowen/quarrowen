@@ -24,6 +24,11 @@ else entirely.
   A test (`_shape_twins`) compares them, but it reads the Rust *source*, so it cannot tell you the built
   library is stale - see below.
 - **Mesher and pathfinder** have the same GDScript/Rust arrangement.
+- **The two mod APIs.** `engine/server/mod_api.gd` ⇄ `engine/server/js/prelude.js` + `quarrowen.d.ts`
+  + the dispatch in `js_mod.gd`. Written by hand, so they drifted to 139 of 262 functions before
+  anybody counted (2026-09-20). `engine/server/js/unbound.txt` is a ratchet the suite enforces: the
+  list may only shrink, and a new `api.*` function that is not in it fails the tests. Add the binding,
+  or regenerate deliberately with `mod_tool.tscn -- bindings` when something genuinely cannot cross.
 
 **The GDExtension is a checked-in build artifact.** `tools/run_tests.sh` rebuilds it when `native/src` is
 newer and stops if that build fails. It did not always: a Rust file that did not compile once left the old

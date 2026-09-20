@@ -9,6 +9,17 @@ const Protocol = preload("res://engine/shared/protocol.gd")
 const MOD_API := "res://engine/server/mod_api.gd"
 const TYPES := "res://engine/server/js/quarrowen.d.ts"
 const PRELUDE := "res://engine/server/js/prelude.js"
+## The API a JavaScript mod cannot reach. A baseline rather than a target: it may shrink, and anything
+## new in it fails the suite. Regenerate deliberately with `mod_tool.tscn -- bindings`.
+const UNBOUND := "res://engine/server/js/unbound.txt"
+const UNBOUND_HEADER := """# Functions in engine/server/mod_api.gd that a JavaScript mod cannot call.
+#
+# This list may only get shorter. tests/gameplay_test.gd fails when a name appears that is not already
+# here, so a new capability cannot quietly land in one language and not the other - which is how it got
+# to 128 of 262 in the first place (2026-09-20).
+#
+# Regenerate with: godot --headless --path . res://tools/mod_tool.tscn -- bindings
+"""
 const OBJECTS := [["Player", "res://engine/server/server_player.gd"], ["Entity", "res://engine/server/entity.gd"]]
 ## Reference pages: the header comment of each file.
 const REFERENCES := [
@@ -149,6 +160,56 @@ static func build() -> String:
 
 	return PAGE.replace("{{nav}}", "\n".join(nav)).replace("{{body}}", "\n".join(body)).replace("{{api_version}}", Protocol.MOD_API_VERSION) \
 		.replace("{{game_version}}", Protocol.GAME_VERSION)
+
+
+## Every `api.*` function a JavaScript mod cannot reach, sorted. The two APIs are written by hand and
+## drifted to nearly half (2026-09-20), so this is what `engine/server/js/unbound.txt` is checked
+## against: the list may shrink, and a name that is not already in it fails the suite.
+##
+## Bound means the same thing the reference page means by it - a declaration in the `Api` interface, or
+## a prelude entry - so the page and the test can never disagree about what a JavaScript mod can call.
+static func unbound_js() -> Array:
+	var api := parse_gdscript(FileAccess.get_file_as_string(MOD_API), "")
+	var declared := {}
+	for m in parse_ts_interface(FileAccess.get_file_as_string(TYPES), "Api"):
+		declared[m.name] = true
+	var prelude := FileAccess.get_file_as_string(PRELUDE)
+	var out := []
+	for fn in api:
+		if String(fn.signature).ends_with("(property)"):
+			continue
+		var camel := _camel(fn.name)
+		if declared.has(camel) or prelude.contains("    %s:" % camel) or prelude.contains("    %s(" % camel):
+			continue
+		out.append(String(fn.name))
+	out.sort()
+	return out
+
+
+## Host methods the prelude calls that `js_mod.gd` does not answer. Checked against the prelude rather
+## than the TypeScript because the prelude is what actually calls across, and it renames on the way
+## (`registerLootTable` asks for `registerLoot`) - comparing declared names instead reports both of
+## those as broken when neither is.
+##
+## A miss here is invisible until a mod runs the line: the bridge returns "unknown method" from inside
+## somebody else's game rather than failing in our suite.
+static func unkept_js() -> Array:
+	var host := FileAccess.get_file_as_string("res://engine/server/js_mod.gd")
+	var prelude := FileAccess.get_file_as_string(PRELUDE)
+	var seen := {}
+	var out := []
+	var wanted := RegEx.create_from_string('host\\(\\s*"([A-Za-z0-9_.]+)"')
+	for m in wanted.search_all(prelude):
+		var name := m.get_string(1)
+		if seen.has(name):
+			continue
+		seen[name] = true
+		# player.* and entity.* are dispatched by prefix, not by a case of their own.
+		var stem := name.get_slice(".", 0)
+		if not host.contains('"%s"' % name) and not host.contains('"%s."' % stem):
+			out.append(name)
+	out.sort()
+	return out
 
 
 ## Public functions with their doc comments: [{name, signature, doc}].

@@ -5655,6 +5655,26 @@ func _api_docs() -> void:
 	_check(FileAccess.get_file_as_string("res://docs/api/index.html") == html,
 		"docs/api/index.html is up to date (regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)")
 
+	# The two mod APIs are written by hand and drifted to 139 of 262 before anybody counted. A ratchet
+	# rather than a target: the list may shrink, and a name that is not already in it fails here, so a
+	# capability cannot land in GDScript alone the way the last two days' worth did. (2026-09-20)
+	var baseline := {}
+	for line in FileAccess.get_file_as_string(Docs.UNBOUND).split("\n"):
+		var name := line.strip_edges()
+		if not name.is_empty() and not name.begins_with("#"):
+			baseline[name] = true
+	var unbound: Array = Docs.unbound_js()
+	var added := unbound.filter(func(n): return not baseline.has(n))
+	_check(added.is_empty(), "every new api.* function is reachable from JavaScript (no binding for %s)" % ", ".join(added))
+	var fixed := (baseline.keys() as Array).filter(func(n): return not unbound.has(n))
+	_check(fixed.is_empty(),
+		"and engine/server/js/unbound.txt has no stale entries - %s bound or gone, regenerate with `mod_tool.tscn -- bindings`" % ", ".join(fixed))
+
+	# A prelude that asks for a host method nothing answers fails inside somebody else's mod, with a
+	# message about our bridge, rather than failing here where it belongs.
+	var unkept: Array = Docs.unkept_js()
+	_check(unkept.is_empty(), "and every host method the prelude calls exists (missing %s)" % ", ".join(unkept))
+
 
 func _creations() -> void:
 	var C = preload("res://engine/shared/creations.gd")
