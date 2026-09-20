@@ -616,6 +616,25 @@ somewhere worth going back to. leave `stock` out for an offer that never runs dr
 it cannot happen, and `shop_problem` says why in words a child can read."><div class="sig"><code>api.shop_trade(player, shop_name: String, index: int) -&gt; bool</code><span class="tag js" title="shopTrade">JS shopTrade</span></div><p>Does one trade directly, for a shop with no panel - a vending block, a delivery chute. False when<br>it cannot happen, and `shop_problem` says why in words a child can read.</p></div>
 <div class="card" id="api-shop-problem" data-search="shop_problem shopproblem "><div class="sig"><code>api.shop_problem() -&gt; String</code><span class="tag js" title="shopProblem">JS shopProblem</span></div><p class="muted">No description yet.</p></div>
 <div class="card" id="api-shop-offers" data-search="shop_offers shopoffers what is on the shelves: [{index, item, name, count, price, ledger, cost, sells, left, can}]."><div class="sig"><code>api.shop_offers(player, shop_name: String) -&gt; Array</code><span class="tag js" title="shopOffers">JS shopOffers</span></div><p>What is on the shelves: [{index, item, name, count, price, ledger, cost, sells, left, can}].</p></div>
+<div class="card" id="api-register-order" data-search="register_order registerorder something a tamed creature can be told to do.
+
+api.register_order(&quot;fetch&quot;, {&quot;display_name&quot;: &quot;fetch that&quot;, &quot;behavior&quot;: &quot;my_mod:fetch&quot;})
+api.order(dog, &quot;fetch&quot;)
+
+taming already gave a companion three of its four parts - it follows, it is owned, and it does not
+despawn. taking instruction was one boolean, `sitting`, toggled by right-clicking, which runs out
+the moment there are three things to say.
+
+three orders are the engine's own, because all three are about *where*: `engine:follow`,
+`engine:stay` and `engine:guard`. anything else maps to a behaviour registered with
+`register_mob_behavior` - the engine sets the order, your behaviour decides what it looks like.
+
+right-clicking a companion opens the order panel, drawn by the engine. restrict what a particular
+creature may be told by handling `companion_orders` and editing `orders`."><div class="sig"><code>api.register_order(order_name: String, def := {}) -&gt; bool</code><span class="tag js" title="registerOrder">JS registerOrder</span></div><p>Something a tamed creature can be told to do.<br><br>api.register_order(&quot;fetch&quot;, {&quot;display_name&quot;: &quot;Fetch that&quot;, &quot;behavior&quot;: &quot;my_mod:fetch&quot;})<br>api.order(dog, &quot;fetch&quot;)<br><br>Taming already gave a companion three of its four parts - it follows, it is owned, and it does not<br>despawn. Taking instruction was one boolean, `sitting`, toggled by right-clicking, which runs out<br>the moment there are three things to say.<br><br>Three orders are the engine's own, because all three are about *where*: `engine:follow`,<br>`engine:stay` and `engine:guard`. Anything else maps to a behaviour registered with<br>`register_mob_behavior` - the engine sets the order, your behaviour decides what it looks like.<br><br>Right-clicking a companion opens the order panel, drawn by the engine. Restrict what a particular<br>creature may be told by handling `companion_orders` and editing `orders`.</p></div>
+<div class="card" id="api-order" data-search="order order tells a creature something. options: at (where, for orders that need a place; defaults to where it
+is standing)."><div class="sig"><code>api.order(entity, order_name: String, options := {}) -&gt; bool</code><span class="tag js" title="order">JS order</span></div><p>Tells a creature something. options: at (where, for orders that need a place; defaults to where it<br>is standing).</p></div>
+<div class="card" id="api-order-of" data-search="order_of orderof what it is being told to do now (&quot;engine:follow&quot; when nobody has said otherwise)."><div class="sig"><code>api.order_of(entity) -&gt; String</code><span class="tag js" title="orderOf">JS orderOf</span></div><p>What it is being told to do now (&quot;engine:follow&quot; when nobody has said otherwise).</p></div>
+<div class="card" id="api-show-orders" data-search="show_orders showorders opens the order panel for a player, as right-clicking their own companion does."><div class="sig"><code>api.show_orders(player, entity) -&gt; bool</code><span class="tag js" title="showOrders">JS showOrders</span></div><p>Opens the order panel for a player, as right-clicking their own companion does.</p></div>
 <div class="card" id="api-register-field" data-search="register_field registerfield ground that does something to whoever stands in it, for a while: a pool of fire left where a boss
 landed, gas from a cracked pipe, the warmth of a campfire, a healing circle in a village.
 

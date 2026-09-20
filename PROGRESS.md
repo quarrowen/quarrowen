@@ -2379,3 +2379,33 @@ applying for both.
    realm it is in.
 
 The drift ratchet caught the four new `api.*` functions immediately, for the second capability running.
+
+## Companions: again mostly built already (2026-09-20)
+
+Second time running that reading the code first turned a roadmap entry into an afternoon. "A creature
+that follows, is owned, takes instruction and is still there tomorrow" - `taming.gd` already did three
+of those. The gap was instruction, which was one boolean (`sitting`) toggled by right-clicking.
+
+`engine/server/companions.gd` makes it an order. Three are the engine's own because all three are
+about *where* - follow, stay, guard - and anything else a mod registers maps to a behaviour registered
+with `register_mob_behavior`.
+
+**`sitting` was kept, not replaced.** The sit behaviour and its pose were proven and "stay" is exactly
+what they already did; giving the same fact two representations is how they drift apart.
+
+**Right-click now opens a panel instead of toggling.** That is a deliberate behaviour change to
+something the children already use, so it is worth saying plainly: a toggle cannot express three
+orders, and a panel is also the only way a child discovers that "guard this spot" exists at all. The
+two tests that asserted the toggle were rewritten rather than deleted, and one of them grew a check it
+did not have - that a stranger sending a panel action is refused, which the old toggle got for free
+from its owner check and a panel does not.
+
+### The nested-name pattern, applied instead of rediscovered
+
+`register_order` takes a `behavior` name written by a mod. That is the **fourth** nested name needing
+qualification at the API boundary after sounds, attack conditions and field conditions - and the first
+one where it was done on the way in rather than found by a failing test. The note written up an hour
+earlier paid for itself.
+
+If a fifth appears, the fix is probably one shared walk at registration rather than remembering each
+time.

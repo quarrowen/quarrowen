@@ -282,9 +282,20 @@ swiftness on a cow does nothing yet.
 
 A station to brew them at is still content, and nothing in the engine is in the way of it.
 
-### 17. Companions
+### 17. Companions — built
 
-A creature that follows, is owned, takes instruction and is still there tomorrow.
+**Three of the four parts already existed in `taming.gd`**: a tamed creature follows, belongs to
+somebody, and does not despawn, so it is still there tomorrow. Taking instruction was one boolean,
+`sitting`, toggled by right-clicking - fine for a dog, and out of room the moment there is a third
+thing to say.
+
+Orders now. Three are the engine's own because all three are about *where*: follow, stay and guard.
+Anything else a mod registers maps to a behaviour, so the engine sets the order and the behaviour
+decides what it looks like. Right-clicking a companion opens a panel rather than toggling, the same
+way talking to a character opens a conversation - a child cannot discover what they cannot see.
+
+`sitting` was kept rather than replaced: the sit behaviour and its pose were proven, and "stay" is
+exactly what they already did.
 
 ### 18. Vehicles
 
@@ -556,7 +567,7 @@ follows is what is left, in the order that now unlocks the most.
 at all: structures, facilities, jobs, ownership, conversation and trade all exist. What a village needs
 now is content - somebody to write the villagers.
 
-1. **Companions**, then **vehicles**. Both now have characters behind them.
+1. **Vehicles.** Rideable entities that carry a player and change how they move.
 2. **The small three**: area tools, text in the world, inventories inside things. Independent, and each
    one an afternoon.
 3. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.

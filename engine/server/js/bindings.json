@@ -1318,6 +1318,29 @@
 			],
 			"gd": "open_guide"
 		},
+		"order": {
+			"args": [
+				{
+					"kind": "any"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "order"
+		},
+		"orderOf": {
+			"args": [
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "order_of"
+		},
 		"placeField": {
 			"args": [
 				{
@@ -1936,6 +1959,18 @@
 				}
 			],
 			"gd": "register_objective"
+		},
+		"registerOrder": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_order"
 		},
 		"registerPartType": {
 			"args": [
@@ -2666,6 +2701,17 @@
 				}
 			],
 			"gd": "show_crafting"
+		},
+		"showOrders": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "show_orders"
 		},
 		"showShop": {
 			"args": [

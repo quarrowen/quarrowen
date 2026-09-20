@@ -2568,14 +2568,33 @@ func _taming() -> void:
 	_check(taming.is_tamed(wolf) and wolf.data.owner == "ranger" and p.inventory.counts[0] == 19, "a bone tames the wolf")
 	_check(wolf.data.look.hide == [] and wolf.data.get("no_despawn", false), "tamed wolves wear a collar and never despawn")
 	_check(not entities.ai.is_enemy(wolf.brain, p), "a tamed wolf never attacks its owner")
-	# Sit and follow.
+	# Orders and follow. Right-clicking used to toggle sitting; it opens the order panel now, because a
+	# toggle stops working the moment there are three things to say. (2026-09-20)
 	p.inventory.selected = 1
 	server.on_interact_entity(106, wolf.id)
-	_check(wolf.data.get("sitting", false) and taming._sit_score(wolf.brain) > 1.0, "right-click makes it sit")
+	_check(p.ui_ids.has("engine:orders"), "right-click opens the order panel")
+	_check(server.companions.order_of(wolf) == "engine:follow", "a newly tamed creature follows without being told")
+	server.on_ui_action(106, "engine:orders", "order:engine:stay")
+	_check(wolf.data.get("sitting", false) and taming._sit_score(wolf.brain) > 1.0, "telling it to stay sits it down")
+	# A stranger's panel action must be refused even if they somehow send one.
 	server.on_interact_entity(107, wolf.id)
-	_check(wolf.data.get("sitting", false), "only the owner can make it stand")
+	server.on_ui_action(107, "engine:orders", "order:engine:follow")
+	_check(wolf.data.get("sitting", false), "only the owner can tell it anything")
 	server.on_interact_entity(106, wolf.id)
-	_check(not wolf.data.get("sitting", false), "right-click again makes it stand")
+	server.on_ui_action(106, "engine:orders", "order:engine:follow")
+	_check(not wolf.data.get("sitting", false), "and the owner can tell it to come along again")
+
+	# Guarding: it holds a spot, and walks back when something drew it away.
+	server.on_interact_entity(106, wolf.id)
+	server.on_ui_action(106, "engine:orders", "order:engine:guard")
+	var post: Vector3 = server.companions.post_of(wolf)
+	_check(post != Vector3.INF, "guarding remembers where it was told to stand")
+	_check(server.companions.score(wolf.brain) == 0.0, "and it is content while it is there")
+	wolf.body.position = post + Vector3(20, 0, 0)
+	_check(server.companions.score(wolf.brain) > 0.0, "but wants to go back when it is dragged off")
+	server.on_interact_entity(106, wolf.id)
+	server.on_ui_action(106, "engine:orders", "order:engine:follow")
+	wolf.body.position = post
 	p.state.position = Vector3(16.5, y + 1, 8.5)
 	_check(taming._follow_score(wolf.brain) > 0.0, "it follows its owner")
 	p.state.position = Vector3(35.5, y + 1, 8.5)

@@ -20,6 +20,10 @@ func _init(entities) -> void:
 	_server = entities._server
 	_entities.ai.custom_behaviors["engine:sit"] = {"score": _sit_score, "update": _sit_update, "stop": Callable()}
 	_entities.ai.custom_behaviors["engine:follow_owner"] = {"score": _follow_score, "update": _follow_update, "stop": Callable()}
+	# Guarding lives in companions.gd but is registered here, beside the other two, because this is
+	# where a tamed creature's behaviours are declared and splitting them would hide one of the three.
+	var companions = _server.companions
+	_entities.ai.custom_behaviors["engine:guard"] = {"score": companions.score, "update": companions.update, "stop": Callable()}
 
 
 static func config(def: Dictionary) -> Dictionary:
@@ -78,8 +82,9 @@ func interact(p, e) -> bool:
 		return true
 	if owner_id(e) != p.player_id or c.items.has(item_name) or _entities.breeding.is_food(e, item):
 		return false
-	set_sitting(e, not bool(e.data.get("sitting", false)), p)
-	return true
+	# The panel rather than the old sit/stand toggle. A toggle stops working the moment there are three
+	# things to say, and a child cannot discover what they cannot see. (2026-09-20)
+	return _server.companions.show(p, e)
 
 
 func tame(e, p) -> void:

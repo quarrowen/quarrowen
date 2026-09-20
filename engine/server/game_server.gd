@@ -43,6 +43,7 @@ const Ledgers = preload("res://engine/server/ledgers.gd")
 const Objectives = preload("res://engine/server/objectives.gd")
 const Conditions = preload("res://engine/server/conditions.gd")
 const Fields = preload("res://engine/server/fields.gd")
+const Companions = preload("res://engine/server/companions.gd")
 const Characters = preload("res://engine/server/characters.gd")
 const Shops = preload("res://engine/server/shops.gd")
 const Companies = preload("res://engine/server/companies.gd")
@@ -315,6 +316,8 @@ var shops := Shops.new(self)
 var conditions := Conditions.new(self)
 ## Ground that does something to whoever stands in it (see engine/server/fields.gd).
 var fields := Fields.new(self)
+## What a tamed creature is being told to do (see engine/server/companions.gd).
+var companions := Companions.new(self)
 ## Groups of players that things can belong to (see engine/server/companies.gd).
 var companies := Companies.new(self)
 ## Ground with an owner, consulted before an edit (see engine/server/plots.gd).
@@ -2733,6 +2736,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	anticheat.player_left(peer_id)
 	characters.player_left(peer_id)
 	shops.player_left(peer_id)
+	companions.player_left(peer_id)
 	conditions.before_save(p)  # how long is *left*, since server time restarts with the server
 	conditions.forget(p)
 	_store_player(p)
@@ -4910,6 +4914,8 @@ func on_ui_action(peer_id: int, ui_id: String, action: String) -> void:
 	if ui_id == "engine:talk" and characters.on_action(p, action):
 		return
 	if ui_id == "engine:shop" and shops.on_action(p, action):
+		return
+	if ui_id == "engine:orders" and companions.on_action(p, action):
 		return
 	# "close" is handled here rather than left to the mod. The engine writes Close buttons into its own
 	# panels, and every mod copied that, but nothing ever acted on the action - so a modal panel with a

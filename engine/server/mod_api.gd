@@ -1184,6 +1184,46 @@ func shop_offers(player, shop_name: String) -> Array:
 	return _server.shops.offers_for(player, _qualify_ref(shop_name))
 
 
+## Something a tamed creature can be told to do.
+##
+##     api.register_order("fetch", {"display_name": "Fetch that", "behavior": "my_mod:fetch"})
+##     api.order(dog, "fetch")
+##
+## Taming already gave a companion three of its four parts - it follows, it is owned, and it does not
+## despawn. Taking instruction was one boolean, `sitting`, toggled by right-clicking, which runs out
+## the moment there are three things to say.
+##
+## Three orders are the engine's own, because all three are about *where*: `engine:follow`,
+## `engine:stay` and `engine:guard`. Anything else maps to a behaviour registered with
+## `register_mob_behavior` - the engine sets the order, your behaviour decides what it looks like.
+##
+## Right-clicking a companion opens the order panel, drawn by the engine. Restrict what a particular
+## creature may be told by handling `companion_orders` and editing `orders`.
+func register_order(order_name: String, def := {}) -> bool:
+	# The behaviour name inside it is this mod's - the fourth nested name needing this after sounds,
+	# attack conditions and field conditions. See PROGRESS.md: any mod-written name inside a definition
+	# gets qualified at the boundary, because unqualified it is not an error, it is silence.
+	var d := def.duplicate(true)
+	d["behavior"] = _qualify_ref(String(d.get("behavior", "")))
+	return _server.companions.register(_qualify(order_name), d, mod_id)
+
+
+## Tells a creature something. options: at (where, for orders that need a place; defaults to where it
+## is standing).
+func order(entity, order_name: String, options := {}) -> bool:
+	return _server.companions.give(entity, _qualify_ref(order_name), options)
+
+
+## What it is being told to do now ("engine:follow" when nobody has said otherwise).
+func order_of(entity) -> String:
+	return _server.companions.order_of(entity)
+
+
+## Opens the order panel for a player, as right-clicking their own companion does.
+func show_orders(player, entity) -> bool:
+	return _server.companions.show(player, entity)
+
+
 ## Ground that does something to whoever stands in it, for a while: a pool of fire left where a boss
 ## landed, gas from a cracked pipe, the warmth of a campfire, a healing circle in a village.
 ##
