@@ -2678,3 +2678,47 @@ instead of stamping over it, which is what a well-behaved mod should do anyway.
 - `mods/industry`: the 5s full network rebuild is gone, replaced by `chunk_loaded`, `chunk_unloaded`
   and a filtered `block_changed`. Its comment - "picks up machines in chunks that loaded since the
   last rebuild" - was a poll standing in for two events that did not exist.
+
+## Where the test time actually goes (2026-09-21, user: "tests are the ones that take the longest")
+
+Measured rather than guessed. `TIMES=1 tools/run_tests.sh` now prints a sorted breakdown; it did not
+exist before, so the first question about test time had no answer.
+
+**276 seconds, and it is not spread evenly:**
+
+| | |
+|---|---|
+| `gameplay` | **94s** (34%) |
+| six e2e game tests | 79s (29%) - combat 27, vanilla 16, skyblock 16, industry 10, guild 7, arcana 3 |
+| `auth` | 21s |
+| everything else (11 tests) | ~82s |
+| **`proving`** | **2s for 45 capability checks** |
+
+### The finding: it is not the tests, it is the servers
+
+`gameplay_test.gd` calls `_start()` **93 times** - a fresh server per test function. A server start
+costs **739 ms** measured directly (ten starts, 7.4 s). That is **69 of gameplay's 94 seconds**, or
+73%. The 1348 assertions cost about 25 seconds between them.
+
+So the honest answer to "are all the tests needed" is **yes, almost all of them, and that is not where
+the time is going**. Deleting assertions would buy seconds and cost coverage. The levers are:
+
+1. **Share a server between test functions that do not need their own world** (~54s). Many need
+   isolation - anything writing blocks or players - but plenty only read registries. `proving` is the
+   existence proof: one server, 45 checks, 2 seconds.
+2. **The six e2e game tests collapse to one** when the games are deleted and the Proving Ground is the
+   game (~63s). They already do the same thing against different content.
+3. **`ai-soak` (12s) is a soak test** and belongs nightly rather than on every commit.
+
+Together that is 276s → roughly 150s **without losing a single assertion**.
+
+### What is genuinely redundant
+
+About 20% of `gameplay_test` - 17 functions, 1347 lines - leans on mod content that is about to be
+deleted: `_hearthhold`, `_biomes`, `_animals`, `_structures`, `_tutorials`, and parts of `_taming` and
+`_multiblocks`. Those either move to the Proving Ground as capability tests or go with the games. The
+other 91 functions test the engine and stay.
+
+Note also that `mod_tool validate` reported "0 errors" on a Proving Ground that threw two script
+errors during setup. A validator that cannot see a mod fall over is not validating much, and that is
+worth fixing before it is trusted for anything.

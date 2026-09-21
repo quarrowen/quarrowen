@@ -128,6 +128,10 @@ selected() { # name
 }
 
 # NEEDS_FRESH_WORLD=1 before a run_scene call: this test plays a saved world, so every repeat gets a new one.
+## How long each test took, printed at the end. Test time is the longest thing in CI, and the first
+## question about it - which ones - had no answer until this existed. (2026-09-21)
+TIMINGS=()
+
 run_scene() { # name log scene [user args...]
   local name="$1" log="$2" scene="$3"; shift 3
   selected "$name" || return 0
@@ -136,8 +140,10 @@ run_scene() { # name log scene [user args...]
     local run_log="$log"
     [ "$REPEAT" -gt 1 ] && run_log="${log%.log}_run$i.log"
     if [ "$REPEAT" -gt 1 ] && [ "${NEEDS_FRESH_WORLD:-0}" = "1" ] && [ "$i" -gt 1 ]; then restart_servers; fi
+    local started=$SECONDS
     timeout 240 "$GODOT" --headless "${GODOT_LOG[@]}" --path . "$scene" -- "$@" >"$run_log" 2>&1
     local code=$?
+    TIMINGS+=("$((SECONDS - started))s $name")
     local label="$name"
     [ "$REPEAT" -gt 1 ] && label="$name #$i"
     record "$label" $code "$run_log"
@@ -248,6 +254,8 @@ done
 
 echo
 echo "passed: ${#PASSED[@]}  failed: ${#FAILED[@]}"
+
+if [ -n "${TIMES:-}" ]; then printf "%s\n" "${TIMINGS[@]}" | sort -rn; fi
 if [ ${#FAILED[@]} -ne 0 ]; then
   # Repeat what went wrong down here as well as where it happened. The detail is printed as each test
   # finishes, which is no use at all when somebody is reading the tail of a long run - and an e2e test
