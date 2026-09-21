@@ -602,12 +602,18 @@ test mod that rides on it fails for the wrong reasons.
 
 ### Three capabilities this architecture needs and does not have
 
-**24. Extending another mod's definitions.** `extend_loot` already exists and its comment states the
+**24. Extending another mod's definitions — built.** `extend_loot` already existed and its comment stated the
 principle - "adds pools to a table another mod owns, without forking it" - but it is the only registry
 with one. The same is needed for entities, blocks, recipes, containers and stations: adding an attack
 to somebody's creature, a slot to their machine. **Additive only.** Adding a pool is commutative and
 three mods can do it safely; "set health to 40" means last-loaded wins, which is a conflict system
 nobody asked to design.
+
+Built as `extend_entity` (`ai.attacks`, `ai.behaviors`, `ai.phases`, `drops`) and `extend_block`
+(`drops`). **A block cannot be extended beyond its drops**: everything else about one is baked into
+lookup tables at registration and cannot change afterwards, which the call says rather than
+half-doing. Containers and stations are out for the same reason - changing a container's slot count
+would change saved containers.
 
 **25. Excludes — built.** A game wanting 80% of a pack must be able to refuse the rest. Not as
 `remove_block()`: registering and then deleting shifts every id after it, leaves every recipe and loot
