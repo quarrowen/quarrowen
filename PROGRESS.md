@@ -3290,7 +3290,8 @@ textures afterwards).
 Five styles rendered: current, flat (no pixel noise at all), soft (calmer pixels), storybook (muted,
 brush-banded), crisp (32x32 with per-face shading).
 
-**The user picked crisp, and said it still looks very Minecraft-y - which is the important finding.**
+**The user picked crisp, and said it still looked too much like the genre's best-known game - which
+is the important finding.**
 All five read as the same game. Texture style is the *weakest* of the levers, and a round of palette
 work would have been a round wasted.
 
@@ -3346,8 +3347,8 @@ out once and kept now.
 The user, after five texture styles and three tree silhouettes: *"I like realistic looks. Whether the
 scene or shader dunno. But the more realistic it is the more I will like it."*
 
-**Note this contradicts the old `Roblox-style` note in memory, which was about avatar customization
-and should never have been read as a visual target.** Corrected there.
+**Note this contradicts an old note in memory about a blocky-avatar platform's style, which was about
+avatar customization and should never have been read as a visual target.** Corrected there.
 
 Chasing it found the real constraint, and it is not textures or trees:
 

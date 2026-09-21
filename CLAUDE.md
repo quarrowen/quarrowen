@@ -269,6 +269,16 @@ recorded. Nothing should only exist in the conversation.
 - No attribution lines or co-author trailers in commits.
 - Player-facing text is for children: plain, kind, never arch. Death messages and hints get read by an
   eight-year-old at bedtime.
+- **Do not name other companies' games anywhere in code, documentation, comments or commit messages.**
+  Not as a compliment, not as shorthand for a genre, not in a commit saying we do not look like them.
+  Say "the genre's best-known game", or describe the thing itself. This was a standing instruction for
+  weeks and was not written down here, so it was broken repeatedly on 21 September 2026 - in commit
+  messages, in PROGRESS and in a mod's comments - while a look was being discussed and comparisons
+  were the easiest thing to reach for. Writing it down is the fix.
+
+  **The exception is the trademark notices**, which have to name a mark to disclaim it: LICENSE,
+  README, `docs/faq.md`, the in-game about box and the release page. Those are the only places, and
+  `tools/generate_icon.py` explaining what the icon deliberately is not.
 
 ## Where things are
 

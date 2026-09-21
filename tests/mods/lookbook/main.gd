@@ -132,7 +132,8 @@ func _viewpoint(api) -> Vector3:
 ## **This is the lever that actually matters.** Five texture styles all read as the same game, because
 ## what says "voxel game" is not the pixels - it is that every slope is a flight of one-block stairs
 ## and every tree is a cube of leaves. Halving the step is a small change to the world and a large one
-## to the picture. (2026-09-21, user: "still looks very Minecraft-y")
+## to the picture. (2026-09-21: the user found every texture style still read as the genre's
+## best-known game)
 class Smooth:
 	extends RefCounted
 
