@@ -123,7 +123,9 @@ func show(player, entity) -> bool:
 func on_action(player, action: String) -> bool:
 	if not action.begins_with("order:"):
 		return false
-	var entity = server.entities.entities.get(int(_open.get(player.peer_id, -1)))
+	# The player's own realm: a companion followed you into an instance and then could not be
+	# found, because this looked in the overworld. (2026-09-21)
+	var entity = server.realm_of(player).entities.entities.get(int(_open.get(player.peer_id, -1)))
 	if entity == null:
 		return true
 	# Checked again here rather than trusting the panel: a stale one, or a crafted action, must not let

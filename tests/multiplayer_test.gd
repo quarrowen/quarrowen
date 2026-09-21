@@ -138,7 +138,13 @@ func _bob() -> void:
 	_client.yaw = PI * 0.5
 	Input.action_press("move_forward")
 	Input.action_press("jump")  # hop over steps in rolling terrain
-	await get_tree().create_timer(2.0).timeout
+	# Walk until he has actually got somewhere, not for two seconds. Two seconds of wall clock is a
+	# different number of physics ticks on a loaded machine than on an idle one, and under QW_NATIVE=0
+	# it was sometimes too few to cover the two blocks Alice waits to see - which is why "Alice sees
+	# Bob walk" failed about one fallback run in three and passed every time it was re-run alone.
+	# Far enough is four blocks, comfortably past what she needs. (2026-09-21)
+	var from_here: Vector3 = _client.state.position
+	await _wait(func(): return _client.state.position.distance_to(from_here) > 4.0, 20.0)
 	Input.action_release("jump")
 	Input.action_release("move_forward")
 	var heard := await _wait(func():

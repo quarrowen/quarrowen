@@ -4693,9 +4693,20 @@ func _scale() -> void:
 	while (not server._save_queue.is_empty() or server._save_meta_pending) and drains < 1000:
 		server._drain_save_queue(0)
 		drains += 1
-	_check(server._save_queue.is_empty() and not server._save_meta_pending and drains > 1, "a save spread over %d ticks finishes" % drains)
+	# Not `drains > 1`. That asserted the save took more than one call, which depends on whether the
+	# microsecond clock ticked during the first one - `_drain_save_queue` stops when elapsed *exceeds*
+	# its budget, so a budget of 0 stops after one chunk on a machine whose clock moved and drains the
+	# lot on one whose clock did not. It failed roughly one fallback run in three for that reason and
+	# nothing else. What the comment above actually promises is that a spread save writes every chunk,
+	# so that is what is checked now, and it does not care how many calls it took. (2026-09-21)
+	_check(server._save_queue.is_empty() and not server._save_meta_pending, "a save spread over %d ticks finishes" % drains)
 	WorkerThreadPool.wait_for_task_completion(server._save_task)
 	server._save_task = -1
+	var written := 0
+	for pos in edited:
+		if FileAccess.file_exists(server.realm.chunk_path(Vector2i(floori(pos.x / 16.0), floori(pos.z / 16.0)))):
+			written += 1
+	_check(written == edited.size(), "and every chunk it queued is on disk (%d of %d)" % [written, edited.size()])
 	# Column heights follow edits without rescanning.
 	var x := 3
 	var z := 3

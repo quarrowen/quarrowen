@@ -3250,8 +3250,20 @@ Seen twice today: `QW_NATIVE=0 PORT_BASE=25700 tools/run_tests.sh` failed once w
 test and once with `proving` plus gameplay's "a save spread over 1000 ticks finishes". **Both passed
 in isolation and on the next full run**, and the native suite has not failed once.
 
-Not chased down, but recorded rather than shrugged at, because a suite that fails one run in three
-stops being read. The gameplay one is the shape CLAUDE.md already warns about - a test that waits a
-fixed number of ticks passes on a fast machine and fails on a loaded one - and the GDScript fallback
-is exactly the slow case. Worth a pass over the timing-sensitive tests before CI is turned back on,
-since a small runner will hit this far more often than this laptop does.
+**Chased down the same day, and both were real.** Neither was load in the vague sense; each was a
+test asserting something about the machine rather than about the engine.
+
+**"a save spread over 1000 ticks finishes"** asserted `drains > 1` - that the save took more than one
+call. `_drain_save_queue` stops when elapsed *exceeds* its budget, so with a budget of 0 it stops
+after one chunk on a machine whose microsecond clock ticked during it and drains the lot on one whose
+clock did not. The test was measuring timer resolution. It now checks what the code comment actually
+promises - that a spread save writes every chunk - and counts the files on disk instead.
+
+**"Alice sees Bob walk"** was the stopwatch CLAUDE.md warns about, one level removed: Alice waited on
+an event with a generous bound, which is right, but *Bob* held his walk key down for exactly 2.0
+seconds of wall clock. Two seconds is a different number of physics ticks on a loaded machine than on
+an idle one, and under `QW_NATIVE=0` it was sometimes too few to cover the two blocks Alice was
+waiting to see. Bob now walks until he has moved four blocks, with a timeout as the bound.
+
+Three clean fallback runs and a native run since. The lesson generalises: when a test waits for an
+event but something *else* in the test is on a stopwatch, the stopwatch is still the bug.

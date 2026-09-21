@@ -282,7 +282,7 @@ func update(delta: float) -> void:
 
 
 ## A container block was removed: close screens and spill the contents.
-func block_removed(pos: Vector3i, store: Dictionary, old_block: int) -> void:
+func block_removed(pos: Vector3i, store: Dictionary, old_block: int, into = null) -> void:
 	for peer_id: int in _viewers.get(block_key(pos), {}).keys():
 		var p = _server.players.get(peer_id)
 		if p != null:
@@ -294,7 +294,9 @@ func block_removed(pos: Vector3i, store: Dictionary, old_block: int) -> void:
 	for i in t.size:
 		var s: Dictionary = c.get_item(i)
 		if s.item > 0:
-			_server.entities.drop_item(s.item, s.count, Vector3(pos) + Vector3(0.5, 0.5, 0.5),
+			# Into the realm the chest was in. `_server.entities` reads through the default realm, so
+			# a chest broken in a dimension or an instance spilled into the overworld. (2026-09-21)
+			(into if into != null else _server.realm).entities.drop_item(s.item, s.count, Vector3(pos) + Vector3(0.5, 0.5, 0.5),
 				Vector3(randf_range(-1.5, 1.5), randf_range(2.0, 4.0), randf_range(-1.5, 1.5)), 0.4, s.data)
 
 

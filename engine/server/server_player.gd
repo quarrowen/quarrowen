@@ -280,7 +280,10 @@ func has_room(item: int, count := 1, item_data := {}) -> bool:
 func give(item: int, count := 1, item_data := {}) -> int:
 	var left := inventory.add(item, count, _server.items.max_stack(item), item_data)
 	if left > 0:
-		_server.entities.drop_item(item, left, state.position + Vector3(0, 0.6, 0), Vector3.INF, 0.3, item_data)
+		# The realm they are standing in, not the overworld. `_server.entities` reads through the
+		# default realm, so a full pack inside an instance used to drop its overflow into the
+		# overworld, where nobody would ever find it. (2026-09-21)
+		_server.realm_of(self).entities.drop_item(item, left, state.position + Vector3(0, 0.6, 0), Vector3.INF, 0.3, item_data)
 		send_message("Your pack is full - %d dropped at your feet" % left)
 	sync_inventory()
 	return left
@@ -307,7 +310,7 @@ func clear_inventory() -> void:
 
 ## Drops items as an entity in front of the player.
 func drop(item: int, count := 1, item_data := {}) -> void:
-	_server.entities.drop_item(item, count, get_eye_position() - Vector3(0, 0.3, 0),
+	_server.realm_of(self).entities.drop_item(item, count, get_eye_position() - Vector3(0, 0.3, 0),
 		PlayerPhysics.look_direction(yaw, pitch) * 5.0 + Vector3(0, 1.5, 0), 1.5, item_data)
 
 

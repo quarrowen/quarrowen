@@ -5320,7 +5320,7 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0, int
 	into.save_dirty[coord] = true
 	if old != block and not keep_data:
 		if not containers.type_of_block(old).is_empty():
-			containers.block_removed(pos, get_block_data(pos, into), old)
+			containers.block_removed(pos, get_block_data(pos, into), old, into)
 		clear_block_data(pos, into)
 	into.block_ticks.block_changed(pos, old, block)
 	into.signals.block_changed(pos, old, block)
