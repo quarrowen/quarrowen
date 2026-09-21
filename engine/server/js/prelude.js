@@ -78,19 +78,6 @@
     /** op "add" or "multiply" (0.2 = +20%); seconds 0 = until removed. */
     addModifier(id, stat, amount, op = "add", seconds = 0) { host("player.addModifier", this.id, id, stat, amount, op, seconds); }
     removeModifier(id) { host("player.removeModifier", this.id, id); }
-    /** Hunger 0-20; saturation < 0 leaves it alone. */
-    setHunger(value, saturation = -1) { host("player.setHunger", this.id, value, saturation); }
-    addExhaustion(amount) { host("player.addExhaustion", this.id, amount); }
-    feed(hunger, saturation = 0) { host("player.feed", this.id, hunger, saturation); }
-    setMaxHealth(value) { host("player.setMaxHealth", this.id, value); }
-    /** Empties every slot, including what is worn. */
-    clearInventory() { host("player.clearInventory", this.id); }
-    /** Pushes the server's inventory to their screen (after changing it behind their back). */
-    syncInventory() { host("player.syncInventory", this.id); }
-    /** Everything they are carrying, as plain data - pair with loadItems to lend an arena gear set. */
-    saveItems() { return host("player.saveItems", this.id); }
-    /** Puts back what saveItems returned; returns anything that would not fit. */
-    loadItems(saved) { return host("player.loadItems", this.id, saved); }
     /** Teams share station trays and projects ("" = no team). */
     setTeam(name) { host("player.setTeam", this.id, String(name)); }
     knowsRecipe(id) { return host("player.knowsRecipe", this.id, id); }
@@ -171,10 +158,6 @@
     kill(cause = "magic") { host("entity.kill", this, cause); }
     /** Puts it somewhere, stopping it dead. Spelled like Player.teleport on purpose. */
     teleport(position) { host("entity.teleport", this, position); }
-    /** The box it occupies: {position, size}. */
-    aabb() { return host("entity.aabb", this); }
-    /** Starts it thinking again after it has gone quiet. */
-    wake() { host("entity.wake", this); }
     heal(amount) { host("entity.heal", this, amount); }
     remove() { host("entity.remove", this); }
     /** Walk toward a position (mobs); null resumes normal behaviour. */
@@ -427,6 +410,24 @@
       if (callbackAt >= 0 && typeof args[callbackAt] === "function") args[callbackAt] = register(args[callbackAt]);
       return host(name, ...args);
     };
+  }
+
+  // The same for the two objects a mod is handed. Player and Entity were the last hand-written part
+  // of the bridge and so the only part that could still drift - which they had, to ten missing
+  // methods, found when somebody wanted an arena that hands out gear sets. (2026-09-21)
+  //
+  // Hand-written wins here too, and `name in Klass.prototype` catches the `get x()` accessors as well
+  // as the methods, so a generated entry can never shadow one.
+  for (const [kind, Klass] of [["player", Player], ["entity", Entity]]) {
+    for (const [name, binding] of Object.entries(globalThis.__objectBindings?.[kind] ?? {})) {
+      if (name in Klass.prototype) continue;
+      const callbackAt = binding.args.findIndex((arg) => arg.kind === "callback");
+      Klass.prototype[name] = function (...args) {
+        if (callbackAt >= 0 && typeof args[callbackAt] === "function") args[callbackAt] = register(args[callbackAt]);
+        // Entity sends itself, Player sends its id: the two dispatchers resolve argument 0 differently.
+        return host(`${kind}.${name}`, kind === "entity" ? this : this.id, ...args);
+      };
+    }
   }
 
   globalThis.console = {

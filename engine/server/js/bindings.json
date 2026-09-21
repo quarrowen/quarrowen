@@ -3400,6 +3400,607 @@
 			"gd": "would_accept"
 		}
 	},
+	"objects": {
+		"entity": {
+			"aabb": {
+				"args": [],
+				"gd": "aabb"
+			},
+			"addThreat": {
+				"args": [
+					{
+						"kind": "any"
+					},
+					{
+						"kind": "float"
+					}
+				],
+				"gd": "add_threat"
+			},
+			"alert": {
+				"args": [
+					{
+						"kind": "vec3"
+					}
+				],
+				"gd": "alert"
+			},
+			"damage": {
+				"args": [
+					{
+						"kind": "float"
+					},
+					{
+						"default": "magic",
+						"kind": "str"
+					},
+					{
+						"kind": "any"
+					}
+				],
+				"gd": "damage"
+			},
+			"getBehavior": {
+				"args": [],
+				"gd": "get_behavior"
+			},
+			"getTarget": {
+				"args": [],
+				"gd": "get_target"
+			},
+			"heal": {
+				"args": [
+					{
+						"kind": "float"
+					}
+				],
+				"gd": "heal"
+			},
+			"isAlive": {
+				"args": [],
+				"gd": "is_alive"
+			},
+			"kill": {
+				"args": [
+					{
+						"default": "magic",
+						"kind": "str"
+					}
+				],
+				"gd": "kill"
+			},
+			"performAttack": {
+				"args": [
+					{
+						"kind": "str"
+					}
+				],
+				"gd": "perform_attack"
+			},
+			"push": {
+				"args": [
+					{
+						"kind": "vec3"
+					}
+				],
+				"gd": "push"
+			},
+			"remove": {
+				"args": [],
+				"gd": "remove"
+			},
+			"setGoal": {
+				"args": [
+					{
+						"kind": "vec3"
+					}
+				],
+				"gd": "set_goal"
+			},
+			"setHome": {
+				"args": [
+					{
+						"kind": "vec3"
+					},
+					{
+						"default": -1.0,
+						"kind": "float"
+					}
+				],
+				"gd": "set_home"
+			},
+			"setLook": {
+				"args": [
+					{
+						"kind": "dict"
+					}
+				],
+				"gd": "set_look"
+			},
+			"setTarget": {
+				"args": [
+					{
+						"kind": "any"
+					}
+				],
+				"gd": "set_target"
+			},
+			"teleport": {
+				"args": [
+					{
+						"kind": "vec3"
+					}
+				],
+				"gd": "teleport"
+			},
+			"tune": {
+				"args": [
+					{
+						"kind": "dict"
+					}
+				],
+				"gd": "tune"
+			},
+			"wake": {
+				"args": [],
+				"gd": "wake"
+			}
+		},
+		"player": {
+			"addExhaustion": {
+				"args": [
+					{
+						"kind": "float"
+					}
+				],
+				"gd": "add_exhaustion"
+			},
+			"addModifier": {
+				"args": [
+					{
+						"kind": "str"
+					},
+					{
+						"kind": "str"
+					},
+					{
+						"kind": "float"
+					},
+					{
+						"default": "add",
+						"kind": "str"
+					},
+					{
+						"default": 0.0,
+						"kind": "float"
+					}
+				],
+				"gd": "add_modifier"
+			},
+			"clearInventory": {
+				"args": [],
+				"gd": "clear_inventory"
+			},
+			"countOf": {
+				"args": [
+					{
+						"kind": "int"
+					}
+				],
+				"gd": "count_of"
+			},
+			"damage": {
+				"args": [
+					{
+						"kind": "float"
+					},
+					{
+						"default": "magic",
+						"kind": "str"
+					},
+					{
+						"kind": "any"
+					}
+				],
+				"gd": "damage"
+			},
+			"damageItem": {
+				"args": [
+					{
+						"kind": "int"
+					},
+					{
+						"default": 1,
+						"kind": "int"
+					},
+					{
+						"default": "use",
+						"kind": "str"
+					}
+				],
+				"gd": "damage_item"
+			},
+			"drop": {
+				"args": [
+					{
+						"kind": "int"
+					},
+					{
+						"default": 1,
+						"kind": "int"
+					},
+					{
+						"default": {},
+						"kind": "dict"
+					}
+				],
+				"gd": "drop"
+			},
+			"equipmentSlot": {
+				"args": [
+					{
+						"kind": "str"
+					}
+				],
+				"gd": "equipment_slot"
+			},
+			"feed": {
+				"args": [
+					{
+						"kind": "float"
+					},
+					{
+						"default": 0.0,
+						"kind": "float"
+					}
+				],
+				"gd": "feed"
+			},
+			"getEyePosition": {
+				"args": [],
+				"gd": "get_eye_position"
+			},
+			"getItem": {
+				"args": [
+					{
+						"kind": "int"
+					}
+				],
+				"gd": "get_item"
+			},
+			"getStat": {
+				"args": [
+					{
+						"kind": "str"
+					}
+				],
+				"gd": "get_stat"
+			},
+			"getStats": {
+				"args": [],
+				"gd": "get_stats"
+			},
+			"give": {
+				"args": [
+					{
+						"kind": "int"
+					},
+					{
+						"default": 1,
+						"kind": "int"
+					},
+					{
+						"default": {},
+						"kind": "dict"
+					}
+				],
+				"gd": "give"
+			},
+			"grantCosmetic": {
+				"args": [
+					{
+						"kind": "str"
+					}
+				],
+				"gd": "grant_cosmetic"
+			},
+			"hasCosmetic": {
+				"args": [
+					{
+						"kind": "str"
+					}
+				],
+				"gd": "has_cosmetic"
+			},
+			"hasPermission": {
+				"args": [
+					{
+						"kind": "str"
+					}
+				],
+				"gd": "has_permission"
+			},
+			"hasRoom": {
+				"args": [
+					{
+						"kind": "int"
+					},
+					{
+						"default": 1,
+						"kind": "int"
+					},
+					{
+						"default": {},
+						"kind": "dict"
+					}
+				],
+				"gd": "has_room"
+			},
+			"heal": {
+				"args": [
+					{
+						"kind": "float"
+					}
+				],
+				"gd": "heal"
+			},
+			"hideUi": {
+				"args": [
+					{
+						"kind": "str"
+					}
+				],
+				"gd": "hide_ui"
+			},
+			"isAdmin": {
+				"args": [],
+				"gd": "is_admin"
+			},
+			"isAlive": {
+				"args": [],
+				"gd": "is_alive"
+			},
+			"isCreative": {
+				"args": [],
+				"gd": "is_creative"
+			},
+			"kick": {
+				"args": [
+					{
+						"kind": "str"
+					}
+				],
+				"gd": "kick"
+			},
+			"kill": {
+				"args": [
+					{
+						"default": "magic",
+						"kind": "str"
+					}
+				],
+				"gd": "kill"
+			},
+			"knowsRecipe": {
+				"args": [
+					{
+						"kind": "str"
+					}
+				],
+				"gd": "knows_recipe"
+			},
+			"learnRecipe": {
+				"args": [
+					{
+						"kind": "str"
+					},
+					{
+						"default": "mod",
+						"kind": "str"
+					}
+				],
+				"gd": "learn_recipe"
+			},
+			"loadItems": {
+				"args": [
+					{
+						"kind": "any"
+					}
+				],
+				"gd": "load_items"
+			},
+			"playSound": {
+				"args": [
+					{
+						"kind": "str"
+					},
+					{
+						"default": 1.0,
+						"kind": "float"
+					},
+					{
+						"default": 1.0,
+						"kind": "float"
+					}
+				],
+				"gd": "play_sound"
+			},
+			"push": {
+				"args": [
+					{
+						"kind": "vec3"
+					}
+				],
+				"gd": "push"
+			},
+			"refreshStats": {
+				"args": [],
+				"gd": "refresh_stats"
+			},
+			"removeModifier": {
+				"args": [
+					{
+						"kind": "str"
+					}
+				],
+				"gd": "remove_modifier"
+			},
+			"revokeCosmetic": {
+				"args": [
+					{
+						"kind": "str"
+					}
+				],
+				"gd": "revoke_cosmetic"
+			},
+			"saveItems": {
+				"args": [],
+				"gd": "save_items"
+			},
+			"sendMessage": {
+				"args": [
+					{
+						"kind": "str"
+					}
+				],
+				"gd": "send_message"
+			},
+			"setAvatarOverride": {
+				"args": [
+					{
+						"kind": "dict"
+					}
+				],
+				"gd": "set_avatar_override"
+			},
+			"setCreative": {
+				"args": [
+					{
+						"kind": "bool"
+					}
+				],
+				"gd": "set_creative"
+			},
+			"setHealth": {
+				"args": [
+					{
+						"kind": "float"
+					}
+				],
+				"gd": "set_health"
+			},
+			"setHotbar": {
+				"args": [
+					{
+						"kind": "arr"
+					},
+					{
+						"default": 1,
+						"kind": "int"
+					}
+				],
+				"gd": "set_hotbar"
+			},
+			"setHunger": {
+				"args": [
+					{
+						"kind": "float"
+					},
+					{
+						"default": -1.0,
+						"kind": "float"
+					}
+				],
+				"gd": "set_hunger"
+			},
+			"setItemData": {
+				"args": [
+					{
+						"kind": "int"
+					},
+					{
+						"kind": "dict"
+					}
+				],
+				"gd": "set_item_data"
+			},
+			"setMaxHealth": {
+				"args": [
+					{
+						"kind": "float"
+					}
+				],
+				"gd": "set_max_health"
+			},
+			"showTitle": {
+				"args": [
+					{
+						"kind": "str"
+					},
+					{
+						"default": "",
+						"kind": "str"
+					},
+					{
+						"default": 3.0,
+						"kind": "float"
+					}
+				],
+				"gd": "show_title"
+			},
+			"showUi": {
+				"args": [
+					{
+						"kind": "str"
+					},
+					{
+						"kind": "dict"
+					}
+				],
+				"gd": "show_ui"
+			},
+			"syncInventory": {
+				"args": [],
+				"gd": "sync_inventory"
+			},
+			"take": {
+				"args": [
+					{
+						"kind": "int"
+					},
+					{
+						"default": 1,
+						"kind": "int"
+					}
+				],
+				"gd": "take"
+			},
+			"teleport": {
+				"args": [
+					{
+						"kind": "vec3"
+					}
+				],
+				"gd": "teleport"
+			},
+			"transferTo": {
+				"args": [
+					{
+						"kind": "str"
+					},
+					{
+						"default": "",
+						"kind": "str"
+					},
+					{
+						"default": {},
+						"kind": "dict"
+					}
+				],
+				"gd": "transfer_to"
+			}
+		}
+	},
 	"refused": {
 		"add_generation_pass": "takes a Object, which needs a GDScript object on the other side",
 		"set_world_generator": "takes a Object, which needs a GDScript object on the other side"

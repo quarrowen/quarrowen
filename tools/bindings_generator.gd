@@ -18,6 +18,10 @@ extends RefCounted
 const DocsGenerator = preload("res://tools/docs_generator.gd")
 const MOD_API := "res://engine/server/mod_api.gd"
 const OUT := "res://engine/server/js/bindings.json"
+## The two objects a mod is handed, whose bindings were written by hand until 21 September 2026 and so
+## were the one part of the bridge that could still drift - and did, to ten missing methods. Only what
+## is below each file's `# --- Mod API` marker is generated: above it is the engine's own half.
+const OBJECTS := [["player", "res://engine/server/server_player.gd"], ["entity", "res://engine/server/entity.gd"]]
 
 ## Types a value cannot cross JSON as: these need a GDScript object on the other side, so the functions
 ## that take one stay GDScript-only and are listed in unbound.txt with everybody else.
@@ -35,7 +39,31 @@ static func build() -> Dictionary:
 			refused[String(fn.name)] = args
 			continue
 		out[DocsGenerator.camel(String(fn.name))] = {"gd": String(fn.name), "args": args}
-	return {"methods": out, "refused": refused}
+	return {"methods": out, "objects": _objects(refused), "refused": refused}
+
+
+## The same treatment for Player and Entity. Their first argument on the wire is the object itself, so
+## the generated argument list starts at index 1 and `js_mod.gd` peels the reference off the front.
+##
+## **Methods only, not properties.** The hand-written prelude exposes several as `get x()` accessors,
+## and a generated method of the same name would shadow one silently. Properties stay hand-written and
+## `unbound.txt` still lists any that are missing, so the ratchet keeps watching them. (2026-09-21)
+static func _objects(refused: Dictionary) -> Dictionary:
+	var out := {}
+	for pair in OBJECTS:
+		var source := FileAccess.get_file_as_string(String(pair[1]))
+		var marker := source.find("# --- Mod API")
+		var table := {}
+		for fn in DocsGenerator.parse_gdscript(source.substr(marker) if marker >= 0 else source, ""):
+			if String(fn.signature).ends_with("(property)") or String(fn.name).begins_with("_"):
+				continue
+			var args = _args(String(fn.signature))
+			if args is String:
+				refused["%s.%s" % [pair[0], fn.name]] = args
+				continue
+			table[DocsGenerator.camel(String(fn.name))] = {"gd": String(fn.name), "args": args}
+		out[String(pair[0])] = table
+	return out
 
 
 ## [{kind, default}] for each parameter, or a sentence saying why this function cannot be generated.

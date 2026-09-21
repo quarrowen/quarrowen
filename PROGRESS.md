@@ -3219,3 +3219,39 @@ Also added `fill_container(container, table, context)` - loot into a chest in on
 that appears when a boss dies. It fills empty slots only, so filling twice does not throw away what
 somebody put in. The two older paths stay: a structure's chest data (`{"loot": "table"}`) rolls
 itself on first open, and `roll_loot` hands back stacks for anything that is not a container.
+
+## Player and Entity are generated now, and the bridge cannot drift again (2026-09-21)
+
+The last hand-written part of the JavaScript bridge is gone. `bindings.json` now carries an
+`objects` table built the same way `methods` is - parsed from the `# --- Mod API` section of
+`server_player.gd` and `entity.gd` - and both `js_mod.gd` and `prelude.js` fall through to it exactly
+as they already did for `api.*`. A method added to Player or Entity reaches JavaScript the moment it
+exists.
+
+**`unbound.txt` went 18 → 2.** What is left is `set_world_generator` and `add_generation_pass`, which
+take a GDScript object and cannot cross JSON - structural, not neglect.
+
+Proof rather than assumption: the ten methods bound by hand earlier the same day were **deleted
+again** from `js_mod.gd` and `prelude.js`, and `proving_js` still performs the arena gear-set round
+trip through them. `proving_test` asserts it - twelve rocks survive `saveItems` → `clearInventory` →
+`loadItems` and a `setMaxHealth` lands - so if generation ever breaks, that is what says so.
+
+Two decisions inside it:
+
+- **Methods only, not properties.** The prelude exposes several as `get x()` accessors and a
+  generated method of the same name would shadow one silently. `name in Klass.prototype` catches
+  accessors as well as methods, so hand-written always wins.
+- **Entity sends itself, Player sends its id**, because the two dispatchers already resolved argument
+  0 differently and changing that was a bigger blast radius than the fallback needed.
+
+## The GDScript fallback suite is flaky under load (2026-09-21)
+
+Seen twice today: `QW_NATIVE=0 PORT_BASE=25700 tools/run_tests.sh` failed once with an unidentified
+test and once with `proving` plus gameplay's "a save spread over 1000 ticks finishes". **Both passed
+in isolation and on the next full run**, and the native suite has not failed once.
+
+Not chased down, but recorded rather than shrugged at, because a suite that fails one run in three
+stops being read. The gameplay one is the shape CLAUDE.md already warns about - a test that waits a
+fixed number of ticks passes on a fast machine and fails on a loaded one - and the GDScript fallback
+is exactly the slow case. Worth a pass over the timing-sensitive tests before CI is turned back on,
+since a small runner will hit this far more often than this laptop does.

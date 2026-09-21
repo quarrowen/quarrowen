@@ -138,6 +138,15 @@ func _javascript(server) -> void:
 	_check(server.objectives.has(p, "proving_js:js_errand"), "and gave an objective")
 	_check(server.conditions.has(p, "proving_js:js_chill"), "and applied a condition")
 	_check(not server.fields.at(p.state.position).is_empty(), "and put a field on the ground")
+	# The arena gear-set round trip, through methods that have **no hand-written binding at all** -
+	# saveItems, clearInventory, loadItems, syncInventory, setMaxHealth and feed all reach JavaScript
+	# only because Player is generated now. If generation broke, this is what would say so.
+	var rock: int = server.registry.id_of("proving:rock")
+	p.inventory.set_slot(5, rock, 12)
+	p.set_max_health(20.0)
+	server._commands.get("jskit", {}).get("handler", Callable()).call(p, PackedStringArray())
+	_check(p.inventory.count_of(rock) == 12, "a generated Player method round-tripped their things")
+	_check(p.max_health == 24.0, "and another one changed their health (%s)" % p.max_health)
 	_check(not server.nameplates.plate_of(p).get("lines", []).is_empty(), "and wrote on a nameplate")
 
 

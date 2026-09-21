@@ -39,7 +39,7 @@ func load() -> Error:
 	runtime.set_time_budget_ms(TIME_BUDGET_MS)
 	runtime.set_host(_host)
 	# Before the prelude, because that is what reads it to build the generated half of `api`.
-	var error: String = runtime.eval_script("bindings.js", "globalThis.__bindings = %s;" % JSON.stringify(bindings()))
+	var error: String = runtime.eval_script("bindings.js", "globalThis.__bindings = %s; globalThis.__objectBindings = %s;" % [JSON.stringify(bindings()), JSON.stringify(object_bindings())])
 	if error.is_empty():
 		error = runtime.eval_script("prelude.js", FileAccess.get_file_as_string(PRELUDE))
 	if error.is_empty():
@@ -397,6 +397,34 @@ func _generic(method: String, a: Array):
 	return api.callv(String(binding.gd), args)
 
 
+## A method on the player or entity object a mod was handed, through the generated table. The object
+## itself is argument 0 on the wire and has already been resolved, so the generated argument list
+## starts at index 1.
+##
+## This exists because Player and Entity were the last hand-written part of the bridge, and so the
+## only part that could still drift - which it had, to ten missing methods, found when somebody wanted
+## a JavaScript arena that hands out gear sets. (2026-09-21)
+func _generic_on(object, kind: String, method: String, a: Array):
+	var table: Dictionary = object_bindings().get(kind, {})
+	var binding: Dictionary = table.get(method, {})
+	if binding.is_empty():
+		return HostError.new("unknown %s method '%s'" % [kind, method])
+	var args := []
+	var spec: Array = binding.args
+	for i in spec.size():
+		var at := i + 1
+		if at >= a.size() or a[at] == null:
+			if not (spec[i] as Dictionary).has("default"):
+				break
+			args.append(spec[i]["default"])
+			continue
+		var value = _coerce(String(spec[i].kind), a, at)
+		if value is HostError:
+			return value
+		args.append(value)
+	return object.callv(String(binding.gd), args)
+
+
 func _coerce(kind: String, a: Array, i: int):
 	match kind:
 		"str": return _str(a, i)
@@ -431,6 +459,17 @@ static func bindings() -> Dictionary:
 	return _bindings
 
 
+## The generated Player and Entity tables, read once from the same file.
+static var _object_bindings := {}
+
+
+static func object_bindings() -> Dictionary:
+	if _object_bindings.is_empty():
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string("res://engine/server/js/bindings.json"))
+		_object_bindings = parsed.get("objects", {}) if parsed is Dictionary else {}
+	return _object_bindings
+
+
 func _call_player(method: String, a: Array):
 	if method == "online":
 		return not (_player_ref(a, 0) is HostError)
@@ -455,17 +494,6 @@ func _call_player(method: String, a: Array):
 		"getStat": return player.get_stat(_str(a, 1))
 		"addModifier": player.add_modifier(_str(a, 1), _str(a, 2), float(a[3]) if a.size() > 3 else 0.0, _str(a, 4) if a.size() > 4 else "add", float(a[5]) if a.size() > 5 else 0.0)
 		"removeModifier": player.remove_modifier(_str(a, 1))
-		# Hunger, health and the whole inventory. Missing until somebody wanted an arena that hands out
-		# gear sets, which needs exactly saveItems / clearInventory / loadItems and could not be
-		# written in JavaScript at all. (2026-09-21)
-		"setHunger": player.set_hunger(_float(a, 1), _float(a, 2, -1.0))
-		"addExhaustion": player.add_exhaustion(_float(a, 1))
-		"feed": player.feed(_float(a, 1), _float(a, 2, 0.0))
-		"setMaxHealth": player.set_max_health(_float(a, 1))
-		"clearInventory": player.clear_inventory()
-		"syncInventory": player.sync_inventory()
-		"saveItems": return player.save_items()
-		"loadItems": return player.load_items(a[1] if a.size() > 1 else null)
 		"grantCosmetic": player.grant_cosmetic(api._qualify_ref(_str(a, 1)))
 		"revokeCosmetic": player.revoke_cosmetic(api._qualify_ref(_str(a, 1)))
 		"hasCosmetic": return player.has_cosmetic(api._qualify_ref(_str(a, 1)))
@@ -517,7 +545,10 @@ func _call_player(method: String, a: Array):
 		"unlockGuidePage": return api.unlock_guide_page(player, _str(a, 1), a.size() <= 2 or bool(a[2]))
 		"team": return player.team
 		"setSpawnPoint": player.spawn_point = _vec3(a, 1) if a.size() > 1 and a[1] != null else Vector3.INF
-		_: return HostError.new("unknown player method '%s'" % method)
+		# Anything with no case above, from the generated table. The hand-written ones win, because
+		# several rename on purpose (perform_attack is `attack`) or take friendlier arguments - the
+		# same rule the api table follows. (2026-09-21)
+		_: return _generic_on(player, "player", method, a)
 	return null
 
 
@@ -541,11 +572,6 @@ func _call_entity(method: String, a: Array):
 		"remove": e.remove()
 		"kill": e.kill(_str(a, 1) if a.size() > 1 else "magic")
 		"teleport": e.teleport(_vec3(a, 1))
-		# An entity's box, and waking one that has gone quiet. Both were reachable from GDScript only.
-		"aabb":
-			var box: AABB = e.aabb()
-			return {"position": box.position, "size": box.size}
-		"wake": e.wake()
 		"setGoal": e.set_goal(_vec3(a, 1) if a.size() > 1 and a[1] != null else Vector3.INF)
 		"target": return e.get_target()
 		"setTarget": e.set_target(_any_ref(a, 1))
@@ -571,7 +597,7 @@ func _call_entity(method: String, a: Array):
 			if not (e.data.get(manifest.id) is Dictionary):
 				e.data[manifest.id] = {}
 			e.data[manifest.id][_str(a, 1)] = a[2] if a.size() > 2 else null
-		_: return HostError.new("unknown entity method '%s'" % method)
+		_: return _generic_on(e, "entity", method, a)
 	return null
 
 

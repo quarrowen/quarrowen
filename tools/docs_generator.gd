@@ -14,25 +14,20 @@ const PRELUDE := "res://engine/server/js/prelude.js"
 const UNBOUND := "res://engine/server/js/unbound.txt"
 ## The generated half of the JavaScript API (tools/bindings_generator.gd).
 const BINDINGS := "res://engine/server/js/bindings.json"
-const UNBOUND_HEADER := """# Names a JavaScript mod cannot reach by their GDScript spelling.
+const UNBOUND_HEADER := """# Names a JavaScript mod cannot reach.
 #
-# Two kinds are in here, and only the first is a real gap:
+# Two, and both for the same structural reason: they take a GDScript object, which cannot cross JSON.
+# Nothing else in the mod API is out of reach.
 #
-#   1. GENUINELY UNAVAILABLE - takes a GDScript object, which cannot cross JSON:
-#      add_generation_pass, set_world_generator.
-#   2. REACHABLE UNDER ANOTHER NAME - the prelude renames them on purpose:
-#      entity.perform_attack is `attack`, entity.get_target is `target`, entity.get_behavior is
-#      `behavior`, entity.set_look is `lookAt`, player.get_eye_position is `eyePosition`,
-#      player.get_stats is `stats`.
-#
-# The second kind is listed because a name that differs between the two languages is worth knowing
-# about, not because it is missing. Do not "fix" one by adding a second binding.
+# It was 18 until 21 September 2026. Ten were real gaps on Player and Entity - saveItems,
+# clearInventory and loadItems among them, without which a JavaScript mod could not hand out an arena
+# gear set at all - and six were renames listed for information. Both kinds are gone now that Player
+# and Entity are generated the way mod_api.gd already was, so a method added to either reaches
+# JavaScript the moment it exists and cannot drift again.
 #
 # This list may only get shorter. tests/gameplay_test.gd fails when a name appears that is not already
 # here, so a new capability cannot quietly land in one language and not the other - which is how it got
-# to 128 of 262 in the first place (2026-09-20). It was 18 until 21 September 2026, when the ten real
-# gaps were bound - among them saveItems, clearInventory and loadItems, without which a JavaScript mod
-# could not hand out an arena gear set at all.
+# to 128 of 262 in the first place (2026-09-20).
 #
 # Regenerate with: godot --headless --path . res://tools/mod_tool.tscn -- bindings
 """
@@ -187,6 +182,7 @@ static func unbound_js() -> Array:
 			out.append(String(fn.name))
 	# Player and Entity too. Leaving them out let Entity.kill and Entity.teleport be added with no
 	# JavaScript binding and nothing said about it, which is exactly what this list is for. (2026-09-20)
+	var generated_objects: Dictionary = (JSON.parse_string(FileAccess.get_file_as_string(BINDINGS)) as Dictionary).get("objects", {})
 	for obj in OBJECTS:
 		var source := FileAccess.get_file_as_string(obj[1])
 		var marker := source.find("# --- Mod API")
@@ -199,6 +195,11 @@ static func unbound_js() -> Array:
 				continue
 			var camel := _camel(fn.name)
 			if declared.has(camel) or prelude.contains("    %s(" % camel) or prelude.contains("    %s:" % camel):
+				continue
+			# Or generated, since 21 September 2026: Player and Entity get the same treatment mod_api
+			# does, so a method added to either reaches JavaScript the moment it exists and only the
+			# genuinely uncrossable are left here.
+			if generated_objects.get(String(obj[0]).to_lower(), {}).has(camel):
 				continue
 			# What is left is mostly the rename class - perform_attack is reachable as `attack`, is_alive
 			# as `alive`. Listed anyway: a name that differs between the two languages is worth knowing
