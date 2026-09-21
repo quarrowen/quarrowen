@@ -2864,3 +2864,29 @@ that *keeps* an id uses those; the probes stay for optional content.
   client is sent the registry on join, so the wire is fine. It would add a mapping layer for nothing.
 - **Type-safe id wrappers.** Godot has only `int`, and wrapping costs the LUT performance the design
   exists for. Blocks and items deliberately share an id space, so they are not confusable anyway.
+
+## Failing loudly and early: where we were not (2026-09-21, user: "are we still true to our stance?")
+
+Asked, checked, and the honest answer was no in one place - a real one.
+
+**`mod_tool validate` reported "0 errors" on a mod that threw during setup.** Reproduced deliberately
+by putting a call to a function that does not exist into the Proving Ground. The validator drains the
+log and collects issues whose source is the mod being validated, so the machinery was right; the
+**attribution** was wrong. Godot does not always give stack frames for a script error, and the file
+can arrive as a bare name (`life.gd`) matching no mod folder, so `mod_of_file` found nothing and the
+error was blamed on the engine - and then filtered out.
+
+The fix is that the server says whose setup is running (`dev_log.current_mod`), which is better
+evidence than a file path: anything raised in that window is that mod's, however Godot describes it.
+A broken mod now reports `ERROR ... (res://tests/mods/proving/life.gd:17)` and exits 1, where before
+it exited 0 and said nothing.
+
+### On `require_block` returning an inert value rather than refusing
+
+Deliberate, and worth defending. It is **loud** (an error naming the mod and the name) and **early**
+(at load, not at the first write). It does not *stop* the mod, and that is the trade: a server runs
+other people's mods, and one missing optional block should not take the world down. What it must
+never do is hand back a value that corrupts quietly, which is exactly what -1 did.
+
+If that trade ever looks wrong, the stricter version is available now that attribution works: a mod
+whose setup raised errors could be refused at load the way it is refused at validation.

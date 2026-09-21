@@ -728,7 +728,11 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 			return ERR_INVALID_DATA
 		var mod_api := ModApi.new(self, manifest)
 		_mod_apis[manifest.id] = mod_api  # kept so deferred work can run as the mod that asked for it
+		# Anything raised in here is this mod's, however Godot happens to describe it.
+		dev_log.current_mod = manifest.id
 		instance.setup(mod_api)
+		dev_log.drain()
+		dev_log.current_mod = ""
 		_mods.append(instance)
 		mod_instances[manifest.id] = instance
 		server_info.mods.append("%s@%s" % [manifest.id, manifest.version])

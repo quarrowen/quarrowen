@@ -61,6 +61,8 @@ var capture: Capture
 var _seq := 0
 var _error_seq := 0
 var _mod_dirs := {}  # absolute folder (with trailing /) -> mod id
+## The mod whose setup() is running, if any. Errors raised while it is set belong to it.
+var current_mod := ""
 var _file: FileAccess
 var _dir := ""
 var _written := 0  # bytes in the open file, so it can be rotated without asking the filesystem
@@ -283,6 +285,12 @@ func _from_error(item: Dictionary) -> void:
 				line = f.line
 	if source.is_empty():
 		source = mod_of_file(file)
+	# A mod's own setup running is the best evidence there is about whose error this is: Godot does not
+	# always give frames for a script error, and the file can arrive as a bare name that matches no mod
+	# folder. Without this a mod that threw during setup was blamed on the engine, so `mod_tool
+	# validate` filtered it out and reported "0 errors" on a mod that had fallen over. (2026-09-21)
+	if source.is_empty() and not current_mod.is_empty():
+		source = current_mod
 	if source.is_empty():
 		source = "engine"
 	report_error(source, message, file, line, stack, "warn" if item.warning else "error")
