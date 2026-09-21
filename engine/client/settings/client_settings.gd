@@ -13,24 +13,30 @@ const BUS_WORLD := "World"
 const BUS_INTERFACE := "Interface"
 const BUS_MUSIC := "Music"
 
-const GRAPHICS_PRESETS := ["fast", "balanced", "fancy", "custom"]
+const GRAPHICS_PRESETS := ["fast", "balanced", "fancy", "realistic", "custom"]
 ## Per-preset values of the graphics toggles (see engine/client/graphics_settings.gd).
 const PRESET_VALUES := {
-	"fast": {"ambient_occlusion": true, "sway": false, "fancy_water": false, "bloom": false, "grading": false, "fxaa": false, "render_scale": 0.7},
-	"balanced": {"ambient_occlusion": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": false, "render_scale": 0.85},
-	"fancy": {"ambient_occlusion": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 1.0},
+	"fast": {"ambient_occlusion": true, "sway": false, "fancy_water": false, "bloom": false, "grading": false, "fxaa": false, "render_scale": 0.7, "realistic": false},
+	"balanced": {"ambient_occlusion": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": false, "render_scale": 0.85, "realistic": false},
+	"fancy": {"ambient_occlusion": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 1.0, "realistic": false},
+	# The one preset that changes *how* the world is lit rather than how much polish is on top: the
+	# terrain shader stops being unshaded and the sun starts casting real shadows. Everything above
+	# stays as it was, because the machines the children play on are why they exist. (2026-09-21)
+	"realistic": {"ambient_occlusion": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 1.0, "realistic": true},
 }
 
 ## key -> {tab, label, type, default, min/max/step or choices [[value, label]], help}
 const SCHEMA := {
 	"graphics/preset": {"tab": "Graphics", "label": "Quality", "type": "choice", "default": "balanced",
-		"choices": [["fast", "Fast"], ["balanced", "Balanced"], ["fancy", "Fancy"], ["custom", "Custom"]],
-		"help": "Fast suits older or integrated graphics. F4 cycles the presets in game."},
+		"choices": [["fast", "Fast"], ["balanced", "Balanced"], ["fancy", "Fancy"], ["realistic", "Realistic"], ["custom", "Custom"]],
+		"help": "Fast suits older or integrated graphics. Realistic adds real sunlight and shadows and asks a lot more of it. F4 cycles the presets in game."},
 	"graphics/render_scale": {"tab": "Graphics", "label": "3D resolution", "type": "float", "default": 0.85, "min": 0.5, "max": 1.0, "step": 0.05, "percent": true,
 		"help": "Below 100% the world is drawn smaller and upscaled (FSR): faster, a little softer."},
 	"graphics/ambient_occlusion": {"tab": "Graphics", "label": "Soft shadows in corners", "type": "bool", "default": true},
 	"graphics/sway": {"tab": "Graphics", "label": "Swaying plants", "type": "bool", "default": true},
 	"graphics/fancy_water": {"tab": "Graphics", "label": "Fancy water", "type": "bool", "default": true},
+	"graphics/realistic": {"tab": "Graphics", "label": "Real sunlight and shadows", "type": "bool", "default": false,
+		"help": "The world is lit by an actual sun that casts shadows, instead of light baked into the ground. Much prettier and much heavier - turn it off if the game stutters."},
 	"graphics/bloom": {"tab": "Graphics", "label": "Glow around lights", "type": "bool", "default": true},
 	"graphics/grading": {"tab": "Graphics", "label": "Colour grading", "type": "bool", "default": true},
 	"graphics/fxaa": {"tab": "Graphics", "label": "Smooth edges (FXAA)", "type": "bool", "default": false},

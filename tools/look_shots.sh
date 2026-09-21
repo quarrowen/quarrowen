@@ -33,7 +33,7 @@ for style in $STYLES; do
     "$GODOT" --headless --path . res://scenes/server.tscn >"$WORK/server_$style.log" 2>&1 &
   SERVER_PID=$!
   sleep 12
-  QW_USER_DIR="$WORK/client" QW_LOOK_REAL="${QW_LOOK_REAL:-0}" "$GODOT" --path . res://tests/screenshot.tscn -- \
+  QW_USER_DIR="$WORK/client" QW_GRAPHICS="${QW_GRAPHICS:-fancy}" "$GODOT" --path . res://tests/screenshot.tscn -- \
     --port="$PORT" --out="$PWD/$OUT/$style.png" --yaw=0.9 --pitch=-0.18 --wait=8 --hud=0 \
     >"$WORK/shot_$style.log" 2>&1
   kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null; SERVER_PID=""

@@ -259,6 +259,9 @@ var _applied_daylight := -1.0
 var _sky_material: ProceduralSkyMaterial
 var _environment: Environment
 var _sun: DirectionalLight3D
+var _moon: DirectionalLight3D
+## Whether the realistic preset is on, cached because the sky update reads it every frame.
+var _realistic := false
 var _camera: Camera3D
 var _highlight: MeshInstance3D
 
@@ -657,9 +660,9 @@ func _finish_content() -> void:
 			images[d.icon] = _asset_images[d.icon]
 
 	_atlas = TextureAtlas.build(images)
-	# The lit shader for the realistic experiment; every other preset keeps the unshaded one, where
-	# the mesher's baked light is the final colour. (2026-09-21)
-	var lit := OS.get_environment("QW_LOOK_REAL") == "1"
+	# The lit shader for the realistic preset; every other one keeps the unshaded shader, where the
+	# mesher's baked light is the final colour. (2026-09-21)
+	var lit := bool(graphics.value("realistic"))
 	_solid_material = VoxelMaterial.create(_atlas.texture, false, lit)
 	_translucent_material = VoxelMaterial.create(_atlas.texture, true, lit)
 	_applied_daylight = -1.0
@@ -2349,9 +2352,45 @@ func _update_time(delta: float) -> void:
 	for material in [_solid_material, _translucent_material]:
 		material.set_shader_parameter("sky_color", Vector3(_sky_material.sky_top_color.r, _sky_material.sky_top_color.g, _sky_material.sky_top_color.b))
 		material.set_shader_parameter("horizon_color", Vector3(horizon.r, horizon.g, horizon.b))
+	_aim_the_sky(sun_direction, sun_tint, t)
 	for nodes: Array in _model_nodes.values():
 		for mmi: MultiMeshInstance3D in nodes:
 			_color_models(mmi)
+
+
+## Points the real sun where the shader already thinks it is, and hands the night over to a moon.
+##
+## The shader has worked out a sun direction from the time of day for as long as it has existed, but
+## the `DirectionalLight3D` sat at a fixed angle and never moved - which nobody noticed, because
+## nothing cast a shadow and models were lit by a constant. The moment the sun casts shadows, a sun
+## that does not move is a sun that is obviously wrong. (2026-09-21)
+##
+## The moon is a second directional light rather than the sun turned blue: they overlap at dusk and
+## dawn, which is when a sky looks most like something, and one light cannot be in two places.
+func _aim_the_sky(sun_direction: Vector3, sun_tint: Color, day: float) -> void:
+	if _sun == null:
+		return
+	var above := sun_direction.y
+	# Light travels down the light's -Z, so a light *at* the sun looks back towards the ground.
+	if above > -0.05:
+		_sun.visible = true
+		_sun.look_at_from_position(sun_direction * 100.0, Vector3.ZERO, Vector3.UP)
+		_sun.light_color = sun_tint
+		# Fades out as it sets rather than switching off, or dusk happens in one frame.
+		_sun.light_energy = (1.35 if _realistic else 0.75) * clampf(above * 4.0 + 0.2, 0.0, 1.0)
+	else:
+		_sun.visible = false
+	if _moon == null:
+		return
+	var moon_direction := -sun_direction
+	if moon_direction.y > -0.05:
+		_moon.visible = true
+		_moon.look_at_from_position(moon_direction * 100.0, Vector3.ZERO, Vector3.UP)
+		# Moonlight is sunlight that has been somewhere first: dimmer, bluer, and much softer-edged.
+		_moon.light_color = Color(0.62, 0.71, 0.95)
+		_moon.light_energy = (0.42 if _realistic else 0.0) * clampf(moon_direction.y * 4.0, 0.0, 1.0) * (1.0 - day)
+	else:
+		_moon.visible = false
 
 
 # --- Input --------------------------------------------------------------------------------------
@@ -3292,6 +3331,16 @@ func close_settings() -> void:
 ## Pushes the current graphics preset into post-processing, materials and (when AO changes) meshes.
 func _apply_graphics(announce: bool) -> void:
 	graphics.apply_environment(_environment, get_viewport())
+	# Shadows, and the shader the terrain is drawn with. Changing the preset swaps the material, which
+	# every chunk mesh references, so the world has to be remeshed - the same remesh an ambient
+	# occlusion change already triggers below. (2026-09-21)
+	var was := _realistic
+	light_the_sun()
+	if was != _realistic and _atlas != null:
+		_solid_material = VoxelMaterial.create(_atlas.texture, false, _realistic)
+		_translucent_material = VoxelMaterial.create(_atlas.texture, true, _realistic)
+		for coord: Vector2i in world.chunks:
+			_mark_dirty(coord, false)
 	_effects.quality = 0.5 if graphics.preset == "fast" else 1.0
 	if _solid_material != null:
 		for material in [_solid_material, _translucent_material]:
@@ -3346,8 +3395,13 @@ func _build_scene() -> void:
 	sun.light_energy = 0.75
 	_sun = sun
 	add_child(sun)
-	if OS.get_environment("QW_LOOK_REAL") == "1":
-		_make_it_real(env, sun)
+	var moon := DirectionalLight3D.new()
+	moon.light_color = Color(0.62, 0.71, 0.95)
+	moon.light_energy = 0.0
+	moon.visible = false
+	_moon = moon
+	add_child(moon)
+	light_the_sun()
 
 	_effects = EffectPlayer.new()
 	add_child(_effects)
@@ -4019,38 +4073,20 @@ func _update_hud() -> void:
 	])
 
 
-## An experiment, not a preset yet: what the world looks like with the renderer turned up.
+## Turns real shadows on the sun and moon on or off, from the `realistic` graphics setting.
 ##
-## Everything the graphics presets deliberately leave off - real-time sun shadows, screen-space
-## ambient occlusion, sky-sourced ambient light - because they were chosen to stay cheap on a base
-## M1 Air, which is what the children play on. That decision is right for the default and it is also
-## the reason the world cannot look realistic: the lighting is flat by construction, and no amount of
-## texture work reaches past it.
-##
-## Gated behind an environment variable so the default is untouched while the question is being
-## answered. If it is the look we want, it becomes a fourth preset that a capable machine opts into -
-## never the default, and never something the family server can impose. (2026-09-21)
-func _make_it_real(env: Environment, sun: DirectionalLight3D) -> void:
-	# Light coming *from the sky* rather than a flat white wash is most of the difference: it makes
-	# the shaded side of things take the sky's colour instead of going evenly grey.
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.9
-	env.ambient_light_sky_contribution = 1.0
-	env.ssao_enabled = true
-	env.ssao_radius = 1.6
-	env.ssao_intensity = 1.8
-	env.ssao_power = 1.4
-	# Bounce light. Expensive, and the thing that stops shadowed ground reading as a flat dark patch.
-	env.ssil_enabled = true
-	env.ssil_intensity = 0.6
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_white = 4.0
-	env.fog_sky_affect = 0.35
-	sun.shadow_enabled = true
-	sun.light_energy = 1.35
-	sun.directional_shadow_max_distance = 220.0
-	sun.directional_shadow_blend_splits = true
-	# Softened, because a hard edge on a voxel world looks like a bug rather than a shadow.
-	sun.shadow_blur = 1.4
-	sun.shadow_bias = 0.06
-	sun.shadow_normal_bias = 1.4
+## Separate from `GraphicsSettings.apply_realism`, which owns the environment, because shadows live
+## on the lights and the lights belong to the client. Called at build and whenever the setting
+## changes, so somebody whose frame rate has collapsed can get it back without restarting.
+func light_the_sun() -> void:
+	_realistic = bool(graphics.value("realistic"))
+	for light in [_sun, _moon]:
+		if light == null:
+			continue
+		light.shadow_enabled = _realistic
+		light.directional_shadow_max_distance = 220.0
+		light.directional_shadow_blend_splits = true
+		# Softened, because a hard edge on a voxel world looks like a bug rather than a shadow.
+		light.shadow_blur = 1.4
+		light.shadow_bias = 0.06
+		light.shadow_normal_bias = 1.4
