@@ -842,6 +842,13 @@ func emit(event: String, payload: Dictionary) -> Dictionary:
 ## permission: "" (everyone), "admin" (needs the "command.<name>" permission, which admins have) or any
 ## permission name (see engine/server/roles.gd).
 func add_command(command: String, description: String, handler: Callable, mod_id: String, permission := "") -> void:
+	# A command name and its description are both Strings sitting next to each other, so swapping them
+	# type-checks and registers a command called "Fills your hotbar" that nobody can type. Whitespace
+	# is the tell: no command has any, and every description does. Caught here rather than left to be
+	# discovered by a child typing the command and getting nothing. (2026-09-21)
+	if command.strip_edges() != command or " " in command or command.is_empty():
+		push_error("[%s] register_command(%s): a command name cannot contain spaces - the name comes first, then the description." % [mod_id, JSON.stringify(command)])
+		return
 	_commands[command.to_lower()] = {"name": command.to_lower(), "description": description, "handler": handler, "mod": mod_id, "permission": permission}
 
 

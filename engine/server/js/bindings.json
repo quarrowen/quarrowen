@@ -2460,16 +2460,16 @@
 					"kind": "int"
 				},
 				{
+					"default": "",
+					"kind": "str"
+				},
+				{
 					"default": false,
 					"kind": "bool"
 				},
 				{
 					"default": 0,
 					"kind": "int"
-				},
-				{
-					"default": "",
-					"kind": "str"
 				}
 			],
 			"gd": "set_block"

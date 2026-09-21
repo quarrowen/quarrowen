@@ -2537,7 +2537,17 @@ func get_drops(block: int) -> Array:
 
 ## Sets a block authoritatively (loading its chunk if needed) and replicates it to players. Block
 ## data at the position is cleared when the block type changes unless `keep_data` is true.
-func set_block(pos: Vector3i, id: int, keep_data := false, state := 0, realm_id := "") -> void:
+##
+## **`realm_id` comes third, like everywhere else.** It used to sit fifth, behind `keep_data` and
+## `state`, which made this the only one of the eight block functions that did not take the realm
+## straight after its required arguments - `get_block`, `get_block_state`, `get_block_data`,
+## `set_block_data`, `clear_block_data`, `sees_sky` and `fill` all do. Anyone who had learned
+## `get_block(pos, realm)` wrote `set_block(pos, id, realm)` and put a realm where a bool goes.
+##
+## That mistake is loud (GDScript refuses the conversion, names the file and line, and aborts the
+## call), so nothing was ever silently wrong. It was simply a trap the signature laid, and there is no
+## reason for the odd one out to stay odd. (2026-09-21)
+func set_block(pos: Vector3i, id: int, realm_id := "", keep_data := false, state := 0) -> void:
 	_server.set_block_authoritative(pos, id, keep_data, state, _realm_or_default(realm_id))
 
 

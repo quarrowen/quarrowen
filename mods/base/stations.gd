@@ -167,7 +167,7 @@ func update_furnace(pos: Vector3i) -> void:
 	var lit := burn > 0.0
 	var block: int = api.get_block(pos)
 	if lit != (block == ids.furnace_lit):
-		api.set_block(pos, ids.furnace_lit if lit else ids.furnace, true, api.get_block_state(pos))
+		api.set_block(pos, ids.furnace_lit if lit else ids.furnace, "", true, api.get_block_state(pos))
 	if lit:
 		api.schedule_block_tick(pos, TICK)
 

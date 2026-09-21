@@ -85,13 +85,13 @@ func _flip(position: Vector3i, player) -> void:
 func _show_wire(ev: Dictionary) -> void:
 	var wanted: int = ids.quickdust_lit if ev.level > 0 else ids.quickdust
 	if api.get_block(ev.position) != wanted:
-		api.set_block(ev.position, wanted, true)
+		api.set_block(ev.position, wanted, "", true)
 
 
 func _show_lamp(ev: Dictionary) -> void:
 	var wanted: int = ids.quicklamp_lit if ev.level > 0 else ids.quicklamp
 	if api.get_block(ev.position) == wanted:
 		return
-	api.set_block(ev.position, wanted, true)
+	api.set_block(ev.position, wanted, "", true)
 	if ev.level > 0:
 		api.play_effect("engine:sparkle", Vector3(ev.position) + Vector3(0.5, 1.0, 0.5), {"scale": 1.0, "color": "#ffe8a0"})

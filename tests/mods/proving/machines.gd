@@ -81,7 +81,7 @@ func _scoop(player, at: Vector3i, realm_id: String) -> void:
 		return
 	if not player.is_creative() and not player.take(int(ids.pail), 1):
 		return
-	api.set_block(at, 0, false, 0, realm_id)
+	api.set_block(at, 0, realm_id)
 	if not player.is_creative():
 		player.give(int(ids.slime_pail), 1)
 
@@ -93,6 +93,6 @@ func _pour(player, ev: Dictionary, realm_id: String) -> void:
 		return
 	if not player.is_creative() and not player.take(int(ids.slime_pail), 1):
 		return
-	api.set_block(at, int(ids.slime), false, 0, realm_id)
+	api.set_block(at, int(ids.slime), realm_id)
 	if not player.is_creative():
 		player.give(int(ids.pail), 1)

@@ -3002,3 +3002,44 @@ names the three places to fix. `QW_SITE_IS_REWRITTEN=1` overrides it for a dry r
 
 **Fixed now.** The `is_game()` doc comment in `mod_api.gd` used Hearthhold and Vanilla to explain
 dependency-vs-game; it flows into the published API reference, so it now uses unnamed generic games.
+
+## Parameter ordering: measured rather than assumed (2026-09-21, user: "parameter sequencing seems to be catching us often")
+
+Audited the whole engine API after two transpositions in one afternoon. The headline: **the cross-type
+ones already fail loudly.** `api.set_block(at, 0, realm_id)` printed
+
+    SCRIPT ERROR: Invalid type in function 'set_block' ... Cannot convert argument 3 from String to
+    bool.  ... [proving] ERROR: ... (machines.gd:84)
+
+with the file, the line and the owning mod, and it aborted the enclosing call. It was in the test log
+the whole time; I diagnosed by reading signatures instead of reading the log, which CLAUDE.md
+explicitly says not to do. The API was not the problem there - I was.
+
+What the audit did turn up, in order of how dangerous it is:
+
+**Same function name, different order across classes: none left.** `Entity.damage` and
+`ServerPlayer.damage` are both `(amount, cause, attacker)` now; they were opposite earlier in the
+week and that is what made `conditions.gd` need `_is_player()`. Worth re-running the check after any
+new pair of parallel classes, because this is the one case where both orders type-check.
+
+**One signature that was the odd one out, now fixed.** Seven of the eight block functions took
+`realm_id` straight after their required arguments; `set_block` buried it fifth behind `keep_data`
+and `state`, so anyone who had learned `get_block(pos, realm)` wrote `set_block(pos, id, realm)`.
+It is now `set_block(pos, id, realm_id, keep_data, state)`. Six call sites, all in `base` and the
+Proving Ground. **The JS side passed those positionally** (`host("setBlock", pos, id, keepData,
+state)` in `prelude.js`), so the reorder would have broken every JavaScript `setBlock` call - that
+hand-written binding and `quarrowen.d.ts` moved with it.
+
+**23 places where two adjacent parameters share a type**, which the compiler cannot help with at all.
+Most are harmless (`from, to` on `fill`, `claim_plot`, `debug_box`, `play_beam` - swapping describes
+the same box or the same line backwards). The ones that would be silently wrong are
+`register_process(kind, input, output)` and `register_liquid_meeting(a, b, result)` - both already
+validate that the names resolve, which catches a typo but cannot catch a swap of two valid names -
+and `register_command(command, description)`, which had nothing. That one is now guarded: a command
+name with whitespace in it is refused with a message saying which argument comes first, because no
+command has a space and every description does.
+
+**The structural answer, for anything new:** past two required arguments, take an options dictionary
+rather than a third positional. The JS API already does this everywhere (`setBlock(pos, id,
+{keepData, state})`) and it is why no JavaScript mod has ever hit one of these. GDScript has no named
+arguments, so a dictionary is the only way to make a call site say what it means.

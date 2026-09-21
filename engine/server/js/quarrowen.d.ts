@@ -398,7 +398,7 @@ declare module "quarrowen" {
 
     getBlock(position: Vec3): BlockId;
     getLoadedBlock(position: Vec3): BlockId;
-    setBlock(position: Vec3, id: BlockId, options?: { keepData?: boolean; state?: number }): void;
+    setBlock(position: Vec3, id: BlockId, options?: { realm?: string; keepData?: boolean; state?: number }): void;
     fill(from: Vec3, to: Vec3, id: BlockId): void;
     getBlockState(position: Vec3): number;
     /** Returns a copy: call setBlockData to save changes. */

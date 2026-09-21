@@ -392,7 +392,17 @@ is baked into lookup tables at registration and cannot change afterwards."><div 
 <div class="card" id="api-is-breakable" data-search="is_breakable isbreakable whether players can break a block id."><div class="sig"><code>api.is_breakable(block: int) -&gt; bool</code><span class="tag js" title="isBreakable">JS isBreakable</span></div><p>Whether players can break a block id.</p></div>
 <div class="card" id="api-get-drops" data-search="get_drops getdrops what breaking this block yields by default: [[item id, count], ...]."><div class="sig"><code>api.get_drops(block: int) -&gt; Array</code><span class="tag js" title="getDrops(id: BlockId): [ItemId, number][]">JS getDrops</span></div><p>What breaking this block yields by default: [[item id, count], ...].</p></div>
 <div class="card" id="api-set-block" data-search="set_block setblock sets a block authoritatively (loading its chunk if needed) and replicates it to players. block
-data at the position is cleared when the block type changes unless `keep_data` is true."><div class="sig"><code>api.set_block(pos: Vector3i, id: int, keep_data := false, state := 0, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="setBlock(position: Vec3, id: BlockId, options?: { keepData?: boolean; state?: number }): void">JS setBlock</span></div><p>Sets a block authoritatively (loading its chunk if needed) and replicates it to players. Block<br>data at the position is cleared when the block type changes unless `keep_data` is true.</p></div>
+data at the position is cleared when the block type changes unless `keep_data` is true.
+
+**`realm_id` comes third, like everywhere else.** it used to sit fifth, behind `keep_data` and
+`state`, which made this the only one of the eight block functions that did not take the realm
+straight after its required arguments - `get_block`, `get_block_state`, `get_block_data`,
+`set_block_data`, `clear_block_data`, `sees_sky` and `fill` all do. anyone who had learned
+`get_block(pos, realm)` wrote `set_block(pos, id, realm)` and put a realm where a bool goes.
+
+that mistake is loud (gdscript refuses the conversion, names the file and line, and aborts the
+call), so nothing was ever silently wrong. it was simply a trap the signature laid, and there is no
+reason for the odd one out to stay odd. (2026-09-21)"><div class="sig"><code>api.set_block(pos: Vector3i, id: int, realm_id := &quot;&quot;, keep_data := false, state := 0) -&gt; void</code><span class="tag js" title="setBlock(position: Vec3, id: BlockId, options?: { realm?: string; keepData?: boolean; state?: number }): void">JS setBlock</span></div><p>Sets a block authoritatively (loading its chunk if needed) and replicates it to players. Block<br>data at the position is cleared when the block type changes unless `keep_data` is true.<br><br>**`realm_id` comes third, like everywhere else.** It used to sit fifth, behind `keep_data` and<br>`state`, which made this the only one of the eight block functions that did not take the realm<br>straight after its required arguments - `get_block`, `get_block_state`, `get_block_data`,<br>`set_block_data`, `clear_block_data`, `sees_sky` and `fill` all do. Anyone who had learned<br>`get_block(pos, realm)` wrote `set_block(pos, id, realm)` and put a realm where a bool goes.<br><br>That mistake is loud (GDScript refuses the conversion, names the file and line, and aborts the<br>call), so nothing was ever silently wrong. It was simply a trap the signature laid, and there is no<br>reason for the odd one out to stay odd. (2026-09-21)</p></div>
 <div class="card" id="api-get-block-state" data-search="get_block_state getblockstate per-block state byte (e.g. facing 0-3 for &quot;orientation&quot;: &quot;horizontal&quot; blocks)."><div class="sig"><code>api.get_block_state(pos: Vector3i, realm_id := &quot;&quot;) -&gt; int</code><span class="tag js" title="getBlockState(position: Vec3): number">JS getBlockState</span></div><p>Per-block state byte (e.g. facing 0-3 for &quot;orientation&quot;: &quot;horizontal&quot; blocks).</p></div>
 <div class="card" id="api-facing-from-yaw" data-search="facing_from_yaw facingfromyaw facing (0-3) an oriented block gets when placed by someone looking along `yaw`."><div class="sig"><code>api.facing_from_yaw(yaw: float) -&gt; int</code><span class="tag js" title="facingFromYaw(yaw: number): number">JS facingFromYaw</span></div><p>Facing (0-3) an oriented block gets when placed by someone looking along `yaw`.</p></div>
 <div class="card" id="api-facing-direction" data-search="facing_direction facingdirection front direction of an oriented block (+z/+x/-z/-x for facing 0-3)."><div class="sig"><code>api.facing_direction(state: int) -&gt; Vector3i</code><span class="tag js" title="facingDirection">JS facingDirection</span></div><p>Front direction of an oriented block (+Z/+X/-Z/-X for facing 0-3).</p></div>
@@ -1242,7 +1252,7 @@ had never been there. player has had `kill` all along; this is the same verb for
 <div class="card" data-search="addorepass"><div class="sig"><code>api.addOrePass(def: OrePassDef): void</code></div><p>World generation hook for JavaScript mods (scripts cannot run on generation threads).</p></div>
 <div class="card" data-search="getblock"><div class="sig"><code>api.getBlock(position: Vec3): BlockId</code></div></div>
 <div class="card" data-search="getloadedblock"><div class="sig"><code>api.getLoadedBlock(position: Vec3): BlockId</code></div></div>
-<div class="card" data-search="setblock"><div class="sig"><code>api.setBlock(position: Vec3, id: BlockId, options?: { keepData?: boolean; state?: number }): void</code></div></div>
+<div class="card" data-search="setblock"><div class="sig"><code>api.setBlock(position: Vec3, id: BlockId, options?: { realm?: string; keepData?: boolean; state?: number }): void</code></div></div>
 <div class="card" data-search="fill"><div class="sig"><code>api.fill(from: Vec3, to: Vec3, id: BlockId): void</code></div></div>
 <div class="card" data-search="getblockstate"><div class="sig"><code>api.getBlockState(position: Vec3): number</code></div></div>
 <div class="card" data-search="getblockdata"><div class="sig"><code>api.getBlockData&lt;T = Record&lt;string, unknown&gt;&gt;(position: Vec3): T</code></div><p>Returns a copy: call setBlockData to save changes.</p></div>
@@ -1696,7 +1706,7 @@ declare module &quot;quarrowen&quot; {
 
     getBlock(position: Vec3): BlockId;
     getLoadedBlock(position: Vec3): BlockId;
-    setBlock(position: Vec3, id: BlockId, options?: { keepData?: boolean; state?: number }): void;
+    setBlock(position: Vec3, id: BlockId, options?: { realm?: string; keepData?: boolean; state?: number }): void;
     fill(from: Vec3, to: Vec3, id: BlockId): void;
     getBlockState(position: Vec3): number;
     /** Returns a copy: call setBlockData to save changes. */

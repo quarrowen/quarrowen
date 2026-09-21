@@ -107,7 +107,7 @@ func _on_item_use(ev: Dictionary) -> void:
 	if ids.hoes.has(ev.item) and (block == api.block("base:grass") or block == api.block("base:dirt")):
 		if api.get_block(above) == ids.tall_grass:
 			api.set_block(above, 0)
-		api.set_block(pos, ids.farmland, false, 1 if _near_water(pos) else 0)
+		api.set_block(pos, ids.farmland, "", false, 1 if _near_water(pos) else 0)
 		api.play_sound("base:dirt", Vector3(pos) + Vector3(0.5, 1.0, 0.5))
 		player.damage_item(player.selected_slot, 1, "till")
 	elif ev.item == ids.seeds and block == ids.farmland and api.get_block(above) == 0:
@@ -138,7 +138,7 @@ func _dry_farmland(ctx: Dictionary) -> void:
 	if not wet and above == 0 and randf() < 0.5:
 		api.set_block(pos, api.block("base:dirt"))
 	elif int(wet) != ctx.state:
-		api.set_block(pos, ids.farmland, true, int(wet))
+		api.set_block(pos, ids.farmland, "", true, int(wet))
 
 
 func _near_water(pos: Vector3i) -> bool:

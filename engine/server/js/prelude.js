@@ -232,7 +232,9 @@
     // World
     getBlock: (pos) => host("getBlock", pos),
     getLoadedBlock: (pos) => host("getLoadedBlock", pos),
-    setBlock: (pos, id, { keepData = false, state = 0 } = {}) => host("setBlock", pos, id, keepData, state),
+    // Positional on the way through, so this order must match set_block in mod_api.gd: the realm
+    // moved ahead of keepData there on 2026-09-21 to match the other block functions.
+    setBlock: (pos, id, { realm = "", keepData = false, state = 0 } = {}) => host("setBlock", pos, id, realm, keepData, state),
     fill: (from, to, id) => host("fill", from, to, id),
     getBlockState: (pos) => host("getBlockState", pos),
     getBlockData: (pos) => host("getBlockData", pos),
