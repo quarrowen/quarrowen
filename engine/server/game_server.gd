@@ -554,6 +554,18 @@ func start(config: Dictionary) -> Error:
 	# than sync_inventory reaching into the server to call this by name.
 	add_handler("inventory_changed", func(ev): check_discoveries(ev.player), 0, "engine")
 	links.load_saved(_meta.get("links"))
+	# Merged over the declarations, not assigned in place of them: the mods have already run by here,
+	# so replacing the table threw away every `shared_store` they declared and left an empty vault.
+	# Saved contents whose mod is gone are kept too, so uninstalling a mod does not eat what was in
+	# its store - the same promise the chunk delta format makes about blocks. (2026-09-21)
+	var saved_stores = _meta.get("stores")
+	if saved_stores is Dictionary:
+		for store_name in saved_stores:
+			var declared: Dictionary = containers.stores.get(store_name, {})
+			var kept: Dictionary = saved_stores[store_name]
+			if declared.has("type") and not kept.has("type"):
+				kept["type"] = declared.type
+			containers.stores[store_name] = kept
 	companies.load_saved(_meta.get("companies"))
 	plots.load_saved(_meta.get("plots"))
 	shops.load_saved(_meta.get("shop_stock"))
@@ -4038,6 +4050,11 @@ func on_inventory_click(peer_id: int, slot: int, button: int, shift: bool) -> vo
 			p.inventory.cursor_id = p.inventory.ids[slot]
 			p.inventory.cursor_count = items.max_stack(p.inventory.ids[slot])
 			p.inventory.cursor_data = p.inventory.data[slot].duplicate(true)
+	elif containers.holds_open_bag(p, slot):
+		# The bag you are looking into cannot be picked up while you are looking into it: its address
+		# is the slot it sits in, so moving it would leave the screen pointing at whatever landed
+		# there. Refusing is simpler to explain than re-addressing mid-click. (2026-09-21)
+		return
 	elif slot >= Containers.SLOT_BASE:
 		containers.click(p, slot - Containers.SLOT_BASE, button, shift)
 		return
@@ -5527,6 +5544,7 @@ func _drain_save_queue(budget_usec: int, wait := false) -> void:
 	_meta.clock = block_ticks.clock
 	_meta.world_markers = world_markers
 	_meta.links = links.to_saved()
+	_meta.stores = containers.stores
 	_meta.companies = companies.to_saved()
 	_meta.plots = plots.to_saved()
 	_meta.shop_stock = shops.to_saved()

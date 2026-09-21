@@ -7,7 +7,13 @@ extends RefCounted
 ## "fuel" and "output" groups. `state` is free-form data the mod keeps with the container (saved).
 
 var type: Dictionary
+## Where this container is, for a block. Vector3i.ZERO for a bag or a shared store, which are
+## nowhere - use `key` to say *which* container this is.
 var position: Vector3i
+## The container's address (see Containers.block_key / item_key / store_key). Held so `changed()` can
+## tell viewers about a container that has no position: marking one by `position` sent every bag in
+## the world to whoever was looking at the chest at the origin. (2026-09-21)
+var key: String
 ## Mod-owned data saved with the container (e.g. how long the fuel still burns).
 var state: Dictionary
 
@@ -15,9 +21,10 @@ var _store: Dictionary  # the block data dictionary holding "slots", "state" and
 var _server
 
 
-func _init(server, pos: Vector3i, container_type: Dictionary, store: Dictionary) -> void:
+func _init(server, pos: Vector3i, container_type: Dictionary, store: Dictionary, address := "") -> void:
 	_server = server
 	position = pos
+	key = address
 	type = container_type
 	_store = store
 	if not (_store.get("slots") is Array):
@@ -126,7 +133,7 @@ func get_progress(bar: String) -> float:
 
 ## Shows the current contents to everyone viewing (called automatically by the setters above).
 func changed() -> void:
-	_server.containers.mark_changed(position)
+	_server.containers.changed(key if not key.is_empty() else _server.containers.block_key(position))
 
 
 ## Network form: ids and counts packed, item data by slot, progress values.

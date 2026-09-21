@@ -3081,3 +3081,40 @@ Preview is a new RPC (`s_area_preview`, **Protocol.VERSION 49**) drawing one wir
 rather than a bounding box, capped at 512 cells: a box round a vein tells you nothing you wanted to
 know. `mod_reload._forget` clears a mod's rules by name prefix, since a rule holds a Callable and has
 no `owner` field to read.
+
+## Inventories inside things — built (2026-09-21)
+
+Roadmap item 21, and the last of the small three. Two halves of one capability: a bag you carry, and
+a store that is the same wherever you open it.
+
+**The addressing had to change first**, and that was the whole job. A container screen was identified
+by a `Vector3i` everywhere - `p.open_container`, the viewer map, the dirty set - which is exactly why
+"a container that is not at a position" had nowhere to live. It is now a tagged string: `b:12,64,-3`
+for a block, `i:7` for the bag in the viewer's own slot 7, `s:mod:vault` for a shared store. One type
+rather than a position that is sometimes something else, and the tag says which kind you have instead
+of leaving it to be inferred - which matters more after this week's parameter-order findings.
+
+`ContainerView` needed its own `key` for the same reason: `changed()` called `mark_changed(position)`,
+and a bag's position is `ZERO`, so marking one bag would have told everyone looking at the chest at
+the origin that their chest had changed.
+
+Two rules the engine enforces rather than trusting mods with:
+
+- **A bag cannot go inside a bag.** The outer one holds the inner one's item data, so copying the
+  outer stack copies everything in it. Refused rather than made to work, because there is no version
+  of nesting that is not somebody's duplication exploit.
+- **The slot holding an open bag is locked.** The bag's address *is* that slot, so moving it would
+  leave the screen pointing at whatever landed there. Refusing is simpler to explain than
+  re-addressing mid-click.
+
+Whose a shared store is, is **the name's business** - `"vault"` for one per server, `"vault_" +
+player_id` for one each. The engine keeps a table of names and never has to guess.
+
+One bug worth remembering, because it is an ordering trap rather than a typo: loading the world
+*assigned* `containers.stores` from the saved meta, and that runs **after** the mods have declared
+theirs, so every declaration was thrown away and every vault opened empty. It merges now, and saved
+contents whose mod is gone are kept - the same promise the chunk delta format makes about blocks.
+`persistence_test` asserts the round trip rather than trusting it.
+
+`mod_reload._forget` drops a mod's store *declarations* but keeps their contents: reloading a mod
+must not empty somebody's vault.

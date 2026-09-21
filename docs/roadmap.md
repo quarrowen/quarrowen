@@ -33,9 +33,9 @@ Twelve biomes, eighty blocks, eleven creatures, a boss, four games.
 
 ### What is left, shortest honest answer
 
-- **Two capabilities**: inventories inside things, and instances. Nothing else on the list
-  is unbuilt - creature abilities, characters, shops, applied effects, companions, vehicles, text in
-  the world, extending another mod, excludes and flight all landed between 19 and 21 September 2026.
+- **One capability**: instances. Nothing else on the list is unbuilt - creature abilities,
+  characters, shops, applied effects, companions, vehicles, area tools, text in the world, nested
+  inventories, extending another mod, excludes and flight all landed between 19 and 21 September 2026.
 - **Four known limits** in things that *are* built - see "Where the built things stop" below.
 - **All of the content**, which is not capability and is now the larger half of the work: the seven
   games were deleted on 21 September, so `base` has to be re-scoped to nouns and the packs and games
@@ -363,9 +363,31 @@ hanging where the blow landed.
 Damage numbers themselves are **content, in vanilla**, because a quieter survival game might want
 none. The engine only knows how to make a word float. **Protocol 48.**
 
-### 21. Inventories inside things
+### 21. Inventories inside things — built
 
 An item that contains an inventory, and a container that is the same container wherever you open it.
+
+Two halves of one capability, because both are containers whose contents are **not at a position** -
+which is why the addressing had to change before either could exist. A container screen is now
+identified by a tagged string rather than a `Vector3i`:
+
+    b:12,64,-3     a block, backed by that block's data
+    i:7            the bag in the viewer's own inventory slot 7, backed by that item's data
+    s:mod:vault    a shared store, backed by a table saved with the world
+
+A **bag** is an item whose definition names a `container` type, the way a chest block does. Its
+contents live in the item's own data, so it holds what it holds wherever it goes - into a chest, onto
+the floor, into someone else's hands - with nothing to keep in step. `api.open_bag(player, slot)`.
+
+A **shared store** is declared by name (`api.shared_store`) and opened from anywhere
+(`api.open_shared`). **Whose it is, is the name's business**: one vault for the server is `"vault"`,
+one each is `"vault_" + player_id`. That keeps the sharing rule in the mod and the engine a table.
+
+Two rules the engine enforces rather than trusting mods with. **A bag cannot go inside a bag** - the
+outer one holds the inner one's item data, so copying the outer stack copies its contents, and there
+is no version of nesting that is not somebody's duplication exploit. And **the slot holding an open
+bag is locked**, because the bag's address *is* that slot; moving it would leave the screen pointing
+at whatever landed there.
 
 ### 22. Moving assemblies — built, with limits
 
@@ -690,10 +712,8 @@ follows is what is left, in the order that now unlocks the most.
 at all: structures, facilities, jobs, ownership, conversation and trade all exist. What a village needs
 now is content - somebody to write the villagers.
 
-1. **Inventories inside things.** The last of the small three; area tools and text in the world are
-   built.
-2. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.
-3. **Then the content**, which is where the remaining weight is: re-scope `base` to nouns, write
+1. **Instances.** The last one. The small three are done.
+2. **Then the content**, which is where the remaining weight is: re-scope `base` to nouns, write
    `simple_gear` and `simple_machines`, then the games. Doing the three capabilities first means the
    packs get designed against an API that has stopped moving.
 

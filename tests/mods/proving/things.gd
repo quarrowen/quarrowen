@@ -56,6 +56,7 @@ func setup(mod_api, id_table: Dictionary) -> void:
 		"tier": 2, "speed": 4.0, "durability": 100, "damage": 1.0, "handle": 1.6,
 		"trait": {"name": "Plain", "description": "nothing special", "speed_mult": 0.0}})
 	_setup_area_tools()
+	_setup_nested_inventories()
 	api.register_block_tick("lamp", func(ctx):
 		api.set_block_data(ctx.position, {"ticked": int(api.get_block_data(ctx.position).get("ticked", 0)) + 1}),
 		{"interval": 5, "random": false})
@@ -91,3 +92,21 @@ func _setup_area_tools() -> void:
 		api.show_area(player, cells, {"seconds": 3.0})
 		var done: Dictionary = api.area_edit(player, cells, {"block": api.require_block("proving:rock")})
 		player.send_message("Placed %d." % done.changed))
+
+
+## Inventories inside things: a bag you carry, and a store that is the same wherever you open it.
+##
+## Two halves of one capability, because both are containers whose contents do not live at a position
+## - which is the whole reason the addressing had to stop being one. (2026-09-21)
+func _setup_nested_inventories() -> void:
+	api.register_container("satchel", {"title": "Satchel", "slots": 9})
+	api.register_container("vault", {"title": "Vault", "slots": 18})
+	ids.satchel = api.register_item("satchel", {"display_name": "Satchel", "max_stack": 1,
+		"usable": true, "container": "proving:satchel"})
+	# One vault for everybody, so a test can put something in as one player and take it out as another.
+	api.shared_store("vault", "vault")
+	api.register_command("satchel", "Open the satchel you are holding", func(player, _args):
+		if not api.open_bag(player, player.selected_slot):
+			player.send_message("Hold a satchel first."))
+	api.register_command("vault", "Open the shared vault", func(player, _args):
+		api.open_shared(player, "vault"))

@@ -188,6 +188,43 @@ func _behaviour(server) -> void:
 	_check(server.vehicles.mount(p, raft) and p.riding == raft.id, "and a raft can be ridden")
 	server.vehicles.dismount(p)
 	_area_tools(server, server.mod_instances.proving.api, p)
+	_nested_inventories(server, server.mod_instances.proving.api, p)
+
+
+## A bag and a shared store: two containers whose contents are not at a position.
+func _nested_inventories(server, api, p) -> void:
+	var satchel: int = server.items.id_of("proving:satchel")
+	var rock: int = server.items.id_of("proving:rock")
+	_check(satchel > 0, "an item can declare a container type")
+	p.inventory.set_slot(0, satchel, 1)
+	p.inventory.selected = 0
+	_check(api.open_bag(p, 0), "and opening it gives a container screen")
+	var bag = server.containers.at_key(server.containers.item_key(0), p)
+	_check(bag != null and bag.size() == 9, "the bag has its own slots (%d)" % (bag.size() if bag else -1))
+	bag.set_item(0, rock, 5, {})
+	# The contents live in the *item's* data, which is what makes a bag hold what it holds wherever
+	# it goes - so they must be in the inventory slot's data, not in a table beside it.
+	_check(p.inventory.data[0].has("slots"), "and its contents are kept in the item's own data")
+	_check(server.containers.holds_open_bag(p, 0), "the slot holding an open bag is locked")
+	_check(not server.containers.holds_open_bag(p, 1), "but only that slot")
+	# Carried away and back: the same five rocks, with nothing keeping the two in step.
+	p.inventory.set_slot(3, p.inventory.ids[0], 1, p.inventory.data[0])
+	p.inventory.clear_slot(0)
+	server.containers.close(p, false)
+	var moved = server.containers.at_key(server.containers.item_key(3), p)
+	_check(moved != null and moved.get_item(0).count == 5, "and they travel with the item to another slot")
+
+	# The shared store: the same contents opened by somebody else entirely.
+	var vault = api.get_shared("vault")
+	_check(vault != null and vault.size() == 18, "a shared store exists once it is declared")
+	vault.set_item(0, rock, 7, {})
+	var other := _player(server, 91, "Other")
+	_check(api.open_shared(other, "vault"), "another player can open it")
+	var theirs = server.containers.at_key(server.containers.store_key("proving:vault"), other)
+	_check(theirs != null and theirs.get_item(0).count == 7,
+		"and sees the same contents, with no position between them")
+	server.containers.close(other, false)
+	server.players.erase(91)
 
 
 ## Area tools, asked of the engine rather than of the mod: what came back, and what it did to the world.

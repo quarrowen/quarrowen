@@ -546,6 +546,26 @@ to whoever it belongs to. `dimension` (&quot;&quot; = the ordinary world) hides 
 <div class="card" id="api-set-world-marker" data-search="set_world_marker setworldmarker puts a marker on everyone's map and compass (a village, a shared base, an event). saved with the world.
 `marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world)."><div class="sig"><code>api.set_world_marker(marker_id: String, marker: Dictionary) -&gt; void</code><span class="tag js" title="setWorldMarker">JS setWorldMarker</span></div><p>Puts a marker on everyone's map and compass (a village, a shared base, an event). Saved with the world.<br>`marker` = {label, position, color, dimension} (&quot;&quot; = the ordinary world).</p></div>
 <div class="card" id="api-clear-world-marker" data-search="clear_world_marker clearworldmarker takes a marker off everyone's map."><div class="sig"><code>api.clear_world_marker(marker_id: String) -&gt; void</code><span class="tag js" title="clearWorldMarker">JS clearWorldMarker</span></div><p>Takes a marker off everyone's map.</p></div>
+<div class="card" id="api-open-bag" data-search="open_bag openbag opens the bag a player is carrying in one of their own inventory slots.
+
+a bag is an item whose definition names a `container` type, the way a chest block does. its
+contents live in the item's own data, so it holds what it holds wherever it goes - into a chest,
+onto the floor, into somebody else's hands - with no bookkeeping to keep the two in step.
+
+api.register_item(&quot;satchel&quot;, {&quot;display_name&quot;: &quot;satchel&quot;, &quot;container&quot;: &quot;proving:satchel&quot;})
+api.on(&quot;item_use&quot;, func(ev): api.open_bag(ev.player, ev.player.selected_slot))
+
+a bag cannot be put inside a bag; the engine refuses it, because a container that can contain
+itself is a duplication bug waiting for somebody to find it."><div class="sig"><code>api.open_bag(player, slot: int) -&gt; bool</code><span class="tag js" title="openBag">JS openBag</span></div><p>Opens the bag a player is carrying in one of their own inventory slots.<br><br>A bag is an item whose definition names a `container` type, the way a chest block does. Its<br>contents live in the item's own data, so it holds what it holds wherever it goes - into a chest,<br>onto the floor, into somebody else's hands - with no bookkeeping to keep the two in step.<br><br>api.register_item(&quot;satchel&quot;, {&quot;display_name&quot;: &quot;Satchel&quot;, &quot;container&quot;: &quot;proving:satchel&quot;})<br>api.on(&quot;item_use&quot;, func(ev): api.open_bag(ev.player, ev.player.selected_slot))<br><br>A bag cannot be put inside a bag; the engine refuses it, because a container that can contain<br>itself is a duplication bug waiting for somebody to find it.</p></div>
+<div class="card" id="api-shared-store" data-search="shared_store sharedstore declares a store that is the same contents wherever it is opened. returns false if the container
+type is unknown.
+
+**whose it is, is the name's business.** one vault for the server is `shared_store(&quot;vault&quot;, ...)`;
+one each is `shared_store(&quot;vault_&quot; + p.player_id, ...)`. the engine keeps a table of names, which
+is why it does not need to know which you meant."><div class="sig"><code>api.shared_store(store_name: String, container_type: String) -&gt; bool</code><span class="tag js" title="sharedStore">JS sharedStore</span></div><p>Declares a store that is the same contents wherever it is opened. Returns false if the container<br>type is unknown.<br><br>**Whose it is, is the name's business.** One vault for the server is `shared_store(&quot;vault&quot;, ...)`;<br>one each is `shared_store(&quot;vault_&quot; + p.player_id, ...)`. The engine keeps a table of names, which<br>is why it does not need to know which you meant.</p></div>
+<div class="card" id="api-open-shared" data-search="open_shared openshared opens a shared store for a player. declare it with `shared_store` first."><div class="sig"><code>api.open_shared(player, store_name: String) -&gt; bool</code><span class="tag js" title="openShared">JS openShared</span></div><p>Opens a shared store for a player. Declare it with `shared_store` first.</p></div>
+<div class="card" id="api-get-shared" data-search="get_shared getshared the contents of a shared store without opening a screen, for a mod that wants to read or fill one.
+returns null if it was never declared."><div class="sig"><code>api.get_shared(store_name: String)</code><span class="tag js" title="getShared">JS getShared</span></div><p>The contents of a shared store without opening a screen, for a mod that wants to read or fill one.<br>Returns null if it was never declared.</p></div>
 <div class="card" id="api-play-decal" data-search="play_decal playdecal leaves a mark on the world: scorch where a blast went off, a stain under something leaking.
 look: {color, size, seconds} - no seconds leaves it until older marks push it out.
 

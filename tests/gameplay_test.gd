@@ -1116,7 +1116,7 @@ func _containers() -> void:
 	var cobble: int = items.id_of("base:cobblestone")
 	var coal: int = items.id_of("base:coal")
 	p.inventory.set_slot(0, cobble, 40)
-	_check(server.containers.open(p, chest_pos) and p.open_container == chest_pos, "a chest opens for a nearby player")
+	_check(server.containers.open(p, chest_pos) and p.open_container == server.containers.block_key(chest_pos), "a chest opens for a nearby player")
 	server.on_inventory_click(81, 0, 1, true)
 	var chest = server.containers.get_container(chest_pos)
 	_check(chest.get_item(0).item == cobble and chest.get_item(0).count == 40 and p.inventory.ids[0] == 0, "shift-click moves a stack into the chest")

@@ -179,6 +179,11 @@ func _forget(mod_id: String) -> void:
 	for name in s.area_edits.rules.keys():
 		if String(name).begins_with(mod_id + ":"):
 			s.area_edits.rules.erase(name)
+	# Shared stores are declared, not registered, and they hold a player's things - so the declaration
+	# goes and the contents stay. Reloading a mod must not empty somebody's vault. (2026-09-21)
+	for name in s.containers.stores.keys():
+		if String(name).begins_with(mod_id + ":") and not (s.containers.stores[name].get("slots") is Array):
+			s.containers.stores.erase(name)
 
 
 # --- File watcher -----------------------------------------------------------------------------------

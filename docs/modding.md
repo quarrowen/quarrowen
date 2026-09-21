@@ -198,6 +198,39 @@ as `skipped`, so a vein can run up to a boundary and stop rather than the whole 
 A solid block is never placed in a cell somebody is standing in. Reach is asked once, of the nearest
 cell, at 24 blocks.
 
+### Bags, and stores that are the same everywhere
+
+Two kinds of container whose contents are not at a position.
+
+A **bag** is an item whose definition names a `container` type, the way a chest block does:
+
+```gdscript
+api.register_container("satchel", {"title": "Satchel", "slots": 9})
+api.register_item("satchel", {"display_name": "Satchel", "max_stack": 1, "usable": true,
+    "container": "satchel"})
+api.on("item_use", func(ev): api.open_bag(ev.player, ev.player.selected_slot))
+```
+
+Its contents live in the item's own data, so it holds what it holds wherever it goes — into a chest,
+onto the floor, into somebody else's hands — with nothing to keep in step.
+
+A **shared store** is the same contents wherever it is opened:
+
+```gdscript
+api.shared_store("vault", "vault_type")          # declare once, in setup
+api.open_shared(player, "vault")                 # open it from anywhere
+var v = api.get_shared("vault")                  # or read it without a screen
+```
+
+**Whose it is, is the name's business.** One vault for the whole server is `"vault"`; one each is
+`"vault_" + player.player_id`. The engine keeps a table of names, so it never has to guess which you
+meant. Contents are saved with the world, and survive their mod being uninstalled and reinstalled.
+
+Two rules the engine enforces: **a bag cannot be put inside a bag** (the outer one holds the inner
+one's data, so copying the stack copies the contents — every version of nesting is somebody's
+duplication exploit), and **the slot holding an open bag is locked** while it is open, because the
+bag's address is that slot.
+
 ### Blocks over time, light and plants
 
 Blocks can change on their own: crops grow, farmland dries, saplings become trees. Mods register a

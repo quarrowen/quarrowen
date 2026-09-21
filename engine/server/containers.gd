@@ -17,10 +17,48 @@ const SLOT_BASE := 1000
 const MAX_SLOTS := 128
 const MAX_DISTANCE := 8.0
 
+## What a container screen is showing, as one string. Three kinds live behind it:
+##
+##   b:12,64,-3   a block - the store is that block's data
+##   i:7          the bag in the viewer's own inventory slot 7 - the store is that item's data
+##   s:mod:vault  a shared store - the store is `stores[name]`, saved with the world
+##
+## **One type rather than a Vector3i that is sometimes something else.** The addressing used to be a
+## position everywhere, which is why "a container that is the same wherever you open it" had nowhere
+## to live. A tagged string keeps every viewer map, dirty set and open-screen field a single type,
+## and the tag says which kind you have rather than leaving it to be inferred. (2026-09-21)
+static func block_key(pos: Vector3i) -> String:
+	return "b:%d,%d,%d" % [pos.x, pos.y, pos.z]
+
+
+static func item_key(slot: int) -> String:
+	return "i:%d" % slot
+
+
+static func store_key(store_name: String) -> String:
+	return "s:" + store_name
+
+
+static func is_block_key(key: String) -> bool:
+	return key.begins_with("b:")
+
+
+static func position_of(key: String) -> Vector3i:
+	var parts := key.substr(2).split(",")
+	if parts.size() != 3:
+		return Vector3i.ZERO
+	return Vector3i(int(parts[0]), int(parts[1]), int(parts[2]))
+
+## Shared stores: name -> the dictionary a container view is backed by. Saved with the world.
+##
+## The engine does not decide whose a store is - the *name* does. A mod wanting one vault for the
+## server asks for "vault"; a mod wanting one each asks for "vault_" + player_id. That keeps the
+## sharing rule where the rule belongs and this table a plain dictionary. (2026-09-21)
+var stores := {}
 var types := {}  # type name -> def
 var _server
-var _viewers := {}  # Vector3i -> {peer id: true}
-var _dirty := {}  # Vector3i -> true (send to viewers this tick)
+var _viewers := {}  # container key -> {peer id: true}
+var _dirty := {}  # container key -> true (send to viewers this tick)
 var _stock_dirty := {}  # Vector3i -> true (crafting stations nearby need new stock)
 var _check_timer := 0.0
 
@@ -74,23 +112,91 @@ func get_container(pos: Vector3i, player = null):
 	if store.is_empty():
 		_server.set_block_data(pos, store, into)
 		store = _server.get_block_data(pos, into)
-	var view := ContainerView.new(_server, pos, t, store)
+	var view := ContainerView.new(_server, pos, t, store, block_key(pos))
 	if store.has("loot"):
 		_server.loot.fill(view, player)  # structure chests roll their loot on first use
 	return view
 
 
+## The container a key names, whoever it belongs to, or null. The one place that knows where each
+## kind of store lives; everything else works in keys.
+func at_key(key: String, player = null):
+	if is_block_key(key):
+		return get_container(position_of(key), player)
+	if key.begins_with("i:"):
+		return _bag_view(player, int(key.substr(2)))
+	if key.begins_with("s:"):
+		return _store_view(key.substr(2))
+	return null
+
+
+## A bag: a container whose store is the data of an item a player is carrying.
+##
+## Contents live in the item's own data, so the bag holds what it holds wherever it goes - into a
+## chest, onto the floor, into another player's hands - and needs no bookkeeping to do it.
+func _bag_view(player, slot: int):
+	if player == null or slot < 0 or slot >= player.inventory.ids.size():
+		return null
+	var item: int = player.inventory.ids[slot]
+	if item <= 0:
+		return null
+	var t: Dictionary = types.get(String(_server.items.get_def(item).get("container", "")), {})
+	if t.is_empty():
+		return null
+	var data: Dictionary = player.inventory.data[slot]
+	if not (data is Dictionary):
+		data = {}
+		player.inventory.data[slot] = data
+	return ContainerView.new(_server, Vector3i.ZERO, t, data, item_key(slot))
+
+
+## A shared store: the same contents wherever it is opened from.
+func _store_view(store_name: String):
+	var entry = stores.get(store_name)
+	if not (entry is Dictionary):
+		return null
+	var t: Dictionary = types.get(String(entry.get("type", "")), {})
+	if t.is_empty():
+		return null
+	return ContainerView.new(_server, Vector3i.ZERO, t, entry, store_key(store_name))
+
+
+## Declares a shared store, if it does not exist yet. Returns false if the type is unknown.
+func declare_store(store_name: String, type_name: String) -> bool:
+	if not types.has(type_name):
+		push_error("Shared store '%s' wants container type '%s', which nothing registered." % [store_name, type_name])
+		return false
+	if not (stores.get(store_name) is Dictionary):
+		stores[store_name] = {"type": type_name}
+	return true
+
+
 func open(p, pos: Vector3i) -> bool:
-	var c = get_container(pos, p)
+	return _open(p, block_key(pos))
+
+
+## Opens the bag in one of a player's own inventory slots.
+func open_item(p, slot: int) -> bool:
+	return _open(p, item_key(slot))
+
+
+## Opens a shared store by name.
+func open_store(p, store_name: String) -> bool:
+	return _open(p, store_key(store_name)) if stores.has(store_name) else false
+
+
+func _open(p, key: String) -> bool:
+	var c = at_key(key, p)
 	if c == null:
 		return false
-	if _server.emit("container_open", {"player": p, "position": pos, "container": c, "cancelled": false}).cancelled:
+	var pos := position_of(key) if is_block_key(key) else Vector3i.ZERO
+	if _server.emit("container_open", {"player": p, "position": pos, "container": c, "key": key, "cancelled": false}).cancelled:
 		return false
 	close(p, false)
-	p.open_container = pos
-	if not _viewers.has(pos):
-		_viewers[pos] = {}
-	_viewers[pos][p.peer_id] = true
+	p.open_container = key
+	if not _viewers.has(key):
+		_viewers[key] = {}
+	_viewers[key][p.peer_id] = true
 	if p._online():
 		Net.s_container_open.rpc_id(p.peer_id, _view(c))
 	return true
@@ -100,13 +206,13 @@ func open(p, pos: Vector3i) -> bool:
 func close(p, tell_client := true) -> void:
 	if p.open_container == null:
 		return
-	var pos: Vector3i = p.open_container
+	var key: String = p.open_container
 	p.open_container = null
-	if _viewers.has(pos):
-		_viewers[pos].erase(p.peer_id)
-		if _viewers[pos].is_empty():
-			_viewers.erase(pos)
-	_server.emit("container_close", {"player": p, "position": pos})
+	if _viewers.has(key):
+		_viewers[key].erase(p.peer_id)
+		if _viewers[key].is_empty():
+			_viewers.erase(key)
+	_server.emit("container_close", {"player": p, "position": position_of(key) if is_block_key(key) else Vector3i.ZERO, "key": key})
 	if tell_client and p._online():
 		Net.s_container_close.rpc_id(p.peer_id)
 
@@ -123,23 +229,32 @@ func close(p, tell_client := true) -> void:
 ## look necessary was never the engine's problem - a QuickJS runtime cannot be re-entered, and that is
 ## handled in `_invoke` in js_mod.gd, where it belongs. (2026-09-21)
 func mark_changed(pos: Vector3i, p = null, slot := -1) -> void:
-	if _viewers.has(pos):
-		_dirty[pos] = true
-	_stock_dirty[pos] = true
-	var c = get_container(pos)
+	changed(block_key(pos), p, slot)
+
+
+## The same, for any container: a bag or a shared store has no position to be marked at.
+func changed(key: String, p = null, slot := -1) -> void:
+	if _viewers.has(key):
+		_dirty[key] = true
+	var c = at_key(key, p)
+	if is_block_key(key):
+		_stock_dirty[position_of(key)] = true
 	if c != null:
-		_server.emit("container_changed", {"player": p, "position": pos, "container": c, "slot": slot})
+		_server.emit("container_changed", {"player": p, "position": c.position, "container": c, "key": key, "slot": slot})
 
 
 ## Sends changed contents to viewers and closes screens players walked away from.
 func update(delta: float) -> void:
-	for pos: Vector3i in _dirty:
-		var c = get_container(pos)
-		var view: Dictionary = c.to_network() if c != null else {}
-		for peer_id: int in _viewers.get(pos, {}):
+	for key: String in _dirty:
+		for peer_id: int in _viewers.get(key, {}):
 			var p = _server.players.get(peer_id)
-			if p != null and p._online() and c != null:
-				Net.s_container_update.rpc_id(peer_id, view)
+			if p == null or not p._online():
+				continue
+			# Resolved per viewer, not once: a bag key names a slot in *that* player's inventory, so
+			# one view cannot be shared the way a block's can.
+			var c = at_key(key, p)
+			if c != null:
+				Net.s_container_update.rpc_id(peer_id, c.to_network())
 	_dirty.clear()
 	for pos: Vector3i in _stock_dirty:
 		_server.refresh_crafting_stock(pos)
@@ -151,15 +266,24 @@ func update(delta: float) -> void:
 	for p in _server.players.values():
 		if p.open_container == null:
 			continue
-		var pos: Vector3i = p.open_container
-		var far: bool = p.get_eye_position().distance_to(Vector3(pos) + Vector3.ONE * 0.5) > MAX_DISTANCE
-		if far or p.dead or type_of_block(_server.realm_of(p).world.get_block_v(pos)).is_empty():
+		var key: String = p.open_container
+		if p.dead:
 			close(p)
+			continue
+		if is_block_key(key):
+			# Walking away closes a chest. A bag travels with you and a shared store is nowhere, so
+			# neither has a distance to walk out of.
+			var pos := position_of(key)
+			var far: bool = p.get_eye_position().distance_to(Vector3(pos) + Vector3.ONE * 0.5) > MAX_DISTANCE
+			if far or type_of_block(_server.realm_of(p).world.get_block_v(pos)).is_empty():
+				close(p)
+		elif at_key(key, p) == null:
+			close(p)  # the bag was put down, or the store went away
 
 
 ## A container block was removed: close screens and spill the contents.
 func block_removed(pos: Vector3i, store: Dictionary, old_block: int) -> void:
-	for peer_id: int in _viewers.get(pos, {}).keys():
+	for peer_id: int in _viewers.get(block_key(pos), {}).keys():
 		var p = _server.players.get(peer_id)
 		if p != null:
 			close(p)
@@ -176,14 +300,25 @@ func block_removed(pos: Vector3i, store: Dictionary, old_block: int) -> void:
 
 # --- Clicks ---------------------------------------------------------------------------------------
 
+## Whether this inventory slot is the bag the player currently has open.
+func holds_open_bag(p, slot: int) -> bool:
+	return p.open_container != null and String(p.open_container) == item_key(slot)
+
+
 ## A click on container slot `slot` by a player whose screen shows it. Returns true if handled.
 func click(p, slot: int, button: int, shift: bool) -> void:
 	if p.open_container == null:
 		return
-	var c = get_container(p.open_container)
+	var c = at_key(p.open_container, p)
 	if c == null or slot < 0 or slot >= c.size():
 		return
 	var inv = p.inventory
+	# A bag inside a bag is a duplication bug waiting to be found: the outer one holds the inner one's
+	# item data, so copying the outer stack copies everything in it. Refused rather than fixed,
+	# because there is no version of nesting that is not somebody's exploit. (2026-09-21)
+	if not String(p.open_container).begins_with("b:") and inv.cursor_count > 0 \
+			and not String(_server.items.get_def(inv.cursor_id).get("container", "")).is_empty():
+		return
 	var s: Dictionary = c.get_item(slot)
 	var g: Dictionary = c.group_of(slot)
 	var limit: int = _server.items.max_stack(inv.cursor_id if inv.cursor_count > 0 else s.item)
@@ -224,7 +359,8 @@ func click(p, slot: int, button: int, shift: bool) -> void:
 		inv.cursor_data = s.data
 	else:
 		return
-	mark_changed(c.position, p, slot)
+	# The player's own key, not c.position: a bag and a shared store both sit at ZERO.
+	changed(p.open_container, p, slot)
 	p.sync_inventory()
 
 
@@ -232,7 +368,7 @@ func click(p, slot: int, button: int, shift: bool) -> void:
 func quick_move_in(p, slot: int) -> bool:
 	if p.open_container == null:
 		return false
-	var c = get_container(p.open_container)
+	var c = at_key(p.open_container, p)
 	var inv = p.inventory
 	if c == null or slot < 0 or slot >= inv.SIZE or inv.ids[slot] <= 0 or inv.counts[slot] <= 0:
 		return c != null
@@ -252,7 +388,7 @@ func quick_move_in(p, slot: int) -> bool:
 		inv.clear_slot(slot)
 	else:
 		inv.counts[slot] = left
-	mark_changed(c.position, p)
+	changed(p.open_container, p)
 	p.sync_inventory()
 	return true
 

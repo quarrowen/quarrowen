@@ -23,6 +23,11 @@ func _ready() -> void:
 	first.set_block_authoritative(reverted, first.registry.id_of("base:brick"))
 	first.set_block_authoritative(reverted, original)  # back to generated terrain: no delta needed
 	first._ensure_chunk(Vector2i(5, 5))  # loaded but never edited
+	# A shared store has no position, so it is not in any chunk file - it rides in the world's meta.
+	var vault = first.mod_instances.proving.api.get_shared("vault")
+	_check(vault != null, "the shared store the mod declared exists")
+	if vault != null:
+		vault.set_item(0, first.items.id_of("proving:grain"), 9, {})
 	first._save_all(true)
 	var dir: String = first._save_dir
 	first.queue_free()
@@ -38,6 +43,11 @@ func _ready() -> void:
 	_check(second.world.get_block_v(reverted) == original, "reverted edit left generated terrain")
 	var data: Dictionary = second.get_block_data(pos)
 	_check(data.get("burn") == 12.5 and data.get("note") == "hello", "block data restored (%s)" % data)
+	# The store survived, and survived the merge that runs after the mods redeclare it: declaring on
+	# load used to replace the saved table outright, which emptied every vault on restart.
+	var vault_again = second.mod_instances.proving.api.get_shared("vault")
+	_check(vault_again != null and vault_again.get_item(0).count == 9,
+		"a shared store keeps its contents across a restart (%d)" % (vault_again.get_item(0).count if vault_again else -1))
 	second.set_block_authoritative(pos, 0)
 	_check(second.get_block_data(pos).is_empty(), "breaking the block cleared its data")
 	second._save_all(true)

@@ -918,6 +918,42 @@ func register_container(container_name: String, def: Dictionary) -> bool:
 	return _server.containers.register(_qualify(container_name), d)
 
 
+## Opens the bag a player is carrying in one of their own inventory slots.
+##
+## A bag is an item whose definition names a `container` type, the way a chest block does. Its
+## contents live in the item's own data, so it holds what it holds wherever it goes - into a chest,
+## onto the floor, into somebody else's hands - with no bookkeeping to keep the two in step.
+##
+##     api.register_item("satchel", {"display_name": "Satchel", "container": "proving:satchel"})
+##     api.on("item_use", func(ev): api.open_bag(ev.player, ev.player.selected_slot))
+##
+## A bag cannot be put inside a bag; the engine refuses it, because a container that can contain
+## itself is a duplication bug waiting for somebody to find it.
+func open_bag(player, slot: int) -> bool:
+	return _server.containers.open_item(player, slot)
+
+
+## Declares a store that is the same contents wherever it is opened. Returns false if the container
+## type is unknown.
+##
+## **Whose it is, is the name's business.** One vault for the server is `shared_store("vault", ...)`;
+## one each is `shared_store("vault_" + p.player_id, ...)`. The engine keeps a table of names, which
+## is why it does not need to know which you meant.
+func shared_store(store_name: String, container_type: String) -> bool:
+	return _server.containers.declare_store(_qualify(store_name), _qualify(container_type))
+
+
+## Opens a shared store for a player. Declare it with `shared_store` first.
+func open_shared(player, store_name: String) -> bool:
+	return _server.containers.open_store(player, _qualify(store_name))
+
+
+## The contents of a shared store without opening a screen, for a mod that wants to read or fill one.
+## Returns null if it was never declared.
+func get_shared(store_name: String):
+	return _server.containers._store_view(_qualify(store_name))
+
+
 ## The container at a position (engine/server/container.gd), or null.
 func get_container(position: Vector3i):
 	return _server.containers.get_container(position)
