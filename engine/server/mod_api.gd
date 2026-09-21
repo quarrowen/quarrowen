@@ -2112,6 +2112,74 @@ func register_loot_table(table_name: String, def: Dictionary) -> void:
 	register_loot(table_name, def)
 
 
+## Adds to a creature another mod owns, without forking it: a new attack on their boss, another drop,
+## an extra behaviour.
+##
+##     api.extend_entity("proving:grazer", {"ai": {"attacks": [{"name": "kick", "type": "melee"}]}})
+##
+## **Additive only, and that is the whole design.** Appending to a list is commutative: three mods can
+## each add an attack and the result does not depend on which loaded last. "Set the health to 40" is
+## not, and supporting it would mean inventing a conflict system nobody asked for. What can be added:
+## `ai.attacks`, `ai.behaviors`, `ai.phases` and `drops`. Anything else is refused and says so.
+##
+## Takes effect for creatures spawned afterwards. One already walking about keeps the brain it was
+## given, which is why this belongs in `setup()` rather than halfway through a game.
+func extend_entity(entity_name: String, additions: Dictionary) -> bool:
+	var id := entity_type(entity_name)
+	if id < 0:
+		return _excluded_not_missing(entity_name, "extension") or _missing("extend_entity", entity_name)
+	var def: Dictionary = _server.entities.registry.defs[id]
+	var added := 0
+	for key in ["drops"]:
+		added += _append_list(def, key, additions.get(key))
+	if additions.get("ai") is Dictionary:
+		if not (def.get("ai") is Dictionary):
+			def.ai = {"preset": String(def.get("ai", "wander"))}
+		for key in ["attacks", "behaviors", "phases"]:
+			var list = additions.ai.get(key)
+			if list is Array and key == "attacks":
+				for entry in list:
+					if entry is Dictionary:
+						_qualify_condition(entry)
+			added += _append_list(def.ai, key, list)
+	for key in additions:
+		if not (key in ["drops", "ai"]):
+			push_error("[%s] extend_entity: '%s' is not something that can be added to" % [mod_id, key])
+	# The AI config is worked out once per type and kept, so it has to be dropped or the addition is
+	# invisible to everything that spawns next.
+	_server.entities.ai._configs.erase(id)
+	return added > 0
+
+
+## Adds to a block another mod owns. `drops` is the one list a block has; everything else about a block
+## is baked into lookup tables at registration and cannot change afterwards.
+func extend_block(block_name: String, additions: Dictionary) -> bool:
+	var id := block(block_name)
+	if id < 0:
+		return _excluded_not_missing(block_name, "extension") or _missing("extend_block", block_name)
+	var added := _append_list(_server.registry.defs[id], "drops", additions.get("drops"))
+	for key in additions:
+		if key != "drops":
+			push_error("[%s] extend_block: '%s' is baked in at registration and cannot be added to" % [mod_id, key])
+	return added > 0
+
+
+func _missing(what: String, name: String) -> bool:
+	push_error("[%s] %s: nothing named '%s' is registered" % [mod_id, what, name])
+	return false
+
+
+## Appends to a list inside somebody else's definition, making it if it is not there.
+func _append_list(target: Dictionary, key: String, additions) -> int:
+	if not (additions is Array) or (additions as Array).is_empty():
+		return 0
+	if not (target.get(key) is Array):
+		target[key] = []
+	for entry in additions:
+		target[key].append(entry.duplicate(true) if entry is Dictionary else entry)
+	return (additions as Array).size()
+
+
 ## Adds pools to a table another mod owns, without forking it: an extra drop on their mob, a bonus in
 ## their dungeon chests.
 func extend_loot(table_name: String, def: Dictionary) -> void:

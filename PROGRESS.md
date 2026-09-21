@@ -2913,3 +2913,31 @@ one shared `_excluded_not_missing` helper, and `tests/mods/picky` validates with
 **Tags are deliberately not supported as exclusion patterns.** A tag is registered at runtime by a mod;
 exclusions are applied before anything registers, so `#base:charms` cannot be resolved at the moment it
 would be needed. The roadmap said tags would work - it was wrong, and now says why.
+
+## Extending another mod's definitions (2026-09-21)
+
+`extend_entity` and `extend_block`, modelled on the `extend_loot` that was already there and whose
+comment stated the principle: *"adds pools to a table another mod owns, without forking it"*.
+
+    api.extend_entity("proving:biter", {
+        "ai": {"attacks": [{"name": "kick", "type": "melee", "damage": 4.0}]},
+        "drops": [["proving:token", 2]]})
+
+**Additive only**, and the whole design rests on it: appending to a list is commutative, so three mods
+can each add an attack and the result does not depend on which loaded last. "Set the health to 40" is
+not commutative, and supporting it would mean inventing a conflict system.
+
+What can be added: a creature's `ai.attacks`, `ai.behaviors`, `ai.phases` and `drops`, and a block's
+`drops`. Anything else is refused and says why - **everything else about a block is baked into lookup
+tables at registration** and cannot change afterwards. Containers and stations were left out for the
+same reason: changing a container's slot count changes saved containers.
+
+Two details worth keeping:
+
+- The per-type AI config is worked out once and cached, so an extension has to drop that cache or it
+  is invisible to everything spawned next.
+- Names nested in an addition are qualified like any other, which is the fifth place that pattern has
+  come up. It was written into the call from the start this time rather than found by a failing test.
+
+`tests/mods/picky` now does both halves of layered content: it takes the Proving Ground, refuses three
+of its things, and adds an attack, a drop and a loot pool to what is left - without touching it.

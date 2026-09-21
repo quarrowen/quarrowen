@@ -68,6 +68,18 @@ func _excludes() -> void:
 	# What survives is the point: excluding three things must not cost the rest.
 	_check(server.registry.id_of("proving:rock") >= 0 and server.registry.id_of("proving:crate") >= 0
 		and server.items.id_of("proving:token") >= 0, "everything not excluded is still there")
+	# Extending: adding to a pack rather than forking it.
+	var biter: int = server.entities.registry.id_of("proving:biter")
+	var attacks: Array = server.entities.ai.config_for(biter).attacks
+	_check(attacks.any(func(a): return String(a.name) == "kick"),
+		"a mod adds an attack to another mod's creature (%s)" % str(attacks.map(func(a): return a.name)))
+	_check(attacks.any(func(a): return String(a.name) == "bite"), "and the original attacks are still there")
+	_check(attacks.any(func(a): return String(a.name) == "kick" and String(a.condition.get("condition", "")) == "proving:venom"),
+		"the added attack's nested names were qualified, like any other")
+	_check((server.entities.registry.defs[biter].drops as Array).size() == 3, "a drop can be added too")
+	_check((server.registry.defs[server.registry.id_of("proving:crate")].drops as Array).size() >= 1,
+		"and to a block")
+
 	# A recipe naming an excluded item is dropped rather than half-registered.
 	for recipe in server.recipes.recipes:
 		_check(int(recipe.output) != server.items.id_of("proving:grain"), "no recipe outputs an excluded item")

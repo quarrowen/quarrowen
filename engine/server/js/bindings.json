@@ -607,6 +607,28 @@
 			],
 			"gd": "explode"
 		},
+		"extendBlock": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "extend_block"
+		},
+		"extendEntity": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "extend_entity"
+		},
 		"extendLoot": {
 			"args": [
 				{
