@@ -354,7 +354,14 @@ func _area_tools(server, api, p) -> void:
 	# An area fill cannot wall a player in. Worth its own check because the cost of getting it wrong is
 	# a child stuck inside a block, and the rule lives in place_block_for where nothing else tests it.
 	api.area_edit(p, box, {"block": 0})
-	var standing := Vector3i(floori(p.state.position.x), floori(p.state.position.y), floori(p.state.position.z))
+	# Put them somewhere known and clear it first. Reading their live position and trusting the cell
+	# to be empty failed about one fallback run in three: they are a simulated body, so by the time
+	# this ran they had drifted into a cell that already held something and the refusal could not be
+	# told apart from an ordinary "there is already a block there". (2026-09-21)
+	var standing := Vector3i(3, 66, 3)
+	p.state.position = Vector3(standing) + Vector3(0.5, 0.0, 0.5)
+	api.set_block(standing, 0)
+	api.set_block(standing + Vector3i.UP, 0)
 	var over_player: Dictionary = api.area_edit(p, [standing], {"block": rock})
 	_check(over_player.changed == 0 and server.world.get_block_v(standing) == 0,
 		"and it refuses to place a solid block where somebody is standing")
