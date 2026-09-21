@@ -1,4 +1,12 @@
-# The mod catalogue: what we keep, what we grow, what we retire
+# The mod catalogue (superseded)
+
+> **Superseded on 21 September 2026.** Every mod this describes was deleted; `mods/` holds `base`
+> alone. The plan that replaced it is in `docs/roadmap.md` under "The mod architecture, settled
+> 21 September 2026": `base` owns
+> nouns, a game owns rules, machines and gear are their own packs, and the tests play
+> `tests/mods/proving`. Kept for the reasoning about what each mod was *for*, which is worth reading
+> before deciding what 1.0 should ship.
+
 
 The mods grew as proofs that an engine capability works. Before they are published as downloads
 (docs/distribution.md), here is what each one actually is, what it should become, and the order of work.

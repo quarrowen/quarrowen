@@ -1,5 +1,11 @@
 # Playing Quarrowen at home
 
+> **The bundled games were removed on 21 September 2026** and will be rebuilt for 1.0 (see
+> `docs/roadmap.md`). Examples below that name `vanilla`, `hearthhold`, `industry`, `arcana`, `guild`,
+> `skyblock` or `oneblock` describe how things *were*, and still illustrate the capability correctly -
+> but you cannot run them as written. The mod the tests use now is `tests/mods/proving`, which uses
+> every capability the engine has and is the best worked example there is.
+
 A family setup: the server runs in Docker on a home Linux machine, and everyone plays from their own Mac
 (Apple silicon) on the same home network.
 
@@ -394,8 +400,8 @@ hub in Settings → Network (or `QW_HUB`). `tools/run_tests.sh` builds it and ru
 
 ```sh
 docker build -t quarrowen-server .
-docker run -p 24565-24566:24565-24566/udp -v voxel-data:/data -e QW_MODS=vanilla,industry quarrowen-server
-docker compose up        # vanilla on 24565, skyblock on 24567 (status on the next port)
+docker run -p 24565-24566:24565-24566/udp -v voxel-data:/data -e QW_MODS=proving quarrowen-server
+docker compose up        # each world on its own port (status on the next port)
 ```
 
 The image compiles the Rust extension for the target architecture, exports the "Linux Server" preset

@@ -2679,13 +2679,13 @@ func setting(key: String):
 
 ## Is this mod the game being played, or is it being used as a foundation by another one?
 ##
-## A game mod is often somebody else's dependency: Hearthhold builds on vanilla, so vanilla's blocks,
-## creatures and recipes are all wanted, but its "Vanilla Sandbox" panel and its welcome are not - the
-## player is in Hearthhold. Guard anything that speaks for the whole game with this:
+## A game mod is often somebody else's dependency: a story game builds on a sandbox one, so the
+## sandbox's blocks, creatures and recipes are all wanted, but its title card and its welcome are not -
+## the player is in the story. Guard anything that speaks for the whole game with this:
 ##
 ##   api.on("player_join", func(ev):
 ##       if api.is_game():
-##           ev.player.show_title("Vanilla Sandbox", "Build anything", 4.0))
+##           ev.player.show_title("Open Sandbox", "Build anything", 4.0))
 ##
 ## The game is the first mod the server was asked to load that declares `"kind": "game"`; a game loaded
 ## only because something else depends on it is not it. Add-ons (kind "addon") are never the game.

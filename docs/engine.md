@@ -1,5 +1,11 @@
 # The engine
 
+> **The bundled games were removed on 21 September 2026** and will be rebuilt for 1.0 (see
+> `docs/roadmap.md`). Examples below that name `vanilla`, `hearthhold`, `industry`, `arcana`, `guild`,
+> `skyblock` or `oneblock` describe how things *were*, and still illustrate the capability correctly -
+> but you cannot run them as written. The mod the tests use now is `tests/mods/proving`, which uses
+> every capability the engine has and is the best worked example there is.
+
 How Quarrowen is put together, for anyone working on the engine itself rather than on a mod. See also
 [CLAUDE.md](../CLAUDE.md) at the repository root, which lists the things that are easy to get wrong.
 
@@ -35,12 +41,12 @@ computer's local network address). Menus scale up on high-density screens. Code:
 
 ```sh
 # Dedicated server (mods are comma-separated; dependencies load automatically)
-godot --headless --path . res://scenes/server.tscn -- --mods=vanilla,industry --metrics=10
-godot --headless --path . res://scenes/server.tscn -- --mods=skyblock --world=myworld --mods-dir=/srv/mods --admins=Robin
+godot --headless --path . res://scenes/server.tscn -- --mods=proving --metrics=10
+godot --headless --path . res://scenes/server.tscn -- --mods=proving --world=myworld --mods-dir=/srv/mods --admins=Robin
 
 # Client straight into a server / host from the command line
 godot --path . -- --connect=127.0.0.1 --name=Robin
-godot --path . -- --host=skyblock --name=Robin
+godot --path . -- --host=proving --name=Robin
 ```
 
 Worlds save to `user://worlds/<world>` (world.json keeps the title, mods, game, seed and play times), downloaded assets to `user://cache/assets` and the player's
@@ -225,10 +231,9 @@ scaling by GPU core count suggests roughly 130 fps on a base M1 Air (not measure
 `tools/run_tests.sh` starts the servers and runs everything below. Individually:
 
 ```sh
-# End-to-end against a running server (--game = vanilla | skyblock | industry | arcana | guild)
-godot --headless --path . res://scenes/server.tscn -- --mods=vanilla,industry --port=24603 &
-godot --headless --path . res://tests/smoke_test.tscn -- --port=24603 --game=industry
-godot --headless --path . res://tests/smoke_test.tscn -- --port=24603 --game=combat     # needs --admins=Bot_combat
+# End-to-end against a running server (--game names the bot; there is one game now)
+godot --headless --path . res://scenes/server.tscn -- --mods=proving --port=24603 &
+godot --headless --path . res://tests/smoke_test.tscn -- --port=24603 --game=proving
 godot --headless --path . res://tests/auth_test.tscn -- --port=24603          # needs --admins=Admin; also version + pinning
 godot --headless --path . res://tests/multiplayer_test.tscn -- --port=24603   # launches a 2nd client
 godot --headless --path . res://tests/host_flow_test.tscn                     # menu Host flow
@@ -237,11 +242,11 @@ godot --headless --path . res://tests/persistence_test.tscn   # delta saves, blo
 godot --headless --path . res://tests/identity_test.tscn      # encrypted identity export / import
 godot --headless --path . res://tests/gameplay_test.tscn      # inventory, entities, damage, equipment, cosmetics
 godot --headless --path . res://tests/ai_test.tscn            # mob AI in a flat arena (tests/mods/ai_arena)
-godot --headless --path . res://tests/ai_soak.tscn -- --seconds=180 --sites=8   # vanilla mobs on real terrain: stuck, hops, chases
+godot --headless --path . res://tests/ai_soak.tscn -- --seconds=180 --sites=8   # mobs on real terrain: stuck, hops, chases
 godot --headless --path . res://tests/js_sandbox_test.tscn    # JavaScript limits
 godot --headless --path . res://tests/bench.tscn              # worldgen, meshing, snapshots, physics
 godot --headless --path . res://tests/bots.tscn -- --port=24603 --bots=100
-godot --path . res://tests/screenshot.tscn -- --port=24603 --commands="/industry demo|/time night"
+godot --path . res://tests/screenshot.tscn -- --port=24603 --commands="/proving|/time night"
 godot --path . res://tests/screenshot.tscn -- --port=24603 --camera=2 --editor=hat   # avatar editor
 ```
 

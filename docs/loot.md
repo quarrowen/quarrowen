@@ -1,5 +1,11 @@
 # Loot and drops
 
+> **The bundled games were removed on 21 September 2026** and will be rebuilt for 1.0 (see
+> `docs/roadmap.md`). Examples below that name `vanilla`, `hearthhold`, `industry`, `arcana`, `guild`,
+> `skyblock` or `oneblock` describe how things *were*, and still illustrate the capability correctly -
+> but you cannot run them as written. The mod the tests use now is `tests/mods/proving`, which uses
+> every capability the engine has and is the best worked example there is.
+
 One way to say "what comes out of this", used by every source: a mob that dies, a block that breaks, a
 chest in a dungeon, a fishing line, a reward. Before this, those were three unrelated pieces of code with
 three shapes, none of which a host could tune or another mod could extend.

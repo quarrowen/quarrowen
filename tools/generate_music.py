@@ -146,9 +146,13 @@ def hearth(length=40.0):
 def main():
     if shutil.which("ffmpeg") is None:
         sys.exit("needs ffmpeg on PATH to encode Ogg Vorbis (brew install ffmpeg)")
-    write("mods/vanilla/music/daylight.ogg", daylight())
-    write("mods/vanilla/music/night.ogg", night())
-    write("mods/hearthhold/music/hearth.ogg", hearth())
+    # Into the Proving Ground, because that is the only mod there is until 1.0's games are written.
+    # Two tracks rather than one: the client picks between them by time of day, and a track list with a
+    # single entry cannot prove it picked. They are also what keeps the lazy asset lane covered - music
+    # is the only content that deliberately does *not* join the download a player waits through, and
+    # tests/smoke_test.gd asserts exactly that against these files. (2026-09-21)
+    write("tests/mods/proving/music/daylight.ogg", daylight())
+    write("tests/mods/proving/music/night.ogg", night())
 
 
 if __name__ == "__main__":

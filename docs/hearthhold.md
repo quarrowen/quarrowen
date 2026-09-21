@@ -1,4 +1,10 @@
-# Hearthhold
+# Hearthhold (removed, kept as design material)
+
+> **This game was deleted on 21 September 2026.** It is kept because the thinking in it is the useful
+> part - why a guided game needs a reason to do each thing, in an order that makes sense, with someone
+> to do it for - and that reasoning should feed whatever guided game 1.0 ships. The code is in the
+> history; the models it used are in `art/models/hearthhold/`.
+
 
 A second game alongside vanilla: the guided one. Vanilla stays the open sandbox — this is the one that
 gives a child a reason to do each thing, in an order that makes sense, with someone to do it for.

@@ -2966,3 +2966,29 @@ flight away. Worth fixing when something bundled actually flies.
 
 **That is the last engine capability on the roadmap.** What remains is content - re-scoping `base`,
 the two packs, and the games - plus area tools, inventories inside things and instances.
+
+## What still names a deleted mod (2026-09-21, user: "hearthhold doesn't exist any more right?")
+
+It does not - `mods/` is `base` alone. But the name survives in five places, and they are not the same
+kind of leftover, so they do not all want the same treatment:
+
+**Deliberate, leave alone.** `docs/hearthhold.md` and `docs/mods_plan.md` are now marked as removed and
+superseded at the top; the reasoning in them is the part worth keeping for 1.0. `art/models/hearthhold/`
+holds the GLBs, which are the only assets no script can regenerate. `deploy/server/` names a *world*
+Hearthhold running pinned image 0.41.1, which still contains the mod - that config is correct for the
+image it pins, and a note now says so.
+
+**Broken, and waiting on Phase 4.** `tools/generate_textures.gd` writes into `res://mods/vanilla/` and
+`res://mods/hearthhold/`, which would recreate those folders as strays. It cannot be cheaply fixed:
+every `_save` consumes the one seeded RNG, so deleting a block re-rolls every texture after it (the
+comment on `_float_bob` records this costing three already-shipped textures). It gets rewritten when
+`base` is re-scoped and all the textures are regenerated together, which is the only time the re-roll
+is free.
+
+**Broken, and a release blocker.** `tools/make_release.sh` builds a site advertising Hearthhold and
+Vanilla as games, with screenshots of both. Publishing a release now would advertise games the build
+does not contain. Nothing to do while the playtest holds the tag, but this must be rewritten before
+1.0's site goes up.
+
+**Fixed now.** The `is_game()` doc comment in `mod_api.gd` used Hearthhold and Vanilla to explain
+dependency-vs-game; it flows into the published API reference, so it now uses unnamed generic games.

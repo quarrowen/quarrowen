@@ -1,5 +1,11 @@
 # Writing a mod
 
+> **The bundled games were removed on 21 September 2026** and will be rebuilt for 1.0 (see
+> `docs/roadmap.md`). Examples below that name `vanilla`, `hearthhold`, `industry`, `arcana`, `guild`,
+> `skyblock` or `oneblock` describe how things *were*, and still illustrate the capability correctly -
+> but you cannot run them as written. The mod the tests use now is `tests/mods/proving`, which uses
+> every capability the engine has and is the best worked example there is.
+
 A mod defines the game: blocks, items, entities, world generation, rules, recipes, machines, commands and
 UI. The engine provides the capabilities; mods provide everything a player sees. Mods are written in
 GDScript or JavaScript, and the full generated API reference is in [api/index.html](api/index.html).
@@ -12,7 +18,7 @@ logging and debug drawing, a command, a guide page, a tutorial, generated textur
 offers to host it in developer mode. Add-ons play with Vanilla; games generate their own world. The full
 API reference is **docs/api/index.html**, generated from the engine's doc comments and TypeScript
 declarations (`mod_tool.tscn -- docs`; a test fails if it is stale). The menu's **Developer mode** box
-hosts any game with the dev tools and the file watcher on (`--host=vanilla,my_mod --dev` from the
+hosts any game with the dev tools and the file watcher on (`--host=proving,my_mod --dev` from the
 command line). Mods created from an exported game go to `user://mods`, which servers search by default.
 
 Mods are GDScript (`main.gd`) or JavaScript (`main.js`); both use the same API and can depend on and
@@ -788,30 +794,23 @@ and for sandbox players who switch to survival.
   Rule `tutorials` (auto-start). Events `tutorial_started`, `tutorial_step`, `tutorial_completed`,
   `tip_shown`. Also `api.start_tutorial`, `stop_tutorial`, `get_tutorial_state`, `show_tip`.
 
-### Example: the Industry mod
+### Example: a worked mod
 
-`--mods=vanilla,industry` (or add it to any game). `/industry kit` fills your hotbar,
-`/industry demo` builds a powered showcase, `/time night` shows the lamps.
+The two worked examples that stood here described the Industry and Arcana mods, both deleted on
+21 September 2026. Rather than describe mods you cannot run, the example to read is
+**`tests/mods/proving`** - the Proving Ground, which the test suite plays.
 
-- **Coal generator** (burns coal ore / logs / planks, 40 QE/s) and **solar panel** (15 QE/s × daylight,
-  needs open sky) produce energy.
-- **Cables** and adjacent machines form networks, discovered by flood fill and cached until a
-  network block changes.
-- **Batteries** store surplus (20k QE); **lamps** draw 4 QE/s and switch to a light-emitting variant
-  when powered; the **auto miner** spends 120 QE per block digging straight down and stores drops.
-- Right-clicking a machine opens a live panel (energy bars, fuel, collected items, buttons).
-- Machines are Kenney industrial models baked with `tools/bake_model.py`, rotated to face whoever
-  placed them; runtime state lives in block data. Cables are box models (`tools/box_model.py`) whose
-  arms connect to neighbouring cables and machines.
-- Recipes for every machine; generators burn coal (mined from coal ore), logs or planks.
+It is a better example than either of them was, for a reason that is not about freshness: its rule is
+that *if the engine can do it, this mod does it*, so it is the one place where every capability on this
+page appears in working code. It is also deliberately plain - no textures, no models, no dependencies -
+so what you are reading is the API and not somebody's art direction.
 
-### Example: the Arcana mod
+    godot --headless --path . -- --server --mods=proving --world=test --port=24600
 
-`--mods=vanilla,arcana`. A generation pass seeds glowing mana crystal ore into any world's stone;
-mining it gives mana shards. Players have a mana pool in a HUD panel that regenerates, quickly near a
-Mana Pylon. Usable items: shards restore mana, the Wand of Blink teleports you up to 8 blocks, the
-Wand of Light conjures a temporary light orb, the Wand of Sparks shoots a glowing projectile that
-hurts mobs. Craft wands and pylons with C, or `/arcana kit`.
+`tests/mods/proving/` is laid out by capability family: `things.gd` (blocks, items, recipes), `life.gd`
+(creatures and their abilities), `society.gd` (characters, shops, objectives, companions), `machines.gd`
+(energy, fluids, signals, multiblocks) and `presentation.gd` (effects, music, weather, tutorials).
+`tests/mods/proving_js/` is the same idea in JavaScript.
 
 ## Logs and errors (for mod authors)
 

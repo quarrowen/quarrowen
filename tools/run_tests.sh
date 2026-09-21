@@ -5,9 +5,9 @@
 #   tools/run_tests.sh                 # uses $GODOT or `godot` on PATH
 #   GODOT=/path/to/godot tools/run_tests.sh
 #   QW_NATIVE=0 tools/run_tests.sh  # exercise the GDScript fallbacks
-#   ONLY=e2e:combat,gameplay tools/run_tests.sh   # just these tests (names as printed; "e2e:*" and globs work)
+#   ONLY=e2e:proving,gameplay tools/run_tests.sh  # just these tests (names as printed; "e2e:*" and globs work)
 #   EXCEPT="e2e:*" tools/run_tests.sh  # everything but these (EXCEPT wins over ONLY)
-#   REPEAT=10 ONLY=e2e:combat tools/run_tests.sh  # run each selected test 10 times (hunting flaky tests)
+#   REPEAT=10 ONLY=e2e:proving tools/run_tests.sh  # run each selected test 10 times (hunting flaky tests)
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
@@ -68,7 +68,7 @@ start_server() { # name mods port [mods_dir]
   [ "$SERVER_GENERATION" -gt 0 ] && log="$WORK/server_$1_gen$SERVER_GENERATION.log"
   QW_DATA_DIR="$WORK/data" QW_MODS="$2" QW_WORLD="$1" QW_PORT="$3" QW_SEED=42 QW_MAX_PLAYERS=16 \
     QW_MODS_DIR="${4:-}" \
-    QW_ADMINS="Admin,Bot_guild,Bot_industry,Bot_vanilla,Bot_combat,Bot_proving" \
+    QW_ADMINS="Admin,Bot_proving" \
     "$GODOT" --headless "${GODOT_LOG[@]}" --path . res://scenes/server.tscn >"$log" 2>&1 &
   SERVERS+=($!)
 }
