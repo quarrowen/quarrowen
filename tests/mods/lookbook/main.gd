@@ -83,6 +83,9 @@ var _found := Vector3.INF
 func _viewpoint(api) -> Vector3:
 	if _found != Vector3.INF:
 		return _found
+	if OS.get_environment("QW_LOOK_SHORE") == "1":
+		_found = _shoreline(api)
+		return _found
 	var best := Vector3(8.5, 80.0, 8.5)
 	var best_score := -1.0
 	for x in range(-96, 97, 24):
@@ -169,3 +172,30 @@ class Smooth:
 			if chunk.blocks.decode_u16(Chunk.index(x, y, z) << 1) != 0:
 				return y
 		return 0
+
+
+## A spot on the sand with the sea in front of it, for judging water rather than land.
+##
+## Its own search rather than a weight on the general one: a shoreline wants the *opposite* of what a
+## vista wants - low rather than high, close rather than commanding - and the clearing rule that keeps
+## a tree out of a landscape shot rejects most beaches, which have trees behind them. (2026-09-21)
+func _shoreline(api) -> Vector3:
+	var sea: int = api.block("base:water")
+	for radius in [40, 80, 140, 200]:
+		for x in range(-radius, radius + 1, 6):
+			for z in range(-radius, radius + 1, 6):
+				var y: int = api.surface_y(x, z)
+				if y < 62 or y > 66:
+					continue
+				var here: int = api.get_block(Vector3i(x, y, z))
+				if here == sea:
+					continue
+				# Water within a few paces, and enough of it to be a sea rather than a puddle.
+				var wet := 0
+				for dx in range(-6, 7, 2):
+					for dz in range(-6, 7, 2):
+						if api.get_block(Vector3i(x + dx, api.surface_y(x + dx, z + dz), z + dz)) == sea:
+							wet += 1
+				if wet >= 6:
+					return Vector3(x + 0.5, y + 2.0, z + 0.5)
+	return Vector3(8.5, 66.0, 8.5)

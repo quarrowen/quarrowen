@@ -3413,3 +3413,43 @@ untouched, and the suite passes - the family's M1 Airs are unaffected until some
 reason the flat path exists); decide whether the mesher should still bake face shade at all when the
 lit path is chosen, since computing something the shader throws away is waste; and settle how caves
 behave when sky light stops multiplying albedo.
+
+## Realistic water (2026-09-21)
+
+Water for the realistic preset only; every other preset keeps the cheap path untouched. What makes
+water read as water is what it does to **what is behind it**, and the cheap path cannot see behind
+itself at all - so the lit build taps the screen and depth textures, which the other presets
+deliberately never do.
+
+- **Depth tint.** How far the floor is beneath the surface picks the colour, so a beach shelves from
+  clear green to deep blue instead of being one flat sheet.
+- **Refraction.** The screen behind is sampled offset by the wave normal. The offset shrinks with
+  depth or shallow water tears at its own edge.
+- **A real half-vector glint** rather than a power function on the sun vector, sent to EMISSION so
+  the tonemapper and bloom treat it as a bright thing.
+- **Two wave sets** at different scales and speeds; one alone reads as a moving pattern.
+
+Three bugs found by rendering it, each worth keeping:
+
+1. **`LIT_TRANSLUCENT_OUT` threw the water away.** The lit output recomputed ALBEDO from the texture,
+   discarding everything the water block had put into `color`. A `custom` flag now says when a
+   surface has worked out its own colour.
+2. **`depth_draw_never` broke every other translucent block.** Added so refraction could not read the
+   water drawing it - but the screen texture is captured before transparent geometry anyway, so
+   there was nothing to avoid, and glass and foliage stopped writing depth and sorted through each
+   other. Reverted.
+3. **Liquid *side* faces were unhandled.** The water block only ran on `world_normal.y > 0.5`, so the
+   vertical walls of a water column fell through to the unshaded formula and were then lit again -
+   pale washed-out panels, and those "blue cubes" on the sand. Sides now get the tint and the
+   transparency without the wave normal or the sky mirror: a wall of water is something you look
+   *through*, and reflecting the sky off it turns a river's edge into a pane of glass.
+
+**Not resolved:** a water block sitting directly against a bank still reads as a pale panel in some
+frames. Alpha was made to follow depth steeply (a flat 0.45 composited a refracted copy of the
+ground over the ground itself) which improved it and did not remove it. Suspect the depth
+reconstruction - `thickness` may not be what I think it is where the floor is very close. Worth a
+frame capture rather than another screenshot; guessing from renders has stopped paying.
+
+Also still open from before, and now more pressing: **nothing here has been measured on an M1 Air.**
+The iPad Air 5 is the same M1 with one more GPU core and slightly fewer pixels than the base MacBook
+Air, so the Air remains the machine that decides whether this preset is real.
