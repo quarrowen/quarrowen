@@ -1,0 +1,36 @@
+extends RefCounted
+## People and the things between them: characters, shops, ledgers, objectives, companies, plots, tags.
+
+var api
+var ids: Dictionary
+
+
+func setup(mod_api, id_table: Dictionary) -> void:
+	api = mod_api
+	ids = id_table
+	api.register_ledger("coins", {"display_name": "Coins", "min": 0})
+	api.register_ledger("standing", {"display_name": "Standing", "levels": [10, 30, 60]})
+	api.register_objective("errand", {"display_name": "An Errand",
+		"steps": [{"text": "Go and see"}, {"text": "Come back", "count": 2}]})
+	api.register_objective("daily", {"display_name": "A Daily Thing", "repeatable": true,
+		"steps": [{"text": "Again"}]})
+	api.register_shop("stall", {"display_name": "The Stall", "offers": [
+		{"item": "base:torch", "count": 2, "price": 5, "ledger": "coins", "stock": 3, "restock": 30.0},
+		{"item": "base:stone", "count": 4, "cost": [{"item": "base:torch", "count": 1}]},
+		{"item": "base:cobblestone", "price": 1, "ledger": "coins", "sells": true}]})
+	# Every kind of option a conversation can have: one that moves along, one that hands over an
+	# objective, one that opens the stall, and one the mod answers itself.
+	api.register_character("keeper", {"display_name": "The Keeper", "color": "#ffd166", "lines": {
+		"start": {"text": "You again.", "options": [
+			{"text": "What have you got?", "sells": "stall"},
+			{"text": "Anything to do?", "gives": "errand"},
+			{"text": "Who are you?", "goes_to": "who"},
+			{"text": "Nothing", "does": "wave"}]},
+		"who": {"text": "The keeper of this place.", "options": [{"text": "I see", "goes_to": "start"}]},
+		"settled": {"text": "Settled in, then."}}})
+	api.on("character_choice", func(ev):
+		if ev.choice == "wave":
+			api.add_balance(ev.player, "coins", 1.0))
+	# Tags, which several of the above can refer to.
+	api.tag("currency", ["base:gold_ingot"])
+	api.tag("stone_like", ["base:stone", "base:cobblestone", "base:deepstone"])

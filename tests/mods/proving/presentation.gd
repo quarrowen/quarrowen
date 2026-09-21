@@ -1,0 +1,40 @@
+extends RefCounted
+## What a player sees and hears: effects, beams, decals, screen tints, nameplates, floating words,
+## panels, music, weather, milestones and the guidebook.
+
+var api
+var ids: Dictionary
+
+
+func setup(mod_api, id_table: Dictionary) -> void:
+	api = mod_api
+	ids = id_table
+	api.register_effect("puff", {"particles": 12, "color": "#cccccc", "scale": 1.0, "duration": 0.6})
+	api.register_weather("haze", {"display_name": "Haze", "darkness": 0.2, "particles": "puff"})
+	api.register_milestone("first_stone", {"display_name": "First Stone",
+		"goal": {"type": "break", "target": ["base:stone"]}})
+	api.register_guide_chapter("proving", {"title": "The Proving Ground", "order": 1})
+	api.register_guide_page("what", {"chapter": "proving", "title": "What this is",
+		"content": [{"type": "text", "text": "A mod that exists to be tested."}]})
+	# Damage numbers, which is float_text plus the post-damage event in one.
+	api.on("entity_damaged", func(ev):
+		var e = ev.entity
+		var was := float(e.data.get("_shown", ev.health))
+		e.data["_shown"] = float(ev.health)
+		if was - float(ev.health) >= 0.5:
+			api.float_text("%d" % roundi(was - float(ev.health)),
+				e.body.position + Vector3(0, e.def.height * 0.9, 0),
+				{"color": "#ffd166", "follow": e, "seconds": 0.8}))
+	# A panel in a corner, which is the whole of "mod-defined corners of the interface".
+	api.register_command("panel", "Show a corner panel", func(player, _args):
+		player.show_ui("proving:corner", {"anchor": "top_right", "children": [
+			{"type": "label", "text": "Proving Ground", "size": 16},
+			{"type": "progress", "value": int(api.balance_of(player, "coins")), "max": 10, "color": "#6fcf97"},
+			{"type": "button", "text": "Close", "action": "close"}]}))
+	api.register_command("effects", "Fire one of everything", func(player, _args):
+		var at: Vector3 = player.position
+		api.play_effect("puff", at + Vector3(0, 1, 0), {"scale": 1.0})
+		api.play_beam(at + Vector3(0, 1, 0), at + Vector3(0, 1, 6), {"color": "#88ddff", "seconds": 0.5})
+		api.play_decal(at - Vector3(0, 0.5, 0), Vector3i.UP, {"color": "#222222", "size": 2.0})
+		api.screen_tint(player, {"color": "#3366aa", "strength": 0.3})
+		api.float_text("hello", at + Vector3(0, 2, 0), {"color": "#ffffff"}))

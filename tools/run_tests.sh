@@ -185,6 +185,9 @@ for game in vanilla industry arcana guild combat; do
 done
 run_scene "e2e:skyblock" "$WORK/test_skyblock.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 3)) --game=skyblock
 NEEDS_FRESH_WORLD=0
+# The Proving Ground: one mod that uses every capability, so an engine change breaks this and not
+# seven games. Offline - it starts its own server.
+run_scene "proving" "$WORK/test_proving.log" res://tests/proving_test.tscn
 run_scene "auth" "$WORK/test_auth.log" res://tests/auth_test.tscn --port=$((PORT_BASE + 1))
 if [ -f tests/multiplayer_test.tscn ]; then
   run_scene "multiplayer" "$WORK/test_multiplayer.log" res://tests/multiplayer_test.tscn --port=$((PORT_BASE + 1))
