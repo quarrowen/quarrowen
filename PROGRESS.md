@@ -2454,7 +2454,7 @@ genuinely do.
 
 | Needed | Blocks | Placeholder acceptable? |
 |---|---|---|
-| **A raft or cart model (GLB)** | Vehicles (capability 18). No bundled vehicle exists, so the riding path has never been driven by a real client - the client half of it is untested. | Yes. A flat plank box would do: it only has to be rideable, not handsome. |
+| **A raft or cart model (GLB)** | Nothing now. The Proving Ground's raft has no model and `e2e:proving` rides it anyway, so the capability is proven; a model would only make a *shipped* vehicle look like something. | Yes, and no longer urgent. |
 | **Creature voices** | 25 creatures use placeholder sounds. Noted long before today; no generic pack has the animals this game has. | Partly - the placeholders work, they are just wrong. |
 | **Ore guide art** | Nothing, strictly. The guidebook has pages for older ores, so copper, gold and sunstone have nothing for a child to read. Text, not art, but it belongs on the same list of "built but not usable". | n/a |
 
@@ -2756,3 +2756,30 @@ added a bird. This one cannot.
 
 It also runs in **1 second** for 45 capability checks, against `gameplay`'s 94 seconds - because it
 starts one server rather than ninety-three.
+
+## Phase 1 done: the e2e runs on the Proving Ground (2026-09-21)
+
+`e2e:proving` joins a real server with a real client and checks the block registry arrives, the atlas
+builds, blocks place and break, a creature replicates, a server-drawn panel appears - and **riding**,
+which is the point.
+
+Vehicles shipped with the client half untested, because nothing bundled was rideable and I could not
+make a model. The Proving Ground's raft needs no model: it draws as a magenta box and rides perfectly
+well. The test mounts it, checks the rider **follows the vehicle rather than predicting its own walk**,
+and dismounts. That closes the one gap I had to write down as unproven.
+
+### Three bugs in my own mod, all worth keeping
+
+1. **`chunk.blocks[index] = id` generates nothing.** Blocks are little-endian u16, so the cell index
+   shifts left by one to become a byte offset: `blocks.encode_u16(index << 1, id)`. Writing a single
+   byte lands in the middle of a pair. `chunk.gd` says so on line 3, which I should have read first.
+2. **The generator was built before the blocks were registered**, so `api.block()` returned -1, which
+   encodes as 65535, and the world came out made of nothing. "Reordering mod registration" is already
+   in CLAUDE.md's list of things that look safe and are not; this is that hazard with a new face.
+3. Both of the above showed as *"Bot_proving landed hard"* - a bot falling through an empty world -
+   which is nothing like "your generator wrote the wrong bytes". The proving test now asserts there is
+   solid ground before it asserts anything else, because a test standing on nothing measures falling.
+
+And one real improvement fell out: **a refused mount now says why.** It used to fail silently, which
+is indistinguishable from a vehicle that is broken. "Too far away (6.2 blocks)" is a better thing for
+a child to be told, and it is what told me the bot was nowhere near the raft.

@@ -63,11 +63,12 @@ echo "logs:  $WORK"
 
 SERVER_GENERATION=0
 
-start_server() { # name mods port
+start_server() { # name mods port [mods_dir]
   local log="$WORK/server_$1.log"
   [ "$SERVER_GENERATION" -gt 0 ] && log="$WORK/server_$1_gen$SERVER_GENERATION.log"
   QW_DATA_DIR="$WORK/data" QW_MODS="$2" QW_WORLD="$1" QW_PORT="$3" QW_SEED=42 QW_MAX_PLAYERS=16 \
-    QW_ADMINS="Admin,Bot_guild,Bot_industry,Bot_vanilla,Bot_combat" \
+    QW_MODS_DIR="${4:-}" \
+    QW_ADMINS="Admin,Bot_guild,Bot_industry,Bot_vanilla,Bot_combat,Bot_proving" \
     "$GODOT" --headless "${GODOT_LOG[@]}" --path . res://scenes/server.tscn >"$log" 2>&1 &
   SERVERS+=($!)
 }
@@ -75,7 +76,9 @@ start_server() { # name mods port
 start_servers() {
   start_server all "vanilla,industry,arcana,guild" $((PORT_BASE + 1))
   start_server sky "skyblock" $((PORT_BASE + 3))
-  wait_for_server all && wait_for_server sky || { echo "servers failed to start"; exit 1; }
+  # The Proving Ground, which lives under tests/ and depends on nothing.
+  start_server proving "proving,proving_js" $((PORT_BASE + 5)) "tests/mods"
+  wait_for_server all && wait_for_server sky && wait_for_server proving || { echo "servers failed to start"; exit 1; }
 }
 
 # The end-to-end tests play as a fixed bot in a saved world: starter items, a first-time welcome, an
@@ -177,7 +180,7 @@ fi
 # Servers are only needed by the end-to-end tests.
 needs_servers() {
   local t
-  for t in e2e:vanilla e2e:industry e2e:arcana e2e:guild e2e:combat e2e:skyblock auth multiplayer; do selected "$t" && return 0; done
+  for t in e2e:vanilla e2e:industry e2e:arcana e2e:guild e2e:combat e2e:skyblock e2e:proving auth multiplayer; do selected "$t" && return 0; done
   return 1
 }
 
@@ -190,6 +193,7 @@ for game in vanilla industry arcana guild combat; do
   run_scene "e2e:$game" "$WORK/test_$game.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 1)) --game=$game
 done
 run_scene "e2e:skyblock" "$WORK/test_skyblock.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 3)) --game=skyblock
+run_scene "e2e:proving" "$WORK/test_proving_e2e.log" res://tests/smoke_test.tscn --port=$((PORT_BASE + 5)) --game=proving
 NEEDS_FRESH_WORLD=0
 # The Proving Ground: one mod that uses every capability, so an engine change breaks this and not
 # seven games. Offline - it starts its own server.

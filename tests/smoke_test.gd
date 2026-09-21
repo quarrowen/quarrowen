@@ -77,6 +77,8 @@ func _run() -> void:
 			await _guild(c)
 		"combat":
 			await _combat(c)
+		"proving":
+			await _proving(c)
 
 	# Engine-level authority: an edit far out of reach must be rolled back.
 	var far := Vector3i(floori(c.state.position.x) + 40, floori(c.state.position.y) - 1, floori(c.state.position.z))
@@ -88,6 +90,57 @@ func _run() -> void:
 		await get_tree().create_timer(1.0).timeout
 		_check(c.world.get_block_v(far) == far_before, "out-of-reach edit rolled back by server")
 	_finish()
+
+
+## The Proving Ground through a real client. Everything else here talks to a game that is about to be
+## deleted; this is the one that stays, so it covers what only a real client can show - that blocks
+## drawn with no texture still render, that a creature replicates, and that **riding works**, which
+## nothing bundled could test before because nothing bundled was rideable.
+func _proving(c) -> void:
+	var rock: int = c.registry.id_of("proving:rock")
+	var plain: int = c.registry.id_of("proving:plain")
+	_check(rock > 0 and plain > 0, "the Proving Ground's own blocks reached the client")
+	# No textures anywhere in that mod, so this is also the test that the magenta fallback works rather
+	# than leaving a hole in the atlas.
+	_check(c._atlas.uv.size() > 0, "the atlas built with no textures to put in it (%d entries)" % c._atlas.uv.size())
+
+	# Build and break, through the ordinary client path.
+	var under := Vector3i(floori(c.state.position.x), floori(c.state.position.y) - 1, floori(c.state.position.z))
+	var spot := under + Vector3i(1, 1, 0)
+	if await _select_item(c, plain):
+		Net.c_place_block.rpc_id(1, spot, plain, 0)
+		var placed := await _wait_until(func(): return c.world.get_block_v(spot) == plain, 5.0)
+		_check(placed, "a block placed by the client is there on the server's word")
+		Net.c_break_block.rpc_id(1, spot)
+		_check(await _wait_until(func(): return c.world.get_block_v(spot) != plain, 5.0), "and breaking it takes it away")
+
+	# A creature, replicated.
+	Net.c_chat.rpc_id(1, "/summon proving:grazer")
+	var grazer := await _wait_for_entity(c, "proving:grazer", 6.0)
+	_check(grazer >= 0, "a creature replicated to the client")
+
+	# Riding. The vehicle capability shipped with its client half untested, because no bundled game had
+	# anything to sit on. This is that test. (2026-09-21)
+	Net.c_chat.rpc_id(1, "/summon proving:raft")
+	var raft := await _wait_for_entity(c, "proving:raft", 6.0)
+	_check(raft >= 0, "a raft replicated")
+	if raft >= 0:
+		Net.c_ride.rpc_id(1, raft)
+		var aboard := await _wait_until(func(): return not c._riding.is_empty(), 5.0)
+		_check(aboard, "the client was told it is riding (%s)" % ("" if aboard else _last_chat(c)))
+		if aboard:
+			# Sitting where the raft is drawn, rather than where the client would have walked to.
+			var view = c._entities.get(raft)
+			var near := await _wait_until(func():
+				return view != null and c.state.position.distance_to(view.position) < 2.0, 5.0)
+			_check(near, "and the rider follows the raft rather than predicting its own walk")
+			Net.c_ride.rpc_id(1, raft)
+			_check(await _wait_until(func(): return c._riding.is_empty(), 5.0), "and can get off again")
+
+	# A panel the server drew, which is the UI path.
+	Net.c_chat.rpc_id(1, "/panel")
+	_check(await _wait_until(func(): return c._server_ui._panels.has("proving:corner"), 5.0),
+		"a server-drawn panel reached the client")
 
 
 func _vanilla(c) -> void:
@@ -851,6 +904,15 @@ func _nearest_solid(c) -> Vector3i:
 
 ## Selects an item, waiting for it to arrive first (a /give is a round trip, and a loaded test machine can
 ## take a moment). Returns false if it never turned up, so a failing check says which step actually broke.
+## The most recent line the server said, read off the chat log's own labels, so a check that fails can
+## quote the reason instead of leaving somebody to go and find a log.
+func _last_chat(c) -> String:
+	var log_node = c.get("_chat_log")
+	if log_node == null or log_node.get_child_count() == 0:
+		return "no message"
+	return String(log_node.get_child(log_node.get_child_count() - 1).text)
+
+
 func _select_item(c, item: int) -> bool:
 	if not await _wait_until(func(): return c.inventory.ids.find(item) >= 0, 5.0):
 		return false

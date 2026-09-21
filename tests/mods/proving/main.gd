@@ -31,11 +31,12 @@ var presentation := Presentation.new()
 func setup(mod_api) -> void:
 	api = mod_api
 	api.set_server_info({"name": "Proving Ground", "motd": "Nothing here is meant to be fun."})
-	# Flat and predictable. A test that has to go looking for the ground is a test that measures
-	# terrain generation when it meant to measure something else.
-	api.set_world_generator(FlatGround.new(api.block("proving:rock"), api.block("proving:soil"), api.block("proving:turf")))
 	api.set_gameplay({"keep_inventory": true, "natural_regeneration": true, "tutorials": false})
 	things.setup(api, ids)
+	# **After things.setup, not before.** The generator is built with block ids, and asking for one that
+	# is not registered yet returns -1, which encodes as 65535 and generates a world made of nothing.
+	# "Reordering mod registration" is in CLAUDE.md's list of things that look safe and are not.
+	api.set_world_generator(FlatGround.new(api.block("proving:rock"), api.block("proving:soil"), api.block("proving:turf")))
 	life.setup(api, ids)
 	society.setup(api, ids)
 	machines.setup(api, ids)
@@ -70,8 +71,13 @@ class FlatGround:
 		grass = grass_id
 
 	# Runs on a worker thread and touches only the chunk and ids read at construction.
+	#
+	# A block is a little-endian u16, so the cell index shifts left by one to become a byte offset -
+	# `chunk.blocks[index] = id` writes one byte into the middle of a pair and generates nothing at all.
+	# chunk.gd says so on line 3, which I should have read first. (2026-09-21)
 	func generate(chunk) -> void:
 		for x in Chunk.SIZE_X:
 			for z in Chunk.SIZE_Z:
 				for y in range(0, TOP + 1):
-					chunk.blocks[Chunk.index(x, y, z)] = stone if y < TOP - 3 else (dirt if y < TOP else grass)
+					var id := stone if y < TOP - 3 else (dirt if y < TOP else grass)
+					chunk.blocks.encode_u16(Chunk.index(x, y, z) << 1, id)

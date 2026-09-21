@@ -31,6 +31,9 @@ const MAX_SEATS := 6
 const REACH := 4.0
 
 var server
+## Why the last mount was refused, in words somebody can be shown. A vehicle that silently does not
+## take you is indistinguishable from one that is broken. (2026-09-21)
+var problem := ""
 
 
 func _init(game_server) -> void:
@@ -71,15 +74,26 @@ static func riders_of(entity) -> Array:
 
 ## Puts a player aboard. Refused when it is full, too far away, or they are already riding something.
 func mount(player, entity) -> bool:
+	problem = ""
 	var c := config_of(entity)
-	if player == null or c.is_empty() or not entity.is_alive():
+	if player == null or c.is_empty():
+		problem = "That is not something you can ride."
 		return false
-	if player.riding > 0 or player.dead:
+	if not entity.is_alive():
+		problem = "That is gone."
 		return false
-	if player.state.position.distance_to(entity.body.position) > REACH + float(entity.def.width):
+	if player.riding > 0:
+		problem = "You are already riding something."
+		return false
+	if player.dead:
+		return false
+	var away: float = player.state.position.distance_to(entity.body.position)
+	if away > REACH + float(entity.def.width):
+		problem = "Too far away (%.1f blocks)." % away
 		return false
 	var riders := riders_of(entity)
 	if riders.size() >= int(c.seats):
+		problem = "It is full."
 		return false
 	var ev: Dictionary = server.emit("vehicle_mount", {"player": player, "entity": entity, "cancelled": false})
 	if ev.cancelled:

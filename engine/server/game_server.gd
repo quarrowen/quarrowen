@@ -1254,8 +1254,10 @@ func on_ride(peer_id: int, entity_id: int) -> void:
 		vehicles.dismount(p)
 		return
 	var entity = entities.entities.get(entity_id)
-	if entity != null:
-		vehicles.mount(p, entity)
+	if entity == null:
+		return
+	if not vehicles.mount(p, entity) and not vehicles.problem.is_empty():
+		p.send_message(vehicles.problem)
 
 
 ## The online player with this id, or null. Two loops already did this by hand.

@@ -25,6 +25,14 @@ func _ready() -> void:
 		return _finish()
 	server.set_physics_process(false)
 
+	# The ground this mod generates, before anything else: a test standing on nothing measures falling.
+	server.ensure_area_loaded(Vector3(0.5, 65, 0.5))
+	var under: int = server.world.get_block(0, 64, 0)
+	var above: int = server.world.get_block(0, 65, 0)
+	_check(server.registry.is_valid(under) and server.registry.solid_lut[under] == 1,
+		"there is solid ground at y=64 (%s)" % (server.registry.defs[under].name if server.registry.is_valid(under) else under))
+	_check(above == 0, "and air above it (%d)" % above)
+
 	_registries(server)
 	_javascript(server)
 	_behaviour(server)

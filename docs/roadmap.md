@@ -312,10 +312,10 @@ towards wherever the rider looks, sneak gets off. Nothing new crosses the wire e
 that" - and the client needs that one message, because otherwise it predicts walking, the server puts
 it back, and that is rubber-banding.
 
-**Not finished: there is no vehicle to ride.** A boat needs a model, and nothing bundled has one. The
-server half is covered by fourteen checks; the client half is only covered negatively, in that every
-e2e test still passes with riding never switched on. Until a bundled vehicle exists, the riding path
-has not been driven by a real client.
+**The client half is tested now.** It was not when this shipped: nothing bundled was rideable, so the
+riding path had never been driven by a real client. The Proving Ground has a raft, and `e2e:proving`
+mounts it, checks the rider follows the vehicle rather than predicting its own walk, and gets off
+again. A model would still make it *look* like something, but the capability is proven.
 
 ### 19. Area tools
 
