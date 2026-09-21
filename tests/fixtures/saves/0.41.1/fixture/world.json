@@ -4,25 +4,23 @@
 		"players": {}
 	},
 	"clock": 0.0,
-	"created_at": 1789732666,
+	"companies": [],
+	"created_at": 1789962528,
+	"fields": [],
 	"format": 2,
-	"game": "vanilla",
-	"last_played": 1789732666,
+	"game": "proving",
+	"last_played": 1789962529,
+	"links": [],
 	"loot": {
 		"boosts": {},
 		"rate": 1.0
 	},
 	"mod_settings": {},
-	"mod_storage": {
-		"vanilla": {
-			"time_initialized": true
-		}
-	},
+	"mod_storage": {},
 	"mods": [
-		"vanilla",
-		"industry",
-		"arcana",
-		"guild"
+		"base",
+		"proving",
+		"proving_js"
 	],
 	"names": {
 		"fixture": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"
@@ -74,12 +72,6 @@
 						{}
 					],
 					[
-						3,
-						"base:torch",
-						16,
-						{}
-					],
-					[
 						4,
 						"base:iron_ingot",
 						9,
@@ -93,37 +85,19 @@
 					],
 					[
 						9,
-						"vanilla:bone",
+						"proving:token",
 						4,
 						{}
 					],
 					[
-						10,
-						"vanilla:leather",
-						7,
-						{}
-					],
-					[
-						11,
-						"arcana:mana_shard",
-						5,
-						{}
-					],
-					[
 						12,
-						"industry:cable",
-						32,
-						{}
-					],
-					[
-						13,
-						"industry:battery",
+						"proving:prod",
 						1,
 						{}
 					],
 					[
 						14,
-						"guild:gold_coin",
+						"proving:grain",
 						11,
 						{}
 					],
@@ -145,9 +119,10 @@
 			"name": "Fixture",
 			"position": [
 				20.5,
-				55.0,
+				67.0,
 				23.5
 			],
+			"realm": "",
 			"recipes": [],
 			"saturation": 5.0,
 			"seen_items": [],
@@ -165,11 +140,13 @@
 			}
 		}
 	},
+	"plots": [],
 	"roles": {},
 	"seed": 1234,
+	"shop_stock": {},
 	"time": [
-		0.3,
-		1200.0
+		0.5,
+		0.0
 	],
 	"world_markers": {}
 }

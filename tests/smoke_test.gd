@@ -1,15 +1,15 @@
 extends Node
 ## End-to-end test of the universal client against a running server:
-##   godot --headless --path . -- --server --mods=vanilla --world=test_vanilla --port=24600 &
-##   godot --headless --path . res://tests/smoke_test.tscn -- --port=24600 --game=vanilla
-## --game selects game-specific checks (vanilla | skyblock). Exit code 0 = pass.
+##   godot --headless --path . -- --server --mods=proving,proving_js --world=test_proving --port=24600 &
+##   godot --headless --path . res://tests/smoke_test.tscn -- --port=24600 --game=proving
+## --game selects game-specific checks (proving). Exit code 0 = pass.
 
 const GameClient = preload("res://engine/client/game_client.gd")
 const BlockRegistry = preload("res://engine/shared/block_registry.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 
 var _client
-var _game := "vanilla"
+var _game := "proving"
 var _failures: Array[String] = []
 var _arena := Vector3.ZERO
 
@@ -107,12 +107,20 @@ func _proving(c) -> void:
 	# Build and break, through the ordinary client path.
 	var under := Vector3i(floori(c.state.position.x), floori(c.state.position.y) - 1, floori(c.state.position.z))
 	var spot := under + Vector3i(1, 1, 0)
+	# c_place_block takes (position, yaw) and places whatever is *selected* - the block is not a
+	# parameter. Passing it as one is silently wrong: the extra argument is dropped. (2026-09-21)
 	if await _select_item(c, plain):
-		Net.c_place_block.rpc_id(1, spot, plain, 0)
+		Net.c_place_block.rpc_id(1, spot, 0.0)
 		var placed := await _wait_until(func(): return c.world.get_block_v(spot) == plain, 5.0)
 		_check(placed, "a block placed by the client is there on the server's word")
+		# In creative for the break: the server times a survival break and refuses one that arrives
+		# early, and this check is about the round trip rather than about mining speed.
+		Net.c_chat.rpc_id(1, "/gamemode creative")
+		await get_tree().create_timer(0.5).timeout
 		Net.c_break_block.rpc_id(1, spot)
 		_check(await _wait_until(func(): return c.world.get_block_v(spot) != plain, 5.0), "and breaking it takes it away")
+		Net.c_chat.rpc_id(1, "/gamemode survival")
+		await get_tree().create_timer(0.5).timeout
 
 	# A creature, replicated.
 	Net.c_chat.rpc_id(1, "/summon proving:grazer")

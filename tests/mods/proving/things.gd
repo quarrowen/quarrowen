@@ -29,7 +29,17 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	ids.token = api.register_item("token", {"display_name": "Token", "max_stack": 16})
 	ids.rod = api.register_item("rod", {"display_name": "Rod"})
 	ids.grain = api.register_item("grain", {"display_name": "Grain", "food": {"hunger": 3, "saturation": 2.0}})
+	# Food that disagrees with you. `effects` is a list of timed *stat modifiers*, not conditions -
+	# food predates conditions and was never taught about them, which is worth knowing and is the sort
+	# of gap this mod exists to surface. (2026-09-21)
+	ids.spoiled = api.register_item("spoiled", {"display_name": "Spoiled Grain",
+		"food": {"hunger": 2, "saturation": 0.5,
+			"effects": [{"stat": "hunger_drain", "amount": 0.5, "seconds": 20.0,
+				"message": "That was a mistake"}]}})
+	# Everything an item can be made to look like: a glow, a trail, an effect when it lands.
 	ids.prod = api.register_item("prod", {"display_name": "Prod",
+		"glow": {"color": "#88ddff", "energy": 1.0}, "trail": {"color": "#88ddff90", "width": 0.4},
+		"effects": {"hit": "proving:puff", "held": "proving:puff"},
 		"durability": 40, "tool": {"type": "pickaxe", "tier": 2, "speed": 5.0},
 		"weapon": {"damage": 3.0, "cooldown": 0.6}})
 	api.register_recipe({"proving:rock": 2}, "proving:plain", 1, {"unlock": "known"})
@@ -41,6 +51,10 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	api.tag("prods", ["proving:prod"])
 	api.register_modifier("keen", {"display_name": "Keen", "max_level": 3,
 		"per_level": [{"stat": "attack_damage", "amount": 1.0}], "applies_to": ["#proving:prods"]})
+	# A forge material of our own, so the parts-and-assembly capability is covered without base's.
+	api.register_material("dull", {"display_name": "Dull", "item": "proving:token", "color": "#888888",
+		"tier": 2, "speed": 4.0, "durability": 100, "damage": 1.0, "handle": 1.6,
+		"trait": {"name": "Plain", "description": "nothing special", "speed_mult": 0.0}})
 	api.register_block_tick("lamp", func(ctx):
 		api.set_block_data(ctx.position, {"ticked": int(api.get_block_data(ctx.position).get("ticked", 0)) + 1}),
 		{"interval": 5, "random": false})

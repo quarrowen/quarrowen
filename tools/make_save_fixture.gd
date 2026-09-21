@@ -1,6 +1,6 @@
 extends Node
 ## Writes a save-compatibility fixture: a small world made by *this* version of the game with builds, a
-## chest, a pig and a player carrying items from several mods (worn armour and item data included), plus
+## chest, a creature and a player carrying items from several mods (worn armour and item data included), plus
 ## expected.json describing it. Run it from a checkout of a release, then copy the output to
 ## tests/fixtures/saves/<version>/ so tests/save_compat_test.tscn keeps checking newer versions load it.
 ##   godot --headless --path <release checkout> res://tools/make_save_fixture.tscn -- --out=/tmp/fixture
@@ -9,16 +9,16 @@ const GameServer = preload("res://engine/server/game_server.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
 
-const MODS := ["vanilla", "industry", "arcana", "guild"]
+const MODS := ["base", "proving", "proving_js"]
 const INVENTORY := [
-	[0, "base:stone_sword", 1, {}], [1, "base:stone_pickaxe", 1, {"damage": 12}], [2, "base:planks", 48, {}], [3, "base:torch", 16, {}],
-	[4, "base:iron_ingot", 9, {}], [5, "base:apple", 3, {}], [9, "vanilla:bone", 4, {}], [10, "vanilla:leather", 7, {}],
-	[11, "arcana:mana_shard", 5, {}], [12, "industry:cable", 32, {}], [13, "industry:battery", 1, {}], [14, "guild:gold_coin", 11, {}],
+	[0, "base:stone_sword", 1, {}], [1, "base:stone_pickaxe", 1, {"damage": 12}], [2, "base:planks", 48, {}],
+	[4, "base:iron_ingot", 9, {}], [5, "base:apple", 3, {}], [9, "proving:token", 4, {}],
+	[12, "proving:prod", 1, {}], [14, "proving:grain", 11, {}],
 	[20, "base:glass", 64, {}], [35, "base:coal", 2, {}],
 ]
 const EQUIPMENT := {"chest": ["base:iron_chestplate", 1, {}]}
-const BLOCKS := [[0, 1, 0, "base:planks"], [1, 1, 0, "base:glass"], [2, 1, 0, "base:torch"], [0, 2, 0, "base:planks"], [3, 1, 0, "industry:cable"]]
-const CHEST := [[0, "base:iron_ingot", 5], [1, "arcana:mana_shard", 2], [26, "base:apple", 1]]
+const BLOCKS := [[0, 1, 0, "base:planks"], [1, 1, 0, "base:glass"], [2, 1, 0, "proving:lamp"], [0, 2, 0, "base:planks"], [3, 1, 0, "proving:wire"]]
+const CHEST := [[0, "base:iron_ingot", 5], [1, "proving:token", 2], [26, "base:apple", 1]]
 
 
 func _ready() -> void:
@@ -37,7 +37,7 @@ func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(out)
 	var server = GameServer.new()
 	add_child(server)
-	var err: Error = server.start({"mods": PackedStringArray(MODS), "world": "fixture", "data_dir": out, "seed": 1234, "offline": true})
+	var err: Error = server.start({"mods": PackedStringArray(MODS), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": "fixture", "data_dir": out, "seed": 1234, "offline": true})
 	if err != OK:
 		printerr("server start failed: %s" % error_string(err))
 		get_tree().quit(1)
@@ -50,7 +50,7 @@ func _run() -> void:
 	var chest = server.containers.get_container(chest_pos)
 	for c in CHEST:
 		chest.set_item(c[0], server.items.id_of(c[1]), c[2])
-	server.entities.spawn(server.entities.registry.id_of("vanilla:pig"), Vector3(origin) + Vector3(4.5, 0, 0.5))
+	server.entities.spawn(server.entities.registry.id_of("proving:grazer"), Vector3(origin) + Vector3(4.5, 0, 0.5))
 	var p := ServerPlayer.new(server, 7, "Fixture")
 	p.player_id = "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"
 	server.players[7] = p

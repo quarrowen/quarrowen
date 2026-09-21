@@ -34,7 +34,7 @@ func _check_fixture(version: String) -> void:
 	_copy_tree(source, work)
 	var server = GameServer.new()
 	add_child(server)
-	var err: Error = server.start({"mods": PackedStringArray(expected.mods), "world": expected.world, "data_dir": work, "seed": 1, "offline": true})
+	var err: Error = server.start({"mods": PackedStringArray(expected.mods), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": expected.world, "data_dir": work, "seed": 1, "offline": true})
 	_check(err == OK, "%s: the world starts" % version)
 	if err != OK:
 		server.queue_free()
@@ -52,7 +52,7 @@ func _check_fixture(version: String) -> void:
 		_check(not slot.is_empty() and server.items.name_of(slot.item) == c[1] and slot.count == int(c[2]), "%s: chest slot %d holds %d %s" % [version, int(c[0]), int(c[2]), c[1]])
 	var pig_near := Vector3(float(expected.pig_near[0]), float(expected.pig_near[1]), float(expected.pig_near[2]))
 	server.ensure_area_loaded(pig_near)
-	_check(server.entities.in_radius(pig_near, 3.0, server.entities.registry.id_of("vanilla:pig")).size() == 1, "%s: the pig is still there" % version)
+	_check(server.entities.in_radius(pig_near, 3.0, server.entities.registry.id_of("proving:grazer")).size() == 1, "%s: the pig is still there" % version)
 	# The player's inventory, as it loads when they join.
 	server._spawn_player(71, "Fixture", str(expected.player_id))
 	var p = server.players[71]
@@ -74,7 +74,7 @@ func _check_fixture(version: String) -> void:
 	await get_tree().process_frame
 	var again = GameServer.new()
 	add_child(again)
-	again.start({"mods": PackedStringArray(expected.mods), "world": expected.world, "data_dir": work, "seed": 1, "offline": true})
+	again.start({"mods": PackedStringArray(expected.mods), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": expected.world, "data_dir": work, "seed": 1, "offline": true})
 	again._spawn_player(72, "Fixture", str(expected.player_id))
 	var q = again.players[72]
 	var same := true

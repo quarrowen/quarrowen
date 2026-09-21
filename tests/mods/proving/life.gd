@@ -17,14 +17,18 @@ func _creatures() -> void:
 	# A quiet one to tame and order about, and a hostile one whose bite leaves something behind. Between
 	# them they cover the AI presets, phases, attacks, taming and breeding.
 	ids.grazer = api.register_entity("grazer", {"kind": "mob", "display_name": "Grazer",
-		"width": 0.8, "height": 1.0, "health": 12, "speed": 2.2, "category": "misc", "persistent": true,
+		"width": 0.8, "height": 1.0, "health": 10, "speed": 2.2, "category": "animal", "persistent": true,
 		"taming": {"items": ["proving:grain"], "chance": 1.0, "follow_distance": 3.0, "teleport_distance": 16.0},
 		"breeding": {"items": ["proving:grain"], "cooldown": 5.0},
 		"nameplate": {"show_health": true},
+		# Drops, so it has a loot table another mod can extend - which is what extend_loot is for.
+		"drops": [["proving:token", 1], ["proving:grain", 2]],
 		"ai": {"preset": "passive", "wander_radius": 6}})
 	ids.biter = api.register_entity("biter", {"kind": "mob", "display_name": "Biter",
 		"width": 0.7, "height": 1.2, "health": 20, "speed": 3.0, "category": "monster",
 		"nameplate": {"show_health": true, "color": "#ff8866"},
+		# A drop with a chance, so "how often does this drop" is answerable.
+		"drops": [["proving:token", 1, 0.5], ["proving:spoiled", 1]],
 		"ai": {"preset": "hostile", "aggression": 0.9, "sight_range": 20,
 			"attacks": [
 				{"name": "bite", "type": "melee", "damage": 2.0, "range": 2.0, "windup": 0.2,
@@ -38,6 +42,16 @@ func _creatures() -> void:
 			"boss": {"name": "The Biter", "bar_range": 32}}})
 	# A boss bar and phases need something that will not die on the first hit.
 	api.add_spawn_rule({"entity": "biter", "max_light": 4, "weight": 1, "group": [1, 2]})
+	# An animal rule too: spawning is a capability with two halves, and the quiet half wants light.
+	api.add_spawn_rule({"entity": "grazer", "min_light": 9, "weight": 1, "group": [1, 3], "on": ["proving:turf"]})
+	# A wild one wears no collar; taming puts it on. Set on spawn rather than in the definition,
+	# because `look` is per-creature state and taming is what changes it.
+	api.on("entity_spawned", func(ev):
+		if ev.entity.type == ids.grazer and not ev.entity.data.has("look"):
+			ev.entity.set_look({"hide": ["collar"]}))
+	# And taming puts it on. The engine does not decide what being tamed looks like, which is why this
+	# is here rather than in taming.gd.
+	api.on("entity_tamed", func(ev): ev.entity.set_look({"hide": []}))
 
 
 func _conditions_and_fields() -> void:

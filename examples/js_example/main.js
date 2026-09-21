@@ -2,9 +2,9 @@
 // the `api` object it hands you, which is the same API GDScript mods get, in camelCase (registerItem,
 // registerLoot, on...). That makes JavaScript the safer choice for a mod other people download.
 //
-// Try it: godot --path . -- --host=vanilla,js_example --dev   then break some blocks and type /coins
+// Try it: godot --path . -- --host=proving,js_example --dev   then break some blocks and type /coins
 //
-// Every function is in docs/api/index.html; mods/guild is a full game-sized JavaScript mod.
+// Every function is in docs/api/index.html; the Proving Ground is a full game-sized JavaScript mod.
 
 const REWARD_EVERY = 30; // blocks broken per coin
 

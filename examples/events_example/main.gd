@@ -7,7 +7,7 @@ extends "res://engine/server/mod.gd"
 ##   2. change - rewrite a value in the event before the engine uses it
 ##   3. cancel - set ev.cancelled and the engine does not do it at all
 ##
-## Try it: godot --path . -- --host=vanilla,events_example --dev
+## Try it: godot --path . -- --host=proving,events_example --dev
 
 var api
 ## Bedrock is at 0; nobody should be allowed to mine the bottom of the world.

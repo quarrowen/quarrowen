@@ -2,7 +2,7 @@ extends "res://engine/server/mod.gd"
 ## What comes out of things (docs/loot.md). Everything here is deliberately small: read it top to bottom
 ## and you have seen the whole capability.
 ##
-## Try it: godot --path . -- --host=vanilla,loot_example --dev
+## Try it: godot --path . -- --host=proving,loot_example --dev
 
 var api
 
@@ -67,7 +67,7 @@ func _nested() -> void:
 ## Adding to a table another mod owns, without forking it. A mob's own table is "mob:<entity name>";
 ## a block's is "block:<block name>". This one gives every pig a small chance of an apple.
 func _extending_someone_elses_mob() -> void:
-	api.extend_loot("mob:vanilla:pig", {"pools": [
+	api.extend_loot("mob:proving:grazer", {"pools": [
 		{"rolls": 1, "when": {"killed_by": "player"}, "entries": [
 			{"item": "base:apple", "weight": 1},
 			{"empty": true, "weight": 9},

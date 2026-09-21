@@ -8,7 +8,7 @@ extends "res://engine/server/mod.gd"
 ## World generation is decided once, when a chunk is first made, so these all run at load and a quick
 ## reload skips them (the engine handles that; /reload full applies changes to new chunks).
 ##
-## Try it: godot --path . -- --host=vanilla,worldgen_example --dev
+## Try it: godot --path . -- --host=proving,worldgen_example --dev
 
 var api
 
@@ -52,7 +52,7 @@ func _a_biome() -> void:
 		"filler": "base:stone",
 		"height": [64, 74],
 		# A name without a ":" is this mod's own. Another mod's feature would be "vanilla:boulder", but
-		# then this mod would have to depend on vanilla - an example is better off standing alone.
+		# then this mod would have to depend on that mod - an example is better off standing alone.
 		"features": [
 			{"feature": "stone_cairn", "chance": 0.25},
 		],

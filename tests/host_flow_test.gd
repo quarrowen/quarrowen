@@ -20,7 +20,7 @@ func _run() -> void:
 	main.set_script(Main)
 	add_child(main)
 	var port := 25650 + randi() % 200
-	main._host("vanilla", port, "Hoster")
+	main._host("proving", port, "Hoster", PackedStringArray(["--mods-dir=tests/mods"]))
 	var server_pid: int = main._server_pid
 	_check(server_pid > 0 and OS.is_process_running(server_pid), "server process launched (pid %d)" % server_pid)
 
@@ -38,7 +38,7 @@ func _run() -> void:
 		var stopped := await _wait(func(): return not OS.is_process_running(server_pid), 15.0)
 		_check(stopped, "leaving stopped the hosted server")
 		var worlds: Array = preload("res://engine/client/menu/world_list.gd").list(data_dir)
-		_check(worlds.size() == 1 and worlds[0].game == "vanilla" and worlds[0].mods == ["vanilla"] and worlds[0].last_played > 0,
+		_check(worlds.size() == 1 and worlds[0].game == "proving" and worlds[0].mods == ["proving"] and worlds[0].last_played > 0,
 			"the hosted world shows in the menu's world list")
 		_check(await _wait(func(): return main._menu.visible, 5.0), "leaving shows the menu again")
 	elif server_pid > 0:

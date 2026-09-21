@@ -16,7 +16,7 @@ func _ready() -> void:
 	var reverted := Vector3i(6, 70, 5)
 
 	var first = _start(world)
-	var generator: int = first.registry.id_of("industry:coal_generator")
+	var generator: int = first.registry.id_of("proving:core")
 	var original: int = first.world.get_block_v(reverted)
 	first.set_block_authoritative(pos, generator, false, 3)
 	first.set_block_data(pos, {"burn": 12.5, "note": "hello"})
@@ -71,7 +71,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	var missing = GameServer.new()
 	add_child(missing)
-	_check(missing.start({"mods": PackedStringArray(["vanilla"]), "world": world, "data_dir": DATA_DIR, "offline": true, "restore": "nope.zip"}) != OK,
+	_check(missing.start({"mods": PackedStringArray(["base", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": world, "data_dir": DATA_DIR, "offline": true, "restore": "nope.zip"}) != OK,
 		"restoring a missing backup refuses to start")
 	missing.queue_free()
 	await get_tree().process_frame
@@ -83,7 +83,7 @@ func _ready() -> void:
 func _start(world: String, extra := {}):
 	var server := GameServer.new()
 	add_child(server)
-	var config := {"mods": PackedStringArray(["vanilla", "industry"]), "world": world, "data_dir": DATA_DIR, "seed": 42, "offline": true}
+	var config := {"mods": PackedStringArray(["base", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": world, "data_dir": DATA_DIR, "seed": 42, "offline": true}
 	config.merge(extra, true)
 	var err: Error = server.start(config)
 	if err != OK:

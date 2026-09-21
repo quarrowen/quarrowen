@@ -23,13 +23,15 @@ func _run() -> void:
 	var guest = await _join("auth_guest", "Guest")
 	if guest == null:
 		return _finish()
-	var chat := await _chat(guest, "/time night", "permission")
-	_check(chat, "non-admin is refused /time")
+	# An engine admin command rather than a mod's: /time belonged to vanilla, and this test only ever
+	# wanted *something* an admin may do and a guest may not. (2026-09-21)
+	var chat := await _chat(guest, "/summon", "permission")
+	_check(chat, "non-admin is refused an admin command")
 	await _chat(guest, "/whoami", "player id")
 	var guest_id := _last_line(guest).get_slice("player id ", 1).left(32)
 	_check(guest_id.length() == 32, "player id derived from key (%s)" % guest_id)
 	# Change the hotbar away from the default creative one so the restore check means something.
-	var gold_ore: int = guest.registry.id_of("guild:gold_ore")
+	var gold_ore: int = guest.registry.id_of("proving:rock")
 	Net.c_chat.rpc_id(1, "/guild kit")
 	await _wait(func(): return guest.inventory.ids[3] == gold_ore, 3.0)
 	var slot_item: int = guest.inventory.ids[3]
@@ -49,7 +51,7 @@ func _run() -> void:
 	# 4. A configured admin can use admin commands and /op others.
 	var admin = await _join("auth_admin", "Admin")
 	if admin != null:
-		_check(await _chat(admin, "/time noon", "set the time"), "admin may use /time")
+		_check(await _chat(admin, "/summon", "Usage"), "an admin may use it")
 		await _leave(admin)
 
 	# 5. A tampered signature is rejected.

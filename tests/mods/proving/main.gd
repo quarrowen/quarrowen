@@ -31,7 +31,21 @@ var presentation := Presentation.new()
 func setup(mod_api) -> void:
 	api = mod_api
 	api.set_server_info({"name": "Proving Ground", "motd": "Nothing here is meant to be fun."})
-	api.set_gameplay({"keep_inventory": true, "natural_regeneration": true, "tutorials": false})
+	api.set_gameplay({"keep_inventory": true, "natural_regeneration": true, "tutorials": true})
+	# Settings a host can change, which nothing else exercises now that the games are gone.
+	api.register_settings({
+		"monsters": {"label": "How many monsters", "type": "choice", "default": "normal",
+			"choices": [["none", "None"], ["few", "A few"], ["normal", "Normal"], ["many", "Lots"]]},
+		"day_minutes": {"label": "Minutes in a day", "type": "int", "default": 20, "min": 2, "max": 120},
+		"zombies_burn": {"label": "Monsters burn by day", "type": "bool", "default": true},
+	})
+	# A setting that actually does something, so "the mod acted on it" is a real assertion rather than
+	# a registry lookup. The numbers match what a host would expect the words to mean.
+	var caps := {"none": 0, "few": 8, "normal": 24, "many": 48}
+	var apply_caps := func(): api.set_spawn_caps({"monster": int(caps.get(String(api.setting("monsters")), 24))})
+	api.on("settings_changed", func(ev):
+		if ev.key == "monsters":
+			apply_caps.call())
 	things.setup(api, ids)
 	# **After things.setup, not before.** The generator is built with block ids, and asking for one that
 	# is not registered yet returns -1, which encodes as 65535 and generates a world made of nothing.
@@ -42,6 +56,15 @@ func setup(mod_api) -> void:
 	machines.setup(api, ids)
 	presentation.setup(api, ids)
 	api.set_spawn_handler(func(_player): return Vector3(0.5, GROUND_Y + 1, 0.5))
+	# Something to build and fight with. A game that hands a player nothing leaves every test that
+	# wants to place a block having to arrange its own inventory first.
+	api.on("player_join", func(ev):
+		if bool(ev.get("first_time", false)):
+			ev.player.set_hotbar([api.block("proving:plain"), api.block("proving:lamp"),
+				api.block("proving:crate"), api.block("proving:rock"), api.block("proving:step")], 64)
+			ev.player.give(api.item("proving:prod"), 1)
+			ev.player.give(api.item("proving:grain"), 8))
+	apply_caps.call()
 	api.register_command("proving", "What this mod registered", func(player, _args):
 		player.send_message("proving: %d things registered" % ids.size()))
 

@@ -955,6 +955,19 @@ func _register_builtin_commands() -> void:
 	add_command("tp", "<x> <y> <z> | <player> - teleport", _cmd_tp, "engine", "admin")
 	add_command("summon", "<entity> [count] - spawn entities in front of you", _cmd_summon, "engine", "admin")
 	add_command("heal", "[player] - restore health", _cmd_heal, "engine", "admin")
+	# The engine's own, because the admin panel's Time control calls it (see _run_panel_command). It
+	# used to live in the vanilla mod, which meant the engine's panel quietly depended on a mod being
+	# installed - found when that mod was deleted. (2026-09-21)
+	add_command("time", "day | night | noon | midnight | <0-1> - set the time of day", func(player, args):
+		var word: String = String(args[0]).to_lower() if not args.is_empty() else ""
+		var at: float = {"day": 0.3, "noon": 0.5, "dusk": 0.75, "night": 0.9, "midnight": 0.0}.get(word, -1.0)
+		if at < 0.0 and word.is_valid_float():
+			at = fposmod(float(word), 1.0)
+		if at < 0.0:
+			player.send_message("Usage: /time day | night | noon | midnight | <0-1>")
+			return
+		set_world_time(float(at), get_day_length())
+		player.send_message("set the time to %s" % (word if not word.is_empty() else "%.2f" % at)), "engine", "admin")
 	add_command("struct", "pos1 | pos2 | save <name> [keep_air] | place <name> [rotation] | list - build structures", structure_tools.command, "engine", "admin")
 	add_command("biome", "- the biome you are standing in", func(player, _args):
 		if biome_generator == null:

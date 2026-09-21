@@ -11,8 +11,24 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	ids = id_table
 	api.register_effect("puff", {"particles": 12, "color": "#cccccc", "scale": 1.0, "duration": 0.6})
 	api.register_weather("haze", {"display_name": "Haze", "darkness": 0.2, "particles": "puff"})
+	api.register_weather("downpour", {"display_name": "Downpour", "darkness": 0.45, "particles": "puff", "rain": true})
+	# A cosmetic, which is its own registry and had no other user left.
+	api.register_cosmetic("cap", {"category": "hat", "display_name": "Cap", "unlocked": true,
+		"boxes": [{"from": [-4, 8, -4], "size": [8, 2, 8], "color": "#4488cc"}]})
 	api.register_milestone("first_stone", {"display_name": "First Stone",
 		"goal": {"type": "break", "target": ["proving:rock"]}})
+	# A tutorial, because tutorials are a capability and nothing else exercises them now.
+	api.register_tutorial("basics", {"display_name": "Basics", "auto_start": true, "order": 1,
+		"modes": ["survival"], "steps": [
+		{"title": "Find a rock", "goal": {"type": "break", "target": ["proving:rock"]}},
+		{"title": "Hold four", "goal": {"type": "have", "target": ["proving:rock"], "count": 4}},
+		{"title": "Say when", "goal": {"type": "manual"}}]})
+	# A second tutorial and a tip, so ordering and the tip rules have something to act on.
+	# The creative one, because a player who cannot dig still needs telling how to look around.
+	api.register_tutorial("controls", {"display_name": "Controls", "order": 2, "auto_start": true,
+		"modes": ["creative"], "steps": [
+		{"title": "Look around", "text": "W A S D to walk, the mouse to look.", "goal": {"type": "manual"}}]})
+	api.register_tip("basics", {"text": "Rock is the thing to dig", "trigger": {"type": "night"}})
 	api.register_guide_chapter("proving", {"title": "The Proving Ground", "order": 1})
 	api.register_guide_page("what", {"chapter": "proving", "title": "What this is",
 		"content": [{"type": "text", "text": "A mod that exists to be tested."}]})

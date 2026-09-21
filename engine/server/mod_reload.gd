@@ -165,6 +165,15 @@ func _forget(mod_id: String) -> void:
 	s.guide.registry.remove_owner(mod_id)
 	s.tutorials.remove_owner(mod_id)
 	s.milestones.remove_owner(mod_id)
+	# Everything built since September, which never registered itself here: reloading a mod that
+	# declared any of these hit "duplicate" on the way back in and reported "setup raised errors".
+	# Found by the Proving Ground, which is the first mod to declare all of them at once. (2026-09-21)
+	for registry in [s.conditions.kinds, s.fields.kinds, s.characters.kinds, s.shops.kinds,
+			s.ledgers.kinds, s.objectives.kinds, s.companions.kinds, s.modifiers.kinds,
+			s.links.kinds, s.multiblock_patterns, s.flows.units, s.drives.units]:
+		for name in (registry as Dictionary).keys():
+			if String((registry[name] as Dictionary).get("owner", "")) == mod_id:
+				registry.erase(name)
 
 
 # --- File watcher -----------------------------------------------------------------------------------

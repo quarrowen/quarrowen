@@ -40,7 +40,7 @@ func _run() -> void:
 	main.set_script(Main)
 	add_child(main)
 	var port := 25850 + randi() % 100
-	main._host("vanilla,liveblock", port, "Author", PackedStringArray(["--dev", "--mods-dir=%s" % root.path_join("mods")]))
+	main._host("proving,liveblock", port, "Author", PackedStringArray(["--dev", "--mods-dir=%s,tests/mods" % root.path_join("mods")]))
 	var server_pid: int = main._server_pid
 	var client = main._client
 	var joined := await _wait(func(): return client != null and client._welcomed and client._can_simulate(), 40.0)

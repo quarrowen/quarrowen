@@ -1,5 +1,5 @@
 extends Node
-## Mob AI soak on generated terrain: vanilla mobs around survival players at several sites (hills, forest,
+## Mob AI soak on generated terrain: the Proving Ground's creatures around survival players at several sites (hills, forest,
 ## water, caves) for a few simulated minutes, measuring what players notice when AI goes wrong:
 ##   stuck       seconds a mob wanted to move but went nowhere
 ##   hops        jumps that got it nowhere (hopping against a wall)
@@ -15,8 +15,8 @@ const ServerPlayer = preload("res://engine/server/server_player.gd")
 
 var _data_dir := "user://ai_soak_%d" % OS.get_process_id()
 const DT := 1.0 / 60.0
-const HOSTILES := {"vanilla:zombie": 3, "vanilla:skeleton": 1, "vanilla:spider": 1, "vanilla:night_stalker": 1, "vanilla:slime": 1, "vanilla:boomshroom": 1}
-const ANIMALS := {"vanilla:pig": 2, "vanilla:cow": 1, "vanilla:sheep": 1, "vanilla:chicken": 1, "vanilla:wolf": 1}
+const HOSTILES := {"proving:biter": 5}
+const ANIMALS := {"proving:grazer": 4}
 ## Per mob type, over the whole run.
 const LIMITS := {"stuck_share": 0.15, "futile_hops_per_min": 6.0, "flips_per_min": 20.0, "blind_hits": 0, "reach_share": 0.6}
 
@@ -41,7 +41,7 @@ func _ready() -> void:
 	seed(int(_args.seed))
 	server = GameServer.new()
 	add_child(server)
-	var err: Error = server.start({"mods": PackedStringArray(["vanilla"]), "world": "soak_%d" % Time.get_ticks_msec(), "data_dir": _data_dir,
+	var err: Error = server.start({"mods": PackedStringArray(["base", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": "soak_%d" % Time.get_ticks_msec(), "data_dir": _data_dir,
 		"seed": int(_args.seed), "offline": true})
 	if err != OK:
 		print("[soak] server failed to start: %s" % error_string(err))
@@ -199,7 +199,7 @@ func _observe() -> void:
 			if t.wanted > 1.6 and moved < 0.4:
 				s.stuck += t.window_time
 				if not s.stuck_examples.size() >= 3:
-					s.stuck_examples.append("%s at %s (%s, goal %s)" % [t.type.trim_prefix("vanilla:"), _v(b.position), brain.behavior, _v(brain.move_goal)])
+					s.stuck_examples.append("%s at %s (%s, goal %s)" % [t.type.trim_prefix("proving:"), _v(b.position), brain.behavior, _v(brain.move_goal)])
 			t.window_pos = b.position
 			t.window_time = 0.0
 			t.wanted = 0.0
@@ -235,7 +235,7 @@ func _observe() -> void:
 				elif now - t.chase_from > 20.0:
 					s.chase_failures += 1
 					if s.chase_examples.size() < 3:
-						s.chase_examples.append("%s at %s, player at %s, %s, path %s, %d nodes" % [t.type.trim_prefix("vanilla:"), _v(b.position), _v(t.player.state.position),
+						s.chase_examples.append("%s at %s, player at %s, %s, path %s, %d nodes" % [t.type.trim_prefix("proving:"), _v(b.position), _v(t.player.state.position),
 							brain.behavior, ["none", "found", "partial"][brain.path_status], brain.path.size()])
 					t.erase("chase_from")
 		s.max_drop = maxf(s.max_drop, t.last_pos.y - b.position.y)
@@ -280,11 +280,11 @@ func _report(wall_msec: int) -> void:
 		var stuck_share: float = s.stuck / maxf(s.samples * DT, 0.001)
 		var hostile := HOSTILES.has(type_name)
 		var reached := "%d/%d %.0fs" % [s.reached, s.reached + s.chase_failures, s.reach_time / maxf(s.reached, 1)] if hostile else "-"
-		print("[soak] %-14s %5d %6.1f%% %9.1f %8.1f %5.1f%% %9s %7d %6d %6d" % [type_name.trim_prefix("vanilla:"), s.count, stuck_share * 100.0,
+		print("[soak] %-14s %5d %6.1f%% %9.1f %8.1f %5.1f%% %9s %7d %6d %6d" % [type_name.trim_prefix("proving:"), s.count, stuck_share * 100.0,
 			s.futile_hops / mob_minutes, s.flips / mob_minutes, 100.0 * s.liquid / maxf(s.samples, 1), reached, s.attacks, s.hits, s.blind_hits])
 		for line in s.chase_examples:
 			print("[soak]     chase failed: %s" % line)
-		if type_name == "vanilla:skeleton":
+		if type_name == "proving:biter":
 			_limit(s.hits > 0, "skeletons never hit a player (%d shots)" % s.attacks)
 		for line in s.stuck_examples:
 			print("[soak]     stuck: %s" % line)

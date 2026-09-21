@@ -53,7 +53,7 @@ func _run() -> void:
 	var server_args := PackedStringArray()
 	if not OS.has_feature("template"):
 		server_args.append_array(["--path", ProjectSettings.globalize_path("res://")])
-	server_args.append_array(["--headless", "res://scenes/server.tscn", "--", "--mods=vanilla", "--port=%d" % game_port, "--name=Hub Test Server",
+	server_args.append_array(["--headless", "res://scenes/server.tscn", "--", "--mods=proving,proving_js", "--mods-dir=tests/mods", "--port=%d" % game_port, "--name=Hub Test Server",
 		"--hub=%s" % hub_url, "--tags=Test,Friendly", "--data-dir=%s" % work.path_join("server")])
 	_pids.append(OS.create_process(OS.get_executable_path(), server_args))
 
@@ -71,7 +71,7 @@ func _run() -> void:
 				listed = s
 		if listed.is_empty():
 			await get_tree().create_timer(1.0).timeout
-	_check(not listed.is_empty() and listed.name == "Hub Test Server" and listed.game == "vanilla" and listed.compatible
+	_check(not listed.is_empty() and listed.name == "Hub Test Server" and listed.game == "proving" and listed.compatible
 		and listed.tags == ["test", "friendly"] and listed.address == "127.0.0.1", "the server lists itself on the hub (%s)" % listed)
 	var code: String = listed.get("code", "")
 	_check(InviteCode.parse(code.to_lower()).get("hub_code", "") == code, "hub codes are recognised as invite codes (%s)" % code)

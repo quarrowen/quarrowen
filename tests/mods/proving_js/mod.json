@@ -2,14 +2,12 @@
 	"id": "proving_js",
 	"name": "The Proving Ground (JavaScript)",
 	"version": "1.0.0",
-	"description": "The same ground covered through the JavaScript bridge, so the two APIs cannot drift apart quietly.",
+	"description": "The same ground covered through the JavaScript bridge. Depends on nothing, so it can be loaded beside a different game.",
 	"kind": "addon",
 	"authors": [
 		"Quarrowen"
 	],
 	"engine": "^1.0",
-	"depends": [
-		"proving@^1.0"
-	],
+	"depends": [],
 	"main": "main.js"
 }

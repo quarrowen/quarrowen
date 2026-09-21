@@ -2783,3 +2783,46 @@ and dismounts. That closes the one gap I had to write down as unproven.
 And one real improvement fell out: **a refused mount now says why.** It used to fail silently, which
 is indistinguishable from a vehicle that is broken. "Too far away (6.2 blocks)" is a better thing for
 a child to be told, and it is what told me the bot was nowhere near the raft.
+
+## Phase 2: the games are gone (2026-09-21)
+
+`vanilla`, `hearthhold`, `industry`, `arcana`, `guild`, `skyblock` and `oneblock` deleted. `mods/` is
+`base` alone. The Proving Ground is the game the tests play.
+
+**The suite: 276s and 34 tests, down to 118s and 22.** `gameplay` alone went 94s → 26s, because six
+game-specific e2e runs collapsed into one and because ~25 of its test functions were testing deleted
+content rather than the engine.
+
+### Where the estimate was wrong
+
+I said ~20% of `gameplay_test` was content-bound. It was far more, and the entanglement reached well
+past that file: `persistence`, `save_compat`, `transfer`, `auth`, `ai`, `ai_soak`, `hub`, `host_flow`,
+`reload`, `multiplayer` and every `examples/` mod all hardcoded content from the deleted games. The
+games were not *tested by* the suite so much as they were the ground it stood on.
+
+Worth remembering the shape of that for next time: **a test that names content is coupled to the mod
+that owns it**, and the coupling is invisible until the mod goes.
+
+### What the deletion exposed, which is the interesting part
+
+- **The engine's own admin panel called `/time`, a command that lived in the vanilla mod.** Deleting
+  vanilla broke a control the engine draws. `/time` is the engine's now, where it always belonged.
+- **Reloading a mod never forgot anything built since September.** `mod_reload._forget` cleared
+  commands, handlers, recipes, tutorials and milestones, but not conditions, fields, characters,
+  shops, ledgers, objectives, orders, modifiers, links, multiblocks, units or drives - so reloading a
+  mod that declared any of them failed with "setup raised errors". The Proving Ground is the first mod
+  to declare all of them at once, which is exactly why it found this.
+- **Food can apply a timed stat modifier but not a condition.** Food predates conditions and was never
+  taught about them.
+- Tests were **borrowing a loaded mod's api** to register things, so a test registering "coins"
+  collided with the game's "coins" and silently got `false`. They have their own `tester` api now.
+
+### Save fixtures
+
+The six old fixtures were dropped and one rebuilt from the Proving Ground, as CLAUDE.md prescribes for
+a deliberate break. They contained blocks from mods that no longer exist, so they could not be loaded
+by a server that cannot name those mods.
+
+**Not done, and worth doing:** a test that a world *whose mods are missing* still opens and keeps its
+unknown blocks. The engine promises that ("write back content whose mod is missing") and nothing
+checks it - and it is newly easy to check now that there are real absent mods to point at.

@@ -22,9 +22,10 @@ export function setup(api) {
     effect: "engine:sparkle",
     tick: { seconds: 1, damage: 1, cause: "puddle" },
   });
+  api.registerItem("js_item", { display_name: "JS Item" });
   api.registerShop("js_stall", {
     display_name: "The JS Stall",
-    offers: [{ item: "proving:token", count: 1, price: 2, ledger: "js_coins", stock: 2 }],
+    offers: [{ item: "proving_js:js_item", count: 1, price: 2, ledger: "js_coins", stock: 2 }],
   });
   api.registerCharacter("js_keeper", {
     display_name: "The JS Keeper",
@@ -46,7 +47,6 @@ export function setup(api) {
     display_name: "JS Block",
     hardness: 1,
   });
-  api.registerItem("js_item", { display_name: "JS Item" });
   api.registerRecipe({ "proving:rock": 1 }, "proving_js:js_block", 1, { unlock: "known" });
 
   // Player and entity objects, and arguments of every kind the table has to describe: a player
@@ -66,10 +66,16 @@ export function setup(api) {
   });
 
   // An event handler that writes to a container, which is what proved the JavaScript runtime could not
-  // be re-entered. It stays here so that it cannot quietly stop being covered.
-  api.on("container_changed", ({ container, position }) => {
-    if (container.type !== "proving:crate") return;
+  // be re-entered. It stays here so that it cannot quietly stop being covered. Any container will do:
+  // this mod depends on nothing, so it cannot name another mod's.
+  api.on("container_changed", ({ position }) => {
     const items = api.containerItems(position);
     api.setContainerState(position, { ...api.containerState(position), js_seen: items.length });
+  });
+
+  // A mob behaviour written in JavaScript, which is the one thing only a script bridge can prove.
+  api.registerMobBehavior("js_idle", {
+    score: () => 0.1,
+    update: (brain) => brain.stop(),
   });
 }

@@ -34,7 +34,7 @@ func _run() -> void:
 		var args := PackedStringArray()
 		if not OS.has_feature("template"):
 			args.append_array(["--path", ProjectSettings.globalize_path("res://")])
-		args.append_array(["--headless", "res://scenes/server.tscn", "--", "--mods=vanilla", "--port=%d" % pair[1], "--name=%s" % pair[2],
+		args.append_array(["--headless", "res://scenes/server.tscn", "--", "--mods=proving,proving_js", "--mods-dir=tests/mods", "--port=%d" % pair[1], "--name=%s" % pair[2],
 			"--data-dir=%s" % work.path_join(pair[0]), "--world=w", "--admins=Traveller", "--query-port=0"])
 		_pids.append(OS.create_process(OS.get_executable_path(), args))
 
@@ -62,9 +62,9 @@ func _run() -> void:
 	var client = main._client
 	Net.c_chat.rpc_id(1, "/gamemode survival")
 	await _wait(func(): return not client.inventory.creative, 5.0)
-	Net.c_chat.rpc_id(1, "/give base:iron_ingot 7")
-	var iron: int = client.items.id_of("base:iron_ingot")
-	_check(await _wait(func(): return client.inventory.count_of(iron) >= 7, 5.0), "got 7 iron on A")
+	Net.c_chat.rpc_id(1, "/give proving:token 7")
+	var iron: int = client.items.id_of("proving:token")
+	_check(await _wait(func(): return client.inventory.count_of(iron) >= 7, 5.0), "got 7 tokens on A")
 	# The worlds panel lists the linked server and travels there with one press.
 	client.open_worlds_panel()
 	var listed := await _wait(func(): return not client._worlds_panel.last_state.is_empty(), 5.0)
@@ -79,8 +79,8 @@ func _run() -> void:
 	if on_b:
 		var b = main._client
 		_check(str(b.server_info.get("name", "")) == "Server B" and b.player_name == "Traveller", "the client is on Server B as the same player (%s, %s)" % [b.server_info.get("name", ""), b.player_name])
-		var iron_b: int = b.items.id_of("base:iron_ingot")
-		_check(await _wait(func(): return b.inventory.count_of(iron_b) >= 7, 5.0), "the iron travelled along (%d)" % b.inventory.count_of(iron_b))
+		var iron_b: int = b.items.id_of("proving:token")
+		_check(await _wait(func(): return b.inventory.count_of(iron_b) >= 7, 5.0), "the tokens travelled along (%d)" % b.inventory.count_of(iron_b))
 		var welcomed := await _wait(func():
 			for line in b._chat_log.get_children():
 				if line.text.contains("Welcome from Server A"):
@@ -92,8 +92,8 @@ func _run() -> void:
 		_check(back, "/server a brought the player back")
 		if back:
 			var a2 = main._client
-			_check(await _wait(func(): return a2.inventory.count_of(a2.items.id_of("base:iron_ingot")) >= 7, 5.0), "the iron came back too, and was not duplicated on A")
-			_check(a2.inventory.count_of(a2.items.id_of("base:iron_ingot")) == 7, "exactly 7 iron (%d)" % a2.inventory.count_of(a2.items.id_of("base:iron_ingot")))
+			_check(await _wait(func(): return a2.inventory.count_of(a2.items.id_of("proving:token")) >= 7, 5.0), "the tokens came back too, and were not duplicated on A")
+			_check(a2.inventory.count_of(a2.items.id_of("proving:token")) == 7, "exactly 7 tokens (%d)" % a2.inventory.count_of(a2.items.id_of("proving:token")))
 	main._client.disconnect_from_server()
 	await get_tree().create_timer(1.0).timeout
 	_finish(work)

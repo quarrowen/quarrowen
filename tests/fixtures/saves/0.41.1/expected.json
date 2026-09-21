@@ -16,7 +16,7 @@
 			2,
 			1,
 			0,
-			"base:torch"
+			"proving:lamp"
 		],
 		[
 			0,
@@ -28,12 +28,12 @@
 			3,
 			1,
 			0,
-			"industry:cable"
+			"proving:wire"
 		]
 	],
 	"chest": [
 		18,
-		53,
+		65,
 		20
 	],
 	"chest_items": [
@@ -44,7 +44,7 @@
 		],
 		[
 			1,
-			"arcana:mana_shard",
+			"proving:token",
 			2
 		],
 		[
@@ -82,12 +82,6 @@
 			{}
 		],
 		[
-			3,
-			"base:torch",
-			16,
-			{}
-		],
-		[
 			4,
 			"base:iron_ingot",
 			9,
@@ -101,37 +95,19 @@
 		],
 		[
 			9,
-			"vanilla:bone",
+			"proving:token",
 			4,
 			{}
 		],
 		[
-			10,
-			"vanilla:leather",
-			7,
-			{}
-		],
-		[
-			11,
-			"arcana:mana_shard",
-			5,
-			{}
-		],
-		[
 			12,
-			"industry:cable",
-			32,
-			{}
-		],
-		[
-			13,
-			"industry:battery",
+			"proving:prod",
 			1,
 			{}
 		],
 		[
 			14,
-			"guild:gold_coin",
+			"proving:grain",
 			11,
 			{}
 		],
@@ -149,19 +125,18 @@
 		]
 	],
 	"mods": [
-		"vanilla",
-		"industry",
-		"arcana",
-		"guild"
+		"base",
+		"proving",
+		"proving_js"
 	],
 	"origin": [
 		20,
-		53,
+		65,
 		20
 	],
 	"pig_near": [
 		24.5,
-		53,
+		65,
 		20.5
 	],
 	"player_id": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",

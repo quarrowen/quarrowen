@@ -21,7 +21,7 @@ func _ready() -> void:
 	var server := GameServer.new()
 	add_child(server)
 	DirAccess.make_dir_recursive_absolute("user://bench")
-	server.start({"mods": PackedStringArray(["vanilla"]), "world": "bench_%d" % Time.get_ticks_msec(),
+	server.start({"mods": PackedStringArray(["base", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": "bench_%d" % Time.get_ticks_msec(),
 		"data_dir": "user://bench", "seed": 42, "offline": true})
 	var world = server.world
 	var side := ceili(sqrt(chunk_count))
@@ -32,7 +32,7 @@ func _ready() -> void:
 	var t := Time.get_ticks_usec()
 	for c in coords:
 		server._ensure_chunk(c)
-	_report("worldgen (vanilla terrain)", Time.get_ticks_usec() - t, coords.size(), "chunk")
+	_report("worldgen (flat proving terrain)", Time.get_ticks_usec() - t, coords.size(), "chunk")
 
 	var ctx := ChunkMesher.make_context(server.registry, {"": Rect2()})
 	var faces := 0
@@ -94,7 +94,7 @@ func _ready() -> void:
 		p.set_max_health(1000000.0)
 		p.health = 1000000.0
 		server.players[p.peer_id] = p
-	for kind in [["vanilla:zombie", 150], ["vanilla:pig", 150]]:
+	for kind in [["proving:biter", 150], ["proving:grazer", 150]]:
 		for i in kind[1]:
 			var x := randf_range(-60, 60)
 			var z := randf_range(-60, 60)

@@ -4,7 +4,7 @@ extends "res://engine/server/mod.gd"
 ## The panel is a description, not code: the server sends what it should look like and the client draws
 ## it, so a mod never ships UI code and a JavaScript mod can do exactly the same (see api docs).
 ##
-## Try it: godot --path . -- --host=vanilla,ui_example --dev   then type /hello
+## Try it: godot --path . -- --host=proving,ui_example --dev   then type /hello
 
 var api
 const PANEL := "ui_example:panel"

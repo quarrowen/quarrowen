@@ -75,7 +75,7 @@ func _alice() -> void:
 	if placed:
 		var p: PackedStringArray = _read_result().placed.split(",")
 		var pos := Vector3i(int(p[0]), int(p[1]), int(p[2]))
-		var planks: int = _client.registry.id_of("base:planks")
+		var planks: int = _client.registry.id_of("proving:step")
 		_check(await _wait(func(): return _client.world.get_block_v(pos) == planks, 5.0), "Alice sees Bob's placed block")
 	else:
 		_check(false, "Bob placed a block")

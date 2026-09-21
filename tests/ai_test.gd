@@ -22,8 +22,8 @@ func _ready() -> void:
 	seed(20260913)  # mob decisions use randomness; keep runs repeatable
 	server = GameServer.new()
 	add_child(server)
-	# The guild mod (JavaScript) needs the native extension's JS runtime.
-	var mods := ["ai_arena", "guild"] if ClassDB.class_exists(&"NativeJsRuntime") else ["ai_arena"]
+	# The JavaScript half of the Proving Ground needs the native extension's JS runtime.
+	var mods := ["ai_arena", "proving_js"] if ClassDB.class_exists(&"NativeJsRuntime") else ["ai_arena"]
 	var err: Error = server.start({"mods": PackedStringArray(mods), "mod_dirs": PackedStringArray(["res://tests/mods"]),
 		"world": "ai_%d" % Time.get_ticks_msec(), "data_dir": DATA_DIR, "seed": 1, "offline": true})
 	if err != OK:
@@ -56,7 +56,7 @@ func _ready() -> void:
 	_shooting_a_jumping_player()
 	_out_of_the_water()
 	_sliding_off_corners()
-	if server.entities.registry.id_of("guild:goblin") > 0:
+	if server.entities.registry.id_of("proving:grazer") > 0:
 		_javascript_behavior()
 	_finish()
 
@@ -347,11 +347,11 @@ func _javascript_behavior() -> void:
 	var o := Vector3i(1200, Y, 0)
 	_load(o, 2)
 	var player := _player(Vector3(o) + Vector3(-30.5, 0, 0.5))  # far enough not to scare it
-	var goblin = _spawn("guild:goblin", Vector3(o) + Vector3(0.5, 0, 0.5))
-	var coin: int = server.items.id_of("guild:gold_coin")
+	var goblin = _spawn("proving:grazer", Vector3(o) + Vector3(0.5, 0, 0.5))
+	var coin: int = server.items.id_of("proving:token")
 	var dropped = server.entities.drop_item(coin, 1, Vector3(o) + Vector3(6.5, 0.5, 4.5), Vector3.ZERO)
 	var grabbed := _run_until(func(): return dropped.removed, 8.0)
-	_check(grabbed and goblin.data.get("guild", {}).get("loot", 0) == 1, "JavaScript mob behavior sent the goblin to grab a coin (%s)" % goblin.get_behavior())
+	_check(grabbed and goblin.data.get("proving_js", {}).get("loot", 0) == 1, "JavaScript mob behavior sent the goblin to grab a coin (%s)" % goblin.get_behavior())
 	player.state.position = goblin.position + Vector3(3, 0, 0)
 	var start: float = goblin.position.distance_to(player.state.position)
 	_run(2.0)
