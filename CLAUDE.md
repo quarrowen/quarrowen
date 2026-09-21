@@ -13,6 +13,12 @@ When a request sounds like content ("add a bow"), the question to ask first is w
 (holding a use to draw it) and whether that belongs in the engine. Usually the capability is small and
 general and the content is a dozen lines in `mods/`.
 
+Content splits again below that line, settled 21 September 2026: **`base` owns nouns, a game owns
+rules.** Blocks, liquids, biomes, flora and fauna are things that *exist* and belong to `base`;
+progression, recipes and survival belong to a game. The test of whether the line is holding: **a
+creative game ships zero recipes and everything still exists and works.** Machines and gear are their
+own packs (`simple_machines`, `simple_gear`), so a game can take the blocks and write its own furnace.
+
 ## Things that must change together
 
 These pairs have bitten before. Changing one without the other produces a bug that looks like something
@@ -38,6 +44,12 @@ else entirely.
 **The GDExtension is a checked-in build artifact.** `tools/run_tests.sh` rebuilds it when `native/src` is
 newer and stops if that build fails. It did not always: a Rust file that did not compile once left the old
 library in place and the suite reported on physics nobody was writing any more.
+
+- **A new registry and `mod_reload._forget`.** Every registry a mod can put something in has to be
+  cleared there, or reloading a mod that used it fails with "setup raised errors" on the way back in.
+  Conditions, fields, characters, shops, ledgers, objectives, orders, modifiers, links, multiblocks,
+  units and drives were all missed, and it went unnoticed until one mod declared all of them at once.
+  (2026-09-21)
 
 ## The tests must not touch the player's folder
 
@@ -81,9 +93,32 @@ deadlock. Run the suite in the foreground, or in the background and read its out
 reports; if a guard really is needed, match on something the waiter cannot contain (a pidfile, or the
 run's own exit).
 
+## The Proving Ground is how a capability gets tested
+
+`tests/mods/proving/` is one mod that uses **every** capability the engine has, in GDScript, with a
+JavaScript half (`proving_js`) covering the same ground through the bridge. It is the game the
+end-to-end tests play, and it ships with nothing.
+
+**Adding a capability means adding it here in the same commit**, and asserting it in
+`tests/proving_test.gd`. That is not bookkeeping: until this existed the engine was tested through the
+seven games bundled with it, so coverage was whatever the content happened to use - which is how 139
+unbound JavaScript functions and 39 undocumented events went unnoticed for weeks.
+
+Two rules that make it work:
+
+- **It depends on nothing.** Not even `base`. `base` will churn as it grows, and a test mod riding on
+  it fails every time somebody adds a bird. It registers its own rock and soil, and has **no textures
+  at all** - the client draws a texture-less block as a magenta checker, which is free and honest.
+- **The test asks the engine, not the mod.** `mod_tool validate` reported "0 errors" on a Proving
+  Ground that threw two script errors during setup, because a mod that fails to register something
+  still loads. Assert against the registries.
+
+A test that names content is coupled to the mod that owns it, invisibly, until that mod goes. Prefer
+asserting the capability.
+
 ## Before adding a capability, look for the one that exists
 
-The mod-facing API is 169 functions and the generated reference (`docs/api/index.html`) lists all of
+The mod-facing API is over 260 functions and the generated reference (`docs/api/index.html`) lists all of
 them, so what gets reimplemented is never that. It is the **engine-internal shared pieces** — the
 readers, registries and helpers that turn mod-supplied data into something usable — because those are
 private and no document describes them.
@@ -101,7 +136,16 @@ private function that two things use is a fact about the code that ought to be v
 - **Adding a texture in the middle of `tools/generate_textures.gd`.** One RNG, seeded once, drives every
   texture in order: inserting a call changes every texture after it. Append new ones at the end, as the
   file says.
-- **Reordering mod registration.** A recipe cannot name an item registered later in the same run.
+- **Reordering mod registration.** A recipe cannot name an item registered later in the same run. The
+  same trap with a different face: anything that *reads an id at setup time* - a world generator built
+  with `api.block(...)`, say - must be constructed after whatever registers that block, or it silently
+  gets -1. A -1 block id encodes as 65535 and generates a world made of nothing, which presents as a
+  player falling for ever rather than as a registration problem. (2026-09-21)
+- **A mod-written name nested inside a definition.** Anything a mod names *inside* a dictionary it
+  passes - a sound, an attack's condition, a field's condition, an order's behaviour - has to be
+  qualified at the API boundary, the way `register_entity` already does for sounds. Unqualified is not
+  an error: it is a bite that quietly does nothing. Four of these have been fixed one at a time; if a
+  fifth appears, do one shared walk at registration instead. (2026-09-21)
 - **`Thing.new().setup(api)` without keeping the object.** A RefCounted nobody holds is freed as soon
   the line finishes, and any handler it registered goes with it - silently, because registration
   succeeded. Mod submodules are kept as members (`var buckets` ... `buckets = Buckets.new()`) for this
@@ -168,6 +212,10 @@ republishes. Tagging mid-playtest moves them to a protocol the family server doe
 master as much as you like — that only runs tests — but do not tag until the user says the playtest is
 over. (2026-09-19)
 
+There is now a second and simpler reason: **the games are deleted**, so a release from master would
+ship an engine with nothing to play. The children have been told 1.0 will be a fresh game, and that is
+what a tag has to wait for. (2026-09-21)
+
 ## Saves, until 1.0.0
 
 Breaking the save format is **allowed** before 1.0.0 (the user, 2026-09-19: worlds will be reset, and
@@ -212,8 +260,9 @@ recorded. Nothing should only exist in the conversation.
 ## Where things are
 
 - `engine/` - the engine. `client/`, `server/`, `shared/`, `net/`.
-- `mods/` - bundled content. `base` (blocks and tools), `vanilla` (the survival game), `hearthhold` (the
-  story game), plus add-ons and two game modes.
+- `mods/` - bundled content. **`base` alone.** The seven games were deleted on 21 September 2026 and
+  will be rebuilt for 1.0; `art/models/` keeps the models they used, which no script can regenerate.
+- `tests/mods/proving/` - **the Proving Ground**, the game the tests play. Not shipped.
 - `native/` - the Rust extension.
 - `deploy/server/` - what the family server runs. Meant to be copied on its own, without the repository.
 - `PROGRESS.md` - status, roadmap, playtest findings, and the decisions behind them. Read it first.
