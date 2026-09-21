@@ -2941,3 +2941,28 @@ Two details worth keeping:
 
 `tests/mods/picky` now does both halves of layered content: it takes the Proving Ground, refuses three
 of its things, and adds an attack, a drop and a loot pool to what is left - without touching it.
+
+## Flight (2026-09-21)
+
+`"fly": {"height": 8, "speed_up": 0.6}` in a creature's `ai`, a sibling of `climb` and `hop` rather
+than a new system. The Proving Ground has a flitter.
+
+Three decisions worth keeping:
+
+- **A flier never asks the ground pathfinder anything.** `move_to` returns a direct goal immediately.
+  Going *over* what a walker goes round is the entire advantage, and a path through walkable cells
+  would throw it away.
+- **It holds height above whatever is below it**, not above sea level - a height measured from the
+  horizon means flying into a hill. One downward block scan, capped at 48.
+- **It drives its own Y**, so a flier's entity wants `gravity: 0`. The brain moves `velocity.y`
+  toward what it wants rather than fighting the physics each tick.
+
+**No 3D pathfinding, deliberately.** A bird steering straight at its goal and rising over obstacles is
+what a bird looks like. A* through open air costs far more and looks no better, and nothing has asked
+for it.
+
+Known limit: a flier with `gravity: 0` floats when it dies or is asleep, because nothing takes the
+flight away. Worth fixing when something bundled actually flies.
+
+**That is the last engine capability on the roadmap.** What remains is content - re-scoping `base`,
+the two packs, and the games - plus area tools, inventories inside things and instances.

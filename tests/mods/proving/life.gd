@@ -75,6 +75,11 @@ func _companions_and_vehicles() -> void:
 		"score": func(brain): return 0.2 if api.order_of(brain.entity) == "proving:forage" else 0.0,
 		"update": func(brain, _delta): brain.stop(),
 	})
+	# Something that flies, which is the one kind of movement that is not about the ground. `gravity: 0`
+	# because a flier drives its own height.
+	ids.flitter = api.register_entity("flitter", {"kind": "mob", "display_name": "Flitter",
+		"width": 0.4, "height": 0.4, "health": 4, "speed": 4.0, "gravity": 0.0, "category": "animal",
+		"ai": {"preset": "passive", "wander_radius": 10, "fly": {"height": 6.0, "speed_up": 0.8}}})
 	ids.raft = api.register_entity("raft", {"kind": "mob", "display_name": "Raft",
 		"width": 1.2, "height": 0.5, "health": 20, "speed": 1.0, "category": "misc", "persistent": true,
 		"ai": {"preset": "none"},

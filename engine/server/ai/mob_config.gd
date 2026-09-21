@@ -26,6 +26,9 @@ extends RefCounted
 ##     "boss": {"name": "Ancient Colossus", "bar_range": 48},
 ##     "behaviors": ["my_mod:guard"],   extra behaviors registered with register_mob_behavior
 ##     "climb": false,             walks up walls when blocked (spiders; pair with a high step_up)
+##     "fly": {"height": 8, "speed_up": 0.6},   flies: goes *over* obstacles instead of round them, and
+##                                 holds `height` blocks above the ground when it has nowhere to be.
+##                                 Give the entity `gravity: 0` - the brain drives its height itself.
 ##     "hop": {"interval": 1.0, "height": 1.2},   moves only in hops (slimes)
 ##     "day_temperament": "neutral",  temperament while it stands in bright daylight (spiders)
 ##     "fear_light": 9,            flees to darkness when the light where it stands (or a torch held
@@ -67,6 +70,7 @@ const BASE := {
 	"boss": {},
 	"behaviors": [],
 	"climb": false,
+	"fly": {},
 	"hop": {},
 	"day_temperament": "",
 	"fear_light": 0,
@@ -172,6 +176,8 @@ static func sanitize(config: Dictionary, resolve_entity: Callable) -> Dictionary
 	c.can_swim = bool(c.can_swim)
 	c.attack_interval = clampf(float(c.attack_interval), 0.0, 60.0)
 	c.climb = bool(c.climb)
+	c.fly = {"height": clampf(float(c.fly.get("height", 8.0)), 0.0, 64.0),
+		"speed_up": clampf(float(c.fly.get("speed_up", 0.6)), 0.05, 4.0)} if c.fly is Dictionary and not (c.fly as Dictionary).is_empty() else {}
 	c.hop = {"interval": clampf(float(c.hop.get("interval", 1.0)), 0.2, 10.0), "height": clampf(float(c.hop.get("height", 1.2)), 0.2, 6.0)} \
 		if c.hop is Dictionary and not c.hop.is_empty() else {}
 	c.day_temperament = String(c.day_temperament) if String(c.day_temperament) in TEMPERAMENTS else ""

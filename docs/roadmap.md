@@ -630,8 +630,17 @@ distinction. Wildcards do the bulk work; **tags do not**, because a tag is regis
 exclusions are applied before anything registers. `remove_mod` is the same mechanism with a wider
 wildcard, and mostly a non-need - if you do not want a mod, do not depend on it.
 
-**26. Flight.** Mob AI has `can_swim` and `climb` and nothing for flying: no air movement mode, no air
-pathfinding. Birds need it, and it is engine work rather than content.
+**26. Flight — built.** `"fly": {"height": 8, "speed_up": 0.6}` in a creature's `ai`, beside `climb`
+and `hop`. A flier **never asks the ground pathfinder anything** - going over what a walker goes round
+is its whole advantage, and a path through walkable cells would throw that away - and it drives its own
+height, so its entity wants `gravity: 0`.
+
+With nowhere to be it holds station above **whatever is below it**, not above sea level: a height
+measured from the horizon means flying into a hill. A bird that drifts to the ground and a bird that
+climbs away for ever both look like bugs, so it does neither.
+
+**No 3D pathfinding**, deliberately. A bird steering straight at its goal and rising over what is in
+the way is what a bird looks like; A* through open air would cost far more and look no better.
 
 ## What is still only half-decided: which content
 

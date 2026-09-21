@@ -160,6 +160,23 @@ func _behaviour(server) -> void:
 	server.conditions.tick(0.1)
 	_check(p.health < 20.0, "venom hurts on its own timer (%s)" % p.health)
 
+	# Flight: the one kind of movement that is not about the ground.
+	var flitter = server.entities.spawn(server.entities.registry.id_of("proving:flitter"),
+		Vector3(30.5, 66, 30.5), {})
+	_check(flitter != null, "something that flies")
+	_check(flitter.brain != null and not flitter.brain.config.fly.is_empty(), "and knows it flies")
+	# Told to go somewhere, it never asks the ground pathfinder: going over what a walker goes round is
+	# the whole point.
+	flitter.brain.move_to(Vector3(60.5, 66, 60.5), 1.0, 1.0)
+	_check(flitter.brain.direct and flitter.brain.path.is_empty(), "a flier is never given a walking path")
+	# Left alone below its preferred height, it climbs rather than settling on the ground.
+	flitter.body.position = Vector3(30.5, 65.2, 30.5)
+	flitter.body.velocity = Vector3.ZERO
+	flitter.brain.move_goal = Vector3.INF
+	for i in 30:
+		flitter.brain._steer(0.05)
+	_check(flitter.body.velocity.y > 0.1, "and climbs back to its height when it is too low (%.2f)" % flitter.body.velocity.y)
+
 	# A creature, tamed, ordered, and ridden.
 	var grazer = server.entities.spawn(server.entities.registry.id_of("proving:grazer"),
 		p.state.position + Vector3(1, 0, 0), {})

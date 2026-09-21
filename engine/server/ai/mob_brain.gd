@@ -156,6 +156,13 @@ func move_to(goal: Vector3, speed := 1.0, radius := 0.8) -> void:
 	move_speed = speed
 	move_radius = radius
 	var pos: Vector3 = entity.body.position
+	# A flier never asks the ground pathfinder anything: its whole advantage is going over what a
+	# walker has to go round, and a path through walkable cells would throw that away. (2026-09-21)
+	if not config.fly.is_empty():
+		move_goal = goal
+		path.clear()
+		direct = true
+		return
 	if Vector2(goal.x - pos.x, goal.z - pos.z).length() <= radius and absf(goal.y - pos.y) < 2.5:
 		move_goal = goal
 		path.clear()
@@ -763,6 +770,29 @@ func _steer(delta: float) -> void:
 		if desired.length() > 0.1:
 			entity.yaw = lerp_angle(entity.yaw, atan2(-desired.x, -desired.z), minf(1.0, 10.0 * delta))
 		return
+	# Flight, which is the one kind of movement that is not about the ground. A bird goes *over* an
+	# obstacle rather than round it, so it never uses a path - and it drives its own height, which is
+	# why its entity wants `gravity: 0`. (2026-09-21)
+	if not config.fly.is_empty():
+		var climb_speed: float = speed * float(config.fly.speed_up)
+		var want_y := 0.0
+		if move_goal != Vector3.INF and not busy:
+			want_y = clampf(move_goal.y - b.position.y, -climb_speed, climb_speed)
+		# With nowhere to be, hold station above whatever is below: a bird that drifts to the ground and
+		# a bird that climbs away for ever are both wrong, and both look like a bug.
+		var above: float = b.position.y - _ground_below(b.position)
+		var wanted_height := float(config.fly.height)
+		if want_y == 0.0 or (above < wanted_height * 0.5 and want_y < 0.0):
+			want_y = clampf(wanted_height - above, -climb_speed, climb_speed)
+		b.velocity.y = move_toward(b.velocity.y, want_y, 12.0 * delta)
+		var level := Vector2(b.velocity.x, b.velocity.z).move_toward(Vector2(desired.x, desired.z), 10.0 * delta)
+		b.velocity.x = level.x
+		b.velocity.z = level.y
+		if desired.length() > 0.1 or absf(want_y) > 0.1:
+			entity.wake()
+		if desired.length() > 0.1:
+			entity.yaw = lerp_angle(entity.yaw, atan2(-desired.x, -desired.z), minf(1.0, 10.0 * delta))
+		return
 	var accel := 30.0 if b.on_ground else 8.0
 	if b.in_liquid:
 		accel = 12.0
@@ -784,6 +814,19 @@ func _steer(delta: float) -> void:
 		var d: Vector3 = face - b.position
 		if Vector2(d.x, d.z).length() > 0.05:
 			entity.yaw = lerp_angle(entity.yaw, atan2(-d.x, -d.z), minf(1.0, 10.0 * delta))
+
+
+## The top of whatever is under a flying mob, so it can hold a height above the ground rather than a
+## height above sea level - which over a hill would mean flying into it.
+func _ground_below(from: Vector3) -> float:
+	var world = ai.entities.realm.world if ai.entities.realm != null else ai.server.world
+	var x := floori(from.x)
+	var z := floori(from.z)
+	for y in range(floori(from.y), maxi(floori(from.y) - 48, 0), -1):
+		var block: int = world.get_block(x, y, z)
+		if block != 0 and ai.server.registry.solid_lut[block] == 1:
+			return float(y + 1)
+	return 0.0
 
 
 ## Sideways push (unit length or zero) back to the middle of the mob's lane when it scrapes a corner: a body

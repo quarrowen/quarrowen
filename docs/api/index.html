@@ -1982,6 +1982,9 @@ Type ids are indexes into `defs`; &quot;engine:item&quot; (dropped item stacks) 
     &quot;boss&quot;: {&quot;name&quot;: &quot;Ancient Colossus&quot;, &quot;bar_range&quot;: 48},
     &quot;behaviors&quot;: [&quot;my_mod:guard&quot;],   extra behaviors registered with register_mob_behavior
     &quot;climb&quot;: false,             walks up walls when blocked (spiders; pair with a high step_up)
+    &quot;fly&quot;: {&quot;height&quot;: 8, &quot;speed_up&quot;: 0.6},   flies: goes *over* obstacles instead of round them, and
+                                holds `height` blocks above the ground when it has nowhere to be.
+                                Give the entity `gravity: 0` - the brain drives its height itself.
     &quot;hop&quot;: {&quot;interval&quot;: 1.0, &quot;height&quot;: 1.2},   moves only in hops (slimes)
     &quot;day_temperament&quot;: &quot;neutral&quot;,  temperament while it stands in bright daylight (spiders)
     &quot;fear_light&quot;: 9,            flees to darkness when the light where it stands (or a torch held
