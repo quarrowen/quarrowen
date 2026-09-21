@@ -1,6 +1,23 @@
 extends SceneTree
 ## Paints the placeholder 16x16 block textures used by the bundled mods and writes them as PNGs.
 ##   godot --headless --path . -s tools/generate_textures.gd
+##
+## **118 of these currently print FAILED, and that is expected.** They write into `mods/vanilla` (82),
+## `arcana` (13), `industry` (8), `guild` (8), `hearthhold` (6) and `skyblock` (1), all deleted on
+## 21 September 2026; the directories are gone, so `save_png` refuses. 173 still write, `base` among
+## them, and `base`'s come out byte-identical every run - this generator is deterministic.
+##
+## They are not simply deleted, for two reasons. The first is mechanical: one RNG seeded once drives
+## every texture in order, so removing a call re-rolls every texture after it - the note on
+## `_float_bob` records that silently changing three already-shipped textures. The second matters
+## more: **most of these are not dead, they are unplaced.** Under the architecture settled the same
+## day, `base` owns nouns - so porkchop, feather, wool, leather, egg and mushroom are base textures
+## that happen to be written to a vanilla path, while bucket and shears belong to `simple_gear` and
+## the machine icons to `simple_machines`. Only the arcana wands and guild coins are genuinely gone.
+##
+## Sorting that out *is* Phase 4's re-scope of `base`, and it is the one moment the re-roll is free,
+## because every texture gets regenerated together anyway. Until then the FAILED lines are an accurate
+## report of an unanswered question, which is better than a tidy file that has quietly picked answers.
 
 const TILE := 16
 
@@ -71,7 +88,11 @@ func _init() -> void:
 	_save(_item(Color(0.6, 0.6, 0.63), "sword"), base + "stone_sword.png")
 	_save(_item(Color(0.85, 0.15, 0.15), "apple"), base + "apple.png")
 	var vanilla := "res://mods/vanilla/textures/"
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(vanilla))
+	# The `make_dir_recursive_absolute` that stood here is gone. With the mod deleted it was *creating*
+	# `mods/vanilla/textures/` and filling it with sixty-odd PNGs for a mod that does not exist - a
+	# stray folder that looks like somebody's work in progress. Without it these writes fail loudly,
+	# the same as the other five dead mods below, which is what we want until Phase 4 says where each
+	# of these textures actually belongs. (2026-09-21)
 	_save(_item(Color(0.95, 0.55, 0.55), "meat"), vanilla + "porkchop.png")
 	_save(_item(Color(0.35, 0.9, 1.0), "wand"), arcana + "wand_of_sparks.png")
 	var spark := _blank()

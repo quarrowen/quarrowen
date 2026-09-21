@@ -44,3 +44,55 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	api.register_liquid("slime", {"range": 4, "falls": true, "speed": 0.4,
 		"shallow": "proving:slime_thin", "shallow_from": 2})
 	api.register_liquid_meeting("slime", "proving:slime", "proving:plain")
+	_setup_bucket()
+
+
+## Carrying a liquid about, which is what liquids are for and the one part of them a mod has to write
+## itself - the engine supplies sources, flows and `item_use`, not the bucket.
+##
+## Here because `gameplay_test` had six assertions about scooping and pouring sitting behind
+## `if bucket > 0`, where `bucket` was `id_of("vanilla:bucket")`. With that mod gone the id is -1, so
+## the whole block stopped running rather than started failing - the same silent-skip the music checks
+## had. Asserting the capability against a bucket the test mod owns is the fix for both. (2026-09-21)
+##
+## Only a **source** goes in: a flow is liquid already on its way somewhere, and scooping it would be
+## scooping something about to vanish. Pouring always puts down a source, so slime carried uphill works.
+func _setup_bucket() -> void:
+	ids.pail = api.register_item("pail", {"display_name": "Pail", "max_stack": 1, "usable": true})
+	ids.slime_pail = api.register_item("slime_pail", {"display_name": "Pail of Slime",
+		"max_stack": 1, "usable": true})
+	api.on("item_use", func(ev):
+		if not ev.get("has_target", false):
+			return
+		var player = ev.player
+		var realm_id: String = api.realm_of(player)
+		if int(ev.item) == int(ids.pail):
+			_scoop(player, ev.position, realm_id)
+		elif int(ev.item) == int(ids.slime_pail):
+			_pour(player, ev, realm_id))
+
+
+func _scoop(player, at: Vector3i, realm_id: String) -> void:
+	if api.get_block(at, realm_id) != int(ids.slime):
+		return
+	# State 0 is the source; anything else is a trickle running away from one.
+	if api.get_block_state(at, realm_id) != 0:
+		player.send_message("That is only a trickle - find where it comes from.")
+		return
+	if not player.is_creative() and not player.take(int(ids.pail), 1):
+		return
+	api.set_block(at, 0, false, 0, realm_id)
+	if not player.is_creative():
+		player.give(int(ids.slime_pail), 1)
+
+
+func _pour(player, ev: Dictionary, realm_id: String) -> void:
+	# "normal", not "face" - the event calls the struck side the normal.
+	var at: Vector3i = Vector3i(ev.position) + Vector3i(ev.get("normal", Vector3i.UP))
+	if api.get_block(at, realm_id) != 0:
+		return
+	if not player.is_creative() and not player.take(int(ids.slime_pail), 1):
+		return
+	api.set_block(at, int(ids.slime), false, 0, realm_id)
+	if not player.is_creative():
+		player.give(int(ids.pail), 1)

@@ -2978,17 +2978,27 @@ holds the GLBs, which are the only assets no script can regenerate. `deploy/serv
 Hearthhold running pinned image 0.41.1, which still contains the mod - that config is correct for the
 image it pins, and a note now says so.
 
-**Broken, and waiting on Phase 4.** `tools/generate_textures.gd` writes into `res://mods/vanilla/` and
-`res://mods/hearthhold/`, which would recreate those folders as strays. It cannot be cheaply fixed:
-every `_save` consumes the one seeded RNG, so deleting a block re-rolls every texture after it (the
-comment on `_float_bob` records this costing three already-shipped textures). It gets rewritten when
-`base` is re-scoped and all the textures are regenerated together, which is the only time the re-roll
-is free.
+**Half-fixed, and the rest waits on Phase 4.** `tools/generate_textures.gd` was worse than "broken":
+line 74 called `make_dir_recursive_absolute` on the vanilla path, so running it *recreated*
+`mods/vanilla/textures/` and filled it with 82 PNGs for a mod that does not exist. That line is gone,
+so those writes now fail loudly like the other five dead mods - 118 FAILED, 173 written, no stray
+folder - and the header says so, with the counts.
 
-**Broken, and a release blocker.** `tools/make_release.sh` builds a site advertising Hearthhold and
-Vanilla as games, with screenshots of both. Publishing a release now would advertise games the build
-does not contain. Nothing to do while the playtest holds the tag, but this must be rewritten before
-1.0's site goes up.
+The writes themselves stay, and the reason is not the RNG (though that is real: one seed drives every
+texture in order, so removing a call re-rolls everything after it). It is that **most of them are not
+dead, they are unplaced.** `base` owns nouns now, so porkchop, feather, wool, leather, egg and
+mushroom are base textures currently written to a vanilla path; bucket and shears are `simple_gear`;
+the machine icons are `simple_machines`. Only the arcana wands and guild coins are genuinely gone.
+Deciding each one *is* the Phase 4 re-scope, and it is the single moment the re-roll costs nothing,
+because every texture is regenerated together. Verified along the way that the generator is
+deterministic: `base`'s 333 textures come out byte-identical, so that re-roll can be measured rather
+than feared when the time comes.
+
+**Now a hard stop.** `tools/make_release.sh` built a site advertising Hearthhold, Vanilla, One Block
+and Sky Islands with screenshots of each, and would have done it silently, because a stale `<section>`
+is still valid HTML. It now refuses to run at all until the games section is rewritten, before
+`package_mac.sh` rather than after, so it costs a second instead of a notarised build. The message
+names the three places to fix. `QW_SITE_IS_REWRITTEN=1` overrides it for a dry run.
 
 **Fixed now.** The `is_game()` doc comment in `mod_api.gd` used Hearthhold and Vanilla to explain
 dependency-vs-game; it flows into the published API reference, so it now uses unnamed generic games.

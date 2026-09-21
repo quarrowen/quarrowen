@@ -29,6 +29,29 @@ case "$base_url" in */releases/download/*) flat=1 ;; esac
 notes="${NOTES:-A new version of Quarrowen.}"
 files="v$version"
 
+# The download page still sells Hearthhold, Vanilla, One Block and Sky Islands, with screenshots of
+# each. All four were deleted on 21 September 2026, so publishing now would advertise games that are
+# not in the build - and it would do it quietly, because a stale <section> is still valid HTML.
+#
+# Refusing here rather than leaving a note in a file somebody has to remember to read. This fires
+# before package_mac.sh, so it costs a second rather than a notarised build, and it names the fix.
+# Delete this block as part of writing the new games section. (2026-09-21)
+if [ "${QW_SITE_IS_REWRITTEN:-0}" != "1" ]; then
+  cat >&2 <<'BLOCKED'
+make_release.sh: refusing to build.
+
+The "Four games, one download" section of the download page describes Hearthhold, Vanilla, One Block
+and Sky Islands. Those mods were deleted on 21 September 2026 and are not in this build, so the page
+would be advertising games nobody can play, alongside screenshots of them.
+
+Rewrite that section (and the hero image, and the "Hearthhold is a mod. Vanilla is a mod." line in the
+modding blurb) for whatever 1.0 actually ships, then delete this guard from tools/make_release.sh.
+
+To build anyway - for a dry run, never to publish - set QW_SITE_IS_REWRITTEN=1.
+BLOCKED
+  exit 1
+fi
+
 rm -rf "$out"
 mkdir -p "$out/$files/mods"
 
