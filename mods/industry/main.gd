@@ -14,7 +14,6 @@ const TICK := 0.25
 const UI_ID := "industry:machine"
 const UI_REFRESH := 0.5
 const UI_RANGE := 8.0
-const NETWORK_REBUILD_INTERVAL := 5.0
 
 const GENERATOR_OUTPUT := 40.0  # energy units per second while burning
 const SOLAR_OUTPUT := 15.0  # energy units per second at full daylight with open sky
@@ -31,11 +30,20 @@ var power: Power
 var spool
 var _ui_viewers := {}  # peer_id -> Vector3i being viewed
 var _ui_timer := 0.0
-var _rebuild_timer := 0.0
 
 
 func setup(mod_api) -> void:
 	api = mod_api
+	# The network is rebuilt when the world changes under it, not every five seconds whether or not it
+	# did. It used to rebuild on a timer with a comment saying why - "picks up machines in chunks that
+	# loaded since the last rebuild" - which is a poll standing in for two events that did not exist.
+	# (2026-09-21)
+	api.on("chunk_loaded", func(_ev): power.invalidate())
+	api.on("chunk_unloaded", func(_ev): power.invalidate())
+	api.on("block_changed", func(ev):
+		# Only when it is one of ours: a player digging dirt is not news to a power network.
+		if ids.values().has(ev.block) or ids.values().has(ev.previous):
+			power.invalidate())
 	ids.cable = api.register_block("cable", {
 		"display_name": "Energy Cable",
 		"model": "models/cable_core.glb",
@@ -121,11 +129,6 @@ func _initial_data(block: int):
 # --- Simulation ---------------------------------------------------------------------------------
 
 func _tick() -> void:
-	_rebuild_timer += TICK
-	if _rebuild_timer >= NETWORK_REBUILD_INTERVAL:
-		# Picks up machines in chunks that loaded since the last rebuild.
-		_rebuild_timer = 0.0
-		power.invalidate()
 	var daylight: float = api.get_daylight()
 	for network in power.networks():
 		_simulate(network, daylight)

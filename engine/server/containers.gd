@@ -114,20 +114,21 @@ func close(p, tell_client := true) -> void:
 ## Every write to a container passes through here - a player clicking, a hopper, a parcel arriving, a
 ## station consuming its inputs, loot filling a chest, a mod.
 ##
-## **`container_changed` is deliberately NOT emitted from here**, though that is where it belongs and
-## it was moved here once. This is a hot path that runs *inside* mod code: a JavaScript block tick
-## writes an item, which lands here, which would dispatch an event back into the same QuickJS runtime
-## while it is still executing the tick - and a runtime cannot be re-entered. It failed with "Invalid
-## call error code 1337" rather than anything that reads like the cause.
+## `container_changed` is raised from here, so automation is visible: a hopper, a parcel arriving, a
+## station taking its inputs, loot filling a chest. It used to fire only from the two player-click
+## handlers.
 ##
-## Suppressing the nested call per position was not enough: the re-entry came from a different entry
-## point into the same runtime. Doing this properly means either deferring every event raised on a hot
-## path to the end of the tick, or making the script bridges re-entrant - both real pieces of work, and
-## neither of them a container's business. Written up in PROGRESS.md. (2026-09-21)
-func mark_changed(pos: Vector3i) -> void:
+## **Immediate, not deferred.** Deferring it to the end of the tick was tried and it broke the furnace:
+## lighting when fuel goes in is gameplay and has to happen now. The re-entrancy that made deferring
+## look necessary was never the engine's problem - a QuickJS runtime cannot be re-entered, and that is
+## handled in `_invoke` in js_mod.gd, where it belongs. (2026-09-21)
+func mark_changed(pos: Vector3i, p = null, slot := -1) -> void:
 	if _viewers.has(pos):
 		_dirty[pos] = true
 	_stock_dirty[pos] = true
+	var c = get_container(pos)
+	if c != null:
+		_server.emit("container_changed", {"player": p, "position": pos, "container": c, "slot": slot})
 
 
 ## Sends changed contents to viewers and closes screens players walked away from.
@@ -223,7 +224,7 @@ func click(p, slot: int, button: int, shift: bool) -> void:
 		inv.cursor_data = s.data
 	else:
 		return
-	_server.emit("container_changed", {"player": p, "position": c.position, "container": c, "slot": slot})
+	mark_changed(c.position, p, slot)
 	p.sync_inventory()
 
 
@@ -251,7 +252,7 @@ func quick_move_in(p, slot: int) -> bool:
 		inv.clear_slot(slot)
 	else:
 		inv.counts[slot] = left
-	_server.emit("container_changed", {"player": p, "position": c.position, "container": c, "slot": -1})
+	mark_changed(c.position, p)
 	p.sync_inventory()
 	return true
 

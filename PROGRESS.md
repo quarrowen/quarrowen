@@ -2641,3 +2641,40 @@ without calling `sync_inventory` and nothing announced it. The events were added
 answer at once instead of up to half a second late - but **the poll remains as the backstop**. The event
 bought responsiveness here, not saved work, and pretending otherwise would have shipped tutorials that
 silently stop advancing.
+
+## Re-entrancy belongs to the bridge, not the engine (2026-09-21)
+
+`container_changed` moved to `containers.mark_changed`, so automation is visible at last - a hopper, a
+parcel, a station taking inputs, loot filling a chest. Getting there took two wrong turns worth
+recording, because both were plausible.
+
+**Wrong turn one: defer the event.** A general `emit_later` that queued events to the end of the tick.
+It worked, and it broke the furnace: lighting when fuel goes in is gameplay, and it has to happen now.
+Deferring an event is not a free safety measure - it changes when the world reacts.
+
+**Wrong turn two: guard per container.** Suppressing a nested emit for the same position. Not enough:
+the second entry into the runtime came through a different path entirely.
+
+**The actual problem was never the engine's.** A QuickJS runtime cannot be re-entered, and the engine
+calls into mod code freely. `js_mod._invoke` now refuses to nest: a callback arriving while the runtime
+is mid-call is queued and delivered as soon as the outer call returns. Fixed once, for every event,
+rather than per event site - and it will cover a Lua bridge too.
+
+`emit_later` and `flush_events` were **deleted** rather than left in place. Nothing used them once the
+bridge was fixed, and an untested primitive with a tempting name is a liability.
+
+One visible consequence: callbacks that used to nest now run after, so two writes can land in the
+opposite order. `tests/mods/js_blocks` depended on that order and now merges its container state
+instead of stamping over it, which is what a well-behaved mod should do anyway.
+
+### The three bundled mods are off their polls
+
+- `mods/vanilla` music: was a 5s timer restating the answer; now `time_changed` plus `player_join`.
+  **Dropping the timer without the join handler left a joining player in silence until the next phase
+  crossing** - the e2e music test caught it. The timer had been doing two jobs and only one was
+  obvious.
+- `mods/hearthhold`: the same music timer, and a second 5s timer watching for a narrow dawn window
+  that it could miss entirely. Both are `time_changed` now.
+- `mods/industry`: the 5s full network rebuild is gone, replaced by `chunk_loaded`, `chunk_unloaded`
+  and a filtered `block_changed`. Its comment - "picks up machines in chunks that loaded since the
+  last rebuild" - was a poll standing in for two events that did not exist.

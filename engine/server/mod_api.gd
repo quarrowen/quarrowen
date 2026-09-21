@@ -15,8 +15,10 @@ extends RefCounted
 ##   block_changed  {realm, position, block, previous}       *any* change to the world, by any cause:
 ##                  a player, liquid spreading, a structure pasted, a support collapsing, a blast
 ##   container_open {player, position, container, cancelled} container_close {player, position}
-##   container_changed {player, position, container, slot}  a player moved items in or out. Automation
-##                  (hoppers, parcels, stations) does not raise it - see mark_changed in containers.gd
+##   container_changed {player, position, container, slot}  contents changed by anyone - a player, a
+##                  hopper, a station taking inputs, loot, a mod. `player` is null when nobody did it
+##                  by hand. Raised at the end of the tick and coalesced per container, so it means
+##                  "this changed, go and look" rather than one event per item
 ##   station_upgraded {player, position, station, tier}      a kit upgraded a station
 ##   craft_job_started {player, position, recipe, times}     a timed recipe joined a station's queue
 ##   craft_job_finished {player_id, position, recipe, times, helpers}

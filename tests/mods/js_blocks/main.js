@@ -18,7 +18,10 @@ api.on("container_changed", ({ container, position }) => {
   const items = api.containerItems(position);
   const filled = items.filter((s) => s.item > 0).length;
   api.setContainerProgress(position, "fill", filled / 5);
-  api.setContainerState(position, { filled, press: api.getProcess("pressing", api.item("base:gravel")) });
+  // Merged rather than replaced. A handler that stamps over the whole state clobbers whatever else
+  // put something there, and which of the two runs last is not something a mod should have to know -
+  // it changed when the JavaScript bridge stopped letting callbacks nest. (2026-09-21)
+  api.setContainerState(position, { ...api.containerState(position), filled, press: api.getProcess("pressing", api.item("base:gravel")) });
 });
 
 api.registerBlockTick("crate", ({ position, ticks, reason }) => {

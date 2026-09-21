@@ -150,7 +150,16 @@ func _setup_music() -> void:
 	music_setup_saw_game = api.is_game()  # read by the test that this is answerable during setup()
 	if not music_setup_saw_game:
 		return
-	api.every(5.0, func(): api.play_music(null, "night" if api.get_daylight() < 0.3 else "daylight", {"fade": 6.0}))
+	# On the crossing rather than on a stopwatch. This used to ask the clock every five seconds and
+	# restate the answer; now the engine says when the answer changed, so the track turns over *at* dusk
+	# rather than up to five seconds after it.
+	#
+	# And on join, which the timer was quietly doing as well: somebody arriving at midnight has to hear
+	# the night track now, not when the sun comes up. Dropping the timer without this left a joining
+	# player in silence until the next crossing, which the e2e music test caught. (2026-09-21)
+	var track := func(): return "night" if api.get_daylight() < 0.3 else "daylight"
+	api.on("time_changed", func(ev): api.play_music(null, "night" if ev.phase == "night" else "daylight", {"fade": 6.0}))
+	api.on("player_join", func(ev): api.play_music(ev.player, track.call(), {"fade": 6.0}))
 
 
 ## The sound of being somewhere: wind in the open, a drip in the dark, water at the edge of a lake.

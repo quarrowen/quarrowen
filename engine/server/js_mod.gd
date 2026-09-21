@@ -62,8 +62,28 @@ func load() -> Error:
 
 # --- Engine -> script ---------------------------------------------------------------------------
 
+## Whether this runtime is part-way through a call. QuickJS cannot be re-entered, and the engine
+## reaches back into mod code freely: a block tick that writes an item raises container_changed, which
+## would dispatch into this same runtime while it is still running the tick. It failed as "Invalid call
+## error code 1337", which reads like nothing at all. (2026-09-21)
+var _busy := false
+## Callbacks that arrived while it was busy, delivered in order once the outer call returns.
+var _waiting: Array = []
+
+
 func _invoke(callback_id: int, args: Array):
+	if _busy:
+		# Queued rather than dropped, and rather than crashing the runtime. The handler runs a moment
+		# later, once the call it interrupted has finished, which is the only safe order there is.
+		_waiting.append([callback_id, args])
+		return null
+	_busy = true
 	var reply = _parse(runtime.call_function("__dispatch", JSON.stringify({"id": callback_id, "args": to_js(args)})))
+	_busy = false
+	# Drained after the outer call, not inside it. A handler may queue more; those go round again.
+	while not _waiting.is_empty():
+		var next: Array = _waiting.pop_front()
+		_invoke(int(next[0]), next[1] as Array)
 	if reply is Dictionary and reply.has("__error"):
 		var at := _js_location(str(reply.get("stack", "")))
 		_server.dev_log.report_error(manifest.id, str(reply.__error), at.file, at.line, at.stack)
