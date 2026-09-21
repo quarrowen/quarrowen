@@ -3380,3 +3380,36 @@ Nothing here should change the default preset: the family plays on base M1 Airs 
 has not moved. The question to answer before `base` is which of 1 and 2 we are building towards,
 because "realistic" also argues for higher-resolution textures and more geometric detail per block -
 and that is what `base` would be authored against.
+
+## The voxel material can be lit, and it works (2026-09-21)
+
+Option 2 from the ceiling note, built and rendered. `voxel_material.gd` now has two halves, chosen
+per material at creation so no branch is paid per pixel:
+
+- the **unshaded** one every preset has always used, where the mesher's baked light *is* the final
+  colour, unchanged;
+- a **lit** one where the baked data becomes input to real lighting instead of a substitute for it.
+
+Three deliberate differences in the lit half:
+
+- **The baked face shade (`COLOR.b`) is dropped.** It darkens side faces so a flat-lit world still
+  reads as three-dimensional; a real sun does that properly, and keeping both darkens every north
+  face twice.
+- **Ambient occlusion becomes `AO`** rather than a multiplier on the final colour, so the engine
+  applies it to ambient only. Direct sun on a corner should not be dimmed for being a corner.
+- **Block light becomes `EMISSION`.** A torch is not a light the renderer knows about - the mesher
+  bakes its falloff into `COLOR.g` - so feeding that in as emission keeps torches glowing and caves
+  working without a single real light.
+
+One compromise, written down because it is not physically honest: **sky light still multiplies
+ALBEDO.** Albedo should not carry light. It is what keeps a cave dark without depending on a shadow
+map reaching underground, and replacing it with real shadows everywhere is a separate question.
+
+The render shows what it was for: shadows cast across the grass, and cliff faces lit by the sun's
+angle rather than by a constant. The whole thing stays behind `QW_LOOK_REAL`, the default preset is
+untouched, and the suite passes - the family's M1 Airs are unaffected until someone opts in.
+
+**Still open before this becomes a real preset:** measure the frame cost on a base M1 Air (the whole
+reason the flat path exists); decide whether the mesher should still bake face shade at all when the
+lit path is chosen, since computing something the shader throws away is waste; and settle how caves
+behave when sky light stops multiplying albedo.

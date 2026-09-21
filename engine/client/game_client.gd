@@ -657,8 +657,11 @@ func _finish_content() -> void:
 			images[d.icon] = _asset_images[d.icon]
 
 	_atlas = TextureAtlas.build(images)
-	_solid_material = VoxelMaterial.create(_atlas.texture, false)
-	_translucent_material = VoxelMaterial.create(_atlas.texture, true)
+	# The lit shader for the realistic experiment; every other preset keeps the unshaded one, where
+	# the mesher's baked light is the final colour. (2026-09-21)
+	var lit := OS.get_environment("QW_LOOK_REAL") == "1"
+	_solid_material = VoxelMaterial.create(_atlas.texture, false, lit)
+	_translucent_material = VoxelMaterial.create(_atlas.texture, true, lit)
 	_applied_daylight = -1.0
 	for d in registry.defs:
 		if not d.model.is_empty() and _manifest.has(d.model):

@@ -7,9 +7,13 @@ extends RefCounted
 ##   UV2.x    flags: 1 sway (foliage), 2 liquid, 4 emissive
 ## Uniforms carry time of day and the quality toggles from GraphicsSettings.
 
+## The shader has two halves: the `unshaded` one every preset has always used, where the mesher's
+## baked light *is* the final colour, and a **lit** one for the realistic preset, where the baked data
+## becomes input to real lighting instead of a substitute for it. Chosen per material at creation, so
+## no branch is paid for per pixel. (2026-09-21)
 const SHADER_CODE := """
 shader_type spatial;
-render_mode unshaded, %s;
+render_mode %s%s;
 
 uniform sampler2D atlas : source_color, filter_nearest, repeat_disable;
 uniform float daylight : hint_range(0.0, 1.0) = 1.0;
@@ -62,9 +66,36 @@ void fragment() {
 		color = max(color, tex.rgb * emissive_boost);
 	}
 	%s
-	ALBEDO = color;
+	%s
 }
 """
+
+## What the unshaded half has always done: the computed colour *is* the pixel.
+const UNSHADED_OUT := "ALBEDO = color;"
+
+## The lit half. Three deliberate differences from above:
+##
+##   - **The baked face shade is dropped.** COLOR.b darkens the four side faces so a flat-lit world
+##     still reads as three-dimensional. A real sun does that properly, and keeping both darkens
+##     every north face twice.
+##   - **Ambient occlusion becomes AO** rather than a multiplier on the final colour, so the engine
+##     applies it to ambient light only - which is what it is for. Direct sun on a corner should not
+##     be dimmed by the corner being a corner.
+##   - **Block light becomes EMISSION.** A torch is not a light source the renderer knows about; the
+##     mesher bakes its falloff into COLOR.g. Feeding that in as emission keeps torches glowing,
+##     keeps caves working, and costs no real lights.
+##
+## Sky light still multiplies ALBEDO, which is not physically honest - albedo should not carry light.
+## It is what keeps a cave dark without relying on a shadow map reaching underground, and swapping it
+## for real shadows everywhere is the next question rather than this one.
+const LIT_OUT := """vec3 daylit = tex.rgb * max(sky, 0.06);
+	ALBEDO = daylit;
+	AO = enable_ao ? mix(0.35, 1.0, COLOR.a) : 1.0;
+	AO_LIGHT_AFFECT = 1.0;
+	EMISSION = tex.rgb * block * vec3(1.0, 0.82, 0.6) * 1.3;
+	if (has_flag(flags, 4.0)) { EMISSION = tex.rgb * emissive_boost; }
+	ROUGHNESS = 0.92;
+	SPECULAR = 0.08;"""
 
 const SOLID_RENDER := "cull_back, depth_draw_opaque"
 const SOLID_ALPHA := "if (tex.a < alpha_scissor) { discard; }"
@@ -91,12 +122,14 @@ const TRANSLUCENT_EXTRA := """
 """
 
 
-static func create(atlas: Texture2D, translucent: bool) -> ShaderMaterial:
+static func create(atlas: Texture2D, translucent: bool, lit := false) -> ShaderMaterial:
 	var shader := Shader.new()
+	var mode := "" if lit else "unshaded, "
+	var out := LIT_OUT if lit else UNSHADED_OUT
 	if translucent:
-		shader.code = SHADER_CODE % [TRANSLUCENT_RENDER, TRANSLUCENT_ALPHA, TRANSLUCENT_EXTRA]
+		shader.code = SHADER_CODE % [mode, TRANSLUCENT_RENDER, TRANSLUCENT_ALPHA, TRANSLUCENT_EXTRA, out]
 	else:
-		shader.code = SHADER_CODE % [SOLID_RENDER, SOLID_ALPHA, SOLID_EXTRA]
+		shader.code = SHADER_CODE % [mode, SOLID_RENDER, SOLID_ALPHA, SOLID_EXTRA, out]
 	var material := ShaderMaterial.new()
 	material.shader = shader
 	material.set_shader_parameter("atlas", atlas)
