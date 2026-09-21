@@ -21,23 +21,29 @@ func setup(api) -> void:
 	api.register_feature("conifer", {"type": "tree", "trunk": "base:spruce_log",
 		"leaves": "base:spruce_leaves", "height": [7, 11], "shape": "cone"})
 	api.register_feature("rock", {"type": "boulder", "block": "base:stone", "radius": [1, 2]})
-	# Model trees. One canopy block carrying a glTF several blocks wide, instead of a cloud of leaf
-	# cubes - the strongest single signal in the picture, and the engine already renders model blocks
-	# at whatever size the model is. Which silhouette is the question being asked. (2026-09-21)
-	# Spire by default: it is the silhouette that was chosen, and a build somebody opens by hand has no
-	# environment variables set. The lab still overrides it to compare the others. (2026-09-21)
-	_canopy = String(OS.get_environment("QW_LOOK_TREE"))
-	var canopy := _canopy
-	if canopy.is_empty() and OS.get_environment("QW_LOOK_CUBE_TREES") != "1":
-		canopy = "spire"
-	_canopy = canopy
-	if not canopy.is_empty():
-		api.register_block("canopy", {"display_name": "Canopy", "render": "model",
-			"model": "models/tree_%s.glb" % canopy, "drops": "", "hardness": 0.2})
+	# Model trees, six of them: three silhouettes at two sizes, each its own canopy block, picked at
+	# random per tree along with a trunk height.
+	#
+	# **A wood where every tree is the same tree is the thing that reads as generated.** One shape
+	# repeated across a hillside looks like wallpaper however good the shape is - the eye picks up the
+	# repetition long before it judges the silhouette. Varying shape, size, trunk height and the green
+	# itself costs nothing at runtime: they are all still one model instance per tree. (2026-09-22)
+	if OS.get_environment("QW_LOOK_CUBE_TREES") != "1":
+		var only := String(OS.get_environment("QW_LOOK_TREE"))
+		for shape in ["round", "spire", "clump"]:
+			if not only.is_empty() and shape != only:
+				continue
+			for size in 2:
+				var name := "%s_%d" % [shape, size]
+				api.register_block("canopy_" + name, {"display_name": "Canopy", "render": "model",
+					"model": "models/tree_%s.glb" % name, "drops": "", "hardness": 0.2})
+				_canopies.append(api.require_block("lookbook:canopy_" + name))
+		_canopy = "models"
 		api.register_feature("modeltree", func(writer, origin: Vector3i, rng):
 			var trunk: int = api.require_block("base:birch_log")
-			var head: int = api.require_block("lookbook:canopy")
-			var height: int = 3 + (rng.randi() % 3)
+			var head: int = _canopies[rng.randi() % _canopies.size()]
+			# Taller trunks under the bigger canopies, or a large head sits on the ground.
+			var height: int = 2 + (rng.randi() % 4)
 			# Writer.set_block takes separate coordinates, not a Vector3i.
 			for dy in height:
 				writer.set_block(origin.x, origin.y + dy, origin.z, trunk)
@@ -89,6 +95,8 @@ func setup(api) -> void:
 var _found := Vector3.INF
 ## Which canopy model the trees use ("" for the built-in cube trees).
 var _canopy := ""
+## The canopy block ids a tree may be built with.
+var _canopies: Array[int] = []
 
 
 func _viewpoint(api) -> Vector3:

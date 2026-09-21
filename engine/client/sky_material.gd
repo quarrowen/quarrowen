@@ -57,11 +57,17 @@ void sky() {
 				float high = texture(cloud_noise, plane * 0.055 + drift * 0.06).r;
 				float low_layer = texture(cloud_noise, plane * 0.1 + drift * 0.1 + vec2(high * 0.08)).r;
 				float edge = mix(0.66, 0.28, cloudiness);
-				float density = smoothstep(edge, edge + 0.10, low_layer);
-				density = mix(density, smoothstep(edge - 0.06, edge + 0.20, low_layer) * 0.55, 0.45);
-				density = clamp(density * 1.35, 0.0, 1.0) * smoothstep(0.0, 0.16, u);
+				// Cumulus, not cirrus: a hard core with a thin fringe rather than a wide soft ramp. A
+				// wide smoothstep can only ever give you haze. (2026-09-22)
+				float density = smoothstep(edge, edge + 0.05, low_layer);
+				density = mix(density, smoothstep(edge - 0.03, edge + 0.13, low_layer) * 0.4, 0.28);
+				density = clamp(density * 1.5, 0.0, 1.0) * smoothstep(0.0, 0.13, u);
 				float towards = max(dot(normalize(vec3(d.x, 0.35, d.z)), normalize(sun_direction)), 0.0);
-				vec3 lit = mix(vec3(0.45, 0.48, 0.55), sun_tint * 1.35, pow(towards, 1.6));
+				// Bright where the sun strikes, grey underneath. Looking *up* at a cloud you mostly see
+				// its base, which is the shaded side - that greyness is what gives a cloud its bulk.
+				float under = 1.0 - smoothstep(0.1, 0.55, u);
+				vec3 lit = mix(vec3(0.62, 0.65, 0.72), sun_tint * 1.5, pow(towards, 1.3));
+				lit = mix(lit, vec3(0.38, 0.40, 0.47), under * 0.55);
 				lit = mix(lit * 0.35, lit, daylight);
 				lit += sun_tint * pow(towards, 8.0) * (1.0 - density) * daylight * 0.8;
 				COLOR = lit;

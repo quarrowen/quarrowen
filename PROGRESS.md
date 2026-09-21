@@ -3557,3 +3557,41 @@ pack, where every texel has a normal map and a roughness map; that is what makes
 metal look like metal. Ours are flat generated colour, so every surface is uniformly matte however
 good the lighting gets. That is the next real lever, and it is content work in `generate_textures.gd`
 rather than renderer work.
+
+## Comparing against a reference, properly (2026-09-22)
+
+The user supplied two screenshots of the shader pack they had been comparing us to. **I could not see
+them until then** - `WebFetch` turns a page into text, so images never reach me, and I had been
+working from a feature list while saying "close the gap" as though I could see one. Downloading them
+and converting to PNG (`sips`) made them readable, which is worth remembering: *ask for the image
+file, not the page.*
+
+Four differences, and none of them were what I had been working on:
+
+1. **Their water mirrors the world.** You can see the far bank in it. Ours refracted and tinted the
+   sky and reflected nothing at all.
+2. **Their clouds are cumulus** with shaded undersides. Ours were thin cirrus streaks.
+3. **Their scene has contrast.** Deep shade under the trees, bright lit grass. Ours was uniformly
+   bright green - **our ambient was drowning the very shadows the preset exists to cast.**
+4. Warmer light.
+
+All four addressed:
+
+- **Ambient 0.95 -> 0.40, sun 1.35 -> 2.6.** The single biggest improvement of the day, and it was
+  undoing something I had done myself: lighting a scene mostly from the sky means nothing has a lit
+  side and a dark side.
+- **Water marches a reflection ray through the depth buffer** - sixteen steps, fading at the screen
+  edges where the information is not there. Godot's own SSR cannot help: it runs on opaque geometry
+  and water is transparent.
+- **Clouds got a hard core, a thin fringe and a grey underside.** A wide smoothstep can only ever
+  give you haze; looking up at a cloud you mostly see its shaded base, and that greyness is what
+  gives it bulk.
+- **Trees are varied**, on the user's suggestion and it was a good one: three silhouettes at two
+  sizes, random per tree along with trunk height and a slightly different green. A wood where every
+  tree is the same tree reads as generated however good the tree is - the eye catches the repetition
+  long before it judges the shape. Still one model instance per tree, so it costs nothing.
+
+**Still missing, and now the biggest thing left:** our textures carry no material data. A pack like
+that one is paired with a PBR resource pack where every texel has a normal and a roughness map. Ours
+are flat generated colour, so every surface is uniformly matte no matter how good the lighting is.
+That is content work in `generate_textures.gd`, and Phase 4 regenerates every texture anyway.

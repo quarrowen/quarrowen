@@ -2375,7 +2375,11 @@ func _update_time(delta: float) -> void:
 		# Weather thickens the deck: a storm is a sky you can see from indoors.
 		_cloud_sky.set_shader_parameter("cloudiness", clampf(0.42 + float(weather_now.get("amount", 0.0)) * 0.55, 0.0, 1.0))
 		# Ambient still has to come off the sky, and the sky is dark at night - see below.
-		_environment.ambient_light_energy = lerpf(0.55, 0.95, clampf(t, 0.0, 1.0))
+		# **Ambient was drowning the sun.** At 0.95 every surface got most of its light from the sky
+		# regardless of facing, so the shadows the preset exists to cast had almost nothing to darken
+		# and the whole world came out one flat bright green. A lit scene wants most of its light from
+		# one direction and only a fill from the sky. (2026-09-22)
+		_environment.ambient_light_energy = lerpf(0.42, 0.40, clampf(t, 0.0, 1.0))
 		_environment.ambient_light_sky_contribution = clampf(t * 1.3, 0.12, 1.0)
 		_environment.ambient_light_color = Color(0.55, 0.62, 0.85).lerp(Color.WHITE, clampf(t, 0.0, 1.0))
 	_environment.fog_light_color = horizon
@@ -2417,7 +2421,7 @@ func _aim_the_sky(sun_direction: Vector3, sun_tint: Color, day: float) -> void:
 		_sun.look_at_from_position(sun_direction * 100.0, Vector3.ZERO, _up_for(sun_direction))
 		_sun.light_color = sun_tint
 		# Fades out as it sets rather than switching off, or dusk happens in one frame.
-		_sun.light_energy = (1.35 if _realistic else 0.75) * clampf(above * 4.0 + 0.2, 0.0, 1.0)
+		_sun.light_energy = (2.6 if _realistic else 0.75) * clampf(above * 4.0 + 0.2, 0.0, 1.0)
 	else:
 		_sun.visible = false
 	if OS.get_environment("QW_SKY_DEBUG") == "1" and Engine.get_process_frames() % 180 == 0:
