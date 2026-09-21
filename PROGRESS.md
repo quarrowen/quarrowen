@@ -3278,3 +3278,37 @@ waiting to see. Bob now walks until he has moved four blocks, with a timeout as 
 
 Three clean fallback runs and a native run since. The lesson generalises: when a test waits for an
 event but something *else* in the test is on a stopwatch, the stopwatch is still the bug.
+
+## The look, round one: five styles, and what they proved (2026-09-21)
+
+Built a **look lab** so the decision is made from pictures rather than prose: `tests/mods/lookbook`
+(one landscape, using base's own blocks and the engine's biome generator, with the viewpoint *found*
+rather than hardcoded), `tools/look_lab.gd` (repaints the dozen textures a landscape shows, in a
+named style), and `tools/look_shots.sh` (renders the same frame under each and restores the real
+textures afterwards).
+
+Five styles rendered: current, flat (no pixel noise at all), soft (calmer pixels), storybook (muted,
+brush-banded), crisp (32x32 with per-face shading).
+
+**The user picked crisp, and said it still looks very Minecraft-y - which is the important finding.**
+All five read as the same game. Texture style is the *weakest* of the levers, and a round of palette
+work would have been a round wasted.
+
+Then tested the shape hypothesis: a generation pass swapping the top block for a slab wherever the
+ground steps down by one, so slopes ramp instead of stepping. It works, and **it looks worse** -
+scattered half-steps make a hillside busier rather than smoother, because the rule fires on isolated
+columns instead of along a run. A real negative result, kept here so it is not tried again blind.
+
+What is actually carrying the resemblance, in the order they shout:
+
+1. **Cube trees.** A stacked-cube trunk under a blob of leaf-cubes is the single strongest signal.
+   The engine already renders `render: "model"` glTF blocks, so this is content, not engine work.
+2. **The two-tone cliff edge** - green top, brown side, repeated up every slope.
+3. **The HUD** - a row of hearts over a hotbar. Cheap to restyle and very recognisable.
+4. **The first-person arm** in the corner.
+5. **The flat blue sky** and its fog curve.
+
+Notably *not* on that list: pixel resolution, palette, and the block grid itself. Which means the
+look is winnable without touching physics or the mesher.
+
+Next experiment, before `base` is written: model trees and a restyled HUD and sky, on top of crisp.

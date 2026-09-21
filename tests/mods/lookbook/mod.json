@@ -1,0 +1,10 @@
+{
+	"id": "lookbook",
+	"name": "Lookbook",
+	"version": "1.0.0",
+	"description": "A landscape that exists to be photographed, for deciding what Quarrowen should look like.",
+	"kind": "game",
+	"authors": ["Quarrowen"],
+	"engine": "^1.0",
+	"depends": ["base@^1.0"]
+}
