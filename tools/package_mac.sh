@@ -40,6 +40,19 @@ if [ ! -d "$app/Contents/MacOS" ] || [ -z "$(ls -A "$app/Contents/MacOS" 2>/dev/
 fi
 rm -f "$log"
 rsync -a --delete --exclude "*.import" --exclude "*.uid" --exclude ".DS_Store" mods/ "$app/Contents/Resources/mods/"
+# Extra mods to bundle, as paths: QW_EXTRA_MODS="tests/mods/lookbook".
+#
+# For a build somebody is meant to *stand in* rather than ship. `mods/` holds `base` alone until the
+# 1.0 content is written, and base is a library with no game - so a plain package has nothing to load
+# and nothing to measure a frame rate against. (2026-09-21)
+for extra in ${QW_EXTRA_MODS:-}; do
+  if [ -d "$extra" ]; then
+    rsync -a --exclude "*.import" --exclude "*.uid" --exclude ".DS_Store" "$extra" "$app/Contents/Resources/mods/"
+    echo "   bundled $extra"
+  else
+    echo "   QW_EXTRA_MODS: no such folder '$extra'" >&2
+  fi
+done
 
 # Adding the mods invalidated the export's signature, so the bundle is signed again either way.
 identity="${QUARROWEN_SIGN_IDENTITY:-auto}"

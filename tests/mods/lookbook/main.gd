@@ -24,7 +24,11 @@ func setup(api) -> void:
 	# Model trees. One canopy block carrying a glTF several blocks wide, instead of a cloud of leaf
 	# cubes - the strongest single signal in the picture, and the engine already renders model blocks
 	# at whatever size the model is. Which silhouette is the question being asked. (2026-09-21)
+	# Spire by default: it is the silhouette that was chosen, and a build somebody opens by hand has no
+	# environment variables set. The lab still overrides it to compare the others. (2026-09-21)
 	var canopy := String(OS.get_environment("QW_LOOK_TREE"))
+	if canopy.is_empty() and OS.get_environment("QW_LOOK_CUBE_TREES") != "1":
+		canopy = "spire"
 	if not canopy.is_empty():
 		api.register_block("canopy", {"display_name": "Canopy", "render": "model",
 			"model": "models/tree_%s.glb" % canopy, "drops": "", "hardness": 0.2})
