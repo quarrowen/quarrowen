@@ -3454,3 +3454,34 @@ frame capture rather than another screenshot; guessing from renders has stopped 
 Also still open from before, and now more pressing: **nothing here has been measured on an M1 Air.**
 The iPad Air 5 is the same M1 with one more GPU core and slightly fewer pixels than the base MacBook
 Air, so the Air remains the machine that decides whether this preset is real.
+
+## 22 fps on an M1 Max was SSAO, and SSAO was redundant (2026-09-21)
+
+The user measured 22-25 fps in the realistic preset on an M1 Max, and noted that a well-known shader
+pack for the genre's best-known game runs happily on an M1 Air. That is the right thing to notice: a
+24-core GPU struggling where an 8-core one does not is not a preset being expensive, it is something
+being wrong.
+
+`tests/screenshot.gd` takes `--fps=N` now: hold the view, report avg, median, worst and best. A
+picture says what a setting looks like and nothing about whether anyone can play with it on.
+`QW_REAL_OFF=ssil,ssao,shadows,lit,sky` turns off one part at a time.
+
+**The finding: SSAO, and it was doing a job that was already done.** The mesher bakes ambient
+occlusion per vertex from the actual neighbouring blocks - exactly, and for free - and the lit shader
+feeds that straight into `AO`. Screen-space AO then guesses at the same thing from the depth buffer,
+worse, for about a third of the frame. It is off in the preset now. Measured with 30s of settling and
+10s samples: **fancy 60 median, realistic 60 median, realistic with SSAO back on 41 median.**
+
+**Two process notes, because both cost time:**
+
+- **The first bisect was noise and I drew a conclusion from it.** Sampling started before the world
+  had finished meshing, so the numbers moved 30 fps between identical runs and the "ssao 60 / shadows
+  32" table was meaningless. Settling for 30s first made it reproducible. A measurement that has not
+  been repeated is not a measurement.
+- **Even settled, run-to-run variance is still ±15 fps** - one run had removing SSIL come out *slower*
+  than leaving it in, which cannot be true. Only differences the size of SSAO's are trustworthy here,
+  and part of the noise is certainly this machine running several Godot instances while measuring. Do
+  not bisect anything subtle with this harness as it stands.
+
+Still unmeasured: **the M1 Air**, which is the machine that actually decides. The iPad Air 5 is the
+same M1 with one more GPU core, so the Air remains the floor for both.

@@ -12,7 +12,7 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "name": "Camera"}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera"}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -208,7 +208,31 @@ func _ready() -> void:
 		await get_tree().create_timer(float(options.swing)).timeout
 	get_viewport().get_texture().get_image().save_png(options.out)
 	print("[screenshot] saved %s" % options.out)
+	# --fps=N: hold the same view for N seconds and report what it cost to draw. A picture says what a
+	# setting looks like and nothing about whether anyone can play with it on. (2026-09-21)
+	var seconds := float(options.get("fps", "0"))
+	if seconds > 0.0:
+		await _measure(seconds)
 	get_tree().quit()
+
+
+func _measure(seconds: float) -> void:
+	# A second of warm-up first: the frame after a screenshot is read back is never representative.
+	await get_tree().create_timer(1.0).timeout
+	var samples: Array[float] = []
+	var until := Time.get_ticks_msec() + int(seconds * 1000.0)
+	while Time.get_ticks_msec() < until:
+		await get_tree().process_frame
+		samples.append(float(Engine.get_frames_per_second()))
+	if samples.is_empty():
+		return
+	samples.sort()
+	var total := 0.0
+	for f in samples:
+		total += f
+	# The median as well as the mean: an average of 40 made of 60s and 15s is not 40 to play.
+	print("[fps] avg %.1f  median %.1f  worst %.1f  best %.1f  (%d samples)" % [
+		total / samples.size(), samples[samples.size() / 2], samples[0], samples[-1], samples.size()])
 
 
 func _meshed(client) -> void:

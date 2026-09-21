@@ -662,7 +662,7 @@ func _finish_content() -> void:
 	_atlas = TextureAtlas.build(images)
 	# The lit shader for the realistic preset; every other one keeps the unshaded shader, where the
 	# mesher's baked light is the final colour. (2026-09-21)
-	var lit := bool(graphics.value("realistic"))
+	var lit := bool(graphics.value("realistic")) and not GraphicsSettings.off("lit")
 	_solid_material = VoxelMaterial.create(_atlas.texture, false, lit)
 	_translucent_material = VoxelMaterial.create(_atlas.texture, true, lit)
 	_applied_daylight = -1.0
@@ -4083,7 +4083,7 @@ func light_the_sun() -> void:
 	for light in [_sun, _moon]:
 		if light == null:
 			continue
-		light.shadow_enabled = _realistic
+		light.shadow_enabled = _realistic and not GraphicsSettings.off("shadows")
 		light.directional_shadow_max_distance = 220.0
 		light.directional_shadow_blend_splits = true
 		# Softened, because a hard edge on a voxel world looks like a bug rather than a shadow.

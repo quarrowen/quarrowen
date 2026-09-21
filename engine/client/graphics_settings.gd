@@ -62,18 +62,34 @@ func apply_environment(env: Environment, viewport: Viewport) -> void:
 ## able to get it back from the settings screen without restarting.
 ##
 ## Sun shadows themselves live on the light, not here; see `light_the_sun` in game_client.gd.
+## Which parts of the realistic preset to leave off, for finding out what a frame is being spent on:
+##   QW_REAL_OFF=ssil,ssao,shadows,lit,sky
+## Empty in normal use. Bisecting beats guessing, and 22 fps on a 24-core M1 Max is not a preset being
+## expensive - it is something being wrong. (2026-09-21)
+static func off(part: String) -> bool:
+	return part in OS.get_environment("QW_REAL_OFF").split(",", false)
+
+
 static func apply_realism(env: Environment, on: bool) -> void:
 	# Light from the sky rather than a flat white wash is most of the difference: it makes the shaded
 	# side of things take the sky's colour instead of going evenly grey.
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY if on else Environment.AMBIENT_SOURCE_COLOR
+	var sky_ambient := on and not off("sky")
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY if sky_ambient else Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_energy = 0.9 if on else 0.55
-	env.ambient_light_sky_contribution = 1.0 if on else 0.0
-	env.ssao_enabled = on
+	env.ambient_light_sky_contribution = 1.0 if sky_ambient else 0.0
+	# **No SSAO.** It halved the frame rate on a 24-core M1 Max - 60 median down to 32, and switching
+	# it off alone put all of it back - which was never it being expensive so much as it being
+	# redundant: the mesher already bakes ambient occlusion per vertex from the actual neighbouring
+	# blocks, exactly, for free, and the lit shader feeds that in as AO. Computing it a second time by
+	# guessing at it from the depth buffer is worse and costs half the frame. (2026-09-21)
+	#
+	# Left switchable for measuring, off in the preset.
+	env.ssao_enabled = on and off("ssao+")
 	env.ssao_radius = 1.6
 	env.ssao_intensity = 1.8
 	env.ssao_power = 1.4
 	# Bounce light. The expensive one, and what stops shadowed ground reading as a flat dark patch.
-	env.ssil_enabled = on
+	env.ssil_enabled = on and not off("ssil")
 	env.ssil_intensity = 0.6
 	env.fog_sky_affect = 0.35 if on else 0.0
 	if on:
