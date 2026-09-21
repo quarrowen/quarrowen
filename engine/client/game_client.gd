@@ -29,6 +29,7 @@ const ModelLibrary = preload("res://engine/client/model_library.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const ItemRegistry = preload("res://engine/shared/item_registry.gd")
 const GraphicsSettings = preload("res://engine/client/graphics_settings.gd")
+const SkyMaterial = preload("res://engine/client/sky_material.gd")
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 const SettingsScreen = preload("res://engine/client/settings/settings_screen.gd")
 const FriendsPanel = preload("res://engine/client/social/friends_panel.gd")
@@ -261,6 +262,8 @@ var _sky_material: ProceduralSkyMaterial
 ## Kept beside the procedural one rather than replacing it, because the cheap presets want the cheap
 ## sky and a gradient costs nothing. (2026-09-21)
 var _physical_sky: PhysicalSkyMaterial
+## The realistic preset's own sky shader: scattering, clouds and stars together.
+var _cloud_sky: ShaderMaterial
 ## The starfield, built once and swapped in when it is dark enough to see it.
 var _stars: ImageTexture
 var _environment: Environment
@@ -2361,41 +2364,20 @@ func _update_time(delta: float) -> void:
 	_sky_material.sky_horizon_color = horizon
 	_sky_material.ground_horizon_color = horizon
 	_sky_material.ground_bottom_color = Color(0.02, 0.02, 0.04).lerp(Color(0.3, 0.4, 0.55), t)
-	if _physical_sky != null:
-		# Scattering does the colours itself from where the sun is, so the only thing worth driving is
-		# how thick the air is: more haze low in the sky at dawn and dusk, which is what makes a sunset
-		# a sunset rather than a blue sky with an orange lamp in it.
-		var low := 1.0 - clampf(absf(sun_direction.y) * 2.2, 0.0, 1.0)
-		_physical_sky.turbidity = lerpf(2.4, 9.0, low)
-		_physical_sky.mie_coefficient = lerpf(0.005, 0.022, low)
-		_physical_sky.rayleigh_coefficient = lerpf(2.0, 3.6, low)
-		# Night is not black: it is the ground glow plus whatever the moon is doing.
-		_physical_sky.ground_color = Color(0.03, 0.04, 0.06).lerp(Color(0.24, 0.3, 0.34), t)
-		# **The scattering is far dimmer than the gradient it replaced**, and Godot composites
-		# `night_sky` wherever the sky is dark - so at an energy of 1.0 a clear noon came out grey
-		# with the stars showing through, which reads as twilight. Turning the exposure up is the
-		# whole fix; the stars then fade on their own as the sky brightens, which is what they do.
-		# (2026-09-21)
-		_physical_sky.energy_multiplier = lerpf(0.05, 2.0, clampf(t * 1.6, 0.0, 1.0))
-		# **Stars are composited whatever the sun is doing**, so they have to be taken away rather than
-		# left to fade: at noon they were snow on a white sky. Swapping one property is cheaper than a
-		# per-frame fade and the change happens while nobody can see either state. (2026-09-21)
-		# **A floor under the night.** Ambient comes from the sky in this preset, so when the sky goes
-		# dark there is nothing left lighting the world and dusk renders as a black screen with a
-		# hotbar on it. The flat presets never had this problem because their ambient is a constant.
-		# A game you cannot see at night is broken, however physically honest the reason. (2026-09-21)
-		# Energy is the wrong lever: ambient takes its *colour* from the sky here, and a dark sky times
-		# any energy at all is still dark. Leaning on the constant colour instead as the sky fades is
-		# what puts a floor under the night.
+	if _cloud_sky != null:
+		_cloud_sky.set_shader_parameter("sun_direction", sun_direction)
+		_cloud_sky.set_shader_parameter("sun_tint", Vector3(sun_tint.r, sun_tint.g, sun_tint.b))
+		_cloud_sky.set_shader_parameter("daylight", _daylight)
+		# Clouds drift on their own clock rather than on the day's, so they keep moving while the
+		# light holds steady through the middle of the day.
+		_cloud_sky.set_shader_parameter("wind_offset", float(Time.get_ticks_msec() / 100) * 0.0012)
+		var weather_now: Dictionary = _weather.sky_tint() if _weather != null else {}
+		# Weather thickens the deck: a storm is a sky you can see from indoors.
+		_cloud_sky.set_shader_parameter("cloudiness", clampf(0.42 + float(weather_now.get("amount", 0.0)) * 0.55, 0.0, 1.0))
+		# Ambient still has to come off the sky, and the sky is dark at night - see below.
 		_environment.ambient_light_energy = lerpf(0.55, 0.95, clampf(t, 0.0, 1.0))
 		_environment.ambient_light_sky_contribution = clampf(t * 1.3, 0.12, 1.0)
 		_environment.ambient_light_color = Color(0.55, 0.62, 0.85).lerp(Color.WHITE, clampf(t, 0.0, 1.0))
-		var dark := t < 0.30
-		if dark != (_physical_sky.night_sky != null):
-			_physical_sky.night_sky = _stars if dark else null
-		var haze: Dictionary = _weather.sky_tint() if _weather != null else {}
-		if not haze.is_empty():
-			_physical_sky.turbidity = lerpf(float(_physical_sky.turbidity), 14.0, float(haze.amount))
 	_environment.fog_light_color = horizon
 	for material in [_solid_material, _translucent_material]:
 		material.set_shader_parameter("sky_color", Vector3(_sky_material.sky_top_color.r, _sky_material.sky_top_color.g, _sky_material.sky_top_color.b))
@@ -3443,18 +3425,17 @@ func _build_scene() -> void:
 	# which now moves, so dawn and sunset come out of the physics rather than out of a colour ramp -
 	# which is the whole reason to do it this way rather than tint a gradient more carefully.
 	if bool(graphics.value("realistic")) and not GraphicsSettings.off("sky"):
-		var physical := PhysicalSkyMaterial.new()
-		physical.sun_disk_scale = 6.0
-		physical.turbidity = 3.0
-		physical.ground_color = Color(0.22, 0.27, 0.3)
-		_physical_sky = physical
-		sky.sky_material = physical
-		if OS.get_environment("QW_SKY_NOSTARS") != "1":
-			_stars = _night_sky()
+		_stars = _night_sky()
+		_cloud_sky = SkyMaterial.create(_stars)
+		sky.sky_material = _cloud_sky
 		# The sky lights the world in this preset (ambient comes from it), so it is worth resolving
 		# properly - a coarse radiance map makes shaded faces flicker as the sun moves.
-		sky.radiance_size = Sky.RADIANCE_SIZE_128
-		sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
+		# **A sky whose uniforms change every frame is a sky Godot re-bakes every frame**, and the
+		# radiance cubemap is six faces of it. INCREMENTAL is for a sky that mostly sits still;
+		# REALTIME is the mode for one that moves, and 64 is plenty for light that is only ever used
+		# as ambient. Measured: the clouds cost 45 fps before this and a few after. (2026-09-21)
+		sky.radiance_size = Sky.RADIANCE_SIZE_64
+		sky.process_mode = Sky.PROCESS_MODE_REALTIME
 	var env := Environment.new()
 	_environment = env
 	env.background_mode = Environment.BG_SKY

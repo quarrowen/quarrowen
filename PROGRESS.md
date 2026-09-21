@@ -3522,3 +3522,38 @@ reason.
 
 Starfield: 9000 stars, sphere-weighted, at 4096x2048 - resolution is the whole trick, since at
 1024x512 each star is one texel stretched across degrees of sky and reads as falling snow.
+
+## Clouds, and three measurements that were measuring nothing (2026-09-21)
+
+The realistic preset has its own sky shader now (`engine/client/sky_material.gd`): an analytic
+scattering gradient, a Mie glow around the sun that makes sunsets fall out of the sun's own position,
+the starfield, and **two layers of cloud** - which was the single biggest thing missing, because a
+real sky is mostly cloud and ours was an empty gradient.
+
+Clouds are projected onto a flat deck overhead rather than onto the dome, so they spread towards the
+horizon the way a cloud layer does instead of sitting on the sky like wallpaper. Noise comes from a
+seamless `NoiseTexture2D` built once, sampled twice.
+
+**The performance story is the useful part, and most of it was me measuring wrongly:**
+
+- Hand-rolled fbm cost 32 `sin()` per pixel across the whole sky. Measured 15 fps median. Real.
+- Moving it to the half-resolution pass: 21. Real, and the right thing to do - a cloud has no detail
+  at a pixel.
+- Baking the noise to a texture: 27. Real.
+- Then `PROCESS_MODE_REALTIME` and a smaller radiance map: 25, i.e. nothing. **And it turned out I
+  had broken the shader**: a `sky()` function may not `return`, which I had used for the half-res
+  branch, so it compiled to nothing and drew a black sky. Three of those numbers were measuring a
+  shader that drew nothing at all, and one of them looked like an improvement.
+- Structured as if/else: **37 median, against 33 for no custom sky at all under identical settings.**
+  The clouds are free. The 45 fps I spent three rounds chasing never existed.
+
+Two lessons, both already learned today and both learned again: **measure back to back with
+identical settings** (the 60-median runs settled for 30s, these for 18s, and I compared them anyway),
+and **look at the picture before trusting the number** - a black sky renders fast.
+
+**What is still missing against a mature shader pack**, now that lighting and sky are roughly right:
+our textures carry no material data at all. A shader pack is normally paired with a PBR resource
+pack, where every texel has a normal map and a roughness map; that is what makes stone look rough and
+metal look like metal. Ours are flat generated colour, so every surface is uniformly matte however
+good the lighting gets. That is the next real lever, and it is content work in `generate_textures.gd`
+rather than renderer work.
