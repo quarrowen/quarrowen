@@ -31,7 +31,7 @@ static func user_mods() -> String:
 	return UserPaths.path("mods")
 ## Manifest keys the engine reads (others are reported by the validator as possible typos).
 const KNOWN_KEYS := ["id", "name", "version", "description", "authors", "license", "homepage", "kind", "main", "engine",
-	"depends", "optional_depends", "conflicts", "tags", "icon", "world"]
+	"depends", "optional_depends", "conflicts", "tags", "icon", "world", "excludes"]
 ## What a mod is for, so the mod list can group it: a game to play, an add-on for one, a library other
 ## mods build on, or an example to read.
 const KINDS := ["game", "addon", "library", "example"]
@@ -138,6 +138,16 @@ static func read_manifest(mod_dir: String) -> Dictionary:
 	manifest.depends = parse_dependencies(manifest.get("depends", []))
 	manifest.optional_depends = parse_dependencies(manifest.get("optional_depends", []))
 	manifest.conflicts = parse_dependencies(manifest.get("conflicts", []))
+	# Names this mod refuses from the mods it depends on: "base:cobalt_*", "base:sunstone_ore". Read
+	# here because the loader knows every manifest *before* any mod registers anything, which is the
+	# only moment an exclusion can be applied - a game loads after what it depends on, so by the time
+	# its setup() runs the thing is already registered. (2026-09-21)
+	var excludes := []
+	for pattern in (manifest.get("excludes", []) if manifest.get("excludes") is Array else []):
+		var text := String(pattern).strip_edges()
+		if not text.is_empty():
+			excludes.append(text.left(128))
+	manifest.excludes = excludes
 	# A map: an authored world the mod ships, restored on the first start of a world using it. Named in
 	# the manifest rather than found by magic filename, so a reader can see that a mod brings a world
 	# with it - which is a much bigger claim than bringing blocks.

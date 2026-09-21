@@ -609,7 +609,7 @@ to somebody's creature, a slot to their machine. **Additive only.** Adding a poo
 three mods can do it safely; "set health to 40" means last-loaded wins, which is a conflict system
 nobody asked to design.
 
-**25. Excludes.** A game wanting 80% of a pack must be able to refuse the rest. Not as
+**25. Excludes — built.** A game wanting 80% of a pack must be able to refuse the rest. Not as
 `remove_block()`: registering and then deleting shifts every id after it, leaves every recipe and loot
 table that referenced it dangling, and cannot work anyway because a game loads *after* the mod it
 depends on. Instead, **declared in `mod.json` and read before any mod registers anything**:
@@ -618,9 +618,11 @@ depends on. Instead, **declared in `mod.json` and read before any mod registers 
      "excludes": ["base:cobalt_*", "base:sunstone_ore", "#base:charms"]}
 
 Never registered is safe where registered-then-removed is not: no id churn, and anything referencing a
-missing name is dropped with a warning at load, which is when you want to hear about it. Wildcards and
-tags do the bulk work. `remove_mod` is the same mechanism with a wider wildcard, and mostly a non-need
-- if you do not want a mod, do not depend on it.
+missing name is dropped with a **warning** at load - not an error, because the pack that wrote the
+recipe did nothing wrong, a game downstream refused an ingredient. Seven registration points make that
+distinction. Wildcards do the bulk work; **tags do not**, because a tag is registered at runtime and
+exclusions are applied before anything registers. `remove_mod` is the same mechanism with a wider
+wildcard, and mostly a non-need - if you do not want a mod, do not depend on it.
 
 **26. Flight.** Mob AI has `can_swim` and `climb` and nothing for flying: no air movement mode, no air
 pathfinding. Birds need it, and it is engine work rather than content.

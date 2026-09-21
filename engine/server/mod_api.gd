@@ -241,6 +241,8 @@ func set_server_info(values: Dictionary) -> void:
 ## `contact_damage: {amount, interval, cause}` hurts players and mobs whose body is inside the block
 ## (lava).
 func register_block(block_name: String, def: Dictionary) -> int:
+	if _server.is_excluded(_qualify(block_name)):
+		return -1  # a mod asked for this to be left out (see "excludes" in mod.json)
 	var d := def.duplicate(true)
 	d.name = _qualify(block_name)
 	var faces := BlockRegistry.expand_textures(def.get("textures", ""))
@@ -274,6 +276,8 @@ func register_block(block_name: String, def: Dictionary) -> int:
 ## Registers a non-block item. `icon` is a texture path; `usable` makes right-click fire item_use.
 ## Returns the item id (>= 256), or -1.
 func register_item(item_name: String, def: Dictionary) -> int:
+	if _server.is_excluded(_qualify(item_name)):
+		return -1  # a mod asked for this to be left out (see "excludes" in mod.json)
 	var d := def.duplicate(true)
 	d.name = _qualify(item_name)
 	for key in ["icon", "model", "armor_texture"]:
@@ -294,6 +298,8 @@ func register_item(item_name: String, def: Dictionary) -> int:
 ## sprite paths are relative to the mod folder; sound names without a ":" are this mod's.
 ## Returns the type id, or -1.
 func register_entity(entity_name: String, def: Dictionary) -> int:
+	if _server.is_excluded(_qualify(entity_name)):
+		return -1  # a mod asked for this to be left out (see "excludes" in mod.json)
 	var d := def.duplicate(true)
 	d.name = _qualify(entity_name)
 	for key in ["model", "sprite"]:
@@ -522,7 +528,8 @@ func play_effect(effect_name: String, position: Vector3, options := {}) -> void:
 func register_block_tick(block_name: String, handler: Callable, options := {}) -> void:
 	var id := block(block_name)
 	if id <= 0:
-		push_error("[%s] register_block_tick: unknown block '%s'" % [mod_id, block_name])
+		if not _excluded_not_missing(block_name, "block tick"):
+			push_error("[%s] register_block_tick: unknown block '%s'" % [mod_id, block_name])
 		return
 	_server.block_ticks.register(id, handler, options, mod_id)
 
@@ -677,7 +684,8 @@ func make_noise(position: Vector3, radius: float, source = null) -> void:
 func add_spawn_rule(def: Dictionary) -> void:
 	var type_id := entity_type(String(def.get("entity", "")))
 	if type_id < 0:
-		push_error("[%s] add_spawn_rule: unknown entity %s" % [mod_id, def.get("entity")])
+		if not _excluded_not_missing(String(def.get("entity", "")), "spawn rule"):
+			push_error("[%s] add_spawn_rule: unknown entity %s" % [mod_id, def.get("entity")])
 		return
 	var rule := def.duplicate()
 	rule.entity = type_id
@@ -769,12 +777,21 @@ func _register_recipe_now(inputs: Dictionary, output: String, count := 1, option
 	for input_name: String in inputs:
 		var id := item(input_name)
 		if id <= 0:
-			push_error("[%s] Recipe input '%s' is unknown" % [mod_id, input_name])
+			# Excluded is not the same as wrong: the pack that wrote this recipe did nothing
+			# incorrect, a game downstream refused the ingredient. A warning, so the pack still
+			# validates clean. (2026-09-21)
+			if _server.is_excluded(_qualify_ref(input_name)):
+				warn("recipe for '%s' dropped: '%s' was excluded" % [output, input_name])
+			else:
+				push_error("[%s] Recipe input '%s' is unknown" % [mod_id, input_name])
 			return
 		resolved[id] = int(inputs[input_name])
 	var out := item(output)
 	if out <= 0:
-		push_error("[%s] Recipe output '%s' is unknown" % [mod_id, output])
+		if _server.is_excluded(_qualify_ref(output)):
+			warn("recipe dropped: its output '%s' was excluded" % output)
+		else:
+			push_error("[%s] Recipe output '%s' is unknown" % [mod_id, output])
 		return
 	var recipe_id := str(options.get("id", output.get_slice(":", 1) if output.contains(":") else output))
 	_server.add_recipe(resolved, out, count, String(options.get("station", "")),
@@ -929,7 +946,8 @@ func register_process(kind: String, input: String, output: String, count := 1, s
 	var input_id := item(input)
 	var output_id := item(output)
 	if input_id <= 0 or output_id <= 0:
-		push_error("[%s] Process '%s': unknown item '%s' or '%s'" % [mod_id, kind, input, output])
+		if not (_excluded_not_missing(input, "process") or _excluded_not_missing(output, "process")):
+			push_error("[%s] Process '%s': unknown item '%s' or '%s'" % [mod_id, kind, input, output])
 		return
 	_server.add_process(kind, input_id, output_id, count, seconds)
 
@@ -1634,7 +1652,8 @@ func multiblock_at(controller: Vector3i, pattern_name := "", realm_id := "") -> 
 func register_liquid(block_name: String, def := {}) -> void:
 	var id := block(block_name)
 	if id <= 0:
-		push_error("[%s] register_liquid: unknown block '%s'" % [mod_id, block_name])
+		if not _excluded_not_missing(block_name, "liquid"):
+			push_error("[%s] register_liquid: unknown block '%s'" % [mod_id, block_name])
 		return
 	var settings := def.duplicate()
 	settings.name = _qualify_ref(block_name)
@@ -1664,7 +1683,9 @@ func register_liquid_meeting(a_name: String, b_name: String, result_name: String
 	var b := block(b_name)
 	var result := block(result_name)
 	if a <= 0 or b <= 0 or result <= 0:
-		push_error("[%s] register_liquid_meeting: unknown block in %s + %s -> %s" % [mod_id, a_name, b_name, result_name])
+		if not (_excluded_not_missing(a_name, "liquid meeting") or _excluded_not_missing(b_name, "liquid meeting")
+				or _excluded_not_missing(result_name, "liquid meeting")):
+			push_error("[%s] register_liquid_meeting: unknown block in %s + %s -> %s" % [mod_id, a_name, b_name, result_name])
 		return
 	_server.realm.liquids.register_meeting(a, b, result)
 
@@ -1920,7 +1941,8 @@ func tags_of(name: String) -> Array:
 func register_signal(block_name: String, handler: Callable) -> void:
 	var id := block(block_name)
 	if id <= 0:
-		push_error("[%s] register_signal: unknown block '%s'" % [mod_id, block_name])
+		if not _excluded_not_missing(block_name, "signal handler"):
+			push_error("[%s] register_signal: unknown block '%s'" % [mod_id, block_name])
 		return
 	_server.realm.signals.register(id, handler, mod_id)  # one shared table; every realm reads it
 
@@ -2668,6 +2690,17 @@ func _qualify_condition(attack: Dictionary) -> void:
 	var key := "condition" if condition.has("condition") else "name"
 	if condition.has(key):
 		condition[key] = _qualify_ref(String(condition[key]))
+
+
+## Whether a name is missing *because a mod excluded it* rather than because somebody got it wrong,
+## and says so quietly if it is. Seven registration points refuse an unknown name, and all seven should
+## treat "the game downstream refused this" as a different thing from "this is a typo" - otherwise a
+## pack fails validation for a decision somebody else made. (2026-09-21)
+func _excluded_not_missing(name: String, what: String) -> bool:
+	if not _server.is_excluded(_qualify_ref(name)):
+		return false
+	warn("%s skipped: '%s' was excluded" % [what, name])
+	return true
 
 
 func _qualify(local_name: String) -> String:

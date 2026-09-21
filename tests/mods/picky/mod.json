@@ -1,0 +1,12 @@
+{
+	"id": "picky",
+	"name": "Picky (tests)",
+	"version": "1.0.0",
+	"description": "Takes the Proving Ground but refuses part of it, to test excludes.",
+	"kind": "game",
+	"authors": ["Quarrowen"],
+	"engine": "^1.0",
+	"depends": ["proving@^1.0"],
+	"excludes": ["proving:lamp", "proving:slime*", "proving:grain"],
+	"main": "main.gd"
+}

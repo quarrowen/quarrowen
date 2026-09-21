@@ -691,6 +691,13 @@ func _load_mods(requested: PackedStringArray, extra_dirs: PackedStringArray) -> 
 	for manifest in order:
 		dev_log.add_mod_dir(manifest.id, manifest.dir)
 		mod_manifests[manifest.id] = manifest
+		# Gathered before anything registers, which is the whole point: never-registered is safe where
+		# registered-then-removed is not. Taking a block out afterwards shifts every id behind it and
+		# leaves every recipe that named it dangling.
+		for pattern in (manifest.excludes if manifest.get("excludes") is Array else []):
+			_excludes.append(String(pattern))
+	if not _excludes.is_empty():
+		print("[server] excluding %s" % ", ".join(_excludes))
 	# Which mod is the game is decided before any of them run, not after: a mod asking api.is_game() in
 	# its own setup() - to decide whether to drive the music, say - would otherwise always be told no,
 	# and would be told it silently. Nothing here needs a mod to have started; it is the requested list
@@ -806,6 +813,23 @@ func add_handler(event: String, handler: Callable, priority: int, owner := "engi
 	list.append([priority, handler, owner])
 	list.sort_custom(func(a, b): return a[0] > b[0])
 	_handlers[event] = list
+
+
+## Names a mod asked to be left out, from every manifest's `excludes`. Patterns may end in "*".
+var _excludes: Array = []
+
+
+## Whether a fully qualified name was excluded by some mod's manifest. Checked at registration, so an
+## excluded thing is never given an id at all - and anything that later names it simply finds nothing,
+## which is a warning rather than a dangling reference to an id that moved. (2026-09-21)
+func is_excluded(full_name: String) -> bool:
+	for pattern: String in _excludes:
+		if pattern.ends_with("*"):
+			if full_name.begins_with(pattern.left(pattern.length() - 1)):
+				return true
+		elif full_name == pattern:
+			return true
+	return false
 
 
 func emit(event: String, payload: Dictionary) -> Dictionary:

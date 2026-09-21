@@ -2890,3 +2890,26 @@ never do is hand back a value that corrupts quietly, which is exactly what -1 di
 
 If that trade ever looks wrong, the stricter version is available now that attribution works: a mod
 whose setup raised errors could be refused at load the way it is refused at validation.
+
+## Excludes (2026-09-21)
+
+A mod may refuse part of what it depends on, declared in its manifest:
+
+    {"id": "picky", "depends": ["proving@^1.0"],
+     "excludes": ["proving:lamp", "proving:slime*", "proving:grain"]}
+
+Collected from every manifest **before any mod registers anything**, which is the only moment it can
+work: a game loads *after* what it depends on, so by the time its own `setup()` runs the thing already
+exists. Blocks, items and entities are refused at the registration boundary, so an excluded name never
+gets an id at all - never-registered rather than registered-then-removed, which would shift every id
+behind it and leave every reference dangling.
+
+**The part that took a second pass:** seven registration points refuse an unknown name, and all seven
+were treating "the game downstream refused this" the same as "this is a typo". A pack that wrote a
+perfectly good recipe would have failed validation for somebody else's decision. They warn now, via
+one shared `_excluded_not_missing` helper, and `tests/mods/picky` validates with 0 errors and
+0 warnings while three of the Proving Ground's things are absent.
+
+**Tags are deliberately not supported as exclusion patterns.** A tag is registered at runtime by a mod;
+exclusions are applied before anything registers, so `#base:charms` cannot be resolved at the moment it
+would be needed. The roadmap said tags would work - it was wrong, and now says why.

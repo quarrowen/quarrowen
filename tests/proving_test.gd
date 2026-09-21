@@ -42,10 +42,36 @@ func _ready() -> void:
 		"and a probe says -1 where a requirement says air, loudly")
 
 	_registries(server)
+	_excludes()
 	_javascript(server)
 	_behaviour(server)
 	server.queue_free()
 	_finish()
+
+
+## A game that takes most of a pack and refuses the rest. The exclusion has to happen before anything
+## registers - a game loads *after* what it depends on, so by its own setup() the thing already exists.
+func _excludes() -> void:
+	var server := GameServer.new()
+	add_child(server)
+	var err: Error = server.start({"mods": PackedStringArray(["picky"]),
+		"mod_dirs": PackedStringArray(["res://tests/mods"]),
+		"world": "picky_%d" % Time.get_ticks_msec(), "data_dir": DATA_DIR, "seed": 42, "offline": true})
+	_check(err == OK, "a game that excludes part of what it depends on still starts (%s)" % error_string(err))
+	if err != OK:
+		server.queue_free()
+		return
+	_check(server.registry.id_of("proving:lamp") < 0, "a named exclusion never gets an id")
+	_check(server.registry.id_of("proving:slime") < 0 and server.registry.id_of("proving:slime_thin") < 0,
+		"and a wildcard takes the whole family")
+	_check(server.items.id_of("proving:grain") < 0, "items can be excluded too")
+	# What survives is the point: excluding three things must not cost the rest.
+	_check(server.registry.id_of("proving:rock") >= 0 and server.registry.id_of("proving:crate") >= 0
+		and server.items.id_of("proving:token") >= 0, "everything not excluded is still there")
+	# A recipe naming an excluded item is dropped rather than half-registered.
+	for recipe in server.recipes.recipes:
+		_check(int(recipe.output) != server.items.id_of("proving:grain"), "no recipe outputs an excluded item")
+	server.queue_free()
 
 
 ## Everything the mod registered actually reached a registry. One check per capability family, naming
