@@ -55,6 +55,39 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	api.register_material("dull", {"display_name": "Dull", "item": "proving:token", "color": "#888888",
 		"tier": 2, "speed": 4.0, "durability": 100, "damage": 1.0, "handle": 1.6,
 		"trait": {"name": "Plain", "description": "nothing special", "speed_mult": 0.0}})
+	_setup_area_tools()
 	api.register_block_tick("lamp", func(ctx):
 		api.set_block_data(ctx.position, {"ticked": int(api.get_block_data(ctx.position).get("ticked", 0)) + 1}),
 		{"interval": 5, "random": false})
+
+
+## Area tools: all three built-in shapes, a shape of our own, and the preview.
+##
+## Commands rather than an item, because a test can run a command and cannot swing a pick. What the
+## capability is actually for is a tool - "mine the whole vein", "flatten this" - and the shape of the
+## API is the same either way: choose cells, show them, change them. (2026-09-21)
+func _setup_area_tools() -> void:
+	# A shape of our own, to prove a mod can add one. A vertical column, which none of the built-in
+	# three describes: box needs two corners, sphere is a ball, vein follows one block kind.
+	api.register_area_rule("column", func(ctx):
+		var at: Vector3i = ctx.get("position", Vector3i.ZERO)
+		var height: int = clampi(int(ctx.get("height", 4)), 1, 32)
+		var out: Array = []
+		for dy in height:
+			out.append(at + Vector3i(0, dy, 0))
+		return out)
+	api.register_command("dig", "Mine the vein you are looking at", func(player, _args):
+		var hit: Dictionary = api.raycast(player.get_eye_position(), api.look_direction(player), 6.0)
+		if not bool(hit.get("hit", false)):
+			player.send_message("Look at a block first.")
+			return
+		var at: Vector3i = hit.position
+		var cells: Array = api.area_cells("vein", {"position": at, "player": player, "max": 64})
+		var done: Dictionary = api.area_edit(player, cells, {"block": 0})
+		player.send_message("Mined %d of %d." % [done.changed, cells.size()]))
+	api.register_command("box", "Fill a 3x3x3 box with rock", func(player, _args):
+		var at: Vector3i = Vector3i(player.position) + Vector3i(0, 1, 0)
+		var cells: Array = api.area_cells("box", {"from": at - Vector3i(1, 0, 1), "to": at + Vector3i(1, 2, 1)})
+		api.show_area(player, cells, {"seconds": 3.0})
+		var done: Dictionary = api.area_edit(player, cells, {"block": api.require_block("proving:rock")})
+		player.send_message("Placed %d." % done.changed))

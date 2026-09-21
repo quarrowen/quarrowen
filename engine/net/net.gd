@@ -901,6 +901,14 @@ func s_selection(a: Vector3i, b: Vector3i, visible: bool) -> void:
 		client.on_selection(a, b, visible)
 
 
+## The cells an area tool would change, outlined for the player about to commit to it. Positions
+## rather than a box, because a vein is not a box; an empty list takes the outline away.
+@rpc("authority", "call_remote", "reliable")
+func s_area_preview(cells: PackedVector3Array, color: String, seconds: float, visible: bool) -> void:
+	if client:
+		client.on_area_preview(cells, color, seconds, visible)
+
+
 ## Guide pages you have unlocked and read, and the page you had open last.
 @rpc("authority", "call_remote", "reliable")
 func s_guide_state(unlocked: PackedStringArray, read: PackedStringArray, last: String) -> void:

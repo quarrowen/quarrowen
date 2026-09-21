@@ -1752,6 +1752,11 @@ func _update_target() -> void:
 	_highlight.visible = _target.hit and _entity_target.is_empty()
 	if _target.hit:
 		_highlight.position = Vector3(_target.position) + Vector3(0.5, 0.5, 0.5)
+	# A timed area preview takes itself away. An untimed one (until == 0) is the server's to clear,
+	# which is what a tool holding a live selection wants.
+	if _area_preview != null and _area_preview.visible and _area_preview_until > 0.0 \
+			and Time.get_ticks_msec() / 1000.0 >= _area_preview_until:
+		_area_preview.visible = false
 	_show_looking_at()
 
 
@@ -1987,6 +1992,46 @@ func on_selection(a: Vector3i, b: Vector3i, show: bool) -> void:
 				mesh.surface_add_vertex(corners[i | bit])
 	mesh.surface_end()
 	_selection_box.mesh = mesh
+
+
+var _area_preview: MeshInstance3D
+var _area_preview_until := 0.0
+
+
+## The outline of what an area tool is about to change.
+##
+## One wireframe cube per cell rather than a bounding box, because the point of the preview is to
+## show a vein's actual shape - a box round a vein tells you nothing you wanted to know. The server
+## caps how many cells it sends (AreaEdits.PREVIEW_CELLS), so this draws whatever arrives.
+func on_area_preview(cells: PackedVector3Array, color: String, seconds: float, visible: bool) -> void:
+	if _area_preview == null:
+		_area_preview = MeshInstance3D.new()
+		var material := StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.no_depth_test = true
+		_area_preview.material_override = material
+		add_child(_area_preview)
+	_area_preview.visible = visible and not cells.is_empty()
+	# 0 seconds means "hold it until told otherwise", which is what a tool with a live selection wants.
+	_area_preview_until = (Time.get_ticks_msec() / 1000.0 + seconds) if seconds > 0.0 else 0.0
+	if not _area_preview.visible:
+		return
+	(_area_preview.material_override as StandardMaterial3D).albedo_color = Color.from_string(color, Color(1.0, 0.8, 0.2))
+	var mesh := ImmediateMesh.new()
+	mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+	for cell in cells:
+		var lo := Vector3(cell)
+		var hi := lo + Vector3.ONE
+		var corners := []
+		for i in 8:
+			corners.append(Vector3(hi.x if i & 1 else lo.x, hi.y if i & 2 else lo.y, hi.z if i & 4 else lo.z))
+		for i in 8:
+			for bit in [1, 2, 4]:
+				if i & bit == 0:
+					mesh.surface_add_vertex(corners[i])
+					mesh.surface_add_vertex(corners[i | bit])
+	mesh.surface_end()
+	_area_preview.mesh = mesh
 
 
 func on_player_eating(peer_id: int, item: int) -> void:

@@ -174,6 +174,11 @@ func _forget(mod_id: String) -> void:
 		for name in (registry as Dictionary).keys():
 			if String((registry[name] as Dictionary).get("owner", "")) == mod_id:
 				registry.erase(name)
+	# Area rules hold a Callable rather than a definition, so there is no "owner" field to read; the
+	# name carries the owner instead, because register_area_rule qualifies it.
+	for name in s.area_edits.rules.keys():
+		if String(name).begins_with(mod_id + ":"):
+			s.area_edits.rules.erase(name)
 
 
 # --- File watcher -----------------------------------------------------------------------------------

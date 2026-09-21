@@ -50,6 +50,7 @@ const Characters = preload("res://engine/server/characters.gd")
 const Shops = preload("res://engine/server/shops.gd")
 const Companies = preload("res://engine/server/companies.gd")
 const Plots = preload("res://engine/server/plots.gd")
+const AreaEdits = preload("res://engine/server/area_edits.gd")
 const Claims = preload("res://engine/server/claims.gd")
 const Containers = preload("res://engine/server/containers.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
@@ -328,6 +329,8 @@ var nameplates := Nameplates.new(self)
 var companies := Companies.new(self)
 ## Ground with an owner, consulted before an edit (see engine/server/plots.gd).
 var plots := Plots.new(self)
+## Changing many blocks at once, with the same checks one block gets (see engine/server/area_edits.gd).
+var area_edits := AreaEdits.new(self)
 ## Parts of the world kept awake when nobody is there, and the budget that stops one player doing it
 ## to everybody else (see engine/server/claims.gd).
 var claims := Claims.new(self)
@@ -3568,6 +3571,22 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 			return
 		harvest = Mining.can_harvest(registry.defs[current], tool)
 	_stop_mining(p)
+	break_block_for(p, pos, into, harvest)
+
+
+## Breaks one block *on a player's behalf*: the pre-event, the loot roll, the drops, the tool wear, the
+## hunger and the post-event, exactly as breaking it by hand does.
+##
+## Split out of `on_break_block` so area tools get all of that without copying it. What stays with the
+## caller is what an area tool decides differently: reach and mining time are per-block questions when
+## you are swinging at one, and whole-selection questions when you are not. Everything below here is
+## the same either way. (2026-09-21)
+func break_block_for(p: ServerPlayer, pos: Vector3i, into: Realm, harvest := true) -> bool:
+	var current := into.world.get_block_v(pos)
+	if current == BlockRegistry.AIR or current == BlockRegistry.UNLOADED or registry.breakable_lut[current] == 0:
+		return false
+	var held := p.inventory.selected_item()
+	var held_data: Dictionary = p.inventory.data[p.inventory.selected]
 	# Rolled without consequences until the break really happens: a cancelled break, or a creative player
 	# who keeps nothing, must not use up a pity streak or announce a find nobody received.
 	var loot_context := {"player": p, "tool": held, "cause": "player", "position": Vector3(pos), "source": "block"}
@@ -3576,12 +3595,12 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 		"drops": loot.preview(loot_table, loot_context) if harvest and not p.inventory.creative else [], "cancelled": false})
 	if ev.cancelled:
 		_reject_edit(p, pos)
-		return
+		return false
 	if harvest and not p.inventory.creative and ev.drops is Array:
 		loot.awarded(loot_table, ev.drops, loot_context)
 	_apply_block(pos, BlockRegistry.AIR, false, 0, into)
 	into.entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 10.0, p)
-	play_sound_at(block_sound(current, "break"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
+	play_sound_at(block_sound(current, "break"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), p.peer_id)
 	if not p.inventory.creative and ev.drops is Array:
 		for drop in ev.drops:
 			if not (drop is Array and drop.size() >= 2 and items.is_valid(int(drop[0]))):
@@ -3597,6 +3616,7 @@ func on_break_block(peer_id: int, pos: Vector3i) -> void:
 		hunger.add_exhaustion(p, Hunger.BREAK_BLOCK)
 		p.sync_inventory()
 	emit("block_broken", {"player": p, "position": pos, "block": current, "item": held, "slot": p.inventory.selected, "harvested": harvest})
+	return true
 
 
 func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
@@ -3669,6 +3689,47 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
 	broadcast_player_event(p, Entities.Event.SWING)
 	emit("block_placed", {"player": p, "position": pos, "block": block})
+
+
+## Places one block *on a player's behalf* at a chosen cell, for area tools.
+##
+## Deliberately not `on_place_block`'s path. Almost everything in that function is about placing the
+## thing you are *holding* where you are *aiming* - the slab that merges with the slab below, the
+## stair that turns to face you, the bed that needs room for its other half - and none of it means
+## anything when a mod names a block and a cell. What does carry over is what protects the world:
+## the block must be placeable, the cell replaceable, the result supported, and nobody standing in it.
+##
+## `_has_solid_neighbor` is the one hand-placement rule left out on purpose. It stops a player
+## hanging blocks in mid-air off nothing; an area fill building a floating platform is doing that
+## deliberately, and one cell at a time would refuse its own interior. (2026-09-21)
+func place_block_for(p: ServerPlayer, pos: Vector3i, block: int, into: Realm) -> bool:
+	if block <= 0 or not registry.is_valid(block) or registry.placeable_lut[block] == 0:
+		return false
+	if not _can_replace(into.world.get_block_v(pos)) or not is_supported(pos, block, into):
+		return false
+	if registry.solid_lut[block] == 1:
+		for other: ServerPlayer in players.values():
+			if not other.dead and PlayerPhysics.overlaps_block(other.state.position, pos):
+				return false
+	# Survival pays for what it builds. Creative does not, and neither runs out mid-selection without
+	# the caller being told: `apply` stops as soon as this returns false.
+	if not p.inventory.creative and p.inventory.count_of(_item_for_block(block)) <= 0:
+		return false
+	if emit("block_place", {"player": p, "position": pos, "block": block, "cancelled": false}).cancelled:
+		return false
+	if not p.inventory.creative:
+		p.inventory.remove(_item_for_block(block), 1)
+	_apply_block(pos, block, false, 0, into)
+	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 0.7, randf_range(0.85, 1.1))
+	emit("block_placed", {"player": p, "position": pos, "block": block})
+	return true
+
+
+## The item that places a block, for paying for an area fill. Block and item ids are separate spaces,
+## so this asks the registry rather than assuming they line up.
+func _item_for_block(block: int) -> int:
+	var by_name := items.id_of(registry.defs[block].name)
+	return by_name if by_name > 0 else block
 
 
 func on_interact(peer_id: int, pos: Vector3i) -> void:

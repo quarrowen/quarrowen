@@ -140,6 +140,33 @@
 			],
 			"gd": "apply_modifier"
 		},
+		"areaCells": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "area_cells"
+		},
+		"areaEdit": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "arr"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "area_edit"
+		},
 		"assemblyInfo": {
 			"args": [
 				{
@@ -1635,6 +1662,17 @@
 			],
 			"gd": "register_ambience"
 		},
+		"registerAreaRule": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "callback"
+				}
+			],
+			"gd": "register_area_rule"
+		},
 		"registerAssembly": {
 			"args": [
 				{
@@ -2824,6 +2862,21 @@
 				}
 			],
 			"gd": "shop_trade"
+		},
+		"showArea": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "arr"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "show_area"
 		},
 		"showCrafting": {
 			"args": [

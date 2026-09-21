@@ -3043,3 +3043,41 @@ command has a space and every description does.
 rather than a third positional. The JS API already does this everywhere (`setBlock(pos, id,
 {keepData, state})`) and it is why no JavaScript mod has ever hit one of these. GDScript has no named
 arguments, so a dictionary is the only way to make a call site say what it means.
+
+## Area tools — built (2026-09-21)
+
+Roadmap item 19. Four calls, keeping **choosing** the cells apart from **changing** them, because
+between the two is where a tool previews, counts the cost, or asks whether you meant it:
+`area_cells`, `register_area_rule`, `area_edit`, `show_area`.
+
+The decisions, and why:
+
+- **It is not `fill`.** `fill` was already there and is admin: no permission, no events, no budget,
+  no drops. Rather than let every mod reinvent the player-facing half badly, `area_edit` calls the
+  same `break_block_for` / `place_block_for` a hand-swung pick calls. Those two were extracted out of
+  `on_break_block` and written fresh beside `on_place_block` - the break path was worth splitting
+  because loot pity, tool wear and hunger all hang off it, but the place path was not, since almost
+  all of it is about placing *what you are holding where you are aiming* (slab merge, facing
+  variants, bed pairs) and none of that means anything when a mod names a block and a cell.
+- **A selection crossing a plot boundary does the part outside it** and reports the rest as
+  `skipped`, rather than refusing the lot. A vein running up to somebody's garden and stopping is
+  what a player expects; an all-or-nothing refusal makes veins near boundaries unminable.
+- **Reach is asked once**, of the nearest cell, at 24 blocks. Per-cell reach would defeat the point;
+  no reach at all is editing someone else's part of the world.
+- **The budget is the one that already exists.** `CELLS_PER_TOKEN` (32) sets the exchange rate, so a
+  64-cell vein costs two of the fifteen tokens a second a player gets. No second pool to tune or
+  forget to drain, and the existing refill rate-limits area edits like everything else.
+- **`_has_solid_neighbor` is deliberately not applied.** It stops a player hanging blocks off
+  nothing; an area fill building a floating platform is doing that on purpose, and applying it cell
+  by cell would refuse the fill's own interior.
+
+Two things the tests caught that are worth keeping: an area fill **cannot wall a player in** (the
+solid-overlap check in `place_block_for`, now asserted on its own because the cost of getting it
+wrong is a child stuck inside a block), and `register_area_rule` qualifies the name it stores while
+`area_cells` was looking up the bare one - CLAUDE.md's "mod-written name nested inside a definition"
+with the halves swapped. `area_cells` now tries the qualified name first.
+
+Preview is a new RPC (`s_area_preview`, **Protocol.VERSION 49**) drawing one wireframe cube per cell
+rather than a bounding box, capped at 512 cells: a box round a vein tells you nothing you wanted to
+know. `mod_reload._forget` clears a mod's rules by name prefix, since a rule holds a Callable and has
+no `owner` field to read.

@@ -33,7 +33,7 @@ Twelve biomes, eighty blocks, eleven creatures, a boss, four games.
 
 ### What is left, shortest honest answer
 
-- **Three capabilities**: area tools, inventories inside things, instances. Nothing else on the list
+- **Two capabilities**: inventories inside things, and instances. Nothing else on the list
   is unbuilt - creature abilities, characters, shops, applied effects, companions, vehicles, text in
   the world, extending another mod, excludes and flight all landed between 19 and 21 September 2026.
 - **Four known limits** in things that *are* built - see "Where the built things stop" below.
@@ -319,10 +319,34 @@ riding path had never been driven by a real client. The Proving Ground has a raf
 mounts it, checks the rider follows the vehicle rather than predicting its own walk, and gets off
 again. A model would still make it *look* like something, but the capability is proven.
 
-### 19. Area tools
+### 19. Area tools — built
 
 Placing or breaking many blocks at once with a preview, respecting permissions and the edit budget.
 Mining a whole vein is the same capability with a different rule for choosing the blocks.
+
+Built as four calls that keep **choosing** the cells separate from **changing** them, because between
+the two is where a tool shows a preview, counts the cost, or asks whether you meant it:
+
+    var cells := api.area_cells("vein", {"position": at, "player": p, "max": 64})
+    api.show_area(p, cells)
+    var done := api.area_edit(p, cells, {"block": 0})
+
+Shapes are `box`, `sphere` and `vein`, plus whatever a mod adds with `register_area_rule` - a line, a
+wall, everything touching one face. A vein floods over the six faces, not all twenty-six: a diagonal
+touch is not the same lump to anyone looking at it, and counting it joins two veins through one
+buried ore.
+
+**The point is that it is not `fill`.** Every cell goes through the plot check, the block events, the
+loot roll, tool wear, hunger and the player's edit budget, by calling the same `break_block_for` and
+`place_block_for` that a hand-swung pick calls - so a mod listening for `block_broken` hears an area
+edit exactly as it hears a pickaxe. `fill` stays the admin door that asks none of that.
+
+Three decisions worth keeping: a selection reaching into somebody's garden **does the part outside
+it** and reports the rest as `skipped`, rather than refusing the lot, so a vein can run up to a
+boundary and stop. Reach is asked once of the nearest cell (`REACH_OF_SELECTION`, 24 blocks) rather
+than per cell, since the point of an area tool is to shape more than you can touch. And the cost is
+paid in the **existing** edit budget at `CELLS_PER_TOKEN` cells per token, so there is no second pool
+to tune or forget to drain.
 
 ### 20. Text in the world — built
 
@@ -666,8 +690,8 @@ follows is what is left, in the order that now unlocks the most.
 at all: structures, facilities, jobs, ownership, conversation and trade all exist. What a village needs
 now is content - somebody to write the villagers.
 
-1. **The small two**: area tools and inventories inside things. (Text in the world was the third and
-   is built.) Independent, and each one an afternoon.
+1. **Inventories inside things.** The last of the small three; area tools and text in the world are
+   built.
 2. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.
 3. **Then the content**, which is where the remaining weight is: re-scope `base` to nouns, write
    `simple_gear` and `simple_machines`, then the games. Doing the three capabilities first means the

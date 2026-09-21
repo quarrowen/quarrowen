@@ -187,6 +187,67 @@ func _behaviour(server) -> void:
 		p.state.position + Vector3(1, 0, 0), {})
 	_check(server.vehicles.mount(p, raft) and p.riding == raft.id, "and a raft can be ridden")
 	server.vehicles.dismount(p)
+	_area_tools(server, server.mod_instances.proving.api, p)
+
+
+## Area tools, asked of the engine rather than of the mod: what came back, and what it did to the world.
+func _area_tools(server, api, p) -> void:
+	var rock: int = server.registry.id_of("proving:rock")
+	# The three built-in shapes.
+	var box: Array = api.area_cells("box", {"from": Vector3i(5, 66, 5), "to": Vector3i(7, 67, 7)})
+	_check(box.size() == 18, "a box selects every cell between its corners (%d)" % box.size())
+	var ball: Array = api.area_cells("sphere", {"position": Vector3i(5, 66, 5), "radius": 2.0})
+	_check(ball.size() > 18 and ball.size() < 40, "a sphere selects a ball (%d)" % ball.size())
+	# A vein follows one block kind and stops: three rocks in a row in open air above the ground,
+	# with a fourth set apart. Above the ground because FlatGround is solid rock below y=61, where
+	# "three rocks in a row" is three rocks in a world already made of them. (2026-09-21)
+	for x in 3:
+		server.set_block_authoritative(Vector3i(10 + x, 66, 10), rock)
+	server.set_block_authoritative(Vector3i(14, 66, 10), rock)
+	var vein: Array = api.area_cells("vein", {"position": Vector3i(10, 66, 10), "max": 64})
+	_check(vein.size() == 3, "a vein follows its own kind and stops at the gap (%d)" % vein.size())
+	# The shape the mod registered, found without it having to spell out its own id.
+	var column: Array = api.area_cells("column", {"position": Vector3i(5, 66, 5), "height": 5})
+	_check(column.size() == 5, "a mod's own shape is found by its bare name (%d)" % column.size())
+	_check(api.area_cells("no_such_shape", {}).is_empty(), "and an unknown shape gives nothing back")
+	# `max` is a cap, not a suggestion.
+	_check(api.area_cells("box", {"from": Vector3i(5, 66, 5), "to": Vector3i(14, 75, 14), "max": 7}).size() == 7,
+		"max caps what comes back")
+
+	# Doing it. Creative, so the fill is not paid for out of an empty inventory.
+	p.inventory.creative = true
+	# Beside the box, not inside it: a solid block is refused in a cell a player is standing in, which
+	# the next check proves on purpose.
+	p.state.position = Vector3(2.5, 66, 2.5)
+	p.edit_tokens = 15.0
+	var filled: Dictionary = api.area_edit(p, box, {"block": rock})
+	_check(filled.changed == 18, "an area edit changes every cell it is given (%d)" % filled.changed)
+	_check(server.world.get_block_v(Vector3i(6, 66, 6)) == rock, "and the world really changed")
+	# An area fill cannot wall a player in. Worth its own check because the cost of getting it wrong is
+	# a child stuck inside a block, and the rule lives in place_block_for where nothing else tests it.
+	api.area_edit(p, box, {"block": 0})
+	var standing := Vector3i(floori(p.state.position.x), floori(p.state.position.y), floori(p.state.position.z))
+	var over_player: Dictionary = api.area_edit(p, [standing], {"block": rock})
+	_check(over_player.changed == 0 and server.world.get_block_v(standing) == 0,
+		"and it refuses to place a solid block where somebody is standing")
+	api.area_edit(p, box, {"block": rock})
+	var cleared: Dictionary = api.area_edit(p, box, {"block": 0})
+	_check(cleared.changed == 18, "and breaking them puts it back (%d)" % cleared.changed)
+	_check(server.world.get_block_v(Vector3i(6, 66, 6)) == 0, "with the cells empty again")
+
+	# The budget is the one that already exists: a selection costs cells/CELLS_PER_TOKEN tokens.
+	p.edit_tokens = 0.0
+	var broke: Dictionary = api.area_edit(p, box, {"block": rock})
+	_check(broke.refused and broke.changed == 0, "an edit with no budget left is refused, with a reason")
+	_check(not String(broke.reason).is_empty(), "and the reason is in words a player can be shown")
+
+	# Too far away is refused as a whole, rather than per cell.
+	p.edit_tokens = 15.0
+	p.state.position = Vector3(500, 66, 500)
+	var far: Dictionary = api.area_edit(p, box, {"block": rock})
+	_check(far.refused and far.changed == 0, "a selection out of range is refused")
+	p.state.position = Vector3(0.5, 65, 0.5)
+	p.inventory.creative = false
 
 
 func _player(server, peer_id: int, player_name: String) -> ServerPlayer:

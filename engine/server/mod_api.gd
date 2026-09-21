@@ -2616,7 +2616,53 @@ func sees_sky(pos: Vector3i, realm_id := "") -> bool:
 	return true
 
 
+## The cells a shape covers: "box" ({from, to}), "sphere" ({position, radius}), "vein"
+## ({position, block, max}) or a shape a mod registered. `max` caps how many come back.
+##
+##     var cells := api.area_cells("vein", {"position": at, "player": p, "max": 64})
+##
+## Choosing the cells and changing them are separate on purpose: between the two is where a tool
+## shows a preview, counts what it would cost, or asks whether the player really meant it.
+func area_cells(rule_name: String, ctx := {}) -> Array:
+	# Your own shape without having to spell out your own id, the way every other registry works.
+	# `register_area_rule` qualifies what it stores, so an unqualified lookup would never find it -
+	# CLAUDE.md's "a mod-written name nested inside a definition" with the two halves swapped.
+	var mine := _qualify(rule_name)
+	return _server.area_edits.cells(mine if _server.area_edits.rules.has(mine) else rule_name, ctx)
+
+
+## Registers a way of choosing cells, for a tool the three built-in shapes do not describe - a line,
+## a wall, everything touching one face. The callable is handed the context `area_cells` was called
+## with and returns an Array of Vector3i.
+func register_area_rule(rule_name: String, chooser: Callable) -> void:
+	_server.area_edits.register_rule(_qualify(rule_name), chooser)
+
+
+## Changes every cell a player is allowed to change. `block` 0 (or absent) breaks instead of places.
+##
+## options: {block, drops (default true), realm}.
+##
+## Returns {changed, skipped, refused, reason}. **This is not `fill`.** Every cell goes through the
+## plot check, the block events, the loot roll, tool wear and the player's edit budget, so a mod
+## listening for `block_broken` hears this exactly as it hears a pickaxe, and a selection reaching
+## into somebody's garden does the part outside it and reports the rest as `skipped`. `fill` is the
+## admin door and asks none of that.
+func area_edit(player, cells: Array, options := {}) -> Dictionary:
+	return _server.area_edits.apply(player, cells, options)
+
+
+## Outlines a selection for one player, before they commit to it. `seconds` 0 holds it until it is
+## cleared, which is what a tool with a live selection wants; an empty list takes it away.
+##
+## options: {color, seconds}.
+func show_area(player, cells: Array, options := {}) -> void:
+	_server.area_edits.preview(player, cells, options)
+
+
 ## Sets every block in the box between two corners (inclusive) to a block id.
+##
+## **Admin, not a player action**: no permission check, no events, no budget, no drops. For a tool a
+## player holds, use `area_edit`, which asks all of those.
 func fill(from: Vector3i, to: Vector3i, id: int, realm_id := "") -> void:
 	for x in range(mini(from.x, to.x), maxi(from.x, to.x) + 1):
 		for y in range(mini(from.y, to.y), maxi(from.y, to.y) + 1):

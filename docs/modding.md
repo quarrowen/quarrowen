@@ -168,6 +168,36 @@ api.on("entity_death", func(ev):
   armor from pigs (vanilla), the Soul Blade that levels with kills (Arcana, GDScript) and the
   Prospector's Pick that mines faster as it gains experience (Guild, JavaScript).
 
+### Changing many blocks at once
+
+Choosing the cells and changing them are two calls, because between them is where a tool shows a
+preview, counts the cost, or asks whether the player meant it:
+
+```gdscript
+var cells: Array = api.area_cells("vein", {"position": at, "player": p, "max": 64})
+api.show_area(p, cells, {"seconds": 3.0})            # outlines them for that player
+var done: Dictionary = api.area_edit(p, cells, {"block": 0})   # 0 breaks; a block id places
+p.send_message("Mined %d of %d." % [done.changed, cells.size()])
+```
+
+- `area_cells(shape, ctx)` — `"box"` (`{from, to}`), `"sphere"` (`{position, radius}`), `"vein"`
+  (`{position, block, max}`), or a shape you registered. `max` caps what comes back.
+- `register_area_rule(name, chooser)` — your own shape: a line, a wall, everything touching one face.
+  The chooser is handed the context you passed and returns an Array of Vector3i.
+- `area_edit(player, cells, {block, drops, realm})` — returns `{changed, skipped, refused, reason}`.
+- `show_area(player, cells, {color, seconds})` — `seconds` 0 holds the outline until it is cleared;
+  an empty list takes it away.
+
+**This is not `fill`.** Every cell goes through the plot check, the block events, the loot roll, tool
+wear, hunger and the player's edit budget — it calls the same code a hand-swung pick calls, so your
+`block_broken` handler hears an area edit exactly as it hears a pickaxe. `api.fill` is the admin door
+and asks none of that; use it for world generation and `/` commands, not for something a player holds.
+
+A selection that reaches into somebody else's plot **does the part outside it** and reports the rest
+as `skipped`, so a vein can run up to a boundary and stop rather than the whole thing being refused.
+A solid block is never placed in a cell somebody is standing in. Reach is asked once, of the nearest
+cell, at 24 blocks.
+
 ### Blocks over time, light and plants
 
 Blocks can change on their own: crops grow, farmland dries, saplings become trees. Mods register a
