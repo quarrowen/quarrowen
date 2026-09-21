@@ -26,9 +26,11 @@ func setup(api) -> void:
 	# at whatever size the model is. Which silhouette is the question being asked. (2026-09-21)
 	# Spire by default: it is the silhouette that was chosen, and a build somebody opens by hand has no
 	# environment variables set. The lab still overrides it to compare the others. (2026-09-21)
-	var canopy := String(OS.get_environment("QW_LOOK_TREE"))
+	_canopy = String(OS.get_environment("QW_LOOK_TREE"))
+	var canopy := _canopy
 	if canopy.is_empty() and OS.get_environment("QW_LOOK_CUBE_TREES") != "1":
 		canopy = "spire"
+	_canopy = canopy
 	if not canopy.is_empty():
 		api.register_block("canopy", {"display_name": "Canopy", "render": "model",
 			"model": "models/tree_%s.glb" % canopy, "drops": "", "hardness": 0.2})
@@ -50,7 +52,10 @@ func setup(api) -> void:
 		"height": {"base": 70.0, "variation": 7.0, "peaks": 14.0},
 		"surface": {"top": "base:grass", "filler": "base:dirt", "beach": "base:sand",
 			"underwater": "base:gravel", "stone": "base:stone", "water": "base:water"},
-		"features": ([{"feature": "modeltree", "per_chunk": 1.0}] if not String(OS.get_environment("QW_LOOK_TREE")).is_empty()
+		# The *resolved* choice, not the environment variable. Reading the variable here meant the
+		# canopy block was registered and then never placed, so a build with no variables set grew
+		# cube trees while claiming to grow models. (2026-09-21)
+		"features": ([{"feature": "modeltree", "per_chunk": 1.0}] if not _canopy.is_empty()
 			else [{"feature": "broadleaf", "per_chunk": 0.7}, {"feature": "conifer", "per_chunk": 0.35}])
 			+ [{"feature": "rock", "per_chunk": 0.4}],
 		"plants": [{"block": "base:tall_grass", "chance": 0.22, "on": ["base:grass"]},
@@ -82,6 +87,8 @@ func setup(api) -> void:
 ## thousands of surface heights - each of which may generate a chunk - took long enough that the
 ## screenshot client gave up waiting and photographed its own loading screen. (2026-09-21)
 var _found := Vector3.INF
+## Which canopy model the trees use ("" for the built-in cube trees).
+var _canopy := ""
 
 
 func _viewpoint(api) -> Vector3:

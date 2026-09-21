@@ -257,6 +257,12 @@ var _day_length := 0.0
 var _daylight := 1.0
 var _applied_daylight := -1.0
 var _sky_material: ProceduralSkyMaterial
+## The realistic preset's sky: real atmospheric scattering rather than two colours and a gradient.
+## Kept beside the procedural one rather than replacing it, because the cheap presets want the cheap
+## sky and a gradient costs nothing. (2026-09-21)
+var _physical_sky: PhysicalSkyMaterial
+## The starfield, built once and swapped in when it is dark enough to see it.
+var _stars: ImageTexture
 var _environment: Environment
 var _sun: DirectionalLight3D
 var _moon: DirectionalLight3D
@@ -2324,14 +2330,21 @@ func _update_time(delta: float) -> void:
 	# Weather dims the day. Applied here rather than in the sky alone so the world under it darkens too -
 	# a storm that leaves the grass bright is a storm happening to somebody else.
 	_daylight = WorldTime.daylight(_time_of_day) * (_weather.light_scale() if _weather != null else 1.0)
-	if absf(_daylight - _applied_daylight) < 0.005 or _solid_material == null:
-		return
-	_applied_daylight = _daylight
 	var t := inverse_lerp(WorldTime.NIGHT_LIGHT, 1.0, _daylight)
 	# Sun low on the horizon warms the light; night is cool and blue.
 	var sun_height := sin((_time_of_day - 0.25) * TAU)
 	var sun_tint := Color(0.55, 0.62, 0.9).lerp(Color(1.0, 0.72, 0.5), clampf(t * 3.0, 0.0, 1.0)).lerp(Color(1.0, 0.97, 0.92), clampf((sun_height - 0.15) * 2.5, 0.0, 1.0))
 	var sun_direction := Vector3(cos((_time_of_day - 0.25) * TAU), sun_height, 0.35).normalized()
+	# **Where the sun is, every frame.** Everything below this guard is recomputed only when the
+	# *brightness* changes, which is right for colours and wrong for a position: daylight sits at 1.00
+	# for hours across the middle of the day while the sun keeps crossing the sky. With the sun merely
+	# tinting a gradient that never mattered. With the sun lighting the world and computing the sky, it
+	# meant noon rendered as grey twilight with the stars out, because the sky was still being asked
+	# where the sun had been when the light last changed. (2026-09-21)
+	_aim_the_sky(sun_direction, sun_tint, t)
+	if absf(_daylight - _applied_daylight) < 0.005 or _solid_material == null:
+		return
+	_applied_daylight = _daylight
 	for material in [_solid_material, _translucent_material]:
 		material.set_shader_parameter("daylight", _daylight)
 		material.set_shader_parameter("sun_tint", Vector3(sun_tint.r, sun_tint.g, sun_tint.b))
@@ -2348,11 +2361,45 @@ func _update_time(delta: float) -> void:
 	_sky_material.sky_horizon_color = horizon
 	_sky_material.ground_horizon_color = horizon
 	_sky_material.ground_bottom_color = Color(0.02, 0.02, 0.04).lerp(Color(0.3, 0.4, 0.55), t)
+	if _physical_sky != null:
+		# Scattering does the colours itself from where the sun is, so the only thing worth driving is
+		# how thick the air is: more haze low in the sky at dawn and dusk, which is what makes a sunset
+		# a sunset rather than a blue sky with an orange lamp in it.
+		var low := 1.0 - clampf(absf(sun_direction.y) * 2.2, 0.0, 1.0)
+		_physical_sky.turbidity = lerpf(2.4, 9.0, low)
+		_physical_sky.mie_coefficient = lerpf(0.005, 0.022, low)
+		_physical_sky.rayleigh_coefficient = lerpf(2.0, 3.6, low)
+		# Night is not black: it is the ground glow plus whatever the moon is doing.
+		_physical_sky.ground_color = Color(0.03, 0.04, 0.06).lerp(Color(0.24, 0.3, 0.34), t)
+		# **The scattering is far dimmer than the gradient it replaced**, and Godot composites
+		# `night_sky` wherever the sky is dark - so at an energy of 1.0 a clear noon came out grey
+		# with the stars showing through, which reads as twilight. Turning the exposure up is the
+		# whole fix; the stars then fade on their own as the sky brightens, which is what they do.
+		# (2026-09-21)
+		_physical_sky.energy_multiplier = lerpf(0.05, 2.0, clampf(t * 1.6, 0.0, 1.0))
+		# **Stars are composited whatever the sun is doing**, so they have to be taken away rather than
+		# left to fade: at noon they were snow on a white sky. Swapping one property is cheaper than a
+		# per-frame fade and the change happens while nobody can see either state. (2026-09-21)
+		# **A floor under the night.** Ambient comes from the sky in this preset, so when the sky goes
+		# dark there is nothing left lighting the world and dusk renders as a black screen with a
+		# hotbar on it. The flat presets never had this problem because their ambient is a constant.
+		# A game you cannot see at night is broken, however physically honest the reason. (2026-09-21)
+		# Energy is the wrong lever: ambient takes its *colour* from the sky here, and a dark sky times
+		# any energy at all is still dark. Leaning on the constant colour instead as the sky fades is
+		# what puts a floor under the night.
+		_environment.ambient_light_energy = lerpf(0.55, 0.95, clampf(t, 0.0, 1.0))
+		_environment.ambient_light_sky_contribution = clampf(t * 1.3, 0.12, 1.0)
+		_environment.ambient_light_color = Color(0.55, 0.62, 0.85).lerp(Color.WHITE, clampf(t, 0.0, 1.0))
+		var dark := t < 0.30
+		if dark != (_physical_sky.night_sky != null):
+			_physical_sky.night_sky = _stars if dark else null
+		var haze: Dictionary = _weather.sky_tint() if _weather != null else {}
+		if not haze.is_empty():
+			_physical_sky.turbidity = lerpf(float(_physical_sky.turbidity), 14.0, float(haze.amount))
 	_environment.fog_light_color = horizon
 	for material in [_solid_material, _translucent_material]:
 		material.set_shader_parameter("sky_color", Vector3(_sky_material.sky_top_color.r, _sky_material.sky_top_color.g, _sky_material.sky_top_color.b))
 		material.set_shader_parameter("horizon_color", Vector3(horizon.r, horizon.g, horizon.b))
-	_aim_the_sky(sun_direction, sun_tint, t)
 	for nodes: Array in _model_nodes.values():
 		for mmi: MultiMeshInstance3D in nodes:
 			_color_models(mmi)
@@ -2367,6 +2414,17 @@ func _update_time(delta: float) -> void:
 ##
 ## The moon is a second directional light rather than the sun turned blue: they overlap at dusk and
 ## dawn, which is when a sky looks most like something, and one light cannot be in two places.
+## An up-vector that is not parallel to where we are looking.
+##
+## `look_at` with an up-vector along the line of sight is undefined, and at noon the sun is straight
+## overhead - so every day at midday the sun's basis went to nothing, the physical sky lost track of
+## where the sun was, and a clear noon rendered as grey twilight with the stars out. It only showed up
+## once the sky started being computed from the sun's direction rather than from a colour ramp.
+## (2026-09-21)
+static func _up_for(direction: Vector3) -> Vector3:
+	return Vector3.BACK if absf(direction.y) > 0.98 else Vector3.UP
+
+
 func _aim_the_sky(sun_direction: Vector3, sun_tint: Color, day: float) -> void:
 	if _sun == null:
 		return
@@ -2374,21 +2432,29 @@ func _aim_the_sky(sun_direction: Vector3, sun_tint: Color, day: float) -> void:
 	# Light travels down the light's -Z, so a light *at* the sun looks back towards the ground.
 	if above > -0.05:
 		_sun.visible = true
-		_sun.look_at_from_position(sun_direction * 100.0, Vector3.ZERO, Vector3.UP)
+		_sun.look_at_from_position(sun_direction * 100.0, Vector3.ZERO, _up_for(sun_direction))
 		_sun.light_color = sun_tint
 		# Fades out as it sets rather than switching off, or dusk happens in one frame.
 		_sun.light_energy = (1.35 if _realistic else 0.75) * clampf(above * 4.0 + 0.2, 0.0, 1.0)
 	else:
 		_sun.visible = false
+	if OS.get_environment("QW_SKY_DEBUG") == "1" and Engine.get_process_frames() % 180 == 0:
+		print("[sky] day=%.2f sun.y=%.2f vis=%s energy=%.2f rot=%.0f,%.0f,%.0f sky_mode=%d | phys=%s mult=%s turb=%s rayleigh=%s" % [
+			day, sun_direction.y, _sun.visible, _sun.light_energy,
+			_sun.rotation_degrees.x, _sun.rotation_degrees.y, _sun.rotation_degrees.z, _sun.sky_mode,
+			_physical_sky != null,
+			("%.2f" % _physical_sky.energy_multiplier) if _physical_sky != null else "-",
+			("%.2f" % _physical_sky.turbidity) if _physical_sky != null else "-",
+			("%.2f" % _physical_sky.rayleigh_coefficient) if _physical_sky != null else "-"])
 	if _moon == null:
 		return
 	var moon_direction := -sun_direction
 	if moon_direction.y > -0.05:
 		_moon.visible = true
-		_moon.look_at_from_position(moon_direction * 100.0, Vector3.ZERO, Vector3.UP)
+		_moon.look_at_from_position(moon_direction * 100.0, Vector3.ZERO, _up_for(moon_direction))
 		# Moonlight is sunlight that has been somewhere first: dimmer, bluer, and much softer-edged.
 		_moon.light_color = Color(0.62, 0.71, 0.95)
-		_moon.light_energy = (0.42 if _realistic else 0.0) * clampf(moon_direction.y * 4.0, 0.0, 1.0) * (1.0 - day)
+		_moon.light_energy = (0.75 if _realistic else 0.0) * clampf(moon_direction.y * 4.0, 0.0, 1.0) * (1.0 - day)
 	else:
 		_moon.visible = false
 
@@ -3371,6 +3437,24 @@ func _build_scene() -> void:
 	sky_material.ground_bottom_color = Color(0.3, 0.4, 0.55)
 	var sky := Sky.new()
 	sky.sky_material = sky_material
+	# Real scattering for the realistic preset. It reads the sun from the DirectionalLight, which now
+	# moves, so sunrise and sunset come out of the physics rather than out of a colour ramp.
+	# Real atmospheric scattering for the realistic preset. It reads the sun from the DirectionalLight,
+	# which now moves, so dawn and sunset come out of the physics rather than out of a colour ramp -
+	# which is the whole reason to do it this way rather than tint a gradient more carefully.
+	if bool(graphics.value("realistic")) and not GraphicsSettings.off("sky"):
+		var physical := PhysicalSkyMaterial.new()
+		physical.sun_disk_scale = 6.0
+		physical.turbidity = 3.0
+		physical.ground_color = Color(0.22, 0.27, 0.3)
+		_physical_sky = physical
+		sky.sky_material = physical
+		if OS.get_environment("QW_SKY_NOSTARS") != "1":
+			_stars = _night_sky()
+		# The sky lights the world in this preset (ambient comes from it), so it is worth resolving
+		# properly - a coarse radiance map makes shaded faces flicker as the sun moves.
+		sky.radiance_size = Sky.RADIANCE_SIZE_128
+		sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
 	var env := Environment.new()
 	_environment = env
 	env.background_mode = Environment.BG_SKY
@@ -3396,6 +3480,11 @@ func _build_scene() -> void:
 	_sun = sun
 	add_child(sun)
 	var moon := DirectionalLight3D.new()
+	# **Lights the world, does not drive the sky.** A physical sky works out its scattering from the
+	# directional lights in the scene, so a second one is a second sun as far as it is concerned - and
+	# a sky lit by two suns on opposite sides comes out an even grey with no blue anywhere, which is
+	# exactly what noon looked like. (2026-09-21)
+	moon.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
 	moon.light_color = Color(0.62, 0.71, 0.95)
 	moon.light_energy = 0.0
 	moon.visible = false
@@ -4090,3 +4179,30 @@ func light_the_sun() -> void:
 		light.shadow_blur = 1.4
 		light.shadow_bias = 0.06
 		light.shadow_normal_bias = 1.4
+
+
+## Stars, drawn once into a panorama the physical sky shows when the sun is down.
+##
+## Cheap in the way that matters: a texture generated at startup and never touched again, not a shader
+## running per pixel per frame. A flatly black night is the thing that gives a pretty daytime away.
+##
+## **Resolution is the whole trick.** At 1024x512 each star is one texel stretched across degrees of
+## sky and reads as falling snow. Four times that, with no bleed into neighbours, and they are
+## pinpricks. (2026-09-21)
+func _night_sky() -> ImageTexture:
+	var width := 4096
+	var height := 2048
+	var image := Image.create(width, height, false, Image.FORMAT_RGBAH)
+	image.fill(Color(0.004, 0.006, 0.014))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 90210
+	for i in 9000:
+		var x := rng.randi_range(0, width - 1)
+		# Weighted the way a sphere's area is, or the poles end up crowded.
+		var y := int(acos(rng.randf_range(-1.0, 1.0)) / PI * float(height - 1))
+		# A few bright among many faint: an even scatter reads as noise rather than as stars.
+		var bright := pow(rng.randf(), 4.0)
+		var warm := rng.randf()
+		image.set_pixel(x, y, Color(0.75 + warm * 0.25, 0.82, 1.0).lerp(Color(1.0, 0.86, 0.7), warm * 0.5)
+			* (0.2 + bright * 3.0))
+	return ImageTexture.create_from_image(image)

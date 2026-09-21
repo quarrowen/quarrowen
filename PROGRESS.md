@@ -3485,3 +3485,40 @@ worse, for about a third of the frame. It is off in the preset now. Measured wit
 
 Still unmeasured: **the M1 Air**, which is the machine that actually decides. The iPad Air 5 is the
 same M1 with one more GPU core, so the Air remains the floor for both.
+
+## The sky, and why a physically scattered one rendered as grey twilight (2026-09-21)
+
+The realistic preset uses `PhysicalSkyMaterial` now - real atmospheric scattering - so dawn and sunset
+come out of the physics rather than out of a colour ramp. Getting there took eight renders of
+guessing before I stopped and instrumented it, which is the lesson worth keeping: **the print took
+two minutes and settled in one run what screenshots had not settled in an hour.**
+
+Three bugs, and only the third was the one I was looking for:
+
+1. **The sun never moved.** `_update_time` recomputes everything behind a guard on *daylight
+   changing*, which is right for colours and wrong for a position - daylight sits at 1.00 for hours
+   across the middle of the day while the sun keeps crossing the sky. It never mattered while the sun
+   only tinted a gradient. It matters enormously once the sun casts shadows and computes the sky.
+   Aiming now happens every frame, outside the guard.
+2. **`look_at` was degenerate at noon.** The sun is directly overhead, and looking along an
+   up-vector is undefined, so the basis went to nothing exactly at midday. `_up_for` picks a
+   different up when the direction is near-vertical.
+3. **The scattering is far dimmer than the gradient it replaced, and Godot composites `night_sky`
+   wherever the sky is dark.** So a correctly-configured noon rendered as grey with the stars
+   showing - it *was* blue underneath, drowned. `energy_multiplier` goes to 2.0 by day, and the
+   starfield is swapped out entirely above a daylight threshold rather than left to fade.
+
+The instrumented run is what separated these: sun visible, `y=0.94`, energy 1.35, rotation -71,
+`sky_mode=0`, turbidity 2.40 - every value right, which ruled out the whole configuration at once
+and pointed at compositing.
+
+**And a fourth thing that is not a bug but would have shipped as one:** in this preset ambient light
+comes *from* the sky, so when the sky goes dark there is nothing left lighting the world, and dusk
+rendered as a black screen with a hotbar on it. The flat presets never had this because their ambient
+is a constant. Raising ambient *energy* does nothing - ambient takes its colour from the sky, and a
+dark sky times any energy is still dark - so `ambient_light_sky_contribution` falls at night and the
+constant colour takes over. A game you cannot see at night is broken however physically honest the
+reason.
+
+Starfield: 9000 stars, sphere-weighted, at 4096x2048 - resolution is the whole trick, since at
+1024x512 each star is one texel stretched across degrees of sky and reads as falling snow.

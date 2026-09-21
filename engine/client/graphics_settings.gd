@@ -91,7 +91,10 @@ static func apply_realism(env: Environment, on: bool) -> void:
 	# Bounce light. The expensive one, and what stops shadowed ground reading as a flat dark patch.
 	env.ssil_enabled = on and not off("ssil")
 	env.ssil_intensity = 0.6
-	env.fog_sky_affect = 0.35 if on else 0.0
+	# **No fog on the sky.** 0.35 was meant as haze and instead washed the whole dome towards the
+	# horizon colour, so the scattering computed a deep blue zenith and the fog painted over it. Fog
+	# belongs on distance, not on the thing that is infinitely far away. (2026-09-21)
+	env.fog_sky_affect = 0.0
 	if on:
 		env.tonemap_mode = Environment.TONE_MAPPER_ACES
 		env.tonemap_white = 4.0
