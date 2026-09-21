@@ -33,11 +33,13 @@ Twelve biomes, eighty blocks, eleven creatures, a boss, four games.
 
 ### What is left, shortest honest answer
 
-- **Six capabilities**: creature abilities, **characters**, applied effects, companions, vehicles,
-  instances, and the three small ones (area tools, text in the world, nested inventories).
-- **Three known limits** in things that *are* built - see "Where the built things stop" below.
-- **Content**, which is not capability: ores worth digging for, creature voices, a reason to build a
-  factory, Hearthhold's second phase.
+- **Three capabilities**: area tools, inventories inside things, instances. Nothing else on the list
+  is unbuilt - creature abilities, characters, shops, applied effects, companions, vehicles, text in
+  the world, extending another mod, excludes and flight all landed between 19 and 21 September 2026.
+- **Four known limits** in things that *are* built - see "Where the built things stop" below.
+- **All of the content**, which is not capability and is now the larger half of the work: the seven
+  games were deleted on 21 September, so `base` has to be re-scoped to nouns and the packs and games
+  written on top of it. See "The mod architecture" below.
 - **Four things for 1.0**: touch controls, instrumenting the network, compressing chunks, interest
   management.
 
@@ -664,9 +666,12 @@ follows is what is left, in the order that now unlocks the most.
 at all: structures, facilities, jobs, ownership, conversation and trade all exist. What a village needs
 now is content - somebody to write the villagers.
 
-1. **The small three**: area tools, text in the world, inventories inside things. Independent, and each
-   one an afternoon.
+1. **The small two**: area tools and inventories inside things. (Text in the world was the third and
+   is built.) Independent, and each one an afternoon.
 2. **Instances.** Much cheaper now dimensions exist, being a dimension with a lifetime.
+3. **Then the content**, which is where the remaining weight is: re-scope `base` to nouns, write
+   `simple_gear` and `simple_machines`, then the games. Doing the three capabilities first means the
+   packs get designed against an API that has stopped moving.
 
 ## Where the built things stop
 
@@ -687,12 +692,14 @@ Limits in capabilities that *are* built, recorded so they are found on purpose r
 None of this needs engine work. All of it is what makes the engine worth having.
 
 - **Ores worth digging for** - copper, gold, a hard gem, deep variants. Quickstone landed with signals;
-  the rest did not.
+  the rest did not, and the ores that did exist went with the games.
 - **A reason to build a factory.** Power, pipes, belts, machines and rotation all exist; what is
-  missing is a progression that makes a child want one.
-- **Twenty-five creature voices**, still generated. The clearest brief the AI-audio phase could have,
-  and `stalker_screech` and `colossus_roar` are the two that would change the game most.
-- **Hearthhold's second phase.** Settlers, dwellings and a charter exist at phase one.
+  missing is a progression that makes a child want one. That progression is a *game's* job now, not
+  `simple_machines`'.
+- **Creature voices**, still generated. The clearest brief the AI-audio phase could have - and the
+  brief has to be rewritten, because the creatures it named no longer exist.
+- **A guided game.** The thinking from the deleted story game is kept in `docs/hearthhold.md` and
+  should feed whatever replaces it; nothing about it needs engine work.
 
 ## For 1.0
 
