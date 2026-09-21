@@ -3312,3 +3312,31 @@ Notably *not* on that list: pixel resolution, palette, and the block grid itself
 look is winnable without touching physics or the mesher.
 
 Next experiment, before `base` is written: model trees and a restyled HUD and sky, on top of crisp.
+
+## The look, round two: trees carry it (2026-09-21)
+
+Three tree silhouettes on top of crisp, as glTF model blocks built with `tools/box_model.py`:
+**round** (stacked discs, storybook), **spire** (narrowing tiers, conifer) and **clump** (a few large
+angular slabs, low-poly).
+
+**This is the lever.** The change from a cube of leaves to a shaped canopy does more to the picture
+than all five texture styles put together, and it costs nothing in the engine: `render: "model"`
+already draws a block's glTF at whatever size the model is, so a canopy five blocks wide is content,
+not an engine change. The trunk stays a column of ordinary log blocks, so it is still choppable.
+
+How it works: a custom feature (a Callable, which `register_feature` already accepts) writes a few
+log blocks and **one** canopy block carrying the model. One model instance a tree rather than forty
+leaf cubes, which is also cheaper to mesh.
+
+**Known limit, deliberately not solved yet:** a model block's collision is still its own cell, so a
+canopy is walk-through. Fine for deciding a look; a real tree wants either a taller collision box or
+an invisible leaf block behind it. Worth settling when `base` gets its trees.
+
+Two bugs found, both mine and both already in CLAUDE.md's list. `Writer.set_block` takes separate
+coordinates rather than a Vector3i. And the biome was registered *before* the feature it names, which
+is the registration-order trap - a biome cannot reference a feature registered later in the same run.
+
+One performance bug worth remembering because it had nothing to do with looks: the viewpoint scan ran
+on **every join** and asked for tens of thousands of surface heights, each of which may generate a
+chunk. The screenshot client gave up waiting and photographed its own loading screen. It is worked
+out once and kept now.

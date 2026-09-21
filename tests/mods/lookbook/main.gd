@@ -21,6 +21,21 @@ func setup(api) -> void:
 	api.register_feature("conifer", {"type": "tree", "trunk": "base:spruce_log",
 		"leaves": "base:spruce_leaves", "height": [7, 11], "shape": "cone"})
 	api.register_feature("rock", {"type": "boulder", "block": "base:stone", "radius": [1, 2]})
+	# Model trees. One canopy block carrying a glTF several blocks wide, instead of a cloud of leaf
+	# cubes - the strongest single signal in the picture, and the engine already renders model blocks
+	# at whatever size the model is. Which silhouette is the question being asked. (2026-09-21)
+	var canopy := String(OS.get_environment("QW_LOOK_TREE"))
+	if not canopy.is_empty():
+		api.register_block("canopy", {"display_name": "Canopy", "render": "model",
+			"model": "models/tree_%s.glb" % canopy, "drops": "", "hardness": 0.2})
+		api.register_feature("modeltree", func(writer, origin: Vector3i, rng):
+			var trunk: int = api.require_block("base:birch_log")
+			var head: int = api.require_block("lookbook:canopy")
+			var height: int = 3 + (rng.randi() % 3)
+			# Writer.set_block takes separate coordinates, not a Vector3i.
+			for dy in height:
+				writer.set_block(origin.x, origin.y + dy, origin.z, trunk)
+			writer.set_block(origin.x, origin.y + height, origin.z, head))
 	# One biome, not a world tour. Comparing two looks means comparing the same hillside twice, and
 	# terrain that wanders into a desert in one render and a forest in the other compares nothing.
 	api.register_biome("vale", {
@@ -31,8 +46,9 @@ func setup(api) -> void:
 		"height": {"base": 70.0, "variation": 7.0, "peaks": 14.0},
 		"surface": {"top": "base:grass", "filler": "base:dirt", "beach": "base:sand",
 			"underwater": "base:gravel", "stone": "base:stone", "water": "base:water"},
-		"features": [{"feature": "broadleaf", "per_chunk": 0.7}, {"feature": "conifer", "per_chunk": 0.35},
-			{"feature": "rock", "per_chunk": 0.4}],
+		"features": ([{"feature": "modeltree", "per_chunk": 1.0}] if not String(OS.get_environment("QW_LOOK_TREE")).is_empty()
+			else [{"feature": "broadleaf", "per_chunk": 0.7}, {"feature": "conifer", "per_chunk": 0.35}])
+			+ [{"feature": "rock", "per_chunk": 0.4}],
 		"plants": [{"block": "base:tall_grass", "chance": 0.22, "on": ["base:grass"]},
 			{"block": "base:fern", "chance": 0.05, "on": ["base:grass"]}],
 	})
@@ -58,11 +74,19 @@ func setup(api) -> void:
 ##
 ## Scanned rather than hardcoded because terrain comes from a seed, and a coordinate that happens to
 ## be a good view today stops being one the moment anything about generation changes.
+## Worked out once and kept. It was being recomputed on every join, and a scan that asks for tens of
+## thousands of surface heights - each of which may generate a chunk - took long enough that the
+## screenshot client gave up waiting and photographed its own loading screen. (2026-09-21)
+var _found := Vector3.INF
+
+
 func _viewpoint(api) -> Vector3:
+	if _found != Vector3.INF:
+		return _found
 	var best := Vector3(8.5, 80.0, 8.5)
 	var best_score := -1.0
-	for x in range(-140, 141, 20):
-		for z in range(-140, 141, 20):
+	for x in range(-96, 97, 24):
+		for z in range(-96, 97, 24):
 			var y: int = api.surface_y(x, z)
 			# Above the water but not up in the stone: a shoreline vantage, not a summit.
 			if y < 64 or y > 78:
@@ -86,8 +110,8 @@ func _viewpoint(api) -> Vector3:
 			# rises again - between them, a view rather than a hollow.
 			var water := 0.0
 			var openness := 0.0
-			for dx in range(-48, 49, 8):
-				for dz in range(-48, 49, 8):
+			for dx in range(-40, 41, 16):
+				for dz in range(-40, 41, 16):
 					var h: int = api.surface_y(x + dx, z + dz)
 					if h <= 62:
 						water += 1.0
@@ -96,6 +120,7 @@ func _viewpoint(api) -> Vector3:
 			if score > best_score:
 				best_score = score
 				best = Vector3(x + 0.5, y + 3.0, z + 0.5)
+	_found = best
 	return best
 
 
