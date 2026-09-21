@@ -24,7 +24,7 @@ export function setup(api) {
   });
   api.registerShop("js_stall", {
     display_name: "The JS Stall",
-    offers: [{ item: "base:torch", count: 1, price: 2, ledger: "js_coins", stock: 2 }],
+    offers: [{ item: "proving:token", count: 1, price: 2, ledger: "js_coins", stock: 2 }],
   });
   api.registerCharacter("js_keeper", {
     display_name: "The JS Keeper",
@@ -44,11 +44,10 @@ export function setup(api) {
   // Blocks and items, through hand-written bindings, so both halves of the bridge are covered.
   const slab = api.registerBlock("js_block", {
     display_name: "JS Block",
-    textures: "base:textures/planks.png",
     hardness: 1,
   });
-  api.registerItem("js_item", { display_name: "JS Item", icon: "base:textures/coal.png" });
-  api.registerRecipe({ "base:stone": 1 }, "proving_js:js_block", 1, { unlock: "known" });
+  api.registerItem("js_item", { display_name: "JS Item" });
+  api.registerRecipe({ "proving:rock": 1 }, "proving_js:js_block", 1, { unlock: "known" });
 
   // Player and entity objects, and arguments of every kind the table has to describe: a player
   // reference, a position, a number left off, a dictionary, and a callback.

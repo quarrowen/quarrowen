@@ -33,7 +33,7 @@ func setup(mod_api) -> void:
 	api.set_server_info({"name": "Proving Ground", "motd": "Nothing here is meant to be fun."})
 	# Flat and predictable. A test that has to go looking for the ground is a test that measures
 	# terrain generation when it meant to measure something else.
-	api.set_world_generator(FlatGround.new(api.block("base:stone"), api.block("base:dirt"), api.block("base:grass")))
+	api.set_world_generator(FlatGround.new(api.block("proving:rock"), api.block("proving:soil"), api.block("proving:turf")))
 	api.set_gameplay({"keep_inventory": true, "natural_regeneration": true, "tutorials": false})
 	things.setup(api, ids)
 	life.setup(api, ids)

@@ -18,8 +18,8 @@ func _creatures() -> void:
 	# them they cover the AI presets, phases, attacks, taming and breeding.
 	ids.grazer = api.register_entity("grazer", {"kind": "mob", "display_name": "Grazer",
 		"width": 0.8, "height": 1.0, "health": 12, "speed": 2.2, "category": "misc", "persistent": true,
-		"taming": {"items": ["base:apple"], "chance": 1.0, "follow_distance": 3.0, "teleport_distance": 16.0},
-		"breeding": {"items": ["base:apple"], "cooldown": 5.0},
+		"taming": {"items": ["proving:grain"], "chance": 1.0, "follow_distance": 3.0, "teleport_distance": 16.0},
+		"breeding": {"items": ["proving:grain"], "cooldown": 5.0},
 		"nameplate": {"show_health": true},
 		"ai": {"preset": "passive", "wander_radius": 6}})
 	ids.biter = api.register_entity("biter", {"kind": "mob", "display_name": "Biter",
@@ -30,7 +30,7 @@ func _creatures() -> void:
 				{"name": "bite", "type": "melee", "damage": 2.0, "range": 2.0, "windup": 0.2,
 					"condition": {"condition": "venom", "seconds": 6.0, "level": 1}},
 				{"name": "spit", "type": "ranged", "damage": 1.0, "range": 12.0, "min_range": 4.0,
-					"projectile": "base:arrow" if api.entity_type("base:arrow") > 0 else "",
+					"projectile": "proving:dart",
 					"condition": {"condition": "venom", "seconds": 4.0}},
 				{"name": "stamp", "type": "slam", "damage": 3.0, "radius": 3.0, "health_below": 0.5,
 					"lingers": {"field": "scorch", "seconds": 6.0}}],

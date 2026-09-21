@@ -15,9 +15,9 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	api.register_objective("daily", {"display_name": "A Daily Thing", "repeatable": true,
 		"steps": [{"text": "Again"}]})
 	api.register_shop("stall", {"display_name": "The Stall", "offers": [
-		{"item": "base:torch", "count": 2, "price": 5, "ledger": "coins", "stock": 3, "restock": 30.0},
-		{"item": "base:stone", "count": 4, "cost": [{"item": "base:torch", "count": 1}]},
-		{"item": "base:cobblestone", "price": 1, "ledger": "coins", "sells": true}]})
+		{"item": "proving:token", "count": 2, "price": 5, "ledger": "coins", "stock": 3, "restock": 30.0},
+		{"item": "proving:rock", "count": 4, "cost": [{"item": "proving:token", "count": 1}]},
+		{"item": "proving:plain", "price": 1, "ledger": "coins", "sells": true}]})
 	# Every kind of option a conversation can have: one that moves along, one that hands over an
 	# objective, one that opens the stall, and one the mod answers itself.
 	api.register_character("keeper", {"display_name": "The Keeper", "color": "#ffd166", "lines": {
@@ -32,5 +32,5 @@ func setup(mod_api, id_table: Dictionary) -> void:
 		if ev.choice == "wave":
 			api.add_balance(ev.player, "coins", 1.0))
 	# Tags, which several of the above can refer to.
-	api.tag("currency", ["base:gold_ingot"])
-	api.tag("stone_like", ["base:stone", "base:cobblestone", "base:deepstone"])
+	api.tag("currency", ["proving:token"])
+	api.tag("stone_like", ["proving:rock", "proving:plain", "proving:step"])

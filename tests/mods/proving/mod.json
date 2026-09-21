@@ -4,8 +4,10 @@
 	"version": "1.0.0",
 	"description": "Every engine capability, exercised in one place. Not shipped: this is what the tests play.",
 	"kind": "game",
-	"authors": ["Quarrowen"],
+	"authors": [
+		"Quarrowen"
+	],
 	"engine": "^1.0",
-	"depends": ["base@^1.0"],
+	"depends": [],
 	"main": "main.gd"
 }

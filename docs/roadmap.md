@@ -582,6 +582,60 @@ Ten, rather than the sprawl this could become:
 | `build` | decoration and building tools |
 | `hearthhold` | the story game — exists |
 
+## The mod architecture, settled 21 September 2026
+
+Until now the engine shipped seven games and was tested through them, so every engine change dragged
+seven mods behind it and coverage was whatever the content happened to use. That is being undone.
+
+**`base` owns nouns. Games own rules.** Things that *exist* in a world - blocks, liquids, terrain,
+biomes, trees, crops, flowers, grass, mobs, animals, birds - are `base`. Progression, survival,
+recipes, what a player is *for* - that is a game. The test of whether the line is real: **a creative
+game ships zero recipes and everything still exists and works.**
+
+`base` therefore has no furnace, no logic gates and no tools. Those live in content packs a game pulls
+in - `simple_gear` (things you hold or wear) and `simple_machines` (things that do something). Two
+rather than four: splitting later is easy, merging after people depend on the ids is not.
+
+Testing moves to **the Proving Ground** (`tests/mods/proving`), one mod that uses every capability, in
+GDScript and JavaScript. It depends on nothing, because `base` will churn constantly as it grows and a
+test mod that rides on it fails for the wrong reasons.
+
+### Three capabilities this architecture needs and does not have
+
+**24. Extending another mod's definitions.** `extend_loot` already exists and its comment states the
+principle - "adds pools to a table another mod owns, without forking it" - but it is the only registry
+with one. The same is needed for entities, blocks, recipes, containers and stations: adding an attack
+to somebody's creature, a slot to their machine. **Additive only.** Adding a pool is commutative and
+three mods can do it safely; "set health to 40" means last-loaded wins, which is a conflict system
+nobody asked to design.
+
+**25. Excludes.** A game wanting 80% of a pack must be able to refuse the rest. Not as
+`remove_block()`: registering and then deleting shifts every id after it, leaves every recipe and loot
+table that referenced it dangling, and cannot work anyway because a game loads *after* the mod it
+depends on. Instead, **declared in `mod.json` and read before any mod registers anything**:
+
+    {"id": "my_game", "depends": ["base@^1.0"],
+     "excludes": ["base:cobalt_*", "base:sunstone_ore", "#base:charms"]}
+
+Never registered is safe where registered-then-removed is not: no id churn, and anything referencing a
+missing name is dropped with a warning at load, which is when you want to hear about it. Wildcards and
+tags do the bulk work. `remove_mod` is the same mechanism with a wider wildcard, and mostly a non-need
+- if you do not want a mod, do not depend on it.
+
+**26. Flight.** Mob AI has `can_swim` and `climb` and nothing for flying: no air movement mode, no air
+pathfinding. Birds need it, and it is engine work rather than content.
+
+## What is still only half-decided: which content
+
+`docs/parity.local.md` (19 September) derived fifteen capabilities from a gap analysis, and that list
+is essentially this roadmap - nearly all of it is now built. What it never answered is **which blocks,
+creatures and biomes actually get built**, and that is the long programme.
+
+Worth scoping as a deliberate subset with a stated principle rather than a checklist to exhaust:
+*every biome type that needs a different generation technique, one creature per AI behaviour, one
+block per shape and material class*. That way `base` proves the engine's range instead of chasing a
+count, and breadth comes after 1.0 when a real game asks for it.
+
 ## Order
 
 **The 19 September list is done.** Weather, dimensions, signals, networks, keeping the world awake,

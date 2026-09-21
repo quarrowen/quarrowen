@@ -9,13 +9,12 @@ var ids: Dictionary
 func setup(mod_api, id_table: Dictionary) -> void:
 	api = mod_api
 	ids = id_table
-	var stone := {"break": "base:stone", "place": "base:stone", "step": "base:stone_step"}
-	ids.wire = api.register_block("wire", {"display_name": "Wire", "textures": "base:textures/stone.png",
-		"sounds": stone, "hardness": 0.5, "signal_carry": true, "connect_group": "proving_signal"})
-	ids.switch = api.register_block("switch", {"display_name": "Switch", "textures": "base:textures/planks.png",
-		"sounds": stone, "hardness": 0.5, "interactive": true})
-	ids.core = api.register_block("core", {"display_name": "Core", "textures": "base:textures/stone.png",
-		"sounds": stone, "hardness": 2.0})
+	ids.wire = api.register_block("wire", {"display_name": "Wire",
+		"hardness": 0.5, "signal_carry": true, "connect_group": "proving_signal"})
+	ids.switch = api.register_block("switch", {"display_name": "Switch",
+		"hardness": 0.5, "interactive": true})
+	ids.core = api.register_block("core", {"display_name": "Core",
+		"hardness": 2.0})
 	# A block that listens. Emitting and carrying are block keys; this is the third of the three.
 	api.register_signal("core", func(ctx):
 		api.set_block_data(ctx.position, {"level": int(ctx.level)}))
@@ -38,10 +37,10 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	# A realm, so dimensions are covered, and a liquid to put in it.
 	api.add_realm("deep", {"display_name": "The Deep", "generator": "void"})
 	# A liquid of our own, with a shallow form, plus what happens where two meet.
-	ids.slime = api.register_block("slime", {"display_name": "Slime", "textures": "base:textures/water.png",
+	ids.slime = api.register_block("slime", {"display_name": "Slime",
 		"render": "translucent", "liquid": true})
-	ids.slime_thin = api.register_block("slime_thin", {"display_name": "Slime", "textures": "base:textures/water.png",
+	ids.slime_thin = api.register_block("slime_thin", {"display_name": "Slime",
 		"render": "translucent", "liquid": true, "shape": "slab"})
 	api.register_liquid("slime", {"range": 4, "falls": true, "speed": 0.4,
 		"shallow": "proving:slime_thin", "shallow_from": 2})
-	api.register_liquid_meeting("slime", "base:water", "proving:plain")
+	api.register_liquid_meeting("slime", "proving:slime", "proving:plain")

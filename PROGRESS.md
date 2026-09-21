@@ -2722,3 +2722,37 @@ other 91 functions test the engine and stay.
 Note also that `mod_tool validate` reported "0 errors" on a Proving Ground that threw two script
 errors during setup. A validator that cannot see a mod fall over is not validating much, and that is
 worth fixing before it is trusted for anything.
+
+## The mod architecture, and the Proving Ground standing on its own (2026-09-21)
+
+Settled in conversation and written into `docs/roadmap.md`: **`base` owns nouns, games own rules.**
+Blocks, liquids, biomes, flora and fauna are `base`; progression, recipes and survival are a game. The
+test of whether the line is real is that **a creative game ships zero recipes and everything still
+exists and works.** Machines and gear move out of base into `simple_machines` and `simple_gear` - two
+packs rather than four, because splitting later is easy and merging after people depend on the ids is
+not.
+
+Three capabilities the architecture needs and the engine does not have, now roadmap items 24-26:
+extending another mod's definitions (generalise `extend_loot`, **additive only** so three mods can do
+it safely), **excludes** declared in `mod.json` and applied before anything registers, and **flight**.
+
+Excludes are worth restating because the obvious API is the wrong one. `remove_block()` after the fact
+shifts every id behind it, leaves every recipe and loot table that referenced it dangling, and cannot
+work anyway - a game loads *after* what it depends on, so by the time its `setup()` runs the thing is
+already registered. Declaring exclusions statically and refusing the registration means never
+registered rather than registered-then-removed, which is the only one of the two that is safe.
+
+### Phase 1 done: the Proving Ground depends on nothing
+
+It had eighteen references to `base` - textures, sounds, stone, apples, torches. All gone. It
+registers its own rock, soil and turf for the ground it stands on, its own grain to tame with and its
+own token to trade, and **it has no textures at all**: the client already draws a block with no
+texture as a magenta checker, which costs nothing and is more honest than borrowing art for something
+that is not meant to look like content.
+
+That matters more than it sounds. `base` is about to be rewritten and will then churn constantly as it
+grows toward whatever content scope 1.0 picks. A test mod riding on it would fail every time somebody
+added a bird. This one cannot.
+
+It also runs in **1 second** for 45 capability checks, against `gameplay`'s 94 seconds - because it
+starts one server rather than ninety-three.

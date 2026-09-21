@@ -12,7 +12,7 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	api.register_effect("puff", {"particles": 12, "color": "#cccccc", "scale": 1.0, "duration": 0.6})
 	api.register_weather("haze", {"display_name": "Haze", "darkness": 0.2, "particles": "puff"})
 	api.register_milestone("first_stone", {"display_name": "First Stone",
-		"goal": {"type": "break", "target": ["base:stone"]}})
+		"goal": {"type": "break", "target": ["proving:rock"]}})
 	api.register_guide_chapter("proving", {"title": "The Proving Ground", "order": 1})
 	api.register_guide_page("what", {"chapter": "proving", "title": "What this is",
 		"content": [{"type": "text", "text": "A mod that exists to be tested."}]})
