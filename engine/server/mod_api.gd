@@ -508,6 +508,12 @@ func explode(position: Vector3, power: float, options := {}) -> Dictionary:
 	return _server.explosions.explode(position, power, options)
 
 
+## Pastes a saved structure into a world. `realm_id` is which world - without it a dungeon's rooms
+## were built in the overworld while the players stood in an empty instance. (2026-09-21)
+func place_structure_in(template_name: String, at: Vector3i, realm_id := "", rotation := 0) -> bool:
+	return _server.structure_tools.place(_qualify_ref(template_name), at, rotation, _realm_or_default(realm_id))
+
+
 ## Plays an effect for everyone in range. options: color ("#rrggbb", tints it), scale, direction
 ## (Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).
 ## Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,
@@ -574,19 +580,25 @@ func entity_type(entity_name: String) -> int:
 
 
 ## Spawns an entity. options: yaw, velocity (Vector3), data (Dictionary), owner (player or entity,
-## for projectiles). Returns the entity or null.
+## for projectiles), **realm** (which world to put it in; the overworld by default). Returns the
+## entity or null.
+##
+## `realm` matters for instances: without it every spawn landed in the overworld, so a dungeon could
+## be entered but never populated. (2026-09-21)
 func spawn_entity(entity_name: String, position: Vector3, options := {}):
-	return _server.entities.spawn(entity_type(entity_name), position, options)
+	return _realm_or_default(String(options.get("realm", ""))).entities.spawn(entity_type(entity_name), position, options)
 
 
 ## Fires a projectile entity from `from` with `velocity`, credited to `owner` (player or entity).
-func spawn_projectile(entity_name: String, from: Vector3, velocity: Vector3, owner = null):
-	return _server.entities.spawn(entity_type(entity_name), from, {"velocity": velocity, "owner": owner, "yaw": atan2(-velocity.x, -velocity.z)})
+func spawn_projectile(entity_name: String, from: Vector3, velocity: Vector3, owner = null, realm_id := ""):
+	# Fired where the shooter is, not in the overworld: an arrow loosed in a dungeon has to stay there.
+	var into = _realm_or_default(realm_id if not realm_id.is_empty() else (String(owner.realm_id) if owner != null and "realm_id" in owner else ""))
+	return into.entities.spawn(entity_type(entity_name), from, {"velocity": velocity, "owner": owner, "yaw": atan2(-velocity.x, -velocity.z)})
 
 
 ## Drops an item stack entity (players walk over it to pick it up).
-func drop_item(item_id: int, count: int, position: Vector3):
-	return _server.entities.drop_item(item_id, count, position)
+func drop_item(item_id: int, count: int, position: Vector3, realm_id := ""):
+	return _realm_or_default(realm_id).entities.drop_item(item_id, count, position)
 
 
 ## Living entities within `radius` of `center`, optionally only of one type.
@@ -2161,7 +2173,7 @@ func register_structure_template(template_name: String, source) -> bool:
 ## does, for a mod that wants to build something itself rather than leave it to world generation: a
 ## story's outpost, a rescue site, a prize somebody hid.
 func place_structure(template_name: String, at: Vector3i, rotation := 0) -> bool:
-	return _server.structure_tools.place(_qualify_ref(template_name), at, rotation)
+	return _server.structure_tools.place(_qualify_ref(template_name), at, rotation, _server.realm)
 
 
 func register_structure(structure_name: String, def: Dictionary) -> void:

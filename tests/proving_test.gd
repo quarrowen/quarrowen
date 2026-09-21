@@ -240,6 +240,22 @@ func _instances(server, api, p) -> void:
 	server.instances.live[run].empty_since = server._time - 99.0
 	server.instances.update(0.0)
 	_check(not server.realms.has(run), "but it does once it has been empty long enough")
+	# Can a dungeon actually be built inside one? Blocks, creatures and dropped loot all have to land
+	# in the instance's realm rather than the overworld - which is what they used to do. (2026-09-21)
+	var inside: String = api.open_instance("trial", {})
+	var room := Vector3i(4, 66, 4)
+	api.set_block(room, server.registry.id_of("proving:rock"), inside)
+	_check(server.realms[inside].world.get_block_v(room) == server.registry.id_of("proving:rock"),
+		"a block can be placed inside an instance")
+	_check(server.realm.world.get_block_v(room) != server.registry.id_of("proving:rock"),
+		"and it did not land in the overworld instead")
+	var guard = api.spawn_entity("proving:grazer", Vector3(4.5, 67, 4.5), {"realm": inside})
+	_check(guard != null and server.realms[inside].entities.entities.has(guard.id),
+		"a creature can be spawned inside it")
+	api.drop_item(server.items.id_of("proving:grain"), 3, Vector3(4.5, 67, 4.5), inside)
+	_check(server.realms[inside].entities.in_radius(Vector3(4.5, 67, 4.5), 3.0).size() >= 1,
+		"and loot can be dropped in it")
+	api.close_instance(inside)
 	api.close_instance(second)
 
 

@@ -596,6 +596,10 @@
 				},
 				{
 					"kind": "vec3"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "drop_item"
@@ -1564,6 +1568,25 @@
 				}
 			],
 			"gd": "place_structure"
+		},
+		"placeStructureIn": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				},
+				{
+					"default": 0,
+					"kind": "int"
+				}
+			],
+			"gd": "place_structure_in"
 		},
 		"playBeam": {
 			"args": [
@@ -3070,6 +3093,10 @@
 				},
 				{
 					"kind": "any"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "spawn_projectile"

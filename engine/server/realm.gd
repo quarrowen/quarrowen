@@ -104,6 +104,12 @@ func attach() -> void:
 	liquids.kinds = _server.liquid_kinds
 	liquids.meetings = _server.liquid_meetings
 	multiblocks.patterns = _server.multiblock_patterns
+	# The creature registry too, and for exactly the same reason. It was missed: every Entities builds
+	# its own, mods register into the overworld's, and so every other realm had an empty one - which
+	# meant `spawn` refused every type and no creature could exist anywhere but the overworld. It went
+	# unnoticed because nothing spawned one in a second realm until instances did. (2026-09-21)
+	if _server.realm != null:
+		entities.registry = _server.realm.entities.registry
 
 
 ## Whether anything in this realm should be run this tick. A claim on a chunk (keeping a machine going

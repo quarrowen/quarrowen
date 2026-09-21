@@ -3150,3 +3150,41 @@ the realm and its generator both belong to the mod going away, and everybody ins
 rather than left in a world about to stop existing.
 
 20 assertions in `proving_test.gd`, all verified as firing (107 checks there now).
+
+## Instances had to be able to contain a dungeon (2026-09-21, user: "if i am writing a dungeon mod...")
+
+Asking what a dungeon mod actually needs found that instances, as first built, could be *entered* but
+not *furnished*. Four world-acting API calls had no realm, so everything a mod built for a dungeon
+landed in the overworld while the players stood in empty air:
+
+- `spawn_entity` - realm now goes in its options dictionary, per this week's rule about third
+  positional arguments
+- `drop_item`, `spawn_projectile` - a `realm_id` parameter (a projectile defaults to its owner's
+  realm, since an arrow loosed in a dungeon has to stay there)
+- `place_structure` - a sibling, `place_structure_in`, that takes the realm; the old one still means
+  the overworld
+
+**And underneath those was a real engine bug that predates instances.** Every `Entities` builds its
+own `EntityRegistry`, and `Realm.attach()` shares the block tick handlers, signal handlers, liquid
+kinds and multiblock patterns across realms - with a comment explaining exactly why - but never
+shared the creature registry. Mods register into the overworld's, so **every other realm had an empty
+one and `spawn` refused every type**. No creature could exist anywhere but the overworld. It went
+unnoticed because nothing had ever tried to spawn one in a second realm; the dimensions work landed
+before there was a reason to.
+
+The rest of the dungeon brief needs no engine work, and `proving_test` now asserts the parts that do:
+a block placed inside an instance stays inside it, a creature spawns in it, loot drops in it.
+
+What a dungeon mod still assembles itself, which is right: the entrance (a block that opens and
+enters), the end (a trigger that calls `leave_instance`), lives (`player_death` plus a counter in
+`instance_data`, and `leave_instance` on the last one - respawn keeps you in the realm you died in,
+so a mod only has to set the position in `player_respawn`), and gear rules for an arena (checks
+before `enter_instance`, and `save_items` / `clear_inventory` / `load_items` for mod-issued sets).
+
+Two gaps worth recording rather than fixing blind:
+
+- **There is no one-call "fill this container from that loot table"** in the mod API. `roll_loot`
+  returns the stacks and a mod places them, and a structure's chest block data (`{"loot": "table"}`)
+  rolls itself on first open - so both paths exist, but neither is the obvious one.
+- **`save_items`, `load_items` and `clear_inventory` are in `unbound.txt`**, so a JavaScript mod
+  cannot do arena gear sets at all. That is the single most likely thing to be wanted from that list.

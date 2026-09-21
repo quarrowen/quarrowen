@@ -84,19 +84,19 @@ func command(player, args: PackedStringArray) -> void:
 
 
 ## Places a template now (world edits and block data), corner at `at`.
-func place(template_name: String, at: Vector3i, rotation := 0) -> bool:
+func place(template_name: String, at: Vector3i, rotation := 0, into = null) -> bool:
 	var structures = _server.biome_generator.structures
 	var t: Dictionary = structures.templates.get(template_name, {})
 	if t.is_empty():
 		return false
 	for b in t.blocks:
 		var p: Vector3i = at + Structures.rotate(Vector3i(b[0], b[1], b[2]), t.size, rotation)
-		_server.set_block_authoritative(p, b[3], false, structures._rotate_state(b[3], b[4], rotation))
+		_server.set_block_authoritative(p, b[3], false, structures._rotate_state(b[3], b[4], rotation), into)
 	for local: Vector3i in t.data:
 		var p: Vector3i = at + Structures.rotate(local, t.size, rotation)
 		var entry: Dictionary = t.data[local].duplicate(true)
 		entry.structure_seed = hash([p.x, p.y, p.z, randi()])
-		_server.set_block_data(p, entry)
+		_server.set_block_data(p, entry, into)
 	return true
 
 
