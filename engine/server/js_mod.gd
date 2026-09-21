@@ -455,6 +455,17 @@ func _call_player(method: String, a: Array):
 		"getStat": return player.get_stat(_str(a, 1))
 		"addModifier": player.add_modifier(_str(a, 1), _str(a, 2), float(a[3]) if a.size() > 3 else 0.0, _str(a, 4) if a.size() > 4 else "add", float(a[5]) if a.size() > 5 else 0.0)
 		"removeModifier": player.remove_modifier(_str(a, 1))
+		# Hunger, health and the whole inventory. Missing until somebody wanted an arena that hands out
+		# gear sets, which needs exactly saveItems / clearInventory / loadItems and could not be
+		# written in JavaScript at all. (2026-09-21)
+		"setHunger": player.set_hunger(_float(a, 1), _float(a, 2, -1.0))
+		"addExhaustion": player.add_exhaustion(_float(a, 1))
+		"feed": player.feed(_float(a, 1), _float(a, 2, 0.0))
+		"setMaxHealth": player.set_max_health(_float(a, 1))
+		"clearInventory": player.clear_inventory()
+		"syncInventory": player.sync_inventory()
+		"saveItems": return player.save_items()
+		"loadItems": return player.load_items(a[1] if a.size() > 1 else null)
 		"grantCosmetic": player.grant_cosmetic(api._qualify_ref(_str(a, 1)))
 		"revokeCosmetic": player.revoke_cosmetic(api._qualify_ref(_str(a, 1)))
 		"hasCosmetic": return player.has_cosmetic(api._qualify_ref(_str(a, 1)))
@@ -530,6 +541,11 @@ func _call_entity(method: String, a: Array):
 		"remove": e.remove()
 		"kill": e.kill(_str(a, 1) if a.size() > 1 else "magic")
 		"teleport": e.teleport(_vec3(a, 1))
+		# An entity's box, and waking one that has gone quiet. Both were reachable from GDScript only.
+		"aabb":
+			var box: AABB = e.aabb()
+			return {"position": box.position, "size": box.size}
+		"wake": e.wake()
 		"setGoal": e.set_goal(_vec3(a, 1) if a.size() > 1 and a[1] != null else Vector3.INF)
 		"target": return e.get_target()
 		"setTarget": e.set_target(_any_ref(a, 1))

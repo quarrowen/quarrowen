@@ -2283,6 +2283,40 @@ func extend_loot(table_name: String, def: Dictionary) -> void:
 	_server.loot.extend(_qualify_ref(table_name), def, mod_id)
 
 
+## Fills a container from a loot table, now. The obvious call for a chest that appears when a boss
+## dies, or a reward handed out at the end of a run.
+##
+##     var chest = api.get_container(where)
+##     api.fill_container(chest, "boss_hoard", {"player": winner})
+##
+## Rolls into the **empty** slots, leaving anything already in there alone, so filling a chest twice
+## does not throw away what somebody put in it. Returns how many stacks went in.
+##
+## The other two ways a container gets loot are still there and still right: a structure's chest
+## carries `{"loot": "table"}` in its block data and rolls itself the first time it is opened, which
+## is what a dungeon laid out from a template wants, and `roll_loot` hands back the stacks for a mod
+## that wants to put them somewhere other than a container. (2026-09-21)
+func fill_container(container, table_name: String, context := {}) -> int:
+	if container == null:
+		return 0
+	var rolled := roll_loot(table_name, context)
+	if rolled.is_empty():
+		return 0
+	var placed := 0
+	var slot := 0
+	for stack in rolled:
+		if not (stack is Array and stack.size() >= 2 and _server.items.is_valid(int(stack[0]))):
+			continue
+		while slot < container.size() and container.get_item(slot).item > 0:
+			slot += 1
+		if slot >= container.size():
+			break  # full: the rest is dropped rather than silently lost track of
+		container.set_item(slot, int(stack[0]), int(stack[1]),
+			stack[2] if stack.size() > 2 and stack[2] is Dictionary else {})
+		placed += 1
+	return placed
+
+
 ## Rolls a table and returns [[item id, count, data], …], for anything the engine does not roll itself
 ## (fishing, a quest reward, a prize crate). `context` may carry player, cause, tool, position and seed.
 func roll_loot(table_name: String, context := {}) -> Array:

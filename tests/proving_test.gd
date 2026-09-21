@@ -258,6 +258,20 @@ func _instances(server, api, p) -> void:
 	api.close_instance(inside)
 	api.close_instance(second)
 
+	# Loot into a container in one call, which is what a chest appearing after a boss dies wants.
+	var chest_at := Vector3i(2, 66, 2)
+	api.set_block(chest_at, server.registry.id_of("proving:crate"))
+	var chest = api.get_container(chest_at)
+	_check(chest != null, "a container to fill")
+	if chest != null:
+		var n: int = api.fill_container(chest, "proving:crate_loot", {})
+		_check(n > 0, "fill_container puts loot in it (%d stacks)" % n)
+		# Filling again leaves what is already in there alone rather than starting over.
+		var first: Dictionary = chest.get_item(0)
+		api.fill_container(chest, "proving:crate_loot", {})
+		_check(chest.get_item(0).item == first.item and chest.get_item(0).count == first.count,
+			"and filling it twice does not overwrite what is already there")
+
 
 ## A bag and a shared store: two containers whose contents are not at a position.
 func _nested_inventories(server, api, p) -> void:

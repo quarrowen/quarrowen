@@ -739,6 +739,21 @@
 			],
 			"gd": "fill"
 		},
+		"fillContainer": {
+			"args": [
+				{
+					"kind": "any"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "fill_container"
+		},
 		"findBlockData": {
 			"args": [
 				{

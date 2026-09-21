@@ -61,6 +61,20 @@ export function setup(api) {
     player.sendMessage(`js_coins: ${api.balanceOf(player, "js_coins")}, block ${slab}`);
   });
 
+  // The arena gear-set round trip, in JavaScript. This is the shape a PvP mod needs - take what they
+  // brought, lend them a kit, give their own things back afterwards - and until 21 September 2026 none
+  // of these three had a binding, so it could not be written in this language at all.
+  api.registerCommand("jskit", "Lend a gear set and give it back", (player) => {
+    const theirs = player.saveItems();
+    player.clearInventory();
+    player.give(api.item("proving_js:js_item"), 1);
+    player.syncInventory();
+    const left = player.loadItems(theirs);
+    player.setMaxHealth(24);
+    player.feed(6, 2);
+    player.sendMessage(`kit returned, ${left.length} could not fit`);
+  });
+
   api.on("character_choice", ({ player, character, choice }) => {
     if (character === "proving_js:js_keeper" && choice === "shrug") api.addBalance(player, "js_coins", 1);
   });

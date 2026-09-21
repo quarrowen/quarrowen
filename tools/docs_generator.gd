@@ -14,11 +14,25 @@ const PRELUDE := "res://engine/server/js/prelude.js"
 const UNBOUND := "res://engine/server/js/unbound.txt"
 ## The generated half of the JavaScript API (tools/bindings_generator.gd).
 const BINDINGS := "res://engine/server/js/bindings.json"
-const UNBOUND_HEADER := """# Functions in engine/server/mod_api.gd that a JavaScript mod cannot call.
+const UNBOUND_HEADER := """# Names a JavaScript mod cannot reach by their GDScript spelling.
+#
+# Two kinds are in here, and only the first is a real gap:
+#
+#   1. GENUINELY UNAVAILABLE - takes a GDScript object, which cannot cross JSON:
+#      add_generation_pass, set_world_generator.
+#   2. REACHABLE UNDER ANOTHER NAME - the prelude renames them on purpose:
+#      entity.perform_attack is `attack`, entity.get_target is `target`, entity.get_behavior is
+#      `behavior`, entity.set_look is `lookAt`, player.get_eye_position is `eyePosition`,
+#      player.get_stats is `stats`.
+#
+# The second kind is listed because a name that differs between the two languages is worth knowing
+# about, not because it is missing. Do not "fix" one by adding a second binding.
 #
 # This list may only get shorter. tests/gameplay_test.gd fails when a name appears that is not already
 # here, so a new capability cannot quietly land in one language and not the other - which is how it got
-# to 128 of 262 in the first place (2026-09-20).
+# to 128 of 262 in the first place (2026-09-20). It was 18 until 21 September 2026, when the ten real
+# gaps were bound - among them saveItems, clearInventory and loadItems, without which a JavaScript mod
+# could not hand out an arena gear set at all.
 #
 # Regenerate with: godot --headless --path . res://tools/mod_tool.tscn -- bindings
 """

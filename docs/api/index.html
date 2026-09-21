@@ -201,6 +201,19 @@ entire point."><div class="sig"><code>api.move_assembly(assembly_id: int, by: Ve
 landing on top of it - an engine that deletes what somebody built because a machine arrived is not
 one to build with. returns false, and `assembly_problem()` says so."><div class="sig"><code>api.settle_assembly(assembly_id: int) -&gt; bool</code><span class="tag js" title="settleAssembly">JS settleAssembly</span></div><p>Puts it back into the world where it has got to. **Refused if something is in the way**, rather than<br>landing on top of it - an engine that deletes what somebody built because a machine arrived is not<br>one to build with. Returns false, and `assembly_problem()` says so.</p></div>
 <div class="card" id="api-assembly-problem" data-search="assembly_problem assemblyproblem why the last lift or settle was refused."><div class="sig"><code>api.assembly_problem() -&gt; String</code><span class="tag js" title="assemblyProblem">JS assemblyProblem</span></div><p>Why the last lift or settle was refused.</p></div>
+<div class="card" id="api-fill-container" data-search="fill_container fillcontainer fills a container from a loot table, now. the obvious call for a chest that appears when a boss
+dies, or a reward handed out at the end of a run.
+
+var chest = api.get_container(where)
+api.fill_container(chest, &quot;boss_hoard&quot;, {&quot;player&quot;: winner})
+
+rolls into the **empty** slots, leaving anything already in there alone, so filling a chest twice
+does not throw away what somebody put in it. returns how many stacks went in.
+
+the other two ways a container gets loot are still there and still right: a structure's chest
+carries `{&quot;loot&quot;: &quot;table&quot;}` in its block data and rolls itself the first time it is opened, which
+is what a dungeon laid out from a template wants, and `roll_loot` hands back the stacks for a mod
+that wants to put them somewhere other than a container. (2026-09-21)"><div class="sig"><code>api.fill_container(container, table_name: String, context := {}) -&gt; int</code><span class="tag js" title="fillContainer">JS fillContainer</span></div><p>Fills a container from a loot table, now. The obvious call for a chest that appears when a boss<br>dies, or a reward handed out at the end of a run.<br><br>var chest = api.get_container(where)<br>api.fill_container(chest, &quot;boss_hoard&quot;, {&quot;player&quot;: winner})<br><br>Rolls into the **empty** slots, leaving anything already in there alone, so filling a chest twice<br>does not throw away what somebody put in it. Returns how many stacks went in.<br><br>The other two ways a container gets loot are still there and still right: a structure's chest<br>carries `{&quot;loot&quot;: &quot;table&quot;}` in its block data and rolls itself the first time it is opened, which<br>is what a dungeon laid out from a template wants, and `roll_loot` hands back the stacks for a mod<br>that wants to put them somewhere other than a container. (2026-09-21)</p></div>
 <div class="card" id="api-show-crafting" data-search="show_crafting showcrafting opens the crafting screen for a player, crafting by hand."><div class="sig"><code>api.show_crafting(player) -&gt; void</code><span class="tag js" title="showCrafting(player: Player): void">JS showCrafting</span></div><p>Opens the crafting screen for a player, crafting by hand.</p></div>
 </section>
 <section id="api-items"><h2>Items</h2>

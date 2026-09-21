@@ -3188,3 +3188,34 @@ Two gaps worth recording rather than fixing blind:
   rolls itself on first open - so both paths exist, but neither is the obvious one.
 - **`save_items`, `load_items` and `clear_inventory` are in `unbound.txt`**, so a JavaScript mod
   cannot do arena gear sets at all. That is the single most likely thing to be wanted from that list.
+
+## The GDScript/JavaScript gap, measured (2026-09-21, user: "how much is the gap between the bridges?")
+
+**306 of 307 mod_api functions reach JavaScript.** The two that do not take a GDScript object
+(`set_world_generator`, `add_generation_pass`) and genuinely cannot cross JSON. That is the whole
+top-level gap, and it is structural rather than neglect - the generator keeps it that way, since a
+new `api.*` function reaches JavaScript the moment it exists.
+
+The gap that was real lived on **Player and Entity**, whose bindings are hand-written and so do not
+benefit from the generator at all. `unbound.txt` said 18; ten of those were genuine and are now bound:
+
+- Player: `setHunger`, `addExhaustion`, `feed`, `setMaxHealth`, `clearInventory`, `syncInventory`,
+  `saveItems`, `loadItems`
+- Entity: `aabb`, `wake`
+
+`saveItems` / `clearInventory` / `loadItems` are the ones that mattered: they are exactly the round
+trip an arena needs - take what they brought, lend them a kit, give their things back - and without
+them a JavaScript mod could not write a PvP arena at all. `proving_js` now does that round trip so it
+cannot quietly stop being covered.
+
+The remaining six are **renames, not gaps**: `perform_attack` is `attack`, `get_target` is `target`,
+`get_behavior` is `behavior`, `set_look` is `lookAt`, `get_eye_position` is `eyePosition`,
+`get_stats` is `stats`. The generator always knew this (there is a comment saying so) but the file's
+header said "functions a JavaScript mod cannot call", which was wrong about six of its eight lines.
+The header now says which kind each is, and warns against "fixing" a rename by adding a second
+binding.
+
+Also added `fill_container(container, table, context)` - loot into a chest in one call, for the chest
+that appears when a boss dies. It fills empty slots only, so filling twice does not throw away what
+somebody put in. The two older paths stay: a structure's chest data (`{"loot": "table"}`) rolls
+itself on first open, and `roll_loot` hands back stacks for anything that is not a container.

@@ -78,6 +78,19 @@
     /** op "add" or "multiply" (0.2 = +20%); seconds 0 = until removed. */
     addModifier(id, stat, amount, op = "add", seconds = 0) { host("player.addModifier", this.id, id, stat, amount, op, seconds); }
     removeModifier(id) { host("player.removeModifier", this.id, id); }
+    /** Hunger 0-20; saturation < 0 leaves it alone. */
+    setHunger(value, saturation = -1) { host("player.setHunger", this.id, value, saturation); }
+    addExhaustion(amount) { host("player.addExhaustion", this.id, amount); }
+    feed(hunger, saturation = 0) { host("player.feed", this.id, hunger, saturation); }
+    setMaxHealth(value) { host("player.setMaxHealth", this.id, value); }
+    /** Empties every slot, including what is worn. */
+    clearInventory() { host("player.clearInventory", this.id); }
+    /** Pushes the server's inventory to their screen (after changing it behind their back). */
+    syncInventory() { host("player.syncInventory", this.id); }
+    /** Everything they are carrying, as plain data - pair with loadItems to lend an arena gear set. */
+    saveItems() { return host("player.saveItems", this.id); }
+    /** Puts back what saveItems returned; returns anything that would not fit. */
+    loadItems(saved) { return host("player.loadItems", this.id, saved); }
     /** Teams share station trays and projects ("" = no team). */
     setTeam(name) { host("player.setTeam", this.id, String(name)); }
     knowsRecipe(id) { return host("player.knowsRecipe", this.id, id); }
@@ -158,6 +171,10 @@
     kill(cause = "magic") { host("entity.kill", this, cause); }
     /** Puts it somewhere, stopping it dead. Spelled like Player.teleport on purpose. */
     teleport(position) { host("entity.teleport", this, position); }
+    /** The box it occupies: {position, size}. */
+    aabb() { return host("entity.aabb", this); }
+    /** Starts it thinking again after it has gone quiet. */
+    wake() { host("entity.wake", this); }
     heal(amount) { host("entity.heal", this, amount); }
     remove() { host("entity.remove", this); }
     /** Walk toward a position (mobs); null resumes normal behaviour. */
