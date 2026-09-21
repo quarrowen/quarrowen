@@ -3202,6 +3202,13 @@ func _integrate_chunk(job: Dictionary) -> void:
 	var into: Realm = realms.get(job.realm)
 	if into == null or into.world.chunks.has(job.coord) or r.is_empty():
 		return
+	# A freshly generated chunk can never legitimately hold UNLOADED, so finding one means a generator
+	# wrote an id it never had - almost always `api.block("...")` called before that block was
+	# registered, which returns -1 and encodes as exactly this. One native byte search per chunk, and
+	# it turns "the player falls for ever" into a sentence naming the cause. (2026-09-21)
+	if Chunk.contains(r.chunk.blocks, BlockRegistry.UNLOADED):
+		push_error("Generator for realm '%s' wrote an unknown block id at chunk %s: check that every "
+			% [into.id, job.coord] + "api.block(...) it uses is registered before the generator is made")
 	into.world.add_chunk(r.chunk)
 	into.block_ticks.load_chunk(job.coord, r.tickable, r.lights, r.ticks)
 	if not r.deltas.is_empty():
@@ -3303,7 +3310,13 @@ func get_block_loaded(pos: Vector3i, into: Realm = null) -> int:
 
 func set_block_authoritative(pos: Vector3i, id: int, keep_data := false, state := 0, into: Realm = null) -> void:
 	into = into if into != null else realm
-	if not registry.is_valid(id) or pos.y < 0 or pos.y >= Chunk.SIZE_Y:
+	if not registry.is_valid(id):
+		# Said out loud rather than refused quietly. `id_of` returns -1 for a name it does not know, and
+		# -1 stored as the u16 a block id is *becomes 65535, which is UNLOADED* - so a bad id used to
+		# mean "this chunk is not here" rather than "that block does not exist". (2026-09-21)
+		push_error("set_block: %d is not a block id (from id_of on a name that is not registered?)" % id)
+		return
+	if pos.y < 0 or pos.y >= Chunk.SIZE_Y:
 		return
 	_ensure_chunk(VoxelWorld.chunk_coord_at(pos.x, pos.z), into)
 	if into.world.get_block_v(pos) != id or into.block_state(pos) != state:
