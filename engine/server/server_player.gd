@@ -220,7 +220,12 @@ func push(impulse: Vector3) -> void:
 
 
 ## Plays a sound only this player hears, not positioned in the world.
-func play_sound(sound_name: String, volume := 1.0, pitch := 1.0) -> void:
+##
+## **Called `hear`, not `play_sound`.** `api.play_sound(name, position, volume, pitch)` puts a sound
+## in the world; this one was `play_sound(name, volume, pitch)`, so the same name took a Vector3 as
+## its second argument in one place and a float in the other - a transposition the compiler would
+## catch but a reader would not. (2026-09-21)
+func hear(sound_name: String, volume := 1.0, pitch := 1.0) -> void:
 	_server.play_sound_to(self, sound_name, volume, pitch)
 
 
@@ -275,9 +280,18 @@ func has_room(item: int, count := 1, item_data := {}) -> bool:
 
 ## Adds blocks or items (optionally with item data). Anything that does not fit falls at the player's
 ## feet rather than vanishing, so a reward, a purchase or a quest payout is never lost to a full pack -
-## a mod would otherwise have to remember to check the return value every single time. Returns how many
-## had to be dropped.
-func give(item: int, count := 1, item_data := {}) -> int:
+## a mod would otherwise have to remember to check the return value every single time.
+##
+## **True when it all fit.** This returned the number *dropped*, which meant `if player.give(...)`
+## read as "if it worked" and meant "if it failed" - the kind of thing that is right in the one place
+## somebody thought about it and wrong everywhere it was copied to. The count is still available from
+## `give_overflow` for the two callers that want to say how much ended up on the floor. (2026-09-21)
+func give(item: int, count := 1, item_data := {}) -> bool:
+	return give_overflow(item, count, item_data) == 0
+
+
+## The same, returning how many did not fit and were dropped at their feet. 0 means it all fit.
+func give_overflow(item: int, count := 1, item_data := {}) -> int:
 	var left := inventory.add(item, count, _server.items.max_stack(item), item_data)
 	if left > 0:
 		# The realm they are standing in, not the overworld. `_server.entities` reads through the

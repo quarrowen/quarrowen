@@ -2182,21 +2182,32 @@ as reachable from JavaScript, quietly, for as long as the page has existed. And 
 covered `api.*`, which is how `Entity.kill` and `Entity.teleport` were added with no JavaScript
 binding and nothing said. Both fixed; `unbound.txt` now covers Player and Entity too.
 
-### Not done, from the same audit
+### Not done, from the same audit — **all five done, 21 September 2026**
 
-- `player.give()` returns how many were **dropped**, so `if player.give(...)` reads as "if it worked"
-  and means "if it failed". 71 call sites; changing the return type is expensive and the cheaper
-  mitigation is a loud comment or a `gave_all()` sibling. Worth doing before 1.0.
-- `*_of()` accessors disagree: `companies_of`/`plots_of` take a player id String, `objectives_of`/
-  `balances_of` take the object, `conditions_of` takes either. Five call sites total - nearly free,
-  but it is a breaking change and there was no reason to bundle it with the damage one.
-- `ServerPlayer.play_sound(name, volume, pitch)` against `api.play_sound(name, position, volume,
-  pitch)` - same name, argument two is a volume on one and a position on the other. Renaming the
-  player one is a three-site change.
-- `register_*` returns `int`, `String`, `bool` or `void` depending which one, so `if
-  api.register_X(...)` means three different things across the API.
-- Entity has no `set_health`, and `player.health = 0` bypasses the clamp, sync and death that
-  `set_health` performs.
+Cleared before `base` gets written, on the same argument that put the last three capabilities first:
+`base` will be the API's largest caller, and each of these gets more expensive the more content
+exists.
+
+- **`player.give()` returned how many were *dropped***, so `if player.give(...)` read as "if it
+  worked" and meant "if it failed". The "71 call sites" in the original note was wrong - it counted
+  `roles.give`, `objectives.give`, `conditions.give` and `companions.give` too. **Two** sites used
+  the return. So `give()` now returns **true when it all fit**, and `give_overflow()` returns the
+  count for the two callers that want to say how much is on the floor.
+- **`*_of()` accessors** now all take either a player or a player id, through one `_who_id` helper.
+  An id matters on its own because the player it names may be offline.
+- **`ServerPlayer.play_sound` is `hear`** now. `api.play_sound(name, position, ...)` puts a sound in
+  the world; the player one took a float where the other took a Vector3, under the same name.
+- **`register_*` returns one of three things, and the rule is written at the top of `mod_api.gd`**: an
+  id or qualified name where you will need one later, `bool` where registration can be refused,
+  `void` where it cannot fail. Eight that could refuse but returned `void` now return `bool`. The
+  nine returning `int` and three returning `String` were never wrong - a handle is the point of
+  those calls.
+- **`Entity.set_health`** exists, clamping and killing the way Player's does. Writing `e.health = 0`
+  still notifies (the property is hooked) but does not clamp or *die* - no drops, no death event -
+  which is what the asymmetry meant in practice.
+
+Walked into the `:=`-on-untyped trap once more writing `Entity.set_health` (`def` is untyped). The
+suite caught it in seconds; the log named the file and line.
 
 ## Two e2e tests are flaky on the fallback suite (2026-09-20)
 

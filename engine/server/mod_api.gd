@@ -2,6 +2,19 @@ extends RefCounted
 ## The interface a mod uses to realize a game on top of the engine. Each mod gets its own instance
 ## so names and assets are namespaced to that mod ("mod_id:name").
 ##
+## **What `register_*` gives back**, settled 21 September 2026 because it was four different things
+## and `if api.register_X(...)` therefore meant three:
+##
+##   - an **id** (int) or a **qualified name** (String) where you will need one later - a block, an
+##     item, a creature, a sound, an asset. The handle is the point of the call.
+##   - **bool** where registration can be refused - a recipe naming an item nothing registered, a
+##     signal handler on a block that does not exist. False always comes with a `push_error` saying
+##     which mod and what was wrong, so ignoring the return is safe; checking it is for a mod that
+##     wants to do something else instead.
+##   - **void** where it cannot fail.
+##
+## A new `register_*` picks whichever of those three it truthfully is, and never bool-for-show.
+##
 ## Events (handler receives one Dictionary; set `cancelled = true` where noted to veto):
 ##   player_join    {player, first_time}
 ##   player_leave   {player}
@@ -533,13 +546,14 @@ func play_effect(effect_name: String, position: Vector3, options := {}) -> void:
 ## `ticks` is capped, so returning to a world after a week does not run a week of growth in one frame;
 ## `elapsed` is the true number of seconds it stood still, for a handler that would rather work the
 ## answer out itself.
-func register_block_tick(block_name: String, handler: Callable, options := {}) -> void:
+func register_block_tick(block_name: String, handler: Callable, options := {}) -> bool:
 	var id := block(block_name)
 	if id <= 0:
 		if not _excluded_not_missing(block_name, "block tick"):
 			push_error("[%s] register_block_tick: unknown block '%s'" % [mod_id, block_name])
-		return
+		return false
 	_server.block_ticks.register(id, handler, options, mod_id)
+	return true
 
 
 ## Calls the tick handler of the block at `position` after `seconds`, with `payload` (saved with the world).
@@ -656,20 +670,22 @@ func set_cosmetics_policy(values: Dictionary) -> void:
 
 ## Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching
 ## `equip_slot` go in it; its modifiers apply while worn. def: display_name.
-func register_equipment_slot(slot_name: String, def := {}) -> void:
+func register_equipment_slot(slot_name: String, def := {}) -> bool:
 	if reloading:
-		return
+		return false
 	var d := def.duplicate()
 	d.name = slot_name
 	_server.items.register_slot(d)
+	return true
 
 
 ## Adds a player stat with a base value. Items and effects change it with modifiers; read it with
 ## player.get_stat(name). Engine stats: see ItemRegistry.BASE_STATS.
-func register_stat(stat_name: String, base: float) -> void:
+func register_stat(stat_name: String, base: float) -> bool:
 	if reloading:
-		return
+		return false
 	_server.items.register_stat(stat_name, base)
+	return true
 
 
 ## Registers a mob behaviour that mobs listing it in ai.behaviors can choose. `def`:
@@ -761,13 +777,14 @@ func item_display_name(id: int) -> String:
 ## An input named "#base:logs" means *any* member of that tag. Held back until every mod has loaded and
 ## then written out as one recipe per member, because the whole point of a tag is that a mod loading
 ## later can add to it - resolving one here would silently miss whatever comes after.
-func register_recipe(inputs: Dictionary, output: String, count := 1, options := {}) -> void:
+func register_recipe(inputs: Dictionary, output: String, count := 1, options := {}) -> bool:
 	for input_name: String in inputs:
 		if input_name.begins_with("#"):
 			_server.defer_tag_recipe({"mod": mod_id, "inputs": inputs.duplicate(), "output": output,
 				"count": count, "options": options.duplicate(true)})
-			return
+			return false
 	_register_recipe_now(inputs, output, count, options)
+	return true
 
 
 func _register_recipe_now(inputs: Dictionary, output: String, count := 1, options := {}) -> void:
@@ -992,14 +1009,15 @@ func get_fuel(item_id: int) -> float:
 
 ## A processing recipe machines look up by kind: register_process("smelting", "base:iron_ore",
 ## "base:iron_ingot", 1, 10.0).
-func register_process(kind: String, input: String, output: String, count := 1, seconds := 10.0) -> void:
+func register_process(kind: String, input: String, output: String, count := 1, seconds := 10.0) -> bool:
 	var input_id := item(input)
 	var output_id := item(output)
 	if input_id <= 0 or output_id <= 0:
 		if not (_excluded_not_missing(input, "process") or _excluded_not_missing(output, "process")):
 			push_error("[%s] Process '%s': unknown item '%s' or '%s'" % [mod_id, kind, input, output])
-		return
+		return false
 	_server.add_process(kind, input_id, output_id, count, seconds)
+	return true
 
 
 ## {output, count, seconds} for an input, or {} when that kind of machine cannot process it.
@@ -1161,8 +1179,8 @@ func company_at_least(company_id: int, player_id: String, rank: String) -> bool:
 
 
 ## Every company somebody is in: [{id, name, rank}].
-func companies_of(player_id: String) -> Array:
-	return _server.companies.of_player(player_id)
+func companies_of(who) -> Array:
+	return _server.companies.of_player(_who_id(who))
 
 
 func company_info(company_id: int) -> Dictionary:
@@ -1212,8 +1230,8 @@ func remove_plot_member(plot_id: int, player_id: String) -> bool:
 
 
 ## Every plot somebody has a say in.
-func plots_of(player_id: String) -> Array:
-	return _server.plots.of_player(player_id)
+func plots_of(who) -> Array:
+	return _server.plots.of_player(_who_id(who))
 
 
 ## Something a player has been asked to do: a story, a daily errand, a contract, a delivery.
@@ -1699,12 +1717,12 @@ func multiblock_at(controller: Vector3i, pattern_name := "", realm_id := "") -> 
 ##
 ## The level lives in the block's state: 0 is a source and never runs out, and each block outwards is
 ## one weaker. Nothing new is written to disk or sent to clients, because states already were.
-func register_liquid(block_name: String, def := {}) -> void:
+func register_liquid(block_name: String, def := {}) -> bool:
 	var id := block(block_name)
 	if id <= 0:
 		if not _excluded_not_missing(block_name, "liquid"):
 			push_error("[%s] register_liquid: unknown block '%s'" % [mod_id, block_name])
-		return
+		return false
 	var settings := def.duplicate()
 	settings.name = _qualify_ref(block_name)
 	if not String(def.get("shallow", "")).is_empty():
@@ -1717,6 +1735,7 @@ func register_liquid(block_name: String, def := {}) -> void:
 	# random: false - a liquid is driven entirely by scheduling, and indexing something as common as
 	# water for random ticks would mark every chunk containing a puddle as one that must be saved.
 	register_block_tick(block_name, _flow_step, {"interval": 3600.0, "catch_up": false, "random": false})
+	return true
 
 
 ## One flow step, in the world the block is actually in.
@@ -1728,7 +1747,7 @@ func _flow_step(ctx: Dictionary) -> void:
 
 ## What forms where two different liquids meet - the black glass where lava meets water. The engine
 ## has never heard of obsidian; it only knows that two of them touching makes a third thing.
-func register_liquid_meeting(a_name: String, b_name: String, result_name: String) -> void:
+func register_liquid_meeting(a_name: String, b_name: String, result_name: String) -> bool:
 	var a := block(a_name)
 	var b := block(b_name)
 	var result := block(result_name)
@@ -1736,8 +1755,9 @@ func register_liquid_meeting(a_name: String, b_name: String, result_name: String
 		if not (_excluded_not_missing(a_name, "liquid meeting") or _excluded_not_missing(b_name, "liquid meeting")
 				or _excluded_not_missing(result_name, "liquid meeting")):
 			push_error("[%s] register_liquid_meeting: unknown block in %s + %s -> %s" % [mod_id, a_name, b_name, result_name])
-		return
+		return false
 	_server.realm.liquids.register_meeting(a, b, result)
+	return true
 
 
 ## Keeps the world around a position awake when nobody is standing there, so a machine goes on running
@@ -1988,13 +2008,14 @@ func tags_of(name: String) -> Array:
 ## **Gates, delays, inverters, latches and repeaters are blocks you write**, each one listening here
 ## and emitting with set_signal. The engine has no opinion about what logic looks like, because a
 ## puzzle game and a factory want different answers and it is not the engine's business to pick.
-func register_signal(block_name: String, handler: Callable) -> void:
+func register_signal(block_name: String, handler: Callable) -> bool:
 	var id := block(block_name)
 	if id <= 0:
 		if not _excluded_not_missing(block_name, "signal handler"):
 			push_error("[%s] register_signal: unknown block '%s'" % [mod_id, block_name])
-		return
+		return false
 	_server.realm.signals.register(id, handler, mod_id)  # one shared table; every realm reads it
+	return true
 
 
 ## Makes the block at `position` emit `level` (0 to 15; 0 stops it). For a lever being flipped, a plate
@@ -2963,6 +2984,18 @@ func _qualify(local_name: String) -> String:
 
 
 ## Names that already have a namespace ("base:stone", "engine:hurt") are kept as they are.
+## A player id from either a player or an id, so the `*_of()` accessors all take the same thing.
+##
+## They disagreed: `companies_of` and `plots_of` wanted an id String while `objectives_of` and
+## `balances_of` wanted the player and `conditions_of` took either - five accessors, three shapes, and
+## no way to guess which was which. Taking both is the forgiving answer, and an id matters on its own
+## because the player it names may be offline. (2026-09-21)
+func _who_id(who) -> String:
+	if who is String:
+		return who
+	return String(who.player_id) if who != null and "player_id" in who else ""
+
+
 func _qualify_ref(ref: String) -> String:
 	return qualified(ref, mod_id)
 

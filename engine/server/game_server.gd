@@ -1509,7 +1509,7 @@ func _cmd_give(player, args: PackedStringArray) -> void:
 	if target == null:
 		return
 	var count := clampi(int(args[1]) if args.size() > 1 else 1, 1, 64 * 36)
-	var left: int = target.give(id, count)
+	var left: int = target.give_overflow(id, count)
 	player.send_message("Gave %d %s to %s%s" % [count, items.display_name(id), target.name,
 		" (%d of them at their feet - their pack is full)" % left if left > 0 else ""])
 

@@ -158,6 +158,22 @@ func teleport(pos: Vector3) -> void:
 	position = pos
 
 
+## Sets health, clamped, and dies properly if that takes it to zero.
+##
+## The spelling Player has had all along, and the reason it is worth having on both: writing
+## `e.health = 0` notifies (the property is hooked) but does not clamp to the type's maximum and does
+## not *die* - no drops, no death event, just a creature standing there with nothing left. The raw
+## property stays for the engine's own writes; a mod wanting to set health should use this.
+## (2026-09-21)
+func set_health(value: float) -> void:
+	var limit: float = def.health if def.health > 0.0 else max_health
+	var wanted := clampf(value, 0.0, limit)
+	if wanted <= 0.0 and is_alive():
+		kill("magic")
+		return
+	health = wanted
+
+
 ## Gives back health, up to the type's maximum.
 func heal(amount: float) -> void:
 	if def.health > 0.0 and is_alive():

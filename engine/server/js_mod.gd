@@ -527,7 +527,7 @@ func _call_player(method: String, a: Array):
 		"heal": player.heal(float(a[1]) if a.size() > 1 else 1.0)
 		"isAlive": return player.is_alive()
 		"damage": return player.damage(float(a[1]) if a.size() > 1 else 1.0, _str(a, 2) if a.size() > 2 else "magic", _any_ref(a, 3))
-		"playSound": player.play_sound(_str(a, 1), float(a[2]) if a.size() > 2 else 1.0, float(a[3]) if a.size() > 3 else 1.0)
+		"hear": player.hear(_str(a, 1), float(a[2]) if a.size() > 2 else 1.0, float(a[3]) if a.size() > 3 else 1.0)
 		"drop": player.drop(_int(a, 1), _int(a, 2, 1))
 		"push": player.push(_vec3(a, 1))
 		"setTeam": player.team = _str(a, 1)

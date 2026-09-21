@@ -249,7 +249,8 @@ declare module "quarrowen" {
     readonly yaw: number;
     readonly lookDirection: Vec3;
     readonly online: boolean;
-    give(item: ItemId, count?: number, data?: ItemData): number;
+    /** True when it all fit. Use giveOverflow for how many were dropped at their feet. */
+    give(item: ItemId, count?: number, data?: ItemData): boolean;
     /** Whether the player's roles grant a permission ("build", "creative", or a mod's own). */
     hasPermission(permission: string): boolean;
     /** Sends the player to another server in network.json; "" or why not. */
@@ -307,7 +308,8 @@ declare module "quarrowen" {
     setHealth(value: number): void;
     heal(amount: number): void;
     damage(amount: number, cause?: string, attacker?: Player | Entity | null): boolean;
-    playSound(name: string, volume?: number, pitch?: number): void;
+    /** A sound only this player hears. Named hear, not playSound: api.playSound is positioned. */
+    hear(name: string, volume?: number, pitch?: number): void;
     drop(item: ItemId, count?: number): void;
     push(impulse: Vec3): void;
     setSpawnPoint(position: Vec3 | null): void;

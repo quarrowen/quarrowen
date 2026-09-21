@@ -2921,7 +2921,7 @@ func _loot() -> void:
 		full.inventory.ids[slot] = stick
 		full.inventory.counts[slot] = server.items.max_stack(stick)
 	var entities_before: int = server.entities.entities.size()
-	var dropped: int = full.give(iron, 5)
+	var dropped: int = full.give_overflow(iron, 5)
 	_check(dropped == 5 and server.entities.entities.size() > entities_before,
 		"items that do not fit fall at your feet instead of vanishing (%d dropped)" % dropped)
 

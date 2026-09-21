@@ -130,7 +130,7 @@
     heal(amount) { host("player.heal", this.id, amount); }
     damage(amount, cause = "magic", attacker = null) { return host("player.damage", this.id, amount, cause, attacker); }
     /** A sound only this player hears (not positioned). */
-    playSound(name, volume = 1, pitch = 1) { host("player.playSound", this.id, name, volume, pitch); }
+    hear(name, volume = 1, pitch = 1) { host("player.hear", this.id, name, volume, pitch); }
     drop(item, count = 1) { host("player.drop", this.id, item, count); }
     push(impulse) { host("player.push", this.id, impulse); }
     /** Where the player respawns; null restores the game's default. */

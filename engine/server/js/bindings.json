@@ -383,7 +383,7 @@
 		"companiesOf": {
 			"args": [
 				{
-					"kind": "str"
+					"kind": "any"
 				}
 			],
 			"gd": "companies_of"
@@ -1726,7 +1726,7 @@
 		"plotsOf": {
 			"args": [
 				{
-					"kind": "str"
+					"kind": "any"
 				}
 			],
 			"gd": "plots_of"
@@ -3497,6 +3497,14 @@
 				],
 				"gd": "set_goal"
 			},
+			"setHealth": {
+				"args": [
+					{
+						"kind": "float"
+					}
+				],
+				"gd": "set_health"
+			},
 			"setHome": {
 				"args": [
 					{
@@ -3696,6 +3704,22 @@
 				],
 				"gd": "give"
 			},
+			"giveOverflow": {
+				"args": [
+					{
+						"kind": "int"
+					},
+					{
+						"default": 1,
+						"kind": "int"
+					},
+					{
+						"default": {},
+						"kind": "dict"
+					}
+				],
+				"gd": "give_overflow"
+			},
 			"grantCosmetic": {
 				"args": [
 					{
@@ -3743,6 +3767,22 @@
 					}
 				],
 				"gd": "heal"
+			},
+			"hear": {
+				"args": [
+					{
+						"kind": "str"
+					},
+					{
+						"default": 1.0,
+						"kind": "float"
+					},
+					{
+						"default": 1.0,
+						"kind": "float"
+					}
+				],
+				"gd": "hear"
 			},
 			"hideUi": {
 				"args": [
@@ -3808,22 +3848,6 @@
 					}
 				],
 				"gd": "load_items"
-			},
-			"playSound": {
-				"args": [
-					{
-						"kind": "str"
-					},
-					{
-						"default": 1.0,
-						"kind": "float"
-					},
-					{
-						"default": 1.0,
-						"kind": "float"
-					}
-				],
-				"gd": "play_sound"
 			},
 			"push": {
 				"args": [
