@@ -154,6 +154,13 @@ private function that two things use is a fact about the code that ought to be v
   twice in one frame frees the new children too. Take the child out of the tree first.
 - **Changing a block or item id.** Saves are by name (`SAVE_FORMAT 2`); ids shift whenever anything is
   added. Display names are safe to change, ids are not.
+- **Keeping the answer to `api.block()` / `api.item()` / `api.entity_type()`.** Those three ask a
+  *question* - "is this installed?" - and answer -1 for no, which mods rely on to make optional
+  content optional. **A -1 you store becomes 65535 when written as the u16 a block id is, and 65535 is
+  UNLOADED**, so the world reads as absent rather than wrong: the symptom is a player falling for
+  ever, nothing about registration. For anything you keep - a generator, a cached field, a table - use
+  `require_block` / `require_item` / `require_entity`, which say so at load and hand back something
+  inert. (2026-09-21)
 - **`:=` on anything reached through an untyped variable.** `var x := _server.thing()` is a *parse*
   error ("Cannot infer the type of x"), and a parse error means the whole script silently fails to
   load, which surfaces as something unrelated much later - a mod that does not register, a client that

@@ -33,6 +33,14 @@ func _ready() -> void:
 		"there is solid ground at y=64 (%s)" % (server.registry.defs[under].name if server.registry.is_valid(under) else under))
 	_check(above == 0, "and air above it (%d)" % above)
 
+	# A requirement that is not met says so, and hands back something inert rather than a -1 that would
+	# be written into the world as 65535 - which is UNLOADED, and reads as "no world here".
+	var api = server.mod_instances.proving.api
+	_check(api.require_block("proving:rock") == server.registry.id_of("proving:rock"),
+		"require_block gives the id when the block is there")
+	_check(api.block("proving:not_a_thing") == -1 and api.require_block("proving:not_a_thing") == 0,
+		"and a probe says -1 where a requirement says air, loudly")
+
 	_registries(server)
 	_javascript(server)
 	_behaviour(server)

@@ -2268,6 +2268,30 @@
 			],
 			"gd": "remove_plot_member"
 		},
+		"requireBlock": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "require_block"
+		},
+		"requireEntity": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "require_entity"
+		},
+		"requireItem": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "require_item"
+		},
 		"ridersOf": {
 			"args": [
 				{

@@ -2826,3 +2826,41 @@ by a server that cannot name those mods.
 **Not done, and worth doing:** a test that a world *whose mods are missing* still opens and keeps its
 unknown blocks. The engine promises that ("write back content whose mod is missing") and nothing
 checks it - and it is newly easy to check now that there are real absent mods to point at.
+
+## Block ids: the design is right, the ergonomics were not (2026-09-21, user: "the repeated issues due to block IDs worries me")
+
+Three bugs in one day traced to block ids, so it was worth asking whether the design was wrong. It is
+not, and it is worth writing down why, because the answer constrains any future change.
+
+**Ids are dense u16 indices because the registry keeps lookup tables indexed directly by id** -
+`solid_lut`, `liquid_lut`, `breakable_lut` - read at seventeen sites across the mesher, physics and
+pathfinder, including from Rust. `solid_lut[block]` in a tight loop is the point. Strings, hashes or
+wrapper objects all cost exactly that. And the genuinely dangerous property - ids shifting when
+content changes - is already handled: **saves store names**, so an id is a handle valid for one run.
+
+### The real flaw: one function answering two questions
+
+`api.block(name)` had to serve both *"is this installed?"* (a probe, where -1 is a fine answer and
+mods depend on it) and *"give me the block I depend on"* (a contract, where -1 is never acceptable).
+Serving both means returning a quiet sentinel - and **-1 stored as a u16 is 65535, which is
+UNLOADED**. So a failed lookup did not crash or write garbage: it wrote "this chunk is not here", and
+the engine behaved as though the world was missing.
+
+That is why a generator built one line too early presented as *"Bot_proving landed hard"*.
+
+`require_block`, `require_item` and `require_entity` split the question from the contract. Anything
+that *keeps* an id uses those; the probes stay for optional content.
+
+### Guards, as a net rather than a floor
+
+- `set_block_authoritative` refused an invalid id silently; it says which id and hints at the cause.
+- `_integrate_chunk` checks a freshly generated chunk for UNLOADED, which can never legitimately be
+  there, and names the realm and likely cause. One native byte search per chunk. Verified by putting
+  the original bug back and watching it fire.
+
+### Considered and rejected
+
+- **Stable ids per world** (persisting a name→id map). Saving by name already covers the risk and the
+  client is sent the registry on join, so the wire is fine. It would add a mapping layer for nothing.
+- **Type-safe id wrappers.** Godot has only `int`, and wrapping costs the LUT performance the design
+  exists for. Blocks and items deliberately share an id space, so they are not confusable anyway.

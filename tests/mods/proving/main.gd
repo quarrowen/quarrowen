@@ -50,7 +50,7 @@ func setup(mod_api) -> void:
 	# **After things.setup, not before.** The generator is built with block ids, and asking for one that
 	# is not registered yet returns -1, which encodes as 65535 and generates a world made of nothing.
 	# "Reordering mod registration" is in CLAUDE.md's list of things that look safe and are not.
-	api.set_world_generator(FlatGround.new(api.block("proving:rock"), api.block("proving:soil"), api.block("proving:turf")))
+	api.set_world_generator(FlatGround.new(api.require_block("proving:rock"), api.require_block("proving:soil"), api.require_block("proving:turf")))
 	life.setup(api, ids)
 	society.setup(api, ids)
 	machines.setup(api, ids)
@@ -60,10 +60,11 @@ func setup(mod_api) -> void:
 	# wants to place a block having to arrange its own inventory first.
 	api.on("player_join", func(ev):
 		if bool(ev.get("first_time", false)):
-			ev.player.set_hotbar([api.block("proving:plain"), api.block("proving:lamp"),
-				api.block("proving:crate"), api.block("proving:rock"), api.block("proving:step")], 64)
-			ev.player.give(api.item("proving:prod"), 1)
-			ev.player.give(api.item("proving:grain"), 8))
+			ev.player.set_hotbar([api.require_block("proving:plain"), api.require_block("proving:lamp"),
+				api.require_block("proving:crate"), api.require_block("proving:rock"),
+				api.require_block("proving:step")], 64)
+			ev.player.give(api.require_item("proving:prod"), 1)
+			ev.player.give(api.require_item("proving:grain"), 8))
 	apply_caps.call()
 	api.register_command("proving", "What this mod registered", func(player, _args):
 		player.send_message("proving: %d things registered" % ids.size()))

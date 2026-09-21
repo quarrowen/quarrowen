@@ -960,6 +960,42 @@ func block_textures(block_name: String) -> Array:
 	return (_server.registry.defs[id].textures as Array).duplicate() if _server.registry.is_valid(id) else []
 
 
+## The id of something this mod cannot work without. `block`, `item` and `entity_type` answer a
+## *question* - "is this installed?" - and return -1 for no, which mods rely on to make optional
+## content optional (`if api.item("other:thing") > 0`). These state a *requirement* instead: a name
+## that is not there is an error, said out loud at load with the mod that asked.
+##
+## **Use these for anything you keep.** A -1 stored in a generator, a cached field or a table becomes
+## 65535 when it is written as the u16 a block id is - and 65535 is UNLOADED, so the world reads as
+## absent rather than wrong. Three bugs in one day came from that, all of them a question's answer
+## being used as a contract. (2026-09-21)
+func require_block(block_name: String) -> int:
+	var id := block(block_name)
+	if id >= 0:
+		return id
+	push_error("[%s] needs block '%s', which nothing registered. Is the mod that owns it a dependency, "
+		% [mod_id, block_name] + "and is it registered before this runs?")
+	return BlockRegistry.AIR
+
+
+## As require_block, for an item or a block (they share an id space).
+func require_item(item_name: String) -> int:
+	var id := item(item_name)
+	if id > 0:
+		return id
+	push_error("[%s] needs item '%s', which nothing registered." % [mod_id, item_name])
+	return 0
+
+
+## As require_block, for an entity type.
+func require_entity(entity_name: String) -> int:
+	var id := entity_type(entity_name)
+	if id >= 0:
+		return id
+	push_error("[%s] needs entity '%s', which nothing registered." % [mod_id, entity_name])
+	return -1
+
+
 func block(block_name: String) -> int:
 	return _server.registry.id_of(block_name if block_name.contains(":") else _qualify(block_name))
 
