@@ -3343,6 +3343,45 @@ func _build_scene() -> void:
 	sun.light_energy = 0.75
 	_sun = sun
 	add_child(sun)
+	if OS.get_environment("QW_LOOK_REAL") == "1":
+		_make_it_real(env, sun)
+
+
+## An experiment, not a preset yet: what the world looks like with the renderer turned up.
+##
+## Everything the graphics presets deliberately leave off - real-time sun shadows, screen-space
+## ambient occlusion, sky-sourced ambient light - because they were chosen to stay cheap on a base
+## M1 Air, which is what the children play on. That decision is right for the default and it is also
+## the reason the world cannot look realistic: the lighting is flat by construction, and no amount of
+## texture work reaches past it.
+##
+## Gated behind an environment variable so the default is untouched while the question is being
+## answered. If it is the look we want, it becomes a fourth preset that a capable machine opts into -
+## never the default, and never something the family server can impose. (2026-09-21)
+func _make_it_real(env: Environment, sun: DirectionalLight3D) -> void:
+	# Light coming *from the sky* rather than a flat white wash is most of the difference: it makes
+	# the shaded side of things take the sky's colour instead of going evenly grey.
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 0.9
+	env.ambient_light_sky_contribution = 1.0
+	env.ssao_enabled = true
+	env.ssao_radius = 1.6
+	env.ssao_intensity = 1.8
+	env.ssao_power = 1.4
+	# Bounce light. Expensive, and the thing that stops shadowed ground reading as a flat dark patch.
+	env.ssil_enabled = true
+	env.ssil_intensity = 0.6
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_white = 4.0
+	env.fog_sky_affect = 0.35
+	sun.shadow_enabled = true
+	sun.light_energy = 1.35
+	sun.directional_shadow_max_distance = 220.0
+	sun.directional_shadow_blend_splits = true
+	# Softened, because a hard edge on a voxel world looks like a bug rather than a shadow.
+	sun.shadow_blur = 1.4
+	sun.shadow_bias = 0.06
+	sun.shadow_normal_bias = 1.4
 
 	_effects = EffectPlayer.new()
 	add_child(_effects)

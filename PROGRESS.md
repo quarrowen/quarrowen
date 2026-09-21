@@ -3340,3 +3340,43 @@ One performance bug worth remembering because it had nothing to do with looks: t
 on **every join** and asked for tens of thousands of surface heights, each of which may generate a
 chunk. The screenshot client gave up waiting and photographed its own loading screen. It is worked
 out once and kept now.
+
+## "Realistic" is blocked by an architectural decision, not by content (2026-09-21)
+
+The user, after five texture styles and three tree silhouettes: *"I like realistic looks. Whether the
+scene or shader dunno. But the more realistic it is the more I will like it."*
+
+**Note this contradicts the old `Roblox-style` note in memory, which was about avatar customization
+and should never have been read as a visual target.** Corrected there.
+
+Chasing it found the real constraint, and it is not textures or trees:
+
+- `engine/client/graphics_settings.gd` says so in its own header: *"No real-time shadows, SSAO, SSR
+  or global illumination."* Everything is baked into chunk meshes to stay cheap on a base M1 Air,
+  which is what the children play on.
+- `engine/client/voxel_material.gd` is `render_mode unshaded`. **The terrain does not participate in
+  lighting at all** - sky light, block light, face shade and ambient occlusion are all precomputed
+  into vertex COLOR by the mesher.
+- There *is* a `DirectionalLight3D`, but `shadow_enabled` was never set, so nothing has ever cast a
+  shadow.
+
+Turning the renderer up (sky-sourced ambient, SSAO, SSIL, ACES, sun shadows - behind `QW_LOOK_REAL`)
+visibly improved the **models** - trees are lit and shaded properly - and did nothing for the ground,
+which is the correct behaviour for an unshaded material and the clearest possible demonstration of
+where the ceiling is.
+
+**So realism is a renderer decision with a real cost, not a content decision.** The options, in
+ascending order of what they buy and what they cost:
+
+1. **Light the models, leave terrain baked.** Already works, already rendered. Trees, creatures and
+   machines gain real shading; terrain stays flat. Cheapest, and a genuine improvement.
+2. **Make the voxel material lit.** Drop `unshaded`, feed the baked AO in as `AO`/albedo rather than
+   as final colour, let the sun and shadows do the rest. This is the one that changes everything,
+   and it is real shader work plus a hard look at what the mesher should still bake. Cost lands on
+   the M1 Airs, so it has to be a preset a machine opts into.
+3. **Deferred/GI on top** (SDFGI, volumetrics). Almost certainly beyond the baseline hardware.
+
+Nothing here should change the default preset: the family plays on base M1 Airs and that constraint
+has not moved. The question to answer before `base` is which of 1 and 2 we are building towards,
+because "realistic" also argues for higher-resolution textures and more geometric detail per block -
+and that is what `base` would be authored against.
