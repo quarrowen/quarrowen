@@ -5,7 +5,7 @@ extends Node
 ##   --server              run the dedicated server instead (same options as engine/server_main.gd)
 ##   --port=24565          port to connect to / host on
 ##   --connect=1.2.3.4     skip the menu and join a server
-##   --host=skyblock       skip the menu, start a local server for that game and join it (vanilla,my_mod: with add-ons)
+##   --host=my_game        skip the menu, start a local server for that game and join it (my_game,my_addon: with add-ons)
 ##   --dev                 with --host: developer mode (dev tools for everyone, reload mods on save)
 ##   --name=Robin          player name for --connect / --host
 ##   --export-identity=file.json   write your identity, encrypted, and quit
@@ -33,7 +33,6 @@ const InviteCode = preload("res://engine/shared/invite_code.gd")
 const KnownServers = preload("res://engine/net/known_servers.gd")
 
 const DEFAULT_PORT := 24565
-const DEFAULT_GAME := "vanilla"
 
 var _args := {}
 var _server_pid := -1
@@ -65,7 +64,14 @@ func _ready() -> void:
 	if _args.has("connect"):
 		_start_client(_args.connect, int(_args.get("port", DEFAULT_PORT)), _args.get("name", "Player"), "")
 	elif _args.has("host"):
-		var game: String = _args.host if _args.host != "true" else DEFAULT_GAME
+		# No default game to fall back on. "vanilla" stood here until that mod was deleted on
+		# 21 September 2026, so a bare --host started a server for a game that is not installed and
+		# reported it as a missing mod. Say what is actually wrong instead.
+		if _args.host == "true":
+			printerr("[client] --host needs the game to host: --host=<mod id> (add-ons: --host=<game>,<add-on>).")
+			get_tree().quit(2)
+			return
+		var game: String = _args.host
 		_host(game, int(_args.get("port", DEFAULT_PORT)), _args.get("name", "Player"), PackedStringArray(["--dev"]) if _args.has("dev") else PackedStringArray())
 
 
@@ -308,7 +314,14 @@ func _add_backdrop() -> void:
 	if _backdrop != null or DisplayServer.get_name() == "headless" or OS.get_environment("QW_MENU_BACKDROP") == "0" \
 			or not ClientSettings.shared().get_value("graphics/menu_backdrop"):
 		return
+	# Which game to generate it from. The backdrop used to hardcode "vanilla"; with no game installed
+	# there is nothing to show, so leave the still image up rather than start a server that will only
+	# fail. (2026-09-21)
+	var installed: Array = _menu.installed_games()
+	if installed.is_empty():
+		return
 	_backdrop = MenuBackdrop.new()
+	_backdrop.game = String(installed[0].id)
 	_backdrop.avatar_look = AvatarStore.load_avatar()
 	_backdrop.player_name = _menu.player_name
 	_backdrop.motion = ClientSettings.shared().get_value("accessibility/menu_motion")
@@ -425,6 +438,9 @@ func _mod_created(result: Dictionary, id: String) -> void:
 	dialog.title = "Mod created"
 	dialog.dialog_text = "%s\n\n%d files, including %s and README.md. Host it now with developer mode: edit and save to reload, F8 for the dev tools." % [
 		result.dir, result.files.size(), "main.js" if result.language == "javascript" else "main.gd"]
+	if not result.game:
+		# An add-on adds to a game rather than being one, so on its own there is nothing to add to.
+		dialog.dialog_text += "\n\nThis is an add-on, so hosting it alone gives an empty world. Run it with a game once you have one installed: --host=<game>,%s" % id
 	dialog.dialog_autowrap = true
 	dialog.min_size = Vector2i(560, 0)
 	dialog.size = Vector2i(560, 200)
@@ -436,7 +452,9 @@ func _mod_created(result: Dictionary, id: String) -> void:
 			OS.shell_open(ProjectSettings.globalize_path(result.dir)))
 	dialog.confirmed.connect(func():
 		dialog.queue_free()
-		var mods := id if result.game else "vanilla,%s" % id
+		# Just the new mod. This used to prepend "vanilla" for an add-on, which is a mod that no
+		# longer exists; an add-on hosted alone gives an empty world, which the dialog now says.
+		var mods := id
 		_host(mods, _menu.port, _menu.player_name, PackedStringArray(["--dev", "--world=dev_%s" % id])))
 	dialog.canceled.connect(dialog.queue_free)
 	_menu.add_child(dialog)

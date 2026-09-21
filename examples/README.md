@@ -7,16 +7,16 @@ They are **not** shipped with the game and never loaded by a real world - they l
 To try one:
 
 ```sh
-godot --path . -- --host=vanilla,loot_example --dev
+godot --path . -- --host=proving,loot_example --dev --mods-dir=tests/mods
 ```
 
 | Example | Capability | Where a real mod does it |
 |---|---|---|
-| [loot_example](loot_example/main.gd) | Loot tables: pools, weights, conditions, nested tables, extending another mod's table ([docs/loot.md](../docs/loot.md)) | `vanilla` mob and block drops, `vanilla/structures.gd` chests |
-| [events_example](events_example/main.gd) | Events: react, change a value before it takes effect, cancel outright | every mod; `base/farming.gd` rewrites drops, `vanilla` gates apples |
-| [worldgen_example](worldgen_example/main.gd) | Shaping the world: an ore pass, a surface feature, a biome | `vanilla/biomes.gd`, `arcana` crystal pass |
-| [ui_example](ui_example/main.gd) | Talking to players: a command, a permission, a panel, buttons that call back | `skyblock` challenges, `industry` machine screens, `arcana` HUD |
-| [js_example](js_example/main.js) | The JavaScript sandbox: the same API in camelCase, events, commands, timers, saved data | `guild` (a full game-sized JavaScript mod) |
+| [loot_example](loot_example/main.gd) | Loot tables: pools, weights, conditions, nested tables, extending another mod's table ([docs/loot.md](../docs/loot.md)) | `tests/mods/proving/life.gd` |
+| [events_example](events_example/main.gd) | Events: react, change a value before it takes effect, cancel outright | every mod; `base/farming.gd` rewrites drops |
+| [worldgen_example](worldgen_example/main.gd) | Shaping the world: an ore pass, a surface feature, a biome | `tests/mods/proving/main.gd` (FlatGround) |
+| [ui_example](ui_example/main.gd) | Talking to players: a command, a permission, a panel, buttons that call back | `tests/mods/proving/society.gd`, `machines.gd` |
+| [js_example](js_example/main.js) | The JavaScript sandbox: the same API in camelCase, events, commands, timers, saved data | `tests/mods/proving_js` |
 
 ## Capabilities and where to look
 
@@ -27,17 +27,17 @@ Anything in a shipping mod that exists *only* to demonstrate something belongs h
 |---|---|---|
 | Blocks, items, recipes | `mod_tool -- new <id>` (the starter template) | `base` |
 | Block shapes (slabs, stairs, fences) | — | `base/main.gd::_register_shapes` |
-| Loot and drops | `loot_example` | `vanilla`, `base` |
+| Loot and drops | `loot_example` | `base`, `proving` |
 | Events and cancelling | `events_example` | all |
-| World generation | `worldgen_example` | `vanilla`, `arcana` |
-| Commands, permissions, UI panels | `ui_example` | `skyblock`, `industry` |
-| Mod settings a host can change | — (see [docs/distribution.md §6](../docs/distribution.md)) | `vanilla` |
-| JavaScript mods | `js_example` | `guild` |
-| Mobs, AI and spawning | — | `vanilla/animals.gd`, `vanilla/monsters.gd` |
-| Containers, stations, processing | — | `base/stations.gd`, `industry` |
-| Models with moving parts | — | `industry` (cable arms, machines) |
-| Guide pages and tutorials | — | `vanilla/guide.gd`, `vanilla/tutorial.gd` |
-| Structures and templates | — | `vanilla/structures.gd` |
+| World generation | `worldgen_example` | `proving` |
+| Commands, permissions, UI panels | `ui_example` | `proving` |
+| Mod settings a host can change | — (see [docs/distribution.md §6](../docs/distribution.md)) | `proving` |
+| JavaScript mods | `js_example` | `tests/mods/proving_js` |
+| Mobs, AI and spawning | — | `tests/mods/proving/life.gd` |
+| Containers, stations, processing | — | `base/stations.gd`, `proving/machines.gd` |
+| Models with moving parts | — | `art/models/` (the archived machines) |
+| Guide pages and tutorials | — | `base/guide.gd`, `proving/presentation.gd` |
+| Structures and templates | — | `tests/mods/proving/things.gd` |
 
 The dashes are the gaps worth filling next, in that order.
 

@@ -18,7 +18,7 @@ extends Node
 ##   --view-distance=8     QW_VIEW_DISTANCE chunks of terrain each player is sent (costs upload)
 ##   --simulation-distance=6 QW_SIMULATION_DISTANCE chunks around each player that actually run (costs CPU)
 ##   --awake-budget=2000   QW_AWAKE_BUDGET  microseconds of each tick all kept-awake machines may share
-##   --mods=vanilla        QW_MODS          comma-separated; dependencies load automatically
+##   --mods=my_game        QW_MODS          required; comma-separated, dependencies load automatically
 ##   --mods-dir=/mods      QW_MODS_DIR      comma-separated folders searched before bundled mods
 ##   --data-dir=/data      QW_DATA_DIR      world saves (default user://worlds)
 ##   --world=name          QW_WORLD         defaults to the first mod id
@@ -57,7 +57,7 @@ const DEFAULTS := {
 	"view-distance": "8",
 	"simulation-distance": "6",
 	"awake-budget": "2000",
-	"mods": "vanilla",
+	"mods": "",
 	"mods-dir": "",
 	"data-dir": "user://worlds",
 	"mod-settings": "",
@@ -84,8 +84,11 @@ var _config := {}
 func _ready() -> void:
 	var options := read_options(OS.get_cmdline_user_args())
 	var mods: PackedStringArray = String(options.mods).split(",", false)
+	# No default. This was "vanilla" until that mod was deleted on 21 September 2026, which turned a
+	# missing --mods into "mod 'vanilla' not found" - a message about a mod nobody asked for. Naming
+	# the game is the one thing a server cannot guess.
 	if mods.is_empty():
-		printerr("[server] No mods configured (--mods / QW_MODS)")
+		printerr("[server] No mods configured. Name the game to run with --mods=<id> (or QW_MODS).")
 		get_tree().quit(2)
 		return
 	# Save before exiting on window close, and on SIGTERM/SIGINT when the native extension is loaded

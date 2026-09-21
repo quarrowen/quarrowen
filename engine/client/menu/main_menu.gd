@@ -122,6 +122,12 @@ func _on_setting_changed(key: String) -> void:
 		_load_news()
 
 
+## The installed games, as the menu found them. Exposed so the backdrop can generate itself from a
+## game that is actually present instead of naming one. (2026-09-21)
+func installed_games() -> Array:
+	return _games
+
+
 func _discover_mods() -> void:
 	_games = []
 	_addons = []
@@ -485,11 +491,11 @@ func open_new_world() -> void:
 	description.custom_minimum_size = Vector2(520, 36)  # wrapping labels need a width, or the dialog grows very tall
 	box.add_child(description)
 	game.item_selected.connect(func(i): description.text = str(_games[i].description))
-	var preferred := _games.map(func(g): return g.id).find("vanilla")
-	if preferred >= 0:
-		game.select(preferred)
+	# The first installed game. This used to look for "vanilla" and fall back to the first; with that
+	# mod gone the search never matched, so the fallback was all that ever ran. (2026-09-21)
 	if not _games.is_empty():
-		description.text = str(_games[maxi(preferred, 0)].description)
+		game.select(0)
+		description.text = str(_games[0].description)
 	var checks := []
 	if not _addons.is_empty():
 		box.add_child(MenuTheme.muted("Add-ons"))
@@ -1087,7 +1093,9 @@ func _build_create() -> Control:
 			var b := Button.new()
 			b.text = m.name
 			b.tooltip_text = str(m.description)
-			var mods: String = m.id if m.game else "vanilla,%s" % m.id
+			# The mod on its own. An add-on used to be paired with "vanilla" here; there is no
+			# bundled game to pair one with now, and inventing a name would only fail later.
+			var mods: String = m.id
 			b.pressed.connect(func(): host_mod_requested.emit(mods))
 			flow.add_child(b)
 	return page

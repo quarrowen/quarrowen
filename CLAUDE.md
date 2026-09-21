@@ -38,8 +38,14 @@ else entirely.
   reorder on purpose.
 
   After adding to `mod_api.gd`, run `mod_tool.tscn -- bindings`; the suite fails when
-  `bindings.json` or `unbound.txt` is stale. `unbound.txt` is down to the two functions that take a
-  GDScript object and genuinely cannot cross JSON.
+  `bindings.json` or `unbound.txt` is stale. `unbound.txt` holds 18 names: two top-level functions
+  that take a GDScript object and genuinely cannot cross JSON, plus sixteen `entity.*` / `player.*`
+  methods that have no JavaScript equivalent yet.
+
+  **The generated bindings do not cover the hand-written ones.** `prelude.js` entries win where one
+  exists, and they pass their arguments positionally - so reordering a signature in `mod_api.gd`
+  silently desynchronises any hand-written entry for it. Reordering `set_block` would have broken
+  every JavaScript `setBlock` call this way. Grep `prelude.js` for the name before you reorder.
 
 **The GDExtension is a checked-in build artifact.** `tools/run_tests.sh` rebuilds it when `native/src` is
 newer and stops if that build fails. It did not always: a Rust file that did not compile once left the old
@@ -274,3 +280,22 @@ recorded. Nothing should only exist in the conversation.
 - `deploy/server/` - what the family server runs. Meant to be copied on its own, without the repository.
 - `PROGRESS.md` - status, roadmap, playtest findings, and the decisions behind them. Read it first.
 - `docs/` - hosting, modding, the engine, distribution, and the generated API reference.
+
+## Parameter order, and where a default may not point
+
+Two rules that came out of an afternoon of transpositions (2026-09-21):
+
+- **Past two required arguments, take an options dictionary.** GDScript has no named arguments, so a
+  third positional is a guess at the call site. The JavaScript API does this everywhere, which is why
+  no JavaScript mod has ever hit one of these.
+- **A common parameter goes in the same place in every sibling.** `realm_id` sits straight after the
+  required arguments in all eight block functions; `set_block` was the exception and it was the one
+  that got called wrong. Cross-type mistakes do fail loudly - GDScript names the file, the line and
+  the mod, and aborts the call - so the cost is a confusing afternoon, not a silent bug. **Read the
+  log before reading signatures.**
+
+And since the games were deleted, **nothing may default to a game**. `--mods`, `--host` and the menu
+backdrop all named `vanilla`, so a missing argument was reported as a missing mod - a message about
+something nobody asked for. They now say what is actually missing, and the backdrop generates from
+the first installed game or stays a still image. `base` cannot stand in: it is `"kind": "library"`
+and registers no entities.

@@ -16,7 +16,9 @@ static func create(parent_dir: String, options: Dictionary) -> Dictionary:
 	var id := str(options.get("id", ""))
 	if not ModLoader._is_valid_id(id):
 		return {"ok": false, "error": "the id must be 1-32 characters of a-z, 0-9 and _"}
-	if id in ["base", "vanilla", "engine"]:
+	# "vanilla" came off this list when the mod was deleted on 21 September 2026; nothing holds the
+	# name now, and reserving a name nothing uses only stops somebody making their own.
+	if id in ["base", "engine"]:
 		return {"ok": false, "error": "'%s' is taken by the engine or a bundled mod" % id}
 	var dir := parent_dir.path_join(id)
 	if DirAccess.dir_exists_absolute(dir) or FileAccess.file_exists(dir.path_join("mod.json")):
@@ -33,7 +35,7 @@ static func create(parent_dir: String, options: Dictionary) -> Dictionary:
 		vars.name = id.capitalize()
 	var description := str(options.get("description", ""))
 	if description.is_empty():
-		description = "A new game made with Quarrowen." if game else "Adds a crate, a gem and a little tutorial. Play it with any game, e.g. --mods=vanilla,%s" % id
+		description = "A new game made with Quarrowen." if game else "Adds a crate, a gem and a little tutorial. Play it with any game, e.g. --mods=<game>,%s" % id
 	var manifest := {"id": id, "name": vars.name, "version": "0.1.0", "description": description, "authors": [vars.author] if not vars.author.is_empty() else [],
 		"kind": "game" if game else "addon", "engine": vars.engine, "depends": ["base@^1.0"]}
 	if js:
@@ -281,7 +283,7 @@ const README := """# {{name}}
 From the game's menu, **Create a mod** hosts it for you. Or from the command line (project folder):
 
 ```
-godot --path . -- --host={{#game}}{{id}}{{/game}}{{^game}}vanilla,{{id}}{{/game}} --dev
+godot --path . -- --host={{#game}}{{id}}{{/game}}{{^game}}<game>,{{id}}{{/game}} --dev
 ```
 
 `--dev` turns on the developer tools for everyone on the server and the file watcher.

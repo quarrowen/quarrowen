@@ -35,13 +35,14 @@ const ORBIT_SECONDS := 240.0
 const ORBIT_RADIUS := 8.0
 const DAY_SECONDS := 300.0
 const SEEDS := [1337, 4242, 90210, 777, 2026, 31415]
-## Creatures that wander around the avatar: [entity name, how many]. Missing ones (another game's mods)
-## are skipped, so any world still gets whatever it has.
-const CREATURES := [["vanilla:pig", 2], ["vanilla:sheep", 2], ["vanilla:chicken", 2], ["vanilla:cow", 1],
-	["vanilla:wolf", 1], ["vanilla:zombie", 1], ["vanilla:spider", 1]]
 const CREATURE_RING := 7.0
+## How many creatures to scatter, at most. Enough to look inhabited, few enough to stay a backdrop.
+const CREATURE_COUNT := 9
 
-var game := "vanilla"
+## The game to generate the backdrop from. Empty means "the first one installed", which is what the
+## menu does: this named "vanilla" until that mod was deleted on 21 September 2026, and a backdrop
+## pinned to one mod's id is wrong anyway - it is meant to show whatever this player actually has.
+var game := ""
 var avatar_look := {}
 var player_name := ""
 ## Orbiting camera and passing time (off: a still view, for players who prefer less motion).
@@ -222,10 +223,12 @@ func _place_avatar() -> void:
 	refresh_avatar(avatar_look, player_name)
 
 
-## A few animals (and something to keep them company at night) wandering around the avatar.
+## A few creatures wandering around the avatar, taken from whatever the loaded mods registered rather
+## than from a list of names. A hardcoded list belongs to one game, and silently empties when that game
+## is not the one installed - which is exactly what happened to the list that used to live here.
 func _place_creatures() -> void:
 	var registry = _server.entities.registry
-	for entry in CREATURES:
+	for entry in _creature_mix(registry):
 		var type_id: int = registry.id_of(String(entry[0]))
 		if type_id < 0:
 			continue
@@ -392,3 +395,35 @@ func _apply_time() -> void:
 		material.set_shader_parameter("sun_direction", sun_direction)
 		material.set_shader_parameter("sky_color", Vector3(_sky.sky_top_color.r, _sky.sky_top_color.g, _sky.sky_top_color.b))
 		material.set_shader_parameter("horizon_color", Vector3(horizon.r, horizon.g, horizon.b))
+
+
+## What to scatter around the avatar: [entity name, how many], drawn from the registry.
+##
+## Mobs only (an item or a projectile is not scenery), and only the ones the mods actually shipped a
+## model for - `_place_creatures` skips modelless types anyway, but choosing them here means the count
+## is spent on things that will appear. Sorted by name so a given world looks the same each time it is
+## generated; the seed already varies the terrain, and a menu that reshuffles its animals every visit
+## reads as flicker rather than life.
+func _creature_mix(registry) -> Array:
+	var kinds: Array = []
+	for def: Dictionary in registry.defs:
+		if String(def.get("kind", "")) != "mob":
+			continue
+		if String(def.get("model", "")).is_empty():
+			continue
+		kinds.append(String(def.name))
+	kinds.sort()
+	if kinds.is_empty():
+		return []
+	# Spread the budget over what there is: a world with two creature types gets more of each than one
+	# with ten, so the ring looks equally full either way.
+	var each := maxi(1, CREATURE_COUNT / kinds.size())
+	var out: Array = []
+	var placed := 0
+	for name: String in kinds:
+		if placed >= CREATURE_COUNT:
+			break
+		var take := mini(each, CREATURE_COUNT - placed)
+		out.append([name, take])
+		placed += take
+	return out
