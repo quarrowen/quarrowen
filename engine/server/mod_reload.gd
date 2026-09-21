@@ -181,6 +181,16 @@ func _forget(mod_id: String) -> void:
 			s.area_edits.rules.erase(name)
 	# Shared stores are declared, not registered, and they hold a player's things - so the declaration
 	# goes and the contents stay. Reloading a mod must not empty somebody's vault. (2026-09-21)
+	# Instance kinds are a mod's; live instances are people's. Closing them is right - the realm and
+	# its generator both belong to the mod that is going away - and everybody inside is put back
+	# rather than left in a world about to stop existing.
+	for kind_name in s.instances.kinds.keys():
+		if not String(kind_name).begins_with(mod_id + ":"):
+			continue
+		for instance_id in s.instances.live.keys():
+			if String(s.instances.live[instance_id].kind) == String(kind_name):
+				s.instances.close(String(instance_id))
+		s.instances.kinds.erase(kind_name)
 	for name in s.containers.stores.keys():
 		if String(name).begins_with(mod_id + ":") and not (s.containers.stores[name].get("slots") is Array):
 			s.containers.stores.erase(name)

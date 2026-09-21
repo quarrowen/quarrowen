@@ -45,6 +45,7 @@ func setup(mod_api, id_table: Dictionary) -> void:
 		"shallow": "proving:slime_thin", "shallow_from": 2})
 	api.register_liquid_meeting("slime", "proving:slime", "proving:plain")
 	_setup_bucket()
+	_setup_instances()
 
 
 ## Carrying a liquid about, which is what liquids are for and the one part of them a mod has to write
@@ -96,3 +97,23 @@ func _pour(player, ev: Dictionary, realm_id: String) -> void:
 	api.set_block(at, int(ids.slime), realm_id)
 	if not player.is_creative():
 		player.give(int(ids.pail), 1)
+
+
+## Instances: a private copy of a space, made on demand and thrown away.
+##
+## Flat ground rather than a generator of its own, so a test standing in one has something under its
+## feet without this mod needing a second worldgen. (2026-09-21)
+func _setup_instances() -> void:
+	api.register_instance("trial", {"display_name": "The Trial", "empty_seconds": 5.0, "max_players": 2})
+	api.register_command("trial", "Go into a private copy of a room", func(player, _args):
+		var here: String = api.instance_of(player)
+		if not here.is_empty():
+			api.leave_instance(player)
+			player.send_message("Back out.")
+			return
+		var run: String = api.open_instance("trial", {"data": {"opened_for": player.name}})
+		if run.is_empty():
+			player.send_message("No room to open one.")
+			return
+		api.enter_instance(player, run, Vector3(0.5, 66, 0.5))
+		player.send_message("You are in %s." % run))

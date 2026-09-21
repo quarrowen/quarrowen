@@ -50,6 +50,7 @@ const Characters = preload("res://engine/server/characters.gd")
 const Shops = preload("res://engine/server/shops.gd")
 const Companies = preload("res://engine/server/companies.gd")
 const Plots = preload("res://engine/server/plots.gd")
+const Instances = preload("res://engine/server/instances.gd")
 const AreaEdits = preload("res://engine/server/area_edits.gd")
 const Claims = preload("res://engine/server/claims.gd")
 const Containers = preload("res://engine/server/containers.gd")
@@ -331,6 +332,8 @@ var companies := Companies.new(self)
 var plots := Plots.new(self)
 ## Changing many blocks at once, with the same checks one block gets (see engine/server/area_edits.gd).
 var area_edits := AreaEdits.new(self)
+## Private copies of a space, made on demand and thrown away (see engine/server/instances.gd).
+var instances := Instances.new(self)
 ## Parts of the world kept awake when nobody is there, and the budget that stops one player doing it
 ## to everybody else (see engine/server/claims.gd).
 var claims := Claims.new(self)
@@ -1908,6 +1911,7 @@ func _physics_process(delta: float) -> void:
 	drives.settle()
 	parcels.update(delta)
 	claims.update(delta)
+	instances.update(delta)
 	containers.update(delta)
 	transfers.update(delta)
 	ambience.update(delta)
@@ -3044,6 +3048,27 @@ func drive_changed(node: Dictionary, value: float) -> void:
 	for p: ServerPlayer in players.values():
 		if realm_of(p).id == in_realm and p.sent_chunks.has(coord):
 			Net.s_drives.rpc_id(p.peer_id, where, how_fast)
+
+
+## Takes a realm out of the server. Only for instances: a realm a mod declared is part of the world
+## and stays for the session.
+##
+## Everything a realm owns hangs off the Realm object - its world, its entities, its tickers - so
+## dropping the reference is most of the job. What is not automatic is the simulated set, which is
+## rebuilt from players, and anything holding the realm id.
+func remove_realm(realm_id: String) -> bool:
+	var going: Realm = realms.get(realm_id)
+	if going == null or going.is_overworld():
+		return false
+	realms.erase(realm_id)
+	# Claims name their realm by id, and a claim on a realm that no longer exists would keep asking
+	# for chunks nobody can load. Dropped here rather than left to `awake_chunks` to skip, so nothing
+	# accumulates across a long session of dungeon runs.
+	for claim_id in claims.claims.keys():
+		if String(claims.claims[claim_id].realm) == realm_id:
+			claims.claims.erase(claim_id)
+	_simulation_dirty = true
+	return true
 
 
 func realm_of(p: ServerPlayer) -> Realm:
@@ -5503,6 +5528,8 @@ func _save_all(wait := false) -> void:
 	if _save_dir.is_empty():
 		return
 	for r: Realm in realms.values():
+		if r.ephemeral:
+			continue  # an instance is thrown away when it empties; writing it would outlive the run
 		var coords := r.save_dirty.duplicate()
 		for coord: Vector2i in r.block_data:
 			coords[coord] = true  # block data dictionaries may have been mutated in place

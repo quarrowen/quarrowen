@@ -921,6 +921,25 @@ puzzle game and a factory want different answers and it is not the engine's busi
 <div class="card" id="api-set-signal" data-search="set_signal setsignal makes the block at `position` emit `level` (0 to 15; 0 stops it). for a lever being flipped, a plate
 being stood on, or a gate of your own working out what it should be saying."><div class="sig"><code>api.set_signal(position: Vector3i, level: int, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="setSignal">JS setSignal</span></div><p>Makes the block at `position` emit `level` (0 to 15; 0 stops it). For a lever being flipped, a plate<br>being stood on, or a gate of your own working out what it should be saying.</p></div>
 <div class="card" id="api-signal-at" data-search="signal_at signalat the strongest level arriving at a position from anything touching it."><div class="sig"><code>api.signal_at(position: Vector3i, realm_id := &quot;&quot;) -&gt; int</code><span class="tag js" title="signalAt">JS signalAt</span></div><p>The strongest level arriving at a position from anything touching it.</p></div>
+<div class="card" id="api-register-instance" data-search="register_instance registerinstance declares a kind of private, throwaway space: a dungeon, a puzzle room, an arena.
+
+an instance **is a realm with a lifetime** - the same separate world dimensions already give you,
+but made on demand and thrown away when it empties. nothing in one is written to disk.
+
+api.register_instance(&quot;dungeon&quot;, {&quot;generator&quot;: rooms.new(), &quot;empty_seconds&quot;: 30,
+&quot;max_players&quot;: 4})
+
+def: {generator, passes, empty_seconds, max_players, display_name}. without a generator the space
+is empty air, which is what a mod that builds its own room wants."><div class="sig"><code>api.register_instance(kind_name: String, def := {}) -&gt; bool</code><span class="tag js" title="registerInstance">JS registerInstance</span></div><p>Declares a kind of private, throwaway space: a dungeon, a puzzle room, an arena.<br><br>An instance **is a realm with a lifetime** - the same separate world dimensions already give you,<br>but made on demand and thrown away when it empties. Nothing in one is written to disk.<br><br>api.register_instance(&quot;dungeon&quot;, {&quot;generator&quot;: Rooms.new(), &quot;empty_seconds&quot;: 30,<br>&quot;max_players&quot;: 4})<br><br>def: {generator, passes, empty_seconds, max_players, display_name}. Without a generator the space<br>is empty air, which is what a mod that builds its own room wants.</p></div>
+<div class="card" id="api-open-instance" data-search="open_instance openinstance opens one and returns its id, or &quot;&quot; if it could not be opened.
+
+options: {seed, data (anything you want to keep with it; read it back with `instance_data`)}."><div class="sig"><code>api.open_instance(kind_name: String, options := {}) -&gt; String</code><span class="tag js" title="openInstance">JS openInstance</span></div><p>Opens one and returns its id, or &quot;&quot; if it could not be opened.<br><br>options: {seed, data (anything you want to keep with it; read it back with `instance_data`)}.</p></div>
+<div class="card" id="api-enter-instance" data-search="enter_instance enterinstance sends a player in, remembering where they were so `leave_instance` can put them back."><div class="sig"><code>api.enter_instance(player, instance_id: String, position: Vector3) -&gt; bool</code><span class="tag js" title="enterInstance">JS enterInstance</span></div><p>Sends a player in, remembering where they were so `leave_instance` can put them back.</p></div>
+<div class="card" id="api-leave-instance" data-search="leave_instance leaveinstance puts a player back where they were before they entered."><div class="sig"><code>api.leave_instance(player) -&gt; bool</code><span class="tag js" title="leaveInstance">JS leaveInstance</span></div><p>Puts a player back where they were before they entered.</p></div>
+<div class="card" id="api-close-instance" data-search="close_instance closeinstance closes one now: everybody inside goes back and the space is thrown away. an instance also closes
+itself once it has been empty for its kind's `empty_seconds`."><div class="sig"><code>api.close_instance(instance_id: String) -&gt; bool</code><span class="tag js" title="closeInstance">JS closeInstance</span></div><p>Closes one now: everybody inside goes back and the space is thrown away. An instance also closes<br>itself once it has been empty for its kind's `empty_seconds`.</p></div>
+<div class="card" id="api-instance-of" data-search="instance_of instanceof the instance a player is in, or &quot;&quot;."><div class="sig"><code>api.instance_of(player) -&gt; String</code><span class="tag js" title="instanceOf">JS instanceOf</span></div><p>The instance a player is in, or &quot;&quot;.</p></div>
+<div class="card" id="api-instance-data" data-search="instance_data instancedata what you kept with an instance when you opened it."><div class="sig"><code>api.instance_data(instance_id: String) -&gt; Dictionary</code><span class="tag js" title="instanceData">JS instanceData</span></div><p>What you kept with an instance when you opened it.</p></div>
 <div class="card" id="api-add-realm" data-search="add_realm addrealm adds another world to this server, reached through a portal. call it while the mod is setting up.
 
 var deep := api.add_realm(&quot;emberdeep&quot;, {&quot;name&quot;: &quot;the emberdeep&quot;, &quot;generator&quot;: mycaves.new()})
@@ -1164,6 +1183,8 @@ systems copy is a fact about the code that ought to be visible in the code."><di
   -- The world and the server itself
   weather_changed {weather, previous, realm}
   player_realm_change {player, from, to, cancelled}   player_arrived_realm {player, realm, first_time}
+  instance_opened {instance, kind}     instance_closed {instance, kind}
+  instance_entered {player, instance, kind}            instance_left {player, instance}
   explosion      {position, power, source, blocks, cancelled}   `blocks` may be edited
   settings_changed {mod, values}   mod_reloaded {mod, full}
   backup         {path, reason}                             a world backup was written</pre></section>

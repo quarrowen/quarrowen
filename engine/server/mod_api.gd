@@ -115,6 +115,8 @@ extends RefCounted
 ##   -- The world and the server itself
 ##   weather_changed {weather, previous, realm}
 ##   player_realm_change {player, from, to, cancelled}   player_arrived_realm {player, realm, first_time}
+##   instance_opened {instance, kind}     instance_closed {instance, kind}
+##   instance_entered {player, instance, kind}            instance_left {player, instance}
 ##   explosion      {position, power, source, blocks, cancelled}   `blocks` may be edited
 ##   settings_changed {mod, values}   mod_reloaded {mod, full}
 ##   backup         {path, reason}                             a world backup was written
@@ -1996,6 +1998,53 @@ func signal_at(position: Vector3i, realm_id := "") -> int:
 
 func _realm_or_default(realm_id: String):
 	return _server.realms.get(_qualify_ref(realm_id), _server.realm) if not realm_id.is_empty() else _server.realm
+
+
+## Declares a kind of private, throwaway space: a dungeon, a puzzle room, an arena.
+##
+## An instance **is a realm with a lifetime** - the same separate world dimensions already give you,
+## but made on demand and thrown away when it empties. Nothing in one is written to disk.
+##
+##     api.register_instance("dungeon", {"generator": Rooms.new(), "empty_seconds": 30,
+##         "max_players": 4})
+##
+## def: {generator, passes, empty_seconds, max_players, display_name}. Without a generator the space
+## is empty air, which is what a mod that builds its own room wants.
+func register_instance(kind_name: String, def := {}) -> bool:
+	return _server.instances.register(_qualify(kind_name), def)
+
+
+## Opens one and returns its id, or "" if it could not be opened.
+##
+## options: {seed, data (anything you want to keep with it; read it back with `instance_data`)}.
+func open_instance(kind_name: String, options := {}) -> String:
+	return _server.instances.open(_qualify(kind_name), options)
+
+
+## Sends a player in, remembering where they were so `leave_instance` can put them back.
+func enter_instance(player, instance_id: String, position: Vector3) -> bool:
+	return _server.instances.enter(player, instance_id, position)
+
+
+## Puts a player back where they were before they entered.
+func leave_instance(player) -> bool:
+	return _server.instances.leave(player)
+
+
+## Closes one now: everybody inside goes back and the space is thrown away. An instance also closes
+## itself once it has been empty for its kind's `empty_seconds`.
+func close_instance(instance_id: String) -> bool:
+	return _server.instances.close(instance_id)
+
+
+## The instance a player is in, or "".
+func instance_of(player) -> String:
+	return _server.instances.id_of(player)
+
+
+## What you kept with an instance when you opened it.
+func instance_data(instance_id: String) -> Dictionary:
+	return _server.instances.data_of(instance_id)
 
 
 ## Adds another world to this server, reached through a portal. Call it while the mod is setting up.

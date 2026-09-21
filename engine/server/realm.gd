@@ -28,6 +28,10 @@ const Chunk = preload("res://engine/shared/chunk.gd")
 var id := ""
 var display_name := ""
 
+## An instance's realm: made on demand, thrown away when it empties. Never written to disk, so a
+## dungeon run leaves no folder behind and a crash mid-run leaves nothing to clean up. (2026-09-21)
+var ephemeral := false
+
 var world := VoxelWorld.new()
 var seed_value := 0
 var entities: Entities

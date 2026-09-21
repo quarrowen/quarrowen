@@ -3118,3 +3118,35 @@ contents whose mod is gone are kept - the same promise the chunk delta format ma
 
 `mod_reload._forget` drops a mod's store *declarations* but keeps their contents: reloading a mod
 must not empty somebody's vault.
+
+## Instances — built (2026-09-21). All 26 capabilities are done.
+
+Roadmap item 23, and the last one. The roadmap's own guess was right: "a dimension with a lifetime"
+is exactly what it is, and that is why it was an afternoon rather than a week. Dimensions had already
+built the hard half - a separate world with its own terrain, creatures, tickers and coordinate space,
+running in the same server at the same time.
+
+What an instance adds to a realm is three decisions:
+
+- **Never written to disk.** `Realm.ephemeral`, and `_save_all` skips it. A run that outlived the
+  server would be a folder nobody can get back into, and a crash mid-run would leave one every time.
+- **The return point is taken on the way in**, not worked out on the way out. By the time an instance
+  closes, where somebody came from may be the only thing left to know about them. Held in the engine
+  rather than on the player, so it never becomes part of the save format for something that cannot
+  survive a restart. If the realm they came from is gone by then, they go to spawn rather than
+  nowhere.
+- **Empty is not finished.** It closes after `empty_seconds` with nobody in it, not the moment the
+  last player leaves. Stepping out for a moment is a thing people do, and a dungeon that vanished
+  behind you while you checked your bag is a bug nobody could explain.
+
+`remove_realm` is new and deliberately narrow: only an instance may use it, because a realm a mod
+declared is part of the world for the session. It drops claims naming that realm, which would
+otherwise keep asking for chunks in a world that no longer exists - the kind of thing that
+accumulates quietly over a long evening of dungeon runs.
+
+The event ratchet caught all four new events being undocumented, which is the third time that test
+has paid for itself. `mod_reload._forget` closes a mod's live instances before dropping its kinds:
+the realm and its generator both belong to the mod going away, and everybody inside is put back
+rather than left in a world about to stop existing.
+
+20 assertions in `proving_test.gd`, all verified as firing (107 checks there now).

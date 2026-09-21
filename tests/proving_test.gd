@@ -189,6 +189,58 @@ func _behaviour(server) -> void:
 	server.vehicles.dismount(p)
 	_area_tools(server, server.mod_instances.proving.api, p)
 	_nested_inventories(server, server.mod_instances.proving.api, p)
+	_instances(server, server.mod_instances.proving.api, p)
+
+
+## Instances: a realm with a lifetime. The lifetime is the part worth asserting - a dimension that
+## never goes away is just a dimension.
+func _instances(server, api, p) -> void:
+	var realms_before: int = server.realms.size()
+	var run: String = api.open_instance("trial", {"data": {"why": "testing"}})
+	_check(not run.is_empty(), "an instance opens and is named (%s)" % run)
+	_check(server.realms.size() == realms_before + 1, "and it is a realm of its own")
+	_check(server.realms[run].ephemeral, "an ephemeral one, so nothing of it is written to disk")
+	_check(api.instance_data(run).get("why") == "testing", "and it carries what the mod kept with it")
+
+	# Two runs of the same kind are two worlds, not two names for one.
+	var second: String = api.open_instance("trial", {})
+	_check(second != run and server.realms.has(second), "a second run is a second world (%s)" % second)
+
+	# Going in remembers where you were; coming out puts you there.
+	var was_realm: String = String(p.realm_id)
+	var was_at: Vector3 = p.state.position
+	_check(api.enter_instance(p, run, Vector3(0.5, 66, 0.5)), "a player can go in")
+	_check(String(p.realm_id) == run and api.instance_of(p) == run, "and is in it")
+	_check(api.leave_instance(p), "and can come back out")
+	_check(String(p.realm_id) == was_realm and p.state.position.distance_to(was_at) < 0.01,
+		"to exactly where they were, not to spawn")
+	_check(api.instance_of(p) == "", "and is no longer in one")
+
+	# Full means full.
+	var solo: String = api.open_instance("trial", {})
+	var a := _player(server, 92, "A_one")
+	var b := _player(server, 93, "B_two")
+	var c := _player(server, 94, "C_three")
+	_check(api.enter_instance(a, solo, Vector3(0.5, 66, 0.5)) and api.enter_instance(b, solo, Vector3(0.5, 66, 0.5)),
+		"two players fill a two-player instance")
+	_check(not api.enter_instance(c, solo, Vector3(0.5, 66, 0.5)), "and a third is turned away")
+	_check(String(c.realm_id) == was_realm, "who is left where they were, not half moved")
+
+	# Closing puts everybody still inside back, and takes the realm away.
+	_check(api.close_instance(solo), "closing it works")
+	_check(String(a.realm_id) == was_realm and String(b.realm_id) == was_realm,
+		"and everybody inside is put back")
+	_check(not server.realms.has(solo), "and the realm is gone")
+	for peer in [92, 93, 94]:
+		server.players.erase(peer)
+
+	# Empty is not finished: it closes on its own only after empty_seconds (5 in the Proving Ground).
+	server.instances.update(0.0)
+	_check(server.realms.has(run), "an empty instance does not close the moment it empties")
+	server.instances.live[run].empty_since = server._time - 99.0
+	server.instances.update(0.0)
+	_check(not server.realms.has(run), "but it does once it has been empty long enough")
+	api.close_instance(second)
 
 
 ## A bag and a shared store: two containers whose contents are not at a position.

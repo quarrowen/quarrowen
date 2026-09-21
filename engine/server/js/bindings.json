@@ -372,6 +372,14 @@
 			],
 			"gd": "clear_world_marker"
 		},
+		"closeInstance": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "close_instance"
+		},
 		"companiesOf": {
 			"args": [
 				{
@@ -591,6 +599,20 @@
 				}
 			],
 			"gd": "drop_item"
+		},
+		"enterInstance": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3"
+				}
+			],
+			"gd": "enter_instance"
 		},
 		"entityType": {
 			"args": [
@@ -1043,6 +1065,22 @@
 			],
 			"gd": "info"
 		},
+		"instanceData": {
+			"args": [
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "instance_data"
+		},
+		"instanceOf": {
+			"args": [
+				{
+					"kind": "player"
+				}
+			],
+			"gd": "instance_of"
+		},
 		"isBreakable": {
 			"args": [
 				{
@@ -1125,6 +1163,14 @@
 				}
 			],
 			"gd": "keep_awake"
+		},
+		"leaveInstance": {
+			"args": [
+				{
+					"kind": "player"
+				}
+			],
+			"gd": "leave_instance"
 		},
 		"letSleep": {
 			"args": [
@@ -1442,6 +1488,18 @@
 				}
 			],
 			"gd": "open_guide"
+		},
+		"openInstance": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "open_instance"
 		},
 		"openShared": {
 			"args": [
@@ -1931,6 +1989,18 @@
 				}
 			],
 			"gd": "register_guide_page"
+		},
+		"registerInstance": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "register_instance"
 		},
 		"registerItem": {
 			"args": [

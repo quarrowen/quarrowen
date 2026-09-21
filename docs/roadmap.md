@@ -33,9 +33,8 @@ Twelve biomes, eighty blocks, eleven creatures, a boss, four games.
 
 ### What is left, shortest honest answer
 
-- **One capability**: instances. Nothing else on the list is unbuilt - creature abilities,
-  characters, shops, applied effects, companions, vehicles, area tools, text in the world, nested
-  inventories, extending another mod, excludes and flight all landed between 19 and 21 September 2026.
+- **No capabilities.** All 26 are built; the last three (area tools, nested inventories, instances)
+  landed on 21 September 2026. What is left is content, four known limits, and the four 1.0 items.
 - **Four known limits** in things that *are* built - see "Where the built things stop" below.
 - **All of the content**, which is not capability and is now the larger half of the work: the seven
   games were deleted on 21 September, so `base` has to be re-scoped to nouns and the packs and games
@@ -403,10 +402,30 @@ fights the engine's basic shape in that way.
 
 It wants `networks` (driven kind) and `multiblocks` first, since it is what those two are *for*.
 
-### 23. Instances
+### 23. Instances — built
 
 A private copy of a space, entered and left. Much cheaper once dimensions exist, being a dimension with
 a lifetime.
+
+That is exactly what it turned out to be, and it is why this was small: dimensions already built the
+hard half - a separate world with its own terrain, creatures, tickers and coordinate space, running
+in the same server at the same time. An instance adds three things to a realm, and each is a
+decision rather than an omission:
+
+- **It is never written to disk.** The realm is marked `ephemeral` and `_save_all` skips it. A run
+  that outlived the server would be a folder nobody can get back into, and a crash mid-run would
+  leave one every time.
+- **Everybody is put back where they came from.** The return point is taken when they *enter*, not
+  worked out when they leave — by closing time, where they came from may be the only thing left to
+  know. Held by the engine rather than on the player, so it never becomes part of the save format
+  for something that cannot survive a restart.
+- **Empty is not the same as finished.** It closes after `empty_seconds` with nobody in it, not the
+  moment the last player steps out, because stepping out for a moment is a thing people do. A
+  dungeon that vanished behind you while you checked your bag is a bug nobody could explain. A mod
+  that means *now* calls `close_instance`.
+
+`register_instance`, `open_instance`, `enter_instance`, `leave_instance`, `close_instance`,
+`instance_of`, `instance_data`. Two runs of the same kind are two worlds, not two names for one.
 
 ## Touch controls, and the iPad
 
@@ -712,8 +731,7 @@ follows is what is left, in the order that now unlocks the most.
 at all: structures, facilities, jobs, ownership, conversation and trade all exist. What a village needs
 now is content - somebody to write the villagers.
 
-1. **Instances.** The last one. The small three are done.
-2. **Then the content**, which is where the remaining weight is: re-scope `base` to nouns, write
+1. **The content**, which is where the remaining weight is: re-scope `base` to nouns, write
    `simple_gear` and `simple_machines`, then the games. Doing the three capabilities first means the
    packs get designed against an API that has stopped moving.
 

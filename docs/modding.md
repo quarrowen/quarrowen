@@ -198,6 +198,34 @@ as `skipped`, so a vein can run up to a boundary and stop rather than the whole 
 A solid block is never placed in a cell somebody is standing in. Reach is asked once, of the nearest
 cell, at 24 blocks.
 
+### A private copy of a space
+
+An instance is a realm with a lifetime: the same separate world a dimension gives you, but made on
+demand and thrown away when it empties.
+
+```gdscript
+api.register_instance("dungeon", {"generator": Rooms.new(), "empty_seconds": 30, "max_players": 4})
+
+var run: String = api.open_instance("dungeon", {"seed": 7, "data": {"party": team}})
+api.enter_instance(player, run, Vector3(8, 65, 8))   # remembers where they were
+api.leave_instance(player)                           # puts them back there
+api.close_instance(run)                              # everybody out, space thrown away
+```
+
+Also `instance_of(player)` (the instance they are in, or `""`) and `instance_data(id)` (whatever you
+kept with it). Two runs of the same kind are two worlds, not two names for one. Without a generator
+the space is empty air, which is what you want if your mod builds its own room in it.
+
+**Nothing in an instance is saved.** It is deliberately not somewhere to keep things: a run that
+outlived the server would be a folder nobody can get back into. Anything a player should keep has to
+leave with them.
+
+**It closes when it has been empty for `empty_seconds`, not the moment the last player steps out** —
+stepping out for a moment is a thing people do, and a dungeon that vanished behind you while you
+checked your bag is a bug nobody could explain. Call `close_instance` when you mean now.
+
+Events: `instance_opened`, `instance_entered`, `instance_left`, `instance_closed`.
+
 ### Bags, and stores that are the same everywhere
 
 Two kinds of container whose contents are not at a position.
