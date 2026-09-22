@@ -4063,3 +4063,36 @@ player** - the exact failure that file was written to prevent.
 All four now fall back through `UserPaths`, so one override covers them, and `_test_isolation` asserts
 the *fallback* rather than the override - which is why it did not catch this. A test that asserts the
 override only ever proves the suite is safe, and the suite was never the one getting it wrong.
+
+### MSDN-level docs, part one: Markdown and See Also (2026-09-22)
+
+The user's call: **Markdown is the source of truth**, with a static site generator making
+quarrowen.com's HTML from it later. Two reasons, both right. A generator is not a thing we should be
+hand-writing, and a 500KB HTML page cannot be searched cheaply by a person *or* by a tool - which is
+precisely the failure the reference exists to fix, reproduced in the fix itself.
+
+`docs/api/mod-api.md` (95KB) and `docs/api/engine.md` (255KB) now generate beside the HTML, laid out
+the way an MSDN Win32 page was: signature, Remarks, See Also.
+
+**See Also is derived, and getting it right took three attempts, two of which are recorded above as
+dead ends.** The third - what a function actually calls - works, but only after two corrections:
+
+- **It has to follow through private helpers.** `of_item` reaches `chance_of` only via `_from_tables`
+  and loot's own `sources_of`. Stopping at public calls gave `api.sources_of` an empty See Also, which
+  is worse than none because it looks like an answer. Two hops is the useful depth; deeper is a
+  transitive closure, which is a list of the whole engine and therefore a list of nothing.
+- **Bare calls count, not just dotted ones.** `chance_of(...)` on the same object has no dot, so the
+  first pattern missed every sibling call in the engine. Filtering matches against the known names
+  afterwards means `if (` and `for (` fall out on their own.
+
+`api.sources_of` now carries `**See also:** chance_of, describe, kind_of, of_item`. That one line would
+have prevented the bug that started this whole thread, which is the test of whether it was worth
+building. 261 of 288 mod API entries and 609 engine entries carry cross-references.
+
+Two MSDN sections deliberately skipped, so they are not proposed again: a per-parameter table (C
+signatures carry no types worth reading; ours do, and a second place to describe a parameter is a
+second place for it to go stale) and hand-written per-function examples (MSDN's rotted; ours should be
+harvested from the Proving Ground, where the suite already keeps them correct).
+
+Still to do: examples from the Proving Ground, a "since which version" field from git history, and a
+"How Do I..." task index over modding.md.

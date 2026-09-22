@@ -39,6 +39,8 @@ func _run() -> void:
 		var out := ProjectSettings.globalize_path(str(options.get("out", "res://docs/api")))
 		_out("wrote %s" % DocsGenerator.write(out))
 		_out("wrote %s" % DocsGenerator.write_engine(out))
+		for path in DocsGenerator.write_markdown(out):
+			_out("wrote %s" % path)
 		get_tree().quit(0)
 		return
 	if positional.size() >= 1 and positional[0] == "owned":

@@ -4355,6 +4355,26 @@ func _api_docs() -> void:
 	_check(FileAccess.get_file_as_string("res://docs/api/engine.html") == engine_html,
 		"docs/api/engine.html is up to date (regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)")
 
+	# Markdown is the source of truth now (the user, 2026-09-22): a static site generator can make pages
+	# from it, and unlike a 500KB HTML file it can actually be searched - by a person or by a tool, which
+	# is the whole point of a reference nobody could find their way around.
+	var mod_md: String = Docs.build_mod_markdown()
+	var engine_md: String = Docs.build_engine_markdown()
+	_check(FileAccess.get_file_as_string("res://docs/api/mod-api.md") == mod_md,
+		"docs/api/mod-api.md is up to date (regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)")
+	_check(FileAccess.get_file_as_string("res://docs/api/engine.md") == engine_md,
+		"docs/api/engine.md is up to date (regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)")
+
+	# See Also is derived from what a function calls, following through private helpers, because the
+	# link that matters usually runs through one: `api.sources_of` reaches `chance_of` only via
+	# `of_item` and loot's own `sources_of`. Not knowing `chance_of` existed is what caused the bug this
+	# reference was built to prevent, so the chain itself is worth asserting. (2026-09-22)
+	var graph: Dictionary = Docs.call_graph()
+	_check((graph.get("of_item", []) as Array).has("sources_of"),
+		"See Also follows a private helper out to what it actually uses (%s)" % str(graph.get("of_item", [])))
+	_check((graph.get("sources_of", []) as Array).has("chance_of"),
+		"and reaches the reader that answers the question (%s)" % str(graph.get("sources_of", [])))
+
 	# Reaching into a shape another file owns is how both reimplementations started: weather hand-built
 	# an emitter EffectRegistry had a reader for, sources.gd walked loot pools while chance_of went
 	# unused. A ratchet, like unbound.txt - the baseline is checked in and may only shrink, so a new

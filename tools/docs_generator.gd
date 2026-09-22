@@ -131,6 +131,204 @@ static func undocumented_readers() -> Array:
 	return out
 
 
+## The Markdown half of the reference, which is now the source of truth.
+##
+## **Markdown rather than only HTML, on the user's call (2026-09-22), for two reasons.** A static site
+## generator can turn it into pages for the site, which is a job we should not be doing by hand; and a
+## 500KB HTML file is not something anybody - person or tool - can search cheaply, which is precisely
+## the failure this whole reference exists to fix. The HTML stays for now because README and
+## CONTRIBUTING link it.
+##
+## Laid out the way the MSDN Library laid out a Win32 page, because that is the target: **Syntax**, then
+## **Remarks** carrying the why, then **See Also**. Two of MSDN's sections are deliberately absent. A
+## per-parameter table existed because C signatures carry no types worth reading; ours do, and a second
+## place to describe a parameter is a second place for it to go stale. Per-function examples are not
+## hand-written here either - they rot, as MSDN's did; the plan is to harvest them from the Proving
+## Ground, where the suite already keeps them correct.
+static func write_markdown(out_dir: String) -> Array:
+	DirAccess.make_dir_recursive_absolute(out_dir)
+	var written: Array = []
+	for pair in [["mod-api.md", build_mod_markdown()], ["engine.md", build_engine_markdown()]]:
+		var path: String = out_dir.path_join(String(pair[0]))
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_string(String(pair[1]))
+		f.close()
+		written.append(path)
+	return written
+
+
+static func build_mod_markdown() -> String:
+	var graph := call_graph()
+	var api := parse_gdscript(FileAccess.get_file_as_string(MOD_API), "")
+	var js_names := {}
+	for m in parse_ts_interface(FileAccess.get_file_as_string(TYPES), "Api"):
+		js_names[m.name] = m
+	var out := PackedStringArray()
+	out.append("# Mod API reference\n")
+	out.append("Every function a mod can call, generated from `engine/server/mod_api.gd` by")
+	out.append("`mod_tool.tscn -- docs`. For the engine's own readers - the registries and helpers behind")
+	out.append("these - see [engine.md](engine.md).\n")
+	out.append("Mod API %s · game %s\n" % [Protocol.MOD_API_VERSION, Protocol.GAME_VERSION])
+	var placed := {}
+	for section in SECTIONS:
+		var rows: Array = []
+		for fn: Dictionary in api:
+			if placed.has(fn.name):
+				continue
+			for key: String in section[1]:
+				if _matches(String(fn.name), key):
+					rows.append(fn)
+					placed[fn.name] = true
+					break
+		if not rows.is_empty():
+			out.append(_markdown_section(String(section[0]), rows, graph, js_names, "api."))
+	var rest: Array = api.filter(func(fn): return not placed.has(fn.name))
+	if not rest.is_empty():
+		out.append(_markdown_section("Everything else", rest, graph, js_names, "api."))
+	return "\n".join(out)
+
+
+static func build_engine_markdown() -> String:
+	var graph := call_graph()
+	var out := PackedStringArray()
+	out.append("# Engine reference\n")
+	out.append("Every documented function inside the engine, grouped by the question it answers rather")
+	out.append("than by the folder it lives in. This is the half with no other index, and the half that")
+	out.append("kept getting reimplemented: search here before writing anything that reads, normalises or")
+	out.append("validates data a mod supplied. For the functions a mod calls, see [mod-api.md](mod-api.md).\n")
+	var paths: Array = _scripts_under("res://engine")
+	paths.sort()
+	for entry in ENGINE_SECTIONS + [["Everything else", []]]:
+		var rows: Array = []
+		for path: String in paths:
+			if path == MOD_API or _engine_section_of(path) != String(entry[0]):
+				continue
+			var documented: Array = parse_gdscript(FileAccess.get_file_as_string(path), "").filter(
+				func(fn): return not String(fn.doc).strip_edges().is_empty())
+			for fn: Dictionary in documented:
+				var row: Dictionary = fn.duplicate()
+				row["file"] = path.trim_prefix("res://engine/")
+				rows.append(row)
+		if not rows.is_empty():
+			out.append(_markdown_section(String(entry[0]), rows, graph, {}, ""))
+	return "\n".join(out)
+
+
+## Which section claims a file, matched in order so a file lands in exactly one.
+static func _engine_section_of(path: String) -> String:
+	var relative := path.trim_prefix("res://engine/")
+	for entry in ENGINE_SECTIONS:
+		for fragment: String in entry[1]:
+			if relative.contains(fragment):
+				return String(entry[0])
+	return "Everything else"
+
+
+static func _markdown_section(title: String, rows: Array, graph: Dictionary, js_names: Dictionary, prefix: String) -> String:
+	var out := PackedStringArray(["\n## %s\n" % title])
+	for fn: Dictionary in rows:
+		out.append("### `%s%s`\n" % [prefix, String(fn.signature)])
+		if fn.has("file"):
+			out.append("*%s*\n" % String(fn.file))
+		if js_names.has(fn.name):
+			out.append("JavaScript: `%s`\n" % camel(String(fn.name)))
+		var doc := String(fn.doc).strip_edges()
+		if not doc.is_empty():
+			out.append(doc + "\n")
+		var linked: Array = graph.get(fn.name, [])
+		if not linked.is_empty():
+			out.append("**See also:** %s\n" % ", ".join(linked.map(func(n): return "`%s`" % n)))
+	return "\n".join(out)
+
+
+## Names too common to be a useful cross-reference. Every one of these appears in dozens of functions,
+## so linking them turns a See Also into noise - which is what killed the two cheaper ideas measured
+## before this one (duplicate names: 197 hits; doc-comment similarity: 170, nearly all correct facades).
+const SEE_ALSO_STOPLIST := ["is_empty", "contains", "size", "has", "get", "set", "append", "duplicate",
+	"keys", "values", "call", "filter", "map", "clear", "update", "setup", "add", "remove", "find",
+	"is_valid", "id_of", "to_network", "load_network", "front", "back", "pop_back", "erase", "sort",
+	"resize", "fill", "left", "right", "strip_edges", "split", "join", "format", "length", "substr",
+	"info", "debug", "warn", "error", "emit", "name_of", "display_name", "value", "path", "dir"]
+
+## How many links a function gets. A page with thirty See Also entries has none.
+const SEE_ALSO_LIMIT := 6
+
+
+## What each public function calls, as name -> [names], for the See Also section.
+##
+## **Derived, because a hand-maintained See Also is a hand-maintained lie.** The obvious source - other
+## functions named in backticks in a doc comment - was measured and covers 7% of functions, and its top
+## hits are backticked *parameter* names. What a function actually calls is both accurate and free, and
+## it is the link that mattered on the day this was written: `sources_of` calls `of_item` calls
+## `chance_of`, and not knowing `chance_of` existed is what caused the bug. (2026-09-22)
+static func call_graph() -> Dictionary:
+	var public := {}
+	var paths: Array = _scripts_under("res://engine")
+	for path: String in paths:
+		for line in FileAccess.get_file_as_string(path).split("\n"):
+			var text: String = line
+			if not (text.begins_with("func ") or text.begins_with("static func ")):
+				continue
+			var name := text.get_slice("func ", 1).get_slice("(", 0).strip_edges()
+			if not name.begins_with("_") and not name in SEE_ALSO_STOPLIST:
+				public[name] = true
+
+	# Every function's calls, private ones included, because the useful link usually runs through one.
+	# `of_item` reaches `chance_of` only via `_from_tables`, and that is precisely the chain whose
+	# absence caused the bug this whole reference exists to prevent. (2026-09-22)
+	var calls := {}
+	var dotted := RegEx.create_from_string("\\.([a-z_][a-z0-9_]*)\\s*\\(")
+	# Calls made without a dot - a private helper, or a sibling on the same object. Filtered against the
+	# known names afterwards, so `if (`, `for (` and every built-in fall out on their own.
+	var bare := RegEx.create_from_string("(?:^|[^A-Za-z0-9_.])([a-z_][a-z0-9_]*)\\s*\\(")
+	for path: String in paths:
+		var current := ""
+		for line in FileAccess.get_file_as_string(path).split("\n"):
+			var text: String = line
+			if text.begins_with("func ") or text.begins_with("static func "):
+				current = text.get_slice("func ", 1).get_slice("(", 0).strip_edges()
+				continue
+			if current.is_empty():
+				continue
+			if not calls.has(current):
+				calls[current] = {}
+			for m in dotted.search_all(text):
+				calls[current][m.get_string(1)] = true
+			for m in bare.search_all(text):
+				var bare_name := m.get_string(1)
+				if public.has(bare_name) or bare_name.begins_with("_"):
+					calls[current][bare_name] = true
+
+	var out := {}
+	for name: String in calls:
+		if not public.has(name):
+			continue
+		var found := {}
+		_follow(name, calls, public, found, 0)
+		var linked: Array = found.keys()
+		linked.sort()
+		if not linked.is_empty():
+			out[name] = linked.slice(0, SEE_ALSO_LIMIT)
+	return out
+
+
+## Collects the public functions `name` reaches, stepping through private helpers on the way.
+##
+## Two hops is the useful depth: one gets you out of your own private helper, two gets you to what that
+## helper actually used. Deeper turns a See Also into a transitive closure, which is a list of the whole
+## engine and therefore a list of nothing.
+static func _follow(name: String, calls: Dictionary, public: Dictionary, found: Dictionary, depth: int) -> void:
+	if depth > 2:
+		return
+	for target: String in (calls.get(name, {}) as Dictionary):
+		if target == name or target in SEE_ALSO_STOPLIST:
+			continue
+		if public.has(target):
+			found[target] = true
+		elif target.begins_with("_") and calls.has(target):
+			_follow(target, calls, public, found, depth + 1)
+
+
 ## Where the engine's own readers are listed, which is nowhere else.
 ##
 ## `index.html` documents the 288 functions a mod can call. The other ~670 documented public functions

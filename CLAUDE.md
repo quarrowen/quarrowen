@@ -223,7 +223,18 @@ refused at the door, which is the kind failure.
 godot --headless --path . res://tools/mod_tool.tscn -- docs
 ```
 
-That writes **two** pages: `index.html` (the mod API) and `engine.html` (the engine's own readers).
+That writes **four** files. The Markdown pair is the source of truth (the user, 2026-09-22): a static
+site generator will make the site's HTML from them, and unlike a 500KB HTML file they can be searched -
+by a person or by a tool, which is the point of a reference nobody could navigate.
+
+- `docs/api/mod-api.md` - the mod API. **Read this one**, not the HTML.
+- `docs/api/engine.md` - the engine's own readers, grouped by the question they answer.
+- `index.html` / `engine.html` - the same, as pages; kept because README and CONTRIBUTING link them.
+
+Each entry is laid out the way an MSDN page was: signature, then the Remarks the `##` comment carries,
+then a **See Also** derived from what the function actually calls - following *through* private
+helpers, because the useful link usually runs through one. `api.sources_of` lists `chance_of` for
+exactly that reason, and not knowing `chance_of` existed is what caused the bug that started all this.
 Run it after touching `engine/server/mod_api.gd`, any `## ` header comment listed in
 `tools/docs_generator.gd`, `engine/server/js/quarrowen.d.ts`, or any doc comment in a reader file.
 

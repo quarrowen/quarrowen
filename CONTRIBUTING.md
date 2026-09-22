@@ -12,7 +12,8 @@ godot --headless --path . res://tools/mod_tool.tscn -- new my_mod
 ```
 
 A mod is a folder with `mod.json` and a `main.gd` (or `main.js` - JavaScript mods run sandboxed). The
-whole API is in [docs/api/index.html](docs/api/index.html), generated from the engine source, and the
+whole API is in [docs/api/mod-api.md](docs/api/mod-api.md), and the engine's own readers are in
+[docs/api/engine.md](docs/api/engine.md) - both generated from the engine source, and the
 mods in `mods/` are worked examples: `vanilla` (a full game), `oneblock` and `skyblock` (small games),
 `arcana` and `industry` (add-ons), `guild` (JavaScript).
 
