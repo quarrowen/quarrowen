@@ -38,9 +38,9 @@ else entirely.
   reorder on purpose.
 
   After adding to `mod_api.gd`, run `mod_tool.tscn -- bindings`; the suite fails when
-  `bindings.json` or `unbound.txt` is stale. `unbound.txt` holds 18 names: two top-level functions
-  that take a GDScript object and genuinely cannot cross JSON, plus sixteen `entity.*` / `player.*`
-  methods that have no JavaScript equivalent yet.
+  `bindings.json` or `unbound.txt` is stale. `unbound.txt` is down to **two**: the only two functions
+  that take a GDScript object and genuinely cannot cross JSON. It was 18 until the `Player` and
+  `Entity` methods were generated the same way, on 21 September 2026.
 
   **The generated bindings do not cover the hand-written ones.** `prelude.js` entries win where one
   exists, and they pass their arguments positionally - so reordering a signature in `mod_api.gd`
@@ -136,6 +136,12 @@ for exactly that, with the defaults and the clamps already in it. (2026-09-19)
 
 And when a second system does need one of those helpers, **make it public rather than copying it**. A
 private function that two things use is a fact about the code that ought to be visible in the code.
+
+The sharper form of the rule, after it was broken again on 2026-09-22: **the registries are public and
+get found; the readers behind them are private and get reimplemented.** `sources.gd` was walking loot
+pools by hand and inventing flat percentages while `LootRegistry.chance_of` computed real ones - and
+`api.loot_sources`, which calls it, was twenty lines above the function being written. Following an
+API function down into the engine is the check that costs a minute.
 
 ## Things that look safe and are not
 

@@ -980,6 +980,20 @@ with). positions mean nothing without it: every world has a block at the same co
 <div class="card" id="api-send-to-realm" data-search="send_to_realm sendtorealm moves a player to another world, standing at `position`. returns false if there is no such world, or
 they are already in it. cancellable by a mod through the `player_realm_change` event, which may also
 change where they come out."><div class="sig"><code>api.send_to_realm(player, realm_id: String, position: Vector3) -&gt; bool</code><span class="tag js" title="sendToRealm">JS sendToRealm</span></div><p>Moves a player to another world, standing at `position`. Returns false if there is no such world, or<br>they are already in it. Cancellable by a mod through the `player_realm_change` event, which may also<br>change where they come out.</p></div>
+<div class="card" id="api-sources-of" data-search="sources_of sourcesof everywhere an item comes from that is not a recipe: blocks that drop it, creatures that drop it,
+loot tables that hold it, ore in the ground.
+
+returns [{kind, from, detail, chance}] with the reliable sources first. `kind` is one of &quot;block&quot;,
+&quot;creature&quot;, &quot;container&quot;, &quot;ground&quot; or &quot;other&quot;.
+
+**mostly derived, not declared.** the engine already knows every loot table, every block's drops,
+every creature's drops and every ore pass, so a mod that registered a creature with `drops` has
+already said where that item comes from - being asked to say it again in a second registry is how
+the two fall out of step."><div class="sig"><code>api.sources_of(item_id: int) -&gt; Array</code><span class="tag js" title="sourcesOf">JS sourcesOf</span></div><p>Everywhere an item comes from that is not a recipe: blocks that drop it, creatures that drop it,<br>loot tables that hold it, ore in the ground.<br><br>Returns [{kind, from, detail, chance}] with the reliable sources first. `kind` is one of &quot;block&quot;,<br>&quot;creature&quot;, &quot;container&quot;, &quot;ground&quot; or &quot;other&quot;.<br><br>**Mostly derived, not declared.** The engine already knows every loot table, every block's drops,<br>every creature's drops and every ore pass, so a mod that registered a creature with `drops` has<br>already said where that item comes from - being asked to say it again in a second registry is how<br>the two fall out of step.</p></div>
+<div class="card" id="api-register-source" data-search="register_source registersource declares a source nothing can infer: traded by somebody, washed up after a storm, given as a
+reward. `detail` is shown to a player, so write it as a sentence.
+
+source: {kind (&quot;block&quot;|&quot;creature&quot;|&quot;container&quot;|&quot;ground&quot;|&quot;other&quot;), from, detail, chance}."><div class="sig"><code>api.register_source(item_name: String, source: Dictionary) -&gt; bool</code><span class="tag js" title="registerSource">JS registerSource</span></div><p>Declares a source nothing can infer: traded by somebody, washed up after a storm, given as a<br>reward. `detail` is shown to a player, so write it as a sentence.<br><br>source: {kind (&quot;block&quot;|&quot;creature&quot;|&quot;container&quot;|&quot;ground&quot;|&quot;other&quot;), from, detail, chance}.</p></div>
 <div class="card" id="api-register-milestone" data-search="register_milestone registermilestone a milestone: something a player has done, remembered for the life of the world and paid out once
 (see engine/server/milestones.gd). goals are written exactly as tutorial goals are - {type, target,
 count}, type being an event goal (break, place, craft, kill, ...) or &quot;event&quot; - but the count is a

@@ -105,6 +105,9 @@ const ACTIONS := [
 	["place", "Place / use", ["mouse:2"]],
 	["inventory", "Inventory", ["key:E", "key:Tab"]],
 	["crafting", "Crafting", ["key:C"]],
+	# The creative palette. Its own key rather than a tab inside the inventory, because in a creative
+	# game it *is* the inventory - it is where a builder spends the session. (2026-09-22)
+	["palette", "Block palette (creative)", ["key:B"]],
 	["drop", "Drop item", ["key:Q"]],
 	["guide", "Guide book", ["key:G"]],
 	["map", "Map", ["key:M"]],

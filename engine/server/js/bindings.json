@@ -2351,6 +2351,17 @@
 			],
 			"gd": "register_sound"
 		},
+		"registerSource": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "dict"
+				}
+			],
+			"gd": "register_source"
+		},
 		"registerStat": {
 			"args": [
 				{
@@ -3079,6 +3090,14 @@
 				}
 			],
 			"gd": "signal_at"
+		},
+		"sourcesOf": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "sources_of"
 		},
 		"spawnEntity": {
 			"args": [

@@ -111,6 +111,63 @@ engine provides a crafting menu (C) listing every `register_recipe` recipe, grey
 lacks inputs. Drops may name items (`"drops": "base:coal"`). Right-clicking with a `usable` item fires
 `item_use` with the target block, face normal and look direction.
 
+### Where a thing comes from
+
+The crafting menu answers "how is this made". It cannot answer the other half of the question, which
+is where the ore, the leather and the chest-bottom sword come from — none of those are made. A player
+holding a block they cannot craft has no way to ask where another one would come from, and the bigger
+a mod's block palette gets, the more often that is the only question they have.
+
+`api.sources_of(item_id)` answers it, and **almost all of the answer is derived rather than declared**.
+The engine already knows every block's drops, every creature's drops, every loot table and every ore
+pass; a mod that registered a grazer with `"drops": [["mod:hide", 1]]` has already said where hide
+comes from, and asking it to say so again in a second registry is how the two fall out of step.
+
+```gdscript
+for source in api.sources_of(api.item("base:coal")):
+    print(source)
+# {kind: "block",  from: "Coal Ore", detail: "mined", chance: 1.0}
+# {kind: "ground", from: "Coal Ore", detail: "in the ground, y 5 to 64", chance: 1.0}
+```
+
+`kind` is one of `block`, `creature`, `container`, `ground` or `other`, and `from` is the name a player
+would recognise, not the internal one. Certain sources sort before chancy ones, because the reliable
+answer is the one a player wants first.
+
+**`chance` is a real probability, not a label.** It comes from the loot registry, which weighs each
+entry against its pool and folds in how many times the pool rolls and the host's loot-rate setting. So
+a creature written like this reports 1.0 for meat and 0.5 for hide, and a player can be told "about
+half the time":
+
+```gdscript
+api.register_entity("elk", {..., "drops": [["mod:meat", 2], ["mod:hide", 1, 0.5]]})
+```
+
+`api.register_source(item_id, {...})` is for the things nothing can infer — an item handed over by a
+character, or one that washes up after a storm:
+
+```gdscript
+api.register_source(api.item("mod:token"), {
+    "kind": "other",
+    "from": "the keeper",
+    "detail": "handed over for a favour",   # a sentence; a player reads it
+    "chance": 0.5,
+})
+```
+
+Declare only what is genuinely undiscoverable. Anything already written as a drop or a loot entry is
+found without being told, and a duplicate declaration shows the player the same answer twice.
+
+### The block palette (creative)
+
+Press **B** in a creative game for the block palette: every registered block, grouped and searchable,
+with a click to put a stack in hand. It needs no registration — a mod that registers blocks gets the
+palette for them, with the same icons the inventory uses.
+
+The server checks the player really is in creative mode before handing anything over, so a client
+asking for a stack in a survival game gets nothing. A game that wants the palette in survival should
+not: give the player a workbench instead.
+
 ### Tools, weapons, armor and progression
 
 The engine supplies the pieces: item definitions with tool, weapon and armor stats, per-item data,

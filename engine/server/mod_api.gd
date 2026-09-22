@@ -2338,6 +2338,28 @@ func fill_container(container, table_name: String, context := {}) -> int:
 	return placed
 
 
+## Everywhere an item comes from that is not a recipe: blocks that drop it, creatures that drop it,
+## loot tables that hold it, ore in the ground.
+##
+## Returns [{kind, from, detail, chance}] with the reliable sources first. `kind` is one of "block",
+## "creature", "container", "ground" or "other".
+##
+## **Mostly derived, not declared.** The engine already knows every loot table, every block's drops,
+## every creature's drops and every ore pass, so a mod that registered a creature with `drops` has
+## already said where that item comes from - being asked to say it again in a second registry is how
+## the two fall out of step.
+func sources_of(item_id: int) -> Array:
+	return _server.sources.of_item(item_id)
+
+
+## Declares a source nothing can infer: traded by somebody, washed up after a storm, given as a
+## reward. `detail` is shown to a player, so write it as a sentence.
+##
+## source: {kind ("block"|"creature"|"container"|"ground"|"other"), from, detail, chance}.
+func register_source(item_name: String, source: Dictionary) -> bool:
+	return _server.sources.declare(item(item_name), source)
+
+
 ## Rolls a table and returns [[item id, count, data], …], for anything the engine does not roll itself
 ## (fishing, a quest reward, a prize crate). `context` may carry player, cause, tool, position and seed.
 func roll_loot(table_name: String, context := {}) -> Array:

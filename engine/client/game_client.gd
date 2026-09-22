@@ -30,6 +30,7 @@ const WorldTime = preload("res://engine/shared/world_time.gd")
 const ItemRegistry = preload("res://engine/shared/item_registry.gd")
 const GraphicsSettings = preload("res://engine/client/graphics_settings.gd")
 const SkyMaterial = preload("res://engine/client/sky_material.gd")
+const PaletteScreen = preload("res://engine/client/palette_screen.gd")
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 const SettingsScreen = preload("res://engine/client/settings/settings_screen.gd")
 const FriendsPanel = preload("res://engine/client/social/friends_panel.gd")
@@ -2506,6 +2507,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("crafting") and _welcomed:
 		Net.c_open_menu.rpc_id(1, "crafting")
+	elif event.is_action_pressed("palette") and _welcomed:
+		if _palette != null and _palette.visible:
+			_close_palette()
+		else:
+			Net.c_open_menu.rpc_id(1, "palette")
 	elif event.is_action_pressed("dev") and _welcomed:
 		_toggle_dev_overlay()
 		get_viewport().set_input_as_handled()
@@ -3134,6 +3140,8 @@ func _close_avatar_editor() -> void:
 ## needs - that left them with no way out but quitting the game.
 func _capture_mouse() -> void:
 	if dead or ignore_mouse_capture or _pause_panel.visible or _inventory_screen.visible or _server_ui.has_modal():
+		return
+	if _palette != null and _palette.visible:
 		return
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -4199,3 +4207,24 @@ func _night_sky() -> ImageTexture:
 		image.set_pixel(x, y, Color(0.75 + warm * 0.25, 0.82, 1.0).lerp(Color(1.0, 0.86, 0.7), warm * 0.5)
 			* (0.2 + bright * 3.0))
 	return ImageTexture.create_from_image(image)
+
+
+# --- The creative palette ------------------------------------------------------------------------
+
+var _palette: PaletteScreen
+
+
+## Everything a creative player may take, sent when they ask for it.
+func on_palette(groups: Dictionary) -> void:
+	if _palette == null:
+		_palette = PaletteScreen.new()
+		_palette.take_requested.connect(func(item: int, whole: bool): Net.c_palette_take.rpc_id(1, item, whole))
+		add_child(_palette)
+	_palette.show_palette(groups, items, _atlas)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _close_palette() -> void:
+	if _palette != null:
+		_palette.visible = false
+	_capture_mouse()

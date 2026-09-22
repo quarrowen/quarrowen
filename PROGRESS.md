@@ -3799,3 +3799,60 @@ Biomes stay on the principle: one per generation technique that is genuinely dif
 `simple_machines` take the verbs out of it → the creative game → then survival and the guided one.
 Textures and their normal/roughness maps get regenerated once, at the point `base` settles, because
 that is the only moment the RNG re-roll costs nothing.
+
+## Two capabilities Phase 4 needs first: where a thing comes from, and the block palette (2026-09-22)
+
+Asked whether the game has a recipe browser "something like the well-known ingredient index mod".
+It half does — the crafting book lists recipes, and `R`/`U` ask how a thing is made and what it is
+used in. Two gaps, both of which get worse the moment `base` grows to ~110 blocks, so they go in
+before it rather than after:
+
+**1. Sources — `engine/server/sources.gd`, `api.sources_of(item)`.** The book can only answer "how is
+this made", and half of a world is never made: ore is in the ground, hide is on a creature, the good
+sword is at the bottom of something. With 50 blocks a player can hold that in their head; with 110
+they cannot, and the question "where would I get another one" has no answer in the game at all.
+
+The design decision worth keeping: **it is derived, not declared.** The engine already knows every
+block's drops, every creature's drops, every loot table and every ore pass. A mod that wrote
+`"drops": [["mod:hide", 1]]` has *already* said where hide comes from, and a second registry it also
+has to fill is a second registry that will disagree with the first. `register_source` exists only for
+what nothing can infer — "handed over for a favour", "washes up after a storm". Rebuilt on demand
+rather than cached, because a cache invalidated from seven places (registration, reload, realm
+attach, loot extension...) is a cache that will be wrong, and the caller is a player opening a screen.
+
+**The first version of it was written the wrong way round, and one question from the user exposed it.**
+Asked "does the loot registry also have a drop chance percentage — meat 100%, leather 50%?", the answer
+was yes, and had been all along: `LootRegistry.chance_of` weighs every entry against its pool, folds in
+the roll count and the host's loot rate, and `from_drops` already turns the third element of
+`["mod:hide", 1, 0.5]` into a weighted entry against an `empty` sibling. Meanwhile `sources.gd` was
+walking loot pools by hand, stamping an invented flat 0.4 on containers and 0.9 on creatures, and
+reporting `block:base:coal_ore` where `describe()` would have said "Coal Ore" — internal names on a
+screen a child reads.
+
+The reason the hand-written version looked necessary is worth keeping: **a creature's drop table is
+built lazily, on the first kill**. `entities.gd` calls `loot.table_for_entity(def)` when something
+dies, and `_table_for` generates the table then. So `loot.sources_of` genuinely found nothing for a
+creature nobody had killed yet, and reading the declarations directly looked like the only way. The
+fix is to materialise those tables up front (`_materialise`) — the same call the first kill makes, and
+`_table_for` already copes with being called in either order — and then ask the loot registry one
+question. That deleted `_from_blocks`, `_from_creatures` and the hand-rolled pool walk, and with them a
+bug that had already cost an hour: `_named_item` handled a bare name and a bare id but not
+`["mod:grain", 2]`, which is how a drop line is actually written, so a creature that plainly dropped
+grain reported no source for it.
+
+This is the "look for the capability that exists" rule in CLAUDE.md, failed. The lesson is narrower
+than the rule as written, and worth adding to it: **the registries are public and get found; the
+readers behind them are private and get reimplemented.** `loot_sources` was sitting twenty lines above
+where `sources_of` was added in `mod_api.gd`, and I did not follow it down to `loot.gd`.
+
+The Proving Ground now asserts the probability rather than only the existence — the biter drops
+something spoiled every time and a token half the time, and the test reads 1.00 and 0.50 back.
+
+**2. The block palette — `engine/client/palette_screen.gd`, key `B`.** Creative mode had no way to
+reach a block except knowing its name and typing `/give`. That is fine at 50 blocks and absurd at
+110, and the creative sandbox is the first game Phase 4 ships. Grouped, searchable, click for a
+stack. **The creative check is on the server** (`on_palette_take`), not on whether the client drew
+the screen — a client can always ask.
+
+Neither is content: both work off whatever any mod registered, and both are in the Proving Ground,
+which ships with nothing.

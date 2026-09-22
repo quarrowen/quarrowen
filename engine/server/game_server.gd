@@ -51,6 +51,7 @@ const Shops = preload("res://engine/server/shops.gd")
 const Companies = preload("res://engine/server/companies.gd")
 const Plots = preload("res://engine/server/plots.gd")
 const Instances = preload("res://engine/server/instances.gd")
+const Sources = preload("res://engine/server/sources.gd")
 const AreaEdits = preload("res://engine/server/area_edits.gd")
 const Claims = preload("res://engine/server/claims.gd")
 const Containers = preload("res://engine/server/containers.gd")
@@ -334,6 +335,8 @@ var plots := Plots.new(self)
 var area_edits := AreaEdits.new(self)
 ## Private copies of a space, made on demand and thrown away (see engine/server/instances.gd).
 var instances := Instances.new(self)
+## Where a thing comes from when the answer is not a recipe (see engine/server/sources.gd).
+var sources := Sources.new(self)
 ## Parts of the world kept awake when nobody is there, and the budget that stops one player doing it
 ## to everybody else (see engine/server/claims.gd).
 var claims := Claims.new(self)
@@ -3875,8 +3878,53 @@ func on_stop_using(peer_id: int) -> void:
 
 func on_open_menu(peer_id: int, menu: String) -> void:
 	var p: ServerPlayer = players.get(peer_id)
-	if p and menu == "crafting":
+	if p == null:
+		return
+	if menu == "crafting":
 		open_crafting(p, {})
+	elif menu == "palette":
+		open_palette(p)
+
+
+## Everything that exists, for a creative player to take from.
+##
+## **A creative game ships no recipes**, so the recipe book - which is how a player finds out what
+## exists - is empty in exactly the game where finding out what exists matters most. This is the
+## other half of that: a browser of every block and item, grouped the way they were registered.
+##
+## Sent rather than derived on the client because the client does not know which items a mod meant
+## to be takeable; `hidden` on a definition keeps the plumbing out (block data holders, half-slabs
+## that are placed rather than carried). (2026-09-22)
+func open_palette(p: ServerPlayer) -> void:
+	if not _started or not p._online():
+		return
+	var groups := {}
+	for id in range(ItemRegistry.FIRST_ITEM, items.defs.size()):
+		var def: Dictionary = items.get_def(id)
+		if bool(def.get("hidden", false)):
+			continue
+		# Grouped by the mod that registered it, then by whether it places a block: a builder wants
+		# the blocks together and everything else after them.
+		var owner := String(def.name).get_slice(":", 0)
+		var group := "%s/%s" % [owner, "blocks" if registry.id_of(String(def.name)) > 0 else "items"]
+		if not groups.has(group):
+			groups[group] = PackedInt32Array()
+		groups[group].append(id)
+	Net.s_palette.rpc_id(p.peer_id, groups)
+
+
+## A creative player asking for a stack of something from the palette.
+func on_palette_take(peer_id: int, item: int, whole_stack: bool) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	# Creative only, and checked here rather than trusted from the client: this hands out items.
+	if p == null or not p.inventory.creative or not items.is_valid(item):
+		return
+	if bool(items.get_def(item).get("hidden", false)):
+		return
+	p.inventory.cursor_id = item
+	p.inventory.cursor_count = items.max_stack(item) if whole_stack else 1
+	p.inventory.cursor_data = {}
+	p.sync_inventory()
 
 
 ## Tutorial buttons: start <id> | skip (the current step) | stop | tips_on | tips_off.

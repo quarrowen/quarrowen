@@ -32,14 +32,15 @@ Then either:
 | Guidebook | `G` |
 | Map | `M` (the wheel zooms it) |
 | Chat and commands | `T`, then `/help` |
+| Block palette (creative) | `B` |
 | Fly (creative) | double-tap `Space` |
 
 Every key can be changed in Settings → Controls.
 
 ## Your first hour
 
-If the server runs **Hearthhold**, the game leads you: read the board in the yard, light the hearth with
-three logs, then make a torch. Follow the tracker at the left of the screen.
+A guided game leads you: it sets out the first few things to do, in an order that makes sense, and a
+tracker at the left of the screen says what is next. Follow that when it is there.
 
 Otherwise, the short version of survival:
 
@@ -61,8 +62,12 @@ them. Nothing is used up by trying. If you are close, it says so — *"these bel
 arranged like this"* means you have the right things in the wrong places. Some recipes care about
 arrangement; most do not.
 
-The **book** tab lists what you know, with a search. An item's tooltip says where it comes from, and
-`R` on an item asks "how do I make this?" while `U` asks "what is this used in?".
+The **book** tab lists what you know, with a search. `R` on an item asks "how do I make this?" and `U`
+asks "what is this used in?".
+
+Plenty of things are never made. For those, the same panel says where they *come* from instead — which
+block drops them, which creature, which chest, or how deep in the ground to dig. If a game has written
+a note for something nothing could work out on its own, that shows up there too.
 
 ## Dying
 

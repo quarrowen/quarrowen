@@ -909,6 +909,20 @@ func s_area_preview(cells: PackedVector3Array, color: String, seconds: float, vi
 		client.on_area_preview(cells, color, seconds, visible)
 
 
+## Everything a creative player may take, grouped by mod and kind (see GameServer.open_palette).
+@rpc("authority", "call_remote", "reliable")
+func s_palette(groups: Dictionary) -> void:
+	if client:
+		client.on_palette(groups)
+
+
+## A creative player taking a stack from the palette.
+@rpc("any_peer", "call_remote", "reliable")
+func c_palette_take(item: int, whole_stack: bool) -> void:
+	if server:
+		server.on_palette_take(multiplayer.get_remote_sender_id(), item, whole_stack)
+
+
 ## Guide pages you have unlocked and read, and the page you had open last.
 @rpc("authority", "call_remote", "reliable")
 func s_guide_state(unlocked: PackedStringArray, read: PackedStringArray, last: String) -> void:

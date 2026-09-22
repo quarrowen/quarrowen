@@ -199,6 +199,56 @@ func _behaviour(server) -> void:
 	_area_tools(server, server.mod_instances.proving.api, p)
 	_nested_inventories(server, server.mod_instances.proving.api, p)
 	_instances(server, server.mod_instances.proving.api, p)
+	_sources_and_palette(server, server.mod_instances.proving.api, p)
+
+
+## Where things come from, and the creative catalogue: the two halves of "what exists" that the
+## recipe book cannot answer.
+func _sources_and_palette(server, api, p) -> void:
+	# Derived, not declared: the mod said grazers drop grain, so the engine already knows.
+	var grain: int = server.items.id_of("proving:grain")
+	var from: Array = api.sources_of(grain)
+	var kinds := {}
+	for entry: Dictionary in from:
+		kinds[String(entry.kind)] = true
+	_check(not from.is_empty(), "an item knows where it comes from without being told (%d sources)" % from.size())
+	_check(kinds.has("creature") or kinds.has("block") or kinds.has("container"),
+		"and the source was derived from a drop or a table (%s)" % ", ".join(kinds.keys()))
+	# The declared half, for what nothing can infer.
+	var token: Array = api.sources_of(server.items.id_of("proving:token"))
+	var declared := false
+	for entry: Dictionary in token:
+		if String(entry.detail) == "handed over for a favour":
+			declared = true
+	_check(declared, "and a mod can declare a source nothing could work out")
+	_check(api.sources_of(0).is_empty(), "asking about nothing gives nothing back")
+
+	# `chance` is a real probability, not a label. The biter drops something spoiled every time and a
+	# token half the time, and a player asking where a thing comes from is really asking how often.
+	var certain := 0.0
+	for entry: Dictionary in api.sources_of(server.items.id_of("proving:spoiled")):
+		if String(entry.from) == "Biter":
+			certain = float(entry.chance)
+	var halved := 0.0
+	for entry: Dictionary in api.sources_of(server.items.id_of("proving:token")):
+		if String(entry.from) == "Biter":
+			halved = float(entry.chance)
+	_check(certain > 0.9, "a drop that always happens reads as certain (%.2f)" % certain)
+	_check(halved > 0.3 and halved < 0.7, "and one that happens half the time reads as half (%.2f)" % halved)
+
+	# The palette: what a creative player may take. Server-owned, because it hands out items.
+	p.inventory.creative = true
+	p.inventory.cursor_id = 0
+	p.inventory.cursor_count = 0
+	var rock: int = server.items.id_of("proving:rock")
+	server.on_palette_take(p.peer_id, rock, true)
+	_check(p.inventory.cursor_id == rock and p.inventory.cursor_count > 1,
+		"a creative player takes a full stack from the palette (%d x %d)" % [p.inventory.cursor_id, p.inventory.cursor_count])
+	p.inventory.cursor_id = 0
+	p.inventory.cursor_count = 0
+	p.inventory.creative = false
+	server.on_palette_take(p.peer_id, rock, true)
+	_check(p.inventory.cursor_count == 0, "and a survival player does not")
 
 
 ## Instances: a realm with a lifetime. The lifetime is the part worth asserting - a dimension that

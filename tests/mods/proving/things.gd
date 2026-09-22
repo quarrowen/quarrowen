@@ -55,6 +55,9 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	api.register_material("dull", {"display_name": "Dull", "item": "proving:token", "color": "#888888",
 		"tier": 2, "speed": 4.0, "durability": 100, "damage": 1.0, "handle": 1.6,
 		"trait": {"name": "Plain", "description": "nothing special", "speed_mult": 0.0}})
+	# A source nothing could infer, so the declared half is covered too.
+	api.register_source("proving:token", {"kind": "other", "from": "the keeper",
+		"detail": "handed over for a favour", "chance": 0.5})
 	_setup_area_tools()
 	_setup_nested_inventories()
 	api.register_block_tick("lamp", func(ctx):
