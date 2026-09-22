@@ -4107,8 +4107,13 @@ and it is dedented by the *first* line's indent so nesting keeps its shape inste
 to the margin. And because coverage is 56 of 56, **every capability has an example** - a test ties the
 two facts together so they cannot drift apart.
 
-Still to do: a "since which version" field from git history, and a "How Do I..." task index over
-modding.md.
+**"Since which version" is deferred, and the reason is worth keeping**: `MOD_API_VERSION` has been
+`"1.0.0"` since the commit that introduced it and has never changed, so the field would read "1.0.0"
+on all 311 entries - a column of identical values, which is worse than no column because it looks like
+information. It becomes worth building the first time that version moves, which is also the first time
+anybody could be running an older one. Until then the git walk is work spent on a constant.
+
+Still to do: a "How Do I..." task index over modding.md.
 
 ## The Proving Ground covered 40 of 56 capabilities, not all of them (2026-09-22)
 
@@ -4147,3 +4152,21 @@ shared tab in two. **Worth a second opinion when the user is back.**
 
 A structure template also wants `blocks` as `[x, y, z, palette index]` rather than a flat array of
 indices. The error at load says so plainly, which is why it says it.
+
+### Verified by looking, and measured twice (2026-09-22)
+
+**Haze, A/B at the same viewpoint.** Without it the left distance is a near-total white void with the
+trees erased; with it those same trees are readable, trunks and all. The white was never the haze - it
+is the *old* depth fog, which starts at 55% of the render distance and takes everything past it. Worth
+recording that I called the haze "far too strong" twice, both times from a single image with nothing
+beside it. A render on its own is not evidence; a pair is.
+
+**Cost: none measurable.** At 10240x5300 on the M1 Max: 44 and 44 fps with relief and haze on, 44 with
+both off, 45 with either one off. The first run measured 33 and was an outlier - a cold run straight
+after the texture paint - which is the same trap as the three cloud measurements that were measuring a
+shader drawing nothing. This harness has roughly ±15 fps of variance and only large, repeated
+differences mean anything.
+
+So the realistic preset gains aerial perspective and per-pixel relief for free, on this machine. The
+number that actually decides what ships is the base M1 Air, which is not this machine - `graphics/relief`
+is a setting of its own precisely so it can come off there without losing the rest of the preset.
