@@ -16,16 +16,16 @@ const BUS_MUSIC := "Music"
 const GRAPHICS_PRESETS := ["fast", "balanced", "fancy", "realistic", "custom"]
 ## Per-preset values of the graphics toggles (see engine/client/graphics_settings.gd).
 const PRESET_VALUES := {
-	"fast": {"ambient_occlusion": true, "relief": false, "sway": false, "fancy_water": false, "bloom": false, "grading": false, "fxaa": false, "render_scale": 0.7, "realistic": false},
-	"balanced": {"ambient_occlusion": true, "relief": false, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": false, "render_scale": 0.85, "realistic": false},
-	"fancy": {"ambient_occlusion": true, "relief": false, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 1.0, "realistic": false},
+	"fast": {"ambient_occlusion": true, "shadows": false, "relief": false, "sway": false, "fancy_water": false, "bloom": false, "grading": false, "fxaa": false, "render_scale": 0.7, "realistic": false},
+	"balanced": {"ambient_occlusion": true, "shadows": false, "relief": false, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": false, "render_scale": 0.85, "realistic": false},
+	"fancy": {"ambient_occlusion": true, "shadows": false, "relief": false, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 1.0, "realistic": false},
 	# The one preset that changes *how* the world is lit rather than how much polish is on top: the
 	# terrain shader stops being unshaded and the sun starts casting real shadows. Everything above
 	# stays as it was, because the machines the children play on are why they exist. (2026-09-21)
 		# Render scale below the fancy preset's on purpose: realistic lighting costs per *pixel*, so the
 	# cheapest large saving is drawing fewer of them and letting FSR put them back. A shadowed,
 	# scattered world at 85% reads better than a flat one at 100%.
-	"realistic": {"ambient_occlusion": true, "relief": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 0.85, "realistic": true},
+	"realistic": {"ambient_occlusion": true, "shadows": true, "relief": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 0.85, "realistic": true},
 }
 
 ## key -> {tab, label, type, default, min/max/step or choices [[value, label]], help}
@@ -39,7 +39,13 @@ const SCHEMA := {
 	"graphics/sway": {"tab": "Graphics", "label": "Swaying plants", "type": "bool", "default": true},
 	# Realistic only: it perturbs the normal per pixel, which is free on a discrete card and is not on
 	# the machine this preset has to earn its place on.
-	"graphics/relief": {"tab": "Graphics", "label": "Surface relief", "type": "bool", "default": false},
+	"graphics/relief": {"tab": "Graphics", "label": "Surface relief", "type": "bool", "default": false,
+		"help": "Bumps and roughness worked out from each texture. The most per-pixel work in the realistic preset, so it is the first thing to turn off if the frame rate is short."},
+	# Realistic only, and the single most expensive thing in it after the sky. It had no setting at all
+	# until somebody went looking for one (2026-09-22): terrain shadows could be turned off through an
+	# environment variable and nowhere else, which is no use to anybody playing the game.
+	"graphics/shadows": {"tab": "Graphics", "label": "Sun shadows", "type": "bool", "default": false,
+		"help": "The sun casting real shadows from terrain and trees. Costs a few frames; turn it off before turning off the rest of the realistic preset."},
 	# The HUD's own look. "belt" is ours; "classic" is the row-of-icons arrangement every block game
 	# uses, kept while the two are being compared. (2026-09-22)
 	"interface/hud_style": {"tab": "Interface", "label": "HUD style", "type": "choice",

@@ -2441,8 +2441,8 @@ func _apply_mesh(coord: Vector2i, result: Array) -> void:
 		# comment and nothing written down - almost certainly set when the engine had no real lights at
 		# all, and never revisited when the realistic preset added a sun. The result was a preset with
 		# shadows enabled in which a hillside could not shade itself. (2026-09-22)
-		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if _realistic \
-			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON \
+			if _realistic and bool(graphics.value("shadows")) else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(node)
 		_chunk_nodes[coord] = node
 	var mesh := ArrayMesh.new()
@@ -3690,6 +3690,12 @@ func _apply_graphics(announce: bool) -> void:
 		_start_relief(_realistic)
 		for coord: Vector2i in world.chunks:
 			_mark_dirty(coord, false)
+	# Chunks already on screen keep whatever they were built with, so the toggle would appear to do
+	# nothing until you walked somewhere new. (2026-09-22)
+	var casting := GeometryInstance3D.SHADOW_CASTING_SETTING_ON \
+		if _realistic and bool(graphics.value("shadows")) else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for node: MeshInstance3D in _chunk_nodes.values():
+		node.cast_shadow = casting
 	_effects.quality = 0.5 if graphics.preset == "fast" else 1.0
 	if _solid_material != null:
 		for material in [_solid_material, _translucent_material]:
@@ -4563,7 +4569,9 @@ func light_the_sun() -> void:
 	for light in [_sun, _moon]:
 		if light == null:
 			continue
-		light.shadow_enabled = _realistic and not GraphicsSettings.off("shadows")
+		# The setting first, the environment override second: one is for whoever is playing, the other
+		# for whoever is measuring.
+		light.shadow_enabled = _realistic and bool(graphics.value("shadows")) and not GraphicsSettings.off("shadows")
 		# **Shadows reach 110 blocks, not 220, and the splits do not blend.** Every cascade re-renders
 		# the chunk geometry inside it, so the distance is paid four times over; past a hundred blocks
 		# a shadow is a few pixels of nothing in particular. Blending the splits costs a second lookup

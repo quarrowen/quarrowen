@@ -15,7 +15,12 @@ extends "res://engine/server/mod.gd"
 
 func setup(api) -> void:
 	api.set_server_info({"name": "Lookbook", "motd": "A view to decide by."})
-	api.set_gameplay({"keep_inventory": true, "natural_regeneration": true})
+	# **Nobody starves in a landscape.** This mod is somewhere to stand and look, not a game: it has no
+	# food, no crafting and nothing to do, so leaving hunger on meant the viewer starved, took
+	# starvation damage over and over, and watched the hurt flash while trying to judge the water.
+	# Found by somebody actually playing the build rather than screenshotting it. (2026-09-22)
+	api.set_gameplay({"keep_inventory": true, "natural_regeneration": true,
+		"hunger": false, "fall_damage": false, "mob_spawning": false})
 	api.register_feature("broadleaf", {"type": "tree", "trunk": "base:birch_log",
 		"leaves": "base:birch_leaves", "height": [5, 8], "shape": "round"})
 	api.register_feature("conifer", {"type": "tree", "trunk": "base:spruce_log",

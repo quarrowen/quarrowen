@@ -77,6 +77,10 @@ void fragment() {
 	// output derive albedo from the texture, or it would be lit twice - once by the unshaded
 	// formula above and again by the renderer. (2026-09-21)
 	bool custom = false;
+	// What the lit build should light a translucent surface with. Water fills these in; everything
+	// else keeps the flat face and a matte roughness.
+	vec3 lit_normal = vec3(0.0);
+	float lit_rough = 0.92;
 	%s
 	float sky = pow(0.8, (1.0 - COLOR.r) * 15.0) * daylight;
 	float block = pow(0.8, (1.0 - COLOR.g) * 15.0);
@@ -116,8 +120,13 @@ const UNSHADED_OUT := "ALBEDO = color;"
 const LIT_TRANSLUCENT_OUT := """ALBEDO = custom ? color : tex.rgb * max(sky, 0.06);
 	AO = enable_ao ? mix(0.35, 1.0, COLOR.a) : 1.0;
 	EMISSION = glint;
-	ROUGHNESS = 0.12;
-	SPECULAR = 0.5;"""
+	ROUGHNESS = custom ? lit_rough : 0.5;
+	// A flat sheet of water under a real sun is a mirror, and the highlight covers the whole lake at
+	// once. Lighting it by the ripple instead breaks that into something water-shaped.
+	if (custom && length(lit_normal) > 0.5) {
+		NORMAL = normalize((VIEW_MATRIX * vec4(lit_normal, 0.0)).xyz);
+	}
+	SPECULAR = custom ? 0.38 : 0.5;"""
 
 const LIT_OUT := """vec3 daylit = tex.rgb * max(sky, 0.06);
 	ALBEDO = daylit;
@@ -297,6 +306,24 @@ const LIT_WATER := """
 		// strength - which reads as a pale panel hanging in the grass, not as water. Where there is
 		// nothing behind the surface there is nothing to tint, so it gets out of the way.
 		ALPHA = clamp(0.08 + 0.42 * fresnel + thickness * 0.85, 0.0, 1.0);
+		// **What the sun should light this with.** The wave normal above is deliberately gentle,
+		// because fresnel swings hard on a grazing view and anything stronger became marching white
+		// bands. Real lighting wants the opposite: a nearly flat normal under a real sun is a mirror,
+		// and a mirror the size of a lake is one uniform sheet of highlight - which is exactly what
+		// turning shadows on looked like. So the lighting normal is its own, several times steeper
+		// than the one used for refraction, and the roughness rises where the water is disturbed.
+		// (user, 2026-09-22: "makes it like a shiny sheet rather than look like water")
+		if (surface) {
+			vec2 ripple = vec2(
+				sin(dot(world_pos.xz, vec2(9.1, 4.3)) + TIME * 2.7) * 0.16
+					+ sin(dot(world_pos.xz, vec2(-3.7, 10.9)) - TIME * 3.4) * 0.11,
+				cos(dot(world_pos.xz, vec2(4.9, -9.7)) + TIME * 2.3) * 0.16
+					+ cos(dot(world_pos.xz, vec2(10.3, 3.1)) + TIME * 3.1) * 0.11);
+			lit_normal = normalize(vec3(ripple.x, 1.0, ripple.y));
+			// Rougher where the surface is broken up, so the highlight is a scatter of glints rather
+			// than one sheet. Calm water near the shore stays glassier.
+			lit_rough = clamp(0.16 + length(ripple) * 0.55, 0.14, 0.42);
+		}
 	}
 """
 
