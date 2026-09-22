@@ -4891,3 +4891,36 @@ and "this screen is broken" looked identical for a day and nobody could tell the
   creative game ships zero.
 - `tests/gameplay_test.gd` names `base:` content 290 times, which is the coupling CLAUDE.md warns
   about; moving content will break it, and the fix is mostly to assert the capability instead.
+
+## The tools were rectangles, because a boolean expression is all a rectangle can be (2026-09-23)
+
+The user, looking at the palette: *"make the items look a bit more real. The pickaxe for example
+looks like a slanted hammer."* Exactly right, and the cause was structural rather than artistic. Every
+item sprite was one boolean condition per glyph:
+
+```gdscript
+"pickaxe": on = (absi(x - (15 - y)) <= 0 and y > 4) or (y >= 2 and y <= 3 and x >= 5 and x <= 14) ...
+```
+
+A condition of that shape can only say *rectangle*, so the pickaxe was a flat bar across the top of a
+one-pixel diagonal stick - which is a sledgehammer. The axe was a blob, the shovel a lollipop, the
+hoe the same flat bar again, and the sword had a detached pixel for a pommel.
+
+**What makes each of these read as itself is a curve**: a pickaxe is an arc that tapers to two points
+with the haft through its eye; an axe is a wedge with a convex cutting edge and a neck where it meets
+the shaft; a spade is a blade with a rounded digging end and a socket; a sword needs a crossguard set
+*square* to the blade rather than along it. So the four are drawn as shapes now (`_tool_rows`), with a
+two-pixel haft so it reads as a shaft instead of a dotted line.
+
+The forge's part icons (`pickaxe_head`, `axe_head`, `shovel_head`) are cut from the same silhouettes.
+They had been drawn a second time, by hand, so a forged head and a basic tool were different shapes -
+two descriptions of one thing, which is the arrangement that always drifts.
+
+**176 of 198 textures changed, and that is expected.** One RNG seeded once drives every texture in
+order and `_vary` is called per lit pixel, so changing how many pixels a sprite lights re-rolls
+everything after it. This is the moment that is free - Phase 4 regenerates them all anyway, and the
+file has said so since the games were deleted. Checked rather than assumed: stone, grass, planks and
+sand come out visually identical, and coal ore's blobs move, which is what a re-roll looks like.
+
+Not touched, and worth a look another day: the armour icons (helmet reads as an arch, boots as two
+small blocks) and the ingot. They are weak rather than wrong, which is a different job from this one.

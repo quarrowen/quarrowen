@@ -367,8 +367,25 @@ func _init() -> void:
 	quit()
 
 
+## The heads a Tool Forge assembles from, cut from the same silhouettes the finished tools use.
+##
+## They were drawn a second time here, by hand, and so a forged pickaxe head and a basic pickaxe were
+## different shapes - two descriptions of one thing, which is the arrangement that always drifts.
+const HEAD_OF := {"pickaxe_head": "pickaxe", "axe_head": "axe", "shovel_head": "shovel"}
+
+
 func _part(part: String) -> Image:
 	var img := _blank()
+	if HEAD_OF.has(part):
+		var rows := _tool_rows(String(HEAD_OF[part]))
+		for y in TILE:
+			for x in TILE:
+				var ch := rows[y][x]
+				if ch != "#" and ch != "=":
+					continue  # the head alone: a part is not a finished tool
+				var lit := 0.95 - 0.05 * ((x + y) % 3) + (0.05 if ch == "=" else 0.0)
+				img.set_pixel(x, y, Color(lit, lit, lit))
+		return img
 	for y in TILE:
 		for x in TILE:
 			var on := false
@@ -804,14 +821,42 @@ func _bread() -> Image:
 	return img
 
 
+## A hoe: a blade set square across the end of the haft, hanging down on one side.
+##
+## It had the same fault the pickaxe had - a flat bar laid across the top of a stick - and the fix is
+## the same one: the shape that says *hoe* is the right angle between haft and blade, and the blade
+## hanging below the joint rather than balancing on top of it. (2026-09-23)
 func _hoe(head: Color) -> Image:
 	var img := _blank()
-	for y in range(4, 16):
-		img.set_pixel(15 - y, y, _vary(Color(0.45, 0.3, 0.16), 0.05))
-	for x in range(8, 14):
-		img.set_pixel(x, 2, _vary(head, 0.05))
-		img.set_pixel(x, 3, _vary(head.darkened(0.15), 0.05))
-	img.set_pixel(8, 4, head)
+	var g := []
+	for y in TILE:
+		var row := []
+		for x in TILE:
+			row.append(".")
+		g.append(row)
+	_shaft(g, 9, 4, 2, 13)
+	# The neck turns out of the haft, then the blade drops from it: an L, which is the whole silhouette.
+	for x in range(10, 14):
+		_mark(g, x, 3, "=")
+	for y in range(4, 8):
+		for x in range(12, 14):
+			_mark(g, x, y, "#")
+	_mark(g, 11, 4, "#")
+	_mark(g, 14, 4, "=")
+	_mark(g, 14, 5, "=")
+	for y in TILE:
+		for x in TILE:
+			var ch: String = g[y][x]
+			if ch == ".":
+				continue
+			var tone := head
+			if ch == "=":
+				tone = head.lightened(0.2)
+			elif ch == "|":
+				tone = HAFT
+			elif ch == "+":
+				tone = HAFT.lightened(0.18)
+			img.set_pixel(x, y, _vary(tone, 0.05))
 	return img
 
 
@@ -862,6 +907,24 @@ func _meteorite(hot: bool) -> Image:
 ## Transparent-background item sprites.
 func _item(color: Color, glyph: String) -> Image:
 	var img := _blank()
+	# The four tools are drawn from real silhouettes (see `_tool_rows`); everything else is still a
+	# condition per glyph, which is fine for a lump or a coin and was never fine for a pickaxe.
+	if glyph in ["pickaxe", "axe", "shovel", "sword"]:
+		var rows := _tool_rows(glyph)
+		for y in TILE:
+			for x in TILE:
+				var ch := rows[y][x]
+				if ch == ".":
+					continue
+				var tone := color
+				if ch == "=":
+					tone = color.lightened(0.22)
+				elif ch == "|":
+					tone = HAFT
+				elif ch == "+":
+					tone = HAFT.lightened(0.18)
+				img.set_pixel(x, y, _vary(tone, 0.05))
+		return img
 	for y in TILE:
 		for x in TILE:
 			var on := false
@@ -1783,3 +1846,135 @@ func _plaster(c: Color) -> Image:
 		var y := rng.randi_range(0, TILE - 1)
 		img.set_pixel(x, y, _vary(c.darkened(0.10), 0.02))
 	return img
+
+## The haft every tool shares. One colour, so a wooden pickaxe and an iron one are plainly the same
+## tool in different metal.
+const HAFT := Color(0.45, 0.31, 0.16)
+
+
+## The four tool silhouettes, as 16 rows of characters: `.` nothing, `#` head, `=` its lit edge,
+## `|` haft, `+` the haft's lit side.
+##
+## **Shapes, not one-line conditions.** These were a boolean expression each, and a condition like
+## `y >= 2 and y <= 3 and x >= 5 and x <= 14` can only ever say *rectangle* - so the pickaxe came out
+## as a flat bar across the top of a slanted stick, which is a sledgehammer. (the user, 2026-09-23:
+## "the pickaxe for example looks like a slanted hammer".) What makes each of these read as itself is
+## a curve: a pickaxe is an arc tapering to two points, an axe is a wedge with a convex edge and a
+## narrowed neck, a spade is a blade with a rounded digging end. Curves have to be drawn as curves.
+func _tool_rows(glyph: String) -> PackedStringArray:
+	var g := []
+	for y in TILE:
+		var row := []
+		for x in TILE:
+			row.append(".")
+		g.append(row)
+	match glyph:
+		"pickaxe": _draw_pickaxe(g)
+		"axe": _draw_axe(g)
+		"shovel": _draw_shovel(g)
+		"sword": _draw_sword(g)
+	var out := PackedStringArray()
+	for row: Array in g:
+		out.append("".join(row))
+	return out
+
+
+func _mark(g: Array, x: int, y: int, ch: String) -> void:
+	if x >= 0 and x < TILE and y >= 0 and y < TILE:
+		g[y][x] = ch
+
+
+## A two-pixel haft, so it reads as a shaft rather than as a dotted line of single pixels.
+func _shaft(g: Array, x0: int, y0: int, x1: int, y1: int) -> void:
+	var steps := maxi(absi(x1 - x0), absi(y1 - y0))
+	for i in steps + 1:
+		var t := float(i) / float(steps)
+		var x := int(round(float(x0) + float(x1 - x0) * t))
+		var y := int(round(float(y0) + float(y1 - y0) * t))
+		_mark(g, x, y, "|")
+		_mark(g, x + 1, y, "+")
+
+
+## Lights whatever edge faces the sky. Cheap, and it is most of what stops a silhouette reading flat.
+func _crown(g: Array) -> void:
+	for y in TILE:
+		for x in TILE:
+			if g[y][x] == "#" and y > 0 and g[y - 1][x] == ".":
+				g[y][x] = "="
+
+
+func _draw_pickaxe(g: Array) -> void:
+	var cx := 7.5
+	var cy := 10.2
+	var r := 7.4
+	for y in TILE:
+		for x in TILE:
+			var dx := float(x) - cx
+			var dy := float(y) - cy
+			if dy > 0.4:
+				continue
+			var ang := atan2(-dy, dx)
+			if ang <= 0.30 or ang >= PI - 0.30:
+				continue
+			# Thick at the crown, tapering to a point at each tip. The taper is the whole difference
+			# between a pickaxe and a bar lying on a stick.
+			var half := 0.45 + 1.25 * pow(sin(ang), 0.7)
+			if absf(sqrt(dx * dx + dy * dy) - r) <= half:
+				g[y][x] = "#"
+	for y in range(4, 7):
+		for x in range(6, 10):
+			if g[y][x] == ".":
+				g[y][x] = "="  # the eye the haft passes through
+	_shaft(g, 7, 5, 2, 14)
+	_crown(g)
+
+
+func _draw_axe(g: Array) -> void:
+	for y in range(2, 11):
+		var t := (float(y) - 6.0) / 4.0
+		# The bit pulls away from the shaft at top and bottom, which is the neck; without it the head
+		# is a slab bolted to a stick.
+		var left := 8.0 + maxf(0.0, absf(float(y) - 6.0) - 2.0) * 1.3
+		var right := 14.2 - 2.4 * t * t
+		for x in TILE:
+			if float(x) >= left and float(x) <= right:
+				g[y][x] = "#"
+	_shaft(g, 8, 6, 2, 14)
+	# On an axe the lit edge is the cutting edge, which is the far side rather than the top.
+	for y in TILE:
+		for x in TILE:
+			if g[y][x] == "#" and x + 1 < TILE and g[y][x + 1] == ".":
+				g[y][x] = "="
+
+
+func _draw_shovel(g: Array) -> void:
+	for y in range(1, 9):
+		var t := (float(y) - 1.0) / 7.0
+		var half := 2.7 - 1.5 * t * t
+		if y == 1:
+			half -= 1.0  # a rounded digging edge rather than a flat lip, or it reads as a bucket
+		for x in TILE:
+			if absf(float(x) - 9.0) <= half:
+				g[y][x] = "#"
+	for y in range(7, 9):
+		for x in range(8, 10):
+			g[y][x] = "="  # the socket the haft goes into
+	_shaft(g, 8, 8, 2, 14)
+	_crown(g)
+
+
+func _draw_sword(g: Array) -> void:
+	for i in 11:
+		_mark(g, 14 - i, 1 + i, "#")
+		_mark(g, 13 - i, 1 + i, "=")
+	_mark(g, 15, 0, "=")
+	_mark(g, 14, 0, "=")
+	# The crossguard runs square to the blade, not along the screen: a guard parallel to the blade is
+	# the thing that made the old one read as a bent stick.
+	for t in range(-2, 3):
+		_mark(g, 4 + t, 11 + t, "=")
+	for i in 3:
+		_mark(g, 3 - i, 12 + i, "|")
+		_mark(g, 4 - i, 12 + i, "+")
+	_mark(g, 0, 15, "=")
+	_mark(g, 1, 15, "=")
