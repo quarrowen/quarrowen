@@ -216,6 +216,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#e-main-gd">main.gd</a>
 <a href="#e-server-game-server-gd">game_server.gd</a>
 <div class="group">Everything else</div>
+<a href="#e-server-conflicts-gd">conflicts.gd</a>
 <a href="#e-server-world-backups-gd">world_backups.gd</a>
 <a href="#e-shared-net-access-gd">net_access.gd</a>
 <a href="#e-shared-voxel-world-gd">voxel_world.gd</a>
@@ -2480,6 +2481,7 @@ flows, and the file says why.</p></div>
 <div class="card" data-search="area_edits changing many blocks at once, with the same checks one block gets (see engine/server/area_edits.gd). server/game_server.gd the server itself"><div class="sig"><code>area_edits := AreaEdits.new(self)  (property)</code></div><p>Changing many blocks at once, with the same checks one block gets (see engine/server/area_edits.gd).</p></div>
 <div class="card" data-search="instances private copies of a space, made on demand and thrown away (see engine/server/instances.gd). server/game_server.gd the server itself"><div class="sig"><code>instances := Instances.new(self)  (property)</code></div><p>Private copies of a space, made on demand and thrown away (see engine/server/instances.gd).</p></div>
 <div class="card" data-search="sources where a thing comes from when the answer is not a recipe (see engine/server/sources.gd). server/game_server.gd the server itself"><div class="sig"><code>sources := Sources.new(self)  (property)</code></div><p>Where a thing comes from when the answer is not a recipe (see engine/server/sources.gd).</p></div>
+<div class="card" data-search="conflicts two mods quietly standing on each other. reported, never resolved - see conflicts.gd. server/game_server.gd the server itself"><div class="sig"><code>conflicts := Conflicts.new(self)  (property)</code></div><p>Two mods quietly standing on each other. Reported, never resolved - see conflicts.gd.</p></div>
 <div class="card" data-search="claims parts of the world kept awake when nobody is there, and the budget that stops one player doing it
 to everybody else (see engine/server/claims.gd). server/game_server.gd the server itself"><div class="sig"><code>claims := Claims.new(self)  (property)</code></div><p>Parts of the world kept awake when nobody is there, and the budget that stops one player doing it
 to everybody else (see engine/server/claims.gd).</p></div>
@@ -2772,6 +2774,7 @@ the explosion is a noise, not fifty pieces of feedback. server/game_server.gd th
 
 `sound` is off for a blast, which breaks fifty blocks in one instant: fifty break sounds on top of
 the explosion is a noise, not fifty pieces of feedback.</p></div></section>
+<section id="e-server-conflicts-gd"><h2>conflicts.gd <span class="file">server/conflicts.gd</span></h2><p class="lead">Two mods quietly standing on each other, found before a player notices.</p><div class="card" data-search="find everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report. server/conflicts.gd everything else"><div class="sig"><code>find() -&gt; Array</code></div><p>Everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report.</p></div></section>
 <section id="e-server-world-backups-gd"><h2>world_backups.gd <span class="file">server/world_backups.gd</span></h2><p class="lead">World backups: zip archives of a world's save folder, named &lt;world&gt;-YYYYmmdd-HHMMSS.zip. Saves write each file atomically (temp file + rename), so archiving while the server keeps running captures every file whole; the server flushes pending changes right before a backup starts.</p><div class="card" data-search="list newest first. each entry: {name, path, size, modified}. server/world_backups.gd everything else"><div class="sig"><code>static list(backup_dir: String) -&gt; Array</code></div><p>Newest first. Each entry: {name, path, size, modified}.</p></div>
 <div class="card" data-search="create worker thread safe. archives every file under `world_dir` into `zip_path`. returns &quot;&quot; or an error. server/world_backups.gd everything else"><div class="sig"><code>static create(world_dir: String, zip_path: String) -&gt; String</code></div><p>Worker thread safe. Archives every file under `world_dir` into `zip_path`. Returns "" or an error.</p></div>
 <div class="card" data-search="prune deletes the oldest backups beyond `keep`. returns how many were removed. server/world_backups.gd everything else"><div class="sig"><code>static prune(backup_dir: String, keep: int) -&gt; int</code></div><p>Deletes the oldest backups beyond `keep`. Returns how many were removed.</p></div>
@@ -2796,7 +2799,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1190 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1192 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

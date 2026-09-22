@@ -8142,6 +8142,12 @@ Private copies of a space, made on demand and thrown away (see engine/server/ins
 
 Where a thing comes from when the answer is not a recipe (see engine/server/sources.gd).
 
+### `conflicts := Conflicts.new(self)  (property)`
+
+*server/game_server.gd*
+
+Two mods quietly standing on each other. Reported, never resolved - see conflicts.gd.
+
 ### `claims := Claims.new(self)  (property)`
 
 *server/game_server.gd*
@@ -8988,6 +8994,12 @@ the explosion is a noise, not fifty pieces of feedback.
 
 
 ## Everything else
+
+### `find() -> Array`
+
+*server/conflicts.gd*
+
+Everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report.
 
 ### `static list(backup_dir: String) -> Array`
 

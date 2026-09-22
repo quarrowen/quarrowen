@@ -2678,6 +2678,19 @@ func _mod_packages() -> void:
 	var order: Array = Loader.resolve(PackedStringArray(["needs_ok"]), available)
 	_check(order.map(func(m): return m.id) == ["lib", "extra", "needs_ok"], "version ranges pass and installed optional dependencies load first")
 	_check(Loader.resolve(PackedStringArray(["lib", "rival"]), available).is_empty() and Loader.last_errors[0].message.contains("conflicts"), "conflicting mods are refused")
+	# **Two mods that need incompatible versions of a third.** This is the structural one: there is only
+	# ever one copy of a library installed, so somebody has to lose. What matters is *how* - in the
+	# genre's usual arrangement the loser simply breaks at runtime, often much later and somewhere else.
+	# Here nothing starts, and the message names both the mod and the two versions. A refusal you can
+	# read is a different thing from a mod that silently stops working. (2026-09-22)
+	_write_mod(mods.path_join("needs_old"), {"id": "needs_old", "version": "1.0.0", "depends": ["lib@^1.0"]})
+	var both: Dictionary = Loader.discover(PackedStringArray([mods]))
+	_check(not Loader.resolve(PackedStringArray(["needs_old"]), both).is_empty(),
+		"one of two mods wanting different major versions of a library loads on its own")
+	var together: Array = Loader.resolve(PackedStringArray(["needs_old", "needs_new"]), both)
+	_check(together.is_empty(), "and asking for both refuses to start rather than loading one broken")
+	_check(Loader.last_errors[0].message.contains("needs_new") and Loader.last_errors[0].message.contains("lib 1.4.0"),
+		"naming the mod that cannot be satisfied and the version that is installed (%s)" % Loader.last_errors[0].message)
 	_check(Loader.resolve(PackedStringArray(["future"]), available).is_empty() and Loader.last_errors[0].message.contains("mod API"), "mods for another engine API version are refused")
 	# Packages: pack a mod folder, load it from a .zip.
 	var src := root.path_join("src/zipped")

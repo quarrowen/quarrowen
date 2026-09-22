@@ -440,6 +440,10 @@
 			],
 			"gd": "conditions_of"
 		},
+		"contentConflicts": {
+			"args": [],
+			"gd": "content_conflicts"
+		},
 		"debug": {
 			"args": [
 				{

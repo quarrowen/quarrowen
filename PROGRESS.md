@@ -4455,3 +4455,53 @@ half-float format at eight. That needs the Rust mesher to emit halves, so it is 
 than a flag.
 
 Recorded so nobody tries the flag again and concludes the renderer is broken.
+
+## Content conflicts: the engine now notices two mods standing on each other (2026-09-22)
+
+Gap 2 from the research ledger, and the one we were least protected from. In the genre's usual
+arrangement, combining mods produces duplicate ores, biomes that never generate and decoration fighting
+over the same chunk - and the pack author's job is to *notice*, usually by playing far enough to find
+both. `excludes` and tags already let an author resolve a clash; nothing noticed one.
+
+Three things the engine can actually know, and no more. It cannot tell that "Ruddy Stone" and "Red
+Rock" are the same idea, so it does not try:
+
+- **Two mods registering the same display name.** Ids are namespaced and never collide, which is
+  precisely why this goes unseen - a player holding "Copper Ore" and "Copper Ore" cannot tell which is
+  which and no recipe will take the wrong one. One mod naming two of its own things alike is its
+  business and is not reported.
+
+  Asked immediately whether this was case-sensitive (the user, 2026-09-22: "copper ore vs Copper
+  ore?"). It was already case-insensitive, and the question was worth more than that: names are now
+  also whitespace-collapsed and stripped of punctuation, so "Copper  Ore" and "Copper-Ore" match too.
+  **A near-miss is worse than an exact duplicate**, because the two entries sort apart in a list and
+  each one looks deliberate. It stops short of stemming, plurals and edit distance on purpose - a
+  check that guesses produces reports nobody trusts, which is how the first version of the trademark
+  check died with eight false positives from a blacksmith's forge.
+- **Two ore passes putting different blocks in the ground that drop the same item.** The duplicate-ore
+  complaint exactly: the world gets twice as much copper and the player has two blocks doing one job.
+- **Two biomes within 0.08 of each other in climate space.** The generator picks the nearest by
+  temperature, humidity, weirdness and peaks, so two points that close are one biome with a coin flip
+  deciding the name - whichever loses will hardly ever appear.
+
+**It reports and never resolves.** Every one of these can be deliberate - a second kind of copper may
+be the whole point of a mod - so refusing to start would be wrong and silently merging them would be
+worse. A warning at startup with both names in it, `/conflicts` for an admin, and
+`api.content_conflicts()` so a pack or a game can refuse to ship on its own terms.
+
+**Asserted against a stub, deliberately.** A cross-mod collision needs two mods, and the only second
+mod in the Proving Ground is its JavaScript half - which is skipped wherever the native extension is
+absent, so the assertion would quietly stop running in the fallback suite. Silently-skipped assertions
+have bitten this project twice (music behind a game check, buckets behind a count) and both times they
+**stopped running rather than started failing**. A stub always runs.
+
+## Two mods wanting different versions of one library, checked (2026-09-22)
+
+Gap 5, and it turned out to be half-covered already: a test existed for a single mod asking for a
+version that is not installed. The structural case was not covered - **two** mods each needing
+incompatible majors of the same third.
+
+We share the genre's limitation: there is one copy of a library installed and somebody has to lose.
+What differs is how. There, the loser breaks at runtime, later and somewhere else. Here nothing starts
+and the message names the mod that cannot be satisfied and the version that is installed. Now asserted:
+each mod loads alone, asking for both refuses, and the refusal names both.

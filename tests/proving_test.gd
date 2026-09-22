@@ -254,6 +254,7 @@ func _behaviour(server) -> void:
 	_instances(server, server.mod_instances.proving.api, p)
 	_sources_and_palette(server, server.mod_instances.proving.api, p)
 	_wind(server, server.mod_instances.proving.api)
+	_conflicts(server)
 
 
 ## Where things come from, and the creative catalogue: the two halves of "what exists" that the
@@ -303,6 +304,78 @@ func _sources_and_palette(server, api, p) -> void:
 	p.inventory.creative = false
 	server.on_palette_take(p.peer_id, rock, true)
 	_check(p.inventory.cursor_count == 0, "and a survival player does not")
+
+
+## Content two mods both claim.
+##
+## Asserted against a stub rather than against two real mods, deliberately. A cross-mod collision needs
+## two mods, and the only second mod here is the JavaScript half - which is skipped wherever the native
+## extension is absent, so the assertion would quietly stop running in the fallback suite. This project
+## has been bitten by silently-skipped assertions twice (music behind a game check, buckets behind a
+## count) and both times they **stopped running rather than started failing**. A stub always runs.
+func _conflicts(server) -> void:
+	var Conflicts = preload("res://engine/server/conflicts.gd")
+	_check(server.conflicts.find() is Array, "a live server can be asked what two mods both claim")
+
+	var stub := StubWorld.new()
+	stub.blocks = [{"name": "engine:air", "display_name": "Air"},
+		{"name": "alpha:copper_ore", "display_name": "Copper Ore"},
+		{"name": "beta:copper_ore", "display_name": "Copper Ore"},
+		{"name": "alpha:own_twin", "display_name": "Twin"},
+		{"name": "alpha:own_twin_two", "display_name": "Twin"},
+		{"name": "alpha:tin", "display_name": "Tin Ore"},
+		{"name": "beta:tin", "display_name": "tin-ore"}]
+	stub.drops = {1: [[900, 1]], 2: [[900, 1]]}
+	stub.realms = {"overworld": StubRealm.new([{"ore": 1}, {"ore": 2}])}
+	var found: Array = Conflicts.new(stub).find()
+	var kinds := found.map(func(c): return String(c.kind))
+	_check(kinds.has("name"), "two mods naming a block the same is reported (%s)" % str(kinds))
+	# Case, spacing and punctuation all reduce to the same thing: "Tin Ore" against "tin-ore" is a
+	# near-miss, and a near-miss is worse than an exact match because the two sort apart in a list and
+	# look deliberate. (user, 2026-09-22)
+	_check(kinds.count("name") == 2, "a near-miss in case or punctuation counts too, but one mod's own pair does not (%d)" % kinds.count("name"))
+	_check(kinds.has("ore"), "two mods generating different ore that drops the same item is reported")
+	for clash: Dictionary in found:
+		_check(String(clash.detail).contains("alpha:") and String(clash.detail).contains("beta:"),
+			"and every report names both sides (%s)" % String(clash.detail))
+
+
+## The smallest thing `conflicts.gd` will accept: it reads a block registry, an item registry, realms
+## and default drops, and nothing else.
+class StubWorld:
+	var blocks: Array = []
+	var drops: Dictionary = {}
+	var registry: StubRegistry
+	var items: StubItems
+	var realms: Dictionary
+
+	func _init() -> void:
+		registry = StubRegistry.new(self)
+		items = StubItems.new()
+		realms = {}
+
+	func _default_drops(id: int) -> Array:
+		return drops.get(id, [])
+
+
+## A realm is only ever asked for its generation passes here.
+class StubRealm:
+	var generation_passes: Array = []
+	var biome_generator = null
+	func _init(passes: Array) -> void: generation_passes = passes
+
+
+class StubRegistry:
+	var world
+	func _init(w) -> void: world = w
+	var defs: Array:
+		get: return world.blocks
+	func is_valid(id: int) -> bool: return id >= 0 and id < world.blocks.size()
+
+
+class StubItems:
+	var defs: Array = []
+	func name_of(id: int) -> String: return "alpha:ingot" if id == 900 else str(id)
 
 
 ## Wind: a world property a mod can set, and one the engine keeps moving when nobody does.

@@ -52,6 +52,7 @@ const Companies = preload("res://engine/server/companies.gd")
 const Plots = preload("res://engine/server/plots.gd")
 const Instances = preload("res://engine/server/instances.gd")
 const Sources = preload("res://engine/server/sources.gd")
+const Conflicts = preload("res://engine/server/conflicts.gd")
 const AreaEdits = preload("res://engine/server/area_edits.gd")
 const Claims = preload("res://engine/server/claims.gd")
 const Containers = preload("res://engine/server/containers.gd")
@@ -346,6 +347,8 @@ var area_edits := AreaEdits.new(self)
 var instances := Instances.new(self)
 ## Where a thing comes from when the answer is not a recipe (see engine/server/sources.gd).
 var sources := Sources.new(self)
+## Two mods quietly standing on each other. Reported, never resolved - see conflicts.gd.
+var conflicts := Conflicts.new(self)
 ## Parts of the world kept awake when nobody is there, and the budget that stops one player doing it
 ## to everybody else (see engine/server/claims.gd).
 var claims := Claims.new(self)
@@ -641,6 +644,11 @@ func start(config: Dictionary) -> Error:
 	if dev_mode:
 		mod_reload.set_watching(true)
 	_started = true
+	# Said once at startup, as a warning rather than a refusal: every one of these can be deliberate,
+	# and the author is the only one who knows. Saying nothing is what the genre does, and it leaves
+	# pack authors to notice duplicate ores by playing far enough to find both. (2026-09-22)
+	for clash: Dictionary in conflicts.find():
+		dev_log.add("warn", "content", String(clash.detail))
 	print("[server] '%s' running game '%s' with mods %s, %d blocks, %d assets, seed %d, port %d" % [
 		server_info.name, server_info.game, server_info.mods, registry.defs.size(), _assets.size(), world_seed, config.get("port")])
 	return OK
@@ -1073,6 +1081,15 @@ func _register_builtin_commands() -> void:
 	add_command("fly", "Toggle flying (creative, or the \"fly\" permission)", _cmd_fly, "engine")
 	add_command("kill", "Die and respawn", func(p, _args): kill_player(p, "command", null), "engine")
 	add_command("gameplay", "[rule value] - show or change gameplay rules", _cmd_gameplay, "engine", "admin")
+	add_command("conflicts", "- content two mods both claim", func(player, _args):
+		var found: Array = conflicts.find()
+		if found.is_empty():
+			player.send_message("No two mods are standing on each other.")
+			return
+		for clash: Dictionary in found:
+			player.send_message("%s" % String(clash.detail))
+		player.send_message("%d in total. Any of these may be on purpose; excludes, a rename or a climate nudge fixes the ones that are not." % found.size()),
+		"engine", "admin")
 	add_command("modsettings", "[mod] [setting value|reset] - show or change what a mod lets you change", _cmd_mod_settings, "engine", "admin")
 	add_command("loot", "rate <x> | boost <table or item> <x> [minutes] | clear | show - how much things drop", _cmd_loot, "engine", "admin")
 

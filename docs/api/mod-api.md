@@ -2635,6 +2635,14 @@ client, so this is the average rather than the instant.
 
 **See also:** `wind_state`
 
+### `api.content_conflicts() -> Array`
+
+Content two mods both claim: [{kind ("name" | "ore" | "biome"), detail, mods}].
+
+The engine reports these and never resolves them, because every one can be deliberate - a second
+kind of copper may be the whole point of your mod. `detail` is a sentence naming both sides. A pack
+or a game can use this to refuse to ship, or to print a warning of its own.
+
 ### `api.sources_of(item_id: int) -> Array`
 
 Everywhere an item comes from that is not a recipe: blocks that drop it, creatures that drop it,
