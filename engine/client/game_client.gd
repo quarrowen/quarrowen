@@ -95,6 +95,9 @@ const MAX_CONNECT_ATTEMPTS := 20
 ## enough for a slow join to a busy server and short enough that a child does not think the game is
 ## broken and goes to find an adult. (2026-09-22)
 const HANDSHAKE_SECONDS := 20.0
+## Chunk meshes released per frame. Low enough that a bunch of unloads cannot stall a frame, high
+## enough that they cannot pile up faster than they are cleared while a player runs.
+const RETIRE_PER_FRAME := 4
 const MESH_WORKERS := 4
 const MOUSE_SENSITIVITY := 0.0025
 const REACH := 5.0
@@ -281,6 +284,8 @@ var _handshake_deadline := 0.0
 ## faster than the minutes this genre is known for, and "meant to be" is not a number. (2026-09-22)
 var _join_marks: Array = []
 var _join_started := 0.0
+## Chunk meshes taken out of the tree and waiting to be freed, a few each frame.
+var _retiring: Array = []
 ## The relief atlas, worked out on a worker thread because it is a Sobel over every texture.
 var _relief_task := -1
 var _relief_image: Image = null
@@ -466,6 +471,17 @@ func _poll_relief() -> void:
 	for material in [_solid_material, _translucent_material]:
 		material.set_shader_parameter("surface", texture)
 	_relief_image = null
+
+
+## Releases a few retired chunk meshes. Budgeted rather than drained: the whole point is that this
+## never becomes the expensive thing a frame did.
+func _retire_chunks() -> void:
+	var budget := RETIRE_PER_FRAME
+	while budget > 0 and not _retiring.is_empty():
+		var node: Node = _retiring.pop_back()
+		if is_instance_valid(node):
+			node.free()
+		budget -= 1
 
 
 ## Notes how long we have been joining, at one named step.
@@ -929,7 +945,13 @@ func on_unload_chunk(coord: Vector2i) -> void:
 	_mesh_urgent.erase(coord)
 	var node: MeshInstance3D = _chunk_nodes.get(coord)
 	if node:
-		node.queue_free()
+		# **Out of the tree now, freed a few per frame.** Destroying a mesh releases its GPU buffers on
+		# the main thread, and the server unloads chunks in bunches - a teleport, or just running - so
+		# freeing them all in one frame is a visible hitch. A 125ms frame turned up in a measurement
+		# with exactly this signature. Removing the child stops it drawing immediately, which is the
+		# part that has to happen now; the release can wait. (2026-09-22)
+		remove_child(node)
+		_retiring.append(node)
 		_chunk_nodes.erase(coord)
 	_clear_models(coord)
 
@@ -1774,6 +1796,7 @@ func _can_simulate() -> bool:
 # --- Frame update -------------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	_retire_chunks()
 	_watch_handshake()
 	_poll_relief()
 	_ease_wind(delta)

@@ -4505,3 +4505,28 @@ We share the genre's limitation: there is one copy of a library installed and so
 What differs is how. There, the loser breaks at runtime, later and somewhere else. Here nothing starts
 and the message names the mod that cannot be satisfied and the version that is installed. Now asserted:
 each mod loads alone, asking for both refuses, and the refusal names both.
+
+## A one-second frame that is not what it looked like (2026-09-22)
+
+A 125ms frame turned up while measuring terrain shadows, matching a known hazard: the engine releases
+a mesh's GPU buffers on the main thread, and the server unloads chunks in bunches, so freeing them all
+in one frame is a visible hitch.
+
+**Chunk meshes are now retired a few per frame** - taken out of the tree immediately, which is the part
+that has to happen at once, and freed four at a time after. That is correct in principle and costs
+nothing.
+
+**It is not the cause, and the measurement cannot see it either way.** The camera is stationary for
+the whole window, so no chunk ever unloads and the new path is never exercised. Worst frames after the
+change: 2.0, 1.0 and 27.0 fps across three runs - a *full second* in one of them - against 8, 36, 37
+and 40 before it. Both sets contain frames far worse than any hitch chunk unloading could explain, and
+the spread between runs is wider than the difference between them.
+
+So what is actually stalling is **unknown**, and the honest list of suspects is: the relief atlas
+worker handing its texture over, the sky radiance cubemap rebuilding, a shader compiling on first use
+of a material, or chunks still streaming thirty seconds after the join. Guessing further from here
+would be the same mistake as the three cloud measurements that were measuring a shader drawing nothing.
+
+**What this needs is a profiler, not another theory.** Godot 4.6 added Apple Instruments tracing, which
+gives per-frame, per-thread visibility - and it wants running on the machine that actually struggles.
+Recorded rather than chased, with the budgeted retirement kept because it is right regardless.
