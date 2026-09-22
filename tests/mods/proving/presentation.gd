@@ -11,6 +11,12 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	ids = id_table
 	_setup_music()
 	api.register_effect("puff", {"particles": 12, "color": "#cccccc", "scale": 1.0, "duration": 0.6})
+	# Sound, ambience and a downloadable asset. Reusing the music this mod already ships rather than
+	# adding an audio file for the sake of it - the rule here is no *art*, and one .ogg doing three
+	# jobs is the opposite of art. (2026-09-22)
+	api.register_sound("chime", "music/daylight.ogg", {"volume": 0.4, "range": 24.0})
+	api.register_ambience({"sound": "proving:chime", "sky": true, "every": [20.0, 45.0]})
+	api.register_asset("music/night.ogg", {"lazy": true})
 	api.register_weather("haze", {"display_name": "Haze", "darkness": 0.2, "particles": "puff"})
 	api.register_weather("downpour", {"display_name": "Downpour", "darkness": 0.45, "particles": "puff", "rain": true})
 	# Weather and wind are separate on purpose - a still downpour is a real thing - so a mod that wants
@@ -20,6 +26,9 @@ func setup(mod_api, id_table: Dictionary) -> void:
 			api.set_wind(240.0, 0.85)
 		else:
 			api.set_wind(135.0, 0.25))
+	# A tab of its own in the recipe book, and a category for cosmetics to sit under.
+	api.register_recipe_category("proven", {"display_name": "Proven", "icon": "proving:token"})
+	api.register_cosmetic_category("hat", {"display_name": "Hats"})
 	# A cosmetic, which is its own registry and had no other user left.
 	api.register_cosmetic("cap", {"category": "hat", "display_name": "Cap", "unlocked": true,
 		"boxes": [{"from": [-4, 8, -4], "size": [8, 2, 8], "color": "#4488cc"}]})

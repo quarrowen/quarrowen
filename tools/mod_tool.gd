@@ -8,6 +8,7 @@ extends Node
 ##                                                                     [--out=build/release/mods.json] [--version=1.2.3]
 ##   godot --headless --path . res://tools/mod_tool.tscn -- docs [--out=docs/api]
 ##   godot --headless --path . res://tools/mod_tool.tscn -- owned
+##   godot --headless --path . res://tools/mod_tool.tscn -- coverage
 ## validate: checks the manifest, files, scripts, a real load and every reference (exit code 1 on errors).
 ## pack: validates, then writes <out>/<id>-<version>.zip, which servers load from any mods folder.
 ## index: reads a folder of packed mods and writes mods.json, the list the game's mod screen reads (see
@@ -41,6 +42,11 @@ func _run() -> void:
 		_out("wrote %s" % DocsGenerator.write_engine(out))
 		for path in DocsGenerator.write_markdown(out):
 			_out("wrote %s" % path)
+		get_tree().quit(0)
+		return
+	if positional.size() >= 1 and positional[0] == "coverage":
+		var Coverage = preload("res://tools/proving_coverage.gd")
+		_out("wrote %s (%d capabilities the Proving Ground does not exercise)" % [Coverage.OUT, Coverage.write()])
 		get_tree().quit(0)
 		return
 	if positional.size() >= 1 and positional[0] == "owned":

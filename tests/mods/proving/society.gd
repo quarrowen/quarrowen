@@ -8,6 +8,10 @@ var ids: Dictionary
 func setup(mod_api, id_table: Dictionary) -> void:
 	api = mod_api
 	ids = id_table
+	# A permission a mod defines and checks itself, and a stat items can modify. Both are registries
+	# nothing else here was using, which is exactly how they went uncovered. (2026-09-22)
+	api.register_permission("proving.prove", "May prove things", ["moderator"])
+	api.register_stat("proving:resolve", 1.0)
 	api.register_ledger("coins", {"display_name": "Coins", "min": 0})
 	api.register_ledger("standing", {"display_name": "Standing", "levels": [10, 30, 60]})
 	api.register_objective("errand", {"display_name": "An Errand",

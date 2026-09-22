@@ -51,6 +51,17 @@ func setup(mod_api) -> void:
 	# is not registered yet returns -1, which encodes as 65535 and generates a world made of nothing.
 	# "Reordering mod registration" is in CLAUDE.md's list of things that look safe and are not.
 	api.set_world_generator(FlatGround.new(api.require_block("proving:rock"), api.require_block("proving:soil"), api.require_block("proving:turf")))
+	# Worldgen data this mod's own flat generator never consults, registered anyway because these are
+	# capabilities and the point of this mod is that every one of them has a user. A biome, a feature
+	# and a structure template are all just data until a generator asks for them. (2026-09-22)
+	api.register_biome("plain", {"climate": [0.4, 0.6], "height": [0.0, 0.2],
+		"surface": "proving:turf", "features": [], "plants": []})
+	api.register_feature("boulder", {"type": "boulder", "block": "proving:rock", "radius": [1, 2]})
+	# Each block is [x, y, z, palette index], not a flat array of indices - which the error message at
+	# load says plainly, and is why it says it.
+	api.register_structure_template("hut", {"size": [2, 1, 2], "palette": ["proving:rock"],
+		"blocks": [[0, 0, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [1, 0, 1, 0]]})
+	api.register_structure("hut_site", {"template": "proving:hut", "rarity": 0.0})
 	life.setup(api, ids)
 	society.setup(api, ids)
 	machines.setup(api, ids)

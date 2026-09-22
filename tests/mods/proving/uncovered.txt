@@ -1,0 +1,12 @@
+# Capabilities the Proving Ground does not exercise.
+#
+# It is supposed to exercise all of them - that is what it is for - so every line here is a gap, not an
+# exemption. The list may only get shorter: tests/proving_test.gd fails when a capability appears that
+# is not already here, which is what stops a new register_* landing with nothing using it.
+#
+# Sixteen when it was first measured (2026-09-22), because nobody had ever counted. Fixing one means
+# using it in tests/mods/proving/ and deleting its line.
+#
+# Regenerate with: godot --headless --path . res://tools/mod_tool.tscn -- coverage
+
+

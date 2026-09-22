@@ -26,8 +26,22 @@ func setup(mod_api, id_table: Dictionary) -> void:
 		"progress": [{"name": "work", "label": "Work", "color": "#80ff80"}]})
 	api.register_station("bench", {"workshop": {"radius": 2,
 		"upgrades": [{"block": "proving:lamp", "title": "Bright", "grants": {"features": ["bright"]}}]}})
+	# A slot of this mod's own, so equipment is not only the five the engine ships with.
+	api.register_equipment_slot("charm", {"display_name": "Charm"})
 	ids.token = api.register_item("token", {"display_name": "Token", "max_stack": 16})
+	ids.charm = api.register_item("charm", {"display_name": "Charm", "equip_slot": "charm",
+		"modifiers": [{"stat": "proving:resolve", "amount": 0.5, "op": "add"}]})
 	ids.rod = api.register_item("rod", {"display_name": "Rod"})
+	# Part-built tools and the minigame that grades them: three registries that had no user, which is
+	# how a whole crafting style went untested. (2026-09-22)
+	api.register_minigame("steady", {"title": "Hold Steady", "type": "timing", "verb": "Strike",
+		"rounds": 3, "speed": 1.0, "zone": 0.25})
+	api.register_part_type("head", {"display_name": "Head", "cost": 3, "station": "proving:bench"})
+	api.register_part_type("handle", {"display_name": "Handle", "cost": 1, "station": "proving:bench"})
+	api.register_assembly("prover", {"display_name": "Prover", "tool_type": "pickaxe", "damage": 3.0,
+		"station": "proving:bench", "skill": "proving:steady",
+		"slots": [{"name": "head", "part": "head", "label": "Head"},
+			{"name": "grip", "part": "handle", "label": "Handle"}]})
 	ids.grain = api.register_item("grain", {"display_name": "Grain", "food": {"hunger": 3, "saturation": 2.0}})
 	# Food that disagrees with you. `effects` is a list of timed *stat modifiers*, not conditions -
 	# food predates conditions and was never taught about them, which is worth knowing and is the sort
@@ -48,6 +62,10 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	api.set_fuel("proving:token", 20.0)
 	api.register_loot("crate_loot", {"pools": [
 		{"rolls": 1, "guaranteed": true, "entries": [{"item": "proving:token", "count": [1, 3]}]}]})
+	# The older name for the same thing. Covered because a mod written before the rename still calls it,
+	# and an alias nothing exercises is an alias that can quietly stop working.
+	api.register_loot_table("bench_loot", {"pools": [
+		{"rolls": 1, "entries": [{"item": "proving:rod", "count": [1, 1]}]}]})
 	api.tag("prods", ["proving:prod"])
 	api.register_modifier("keen", {"display_name": "Keen", "max_level": 3,
 		"per_level": [{"stat": "attack_damage", "amount": 1.0}], "applies_to": ["#proving:prods"]})

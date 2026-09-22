@@ -4096,3 +4096,41 @@ harvested from the Proving Ground, where the suite already keeps them correct).
 
 Still to do: examples from the Proving Ground, a "since which version" field from git history, and a
 "How Do I..." task index over modding.md.
+
+## The Proving Ground covered 40 of 56 capabilities, not all of them (2026-09-22)
+
+Set out to harvest per-function examples from the Proving Ground for the reference pages, and found
+something worth more than the examples. **CLAUDE.md's claim that it "uses every capability the engine
+has" was wrong, and had been for as long as the sentence existed.** Counted for the first time: 40 of
+56 `register_*`, with sixteen never called in either language.
+
+Not corners. `register_biome`, `register_sound`, `register_structure`, `register_minigame`,
+`register_part_type` and `register_assembly` were all in the list - part-built tools being an entire
+crafting style with no test behind it.
+
+Nobody had lied; nobody had counted. That is the same shape as the JavaScript bridge reaching 139 of
+262, and it has the same fix: `tests/mods/proving/uncovered.txt` is a ratchet the suite checks, so a
+new `register_*` cannot land with nothing exercising it. All sixteen are now closed - **56 of 56** -
+and CLAUDE.md says "measured" rather than "uses every".
+
+Each is asserted against the **registry**, not against the mod, which caught two of my own mistakes
+immediately: a wrong field name (`skill.kinds`, which is `skill.defs`) and an assumption that recipe
+categories are namespace-qualified. They are not, and that looks deliberate rather than missed - two
+mods adding recipes to a "tools" tab should land in the same tab - so the assertion matches what the
+code does and says why, instead of "fixing" it into a qualified name and silently splitting every
+shared tab in two. **Worth a second opinion when the user is back.**
+
+### Two engine bugs it turned up immediately
+
+- **`register_part_type` could not be called without a sprite.** It passed `def.sprite` straight to
+  `register_asset`, so an absent one registered the empty string and pushed `Asset not found: mod:` at
+  load - a loud error about nothing, which failed validation for any mod that ships no art. Which is
+  exactly what the Proving Ground is, and why sixteen capabilities going untested is not a
+  bookkeeping problem: **a capability nothing exercises is a capability nobody has checked works.**
+- **The reload test failed for the same reason.** Those push_errors made `setup` raise, so
+  `mod_reload.reload("proving")` returned not-ok - the failure presenting as "the Proving Ground
+  reloads without new ids" while every number in its own message looked correct. Fixing the
+  registrations fixed the reload; no new entry in `_forget` was needed, which was the first guess.
+
+A structure template also wants `blocks` as `[x, y, z, palette index]` rather than a flat array of
+indices. The error at load says so plainly, which is why it says it.

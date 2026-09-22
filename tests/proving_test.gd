@@ -41,12 +41,35 @@ func _ready() -> void:
 	_check(api.block("proving:not_a_thing") == -1 and api.require_block("proving:not_a_thing") == 0,
 		"and a probe says -1 where a requirement says air, loudly")
 
+	_coverage()
 	_registries(server)
 	_excludes()
 	_javascript(server)
 	_behaviour(server)
 	server.queue_free()
 	_finish()
+
+
+## Whether this mod still deserves the sentence written about it.
+##
+## CLAUDE.md says the Proving Ground uses every capability the engine has, and that claim is the reason
+## it exists. Measured for the first time on 2026-09-22 it was 40 of 56, with sixteen `register_*`
+## never called in either language - `register_biome`, `register_sound`, `register_structure` and
+## `register_minigame` among them, which are not corners but things games are made of.
+##
+## Nobody had lied; nobody had counted. Exactly how the JavaScript bridge reached 139 of 262. So the
+## claim is a ratchet now instead of a sentence: `uncovered.txt` may only shrink, and a new capability
+## that nothing here exercises fails this test.
+func _coverage() -> void:
+	var Coverage = preload("res://tools/proving_coverage.gd")
+	var now: Array = Coverage.uncovered()
+	var was: Array = Coverage.baseline()
+	var added := now.filter(func(name): return not was.has(name))
+	_check(added.is_empty(),
+		"every capability is exercised here, or was already known not to be (new: %s)" % ", ".join(added))
+	var closed := was.filter(func(name): return not now.has(name))
+	_check(closed.is_empty(),
+		"and tests/mods/proving/uncovered.txt has no stale entries - %s is covered now, regenerate with `mod_tool.tscn -- coverage`" % ", ".join(closed))
 
 
 ## A game that takes most of a pack and refuses the rest. The exclusion has to happen before anything
@@ -122,6 +145,25 @@ func _registries(server) -> void:
 	_check(server.modifiers.kinds.has("proving:keen"), "an item modifier")
 	_check(server.effects.id_of("proving:puff") >= 0, "an effect")
 	_check(server.weather.id_of("proving:haze") >= 0, "a weather")
+
+	# The sixteen that had no user until the coverage ratchet was written. Asserted against the
+	# registries rather than against the mod, because a mod that fails to register something still
+	# loads - which is how `mod_tool validate` once reported "0 errors" on a Proving Ground that threw
+	# two script errors during setup. (2026-09-22)
+	_check(server.sounds.id_of("proving:chime") >= 0, "a sound")
+	_check(server.items.stats.has("proving:resolve"), "a player stat")
+	_check(server.items.slot_index("charm") >= 0, "an equipment slot of the mod's own")
+	_check(server.roles.descriptions.has("proving.prove"), "a permission")
+	_check(server.skill.defs.has("proving:steady"), "a crafting minigame")
+	_check(server.loot.has("proving:bench_loot"), "a loot table under the older name")
+	_check(server.items.id_of("proving:prover") >= 0, "an assembly, which registers its own item")
+	_check(server.items.id_of("proving:head") >= 0 and server.items.id_of("proving:handle") >= 0,
+		"and the part types it is built from")
+	# Unqualified on purpose, unlike most mod-supplied names: two mods adding recipes to a "tools" tab
+	# should land in the same tab rather than make two. Asserted as written so the next person does not
+	# "fix" it into a qualified name and silently split every shared tab in two.
+	_check(server.recipes.categories.any(func(c): return String(c.name) == "proven"),
+		"a recipe book tab")
 
 
 ## The JavaScript half reached the same engine. Most of what it calls has no hand-written binding, so

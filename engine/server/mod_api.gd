@@ -845,7 +845,12 @@ func register_material(material_name: String, def: Dictionary) -> void:
 ## A kind of part (registers the part item): {display_name, sprite (grayscale 16x16 image tinted by the
 ## material), cost (material per part), station (where parts are made)}.
 func register_part_type(part_name: String, def: Dictionary) -> int:
-	var sprite := register_asset(str(def.get("sprite", "")))
+	# A part without a sprite is allowed: it draws as the missing-texture checker, like any other item
+	# with no icon. Registering the empty string as an asset instead pushed "Asset not found: mod:" at
+	# load, which is a loud error about nothing and made a mod that ships no art fail validation - and
+	# a mod that ships no art is exactly what the Proving Ground is. (2026-09-22)
+	var named := str(def.get("sprite", ""))
+	var sprite := register_asset(named) if not named.is_empty() else ""
 	var id := register_item(part_name, {"display_name": def.get("display_name", part_name.capitalize()), "icon": def.get("sprite", "")})
 	var d := def.duplicate(true)
 	d.sprite = sprite

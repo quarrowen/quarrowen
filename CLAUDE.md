@@ -101,7 +101,8 @@ run's own exit).
 
 ## The Proving Ground is how a capability gets tested
 
-`tests/mods/proving/` is one mod that uses **every** capability the engine has, in GDScript, with a
+`tests/mods/proving/` is one mod that uses every capability the engine has - **measured, see below** -
+in GDScript, with a
 JavaScript half (`proving_js`) covering the same ground through the bridge. It is the game the
 end-to-end tests play, and it ships with nothing.
 
@@ -112,6 +113,13 @@ unbound JavaScript functions and 39 undocumented events went unnoticed for weeks
 
 Two rules that make it work:
 
+- **Its coverage is measured, not asserted.** "Uses every capability" was a sentence in this file for
+  weeks and was **wrong**: counted for the first time on 22 September 2026 it was 40 of 56
+  `register_*`, with `register_biome`, `register_sound`, `register_structure` and `register_minigame`
+  among the missing - not corners, but things games are made of. Nobody had lied; nobody had counted,
+  exactly as the JavaScript bridge reached 139 of 262. It is 56 of 56 now, and
+  `tests/mods/proving/uncovered.txt` is a ratchet that may only shrink, so a new `register_*` cannot
+  land with nothing using it.
 - **It depends on nothing.** Not even `base`. `base` will churn as it grows, and a test mod riding on
   it fails every time somebody adds a bird. It registers its own rock and soil, and has **no textures
   at all** - the client draws a texture-less block as a magenta checker, which is free and honest.
