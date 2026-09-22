@@ -3776,3 +3776,26 @@ the measurement found a third of the frame going to an effect that duplicated so
 baked into the mesh. **The harness that made this answerable (`--fps=N` in screenshot.gd and
 `QW_REAL_OFF`) took twenty minutes and should have existed before the first shader was touched**, not
 after four rounds of guessing at screenshots.
+
+## Phase 4 scope, decided (2026-09-22)
+
+Asked directly, and the answers were wider than the roadmap's own proposal in two places:
+
+- **Blocks: ~110, a palette to build with** rather than ~50 proving the engine's range. The
+  reasoning that won it: one block per shape and material class proves the *engine* and leaves a
+  child short of choices, and choices are what a building game is made of. Costs roughly double the
+  textures, which Phase 4 regenerates anyway.
+- **Creatures: 12-16, a recognisable ecology** rather than one per AI behaviour. This is far cheaper
+  than it sounds: **fourteen creature models were archived from the deleted games** (pig, sheep, cow,
+  chicken, wolf, spider, slime, skeleton, zombie, night stalker, boomshroom, colossus, goblin,
+  settler). They are the only assets no script can rebuild, which is exactly why they were kept.
+  Re-theming, not remaking.
+- **First game: the creative sandbox.** It is also the test that the base/game line held - a creative
+  game ships zero recipes and everything must still exist and work.
+
+Biomes stay on the principle: one per generation technique that is genuinely different.
+
+**Order:** re-scope `base` to nouns (blocks, liquids, flora, biomes, creatures) → `simple_gear` and
+`simple_machines` take the verbs out of it → the creative game → then survival and the guided one.
+Textures and their normal/roughness maps get regenerated once, at the point `base` settles, because
+that is the only moment the RNG re-roll costs nothing.

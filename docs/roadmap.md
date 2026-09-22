@@ -715,10 +715,23 @@ the way is what a bird looks like; A* through open air would cost far more and l
 is essentially this roadmap - nearly all of it is now built. What it never answered is **which blocks,
 creatures and biomes actually get built**, and that is the long programme.
 
-Worth scoping as a deliberate subset with a stated principle rather than a checklist to exhaust:
-*every biome type that needs a different generation technique, one creature per AI behaviour, one
-block per shape and material class*. That way `base` proves the engine's range instead of chasing a
-count, and breadth comes after 1.0 when a real game asks for it.
+**Decided 22 September 2026**, and deliberately wider than the principle that was proposed here:
+
+- **Blocks: a palette you can build with, about 110.** Several woods, stones and a proper colour
+  range, *even where they add no engine range*. The principle version - one block per shape and
+  material class, around fifty - proves the engine and leaves a child short of choices, and choices
+  are what a building game is. Roughly double the texture work, which Phase 4 was regenerating
+  anyway.
+- **Creatures: a recognisable ecology, 12-16.** Several per biome, so a place feels inhabited rather
+  than demonstrated. **The models already exist**: fourteen were archived from the deleted games into
+  `art/models/`, which is precisely why they were the one thing kept. They need re-theming, not
+  remaking.
+- **First game: the creative sandbox.** Zero recipes, everything available. It is the test that the
+  base/game line held - if a creative game ships no recipes and everything still exists and works,
+  the line is real - and the children can build in it the day it exists.
+
+The principle still governs *biomes*: one per generation technique that is genuinely different, not
+one per name.
 
 ## Order
 
