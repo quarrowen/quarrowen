@@ -3658,3 +3658,31 @@ than grey.
 and a small inlet; the reference it is aimed at is a wide river with a bank on the far side. The
 mechanism works and this world cannot show it off - a demonstration wants a proper lake, which is a
 lookbook change rather than an engine one.
+
+## A lake to see the reflection in, and what the white lines were (2026-09-22)
+
+The lookbook has a lake now - a generation pass that cuts a basin at a known place and fills it,
+rather than a biome, because a biome competes through climate noise and may not appear where you want
+it. A pass happens where it is told. The bed shelves rather than dropping off, so the depth tint has
+something to shade between and the edge is a beach rather than the wall of a swimming pool.
+
+With something to reflect, the reflection is plainly working. It also showed up two faults:
+
+**A floating tree.** The pass cut the ground out from under a tree and left its canopy hanging, trunk
+and all gone. It clears well above the waterline now.
+
+**White lines across the water, which the user spotted and I misdiagnosed.** I said cloud
+reflections, then said ray-march banding and added jitter and a binary refinement to fix it - neither
+was right, and the bands were unchanged. They were **the waves**: a wavelength of about five blocks
+and an amplitude of 0.07, which at a grazing view swings fresnel hard enough to turn gentle ripples
+into broad white bands marching across the lake, regular enough to look like a rendering fault. Finer
+and shallower, with the two wave sets deliberately off-axis so their interference is not a grid, and
+they are gone.
+
+The jitter and refinement stay: they are correct practice for a screen-space march and make the
+reflection land on the surface rather than wherever the stride stopped. But they fixed nothing here,
+and I should not have written them before knowing what I was fixing.
+
+**Reflection strength is capped well short of a mirror.** Physically a grazing view is almost all
+reflection, and a lake that obeyed that came out white - the sky is far brighter than the water, so
+the colour washes out entirely. Water keeps some of its own at every angle.

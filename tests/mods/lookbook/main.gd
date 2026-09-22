@@ -68,6 +68,8 @@ func setup(api) -> void:
 			{"block": "base:fern", "chance": 0.05, "on": ["base:grass"]}],
 	})
 	api.use_biome_generator({"sea_level": 62})
+	# A lake worth looking at, so the water shader has something to mirror.
+	api.add_generation_pass(Lake.new(api.require_block("base:water"), api.require_block("base:sand")))
 	# Slab twins for the surface materials, so the smoothing pass has something to swap to. They live
 	# here rather than in `base` only because base has slabs for stone and planks and not for ground.
 	for material in [["grass", "base:grass"], ["dirt", "base:dirt"], ["sand", "base:sand"]]:
@@ -219,3 +221,55 @@ func _shoreline(api) -> Vector3:
 				if wet >= 6:
 					return Vector3(x + 0.5, y + 2.0, z + 0.5)
 	return Vector3(8.5, 66.0, 8.5)
+
+
+## A lake, carved after the terrain is generated.
+##
+## The biome generator makes rolling land from noise, and noise does not make a body of water wide
+## enough to see a reflection in - the map came out with a two-block stream and a small inlet, which
+## is nothing for water to mirror. So this cuts a basin at a known place and fills it, which is also
+## what a lake is: a hole with water in it. (2026-09-22)
+##
+## A pass rather than a biome, because a biome competes with its neighbours through climate noise and
+## may simply not appear where you want it. A pass happens where it is told.
+class Lake:
+	extends RefCounted
+
+	const Chunk = preload("res://engine/shared/chunk.gd")
+
+	## Where the lake is and how big, in blocks. Near spawn so the shoreline search finds it.
+	const CENTRE := Vector2(-40.0, 40.0)
+	const RADIUS := 46.0
+	const SURFACE := 62
+	const FLOOR := 54
+
+	var water := 0
+	var sand := 0
+
+	func _init(water_id: int, sand_id: int) -> void:
+		water = water_id
+		sand = sand_id
+
+	# Runs on a worker thread; touches only this chunk.
+	func decorate(chunk, _seed_value: int) -> void:
+		var origin := Vector2(chunk.coord.x * Chunk.SIZE_X, chunk.coord.y * Chunk.SIZE_Z)
+		# Cheap rejection: a chunk entirely outside the lake is most of them.
+		if origin.distance_to(CENTRE) > RADIUS + 24.0:
+			return
+		for x in Chunk.SIZE_X:
+			for z in Chunk.SIZE_Z:
+				var here := origin + Vector2(x, z)
+				var away := here.distance_to(CENTRE)
+				if away > RADIUS:
+					continue
+				# The bed shelves rather than dropping off a cliff: a beach is where the depth tint
+				# has something to shade between, and a sheer wall of water reads as a swimming pool.
+				var depth := (1.0 - away / RADIUS)
+				var bed := int(round(lerpf(float(SURFACE), float(FLOOR), smoothstep(0.0, 0.55, depth))))
+				# Clear well above the waterline, or a tree whose ground has just been dug out from
+				# under it keeps its canopy and loses its trunk, and hangs there. (2026-09-22)
+				for y in range(bed, SURFACE + 26):
+					var id := water if y <= SURFACE else 0
+					chunk.blocks.encode_u16(Chunk.index(x, y, z) << 1, id)
+				# Sand under the water and a little way up the shore.
+				chunk.blocks.encode_u16(Chunk.index(x, maxi(bed - 1, 0), z) << 1, sand)

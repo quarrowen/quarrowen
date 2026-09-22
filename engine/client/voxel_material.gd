@@ -159,10 +159,18 @@ const LIT_WATER := """
 		vec3 view = normalize(world_pos - CAMERA_POSITION_WORLD);
 		// Two wave sets at different scales and speeds; one alone reads as a moving pattern.
 		bool surface = world_normal.y > 0.5;
+		// **Finer and shallower than it was.** At a wavelength of about five blocks and an amplitude
+		// of 0.07 these were not ripples: a grazing view swings fresnel hard on a small change of
+		// normal, so gentle waves five blocks apart came out as broad white bands marching across the
+		// lake, regular enough to look like a rendering fault. Real ripples are much finer than the
+		// blocks they sit on. The two sets are also deliberately not aligned to the axes, or the
+		// interference pattern itself becomes a grid. (2026-09-22)
 		vec3 n = surface ? normalize(vec3(
-			sin(world_pos.x * 1.3 + TIME * 1.5) * 0.07 + sin(world_pos.z * 3.3 - TIME * 2.1) * 0.03,
+			sin(dot(world_pos.xz, vec2(4.7, 2.1)) + TIME * 1.9) * 0.022
+				+ sin(dot(world_pos.xz, vec2(-1.9, 5.3)) - TIME * 2.6) * 0.014,
 			1.0,
-			cos(world_pos.z * 1.2 + TIME * 1.3) * 0.07 + cos(world_pos.x * 3.1 + TIME * 1.7) * 0.03))
+			cos(dot(world_pos.xz, vec2(2.3, -4.9)) + TIME * 1.7) * 0.022
+				+ cos(dot(world_pos.xz, vec2(5.1, 1.7)) + TIME * 2.3) * 0.014))
 			: world_normal;
 		float raw = texture(depth_texture, SCREEN_UV).r;
 		vec4 behind = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, raw, 1.0);
@@ -172,7 +180,7 @@ const LIT_WATER := """
 		vec3 refracted = texture(screen_texture, SCREEN_UV + offset).rgb;
 		vec3 tint = mix(shallow_color, deep_color, thickness);
 		// The floor still shows through shallow water and stops showing through deep water.
-		color = mix(refracted * mix(vec3(1.0), tint, 0.55), tint, thickness * 0.85) * max(daylight, 0.06);
+		color = mix(refracted * mix(vec3(1.0), tint, 0.65), tint, thickness * 0.95) * max(daylight, 0.06);
 		float fresnel = pow(1.0 - clamp(dot(-view, n), 0.0, 1.0), 5.0);
 		// Only a surface mirrors. A wall of water seen from the side is something you look *through*,
 		// and reflecting the sky off it turns a river's edge into a pane of glass.
@@ -193,6 +201,12 @@ const LIT_WATER := """
 			vec3 at = VERTEX;
 			// Steps grow: fine near the surface where the reflection is sharp, coarse further out.
 			float step_len = 0.35;
+			// **Jittered, or the steps show.** Every pixel marching from the same offsets means every
+			// pixel at a given distance hits or misses together, and the surface comes out banded in
+			// stripes that follow constant range from the camera - which is what those white lines
+			// across the lake were, not cloud reflections. Breaking the phase per pixel turns the
+			// banding into noise, which the eye forgives. (2026-09-22)
+			at += ray * fract(sin(dot(SCREEN_UV, vec2(12.9898, 78.233))) * 43758.5453) * step_len;
 			float hit = 0.0;
 			vec2 hit_uv = vec2(0.0);
 			for (int i = 0; i < 16; i++) {
@@ -209,6 +223,20 @@ const LIT_WATER := """
 				// Behind the surface by a plausible amount: a huge gap is the sky, or something far
 				// away that the ray only appears to touch.
 				if (ray_z > scene_z && ray_z - scene_z < 2.2) {
+					// Walk back half a step a few times to land on the surface rather than wherever
+					// the stride happened to stop: the difference between a reflection and a smear.
+					vec3 back = at;
+					float half_step = step_len * 0.5;
+					for (int j = 0; j < 4; j++) {
+						back -= ray * half_step;
+						half_step *= 0.5;
+						vec4 c2 = PROJECTION_MATRIX * vec4(back, 1.0);
+						if (c2.w <= 0.0) { break; }
+						vec2 u2 = (c2.xy / c2.w) * 0.5 + 0.5;
+						float s2 = texture(depth_texture, u2).r;
+						vec4 w2 = INV_PROJECTION_MATRIX * vec4(u2 * 2.0 - 1.0, s2, 1.0);
+						if (-back.z > -(w2.xyz / w2.w).z) { back += ray * half_step; } else { uv = u2; }
+					}
 					hit = 1.0;
 					hit_uv = uv;
 					break;
@@ -219,7 +247,11 @@ const LIT_WATER := """
 				vec2 edge = smoothstep(vec2(0.0), vec2(0.14), hit_uv) * smoothstep(vec2(0.0), vec2(0.14), 1.0 - hit_uv);
 				reflection = mix(reflection, texture(screen_texture, hit_uv).rgb, edge.x * edge.y * 0.9);
 			}
-			color = mix(color, reflection, clamp(0.06 + 0.9 * fresnel, 0.0, 1.0));
+			// Capped well short of a mirror. Physically a grazing view is almost entirely reflection,
+			// and a lake that obeyed that came out white - the sky is much brighter than the water,
+			// so the colour washes out completely and what is left reads as milk. Water keeps some
+			// of its own colour at every angle. (2026-09-22)
+			color = mix(color, reflection, clamp(0.04 + 0.62 * fresnel, 0.0, 0.66));
 			vec3 half_vector = normalize(normalize(sun_direction) - view);
 			glint = sun_tint * pow(max(dot(n, half_vector), 0.0), 220.0) * daylight * 2.2;
 		}
