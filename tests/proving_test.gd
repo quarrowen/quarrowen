@@ -159,11 +159,22 @@ func _registries(server) -> void:
 	_check(server.items.id_of("proving:prover") >= 0, "an assembly, which registers its own item")
 	_check(server.items.id_of("proving:head") >= 0 and server.items.id_of("proving:handle") >= 0,
 		"and the part types it is built from")
-	# Unqualified on purpose, unlike most mod-supplied names: two mods adding recipes to a "tools" tab
-	# should land in the same tab rather than make two. Asserted as written so the next person does not
-	# "fix" it into a qualified name and silently split every shared tab in two.
+	# Unqualified on purpose, unlike most mod-supplied names: the engine owns "tools", "blocks" and the
+	# rest, recipes name a category as a plain string, and a mod qualified to "mod:tools" could only
+	# ever make a *second* tab labelled Tools. Asserted as written so the next person does not "fix" it
+	# into a qualified name and quietly split every shared tab in two. (2026-09-22)
 	_check(server.recipes.categories.any(func(c): return String(c.name) == "proven"),
-		"a recipe book tab")
+		"a recipe book tab, named without a namespace so tabs can be shared")
+	# Joining a tab somebody else declared is a success, not a failure: the recipes go in either way,
+	# and returning false was indistinguishable from "you passed an empty name".
+	var mod_api = server.mod_instances.proving.api
+	var tabs_before: int = server.recipes.categories.size()
+	_check(mod_api.register_recipe_category("tools", {"display_name": "Ours"}),
+		"and naming a tab that already exists succeeds rather than failing")
+	_check(server.recipes.categories.size() == tabs_before, "without making a second tab of the same name")
+	_check(server.recipes.categories.any(func(c): return String(c.name) == "tools" and String(c.display_name) == "Tools"),
+		"the tab keeps the name its first declarer gave it")
+	_check(not mod_api.register_recipe_category("", {}), "while a nameless tab is still refused")
 
 
 ## The JavaScript half reached the same engine. Most of what it calls has no hand-written binding, so

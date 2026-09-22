@@ -2335,10 +2335,26 @@ Crack animation stage 0-9 for progress 0-1.
 
 *shared/recipe_registry.gd*
 
-Declares a tab for the crafting screen. False if the name is empty or already taken - first
-registration wins, so a mod cannot rename another mod's category.
+Declares a tab for the crafting screen, or joins one that already exists. False only when the name
+is unusable.
 
-**See also:** `category`
+**Category names are a shared namespace on purpose**, and are the one registry key that is not
+namespaced per mod. They have to be: the engine owns `tools`, `weapons`, `blocks` and the rest from
+`_init`, recipes name a category as a plain string, and a mod qualified to `mymod:tools` could never
+put anything in the engine's Tools tab - it would only ever make a second tab with the same label.
+
+**Joining counts as succeeding.** This used to return false when the name was taken, which a mod
+author could not tell apart from "you passed an empty name" - while the recipes went into the tab
+anyway, which is what they asked for. First registration still wins the *label*, so a mod whose
+display_name is dropped is told at the API boundary rather than left to wonder. (2026-09-22)
+
+**See also:** `category`, `has_category`
+
+### `has_category(cat_name: String) -> bool`
+
+*shared/recipe_registry.gd*
+
+Whether a tab of this name is already declared, by the engine or by a mod that loaded earlier.
 
 ### `add(def: Dictionary, items = null) -> int`
 
@@ -4407,7 +4423,7 @@ Returns "" or why it was refused.
 def: name, display_name, attach (attachment point for boxes/models), covers (armor slots its
 cosmetics replace by default). Returns false when invalid or full.
 
-**See also:** `category`
+**See also:** `category`, `has_category`
 
 ### `register(def: Dictionary) -> String`
 

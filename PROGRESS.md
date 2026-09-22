@@ -4170,3 +4170,30 @@ differences mean anything.
 So the realistic preset gains aerial perspective and per-pixel relief for free, on this machine. The
 number that actually decides what ships is the base M1 Air, which is not this machine - `graphics/relief`
 is a setting of its own precisely so it can come off there without losing the rest of the preset.
+
+## Recipe categories are a shared namespace, and joining one now counts as succeeding (2026-09-22)
+
+Flagged for a second opinion after the coverage work turned it up, and the user agreed with the
+reading. Recorded because the *next* person to notice will also think it is a bug.
+
+**It is not the "unqualified name" bug CLAUDE.md warns about.** That rule is about a name nested inside
+a definition - a sound named in an entity def, a condition named in an attack - which is a *reference*,
+and unqualified it resolves to the wrong mod's thing or to nothing. A recipe category name is a
+deliberately **shared key**, and it has to be: the engine owns `tools`, `weapons`, `armor`, `blocks`,
+`food`, `materials`, `parts` and `misc` from `RecipeRegistry._init`, a recipe names its category as a
+plain string, and a mod qualified to `mymod:tools` could never put anything in the engine's Tools tab -
+it would only ever make a second tab with the same label. So `register_recipe_category` is the one
+registry function that does not call `_qualify`, on purpose.
+
+**What was actually wrong was the silence.** Declaring a tab that already existed returned `false`,
+which a mod author could not tell apart from "you passed an empty name" - while the recipes went into
+the tab anyway, which is what they had asked for. So:
+
+- Naming an existing tab **returns true**. It succeeded; the recipes are in that tab. `false` now means
+  only that the name is unusable.
+- The first mod to declare a tab still names it, but a mod whose `display_name` is dropped is **told in
+  the dev log** instead of left to wonder why its label never appeared. Which label wins is decided by
+  mod load order, and that is worth knowing rather than discovering.
+
+Asserted in the Proving Ground both ways: naming `tools` succeeds, adds no second tab, leaves the
+label as the engine set it, and an empty name is still refused.

@@ -900,13 +900,27 @@ func get_station(position: Vector3i) -> Dictionary:
 	return _server.stations.evaluate(position)
 
 
-## Adds a recipe book tab. def: display_name, icon (item name shown on the tab).
+## Adds a recipe book tab, or joins one that already exists. def: display_name, icon (item name shown
+## on the tab). False only when the name is unusable.
+##
+## **The name is not namespaced, unlike almost everything else here**, and that is deliberate: the
+## engine owns `tools`, `weapons`, `blocks`, `food`, `materials`, `parts`, `armor` and `misc`, recipes
+## name a category as a plain string, and a mod qualified to `mymod:tools` could only ever make a
+## *second* tab labelled Tools rather than adding to the first. Naming an existing tab puts your
+## recipes in it, which is usually what you want.
+##
+## The first mod to declare a tab names it. If yours would have renamed it, that is said in the dev log
+## rather than silently ignored - a missing label with no explanation is very hard to chase.
 func register_recipe_category(category_name: String, def := {}) -> bool:
 	var d := def.duplicate()
 	d.name = category_name
 	if def.get("icon") is String:
 		d.icon = item(def.icon)
-	return _server.recipes.register_category(d)
+	var joined: bool = _server.recipes.has_category(String(category_name).left(32))
+	var ok: bool = _server.recipes.register_category(d)
+	if ok and joined and def.has("display_name"):
+		_server.dev_log.add("info", mod_id, "recipe tab '%s' already exists, so your recipes join it and it keeps its own name" % category_name)
+	return ok
 
 
 ## Puts a marker on a player's map and compass (it stays until removed).

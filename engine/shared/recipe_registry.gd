@@ -39,15 +39,32 @@ func _init() -> void:
 		register_category(c)
 
 
-## Declares a tab for the crafting screen. False if the name is empty or already taken - first
-## registration wins, so a mod cannot rename another mod's category.
+## Declares a tab for the crafting screen, or joins one that already exists. False only when the name
+## is unusable.
+##
+## **Category names are a shared namespace on purpose**, and are the one registry key that is not
+## namespaced per mod. They have to be: the engine owns `tools`, `weapons`, `blocks` and the rest from
+## `_init`, recipes name a category as a plain string, and a mod qualified to `mymod:tools` could never
+## put anything in the engine's Tools tab - it would only ever make a second tab with the same label.
+##
+## **Joining counts as succeeding.** This used to return false when the name was taken, which a mod
+## author could not tell apart from "you passed an empty name" - while the recipes went into the tab
+## anyway, which is what they asked for. First registration still wins the *label*, so a mod whose
+## display_name is dropped is told at the API boundary rather than left to wonder. (2026-09-22)
 func register_category(def: Dictionary) -> bool:
 	var cat_name := str(def.get("name", "")).left(32)
-	if cat_name.is_empty() or categories.any(func(c): return c.name == cat_name):
+	if cat_name.is_empty():
 		return false
+	if has_category(cat_name):
+		return true
 	categories.append({"name": cat_name, "display_name": str(def.get("display_name", cat_name.capitalize())).left(32),
 		"icon": int(def.get("icon", 0))})
 	return true
+
+
+## Whether a tab of this name is already declared, by the engine or by a mod that loaded earlier.
+func has_category(cat_name: String) -> bool:
+	return categories.any(func(c): return c.name == cat_name)
 
 
 ## Adds a recipe. `items` (an ItemRegistry) picks a category when none is given. Returns its index.

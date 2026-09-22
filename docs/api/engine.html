@@ -978,9 +978,30 @@ with the player's `mining_speed` stat. 0 = instant. shared/mining.gd items, craf
 with the player's `mining_speed` stat. 0 = instant.</p></div>
 <div class="card" data-search="can_harvest true if breaking the block with this tool yields its drops. shared/mining.gd items, crafting and recipes"><div class="sig"><code>static can_harvest(block: Dictionary, tool: Dictionary) -&gt; bool</code></div><p>True if breaking the block with this tool yields its drops.</p></div>
 <div class="card" data-search="stage crack animation stage 0-9 for progress 0-1. shared/mining.gd items, crafting and recipes"><div class="sig"><code>static stage(progress: float) -&gt; int</code></div><p>Crack animation stage 0-9 for progress 0-1.</p></div></section>
-<section id="e-shared-recipe-registry-gd"><h2>recipe_registry.gd <span class="file">shared/recipe_registry.gd</span></h2><p class="lead">Crafting recipes and their categories, sent to clients so the crafting screen can show the recipe book, what you are missing and what an item is used for. The server stays the authority on crafting.</p><div class="card" data-search="register_category declares a tab for the crafting screen. false if the name is empty or already taken - first
-registration wins, so a mod cannot rename another mod's category. shared/recipe_registry.gd items, crafting and recipes"><div class="sig"><code>register_category(def: Dictionary) -&gt; bool</code></div><p>Declares a tab for the crafting screen. False if the name is empty or already taken - first
-registration wins, so a mod cannot rename another mod's category.</p></div>
+<section id="e-shared-recipe-registry-gd"><h2>recipe_registry.gd <span class="file">shared/recipe_registry.gd</span></h2><p class="lead">Crafting recipes and their categories, sent to clients so the crafting screen can show the recipe book, what you are missing and what an item is used for. The server stays the authority on crafting.</p><div class="card" data-search="register_category declares a tab for the crafting screen, or joins one that already exists. false only when the name
+is unusable.
+
+**category names are a shared namespace on purpose**, and are the one registry key that is not
+namespaced per mod. they have to be: the engine owns `tools`, `weapons`, `blocks` and the rest from
+`_init`, recipes name a category as a plain string, and a mod qualified to `mymod:tools` could never
+put anything in the engine's tools tab - it would only ever make a second tab with the same label.
+
+**joining counts as succeeding.** this used to return false when the name was taken, which a mod
+author could not tell apart from &quot;you passed an empty name&quot; - while the recipes went into the tab
+anyway, which is what they asked for. first registration still wins the *label*, so a mod whose
+display_name is dropped is told at the api boundary rather than left to wonder. (2026-09-22) shared/recipe_registry.gd items, crafting and recipes"><div class="sig"><code>register_category(def: Dictionary) -&gt; bool</code></div><p>Declares a tab for the crafting screen, or joins one that already exists. False only when the name
+is unusable.
+
+**Category names are a shared namespace on purpose**, and are the one registry key that is not
+namespaced per mod. They have to be: the engine owns `tools`, `weapons`, `blocks` and the rest from
+`_init`, recipes name a category as a plain string, and a mod qualified to `mymod:tools` could never
+put anything in the engine's Tools tab - it would only ever make a second tab with the same label.
+
+**Joining counts as succeeding.** This used to return false when the name was taken, which a mod
+author could not tell apart from "you passed an empty name" - while the recipes went into the tab
+anyway, which is what they asked for. First registration still wins the *label*, so a mod whose
+display_name is dropped is told at the API boundary rather than left to wonder. (2026-09-22)</p></div>
+<div class="card" data-search="has_category whether a tab of this name is already declared, by the engine or by a mod that loaded earlier. shared/recipe_registry.gd items, crafting and recipes"><div class="sig"><code>has_category(cat_name: String) -&gt; bool</code></div><p>Whether a tab of this name is already declared, by the engine or by a mod that loaded earlier.</p></div>
 <div class="card" data-search="add adds a recipe. `items` (an itemregistry) picks a category when none is given. returns its index. shared/recipe_registry.gd items, crafting and recipes"><div class="sig"><code>add(def: Dictionary, items = null) -&gt; int</code></div><p>Adds a recipe. `items` (an ItemRegistry) picks a category when none is given. Returns its index.</p></div>
 <div class="card" data-search="begin_reload starts watching one mod's recipes so `end_reload` can tell which have gone.
 
@@ -2775,7 +2796,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1189 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1190 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>
