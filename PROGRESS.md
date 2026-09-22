@@ -4348,3 +4348,64 @@ The comparison worth keeping is structural rather than numeric: their load time 
 a game** from hundreds of code mods at startup, every time. Ours is spent fetching data the client
 then caches by hash, so the second join to the same server skips most of it, and assets shared between
 servers are fetched once ever.
+
+## Graphics performance: what the research found, and what could not be measured here (2026-09-22)
+
+Researched at the user's request. Two of the top recommendations we were already following:
+`Sky.radiance_size` is 64 with `PROCESS_MODE_REALTIME` (a complex sky shader otherwise rebuilds its
+radiance cubemap every frame), and shadow splits already do not blend, at 110m rather than 220m.
+
+**Two were tried and could not be measured, so they were reverted rather than shipped.** Setting
+`directional_shadow_mode` to two cascades instead of the default four, and turning the depth prepass
+off - which the platform vendor's own guidance calls redundant on tile-based GPUs, because hidden
+surface removal already rejects those fragments. Both measured 50-54 median against a 52 baseline:
+noise.
+
+**The measurement, not the changes, is what was wrong.** The screenshot harness renders at 10240x5300
+- about 46 megapixels - so the frame is overwhelmingly fill-bound and vertex-side costs cannot show
+through it. Forcing a smaller window did not take, because `window/size/mode=2` is fullscreen. These
+need the base M1 Air, which is the machine that decides what ships and the one not available here. The
+harness does now measure properly in one respect: vsync is disabled for the run and the **median of
+~1300 samples** is read rather than a single frame, which is what the earlier numbers in this file
+were.
+
+### The finding worth acting on: every terrain pixel runs a shader containing `discard`
+
+Foliage is already doing the right thing on the question that has the biggest published number - a
+transparency change in another engine measured 300 fps to under 30 on grass and trees. Leaves are
+`cutout`, grass and torches are `plant`, and both go into the **solid** surface with alpha scissor
+rather than alpha blending.
+
+But `chunk_mesher.gd` puts opaque, cutout and plant blocks into **one surface**, and the solid shader
+is built with `if (tex.a < alpha_scissor) { discard; }` in it. On a tile-based GPU a shader containing
+`discard` defers depth writes, because the hardware cannot know which pixels survive until the fragment
+shader has run - which disables hidden surface removal for the whole material, including the roughly
+95% of terrain that is opaque stone and dirt with no alpha at all.
+
+**Splitting the solid surface in two** - a truly opaque material with no `discard` anywhere in its
+shader, and a separate alpha-scissor material for cutout and plant - restores that rejection for the
+bulk of the world and puts the alpha-tested geometry in its own correctly ordered draw. It touches the
+Rust mesher and its GDScript twin, so it is real work rather than a flag.
+
+### Also actionable, not yet done
+
+- **Vertex attribute compression** (`ARRAY_FLAG_COMPRESS_ATTRIBUTES`): published voxel figures of
+  127MB to 10.9MB of GPU mesh memory, aimed squarely at the memory-bound vertex shader the engine's own
+  team identified in its depth passes. Watch for the known error when normals are supplied without
+  tangents, and check the baked light in `ARRAY_COLOR` for banding at 8 bits.
+- **Water's screen-space reflection** marches `hint_screen_texture`, a mid-pass read of the colour
+  attachment. The vendor guidance names this explicitly as forcing tile memory out to system memory.
+  Cheaper: fresnel against the sky plus a scrolling normal, or a reflection probe.
+- **The Mobile renderer** is designed for tile-based GPUs and Forward+ is documented as desktop and
+  console only. The iPad forces this decision anyway, and it changes what everything else is worth, so
+  it should come before the bigger structural items.
+- **A one-second frame** appeared in one measurement (`worst 1.0`). The engine destroys mesh buffers on
+  the main thread when chunks unload behind the camera, which presents exactly like that. Worth
+  chasing before anything is concluded about steady-state frame rate.
+
+### And a self-inflicted lesson about the harness
+
+Three network tests failed in the fallback suite while this was going on. The cause was the render
+helper running `pkill -f "scenes/server.tscn"` before each shot to clear strays - which also killed the
+**test suite's** servers, because a suite was running at the same time. It now kills only a process
+holding its own port. A tool that tidies up after itself has to know whose mess is whose.
