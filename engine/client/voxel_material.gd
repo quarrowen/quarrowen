@@ -126,7 +126,7 @@ const LIT_TRANSLUCENT_OUT := """ALBEDO = custom ? color : tex.rgb * max(sky, 0.0
 	if (custom && length(lit_normal) > 0.5) {
 		NORMAL = normalize((VIEW_MATRIX * vec4(lit_normal, 0.0)).xyz);
 	}
-	SPECULAR = custom ? 0.38 : 0.5;"""
+	SPECULAR = custom ? 0.14 : 0.5;"""
 
 const LIT_OUT := """vec3 daylit = tex.rgb * max(sky, 0.06);
 	ALBEDO = daylit;
@@ -227,7 +227,9 @@ const LIT_WATER := """
 		vec3 refracted = texture(screen_texture, SCREEN_UV + offset).rgb;
 		vec3 tint = mix(shallow_color, deep_color, thickness);
 		// The floor still shows through shallow water and stops showing through deep water.
-		color = mix(refracted * mix(vec3(1.0), tint, 0.55), tint, thickness * 0.6) * max(daylight, 0.06);
+		// Some of the depth tint back: taking it out to fix the opacity also took away the thing that
+		// was hiding the blown highlight, which is how "opaque sheet" became "white sheet".
+		color = mix(refracted * mix(vec3(1.0), tint, 0.70), tint, thickness * 0.75) * max(daylight, 0.06);
 		// **Softer than a fifth power, and over waves you can see.** These two numbers are one
 		// decision, and getting it wrong in either direction is visible from across a lake. A fifth
 		// power over five-block waves gave broad white bands marching across the surface, so the waves
@@ -340,7 +342,13 @@ const LIT_WATER := """
 			lit_normal = normalize(vec3(ripple.x, 1.0, ripple.y));
 			// Rougher where the surface is broken up, so the highlight is a scatter of glints rather
 			// than one sheet. Calm water near the shore stays glassier.
-			lit_rough = clamp(0.16 + length(ripple) * 0.55, 0.14, 0.42);
+			// **Much rougher than a real water surface would be, and deliberately.** The sun in this
+			// preset is energy 2.6, and a smooth surface under it returns a specular highlight that
+			// blows the whole lake to white - which is what "turning real sunlight on" did. A real
+			// lake gets away with being smooth because its highlight is a small bright patch on a
+			// large dark body; ours is a small body filling the screen, so the patch is everything.
+			// (user, 2026-09-22: "if i turn off the real sunlight setting it gets fixed")
+			lit_rough = clamp(0.46 + length(ripple) * 0.45, 0.44, 0.82);
 		}
 	}
 """

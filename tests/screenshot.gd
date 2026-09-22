@@ -12,7 +12,7 @@ const GameClient = preload("res://engine/client/game_client.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera"}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera"}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -190,6 +190,15 @@ func _ready() -> void:
 		client._avatar_editor._show_category(options.editor)
 	await get_tree().create_timer(float(options.wait)).timeout
 	await _meshed(client)
+	# **--after runs once the world is up, a moment before the shutter.** `--commands` runs first, which
+	# is right for anything the world has to be built around - but a `/tp` there is useless, because the
+	# player then falls for the whole wait and the picture is of wherever they landed. Every attempt to
+	# photograph the lake came out as a picture of the beach. (2026-09-22)
+	for command in String(options.get("after", "")).split("|", false):
+		Net.c_chat.rpc_id(1, command.strip_edges())
+		await get_tree().create_timer(0.25).timeout
+	if not String(options.get("after", "")).is_empty():
+		await _meshed(client)
 	if not String(options.mine).is_empty():
 		await get_tree().create_timer(float(options.mine)).timeout  # let the crack grow
 	var viewport_rid := get_viewport().get_viewport_rid()
