@@ -81,6 +81,187 @@ const SECTIONS := [
 ]
 
 
+## The files a new subsystem is most likely to reinvent, and which therefore have to stay findable.
+##
+## Not every file: 896 public functions under `engine/` had no doc comment when this was added, and most
+## of that is `net.gd`'s RPC endpoints, the two orchestrators, and boilerplate like `to_network`.
+## Documenting all of it would bury the part that matters. These twelve are the registries and readers -
+## the ones that take what a mod wrote and normalise it - and they are the ones both known
+## reimplementations went looking for and did not find. (2026-09-22)
+const READER_FILES := [
+	"res://engine/shared/item_registry.gd",
+	"res://engine/shared/block_registry.gd",
+	"res://engine/shared/recipe_registry.gd",
+	"res://engine/shared/guide_registry.gd",
+	"res://engine/shared/effect_registry.gd",
+	"res://engine/shared/entity_registry.gd",
+	"res://engine/shared/sound_registry.gd",
+	"res://engine/shared/weather_registry.gd",
+	"res://engine/shared/music_registry.gd",
+	"res://engine/shared/tag_registry.gd",
+	"res://engine/server/loot.gd",
+	"res://engine/client/effects/effect_player.gd",
+]
+
+
+## Public functions in the reader files with no doc comment, as "file:function".
+##
+## A hard rule rather than a ratchet, because these reached 120 of 120 on the day it was written and a
+## rule that is already satisfied costs nothing to keep. An undocumented function does not appear on the
+## reference page at all, which is worse than being absent: a search that finds nothing reads as "there
+## is no such thing" when the honest answer is "nobody wrote it down".
+static func undocumented_readers() -> Array:
+	var out: Array = []
+	for path: String in READER_FILES:
+		if not FileAccess.file_exists(path):
+			out.append("%s: missing (update READER_FILES)" % path.trim_prefix("res://engine/"))
+			continue
+		var source := FileAccess.get_file_as_string(path)
+		var lines := source.split("\n")
+		for i in lines.size():
+			var line: String = lines[i]
+			if not (line.begins_with("func ") or line.begins_with("static func ")):
+				continue
+			var name := line.get_slice("func ", 1).get_slice("(", 0).strip_edges()
+			if name.begins_with("_"):
+				continue
+			if i == 0 or not String(lines[i - 1]).strip_edges().begins_with("##"):
+				out.append("%s:%s" % [path.trim_prefix("res://engine/"), name])
+	out.sort()
+	return out
+
+
+## Where the engine's own readers are listed, which is nowhere else.
+##
+## `index.html` documents the 288 functions a mod can call. The other ~670 documented public functions
+## under `engine/` - the registries, the readers, the helpers that turn what a mod supplied into
+## something usable - have no index at all, and CLAUDE.md has said twice that those are the things that
+## get reimplemented "because no document describes them". Weather hand-built an emitter dictionary
+## `EffectRegistry` already had a reader for; `sources.gd` walked loot pools while `chance_of` sat
+## unused. Neither was hard to find once somebody knew to look, and both times nobody knew to look.
+##
+## So: the same page, pointed inward. It is for whoever is about to write a reader, not for mod
+## authors, and a search box over one page is the difference between finding `chance_of` and not.
+const ENGINE_OUT := "engine.html"
+
+
+static func write_engine(out_dir: String) -> String:
+	DirAccess.make_dir_recursive_absolute(out_dir)
+	var path := out_dir.path_join(ENGINE_OUT)
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(build_engine())
+	f.close()
+	return path
+
+
+## What a question sounds like, and which files answer it.
+##
+## **Grouped by question, not by folder.** The engine's folders say where code lives; somebody about to
+## write a reader is asking "how do I find out how likely a drop is", and `server/loot.gd` is not an
+## obvious place to look for that unless you already know. Matched in order against the path, so a file
+## lands in the first section that claims it.
+const ENGINE_SECTIONS := [
+	["Drops, loot and rewards", ["loot", "container", "parcels"]],
+	["World generation", ["worldgen/", "biome", "cave", "structure", "feature", "spawners"]],
+	["Blocks and the world", ["block_registry", "block_shapes", "connect", "liquids", "block_ticks", "area_edits", "chunk",
+		"light", "realm", "instances", "explosions", "voxel_raycast", "multiblocks", "fields", "plots", "creations"]],
+	["Items, crafting and recipes", ["item_registry", "recipe", "crafting", "station", "experiments", "assembly", "assemblies",
+		"minigame", "mining", "inventory", "modifiers", "charging"]],
+	["Creatures and AI", ["entity_registry", "entities", "entity", "ai/", "spawning", "taming", "breeding", "companions",
+		"nameplates", "vehicles", "drives"]],
+	["Players", ["player", "hunger", "sleep", "equipment", "stat", "condition", "claims", "roles", "anticheat", "chat_filter"]],
+	["Effects, sound and weather", ["effect_registry", "sound", "music", "ambience", "weather", "cosmetic"]],
+	["Progression and story", ["objective", "milestone", "guide", "tutorial", "character", "shop", "ledger", "companies",
+		"flows", "signals", "links", "ugc"]],
+	["Mods, loading and validation", ["mod_", "mod.gd", "js_", "semver", "tag_registry", "sources"]],
+	["Saving, network and protocol", ["save", "persist", "net/", "protocol", "storage", "transfer", "invite_code",
+		"hub_announcer", "native", "user_paths"]],
+	["Dev tools and logging", ["dev_"]],
+	["The client", ["client/"]],
+	["The server itself", ["game_server", "main.gd"]],
+]
+
+
+static func build_engine() -> String:
+	var nav := PackedStringArray()
+	var body := PackedStringArray()
+	body.append(ENGINE_INTRO)
+	var paths: Array = _scripts_under("res://engine")
+	paths.sort()
+	# file -> section, so every file lands exactly once and nothing is silently dropped.
+	var grouped := {}
+	for entry in ENGINE_SECTIONS:
+		grouped[entry[0]] = []
+	grouped["Everything else"] = []
+	for path: String in paths:
+		# The mod-facing API has its own page.
+		if path == MOD_API:
+			continue
+		var documented: Array = parse_gdscript(FileAccess.get_file_as_string(path), "").filter(
+			func(fn): return not String(fn.doc).strip_edges().is_empty())
+		if documented.is_empty():
+			continue
+		var relative: String = path.trim_prefix("res://engine/")
+		var section: String = "Everything else"
+		for entry in ENGINE_SECTIONS:
+			var claimed := false
+			for fragment: String in entry[1]:
+				if relative.contains(fragment):
+					claimed = true
+					break
+			if claimed:
+				section = entry[0]
+				break
+		grouped[section].append([relative, documented, path])
+
+	var total := 0
+	var titles: Array = ENGINE_SECTIONS.map(func(e): return e[0])
+	titles.append("Everything else")
+	for title: String in titles:
+		var files: Array = grouped[title]
+		if files.is_empty():
+			continue
+		nav.append('<div class="group">%s</div>' % _esc(title))
+		for row in files:
+			var relative: String = row[0]
+			var anchor: String = _slug("e-" + relative)
+			nav.append('<a href="#%s">%s</a>' % [anchor, _esc(relative.get_file())])
+			var cards := PackedStringArray()
+			for fn: Dictionary in row[1]:
+				total += 1
+				# The section title goes into the search text, so searching "loot" finds every function
+				# in the loot section rather than only the ones with "loot" in their own words.
+				cards.append('<div class="card" data-search="%s"><div class="sig"><code>%s</code></div><p>%s</p></div>' % [
+					_esc((String(fn.name) + " " + String(fn.doc) + " " + relative + " " + title).to_lower()),
+					_esc(String(fn.signature)), _collapse(String(fn.doc))])
+			body.append('<section id="%s"><h2>%s <span class="file">%s</span></h2>%s%s</section>' % [
+				anchor, _esc(relative.get_file()), _esc(relative), _header_summary(FileAccess.get_file_as_string(String(row[2]))), "\n".join(cards)])
+	body.append('<section id="e-count"><p class="muted">%d documented functions across the engine.</p></section>' % total)
+	return PAGE.replace("{{title}}", "Quarrowen engine reference").replace("{{nav}}", "\n".join(nav)).replace("{{body}}", "\n".join(body)) \
+		.replace("{{api_version}}", Protocol.MOD_API_VERSION).replace("{{game_version}}", Protocol.GAME_VERSION)
+
+
+## The first paragraph of a file's header comment, as a lead line.
+static func _header_summary(source: String) -> String:
+	var head := _file_header(source).strip_edges()
+	if head.is_empty():
+		return ""
+	var first := head.split("\n\n")[0]
+	return '<p class="lead">%s</p>' % _esc(first.replace("\n", " "))
+
+
+const ENGINE_INTRO := """<h1>Quarrowen engine reference</h1>
+<p class="lead">Every documented function inside the engine, which is the half that has no other index.
+For the functions a mod calls, see <a href="index.html">the mod API</a>.</p>
+<p><strong>This page exists because the engine kept reimplementing its own readers.</strong> The mod API is
+listed, searchable and never gets rewritten by accident; the registries and readers behind it were
+findable only by knowing they were there. Weather hand-built a particle emitter that
+<code>EffectRegistry</code> already had a reader for, and <code>sources.gd</code> walked loot pools by
+hand and invented percentages while <code>LootRegistry.chance_of</code> was computing real ones.
+Before writing something that reads, normalises or validates data a mod supplied, search this page.</p>
+<p class="muted">Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>"""
+
+
 static func write(out_dir: String) -> String:
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	var path := out_dir.path_join("index.html")
@@ -164,7 +345,8 @@ static func build() -> String:
 		body.append('<section id="%s" class="ref"><h2>%s <span class="file">%s</span></h2><pre class="block">%s</pre></section>' % [
 			anchor, _esc(r[0]), _esc(r[1].trim_prefix("res://")), _esc(_file_header(FileAccess.get_file_as_string(r[1])))])
 
-	return PAGE.replace("{{nav}}", "\n".join(nav)).replace("{{body}}", "\n".join(body)).replace("{{api_version}}", Protocol.MOD_API_VERSION) \
+	return PAGE.replace("{{title}}", "Quarrowen Mod API " + Protocol.MOD_API_VERSION) \
+		.replace("{{nav}}", "\n".join(nav)).replace("{{body}}", "\n".join(body)).replace("{{api_version}}", Protocol.MOD_API_VERSION) \
 		.replace("{{game_version}}", Protocol.GAME_VERSION)
 
 
@@ -465,7 +647,7 @@ const PAGE := """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quarrowen Mod API {{api_version}}</title>
+<title>{{title}}</title>
 <style>
 :root { --bg: #fbfaf7; --panel: #ffffff; --line: #e6e2d8; --text: #25231f; --muted: #7a7466; --accent: #2f6fd0; --code: #f3f0e8; --tag: #e7f0ff; }
 @media (prefers-color-scheme: dark) { :root { --bg: #111317; --panel: #171a20; --line: #2a2f38; --text: #dde1e7; --muted: #8b919c; --accent: #7fb0ff; --code: #1f232b; --tag: #1d2a40; } }

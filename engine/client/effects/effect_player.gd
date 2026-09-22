@@ -49,6 +49,10 @@ func play(id: int, position: Vector3, options := {}, parent: Node3D = null, list
 	return play_def(registry.defs[id], position, options, parent, listener)
 
 
+## Plays an effect from its definition rather than its id, for effects that were never registered.
+##
+## Oldest effects are freed once `MAX_LIVE` are running: a mod that fires one per tick should slow the
+## room down, not fill memory.
 func play_def(def: Dictionary, position: Vector3, options := {}, parent: Node3D = null, listener := Vector3.INF) -> Node3D:
 	while _live.size() >= MAX_LIVE:
 		var oldest: Node3D = _live.pop_front()

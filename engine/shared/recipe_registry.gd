@@ -39,6 +39,8 @@ func _init() -> void:
 		register_category(c)
 
 
+## Declares a tab for the crafting screen. False if the name is empty or already taken - first
+## registration wins, so a mod cannot rename another mod's category.
 func register_category(def: Dictionary) -> bool:
 	var cat_name := str(def.get("name", "")).left(32)
 	if cat_name.is_empty() or categories.any(func(c): return c.name == cat_name):
@@ -99,6 +101,10 @@ static func _clean_pattern(value) -> Array:
 	return rows
 
 
+## Starts watching one mod's recipes so `end_reload` can tell which have gone.
+##
+## Reloading cannot simply drop the owner's recipes and re-add them: a recipe is referred to by index
+## elsewhere, so they are marked removed instead and the indices stay put.
 func begin_reload(owner: String) -> void:
 	_reloading_owner = owner
 	_reloaded = {}
@@ -122,6 +128,8 @@ func clear() -> void:
 	_ids.clear()
 
 
+## Where a recipe sits in `recipes`, or -1. The index is what everything else refers to a recipe by,
+## because it survives a reload while the array position of a rebuilt list would not.
 func index_of(recipe_id: String) -> int:
 	return _ids.get(recipe_id, -1)
 
@@ -136,6 +144,8 @@ func using(item: int) -> Array:
 	return range(recipes.size()).filter(func(i): return recipes[i].inputs.has(item))
 
 
+## Which crafting tab a recipe belongs in when the mod did not say: worked out from what it makes -
+## blocks, armor, tools, weapons, food, else materials.
 static func guess_category(output: int, items) -> String:
 	if items == null:
 		return "misc"
@@ -153,10 +163,12 @@ static func guess_category(output: int, items) -> String:
 	return "materials"
 
 
+## The recipe book as the client receives it.
 func to_network() -> Dictionary:
 	return {"recipes": recipes.duplicate(true), "categories": categories.duplicate(true)}
 
 
+## Rebuilds the book on the client. False when the data is not the shape we expect.
 func load_network(data) -> bool:
 	if not (data is Dictionary):
 		return true

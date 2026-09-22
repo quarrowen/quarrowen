@@ -4292,6 +4292,36 @@ func _api_docs() -> void:
 	_check(FileAccess.get_file_as_string("res://docs/api/index.html") == html,
 		"docs/api/index.html is up to date (regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)")
 
+	# The mod API is indexed and never gets reimplemented; the engine's own readers had no index and got
+	# reimplemented twice. Same codebase, same people, and the only difference was whether a thing could
+	# be found - so the page is the fix, and this keeps it honest. (2026-09-22)
+	var engine_html: String = Docs.build_engine()
+	_check(engine_html.contains("chance_of") and engine_html.contains("Drops, loot and rewards"),
+		"the engine reference lists the readers behind the API, grouped by the question they answer")
+	_check(FileAccess.get_file_as_string("res://docs/api/engine.html") == engine_html,
+		"docs/api/engine.html is up to date (regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)")
+
+	# Reaching into a shape another file owns is how both reimplementations started: weather hand-built
+	# an emitter EffectRegistry had a reader for, sources.gd walked loot pools while chance_of went
+	# unused. A ratchet, like unbound.txt - the baseline is checked in and may only shrink, so a new
+	# subsystem cannot quietly hand-roll a reader for a shape that already has one.
+	var Encapsulation = preload("res://tools/encapsulation.gd")
+	var owned_now: Array = Encapsulation.report()
+	var owned_was: Array = Encapsulation.baseline()
+	var reaching := owned_now.filter(func(line): return not owned_was.has(line))
+	_check(reaching.is_empty(),
+		"nothing new reaches into a structure another file owns - %s (is there already a reader? see docs/api/engine.html)" % "; ".join(reaching))
+	# An undocumented function is not on the page at all, so a fruitless search reads as "no such thing"
+	# rather than "nobody wrote it down". The registries were the worst-covered files in the engine when
+	# this landed - effect_registry at 3 of 9, item_registry at 9 of 27 - which is exactly backwards.
+	var undocumented_readers: Array = Docs.undocumented_readers()
+	_check(undocumented_readers.is_empty(),
+		"every reader a new subsystem might reinvent is documented, so it can be found (%s)" % ", ".join(undocumented_readers))
+
+	var gone := owned_was.filter(func(line): return not owned_now.has(line))
+	_check(gone.is_empty(),
+		"and engine/owned.txt has no stale entries - %s no longer reaches in, regenerate with `mod_tool.tscn -- owned`" % "; ".join(gone))
+
 	# The two mod APIs are written by hand and drifted to 139 of 262 before anybody counted. A ratchet
 	# rather than a target: the list may shrink, and a name that is not already in it fails here, so a
 	# capability cannot land in GDScript alone the way the last two days' worth did. (2026-09-20)

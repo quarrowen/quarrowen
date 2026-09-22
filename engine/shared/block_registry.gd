@@ -221,18 +221,32 @@ static func facing_direction(facing: int) -> Vector3i:
 	return [Vector3i(0, 0, 1), Vector3i(1, 0, 0), Vector3i(0, 0, -1), Vector3i(-1, 0, 0)][facing & 3]
 
 
+## The id registered under this name, or **-1 if nothing is**.
+##
+## -1 is an answer, not an error: mods rely on it to make optional content optional. But **a -1 kept
+## and later written as the u16 a block id is becomes 65535, which means UNLOADED** - the world then
+## reads as absent rather than wrong, and the symptom is a player falling for ever. Keep the answer
+## only after checking it, or use the `require_*` form at the API boundary.
 func id_of(block_name: String) -> int:
 	return ids.get(block_name, -1)
 
 
+## Whether anything is registered under this id.
 func is_valid(id: int) -> bool:
 	return id >= 0 and id < defs.size()
 
 
+## The name to show a player, or "?" for an id nothing registered. Display names are safe to change;
+## ids are not, because saves are written by name and ids shift whenever anything is added.
 func display_name(id: int) -> String:
 	return defs[id].display_name if is_valid(id) else "?"
 
 
+## A mod's `textures` normalised to one asset name per face, always six, in face order.
+##
+## A mod may write one name for every face, `{all, side, top, bottom}`, or all six. Use this rather
+## than reading the value a mod wrote - three of those four shapes are not an Array, and code that
+## assumes the sixth-element form gets a block with no texture rather than an error.
 static func expand_textures(value) -> Array:
 	var faces := ["", "", "", "", "", ""]
 	if value is String:
@@ -247,6 +261,7 @@ static func expand_textures(value) -> Array:
 	return faces
 
 
+## The block table as the client receives it, trimmed to `NETWORK_FIELDS`. Sent once on joining.
 func to_network() -> Array:
 	var out := []
 	for d in defs:

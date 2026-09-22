@@ -74,6 +74,8 @@ func forget(owner: String) -> void:
 		tables[table_name].pools = pools.filter(func(pool): return str(pool.get("owner", "")) != owner)
 
 
+## Whether a table is registered under this name. Generated tables (`mob:`, `block:`) only exist once
+## something has asked for them, so this answers false for a creature nothing has killed yet.
 func has(table_name: String) -> bool:
 	return tables.has(table_name)
 
@@ -166,6 +168,11 @@ func table_for_entity(def: Dictionary) -> String:
 	return _table_for(def, "mob:" + str(def.get("name", "")), def.get("drops", []))
 
 
+## The name of the table a block drops from, building it from `default_drops` the first time.
+##
+## As with `table_for_entity`, the table does not exist until this is called - so anything asking what
+## a block can drop has to call this first, or the registry will honestly report that it has never
+## heard of it. (2026-09-22)
 func table_for_block(block: int, default_drops: Array) -> String:
 	var def: Dictionary = _server.registry.defs[block]
 	return _table_for(def, "block:" + str(def.get("name", block)), default_drops)

@@ -7,6 +7,7 @@ extends Node
 ##   godot --headless --path . res://tools/mod_tool.tscn -- index build/release/v1.2.3/mods --base-url=https://quarrowen.com/v1.2.3/mods
 ##                                                                     [--out=build/release/mods.json] [--version=1.2.3]
 ##   godot --headless --path . res://tools/mod_tool.tscn -- docs [--out=docs/api]
+##   godot --headless --path . res://tools/mod_tool.tscn -- owned
 ## validate: checks the manifest, files, scripts, a real load and every reference (exit code 1 on errors).
 ## pack: validates, then writes <out>/<id>-<version>.zip, which servers load from any mods folder.
 ## index: reads a folder of packed mods and writes mods.json, the list the game's mod screen reads (see
@@ -36,8 +37,13 @@ func _run() -> void:
 		return
 	if positional.size() >= 1 and positional[0] == "docs":
 		var out := ProjectSettings.globalize_path(str(options.get("out", "res://docs/api")))
-		var written := DocsGenerator.write(out)
-		_out("wrote %s" % written)
+		_out("wrote %s" % DocsGenerator.write(out))
+		_out("wrote %s" % DocsGenerator.write_engine(out))
+		get_tree().quit(0)
+		return
+	if positional.size() >= 1 and positional[0] == "owned":
+		var Encapsulation = preload("res://tools/encapsulation.gd")
+		_out("wrote %s (%d reaching past an owner)" % [Encapsulation.OUT, Encapsulation.write()])
 		get_tree().quit(0)
 		return
 	if positional.size() >= 1 and positional[0] == "bindings":
@@ -65,7 +71,11 @@ func _run() -> void:
 		_out("created %s (%s %s):" % [created.dir, created.language, "game" if created.game else "add-on"])
 		for f in created.files:
 			_out("  " + f)
-		_out("next: godot --path . -- --host=%s --dev" % (positional[1] if created.game else "vanilla," + positional[1]))
+		# Nothing may default to a game - they were deleted, and naming one here sent a new add-on
+		# author to a mod that does not exist. An add-on needs a game to sit in, and only the author
+		# knows which. (2026-09-22)
+		_out("next: godot --path . -- --host=%s --dev" % positional[1] if created.game else
+			"next: install a game, then: godot --path . -- --host=<game>,%s --dev" % positional[1])
 		get_tree().quit(0)
 		return
 	if positional.size() < 2 or not positional[0] in ["validate", "pack"]:

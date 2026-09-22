@@ -3856,3 +3856,79 @@ the screen — a client can always ask.
 
 Neither is content: both work off whatever any mod registered, and both are in the Proving Ground,
 which ships with nothing.
+
+## A guardrail against reimplementing what already exists (2026-09-22, user: "how do we set a guardrail against this?")
+
+Asked after the loot-registry episode, and the question was the right one: the rule *"before adding a
+capability, look for the one that exists"* had been in CLAUDE.md since 19 September, was read at the
+start of the session, and was broken anyway. Sharpening the prose a third time is what I had just
+done, and it has the worst track record of anything available.
+
+**The natural experiment that settled the diagnosis.** Same codebase, same person, two surfaces:
+
+| Surface | Functions | Indexed? | Ever reimplemented? |
+|---|---|---|---|
+| Mod API | 288 | yes, searchable, suite-enforced | never |
+| Engine internals | 1118 documented | no index at all | twice |
+
+CLAUDE.md already stated the outcome without drawing the conclusion - *"what gets reimplemented is
+never that"*. The docs were not missing; every one of those functions already had a `##` comment. The
+**index** was missing. A structural gap, not a writing gap, which is why "write more docs" would have
+been wrong and a third paragraph doubly so.
+
+**Three checks were measured and two thrown away**, which is worth recording so they are not proposed
+again:
+
+- *Duplicate function names* - 197 hits, and `register` appearing in 28 registries is correct
+  polymorphism, not duplication. Dead.
+- *Doc-comment similarity against `mod_api.gd`* - 170 hits, and `api.show_tip` resembling
+  `tutorials.show_tip` is what a facade is **for**. Dead.
+- *Deriving ownership from which file builds a key* - 133 hits, almost all coincidence. Dead.
+- *Who reaches into a nested shape another file owns* - 0 to 3 files per key. Alive.
+
+**What landed:**
+
+1. **`docs/api/engine.html`**, generated beside the mod API page and **grouped by the question rather
+   than by folder** - the user's point, and the better half of the fix. `server/loot.gd` is not where
+   anybody looks for "how likely is this drop"; "Drops, loot and rewards" is. Three files fall through
+   to "Everything else", down from thirty on the first cut. The section title is folded into each
+   card's search text, so searching "loot" finds the whole section rather than only the functions with
+   the word in them.
+2. **`engine/owned.txt`**, a ratchet in the `unbound.txt` idiom: 13 baseline entries across four owned
+   shapes (`pools`, `entries`, `emitters`, `drops`). Proved rather than assumed - a probe file that
+   walked `table.pools` by hand made the suite fail with the right message and a pointer to the page.
+   Two candidate keys were seeded and removed: `realm.generation_passes` (a bare Array with no reader,
+   so flagging it reports four things nobody can fix) and `shape` (a block shape, a recipe shape and a
+   particle shape; a name-based check cannot tell them apart).
+3. **A documentation floor on the twelve reader files.** Measuring properly turned up the genuinely
+   alarming number: **48%** of public functions under `engine/` have no doc comment, and the
+   *registries were the worst-covered files in the engine* - `effect_registry.gd` 3 of 9,
+   `entity_registry.gd` 2 of 5, `item_registry.gd` 9 of 27. Exactly backwards, because an undocumented
+   function does not appear on the page at all, so a fruitless search reads as "there is no such thing"
+   rather than "nobody wrote it down". Now 120 of 120, suite-enforced, and proved by stripping one
+   comment and watching it fail.
+
+**Deliberately not done:** documenting the other 896. `net.gd`'s 146 RPC endpoints, the two
+orchestrators' 159, and repeated boilerplate (`to_network`, `id_of`, `is_valid`) make up most of it,
+and writing that up would bury the signal rather than surface it. If the rule is broken again in a file
+outside the twelve, widen `READER_FILES` rather than carpet-document.
+
+**The honest limit**, recorded so it is not forgotten: none of this would have caught the bug on the
+day. The user's question did - "does the loot registry also have a drop chance pct?". A check that
+fires on encapsulation catches a new subsystem reaching into an old one's data, which is where both
+known incidents live, but logic quietly re-derived from scratch is not mechanically detectable. For
+that the mechanism is a domain question at review time, which is not a thing the repository can own.
+
+### Noticed while doing it: `host_flow_test` reaches the real internet (2026-09-22)
+
+One run of suite 1 failed `host client joined its own server`, with two `TLS handshake error: -27648`
+lines above it. It passed alone and passed on a full re-run, so it is a flake, not a regression - but
+the TLS is the interesting part, because the test itself never mentions the hub. What does reach out is
+the **main menu**, which the host flow launches: `hub_client.gd` fetches news, and `updater.gd` checks
+`https://quarrowen.com/update.json`. So a network hiccup on the machine running the suite can fail a
+test about joining a local server.
+
+This is the same shape as the `user://` rule - **the suite should not touch the real world** - and it
+has the same fix: an environment guard that the tests set, asserted rather than trusted. Not done yet;
+it is a flake rather than a wrong answer, and the day was already about something else. Worth doing
+before it is blamed on something innocent, which is how the last two of these went.

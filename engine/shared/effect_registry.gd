@@ -99,10 +99,17 @@ func register(def: Dictionary) -> int:
 	return id
 
 
+## The id registered under this name, or **-1 if nothing is**.
+##
+## -1 is an answer, not an error: mods rely on it to make optional content optional. But **a -1 kept
+## and later written as the u16 a block id is becomes 65535, which means UNLOADED** - the world then
+## reads as absent rather than wrong, and the symptom is a player falling for ever. Keep the answer
+## only after checking it, or use the `require_*` form at the API boundary.
 func id_of(effect_name: String) -> int:
 	return ids.get(effect_name, -1)
 
 
+## Whether anything is registered under this id.
 func is_valid(id: int) -> bool:
 	return id >= 0 and id < defs.size()
 
@@ -128,10 +135,12 @@ static func clean_options(options) -> Dictionary:
 	return out
 
 
+## The effect table as the client receives it.
 func to_network() -> Array:
 	return defs.duplicate(true)
 
 
+## Rebuilds the table on the client. False when the data is not the shape we expect.
 func load_network(data) -> bool:
 	if not (data is Array) or data.size() > MAX_EFFECTS:
 		return false
@@ -143,10 +152,14 @@ func load_network(data) -> bool:
 	return true
 
 
+## Whether a mod wrote something we can read as a colour: `#rgb`, `#rrggbb` or `#rrggbbaa`.
 static func is_color(value) -> bool:
 	return value is String and (value as String).length() in [4, 7, 9] and (value as String).begins_with("#") and Color.html_is_valid(value)
 
 
+## A mod's colour normalised to `#rrggbbaa`, or `fallback` if it is not one. Use this rather than
+## `Color.html`, which returns black for anything it cannot parse - and a silent black is very hard
+## to tell from a colour somebody meant.
 static func clean_color(value, fallback: String) -> String:
 	return "#" + Color.html(value).to_html(true) if is_color(value) else fallback
 

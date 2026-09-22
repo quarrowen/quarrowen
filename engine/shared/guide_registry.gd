@@ -27,6 +27,7 @@ var _chapter_index := {}
 var _page_index := {}
 
 
+## Adds a guidebook chapter. False if it has no id, or one is already registered under that id.
 func add_chapter(def: Dictionary) -> bool:
 	var id := str(def.get("id", ""))
 	if id.is_empty():
@@ -41,6 +42,7 @@ func add_chapter(def: Dictionary) -> bool:
 	return true
 
 
+## Adds a page to a chapter. False if it has no id, or one is already registered under that id.
 func add_page(def: Dictionary) -> bool:
 	var id := str(def.get("id", ""))
 	if id.is_empty():
@@ -85,6 +87,8 @@ func remove_owner(owner: String) -> void:
 		pages.append(p)
 
 
+## Empties the book. The client calls this before loading the server's copy, so a second world does
+## not inherit the first one's pages.
 func clear() -> void:
 	chapters.clear()
 	pages.clear()
@@ -92,10 +96,12 @@ func clear() -> void:
 	_page_index.clear()
 
 
+## One page, or `{}` if there is no such page.
 func get_page(id: String) -> Dictionary:
 	return pages[_page_index[id]] if _page_index.has(id) else {}
 
 
+## One chapter, or `{}` if there is no such chapter.
 func get_chapter(id: String) -> Dictionary:
 	return chapters[_chapter_index[id]] if _chapter_index.has(id) else {}
 
@@ -107,6 +113,8 @@ func chapter_pages(chapter_id: String) -> Array:
 	return out
 
 
+## Chapters in the order a player should see them: by `order`, then by title so the result is stable
+## when two chapters share one.
 func sorted_chapters() -> Array:
 	var out := chapters.duplicate()
 	out.sort_custom(func(a, b): return a.order < b.order if a.order != b.order else a.title < b.title)
@@ -123,10 +131,12 @@ static func page_text(page: Dictionary) -> String:
 	return " ".join(parts).to_lower()
 
 
+## The whole book as the client receives it.
 func to_network() -> Dictionary:
 	return {"chapters": chapters, "pages": pages}
 
 
+## Replaces the client's book with the server's.
 func load_network(data) -> void:
 	if not (data is Dictionary):
 		return

@@ -41,10 +41,12 @@ func names_in(tag_name: String) -> Array:
 	return members.get(tag_name, {}).keys()
 
 
+## Whether a thing is in a tag. This is the cheap question - `tags_of` walks every tag, this does not.
 func has(tag_name: String, name: String) -> bool:
 	return members.get(tag_name, {}).has(name)
 
 
+## Whether anything has ever been put in this tag. A tag nobody filled is absent, not empty.
 func exists(tag_name: String) -> bool:
 	return members.has(tag_name)
 

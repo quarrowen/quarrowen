@@ -50,6 +50,8 @@ func _init(block_registry) -> void:
 		register_slot({"name": slot_name})
 
 
+## Whether an id is a block rather than a registered item. Every block is also an item, and block ids
+## run below `FIRST_ITEM` while item ids start there.
 static func is_block_item(id: int) -> bool:
 	return id > 0 and id < FIRST_ITEM
 
@@ -145,6 +147,7 @@ func register_slot(def: Dictionary) -> int:
 	return slots.size() - 1
 
 
+## Where a named equipment slot sits in `slots`, or -1 if there is no such slot.
 func slot_index(slot_name: String) -> int:
 	for i in slots.size():
 		if slots[i].name == slot_name:
@@ -152,6 +155,7 @@ func slot_index(slot_name: String) -> int:
 	return -1
 
 
+## Every equipment slot's name, in the order they were registered.
 func slot_names() -> PackedStringArray:
 	var out := PackedStringArray()
 	for s in slots:
@@ -159,6 +163,8 @@ func slot_names() -> PackedStringArray:
 	return out
 
 
+## Declares a stat and the value it has before any modifier applies. First registration wins, so a mod
+## cannot change the base another mod set.
 func register_stat(stat_name: String, base: float) -> void:
 	if not stats.has(stat_name):
 		stats[stat_name] = base
@@ -178,26 +184,34 @@ func id_of(item_name: String) -> int:
 	return blocks.id_of(item_name)
 
 
+## Whether anything is registered under this id, block or item.
 func is_valid(id: int) -> bool:
 	return blocks.is_valid(id) and id > 0 or (id >= FIRST_ITEM and id - FIRST_ITEM < defs.size())
 
 
+## An item's definition, or `{}` for a block id or an id nothing registered. Blocks keep their
+## definitions in `BlockRegistry`, so this answers `{}` for them rather than failing.
 func get_def(id: int) -> Dictionary:
 	return defs[id - FIRST_ITEM] if id >= FIRST_ITEM and id - FIRST_ITEM < defs.size() else {}
 
 
+## The internal name (`mod:thing`), for blocks and items alike. This is what saves are written with,
+## because ids shift whenever anything is added and names do not.
 func name_of(id: int) -> String:
 	if id >= FIRST_ITEM:
 		return get_def(id).get("name", "")
 	return blocks.defs[id].name if blocks.is_valid(id) else ""
 
 
+## The name to show a player. Safe to change at any time, unlike the internal name.
 func display_name(id: int) -> String:
 	if id >= FIRST_ITEM:
 		return get_def(id).get("display_name", "?")
 	return blocks.display_name(id)
 
 
+## How many fit in one slot. Blocks are always 64; an item says so in its definition, and anything with
+## durability normally says 1.
 func max_stack(id: int) -> int:
 	return get_def(id).get("max_stack", 64) if id >= FIRST_ITEM else 64
 
@@ -209,12 +223,19 @@ func max_durability(id: int, item_data := {}) -> int:
 	return get_def(id).get("durability", 0)
 
 
+## The tool stats in force for this particular stack: `{type, tier, speed}`, or `{}` if it is not a tool.
+##
+## **Per-stack data wins over the definition**, which is what makes a tool built from parts possible -
+## two stacks of the same item can mine at different speeds. Read this rather than `get_def(id).tool`,
+## or a part-built tool silently reports the stats of the plain one.
 func tool_of(id: int, item_data := {}) -> Dictionary:
 	if item_data is Dictionary and item_data.get("tool") is Dictionary:
 		return _clean_dict(item_data.tool, {"type": "", "tier": 0, "speed": 1.0})
 	return get_def(id).get("tool", {})
 
 
+## The weapon stats in force for this particular stack: `{damage, cooldown, reach, crit_chance,
+## knockback, sweep}`, or `{}` if it is not a weapon. Per-stack data wins, as with `tool_of`.
 func weapon_of(id: int, item_data := {}) -> Dictionary:
 	if item_data is Dictionary and item_data.get("weapon") is Dictionary:
 		return _clean_dict(item_data.weapon, {"damage": 1.0, "cooldown": 0.25, "reach": 4.5, "crit_chance": 0.0, "knockback": 1.0, "sweep": 0.0})
@@ -248,6 +269,7 @@ static func clean_food(value) -> Dictionary:
 		"sound": str(value.get("sound", "")).left(64)}
 
 
+## Whether right-clicking with it fires `item_use`.
 func is_usable(id: int) -> bool:
 	return get_def(id).get("usable", false)
 
@@ -259,6 +281,8 @@ func icon_of(id: int) -> String:
 	return blocks.defs[id].textures[4] if blocks.is_valid(id) else ""
 
 
+## The item table as the client receives it. Sent once on joining, so the client can name and draw
+## everything without the server being asked again.
 func to_network() -> Array:
 	var out := []
 	for d in defs:
@@ -269,6 +293,8 @@ func to_network() -> Array:
 	return out
 
 
+## Rebuilds the table on the client from what the server sent. False when the data is not the shape we
+## expect, which is refused at the door rather than half-loaded.
 func load_network(data, slot_data = null, stat_data = null) -> bool:
 	if not (data is Array) or data.size() > MAX_ITEMS:
 		return false
@@ -309,6 +335,10 @@ func visuals(id: int, item_data := {}) -> Dictionary:
 	return out
 
 
+## A mod's `glow` normalised: `{color, energy 0-8, light 0-16}`, or `{}` if there is none.
+##
+## Use this rather than reading the dictionary a mod wrote. The clamps are the point - an item asking
+## for a light level of 400 is a mod bug, not a reason for the world to light up.
 static func clean_glow(value) -> Dictionary:
 	if not (value is Dictionary) or value.is_empty():
 		return {}
@@ -316,6 +346,7 @@ static func clean_glow(value) -> Dictionary:
 		"light": clampf(_f(value.get("light"), 0.0), 0.0, 16.0)}
 
 
+## A mod's `trail` normalised: `{color, width 0.1-1, seconds 0.05-1}`, or `{}` if there is none.
 static func clean_trail(value) -> Dictionary:
 	if not (value is Dictionary) or value.is_empty():
 		return {}
@@ -323,6 +354,8 @@ static func clean_trail(value) -> Dictionary:
 		"seconds": clampf(_f(value.get("seconds"), 0.18), 0.05, 1.0)}
 
 
+## A mod's `effects` normalised to the hooks the engine actually plays (`EFFECT_HOOKS`), with anything
+## else dropped. An effect named under a hook nobody fires is a quiet nothing, so this is where it goes.
 static func clean_effects(value) -> Dictionary:
 	var out := {}
 	if value is Dictionary:
@@ -342,6 +375,8 @@ static func _color(value, fallback: String) -> String:
 	return fallback
 
 
+## A mod's stat modifiers normalised: `[{stat, amount, op}]`, `op` either "add" or "multiply", capped at
+## sixteen. Anything without a `stat` name is dropped rather than carried as a half-modifier.
 static func clean_modifiers(list) -> Array:
 	var out := []
 	for m in (list if list is Array else []):

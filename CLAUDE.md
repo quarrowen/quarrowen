@@ -140,8 +140,28 @@ private function that two things use is a fact about the code that ought to be v
 The sharper form of the rule, after it was broken again on 2026-09-22: **the registries are public and
 get found; the readers behind them are private and get reimplemented.** `sources.gd` was walking loot
 pools by hand and inventing flat percentages while `LootRegistry.chance_of` computed real ones - and
-`api.loot_sources`, which calls it, was twenty lines above the function being written. Following an
-API function down into the engine is the check that costs a minute.
+`api.loot_sources`, which calls it, was twenty lines above the function being written.
+
+**That rule had been in this file since 19 September and was broken anyway**, so it is no longer only a
+rule. Three things now stand behind it:
+
+- **`docs/api/engine.html`** - the engine's own reference, generated beside the mod API's and grouped by
+  the question being asked ("Drops, loot and rewards") rather than by folder, because `server/loot.gd`
+  is not where anybody looks for "how likely is this drop". **Search it before writing a reader.** The
+  natural experiment that justifies it: the mod API is indexed and has never been reimplemented; the
+  engine internals had no index and have been reimplemented twice.
+- **`engine/owned.txt`** - who reaches into a nested shape another file owns (`pools` and `entries`
+  belong to `loot.gd`, `emitters` to `effect_registry.gd`, `drops` to `entity_registry.gd`). A ratchet
+  like `unbound.txt`: the baseline may only shrink, and anything new fails the suite. Both known
+  reimplementations began exactly this way.
+- **A documentation floor on the twelve reader files.** They were the *worst*-covered files in the
+  engine - `effect_registry.gd` at 3 of 9, `item_registry.gd` at 9 of 27 - which is backwards, because
+  an undocumented function is not on the reference page at all, so a fruitless search reads as "there is
+  no such thing" instead of "nobody wrote it down". Now 120 of 120, and the suite keeps it there.
+
+Deliberately *not* done: documenting all 896 undocumented public functions under `engine/`. Most of them
+are `net.gd`'s RPC endpoints, the two orchestrators and boilerplate like `to_network`, and writing that
+up would bury the part that matters rather than surface it.
 
 ## Things that look safe and are not
 
@@ -203,8 +223,16 @@ refused at the door, which is the kind failure.
 godot --headless --path . res://tools/mod_tool.tscn -- docs
 ```
 
+That writes **two** pages: `index.html` (the mod API) and `engine.html` (the engine's own readers).
 Run it after touching `engine/server/mod_api.gd`, any `## ` header comment listed in
-`tools/docs_generator.gd`, or `engine/server/js/quarrowen.d.ts`.
+`tools/docs_generator.gd`, `engine/server/js/quarrowen.d.ts`, or any doc comment in a reader file.
+
+`engine/owned.txt` is generated separately, and only needs regenerating when something stops reaching
+into a shape it does not own:
+
+```sh
+godot --headless --path . res://tools/mod_tool.tscn -- owned
+```
 
 ## Running the game rewrites project.godot
 

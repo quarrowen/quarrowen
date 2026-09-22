@@ -1,0 +1,30 @@
+# Who reaches into a structure another file owns.
+#
+# A ratchet, not a ban. Some of these are fine - the client has to read an emitter to draw one - and
+# some are the next weather bug waiting to happen. What matters is that the list may only get shorter:
+# tests/gameplay_test.gd fails when a line appears that is not already here, so a new subsystem cannot
+# quietly hand-roll a reader for a shape that already has one. That is how loot pools got walked by
+# hand while LootRegistry.chance_of sat unused (2026-09-22), and how weather built an emitter the
+# client could not read (2026-09-19).
+#
+# Each line is: <shape> <owner> <the file reaching in>
+#
+# Before adding to this file, check whether the owner already has a function that answers the
+# question. It usually does, and no document lists them - which is the whole reason this exists. The
+# engine's own reference page (docs/api/engine.html) is the place to look.
+#
+# Regenerate with: godot --headless --path . res://tools/mod_tool.tscn -- owned
+
+drops engine/shared/entity_registry.gd engine/server/area_edits.gd
+drops engine/shared/entity_registry.gd engine/server/entities.gd
+drops engine/shared/entity_registry.gd engine/server/game_server.gd
+drops engine/shared/entity_registry.gd engine/server/js_mod.gd
+drops engine/shared/entity_registry.gd engine/server/loot.gd
+drops engine/shared/entity_registry.gd engine/server/mod_api.gd
+drops engine/shared/entity_registry.gd engine/server/mod_validator.gd
+drops engine/shared/entity_registry.gd engine/server/sources.gd
+emitters engine/shared/effect_registry.gd engine/client/effects/effect_player.gd
+emitters engine/shared/effect_registry.gd engine/server/mod_api.gd
+entries engine/server/loot.gd engine/server/dev_tools.gd
+entries engine/server/loot.gd engine/server/dev_web.gd
+entries engine/server/loot.gd engine/server/mod_validator.gd

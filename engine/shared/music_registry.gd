@@ -48,14 +48,22 @@ func register(def: Dictionary) -> int:
 	return defs.size() - 1
 
 
+## The id registered under this name, or **-1 if nothing is**.
+##
+## -1 is an answer, not an error: mods rely on it to make optional content optional. But **a -1 kept
+## and later written as the u16 a block id is becomes 65535, which means UNLOADED** - the world then
+## reads as absent rather than wrong, and the symptom is a player falling for ever. Keep the answer
+## only after checking it, or use the `require_*` form at the API boundary.
 func id_of(track_name: String) -> int:
 	return int(ids.get(track_name, -1))
 
 
+## Whether anything is registered under this id.
 func is_valid(id: int) -> bool:
 	return id >= 0 and id < defs.size()
 
 
+## The music table as the client receives it.
 func to_network() -> Array:
 	var out := []
 	for d in defs:
@@ -66,6 +74,7 @@ func to_network() -> Array:
 	return out
 
 
+## Rebuilds the table on the client. False when the data is malformed.
 func load_network(list) -> bool:
 	defs.clear()
 	ids.clear()
