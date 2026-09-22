@@ -207,11 +207,11 @@ const LIT_WATER := """
 		// blocks they sit on. The two sets are also deliberately not aligned to the axes, or the
 		// interference pattern itself becomes a grid. (2026-09-22)
 		vec3 n = surface ? normalize(vec3(
-			sin(dot(world_pos.xz, vec2(4.7, 2.1)) + TIME * 1.9) * 0.022
-				+ sin(dot(world_pos.xz, vec2(-1.9, 5.3)) - TIME * 2.6) * 0.014,
+			sin(dot(world_pos.xz, vec2(1.3, 0.5)) + TIME * 1.5) * 0.058
+				+ sin(dot(world_pos.xz, vec2(-0.6, 2.1)) - TIME * 1.1) * 0.030,
 			1.0,
-			cos(dot(world_pos.xz, vec2(2.3, -4.9)) + TIME * 1.7) * 0.022
-				+ cos(dot(world_pos.xz, vec2(5.1, 1.7)) + TIME * 2.3) * 0.014))
+			cos(dot(world_pos.xz, vec2(1.2, -0.4)) + TIME * 1.3) * 0.058
+				+ cos(dot(world_pos.xz, vec2(1.9, 0.7)) + TIME * 0.9) * 0.030))
 			: world_normal;
 		float raw = texture(depth_texture, SCREEN_UV).r;
 		vec4 behind = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, raw, 1.0);
@@ -222,7 +222,16 @@ const LIT_WATER := """
 		vec3 tint = mix(shallow_color, deep_color, thickness);
 		// The floor still shows through shallow water and stops showing through deep water.
 		color = mix(refracted * mix(vec3(1.0), tint, 0.65), tint, thickness * 0.95) * max(daylight, 0.06);
-		float fresnel = pow(1.0 - clamp(dot(-view, n), 0.0, 1.0), 5.0);
+		// **Softer than a fifth power, and over waves you can see.** These two numbers are one
+		// decision, and getting it wrong in either direction is visible from across a lake. A fifth
+		// power over five-block waves gave broad white bands marching across the surface, so the waves
+		// were flattened to almost nothing - which killed the banding and the waves together, and the
+		// lit preset ended up looking like a sheet of glass while the cheaper presets looked like
+		// water. The banding was never the waves' fault; it was the violence of the curve. So: waves
+		// back at roughly the scale the unshaded water uses, and a third power instead of a fifth.
+		// (user, 2026-09-22: "realistic water still looks like a sheet... in balanced and fancy the
+		// water looks like waves")
+		float fresnel = pow(1.0 - clamp(dot(-view, n), 0.0, 1.0), 3.0);
 		// Only a surface mirrors. A wall of water seen from the side is something you look *through*,
 		// and reflecting the sky off it turns a river's edge into a pane of glass.
 		if (surface) {

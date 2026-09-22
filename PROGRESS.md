@@ -4645,3 +4645,32 @@ which is the same property that lets a tablet join any server without installing
 something at the bottom centre lands on top of the belt. Worth an anchor that means "above the hotbar,
 wherever it is", so a mod does not have to know what the HUD looks like this version. Not built: it
 wants a real mod pushing against it first, and `base` will provide one.
+
+
+## Water: the fix that removed the thing it was fixing (2026-09-22)
+
+The user, playing the build: *"realistic water still looks like a sheet... in balanced and fancy the
+water looks like waves."* The expensive preset looked worse than the cheap one, which is the sort of
+inversion that means somebody optimised the wrong symptom. That somebody was me, the day before.
+
+The two presets run different water code. The unshaded path (fancy, balanced) uses a wave normal with
+an amplitude of 0.06 + 0.03 at roughly a five-block wavelength, and drives the reflection mix off
+fresnel - **the fresnel variation across those waves is the wave appearance**. The lit path had been
+changed to 0.022 + 0.014 at about 1.3 blocks, three times shallower and four times finer, with a fifth
+power on the fresnel.
+
+The note left behind explains the reasoning exactly, and the reasoning was wrong: at five-block waves
+"a grazing view swings fresnel hard on a small change of normal", so gentle waves came out as broad
+white bands marching across the lake, and the answer taken was to flatten the waves until the bands
+stopped. **The banding was never the waves' fault - it was the violence of the curve.** Flattening
+removed the bands and the waves together, and left a sheet of glass.
+
+Now: waves back at roughly the scale the unshaded path uses, and a third power rather than a fifth, so
+the reflection varies across the surface without slamming between extremes. Plus the lighting normal
+added earlier in the day, which now has visible geometry to work with.
+
+**Neither the problem nor the cause was visible in a render.** Every screenshot taken while the lit
+water was being built was of the water from a fixed camera, and it looked plausible; what gave it away
+was somebody switching presets back and forth with a lake in front of them. Two attempts to reproduce
+it afterwards both put the camera on land, because the landscape mod picks its own viewpoint - so the
+fix went out unverified by me and verified by the person who reported it.
