@@ -57,6 +57,9 @@ static func platform() -> String:
 		return "windows"
 	if OS.has_feature("linux"):
 		return "linux"
+	# iOS and iPadOS deliberately return "": a build there comes from TestFlight or the App Store and
+	# cannot replace itself, which is a fact the refusal message needs rather than a gap to fall
+	# through. (2026-09-22)
 	return ""
 
 

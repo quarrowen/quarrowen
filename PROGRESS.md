@@ -4324,3 +4324,27 @@ the frame** with the sky filling the screen - 50/49 fps before, 36/34 after, rep
 the near shading inferred from the pixel's own density, gives within a few percent of the look at
 52/50 - free. The sky is drawn at half resolution but it is still every pixel above the horizon, so a
 tap there is never cheap.
+
+## Join time, measured at last: 2.0 seconds (2026-09-22)
+
+Gap 3 from the research ledger said our join ought to be far faster than the minutes that genre is
+known for, and that "ought to be" is not a number. It is now printed on every join, per step:
+
+```
+[client] joined in 2.0s total: connect 0.7, handshake 0.2, content 0.3, world 0.9
+```
+
+**Cold cache**, 203 assets, 135 blocks - the screenshot harness gives each run a fresh user directory,
+so nothing was reused. Per step rather than one total on purpose: the answer to a slow join is
+different for each of them. Content is bandwidth, world is the mesher, handshake is the server
+thinking, and a single total tells you it was slow and nothing else.
+
+**What this does not measure**, and should be said before the number gets quoted: it is loopback, so
+`content` is decompression rather than download. On a real connection that step becomes bandwidth-bound
+and is the one that will grow - which is exactly why the download now has a progress bar. The other
+three steps are real and would not change.
+
+The comparison worth keeping is structural rather than numeric: their load time is spent **constructing
+a game** from hundreds of code mods at startup, every time. Ours is spent fetching data the client
+then caches by hash, so the second join to the same server skips most of it, and assets shared between
+servers are fetched once ever.

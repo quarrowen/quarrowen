@@ -25,6 +25,7 @@ const ContentCache = preload("res://engine/client/content_cache.gd")
 const RemotePlayer = preload("res://engine/client/remote_player.gd")
 const ServerUI = preload("res://engine/client/server_ui.gd")
 const VoxelMaterial = preload("res://engine/client/voxel_material.gd")
+const Updater = preload("res://engine/client/updater.gd")
 const ModelLibrary = preload("res://engine/client/model_library.gd")
 const WorldTime = preload("res://engine/shared/world_time.gd")
 const ItemRegistry = preload("res://engine/shared/item_registry.gd")
@@ -276,6 +277,10 @@ var _wind_target_strength := 0.3
 var _wind_travelled := 0.0
 ## When to give up on a handshake, in seconds; 0 when we are not waiting on one.
 var _handshake_deadline := 0.0
+## How long each step of joining took, printed once when the world is up. Ours is meant to be far
+## faster than the minutes this genre is known for, and "meant to be" is not a number. (2026-09-22)
+var _join_marks: Array = []
+var _join_started := 0.0
 ## The relief atlas, worked out on a worker thread because it is a Sobel over every texture.
 var _relief_task := -1
 var _relief_image: Image = null
@@ -407,6 +412,9 @@ func _connect() -> void:
 		_identity = Identity.load_or_create(identity_name)
 	_connect_attempts += 1
 	_set_status("Connecting to %s:%d..." % [server_address, server_port])
+	if _join_started <= 0.0:
+		_join_started = Time.get_ticks_msec() / 1000.0
+		_join_marks.clear()
 	_handshake_deadline = Time.get_ticks_msec() / 1000.0 + HANDSHAKE_SECONDS
 	var err := Net.create_client(server_address, server_port, test_protocol)
 	if err != OK:
@@ -414,6 +422,7 @@ func _connect() -> void:
 
 
 func _on_connected() -> void:
+	_mark_join("connect")
 	_set_status("Handshaking...")
 	Net.c_hello.rpc_id(1, Protocol.VERSION, player_name, Identity.public_pem(_identity))
 	if not transfer_ticket.is_empty():
@@ -459,6 +468,29 @@ func _poll_relief() -> void:
 	_relief_image = null
 
 
+## Notes how long we have been joining, at one named step.
+func _mark_join(step: String) -> void:
+	if _join_started <= 0.0:
+		return
+	_join_marks.append([step, Time.get_ticks_msec() / 1000.0 - _join_started])
+
+
+## "4.1s total: connect 0.2, handshake 0.4, content 2.1, world 1.4".
+##
+## Per step rather than one number, because the answer to a slow join is different for each: content is
+## bandwidth, world is the mesher, handshake is the server thinking. One total tells you it was slow
+## and nothing else.
+func _join_summary() -> String:
+	if _join_marks.is_empty():
+		return "(not measured)"
+	var parts := PackedStringArray()
+	var previous := 0.0
+	for mark in _join_marks:
+		parts.append("%s %.1f" % [String(mark[0]), float(mark[1]) - previous])
+		previous = float(mark[1])
+	return "%.1fs total: %s" % [previous, ", ".join(parts)]
+
+
 func _watch_handshake() -> void:
 	if _handshake_deadline <= 0.0 or _welcomed or _exiting:
 		return
@@ -488,7 +520,24 @@ func _on_connection_failed() -> void:
 
 
 func _on_handshake_failed(reason: String) -> void:
-	_leave(reason)
+	_leave(_with_update_advice(reason))
+
+
+## Adds where to get the update, when the refusal was about versions.
+##
+## The server writes the refusal and cannot know what the client is running on, so the advice has to be
+## added here. It matters most where the client **cannot update itself**: on a desktop "please update"
+## happens on its own within minutes, and on a tablet it is a trip to the store that nobody has been
+## told to make. `Updater.platform()` is already "" exactly where self-updating is impossible, so that
+## is the signal rather than a new list of platform names. (2026-09-22)
+func _with_update_advice(reason: String) -> String:
+	if not reason.contains("update"):
+		return reason
+	if not Updater.platform().is_empty():
+		return reason  # this build updates itself; it is already on its way
+	if OS.has_feature("ios"):
+		return reason + "\n\nThis version has to come from the App Store - check there for an update."
+	return reason + "\n\nThis build cannot update itself. Ask whoever set it up for a newer one."
 
 
 func _on_server_disconnected() -> void:
@@ -643,6 +692,7 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 
 	print("[client] Server '%s' running %s: %d blocks, %d assets (%d to download)" % [
 		info.get("name", "?"), info.get("game", "?"), registry.defs.size() - 1, _manifest.size(), missing.size()])
+	_mark_join("handshake")
 	phase = Phase.DOWNLOADING
 	Net.c_request_assets.rpc_id(1, missing)
 	_update_download_status()
@@ -802,6 +852,7 @@ func _finish_content() -> void:
 	_rebuild_hotbar()
 	phase = Phase.JOINING
 	_set_status("Joining %s..." % server_info.get("name", "server"))
+	_mark_join("content")
 	Net.c_ready.rpc_id(1)
 
 
@@ -844,7 +895,9 @@ func on_welcome(peer_id: int, spawn: Vector3, spawn_yaw: float) -> void:
 		Net.c_claim_admin.rpc_id(1, admin_token)
 	ugc.offer_worn(avatar)
 	_set_status("Loading terrain...")
+	_mark_join("world")
 	print("[client] Joined as peer %d at %s" % [peer_id, spawn])
+	print("[client] joined in %s" % _join_summary())
 
 
 func on_chunk(coord: Vector2i, payload: PackedByteArray, states: PackedInt32Array) -> void:

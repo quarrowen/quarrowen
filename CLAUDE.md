@@ -216,6 +216,17 @@ up would bury the part that matters rather than surface it.
   script really compiles, `load()` it and ask `can_instantiate()` - which is what the suite does for every
   script under `engine/`.
 
+## Adding an RPC
+
+**Append it at the end of `engine/net/net.gd`, and bump `Protocol.VERSION`.**
+
+The bump is what actually protects anybody: a mismatch is refused at the door with a readable message,
+which is the kind failure. Appending is free insurance on top, in case Godot's RPC method ids depend on
+declaration order — **which is not verified.** It was asserted confidently on 2026-09-22 as the cause of
+a client stuck on "Connecting to…", the bump was made on that basis, and the actual cause turned out to
+be a leftover server process holding the port. The bump was still correct; the reasoning for it was
+never tested. So: append because it costs nothing, not because we have proved it matters.
+
 ## When to bump `Protocol.VERSION`
 
 Whenever the client and the server must agree on something, not only when an RPC changes. The block shape
