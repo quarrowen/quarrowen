@@ -22,7 +22,10 @@ const PRESET_VALUES := {
 	# The one preset that changes *how* the world is lit rather than how much polish is on top: the
 	# terrain shader stops being unshaded and the sun starts casting real shadows. Everything above
 	# stays as it was, because the machines the children play on are why they exist. (2026-09-21)
-	"realistic": {"ambient_occlusion": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 1.0, "realistic": true},
+		# Render scale below the fancy preset's on purpose: realistic lighting costs per *pixel*, so the
+	# cheapest large saving is drawing fewer of them and letting FSR put them back. A shadowed,
+	# scattered world at 85% reads better than a flat one at 100%.
+	"realistic": {"ambient_occlusion": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 0.85, "realistic": true},
 }
 
 ## key -> {tab, label, type, default, min/max/step or choices [[value, label]], help}

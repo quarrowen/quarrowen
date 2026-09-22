@@ -3719,3 +3719,32 @@ much they would buy us: near-mirror reflections in still water; golden-hour ligh
 strong aerial haze so distant terrain fades blue; dense *tall* grass in the foreground rather than
 sparse tufts; and volumetric light shafts. The first is done. Haze and grass density are cheap and
 worth doing next; shafts are a real renderer feature and should wait behind a measurement on the Air.
+
+## The Air measurement, and what it cost to fix (2026-09-22)
+
+**The numbers that decide this: 45 fps on an M1 Max, 16-18 on a base M1 Air, and the Air did not move
+between day, dusk and midnight.** Unplayable, and flat across times of day - so not the sky or the
+shadow cascades but the base per-pixel cost. 45 against 16 tracks GPU cores (24 against 7) almost
+exactly, which says GPU-bound rather than a bug somewhere.
+
+Four cuts, in the order they were worth:
+
+- **SSIL off.** Measured on the Max: 44 median with, 60 (vsync-capped, so at least 36% more) without.
+  It is bounce light, and between the mesher's baked occlusion and ambient taken from the sky the
+  world already had most of what it added, for about a third of the frame. **I had removed SSAO for
+  exactly this reason days ago and left its more expensive sibling switched on.**
+- **Shadows reach 110 blocks rather than 220, and the splits no longer blend.** Every cascade
+  re-renders the chunk geometry inside it, so distance is paid several times over, and past a hundred
+  blocks a shadow is a few pixels of nothing.
+- **Render scale 0.85 in the realistic preset** - below the fancy preset's 1.0, deliberately.
+  Realistic lighting costs per pixel, so the cheapest large saving is drawing fewer of them and
+  letting FSR put them back. A shadowed, scattered world at 85% reads better than a flat one at 100%.
+- **Reflection march 16 steps to 10, refinement 4 to 3.**
+
+The tuned render is indistinguishable from the untuned one - same reflection, clouds and lighting -
+at 60 median instead of 44 on the Max.
+
+**Whether that is enough for the Air is the open question**, and it cannot be answered from here. If
+16 scales with the same factor it lands somewhere around 30, which is playable but not comfortable.
+If it does not, the honest answer is that realistic is a preset for capable machines and the family
+plays on fancy - which is what the three cheap presets were always for.

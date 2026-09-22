@@ -4162,10 +4162,14 @@ func light_the_sun() -> void:
 		if light == null:
 			continue
 		light.shadow_enabled = _realistic and not GraphicsSettings.off("shadows")
-		light.directional_shadow_max_distance = 220.0
-		light.directional_shadow_blend_splits = true
+		# **Shadows reach 110 blocks, not 220, and the splits do not blend.** Every cascade re-renders
+		# the chunk geometry inside it, so the distance is paid four times over; past a hundred blocks
+		# a shadow is a few pixels of nothing in particular. Blending the splits costs a second lookup
+		# in the overlap for a seam almost nobody sees on terrain this chunky. (2026-09-22)
+		light.directional_shadow_max_distance = 110.0
+		light.directional_shadow_blend_splits = false
 		# Softened, because a hard edge on a voxel world looks like a bug rather than a shadow.
-		light.shadow_blur = 1.4
+		light.shadow_blur = 1.1
 		light.shadow_bias = 0.06
 		light.shadow_normal_bias = 1.4
 

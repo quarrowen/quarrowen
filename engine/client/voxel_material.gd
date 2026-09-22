@@ -209,7 +209,7 @@ const LIT_WATER := """
 			at += ray * fract(sin(dot(SCREEN_UV, vec2(12.9898, 78.233))) * 43758.5453) * step_len;
 			float hit = 0.0;
 			vec2 hit_uv = vec2(0.0);
-			for (int i = 0; i < 16; i++) {
+			for (int i = 0; i < 10; i++) {
 				at += ray * step_len;
 				step_len *= 1.36;
 				vec4 clip = PROJECTION_MATRIX * vec4(at, 1.0);
@@ -227,7 +227,7 @@ const LIT_WATER := """
 					// the stride happened to stop: the difference between a reflection and a smear.
 					vec3 back = at;
 					float half_step = step_len * 0.5;
-					for (int j = 0; j < 4; j++) {
+					for (int j = 0; j < 3; j++) {
 						back -= ray * half_step;
 						half_step *= 0.5;
 						vec4 c2 = PROJECTION_MATRIX * vec4(back, 1.0);

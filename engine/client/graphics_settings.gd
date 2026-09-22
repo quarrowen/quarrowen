@@ -88,8 +88,12 @@ static func apply_realism(env: Environment, on: bool) -> void:
 	env.ssao_radius = 1.6
 	env.ssao_intensity = 1.8
 	env.ssao_power = 1.4
-	# Bounce light. The expensive one, and what stops shadowed ground reading as a flat dark patch.
-	env.ssil_enabled = on and not off("ssil")
+	# **No SSIL either.** Measured on an M1 Max: 44 median with it, 60 (vsync-capped, so at least
+	# 36% more) without. It is bounce light, and between the mesher's baked occlusion and ambient
+	# taken from the sky the world already has most of what it was adding - for a third of the frame.
+	# The base M1 Air the children play on gets 16 fps with all of this on, which is the number that
+	# actually decides what ships. Left switchable for measuring. (2026-09-22)
+	env.ssil_enabled = on and off("ssil+")
 	env.ssil_intensity = 0.6
 	# **No fog on the sky.** 0.35 was meant as haze and instead washed the whole dome towards the
 	# horizon colour, so the scattering computed a deep blue zenith and the fog painted over it. Fog
