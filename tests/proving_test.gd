@@ -291,6 +291,32 @@ func _sources_and_palette(server, api, p) -> void:
 	_check(certain > 0.9, "a drop that always happens reads as certain (%.2f)" % certain)
 	_check(halved > 0.3 and halved < 0.7, "and one that happens half the time reads as half (%.2f)" % halved)
 
+	# **What the palette lists**, which is the half nobody was asserting. Taking was tested from the
+	# day it was written; browsing was not, and browsing is the entire point of the screen.
+	var groups: Dictionary = server.palette_groups()
+	var listed := {}
+	for key: String in groups:
+		for id: int in groups[key]:
+			listed[id] = String(key)
+	_check(not groups.is_empty(), "the palette lists something at all (%d groups)" % groups.size())
+	_check(listed.has(server.registry.id_of("proving:rock")),
+		"the palette lists a block, which is most of what a builder wants from it")
+	_check(listed.has(server.items.id_of("proving:token")), "and an item that is not a block")
+	_check(String(listed.get(server.registry.id_of("proving:rock"), "")).ends_with("/Ground"),
+		"a mod names the drawer its block sits in (%s)" % listed.get(server.registry.id_of("proving:rock"), "none"))
+	# A block a player never carries - the far half of the pair - is not on offer, and asking for it
+	# by id does not work either.
+	var top: int = server.registry.id_of("proving:mast_top")
+	_check(top > 0, "the pair's far half exists to be refused")
+	_check(not listed.has(top), "a block that is placed rather than carried stays out of the palette")
+	p.inventory.creative = true
+	p.inventory.cursor_id = 0
+	p.inventory.cursor_count = 0
+	server.on_palette_take(p.peer_id, top, true)
+	_check(p.inventory.cursor_count == 0, "and a client cannot take it by asking for its id")
+	p.inventory.creative = false
+	_check(listed.has(server.registry.id_of("proving:mast")), "while the half you do carry is on offer")
+
 	# The palette: what a creative player may take. Server-owned, because it hands out items.
 	p.inventory.creative = true
 	p.inventory.cursor_id = 0

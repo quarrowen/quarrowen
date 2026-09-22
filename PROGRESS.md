@@ -4798,3 +4798,46 @@ that is not the editor's.
 
 Worth saying plainly after the week this has been: the fps numbers here are **not** a finding. They are
 four measurements with a variance wider than the effect being looked for.
+
+## The creative palette listed nothing, and had from the day it was written (2026-09-23)
+
+Found while starting Phase 4's block expansion, by reading `open_palette` to see where 110 blocks
+would land. It sent `{}` to every player, for two reasons that both read as correct code:
+
+```gdscript
+for id in range(ItemRegistry.FIRST_ITEM, items.defs.size()):     # range(65536, 30) - empty
+    ...
+    "blocks" if registry.id_of(String(def.name)) > 0 else "items" # never true
+```
+
+- **`defs.size()` is a count, not an end.** Item ids run `FIRST_ITEM .. FIRST_ITEM + defs.size()`.
+- **Blocks are not in `items.defs` at all.** A block *is* its own item id, below `FIRST_ITEM`; and
+  `items.register` refuses a name a block already holds, so the branch looking for items that are
+  also blocks could never have been true. The palette could not have listed a block even with the
+  range fixed, and blocks are the entire point of it.
+
+**Why it survived: half the feature was tested.** `_sources_and_palette` asserted that a creative
+player could *take* from the palette - which worked, because taking is by id and the test supplied
+the id itself - and never that the palette *listed* anything. Taking is the half a test reaches
+easily; browsing is the half a player uses. This is the same shape as the shader that never
+compiled: the thing nobody looked at was the thing that was broken.
+
+The listing is now `palette_groups()`, split out from the sending so a test can read it, and
+`palette_lists(id)` is asked by the listing **and** by the handing out, so the two cannot disagree
+about what is takeable - which is how a block the palette refused to show stayed takeable by a
+client that simply sent its id.
+
+### `group`, so 110 blocks are not one list
+
+New optional key on a block or item definition, naming its drawer ("Stone", "Colour"). Grouped under
+the owning mod first, so two mods' stone never merge under a name they happened to share. Without
+one, blocks and items fall into two default drawers - which is all a small mod wants, and is what
+every mod had before. Not sent to clients: the server builds the palette and sends the result.
+
+Deliberately **not** reusing recipe categories, which was the first instinct and is wrong: a creative
+game ships zero recipes, so recipe categories are empty in exactly the game the palette exists for.
+
+The Proving Ground now registers a two-block `pair` (`mast` / `mast_top`) - a capability nothing here
+exercised - which doubles as the subject for "a block placed rather than carried stays out of the
+palette". It was written first with an `if top > 0` guard around those checks, which would have
+skipped silently; the pair exists so they cannot.

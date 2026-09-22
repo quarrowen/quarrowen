@@ -491,6 +491,7 @@ Opens the crafting screen for a player, crafting by hand.
 ### `api.register_item(item_name: String, def: Dictionary) -> int`
 
 Registers a non-block item. `icon` is a texture path; `usable` makes right-click fire item_use.
+`group` names its drawer in the creative palette, as on a block; `hidden: true` keeps it out.
 Returns the item id (>= 256), or -1.
 
 ```gdscript
@@ -908,6 +909,10 @@ the facing of an `orientation: "horizontal"` block) and removes both together; g
 the opposite direction and `placeable: false`.
 `contact_damage: {amount, interval, cause}` hurts players and mobs whose body is inside the block
 (lava).
+`group: "Stone"` names the drawer this sits in in the creative palette. Worth setting once a mod
+has more blocks than fit on a screen; without it they all land in one drawer called Blocks.
+A block with `placeable: false` is never offered by the palette, so the far half of a `pair` needs
+nothing said about it.
 
 ```gdscript
 ids.wire = api.register_block("wire", {"display_name": "Wire",

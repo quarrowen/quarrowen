@@ -2700,6 +2700,46 @@ other half of that: a browser of every block and item, grouped the way they were
 Sent rather than derived on the client because the client does not know which items a mod meant
 to be takeable; `hidden` on a definition keeps the plumbing out (block data holders, half-slabs
 that are placed rather than carried). (2026-09-22)</p></div>
+<div class="card" data-search="palette_groups what the palette lists, split out from the sending so a test can read it.
+
+**the first version of this listed nothing at all, for two reasons, and shipped that way**
+(written 2026-09-22, found 2026-09-23). both are worth keeping, because both look right:
+
+- `range(itemregistry.first_item, items.defs.size())` reads like &quot;every item&quot;, and is
+`range(65536, 30)` - **empty**. item ids start at `first_item` and run to
+`first_item + defs.size()`; `defs.size()` on its own is a count, not an end.
+- it looked for blocks by asking which *items* are also blocks. none are, and none can be:
+a block **is** its own item id (below `first_item`), and `items.register` refuses a name a
+block already holds. so that branch could never have been true.
+
+what made it survive is the sharper lesson: the proving ground asserted that a creative player
+could *take* from the palette, which worked, and never that the palette *listed* anything. half a
+feature tested is a feature that reports itself working.
+
+`group` on a definition names the drawer. without one, blocks and items fall into two default
+drawers - which is all a small mod wants, and is what every mod had before this existed. server/game_server.gd the server itself"><div class="sig"><code>palette_groups() -&gt; Dictionary</code></div><p>What the palette lists, split out from the sending so a test can read it.
+
+**The first version of this listed nothing at all, for two reasons, and shipped that way**
+(written 2026-09-22, found 2026-09-23). Both are worth keeping, because both look right:
+
+- `range(ItemRegistry.FIRST_ITEM, items.defs.size())` reads like "every item", and is
+`range(65536, 30)` - **empty**. Item ids start at `FIRST_ITEM` and run to
+`FIRST_ITEM + defs.size()`; `defs.size()` on its own is a count, not an end.
+- It looked for blocks by asking which *items* are also blocks. None are, and none can be:
+a block **is** its own item id (below `FIRST_ITEM`), and `items.register` refuses a name a
+block already holds. So that branch could never have been true.
+
+What made it survive is the sharper lesson: the Proving Ground asserted that a creative player
+could *take* from the palette, which worked, and never that the palette *listed* anything. Half a
+feature tested is a feature that reports itself working.
+
+`group` on a definition names the drawer. Without one, blocks and items fall into two default
+drawers - which is all a small mod wants, and is what every mod had before this existed.</p></div>
+<div class="card" data-search="palette_lists whether the palette offers this id at all - asked by the listing *and* by the handing out, so the
+two can never disagree about what is takeable. they disagreeing is the bug class that produced an
+empty palette in the first place. server/game_server.gd the server itself"><div class="sig"><code>palette_lists(id: int) -&gt; bool</code></div><p>Whether the palette offers this id at all - asked by the listing *and* by the handing out, so the
+two can never disagree about what is takeable. They disagreeing is the bug class that produced an
+empty palette in the first place.</p></div>
 <div class="card" data-search="on_palette_take a creative player asking for a stack of something from the palette. server/game_server.gd the server itself"><div class="sig"><code>on_palette_take(peer_id: int, item: int, whole_stack: bool) -&gt; void</code></div><p>A creative player asking for a stack of something from the palette.</p></div>
 <div class="card" data-search="on_tutorial_action tutorial buttons: start &lt;id&gt; | skip (the current step) | stop | tips_on | tips_off. server/game_server.gd the server itself"><div class="sig"><code>on_tutorial_action(peer_id: int, action: String, arg: String) -&gt; void</code></div><p>Tutorial buttons: start <id> | skip (the current step) | stop | tips_on | tips_off.</p></div>
 <div class="card" data-search="on_dev dev overlay requests: subscribe {channels}, inspect {pos | entity | player}, trace_filter {filter},
@@ -2799,7 +2839,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1192 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1194 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

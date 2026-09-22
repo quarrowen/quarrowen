@@ -8689,6 +8689,41 @@ Sent rather than derived on the client because the client does not know which it
 to be takeable; `hidden` on a definition keeps the plumbing out (block data holders, half-slabs
 that are placed rather than carried). (2026-09-22)
 
+**See also:** `palette_groups`
+
+### `palette_groups() -> Dictionary`
+
+*server/game_server.gd*
+
+What the palette lists, split out from the sending so a test can read it.
+
+**The first version of this listed nothing at all, for two reasons, and shipped that way**
+(written 2026-09-22, found 2026-09-23). Both are worth keeping, because both look right:
+
+- `range(ItemRegistry.FIRST_ITEM, items.defs.size())` reads like "every item", and is
+`range(65536, 30)` - **empty**. Item ids start at `FIRST_ITEM` and run to
+`FIRST_ITEM + defs.size()`; `defs.size()` on its own is a count, not an end.
+- It looked for blocks by asking which *items* are also blocks. None are, and none can be:
+a block **is** its own item id (below `FIRST_ITEM`), and `items.register` refuses a name a
+block already holds. So that branch could never have been true.
+
+What made it survive is the sharper lesson: the Proving Ground asserted that a creative player
+could *take* from the palette, which worked, and never that the palette *listed* anything. Half a
+feature tested is a feature that reports itself working.
+
+`group` on a definition names the drawer. Without one, blocks and items fall into two default
+drawers - which is all a small mod wants, and is what every mod had before this existed.
+
+**See also:** `palette_lists`
+
+### `palette_lists(id: int) -> bool`
+
+*server/game_server.gd*
+
+Whether the palette offers this id at all - asked by the listing *and* by the handing out, so the
+two can never disagree about what is takeable. They disagreeing is the bug class that produced an
+empty palette in the first place.
+
 **See also:** `get_def`
 
 ### `on_palette_take(peer_id: int, item: int, whole_stack: bool) -> void`
@@ -8697,7 +8732,7 @@ that are placed rather than carried). (2026-09-22)
 
 A creative player asking for a stack of something from the palette.
 
-**See also:** `get_def`, `max_stack`, `sync_inventory`
+**See also:** `max_stack`, `palette_lists`, `sync_inventory`
 
 ### `on_tutorial_action(peer_id: int, action: String, arg: String) -> void`
 

@@ -4007,19 +4007,64 @@ func on_open_menu(peer_id: int, menu: String) -> void:
 func open_palette(p: ServerPlayer) -> void:
 	if not _started or not p._online():
 		return
+	Net.s_palette.rpc_id(p.peer_id, palette_groups())
+
+
+## What the palette lists, split out from the sending so a test can read it.
+##
+## **The first version of this listed nothing at all, for two reasons, and shipped that way**
+## (written 2026-09-22, found 2026-09-23). Both are worth keeping, because both look right:
+##
+##   - `range(ItemRegistry.FIRST_ITEM, items.defs.size())` reads like "every item", and is
+##     `range(65536, 30)` - **empty**. Item ids start at `FIRST_ITEM` and run to
+##     `FIRST_ITEM + defs.size()`; `defs.size()` on its own is a count, not an end.
+##   - It looked for blocks by asking which *items* are also blocks. None are, and none can be:
+##     a block **is** its own item id (below `FIRST_ITEM`), and `items.register` refuses a name a
+##     block already holds. So that branch could never have been true.
+##
+## What made it survive is the sharper lesson: the Proving Ground asserted that a creative player
+## could *take* from the palette, which worked, and never that the palette *listed* anything. Half a
+## feature tested is a feature that reports itself working.
+##
+## `group` on a definition names the drawer. Without one, blocks and items fall into two default
+## drawers - which is all a small mod wants, and is what every mod had before this existed.
+func palette_groups() -> Dictionary:
 	var groups := {}
-	for id in range(ItemRegistry.FIRST_ITEM, items.defs.size()):
-		var def: Dictionary = items.get_def(id)
-		if bool(def.get("hidden", false)):
-			continue
-		# Grouped by the mod that registered it, then by whether it places a block: a builder wants
-		# the blocks together and everything else after them.
-		var owner := String(def.name).get_slice(":", 0)
-		var group := "%s/%s" % [owner, "blocks" if registry.id_of(String(def.name)) > 0 else "items"]
-		if not groups.has(group):
-			groups[group] = PackedInt32Array()
-		groups[group].append(id)
-	Net.s_palette.rpc_id(p.peer_id, groups)
+	for id in registry.defs.size():
+		if palette_lists(id):
+			_palette_add(groups, registry.defs[id], id, "Blocks")
+	for index in items.defs.size():
+		var id := ItemRegistry.FIRST_ITEM + index
+		if palette_lists(id):
+			_palette_add(groups, items.defs[index], id, "Items")
+	return groups
+
+
+## Whether the palette offers this id at all - asked by the listing *and* by the handing out, so the
+## two can never disagree about what is takeable. They disagreeing is the bug class that produced an
+## empty palette in the first place.
+func palette_lists(id: int) -> bool:
+	if id >= ItemRegistry.FIRST_ITEM:
+		var item: Dictionary = items.get_def(id)
+		return not item.is_empty() and not bool(item.get("hidden", false))
+	if id == BlockRegistry.AIR or id < 0 or id >= registry.defs.size():
+		return false
+	var def: Dictionary = registry.defs[id]
+	# `placeable` is already false on every half and state a player never carries - the top of a
+	# door, a pane's other axis, a lit furnace - so the palette gets that distinction for free
+	# rather than needing a second flag that would drift out of step with it.
+	return not bool(def.get("hidden", false)) and bool(def.get("placeable", true))
+
+
+## Files one entry under "<mod>/<group>". By mod first so two mods' stone never merge into one
+## drawer under a name they happened to share.
+func _palette_add(groups: Dictionary, def: Dictionary, id: int, fallback: String) -> void:
+	var owner := String(def.get("name", "")).get_slice(":", 0)
+	var named := String(def.get("group", ""))
+	var group := "%s/%s" % [owner, named if not named.is_empty() else fallback]
+	if not groups.has(group):
+		groups[group] = PackedInt32Array()
+	groups[group].append(id)
 
 
 ## A creative player asking for a stack of something from the palette.
@@ -4028,7 +4073,9 @@ func on_palette_take(peer_id: int, item: int, whole_stack: bool) -> void:
 	# Creative only, and checked here rather than trusted from the client: this hands out items.
 	if p == null or not p.inventory.creative or not items.is_valid(item):
 		return
-	if bool(items.get_def(item).get("hidden", false)):
+	# The same question the listing asks. Asking it a second way here is how a block the palette
+	# refuses to show stayed takeable by a client that simply sent its id.
+	if not palette_lists(item):
 		return
 	p.inventory.cursor_id = item
 	p.inventory.cursor_count = items.max_stack(item) if whole_stack else 1

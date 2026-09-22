@@ -100,6 +100,8 @@ func register(def: Dictionary, replace := false) -> int:
 		d.weapon = {"damage": float(def.attack_damage), "cooldown": 0.25, "reach": 4.5, "crit_chance": 0.0, "knockback": 1.0, "sweep": 0.0}
 	d.armor = _clean_dict(def.get("armor"), {"armor": 0.0, "toughness": 0.0, "knockback_resistance": 0.0})
 	d.equip_slot = String(def.get("equip_slot", "")).left(32)
+	## Which drawer of the creative palette this sits in; see the same field on a block.
+	d.group = String(def.get("group", "")).left(32)
 	d.modifiers = clean_modifiers(def.get("modifiers", []))
 	d.model = String(def.get("model", "")).left(256)
 	d.armor_texture = String(def.get("armor_texture", "")).left(256)

@@ -157,6 +157,11 @@ func register(def: Dictionary, replace := false) -> int:
 	d.cull_same = bool(def.get("cull_same", render == Render.TRANSLUCENT))
 	d.breakable = bool(def.get("breakable", render != Render.INVISIBLE and not liquid))
 	d.placeable = bool(def.get("placeable", d.breakable))
+	## Which drawer of the creative palette this sits in ("Stone", "Colour", ...). Free text, because
+	## the engine has no opinion about what a mod's world is made of. Server-side only: the palette is
+	## built and sent by the server, so this never needs to reach a client.
+	## Not to be confused with a spawn rule's `group`, which is how many appear at once.
+	d.group = String(def.get("group", "")).left(32)
 	d.textures = expand_textures(def.get("textures"))
 	d.light = clampi(int(def.get("light", 0)), 0, 15)
 	d.interactive = bool(def.get("interactive", false))

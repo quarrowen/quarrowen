@@ -258,6 +258,10 @@ func set_server_info(values: Dictionary) -> void:
 ## the opposite direction and `placeable: false`.
 ## `contact_damage: {amount, interval, cause}` hurts players and mobs whose body is inside the block
 ## (lava).
+## `group: "Stone"` names the drawer this sits in in the creative palette. Worth setting once a mod
+## has more blocks than fit on a screen; without it they all land in one drawer called Blocks.
+## A block with `placeable: false` is never offered by the palette, so the far half of a `pair` needs
+## nothing said about it.
 func register_block(block_name: String, def: Dictionary) -> int:
 	if _server.is_excluded(_qualify(block_name)):
 		return -1  # a mod asked for this to be left out (see "excludes" in mod.json)
@@ -292,6 +296,7 @@ func register_block(block_name: String, def: Dictionary) -> int:
 
 
 ## Registers a non-block item. `icon` is a texture path; `usable` makes right-click fire item_use.
+## `group` names its drawer in the creative palette, as on a block; `hidden: true` keeps it out.
 ## Returns the item id (>= 256), or -1.
 func register_item(item_name: String, def: Dictionary) -> int:
 	if _server.is_excluded(_qualify(item_name)):
