@@ -69,6 +69,10 @@ Logs an error from the mod (grouped like script errors and shown to admins).
 
 Sets the server name/description shown to connecting clients.
 
+```gdscript
+api.set_server_info({"name": "Proving Ground", "motd": "Nothing here is meant to be fun."})
+```
+
 ### `api.company_info(company_id: int) -> Dictionary`
 
 **See also:** `claim_plot`, `plot_problem`
@@ -98,12 +102,33 @@ Puts it back exactly where it was lifted from.
 
 Higher priority runs first.
 
+```gdscript
+api.on("entity_spawned", func(ev):
+	if ev.entity.type == ids.grazer and not ev.entity.data.has("look"):
+		ev.entity.set_look({"hide": ["collar"]}))
+```
+
 **See also:** `add_handler`
 
 ### `api.register_command(command: String, description: String, handler: Callable, permission := "") -> void`
 
 `handler(player, args: PackedStringArray)` runs for "/name args...". permission "admin" restricts
 it to server admins (QW_ADMINS, /op, or the local host).
+
+```gdscript
+api.register_command("trial", "Go into a private copy of a room", func(player, _args):
+	var here: String = api.instance_of(player)
+	if not here.is_empty():
+		api.leave_instance(player)
+		player.send_message("Back out.")
+		return
+	var run: String = api.open_instance("trial", {"data": {"opened_for": player.name}})
+	if run.is_empty():
+		player.send_message("No room to open one.")
+		return
+	api.enter_instance(player, run, Vector3(0.5, 66, 0.5))
+	player.send_message("You are in %s." % run))
+```
 
 **See also:** `add_command`
 
@@ -132,6 +157,10 @@ Stops a timer started with after or every.
 
 A guidebook chapter: {title, icon (item name), order, description}. Names without ":" are this mod's.
 
+```gdscript
+api.register_guide_chapter("proving", {"title": "The Proving Ground", "order": 1})
+```
+
 **See also:** `add_chapter`, `item`, `qualified`
 
 ### `api.register_guide_page(page_name: String, def: Dictionary) -> bool`
@@ -141,6 +170,11 @@ name or a list of names, any of which opens it) |
 recipe | entity | flag | page}, hint, keywords, blocks: [{type: text | heading | items | recipe |
 entity | image | tip | link | keys, ...}]}. Item, entity, page and flag names without ":" are this
 mod's; image blocks take a texture path in this mod.
+
+```gdscript
+api.register_guide_page("what", {"chapter": "proving", "title": "What this is",
+	"content": [{"type": "text", "text": "A mod that exists to be tested."}]})
+```
 
 **See also:** `add_page`, `qualified`, `register_asset`
 
@@ -181,11 +215,23 @@ A tutorial: guided goals completed by real actions (see engine/server/tutorials.
 target, count, ...}, hint: {block | entity | position} or false, page, reward}]}. Names without ":" are
 this mod's.
 
+```gdscript
+api.register_tutorial("basics", {"display_name": "Basics", "auto_start": true, "order": 1,
+	"modes": ["survival"], "steps": [
+	{"title": "Find a rock", "goal": {"type": "break", "target": ["proving:rock"]}},
+	{"title": "Hold four", "goal": {"type": "have", "target": ["proving:rock"], "count": 4}},
+	{"title": "Say when", "goal": {"type": "manual"}}]})
+```
+
 **See also:** `add_handler`, `announce`, `qualified`
 
 ### `api.register_tip(tip_name: String, def: Dictionary) -> bool`
 
 A one-time contextual tip: {text, icon, page (guide page to read more), trigger: a goal}.
+
+```gdscript
+api.register_tip("basics", {"text": "Rock is the thing to dig", "trigger": {"type": "night"}})
+```
 
 **See also:** `add_handler`, `qualified`
 
@@ -237,6 +283,10 @@ An input named "#base:logs" means *any* member of that tag. Held back until ever
 then written out as one recipe per member, because the whole point of a tag is that a mod loading
 later can add to it - resolving one here would silently miss whatever comes after.
 
+```gdscript
+api.register_recipe({"proving:rock": 2}, "proving:plain", 1, {"unlock": "known"})
+```
+
 **See also:** `add_recipe`, `defer_tag_recipe`, `is_excluded`, `item`, `item_name`, `qualified`
 
 ### `api.register_material(material_name: String, def: Dictionary) -> void`
@@ -245,12 +295,22 @@ A material parts can be made of: {display_name, item (raw material item name), c
 durability, damage, handle (durability multiplier as a handle), trait: {name, description, modifiers,
 durability_mult, speed_mult, damage_add, glow}}. Every part type gets a recipe for it.
 
+```gdscript
+api.register_material("dull", {"display_name": "Dull", "item": "proving:token", "color": "#888888",
+	"tier": 2, "speed": 4.0, "durability": 100, "damage": 1.0, "handle": 1.6,
+	"trait": {"name": "Plain", "description": "nothing special", "speed_mult": 0.0}})
+```
+
 **See also:** `add_material`, `item`, `qualified`
 
 ### `api.register_part_type(part_name: String, def: Dictionary) -> int`
 
 A kind of part (registers the part item): {display_name, sprite (grayscale 16x16 image tinted by the
 material), cost (material per part), station (where parts are made)}.
+
+```gdscript
+api.register_part_type("head", {"display_name": "Head", "cost": 3, "station": "proving:bench"})
+```
 
 **See also:** `add_part_type`, `register_asset`, `register_item`
 
@@ -260,6 +320,13 @@ A tool or weapon built from parts (registers its item): {display_name, icon (sho
 stacks), slots: [{name, part, label}], tool_type, damage, cooldown, reach, sweep, station}. The
 first slot is the head. Part names without ":" are this mod's.
 
+```gdscript
+api.register_assembly("prover", {"display_name": "Prover", "tool_type": "pickaxe", "damage": 3.0,
+	"station": "proving:bench", "skill": "proving:steady",
+	"slots": [{"name": "head", "part": "head", "label": "Head"},
+		{"name": "grip", "part": "handle", "label": "Handle"}]})
+```
+
 **See also:** `add_assembly`, `qualified`, `register_item`
 
 ### `api.register_minigame(minigame_name: String, def: Dictionary) -> void`
@@ -267,6 +334,11 @@ first slot is the head. Part names without ":" are this mod's.
 A crafting minigame recipes and assemblies can name as their `skill` (crafting by hand for better
 quality; see engine/shared/minigame.gd): {title, type: "timing" | "hold" | "sequence", verb, rounds,
 speed, zone, cool, team (bellows + hammer), duration, window}.
+
+```gdscript
+api.register_minigame("steady", {"title": "Hold Steady", "type": "timing", "verb": "Strike",
+	"rounds": 3, "speed": 1.0, "zone": 0.25})
+```
 
 **See also:** `register`
 
@@ -276,6 +348,11 @@ Makes a station upgradable (see engine/server/stations.gd): tiers [{block, title
 workshop {radius, upgrades: [{block, title, max, grants}]}, multiblock {core, pattern, legend,
 title}. grants: {features, tier, speed, quality, pull_radius, hints}. Blocks involved still declare
 `station: "<name>"`. Recipes then ask for `tier` and `needs` (features).
+
+```gdscript
+api.register_station("bench", {"workshop": {"radius": 2,
+	"upgrades": [{"block": "proving:lamp", "title": "Bright", "grants": {"features": ["bright"]}}]}})
+```
 
 **See also:** `register`
 
@@ -290,6 +367,10 @@ hints, detected, available, next, structure}, or {}.
 
 Adds a recipe book tab. def: display_name, icon (item name shown on the tab).
 
+```gdscript
+api.register_recipe_category("proven", {"display_name": "Proven", "icon": "proving:token"})
+```
+
 **See also:** `item`, `register_category`
 
 ### `api.register_container(container_name: String, def: Dictionary) -> bool`
@@ -297,6 +378,12 @@ Adds a recipe book tab. def: display_name, icon (item name shown on the tab).
 Registers a container type (see engine/server/containers.gd): {title, groups: [{name, count,
 columns, label, take_only, accepts}], progress: [{name, label, color}]}. Blocks use it with
 `container: "<name>"` and open it on right-click. Names without ":" are this mod's.
+
+```gdscript
+api.register_container("crate", {"title": "Crate",
+	"groups": [{"name": "items", "count": 6}, {"name": "fuel", "count": 1, "accepts": "fuel"}],
+	"progress": [{"name": "work", "label": "Work", "color": "#80ff80"}]})
+```
 
 **See also:** `on`, `open_bag`, `qualified`, `register`, `register_item`
 
@@ -316,6 +403,10 @@ Opens a container's screen for a player (as if they right-clicked it).
 
 Makes an item burn in fuel slots for `seconds`.
 
+```gdscript
+api.set_fuel("proving:token", 20.0)
+```
+
 **See also:** `item`
 
 ### `api.get_fuel(item_id: int) -> float`
@@ -328,6 +419,10 @@ How many seconds an item burns in a furnace (0 = not fuel).
 
 A processing recipe machines look up by kind: register_process("smelting", "base:iron_ore",
 "base:iron_ingot", 1, 10.0).
+
+```gdscript
+api.register_process("grinding", "proving:plain", "proving:rock", 1, 2.0)
+```
 
 **See also:** `add_process`, `is_excluded`, `item`, `qualified`
 
@@ -400,6 +495,10 @@ Opens the crafting screen for a player, crafting by hand.
 Registers a non-block item. `icon` is a texture path; `usable` makes right-click fire item_use.
 Returns the item id (>= 256), or -1.
 
+```gdscript
+ids.pail = api.register_item("pail", {"display_name": "Pail", "max_stack": 1, "usable": true})
+```
+
 **See also:** `is_excluded`, `qualified`, `register`, `register_asset`, `reload`
 
 ### `api.drop_item(item_id: int, count: int, position: Vector3, realm_id := "")`
@@ -434,6 +533,10 @@ The name players see for a block or item id.
 
 As require_block, for an item or a block (they share an id space).
 
+```gdscript
+ev.player.give(api.require_item("proving:prod"), 1)
+```
+
 **See also:** `item`
 
 ### `api.send_item(from: Dictionary, item_name: String, count := 1, data := {}) -> bool`
@@ -462,6 +565,17 @@ Told when something arrives: {realm, position, face, item, count, data, from}.
 Registers an entity type (mob, projectile, object). See EntityRegistry.register for keys. Model and
 sprite paths are relative to the mod folder; sound names without a ":" are this mod's.
 Returns the type id, or -1.
+
+```gdscript
+ids.grazer = api.register_entity("grazer", {"kind": "mob", "display_name": "Grazer",
+	"width": 0.8, "height": 1.0, "health": 10, "speed": 2.2, "category": "animal", "persistent": true,
+	"taming": {"items": ["proving:grain"], "chance": 1.0, "follow_distance": 3.0, "teleport_distance": 16.0},
+	"breeding": {"items": ["proving:grain"], "cooldown": 5.0},
+	"nameplate": {"show_health": true},
+	# Drops, so it has a loot table another mod can extend - which is what extend_loot is for.
+	"drops": [["proving:token", 1], ["proving:grain", 2]],
+	"ai": {"preset": "passive", "wander_radius": 6}})
+```
 
 **See also:** `folder`, `is_excluded`, `qualified`, `register`, `register_asset`, `reload`
 
@@ -515,6 +629,13 @@ update: Callable(brain, delta)     called each think while it runs; use brain.mo
 look_at, brain.target, brain.entity, brain.can_see_target(), brain.health_fraction()
 stop:   Callable(brain)            optional, when another behaviour takes over
 
+```gdscript
+api.register_mob_behavior("forage", {
+	"score": func(brain): return 0.2 if api.order_of(brain.entity) == "proving:forage" else 0.0,
+	"update": func(brain, _delta): brain.stop(),
+})
+```
+
 **See also:** `qualified`
 
 ### `api.make_noise(position: Vector3, radius: float, source = null) -> void`
@@ -532,11 +653,19 @@ animals to [9, 15]), place ("any" | "surface" | "underground"), time ("night" | 
 player), max_total, chance (per player per second), min_distance, max_distance. See
 engine/server/spawning.gd for caps and despawning.
 
+```gdscript
+api.add_spawn_rule({"entity": "biter", "max_light": 4, "weight": 1, "group": [1, 2]})
+```
+
 **See also:** `add_rule`, `block`, `entity_type`, `is_excluded`, `qualified`
 
 ### `api.set_spawn_caps(caps: Dictionary) -> void`
 
 How many mobs of each category may be around each player: {monster, animal, ambient, misc}.
+
+```gdscript
+var apply_caps := func(): api.set_spawn_caps({"monster": int(caps.get(String(api.setting("monsters")), 24))})
+```
 
 **See also:** `set_caps`
 
@@ -571,6 +700,10 @@ This runs before the world around it is loaded, so it is also the right place to
 the player should open their eyes on. Placing a structure from `player_join` instead is too late -
 the player has already been put at the old position and sees themselves moved. (playtest, 2026-09-18)
 
+```gdscript
+api.set_spawn_handler(func(_player): return Vector3(0.5, GROUND_Y + 1, 0.5))
+```
+
 
 ## World generation
 
@@ -585,6 +718,10 @@ were built in the overworld while the players stood in an empty instance. (2026-
 
 `generator` must implement `generate(chunk)`; write into a local copy of `chunk.blocks`
 (index with Chunk.index(x, y, z)) and assign it back for speed.
+
+```gdscript
+api.set_world_generator(FlatGround.new(api.require_block("proving:rock"), api.require_block("proving:soil"), api.require_block("proving:turf")))
+```
 
 **See also:** `qualified`, `register_instance`, `reload`
 
@@ -605,6 +742,11 @@ The shared biome generator (created on first use, even if the game uses its own 
 
 A biome for the biome generator: {climate, ocean, height, surface, features, plants}. See BiomeGenerator.
 
+```gdscript
+api.register_biome("plain", {"climate": [0.4, 0.6], "height": [0.0, 0.2],
+	"surface": "proving:turf", "features": [], "plants": []})
+```
+
 **See also:** `add_biome`, `biome_generator`, `qualified`
 
 ### `api.add_cave_carver(options := {}) -> void`
@@ -620,6 +762,11 @@ entrance_chance.
 A structure template: a JSON file in this mod (e.g. "structures/tower.json", saved with /struct save)
 or a template dictionary. Names without ":" are this mod's.
 
+```gdscript
+api.register_structure_template("hut", {"size": [2, 1, 2], "palette": ["proving:rock"],
+	"blocks": [[0, 0, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [1, 0, 1, 0]]})
+```
+
 **See also:** `add_template`, `biome_generator`
 
 ### `api.place_structure(template_name: String, at: Vector3i, rotation := 0) -> bool`
@@ -633,6 +780,10 @@ story's outpost, a rescue site, a prize somebody hid.
 **See also:** `place`, `qualified`
 
 ### `api.register_structure(structure_name: String, def: Dictionary) -> void`
+
+```gdscript
+api.register_structure("hut_site", {"template": "proving:hut", "rarity": 0.0})
+```
 
 **See also:** `add_set`, `biome_generator`, `qualified`, `register_loot`
 
@@ -654,11 +805,21 @@ entry takes killed_by, tool, biome, depth, time, chance and first_time. An entit
 table with `loot: "<name>"`; without one, its `drops` list is read as a table.
 Tables can also be JSON files: every loot/*.json in the mod folder registers as "<mod>:<file name>".
 
+```gdscript
+api.register_loot("crate_loot", {"pools": [
+	{"rolls": 1, "guaranteed": true, "entries": [{"item": "proving:token", "count": [1, 3]}]}]})
+```
+
 **See also:** `qualified`, `register`
 
 ### `api.register_loot_table(table_name: String, def: Dictionary) -> void`
 
 Same as register_loot (the name it had before tables were used for everything).
+
+```gdscript
+api.register_loot_table("bench_loot", {"pools": [
+	{"rolls": 1, "entries": [{"item": "proving:rod", "count": [1, 1]}]}]})
+```
 
 **See also:** `extend_entity`, `register_loot`
 
@@ -706,6 +867,10 @@ api.set_loot_boost("vanilla:dungeon", 2.0)       # richer dungeon chests until f
 A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from
 GDScript, a Callable(writer, origin: Vector3i, rng) run on worker threads. See worldgen/features.gd.
 
+```gdscript
+api.register_feature("boulder", {"type": "boulder", "block": "proving:rock", "radius": [1, 2]})
+```
+
 **See also:** `add_feature`, `biome_generator`, `get_eye_position`, `look_direction`, `raycast`
 
 ### `api.get_biome(position: Vector3) -> String`
@@ -746,6 +911,11 @@ the opposite direction and `placeable: false`.
 `contact_damage: {amount, interval, cause}` hurts players and mobs whose body is inside the block
 (lava).
 
+```gdscript
+ids.wire = api.register_block("wire", {"display_name": "Wire",
+	"hardness": 0.5, "signal_carry": true, "connect_group": "proving_signal"})
+```
+
 **See also:** `expand_textures`, `is_excluded`, `qualified`, `register`, `register_asset`, `reload`
 
 ### `api.register_block_tick(block_name: String, handler: Callable, options := {}) -> bool`
@@ -761,6 +931,12 @@ handed the ticks it missed at once when it wakes (`ticks` > 1) unless options.ca
 `ticks` is capped, so returning to a world after a week does not run a week of growth in one frame;
 `elapsed` is the true number of seconds it stood still, for a handler that would rather work the
 answer out itself.
+
+```gdscript
+api.register_block_tick("lamp", func(ctx):
+	api.set_block_data(ctx.position, {"ticked": int(api.get_block_data(ctx.position).get("ticked", 0)) + 1}),
+	{"interval": 5, "random": false})
+```
 
 **See also:** `block`, `is_excluded`, `qualified`, `register`
 
@@ -813,6 +989,12 @@ that is not there is an error, said out loud at load with the mod that asked.
 absent rather than wrong. Three bugs in one day came from that, all of them a question's answer
 being used as a contract. (2026-09-21)
 
+```gdscript
+ev.player.set_hotbar([api.require_block("proving:plain"), api.require_block("proving:lamp"),
+	api.require_block("proving:crate"), api.require_block("proving:rock"),
+	api.require_block("proving:step")], 64)
+```
+
 **See also:** `block`
 
 ### `api.block(block_name: String) -> int`
@@ -846,6 +1028,13 @@ You are told when one is finished or spoiled (`multiblock_formed`, `multiblock_b
 at any time with `multiblock_at`. The engine does not *remember* which are built: that would mean
 saving a fact that can be worked out from the blocks, and a saved fact can disagree with them.
 
+```gdscript
+api.register_multiblock("engine", {
+	"layers": [["PPP", "PCP", "PPP"]],
+	"key": {"P": "#proving:stone_like", "C": "proving:core"},
+	"controller": "C"})
+```
+
 **See also:** `qualified`, `register`
 
 ### `api.multiblock_at(controller: Vector3i, pattern_name := "", realm_id := "") -> Dictionary`
@@ -864,6 +1053,10 @@ is baked into lookup tables at registration and cannot change afterwards.
 ### `api.get_block(pos: Vector3i, realm_id := "") -> int`
 
 Loads the chunk if needed. Use get_loaded_block when scanning large areas.
+
+```gdscript
+if api.get_block(at, realm_id) != int(ids.slime):
+```
 
 **See also:** `get_block_loaded`, `qualified`, `register_instance`
 
@@ -902,11 +1095,19 @@ That mistake is loud (GDScript refuses the conversion, names the file and line, 
 call), so nothing was ever silently wrong. It was simply a trap the signature laid, and there is no
 reason for the odd one out to stay odd. (2026-09-21)
 
+```gdscript
+api.set_block(at, 0, realm_id)
+```
+
 **See also:** `qualified`, `register_instance`, `set_block_authoritative`
 
 ### `api.get_block_state(pos: Vector3i, realm_id := "") -> int`
 
 Per-block state byte (e.g. facing 0-3 for "orientation": "horizontal" blocks).
+
+```gdscript
+if api.get_block_state(at, realm_id) != 0:
+```
 
 **See also:** `block_state`, `chunk_coord_at`, `index`, `qualified`, `register_instance`
 
@@ -930,6 +1131,10 @@ removed automatically when the block is broken or replaced.
 ### `api.set_block_data(pos: Vector3i, data: Dictionary, realm_id := "") -> void`
 
 Replaces the data dictionary stored with the block at a position (saved with the world).
+
+```gdscript
+api.set_block_data(ctx.position, {"level": int(ctx.level)}))
+```
 
 **See also:** `add_chunk`, `block`, `chunk_coord_at`, `chunk_path`, `decorate`, `generate`
 
@@ -1006,12 +1211,21 @@ the def: category, paint, pixels, boxes, texture, model, color, covers, unlocked
 `model` are paths in this mod. `unlocked: false` makes it wearable only after player.grant_cosmetic.
 Returns the cosmetic's full name ("mod:name"), or "" when invalid.
 
+```gdscript
+api.register_cosmetic("cap", {"category": "hat", "display_name": "Cap", "unlocked": true,
+	"boxes": [{"from": [-4, 8, -4], "size": [8, 2, 8], "color": "#4488cc"}]})
+```
+
 **See also:** `attach`, `register`, `register_asset`, `reload`
 
 ### `api.register_cosmetic_category(category_name: String, def := {}) -> bool`
 
 Adds a cosmetic category. def: display_name, attach (rig attachment point for boxes and models),
 covers (armor slots its cosmetics replace by default).
+
+```gdscript
+api.register_cosmetic_category("hat", {"display_name": "Hats"})
+```
 
 **See also:** `register_category`
 
@@ -1032,6 +1246,10 @@ For per-player looks (teams, disguises) use player.set_avatar_override or the av
 Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching
 `equip_slot` go in it; its modifiers apply while worn. def: display_name.
 
+```gdscript
+api.register_equipment_slot("charm", {"display_name": "Charm"})
+```
+
 **See also:** `get_stat`, `register_slot`
 
 ### `api.register_stat(stat_name: String, base: float) -> bool`
@@ -1039,12 +1257,20 @@ Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a ma
 Adds a player stat with a base value. Items and effects change it with modifiers; read it with
 player.get_stat(name). Engine stats: see ItemRegistry.BASE_STATS.
 
+```gdscript
+api.register_stat("proving:resolve", 1.0)
+```
+
 **See also:** `can_see_target`, `health_fraction`
 
 ### `api.set_gameplay(values: Dictionary) -> void`
 
 Game-wide rules: item_drops ("entity" | "inventory"), keep_inventory, pvp, fall_damage,
 natural_regeneration, mob_spawning.
+
+```gdscript
+api.set_gameplay({"keep_inventory": true, "natural_regeneration": true, "tutorials": true})
+```
 
 ### `api.get_gameplay(rule: String)`
 
@@ -1092,6 +1318,10 @@ Sends a chat message to everyone.
 Registers a sound from one or more audio files in the mod folder (.ogg or .wav; a random one plays
 each time). options: volume (0-2), pitch, pitch_variance, range (blocks). Returns the sound id.
 
+```gdscript
+api.register_sound("chime", "music/daylight.ogg", {"volume": 0.4, "range": 24.0})
+```
+
 **See also:** `register`, `register_ambience`, `register_asset`, `reload`
 
 ### `api.register_effect(effect_name: String, def: Dictionary) -> int`
@@ -1099,6 +1329,10 @@ each time). options: volume (0-2), pitch, pitch_variance, range (blocks). Return
 Registers a visual effect: particle emitters, light flash, camera shake and sound (see
 engine/shared/effect_registry.gd). Emitter textures are paths in this mod or "soft", "spark",
 "star", "square". Returns the effect id, or -1.
+
+```gdscript
+api.register_effect("puff", {"particles": 12, "color": "#cccccc", "scale": 1.0, "duration": 0.6})
+```
 
 **See also:** `damage`, `qualified`, `register`, `register_asset`, `reload`
 
@@ -1108,6 +1342,10 @@ Plays an effect for everyone in range. options: color ("#rrggbb", tints it), sca
 (Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).
 Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,
 engine:dust, engine:explosion.
+
+```gdscript
+api.play_effect("puff", at + Vector3(0, 1, 0), {"scale": 1.0})
+```
 
 **See also:** `clean_options`, `follow`, `qualified`
 
@@ -1123,6 +1361,10 @@ Makes a file from this mod's folder downloadable by clients. Returns its asset n
 options: {lazy} - a lazy asset is listed for the client but not part of the download it waits through
 to join; it is fetched the first time something needs it. Use it for anything big and optional (music
 is the reason it exists). Anything the world cannot be drawn without must stay eager.
+
+```gdscript
+api.register_asset("music/night.ogg", {"lazy": true})
+```
 
 **See also:** `add_asset`, `reload`
 
@@ -1172,6 +1414,10 @@ In the engine rather than in a mod because otherwise every mod that wanted weath
 write the same four decisions - how often is too often, how far can it be, who else hears it, what
 about somebody asleep - and none of them would agree.
 
+```gdscript
+api.register_ambience({"sound": "proving:chime", "sky": true, "every": [20.0, 45.0]})
+```
+
 **See also:** `register`, `set_default_role`
 
 ### `api.set_default_role(role_name: String) -> String`
@@ -1207,6 +1453,10 @@ out in it. `sound` loops while it falls, `sky_tint` colours the sky, `light_scal
 **When it rains is not here.** That is a mod's decision and games want wildly different answers - a
 survival world on a timer, a story where the storm arrives because the story says so.
 
+```gdscript
+api.register_weather("haze", {"display_name": "Haze", "darkness": 0.2, "particles": "puff"})
+```
+
 **See also:** `qualified`, `register`, `reload`
 
 ### `api.set_weather(weather_name: String, options := {}) -> void`
@@ -1234,6 +1484,10 @@ Attribution is required rather than encouraged because whoever runs a server is 
 to their children and anyone else who joins, and a track whose source nobody wrote down is one whose
 licence nobody can check later. `/music` shows the credits in game.
 
+```gdscript
+api.register_music("daylight", "music/daylight.ogg", {"volume": 0.9, "attribution": credit})
+```
+
 **See also:** `register`, `register_asset`, `reload`
 
 ### `api.play_music(player, track_name: String, options := {}) -> void`
@@ -1244,6 +1498,10 @@ changes - which is how a mod will actually want to use it.
 
 options: {fade (seconds to cross over, default 2.0), restart (start again even if it is already
 playing, default false)}.
+
+```gdscript
+api.play_music(ev.player, "night" if api.get_daylight() < 0.3 else "daylight", {"fade": 6.0}))
+```
 
 **See also:** `send_music`
 
@@ -1288,6 +1546,10 @@ api.on("item_use", func(ev): api.open_bag(ev.player, ev.player.selected_slot))
 A bag cannot be put inside a bag; the engine refuses it, because a container that can contain
 itself is a duplication bug waiting for somebody to find it.
 
+```gdscript
+if not api.open_bag(player, player.selected_slot):
+```
+
 **See also:** `open_item`, `shared_store`
 
 ### `api.shared_store(store_name: String, container_type: String) -> bool`
@@ -1299,11 +1561,19 @@ type is unknown.
 one each is `shared_store("vault_" + p.player_id, ...)`. The engine keeps a table of names, which
 is why it does not need to know which you meant.
 
+```gdscript
+api.shared_store("vault", "vault")
+```
+
 **See also:** `declare_store`
 
 ### `api.open_shared(player, store_name: String) -> bool`
 
 Opens a shared store for a player. Declare it with `shared_store` first.
+
+```gdscript
+api.open_shared(player, "vault"))
+```
 
 **See also:** `open_store`
 
@@ -1322,6 +1592,10 @@ look: {color, size, seconds} - no seconds leaves it until older marks push it ou
 It projects onto whatever is underneath, so it follows the shape of the ground and does not have to
 know what it landed on. `normal` turns it to lie on a wall rather than the floor.
 
+```gdscript
+api.play_decal(at - Vector3(0, 0.5, 0), Vector3i.UP, {"color": "#222222", "size": 2.0})
+```
+
 **See also:** `qualified`, `realm_of`
 
 ### `api.screen_tint(player, look := {}) -> void`
@@ -1334,6 +1608,10 @@ A tint on the *view*, which nothing could do before - weather colours the sky an
 is not the same thing. It obeys the player's accessibility setting for flashes, because a
 full-screen colour is exactly what somebody may need turned down and a mod should not overrule it.
 
+```gdscript
+api.screen_tint(player, {"color": "#3366aa", "strength": 0.3})
+```
+
 ### `api.play_beam(from: Vector3, to: Vector3, look := {}, realm_id := "") -> void`
 
 Draws a line between two places for a moment: a spell going off, an arc of lightning, a beam
@@ -1341,6 +1619,10 @@ holding something up. look: color, width, seconds, sag (0 is straight, higher ha
 
 Its own call rather than an effect with a shape, because an emitter says "from here, outwards" and
 can never say "from here to there".
+
+```gdscript
+api.play_beam(at + Vector3(0, 1, 0), at + Vector3(0, 1, 6), {"color": "#88ddff", "seconds": 0.5})
+```
 
 **See also:** `qualified`, `realm_of`
 
@@ -1448,6 +1730,11 @@ abandoned.
 whatever event means "they did it" and call advance_objective. Otherwise the engine would have to
 learn what delivering a letter is.
 
+```gdscript
+api.register_objective("errand", {"display_name": "An Errand",
+	"steps": [{"text": "Go and see"}, {"text": "Come back", "count": 2}]})
+```
+
 **See also:** `register`
 
 ### `api.give_objective(player, objective_name: String) -> bool`
@@ -1503,6 +1790,17 @@ lines with options and nothing else about what any of it means.
 `goes_to` moves to another line, `gives` hands over an objective, `sells` opens a shop, and `does`
 fires `character_choice` for anything else at all.
 
+```gdscript
+api.register_character("keeper", {"display_name": "The Keeper", "color": "#ffd166", "lines": {
+	"start": {"text": "You again.", "options": [
+		{"text": "What have you got?", "sells": "stall"},
+		{"text": "Anything to do?", "gives": "errand"},
+		{"text": "Who are you?", "goes_to": "who"},
+		{"text": "Nothing", "does": "wave"}]},
+	"who": {"text": "The keeper of this place.", "options": [{"text": "I see", "goes_to": "start"}]},
+	"settled": {"text": "Settled in, then."}}})
+```
+
 **See also:** `register`
 
 ### `api.talk_to(player, character_name: String, options := {}) -> bool`
@@ -1535,6 +1833,13 @@ the item over and is paid for it.
 **Stock is the part that matters.** A shop with unlimited everything is a creative menu with an
 extra step; `stock` and `restock` are what make the blacksmith who has three swords this week
 somewhere worth going back to. Leave `stock` out for an offer that never runs dry.
+
+```gdscript
+api.register_shop("stall", {"display_name": "The Stall", "offers": [
+	{"item": "proving:token", "count": 2, "price": 5, "ledger": "coins", "stock": 3, "restock": 30.0},
+	{"item": "proving:rock", "count": 4, "cost": [{"item": "proving:token", "count": 1}]},
+	{"item": "proving:plain", "price": 1, "ledger": "coins", "sells": true}]})
+```
 
 **See also:** `register`
 
@@ -1597,6 +1902,12 @@ because a number that vanishes behind a post is a number nobody can read.
 
 options: color, seconds, rise (how far it drifts up), size, follow (a player or entity it sticks to).
 
+```gdscript
+api.float_text("%d" % roundi(was - float(ev.health)),
+	e.body.position + Vector3(0, e.def.height * 0.9, 0),
+	{"color": "#ffd166", "follow": e, "seconds": 0.8}))
+```
+
 **See also:** `qualified`, `register_entity`
 
 ### `api.mount(player, entity) -> bool`
@@ -1647,6 +1958,10 @@ Three orders are the engine's own, because all three are about *where*: `engine:
 Right-clicking a companion opens the order panel, drawn by the engine. Restrict what a particular
 creature may be told by handling `companion_orders` and editing `orders`.
 
+```gdscript
+api.register_order("forage", {"display_name": "Forage here", "behavior": "proving:forage"})
+```
+
 **See also:** `at`, `qualified`, `register`
 
 ### `api.order(entity, order_name: String, options := {}) -> bool`
@@ -1659,6 +1974,10 @@ is standing).
 ### `api.order_of(entity) -> String`
 
 What it is being told to do now ("engine:follow" when nobody has said otherwise).
+
+```gdscript
+"score": func(brain): return 0.2 if api.order_of(brain.entity) == "proving:forage" else 0.0,
+```
 
 ### `api.show_orders(player, entity) -> bool`
 
@@ -1684,6 +2003,12 @@ choose none.
 
 `affects` is "everyone", "players" or "creatures" - not "enemies", which would mean the engine
 learning about sides. `except_owner` (on by default) keeps whoever left it out of their own fire.
+
+```gdscript
+api.register_field("scorch", {"display_name": "Scorch", "radius": 3.0, "seconds": 8.0,
+	"effect": "engine:smoke", "tick": {"seconds": 1.0, "damage": 1.0, "cause": "scorch"},
+	"condition": {"condition": "venom", "seconds": 3.0}})
+```
 
 **See also:** `qualified`, `register`
 
@@ -1720,6 +2045,11 @@ Levels multiply rather than re-describe: Swiftness II is the same modifiers doub
 what a second helping does - "strongest" (the default), "refresh" or "extend".
 
 What stays yours: what conditions exist, what brews or cures them, and what a level means.
+
+```gdscript
+api.register_condition("venom", {"display_name": "Venom", "good": false, "color": "#89c24a",
+	"tick": {"seconds": 1.0, "damage": 1.0, "cause": "venom"}, "max_level": 3})
+```
 
 **See also:** `register`
 
@@ -1771,9 +2101,17 @@ about the level of - so a ledger given thresholds answers about levels as well.
 The engine stores a number against a player and a name and never learns that one of them is money.
 What a level unlocks, whether anything unlocks at all, whether coins may go negative: all yours.
 
+```gdscript
+api.register_ledger("coins", {"display_name": "Coins", "min": 0})
+```
+
 **See also:** `register`
 
 ### `api.balance_of(player, ledger_name: String) -> float`
+
+```gdscript
+{"type": "progress", "value": int(api.balance_of(player, "coins")), "max": 10, "color": "#6fcf97"},
+```
 
 **See also:** `qualified`, `value_of`
 
@@ -1781,6 +2119,10 @@ What a level unlocks, whether anything unlocks at all, whether coins may go nega
 
 Adds (or, with a negative amount, takes away). Returns what it ended up as, which is not always what
 was asked for when the ledger has a floor or a ceiling.
+
+```gdscript
+api.add_balance(ev.player, "coins", 1.0))
+```
 
 **See also:** `qualified`
 
@@ -1829,6 +2171,11 @@ the wire.
 to the hit event it already has and asking whether the weapon is kindled. A second way of doing what
 events already do would be worse than one.
 
+```gdscript
+api.register_modifier("keen", {"display_name": "Keen", "max_level": 3,
+	"per_level": [{"stat": "attack_damage", "amount": 1.0}], "applies_to": ["#proving:prods"]})
+```
+
 **See also:** `qualified`, `register`
 
 ### `api.apply_modifier(item_data: Dictionary, item_name: String, modifier_name: String, level := 1) -> Dictionary`
@@ -1863,12 +2210,21 @@ has spread `shallow_from` blocks - give it a slab shape and a thin sheet looks a
 The level lives in the block's state: 0 is a source and never runs out, and each block outwards is
 one weaker. Nothing new is written to disk or sent to clients, because states already were.
 
+```gdscript
+api.register_liquid("slime", {"range": 4, "falls": true, "speed": 0.4,
+	"shallow": "proving:slime_thin", "shallow_from": 2})
+```
+
 **See also:** `block`, `is_excluded`, `qualified`, `register`, `register_block_tick`
 
 ### `api.register_liquid_meeting(a_name: String, b_name: String, result_name: String) -> bool`
 
 What forms where two different liquids meet - the black glass where lava meets water. The engine
 has never heard of obsidian; it only knows that two of them touching makes a third thing.
+
+```gdscript
+api.register_liquid_meeting("slime", "proving:slime", "proving:plain")
+```
 
 **See also:** `block`, `is_excluded`, `qualified`, `register_meeting`
 
@@ -1933,6 +2289,10 @@ so rather than inventing an average nobody asked for.
 Gearing is not here. A gearbox is a block that reads one line and drives another at a different
 speed, which is a few lines in a mod - and then the engine has no opinion about what ratios exist.
 
+```gdscript
+api.register_drive("shaft")
+```
+
 **See also:** `register_unit`
 
 ### `api.set_drive(unit_name: String, node: Dictionary, value: float) -> void`
@@ -1964,6 +2324,10 @@ Told when what a face is driven at changes: {realm, position, face, unit, value,
 
 A kind of quantity that moves along links: power, steam, water, mana. The engine keeps them apart
 by name and learns nothing else about any of them.
+
+```gdscript
+api.register_unit("power")
+```
 
 ### `api.set_supply(unit_name: String, node: Dictionary, amount: float) -> void`
 
@@ -2009,6 +2373,10 @@ the gap between worlds), `needs_air`, `per_node` (how many may meet at one face)
 A node is a **face** of a block, so a machine can take power in one side and push items out of
 another. Raise the reach of a particular connector by handling the `link_reach` event - that is
 where an upgrade or a better aerial belongs, rather than in the kind itself.
+
+```gdscript
+api.register_link_kind("cable", {"span": 10.0, "needs_air": true, "draw": "cable", "color": "#c2703c"})
+```
 
 **See also:** `link_problem`, `register_kind`
 
@@ -2057,6 +2425,10 @@ knowing that mod exists.
 A tag in a namespace no installed mod owns is kept and warned about rather than refused, so a mod
 that integrates with another when it happens to be there does not have to guard every call.
 
+```gdscript
+api.tag("currency", ["proving:token"])
+```
+
 **See also:** `qualified`
 
 ### `api.tagged(tag_name: String) -> Array`
@@ -2095,12 +2467,21 @@ weaker each block, so fifteen blocks and it is gone), and a block listens - this
 and emitting with set_signal. The engine has no opinion about what logic looks like, because a
 puzzle game and a factory want different answers and it is not the engine's business to pick.
 
+```gdscript
+api.register_signal("core", func(ctx):
+	api.set_block_data(ctx.position, {"level": int(ctx.level)}))
+```
+
 **See also:** `block`, `is_excluded`, `qualified`, `register`
 
 ### `api.set_signal(position: Vector3i, level: int, realm_id := "") -> void`
 
 Makes the block at `position` emit `level` (0 to 15; 0 stops it). For a lever being flipped, a plate
 being stood on, or a gate of your own working out what it should be saying.
+
+```gdscript
+api.set_signal(ev.position, 15 if api.signal_at(ev.position) == 0 else 0))
+```
 
 **See also:** `qualified`, `register_instance`, `set_source`
 
@@ -2123,6 +2504,10 @@ api.register_instance("dungeon", {"generator": Rooms.new(), "empty_seconds": 30,
 def: {generator, passes, empty_seconds, max_players, display_name}. Without a generator the space
 is empty air, which is what a mod that builds its own room wants.
 
+```gdscript
+api.register_instance("trial", {"display_name": "The Trial", "empty_seconds": 5.0, "max_players": 2})
+```
+
 **See also:** `register`
 
 ### `api.open_instance(kind_name: String, options := {}) -> String`
@@ -2131,17 +2516,29 @@ Opens one and returns its id, or "" if it could not be opened.
 
 options: {seed, data (anything you want to keep with it; read it back with `instance_data`)}.
 
+```gdscript
+var run: String = api.open_instance("trial", {"data": {"opened_for": player.name}})
+```
+
 **See also:** `open`
 
 ### `api.enter_instance(player, instance_id: String, position: Vector3) -> bool`
 
 Sends a player in, remembering where they were so `leave_instance` can put them back.
 
+```gdscript
+api.enter_instance(player, run, Vector3(0.5, 66, 0.5))
+```
+
 **See also:** `enter`
 
 ### `api.leave_instance(player) -> bool`
 
 Puts a player back where they were before they entered.
+
+```gdscript
+api.leave_instance(player)
+```
 
 **See also:** `leave`
 
@@ -2155,6 +2552,10 @@ itself once it has been empty for its kind's `empty_seconds`.
 ### `api.instance_of(player) -> String`
 
 The instance a player is in, or "".
+
+```gdscript
+var here: String = api.instance_of(player)
+```
 
 ### `api.instance_data(instance_id: String) -> Dictionary`
 
@@ -2181,12 +2582,20 @@ in it: an empty one is not ticked at all (see docs/roadmap.md, "How much of the 
 To send somebody there: a portal block whose block data is {portal: {realm: "<mod>:emberdeep"}},
 or send_to_realm. What the world is made of is the generator's business, and what it means is yours.
 
+```gdscript
+api.add_realm("deep", {"display_name": "The Deep", "generator": "void"})
+```
+
 **See also:** `attach`, `reload`, `set_storage`, `start`
 
 ### `api.realm_of(player) -> String`
 
 Which world a player is standing in, as the id add_realm was given ("" is the one a server starts
 with). Positions mean nothing without it: every world has a block at the same coordinates.
+
+```gdscript
+var realm_id: String = api.realm_of(player)
+```
 
 ### `api.send_to_realm(player, realm_id: String, position: Vector3) -> bool`
 
@@ -2204,6 +2613,10 @@ until something says otherwise - the same shape as `set_weather`.
 Wind is visual: it leans the grass, drags the clouds and slants the rain. Nothing in the simulation
 depends on it, so a mod may move it as freely as it likes. While a mod holds it the engine stops
 drifting it on its own.
+
+```gdscript
+api.set_wind(240.0, 0.85)
+```
 
 ### `api.get_wind() -> Dictionary`
 
@@ -2234,6 +2647,11 @@ reward. `detail` is shown to a player, so write it as a sentence.
 
 source: {kind ("block"|"creature"|"container"|"ground"|"other"), from, detail, chance}.
 
+```gdscript
+api.register_source("proving:token", {"kind": "other", "from": "the keeper",
+	"detail": "handed over for a favour", "chance": 0.5})
+```
+
 **See also:** `declare`, `item`
 
 ### `api.register_milestone(milestone_name: String, def: Dictionary) -> bool`
@@ -2245,6 +2663,11 @@ lifetime total. No target means anything of that kind counts.
 {title, description, goal, icon, order, secret (hidden until reached), announce (tell everyone),
 reward: {items: [[item, count]], cosmetic}}. The usual reward is a cosmetic, because a cosmetic is
 something other players can see. Names without ":" are this mod's.
+
+```gdscript
+api.register_milestone("first_stone", {"display_name": "First Stone",
+	"goal": {"type": "break", "target": ["proving:rock"]}})
+```
 
 **See also:** `qualified`, `register`
 
@@ -2302,6 +2725,10 @@ Stops (or allows again) a player uploading creations; banning also hides their c
 Describes a permission a mod checks with player.has_permission, and which built-in roles get it by
 default (e.g. ["moderator"]; admins and owners have every permission anyway).
 
+```gdscript
+api.register_permission("proving.prove", "May prove things", ["moderator"])
+```
+
 **See also:** `merge`, `role`
 
 ### `api.network_servers() -> Array`
@@ -2328,6 +2755,10 @@ fishing rod has to find the water's surface, and there is no other way to ask wh
 var look := api.look_direction(player)
 var hit := api.raycast(player.get_eye_position(), look, 6.0, {"liquids": true})
 options.realm names the world to cast in; without it, the one a server starts with.
+
+```gdscript
+var hit: Dictionary = api.raycast(player.get_eye_position(), api.look_direction(player), 6.0)
+```
 
 **See also:** `cast`, `qualified`, `raycast_lut_with_liquids`, `register_instance`
 
@@ -2363,6 +2794,10 @@ var cells := api.area_cells("vein", {"position": at, "player": p, "max": 64})
 Choosing the cells and changing them are separate on purpose: between the two is where a tool
 shows a preview, counts what it would cost, or asks whether the player really meant it.
 
+```gdscript
+var cells: Array = api.area_cells("vein", {"position": at, "player": player, "max": 64})
+```
+
 **See also:** `cells`
 
 ### `api.register_area_rule(rule_name: String, chooser: Callable) -> void`
@@ -2370,6 +2805,16 @@ shows a preview, counts what it would cost, or asks whether the player really me
 Registers a way of choosing cells, for a tool the three built-in shapes do not describe - a line,
 a wall, everything touching one face. The callable is handed the context `area_cells` was called
 with and returns an Array of Vector3i.
+
+```gdscript
+api.register_area_rule("column", func(ctx):
+	var at: Vector3i = ctx.get("position", Vector3i.ZERO)
+	var height: int = clampi(int(ctx.get("height", 4)), 1, 32)
+	var out: Array = []
+	for dy in height:
+		out.append(at + Vector3i(0, dy, 0))
+	return out)
+```
 
 **See also:** `register_rule`
 
@@ -2385,6 +2830,10 @@ listening for `block_broken` hears this exactly as it hears a pickaxe, and a sel
 into somebody's garden does the part outside it and reports the rest as `skipped`. `fill` is the
 admin door and asks none of that.
 
+```gdscript
+var done: Dictionary = api.area_edit(player, cells, {"block": 0})
+```
+
 **See also:** `apply`
 
 ### `api.show_area(player, cells: Array, options := {}) -> void`
@@ -2393,6 +2842,10 @@ Outlines a selection for one player, before they commit to it. `seconds` 0 holds
 cleared, which is what a tool with a live selection wants; an empty list takes it away.
 
 options: {color, seconds}.
+
+```gdscript
+api.show_area(player, cells, {"seconds": 3.0})
+```
 
 **See also:** `preview`
 
@@ -2426,6 +2879,15 @@ api.register_settings({
 The server owns the values, so all three ways in agree: mod_settings.json in the server's data
 folder, the /modsettings command, and the admin settings screen. They live in the world, so a world
 carries its own settings and a backup restores them.
+
+```gdscript
+api.register_settings({
+	"monsters": {"label": "How many monsters", "type": "choice", "default": "normal",
+		"choices": [["none", "None"], ["few", "A few"], ["normal", "Normal"], ["many", "Lots"]]},
+	"day_minutes": {"label": "Minutes in a day", "type": "int", "default": 20, "min": 2, "max": 120},
+	"zombies_burn": {"label": "Monsters burn by day", "type": "bool", "default": true},
+})
+```
 
 **See also:** `register`
 

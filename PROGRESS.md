@@ -4094,8 +4094,21 @@ signatures carry no types worth reading; ours do, and a second place to describe
 second place for it to go stale) and hand-written per-function examples (MSDN's rotted; ours should be
 harvested from the Proving Ground, where the suite already keeps them correct).
 
-Still to do: examples from the Proving Ground, a "since which version" field from git history, and a
-"How Do I..." task index over modding.md.
+**Examples, done (2026-09-22).** Ninety-five entries carry a worked example, taken from
+`tests/mods/proving/` rather than written by hand - which is the one place this can beat the reference
+it is modelled on. MSDN's examples were prose and they rotted: the API moved, the sample did not.
+These cannot, because the suite loads and plays that mod on every run, so a line that stops being
+valid goes red before anybody reads the page. Nothing in the mod is marked up to make it work either,
+so it costs its authors nothing and improves whenever the mod grows.
+
+Two details that decided whether it was readable: the statement is followed across lines by balancing
+brackets (most interesting calls are a multi-line dictionary, and a first line alone says nothing),
+and it is dedented by the *first* line's indent so nesting keeps its shape instead of being flattened
+to the margin. And because coverage is 56 of 56, **every capability has an example** - a test ties the
+two facts together so they cannot drift apart.
+
+Still to do: a "since which version" field from git history, and a "How Do I..." task index over
+modding.md.
 
 ## The Proving Ground covered 40 of 56 capabilities, not all of them (2026-09-22)
 

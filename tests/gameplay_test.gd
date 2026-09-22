@@ -4369,6 +4369,18 @@ func _api_docs() -> void:
 	# link that matters usually runs through one: `api.sources_of` reaches `chance_of` only via
 	# `of_item` and loot's own `sources_of`. Not knowing `chance_of` existed is what caused the bug this
 	# reference was built to prevent, so the chain itself is worth asserting. (2026-09-22)
+	# Examples come from the Proving Ground, not from prose, so they cannot rot: the suite loads and
+	# plays that mod every run. Since every capability is exercised there (tests/mods/proving/
+	# uncovered.txt is empty), every capability has a worked example - and this is what keeps the two
+	# facts tied together rather than drifting apart. (2026-09-22)
+	var shown: Dictionary = Docs.examples()
+	var without: Array = []
+	for line in FileAccess.get_file_as_string("res://engine/server/mod_api.gd").split("\n"):
+		var text: String = line
+		if text.begins_with("func register_") and not shown.has(text.get_slice("func ", 1).get_slice("(", 0)):
+			without.append(text.get_slice("func ", 1).get_slice("(", 0))
+	_check(without.is_empty(), "every capability carries an example taken from the Proving Ground (missing %s)" % ", ".join(without))
+
 	var graph: Dictionary = Docs.call_graph()
 	_check((graph.get("of_item", []) as Array).has("sources_of"),
 		"See Also follows a private helper out to what it actually uses (%s)" % str(graph.get("of_item", [])))

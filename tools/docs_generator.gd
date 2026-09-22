@@ -131,6 +131,66 @@ static func undocumented_readers() -> Array:
 	return out
 
 
+## An example per function, taken from the Proving Ground rather than written by hand.
+##
+## **This is the one place we can beat the reference this is modelled on.** MSDN's examples were
+## hand-written prose and they rotted: the API moved and the sample on the page did not. Ours cannot,
+## because `tests/mods/proving/` is a mod the suite loads and plays on every run - if a line here stops
+## being valid, a test goes red before anybody reads the page. Nothing is marked up to make this work
+## either, so it costs the mod's authors nothing and improves whenever the mod grows. (2026-09-22)
+##
+## Takes the *first* call of each function and follows it across lines by balancing brackets, because
+## most of the interesting ones are a multi-line dictionary and a first line on its own says nothing.
+static func examples() -> Dictionary:
+	var out := {}
+	var pattern := RegEx.create_from_string("api\\.([a-z_][a-z0-9_]*)\\s*\\(")
+	for path: String in _files_under("res://tests/mods/proving", ".gd"):
+		var lines := FileAccess.get_file_as_string(path).split("\n")
+		for i in lines.size():
+			var m := pattern.search(lines[i])
+			if m == null:
+				continue
+			var name := m.get_string(1)
+			if out.has(name):
+				continue
+			out[name] = _statement_at(lines, i)
+	return out
+
+
+## The whole statement starting at `first`, however many lines its brackets run to.
+static func _statement_at(lines: PackedStringArray, first: int) -> String:
+	var depth := 0
+	var collected := PackedStringArray()
+	# Dedented by the first line's own indent, so a continuation keeps its shape instead of every line
+	# being flattened to the left margin - which is what makes a nested dictionary readable at all.
+	var indent := lines[first].length() - lines[first].strip_edges(true, false).length()
+	for i in range(first, mini(first + 14, lines.size())):
+		var text: String = lines[i]
+		var lead := text.length() - text.strip_edges(true, false).length()
+		collected.append(text.substr(mini(indent, lead)).rstrip(" \t"))
+		for c in text:
+			if c == "(" or c == "[" or c == "{":
+				depth += 1
+			elif c == ")" or c == "]" or c == "}":
+				depth -= 1
+		if depth <= 0:
+			break
+	return "\n".join(collected)
+
+
+static func _files_under(root: String, suffix: String) -> Array:
+	var out: Array = []
+	var dirs: Array = [root]
+	while not dirs.is_empty():
+		var dir: String = dirs.pop_back()
+		for name in DirAccess.get_directories_at(dir):
+			dirs.append(dir.path_join(name))
+		for name in DirAccess.get_files_at(dir):
+			if String(name).ends_with(suffix):
+				out.append(dir.path_join(name))
+	return out
+
+
 ## The Markdown half of the reference, which is now the source of truth.
 ##
 ## **Markdown rather than only HTML, on the user's call (2026-09-22), for two reasons.** A static site
@@ -159,6 +219,7 @@ static func write_markdown(out_dir: String) -> Array:
 
 static func build_mod_markdown() -> String:
 	var graph := call_graph()
+	var shown := examples()
 	var api := parse_gdscript(FileAccess.get_file_as_string(MOD_API), "")
 	var js_names := {}
 	for m in parse_ts_interface(FileAccess.get_file_as_string(TYPES), "Api"):
@@ -181,10 +242,10 @@ static func build_mod_markdown() -> String:
 					placed[fn.name] = true
 					break
 		if not rows.is_empty():
-			out.append(_markdown_section(String(section[0]), rows, graph, js_names, "api."))
+			out.append(_markdown_section(String(section[0]), rows, graph, js_names, "api.", shown))
 	var rest: Array = api.filter(func(fn): return not placed.has(fn.name))
 	if not rest.is_empty():
-		out.append(_markdown_section("Everything else", rest, graph, js_names, "api."))
+		out.append(_markdown_section("Everything else", rest, graph, js_names, "api.", shown))
 	return "\n".join(out)
 
 
@@ -210,7 +271,7 @@ static func build_engine_markdown() -> String:
 				row["file"] = path.trim_prefix("res://engine/")
 				rows.append(row)
 		if not rows.is_empty():
-			out.append(_markdown_section(String(entry[0]), rows, graph, {}, ""))
+			out.append(_markdown_section(String(entry[0]), rows, graph, {}, "", {}))
 	return "\n".join(out)
 
 
@@ -224,7 +285,7 @@ static func _engine_section_of(path: String) -> String:
 	return "Everything else"
 
 
-static func _markdown_section(title: String, rows: Array, graph: Dictionary, js_names: Dictionary, prefix: String) -> String:
+static func _markdown_section(title: String, rows: Array, graph: Dictionary, js_names: Dictionary, prefix: String, shown: Dictionary) -> String:
 	var out := PackedStringArray(["\n## %s\n" % title])
 	for fn: Dictionary in rows:
 		out.append("### `%s%s`\n" % [prefix, String(fn.signature)])
@@ -235,6 +296,8 @@ static func _markdown_section(title: String, rows: Array, graph: Dictionary, js_
 		var doc := String(fn.doc).strip_edges()
 		if not doc.is_empty():
 			out.append(doc + "\n")
+		if shown.has(fn.name):
+			out.append("```gdscript\n%s\n```\n" % String(shown[fn.name]))
 		var linked: Array = graph.get(fn.name, [])
 		if not linked.is_empty():
 			out.append("**See also:** %s\n" % ", ".join(linked.map(func(n): return "`%s`" % n)))
