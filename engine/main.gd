@@ -13,6 +13,7 @@ extends Node
 ##                         both read the passphrase from QW_IDENTITY_PASSPHRASE (or --passphrase=)
 
 const GameClient = preload("res://engine/client/game_client.gd")
+const WorldList = preload("res://engine/client/menu/world_list.gd")
 const ModLoader = preload("res://engine/server/mod_loader.gd")
 const Identity = preload("res://engine/shared/identity.gd")
 const Cosmetics = preload("res://engine/shared/cosmetics.gd")
@@ -240,7 +241,8 @@ func _on_client_exited(message: String) -> void:
 
 ## What the world's own process said when it refused to start, or "".
 func _local_start_error() -> String:
-	var path := "user://worlds/last_start_error.txt"
+	# Through WorldList rather than a bare `user://`, so QW_DATA_DIR and QW_USER_DIR both reach it.
+	var path := WorldList.dir().path_join("last_start_error.txt")
 	if not FileAccess.file_exists(path):
 		return ""
 	var reason := FileAccess.get_file_as_string(path).strip_edges()

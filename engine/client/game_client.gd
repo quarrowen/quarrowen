@@ -86,6 +86,14 @@ const ViewModel = preload("res://engine/client/avatar/view_model.gd")
 enum CameraMode { FIRST_PERSON, THIRD_PERSON, FRONT }
 
 const MAX_CONNECT_ATTEMPTS := 20
+## How long a server has to finish the handshake before we give up on it.
+##
+## `connection_failed` only fires when ENet gives up on the *socket*. A server that accepts the
+## connection and then never answers the hello - one speaking a different protocol, or one wedged - left
+## the client on "Connecting to..." for ever, with nothing to do but force-quit. Twenty seconds is long
+## enough for a slow join to a busy server and short enough that a child does not think the game is
+## broken and goes to find an adult. (2026-09-22)
+const HANDSHAKE_SECONDS := 20.0
 const MESH_WORKERS := 4
 const MOUSE_SENSITIVITY := 0.0025
 const REACH := 5.0
@@ -257,6 +265,20 @@ var _spin_angle := {}
 var _time_of_day := 0.5
 var _day_length := 0.0
 var _daylight := 1.0
+## The wind, as the client draws it. The server sends a base vector rarely; these ease toward it, and
+## the gusts on top are worked out in the shaders from position and time, where they cost nothing.
+var _wind_angle := 135.0
+var _wind_strength := 0.3
+var _wind_target_angle := 135.0
+var _wind_target_strength := 0.3
+## How far the cloud deck has travelled. Kept rather than derived from the clock because the speed
+## changes: `TIME * strength` slides the whole sky backwards the moment the wind drops.
+var _wind_travelled := 0.0
+## When to give up on a handshake, in seconds; 0 when we are not waiting on one.
+var _handshake_deadline := 0.0
+## The relief atlas, worked out on a worker thread because it is a Sobel over every texture.
+var _relief_task := -1
+var _relief_image: Image = null
 var _applied_daylight := -1.0
 var _sky_material: ProceduralSkyMaterial
 ## The realistic preset's sky: real atmospheric scattering rather than two colours and a gradient.
@@ -383,6 +405,7 @@ func _connect() -> void:
 		_identity = Identity.load_or_create(identity_name)
 	_connect_attempts += 1
 	_set_status("Connecting to %s:%d..." % [server_address, server_port])
+	_handshake_deadline = Time.get_ticks_msec() / 1000.0 + HANDSHAKE_SECONDS
 	var err := Net.create_client(server_address, server_port, test_protocol)
 	if err != OK:
 		_leave("Could not start client: %s" % error_string(err))
@@ -403,6 +426,48 @@ func on_challenge(nonce: PackedByteArray) -> void:
 		return
 	_set_status("Authenticating...")
 	Net.c_auth.rpc_id(1, Identity.sign(test_signing_key if test_signing_key != null else _identity, nonce))
+
+
+## Gives up on a server that took the connection and then said nothing.
+## Starts working out the relief atlas on a worker, if this preset will use it.
+##
+## Not done at all for the presets that cannot show it: the unshaded shader has no normal to perturb,
+## so the work would be spent to be thrown away.
+func _start_relief(lit: bool) -> void:
+	_relief_task = -1
+	_relief_image = null
+	if not lit or _atlas == null or not _atlas.has("tiles"):
+		return
+	_relief_task = WorkerThreadPool.add_task(func(): _relief_image = TextureAtlas.build_surface(_atlas),
+		false, "relief atlas")
+
+
+## Hands the finished relief atlas to the materials. Until then they simply have none, and the lit
+## shader falls back to the flat roughness it used before any of this existed.
+func _poll_relief() -> void:
+	if _relief_task < 0 or not WorkerThreadPool.is_task_completed(_relief_task):
+		return
+	WorkerThreadPool.wait_for_task_completion(_relief_task)
+	_relief_task = -1
+	if _relief_image == null or _solid_material == null:
+		return
+	var texture := ImageTexture.create_from_image(_relief_image)
+	for material in [_solid_material, _translucent_material]:
+		material.set_shader_parameter("surface", texture)
+	_relief_image = null
+
+
+func _watch_handshake() -> void:
+	if _handshake_deadline <= 0.0 or _welcomed or _exiting:
+		return
+	if Time.get_ticks_msec() / 1000.0 < _handshake_deadline:
+		return
+	_handshake_deadline = 0.0
+	exit_kind = "connect"
+	# Named as the likeliest cause rather than as a timeout, because it almost always is one: a server
+	# that answers the socket but not the hello is usually running a different version.
+	_leave("%s:%d answered but did not finish letting us in. It may be running a different version of %s, or it may be having trouble."
+		% [server_address, server_port, Protocol.GAME_NAME])
 
 
 func _on_connection_failed() -> void:
@@ -675,6 +740,7 @@ func _finish_content() -> void:
 	var lit := bool(graphics.value("realistic")) and not GraphicsSettings.off("lit")
 	_solid_material = VoxelMaterial.create(_atlas.texture, false, lit)
 	_translucent_material = VoxelMaterial.create(_atlas.texture, true, lit)
+	_start_relief(lit)
 	_applied_daylight = -1.0
 	for d in registry.defs:
 		if not d.model.is_empty() and _manifest.has(d.model):
@@ -766,6 +832,7 @@ func on_welcome(peer_id: int, spawn: Vector3, spawn_yaw: float) -> void:
 	_prev_position = spawn
 	yaw = spawn_yaw
 	_welcomed = true
+	_handshake_deadline = 0.0
 	phase = Phase.PLAYING
 	if _self_avatar != null and _appearances.has(my_id):
 		_apply_look(_self_avatar, player_name, _appearances[my_id])  # it may arrive before the welcome
@@ -1315,6 +1382,13 @@ func on_player_event(peer_id: int, kind: int) -> void:
 
 ## The server's music instruction. Nothing here can fail loudly: the track may not have arrived yet, or
 ## may never arrive, and either way the game carries on without it.
+## The wind the server is running. Stored, not applied: `_wind_angle` eases toward it over a few
+## seconds, because wind that snaps to a new heading looks like a bug rather than like weather.
+func on_wind(angle: float, strength: float) -> void:
+	_wind_target_angle = fposmod(angle, 360.0)
+	_wind_target_strength = clampf(strength, 0.0, 1.0)
+
+
 ## What the sky is doing. Like music, nothing here can fail loudly: unknown weather simply is not drawn.
 func on_weather(weather_id: int, intensity: float) -> void:
 	if _weather != null:
@@ -1643,6 +1717,9 @@ func _can_simulate() -> bool:
 # --- Frame update -------------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	_watch_handshake()
+	_poll_relief()
+	_ease_wind(delta)
 	_poll_mesh_jobs()
 	_schedule_mesh_jobs()
 	if not _drive_speed.is_empty():
@@ -2371,11 +2448,15 @@ func _update_time(delta: float) -> void:
 	_sky_material.ground_bottom_color = Color(0.02, 0.02, 0.04).lerp(Color(0.3, 0.4, 0.55), t)
 	if _cloud_sky != null:
 		_cloud_sky.set_shader_parameter("sun_direction", sun_direction)
+		_cloud_sky.set_shader_parameter("wind_direction", _wind_vector())
+		_cloud_sky.set_shader_parameter("wind_strength", _wind_strength)
 		_cloud_sky.set_shader_parameter("sun_tint", Vector3(sun_tint.r, sun_tint.g, sun_tint.b))
 		_cloud_sky.set_shader_parameter("daylight", _daylight)
 		# Clouds drift on their own clock rather than on the day's, so they keep moving while the
 		# light holds steady through the middle of the day.
-		_cloud_sky.set_shader_parameter("wind_offset", float(Time.get_ticks_msec() / 100) * 0.0012)
+		# Scrolled by our own accumulator rather than by the clock, because the speed changes: driving
+		# it from TIME * strength makes the whole deck jump backwards the moment the wind eases.
+		_cloud_sky.set_shader_parameter("wind_offset", _wind_travelled)
 		var weather_now: Dictionary = _weather.sky_tint() if _weather != null else {}
 		# Weather thickens the deck: a storm is a sky you can see from indoors.
 		_cloud_sky.set_shader_parameter("cloudiness", clampf(0.42 + float(weather_now.get("amount", 0.0)) * 0.55, 0.0, 1.0))
@@ -2391,6 +2472,9 @@ func _update_time(delta: float) -> void:
 	for material in [_solid_material, _translucent_material]:
 		material.set_shader_parameter("sky_color", Vector3(_sky_material.sky_top_color.r, _sky_material.sky_top_color.g, _sky_material.sky_top_color.b))
 		material.set_shader_parameter("horizon_color", Vector3(horizon.r, horizon.g, horizon.b))
+		# The same wind the clouds are using, so the grass leans the way the sky is moving.
+		material.set_shader_parameter("wind_direction", _wind_vector())
+		material.set_shader_parameter("wind_strength", _wind_strength)
 	for nodes: Array in _model_nodes.values():
 		for mmi: MultiMeshInstance3D in nodes:
 			_color_models(mmi)
@@ -2414,6 +2498,26 @@ func _update_time(delta: float) -> void:
 ## (2026-09-21)
 static func _up_for(direction: Vector3) -> Vector3:
 	return Vector3.BACK if absf(direction.y) > 0.98 else Vector3.UP
+
+
+## Eases the wind toward what the server last said, and moves the cloud deck along by it.
+##
+## Above the `_welcomed` guard in `_process` on purpose: the sky is drawn while a world is still
+## loading, and a deck frozen until the first chunk arrives is a visible hitch.
+func _ease_wind(delta: float) -> void:
+	# Through the shorter way round, or a swing from 350 to 10 degrees spins the whole sky backwards.
+	var turn := fposmod(_wind_target_angle - _wind_angle + 180.0, 360.0) - 180.0
+	_wind_angle = fposmod(_wind_angle + turn * minf(delta * 0.5, 1.0), 360.0)
+	_wind_strength = lerpf(_wind_strength, _wind_target_strength, minf(delta * 0.5, 1.0))
+	# A still day still has cloud movement, or the sky reads as a painted backdrop.
+	_wind_travelled += delta * (0.004 + _wind_strength * 0.05)
+
+
+## The wind as a direction in the world: x and z across the ground, y left at zero because wind that
+## blows upward is not a thing any of this draws.
+func _wind_vector() -> Vector3:
+	var radians := deg_to_rad(_wind_angle)
+	return Vector3(sin(radians), 0.0, -cos(radians))
 
 
 func _aim_the_sky(sun_direction: Vector3, sun_tint: Color, day: float) -> void:
@@ -3403,12 +3507,16 @@ func _apply_graphics(announce: bool) -> void:
 	if was != _realistic and _atlas != null:
 		_solid_material = VoxelMaterial.create(_atlas.texture, false, _realistic)
 		_translucent_material = VoxelMaterial.create(_atlas.texture, true, _realistic)
+		_start_relief(_realistic)
 		for coord: Vector2i in world.chunks:
 			_mark_dirty(coord, false)
 	_effects.quality = 0.5 if graphics.preset == "fast" else 1.0
 	if _solid_material != null:
 		for material in [_solid_material, _translucent_material]:
 			material.set_shader_parameter("enable_sway", graphics.value("sway"))
+			# Switchable for measuring, like the rest of the realistic preset's parts.
+			var relief_on: bool = graphics.value("relief") and not graphics.off("relief")
+			material.set_shader_parameter("relief", 1.0 if relief_on else 0.0)
 			material.set_shader_parameter("enable_ao", graphics.value("ambient_occlusion"))
 			material.set_shader_parameter("fancy_water", graphics.value("fancy_water"))
 			material.set_shader_parameter("emissive_boost", 1.6 if graphics.value("bloom") else 1.0)

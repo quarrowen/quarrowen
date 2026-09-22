@@ -24,7 +24,8 @@ uniform vec3 sun_tint : source_color = vec3(1.0, 0.97, 0.92);
 uniform float daylight : hint_range(0.0, 1.0) = 1.0;
 uniform float cloudiness : hint_range(0.0, 1.0) = 0.55;
 uniform float wind_offset = 0.0;
-uniform vec3 wind_direction = vec3(1.0, 0.0, 0.3);
+uniform vec3 wind_direction = vec3(0.7, 0.0, -0.7);
+uniform float wind_strength : hint_range(0.0, 1.0) = 0.3;
 uniform sampler2D stars : source_color, filter_linear;
 uniform sampler2D cloud_noise : repeat_enable, filter_linear;
 uniform vec3 zenith_day : source_color = vec3(0.18, 0.37, 0.80);
@@ -54,6 +55,10 @@ void sky() {
 		} else {
 				vec2 plane = d.xz / max(u, 0.06) * 0.9;
 				vec2 drift = wind_direction.xz * wind_offset;
+				// A strong wind pulls cloud out into streaks along its own heading. Stretching the
+				// sample across the wind rather than scrolling faster is what reads as *wind* instead
+				// of as a sped-up film. (2026-09-22)
+				plane -= wind_direction.xz * dot(plane, wind_direction.xz) * wind_strength * 0.35;
 				float high = texture(cloud_noise, plane * 0.055 + drift * 0.06).r;
 				float low_layer = texture(cloud_noise, plane * 0.1 + drift * 0.1 + vec2(high * 0.08)).r;
 				float edge = mix(0.66, 0.28, cloudiness);

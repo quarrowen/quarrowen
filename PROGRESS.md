@@ -3932,3 +3932,134 @@ This is the same shape as the `user://` rule - **the suite should not touch the 
 has the same fix: an environment guard that the tests set, asserted rather than trusted. Not done yet;
 it is a flake rather than a wrong answer, and the day was already about something else. Worth doing
 before it is blamed on something innocent, which is how the last two of these went.
+
+## Where the documentation is going: the MSDN Library, roughly (2026-09-22)
+
+The user's target, and a good one: reference documentation at the level of the MSDN Library of the late
+nineties - every function on the same template, with **Syntax, Parameters, Return Value, Remarks,
+Requirements, See Also** and an example, a separate conceptual track beside the reference, and a tree
+you can navigate rather than a list you can only search.
+
+Measured against that, what we have is stronger in one place and empty in others. **Remarks is already
+good** - the `##` comments carry the why and the failure that caused it, which is the part of an MSDN
+page people actually lived in. The conceptual track exists (`docs/modding.md`, 70KB). Missing: See
+Also, "since which version", per-function examples, and a task index.
+
+Ranked by value, and with what each would cost:
+
+1. **See Also, derived rather than maintained.** The obvious source - functions named in backticks in a
+   doc comment - was measured and is useless: 7% of documented functions, and the top "references" are
+   backticked *parameter* names (`item`, `key`, `value`). The **call graph** is the real source: parse
+   `.name(` in each function body against the known names, drop a stoplist of the ubiquitous
+   (`is_empty`, `contains`, `size`, `has`, `id_of`, `append`, `duplicate`), and `sources_of` links to
+   `of_item` links to `chance_of` - which is exactly the chain that was missed on the day this came up.
+   Honour an explicit `## See also:` line where somebody writes one, for the links no call expresses.
+2. **Examples harvested from the Proving Ground.** The one place this can beat MSDN, whose examples
+   were hand-written and rotted. Every capability is already exercised in `tests/mods/proving/`, in
+   GDScript *and* JavaScript, and the suite fails when one breaks - so an example pulled from there is
+   correct by construction and stays correct. Needs a way to mark which block of the mod illustrates
+   which function; a comment marker is probably enough.
+3. **"Since" / Requirements.** MSDN's "Minimum supported client: Windows 2000" maps onto
+   `MOD_API_VERSION`. Derivable once from git history - the commit that introduced each function, and
+   the API version at that commit - then cached in a checked-in file that only ever grows, so the
+   history walk happens once rather than every build.
+4. **A "How Do I..." index** over `modding.md`, task-shaped rather than API-shaped.
+
+Deliberately **not** doing MSDN's per-parameter table. It existed because C signatures carry no types
+worth reading; ours do - `set_wind(degrees: float, strength := 0.5, seconds := 0.0)` already says what
+that table would - and a second place to describe a parameter is a second place for it to go stale.
+
+## Wind (2026-09-22)
+
+Asked for alongside the sky days ago and never started. It turned out to be three things that already
+existed and did not know about each other: a `sway` flag on blocks that made foliage trace a small
+circle on the spot, `wind_offset`/`wind_direction` uniforms on the sky shader where the direction was
+*never set* and the offset was just the clock, and nothing at all a mod could touch.
+
+So wind is now a world property - a heading and a strength - and the three become one thing.
+
+**The split that matters: the server sends a base vector, the client does the gusting.** What a player
+sees of wind is mostly gusts, and sending those at tick rate would be a lot of bandwidth for something
+nobody can be wrong about. So `s_wind` is reliable and rare (a change every twenty to sixty seconds
+when the engine is drifting it), the client eases toward what it is told, and the gusts are worked out
+in the shaders from world position and time, where they cost nothing.
+
+Three things learned making it look right:
+
+- **Foliage leans, it does not wobble.** The old sway moved each plant in a little circle, which reads
+  as a plant on a spring. A field of grass leans one way and breathes. Two sine frequencies rather
+  than one (a metronome otherwise), phase from world position (or the whole field moves as one block,
+  which is what gives a grid away), and amplitude scaled by `1.0 - UV.y` so the top of a plant moves
+  and the base stays rooted.
+- **Clouds want stretching, not speeding up.** Scrolling the deck faster reads as a sped-up film.
+  Compressing the noise sample along the wind's own heading reads as wind, because that is what a
+  strong wind does to cloud.
+- **The offset has to be accumulated, not derived.** `TIME * strength` slides the entire sky backwards
+  the moment the wind eases, because the *whole history* rescales. Keeping a `_wind_travelled` that
+  only ever goes up costs one float and cannot do that.
+
+Deliberately visual-only: nothing in the simulation reads the wind. No downwind fire spread, no
+drifting projectiles, no sailing. That is what lets a mod move it as freely as it likes without
+thinking about fairness or about what a client and server might disagree on, and it is the reason this
+could be built in an afternoon rather than argued about.
+
+## Relief, haze, and an afternoon spent on a screenshot of a client that never joined (2026-09-22)
+
+**Surface relief.** Normal and roughness maps, derived from the colour rather than authored. The
+reasoning that decided it: a normal map is a thing an artist makes, and neither the person building
+this engine nor most people writing mods for it is one - so an engine that needs one per texture is an
+engine whose realistic preset only ever works for blocks somebody paid an artist for. A texture's own
+light and shade is already a decent guess at its relief (mortar is darker than brick, grain darker than
+wood), so a Sobel over luminance turns what a mod already shipped into a normal, and **every mod's
+textures get relief without the mod knowing this exists**. Packed RG = normal, B = roughness from local
+contrast; z is not stored because it is positive by construction and the shader can work it out.
+
+**It shipped a real regression first, and the regression looked like a network fault.** The Sobel read
+nine neighbours per pixel through `Image.get_pixel`, which allocates a Color per call: 6.7 seconds for
+an atlas of 128px tiles, on the main thread, during world load. The client stopped draining its socket,
+Godot began printing `Buffer full, dropping packets`, the chunks never arrived, and the world came up
+empty. Rewriting it on raw `PackedByteArray` took it to 2.5s - still far too slow - so it now runs on a
+`WorkerThreadPool` task and the materials get the texture when it is ready. Relief appearing a second
+after the world does is nothing anybody notices.
+
+**Aerial haze.** The world had a depth fog starting at 55% of the render distance, which is a cutoff
+rather than perspective: it hides the edge of the loaded world and does nothing before it. Now
+exponential fog with Godot's `fog_aerial_perspective` (which blends the *sky itself* into the fog, per
+direction - the reason a flat `fog_light_color` never looked right), height falloff so haze pools low,
+and sun scatter. Rendered with and against: **the old fog was the washed-out one.** Mid-distance trees
+that were pale ghosts under the depth fog come back as solid green with visible trunks under the haze.
+Worth recording because the first judgement, made from the new render alone, was "far too strong" - a
+picture with nothing beside it is not evidence.
+
+### The afternoon, which is the part worth keeping
+
+The user reported the game stuck on "Connecting to..." three times. I got it wrong twice:
+
+1. First I blamed the `s_wind` RPC shifting the RPC table, bumped `Protocol.VERSION` to 50 and wrote a
+   handshake watchdog. **The version bump was right anyway** - adding an RPC changes what the client
+   and server must agree on, which CLAUDE.md says to bump for, and I had missed it. So was the
+   watchdog: `connection_failed` only fires when ENet gives up on the *socket*, so a server that
+   accepts the connection and never answers the hello left the client on that status line for ever,
+   with no timeout at all.
+2. Then I said the render "completed fine" **because the PNG was 1.9MB**. It was a 1.9MB picture of a
+   client that had never joined. Judging output by file size, in a session whose whole subject was not
+   trusting things you have not looked at.
+
+The actual cause was mundane: **my own leftover server processes were holding the port.** The new
+server failed to bind with "Couldn't create an ENet host", and the client connected to nothing.
+`tools/look_shots.sh` now kills strays before it starts and waits for the server to say it is up rather
+than sleeping a fixed twelve seconds.
+
+### And the bug the hunt turned up, which is the valuable part
+
+Chasing a DTLS `-0x2700` (X509 verify failed) led to `known_servers.gd` keeping pinned certificates at
+a **bare `user://`** - the exact thing CLAUDE.md says has already bitten three times. `run_tests.sh`
+sets the *named* override (`QW_KNOWN_SERVERS_DIR`), so the suite was clean and the test passed; but
+`tools/look_shots.sh` sets only `QW_USER_DIR`, so every render had been pinning throwaway localhost
+servers into the player's real folder. Fourteen were sitting there. `identity.gd` and `world_list.gd`
+had the same shape, which means the tools had also been **signing in to their throwaway servers as the
+player** - the exact failure that file was written to prevent.
+
+All four now fall back through `UserPaths`, so one override covers them, and `_test_isolation` asserts
+the *fallback* rather than the override - which is why it did not catch this. A test that asserts the
+override only ever proves the suite is safe, and the suite was never the one getting it wrong.

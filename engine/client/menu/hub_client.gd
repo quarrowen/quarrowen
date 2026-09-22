@@ -9,6 +9,7 @@ signal news_received(items: Array, error: String)
 
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
+const NetAccess = preload("res://engine/shared/net_access.gd")
 
 const MAX_RESPONSE := 512 * 1024
 
@@ -67,6 +68,9 @@ static func _clean_server(s: Dictionary) -> Dictionary:
 func _request_json(path: String, done: Callable) -> void:
 	if not configured():
 		done.call(null, "no hub is set (Settings → Network)")
+		return
+	if not NetAccess.allowed(hub_url()):
+		done.call(null, "cannot reach the hub")
 		return
 	var http := HTTPRequest.new()
 	http.timeout = 10.0

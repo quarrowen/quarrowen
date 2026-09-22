@@ -3,7 +3,7 @@ extends RefCounted
 ## every server; logging in means signing a server-chosen random challenge. Names are display names,
 ## bound to the first identity that claims them on each server.
 
-const DEFAULT_DIR := "user://identity"
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 
 
 ## Where identities live. QW_IDENTITY_DIR moves them, which is how the tests keep their bot keys out of
@@ -11,7 +11,10 @@ const DEFAULT_DIR := "user://identity"
 ## it. (2026-09-18)
 static func dir() -> String:
 	var override := OS.get_environment("QW_IDENTITY_DIR")
-	return override if not override.is_empty() else DEFAULT_DIR
+	# Falls back to QW_USER_DIR rather than a bare `user://`. The named override is what the suite sets;
+	# the tools set only QW_USER_DIR, and `tools/look_shots.sh` was therefore signing in to its throwaway
+	# servers as the player. (2026-09-22)
+	return override if not override.is_empty() else UserPaths.path("identity")
 const DEFAULT_BITS := 2048
 const MIN_BITS_PEM_LENGTH := 200
 const MAX_PEM_LENGTH := 4096

@@ -14,6 +14,10 @@ const MobAttacks = preload("res://engine/server/ai/mob_attacks.gd")
 const MusicRegistryScript = preload("res://engine/shared/music_registry.gd")
 const UserPaths = preload("res://engine/shared/user_paths.gd")
 const ContentCacheScript = preload("res://engine/client/content_cache.gd")
+const TextureAtlasScript = preload("res://engine/client/texture_atlas.gd")
+const KnownServersScript = preload("res://engine/net/known_servers.gd")
+const IdentityScript = preload("res://engine/shared/identity.gd")
+const WorldListScript = preload("res://engine/client/menu/world_list.gd")
 const ModLoaderScript = preload("res://engine/server/mod_loader.gd")
 const Validator = preload("res://engine/server/mod_validator.gd")
 const WorldBackupsScript = preload("res://engine/server/world_backups.gd")
@@ -79,6 +83,7 @@ func _ready() -> void:
 	await _map_from_mod()
 	await _story_mode()
 	_test_isolation()
+	_relief_atlas()
 	await _loot()
 	_api_docs()
 	_creations()
@@ -3161,10 +3166,59 @@ func _first_session() -> void:
 ## player's identity and settings, and after those were fixed one at a time it went on filling their
 ## asset cache and unpacked-mod cache and resetting their pinned recipe. Each fix was a path; this checks
 ## the mechanism, so the next path that forgets is caught here instead of by somebody losing something.
+## Relief derived from colour: the realistic preset's normals come from the textures themselves, because
+## nobody here is going to draw a normal map per block - and that means every mod's textures get it too.
+##
+## Asserted on the data rather than on the render: a flat texture must come out flat (a normal straight
+## up), and one with an edge in it must not. Believing a shader fires because a screenshot looks
+## different has already cost this project a day. (2026-09-22)
+func _relief_atlas() -> void:
+	var flat := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	flat.fill(Color(0.5, 0.5, 0.5))
+	var edged := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	edged.fill(Color(0.5, 0.5, 0.5))
+	for y in 16:
+		for x in 8:
+			edged.set_pixel(x, y, Color(0.1, 0.1, 0.1))
+	var built: Dictionary = TextureAtlasScript.build({"flat": flat, "edged": edged})
+	_check(not built.has("surface"), "building the atlas does not do the slow half (it blocks world load)")
+	var surface: Image = TextureAtlasScript.build_surface(built)
+	_check(surface.get_width() == built.texture.get_width(), "the relief atlas matches the colour atlas, so one set of UVs reads both")
+
+	var flat_at: Rect2 = built.pixels["flat"]
+	var middle := surface.get_pixel(int(flat_at.position.x) + 8, int(flat_at.position.y) + 8)
+	_check(absf(middle.r - 0.5) < 0.02 and absf(middle.g - 0.5) < 0.02,
+		"a flat texture gives a normal pointing straight out (%.2f, %.2f)" % [middle.r, middle.g])
+
+	var edged_at: Rect2 = built.pixels["edged"]
+	var steepest := 0.0
+	for x in 16:
+		var c := surface.get_pixel(int(edged_at.position.x) + x, int(edged_at.position.y) + 8)
+		steepest = maxf(steepest, absf(c.r - 0.5))
+	_check(steepest > 0.1, "and an edge in the colour becomes a slope in the normal (%.2f)" % steepest)
+
+
 func _test_isolation() -> void:
 	_check(UserPaths.redirected(), "the suite is redirected out of the player's folder (QW_USER_DIR)")
+
+	# The same rule for the network. The client's menu checks for updates and asks a hub for news, so a
+	# test about joining a local server could be failed by somebody else's outage - it was, on
+	# 2026-09-22. Loopback is still allowed, or the hub tests would have nothing to talk to.
+	var NetAccess = preload("res://engine/shared/net_access.gd")
+	_check(NetAccess.restricted(), "and kept off the network (QW_OFFLINE)")
+	_check(not NetAccess.allowed("https://quarrowen.com/update.json"), "so the update check cannot reach the real site")
+	_check(not NetAccess.allowed("https://hub.example.org/v1/servers"), "and no hub but our own can be asked")
+	_check(NetAccess.allowed("http://127.0.0.1:8080/v1/servers") and NetAccess.allowed("http://localhost:8080/x"),
+		"while a server on this machine still can be")
+	# Three of these were bare `user://` until 2026-09-22, and the suite did not catch it because
+	# run_tests.sh sets their *named* overrides (QW_IDENTITY_DIR, QW_DATA_DIR, QW_KNOWN_SERVERS_DIR).
+	# `tools/look_shots.sh` sets only QW_USER_DIR, so every render pinned throwaway localhost
+	# certificates - and signed in as the player - in the real folder. Asserting the fallback, not the
+	# override, is what makes this test mean something for the tools as well as for the suite.
 	for pair in [["assets cache", ContentCacheScript.dir()], ["unpacked mods", ModLoaderScript.cache_dir()],
-			["the mods folder", ModLoaderScript.user_mods()], ["crafting pins", UserPaths.path("crafting_pins.cfg")]]:
+			["the mods folder", ModLoaderScript.user_mods()], ["crafting pins", UserPaths.path("crafting_pins.cfg")],
+			["pinned server certificates", KnownServersScript.dir()], ["the player's identity", IdentityScript.dir()],
+			["local worlds", WorldListScript.dir()]]:
 		_check(not str(pair[1]).begins_with("user://"), "%s is not in the player's folder (%s)" % pair)
 
 

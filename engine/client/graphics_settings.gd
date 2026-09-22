@@ -102,3 +102,53 @@ static func apply_realism(env: Environment, on: bool) -> void:
 	if on:
 		env.tonemap_mode = Environment.TONE_MAPPER_ACES
 		env.tonemap_white = 4.0
+	if on and not off("haze"):
+		_haze(env)
+	else:
+		# Back to the plain distance fog. Without this, turning the preset off left the haze behind -
+		# `apply_realism` is called on every settings change, and a one-way setting is a setting that
+		# looks like it does nothing the second time you use it.
+		env.fog_mode = Environment.FOG_MODE_DEPTH
+		env.fog_aerial_perspective = 0.0
+		env.fog_sun_scatter = 0.0
+		env.fog_height_density = 0.0
+
+
+## Aerial perspective: distance reading as *air* rather than as a fade-out.
+##
+## What the world had was a depth fog starting at 55% of the render distance, which is a cutoff - it
+## hides the edge of the loaded world and does nothing before it, so everything nearer than that is
+## equally crisp and the distance has no depth to it. Real distance is hazy all the way: a hill two
+## miles off is paler than one at one mile, and both are paler at their base than at their ridge,
+## because haze is thicker where the air is. That progressive paling is most of what separates a
+## photograph of a landscape from a render of one. (2026-09-22)
+##
+## Four things, none of them volumetric - volumetric fog is a raymarch and this preset already has to
+## earn its place on a base M1 Air:
+##
+##   - **`fog_aerial_perspective`** blends the sky itself into the fog, per direction. That is the
+##     actual feature and it is what makes distant terrain take the colour of the sky *behind* it
+##     rather than one flat fog tint - which is why `fog_light_color` alone never looked right.
+##   - **Exponential rather than depth mode**, so it thickens smoothly from the camera instead of
+##     switching on at a distance. There is no longer a near edge to notice.
+##   - **Height falloff**, so haze pools low and thins out above. Standing on a hill you look over it;
+##     standing in a valley you look through it.
+##
+## The numbers are small on purpose, and the first set were not: density 0.0016 with a height density
+## of 0.55 turned trees sixty blocks away into white silhouettes. Aerial perspective is a thing you are
+## supposed to notice only when you compare two distances - the moment it reads as *fog*, it has stopped
+## being air. (2026-09-22)
+##   - **Sun scatter**, so looking toward the sun through haze brightens it. Free, and it is half of
+##     why a photograph into the sun looks the way it does.
+static func _haze(env: Environment) -> void:
+	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+	env.fog_density = 0.0006
+	env.fog_aerial_perspective = 0.6
+	env.fog_sun_scatter = 0.25
+	env.fog_height = 48.0
+	# Positive: denser *below* fog_height. Negative pools it above, which is a ceiling of cloud and not
+	# what this is for.
+	env.fog_height_density = 0.18
+	# Still nothing on the sky. 0.35 was tried as haze and washed the whole dome flat - the sky is
+	# infinitely far away, so "how much air is in front of it" is a question with no answer.
+	env.fog_sky_affect = 0.0

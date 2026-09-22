@@ -20,6 +20,8 @@ uniform sampler2D atlas : source_color, filter_nearest, repeat_disable;
 uniform float daylight : hint_range(0.0, 1.0) = 1.0;
 uniform float alpha_scissor = 0.5;
 uniform bool enable_sway = true;
+uniform vec3 wind_direction = vec3(0.7, 0.0, -0.7);
+uniform float wind_strength : hint_range(0.0, 1.0) = 0.3;
 uniform bool enable_ao = true;
 uniform bool fancy_water = true;
 uniform float emissive_boost = 1.0;
@@ -43,9 +45,23 @@ void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	if (enable_sway && has_flag(flags, 1.0)) {
-		float t = TIME * 1.6 + world_pos.x * 0.35 + world_pos.z * 0.27;
-		VERTEX.x += sin(t) * 0.035;
-		VERTEX.z += cos(t * 0.8) * 0.035;
+		// **Foliage leans downwind and gusts along it**, rather than tracing the little circle it used
+		// to. A circle reads as a plant wobbling on the spot; what a field of grass actually does is
+		// lean one way and breathe. The wind's own heading arrives as a uniform, so the grass, the
+		// clouds and the rain cannot disagree about which way it is blowing. (2026-09-22)
+		//
+		// Phase comes off world position, so neighbouring plants are never in step - a field moving as
+		// one block is the thing that gives a grid away.
+		float phase = TIME * (1.1 + wind_strength * 1.6) + world_pos.x * 0.35 + world_pos.z * 0.27;
+		// Two frequencies: a slow bend with a faster flutter in it. One sine reads as a metronome.
+		float gust = sin(phase) * 0.7 + sin(phase * 2.3 + 1.7) * 0.3;
+		// Only the top of a plant moves. UV.y is 0 at the top of a tile, so this is 1 up there and 0 at
+		// the ground, which is what keeps grass rooted instead of sliding about.
+		float height = clamp(1.0 - UV.y, 0.0, 1.0);
+		float amount = (0.012 + wind_strength * 0.075) * height;
+		VERTEX += wind_direction * (0.35 + gust * 0.65) * amount;
+		// A little across the wind as well, or every blade leans in one dead-straight line.
+		VERTEX.x += cos(phase * 0.8) * amount * 0.25;
 	}
 	if (fancy_water && has_flag(flags, 2.0) && NORMAL.y > 0.5) {
 		VERTEX.y += sin(TIME * 1.3 + world_pos.x * 0.7 + world_pos.z * 0.5) * 0.025 - 0.025;
@@ -109,7 +125,21 @@ const LIT_OUT := """vec3 daylit = tex.rgb * max(sky, 0.06);
 	AO_LIGHT_AFFECT = 1.0;
 	EMISSION = tex.rgb * block * vec3(1.0, 0.82, 0.6) * 1.3;
 	if (has_flag(flags, 4.0)) { EMISSION = tex.rgb * emissive_boost; }
-	ROUGHNESS = 0.92;
+	// Relief and roughness, from the atlas the texture's own shading was read into. A voxel face is
+	// axis-aligned, so its tangent basis falls straight out of the normal rather than needing tangents
+	// on the mesh - which the mesher does not generate and would cost a vertex attribute to add.
+	vec4 surf = texture(surface, tile.xy + local * tile.zw);
+	ROUGHNESS = mix(0.92, surf.b, relief > 0.0 ? 1.0 : 0.0);
+	if (relief > 0.0) {
+		vec3 n = normalize(world_normal);
+		// Any vector not parallel to the normal will do for a tangent; up fails only on up-facing
+		// faces, which are exactly the ones that want x instead.
+		vec3 t = normalize(cross(abs(n.y) > 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0), n));
+		vec3 b = cross(n, t);
+		vec2 slope = surf.rg * 2.0 - 1.0;
+		vec3 bumped = normalize(n + (t * slope.x + b * slope.y) * relief);
+		NORMAL = normalize((VIEW_MATRIX * vec4(bumped, 0.0)).xyz);
+	}
 	SPECULAR = 0.08;"""
 
 const SOLID_RENDER := "cull_back, depth_draw_opaque"
@@ -139,7 +169,9 @@ const TRANSLUCENT_EXTRA := """
 
 ## What the lit build adds at the top of the shader: the screen behind the surface, and how far away
 ## it is. Both are reads the cheap presets deliberately never do.
-const LIT_TAPS := """uniform sampler2D screen_texture : hint_screen_texture, filter_linear_mipmap;
+const LIT_TAPS := """uniform sampler2D surface : filter_nearest, repeat_disable;
+uniform float relief : hint_range(0.0, 2.0) = 1.0;
+uniform sampler2D screen_texture : hint_screen_texture, filter_linear_mipmap;
 uniform sampler2D depth_texture : hint_depth_texture, filter_nearest;
 uniform vec3 shallow_color : source_color = vec3(0.30, 0.62, 0.62);
 uniform vec3 deep_color : source_color = vec3(0.02, 0.12, 0.26);"""
@@ -269,7 +301,7 @@ const LIT_WATER := """
 """
 
 
-static func create(atlas: Texture2D, translucent: bool, lit := false) -> ShaderMaterial:
+static func create(atlas: Texture2D, translucent: bool, lit := false, surface: Texture2D = null) -> ShaderMaterial:
 	var shader := Shader.new()
 	var mode := "" if lit else "unshaded, "
 	var taps := LIT_TAPS if lit else ""
@@ -288,4 +320,6 @@ static func create(atlas: Texture2D, translucent: bool, lit := false) -> ShaderM
 	var material := ShaderMaterial.new()
 	material.shader = shader
 	material.set_shader_parameter("atlas", atlas)
+	if lit and surface != null:
+		material.set_shader_parameter("surface", surface)
 	return material

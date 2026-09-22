@@ -980,6 +980,14 @@ with). positions mean nothing without it: every world has a block at the same co
 <div class="card" id="api-send-to-realm" data-search="send_to_realm sendtorealm moves a player to another world, standing at `position`. returns false if there is no such world, or
 they are already in it. cancellable by a mod through the `player_realm_change` event, which may also
 change where they come out."><div class="sig"><code>api.send_to_realm(player, realm_id: String, position: Vector3) -&gt; bool</code><span class="tag js" title="sendToRealm">JS sendToRealm</span></div><p>Moves a player to another world, standing at `position`. Returns false if there is no such world, or<br>they are already in it. Cancellable by a mod through the `player_realm_change` event, which may also<br>change where they come out.</p></div>
+<div class="card" id="api-set-wind" data-search="set_wind setwind sets the wind: `degrees` clockwise from north, `strength` 0 (still) to 1 (a gale), `seconds` 0 for
+until something says otherwise - the same shape as `set_weather`.
+
+wind is visual: it leans the grass, drags the clouds and slants the rain. nothing in the simulation
+depends on it, so a mod may move it as freely as it likes. while a mod holds it the engine stops
+drifting it on its own."><div class="sig"><code>api.set_wind(degrees: float, strength := 0.5, seconds := 0.0) -&gt; void</code><span class="tag js" title="setWind">JS setWind</span></div><p>Sets the wind: `degrees` clockwise from north, `strength` 0 (still) to 1 (a gale), `seconds` 0 for<br>until something says otherwise - the same shape as `set_weather`.<br><br>Wind is visual: it leans the grass, drags the clouds and slants the rain. Nothing in the simulation<br>depends on it, so a mod may move it as freely as it likes. While a mod holds it the engine stops<br>drifting it on its own.</p></div>
+<div class="card" id="api-get-wind" data-search="get_wind getwind the wind right now: `{angle, strength}`. the gusts a player actually sees are worked out on each
+client, so this is the average rather than the instant."><div class="sig"><code>api.get_wind() -&gt; Dictionary</code><span class="tag js" title="getWind">JS getWind</span></div><p>The wind right now: `{angle, strength}`. The gusts a player actually sees are worked out on each<br>client, so this is the average rather than the instant.</p></div>
 <div class="card" id="api-sources-of" data-search="sources_of sourcesof everywhere an item comes from that is not a recipe: blocks that drop it, creatures that drop it,
 loot tables that hold it, ore in the ground.
 
@@ -1215,6 +1223,7 @@ systems copy is a fact about the code that ought to be visible in the code."><di
 
   -- The world and the server itself
   weather_changed {weather, previous, realm}
+  wind_changed {angle, strength}
   player_realm_change {player, from, to, cancelled}   player_arrived_realm {player, realm, first_time}
   instance_opened {instance, kind}     instance_closed {instance, kind}
   instance_entered {player, instance, kind}            instance_left {player, instance}

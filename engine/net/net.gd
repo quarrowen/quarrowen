@@ -540,6 +540,15 @@ func s_weather(weather_id: int, intensity: float) -> void:
 		client.on_weather(weather_id, intensity)
 
 
+## Which way the wind blows and how hard. Reliable, and rare: the server sends a base vector that
+## changes every half-minute or so, and each client works out the gusts itself, because gusting is the
+## part a player sees and the part nobody can be wrong about.
+@rpc("authority", "call_remote", "reliable")
+func s_wind(angle: float, strength: float) -> void:
+	if client:
+		client.on_wind(angle, strength)
+
+
 ## Which music to play, or -1 for none. Reliable: a dropped one leaves the wrong music playing for as
 ## long as the player stays in that biome, which is exactly the kind of quiet wrongness nobody reports.
 @rpc("authority", "call_remote", "reliable")

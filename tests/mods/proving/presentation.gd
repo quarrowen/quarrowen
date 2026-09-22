@@ -13,6 +13,13 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	api.register_effect("puff", {"particles": 12, "color": "#cccccc", "scale": 1.0, "duration": 0.6})
 	api.register_weather("haze", {"display_name": "Haze", "darkness": 0.2, "particles": "puff"})
 	api.register_weather("downpour", {"display_name": "Downpour", "darkness": 0.45, "particles": "puff", "rain": true})
+	# Weather and wind are separate on purpose - a still downpour is a real thing - so a mod that wants
+	# a gale with its storm says so. Visual only: nothing in the simulation reads it.
+	api.on("weather_changed", func(ev):
+		if String(ev.get("weather", "")) == "proving:downpour":
+			api.set_wind(240.0, 0.85)
+		else:
+			api.set_wind(135.0, 0.25))
 	# A cosmetic, which is its own registry and had no other user left.
 	api.register_cosmetic("cap", {"category": "hat", "display_name": "Cap", "unlocked": true,
 		"boxes": [{"from": [-4, 8, -4], "size": [8, 2, 8], "color": "#4488cc"}]})

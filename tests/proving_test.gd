@@ -200,6 +200,7 @@ func _behaviour(server) -> void:
 	_nested_inventories(server, server.mod_instances.proving.api, p)
 	_instances(server, server.mod_instances.proving.api, p)
 	_sources_and_palette(server, server.mod_instances.proving.api, p)
+	_wind(server, server.mod_instances.proving.api)
 
 
 ## Where things come from, and the creative catalogue: the two halves of "what exists" that the
@@ -249,6 +250,20 @@ func _sources_and_palette(server, api, p) -> void:
 	p.inventory.creative = false
 	server.on_palette_take(p.peer_id, rock, true)
 	_check(p.inventory.cursor_count == 0, "and a survival player does not")
+
+
+## Wind: a world property a mod can set, and one the engine keeps moving when nobody does.
+func _wind(server, api) -> void:
+	api.set_wind(270.0, 0.8)
+	var blowing: Dictionary = api.get_wind()
+	_check(is_equal_approx(float(blowing.angle), 270.0) and is_equal_approx(float(blowing.strength), 0.8),
+		"a mod sets which way the wind blows (%d deg at %.2f)" % [int(blowing.angle), float(blowing.strength)])
+	api.set_wind(-45.0, 4.0)
+	var clamped: Dictionary = api.get_wind()
+	_check(is_equal_approx(float(clamped.angle), 315.0), "a heading wraps rather than going negative (%d)" % int(clamped.angle))
+	_check(float(clamped.strength) <= 1.0, "and strength is a fraction, however hard a mod asks (%.2f)" % float(clamped.strength))
+	# Held wind stays put: a storm's gale should not wander off halfway through.
+	_check(not bool(server.wind_now.drifting), "the engine stops drifting the wind while a mod holds it")
 
 
 ## Instances: a realm with a lifetime. The lifetime is the part worth asserting - a dimension that

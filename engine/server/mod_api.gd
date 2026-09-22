@@ -127,6 +127,7 @@ extends RefCounted
 ##
 ##   -- The world and the server itself
 ##   weather_changed {weather, previous, realm}
+##   wind_changed {angle, strength}
 ##   player_realm_change {player, from, to, cancelled}   player_arrived_realm {player, realm, first_time}
 ##   instance_opened {instance, kind}     instance_closed {instance, kind}
 ##   instance_entered {player, instance, kind}            instance_left {player, instance}
@@ -2336,6 +2337,22 @@ func fill_container(container, table_name: String, context := {}) -> int:
 			stack[2] if stack.size() > 2 and stack[2] is Dictionary else {})
 		placed += 1
 	return placed
+
+
+## Sets the wind: `degrees` clockwise from north, `strength` 0 (still) to 1 (a gale), `seconds` 0 for
+## until something says otherwise - the same shape as `set_weather`.
+##
+## Wind is visual: it leans the grass, drags the clouds and slants the rain. Nothing in the simulation
+## depends on it, so a mod may move it as freely as it likes. While a mod holds it the engine stops
+## drifting it on its own.
+func set_wind(degrees: float, strength := 0.5, seconds := 0.0) -> void:
+	_server.set_wind(degrees, strength, seconds)
+
+
+## The wind right now: `{angle, strength}`. The gusts a player actually sees are worked out on each
+## client, so this is the average rather than the instant.
+func get_wind() -> Dictionary:
+	return _server.wind_state()
 
 
 ## Everywhere an item comes from that is not a recipe: blocks that drop it, creatures that drop it,

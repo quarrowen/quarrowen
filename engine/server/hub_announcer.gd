@@ -7,6 +7,7 @@ extends Node
 ## Off unless configured: --hub=https://hub.example.org [--public-address=play.example.org] [--tags=pvp,modded]
 
 const Protocol = preload("res://engine/shared/protocol.gd")
+const NetAccess = preload("res://engine/shared/net_access.gd")
 
 const HEARTBEAT := 30.0
 ## After a failure: soon at first (the hub may still be starting), then less often.
@@ -41,6 +42,8 @@ func start(hub_url: String, key: CryptoKey, address := "", server_tags := Packed
 	_key = key
 	if url.is_empty() or key == null:
 		return
+	if not NetAccess.allowed(url):
+		return
 	_http = HTTPRequest.new()
 	_http.timeout = 15.0
 	_http.request_completed.connect(_on_announced)
@@ -74,6 +77,8 @@ func announce() -> void:
 ## Asks the hub to drop the listing (best effort, on shutdown: a blocking request with a short timeout).
 func leave() -> void:
 	if _http == null:
+		return
+	if not NetAccess.allowed(url):
 		return
 	var body := JSON.stringify({"key": _key.save_to_string(true), "time": int(Time.get_unix_time_from_system())})
 	var client := HTTPClient.new()

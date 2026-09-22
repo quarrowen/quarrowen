@@ -55,6 +55,11 @@ export QW_DATA_DIR="$WORK/client-data"
 # cache and unpacked-mod cache and resetting their pinned recipe. Overriding the three worst paths one
 # at a time is what let this come back, so QW_USER_DIR moves the lot (engine/shared/user_paths.gd).
 export QW_USER_DIR="$WORK/user"
+# And keep off the network for the same reason. The suite launches the real client, whose menu checks
+# for updates and asks a hub for news, so somebody else's outage could fail a test about joining a
+# local server - it did, on 2026-09-22, as a TLS handshake error under "host client joined its own
+# server". Loopback still works, so the hub tests are unaffected (engine/shared/net_access.gd).
+export QW_OFFLINE=1
 # Godot's own log file is a project setting, applied before any script runs, so it needs the flag.
 GODOT_LOG=(--log-file "$WORK/godot/test.log")
 echo "godot: $GODOT"

@@ -217,6 +217,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#e-server-game-server-gd">game_server.gd</a>
 <div class="group">Everything else</div>
 <a href="#e-server-world-backups-gd">world_backups.gd</a>
+<a href="#e-shared-net-access-gd">net_access.gd</a>
 <a href="#e-shared-voxel-world-gd">voxel_world.gd</a>
 <a href="#e-shared-world-time-gd">world_time.gd</a>
 </nav>
@@ -1893,7 +1894,7 @@ anything on the hot path.</p></div>
 <div class="card" data-search="namespaces the namespaces tags have been written for (&quot;base&quot;, &quot;cherry&quot;), for warning about ones that no
 installed mod owns. shared/tag_registry.gd mods, loading and validation"><div class="sig"><code>namespaces() -&gt; Array</code></div><p>The namespaces tags have been written for ("base", "cherry"), for warning about ones that no
 installed mod owns.</p></div></section>
-<section id="e-net-known-servers-gd"><h2>known_servers.gd <span class="file">net/known_servers.gd</span></h2><p class="lead">Trust-on-first-use pinning of server certificates, like SSH known_hosts. The first connection to an address stores the server's certificate; later connections verify it during the DTLS handshake. QW_KNOWN_SERVERS_DIR overrides the folder (tests use a throwaway one).</p><div class="card" data-search="check_and_pin pins `certificate_pem` for `endpoint` if nothing is pinned yet. returns &quot;&quot; when the certificate
+<section id="e-net-known-servers-gd"><h2>known_servers.gd <span class="file">net/known_servers.gd</span></h2><p class="lead">Trust-on-first-use pinning of server certificates, like SSH known_hosts. The first connection to an address stores the server's certificate; later connections verify it during the DTLS handshake. QW_KNOWN_SERVERS_DIR overrides the folder (tests use a throwaway one), and failing that it follows QW_USER_DIR like every other client path.</p><div class="card" data-search="check_and_pin pins `certificate_pem` for `endpoint` if nothing is pinned yet. returns &quot;&quot; when the certificate
 matches (or was just pinned), otherwise a message explaining the mismatch.
 pem text is compared directly (x509certificate.save_to_string() adds a nul character). net/known_servers.gd saving, network and protocol"><div class="sig"><code>static check_and_pin(endpoint: String, certificate_pem: String) -&gt; String</code></div><p>Pins `certificate_pem` for `endpoint` if nothing is pinned yet. Returns "" when the certificate
 matches (or was just pinned), otherwise a message explaining the mismatch.
@@ -2108,11 +2109,14 @@ exactly the thing somebody may need turned down, and a mod should not be able to
 <div class="card" data-search="on_player_nameplate the label over another player's head changed. client/game_client.gd the client"><div class="sig"><code>on_player_nameplate(peer_id: int, plate: Dictionary) -&gt; void</code></div><p>The label over another player's head changed.</p></div>
 <div class="card" data-search="on_float_text a word that floats in the world for a moment: damage off a hit, a name over a thing. client/game_client.gd the client"><div class="sig"><code>on_float_text(text: String, pos: Vector3, options: Dictionary) -&gt; void</code></div><p>A word that floats in the world for a moment: damage off a hit, a name over a thing.</p></div>
 <div class="card" data-search="on_flying the server started or stopped this player's flight. client/game_client.gd the client"><div class="sig"><code>on_flying(enabled: bool) -&gt; void</code></div><p>The server started or stopped this player's flight.</p></div>
-<div class="card" data-search="on_weather the server's music instruction. nothing here can fail loudly: the track may not have arrived yet, or
+<div class="card" data-search="on_wind the server's music instruction. nothing here can fail loudly: the track may not have arrived yet, or
 may never arrive, and either way the game carries on without it.
-what the sky is doing. like music, nothing here can fail loudly: unknown weather simply is not drawn. client/game_client.gd the client"><div class="sig"><code>on_weather(weather_id: int, intensity: float) -&gt; void</code></div><p>The server's music instruction. Nothing here can fail loudly: the track may not have arrived yet, or
+the wind the server is running. stored, not applied: `_wind_angle` eases toward it over a few
+seconds, because wind that snaps to a new heading looks like a bug rather than like weather. client/game_client.gd the client"><div class="sig"><code>on_wind(angle: float, strength: float) -&gt; void</code></div><p>The server's music instruction. Nothing here can fail loudly: the track may not have arrived yet, or
 may never arrive, and either way the game carries on without it.
-What the sky is doing. Like music, nothing here can fail loudly: unknown weather simply is not drawn.</p></div>
+The wind the server is running. Stored, not applied: `_wind_angle` eases toward it over a few
+seconds, because wind that snaps to a new heading looks like a bug rather than like weather.</p></div>
+<div class="card" data-search="on_weather what the sky is doing. like music, nothing here can fail loudly: unknown weather simply is not drawn. client/game_client.gd the client"><div class="sig"><code>on_weather(weather_id: int, intensity: float) -&gt; void</code></div><p>What the sky is doing. Like music, nothing here can fail loudly: unknown weather simply is not drawn.</p></div>
 <div class="card" data-search="on_realm the server has put this player in another world. everything on screen belongs to the one they have
 left - its terrain, its creatures, the people standing in it - so all of it goes, and the server
 streams the new world from scratch.
@@ -2295,9 +2299,24 @@ preset is selected switches to "custom", starting from that preset's values.</p>
 <div class="card" data-search="key for tests: sign in with this key instead of the player's identity. client/social/social_client.gd the client"><div class="sig"><code>key: CryptoKey  (property)</code></div><p>For tests: sign in with this key instead of the player's identity.</p></div>
 <div class="card" data-search="refresh checks in now (signing in first when needed). client/social/social_client.gd the client"><div class="sig"><code>refresh() -&gt; void</code></div><p>Checks in now (signing in first when needed).</p></div>
 <div class="card" data-search="leader_server the party leader's server, when someone else leads and shares it ({} otherwise). client/social/social_client.gd the client"><div class="sig"><code>leader_server() -&gt; Dictionary</code></div><p>The party leader's server, when someone else leads and shares it ({} otherwise).</p></div></section>
-<section id="e-client-texture-atlas-gd"><h2>texture_atlas.gd <span class="file">client/texture_atlas.gd</span></h2><p class="lead">Packs block textures downloaded from the server into one nearest-filtered atlas.</p><div class="card" data-search="build `images`: asset name -&gt; image. returns {texture, uv: name -&gt; rect2, pixels: name -&gt; rect2}.
-unknown names should fall back to the missing (&quot;&quot;) entry, a magenta checker. client/texture_atlas.gd the client"><div class="sig"><code>static build(images: Dictionary) -&gt; Dictionary</code></div><p>`images`: asset name -> Image. Returns {texture, uv: name -> Rect2, pixels: name -> Rect2}.
-Unknown names should fall back to the MISSING ("") entry, a magenta checker.</p></div></section>
+<section id="e-client-texture-atlas-gd"><h2>texture_atlas.gd <span class="file">client/texture_atlas.gd</span></h2><p class="lead">Packs block textures downloaded from the server into one nearest-filtered atlas.</p><div class="card" data-search="build `images`: asset name -&gt; image. returns {texture, surface, uv: name -&gt; rect2, pixels: name -&gt; rect2}.
+unknown names should fall back to the missing (&quot;&quot;) entry, a magenta checker. client/texture_atlas.gd the client"><div class="sig"><code>static build(images: Dictionary) -&gt; Dictionary</code></div><p>`images`: asset name -> Image. Returns {texture, surface, uv: name -> Rect2, pixels: name -> Rect2}.
+Unknown names should fall back to the MISSING ("") entry, a magenta checker.</p></div>
+<div class="card" data-search="build_surface the relief and roughness atlas for an already-built one. **slow on purpose to call, not to run.**
+
+split out because it is the expensive half - a sobel over every pixel of every texture - and doing it
+inside `build()` put two and a half seconds on the main thread during world load. that is not merely
+a hitch: the client stops draining its socket, godot starts printing &quot;buffer full, dropping packets&quot;,
+the chunks never arrive and the world comes up empty. run this on a worker and hand the texture over
+when it is ready; relief appearing a second after the world does is nothing anybody notices.
+(2026-09-22) client/texture_atlas.gd the client"><div class="sig"><code>static build_surface(built: Dictionary) -&gt; Image</code></div><p>The relief and roughness atlas for an already-built one. **Slow on purpose to call, not to run.**
+
+Split out because it is the expensive half - a Sobel over every pixel of every texture - and doing it
+inside `build()` put two and a half seconds on the main thread during world load. That is not merely
+a hitch: the client stops draining its socket, Godot starts printing "Buffer full, dropping packets",
+the chunks never arrive and the world comes up empty. Run this on a worker and hand the texture over
+when it is ready; relief appearing a second after the world does is nothing anybody notices.
+(2026-09-22)</p></div></section>
 <section id="e-client-updater-gd"><h2>updater.gd <span class="file">client/updater.gd</span></h2><p class="lead">Keeps the game up to date with the project's own releases.</p><div class="card" data-search="manifest_url where to ask about new versions (the project setting wins, so a fork can point somewhere else). client/updater.gd the client"><div class="sig"><code>static manifest_url() -&gt; String</code></div><p>Where to ask about new versions (the project setting wins, so a fork can point somewhere else).</p></div>
 <div class="card" data-search="platform this platform's key in the manifest, or &quot;&quot; where updating is not supported (a server, or a build
 installed by something else). client/updater.gd the client"><div class="sig"><code>static platform() -&gt; String</code></div><p>This platform's key in the manifest, or "" where updating is not supported (a server, or a build
@@ -2362,6 +2381,21 @@ this is the overworld and the behaviour is exactly what it was.</p></div>
 <div class="card" data-search="weather_now what the sky is doing: {id, intensity, until}. world state, not per player - everyone standing in the
 same world is standing in the same storm, and somebody joining halfway through arrives in it. server/game_server.gd the server itself"><div class="sig"><code>weather_now := {&quot;id&quot;: -1, &quot;intensity&quot;: 0.0, &quot;until&quot;: 0.0}  (property)</code></div><p>What the sky is doing: {id, intensity, until}. World state, not per player - everyone standing in the
 same world is standing in the same storm, and somebody joining halfway through arrives in it.</p></div>
+<div class="card" data-search="wind_now which way the wind blows and how hard: degrees clockwise from north, and 0 (still) to 1 (a gale).
+
+**the server sends a base vector and the client does the gusting.** wind that a player can see is
+mostly gusts - grass ripples, a cloud edge tears - and sending that at tick rate would be a lot of
+bandwidth for something nobody can be wrong about. so this changes rarely, and the detail is worked
+out on each client from time and position. `until` matches `weather_now`: 0 means until something
+says otherwise, and while it is unset the engine drifts the wind gently so a world nobody has
+written weather for still breathes. (2026-09-22) server/game_server.gd the server itself"><div class="sig"><code>wind_now := {&quot;angle&quot;: 135.0, &quot;strength&quot;: 0.3, &quot;until&quot;: 0.0, &quot;drifting&quot;: true}  (property)</code></div><p>Which way the wind blows and how hard: degrees clockwise from north, and 0 (still) to 1 (a gale).
+
+**The server sends a base vector and the client does the gusting.** Wind that a player can see is
+mostly gusts - grass ripples, a cloud edge tears - and sending that at tick rate would be a lot of
+bandwidth for something nobody can be wrong about. So this changes rarely, and the detail is worked
+out on each client from time and position. `until` matches `weather_now`: 0 means until something
+says otherwise, and while it is unset the engine drifts the wind gently so a world nobody has
+written weather for still breathes. (2026-09-22)</p></div>
 <div class="card" data-search="player_rig the character body every client draws players with (see playerrig; mods may replace it). server/game_server.gd the server itself"><div class="sig"><code>player_rig := PlayerRig.default_rig()  (property)</code></div><p>The character body every client draws players with (see PlayerRig; mods may replace it).</p></div>
 <div class="card" data-search="cosmetics built-in and server cosmetics, categories and this server's cosmetics policy. server/game_server.gd the server itself"><div class="sig"><code>cosmetics := Cosmetics.new()  (property)</code></div><p>Built-in and server cosmetics, categories and this server's cosmetics policy.</p></div>
 <div class="card" data-search="effects named visual effects clients render on request (see effectregistry). server/game_server.gd the server itself"><div class="sig"><code>effects := EffectRegistry.new()  (property)</code></div><p>Named visual effects clients render on request (see EffectRegistry).</p></div>
@@ -2525,6 +2559,16 @@ and so a player who reconnects hears the same thing rather than silence. server/
 player is on is remembered so a mod can call this on every biome change without restarting anything,
 and so a player who reconnects hears the same thing rather than silence.</p></div>
 <div class="card" data-search="set_weather starts weather, or stops it with an empty name. `seconds` of 0 means until something says otherwise. server/game_server.gd the server itself"><div class="sig"><code>set_weather(weather_name: String, intensity := 1.0, seconds := 0.0) -&gt; void</code></div><p>Starts weather, or stops it with an empty name. `seconds` of 0 means until something says otherwise.</p></div>
+<div class="card" data-search="set_wind sets the wind: `degrees` clockwise from north, `strength` 0 (still) to 1 (a gale). `seconds` of 0
+means until something says otherwise, matching `set_weather`.
+
+while a mod holds the wind the engine stops drifting it, so a storm's gale does not wander off on
+its own halfway through. server/game_server.gd the server itself"><div class="sig"><code>set_wind(degrees: float, strength := 0.5, seconds := 0.0) -&gt; void</code></div><p>Sets the wind: `degrees` clockwise from north, `strength` 0 (still) to 1 (a gale). `seconds` of 0
+means until something says otherwise, matching `set_weather`.
+
+While a mod holds the wind the engine stops drifting it, so a storm's gale does not wander off on
+its own halfway through.</p></div>
+<div class="card" data-search="wind_state the wind as a mod sees it: {angle, strength}. server/game_server.gd the server itself"><div class="sig"><code>wind_state() -&gt; Dictionary</code></div><p>The wind as a mod sees it: {angle, strength}.</p></div>
 <div class="card" data-search="weather_state the weather as a mod sees it: {name, intensity}. &quot;&quot; when the sky is clear. server/game_server.gd the server itself"><div class="sig"><code>weather_state() -&gt; Dictionary</code></div><p>The weather as a mod sees it: {name, intensity}. "" when the sky is clear.</p></div>
 <div class="card" data-search="block_sound sound name for a block action (&quot;break&quot;, &quot;place&quot;, &quot;step&quot;); empty when the block has none. server/game_server.gd the server itself"><div class="sig"><code>block_sound(block: int, action: String) -&gt; String</code></div><p>Sound name for a block action ("break", "place", "step"); empty when the block has none.</p></div>
 <div class="card" data-search="set_world_time `time_of_day`: 0 = midnight, 0.25 = sunrise, 0.5 = noon. `day_length` in seconds, 0 = frozen. server/game_server.gd the server itself"><div class="sig"><code>set_world_time(time_of_day: float, day_length: float) -&gt; void</code></div><p>`time_of_day`: 0 = midnight, 0.25 = sunrise, 0.5 = noon. `day_length` in seconds, 0 = frozen.</p></div>
@@ -2714,6 +2758,13 @@ the explosion is a noise, not fifty pieces of feedback.</p></div></section>
 <div class="card" data-search="restore replaces `world_dir` with the archive's contents. the current world is moved aside (not deleted)
 to &lt;world_dir&gt;.before-restore-&lt;timestamp&gt;. returns &quot;&quot; or an error. server/world_backups.gd everything else"><div class="sig"><code>static restore(zip_path: String, world_dir: String) -&gt; String</code></div><p>Replaces `world_dir` with the archive's contents. The current world is moved aside (not deleted)
 to <world_dir>.before-restore-<timestamp>. Returns "" or an error.</p></div></section>
+<section id="e-shared-net-access-gd"><h2>net_access.gd <span class="file">shared/net_access.gd</span></h2><p class="lead">Whether this process may reach out to the internet, and how a test run is kept off it.</p><div class="card" data-search="allowed whether this process may fetch `url`. true for everything unless `qw_offline` is set, and then only
+for loopback. shared/net_access.gd everything else"><div class="sig"><code>static allowed(url: String) -&gt; bool</code></div><p>Whether this process may fetch `url`. True for everything unless `QW_OFFLINE` is set, and then only
+for loopback.</p></div>
+<div class="card" data-search="host_allowed the same question when the host is already in hand, as `hub_announcer.leave()` has it. shared/net_access.gd everything else"><div class="sig"><code>static host_allowed(host: String) -&gt; bool</code></div><p>The same question when the host is already in hand, as `hub_announcer.leave()` has it.</p></div>
+<div class="card" data-search="restricted whether this process has been kept off the network. tests assert on it, because the whole point is
+that it is true while they run and false while somebody is playing. shared/net_access.gd everything else"><div class="sig"><code>static restricted() -&gt; bool</code></div><p>Whether this process has been kept off the network. Tests assert on it, because the whole point is
+that it is true while they run and false while somebody is playing.</p></div></section>
 <section id="e-shared-voxel-world-gd"><h2>voxel_world.gd <span class="file">shared/voxel_world.gd</span></h2><p class="lead">Sparse collection of loaded chunks with world-space block access.</p><div class="card" data-search="chunks vector2i -&gt; chunk. read freely; mutate only through add_chunk / remove_chunk / set_block so the
 native mirror stays in sync. shared/voxel_world.gd everything else"><div class="sig"><code>chunks := {}  (property)</code></div><p>Vector2i -> Chunk. Read freely; mutate only through add_chunk / remove_chunk / set_block so the
 native mirror stays in sync.</p></div>
@@ -2724,7 +2775,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1181 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1189 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

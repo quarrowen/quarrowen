@@ -1,14 +1,22 @@
 extends RefCounted
 ## Trust-on-first-use pinning of server certificates, like SSH known_hosts. The first connection to an
 ## address stores the server's certificate; later connections verify it during the DTLS handshake.
-## QW_KNOWN_SERVERS_DIR overrides the folder (tests use a throwaway one).
+## QW_KNOWN_SERVERS_DIR overrides the folder (tests use a throwaway one), and failing that it follows
+## QW_USER_DIR like every other client path.
+##
+## **This used to be a bare `user://`**, which is the mistake CLAUDE.md says had already bitten three
+## times: `project.godot` sets `use_custom_user_dir`, so `user://` from this checkout *is* the installed
+## app's folder. `tools/run_tests.sh` happened to set QW_KNOWN_SERVERS_DIR, so the suite was clean - but
+## `tools/look_shots.sh` sets only QW_USER_DIR, so every render pinned throwaway localhost servers into
+## the player's real folder. Fourteen of them were sitting there. Routing through `UserPaths` means one
+## override covers it, which is the whole point of that file. (2026-09-22)
 
-const DEFAULT_DIR := "user://known_servers"
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 
 
 static func dir() -> String:
 	var override := OS.get_environment("QW_KNOWN_SERVERS_DIR")
-	return override if not override.is_empty() else DEFAULT_DIR
+	return override if not override.is_empty() else UserPaths.path("known_servers")
 
 
 static func path_for(endpoint: String) -> String:

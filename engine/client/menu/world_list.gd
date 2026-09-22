@@ -3,14 +3,14 @@ extends RefCounted
 ## hold a world.json (written by the server: seed, mods, game, created_at, last_played). A world's
 ## folder name is its id; its display name lives in world.json ("title").
 
-const DEFAULT_DIR := "user://worlds"
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 ## Folders next to the worlds that are not worlds.
 const RESERVED := ["backups", "identity"]
 
 
 static func dir() -> String:
 	var override := OS.get_environment("QW_DATA_DIR")
-	return override if not override.is_empty() else DEFAULT_DIR
+	return override if not override.is_empty() else UserPaths.path("worlds")
 
 
 ## [{id, title, game, mods, seed, created_at, last_played, size}] newest played first.

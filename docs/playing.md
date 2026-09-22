@@ -37,6 +37,24 @@ Then either:
 
 Every key can be changed in Settings → Controls.
 
+## How it looks
+
+Settings → Graphics has four presets, and `F4` cycles them:
+
+| | |
+|---|---|
+| **Fast** | For the oldest machines. Renders at 70% and upscales; no swaying plants, no fancy water. |
+| **Balanced** | The default. Swaying plants, fancy water, bloom and colour grading. |
+| **Fancy** | Balanced at full resolution, with anti-aliasing. |
+| **Realistic** | Real sunlight and shadow, scattered sky, reflections in water, surface relief and aerial haze. |
+
+**Realistic asks a lot of the machine.** On a base M1 Air it runs at around 25–29 fps, which is
+playable but not smooth; on anything with a discrete graphics card it is comfortable. Every part of it
+can be switched off on its own if you want most of the look for more of the speed — **Surface relief**
+is the one to try first, since it does the most work per pixel.
+
+Changing a single setting moves the preset to "Custom", which is only a label: nothing is lost.
+
 ## Your first hour
 
 A guided game leads you: it sets out the first few things to do, in an order that makes sense, and a

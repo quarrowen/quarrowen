@@ -14,6 +14,7 @@ const ClientSettings = preload("res://engine/client/settings/client_settings.gd"
 const HubClient = preload("res://engine/client/menu/hub_client.gd")
 const Identity = preload("res://engine/shared/identity.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
+const NetAccess = preload("res://engine/shared/net_access.gd")
 
 const HEARTBEAT := 20.0
 const RETRY := 60.0
@@ -221,6 +222,9 @@ func _fail(error: String) -> void:
 
 
 func _post(url: String, body: Dictionary, bearer: String, done: Callable) -> void:
+	if not NetAccess.allowed(url):
+		done.call({}, "cannot reach the hub")
+		return
 	var http := HTTPRequest.new()
 	http.timeout = 10.0
 	http.body_size_limit = 1024 * 1024

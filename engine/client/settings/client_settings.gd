@@ -16,16 +16,16 @@ const BUS_MUSIC := "Music"
 const GRAPHICS_PRESETS := ["fast", "balanced", "fancy", "realistic", "custom"]
 ## Per-preset values of the graphics toggles (see engine/client/graphics_settings.gd).
 const PRESET_VALUES := {
-	"fast": {"ambient_occlusion": true, "sway": false, "fancy_water": false, "bloom": false, "grading": false, "fxaa": false, "render_scale": 0.7, "realistic": false},
-	"balanced": {"ambient_occlusion": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": false, "render_scale": 0.85, "realistic": false},
-	"fancy": {"ambient_occlusion": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 1.0, "realistic": false},
+	"fast": {"ambient_occlusion": true, "relief": false, "sway": false, "fancy_water": false, "bloom": false, "grading": false, "fxaa": false, "render_scale": 0.7, "realistic": false},
+	"balanced": {"ambient_occlusion": true, "relief": false, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": false, "render_scale": 0.85, "realistic": false},
+	"fancy": {"ambient_occlusion": true, "relief": false, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 1.0, "realistic": false},
 	# The one preset that changes *how* the world is lit rather than how much polish is on top: the
 	# terrain shader stops being unshaded and the sun starts casting real shadows. Everything above
 	# stays as it was, because the machines the children play on are why they exist. (2026-09-21)
 		# Render scale below the fancy preset's on purpose: realistic lighting costs per *pixel*, so the
 	# cheapest large saving is drawing fewer of them and letting FSR put them back. A shadowed,
 	# scattered world at 85% reads better than a flat one at 100%.
-	"realistic": {"ambient_occlusion": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 0.85, "realistic": true},
+	"realistic": {"ambient_occlusion": true, "relief": true, "sway": true, "fancy_water": true, "bloom": true, "grading": true, "fxaa": true, "render_scale": 0.85, "realistic": true},
 }
 
 ## key -> {tab, label, type, default, min/max/step or choices [[value, label]], help}
@@ -37,6 +37,9 @@ const SCHEMA := {
 		"help": "Below 100% the world is drawn smaller and upscaled (FSR): faster, a little softer."},
 	"graphics/ambient_occlusion": {"tab": "Graphics", "label": "Soft shadows in corners", "type": "bool", "default": true},
 	"graphics/sway": {"tab": "Graphics", "label": "Swaying plants", "type": "bool", "default": true},
+	# Realistic only: it perturbs the normal per pixel, which is free on a discrete card and is not on
+	# the machine this preset has to earn its place on.
+	"graphics/relief": {"tab": "Graphics", "label": "Surface relief", "type": "bool", "default": false},
 	"graphics/fancy_water": {"tab": "Graphics", "label": "Fancy water", "type": "bool", "default": true},
 	"graphics/realistic": {"tab": "Graphics", "label": "Real sunlight and shadows", "type": "bool", "default": false,
 		"help": "The world is lit by an actual sun that casts shadows, instead of light baked into the ground. Much prettier and much heavier - turn it off if the game stutters."},

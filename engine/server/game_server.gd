@@ -162,6 +162,15 @@ var weather := WeatherRegistry.new()
 ## What the sky is doing: {id, intensity, until}. World state, not per player - everyone standing in the
 ## same world is standing in the same storm, and somebody joining halfway through arrives in it.
 var weather_now := {"id": -1, "intensity": 0.0, "until": 0.0}
+## Which way the wind blows and how hard: degrees clockwise from north, and 0 (still) to 1 (a gale).
+##
+## **The server sends a base vector and the client does the gusting.** Wind that a player can see is
+## mostly gusts - grass ripples, a cloud edge tears - and sending that at tick rate would be a lot of
+## bandwidth for something nobody can be wrong about. So this changes rarely, and the detail is worked
+## out on each client from time and position. `until` matches `weather_now`: 0 means until something
+## says otherwise, and while it is unset the engine drifts the wind gently so a world nobody has
+## written weather for still breathes. (2026-09-22)
+var wind_now := {"angle": 135.0, "strength": 0.3, "until": 0.0, "drifting": true}
 var ambience := Ambience.new(self)
 ## The character body every client draws players with (see PlayerRig; mods may replace it).
 var player_rig := PlayerRig.default_rig()
@@ -1059,6 +1068,7 @@ func _register_builtin_commands() -> void:
 	add_command("milestones", "What you have done, and what is still out there", _cmd_milestones, "engine")
 	add_command("music", "Who made the music this server plays", _cmd_music, "engine")
 	add_command("weather", "<kind> [seconds] | clear - change the sky", _cmd_weather, "engine", "admin")
+	add_command("wind", "<degrees> [strength] | drift - which way it blows", _cmd_wind, "engine", "admin")
 	add_command("gamemode", "survival | creative [player]", _cmd_gamemode, "engine", "admin")
 	add_command("fly", "Toggle flying (creative, or the \"fly\" permission)", _cmd_fly, "engine")
 	add_command("kill", "Die and respawn", func(p, _args): kill_player(p, "command", null), "engine")
@@ -1397,6 +1407,25 @@ func _cmd_music(player, _args: PackedStringArray) -> void:
 	player.send_message("Music on this server:")
 	for line in lines:
 		player.send_message("  " + line)
+
+
+func _cmd_wind(player, args: PackedStringArray) -> void:
+	var now: Dictionary = wind_state()
+	if args.is_empty():
+		player.send_message("The wind is %d degrees at %d%%." % [int(now.angle), int(float(now.strength) * 100.0)])
+		return
+	if args[0] == "drift":
+		wind_now.until = 0.0
+		wind_now.drifting = true
+		wind_now.next_drift = 0.0
+		player.send_message("The wind is its own again.")
+		return
+	if not args[0].is_valid_float():
+		player.send_message("Which way? A number of degrees, or 'drift' to let it wander.")
+		return
+	var strength := float(args[1]) if args.size() > 1 and args[1].is_valid_float() else 0.5
+	set_wind(float(args[0]), strength)
+	player.send_message("The wind turns to %d degrees at %d%%." % [int(wind_now.angle), int(float(wind_now.strength) * 100.0)])
 
 
 func _cmd_weather(player, args: PackedStringArray) -> void:
@@ -1920,6 +1949,7 @@ func _physics_process(delta: float) -> void:
 	ambience.update(delta)
 	if float(weather_now.until) > 0.0 and _time >= float(weather_now.until):
 		set_weather("")
+	_drift_wind()
 	anticheat.update(delta)
 	sessions.update(delta)
 	skill.update()
@@ -2457,6 +2487,53 @@ func set_weather(weather_name: String, intensity := 1.0, seconds := 0.0) -> void
 	emit("weather_changed", {"weather": weather_name, "intensity": weather_now.intensity})
 
 
+## Sets the wind: `degrees` clockwise from north, `strength` 0 (still) to 1 (a gale). `seconds` of 0
+## means until something says otherwise, matching `set_weather`.
+##
+## While a mod holds the wind the engine stops drifting it, so a storm's gale does not wander off on
+## its own halfway through.
+func set_wind(degrees: float, strength := 0.5, seconds := 0.0) -> void:
+	wind_now.angle = fposmod(degrees, 360.0)
+	wind_now.strength = clampf(strength, 0.0, 1.0)
+	wind_now.until = (_time + seconds) if seconds > 0.0 else 0.0
+	wind_now.drifting = false
+	_send_wind()
+	emit("wind_changed", {"angle": float(wind_now.angle), "strength": float(wind_now.strength)})
+
+
+## The wind as a mod sees it: {angle, strength}.
+func wind_state() -> Dictionary:
+	return {"angle": float(wind_now.angle), "strength": float(wind_now.strength)}
+
+
+## Nudges the wind along when nothing is holding it, and hands it back when a mod's hold runs out.
+##
+## Only sent when it has moved enough to see - a degree of heading or a hundredth of strength is below
+## what any shader will show, and sending it would be a packet a tick for nothing.
+func _drift_wind() -> void:
+	if float(wind_now.until) > 0.0 and _time >= float(wind_now.until):
+		wind_now.until = 0.0
+		wind_now.drifting = true
+	if not bool(wind_now.drifting):
+		return
+	if _time < float(wind_now.get("next_drift", 0.0)):
+		return
+	wind_now.next_drift = _time + randf_range(20.0, 60.0)
+	var angle := fposmod(float(wind_now.angle) + randf_range(-35.0, 35.0), 360.0)
+	var strength := clampf(float(wind_now.strength) + randf_range(-0.18, 0.18), 0.05, 0.75)
+	if absf(angle - float(wind_now.angle)) < 1.0 and absf(strength - float(wind_now.strength)) < 0.01:
+		return
+	wind_now.angle = angle
+	wind_now.strength = strength
+	_send_wind()
+
+
+func _send_wind() -> void:
+	for p: ServerPlayer in players.values():
+		if p._online():
+			Net.s_wind.rpc_id(p.peer_id, float(wind_now.angle), float(wind_now.strength))
+
+
 ## The weather as a mod sees it: {name, intensity}. "" when the sky is clear.
 func weather_state() -> Dictionary:
 	var id: int = weather_now.id
@@ -2858,6 +2935,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	# Somebody joining halfway through a storm arrives in it, rather than in sunshine everyone else lost.
 	if int(weather_now.id) >= 0:
 		Net.s_weather.rpc_id(peer_id, int(weather_now.id), float(weather_now.intensity))
+	Net.s_wind.rpc_id(peer_id, float(wind_now.angle), float(wind_now.strength))
 	p.sync_inventory()
 	refresh_stats(p)
 	sync_health(p)

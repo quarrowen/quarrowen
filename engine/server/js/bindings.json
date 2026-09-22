@@ -991,6 +991,10 @@
 			"args": [],
 			"gd": "get_weather"
 		},
+		"getWind": {
+			"args": [],
+			"gd": "get_wind"
+		},
 		"getWorldClock": {
 			"args": [],
 			"gd": "get_world_clock"
@@ -2939,6 +2943,22 @@
 				}
 			],
 			"gd": "set_weather"
+		},
+		"setWind": {
+			"args": [
+				{
+					"kind": "float"
+				},
+				{
+					"default": 0.5,
+					"kind": "float"
+				},
+				{
+					"default": 0.0,
+					"kind": "float"
+				}
+			],
+			"gd": "set_wind"
 		},
 		"setWorldMarker": {
 			"args": [

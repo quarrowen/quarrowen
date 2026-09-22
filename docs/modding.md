@@ -111,6 +111,40 @@ engine provides a crafting menu (C) listing every `register_recipe` recipe, grey
 lacks inputs. Drops may name items (`"drops": "base:coal"`). Right-clicking with a `usable` item fires
 `item_use` with the target block, face normal and look direction.
 
+### Wind
+
+Wind is a world property: a heading in degrees clockwise from north, and a strength from 0 (still) to
+1 (a gale). It leans the grass, drags the cloud deck along and streaks it out, and anything else that
+wants to read it can.
+
+```gdscript
+api.set_wind(240.0, 0.85)          # from the south-west, hard
+api.set_wind(90.0, 0.3, 120.0)     # from the east, gently, for two minutes
+api.get_wind()                     # {angle: 240.0, strength: 0.85}
+```
+
+`seconds` works the way it does for `set_weather`: 0 means until something says otherwise. **While a
+mod holds the wind the engine stops drifting it**, so a storm's gale does not wander off halfway
+through; when the hold runs out the engine takes it back and starts nudging it again. A world nobody
+has written weather for still breathes.
+
+**Wind is visual.** Nothing in the simulation reads it — projectiles fly straight, fires do not
+spread downwind, sailing is not a thing the engine does. That is deliberate: it means a mod can move
+the wind as freely as it likes without having to think about fairness or about what the server and
+client might disagree on. The server sends a heading that changes every half-minute or so, and each
+client works out the gusts itself from position and time.
+
+Weather and wind are separate, because a still downpour is a real thing. A mod that wants them
+together says so:
+
+```gdscript
+api.on("weather_changed", func(ev):
+    if String(ev.get("weather", "")) == "mod:storm":
+        api.set_wind(240.0, 0.85))
+```
+
+Admins can try it with `/wind <degrees> [strength]`, and `/wind drift` hands it back to the engine.
+
 ### Where a thing comes from
 
 The crafting menu answers "how is this made". It cannot answer the other half of the question, which

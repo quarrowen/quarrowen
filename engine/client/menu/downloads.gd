@@ -6,6 +6,8 @@ extends Node
 ## the bytes against a checksum they already have - a download is only ever trusted because the manifest
 ## or the mod index said what it should be.
 
+const NetAccess = preload("res://engine/shared/net_access.gd")
+
 var _http: HTTPRequest
 
 
@@ -18,6 +20,8 @@ func _ready() -> void:
 
 ## GETs a small text file (a manifest, an index). "" if anything went wrong.
 func fetch(url: String) -> String:
+	if not NetAccess.allowed(url):
+		return ""
 	_http.cancel_request()
 	_http.download_file = ""
 	if _http.request(url) != OK:
@@ -30,6 +34,8 @@ func fetch(url: String) -> String:
 
 ## GETs a file, through a file on disk so a large zip is not held in memory twice. Empty if it failed.
 func download(url: String, into_dir: String) -> PackedByteArray:
+	if not NetAccess.allowed(url):
+		return PackedByteArray()
 	_http.cancel_request()
 	var dir := ProjectSettings.globalize_path(into_dir)
 	var path := dir.path_join("download-%d.part" % Time.get_ticks_usec())
