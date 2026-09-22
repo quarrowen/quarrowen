@@ -40,6 +40,11 @@ const SCHEMA := {
 	# Realistic only: it perturbs the normal per pixel, which is free on a discrete card and is not on
 	# the machine this preset has to earn its place on.
 	"graphics/relief": {"tab": "Graphics", "label": "Surface relief", "type": "bool", "default": false},
+	# The HUD's own look. "belt" is ours; "classic" is the row-of-icons arrangement every block game
+	# uses, kept while the two are being compared. (2026-09-22)
+	"interface/hud_style": {"tab": "Interface", "label": "HUD style", "type": "choice",
+		"choices": [["belt", "Belt"], ["classic", "Classic"]], "default": "belt",
+		"help": "Belt is one carved bar with slim vitals. Classic is the row of hearts and drumsticks, kept for anybody who prefers counting icons."},
 	"graphics/fancy_water": {"tab": "Graphics", "label": "Fancy water", "type": "bool", "default": true},
 	"graphics/realistic": {"tab": "Graphics", "label": "Real sunlight and shadows", "type": "bool", "default": false,
 		"help": "The world is lit by an actual sun that casts shadows, instead of light baked into the ground. Much prettier and much heavier - turn it off if the game stutters."},

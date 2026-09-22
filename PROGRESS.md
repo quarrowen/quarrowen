@@ -4562,3 +4562,48 @@ allowed to produce, and nothing else.
 
 The helper is private (`_deprecated`), which the bindings ratchet caught immediately: public would have
 put it in the JavaScript API, where "tell a mod it used an old name" means nothing to call.
+
+## The HUD: the belt, and the lantern that was tried and refused (2026-09-22)
+
+The hotbar, hearts and hunger row were the genre's defaults wearing our textures. Asked for something
+of our own, and then - when the first attempt was too safe - for "something unique or unexpected".
+
+**What shipped is the belt.** One carved bar behind the whole row rather than a border around every
+slot, and two slim rounded vitals instead of twenty icons: red health and amber hunger, growing
+outward from the centre so they read as a pair. Slots went from 52 to 58 pixels.
+
+Three reasons beyond taste, in order of how much they matter:
+
+- Nine bordered boxes read as nine things to think about; one bar reads as a belt with things on it.
+- A bar can say "seven and a bit" without inventing a half-heart to mean it.
+- 58 pixels is the shape a thumb wants. **That is the real argument for doing this before Phase 4** -
+  the HUD is the frame every screenshot of new content sits inside, and the iPad build needs the
+  bigger targets regardless.
+
+**The lantern was built, rendered and refused, and the idea is worth keeping written down.** Five
+dramatic alternatives were offered - a lantern whose flame is health and whose oil is hunger; no vital
+widgets at all with a warm vignette instead; a fully diegetic belt of items hanging from loops at the
+screen edge; a carved slab that cracks as you take damage; and a heartbeat with no bar. The lantern was
+built first as the most distinctive thing still legible to a child. It worked exactly as designed and
+the user did not like it: *"i think i prefer the smooth bars from earlier."* Removed rather than left
+switchable, because a style nobody wants is a style somebody has to keep working.
+
+The other four were never built and should not be quietly revived: the vignette risks a child not
+connecting "the edges went red" to "I am hurt", and the heartbeat could frighten an eight-year-old at
+bedtime, which is a line this project holds.
+
+`classic` stays as a setting - the row of icons is clearer for anybody who prefers counting - but
+`belt` is the default.
+
+### A setting that silently did nothing
+
+The lantern did not appear at all, and two renders were spent guessing at anchor positioning before
+the plumbing was checked. The cause was the schema entry:
+
+    "choices": ["belt", "lantern", "classic"]                 # wrong
+    "choices": [["belt", "Belt"], ["lantern", "Lantern"]]     # what it wants
+
+`_clean` reads `c[0]` of each choice, so a flat list compares against the first *character* - "b", "l",
+"c" - which never matches, and the value **falls back to the default with no error and no warning**.
+The existing `graphics/preset` entry three lines above shows the format. Another instance of the rule
+this whole day keeps returning to: the thing that already exists would have said so.

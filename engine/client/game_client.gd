@@ -320,6 +320,10 @@ var _look_label: Label
 var _held_shown := 0
 var _held_until := 0.0
 var _hotbar_slots: Array[Panel] = []
+## The belt behind the hotbar, or null in the classic style.
+var _hotbar_frame: PanelContainer = null
+## Health and hunger as two slim bars, in the belt style only.
+var _vital_bars := {}
 var _chat_log: VBoxContainer
 var _chat_input: LineEdit
 var _pause_panel: PanelContainer
@@ -482,6 +486,17 @@ func _retire_chunks() -> void:
 		if is_instance_valid(node):
 			node.free()
 		budget -= 1
+
+
+## Which HUD this client draws.
+func _hud_style() -> String:
+	return String(ClientSettings.shared().get_value("interface/hud_style"))
+
+
+## Whether the HUD is drawn in our own style rather than the genre's rows of icons. The belt frame and
+## slot shape are shared by every style that is not `classic`.
+func _hud_belt() -> bool:
+	return _hud_style() != "classic"
 
 
 ## Notes how long we have been joining, at one named step.
@@ -3796,6 +3811,25 @@ func _build_hud() -> void:
 	_held_label.add_theme_font_size_override("font_size", 18)
 	_held_label.modulate.a = 0.0
 	_hud_root.add_child(_held_label)
+	# **The belt.** One panel behind the whole row rather than a border around every slot: nine boxes
+	# read as nine things to think about, one bar reads as a belt with things on it. Also the shape a
+	# thumb wants on a tablet, which is the other reason to do this before Phase 4 rather than after.
+	if _hud_belt():
+		_hotbar_frame = PanelContainer.new()
+		_hotbar_frame.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+		_hotbar_frame.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_hotbar_frame.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_hotbar_frame.position.y -= 10
+		_hotbar_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var frame := StyleBoxFlat.new()
+		frame.bg_color = Color(0.09, 0.08, 0.07, 0.72)
+		frame.set_corner_radius_all(10)
+		frame.set_content_margin_all(7)
+		frame.border_color = Color(0.86, 0.78, 0.62, 0.30)
+		frame.set_border_width_all(2)
+		_hotbar_frame.add_theme_stylebox_override("panel", frame)
+		_hud_root.add_child(_hotbar_frame)
+
 	_hotbar = HBoxContainer.new()
 	_hotbar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_hotbar.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -3803,7 +3837,14 @@ func _build_hud() -> void:
 	_hotbar.position.y -= 12
 	_hotbar.add_theme_constant_override("separation", 4)
 	_hotbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hud_root.add_child(_hotbar)
+	if _hotbar_frame != null:
+		_hotbar_frame.add_child(_hotbar)
+	else:
+		_hud_root.add_child(_hotbar)
+
+	if _hud_belt():
+		_make_vital_bar("health", Color(0.85, 0.27, 0.30), false)
+		_make_vital_bar("hunger", Color(0.80, 0.58, 0.26), true)
 
 	_heart_textures = [_heart_image(1.0), _heart_image(0.5), _heart_image(0.0)]
 	_hearts = HBoxContainer.new()
@@ -4150,8 +4191,14 @@ func _rebuild_hotbar() -> void:
 		slot.custom_minimum_size = Vector2(52, 52)
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0, 0, 0, 0.45)
-		style.set_border_width_all(3)
+		if _hud_belt():
+			slot.custom_minimum_size = Vector2(58, 58)
+			style.bg_color = Color(1, 1, 1, 0.06)
+			style.set_corner_radius_all(7)
+			style.set_border_width_all(2)
+		else:
+			style.bg_color = Color(0, 0, 0, 0.45)
+			style.set_border_width_all(3)
 		slot.add_theme_stylebox_override("panel", style)
 		var icon := TextureRect.new()
 		icon.name = "Icon"
@@ -4188,7 +4235,12 @@ func _refresh_hotbar() -> void:
 	for i in Inventory.HOTBAR:
 		var slot := _hotbar_slots[i]
 		var style: StyleBoxFlat = slot.get_theme_stylebox("panel")
-		style.border_color = Color.WHITE if i == inventory.selected else Color(0, 0, 0, 0.6)
+		if _hud_belt():
+			# A warm highlight rather than a white outline: white on a dark bar is the genre's own
+			# signal, and this is the one place the eye goes most.
+			style.border_color = Color(1.0, 0.84, 0.52, 0.95) if i == inventory.selected else Color(1, 1, 1, 0.10)
+		else:
+			style.border_color = Color.WHITE if i == inventory.selected else Color(0, 0, 0, 0.6)
 		var id := inventory.ids[i]
 		var has_item := items.is_valid(id) and (inventory.creative or inventory.counts[i] > 0)
 		var icon: TextureRect = slot.get_node("Icon")
@@ -4215,6 +4267,10 @@ func _refresh_armor() -> void:
 ## Drumsticks fill from the right (like hunger draining toward the hotbar's center).
 func _refresh_hunger() -> void:
 	if _hunger_bar == null:
+		return
+	if _hud_belt():
+		_hunger_bar.visible = false
+		_set_vital_bar("hunger", hunger / 20.0, _welcomed and not inventory.creative and hunger >= 0.0)
 		return
 	_hunger_bar.visible = _welcomed and not inventory.creative and hunger >= 0.0
 	var now := Time.get_ticks_msec() / 1000.0
@@ -4264,6 +4320,10 @@ func on_hunger(value: float, sat: float) -> void:
 
 func _refresh_hearts() -> void:
 	if _hearts == null:
+		return
+	if _hud_belt():
+		_hearts.visible = false
+		_set_vital_bar("health", health / maxf(max_health, 1.0), _welcomed and not inventory.creative)
 		return
 	_hearts.visible = _welcomed and not inventory.creative
 	var per_heart := max_health / 10.0
