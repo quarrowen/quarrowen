@@ -274,14 +274,20 @@ including `e2e:*` will do it again.
 
 ## Right now: do not tag a release
 
-The children are on 0.41.1 and their clients update themselves from `update.json`, which a `v*` tag
-republishes. Tagging mid-playtest moves them to a protocol the family server does not speak. Push to
-master as much as you like — that only runs tests — but do not tag until the user says the playtest is
-over. (2026-09-19)
+**The games are deleted**, so a release from master would ship an engine with nothing to play. The
+children have been told 1.0 will be a fresh game, and that is what a tag waits for. Push to master as
+much as you like — that only runs tests.
 
-There is now a second and simpler reason: **the games are deleted**, so a release from master would
-ship an engine with nothing to play. The children have been told 1.0 will be a fresh game, and that is
-what a tag has to wait for. (2026-09-21)
+The older reason — that the children were playing 0.41.1 and would be auto-updated into a protocol the
+family server did not speak — **no longer applies**, and believing it made protocol bumps feel more
+dangerous than they are. The user, 2026-09-22: *"kids are not playing quarrowen currently. they wont be
+playing it till 1.0 is available... the only person running the built client is me on my own laptop."*
+
+So `Protocol.VERSION` may be bumped freely for now; only a laptop build is affected and it is rebuilt.
+It is at 50 through ordinary churn, and **resets to 1 when 1.0 is cut**, not before: freezing it early
+would be actively harmful, because that number is the only thing that refuses a mismatched client at
+the door. Freeze it while the wire still changes and two incompatible builds shake hands and then talk
+past each other, which presents as an unexplained hang rather than as a version problem.
 
 ## Saves, until 1.0.0
 

@@ -2463,7 +2463,9 @@ func _update_time(delta: float) -> void:
 		_cloud_sky.set_shader_parameter("wind_offset", _wind_travelled)
 		var weather_now: Dictionary = _weather.sky_tint() if _weather != null else {}
 		# Weather thickens the deck: a storm is a sky you can see from indoors.
-		_cloud_sky.set_shader_parameter("cloudiness", clampf(0.42 + float(weather_now.get("amount", 0.0)) * 0.55, 0.0, 1.0))
+		# Lower on a clear day than it was: at 0.42 the deck covered so much sky that individual clouds
+		# never read as individual. Blue between them is what makes them objects.
+		_cloud_sky.set_shader_parameter("cloudiness", clampf(0.30 + float(weather_now.get("amount", 0.0)) * 0.6, 0.0, 1.0))
 		# Ambient still has to come off the sky, and the sky is dark at night - see below.
 		# **Ambient was drowning the sun.** At 0.95 every surface got most of its light from the sky
 		# regardless of facing, so the shadows the preset exists to cast had almost nothing to darken

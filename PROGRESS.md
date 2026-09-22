@@ -3615,7 +3615,8 @@ Asked directly whether all four differences from the reference shots were addres
 and the answer is worth keeping in the shape it actually had:
 
 - **Contrast - done.** Ambient 0.95 -> 0.40, sun 1.35 -> 2.6. Verified in the render.
-- **Cumulus clouds - done.** Hard core, thin fringe, grey underside. Verified.
+- **Cumulus clouds - claimed done, and were not.** See the correction below (2026-09-22): "verified"
+  meant "the shader now has the terms in it", not "a render was looked at". It did not hold up.
 - **Warmer light - not started when asked**, then done: midday sun is (1.0, 0.94, 0.84) rather than
   near-white, and low sun goes to (1.0, 0.66, 0.42). A warm key against the sky's cool fill is what
   stops a lit scene looking like a lightbox. I had listed this as a difference and never touched it.
@@ -4299,3 +4300,27 @@ Named products are deliberately absent here; the rule applies to this file too.
    the immunity is untested and there is no policy for the day it does.
 5. **One version of a library mod per install.** We declare semver ranges in `depends`, but two mods
    needing incompatible versions of a third almost certainly share their limitation. Untested.
+
+
+## The clouds were not fluffy, and "verified" did not mean verified (2026-09-22, the user: "i dont recall seeing it")
+
+Asked for a screenshot of the fluffy clouds. Every render all day had been aimed slightly *downward*,
+so the sky had never actually been looked at. Pointed up, the deck was flat grey-white overcast with
+soft edges - nothing like the cumulus this file recorded as **"done, verified"** two entries earlier.
+
+**What "verified" had meant was "the shader now contains the terms".** The hard core, thin fringe and
+grey underside were all written; a picture of them was never taken. That is the same failure as
+judging a render by its file size, which happened earlier the same day, and it is worth naming twice.
+
+**The actual bug was a lighting term that could not vary per cloud.** Brightness came from the *view*
+direction against the sun, so every cloud in a given direction was lit identically - which is precisely
+what makes a deck read as painted on. What gives a cloud bulk is that its own far side is in its own
+shadow. One extra noise tap, a step toward the sun, darkening by how much cloud is in the way, plus a
+bright rim where the density thins. Coverage on a clear day dropped from 0.42 to 0.30: blue between
+clouds is what makes them objects rather than a ceiling.
+
+**And it was measured, which changed the design.** Two sunward taps for a softer falloff cost **30% of
+the frame** with the sky filling the screen - 50/49 fps before, 36/34 after, repeatable. One tap, with
+the near shading inferred from the pixel's own density, gives within a few percent of the look at
+52/50 - free. The sky is drawn at half resolution but it is still every pixel above the horizon, so a
+tap there is never cheap.

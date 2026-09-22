@@ -55,24 +55,47 @@ void sky() {
 		} else {
 				vec2 plane = d.xz / max(u, 0.06) * 0.9;
 				vec2 drift = wind_direction.xz * wind_offset;
-				// A strong wind pulls cloud out into streaks along its own heading. Stretching the
-				// sample across the wind rather than scrolling faster is what reads as *wind* instead
-				// of as a sped-up film. (2026-09-22)
-				plane -= wind_direction.xz * dot(plane, wind_direction.xz) * wind_strength * 0.35;
+				// A strong wind pulls cloud out into streaks along its own heading. Kept gentle: at
+				// full strength it smears the puffs into overcast, which is the opposite of the point.
+				plane -= wind_direction.xz * dot(plane, wind_direction.xz) * wind_strength * 0.15;
 				float high = texture(cloud_noise, plane * 0.055 + drift * 0.06).r;
-				float low_layer = texture(cloud_noise, plane * 0.1 + drift * 0.1 + vec2(high * 0.08)).r;
-				float edge = mix(0.66, 0.28, cloudiness);
+				vec2 low_uv = plane * 0.1 + drift * 0.1 + vec2(high * 0.08);
+				float low_layer = texture(cloud_noise, low_uv).r;
+				float edge = mix(0.70, 0.30, cloudiness);
 				// Cumulus, not cirrus: a hard core with a thin fringe rather than a wide soft ramp. A
 				// wide smoothstep can only ever give you haze. (2026-09-22)
 				float density = smoothstep(edge, edge + 0.05, low_layer);
 				density = mix(density, smoothstep(edge - 0.03, edge + 0.13, low_layer) * 0.4, 0.28);
 				density = clamp(density * 1.5, 0.0, 1.0) * smoothstep(0.0, 0.13, u);
+
+				// **Self-shadowing, which is what was actually missing.** The old lighting came from
+				// the *view* direction against the sun, so every cloud in a given direction was lit
+				// identically and the whole deck read as painted on. What gives a cloud bulk is that
+				// its own far side is in its own shadow - so take one more tap a step toward the sun
+				// and darken by how much cloud is in the way. One texture fetch for the entire
+				// difference between "overcast" and "fluffy". (2026-09-22, the user: "i dont recall
+				// seeing it")
+				//
+				// **One tap, not two.** The first version took two steps toward the sun for a softer
+				// falloff and cost 30% of the frame with the sky filling the screen - 50 fps to 35,
+				// repeatably. A single step at the far distance, with the near shading inferred from
+				// this pixel's own density, is within a few percent of the look for half the cost.
+				// The sky is drawn at half resolution but it is still every pixel above the horizon,
+				// so a tap here is never cheap. (2026-09-22)
+				vec2 sunward = normalize(sun_direction.xz + vec2(1e-4, 1e-4));
+				float ahead = texture(cloud_noise, low_uv + sunward * 0.07).r;
+				float shaded = smoothstep(edge - 0.02, edge + 0.20, ahead) * 0.7 + density * 0.3;
+
 				float towards = max(dot(normalize(vec3(d.x, 0.35, d.z)), normalize(sun_direction)), 0.0);
-				// Bright where the sun strikes, grey underneath. Looking *up* at a cloud you mostly see
-				// its base, which is the shaded side - that greyness is what gives a cloud its bulk.
+				// Looking *up* at a cloud you mostly see its base, which is the shaded side.
 				float under = 1.0 - smoothstep(0.1, 0.55, u);
-				vec3 lit = mix(vec3(0.62, 0.65, 0.72), sun_tint * 1.5, pow(towards, 1.3));
-				lit = mix(lit, vec3(0.38, 0.40, 0.47), under * 0.55);
+				vec3 sunlit = mix(vec3(0.88, 0.90, 0.95), sun_tint * 1.6, pow(towards, 1.3));
+				vec3 shadow_color = vec3(0.42, 0.45, 0.55);
+				vec3 lit = mix(sunlit, shadow_color, shaded * 0.78);
+				lit = mix(lit, shadow_color, under * 0.45);
+				// A bright rim where the cloud thins out: the sun coming through the edge is half of
+				// why a real cumulus reads as three-dimensional rather than as a cut-out.
+				lit += sun_tint * (1.0 - density) * density * pow(towards, 2.0) * 0.9;
 				lit = mix(lit * 0.35, lit, daylight);
 				lit += sun_tint * pow(towards, 8.0) * (1.0 - density) * daylight * 0.8;
 				COLOR = lit;

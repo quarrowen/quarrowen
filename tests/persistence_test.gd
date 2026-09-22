@@ -85,9 +85,64 @@ func _ready() -> void:
 		"restoring a missing backup refuses to start")
 	missing.queue_free()
 	await get_tree().process_frame
+
+	await _world_without_its_mod()
+
 	_remove_tree(ProjectSettings.globalize_path(DATA_DIR))
 	print("[persistence] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
+
+
+## A world opened without the mod that made half of it.
+##
+## The engine promises this works, and nothing checked it. It is also one of the loudest complaints
+## about modded games in this genre: removing a mod there can destroy a world *late and locally* - it
+## loads fine and then breaks when you walk into an area that used the mod - which turns "try a mod"
+## into a one-way door and is why server owners refuse to update mid-playthrough. Ours should degrade,
+## not corrupt. (2026-09-22)
+##
+## What is asserted is deliberately not "the edits survive": they do not, and pretending otherwise
+## would be the wrong promise. What must hold is that the world **opens**, the chunk is **readable**,
+## the ground where the mod's block stood is whatever generation puts there rather than a hole or a
+## 65535, and the shared store still has its row so the items come back if the mod does.
+func _world_without_its_mod() -> void:
+	var world := "orphan_%d" % Time.get_ticks_msec()
+	var at := Vector3i(4, 70, 4)
+
+	var with_mod = _start(world)
+	var rock: int = with_mod.registry.id_of("proving:rock")
+	var generated: int = with_mod.world.get_block_v(at)
+	with_mod.set_block_authoritative(at, rock)
+	var vault = with_mod.mod_instances.proving.api.get_shared("vault")
+	if vault != null:
+		vault.set_item(0, with_mod.items.id_of("proving:token"), 4, {})
+	with_mod._save_all(true)
+	with_mod.queue_free()
+	await get_tree().process_frame
+
+	# The same world, with the mod that owns those blocks simply gone.
+	var without = _start(world, {"mods": PackedStringArray(["base"])})
+	_check(is_instance_valid(without) and without.registry.id_of("proving:rock") < 0,
+		"a world opens with the mod that built it missing")
+	without.ensure_area_loaded(Vector3(at.x + 0.5, at.y, at.z + 0.5))
+	var now: int = without.world.get_block_v(at)
+	_check(now == generated,
+		"the block it cannot name falls back to generated terrain, not a hole (%d, generated %d)" % [now, generated])
+	# 65535 is what a -1 id becomes as a u16, and it means UNLOADED: the world would read as absent
+	# rather than as changed, and a player falls for ever. That is the failure this guards.
+	_check(now != 65535, "and never reads as UNLOADED")
+	without._save_all(true)
+	without.queue_free()
+	await get_tree().process_frame
+
+	# Put the mod back. The question players actually ask is not "does it survive removal" but "if I
+	# put it back, is my stuff there" - and a save that dropped the row on the way through says no.
+	var again = _start(world)
+	var vault_again = again.mod_instances.proving.api.get_shared("vault")
+	var kept: int = vault_again.get_item(0).count if vault_again != null else -1
+	_check(kept == 4, "a store's contents survive the world being opened without the mod (%d)" % kept)
+	again.queue_free()
+	await get_tree().process_frame
 
 
 func _start(world: String, extra := {}):
