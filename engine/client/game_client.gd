@@ -2321,7 +2321,12 @@ func _apply_mesh(coord: Vector2i, result: Array) -> void:
 	if node == null:
 		node = MeshInstance3D.new()
 		node.position = Vector3(coord.x * Chunk.SIZE_X, 0, coord.y * Chunk.SIZE_Z)
-		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# **Terrain casts shadows only in the realistic preset.** This was OFF for everything, with no
+		# comment and nothing written down - almost certainly set when the engine had no real lights at
+		# all, and never revisited when the realistic preset added a sun. The result was a preset with
+		# shadows enabled in which a hillside could not shade itself. (2026-09-22)
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if _realistic \
+			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(node)
 		_chunk_nodes[coord] = node
 	var mesh := ArrayMesh.new()

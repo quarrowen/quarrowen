@@ -4409,3 +4409,30 @@ Three network tests failed in the fallback suite while this was going on. The ca
 helper running `pkill -f "scenes/server.tscn"` before each shot to clear strays - which also killed the
 **test suite's** servers, because a suite was running at the same time. It now kills only a process
 holding its own port. A tool that tidies up after itself has to know whose mess is whose.
+
+## The realistic preset had shadows switched on and nothing casting them (2026-09-22)
+
+Chasing why fewer shadow cascades made no measurable difference turned up the reason: **every chunk was
+created with `cast_shadow = SHADOW_CASTING_SETTING_OFF`**, unconditionally, with no comment and nothing
+written down anywhere. Almost certainly correct when it was written - the engine had no real lights at
+all then - and never revisited when the realistic preset added a sun. The result was a preset that
+enables shadows on a DirectionalLight over a world where a hillside cannot shade itself.
+
+It also explains the null measurement. Four cascades versus two changes how much *geometry* each split
+re-submits, and terrain was submitting none of it.
+
+**Terrain now casts in the realistic preset only.** Measured by differencing the two renders rather
+than by squinting: 6.2% of pixels change by more than 20 per channel, mean difference 12.4. Frame cost
+on this machine is inside the noise band (median 60 against a 52 baseline, which is the wrong direction
+and therefore noise) - but this machine is not the one that decides, and it is behind the existing
+`shadows` switch so it can come off on an M1 Air without losing the rest of the preset.
+
+**Still to check on real hardware:** whether terrain shadow casting is affordable there, and *then*
+whether cascades 4->2 finally shows a difference now that there is something in them.
+
+## Pending: the HUD should look like this game, not like the genre (user, 2026-09-22)
+
+The hotbar, hearts and hunger row are the genre's defaults wearing our textures. The user wants a
+"Quarrowen style" instead - its own visual identity rather than the arrangement every block game uses.
+Not started. Worth doing near Phase 4, when `base` settles and there is real content behind the bar,
+rather than now against placeholder blocks.
