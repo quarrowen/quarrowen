@@ -200,7 +200,7 @@ const LIT_WATER := """
 			vec3 ray = normalize((VIEW_MATRIX * vec4(reflect(view, n), 0.0)).xyz);
 			vec3 at = VERTEX;
 			// Steps grow: fine near the surface where the reflection is sharp, coarse further out.
-			float step_len = 0.35;
+			float step_len = 0.22;
 			// **Jittered, or the steps show.** Every pixel marching from the same offsets means every
 			// pixel at a given distance hits or misses together, and the surface comes out banded in
 			// stripes that follow constant range from the camera - which is what those white lines
@@ -211,7 +211,7 @@ const LIT_WATER := """
 			vec2 hit_uv = vec2(0.0);
 			for (int i = 0; i < 16; i++) {
 				at += ray * step_len;
-				step_len *= 1.42;
+				step_len *= 1.36;
 				vec4 clip = PROJECTION_MATRIX * vec4(at, 1.0);
 				if (clip.w <= 0.0) { break; }
 				vec2 uv = (clip.xy / clip.w) * 0.5 + 0.5;
@@ -251,7 +251,12 @@ const LIT_WATER := """
 			// and a lake that obeyed that came out white - the sky is much brighter than the water,
 			// so the colour washes out completely and what is left reads as milk. Water keeps some
 			// of its own colour at every angle. (2026-09-22)
-			color = mix(color, reflection, clamp(0.04 + 0.62 * fresnel, 0.0, 0.66));
+			// **Strong.** Capping this at two thirds was an over-correction after a lake came out
+			// white: the reference water *is* bright silver where it mirrors sky and dark where it
+			// mirrors a building, which is simply what a reflection does. Weakening it everywhere to
+			// avoid the bright case cost the dark one too, and a roofline came out as a smudge.
+			// (2026-09-22)
+			color = mix(color, reflection, clamp(0.10 + 0.92 * fresnel, 0.0, 0.88));
 			vec3 half_vector = normalize(normalize(sun_direction) - view);
 			glint = sun_tint * pow(max(dot(n, half_vector), 0.0), 220.0) * daylight * 2.2;
 		}

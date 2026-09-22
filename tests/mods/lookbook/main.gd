@@ -85,6 +85,69 @@ func setup(api) -> void:
 	# the camera onto a bare stone mountaintop, so the picture was a grey quarry - which compares two
 	# palettes about as well as photographing them in the dark. (2026-09-21)
 	api.set_spawn_handler(func(_player): return _viewpoint(api))
+	# Lights, on demand, for photographing the dark. A command rather than scenery because where they
+	# want to be depends on where the camera ends up, and the viewpoint is worked out at spawn.
+	# A hut on stilts out in the lake, for judging what water does with a built thing standing in it.
+	# A reflection of a hillside is forgiving - the shapes are soft and a smeared one still reads. A
+	# roofline is not: it is straight, and either the mirror holds it or it does not. (2026-09-22)
+	api.register_command("hut", "Build a stilt hut out in the water", func(player, _args):
+		var post: int = api.require_block("base:birch_log")
+		var floor_block: int = api.require_block("base:planks")
+		var wall: int = api.require_block("base:planks")
+		var roof: int = api.require_block("base:cobblestone")
+		var torch: int = api.require_block("base:torch")
+		# Out where the water is, not at the player's feet.
+		var facing: Vector3 = api.look_direction(player)
+		var centre := Vector3i(Vector3(player.position) + facing * 22.0)
+		var water_top := 62
+		var deck := water_top + 3
+		for dx in range(-4, 5):
+			for dz in range(-4, 5):
+				var at := Vector3i(centre.x + dx, deck, centre.z + dz)
+				api.set_block(at, floor_block)
+				# Stilts on the corners and every other step, down into the bed.
+				if absi(dx) == 4 or absi(dz) == 4:
+					if (dx + dz) % 2 == 0:
+						for y in range(water_top - 6, deck):
+							api.set_block(Vector3i(at.x, y, at.z), post)
+		# Walls with a gap for a doorway, and a flat roof: a silhouette with straight edges is the
+		# point, not architecture.
+		for h in 4:
+			for dx in range(-3, 4):
+				for dz in range(-3, 4):
+					if absi(dx) != 3 and absi(dz) != 3:
+						continue
+					if h < 3 and dx == 0 and dz == -3:
+						continue
+					api.set_block(Vector3i(centre.x + dx, deck + 1 + h, centre.z + dz), wall)
+		for dx in range(-4, 5):
+			for dz in range(-4, 5):
+				api.set_block(Vector3i(centre.x + dx, deck + 5, centre.z + dz), roof)
+		api.set_block(Vector3i(centre.x, deck + 6, centre.z), torch)
+		api.set_block(Vector3i(centre.x - 3, deck + 1, centre.z - 4), torch)
+		api.set_block(Vector3i(centre.x + 3, deck + 1, centre.z - 4), torch)
+		player.send_message("Hut at %s." % centre))
+	api.register_command("lights", "Set torches out in front of you", func(player, _args):
+		var torch: int = api.require_block("base:torch")
+		var stand: int = api.require_block("base:cobblestone")
+		var at: Vector3 = player.position
+		var facing: Vector3 = api.look_direction(player)
+		var placed := 0
+		# A line of them running away from the camera, each on its own post so the light is above the
+		# ground and casts something rather than sitting in the grass.
+		# Starting a few paces out: the first post at arm's length fills the frame, and one standing in
+		# the shallows keeps the water above it, which reads as a glass box round the torch.
+		for step in range(6, 34, 4):
+			var spot := Vector3i(at + facing * float(step))
+			var y: int = api.surface_y(spot.x, spot.z)
+			# Not in the water: a torch is not a lighthouse.
+			if y <= 0 or api.get_block(Vector3i(spot.x, y, spot.z)) == api.block("base:water"):
+				continue
+			for h in 2:
+				api.set_block(Vector3i(spot.x, y + 1 + h, spot.z), stand)
+			api.set_block(Vector3i(spot.x, y + 3, spot.z), torch)
+			placed += 1
+		player.send_message("Set out %d torches." % placed))
 
 
 ## A spot on grass, a little above the sea, with water in view: the frame that shows the most at once.

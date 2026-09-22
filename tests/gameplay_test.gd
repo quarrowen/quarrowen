@@ -4702,10 +4702,19 @@ func _scale() -> void:
 	_check(server._save_queue.is_empty() and not server._save_meta_pending, "a save spread over %d ticks finishes" % drains)
 	WorkerThreadPool.wait_for_task_completion(server._save_task)
 	server._save_task = -1
+	# Wait for the files, do not assume them. The writes go out on a worker task, and waiting once on
+	# `_save_task` catches the task that happened to be running rather than the one that finishes the
+	# job - so under load this read zero of twelve. Which makes it the second flaky check in this spot:
+	# I replaced a stopwatch with something that still assumed timing. (2026-09-22)
 	var written := 0
-	for pos in edited:
-		if FileAccess.file_exists(server.realm.chunk_path(Vector2i(floori(pos.x / 16.0), floori(pos.z / 16.0)))):
-			written += 1
+	for attempt in 40:
+		written = 0
+		for pos in edited:
+			if FileAccess.file_exists(server.realm.chunk_path(Vector2i(floori(pos.x / 16.0), floori(pos.z / 16.0)))):
+				written += 1
+		if written == edited.size():
+			break
+		await get_tree().process_frame
 	_check(written == edited.size(), "and every chunk it queued is on disk (%d of %d)" % [written, edited.size()])
 	# Column heights follow edits without rescanning.
 	var x := 3

@@ -3686,3 +3686,36 @@ and I should not have written them before knowing what I was fixing.
 **Reflection strength is capped well short of a mirror.** Physically a grazing view is almost all
 reflection, and a lake that obeyed that came out white - the sky is far brighter than the water, so
 the colour washes out entirely. Water keeps some of its own at every angle.
+
+## Night, a hut, and a reflection worth the name (2026-09-22)
+
+Two lookbook commands for photographing things that are hard to arrange: `/lights` sets torches on
+posts running away from the camera, and `/hut` builds a stilt hut out in the lake. Both exist because
+where they want to be depends on where the camera ended up, and the viewpoint is worked out at spawn.
+
+**Night works, and torchlight works without a single real light in the world.** The mesher bakes each
+torch's falloff into a vertex channel and the lit shader feeds it in as `EMISSION`, so a preset built
+around one sun still has caves and torches. Stars, moonlit cloud, warm pools on the grass.
+
+**The hut is what a reflection should be judged against.** A reflected hillside is forgiving - soft
+shapes, and a smeared one still reads. A roofline is straight, and either the mirror holds it or it
+does not. It held: the stilts appear inverted below the structure, warm against water that is bright
+silver where it mirrors sky.
+
+Getting there meant undoing my own over-correction. After a lake came out white I capped reflection
+at two thirds - but the reference water *is* bright silver where it mirrors sky and dark where it
+mirrors a building, which is simply what reflections do. Weakening it everywhere to tame the bright
+case cost the dark one too, and the hut came out as a smudge. Back up to 0.88 with a finer first
+step, and both cases look right.
+
+Also fixed, and it is the **second** flaky check in the same place: "every chunk it queued is on
+disk" read zero of twelve under load. The writes go out on a worker task, and waiting once on
+`_save_task` catches whichever task happened to be running rather than the one that finishes the job.
+It waits for the files now, bounded. I replaced a stopwatch with something that still assumed timing,
+which is the same mistake wearing a different hat.
+
+**Reference review** (the user supplied a board of shader screenshots). Recurring, in order of how
+much they would buy us: near-mirror reflections in still water; golden-hour light with long shadows;
+strong aerial haze so distant terrain fades blue; dense *tall* grass in the foreground rather than
+sparse tufts; and volumetric light shafts. The first is done. Haze and grass density are cheap and
+worth doing next; shafts are a real renderer feature and should wait behind a measurement on the Air.
