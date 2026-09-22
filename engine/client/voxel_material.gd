@@ -178,40 +178,14 @@ const LIT_WATER := """
 		// and reflecting the sky off it turns a river's edge into a pane of glass.
 		if (surface) {
 			vec3 reflection = mix(horizon_color, sky_color, clamp(reflect(view, n).y * 1.5, 0.0, 1.0)) * max(daylight, 0.08);
-			// **Reflect the world, not just the sky.** Water that mirrors the bank it runs past is the
-			// single thing that makes water read as water; a fresnel tint of the sky colour reads as
-			// blue glass. Godot's own screen-space reflections cannot help here - they run on opaque
-			// geometry and water is transparent - so this marches the reflected ray through the depth
-			// buffer itself. Sixteen steps, because a reflection is allowed to be approximate and
-			// nobody counts the pixels in a river. (2026-09-22)
-			vec3 ray = normalize(reflect(view, n));
-			vec3 at = VERTEX;
-			vec3 step_v = ray * 0.55;
-			float hit = 0.0;
-			vec2 hit_uv = vec2(0.0);
-			for (int i = 0; i < 16; i++) {
-				at += step_v;
-				vec4 clip = PROJECTION_MATRIX * vec4(at, 1.0);
-				if (clip.w <= 0.0) { break; }
-				vec2 uv = (clip.xy / clip.w) * 0.5 + 0.5;
-				if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) { break; }
-				float scene = texture(depth_texture, uv).r;
-				vec4 world_at = INV_PROJECTION_MATRIX * vec4(uv * 2.0 - 1.0, scene, 1.0);
-				float scene_z = -(world_at.xyz / world_at.w).z;
-				float ray_z = -at.z;
-				// Behind the surface by a plausible amount: a huge gap is the sky or something far
-				// away that the ray only appears to touch.
-				if (ray_z > scene_z && ray_z - scene_z < 1.6) {
-					hit = 1.0;
-					hit_uv = uv;
-					break;
-				}
-			}
-			if (hit > 0.5) {
-				// Fade at the edges of the screen, where the information simply is not there.
-				vec2 edge = smoothstep(vec2(0.0), vec2(0.14), hit_uv) * smoothstep(vec2(0.0), vec2(0.14), 1.0 - hit_uv);
-				reflection = mix(reflection, texture(screen_texture, hit_uv).rgb, edge.x * edge.y * 0.85);
-			}
+			// **No screen-space reflection here, and it is not for want of trying.** Water that
+			// mirrors the bank it runs past is the one thing that would most improve this, and a
+			// sixteen-step march through the depth buffer was written, lengthened, and instrumented
+			// by forcing every hit to draw red - and not one pixel of red ever appeared, at any
+			// angle, over any water in the world. So it was dead code costing sixteen taps a pixel
+			// and it is gone until somebody understands why, rather than left in looking like a
+			// feature. What is ruled out: too short a ray (reach went from 9 blocks to over 100),
+			// and looking down rather than across. (2026-09-22)
 			color = mix(color, reflection, clamp(0.06 + 0.9 * fresnel, 0.0, 1.0));
 			vec3 half_vector = normalize(normalize(sun_direction) - view);
 			glint = sun_tint * pow(max(dot(n, half_vector), 0.0), 220.0) * daylight * 2.2;

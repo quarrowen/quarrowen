@@ -3595,3 +3595,37 @@ All four addressed:
 that one is paired with a PBR resource pack where every texel has a normal and a roughness map. Ours
 are flat generated colour, so every surface is uniformly matte no matter how good the lighting is.
 That is content work in `generate_textures.gd`, and Phase 4 regenerates every texture anyway.
+
+## Three of the four reference differences, and one honest failure (2026-09-22, user: "have you done all 4?")
+
+Asked directly whether all four differences from the reference shots were addressed. They were not,
+and the answer is worth keeping in the shape it actually had:
+
+- **Contrast - done.** Ambient 0.95 -> 0.40, sun 1.35 -> 2.6. Verified in the render.
+- **Cumulus clouds - done.** Hard core, thin fringe, grey underside. Verified.
+- **Warmer light - not started when asked**, then done: midday sun is (1.0, 0.94, 0.84) rather than
+  near-white, and low sun goes to (1.0, 0.66, 0.42). A warm key against the sky's cool fill is what
+  stops a lit scene looking like a lightbox. I had listed this as a difference and never touched it.
+- **Water reflecting the world - written, and does not work.** Removed.
+
+**The reflection is the one worth writing up.** A sixteen-step march through the depth buffer was
+written and looked right. Nothing in any render ever showed a reflection, so rather than keep
+squinting at water I forced every reported hit to draw pure red: **not one red pixel appeared, at any
+camera angle, over any water in the world.** The march never hits.
+
+Ruled out along the way: too short a ray (reach went from 9 blocks to over 100 by growing the step),
+and looking down at the water instead of across it (a reflected ray from a downward view goes into
+the sky, where there is nothing to hit - which is correct behaviour and not the bug).
+
+Not ruled out, and where somebody should start: whether `depth_texture` in a *translucent* pass
+contains what I assume it does in Godot's forward renderer, and whether `clip.w <= 0` is breaking the
+loop on the first step.
+
+**It is deleted rather than left in.** Sixteen texture taps per water pixel that never produce
+anything is a real cost for no benefit, and dead code that looks like a feature is worse than no
+code - the next person reads the comment, believes water reflects, and wonders why it looks flat.
+The comment that replaced it says what was tried and what was ruled out.
+
+Lesson, and it is the same one as the black sky: **prove the feature fires before believing it
+works.** Forcing the output to a colour nothing else in the scene uses took one render and settled
+what three careful looks at water had not.

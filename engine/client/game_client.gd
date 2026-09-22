@@ -2336,7 +2336,11 @@ func _update_time(delta: float) -> void:
 	var t := inverse_lerp(WorldTime.NIGHT_LIGHT, 1.0, _daylight)
 	# Sun low on the horizon warms the light; night is cool and blue.
 	var sun_height := sin((_time_of_day - 0.25) * TAU)
-	var sun_tint := Color(0.55, 0.62, 0.9).lerp(Color(1.0, 0.72, 0.5), clampf(t * 3.0, 0.0, 1.0)).lerp(Color(1.0, 0.97, 0.92), clampf((sun_height - 0.15) * 2.5, 0.0, 1.0))
+	# Midday is (1.0, 0.94, 0.84) rather than near-white: real sunlight is warm, and the reference this
+	# is aimed at reads golden where ours read clinical. The sky's own blue is the cool half of the
+	# pair - a warm key against a cool fill is what stops a lit scene looking like a lightbox.
+	# (2026-09-22)
+	var sun_tint := Color(0.55, 0.62, 0.9).lerp(Color(1.0, 0.66, 0.42), clampf(t * 3.0, 0.0, 1.0)).lerp(Color(1.0, 0.94, 0.84), clampf((sun_height - 0.15) * 2.5, 0.0, 1.0))
 	var sun_direction := Vector3(cos((_time_of_day - 0.25) * TAU), sun_height, 0.35).normalized()
 	# **Where the sun is, every frame.** Everything below this guard is recomputed only when the
 	# *brightness* changes, which is right for colours and wrong for a position: daylight sits at 1.00
