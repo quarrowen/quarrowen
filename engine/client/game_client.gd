@@ -2710,7 +2710,12 @@ func _aim_the_sky(sun_direction: Vector3, sun_tint: Color, day: float) -> void:
 		_sun.look_at_from_position(sun_direction * 100.0, Vector3.ZERO, _up_for(sun_direction))
 		_sun.light_color = sun_tint
 		# Fades out as it sets rather than switching off, or dusk happens in one frame.
-		_sun.light_energy = (2.6 if _realistic else 0.75) * clampf(above * 4.0 + 0.2, 0.0, 1.0)
+		# **1.8, not 2.6.** 2.6 was chosen to put contrast back after the ambient came down, and it does
+		# - on grass and dirt, which are dark enough to take it. Anything pale clips: a beach at noon
+		# measured 255,254,240, which is white with the texture gone. Measured rather than judged by
+		# eye, because at the time this was also being blamed for a white lake that turned out to be a
+		# shader that would not compile - so the number was checked on its own. (2026-09-22)
+		_sun.light_energy = (1.8 if _realistic else 0.75) * clampf(above * 4.0 + 0.2, 0.0, 1.0)
 	else:
 		_sun.visible = false
 	if OS.get_environment("QW_SKY_DEBUG") == "1" and Engine.get_process_frames() % 180 == 0:

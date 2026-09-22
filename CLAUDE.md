@@ -173,6 +173,17 @@ up would bury the part that matters rather than surface it.
 
 ## Things that look safe and are not
 
+- **A name in one shader constant that a different shader constant already uses.** The voxel shader is
+  glued together from constants written a hundred lines apart (`LIT_TAPS`, `LIT_WATER`, `LIT_OUT`), so
+  a local called `surface` in one and `uniform sampler2D surface` in another is invisible to anybody
+  reading either. GLSL refuses it - and **Godot prints the error and then draws the surface with its
+  default material, which is opaque white.** So the symptom is not a shader error, it is a lake that
+  renders as a flat white sheet. Eight rounds of work went into the water's *look* before anybody
+  read the client log. `_shader_names` in `tests/gameplay_test.gd` now fails on this. (2026-09-22)
+
+  The general rule it leaves behind: **when an edit to a shader changes the picture not at all, the
+  shader is not running.** "No visible effect" and "wrong value" are indistinguishable in a
+  screenshot. Grep the client log for `SHADER ERROR` before the *second* experiment.
 - **Adding a texture in the middle of `tools/generate_textures.gd`.** One RNG, seeded once, drives every
   texture in order: inserting a call changes every texture after it. Append new ones at the end, as the
   file says.

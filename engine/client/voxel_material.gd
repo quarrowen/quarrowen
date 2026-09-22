@@ -199,14 +199,20 @@ const LIT_WATER := """
 		custom = true;
 		vec3 view = normalize(world_pos - CAMERA_POSITION_WORLD);
 		// Two wave sets at different scales and speeds; one alone reads as a moving pattern.
-		bool surface = world_normal.y > 0.5;
+		// **Not `surface`**, which is the relief atlas `LIT_TAPS` declares above. This was called that
+		// for a day, and the shader did not compile for a day: Godot prints the error and then draws
+		// the surface with its *default* material, which is opaque white, so a lake came out as a flat
+		// white sheet with nothing else wrong. Seven attempts were made to fix the look of a shader
+		// that had never run a line. A test now compares every uniform against every local, because
+		// these pieces are assembled from constants written hundreds of lines apart. (2026-09-22)
+		bool top_face = world_normal.y > 0.5;
 		// **Finer and shallower than it was.** At a wavelength of about five blocks and an amplitude
 		// of 0.07 these were not ripples: a grazing view swings fresnel hard on a small change of
 		// normal, so gentle waves five blocks apart came out as broad white bands marching across the
 		// lake, regular enough to look like a rendering fault. Real ripples are much finer than the
 		// blocks they sit on. The two sets are also deliberately not aligned to the axes, or the
 		// interference pattern itself becomes a grid. (2026-09-22)
-		vec3 n = surface ? normalize(vec3(
+		vec3 n = top_face ? normalize(vec3(
 			sin(dot(world_pos.xz, vec2(1.3, 0.5)) + TIME * 1.5) * 0.058
 				+ sin(dot(world_pos.xz, vec2(-0.6, 2.1)) - TIME * 1.1) * 0.030,
 			1.0,
@@ -223,7 +229,7 @@ const LIT_WATER := """
 		// never reads the depth buffer at all. Whatever the depth read returns, water that cannot be
 		// seen through is not water. (user, 2026-09-22, comparing the two presets side by side)
 		float thickness = clamp((floor_depth + VERTEX.z) * 0.085, 0.0, 0.8);
-		vec2 offset = surface ? n.xz * 0.045 * (1.0 - thickness * 0.6) : vec2(0.0);
+		vec2 offset = top_face ? n.xz * 0.045 * (1.0 - thickness * 0.6) : vec2(0.0);
 		vec3 refracted = texture(screen_texture, SCREEN_UV + offset).rgb;
 		vec3 tint = mix(shallow_color, deep_color, thickness);
 		// The floor still shows through shallow water and stops showing through deep water.
@@ -242,7 +248,7 @@ const LIT_WATER := """
 		float fresnel = pow(1.0 - clamp(dot(-view, n), 0.0, 1.0), 3.0);
 		// Only a surface mirrors. A wall of water seen from the side is something you look *through*,
 		// and reflecting the sky off it turns a river's edge into a pane of glass.
-		if (surface) {
+		if (top_face) {
 			vec3 reflection = mix(horizon_color, sky_color, clamp(reflect(view, n).y * 1.5, 0.0, 1.0)) * max(daylight, 0.08);
 			// **Reflect the world, not just the sky.** Water that mirrors the bank it runs past is
 			// what makes water read as water; a fresnel tint of the sky colour reads as blue glass.
@@ -333,7 +339,7 @@ const LIT_WATER := """
 		// turning shadows on looked like. So the lighting normal is its own, several times steeper
 		// than the one used for refraction, and the roughness rises where the water is disturbed.
 		// (user, 2026-09-22: "makes it like a shiny sheet rather than look like water")
-		if (surface) {
+		if (top_face) {
 			vec2 ripple = vec2(
 				sin(dot(world_pos.xz, vec2(9.1, 4.3)) + TIME * 2.7) * 0.16
 					+ sin(dot(world_pos.xz, vec2(-3.7, 10.9)) - TIME * 3.4) * 0.11,

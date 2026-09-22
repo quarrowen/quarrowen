@@ -108,6 +108,7 @@ func _ready() -> void:
 	await _items_of_missing_mods()
 	await _block_shapes()
 	_shape_twins()
+	_shader_names()
 	await _doors_and_windows()
 	await _shape_meshing()
 	_updates()
@@ -4288,6 +4289,67 @@ func _shape_twins() -> void:
 			different.append("%s: gdscript %s, rust %s" % [str(names[0]), str(ours), str(theirs)])
 	_check(missing.is_empty(), "every block shape exists in the native twin too (missing: %s)" % str(missing))
 	_check(different.is_empty(), "and fills exactly the same boxes in both (%s)" % str(different))
+
+
+## Every shader the client builds, checked for a name declared twice.
+##
+## **A shader that does not compile is not an error you can see.** Godot prints the failure and then
+## quietly draws the surface with its default material, which is opaque white - so the symptom is a
+## lake rendering as a flat white sheet, with nothing in the log anybody was reading and nothing the
+## shader itself can do about it, because it is never run. The lit water shader was in that state for
+## a day (2026-09-22): `LIT_WATER` declared a local `bool surface` and the relief feature had just
+## added `uniform sampler2D surface` above it. Seven attempts were made to fix the *look* of a shader
+## that had never executed a single line.
+##
+## The check is textual on purpose. Compiling for real needs a rendering device, which the headless
+## suite has not got; a name collision is the one class of shader error that can be found by reading,
+## and it is the one that just cost a day. The pieces are assembled by `create()` from constants that
+## are written far apart in the file, which is exactly why nobody saw the clash.
+func _shader_names() -> void:
+	const VoxelMaterial = preload("res://engine/client/voxel_material.gd")
+	const SkyMaterial = preload("res://engine/client/sky_material.gd")
+	var blank := ImageTexture.create_from_image(Image.create(2, 2, false, Image.FORMAT_RGBA8))
+	var shaders := {
+		"voxel solid": VoxelMaterial.create(blank, false).shader.code,
+		"voxel translucent": VoxelMaterial.create(blank, true).shader.code,
+		"voxel solid lit": VoxelMaterial.create(blank, false, true, blank).shader.code,
+		"voxel translucent lit": VoxelMaterial.create(blank, true, true, blank).shader.code,
+		"sky": SkyMaterial.create(blank).shader.code,
+	}
+	# GLSL types a local can be declared with here. Anything else is a function or a struct.
+	var types := ["bool", "int", "uint", "float", "vec2", "vec3", "vec4", "ivec2", "ivec3", "ivec4",
+		"bvec2", "bvec3", "bvec4", "mat2", "mat3", "mat4"]
+	var clashes := []
+	for name: String in shaders:
+		var declared := {}   # name -> where it was first declared
+		for raw in String(shaders[name]).split("\n"):
+			var line := String(raw).strip_edges()
+			if line.begins_with("//"):
+				continue
+			var kind := ""
+			if line.begins_with("uniform "):
+				kind = "uniform"
+				line = line.trim_prefix("uniform ")
+			elif line.begins_with("varying "):
+				kind = "varying"
+				line = line.trim_prefix("varying ")
+			else:
+				kind = "local"
+			var word := line.get_slice(" ", 0)
+			if kind == "local" and not word in types:
+				continue
+			var found := line.get_slice(" ", 1)
+			# Stop at whatever ends the name: `float x = 1.0;`, `bool b;`, `vec3 n)`.
+			for ending in ["=", ";", ",", ")", ":"]:
+				found = found.get_slice(ending, 0)
+			found = found.strip_edges()
+			if found.is_empty() or not found[0].to_lower() in "abcdefghijklmnopqrstuvwxyz_":
+				continue
+			if declared.has(found) and declared[found] != kind:
+				clashes.append("%s: %s is both a %s and a %s" % [name, found, declared[found], kind])
+			elif not declared.has(found):
+				declared[found] = kind
+	_check(clashes.is_empty(), "no shader declares one name twice (%s)" % str(clashes))
 
 
 ## Doors and windows. A house needs a way in that shuts, and something to see out of - and both are what

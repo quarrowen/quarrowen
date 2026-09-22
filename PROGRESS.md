@@ -4709,3 +4709,52 @@ being *in* the world rather than photographing it, and none of them appeared in 
 
 Worth remembering the next time something is "hard to reproduce": the person reporting it already has
 it reproduced, on screen, right now.
+
+## The white water was a shader that never compiled (2026-09-22)
+
+The lit water was a flat white sheet in the realistic preset, and eight rounds of work went into its
+*look* - waves, fresnel curve, opacity, `thickness`, roughness, specular, the glint, the sun's energy.
+Every one of them was wrong, because the shader they were editing had never executed a line.
+
+`LIT_WATER` declared `bool surface = world_normal.y > 0.5;`. `LIT_TAPS` - added the same day, for the
+relief atlas - declares `uniform sampler2D surface`. GLSL will not have both:
+
+```
+SHADER ERROR: Redefinition of 'surface'.   E 91-> bool surface = world_normal.y > 0.5;
+ERROR: Shader compilation failed.
+```
+
+**Godot prints that and then draws the surface with its default material, which is opaque white.** So
+the symptom is not "a shader error"; it is a lake rendering as a flat white sheet, in a frame where
+everything else is fine, with the cause sitting in a log nobody was reading. The local is now
+`top_face`.
+
+### Why it took so long, which is the part worth keeping
+
+The two constants are written a hundred and fifty lines apart and are only ever glued together by
+`create()`, so nothing anybody *read* looked wrong. And every experiment agreed with every wrong
+theory: painting the water red changed nothing, zeroing its albedo changed nothing, zeroing emission,
+specular and roughness changed nothing - all pixel-identical, because none of that code ran. Turning
+the lit shader off (`QW_REAL_OFF=lit`) fixed it, which pointed straight at the lit path and said
+nothing about why.
+
+The moment it broke open was reading the *client log* instead of the picture. Five renders had been
+compared pixel by pixel; the answer was in line 148 of a log file the whole time.
+
+**So: when a change to a shader makes no difference at all, the shader is not running.** "No visible
+effect" and "wrong value" look the same in a screenshot and are nothing alike. Grep the client log for
+`SHADER ERROR` first, before the second experiment, never after the eighth.
+
+A test now catches this class outright (`_shader_names` in `tests/gameplay_test.gd`): it builds all
+five shaders the client can make and fails if any name is declared both as a uniform and as a local or
+varying. Textual on purpose - compiling for real needs a rendering device the headless suite has not
+got, and a name collision is the one shader error that can be found by reading. It was proved by
+putting the bug back and watching it fail with the right message.
+
+### What survived from the eight attempts
+
+Only one, and it was re-measured on its own afterwards: the realistic sun is **1.8, not 2.6**. At 2.6 a
+beach at noon measures 255,254,240 - white with the texture gone. That is real, and unrelated to the
+water; it had simply been written up as the cause of the white lake, which it was not. The rest - the
+albedo scale, the clamped glint - were reverted, because a fix argued from a wrong diagnosis is not a
+fix even when the number looks reasonable.
