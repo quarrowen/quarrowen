@@ -1219,12 +1219,17 @@ func _cmd_role(player, args: PackedStringArray) -> void:
 				var def := roles.role(r)
 				player.send_message("%s%s  (priority %d%s)" % [r, " [%s]" % def.tag if not str(def.tag).is_empty() else "", def.priority,
 					", inherits %s" % def.inherits if not str(def.inherits).is_empty() else ""])
+				# What the role is *for*, which the permission list never answered.
+				if not str(def.get("description", "")).is_empty():
+					player.send_message("    " + str(def.description))
 			player.send_message("New players get: %s" % roles.default_role)
 		"info":
 			if not roles.exists(a1):
 				player.send_message("No role called '%s'" % a1)
 				return
 			var def := roles.role(a1)
+			if not str(def.get("description", "")).is_empty():
+				player.send_message(str(def.description))
 			player.send_message("%s: %s%s" % [a1, ", ".join(def.permissions) if not def.permissions.is_empty() else "no permissions of its own",
 				" + everything %s has" % def.inherits if not str(def.inherits).is_empty() else ""])
 		"give", "take":

@@ -42,6 +42,9 @@ const ALLOWED := [
 	"tests/trademark_test.gd",
 ]
 
+## Ends a commit record in the log output. Plain text on purpose; see `offences_in_commits`.
+const END := "@@quarrowen-end-of-commit@@"
+
 const SCANNED := [".md", ".gd", ".sh", ".py", ".js", ".json", ".txt"]
 ## Not scanned: build output (copies of old games that predate the rule), vendored code, and anything
 ## generated into .godot. Relative to the root, so it works whatever path the scan is started from.
@@ -70,14 +73,26 @@ static func offences_in_files(root := ".") -> Array:
 ## looking. Messages cannot be fixed after a push, so this is worth catching while it is still local.
 static func offences_in_commits(count := 40) -> Array:
 	var output := []
-	if OS.execute("git", ["log", "-n", str(count), "--format=%h%x09%s%x09%b"], output, true) != 0:
+	# One record per commit, ended by a sentinel no message will contain.
+	#
+	# **Not a NUL separator**, which is the obvious choice and does not survive `OS.execute` - the
+	# output comes back with the bytes gone, every record parses as unsplittable, and the check quietly
+	# reports nothing at all. That is worse than the bug it replaced: a check that passes for the wrong
+	# reason is indistinguishable from one that works, and this one was proven only by testing it again
+	# after the "fix". (2026-09-22)
+	if OS.execute("git", ["log", "-n", str(count), "--format=%h%n%B%n" + END], output, true) != 0:
 		return []  # not a checkout, or no git: not this check's business to fail over
 	var out: Array = []
-	for line in String("\n".join(output)).split("\n"):
-		var text: String = line
-		var found := _named_in(text)
-		if not found.is_empty():
-			out.append("commit %s: %s" % [text.get_slice("\t", 0), found])
+	for record in String("\n".join(output)).split(END, false):
+		var lines := String(record).strip_edges().split("\n")
+		if lines.is_empty():
+			continue
+		var hash: String = String(lines[0]).strip_edges()
+		for i in range(1, lines.size()):
+			var found := _named_in(String(lines[i]))
+			if not found.is_empty():
+				out.append("commit %s: %s" % [hash, found])
+				break
 	out.sort()
 	return out
 

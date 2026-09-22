@@ -2839,6 +2839,11 @@ by a server that cannot name those mods.
 unknown blocks. The engine promises that ("write back content whose mod is missing") and nothing
 checks it - and it is newly easy to check now that there are real absent mods to point at.
 
+**Reached again from the other direction on 2026-09-22**, by researching what the genre's modding
+communities complain about: permanent world damage on mod removal is one of their loudest, and this
+is the same gap. Two independent routes to one missing test is about as strong a signal as this
+project gets. Still not done.
+
 ## Block ids: the design is right, the ergonomics were not (2026-09-21, user: "the repeated issues due to block IDs worries me")
 
 Three bugs in one day traced to block ids, so it was worth asking whether the design was wrong. It is
@@ -3597,6 +3602,13 @@ that one is paired with a PBR resource pack where every texel has a normal and a
 are flat generated colour, so every surface is uniformly matte no matter how good the lighting is.
 That is content work in `generate_textures.gd`, and Phase 4 regenerates every texture anyway.
 
+**Partly answered on 2026-09-22, and worth being precise about what is left.** Normals and roughness
+are now *derived* from each texture's own light and shade, so every surface has relief and every mod
+gets it for free. What that cannot do is disagree with the colour: a texture painted flat stays flat,
+and metal cannot be told apart from stone except by how busy its pattern is. Authored maps would still
+beat it. The open question is whether they are worth asking a non-artist for, when the derived version
+costs nothing and ships with every mod ever written.
+
 ## Three of the four reference differences, and one honest failure (2026-09-22, user: "have you done all 4?")
 
 Asked directly whether all four differences from the reference shots were addressed. They were not,
@@ -4114,7 +4126,8 @@ on all 311 entries - a column of identical values, which is worse than no column
 information. It becomes worth building the first time that version moves, which is also the first time
 anybody could be running an older one. Until then the git walk is work spent on a constant.
 
-Still to do: a "How Do I..." task index over modding.md.
+The "How Do I..." task index landed the same day: `docs/api/how-do-i.md`, twenty-nine questions
+written by hand with every link checked against the guide's headings.
 
 ## The Proving Ground covered 40 of 56 capabilities, not all of them (2026-09-22)
 
@@ -4225,8 +4238,64 @@ that has already failed twice - prose somebody has to remember. It would also hi
 are necessarily public in this repository already, in the disclaimers that have to name a mark in order
 to disclaim it.
 
-**Precision decided the design.** A first attempt matched a bare "forge" and reported eight offences,
-every one a blacksmith's forge or the word "forgets". A check that cries wolf gets switched off, so the
-list is distinctive whole words plus phrases where the bare word is ordinary English ("forge mod",
-"fabric loader"); "Eco" is matched with real case and word boundaries so "ecosystem" and "economy" are
-left alone; and our own `ModLoader` matches nothing.
+**Precision decided the design.** A first attempt matched a bare word that is also a blacksmith's forge
+and reported eight offences, every one ordinary English. A check that cries wolf gets switched off, so
+the list is distinctive whole words, plus two-word phrases wherever the first word is ordinary English
+on its own. The handful of short names that are also common words are matched with real case and word
+boundaries, so "ecosystem" and "economy" are left alone; and our own `ModLoader` matches nothing.
+
+**It caught its own author within the hour.** The first full run after it landed failed on this file
+and on the commit message that introduced it - both of which *named the terms while explaining how the
+matching works*. Which is the rule working exactly as intended, and a reminder that a document about a
+rule is not exempt from it.
+
+## What the genre's modding communities complain about, and whether we answer it (2026-09-22)
+
+Researched at the user's request before starting Phase 4, on the grounds that we are building engine
+capabilities and should know which ones matter. Sources were forums, issue trackers, hosting-provider
+support pages (a good proxy for what players actually raise tickets about) and modloader project blogs.
+Named products are deliberately absent here; the rule applies to this file too.
+
+**Three structural causes sit under almost every complaint found:**
+
+1. **No stable API contract.** Mods bind to internal implementation details, so any internal change is
+   a breaking change.
+2. **Mods are code injected into a shared process, not data in a sandbox.** Hence patch collisions,
+   load-order sensitivity, one-library-version-per-folder, and the impossibility of pre-vetting
+   interactions.
+3. **Client and server must be byte-identical, and the save format cannot represent absent content.**
+   Hence the mod-list handshake refusal, the manual-install barrier to multiplayer, and permanent
+   world damage when a mod is removed.
+
+### What we already answer, and why
+
+| Their complaint | Us |
+|---|---|
+| Must install the exact mod set to join a friend; a mismatch refuses the connection | The server streams definitions and assets by sha256; **the client never executes server code**. You join by typing an address. |
+| Two mods patch the same method and one silently loses | Nothing injects bytecode. Cross-mod extension is a *capability* (`extend_loot`, adding an attack to another mod's creature, `excludes`) rather than two mods both attempting a patch. |
+| Several incompatible modloaders; obfuscated names that change every version; runtime version errors | Not applicable. One engine, source-level mods, one binary. |
+| Hundreds of config text files, hand-edited, reset by updates | `register_settings` declares a schema; an admin edits it in game; `settings_changed` fires. |
+| Store gatekeeping, ads in launchers, opt-out downloads | `mods.json` with sha256, self-hosted, no platform in the middle. |
+| Language, build tool, IDE and mappings before "hello block" | `mod_tool -- new` scaffolds; JavaScript is first-class; no build toolchain; hot reload. |
+| Third-party optimisation mods effectively mandatory | Presets ship with the engine; baked lighting and a Rust core. |
+| Nothing tells you what a mod added; recipe browsers and quest books bolted on, and they break | Guidebook, tutorials, recipe search, and - the same day this research happened - `sources_of` and the creative palette. |
+| Unreadable crash logs; "remove all mods and add them back in batches of five" | Errors name the file, the line and the mod. |
+
+### The gaps, which is the useful half
+
+1. **Removing a mod loses edits, and items are unverified.** Ours degrades safely where theirs is
+   destructive - block edits from a missing mod fall back to generated terrain rather than corrupting
+   the chunk - but the edits are *gone*, not round-tripped, and **nothing has checked what happens to
+   items sitting in inventories and containers**. That is a test to write, not a design to argue about.
+2. **Nothing detects content-level conflicts.** Two mods both adding a copper ore, both claiming biome
+   space, both decorating the same chunk. `excludes` and tags let an author *resolve* a clash; nothing
+   *notices* one. This is the complaint we are least protected from, and `base` plus two packs plus a
+   game is exactly the shape that hits it.
+3. **Join time for a large mod set is unmeasured.** Theirs is ten minutes to a main menu. Ours streams
+   and caches by hash and ought to be far better, but "ought to be" is not a number. Unmeasured is not
+   solved.
+4. **No deprecation path.** Their worst problem - every release breaking every mod - is the root cause
+   of half the list. We are structurally immune *so far*, but `MOD_API_VERSION` has never changed, so
+   the immunity is untested and there is no policy for the day it does.
+5. **One version of a library mod per install.** We declare semver ranges in `depends`, but two mods
+   needing incompatible versions of a third almost certainly share their limitation. Untested.

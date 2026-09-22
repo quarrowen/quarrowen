@@ -10,14 +10,26 @@ extends RefCounted
 ## Built-in roles can be edited (their changes are saved); custom roles are created with /role create.
 ## Saved in world.json: roles {name: {permissions, inherits, tag, color, priority}} and player_roles {id: [names]}.
 
+## The six roles every server starts with, in order of how much they may do.
+##
+## Each carries a `description`: one plain sentence saying **who the role is for**, which is a different
+## question from what it may do. A list of permissions answers "what happens if I give somebody this",
+## and a person deciding between "builder" and "moderator" for their child's friend is not asking that.
+## The permission list was always shown and the sentence never was. (2026-09-22)
 const BUILTIN := {
-	"owner": {"permissions": ["*"], "inherits": "", "tag": "Owner", "color": "#ffb020", "priority": 100},
-	"admin": {"permissions": ["*", "-roles.owner"], "inherits": "", "tag": "Admin", "color": "#ff6b6b", "priority": 90},
+	"owner": {"permissions": ["*"], "inherits": "", "tag": "Owner", "color": "#ffb020", "priority": 100,
+		"description": "Whoever runs the server. Can do everything, including making somebody else an owner."},
+	"admin": {"permissions": ["*", "-roles.owner"], "inherits": "", "tag": "Admin", "color": "#ff6b6b", "priority": 90,
+		"description": "A grown-up helping run the place. Everything an owner can do except handing out the owner role."},
 	"moderator": {"permissions": ["command.kick", "command.players", "command.tp", "command.clearmobs", "command.ugc", "ugc.review",
-		"command.allow", "allowlist.manage", "moderation.alerts", "command.transfer"], "inherits": "builder", "tag": "Mod", "color": "#6bb8ff", "priority": 50},
-	"builder": {"permissions": ["command.struct", "structures"], "inherits": "member", "tag": "Builder", "color": "#8fd88f", "priority": 30},
-	"member": {"permissions": ["build", "interact", "chat", "creative"], "inherits": "visitor", "tag": "", "color": "", "priority": 10},
-	"visitor": {"permissions": ["chat", "interact"], "inherits": "", "tag": "Guest", "color": "#aaaaaa", "priority": 0},
+		"command.allow", "allowlist.manage", "moderation.alerts", "command.transfer"], "inherits": "builder", "tag": "Mod", "color": "#6bb8ff", "priority": 50,
+		"description": "Keeps the peace: can kick, teleport, manage who is allowed in, and review what players have made. Cannot change the world's settings."},
+	"builder": {"permissions": ["command.struct", "structures"], "inherits": "member", "tag": "Builder", "color": "#8fd88f", "priority": 30,
+		"description": "A trusted player who may also save and stamp structures. For somebody building a lot."},
+	"member": {"permissions": ["build", "interact", "chat", "creative"], "inherits": "visitor", "tag": "", "color": "", "priority": 10,
+		"description": "An ordinary player: builds, uses things, talks. This is what new players get."},
+	"visitor": {"permissions": ["chat", "interact"], "inherits": "", "tag": "Guest", "color": "#aaaaaa", "priority": 0,
+		"description": "Can look around, use doors and chests, and talk - but cannot build. For somebody you do not know yet."},
 }
 const MAX_ROLES := 64
 const MAX_PERMISSIONS := 128
@@ -83,7 +95,7 @@ func role_names() -> Array:
 func role(role_name: String) -> Dictionary:
 	var saved = _meta().roles.get(role_name)
 	if saved is Dictionary:
-		var out: Dictionary = BUILTIN.get(role_name, {"permissions": [], "inherits": "", "tag": "", "color": "", "priority": 20}).duplicate(true)
+		var out: Dictionary = BUILTIN.get(role_name, {"permissions": [], "inherits": "", "tag": "", "color": "", "priority": 20, "description": ""}).duplicate(true)
 		out.merge(saved, true)
 		return out
 	return BUILTIN.get(role_name, {}).duplicate(true)

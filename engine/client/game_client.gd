@@ -300,6 +300,8 @@ var _highlight: MeshInstance3D
 var _hud_root: Control
 var _server_ui: ServerUI
 var _status_label: Label
+## Shown only while something is downloading; see `_set_progress`.
+var _progress_bar: ProgressBar
 var _debug_label: Label
 var _hotbar: HBoxContainer
 ## Name of what the player is holding, shown above the hotbar for a moment when it changes.
@@ -708,7 +710,9 @@ func on_asset_piece(hash: String, offset: int, total: int, bytes: PackedByteArra
 
 func _update_download_status() -> void:
 	if _download_total > 0:
-		_set_status("Downloading %s content... %d%%" % [server_info.get("game", "server"), roundi(100.0 * _download_received / _download_total)])
+		var done: float = float(_download_received) / maxf(float(_download_total), 1.0)
+		_set_status("Downloading %s content... %d%%" % [server_info.get("game", "server"), roundi(100.0 * done)])
+		_set_progress(done)
 
 
 func _finish_content() -> void:
@@ -3669,6 +3673,19 @@ func _build_hud() -> void:
 	_status_label.add_theme_font_size_override("font_size", 28)
 	_hud_root.add_child(_status_label)
 
+	# A bar under the status line while content downloads. The percentage was already in the text, but a
+	# number that climbs is not the same as a bar that fills: on a slow connection the question a child
+	# actually has is "is this stuck?", and a bar answers it at a glance from across the room.
+	# (user, 2026-09-22: "not everyone will be on high speed internet")
+	_progress_bar = ProgressBar.new()
+	_progress_bar.set_anchors_preset(Control.PRESET_CENTER)
+	_progress_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_progress_bar.custom_minimum_size = Vector2(320, 14)
+	_progress_bar.position.y = -18
+	_progress_bar.show_percentage = false
+	_progress_bar.visible = false
+	_hud_root.add_child(_progress_bar)
+
 	_compass = Compass.new()
 	_compass.visible = bool(ClientSettings.shared().get_value("interface/compass"))
 	_hud_root.add_child(_compass)
@@ -4236,6 +4253,18 @@ func _shadow_label() -> Label:
 func _set_status(text: String) -> void:
 	_status_label.text = text
 	_status_label.visible = not text.is_empty()
+	# Any status that is not about downloading takes the bar away with it, so it cannot be left behind
+	# full at 100% while the next step runs.
+	if not text.contains("Downloading"):
+		_set_progress(-1.0)
+
+
+## Fills the bar under the status line, or hides it with anything negative.
+func _set_progress(fraction: float) -> void:
+	if _progress_bar == null:
+		return
+	_progress_bar.visible = fraction >= 0.0
+	_progress_bar.value = clampf(fraction, 0.0, 1.0) * 100.0
 
 
 func _update_hud() -> void:
