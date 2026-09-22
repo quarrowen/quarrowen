@@ -216,12 +216,18 @@ const LIT_WATER := """
 		float raw = texture(depth_texture, SCREEN_UV).r;
 		vec4 behind = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, raw, 1.0);
 		float floor_depth = -(behind.xyz / behind.w).z;
-		float thickness = clamp((floor_depth + VERTEX.z) * 0.22, 0.0, 1.0);
+		// **Capped well below 1, and reached far more slowly.** At 0.22 a bit over four blocks of water
+		// saturated this, and everything downstream keys off it: the colour becomes entirely the deep
+		// tint and the alpha goes to one. That is an opaque sheet - no bottom, no stilts, no depth -
+		// which is exactly how the lit preset looked beside the unshaded one, and the unshaded path
+		// never reads the depth buffer at all. Whatever the depth read returns, water that cannot be
+		// seen through is not water. (user, 2026-09-22, comparing the two presets side by side)
+		float thickness = clamp((floor_depth + VERTEX.z) * 0.085, 0.0, 0.8);
 		vec2 offset = surface ? n.xz * 0.045 * (1.0 - thickness * 0.6) : vec2(0.0);
 		vec3 refracted = texture(screen_texture, SCREEN_UV + offset).rgb;
 		vec3 tint = mix(shallow_color, deep_color, thickness);
 		// The floor still shows through shallow water and stops showing through deep water.
-		color = mix(refracted * mix(vec3(1.0), tint, 0.65), tint, thickness * 0.95) * max(daylight, 0.06);
+		color = mix(refracted * mix(vec3(1.0), tint, 0.55), tint, thickness * 0.6) * max(daylight, 0.06);
 		// **Softer than a fifth power, and over waves you can see.** These two numbers are one
 		// decision, and getting it wrong in either direction is visible from across a lake. A fifth
 		// power over five-block waves gave broad white bands marching across the surface, so the waves
@@ -314,7 +320,10 @@ const LIT_WATER := """
 		// behind it composited a refracted copy of that ground over the ground itself, at half
 		// strength - which reads as a pale panel hanging in the grass, not as water. Where there is
 		// nothing behind the surface there is nothing to tint, so it gets out of the way.
-		ALPHA = clamp(0.08 + 0.42 * fresnel + thickness * 0.85, 0.0, 1.0);
+		// Never fully opaque: the most a deep lake gets is about four fifths, so there is always some
+		// of the bottom coming through. Seeing the ground under the surface is most of what tells a
+		// player this is water and not a coloured floor.
+		ALPHA = clamp(0.06 + 0.30 * fresnel + thickness * 0.45, 0.0, 0.82);
 		// **What the sun should light this with.** The wave normal above is deliberately gentle,
 		// because fresnel swings hard on a grazing view and anything stronger became marching white
 		// bands. Real lighting wants the opposite: a nearly flat normal under a real sun is a mirror,

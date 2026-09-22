@@ -4674,3 +4674,38 @@ water was being built was of the water from a fixed camera, and it looked plausi
 was somebody switching presets back and forth with a lake in front of them. Two attempts to reproduce
 it afterwards both put the camera on land, because the landscape mod picks its own viewpoint - so the
 fix went out unverified by me and verified by the person who reported it.
+
+
+## The water was opaque, not flat - and a screenshot of the user's screen found it (2026-09-22)
+
+Three attempts were made at "realistic water looks like a sheet": ripple-driven lighting, then wave
+amplitude and the fresnel curve, then this. The first two were reasonable theories that could not be
+tested, because every render put the camera on land - the landscape mod picks its own viewpoint and it
+never picks the lake.
+
+What settled it was asking the user to leave the game open and capturing **their screen** in one
+preset, then the other, from the same spot at the same time of day. The answer was visible in seconds:
+
+- **fancy**: sand and the hut's stilts are visible *through* the water, and the depth varies across
+  the lake.
+- **realistic**: opaque. The stilts vanish at the waterline and the surface is one flat tone.
+
+An opaque sheet looks like a sheet no matter how good its wave normals are. Waves were never the
+problem, and two rounds of work went into them.
+
+**The cause is `thickness`, and it exists only in the lit path** - the unshaded path never reads the
+depth buffer at all, which is why the cheaper presets were always fine. At a scale of 0.22, four
+blocks of water saturated it, and everything keys off it: the colour becomes entirely the deep tint and
+the alpha goes to one. Now the scale is 0.085, thickness caps at 0.8 and alpha at 0.82, so water can
+never become opaque whatever the depth read returns. Seeing the ground under the surface is most of
+what tells a player this is water and not a coloured floor.
+
+### The method is the finding
+
+`screencapture` on the user's own machine, with them switching presets between shots, was worth more
+than forty renders from the harness. The harness could not frame the lake; the user was standing in it.
+Three of the last four bugs - starvation, the missing shadows setting, and this - came from somebody
+being *in* the world rather than photographing it, and none of them appeared in any render.
+
+Worth remembering the next time something is "hard to reproduce": the person reporting it already has
+it reproduced, on screen, right now.
