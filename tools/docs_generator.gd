@@ -131,9 +131,124 @@ static func undocumented_readers() -> Array:
 	return out
 
 
+## The task index: what somebody wants to *do*, and where that is written down.
+##
+## The reference is organised by what a function is called, and the guide by what a subsystem is; a
+## person arrives with neither. They arrive with "how do I make a block that glows" - and the answer
+## lives under a heading called "Blocks over time, light and plants", which nobody would search for.
+##
+## **The questions are editorial and the links are checked.** Writing the phrasing by hand is the whole
+## value - it is the part no generator can do - but a hand-written link rots the moment a heading is
+## renamed, so every target here is verified against `docs/modding.md` and a miss fails the suite.
+## Questions, not headings: a heading is what the author called it, a question is what the reader
+## brought with them. (2026-09-22)
+const TASKS := [
+	["Getting started", [
+		["How do I start a mod at all?", "Writing a mod"],
+		["Do I have to write GDScript, or can I use JavaScript?", "JavaScript mods"],
+		["Is there a complete small mod I can read?", "Example: a worked mod"],
+		["How do I see my changes without restarting the server?", "Reloading mods"],
+		["Where do errors go when my mod breaks?", "Logs and errors (for mod authors)"],
+	]],
+	["Blocks and the world", [
+		["How do I add a block?", "GDScript mods"],
+		["How do I make a block glow, grow, or change over time?", "Blocks over time, light and plants"],
+		["How do I change a lot of blocks at once without lagging the server?", "Changing many blocks at once"],
+		["How do I give a player their own copy of an area?", "A private copy of a space"],
+		["How do I ship a world I built by hand?", "Shipping a world"],
+	]],
+	["Items, crafting and machines", [
+		["How do I add an item, and a recipe for it?", "Items and crafting"],
+		["How do I tell a player where something comes from if it is not crafted?", "Where a thing comes from"],
+		["How do I add a chest, a furnace or a workbench?", "Containers, crafting stations and smelting"],
+		["How do I make tools that wear out, or armour that protects?", "Tools, weapons, armor and progression"],
+		["How do I give a player a bag, or a bank that follows them?", "Bags, and stores that are the same everywhere"],
+	]],
+	["Creatures and people", [
+		["How do I add a creature?", "Entities, combat, inventory and sound"],
+		["How do I make it behave - hunt, flee, wander, guard?", "Mob AI"],
+		["How do I let a player change how they look?", "Avatars and cosmetics"],
+	]],
+	["Look, sound and feel", [
+		["How do I add particles, a glow or a trail?", "Effects: glows, trails and particles"],
+		["How do I add music, and make it change with the place?", "Music"],
+		["How do I add the small sounds a place makes on its own?", "Ambience"],
+		["How do I make the wind blow?", "Wind"],
+	]],
+	["Telling the player things", [
+		["How do I write a guidebook page?", "Guidebook"],
+		["How do I teach somebody the first few steps?", "Tutorials and tips"],
+		["How do I write a story to walk through?", "A story to walk through"],
+		["How do I let a creative player reach every block?", "The block palette (creative)"],
+	]],
+	["Shipping it", [
+		["How do I package my mod so other people can install it?", "Mod packages, versions and validation"],
+		["How do I check my mod before I share it?", "Mod packages, versions and validation"],
+		["What tools are there while I am building?", "Dev tools (F8)"],
+	]],
+]
+
+
+## Headings in `docs/modding.md` that TASKS points at but which do not exist.
+##
+## Checked rather than trusted: a task index whose links have rotted is worse than none, because it
+## sends somebody to an anchor that silently scrolls nowhere.
+static func missing_task_targets() -> Array:
+	var guide := FileAccess.get_file_as_string("res://docs/modding.md")
+	var headings := {}
+	for line in guide.split("\n"):
+		var text: String = line
+		if text.begins_with("## ") or text.begins_with("### "):
+			headings[text.lstrip("# ").strip_edges()] = true
+	var out: Array = []
+	for group in TASKS:
+		for row in group[1]:
+			if not headings.has(String(row[1])):
+				out.append(String(row[1]))
+	return out
+
+
+static func build_tasks_markdown() -> String:
+	var out := PackedStringArray()
+	out.append("# How do I…\n")
+	out.append("The guide is arranged by subsystem and the reference by function name. Nobody arrives with")
+	out.append("either: they arrive with a question. This is the same material, indexed by the question.\n")
+	out.append("Every link goes into [modding.md](../modding.md); the API each one uses is in")
+	out.append("[mod-api.md](mod-api.md).\n")
+	for group in TASKS:
+		out.append("\n## %s\n" % String(group[0]))
+		for row in group[1]:
+			out.append("- [%s](../modding.md#%s)" % [_esc_md(String(row[0])), _md_anchor(String(row[1]))])
+	return "\n".join(out) + "\n"
+
+
+## Markdown's own punctuation, kept out of link text.
+static func _esc_md(text: String) -> String:
+	return text.replace("[", "(").replace("]", ")")
+
+
+## A heading's anchor the way Markdown renderers make one: lowercased, punctuation *dropped* rather
+## than replaced, spaces to dashes.
+##
+## Not `_slug`, which turns every non-letter into a dash and is right for the HTML pages because it
+## generates both ends. Here the other end is written by a renderer we do not control, so "Example: a
+## worked mod" has to become `example-a-worked-mod` and not `example--a-worked-mod` - which looks close
+## enough to be believed and scrolls nowhere. (2026-09-22)
+static func _md_anchor(text: String) -> String:
+	var out := ""
+	for c in text.to_lower():
+		if c in "abcdefghijklmnopqrstuvwxyz0123456789":
+			out += c
+		elif c == " " or c == "-":
+			out += "-"
+	while out.contains("--"):
+		out = out.replace("--", "-")
+	return out.strip_edges().trim_prefix("-").trim_suffix("-")
+
+
 ## An example per function, taken from the Proving Ground rather than written by hand.
 ##
-## **This is the one place we can beat the reference this is modelled on.** MSDN's examples were
+## **This is the one place we can beat the reference this is modelled on.** Its examples were
 ## hand-written prose and they rotted: the API moved and the sample on the page did not. Ours cannot,
 ## because `tests/mods/proving/` is a mod the suite loads and plays on every run - if a line here stops
 ## being valid, a test goes red before anybody reads the page. Nothing is marked up to make this work
@@ -199,16 +314,18 @@ static func _files_under(root: String, suffix: String) -> Array:
 ## the failure this whole reference exists to fix. The HTML stays for now because README and
 ## CONTRIBUTING link it.
 ##
-## Laid out the way the MSDN Library laid out a Win32 page, because that is the target: **Syntax**, then
-## **Remarks** carrying the why, then **See Also**. Two of MSDN's sections are deliberately absent. A
+## Laid out the way the great vendor API libraries of the nineties laid out a page, because that is the
+## target: **Syntax**, then **Remarks** carrying the why, then **See Also**. Two of their sections are
+## deliberately absent. A
 ## per-parameter table existed because C signatures carry no types worth reading; ours do, and a second
 ## place to describe a parameter is a second place for it to go stale. Per-function examples are not
-## hand-written here either - they rot, as MSDN's did; the plan is to harvest them from the Proving
+## hand-written here either - they rot, as theirs did; the plan is to harvest them from the Proving
 ## Ground, where the suite already keeps them correct.
 static func write_markdown(out_dir: String) -> Array:
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	var written: Array = []
-	for pair in [["mod-api.md", build_mod_markdown()], ["engine.md", build_engine_markdown()]]:
+	for pair in [["mod-api.md", build_mod_markdown()], ["engine.md", build_engine_markdown()],
+			["how-do-i.md", build_tasks_markdown()]]:
 		var path: String = out_dir.path_join(String(pair[0]))
 		var f := FileAccess.open(path, FileAccess.WRITE)
 		f.store_string(String(pair[1]))

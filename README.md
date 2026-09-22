@@ -16,7 +16,7 @@ it keeps itself up to date after that.
 |---|---|
 | **Play it** | Controls, your first hour, crafting and the guidebook — [docs/playing.md](docs/playing.md) |
 | **Run a server for your family** | Three worlds and a hub on one Linux box, in about ten minutes — [docs/hosting.md](docs/hosting.md) |
-| **Make a mod** | Blocks, creatures, machines, whole games, in GDScript or JavaScript — [docs/modding.md](docs/modding.md) · [API reference](docs/api/mod-api.md) |
+| **Make a mod** | Blocks, creatures, machines, whole games, in GDScript or JavaScript — [How do I…](docs/api/how-do-i.md) · [docs/modding.md](docs/modding.md) · [API reference](docs/api/mod-api.md) |
 | **Work on the engine** | Layout, the join, saves, the Rust extension, the tests — [docs/engine.md](docs/engine.md) · [CONTRIBUTING.md](CONTRIBUTING.md) |
 | **Questions** | [docs/faq.md](docs/faq.md) |
 

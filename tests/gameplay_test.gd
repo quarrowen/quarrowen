@@ -4365,6 +4365,28 @@ func _api_docs() -> void:
 	_check(FileAccess.get_file_as_string("res://docs/api/engine.md") == engine_md,
 		"docs/api/engine.md is up to date (regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)")
 
+	# Other companies' products may be named only where a trademark disclaimer names a mark in order to
+	# disclaim it. The rule has been in CLAUDE.md for weeks and was broken twice in one week by the same
+	# person - once naming games, once naming a documentation library, the second because the rule said
+	# "games" and so appeared not to cover it. Rewording it a third time is the response with the worst
+	# record available, so it is a check. (2026-09-22)
+	var Trademarks = preload("res://tools/trademarks.gd")
+	var named: Array = Trademarks.offences_in_files(ProjectSettings.globalize_path("res://"))
+	_check(named.is_empty(), "no file names another company's product outside the disclaimers (%s)" % ", ".join(named))
+	# Commit messages too, which is where it was broken and where nothing was looking. A message cannot
+	# be fixed after a push, so catching it while it is still local is the only chance.
+	var committed: Array = Trademarks.offences_in_commits()
+	_check(committed.is_empty(), "nor does a recent commit message (%s)" % ", ".join(committed))
+
+	# The task index: questions written by hand, links checked by machine. A hand-written link rots the
+	# moment a heading is renamed, and an index that sends somebody to an anchor which silently scrolls
+	# nowhere is worse than no index at all. (2026-09-22)
+	var tasks_md: String = Docs.build_tasks_markdown()
+	_check(FileAccess.get_file_as_string("res://docs/api/how-do-i.md") == tasks_md,
+		"docs/api/how-do-i.md is up to date (regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)")
+	var lost: Array = Docs.missing_task_targets()
+	_check(lost.is_empty(), "every question in the task index points at a heading that exists (%s)" % ", ".join(lost))
+
 	# See Also is derived from what a function calls, following through private helpers, because the
 	# link that matters usually runs through one: `api.sources_of` reaches `chance_of` only via
 	# `of_item` and loot's own `sources_of`. Not knowing `chance_of` existed is what caused the bug this

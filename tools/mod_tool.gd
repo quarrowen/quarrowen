@@ -9,6 +9,7 @@ extends Node
 ##   godot --headless --path . res://tools/mod_tool.tscn -- docs [--out=docs/api]
 ##   godot --headless --path . res://tools/mod_tool.tscn -- owned
 ##   godot --headless --path . res://tools/mod_tool.tscn -- coverage
+##   godot --headless --path . res://tools/mod_tool.tscn -- trademarks
 ## validate: checks the manifest, files, scripts, a real load and every reference (exit code 1 on errors).
 ## pack: validates, then writes <out>/<id>-<version>.zip, which servers load from any mods folder.
 ## index: reads a folder of packed mods and writes mods.json, the list the game's mod screen reads (see
@@ -43,6 +44,15 @@ func _run() -> void:
 		for path in DocsGenerator.write_markdown(out):
 			_out("wrote %s" % path)
 		get_tree().quit(0)
+		return
+	if positional.size() >= 1 and positional[0] == "trademarks":
+		var Trademarks = preload("res://tools/trademarks.gd")
+		var found: Array = Trademarks.offences_in_files(ProjectSettings.globalize_path("res://"))
+		found.append_array(Trademarks.offences_in_commits())
+		for line in found:
+			_out("  " + str(line))
+		_out("%d place(s) name another company's product outside the disclaimers" % found.size())
+		get_tree().quit(1 if not found.is_empty() else 0)
 		return
 	if positional.size() >= 1 and positional[0] == "coverage":
 		var Coverage = preload("res://tools/proving_coverage.gd")

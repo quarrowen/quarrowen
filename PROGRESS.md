@@ -131,7 +131,7 @@ changes with `tools/build_native.sh`.
       Hold-to-eat with `food` item definitions, saturation and exhaustion, no sprinting when starving,
       food poisoning via timed stats, quality food fills more. Not done: more foods (they arrive with
       step 5's animals and farming crops).
-      Eating animation (user, 2026-09-14, inspired by Eco): plate or hand for food, swig for drinks and
+      Eating animation (user, 2026-09-14, inspired by another game in the genre): plate or hand for food, swig for drinks and
       potions, bites from the icon, crumbs, avatars for other players, hunger bar pop.
    4. Beds and spawn points (done): two-block bed (engine `pair` pieces), right-click sets respawn,
       sleeping at night with monster and occupancy checks, `sleep_percentage` skip, respawn at a valid
@@ -870,9 +870,10 @@ vocabulary - the engine's capabilities have plain descriptive names (`signals`, 
 the Emberdeep and the Hush for the two new worlds. The research behind it - the specific games, plugins
 and mods studied, and which capability each one implied - is in `docs/parity.local.md`, which
 `.gitignore` keeps out of a public repository under the user's own name. (The first draft named all of
-them in the public doc, and the user caught it: "we dont want to clash with minecraft, mojang,
-microsoft, roblox". A list of a hundred third-party mods in a public repo reads as a plan to clone them,
-whatever the intent, and the analysis stands perfectly well without it.)
+them in the public doc, and the user caught it: they did not want this project reading as a clash with
+the genre's best-known games or the companies behind them. A list of a hundred third-party mods in a
+public repo reads as a plan to clone them, whatever the intent, and the analysis stands perfectly well
+without it. The same instinct, three months earlier, as the rule this check now enforces.)
 
 ## STANDING: do not tag a release (2026-09-19)
 
@@ -3933,16 +3934,16 @@ has the same fix: an environment guard that the tests set, asserted rather than 
 it is a flake rather than a wrong answer, and the day was already about something else. Worth doing
 before it is blamed on something innocent, which is how the last two of these went.
 
-## Where the documentation is going: the MSDN Library, roughly (2026-09-22)
+## Where the documentation is going: the great vendor API libraries, roughly (2026-09-22)
 
-The user's target, and a good one: reference documentation at the level of the MSDN Library of the late
-nineties - every function on the same template, with **Syntax, Parameters, Return Value, Remarks,
+The user's target, and a good one: reference documentation at the level of the great vendor API
+libraries of the late nineties - every function on the same template, with **Syntax, Parameters, Return Value, Remarks,
 Requirements, See Also** and an example, a separate conceptual track beside the reference, and a tree
 you can navigate rather than a list you can only search.
 
 Measured against that, what we have is stronger in one place and empty in others. **Remarks is already
-good** - the `##` comments carry the why and the failure that caused it, which is the part of an MSDN
-page people actually lived in. The conceptual track exists (`docs/modding.md`, 70KB). Missing: See
+good** - the `##` comments carry the why and the failure that caused it, which is the part of those
+pages people actually lived in. The conceptual track exists (`docs/modding.md`, 70KB). Missing: See
 Also, "since which version", per-function examples, and a task index.
 
 Ranked by value, and with what each would cost:
@@ -3954,18 +3955,18 @@ Ranked by value, and with what each would cost:
    (`is_empty`, `contains`, `size`, `has`, `id_of`, `append`, `duplicate`), and `sources_of` links to
    `of_item` links to `chance_of` - which is exactly the chain that was missed on the day this came up.
    Honour an explicit `## See also:` line where somebody writes one, for the links no call expresses.
-2. **Examples harvested from the Proving Ground.** The one place this can beat MSDN, whose examples
-   were hand-written and rotted. Every capability is already exercised in `tests/mods/proving/`, in
+2. **Examples harvested from the Proving Ground.** The one place this can beat those libraries, whose
+   examples were hand-written and rotted. Every capability is already exercised in `tests/mods/proving/`, in
    GDScript *and* JavaScript, and the suite fails when one breaks - so an example pulled from there is
    correct by construction and stays correct. Needs a way to mark which block of the mod illustrates
    which function; a comment marker is probably enough.
-3. **"Since" / Requirements.** MSDN's "Minimum supported client: Windows 2000" maps onto
+3. **"Since" / Requirements.** Their "minimum supported version of the platform" line maps onto
    `MOD_API_VERSION`. Derivable once from git history - the commit that introduced each function, and
    the API version at that commit - then cached in a checked-in file that only ever grows, so the
    history walk happens once rather than every build.
 4. **A "How Do I..." index** over `modding.md`, task-shaped rather than API-shaped.
 
-Deliberately **not** doing MSDN's per-parameter table. It existed because C signatures carry no types
+Deliberately **not** doing their per-parameter table. It existed because C signatures carry no types
 worth reading; ours do - `set_wind(degrees: float, strength := 0.5, seconds := 0.0)` already says what
 that table would - and a second place to describe a parameter is a second place for it to go stale.
 
@@ -4064,7 +4065,7 @@ All four now fall back through `UserPaths`, so one override covers them, and `_t
 the *fallback* rather than the override - which is why it did not catch this. A test that asserts the
 override only ever proves the suite is safe, and the suite was never the one getting it wrong.
 
-### MSDN-level docs, part one: Markdown and See Also (2026-09-22)
+### Reference-library docs, part one: Markdown and See Also (2026-09-22)
 
 The user's call: **Markdown is the source of truth**, with a static site generator making
 quarrowen.com's HTML from it later. Two reasons, both right. A generator is not a thing we should be
@@ -4072,7 +4073,7 @@ hand-writing, and a 500KB HTML page cannot be searched cheaply by a person *or* 
 precisely the failure the reference exists to fix, reproduced in the fix itself.
 
 `docs/api/mod-api.md` (95KB) and `docs/api/engine.md` (255KB) now generate beside the HTML, laid out
-the way an MSDN Win32 page was: signature, Remarks, See Also.
+the way those pages were: signature, Remarks, See Also.
 
 **See Also is derived, and getting it right took three attempts, two of which are recorded above as
 dead ends.** The third - what a function actually calls - works, but only after two corrections:
@@ -4089,14 +4090,14 @@ dead ends.** The third - what a function actually calls - works, but only after 
 have prevented the bug that started this whole thread, which is the test of whether it was worth
 building. 261 of 288 mod API entries and 609 engine entries carry cross-references.
 
-Two MSDN sections deliberately skipped, so they are not proposed again: a per-parameter table (C
+Two of their sections deliberately skipped, so they are not proposed again: a per-parameter table (C
 signatures carry no types worth reading; ours do, and a second place to describe a parameter is a
-second place for it to go stale) and hand-written per-function examples (MSDN's rotted; ours should be
+second place for it to go stale) and hand-written per-function examples (theirs rotted; ours should be
 harvested from the Proving Ground, where the suite already keeps them correct).
 
 **Examples, done (2026-09-22).** Ninety-five entries carry a worked example, taken from
 `tests/mods/proving/` rather than written by hand - which is the one place this can beat the reference
-it is modelled on. MSDN's examples were prose and they rotted: the API moved, the sample did not.
+it is modelled on, whose examples were prose and rotted: the API moved, the sample did not.
 These cannot, because the suite loads and plays that mod on every run, so a line that stops being
 valid goes red before anybody reads the page. Nothing in the mod is marked up to make it work either,
 so it costs its authors nothing and improves whenever the mod grows.
@@ -4197,3 +4198,35 @@ the tab anyway, which is what they had asked for. So:
 
 Asserted in the Proving Ground both ways: naming `tools` succeeds, adds no second tab, leaves the
 label as the engine set it, and an empty name is still refused.
+
+## A check for the naming rule, because the rule had failed twice (2026-09-22)
+
+The house rule against naming other companies' products has been in CLAUDE.md for weeks. It was broken
+twice in the same week by the same person: once naming games while a look was being discussed, and once
+naming a documentation library while copying its page layout - that second one **because the rule said
+"games"**, and a documentation library is not a game, so it read as not applying. The rule is now about
+products, and there is a check, because rewording it a third time is the response with the worst record
+of anything available.
+
+`tools/trademarks.gd` fails the suite on any product name outside the trademark disclaimers, in **files
+and in commit messages**. The commit half is the important one: that is where it was broken, it is the
+one place nothing was looking, and a message cannot be fixed once it is pushed. Both halves were made
+to fail before being believed.
+
+It found three real violations on its first run, all historical, all in this file. One of them is worth
+keeping as a joke at my own expense: a note recording the *first* time the user caught this, months
+ago - which quoted their words verbatim and therefore named four companies while explaining why we do
+not name companies.
+
+**Where the list lives, asked and decided (the user: "will that make it safer? coz claude.md is also
+committed into git right?").** In the committed checker, not a gitignored local file. A local list
+would not reach anybody else working on this, would not run in CI, and is the same kind of protection
+that has already failed twice - prose somebody has to remember. It would also hide nothing: the names
+are necessarily public in this repository already, in the disclaimers that have to name a mark in order
+to disclaim it.
+
+**Precision decided the design.** A first attempt matched a bare "forge" and reported eight offences,
+every one a blacksmith's forge or the word "forgets". A check that cries wolf gets switched off, so the
+list is distinctive whole words plus phrases where the bare word is ordinary English ("forge mod",
+"fabric loader"); "Eco" is matched with real case and word boundaries so "ecosystem" and "economy" are
+left alone; and our own `ModLoader` matches nothing.

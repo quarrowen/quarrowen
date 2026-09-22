@@ -239,7 +239,8 @@ by a person or by a tool, which is the point of a reference nobody could navigat
 - `docs/api/engine.md` - the engine's own readers, grouped by the question they answer.
 - `index.html` / `engine.html` - the same, as pages; kept because README and CONTRIBUTING link them.
 
-Each entry is laid out the way an MSDN page was: signature, then the Remarks the `##` comment carries,
+Each entry is laid out the way the great vendor API libraries of the nineties laid out a page:
+signature, then the Remarks the `##` comment carries,
 then a **See Also** derived from what the function actually calls - following *through* private
 helpers, because the useful link usually runs through one. `api.sources_of` lists `chance_of` for
 exactly that reason, and not knowing `chance_of` existed is what caused the bug that started all this.
@@ -322,9 +323,16 @@ recorded. Nothing should only exist in the conversation.
 - No attribution lines or co-author trailers in commits.
 - Player-facing text is for children: plain, kind, never arch. Death messages and hints get read by an
   eight-year-old at bedtime.
-- **Do not name other companies' games anywhere in code, documentation, comments or commit messages.**
-  Not as a compliment, not as shorthand for a genre, not in a commit saying we do not look like them.
-  Say "the genre's best-known game", or describe the thing itself. This was a standing instruction for
+- **Do not name other companies' products anywhere in code, documentation, comments or commit
+  messages.** Not as a compliment, not as shorthand for a genre, not in a commit saying we do not look
+  like them. Say "the genre's best-known game", or describe the thing itself.
+
+  **It is products, not just games.** Written as "games" until 22 September 2026, and the narrower
+  wording is exactly how the next one got through: a documentation library was named repeatedly - in
+  PROGRESS, in CLAUDE.md, in doc comments and in two commit messages - because it was not a game and
+  so the rule appeared not to cover it. It does. Engines, modloaders, documentation sites, storefronts
+  and tools are all somebody's product. "The great vendor API libraries of the nineties" says the same
+  thing and names nobody. This was a standing instruction for
   weeks and was not written down here, so it was broken repeatedly on 21 September 2026 - in commit
   messages, in PROGRESS and in a mod's comments - while a look was being discussed and comparisons
   were the easiest thing to reach for. Writing it down is the fix.
