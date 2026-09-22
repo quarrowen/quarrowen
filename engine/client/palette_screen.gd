@@ -13,32 +13,42 @@ extends Control
 ## item id, and whether the whole stack was asked for.
 signal take_requested(item: int, whole_stack: bool)
 
+## How many slots fit across. Fixed rather than measured: a grid that reflows as the window changes
+## moves a block out from under a builder's cursor, and they open this a hundred times an hour.
+##
+## **Sixteen, to match a colour set.** The palette is colour-led (see mods/base/colours.gd), so a set
+## of sixteen hues reads as one row in the order they were declared - a ramp you can scan - instead of
+## wrapping into fourteen and two. (2026-09-23)
+const COLUMNS := 16
+
 var _search: LineEdit
-var _grid: GridContainer
+var _drawers: VBoxContainer
+var _empty: Label
 var _groups := {}
 var _items
 var _atlas
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	# **Anchors *and* offsets.** `set_anchors_preset` alone moves the anchors and leaves the offsets
+	# where they were, so the root kept a stale rect and every child anchored inside nothing. Every
+	# other screen here uses the and_offsets form; this one did not, and nobody saw it because the
+	# palette had nothing in it to draw. (2026-09-23)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var shade := ColorRect.new()
 	shade.color = Color(0, 0, 0, 0.55)
-	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(shade)
 
+	# **Inset from the edges rather than a fixed 760x560.** A fixed size is a size that is wrong on
+	# every screen but one, and this holds 185 entries in base alone.
 	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.custom_minimum_size = Vector2(760, 560)
-	panel.anchor_left = 0.5
-	panel.anchor_right = 0.5
-	panel.anchor_top = 0.5
-	panel.anchor_bottom = 0.5
-	panel.offset_left = -380
-	panel.offset_right = 380
-	panel.offset_top = -280
-	panel.offset_bottom = 280
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.offset_left = 80
+	panel.offset_right = -80
+	panel.offset_top = 56
+	panel.offset_bottom = -56
 	add_child(panel)
 
 	var column := VBoxContainer.new()
@@ -56,11 +66,18 @@ func _ready() -> void:
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	column.add_child(scroll)
-	_grid = GridContainer.new()
-	_grid.columns = 12
-	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_grid)
+	# A column of drawers rather than one grid: each `group` a mod named gets a heading and its own
+	# rows, which is the whole reason the key exists.
+	_drawers = VBoxContainer.new()
+	_drawers.add_theme_constant_override("separation", 10)
+	_drawers.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_drawers)
+
+	_empty = Label.new()
+	_empty.visible = false
+	column.add_child(_empty)
 
 	var hint := Label.new()
 	hint.text = "Click for one, right-click for a full stack. B or Esc to close."
@@ -81,15 +98,24 @@ func show_palette(groups: Dictionary, items, atlas) -> void:
 func _rebuild() -> void:
 	if _items == null:
 		return
-	for child in _grid.get_children():
+	for child in _drawers.get_children():
 		# Out of the tree first: queue_free runs at the end of the frame, so a rebuild twice in one
 		# frame would free the new children too (CLAUDE.md).
-		_grid.remove_child(child)
+		_drawers.remove_child(child)
 		child.queue_free()
 	var needle := _search.text.strip_edges().to_lower()
 	var group_names: Array = _groups.keys()
 	group_names.sort()
+	# Only say which mod a drawer belongs to when more than one is installed. On a single-mod game
+	# "base · Stone" on every heading is noise; with three mods it is the thing you need.
+	var mods := {}
 	for group: String in group_names:
+		mods[group.get_slice("/", 0)] = true
+	var shown := 0
+	for group: String in group_names:
+		var grid := GridContainer.new()
+		grid.columns = COLUMNS
+		var found := 0
 		for id: int in _groups[group]:
 			if not _items.is_valid(id):
 				continue
@@ -97,7 +123,22 @@ func _rebuild() -> void:
 			if not needle.is_empty() and not label.to_lower().contains(needle) \
 					and not String(_items.name_of(id)).to_lower().contains(needle):
 				continue
-			_grid.add_child(_slot(id, label))
+			grid.add_child(_slot(id, label))
+			found += 1
+		if found == 0:
+			grid.queue_free()  # never entered the tree; nothing to take out of it first
+			continue
+		var heading := Label.new()
+		heading.text = group.get_slice("/", 1) if mods.size() < 2 else "%s  ·  %s" % [group.get_slice("/", 1), group.get_slice("/", 0)]
+		heading.add_theme_font_size_override("font_size", 13)
+		_drawers.add_child(heading)
+		_drawers.add_child(grid)
+		shown += found
+	# A search that matches nothing looks exactly like a palette that is broken - which this one was,
+	# for a day, and nobody could tell. Say which it is. (2026-09-23)
+	_empty.visible = shown == 0
+	_empty.text = "Nothing matches \"%s\"." % _search.text.strip_edges() if not needle.is_empty() \
+		else "This game has nothing to take."
 
 
 func _slot(id: int, label: String) -> Control:

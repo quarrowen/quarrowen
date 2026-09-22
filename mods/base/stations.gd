@@ -22,19 +22,19 @@ var ids := {}
 
 func setup(mod_api, sounds: Dictionary) -> void:
 	api = mod_api
-	ids.table = api.register_block("crafting_table", {"display_name": "Crafting Table", "station": TABLE, "sounds": sounds.wood,
+	ids.table = api.register_block("crafting_table", {"group": "Workshop", "display_name": "Crafting Table", "station": TABLE, "sounds": sounds.wood,
 		"textures": {"top": "textures/crafting_table_top.png", "side": "textures/crafting_table_side.png", "bottom": "textures/planks.png"},
 		"hardness": 2.5, "tool": "axe"})
 	api.register_recipe({"base:planks": 4}, "base:crafting_table", 1, {"unlock": "known"})
-	ids.sturdy = api.register_block("sturdy_workbench", {"display_name": "Sturdy Workbench", "station": TABLE, "sounds": sounds.wood,
+	ids.sturdy = api.register_block("sturdy_workbench", {"group": "Workshop", "display_name": "Sturdy Workbench", "station": TABLE, "sounds": sounds.wood,
 		"textures": {"top": "textures/sturdy_workbench_top.png", "side": "textures/sturdy_workbench_side.png", "bottom": "textures/planks.png"},
 		"drops": "base:crafting_table", "placeable": false, "hardness": 3.0, "tool": "axe"})
-	api.register_block("anvil", {"display_name": "Anvil", "render": "cutout", "sounds": sounds.stone, "hardness": 5.0, "tier": 1, "tool": "pickaxe",
+	api.register_block("anvil", {"group": "Workshop", "display_name": "Anvil", "render": "cutout", "sounds": sounds.stone, "hardness": 5.0, "tier": 1, "tool": "pickaxe",
 		"textures": {"top": "textures/anvil_top.png", "side": "textures/anvil_side.png", "bottom": "textures/anvil_top.png"}})
-	api.register_block("tool_rack", {"display_name": "Tool Rack", "textures": "textures/tool_rack.png", "sounds": sounds.wood, "hardness": 2.0, "tool": "axe"})
-	api.register_block("bookshelf", {"display_name": "Bookshelf", "sounds": sounds.wood, "hardness": 1.5, "tool": "axe",
+	api.register_block("tool_rack", {"group": "Workshop", "display_name": "Tool Rack", "textures": "textures/tool_rack.png", "sounds": sounds.wood, "hardness": 2.0, "tool": "axe"})
+	api.register_block("bookshelf", {"group": "Workshop", "display_name": "Bookshelf", "sounds": sounds.wood, "hardness": 1.5, "tool": "axe",
 		"textures": {"side": "textures/bookshelf.png", "top": "textures/planks.png", "bottom": "textures/planks.png"}})
-	api.register_block("forge", {"display_name": "Forge", "station": "forge", "sounds": sounds.stone, "light": 9, "hardness": 3.5, "tier": 1, "tool": "pickaxe",
+	api.register_block("forge", {"group": "Workshop", "display_name": "Forge", "station": "forge", "sounds": sounds.stone, "light": 9, "hardness": 3.5, "tier": 1, "tool": "pickaxe",
 		"textures": {"side": "textures/forge_front.png", "top": "textures/brick.png", "bottom": "textures/brick.png"}})
 	api.register_item("reinforced_frame", {"display_name": "Reinforced Frame", "icon": "textures/reinforced_frame.png",
 		"lore": ["Use at a Crafting Table to upgrade it to a Sturdy Workbench."]})
@@ -51,7 +51,7 @@ func setup(mod_api, sounds: Dictionary) -> void:
 			"pattern": ["BCB", "BBB", " B "]}})
 
 	api.register_container("chest", {"title": "Chest", "groups": [{"name": "items", "count": 27, "columns": 9}]})
-	ids.chest = api.register_block("chest", {"display_name": "Chest", "container": "chest", "sounds": sounds.wood,
+	ids.chest = api.register_block("chest", {"group": "Workshop", "display_name": "Chest", "container": "chest", "sounds": sounds.wood,
 		"textures": {"top": "textures/chest_top.png", "side": "textures/chest_side.png", "bottom": "textures/chest_top.png"},
 		"hardness": 2.5, "tool": "axe"})
 	api.register_recipe({"base:planks": 8}, "base:chest", 1, {"station": TABLE})
@@ -64,9 +64,9 @@ func setup(mod_api, sounds: Dictionary) -> void:
 		],
 		"progress": [{"name": "cook", "label": "Smelting", "color": "#f2f2f2"}, {"name": "burn", "label": "Fuel", "color": "#ff9a3c"}]})
 	var furnace_textures := {"top": "textures/furnace_side.png", "bottom": "textures/furnace_side.png"}
-	ids.furnace = api.register_block("furnace", {"display_name": "Furnace", "container": "furnace", "sounds": sounds.stone,
+	ids.furnace = api.register_block("furnace", {"group": "Workshop", "display_name": "Furnace", "container": "furnace", "sounds": sounds.stone,
 		"textures": furnace_textures.merged({"side": "textures/furnace_front.png"}), "hardness": 3.5, "tier": 1, "tool": "pickaxe"})
-	ids.furnace_lit = api.register_block("furnace_lit", {"display_name": "Furnace", "container": "furnace", "sounds": sounds.stone,
+	ids.furnace_lit = api.register_block("furnace_lit", {"group": "Workshop", "display_name": "Furnace", "container": "furnace", "sounds": sounds.stone,
 		"textures": furnace_textures.merged({"side": "textures/furnace_front_lit.png"}), "light": 13, "drops": "base:furnace",
 		"placeable": false, "hardness": 3.5, "tier": 1, "tool": "pickaxe"})
 	api.register_recipe({"base:cobblestone": 8}, "base:furnace", 1, {"station": TABLE})

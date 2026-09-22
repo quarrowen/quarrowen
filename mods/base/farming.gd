@@ -19,7 +19,7 @@ var ids := {}
 func setup(mod_api, sounds: Dictionary) -> void:
 	api = mod_api
 	var soil := ["base:grass", "base:dirt"]
-	ids.farmland = api.register_block("farmland", {"display_name": "Farmland", "drops": "base:dirt", "sounds": sounds.dirt,
+	ids.farmland = api.register_block("farmland", {"group": "Ground", "display_name": "Farmland", "drops": "base:dirt", "sounds": sounds.dirt,
 		"textures": {"top": "textures/farmland_top.png", "side": "textures/dirt.png", "bottom": "textures/dirt.png"},
 		"hardness": 0.6, "tool": "shovel", "placeable": false})
 	var wheat := []
@@ -28,12 +28,12 @@ func setup(mod_api, sounds: Dictionary) -> void:
 			"render": "plant", "sway": true, "hardness": 0.0, "placeable": false, "support": ["base:farmland"],
 			"drops": "", "sounds": sounds.grass}))
 	ids.wheat_stages = wheat
-	ids.tall_grass = api.register_block("tall_grass", {"display_name": "Long Grass", "textures": "textures/tall_grass.png",
+	ids.tall_grass = api.register_block("tall_grass", {"group": "Nature", "display_name": "Long Grass", "textures": "textures/tall_grass.png",
 		"render": "plant", "sway": true, "hardness": 0.0, "support": soil, "drops": "", "replaceable": true, "sounds": sounds.grass})
 	for flower in ["poppy", "dandelion"]:
-		ids[flower] = api.register_block(flower, {"textures": "textures/%s.png" % flower, "render": "plant", "sway": true,
+		ids[flower] = api.register_block(flower, {"group": "Nature", "textures": "textures/%s.png" % flower, "render": "plant", "sway": true,
 			"hardness": 0.0, "support": soil, "sounds": sounds.grass})
-	ids.sapling = api.register_block("sapling", {"display_name": "Sapling", "textures": "textures/sapling.png", "render": "plant",
+	ids.sapling = api.register_block("sapling", {"group": "Wood", "display_name": "Sapling", "textures": "textures/sapling.png", "render": "plant",
 		"hardness": 0.0, "support": soil, "sounds": sounds.grass})
 
 	ids.seeds = api.register_item("wheat_seeds", {"display_name": "Wheat Seeds", "icon": "textures/wheat_seeds.png", "usable": true})
@@ -48,9 +48,9 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	api.register_recipe({"base:apple": 2, "base:glass_bottle": 1}, "base:apple_juice", 1, {"category": "food"})
 
 	# Found by experimenting: arranged in the crafting grid (see the recipe patterns).
-	api.register_block("torch", {"display_name": "Torch", "textures": "textures/torch.png", "render": "plant", "light": 14,
+	api.register_block("torch", {"group": "Light", "display_name": "Torch", "textures": "textures/torch.png", "render": "plant", "light": 14,
 		"hardness": 0.0, "support": "solid", "sounds": sounds.grass})
-	api.register_block("hay_bale", {"display_name": "Straw Bale", "sounds": sounds.grass, "hardness": 0.5,
+	api.register_block("hay_bale", {"group": "Nature", "display_name": "Straw Bale", "sounds": sounds.grass, "hardness": 0.5,
 		"textures": {"top": "textures/hay_bale_top.png", "bottom": "textures/hay_bale_top.png", "side": "textures/hay_bale_side.png"}})
 	api.register_recipe({}, "base:hay_bale", 1, {"pattern": ["WWW", "WWW", "WWW"], "key": {"W": "base:wheat"}, "unlock": "experiment",
 		"category": "blocks", "hint": "A whole grid of the harvest, bundled."})

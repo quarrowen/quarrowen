@@ -352,6 +352,15 @@ func _init() -> void:
 	_save(_ore(deepstone, copper.lightened(0.1)), base + "deep_copper_ore.png")
 	_save(_ore(deepstone, gold), base + "deep_gold_ore.png")
 
+	# **The colour sets, appended at the end** - as this file's own rule says, because one RNG seeded
+	# once drives every texture in order and inserting a call anywhere above re-rolls everything after
+	# it. The table lives in the mod (mods/base/colours.gd) rather than here, so the hue in a block's
+	# name and the hue on its face cannot drift apart. (2026-09-23)
+	var Colours = preload("res://mods/base/colours.gd")
+	for entry in Colours.COLOURS:
+		_save(_wool(entry[1]), base + "cloth_%s.png" % entry[0])
+		_save(_plaster(entry[1]), base + "plaster_%s.png" % entry[0])
+
 	# A SceneTree script runs until it is told not to. Without this the tool wrote every texture
 	# correctly and then sat there for ever; three of them were found still running an hour later,
 	# looking like a hung build rather than a finished one. (2026-09-19)
@@ -1760,4 +1769,17 @@ func _full_bucket(liquid: Color, shine: Color) -> Image:
 			img.set_pixel(x, 3, tin)
 		elif x % 2 == 0:
 			img.set_pixel(x, 2, tin)
+	return img
+
+## A painted render: flat colour, a fine grain, and a few flecks where the trowel caught.
+##
+## Deliberately much calmer than `_wool`, which curls. The two sets carry the same sixteen hues, so
+## the *texture* is the only thing telling a wall of one from a wall of the other - if both were busy
+## they would read as the same block at any distance.
+func _plaster(c: Color) -> Image:
+	var img := _noise(c, 0.022)
+	for n in 7:
+		var x := rng.randi_range(0, TILE - 1)
+		var y := rng.randi_range(0, TILE - 1)
+		img.set_pixel(x, y, _vary(c.darkened(0.10), 0.02))
 	return img

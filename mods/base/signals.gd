@@ -23,7 +23,7 @@ func setup(mod_api, materials: Dictionary) -> void:
 
 	# The ore. It glows faintly where it sits, which is the point of the whole material: a seam of it in
 	# a dark cave should be something a child spots and walks towards.
-	api.register_block("quickstone", {"display_name": "Quickstone", "textures": "textures/quickstone.png",
+	api.register_block("quickstone", {"group": "Stone", "display_name": "Quickstone", "textures": "textures/quickstone.png",
 		"light": 4, "hardness": 4.5, "tier": 1, "tool": "pickaxe", "drops": "base:quickdust_item",
 		"sounds": sounds})
 
@@ -31,20 +31,20 @@ func setup(mod_api, materials: Dictionary) -> void:
 	# what the first looks like when something reaches it - which is why breaking either gives the dust
 	# back and only the quiet one can be placed.
 	for form in [["quickdust", "textures/quickdust.png", 0], ["quickdust_lit", "textures/quickdust_lit.png", 7]]:
-		api.register_block(form[0], {"display_name": "Quickdust", "textures": form[1], "render": "plant",
+		api.register_block(form[0], {"group": "Mechanism", "display_name": "Quickdust", "textures": form[1], "render": "plant",
 			"solid": false, "replaceable": true, "light": form[2], "hardness": 0.0, "support": "solid",
 			"signal_carry": true, "placeable": form[0] == "quickdust",
 			"drops": "base:quickdust_item", "sounds": sounds})
 
 	# A lever: the simplest thing that can say yes. Right-click flips it, and it emits while it is on.
-	api.register_block("lever", {"display_name": "Lever", "textures": "textures/lever.png", "render": "plant",
+	api.register_block("lever", {"group": "Mechanism", "display_name": "Lever", "textures": "textures/lever.png", "render": "plant",
 		"solid": false, "interactive": true, "hardness": 0.5, "support": "solid", "drops": "base:lever",
 		"sounds": sounds})
 
 	# A lamp: the simplest thing that can listen. Lit is the same lamp with the glow turned up.
-	api.register_block("quicklamp", {"display_name": "Quicklamp", "textures": "textures/quicklamp.png",
+	api.register_block("quicklamp", {"group": "Light", "display_name": "Quicklamp", "textures": "textures/quicklamp.png",
 		"hardness": 1.0, "drops": "base:quicklamp", "sounds": sounds})
-	api.register_block("quicklamp_lit", {"display_name": "Quicklamp", "textures": "textures/quicklamp_lit.png",
+	api.register_block("quicklamp_lit", {"group": "Light", "display_name": "Quicklamp", "textures": "textures/quicklamp_lit.png",
 		"light": 14, "hardness": 1.0, "drops": "base:quicklamp", "placeable": false, "sounds": sounds})
 
 	for block_name in ["quickstone", "quickdust", "quickdust_lit", "lever", "quicklamp", "quicklamp_lit"]:

@@ -12,6 +12,7 @@ const Graves = preload("graves.gd")
 const Cooking = preload("cooking.gd")
 const Openings = preload("openings.gd")
 const Signals = preload("signals.gd")
+const Colours = preload("colours.gd")
 const TABLE := {"station": "crafting_table"}
 ## Iron gear needs an anvil beside the table; iron armor also needs a Sturdy Workbench.
 ## Iron gear can also be forged by hand at the anvil for better quality (the "forging" minigame).
@@ -31,6 +32,7 @@ var guide := Guide.new()
 var graves := Graves.new()
 var cooking := Cooking.new()
 var openings := Openings.new()
+var colours := Colours.new()
 
 
 func setup(api) -> void:
@@ -50,45 +52,45 @@ func setup(api) -> void:
 	var grass := {"break": "grass", "place": "grass", "step": "soft_step"}
 	var sand := {"break": "sand", "place": "sand", "step": "soft_step"}
 
-	api.register_block("stone", {"textures": "textures/stone.png", "drops": "base:cobblestone", "sounds": stone, "hardness": 1.5, "tier": 1, "tool": "pickaxe"})
-	api.register_block("cobblestone", {"textures": "textures/cobblestone.png", "sounds": stone, "hardness": 2.0, "tier": 1, "tool": "pickaxe"})
-	api.register_block("dirt", {"textures": "textures/dirt.png", "sounds": dirt, "hardness": 0.5, "tool": "shovel"})
-	api.register_block("grass", {
+	api.register_block("stone", {"group": "Stone", "textures": "textures/stone.png", "drops": "base:cobblestone", "sounds": stone, "hardness": 1.5, "tier": 1, "tool": "pickaxe"})
+	api.register_block("cobblestone", {"group": "Stone", "textures": "textures/cobblestone.png", "sounds": stone, "hardness": 2.0, "tier": 1, "tool": "pickaxe"})
+	api.register_block("dirt", {"group": "Ground", "textures": "textures/dirt.png", "sounds": dirt, "hardness": 0.5, "tool": "shovel"})
+	api.register_block("grass", {"group": "Ground", 
 		"textures": {"top": "textures/grass_top.png", "side": "textures/grass_side.png", "bottom": "textures/dirt.png"},
 		"drops": "base:dirt",
 		"sounds": grass,
 		"hardness": 0.6, "tool": "shovel",
 	})
-	api.register_block("snow", {
+	api.register_block("snow", {"group": "Ground", 
 		"textures": {"top": "textures/snow.png", "side": "textures/snow_side.png", "bottom": "textures/dirt.png"},
 		"drops": "base:dirt",
 		"sounds": grass,
 		"hardness": 0.6, "tool": "shovel",
 	})
-	api.register_block("sand", {"textures": "textures/sand.png", "sounds": sand, "hardness": 0.5, "tool": "shovel"})
-	api.register_block("gravel", {"textures": "textures/gravel.png", "sounds": sand, "hardness": 0.6, "tool": "shovel"})
-	api.register_block("log", {"textures": {"all": "textures/log_side.png", "top": "textures/log_top.png", "bottom": "textures/log_top.png"}, "sounds": wood, "hardness": 2.0, "tool": "axe"})
-	api.register_block("leaves", {"textures": "textures/leaves.png", "render": "cutout", "drops": "", "sway": true, "sounds": grass, "hardness": 0.2})
-	api.register_block("planks", {"textures": "textures/planks.png", "sounds": wood, "hardness": 2.0, "tool": "axe"})
-	api.register_block("brick", {"textures": "textures/brick.png", "sounds": stone, "hardness": 2.0, "tier": 1, "tool": "pickaxe"})
-	api.register_block("glass", {"textures": "textures/glass.png", "render": "cutout", "cull_same": true, "drops": "", "hardness": 0.3,
+	api.register_block("sand", {"group": "Ground", "textures": "textures/sand.png", "sounds": sand, "hardness": 0.5, "tool": "shovel"})
+	api.register_block("gravel", {"group": "Ground", "textures": "textures/gravel.png", "sounds": sand, "hardness": 0.6, "tool": "shovel"})
+	api.register_block("log", {"group": "Wood", "textures": {"all": "textures/log_side.png", "top": "textures/log_top.png", "bottom": "textures/log_top.png"}, "sounds": wood, "hardness": 2.0, "tool": "axe"})
+	api.register_block("leaves", {"group": "Wood", "textures": "textures/leaves.png", "render": "cutout", "drops": "", "sway": true, "sounds": grass, "hardness": 0.2})
+	api.register_block("planks", {"group": "Wood", "textures": "textures/planks.png", "sounds": wood, "hardness": 2.0, "tool": "axe"})
+	api.register_block("brick", {"group": "Stone", "textures": "textures/brick.png", "sounds": stone, "hardness": 2.0, "tier": 1, "tool": "pickaxe"})
+	api.register_block("glass", {"group": "Glass", "textures": "textures/glass.png", "render": "cutout", "cull_same": true, "drops": "", "hardness": 0.3,
 		"sounds": {"break": "glass", "place": "stone", "step": "stone_step"}})
 	api.register_item("coal", {"icon": "textures/coal.png"})
-	api.register_block("coal_ore", {"textures": "textures/coal_ore.png", "display_name": "Coal Ore", "drops": "base:coal", "sounds": stone, "hardness": 3.0, "tier": 1, "tool": "pickaxe"})
-	api.register_block("iron_ore", {"textures": "textures/iron_ore.png", "display_name": "Iron Ore", "sounds": stone, "hardness": 3.0, "tier": 2, "tool": "pickaxe"})
+	api.register_block("coal_ore", {"group": "Ore", "textures": "textures/coal_ore.png", "display_name": "Coal Ore", "drops": "base:coal", "sounds": stone, "hardness": 3.0, "tier": 1, "tool": "pickaxe"})
+	api.register_block("iron_ore", {"group": "Ore", "textures": "textures/iron_ore.png", "display_name": "Iron Ore", "sounds": stone, "hardness": 3.0, "tier": 2, "tool": "pickaxe"})
 	# Copper is shallow and everywhere and a wooden pickaxe brings it up: the first metal a child meets
 	# should not be gated behind the second one.
-	api.register_block("copper_ore", {"textures": "textures/copper_ore.png", "display_name": "Copper Ore", "sounds": stone, "hardness": 3.0, "tier": 1, "tool": "pickaxe"})
-	api.register_block("gold_ore", {"textures": "textures/gold_ore.png", "display_name": "Gold Ore", "sounds": stone, "hardness": 3.0, "tier": 2, "tool": "pickaxe"})
+	api.register_block("copper_ore", {"group": "Ore", "textures": "textures/copper_ore.png", "display_name": "Copper Ore", "sounds": stone, "hardness": 3.0, "tier": 1, "tool": "pickaxe"})
+	api.register_block("gold_ore", {"group": "Ore", "textures": "textures/gold_ore.png", "display_name": "Gold Ore", "sounds": stone, "hardness": 3.0, "tier": 2, "tool": "pickaxe"})
 	# Named for what it looks like rather than where it is: a stone that holds the light, found where
 	# there is none. Deep, rare, and only cobalt tools will lift it.
-	api.register_block("sunstone_ore", {"textures": "textures/sunstone_ore.png", "display_name": "Sunstone Ore",
+	api.register_block("sunstone_ore", {"group": "Ore", "textures": "textures/sunstone_ore.png", "display_name": "Sunstone Ore",
 		"drops": "base:sunstone", "sounds": stone, "hardness": 5.0, "tier": 4, "tool": "pickaxe"})
 	# The same metals again, set in deepstone instead of stone. Harder to break and they look different,
 	# so mining *down* is a different activity from mining *along* rather than the same one lower - and
 	# the wall tells a child how deep they are without reading a coordinate.
 	for deep in [["coal", "Coal", "base:coal", 1], ["iron", "Iron", "", 2], ["copper", "Copper", "", 1], ["gold", "Gold", "", 2]]:
-		var def := {"textures": "textures/deep_%s_ore.png" % deep[0], "display_name": "Deep %s Ore" % deep[1],
+		var def := {"group": "Ore", "textures": "textures/deep_%s_ore.png" % deep[0], "display_name": "Deep %s Ore" % deep[1],
 			"sounds": stone, "hardness": 4.5, "tier": int(deep[3]), "tool": "pickaxe"}
 		if not String(deep[2]).is_empty():
 			def["drops"] = String(deep[2])
@@ -98,7 +100,7 @@ func setup(api) -> void:
 	# wades through it rather than swimming - shapes decide collision as well as drawing.
 	api.register_block("water_shallow", {"display_name": "Water", "textures": "textures/water.png",
 		"render": "translucent", "liquid": true, "shape": "slab_bottom", "placeable": false, "drops": ""})
-	api.register_block("bedrock", {"textures": "textures/bedrock.png", "breakable": false, "placeable": false, "sounds": stone})
+	api.register_block("bedrock", {"group": "Stone", "textures": "textures/bedrock.png", "breakable": false, "placeable": false, "sounds": stone})
 
 	# Food: hold use to eat (hunger points out of 20; saturation keeps you full for longer).
 	api.register_item("apple", {"display_name": "Apple", "icon": "textures/apple.png", "food": {"hunger": 4, "saturation": 2.4, "color": "#d83030"}})
@@ -118,6 +120,9 @@ func setup(api) -> void:
 	cooking.setup(api, {"stone": stone, "wood": wood})
 	openings.setup(api, {"stone": stone, "wood": wood})
 	signals.setup(api, {"stone": stone})  # after the tools and glass it builds a lamp from
+	# After the sound dicts exist; nothing else depends on the colour sets, and nothing they depend on
+	# comes later.
+	colours.setup(api, {"dirt": dirt, "stone": stone})
 	guide.setup(api)
 
 
@@ -217,13 +222,16 @@ func _register_shapes(api, sounds: Dictionary) -> void:
 	# In the order BlockRegistry.facing_from_yaw gives: the variant that climbs away from the player.
 	var facings := ["north", "west", "south", "east"]
 	for material in [
-		{"id": "stone", "from": "base:stone", "display": "Stone", "sound": "stone", "hardness": 1.5, "tool": "pickaxe", "tier": 1},
-		{"id": "cobblestone", "from": "base:cobblestone", "display": "Cobblestone", "sound": "stone", "hardness": 2.0, "tool": "pickaxe", "tier": 1},
-		{"id": "planks", "from": "base:planks", "display": "Wooden", "sound": "wood", "hardness": 1.2, "tool": "axe", "tier": 0},
+		{"id": "stone", "from": "base:stone", "display": "Stone", "sound": "stone", "hardness": 1.5, "tool": "pickaxe", "tier": 1, "group": "Stone"},
+		{"id": "cobblestone", "from": "base:cobblestone", "display": "Cobblestone", "sound": "stone", "hardness": 2.0, "tool": "pickaxe", "tier": 1, "group": "Stone"},
+		{"id": "planks", "from": "base:planks", "display": "Wooden", "sound": "wood", "hardness": 1.2, "tool": "axe", "tier": 0, "group": "Wood"},
 	]:
 		var textures = api.block_textures(String(material.from))
+		# A slab of stone belongs in the same drawer as the stone, not in a drawer of slabs: a builder
+		# reaching for a material wants its shapes beside it.
 		var common := {"textures": textures, "sounds": sounds.get(String(material.sound), {}),
-			"hardness": float(material.hardness), "tool": String(material.tool), "tier": int(material.tier)}
+			"hardness": float(material.hardness), "tool": String(material.tool), "tier": int(material.tier),
+			"group": String(material.group)}
 		# One slab in the hand, two in the world: which half it fills follows where you aimed, so a slab
 		# can be a ceiling as well as a step. You never carry the top one, and it drops the bottom one.
 		var slab_name := "%s_slab" % material.id
@@ -262,7 +270,7 @@ func _register_shapes(api, sounds: Dictionary) -> void:
 				suffix += sides[bit]
 		forms.append("base:fence" if suffix.is_empty() else "base:fence_%s" % suffix)
 	for mask in 16:
-		var fence := {"display_name": "Fence", "textures": api.block_textures("base:planks"),
+		var fence := {"group": "Wood", "display_name": "Fence", "textures": api.block_textures("base:planks"),
 			"sounds": sounds.get("wood", {}), "hardness": 1.2, "tool": "axe", "render": "cutout",
 			"connect_group": "fence", "connects": forms, "drops": "base:fence",
 			"shape": "fence_%s" % (forms[mask].get_slice("_", 1) if mask > 0 else "post")}

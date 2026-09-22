@@ -20,7 +20,7 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	# Stirring: hold the spoon moving at the right pace. Too fast and it splashes, too slow and it catches.
 	api.register_minigame("cooking", {"title": "Stir the pot", "type": "hold", "verb": "Stir",
 		"duration": 7.0, "zone": 0.22, "speed": 0.7})
-	api.register_block("cooking_pot", {"display_name": "Cooking Pot", "station": STATION, "sounds": sounds.get("stone", {}),
+	api.register_block("cooking_pot", {"group": "Workshop", "display_name": "Cooking Pot", "station": STATION, "sounds": sounds.get("stone", {}),
 		"hardness": 3.0, "tier": 1, "tool": "pickaxe",
 		"textures": {"top": "textures/cooking_pot_top.png", "side": "textures/cooking_pot_side.png",
 			"bottom": "textures/furnace_side.png"}})

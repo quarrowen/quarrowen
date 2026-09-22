@@ -5,7 +5,7 @@ extends RefCounted
 
 
 func setup(api, sounds: Dictionary) -> void:
-	var common := {"orientation": "horizontal", "bed": true, "hardness": 0.6, "tool": "axe", "sounds": sounds.wood,
+	var common := {"group": "Comfort", "orientation": "horizontal", "bed": true, "hardness": 0.6, "tool": "axe", "sounds": sounds.wood,
 		"drops": "base:bed", "textures": "textures/bed_icon.png"}
 	var foot := common.duplicate()
 	foot.merge({"display_name": "Bed", "model": "models/bed_foot.glb", "pair": {"block": "base:bed_head", "direction": "back"}})

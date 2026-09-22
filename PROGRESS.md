@@ -4841,3 +4841,53 @@ The Proving Ground now registers a two-block `pair` (`mast` / `mast_top`) - a ca
 exercised - which doubles as the subject for "a block placed rather than carried stays out of the
 palette". It was written first with an `if top > 0` guard around those checks, which would have
 skipped silently; the pair exists so they cannot.
+
+## Phase 4 begins: the colour sets, and a palette that can hold them (2026-09-23)
+
+**Decision (the user, asked directly): colour-led.** Given ~68 new materials to spend, the options
+were colour-led (two sixteen-hue sets), material-led (many finishes per stone and wood) or an even
+split. Colour won on the same reasoning as the ~110 target itself: a child builds by picking a
+colour, not a geology, and the hue sets are procedurally cheap where a dozen stone finishes are not.
+
+Shapes were taken out of the budget first. A slab reuses its material's texture, so slabs, stairs,
+fences and walls cost block ids and almost no art - which means "110 blocks" should be read as 110
+*materials*, and the shape multiplier sits on top of it.
+
+**`mods/base/colours.gd`: sixteen hues, as `cloth_*` and `plaster_*`.** Two sets rather than one of
+thirty-two because a wall of woven cloth and a wall of painted plaster read differently across a
+room, so a build can carry texture as well as hue - and deliberately the *same* sixteen hues, so a
+builder who has found a colour can have it in either material without hunting for the near match.
+The table lives in the mod and `tools/generate_textures.gd` reads it, rather than keeping a second
+copy: a second copy is how the hue in a block's name and the hue on its face come to disagree.
+Appended at the end of the generator, as that file's own rule requires.
+
+`base` is 126 blocks -> **158**. Named nouns are about 74 of them; the rest are shapes and states.
+
+### Three things that were only visible once the palette had something in it
+
+The palette was written on 22 September and every one of these shipped, because an empty screen
+looks the same whatever is wrong with it:
+
+- **It listed nothing** (own section above).
+- **It was parented to the client**, which is a Node3D. A `Control` anchored inside a parent with no
+  rect gets no rect, so the whole screen drew as a 190-pixel box in the top-left corner over the
+  debug text. Every other screen goes into `_hud_root`.
+- **`set_anchors_preset` where every sibling uses `set_anchors_and_offsets_preset`.** Anchors move,
+  offsets stay, so the root kept a stale rect and the panel collapsed to the height of its title bar.
+
+It also ignored its own groups - it took a `groups` dictionary and flattened it into one grid. Now
+each drawer gets a heading, the mod name appears only when more than one is installed, and the grid
+is **16 wide so a colour set is exactly one row**: a ramp you can scan rather than fourteen and two.
+
+An empty search now says so, in words, rather than showing an empty grid - because "nothing matches"
+and "this screen is broken" looked identical for a day and nobody could tell them apart.
+
+### Still to do before the creative game
+
+- **`base/Items` holds 87 entries** in one drawer - tools, armour, food, parts. They are verbs and
+  most of them leave `base` when `simple_gear` and `simple_machines` take them, so grouping them now
+  would be grouping things that are about to move.
+- The verbs themselves: 40 recipes still live in `base`, and the test of the base/game line is that a
+  creative game ships zero.
+- `tests/gameplay_test.gd` names `base:` content 290 times, which is the coupling CLAUDE.md warns
+  about; moving content will break it, and the fix is mostly to assert the capability instead.

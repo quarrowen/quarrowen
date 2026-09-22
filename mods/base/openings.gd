@@ -37,7 +37,7 @@ func _doors(sounds: Dictionary) -> void:
 			open.append("base:%s_%s_open" % [wood.id, facing])
 		for i in FACINGS.size():
 			var facing: String = FACINGS[i]
-			var common := {"display_name": wood.display, "sounds": sounds.get("wood", {}), "render": "cutout",
+			var common := {"group": "Openings", "display_name": wood.display, "sounds": sounds.get("wood", {}), "render": "cutout",
 				"hardness": wood.hardness, "tool": wood.tool, "interactive": true,
 				"textures": {"all": "textures/door_lower.png", "top": "textures/door_upper.png"}}
 			# Shut: the panel sits against the side it is named for, and faces the player who placed it.
@@ -81,7 +81,7 @@ func _windows(sounds: Dictionary) -> void:
 		# player looking north or south is standing at a wall that runs east-west, so the pane spans x.
 		var by_facing := [names[1], names[0], names[1], names[0]]
 		for axis in ["x", "z"]:
-			var def := {"display_name": pane.display, "textures": pane.texture, "render": pane.render,
+			var def := {"group": "Openings", "display_name": pane.display, "textures": pane.texture, "render": pane.render,
 				"shape": "pane_%s" % axis, "hardness": pane.hardness, "sounds": sounds.get(pane.sounds, {}),
 				"drops": names[0], "facing_blocks": by_facing}
 			if axis != "x":

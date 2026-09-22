@@ -4626,7 +4626,12 @@ func on_palette(groups: Dictionary) -> void:
 	if _palette == null:
 		_palette = PaletteScreen.new()
 		_palette.take_requested.connect(func(item: int, whole: bool): Net.c_palette_take.rpc_id(1, item, whole))
-		add_child(_palette)
+		# **Into the HUD layer, like every other screen.** It went on the client itself, which is a
+		# Node3D: a Control anchored to a parent that has no rect gets no rect either, so the whole
+		# palette drew as a 190-pixel box in the top-left corner over the debug text. Never noticed
+		# because the palette had nothing in it to look at until today. (2026-09-23)
+		_hud_root.add_child(_palette)
+	_bring_to_front(_palette)
 	_palette.show_palette(groups, items, _atlas)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 

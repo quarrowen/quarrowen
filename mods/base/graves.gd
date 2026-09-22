@@ -14,7 +14,7 @@ var ids := {}
 func setup(mod_api, sounds: Dictionary) -> void:
 	api = mod_api
 	api.register_container("grave", {"title": "Grave", "groups": [{"name": "items", "count": 41, "columns": 9}]})
-	ids.grave = api.register_block("grave", {"display_name": "Grave", "container": "grave", "sounds": sounds.get("stone", {}),
+	ids.grave = api.register_block("grave", {"group": "Special", "display_name": "Grave", "container": "grave", "sounds": sounds.get("stone", {}),
 		"textures": {"top": "textures/grave_top.png", "side": "textures/grave_side.png", "bottom": "textures/grave_top.png"},
 		"hardness": 0.6, "placeable": false, "drops": ""})
 	api.on("player_death", _on_death)

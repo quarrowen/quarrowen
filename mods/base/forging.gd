@@ -15,7 +15,7 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	# speeds up. Two players: one works the bellows, the other the hammer.
 	api.register_minigame("forging", {"title": "Forge by hand", "type": "timing", "verb": "Strike", "rounds": 5,
 		"speed": 0.75, "zone": 0.2, "cool": 9.0, "team": true})
-	api.register_block("tool_forge", {"display_name": "Toolsmith’s Bench", "station": STATION, "sounds": sounds.stone, "hardness": 4.0, "tier": 1,
+	api.register_block("tool_forge", {"group": "Workshop", "display_name": "Toolsmith’s Bench", "station": STATION, "sounds": sounds.stone, "hardness": 4.0, "tier": 1,
 		"tool": "pickaxe", "textures": {"top": "textures/anvil_top.png", "side": "textures/tool_rack.png", "bottom": "textures/cobblestone.png"}})
 	api.register_recipe({"base:cobblestone": 4, "base:iron_ingot": 2, "base:planks": 4}, "base:tool_forge", 1, {"station": "crafting_table"})
 
