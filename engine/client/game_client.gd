@@ -2340,7 +2340,7 @@ func _update_time(delta: float) -> void:
 	# is aimed at reads golden where ours read clinical. The sky's own blue is the cool half of the
 	# pair - a warm key against a cool fill is what stops a lit scene looking like a lightbox.
 	# (2026-09-22)
-	var sun_tint := Color(0.55, 0.62, 0.9).lerp(Color(1.0, 0.66, 0.42), clampf(t * 3.0, 0.0, 1.0)).lerp(Color(1.0, 0.94, 0.84), clampf((sun_height - 0.15) * 2.5, 0.0, 1.0))
+	var sun_tint := Color(0.55, 0.62, 0.9).lerp(Color(1.0, 0.58, 0.32), clampf(t * 3.0, 0.0, 1.0)).lerp(Color(1.0, 0.90, 0.76), clampf((sun_height - 0.15) * 2.5, 0.0, 1.0))
 	var sun_direction := Vector3(cos((_time_of_day - 0.25) * TAU), sun_height, 0.35).normalized()
 	# **Where the sun is, every frame.** Everything below this guard is recomputed only when the
 	# *brightness* changes, which is right for colours and wrong for a position: daylight sits at 1.00
@@ -2385,7 +2385,7 @@ func _update_time(delta: float) -> void:
 		# one direction and only a fill from the sky. (2026-09-22)
 		_environment.ambient_light_energy = lerpf(0.42, 0.40, clampf(t, 0.0, 1.0))
 		_environment.ambient_light_sky_contribution = clampf(t * 1.3, 0.12, 1.0)
-		_environment.ambient_light_color = Color(0.55, 0.62, 0.85).lerp(Color.WHITE, clampf(t, 0.0, 1.0))
+		_environment.ambient_light_color = Color(0.52, 0.60, 0.86).lerp(Color(1.0, 0.97, 0.90), clampf(t, 0.0, 1.0))
 	_environment.fog_light_color = horizon
 	for material in [_solid_material, _translucent_material]:
 		material.set_shader_parameter("sky_color", Vector3(_sky_material.sky_top_color.r, _sky_material.sky_top_color.g, _sky_material.sky_top_color.b))

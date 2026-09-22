@@ -3629,3 +3629,32 @@ The comment that replaced it says what was tried and what was ruled out.
 Lesson, and it is the same one as the black sky: **prove the feature fires before believing it
 works.** Forcing the output to a colour nothing else in the scene uses took one render and settled
 what three careful looks at water had not.
+
+## The water reflection was a coordinate-space bug (2026-09-22)
+
+Found it by reading the deleted code rather than by running anything:
+
+    vec3 view = normalize(world_pos - CAMERA_POSITION_WORLD);   // world space
+    vec3 ray  = normalize(reflect(view, n));                    // world space
+    vec3 at   = VERTEX;                                         // VIEW space
+    at += ray * step;                                           // and there it is
+
+A world-space direction added to a view-space position. The march walked off in a direction that
+meant nothing, which is why it never hit at any angle, over any water, with a reach of nine blocks or
+of a hundred. `ray` is transformed by `VIEW_MATRIX` now and the hits appear immediately - verified
+the same way the failure was, by forcing every hit to draw red and seeing red where before there was
+none.
+
+**Deleting it was still right.** It was dead code costing sixteen taps a pixel, and the comment that
+replaced it recorded exactly what had been ruled out - which is what made the bug findable by reading
+rather than by another eight renders. A feature left in "because it might work" would have been
+carried forward untested and unquestioned.
+
+Light is warmer again at the user's request: midday sun (1.0, 0.90, 0.76), low sun (1.0, 0.58, 0.32),
+and the ambient fill warms towards white by day instead of staying blue, so shade reads golden rather
+than grey.
+
+**What the reflection needs now is something to reflect.** The lookbook's water is a two-block stream
+and a small inlet; the reference it is aimed at is a wide river with a bank on the far side. The
+mechanism works and this world cannot show it off - a demonstration wants a proper lake, which is a
+lookbook change rather than an engine one.
