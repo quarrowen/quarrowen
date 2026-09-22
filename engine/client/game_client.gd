@@ -98,6 +98,14 @@ const HANDSHAKE_SECONDS := 20.0
 ## Chunk meshes released per frame. Low enough that a bunch of unloads cannot stall a frame, high
 ## enough that they cannot pile up faster than they are cleared while a player runs.
 const RETIRE_PER_FRAME := 4
+## Where the low-health edge starts, as a fraction of full health, and how dark it ever gets.
+##
+## Turned up from 0.34/0.30, which was correctly described as "a bit too subtle": at four hearts it
+## was there but easy to miss, and a warning nobody notices is decoration. It now begins just under
+## half health and reaches almost half opacity at the corners - still nothing in the middle of the
+## screen, still never the only signal. (user, 2026-09-22)
+const LOW_HEALTH_FROM := 0.46
+const LOW_HEALTH_MAX := 0.48
 const MESH_WORKERS := 4
 const MOUSE_SENSITIVITY := 0.0025
 const REACH := 5.0
@@ -324,6 +332,9 @@ var _hotbar_slots: Array[Panel] = []
 var _hotbar_frame: PanelContainer = null
 ## Health and hunger as two slim bars, in the belt style only.
 var _vital_bars := {}
+## A warm edge that creeps in when health is low. See `_refresh_low_health`.
+var _low_health: TextureRect = null
+var _low_health_shown := 0.0
 var _chat_log: VBoxContainer
 var _chat_input: LineEdit
 var _pause_panel: PanelContainer
@@ -497,6 +508,72 @@ func _hud_style() -> String:
 ## slot shape are shared by every style that is not `classic`.
 func _hud_belt() -> bool:
 	return _hud_style() != "classic"
+
+
+## Fades the low-health edge in and out, and breathes it very slightly.
+##
+## Eased rather than set: health arrives in steps, and an edge that appeared the instant a hit landed
+## would flicker on every scratch. The breath is small on purpose - enough that the screen is not quite
+## still, not enough to notice as an effect.
+func _refresh_low_health(delta: float) -> void:
+	if _low_health == null:
+		return
+	var life := clampf(health / maxf(max_health, 1.0), 0.0, 1.0)
+	var wanted := 0.0
+	if _welcomed and not inventory.creative and life < LOW_HEALTH_FROM:
+		wanted = pow(1.0 - life / LOW_HEALTH_FROM, 1.4) * LOW_HEALTH_MAX
+	_low_health_shown = lerpf(_low_health_shown, wanted, minf(delta * 3.0, 1.0))
+	if _low_health_shown < 0.002:
+		_low_health.visible = false
+		return
+	_low_health.visible = true
+	var breath := 1.0 + sin(Time.get_ticks_msec() / 620.0) * 0.16
+	_low_health.modulate.a = _low_health_shown * breath
+
+
+## A slim vital bar: a rounded track with a fill inside it. Two of these replace twenty icons.
+##
+## **Twenty icons is twenty things to count.** A bar is read at a glance and, more to the point, a bar
+## can say "seven and a bit" without inventing a half-heart to mean it. They sit at the ends of the
+## belt rather than above it, so the whole HUD is one shape instead of three stacked rows.
+func _make_vital_bar(key: String, tint: Color, to_the_right: bool) -> void:
+	var track := PanelContainer.new()
+	track.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	track.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	track.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	track.custom_minimum_size = Vector2(168, 12)
+	track.position.y -= 84
+	track.position.x += 96 if to_the_right else -96
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var back := StyleBoxFlat.new()
+	back.bg_color = Color(0.06, 0.05, 0.05, 0.66)
+	back.set_corner_radius_all(6)
+	back.set_content_margin_all(2)
+	track.add_theme_stylebox_override("panel", back)
+	var fill := Panel.new()
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var front := StyleBoxFlat.new()
+	front.bg_color = tint
+	front.set_corner_radius_all(4)
+	fill.add_theme_stylebox_override("panel", front)
+	track.add_child(fill)
+	_hud_root.add_child(track)
+	_vital_bars[key] = {"track": track, "fill": fill, "right": to_the_right}
+
+
+## Sets a vital bar to `fraction`, growing from the belt outwards so both bars move away from the
+## centre - which reads as one pair rather than two unrelated meters.
+func _set_vital_bar(key: String, fraction: float, shown: bool) -> void:
+	var bar: Dictionary = _vital_bars.get(key, {})
+	if bar.is_empty():
+		return
+	var track: PanelContainer = bar.track
+	track.visible = shown
+	var width: float = maxf(track.size.x - 4.0, 0.0) * clampf(fraction, 0.0, 1.0)
+	var fill: Panel = bar.fill
+	fill.custom_minimum_size = Vector2(width, 8)
+	fill.size = Vector2(width, 8)
+	fill.position = Vector2(track.size.x - 4.0 - width if bool(bar.right) else 0.0, 0.0)
 
 
 ## Notes how long we have been joining, at one named step.
@@ -1811,6 +1888,7 @@ func _can_simulate() -> bool:
 # --- Frame update -------------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	_refresh_low_health(delta)
 	_retire_chunks()
 	_watch_handshake()
 	_poll_relief()
@@ -3846,6 +3924,21 @@ func _build_hud() -> void:
 		_make_vital_bar("health", Color(0.85, 0.27, 0.30), false)
 		_make_vital_bar("hunger", Color(0.80, 0.58, 0.26), true)
 
+	# **Low health darkens the edges of the screen.** A bar tells you a number; this tells you without
+	# being looked at, which is the point - at four hearts a child is watching the thing that is hitting
+	# them, not the corner of the screen. Deliberately *subtle* (the user, 2026-09-22: "a subtle one
+	# though"): it never exceeds a third opacity, never reaches the middle, and only begins below a
+	# third of health, so it reads as pressure rather than as a horror film. It is an addition to the
+	# bar and never the only signal, which also keeps it honest for a colourblind player.
+	_low_health = TextureRect.new()
+	_low_health.texture = _vignette_image()
+	_low_health.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_low_health.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_low_health.stretch_mode = TextureRect.STRETCH_SCALE
+	_low_health.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_low_health.modulate = Color(1, 1, 1, 0)
+	_hud_root.add_child(_low_health)
+
 	_heart_textures = [_heart_image(1.0), _heart_image(0.5), _heart_image(0.0)]
 	_hearts = HBoxContainer.new()
 	_hearts.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -4333,6 +4426,27 @@ func _refresh_hearts() -> void:
 
 
 ## 9x9 pixel heart: `fill` 1 = full, 0.5 = left half, 0 = empty outline.
+## A soft radial fade: clear in the middle, warm at the corners.
+##
+## Drawn once at a low resolution and stretched, because it is a gradient - detail in it would be
+## detail nobody can see, and a full-screen texture is the one place that actually costs something.
+static func _vignette_image() -> ImageTexture:
+	const N := 64
+	var img := Image.create(N, N, false, Image.FORMAT_RGBA8)
+	var middle := Vector2(N - 1, N - 1) * 0.5
+	for y in N:
+		for x in N:
+			# Distance from the centre, 0 in the middle and 1 at the edge of the shorter axis.
+			var d := (Vector2(x, y) - middle).length() / (float(N) * 0.5)
+			# Nothing until two thirds of the way out, then a smooth ramp: a hard ring would read as a
+			# drawn shape rather than as the edges going dark.
+			# Begins half way out rather than two thirds, so it reads as the edges closing in rather
+			# than as a thin frame around the picture.
+			var a := clampf((d - 0.48) / 0.62, 0.0, 1.0)
+			img.set_pixel(x, y, Color(0.62, 0.06, 0.05, a * a))
+	return ImageTexture.create_from_image(img)
+
+
 static func _heart_image(fill: float) -> ImageTexture:
 	var rows := ["01100110", "11111111", "11111111", "11111111", "01111110", "00111100", "00011000"]
 	var img := Image.create(9, 8, false, Image.FORMAT_RGBA8)

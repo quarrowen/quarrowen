@@ -2839,6 +2839,12 @@ by a server that cannot name those mods.
 unknown blocks. The engine promises that ("write back content whose mod is missing") and nothing
 checks it - and it is newly easy to check now that there are real absent mods to point at.
 
+**And the network isolation did not fix `host_flow_test`.** It failed again on 2026-09-22 after
+`QW_OFFLINE` landed, and passed on a re-run - so the flake is real, recurring, and *not* the update
+check reaching the internet, which was the theory that produced the offline guard. The guard was right
+for its own reasons (the suite should not touch the real world) but it was not the cause. Still
+unexplained; the failure is always the same one, "host client joined its own server".
+
 **Reached again from the other direction on 2026-09-22**, by researching what the genre's modding
 communities complain about: permanent world damage on mod removal is one of their loudest, and this
 is the same gap. Two independent routes to one missing test is about as strong a signal as this
@@ -4607,3 +4613,35 @@ the plumbing was checked. The cause was the schema entry:
 "c" - which never matches, and the value **falls back to the default with no error and no warning**.
 The existing `graphics/preset` entry three lines above shows the format. Another instance of the rule
 this whole day keeps returning to: the thing that already exists would have said so.
+
+## Low health darkens the edges, and mods can already build HUD (2026-09-22)
+
+**The overlay.** A warm vignette that creeps in as health drops - nothing above 46% health, reaching
+48% opacity at the corners at death's door, and never touching the middle of the screen. Asked for as
+"a subtle one though", built at 34%/30%, and correctly called "a bit too subtle": at four hearts it was
+there and easy to miss, and a warning nobody notices is decoration. Three levers moved together -
+earlier onset, higher maximum, and starting half way out rather than two thirds so it reads as the
+edges closing in rather than as a frame around the picture.
+
+The centre stays clear at every level and that is the part not to give up: the crosshair and whatever
+is hitting you both live there. It is an addition to the bar, never the only signal, which is also what
+keeps it honest for a colourblind player. If it ever needs more, the next lever is *warmth* rather than
+opacity - redder reads as hurt rather than merely dark, and covers no more of the screen.
+
+**`/health <0-20>` exists now**, the twin of `/hunger`, which existed while this did not - so there was
+no way to look at anything that depends on being hurt without going and getting hurt.
+
+### Mods and HUD: already possible, and the gap is convenience
+
+Asked whether mods could add HUD elements - a mana bar, equipment stats as numbers or icons. They can,
+today: `player.show_ui(id, spec)` anchors a panel anywhere, `"modal": false` leaves it over gameplay
+without taking the mouse, and the element types include labels, buttons, **progress bars**, images and
+boxes. A mana bar is a progress bar with a colour. `examples/ui_example/` is a working one.
+
+It is **data, not code** - the client renders a described tree and never runs anything a server sends,
+which is the same property that lets a tablet join any server without installing anything.
+
+**What is missing is a safe area, not a capability.** Anchors are screen-relative, so a mod placing
+something at the bottom centre lands on top of the belt. Worth an anchor that means "above the hotbar,
+wherever it is", so a mod does not have to know what the HUD looks like this version. Not built: it
+wants a real mod pushing against it first, and `base` will provide one.

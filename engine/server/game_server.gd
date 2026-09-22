@@ -1072,6 +1072,15 @@ func _register_builtin_commands() -> void:
 			player.send_message("Usage: /hunger <0-20> [player]")
 		elif target != null:
 			hunger.set_hunger(target, float(args[0]), 0.0), "engine", "admin")
+	# The twin of /hunger, which existed while this did not - so there was no way to look at anything
+	# that depends on being hurt without going and getting hurt. (2026-09-22)
+	add_command("health", "<0-20> [player] - set health", func(player, args):
+		var target = _target_player(player, args, 1)
+		if args.is_empty() or not args[0].is_valid_float():
+			player.send_message("Usage: /health <0-20> [player]")
+		elif target != null:
+			target.health = clampf(float(args[0]), 0.0, target.max_health)
+			sync_health(target), "engine", "admin")
 	add_command("tutorial", "list | start <id> | skip | stop | tips on|off", _cmd_tutorial, "engine")
 	add_command("milestones", "What you have done, and what is still out there", _cmd_milestones, "engine")
 	add_command("music", "Who made the music this server plays", _cmd_music, "engine")
