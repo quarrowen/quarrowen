@@ -4758,3 +4758,43 @@ beach at noon measures 255,254,240 - white with the texture gone. That is real, 
 water; it had simply been written up as the cause of the white lake, which it was not. The rest - the
 albedo scale, the clamped glint - were reverted, because a fix argued from a wrong diagnosis is not a
 fix even when the number looks reasonable.
+
+### The water was then too transparent, and why (2026-09-22)
+
+First thing the user said once the shader actually ran: *"its a bit too transparent no?"* The floor was
+`ALPHA = 0.06`, so a lake read as a haze lying on the sand.
+
+**ALPHA and the refraction were doing the same job twice.** `color` already contains
+`texture(screen_texture, ...)` - the bottom is *in* the water's own colour in this path - so a low alpha
+let the bottom through a second time. The unshaded path has no screen read at all, which is why its
+`mix(0.6, 0.95, fresnel)` was always right and looked like water. The lit floor is now 0.50, and the
+depth scale is back to 0.20 from the 0.085 it was dropped to.
+
+Both of those numbers, and the wave amplitude, the fresnel power, the reflection cap and the glint, were
+set on 22 September while the shader was failing to compile - so **every constant touched that day was
+tuning something that never executed**. They are being re-judged one at a time against a picture now.
+
+### The frame rate, and a hypothesis that did not survive (2026-09-22)
+
+User: *"my fps is low! even on m1 max showing 20 fps. not sure if its coz you are running an
+unoptimized build"*. Partly yes - the investigation runs the editor binary from source, which is a
+debug build. But two real things came out of looking:
+
+- **The lit voxel shader is not free.** It had cost nothing at all while it did not compile, so the fix
+  *added* its cost back. At the lake, `QW_REAL_OFF=lit` measured 49 fps average against 33 with it -
+  though see the caveat below. Disabling only the SSR march inside it recovered about 3.
+- **A wrong hypothesis, written down so it is not had twice.** The viewport is 10240x5300 on a
+  5120x2880 screen, because `apply_ui_scale` sets `content_scale_factor` to the screen's density. That
+  looks exactly like a 4x overdraw bug. It is not: measured side by side the HUD is genuinely *twice
+  the size on screen* at factor 2, so the larger viewport is real interface scaling and dropping it
+  would halve the interface. The fps difference between factor 1 and 2 was 46.9 against 44.6 average -
+  noise.
+
+**The caveat, and it matters:** at this viewpoint the frame is CPU-bound, not GPU-bound - best frames
+sit at 56-57 whatever the resolution, and quadrupling the pixels changed nothing measurable. So the
+lit/unlit numbers above are not trustworthy either; they were probably measuring chunk meshing still
+running. A frame rate pass needs its own session with a scene that is actually GPU-bound and a build
+that is not the editor's.
+
+Worth saying plainly after the week this has been: the fps numbers here are **not** a finding. They are
+four measurements with a variance wider than the effect being looked for.

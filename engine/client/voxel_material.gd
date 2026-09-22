@@ -222,20 +222,22 @@ const LIT_WATER := """
 		float raw = texture(depth_texture, SCREEN_UV).r;
 		vec4 behind = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, raw, 1.0);
 		float floor_depth = -(behind.xyz / behind.w).z;
-		// **Capped well below 1, and reached far more slowly.** At 0.22 a bit over four blocks of water
-		// saturated this, and everything downstream keys off it: the colour becomes entirely the deep
-		// tint and the alpha goes to one. That is an opaque sheet - no bottom, no stilts, no depth -
-		// which is exactly how the lit preset looked beside the unshaded one, and the unshaded path
-		// never reads the depth buffer at all. Whatever the depth read returns, water that cannot be
-		// seen through is not water. (user, 2026-09-22, comparing the two presets side by side)
-		float thickness = clamp((floor_depth + VERTEX.z) * 0.085, 0.0, 0.8);
+		// **0.20, which is roughly where it started.** It was dropped to 0.085 to cure an "opaque
+		// sheet" - and that diagnosis was made while this shader was failing to compile, so what was
+		// actually being looked at was Godot's default white material and none of these numbers had
+		// any effect at all. The first time the shader ran, 0.085 gave water with no depth to it: a
+		// lake tinted the same in the shallows as in the middle. Every constant set during that day
+		// is suspect for the same reason. (2026-09-22)
+		float thickness = clamp((floor_depth + VERTEX.z) * 0.20, 0.0, 0.85);
 		vec2 offset = top_face ? n.xz * 0.045 * (1.0 - thickness * 0.6) : vec2(0.0);
 		vec3 refracted = texture(screen_texture, SCREEN_UV + offset).rgb;
 		vec3 tint = mix(shallow_color, deep_color, thickness);
-		// The floor still shows through shallow water and stops showing through deep water.
-		// Some of the depth tint back: taking it out to fix the opacity also took away the thing that
-		// was hiding the blown highlight, which is how "opaque sheet" became "white sheet".
-		color = mix(refracted * mix(vec3(1.0), tint, 0.70), tint, thickness * 0.75) * max(daylight, 0.06);
+		// The floor still shows through shallow water and stops showing through deep water - and in
+		// this path that is what `refracted` is for, not what ALPHA is for. Worth being explicit,
+		// because getting the two confused is what made the water read as haze: the bottom was already
+		// coming through the refraction sample, and a low ALPHA on top of it let the bottom through a
+		// second time. (user, 2026-09-22: "its a bit too transparent no?")
+		color = mix(refracted * mix(vec3(1.0), tint, 0.88), tint, thickness * 0.85) * max(daylight, 0.06);
 		// **Softer than a fifth power, and over waves you can see.** These two numbers are one
 		// decision, and getting it wrong in either direction is visible from across a lake. A fifth
 		// power over five-block waves gave broad white bands marching across the surface, so the waves
@@ -324,14 +326,15 @@ const LIT_WATER := """
 			vec3 half_vector = normalize(normalize(sun_direction) - view);
 			glint = sun_tint * pow(max(dot(n, half_vector), 0.0), 220.0) * daylight * 2.2;
 		}
-		// **Alpha follows depth, steeply.** A flat 0.45 meant a block of water with the ground right
-		// behind it composited a refracted copy of that ground over the ground itself, at half
-		// strength - which reads as a pale panel hanging in the grass, not as water. Where there is
-		// nothing behind the surface there is nothing to tint, so it gets out of the way.
-		// Never fully opaque: the most a deep lake gets is about four fifths, so there is always some
-		// of the bottom coming through. Seeing the ground under the surface is most of what tells a
-		// player this is water and not a coloured floor.
-		ALPHA = clamp(0.06 + 0.30 * fresnel + thickness * 0.45, 0.0, 0.82);
+		// **A high floor, unlike every other translucent thing here.** The floor was 0.06, which is
+		// almost a window, and a lake came out as a haze lying on the sand rather than as water.
+		//
+		// The reason it can be this high is the line above: `color` already has the screen behind the
+		// surface in it. **In this path ALPHA is not how you see the bottom** - the refraction is -
+		// so alpha is free to say how much water is in the way instead, which is the job it does in
+		// the unshaded path too (0.6 to 0.95 there, and that is the one the user likes).
+		// Still never quite 1: a little of the raw bottom at every depth keeps a shoreline honest.
+		ALPHA = clamp(0.50 + 0.25 * fresnel + thickness * 0.25, 0.0, 0.95);
 		// **What the sun should light this with.** The wave normal above is deliberately gentle,
 		// because fresnel swings hard on a grazing view and anything stronger became marching white
 		// bands. Real lighting wants the opposite: a nearly flat normal under a real sun is a mirror,
