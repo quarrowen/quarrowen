@@ -4436,3 +4436,22 @@ The hotbar, hearts and hunger row are the genre's defaults wearing our textures.
 "Quarrowen style" instead - its own visual identity rather than the arrangement every block game uses.
 Not started. Worth doing near Phase 4, when `base` settles and there is real content behind the bar,
 rather than now against placeholder blocks.
+
+## Vertex compression breaks baked lighting (2026-09-22)
+
+`ARRAY_FLAG_COMPRESS_ATTRIBUTES` is one flag, halves vertex memory, and is the documented answer to
+the memory-bound vertex shader the engine's own team identified in its depth passes. Published voxel
+figures put it at 127MB of GPU mesh memory down to 10.9MB.
+
+**It visibly breaks this renderer, and the reason is our own design.** Baked light and ambient
+occlusion live in `ARRAY_COLOR`; compression quantises that to 8 bits per channel and octahedral-packs
+the normals. Rendered against the previous shot: dirt went bright orange, grass over-saturated, pale
+seams appeared along every block edge, and the terrain shadows vanished. Not banding - wrong.
+
+So the compression this mesh wants has to leave COLOR alone, which the blanket flag cannot do. The
+remaining candidate is narrower and still worth doing one day: `CUSTOM0` is `ARRAY_CUSTOM_RGBA_FLOAT`,
+sixteen bytes per vertex carrying nothing but an atlas rectangle in the 0..1 range, which would fit a
+half-float format at eight. That needs the Rust mesher to emit halves, so it is a real change rather
+than a flag.
+
+Recorded so nobody tries the flag again and concludes the renderer is broken.

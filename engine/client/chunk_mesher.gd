@@ -9,6 +9,11 @@ const Chunk = preload("res://engine/shared/chunk.gd")
 const Native = preload("res://engine/shared/native.gd")
 
 ## Surface format flags for Mesh.add_surface_from_arrays (CUSTOM0 holds 4 floats per vertex).
+## **Not `ARRAY_FLAG_COMPRESS_ATTRIBUTES`.** It halves vertex memory and is the obvious answer to a
+## memory-bound vertex shader, and it visibly breaks this mesh: the baked light and ambient occlusion
+## live in `ARRAY_COLOR`, which it quantises, and normals become octahedral. Rendered side by side,
+## dirt went bright orange, grass over-saturated, pale seams appeared between blocks and the terrain
+## shadows disappeared entirely. Any compression here has to leave COLOR alone. (2026-09-22)
 const SURFACE_FLAGS := Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT
 
 
