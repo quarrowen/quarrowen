@@ -3748,3 +3748,31 @@ at 60 median instead of 44 on the Max.
 16 scales with the same factor it lands somewhere around 30, which is playable but not comfortable.
 If it does not, the honest answer is that realistic is a preset for capable machines and the family
 plays on fancy - which is what the three cheap presets were always for.
+
+## Where the realistic preset actually landed (2026-09-22)
+
+Measured on the machines that matter, after the cuts:
+
+| | before | after |
+|---|---|---|
+| M1 Max | 45 avg | **60 constant** (vsync-capped) |
+| M1 Air (base), on land | 16-18 | **29** |
+| M1 Air (base), near water | 16-18 | **25** |
+
+About sixty per cent more on the Air for no visible difference, and SSIL was most of it.
+
+**What this means, plainly: realistic is playable on an Air and is not smooth on one.** It stays
+opt-in and `fancy` stays the default, which is what the three cheap presets were always for. A
+building game at 25 is fine; it would not be for anything that needs quick aim.
+
+**The last knob with a clear price is the water reflection: four frames on the Air** (25 near water
+against 29 away from it), which is the ten-step march plus its refinement running on every water
+pixel. Cutting it further is available and costs reflection quality - not taken, because the
+reflection is the thing that made the water worth looking at and the user has not said 25 is too
+slow.
+
+Worth remembering how this went: the preset was written, called done, and only then measured - and
+the measurement found a third of the frame going to an effect that duplicated something already
+baked into the mesh. **The harness that made this answerable (`--fps=N` in screenshot.gd and
+`QW_REAL_OFF`) took twenty minutes and should have existed before the first shader was touched**, not
+after four rounds of guessing at screenshots.
