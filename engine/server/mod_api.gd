@@ -146,6 +146,8 @@ const VoxelRaycast = preload("res://engine/shared/voxel_raycast.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
 var mod_id: String
+## Deprecated names this mod has already been told about; see `deprecated`.
+var _warned_deprecated := {}
 var mod_dir: String
 var manifest: Dictionary
 ## True while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,
@@ -911,6 +913,44 @@ func get_station(position: Vector3i) -> Dictionary:
 ##
 ## The first mod to declare a tab names it. If yours would have renamed it, that is said in the dev log
 ## rather than silently ignored - a missing label with no explanation is very hard to chase.
+## Names that still work but should not be used, and what to use instead.
+##
+## **The point of this table is that the list of ways to break a mod is finite and written down.** The
+## loudest complaint about modding in this genre is that every release of the game rewrites its own
+## internals, so every mod must be rewritten too - authors maintain parallel branches, players are split
+## across versions, and a mod one version behind simply does not load. Mods here call this file and
+## never touch engine internals, so *nothing forces* that on anybody. What remains is whether we do it
+## to ourselves.
+##
+## So the rule, which is the whole policy:
+##
+##   - **Adding a function is a minor bump** (1.0 to 1.1). `"engine": "^1.0"` keeps working. Free.
+##   - **A function never changes its signature in place.** Add the new one, leave the old one calling
+##     it, and list it here. A mod written a year ago keeps running.
+##   - **A name listed here survives at least until the next major version**, and only a major bump may
+##     remove it - which is the one thing that makes every `^1.0` mod stop loading, and should be
+##     something we do roughly never.
+##
+## `tests/gameplay_test.gd` checks every name here still exists and still warns, so a deprecation
+## cannot be quietly deleted, and `mod_tool -- docs` marks them on the reference page. (2026-09-22)
+const DEPRECATED := {
+	"register_loot_table": "register_loot",
+}
+
+
+## Says once per mod that a deprecated name was used. Once, because a mod calling it in a loop would
+## otherwise bury its own log, and the author only needs telling the first time.
+##
+## Private: this is the engine telling a mod something, not a thing a mod calls. Public would also put
+## it in the JavaScript bindings, where it means nothing.
+func _deprecated(old_name: String, instead: String) -> void:
+	if _warned_deprecated.has(old_name):
+		return
+	_warned_deprecated[old_name] = true
+	_server.dev_log.add("warn", mod_id,
+		"%s is deprecated and will go at the next major version of the mod API; use %s" % [old_name, instead])
+
+
 func register_recipe_category(category_name: String, def := {}) -> bool:
 	var d := def.duplicate()
 	d.name = category_name
@@ -2245,8 +2285,9 @@ func register_loot(table_name: String, def: Dictionary) -> void:
 	_server.loot.register(_qualify_ref(table_name), def)
 
 
-## Same as register_loot (the name it had before tables were used for everything).
+## Deprecated: use `register_loot`. The name it had before tables were used for everything.
 func register_loot_table(table_name: String, def: Dictionary) -> void:
+	_deprecated("register_loot_table", "register_loot")
 	register_loot(table_name, def)
 
 

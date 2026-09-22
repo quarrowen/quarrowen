@@ -365,18 +365,6 @@ hints, detected, available, next, structure}, or {}.
 
 ### `api.register_recipe_category(category_name: String, def := {}) -> bool`
 
-Adds a recipe book tab, or joins one that already exists. def: display_name, icon (item name shown
-on the tab). False only when the name is unusable.
-
-**The name is not namespaced, unlike almost everything else here**, and that is deliberate: the
-engine owns `tools`, `weapons`, `blocks`, `food`, `materials`, `parts`, `armor` and `misc`, recipes
-name a category as a plain string, and a mod qualified to `mymod:tools` could only ever make a
-*second* tab labelled Tools rather than adding to the first. Naming an existing tab puts your
-recipes in it, which is usually what you want.
-
-The first mod to declare a tab names it. If yours would have renamed it, that is said in the dev log
-rather than silently ignored - a missing label with no explanation is very hard to chase.
-
 ```gdscript
 api.register_recipe_category("proven", {"display_name": "Proven", "icon": "proving:token"})
 ```
@@ -824,7 +812,7 @@ api.register_loot("crate_loot", {"pools": [
 
 ### `api.register_loot_table(table_name: String, def: Dictionary) -> void`
 
-Same as register_loot (the name it had before tables were used for everything).
+Deprecated: use `register_loot`. The name it had before tables were used for everything.
 
 ```gdscript
 api.register_loot_table("bench_loot", {"pools": [

@@ -216,6 +216,29 @@ up would bury the part that matters rather than surface it.
   script really compiles, `load()` it and ask `can_instantiate()` - which is what the suite does for every
   script under `engine/`.
 
+## Changing the mod API
+
+**Adding a function is free. Changing one is not, and there is a policy.** `MOD_API_VERSION` is
+`"1.0.0"` and has never moved; mods declare `"engine": "^1.0"` and the loader refuses anything outside
+the range. The rule, which lives in `ModApi.DEPRECATED`:
+
+- **Adding is a minor bump** (1.0 → 1.1). `^1.0` keeps working.
+- **A function never changes its signature in place.** Add the new one, leave the old one calling it,
+  and list it in `DEPRECATED`. A mod written a year ago keeps running, and its author is told once in
+  the dev log which name to move to.
+- **A deprecated name survives at least until the next major version**, and only a major bump removes
+  it — which is the one action that stops every `^1.0` mod loading, and should be something we do
+  roughly never.
+
+The suite checks every name in `DEPRECATED` still exists and still warns, so one cannot be quietly
+deleted, and the Proving Ground *uses* the deprecated names deliberately — exercising them is the only
+thing that proves they still work, so a deprecation notice is the one warning it is allowed to produce.
+
+Why this matters more than it looks: the loudest complaint about modding in this genre is that every
+release rewrites the game's internals, so every mod must be rewritten too. Mods here call
+`mod_api.gd` and never touch engine internals, so nothing *forces* that on anybody. The only way it
+happens to us is if we do it to ourselves.
+
 ## Adding an RPC
 
 **Append it at the end of `engine/net/net.gd`, and bump `Protocol.VERSION`.**

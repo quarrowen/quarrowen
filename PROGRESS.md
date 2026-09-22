@@ -4434,8 +4434,15 @@ whether cascades 4->2 finally shows a difference now that there is something in 
 
 The hotbar, hearts and hunger row are the genre's defaults wearing our textures. The user wants a
 "Quarrowen style" instead - its own visual identity rather than the arrangement every block game uses.
-Not started. Worth doing near Phase 4, when `base` settles and there is real content behind the bar,
-rather than now against placeholder blocks.
+
+**Before Phase 4, not after** (the user, 2026-09-22: "before we start phase 4, we need to revamp/
+redesign the hud. dont forget"). My earlier suggestion of doing it afterwards was wrong: the HUD is the
+frame every screenshot of Phase 4 content will sit inside, and choosing it after a hundred blocks exist
+means judging new content through an old frame.
+
+Approach that has worked twice here: **render the options and let the user choose.** They are not an
+artist by their own account, cannot always name which lever produces an effect, and pick confidently
+from pictures - that is how the texture style and the tree silhouettes were settled.
 
 ## Vertex compression breaks baked lighting (2026-09-22)
 
@@ -4530,3 +4537,28 @@ would be the same mistake as the three cloud measurements that were measuring a 
 **What this needs is a profiler, not another theory.** Godot 4.6 added Apple Instruments tracing, which
 gives per-frame, per-thread visibility - and it wants running on the machine that actually struggles.
 Recorded rather than chased, with the budgeted retirement kept because it is right regardless.
+
+## A deprecation policy, so the porting treadmill stays something we choose (2026-09-22)
+
+Gap 4 from the research ledger. The genre's loudest complaint is that every release of the game
+rewrites its internals, so every mod must be rewritten: authors maintain parallel branches, players
+split across versions, and a mod one version behind does not load at all. Mods here call `mod_api.gd`
+and never touch engine internals, so **nothing forces that on anybody** - which means the only way it
+happens to us is if we do it to ourselves, and until now there was no rule saying we would not.
+
+There is now, in `ModApi.DEPRECATED`: adding a function is a minor bump that `^1.0` keeps satisfying;
+a function never changes signature in place, but gains a replacement while the old name stays and
+delegates; a deprecated name lives at least until the next major version; and only a major bump
+removes one, which is the single action that stops every existing mod loading.
+
+Built around a real case rather than an empty table: `register_loot_table` has been an undeclared
+alias for `register_loot` since tables stopped being only for loot. It now says so, once per mod, in
+the dev log.
+
+Two things the suite enforces. Every name in `DEPRECATED` must still exist and must still warn, so one
+cannot be quietly deleted. And the Proving Ground **uses** the deprecated names on purpose - exercising
+them is the only thing that proves they still work - so a deprecation notice is the one warning it is
+allowed to produce, and nothing else.
+
+The helper is private (`_deprecated`), which the bindings ratchet caught immediately: public would have
+put it in the JavaScript API, where "tell a mod it used an old name" means nothing to call.

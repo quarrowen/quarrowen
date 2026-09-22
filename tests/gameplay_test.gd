@@ -2726,7 +2726,14 @@ func _mod_packages() -> void:
 	var missing := expected.filter(func(e): return not text.contains(e))
 	_check(not result.ok and missing.is_empty(), "the validator reports manifest, asset and reference mistakes (missing: %s)" % str(missing))
 	var clean: Dictionary = preload("res://engine/server/mod_validator.gd").validate(ProjectSettings.globalize_path("res://tests/mods/proving"), self)
-	_check(clean.ok and clean.counts.warning == 0, "the Proving Ground validates cleanly")
+	# Deprecation notices are the one warning this mod is *supposed* to produce. It exercises every
+	# capability the engine has, and that has to include the names kept working for mods written
+	# against an older API - exercising them is the only thing that proves they still work. So they are
+	# allowed here and nothing else is. (2026-09-22)
+	var unexpected: Array = clean.issues.filter(func(i): return String(i.level) == "warning" and not String(i.message).contains("deprecated"))
+	_check(clean.ok and unexpected.is_empty(),
+		"the Proving Ground validates cleanly apart from the deprecations it deliberately uses (%s)"
+			% ", ".join(unexpected.map(func(i): return String(i.message))))
 
 
 func _mod_templates() -> void:
@@ -4404,6 +4411,23 @@ func _api_docs() -> void:
 	# link that matters usually runs through one: `api.sources_of` reaches `chance_of` only via
 	# `of_item` and loot's own `sources_of`. Not knowing `chance_of` existed is what caused the bug this
 	# reference was built to prevent, so the chain itself is worth asserting. (2026-09-22)
+	# Deprecations are a promise: a name listed as deprecated still works, still warns, and cannot be
+	# deleted without deleting its entry here first. The genre's defining complaint is that every
+	# release rewrites internals and every mod must be rewritten; mods here call a facade and never
+	# touch internals, so the only way that happens to us is if we do it to ourselves. This is the
+	# check that we do not. (2026-09-22)
+	var api_source := FileAccess.get_file_as_string("res://engine/server/mod_api.gd")
+	var ModApiScript = preload("res://engine/server/mod_api.gd")
+	var deprecated_gone: Array = []
+	var deprecated_silent: Array = []
+	for old_name: String in ModApiScript.DEPRECATED:
+		if not api_source.contains("func %s(" % old_name):
+			deprecated_gone.append(old_name)
+		elif not api_source.contains('deprecated("%s"' % old_name):
+			deprecated_silent.append(old_name)
+	_check(deprecated_gone.is_empty(), "every deprecated name still exists (%s)" % ", ".join(deprecated_gone))
+	_check(deprecated_silent.is_empty(), "and every one of them says so when used (%s)" % ", ".join(deprecated_silent))
+
 	# Examples come from the Proving Ground, not from prose, so they cannot rot: the suite loads and
 	# plays that mod every run. Since every capability is exercised there (tests/mods/proving/
 	# uncovered.txt is empty), every capability has a worked example - and this is what keeps the two
