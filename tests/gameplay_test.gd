@@ -2904,7 +2904,11 @@ func _loot() -> void:
 
 	# What a host turns up for an event, and what it goes back to afterwards.
 	loot.register("test:event", {"pools": [{"rolls": 1, "entries": [{"item": "base:coal", "weight": 1}, {"item": "base:stick", "weight": 99}]}]})
-	loot.set_boost("base:coal", 200.0)
+	# **Check that the boost was accepted.** `set_boost` answers with an error string rather than
+	# raising, so a rejected boost used to show up only as the roll below coming out at chance - and
+	# chance is 50 of 100, which reads as an unlucky run rather than as a boost that never applied.
+	# Seen once on 2026-09-23 at exactly 50; if it happens again this says why. (2026-09-23)
+	_check(loot.set_boost("base:coal", 200.0) == "", "a host can turn an item up for an event")
 	var boosted: int = 0
 	for i in 100:
 		boosted += loot.roll("test:event").reduce(func(n, d): return n + (1 if d[0] == coal else 0), 0)

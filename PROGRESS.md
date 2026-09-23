@@ -5264,3 +5264,52 @@ thirty-odd block references across the guide, the stations and the tests. Caught
 the suite, but it is now clear that this project's naming has a structural hazard: **pages, blocks,
 recipes, minigames, materials and sounds share one namespace shape and nothing distinguishes them at
 a glance.** A rename script must always be context-aware here, never textual.
+
+## The iOS native library builds (2026-09-23)
+
+`tools/build_native.sh ios` and `ios-sim` now produce
+`native/bin/ios[-sim]/quarrowen_native.framework`, and `quarrowen_native.gdextension` declares them.
+Two things had to be worked out, neither of which is in godot-rust's documentation:
+
+- **QuickJS has no prebuilt bindings for `aarch64-apple-ios`.** `rquickjs-sys` ships a checked-in
+  `bindings/<target>.rs` per platform and iOS is not one of them; the build stops with
+  *"couldn't read .../bindings/aarch64-apple-ios.rs"* and its own warning suggests the `bindgen`
+  feature, which reads the C headers with libclang instead. Xcode supplies that clang, so the fix is
+  a target-specific dependency in `native/Cargo.toml`.
+- **Then it fails to *link*:** `___chkstk_darwin`, undefined, referenced from six QuickJS functions.
+  That is clang's stack-probe helper, which lives in `libclang_rt.ios.a` and which Rust does not link
+  for this target. `build_native.sh` now finds that library under Xcode and passes `-L`/`-l` for it.
+  The simulator wants `libclang_rt.iossim.a` instead.
+
+The framework is assembled by hand because that is what iOS takes: the dylib, an `Info.plist`, and an
+install name of `@rpath/quarrowen_native.framework/quarrowen_native` so dyld finds it inside the app
+bundle.
+
+**A TOML trap worth recording.** The first attempt put the iOS-only dependency straight after
+`rquickjs` inside `[dependencies]` - which silently moved `tiny_http`, the next line, into the new
+target table. The macOS build then failed with *"unresolved import `tiny_http`"*, which reads as a
+missing crate rather than a misplaced section header. Target tables go at the end.
+
+### What is done and what is not
+
+- **Done:** it compiles and links for device and simulator, the framework is well-formed, the
+  extension declares it, and both suites still pass on macOS.
+- **Not done, and not provable here:** no iOS *export preset* exists, there is no signing set up, and
+  nothing has run on a device or in the simulator. The library building is necessary and nowhere near
+  sufficient.
+
+## Android: not started, and it needs a decision (2026-09-23)
+
+The user named Android as a target. The repository has **no Android anything** - no CI job, no export
+preset, no mention in `docs/distribution.md`, and the roadmap's mobile milestone is iPad only. This
+machine has no Android SDK, no NDK and no `cargo-ndk`.
+
+Getting there is a bigger lift than iOS was: the SDK and NDK are a multi-gigabyte install, the Rust
+side wants three targets (`aarch64-linux-android`, `armv7-linux-androideabi`, `x86_64-linux-android`)
+built through the NDK's toolchain, Godot needs its Android export templates and a debug keystore, and
+godot-rust calls Android support experimental alongside iOS.
+
+**So the twins stay for now.** The order agreed was: build the mobile targets, prove them, *then*
+delete the GDScript fallbacks. iOS is built but unproven and Android is not built at all - deleting
+the twins today would turn two target platforms from slow into broken, which is exactly the failure
+the order was chosen to avoid.

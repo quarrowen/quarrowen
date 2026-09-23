@@ -5,6 +5,8 @@
 #   tools/build_native.sh              # host platform
 #   tools/build_native.sh macos        # universal (arm64 + x86_64) macOS library
 #   tools/build_native.sh linux-arm64  # cross target (needs the Rust target + linker)
+#   tools/build_native.sh ios          # device .framework (needs Xcode + the Rust iOS target)
+#   tools/build_native.sh ios-sim      # simulator .framework
 set -euo pipefail
 cd "$(dirname "$0")/../native"
 
@@ -28,10 +30,49 @@ install_lib() { # source dest_dir name
   echo "installed native/bin/$2/$3"
 }
 
+# **iOS wants a framework, not a bare dylib**, and the dylib has to be linked against clang's iOS
+# builtins or QuickJS fails to link: `___chkstk_darwin` is a stack-probe helper the C compiler emits
+# and Rust does not pull in for this target. Found the hard way on 2026-09-23.
+ios_framework() { # target rt_lib dest_dir
+  local rt
+  rt="$(dirname "$(find "$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang" -name "libclang_rt.$2.a" | head -1)")"
+  [ -n "$rt" ] || { echo "no libclang_rt.$2.a under Xcode; is Xcode installed?" >&2; exit 1; }
+  RUSTFLAGS="-C link-arg=-L$rt -C link-arg=-lclang_rt.$2" cargo build --release --target "$1"
+  local out="../native/bin/$3/quarrowen_native.framework"
+  rm -rf "$out"
+  mkdir -p "$out"
+  cp "target/$1/release/libquarrowen_native.dylib" "$out/quarrowen_native"
+  # The id has to match the framework's own path or dyld will not find it inside the app bundle.
+  install_name_tool -id "@rpath/quarrowen_native.framework/quarrowen_native" "$out/quarrowen_native"
+  cat > "$out/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleExecutable</key><string>quarrowen_native</string>
+	<key>CFBundleIdentifier</key><string>org.quarrowen.native</string>
+	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+	<key>CFBundleName</key><string>quarrowen_native</string>
+	<key>CFBundlePackageType</key><string>FMWK</string>
+	<key>CFBundleShortVersionString</key><string>1.0</string>
+	<key>CFBundleVersion</key><string>1</string>
+	<key>MinimumOSVersion</key><string>13.0</string>
+</dict>
+</plist>
+PLIST
+  echo "installed native/bin/$3/quarrowen_native.framework"
+}
+
 case "$platform" in
   macos-host)
     cargo build --release
     install_lib target/release/libquarrowen_native.dylib macos libquarrowen_native.dylib ;;
+  ios)
+    rustup target add aarch64-apple-ios >/dev/null
+    ios_framework aarch64-apple-ios ios ios ;;
+  ios-sim)
+    rustup target add aarch64-apple-ios-sim >/dev/null
+    ios_framework aarch64-apple-ios-sim iossim ios-sim ;;
   macos)
     rustup target add aarch64-apple-darwin x86_64-apple-darwin >/dev/null
     cargo build --release --target aarch64-apple-darwin
