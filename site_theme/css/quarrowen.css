@@ -133,6 +133,47 @@ a:hover { text-decoration: underline; }
   overflow-wrap: anywhere;
 }
 .doc h3 code { background: none; padding: 0; font-size: 1em; }
+/* Signature lines, which the selector swaps between. Styled as the block the old heading used to be,
+ * so moving the signature out of the heading changed the markup and not the look. */
+.doc p.sigline {
+  font-family: var(--mono); font-size: .86rem; color: var(--ink);
+  background: var(--paper-sunk); border-left: 3px solid var(--grass);
+  padding: 9px 13px; margin: 0 0 .9em; max-width: none; overflow-wrap: anywhere;
+}
+.doc p.sigline code { background: none; padding: 0; font-size: 1em; }
+.doc p.sigline.unavailable { border-left-color: var(--ink-faint); color: var(--ink-faint); }
+
+/* The member name is the heading now - short, scannable, and what the anchor is built from. */
+.doc h3 {
+  font-family: var(--mono); font-weight: 500; font-size: 1rem; color: var(--ink);
+  margin: 2em 0 .5em; padding: 0; background: none; border: 0;
+}
+
+/* Chapters nested under a section in the tree. */
+.tree .sub-grp {
+  display: block; padding: 10px 18px 3px; color: var(--parchment);
+  font-family: var(--slab); font-weight: 700; font-size: .85rem;
+}
+.tree ul.d2 li a { padding-left: 28px; }
+.tree ul.d2 { margin-bottom: 6px; }
+
+/* The language selector, sitting on the signature it switches. Two buttons rather than a dropdown:
+ * there are exactly two languages and a dropdown hides one of them behind a click. */
+.langtabs { display: flex; gap: 0; margin: 2em 0 0; }
+.langtab {
+  font: inherit; font-size: .72rem; font-family: var(--slab); font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  padding: 4px 11px; cursor: pointer;
+  background: var(--paper-sunk); color: var(--ink-faint);
+  border: 1px solid var(--rule); border-bottom: 0;
+}
+.langtab + .langtab { border-left: 0; }
+.langtab:hover { color: var(--ink); }
+.langtab.on { background: var(--grass); color: #f4f1ea; border-color: var(--grass); }
+.langtabs + h3 { margin-top: 0; }
+/* The two the bridge genuinely cannot reach. Said plainly rather than left to be discovered. */
+.doc h3.unavailable { border-left-color: var(--ink-faint); color: var(--ink-faint); font-style: italic; }
+
 .doc h4 {
   font-family: var(--slab); font-weight: 700; color: var(--grass);
   font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; margin: 1.6em 0 .4em;

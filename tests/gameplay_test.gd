@@ -4501,10 +4501,23 @@ func _api_docs() -> void:
 	# Markdown is the source of truth now (the user, 2026-09-22): a static site generator can make pages
 	# from it, and unlike a 500KB HTML file it can actually be searched - by a person or by a tool, which
 	# is the whole point of a reference nobody could find their way around.
-	var mod_md: String = Docs.build_mod_markdown()
+	# One file per chapter since 2026-09-23, so this compares a set rather than a string. Every chapter
+	# has to match: a stale page nobody checks is exactly the failure this test exists to prevent, and
+	# splitting the file would otherwise have quietly halved what it covers.
+	var chapters: Dictionary = Docs.build_mod_chapters()
+	var stale: Array = []
+	for name: String in chapters:
+		if FileAccess.get_file_as_string("res://docs/api/" + name) != String(chapters[name]):
+			stale.append(name)
+	_check(stale.is_empty(),
+		"docs/api/*.md is up to date (%d chapters; regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)%s"
+			% [chapters.size(), "" if stale.is_empty() else " - stale: " + ", ".join(stale)])
+	# The bug this replaced: the JavaScript name was looked up with the GDScript one, so 10 of 317
+	# functions carried a "JavaScript:" line and the rest read as GDScript-only.
+	var blocks_md := String(chapters.get("mod-api/blocks-and-the-world.md", ""))
+	_check(blocks_md.contains("api.registerBlock("),
+		"and each entry carries its JavaScript signature, not only its GDScript one")
 	var engine_md: String = Docs.build_engine_markdown()
-	_check(FileAccess.get_file_as_string("res://docs/api/mod-api.md") == mod_md,
-		"docs/api/mod-api.md is up to date (regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)")
 	_check(FileAccess.get_file_as_string("res://docs/api/engine.md") == engine_md,
 		"docs/api/engine.md is up to date (regenerate: godot --headless --path . res://tools/mod_tool.tscn -- docs)")
 

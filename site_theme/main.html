@@ -30,16 +30,26 @@
 <div class="shell">
 
   <nav id="tree" class="tree" aria-label="Reference">
+    {%- macro branch(items, depth) %}
+      <ul class="d{{ depth }}">
+      {%- for item in items %}
+        {%- if item.children %}
+          <li class="sec{% if item.active %} open{% endif %}">
+            <span class="sub-grp">{{ item.title }}</span>
+            {{ branch(item.children, depth + 1) }}
+          </li>
+        {%- else %}
+          <li><a class="{% if item.active %}cur{% endif %}" href="{{ item.url|url }}">{{ item.title }}</a></li>
+        {%- endif %}
+      {%- endfor %}
+      </ul>
+    {%- endmacro %}
     {%- for item in nav %}
       {%- if item.children %}
         <div class="grp">{{ item.title }}</div>
-        <ul>
-        {%- for child in item.children %}
-          <li><a class="{% if child.active %}cur{% endif %}" href="{{ child.url|url }}">{{ child.title }}</a></li>
-        {%- endfor %}
-        </ul>
+        {{ branch(item.children, 1) }}
       {%- else %}
-        <ul><li><a class="{% if item.active %}cur{% endif %}" href="{{ item.url|url }}">{{ item.title }}</a></li></ul>
+        <ul class="d1"><li><a class="{% if item.active %}cur{% endif %}" href="{{ item.url|url }}">{{ item.title }}</a></li></ul>
       {%- endif %}
     {%- endfor %}
   </nav>
@@ -86,6 +96,7 @@
 })();
 </script>
 <script src="{{ 'search/main.js'|url }}" defer></script>
+<script src="{{ 'lang/main.js'|url }}" defer></script>
 {%- for path in config.extra_javascript %}<script src="{{ path|url }}" defer></script>{%- endfor %}
 </body>
 </html>

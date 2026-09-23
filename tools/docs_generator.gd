@@ -325,29 +325,36 @@ static func _files_under(root: String, suffix: String) -> Array:
 static func write_markdown(out_dir: String) -> Array:
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	var written: Array = []
-	for pair in [["mod-api.md", build_mod_markdown()], ["engine.md", build_engine_markdown()],
-			["how-do-i.md", build_tasks_markdown()]]:
-		var path: String = out_dir.path_join(String(pair[0]))
+	var files := {"engine.md": build_engine_markdown(), "how-do-i.md": build_tasks_markdown()}
+	files.merge(build_mod_chapters())
+	for name: String in files:
+		var path: String = out_dir.path_join(name)
+		# The chapters live in a subdirectory, which will not exist on a fresh checkout.
+		DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 		var f := FileAccess.open(path, FileAccess.WRITE)
-		f.store_string(String(pair[1]))
+		f.store_string(String(files[name]))
 		f.close()
 		written.append(path)
+	written.sort()
 	return written
 
 
-static func build_mod_markdown() -> String:
+## The mod API split by chapter: `{"mod-api.md": <index>, "mod-api/<slug>.md": <chapter>, ...}`.
+##
+## **One page per chapter rather than one page of 317 functions** (the user, 2026-09-23). The reason is
+## navigation: the site's member tree lists pages, so a single page means a tree that can only say
+## "Mod API" - which is not a reference, it is a document with a table of contents. One page per
+## *function* was the other option and was rejected as 300 files to generate, link and keep from
+## rotting, for a tree nobody could scan anyway.
+static func build_mod_chapters() -> Dictionary:
 	var graph := call_graph()
 	var shown := examples()
 	var api := parse_gdscript(FileAccess.get_file_as_string(MOD_API), "")
 	var js_names := {}
 	for m in parse_ts_interface(FileAccess.get_file_as_string(TYPES), "Api"):
 		js_names[m.name] = m
-	var out := PackedStringArray()
-	out.append("# Mod API reference\n")
-	out.append("Every function a mod can call, generated from `engine/server/mod_api.gd` by")
-	out.append("`mod_tool.tscn -- docs`. For the engine's own readers - the registries and helpers behind")
-	out.append("these - see [engine.md](engine.md).\n")
-	out.append("Mod API %s · game %s\n" % [Protocol.MOD_API_VERSION, Protocol.GAME_VERSION])
+
+	var chapters: Array = []  # [{title, slug, rows}]
 	var placed := {}
 	for section in SECTIONS:
 		var rows: Array = []
@@ -360,11 +367,37 @@ static func build_mod_markdown() -> String:
 					placed[fn.name] = true
 					break
 		if not rows.is_empty():
-			out.append(_markdown_section(String(section[0]), rows, graph, js_names, "api.", shown))
+			chapters.append({"title": String(section[0]), "slug": _slug(String(section[0])), "rows": rows})
 	var rest: Array = api.filter(func(fn): return not placed.has(fn.name))
 	if not rest.is_empty():
-		out.append(_markdown_section("Everything else", rest, graph, js_names, "api.", shown))
-	return "\n".join(out)
+		chapters.append({"title": "Everything else", "slug": "everything-else", "rows": rest})
+
+	var out := {}
+	var index := PackedStringArray()
+	index.append("# Mod API reference\n")
+	index.append("Every function a mod can call, generated from `engine/server/mod_api.gd` by")
+	index.append("`mod_tool.tscn -- docs`. For the engine's own readers - the registries and helpers behind")
+	index.append("these - see [engine.md](engine.md).\n")
+	index.append("Mod API %s · game %s\n" % [Protocol.MOD_API_VERSION, Protocol.GAME_VERSION])
+	index.append("Every entry carries both signatures. A mod is written in GDScript or in JavaScript and")
+	index.append("the two are the same API, so the reference shows the same function both ways rather than")
+	index.append("leaving one of them to be guessed at.\n")
+	index.append("## Chapters\n")
+	for c: Dictionary in chapters:
+		index.append("[%s](mod-api/%s.md)" % [c.title, c.slug])
+		index.append(":   %d function%s.\n" % [c.rows.size(), "" if c.rows.size() == 1 else "s"])
+	out["mod-api.md"] = "\n".join(index)
+
+	for c: Dictionary in chapters:
+		var body := PackedStringArray()
+		body.append("# %s\n" % c.title)
+		body.append("Part of the [Mod API reference](../mod-api.md). Mod API %s · game %s\n"
+			% [Protocol.MOD_API_VERSION, Protocol.GAME_VERSION])
+		# `_markdown_section` opens with its own `## <title>`, which would repeat the page's own h1 -
+		# so the chapter body starts at the functions and the heading above is the only one.
+		body.append(_markdown_section(String(c.title), c.rows, graph, js_names, "api.", shown).trim_prefix("\n## %s\n" % c.title))
+		out["mod-api/%s.md" % c.slug] = "\n".join(body)
+	return out
 
 
 static func build_engine_markdown() -> String:
@@ -406,11 +439,29 @@ static func _engine_section_of(path: String) -> String:
 static func _markdown_section(title: String, rows: Array, graph: Dictionary, js_names: Dictionary, prefix: String, shown: Dictionary) -> String:
 	var out := PackedStringArray(["\n## %s\n" % title])
 	for fn: Dictionary in rows:
-		out.append("### `%s%s`\n" % [prefix, String(fn.signature)])
+		# **The heading is the member name; the signature goes underneath.** It used to be the whole
+		# signature, which made the on-this-page column a list of four-line wrapped declarations rather
+		# than a list of members, and gave every anchor a URL full of parameter names. The name is also
+		# the stable half - a signature changes, `register_block` does not. (2026-09-23)
+		out.append("### `%s%s`\n" % [prefix, String(fn.name)])
 		if fn.has("file"):
 			out.append("*%s*\n" % String(fn.file))
-		if js_names.has(fn.name):
-			out.append("JavaScript: `%s`\n" % camel(String(fn.name)))
+		out.append("GDScript: `%s%s`\n" % [prefix, String(fn.signature)])
+		# **Keyed by the JavaScript name, looked up by the JavaScript name.** `quarrowen.d.ts` declares
+		# `registerBlock`; this was asking it for `register_block` and so matched only the functions
+		# whose name is a single word. 10 of 317 carried a JavaScript line, and the other 307 silently
+		# read as GDScript-only - in the reference whose whole job is to say what a mod can call. The
+		# HTML page never had the bug; the Markdown was added later and introduced it. (2026-09-23)
+		var js_name := camel(String(fn.name))
+		var reach: Dictionary = js_reach()
+		if js_names.has(js_name):
+			# The hand-written declaration where there is one: `prelude.js` renames and reorders a few
+			# deliberately, and its `quarrowen.d.ts` entry is the only place that records what it did.
+			out.append("JavaScript: `api.%s`\n" % _collapse(String(js_names[js_name].get("signature", js_name))))
+		elif reach.get("methods", {}).has(js_name):
+			out.append("JavaScript: `api.%s(%s)`\n" % [js_name, _js_params(String(fn.signature))])
+		elif reach.get("refused", {}).has(fn.name):
+			out.append("JavaScript: *not available - %s.*\n" % String(reach.refused[fn.name]))
 		var doc := String(fn.doc).strip_edges()
 		if not doc.is_empty():
 			out.append(doc + "\n")
@@ -930,6 +981,57 @@ static func parse_ts_interface(source: String, interface_name: String) -> Array:
 			current += c
 		i += 1
 	return out
+
+
+## What JavaScript can actually reach: `{methods: {camelName: true}, refused: {snake_name: why}}`.
+##
+## **`bindings.json`, not `quarrowen.d.ts`.** The `.d.ts` declares only the 73 hand-written entries,
+## and treating its absence as "unavailable" marks 242 perfectly reachable functions as unreachable -
+## which is worse than the omission it was meant to fix, because it states something false. The
+## bindings table is generated from the GDScript signatures and is the thing the bridge actually
+## consults: 313 reachable, and exactly two refused for taking a GDScript object that cannot cross
+## JSON. (2026-09-23)
+static var _js_reach_cache := {}
+static func js_reach() -> Dictionary:
+	if _js_reach_cache.is_empty():
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(BINDINGS))
+		var data: Dictionary = parsed if parsed is Dictionary else {}
+		_js_reach_cache = {"methods": data.get("methods", {}), "refused": data.get("refused", {})}
+	return _js_reach_cache
+
+
+## The GDScript parameter list rewritten the way a JavaScript caller writes it: names camelCased,
+## types and defaults dropped. `register_block(block_name: String, def: Dictionary) -> int` gives
+## `blockName, def`. Used only where there is no hand-written declaration to quote instead.
+static func _js_params(signature: String) -> String:
+	var open := signature.find("(")
+	var close := signature.rfind(")")
+	if open < 0 or close <= open:
+		return ""
+	var inner := signature.substr(open + 1, close - open - 1)
+	if inner.strip_edges().is_empty():
+		return ""
+	var names := PackedStringArray()
+	var depth := 0
+	var current := ""
+	# Split on top-level commas only: a default like `{"a": 1, "b": 2}` has commas of its own.
+	for c in inner:
+		if c in "[{(":
+			depth += 1
+		elif c in "]})":
+			depth -= 1
+		if c == "," and depth == 0:
+			names.append(current)
+			current = ""
+		else:
+			current += c
+	names.append(current)
+	var out := PackedStringArray()
+	for raw in names:
+		var name := String(raw).strip_edges().get_slice(":", 0).get_slice("=", 0).strip_edges()
+		if not name.is_empty():
+			out.append(camel(name))
+	return ", ".join(out)
 
 
 static func _collapse(text: String) -> String:

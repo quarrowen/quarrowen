@@ -5944,3 +5944,50 @@ generator already parses `quarrowen.d.ts` for real TypeScript signatures and `bi
 every JavaScript method's argument kinds, defaults and the GDScript name it maps to, plus a `refused`
 list of the two it cannot reach. So both signatures are derivable rather than invented. The staleness
 test compares whole files and will need to compare a set.
+
+### The reference is split by chapter and shows both languages (2026-09-23)
+
+Two things the user asked for, and a third that turned up underneath them.
+
+**One page per chapter.** 13 pages instead of one page of 317 functions, because the site's member
+tree lists *pages* - a single page means a tree that can only say "Mod API", which is a document with
+a table of contents rather than a reference. One page per function was the alternative and was
+rejected: 300 files to generate, link and keep from rotting, for a tree too long to scan.
+
+**The heading is now the member name, not the signature.** That was the change that made the split
+worth having: the on-this-page column had been a list of four-line wrapped declarations and is now a
+list of members, and anchors stopped carrying parameter names. The name is also the stable half - a
+signature changes, `register_block` does not.
+
+**Both languages, with a selector that remembers.** Every entry carries its GDScript and its
+JavaScript signature and shows one, because a mod is written in one language or the other and showing
+both doubles a 300-function reference. The Markdown keeps both lines labelled - it is the source of
+truth and has to read plainly in the repository - and the site upgrades them into tabs. With the
+script absent you get both, which is the honest fallback.
+
+**The bug underneath: 10 of 317.** The Markdown looked up the JavaScript name with the *GDScript*
+one - `js_names.has("register_block")` against a table keyed `registerBlock` - so only functions whose
+name is a single word ever matched. Ten carried a JavaScript line and 307 silently read as
+GDScript-only, in the reference whose entire job is to say what a mod can call. The HTML page never
+had it; the Markdown was added later and introduced it.
+
+**And the first fix was worse than the bug.** Using `quarrowen.d.ts` as the test for "is this
+available in JavaScript" marks 242 reachable functions as unreachable, because the `.d.ts` declares
+only the 73 hand-written entries. `bindings.json` is the authority - it is what the bridge actually
+consults - and it says **313 reachable, 2 refused**. Caught by checking the numbers against
+`unbound.txt` before publishing, which is the only reason it did not ship as a confident falsehood.
+
+### The save-queue test failed, and it was the tooling watching it
+
+`a save spread over 1000 ticks finishes` and `every chunk it queued is on disk (0 of 12)` both failed
+in a full run, which is the exact signature PROGRESS records from the day `base`'s spawn rules dirtied
+the Proving Ground's chunks. It was not that. It was a headless Chrome and a `python3 -m http.server`
+left running to screenshot the docs site: the suite ran under load it does not normally have, and
+`gameplay` passed on its own the moment they were killed.
+
+The test says so itself - *"under load this read zero of twelve. Which makes it the second flaky check
+in this spot: I replaced a stopwatch with something that still assumed timing"* - so this is the third
+time. It waits 40 frames for a worker task's files to appear, which is a stopwatch wearing a
+different hat. Not fixed here, but written down with the cause confirmed rather than guessed: **the
+thing watching the run is the first suspect when the run fails**, which CLAUDE.md already says about
+durations and now says about load.

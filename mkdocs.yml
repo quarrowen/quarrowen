@@ -57,7 +57,20 @@ plugins:
 nav:
   - Quarrowen: index.md
   - Reference:
-      - Mod API: api/mod-api.md
+      - Mod API:
+          - Overview: api/mod-api.md
+          - Blocks and the world: api/mod-api/blocks-and-the-world.md
+          - Crafting: api/mod-api/crafting.md
+          - Events, commands and timers: api/mod-api/events--commands-and-timers.md
+          - Everything else: api/mod-api/everything-else.md
+          - Guidebook and tutorials: api/mod-api/guidebook-and-tutorials.md
+          - Items: api/mod-api/items.md
+          - Logging and debugging: api/mod-api/logging-and-debugging.md
+          - Mobs and entities: api/mod-api/mobs-and-entities.md
+          - Players and gameplay: api/mod-api/players-and-gameplay.md
+          - Server: api/mod-api/server.md
+          - Sounds, effects and assets: api/mod-api/sounds--effects-and-assets.md
+          - World generation: api/mod-api/world-generation.md
       - Engine internals: api/engine.md
       - How do I…: api/how-do-i.md
   - Guides:
