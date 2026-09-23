@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The engine &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../api/mod-api/">Overview</a></li>
+          <li><a class="" href="../api/mod-api/blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../api/mod-api/crafting/">Crafting</a></li>
+          <li><a class="" href="../api/mod-api/events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../api/mod-api/everything-else/">Everything else</a></li>
+          <li><a class="" href="../api/mod-api/guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../api/mod-api/items/">Items</a></li>
+          <li><a class="" href="../api/mod-api/logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../api/mod-api/mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../api/mod-api/players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../api/mod-api/server/">Server</a></li>
+          <li><a class="" href="../api/mod-api/sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../api/mod-api/world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../api/engine/">Engine internals</a></li>
+          <li><a class="" href="../api/how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../modding/">Writing a mod</a></li>
+          <li><a class="" href="../loot/">Loot tables</a></li>
+          <li><a class="" href="../hosting/">Running a server</a></li>
+          <li><a class="" href="../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../playing/">Playing</a></li>
+          <li><a class="cur" href="./">The engine</a></li>
+          <li><a class="" href="../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="the-engine">The engine</h1>
+<blockquote>
+<p><strong>The bundled games were removed on 21 September 2026</strong> and will be rebuilt for 1.0 (see
+<code>docs/roadmap.md</code>). Examples below that name <code>vanilla</code>, <code>hearthhold</code>, <code>industry</code>, <code>arcana</code>, <code>guild</code>,
+<code>skyblock</code> or <code>oneblock</code> describe how things <em>were</em>, and still illustrate the capability correctly -
+but you cannot run them as written. The mod the tests use now is <code>tests/mods/proving</code>, which uses
+every capability the engine has and is the best worked example there is.</p>
+</blockquote>
+<p>How Quarrowen is put together, for anyone working on the engine itself rather than on a mod. See also
+<a href="https://github.com/quarrowen/quarrowen/blob/master/CLAUDE.md">CLAUDE.md</a> at the repository root, which lists the things that are easy to get wrong.</p>
+<h2 id="running">Running</h2>
+<p>Build the native extension once (<code>tools/build_native.sh</code>), then open the folder in Godot and press
+Play. The main menu shows a live generated world with your avatar, a sidebar and one page at a time:</p>
+<ul>
+<li><strong>Play</strong>: your worlds (title, game and add-ons, last played). <strong>New world…</strong> picks a name, game,
+  add-ons and an optional seed (a word or number); Play hosts it on a local server and joins it.
+  Rename, delete (with its backups) and open the folder; Developer mode turns on the dev tools.</li>
+<li><strong>Multiplayer</strong>: join by address (<code>host</code>, <code>host:port</code>) or invite code (<code>QW-XXXXX-XXXXX-X</code> for an
+  address, <code>QW-ABC-123</code> for a server listed on a hub). Tabs: <strong>Browse</strong> (public servers from the hub,
+  with search), <strong>LAN</strong> (servers on your network and this computer), <strong>Favorites</strong> (add, edit, remove)
+  and <strong>Recent</strong>. Every row shows the name, message, game, players, ping and a version warning; Copy
+  invite prefers the hub code.</li>
+<li><strong>Friends</strong> (with a hub): your friend code, adding friends by code, requests, friends online and the
+  server they are on (Join), parties (invite friends, join the leader's server, make leader, remove,
+  leave). Also in game from the pause menu (Join switches servers). Settings → Network decides whether
+  friends see your server; a world you host is shared by your local network address.</li>
+<li><strong>Avatar</strong> opens the avatar editor; <strong>Create</strong> has the mod wizard, your mods folder, the API docs and
+  one-click dev hosting of any installed mod; <strong>Settings</strong> has identity export/import and the hosting
+  port (graphics, audio and controls are coming).</li>
+<li><strong>What's new</strong> on the right: the hub's news, or <code>engine/client/menu/news.json</code> without one.</li>
+<li>The <strong>live world</strong> behind the menu is generated in this process by an offline server: the avatar stands
+  in a meadow with animals (and a zombie or two) wandering around it. The middle of the view appears in a
+  second or two and the rest fills in behind the fade; <code>assets/icon.png</code> (drawn by <code>tools/generate_icon.py</code>)
+  is the app icon.</li>
+</ul>
+<p>In game, the pause menu has <strong>Worlds…</strong> (the servers this one is linked to, with a Travel button - the
+same trip a portal makes) and, for admins, <strong>Server settings…</strong>. <strong>Invite friends…</strong> shows the server's invite code (for a hosted world, the
+computer's local network address). Menus scale up on high-density screens. Code: <code>engine/client/menu/</code>.</p>
+<pre class="codehilite"><code class="language-sh"># Dedicated server (mods are comma-separated; dependencies load automatically)
+godot --headless --path . res://scenes/server.tscn -- --mods=proving --metrics=10
+godot --headless --path . res://scenes/server.tscn -- --mods=proving --world=myworld --mods-dir=/srv/mods --admins=Robin
+
+# Client straight into a server / host from the command line
+godot --path . -- --connect=127.0.0.1 --name=Robin
+godot --path . -- --host=proving --name=Robin
+</code></pre>
+
+<p>Worlds save to <code>user://worlds/&lt;world&gt;</code> (world.json keeps the title, mods, game, seed and play times), downloaded assets to <code>user://cache/assets</code> and the player's
+identity key to <code>user://identity/</code>
+(on macOS under <code>~/Library/Application Support/Godot/app_userdata/Quarrowen/</code>).</p>
+<p>Blocks can fill less than their cell: a <code>shape</code> ("slab", "stairs_north"..., "fence") names the boxes it
+fills, and the same boxes are what players and mobs walk into. Walkers step up to half a block on their
+own, so slabs and stairs are climbed by walking into them.</p>
+<p><strong>Controls:</strong> WASD move, Space jump/swim (double-tap to fly in creative), Shift crouch (sinks while
+flying), Ctrl sprint, M map (everyone on the server, your home and your grave), LMB break, RMB place / use a machine / use
+the held item, C crafting, 1–9 / wheel slot, T chat and <code>/commands</code>, F3 debug, F4 graphics preset,
+Esc menu. Every key can be changed in Settings.</p>
+<p><strong>Settings</strong> (main menu, or <strong>Settings</strong> in the pause menu; saved to <code>user://settings.cfg</code>, applied at
+once; each tab has a reset button):</p>
+<ul>
+<li><strong>Graphics:</strong> quality preset or Custom (3D resolution, corner shadows, swaying plants, fancy water,
+  glow, colour grading, FXAA), field of view, window (windowed, maximized, fullscreen), V-Sync, frame
+  rate limit, the live world behind the menu.</li>
+<li><strong>Audio:</strong> master, world sounds and interface sounds (separate audio buses).</li>
+<li><strong>Controls:</strong> mouse sensitivity, invert up/down, sprint key toggles, and two keys or mouse buttons for
+  every action (conflicts are pointed out).</li>
+<li><strong>Accessibility:</strong> interface size (on top of the automatic high-density scaling, for menus and the
+  HUD alike), camera shake, flashes, relaxed minigame timing, a still menu camera.</li>
+<li><strong>Account</strong> (menu): identity export/import and the hosting port.</li>
+</ul>
+<p>The schema lives in <code>engine/client/settings/client_settings.gd</code>; the screen is built from it.</p>
+<h2 id="layout">Layout</h2>
+<pre class="codehilite"><code>engine/
+  main.gd / server_main.gd  client menu / dedicated server entry points
+  net/net.gd                autoload: ENet peer + every RPC
+  shared/                   identical on both sides
+    block_registry.gd       runtime block table (built from mods, replicated as data)
+    player_physics.gd       deterministic movement; tunables come from the server
+    world_time.gd           day/night curve
+    identity.gd             RSA identity keys, login challenge signing and verification
+    entity_registry.gd      entity types (mobs, projectiles, dropped items); network subset for clients
+    entity_physics.gd       gravity + AABB-vs-voxel collision for entities
+    sound_registry.gd       named sounds made of downloadable audio assets
+    player_rig.gd           the player body as data (parts, skin layout regions, attachment points)
+    cosmetics.gd            cosmetic categories, built-in catalog, avatar data rules, server policy
+    inventory.gd item_registry.gd chunk.gd voxel_world.gd voxel_raycast.gd protocol.gd native.gd
+  server/
+    game_server.gd          tick, content delivery, validation, events, chunk jobs, delta saves
+    entities.gd entity.gd   entity simulation, AI, projectiles, item stacks, spawn rules, replication
+    mod_loader.gd mod_api.gd server_player.gd mod.gd ore_pass.gd world_backups.gd
+    js_mod.gd js/            JavaScript mod host, prelude and TypeScript declarations
+  client/
+    game_client.gd          download → build content → play; prediction, meshing, models, HUD
+    chunk_mesher.gd         mesh jobs (native lit greedy mesher, GDScript fallback)
+    voxel_material.gd       block shader: tiling across merged quads, sky/block light, daylight
+    model_library.gd        glTF block models → MultiMesh-ready meshes
+    entity_view.gd          interpolated, animated entity visuals
+    sound_player.gd         voice pool for downloaded and built-in sounds (sounds/)
+    inventory_screen.gd     36-slot inventory UI (server-authoritative clicks)
+    avatar/                 player avatars: rig animation, skin compositing, look builder, held items,
+                            first-person arm, avatar editor
+    content_cache.gd texture_atlas.gd server_ui.gd remote_player.gd
+native/                     Rust GDExtension (meshing + lighting, physics, snapshots, signals, JS)
+mods/
+  base/                     shared blocks, textures, block sounds, swords, apples (not a game)
+  vanilla/                  generated terrain, creative/survival, day/night, zombies and pigs
+  skyblock/                 per-player void islands, survival, generator block, challenges
+  industry/                 power networks: generators, solar, cables, batteries, lamps, auto-miner
+  arcana/                   mana: crystal ore generation pass, mana pool HUD, pylons, spell wands
+  guild/                    JavaScript mod: quest boards, coins, shop, gold ore, meteors, leaderboard
+tests/                      end-to-end, combat, auth, multiplayer, host flow, persistence, identity, gameplay, sandbox, benchmarks
+tools/                      run_tests.sh, build_native.sh, export.sh, texture/sound/model generators
+export_presets.cfg          macOS / Windows / Linux clients, Linux dedicated servers (x86_64, arm64)
+.github/workflows/ci.yml    native builds, tests, exports and the server image
+</code></pre>
+
+<h2 id="how-a-join-works">How a join works</h2>
+<ol>
+<li>Connection: ENet traffic is encrypted with DTLS. Before any RPC, SceneMultiplayer's auth step
+   exchanges versions: a client with a different protocol gets a readable "please update" message
+   instead of mismatched RPCs. The server also sends its certificate, which the client pins
+   (trust on first use, like SSH <code>known_hosts</code>, in <code>user://known_servers</code>); on later connections the
+   DTLS handshake verifies the server against that pin, so an impostor cannot complete a connection.</li>
+<li><code>c_hello(protocol, name, public key)</code>: name checked against this server's claims.</li>
+<li><code>s_challenge(nonce)</code> / <code>c_auth(signature)</code>: the client proves it holds the private key.</li>
+<li><code>s_server_info(info, content, manifest)</code>: server name/game, block definitions, physics rules,
+   and <code>[asset name, sha256, size]</code> for every asset (textures and models).</li>
+<li><code>c_request_assets(missing)</code>: the client asks only for hashes it has not cached. Pieces stream at a
+   capped rate; each file is verified against its hash before it is cached. Assets shared between
+   servers (for example, the <code>base</code> textures) download once.</li>
+<li>The client builds its registry, texture atlas, materials and models, then sends <code>c_ready</code>.</li>
+<li><code>s_welcome</code>, <code>s_time</code>, <code>s_inventory</code>, chunks and snapshots follow; mod <code>player_join</code> handlers run.</li>
+</ol>
+<p><strong>Why the client is safe to point at any server:</strong> servers send data only: block definitions,
+PNG and glTF files, numbers and UI trees made of a fixed set of element types (label, button,
+progress, image, boxes). The client never executes server code, caps sizes and counts, and
+validates every payload.</p>
+<h2 id="world-saves-delta-model">World saves (delta model)</h2>
+<p>Chunks are always regenerated from the seed, then saved edits are applied on top.
+<code>chunks/x_z.json</code> stores only blocks that differ from generated terrain (by block name, with a
+palette) plus that chunk's block data. Untouched chunks are never written, an edit that restores
+the generated block is dropped, and changing world generation or mods flows into existing worlds
+(edits referring to blocks from removed mods fall back to the generated terrain). Saves are
+serialized on the main thread and written by a worker, atomically via rename.</p>
+<h3 id="backups">Backups</h3>
+<p>Every <code>QW_BACKUP_INTERVAL</code> minutes (default 60; 0 turns it off; skipped while the world is idle)
+the server flushes pending saves and zips the world on a worker thread into
+<code>&lt;data dir&gt;/backups/&lt;world&gt;/&lt;world&gt;-&lt;UTC timestamp&gt;.zip</code>, keeping the newest <code>QW_BACKUP_KEEP</code> (24).
+Admins can run <code>/backup</code> and <code>/backups</code>. To restore, start with <code>--restore=latest</code> (or a file name or
+path, <code>QW_RESTORE</code>): the current world folder is moved aside to <code>&lt;world&gt;.before-restore-&lt;time&gt;</code>, never
+deleted, and the archive is unpacked in its place.</p>
+<h2 id="identity-and-permissions">Identity and permissions</h2>
+<p>Every client has an RSA key (<code>user://identity/default.pem</code>, created on first launch). Its hash is the
+player id: saved inventory, position and mod data follow the key, not the name. Each name belongs to
+the first key that claims it on a server, so nobody can take over someone else's player by typing
+their name.</p>
+<p>Admins come from <code>QW_ADMINS</code> (player ids from <code>/whoami</code>, or names), <code>/op &lt;player&gt;</code>, or the local
+host via the token the menu's Host button passes to its server. Mods mark commands as admin-only
+(<code>register_command(..., "admin")</code>, or <code>{ admin: true }</code> in JavaScript) or check <code>player.is_admin()</code>.
+Built-in admin commands: <code>/op</code>, <code>/deop</code>, <code>/kick</code>, <code>/backup</code>, <code>/backups</code>; everyone has <code>/help</code>,
+<code>/players</code>, <code>/whoami</code>.</p>
+<p><strong>Moving your identity to another computer:</strong> the key is your account, so it is exported encrypted
+(PBKDF2-HMAC-SHA256 with 210k iterations, AES-256-CBC, HMAC-SHA256 over the ciphertext). Use the menu's
+Export/Import identity buttons with a passphrase, or:</p>
+<pre class="codehilite"><code class="language-sh">QW_IDENTITY_PASSPHRASE='...' Quarrowen -- --export-identity=my-identity.json
+QW_IDENTITY_PASSPHRASE='...' Quarrowen -- --import-identity=my-identity.json   # old key kept as .bak
+</code></pre>
+
+<p><strong>Server identity:</strong> each data dir holds <code>identity/server.key</code> and <code>server.crt</code> (self-signed, created
+on first start). Keep them with the world (the Docker <code>/data</code> volume does): a server that loses them
+looks like an impostor to returning players, who then have to delete the pin from <code>known_servers</code>.</p>
+<h2 id="native-extension-rust">Native extension (Rust)</h2>
+<p><code>native/</code> is a godot-rust (gdext 0.5, <code>api-4-7</code>) library. Each feature has a GDScript twin used
+automatically when the library is missing; <code>QW_NATIVE=0</code> forces the fallbacks.</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Native class</th>
+<th>GDScript</th>
+<th>Native</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chunk meshing</td>
+<td><code>NativeMesher</code></td>
+<td>8.2 ms/chunk, per-face, approximate lighting (heightmap sky, unoccluded block light)</td>
+<td>1.1 ms/chunk with flood-fill light, smooth lighting, AO and greedy merging (2× fewer quads)</td>
+</tr>
+<tr>
+<td>Player physics step</td>
+<td><code>NativeVoxelWorld.step_player</code></td>
+<td>0.011 ms</td>
+<td>0.001 ms, identical results</td>
+</tr>
+<tr>
+<td>Entity physics (500 bodies)</td>
+<td><code>NativeVoxelWorld.step_entities</code></td>
+<td>2.3 ms/tick</td>
+<td>1.0 ms/tick, one batched call</td>
+</tr>
+<tr>
+<td>Mob pathfinding, sight</td>
+<td><code>NativeVoxelWorld.find_path</code> / <code>line_of_sight</code></td>
+<td>350-node budget</td>
+<td>1500-node budget, ~50 µs per path</td>
+</tr>
+<tr>
+<td>Snapshots (100 clustered players)</td>
+<td><code>NativeSnapshots</code></td>
+<td>~3.1 ms</td>
+<td>0.076 ms (spatial grid)</td>
+</tr>
+<tr>
+<td>Signals</td>
+<td><code>NativeProcess</code></td>
+<td>hard kill</td>
+<td>graceful save on SIGTERM/SIGINT</td>
+</tr>
+<tr>
+<td>JavaScript mods</td>
+<td><code>NativeJsRuntime</code></td>
+<td>not available</td>
+<td>QuickJS-NG, sandboxed</td>
+</tr>
+</tbody>
+</table>
+<pre class="codehilite"><code class="language-sh">tools/build_native.sh    # then open/import the project once to register it
+</code></pre>
+
+<h2 id="graphics">Graphics</h2>
+<p>Designed for integrated GPUs (baseline: base M1 MacBook Air). The shader-pack look is precomputed
+into chunk meshes instead of being rendered per pixel:</p>
+<ul>
+<li><strong>Baked in the mesher:</strong> flood-fill sky and block light, smooth lighting across block corners and
+  ambient occlusion (per-vertex), plus flags for foliage, liquids and light sources.</li>
+<li><strong>Block shader:</strong> one texture fetch; sway for leaves; water with analytic ripples, a Fresnel sky
+  reflection and a sun glint; warm/cool sun tint through the day; emissive blocks feed bloom.</li>
+<li><strong>Post:</strong> AgX tone mapping, a few low-resolution bloom mips, light colour grading; optional FXAA.</li>
+<li><strong>No</strong> real-time shadow maps, SSAO, SSR or GI.</li>
+</ul>
+<p>Presets (F4 or Settings, saved; <code>QW_GRAPHICS=fast|balanced|fancy</code>; changing a single option makes it Custom): <code>fast</code> renders at 70% with FSR and turns
+off sway, fancy water and bloom; <code>balanced</code> (default) 85% with everything on; <code>fancy</code> native
+resolution plus FXAA. At 2560x1600 on an M1 Max the balanced preset renders around 440 fps uncapped;
+scaling by GPU core count suggests roughly 130 fps on a base M1 Air (not measured on that machine).</p>
+<h2 id="tests-tooling">Tests &amp; tooling</h2>
+<p><code>tools/run_tests.sh</code> starts the servers and runs everything below. Individually:</p>
+<pre class="codehilite"><code class="language-sh"># End-to-end against a running server (--game names the bot; there is one game now)
+godot --headless --path . res://scenes/server.tscn -- --mods=proving --port=24603 &amp;
+godot --headless --path . res://tests/smoke_test.tscn -- --port=24603 --game=proving
+godot --headless --path . res://tests/auth_test.tscn -- --port=24603          # needs --admins=Admin; also version + pinning
+godot --headless --path . res://tests/multiplayer_test.tscn -- --port=24603   # launches a 2nd client
+godot --headless --path . res://tests/host_flow_test.tscn                     # menu Host flow
+
+godot --headless --path . res://tests/persistence_test.tscn   # delta saves, block data, backups + restore
+godot --headless --path . res://tests/identity_test.tscn      # encrypted identity export / import
+godot --headless --path . res://tests/gameplay_test.tscn      # inventory, entities, damage, equipment, cosmetics
+godot --headless --path . res://tests/ai_test.tscn            # mob AI in a flat arena (tests/mods/ai_arena)
+godot --headless --path . res://tests/ai_soak.tscn -- --seconds=180 --sites=8   # mobs on real terrain: stuck, hops, chases
+godot --headless --path . res://tests/js_sandbox_test.tscn    # JavaScript limits
+godot --headless --path . res://tests/bench.tscn              # worldgen, meshing, snapshots, physics
+godot --headless --path . res://tests/bots.tscn -- --port=24603 --bots=100
+godot --path . res://tests/screenshot.tscn -- --port=24603 --commands=&quot;/proving|/time night&quot;
+godot --path . res://tests/screenshot.tscn -- --port=24603 --camera=2 --editor=hat   # avatar editor
+</code></pre>
+
+<p><strong>Load testing.</strong> <code>bots.tscn</code> connects many lightweight clients from one process; start the server with
+<code>--metrics=5 --anticheat=log</code> to print, every 5 seconds, players, mobs, chunks, ticks per second, the
+average cost of each tick section (players, streaming, mob AI and spawning, snapshots, entity
+replication, saving...), the slowest tick's top sections, the slowest mod task and bandwidth per player.
+On an M-series Mac with 100 bots crowded together, ticks average 8–12 ms (under the 16.7 ms budget) and
+bandwidth is about 20–25 KB/s per player. One bot process tops out at about 120–140 clients (its UDP
+buffer overflows), so run several for more.</p>
+<ul>
+<li><strong>vanilla:</strong> creative mode, movement prediction, edits.</li>
+<li><strong>skyblock:</strong> survival inventory, modal UI buttons, generator regrowth, mod veto, void teleport.</li>
+<li><strong>industry:</strong> model blocks, <code>/industry kit</code>, machine orientation, cable arms, machine panel,
+  fuelling powers a lamp through cables, breaking the cable cuts power.</li>
+<li><strong>arcana:</strong> replicated items, crystal generation pass, mana HUD, Wand of Blink and Wand of Light.</li>
+<li><strong>guild</strong> (JavaScript): ore pass, quest board UI, quest progress from crafting, coin payout, shop,
+  meteor event, leaderboard from mod storage.</li>
+<li><strong>skyblock</strong> also chops a log and crafts planks in survival.</li>
+<li><strong>All games:</strong> server rollback of an invalid edit.</li>
+<li><strong>auth:</strong> permissions, name claims, key-bound saved data, tampered signatures.</li>
+<li><strong>multiplayer:</strong> two client processes see each other join, move, build, chat and leave, and see each
+  other's avatar cosmetics change.</li>
+<li><strong>host_flow:</strong> Host launches a server, the host becomes admin, leaving stops the server.</li>
+</ul>
+<h2 id="builds-and-ci">Builds and CI</h2>
+<pre class="codehilite"><code class="language-sh">tools/build_native.sh            # native library for this machine -&gt; native/bin/&lt;platform&gt;/
+tools/run_tests.sh               # full test suite (QW_NATIVE=0 for the GDScript fallbacks)
+tools/export.sh                  # every preset -&gt; build/ (needs Godot export templates)
+tools/package_mods.sh            # every mod -&gt; build/mods/&lt;id&gt;-&lt;version&gt;.zip (release downloads)
+tools/make_release.sh            # app + mod zips + download page + update manifest -&gt; build/release/
+tools/generate_icon.py           # the app icon -&gt; assets/icon.png and icon.icns
+tools/export.sh &quot;Linux Server arm64&quot; macOS
+</code></pre>
+
+<p>Exports keep mods out of the <code>.pck</code> and copy <code>mods/</code> beside each build: the server streams the raw
+PNG and glTF files to clients, which an export would otherwise convert. The engine searches configured
+mod folders, then a <code>mods</code> folder next to the executable (or in a macOS app's <code>Resources</code>), then the
+project's <code>res://mods</code>.</p>
+<p><code>.github/workflows/ci.yml</code> builds the native library for Linux x86_64/arm64, Windows and macOS
+(universal), runs the full suite (native and fallback) on Linux, exports all presets, and pushes a
+multi-arch server image to GitHub Container Registry on pushes to the default branch.</p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#the-engine">The engine</a></li><li class="sub"><a href="#running">Running</a></li><li class="sub"><a href="#layout">Layout</a></li><li class="sub"><a href="#how-a-join-works">How a join works</a></li><li class="sub"><a href="#world-saves-delta-model">World saves (delta model)</a></li><li class="sub"><a href="#identity-and-permissions">Identity and permissions</a></li><li class="sub"><a href="#native-extension-rust">Native extension (Rust)</a></li><li class="sub"><a href="#graphics">Graphics</a></li><li class="sub"><a href="#tests-tooling">Tests &amp; tooling</a></li><li class="sub"><a href="#builds-and-ci">Builds and CI</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../search/main.js" defer></script>
+<script src="../lang/main.js" defer></script>
+</body>
+</html>

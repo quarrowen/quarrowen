@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World generation &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="../../..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="../../..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec open">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../">Overview</a></li>
+          <li><a class="" href="../blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../crafting/">Crafting</a></li>
+          <li><a class="" href="../events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../everything-else/">Everything else</a></li>
+          <li><a class="" href="../guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../items/">Items</a></li>
+          <li><a class="" href="../logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../server/">Server</a></li>
+          <li><a class="" href="../sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="cur" href="./">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../../engine/">Engine internals</a></li>
+          <li><a class="" href="../../how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../modding/">Writing a mod</a></li>
+          <li><a class="" href="../../../loot/">Loot tables</a></li>
+          <li><a class="" href="../../../hosting/">Running a server</a></li>
+          <li><a class="" href="../../../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../playing/">Playing</a></li>
+          <li><a class="" href="../../../engine/">The engine</a></li>
+          <li><a class="" href="../../../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../../../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="world-generation">World generation</h1>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<h3 id="apiplace_structure_in"><code>api.place_structure_in</code></h3>
+<p>GDScript: <code>api.place_structure_in(template_name: String, at: Vector3i, realm_id := "", rotation := 0) -&gt; bool</code></p>
+<p>JavaScript: <code>api.placeStructureIn(templateName, at, realmId, rotation)</code></p>
+<p>Pastes a saved structure into a world. <code>realm_id</code> is which world - without it a dungeon's rooms
+were built in the overworld while the players stood in an empty instance. (2026-09-21)</p>
+<p><strong>See also:</strong> <code>follow</code>, <code>place</code>, <code>qualified</code>, <code>register_instance</code></p>
+<h3 id="apiset_world_generator"><code>api.set_world_generator</code></h3>
+<p>GDScript: <code>api.set_world_generator(generator: Object, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <em>not available - takes a Object, which needs a GDScript object on the other side.</em></p>
+<p><code>generator</code> must implement <code>generate(chunk)</code>; write into a local copy of <code>chunk.blocks</code>
+(index with Chunk.index(x, y, z)) and assign it back for speed.</p>
+<pre class="codehilite"><code class="language-gdscript">api.set_world_generator(FlatGround.new(api.require_block(&quot;proving:rock&quot;), api.require_block(&quot;proving:soil&quot;), api.require_block(&quot;proving:turf&quot;)))
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code>, <code>register_instance</code>, <code>reload</code></p>
+<h3 id="apiuse_biome_generator"><code>api.use_biome_generator</code></h3>
+<p>GDScript: <code>api.use_biome_generator(options := {}, realm_id := "") -&gt; Object</code></p>
+<p>JavaScript: <code>api.useBiomeGenerator(options?: { sea_level?: number; snow_level?: number }): void</code></p>
+<p>Turns on the engine biome generator (engine/server/worldgen/biome_generator.gd) for this world.
+options: sea_level, snow_level. Register biomes and features before or after; returns the generator.</p>
+<p><strong>See also:</strong> <code>biome_generator</code>, <code>qualified</code>, <code>register_instance</code></p>
+<h3 id="apibiome_generator"><code>api.biome_generator</code></h3>
+<p>GDScript: <code>api.biome_generator(realm_id := "") -&gt; Object</code></p>
+<p>JavaScript: <code>api.biomeGenerator(realmId)</code></p>
+<p>The shared biome generator (created on first use, even if the game uses its own generator).</p>
+<p><strong>See also:</strong> <code>block</code>, <code>qualified</code>, <code>register_instance</code></p>
+<h3 id="apiregister_biome"><code>api.register_biome</code></h3>
+<p>GDScript: <code>api.register_biome(biome_name: String, def: Dictionary, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.registerBiome(name: string, def: Record&lt;string, unknown&gt;): void</code></p>
+<p>A biome for the biome generator: {climate, ocean, height, surface, features, plants}. See BiomeGenerator.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_biome(&quot;plain&quot;, {&quot;climate&quot;: [0.4, 0.6], &quot;height&quot;: [0.0, 0.2],
+    &quot;surface&quot;: &quot;proving:turf&quot;, &quot;features&quot;: [], &quot;plants&quot;: []})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_biome</code>, <code>biome_generator</code>, <code>qualified</code></p>
+<h3 id="apiadd_cave_carver"><code>api.add_cave_carver</code></h3>
+<p>GDScript: <code>api.add_cave_carver(options := {}) -&gt; void</code></p>
+<p>JavaScript: <code>api.addCaveCarver(options)</code></p>
+<p>Carves caves, caverns and ravines into the biome generator's terrain (see worldgen/cave_carver.gd).
+options: tunnels, caverns, ravines (bools), lava (block name), lava_level, water_level, min_y,
+entrance_chance.</p>
+<p><strong>See also:</strong> <code>biome_generator</code>, <code>block</code></p>
+<h3 id="apiregister_structure_template"><code>api.register_structure_template</code></h3>
+<p>GDScript: <code>api.register_structure_template(template_name: String, source) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerStructureTemplate(name: string, source: string | Record&lt;string, unknown&gt;): boolean</code></p>
+<p>A structure template: a JSON file in this mod (e.g. "structures/tower.json", saved with /struct save)
+or a template dictionary. Names without ":" are this mod's.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_structure_template(&quot;hut&quot;, {&quot;size&quot;: [2, 1, 2], &quot;palette&quot;: [&quot;proving:rock&quot;],
+    &quot;blocks&quot;: [[0, 0, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [1, 0, 1, 0]]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_template</code>, <code>biome_generator</code></p>
+<h3 id="apiplace_structure"><code>api.place_structure</code></h3>
+<p>GDScript: <code>api.place_structure(template_name: String, at: Vector3i, rotation := 0) -&gt; bool</code></p>
+<p>JavaScript: <code>api.placeStructure(templateName, at, rotation)</code></p>
+<p>Generated structures (see worldgen/structures.gd): {templates: [{template, weight}] or generator
+(GDScript Callable), spacing, separation, biomes, place, y, sink, foundation, swaps, reach, chance}.
+Stamps a template into the world now, rotated a quarter turn at a time (0-3). What <code>/struct place</code>
+does, for a mod that wants to build something itself rather than leave it to world generation: a
+story's outpost, a rescue site, a prize somebody hid.</p>
+<p><strong>See also:</strong> <code>place</code>, <code>qualified</code></p>
+<h3 id="apiregister_structure"><code>api.register_structure</code></h3>
+<p>GDScript: <code>api.register_structure(structure_name: String, def: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.registerStructure(name: string, def: Record&lt;string, unknown&gt;): void</code></p>
+<pre class="codehilite"><code class="language-gdscript">api.register_structure(&quot;hut_site&quot;, {&quot;template&quot;: &quot;proving:hut&quot;, &quot;rarity&quot;: 0.0})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_set</code>, <code>biome_generator</code>, <code>qualified</code>, <code>register_loot</code></p>
+<h3 id="apiregister_loot"><code>api.register_loot</code></h3>
+<p>GDScript: <code>api.register_loot(table_name: String, def: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.registerLoot(tableName, def)</code></p>
+<p>Declares what something gives: a mob that dies, a block that breaks, a chest, a reward (docs/loot.md).</p>
+<p>api.register_loot("zombie", {"pools": [
+{"rolls": [0, 2], "entries": [{"item": "base:rotten_flesh", "count": [1, 2], "weight": 3},
+{"empty": true, "weight": 1}]},
+{"rolls": 1, "when": {"killed_by": "player"}, "entries": [{"item": "base:iron_ingot", "weight": 1},
+{"empty": true, "weight": 20}]},
+]})</p>
+<p>Pools roll on their own, so each is one idea ("some flesh" / "rarely, iron"). An entry names an <code>item</code>,
+another <code>table</code> to roll instead, or <code>empty: true</code> for the miss; <code>weight</code> is relative within its pool,
+<code>count</code> is a number or [min, max], <code>data</code> is the item data the stack carries. <code>when</code> on a pool or an
+entry takes killed_by, tool, biome, depth, time, chance and first_time. An entity or block can name its
+table with <code>loot: "&lt;name&gt;"</code>; without one, its <code>drops</code> list is read as a table.
+Tables can also be JSON files: every loot/*.json in the mod folder registers as "<mod>:<file name>".</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_loot(&quot;crate_loot&quot;, {&quot;pools&quot;: [
+    {&quot;rolls&quot;: 1, &quot;guaranteed&quot;: true, &quot;entries&quot;: [{&quot;item&quot;: &quot;proving:token&quot;, &quot;count&quot;: [1, 3]}]}]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code>, <code>register</code></p>
+<h3 id="apiregister_loot_table"><code>api.register_loot_table</code></h3>
+<p>GDScript: <code>api.register_loot_table(table_name: String, def: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.registerLootTable(name: string, def: { rolls?: [number, number]; entries: { item: string; count?: [number, number]; weight?: number }[] }): void</code></p>
+<p>Deprecated: use <code>register_loot</code>. The name it had before tables were used for everything.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_loot_table(&quot;bench_loot&quot;, {&quot;pools&quot;: [
+    {&quot;rolls&quot;: 1, &quot;entries&quot;: [{&quot;item&quot;: &quot;proving:rod&quot;, &quot;count&quot;: [1, 1]}]}]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>extend_entity</code>, <code>register_loot</code></p>
+<h3 id="apiextend_loot"><code>api.extend_loot</code></h3>
+<p>GDScript: <code>api.extend_loot(table_name: String, def: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.extendLoot(tableName, def)</code></p>
+<p>Adds pools to a table another mod owns, without forking it: an extra drop on their mob, a bonus in
+their dungeon chests.</p>
+<p><strong>See also:</strong> <code>extend</code>, <code>fill_container</code>, <code>get_container</code>, <code>qualified</code></p>
+<h3 id="apiroll_loot"><code>api.roll_loot</code></h3>
+<p>GDScript: <code>api.roll_loot(table_name: String, context := {}) -&gt; Array</code></p>
+<p>JavaScript: <code>api.rollLoot(tableName, context)</code></p>
+<p>Rolls a table and returns [[item id, count, data], …], for anything the engine does not roll itself
+(fishing, a quest reward, a prize crate). <code>context</code> may carry player, cause, tool, position and seed.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>roll</code></p>
+<h3 id="apiloot_sources"><code>api.loot_sources</code></h3>
+<p>GDScript: <code>api.loot_sources(item_name: String) -&gt; Array</code></p>
+<p>JavaScript: <code>api.lootSources(itemName)</code></p>
+<p>What a mob, block or table gives, without rolling: everything it could drop, as
+[{item, chance, count, table}]. This is what the guide's "what drops this?" is built from.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>sources_of</code></p>
+<h3 id="apiset_loot_rate"><code>api.set_loot_rate</code></h3>
+<p>GDScript: <code>api.set_loot_rate(multiplier: float) -&gt; void</code></p>
+<p>JavaScript: <code>api.setLootRate(multiplier)</code></p>
+<p>How much everything drops, as a multiplier (1.0 is normal). A host's "how much loot" setting.</p>
+<h3 id="apiget_loot_rate"><code>api.get_loot_rate</code></h3>
+<p>GDScript: <code>api.get_loot_rate() -&gt; float</code></p>
+<p>JavaScript: <code>api.getLootRate()</code></p>
+<p><strong>See also:</strong> <code>set_loot_boost</code></p>
+<h3 id="apiset_loot_boost"><code>api.set_loot_boost</code></h3>
+<p>GDScript: <code>api.set_loot_boost(target: String, factor: float, seconds := 0.0) -&gt; void</code></p>
+<p>JavaScript: <code>api.setLootBoost(target, factor, seconds)</code></p>
+<p>Turns one thing up (or down) for a while, for an event: <code>target</code> is a table or an item name, <code>factor</code>
+how much more often it comes up, <code>seconds</code> how long (0: until it is changed back).</p>
+<p>api.set_loot_boost("base:coal", 3.0, 3600.0)     # coal everywhere, for an hour
+api.set_loot_boost("vanilla:dungeon", 2.0)       # richer dungeon chests until further notice</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>set_boost</code></p>
+<h3 id="apiregister_feature"><code>api.register_feature</code></h3>
+<p>GDScript: <code>api.register_feature(feature_name: String, def, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.registerFeature(name: string, def: Record&lt;string, unknown&gt;): void</code></p>
+<p>A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from
+GDScript, a Callable(writer, origin: Vector3i, rng) run on worker threads. See worldgen/features.gd.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_feature(&quot;boulder&quot;, {&quot;type&quot;: &quot;boulder&quot;, &quot;block&quot;: &quot;proving:rock&quot;, &quot;radius&quot;: [1, 2]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_feature</code>, <code>biome_generator</code>, <code>get_eye_position</code>, <code>look_direction</code>, <code>raycast</code></p>
+<h3 id="apiget_biome"><code>api.get_biome</code></h3>
+<p>GDScript: <code>api.get_biome(position: Vector3) -&gt; String</code></p>
+<p>JavaScript: <code>api.getBiome(position)</code></p>
+<p>Name of the biome at a column ("" without the biome generator).</p>
+<p><strong>See also:</strong> <code>biome_at</code></p>
+<h3 id="apiadd_generation_pass"><code>api.add_generation_pass</code></h3>
+<p>GDScript: <code>api.add_generation_pass(pass_object: Object, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <em>not available - takes a Object, which needs a GDScript object on the other side.</em></p>
+<p>Adds a pass run after the world generator for every new chunk, on worker threads:
+<code>pass_object.decorate(chunk, world_seed)</code>. Lets add-on mods put ores or structures in any game.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>register_instance</code></p>
+<h3 id="apiadd_ore_pass"><code>api.add_ore_pass</code></h3>
+<p>GDScript: <code>api.add_ore_pass(def: Dictionary, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.addOrePass(def: OrePassDef): void</code></p>
+<p>Scatters veins of <code>ore</code> inside <code>replace</code> in every new chunk. def: ore, replace (block names),
+veins (per chunk), size (blocks per vein), min_y, max_y, chance (per vein, 0-1).
+<code>realm_id</code> puts the ore in another world instead of the one the server starts with - the Emberdeep
+wants its own ores, and they are not the overworld's at a different depth.</p>
+<p><strong>See also:</strong> <code>add_generation_pass</code>, <code>block</code></p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#world-generation">World generation</a></li><li class="sub"><a href="#apiplace_structure_in">api.place_structure_in</a></li><li class="sub"><a href="#apiset_world_generator">api.set_world_generator</a></li><li class="sub"><a href="#apiuse_biome_generator">api.use_biome_generator</a></li><li class="sub"><a href="#apibiome_generator">api.biome_generator</a></li><li class="sub"><a href="#apiregister_biome">api.register_biome</a></li><li class="sub"><a href="#apiadd_cave_carver">api.add_cave_carver</a></li><li class="sub"><a href="#apiregister_structure_template">api.register_structure_template</a></li><li class="sub"><a href="#apiplace_structure">api.place_structure</a></li><li class="sub"><a href="#apiregister_structure">api.register_structure</a></li><li class="sub"><a href="#apiregister_loot">api.register_loot</a></li><li class="sub"><a href="#apiregister_loot_table">api.register_loot_table</a></li><li class="sub"><a href="#apiextend_loot">api.extend_loot</a></li><li class="sub"><a href="#apiroll_loot">api.roll_loot</a></li><li class="sub"><a href="#apiloot_sources">api.loot_sources</a></li><li class="sub"><a href="#apiset_loot_rate">api.set_loot_rate</a></li><li class="sub"><a href="#apiget_loot_rate">api.get_loot_rate</a></li><li class="sub"><a href="#apiset_loot_boost">api.set_loot_boost</a></li><li class="sub"><a href="#apiregister_feature">api.register_feature</a></li><li class="sub"><a href="#apiget_biome">api.get_biome</a></li><li class="sub"><a href="#apiadd_generation_pass">api.add_generation_pass</a></li><li class="sub"><a href="#apiadd_ore_pass">api.add_ore_pass</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../../../search/main.js" defer></script>
+<script src="../../../lang/main.js" defer></script>
+</body>
+</html>

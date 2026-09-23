@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Playing &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../api/mod-api/">Overview</a></li>
+          <li><a class="" href="../api/mod-api/blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../api/mod-api/crafting/">Crafting</a></li>
+          <li><a class="" href="../api/mod-api/events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../api/mod-api/everything-else/">Everything else</a></li>
+          <li><a class="" href="../api/mod-api/guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../api/mod-api/items/">Items</a></li>
+          <li><a class="" href="../api/mod-api/logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../api/mod-api/mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../api/mod-api/players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../api/mod-api/server/">Server</a></li>
+          <li><a class="" href="../api/mod-api/sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../api/mod-api/world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../api/engine/">Engine internals</a></li>
+          <li><a class="" href="../api/how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../modding/">Writing a mod</a></li>
+          <li><a class="" href="../loot/">Loot tables</a></li>
+          <li><a class="" href="../hosting/">Running a server</a></li>
+          <li><a class="" href="../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="cur" href="./">Playing</a></li>
+          <li><a class="" href="../engine/">The engine</a></li>
+          <li><a class="" href="../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="playing-quarrowen">Playing Quarrowen</h1>
+<p>This is for the person holding the mouse. If you are setting up a server for the family, see
+<a href="../hosting/">hosting.md</a>; if you want to make things for it, see <a href="../modding/">modding.md</a>.</p>
+<h2 id="getting-in">Getting in</h2>
+<p>Download from <a href="https://quarrowen.com">quarrowen.com</a>, drag <strong>Quarrowen</strong> into Applications, and open it.
+It is signed and notarized, so it opens by double-clicking. It checks for a new version when the menu
+opens and offers it; nothing downloads from a game server except that server's own content.</p>
+<p>Type the name you want in <strong>Playing as</strong> at the bottom left. The first person to use a name on a server
+keeps it, so pick the one you mean to keep.</p>
+<p>Then either:</p>
+<ul>
+<li><strong>Multiplayer → LAN</strong> finds servers on your home network by themselves.</li>
+<li><strong>Multiplayer</strong> with a hub address (Settings → Network) lists the servers that hub knows, and short
+  invite codes like <code>QW-3BJ-46N</code> work there too.</li>
+<li><strong>Play</strong> makes a world on this computer, with whichever game you choose.</li>
+</ul>
+<h2 id="controls">Controls</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Move</td>
+<td><code>W A S D</code>, <code>Space</code> to jump, <code>Shift</code> to crouch, <code>Ctrl</code> to sprint</td>
+</tr>
+<tr>
+<td>Look</td>
+<td>mouse</td>
+</tr>
+<tr>
+<td>Break / place</td>
+<td>left / right mouse</td>
+</tr>
+<tr>
+<td>Hotbar</td>
+<td><code>1</code>–<code>9</code>, or the mouse wheel</td>
+</tr>
+<tr>
+<td>Inventory</td>
+<td><code>E</code></td>
+</tr>
+<tr>
+<td>Crafting</td>
+<td><code>C</code> at a table, or right-click the table</td>
+</tr>
+<tr>
+<td>Guidebook</td>
+<td><code>G</code></td>
+</tr>
+<tr>
+<td>Map</td>
+<td><code>M</code> (the wheel zooms it)</td>
+</tr>
+<tr>
+<td>Chat and commands</td>
+<td><code>T</code>, then <code>/help</code></td>
+</tr>
+<tr>
+<td>Block palette (creative)</td>
+<td><code>B</code></td>
+</tr>
+<tr>
+<td>Fly (creative)</td>
+<td>double-tap <code>Space</code></td>
+</tr>
+</tbody>
+</table>
+<p>Every key can be changed in Settings → Controls.</p>
+<h2 id="how-it-looks">How it looks</h2>
+<p>Settings → Graphics has four presets, and <code>F4</code> cycles them:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Fast</strong></td>
+<td>For the oldest machines. Renders at 70% and upscales; no swaying plants, no fancy water.</td>
+</tr>
+<tr>
+<td><strong>Balanced</strong></td>
+<td>The default. Swaying plants, fancy water, bloom and colour grading.</td>
+</tr>
+<tr>
+<td><strong>Fancy</strong></td>
+<td>Balanced at full resolution, with anti-aliasing.</td>
+</tr>
+<tr>
+<td><strong>Realistic</strong></td>
+<td>Real sunlight and shadow, scattered sky, reflections in water, surface relief and aerial haze.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Realistic asks a lot of the machine.</strong> On a base M1 Air it runs at around 25–29 fps, which is
+playable but not smooth; on anything with a discrete graphics card it is comfortable. Every part of it
+can be switched off on its own if you want most of the look for more of the speed — <strong>Surface relief</strong>
+is the one to try first, since it does the most work per pixel.</p>
+<p>Changing a single setting moves the preset to "Custom", which is only a label: nothing is lost.</p>
+<h2 id="your-first-hour">Your first hour</h2>
+<p>A guided game leads you: it sets out the first few things to do, in an order that makes sense, and a
+tracker at the left of the screen says what is next. Follow that when it is there.</p>
+<p>Otherwise, the short version of survival:</p>
+<ol>
+<li><strong>Punch a tree.</strong> Logs become planks, planks become sticks and a crafting table.</li>
+<li><strong>Make a wooden pickaxe</strong>, then mine stone, then make a stone one. Each tier opens the next.</li>
+<li><strong>Make a torch before dark.</strong> Something that burns, sitting on top of a stick.</li>
+<li><strong>Sleep in a bed</strong> to skip the night, or stay somewhere lit.</li>
+</ol>
+<p>Press <code>G</code> at any point. The guidebook fills in as you play and is searchable; a page appears when you
+first meet the thing it is about.</p>
+<h2 id="crafting-and-discovering-recipes">Crafting, and discovering recipes</h2>
+<p>Some recipes you simply know. Others you work out, and that is deliberate — finding one out for yourself
+is the good bit.</p>
+<p>Open a crafting table and use the <strong>Experiment</strong> tab: put items you are holding into the grid and try
+them. Nothing is used up by trying. If you are close, it says so — <em>"these belong together, but not
+arranged like this"</em> means you have the right things in the wrong places. Some recipes care about
+arrangement; most do not.</p>
+<p>The <strong>book</strong> tab lists what you know, with a search. <code>R</code> on an item asks "how do I make this?" and <code>U</code>
+asks "what is this used in?".</p>
+<p>Plenty of things are never made. For those, the same panel says where they <em>come</em> from instead — which
+block drops them, which creature, which chest, or how deep in the ground to dig. If a game has written
+a note for something nothing could work out on its own, that shows up there too.</p>
+<h2 id="dying">Dying</h2>
+<p>You drop a grave holding your things. Only you can open it, it is marked on your map, and it waits for
+you. <code>/back</code> returns you to where you died.</p>
+<h2 id="useful-commands">Useful commands</h2>
+<p>Type <code>T</code>, then:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/help</code></td>
+<td>everything you can type</td>
+</tr>
+<tr>
+<td><code>/spawn</code></td>
+<td>back to the start</td>
+</tr>
+<tr>
+<td><code>/sethome</code>, <code>/home</code></td>
+<td>set and return to a home</td>
+</tr>
+<tr>
+<td><code>/milestones</code></td>
+<td>what you have done, and what is left</td>
+</tr>
+<tr>
+<td><code>/guide</code></td>
+<td>open the guidebook</td>
+</tr>
+<tr>
+<td><code>/server &lt;name&gt;</code></td>
+<td>travel to another of this server's worlds</td>
+</tr>
+</tbody>
+</table>
+<p>In Hearthhold: <code>/charter</code> for what the valley needs next, <code>/valley</code> for which way it is, and <code>/bramble</code>
+for where she has got to.</p>
+<h2 id="if-something-goes-wrong">If something goes wrong</h2>
+<p>Settings → <strong>Files</strong> lists every folder the game uses on your computer, with a button that opens it — the
+logs are there, which is the first thing to look at if the game misbehaves. Your worlds, your creations
+and your account key are in that list too, and nothing there is ever deleted automatically except the
+downloaded caches.</p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#playing-quarrowen">Playing Quarrowen</a></li><li class="sub"><a href="#getting-in">Getting in</a></li><li class="sub"><a href="#controls">Controls</a></li><li class="sub"><a href="#how-it-looks">How it looks</a></li><li class="sub"><a href="#your-first-hour">Your first hour</a></li><li class="sub"><a href="#crafting-and-discovering-recipes">Crafting, and discovering recipes</a></li><li class="sub"><a href="#dying">Dying</a></li><li class="sub"><a href="#useful-commands">Useful commands</a></li><li class="sub"><a href="#if-something-goes-wrong">If something goes wrong</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../search/main.js" defer></script>
+<script src="../lang/main.js" defer></script>
+</body>
+</html>

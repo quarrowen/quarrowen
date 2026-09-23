@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Events, commands and timers &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="../../..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="../../..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec open">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../">Overview</a></li>
+          <li><a class="" href="../blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../crafting/">Crafting</a></li>
+          <li><a class="cur" href="./">Events, commands and timers</a></li>
+          <li><a class="" href="../everything-else/">Everything else</a></li>
+          <li><a class="" href="../guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../items/">Items</a></li>
+          <li><a class="" href="../logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../server/">Server</a></li>
+          <li><a class="" href="../sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../../engine/">Engine internals</a></li>
+          <li><a class="" href="../../how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../modding/">Writing a mod</a></li>
+          <li><a class="" href="../../../loot/">Loot tables</a></li>
+          <li><a class="" href="../../../hosting/">Running a server</a></li>
+          <li><a class="" href="../../../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../playing/">Playing</a></li>
+          <li><a class="" href="../../../engine/">The engine</a></li>
+          <li><a class="" href="../../../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../../../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="events-commands-and-timers">Events, commands and timers</h1>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<h3 id="apicancel_assembly"><code>api.cancel_assembly</code></h3>
+<p>GDScript: <code>api.cancel_assembly(assembly_id: int) -&gt; bool</code></p>
+<p>JavaScript: <code>api.cancelAssembly(assemblyId)</code></p>
+<p>Puts it back exactly where it was lifted from.</p>
+<p><strong>See also:</strong> <code>cancel</code></p>
+<h3 id="apion"><code>api.on</code></h3>
+<p>GDScript: <code>api.on(event: String, handler: Callable, priority := 0) -&gt; void</code></p>
+<p>JavaScript: <code>api.on(event, handler, priority)</code></p>
+<p>Higher priority runs first.</p>
+<pre class="codehilite"><code class="language-gdscript">api.on(&quot;entity_spawned&quot;, func(ev):
+    if ev.entity.type == ids.grazer and not ev.entity.data.has(&quot;look&quot;):
+        ev.entity.set_look({&quot;hide&quot;: [&quot;collar&quot;]}))
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_handler</code></p>
+<h3 id="apiregister_command"><code>api.register_command</code></h3>
+<p>GDScript: <code>api.register_command(command: String, description: String, handler: Callable, permission := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.registerCommand(command, description, handler, permission)</code></p>
+<p><code>handler(player, args: PackedStringArray)</code> runs for "/name args...". permission "admin" restricts
+it to server admins (QW_ADMINS, /op, or the local host).</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_command(&quot;trial&quot;, &quot;Go into a private copy of a room&quot;, func(player, _args):
+    var here: String = api.instance_of(player)
+    if not here.is_empty():
+        api.leave_instance(player)
+        player.send_message(&quot;Back out.&quot;)
+        return
+    var run: String = api.open_instance(&quot;trial&quot;, {&quot;data&quot;: {&quot;opened_for&quot;: player.name}})
+    if run.is_empty():
+        player.send_message(&quot;No room to open one.&quot;)
+        return
+    api.enter_instance(player, run, Vector3(0.5, 66, 0.5))
+    player.send_message(&quot;You are in %s.&quot; % run))
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_command</code></p>
+<h3 id="apiafter"><code>api.after</code></h3>
+<p>GDScript: <code>api.after(seconds: float, callback: Callable) -&gt; int</code></p>
+<p>JavaScript: <code>api.after(seconds, callback)</code></p>
+<p>Runs <code>callback</code> once after <code>seconds</code>. Returns a task id for <code>cancel</code>.</p>
+<p><strong>See also:</strong> <code>schedule</code></p>
+<h3 id="apievery"><code>api.every</code></h3>
+<p>GDScript: <code>api.every(seconds: float, callback: Callable) -&gt; int</code></p>
+<p>JavaScript: <code>api.every(seconds, callback)</code></p>
+<p>Runs <code>callback</code> every <code>seconds</code>. Returns a task id for <code>cancel</code>.</p>
+<p><strong>See also:</strong> <code>schedule</code></p>
+<h3 id="apicancel"><code>api.cancel</code></h3>
+<p>GDScript: <code>api.cancel(task_id: int) -&gt; void</code></p>
+<p>JavaScript: <code>api.cancel(taskId)</code></p>
+<p>Stops a timer started with after or every.</p>
+<p><strong>See also:</strong> <code>broadcast_player_event</code>, <code>cancel_task</code>, <code>settle</code></p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#events-commands-and-timers">Events, commands and timers</a></li><li class="sub"><a href="#apicancel_assembly">api.cancel_assembly</a></li><li class="sub"><a href="#apion">api.on</a></li><li class="sub"><a href="#apiregister_command">api.register_command</a></li><li class="sub"><a href="#apiafter">api.after</a></li><li class="sub"><a href="#apievery">api.every</a></li><li class="sub"><a href="#apicancel">api.cancel</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../../../search/main.js" defer></script>
+<script src="../../../lang/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Players and gameplay &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="../../..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="../../..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec open">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../">Overview</a></li>
+          <li><a class="" href="../blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../crafting/">Crafting</a></li>
+          <li><a class="" href="../events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../everything-else/">Everything else</a></li>
+          <li><a class="" href="../guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../items/">Items</a></li>
+          <li><a class="" href="../logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="cur" href="./">Players and gameplay</a></li>
+          <li><a class="" href="../server/">Server</a></li>
+          <li><a class="" href="../sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../../engine/">Engine internals</a></li>
+          <li><a class="" href="../../how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../modding/">Writing a mod</a></li>
+          <li><a class="" href="../../../loot/">Loot tables</a></li>
+          <li><a class="" href="../../../hosting/">Running a server</a></li>
+          <li><a class="" href="../../../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../playing/">Playing</a></li>
+          <li><a class="" href="../../../engine/">The engine</a></li>
+          <li><a class="" href="../../../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../../../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="players-and-gameplay">Players and gameplay</h1>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<h3 id="apiplayers"><code>api.players</code></h3>
+<p>GDScript: <code>api.players() -&gt; Array</code></p>
+<p>JavaScript: <code>api.players(): Player[]</code></p>
+<p>Everyone playing on this server right now, as an Array of players.</p>
+<p><strong>See also:</strong> <code>register_weather</code></p>
+<h3 id="apiset_player_rig"><code>api.set_player_rig</code></h3>
+<p>GDScript: <code>api.set_player_rig(def: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.setPlayerRig(def)</code></p>
+<p>Replaces the player character rig for this server (see engine/shared/player_rig.gd).</p>
+<p><strong>See also:</strong> <code>reload</code>, <code>sanitize</code></p>
+<h3 id="apiregister_cosmetic"><code>api.register_cosmetic</code></h3>
+<p>GDScript: <code>api.register_cosmetic(cosmetic_name: String, def: Dictionary) -&gt; String</code></p>
+<p>JavaScript: <code>api.registerCosmetic(cosmeticName, def)</code></p>
+<p>Registers a server cosmetic players can wear on this server (see engine/shared/cosmetics.gd for
+the def: category, paint, pixels, boxes, texture, model, color, covers, unlocked...). <code>texture</code> and
+<code>model</code> are paths in this mod. <code>unlocked: false</code> makes it wearable only after player.grant_cosmetic.
+Returns the cosmetic's full name ("mod:name"), or "" when invalid.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_cosmetic(&quot;cap&quot;, {&quot;category&quot;: &quot;hat&quot;, &quot;display_name&quot;: &quot;Cap&quot;, &quot;unlocked&quot;: true,
+    &quot;boxes&quot;: [{&quot;from&quot;: [-4, 8, -4], &quot;size&quot;: [8, 2, 8], &quot;color&quot;: &quot;#4488cc&quot;}]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>attach</code>, <code>register</code>, <code>register_asset</code>, <code>reload</code></p>
+<h3 id="apiregister_cosmetic_category"><code>api.register_cosmetic_category</code></h3>
+<p>GDScript: <code>api.register_cosmetic_category(category_name: String, def := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerCosmeticCategory(categoryName, def)</code></p>
+<p>Adds a cosmetic category. def: display_name, attach (rig attachment point for boxes and models),
+covers (armor slots its cosmetics replace by default).</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_cosmetic_category(&quot;hat&quot;, {&quot;display_name&quot;: &quot;Hats&quot;})
+</code></pre>
+
+<p><strong>See also:</strong> <code>register_category</code></p>
+<h3 id="apiset_cosmetics_policy"><code>api.set_cosmetics_policy</code></h3>
+<p>GDScript: <code>api.set_cosmetics_policy(values: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.setCosmeticsPolicy(values)</code></p>
+<p>Sets how cosmetics work on this server. values (any subset):
+allow_builtin: players may wear built-in cosmetics (their own look from other servers)
+allow_colors:  players may recolor cosmetics and choose skin colors
+armor: "player" (each player chooses per slot), "armor" (armor always shows), "cosmetics"
+blocked: [cosmetic names or categories]
+uniform: avatar data laid over every player, e.g. {wear: {shirt: {id: "builtin:tshirt", color: "#d94c4c"}}}
+For per-player looks (teams, disguises) use player.set_avatar_override or the avatar_change event.</p>
+<p><strong>See also:</strong> <code>refresh_avatar</code>, <code>set_policy</code></p>
+<h3 id="apiregister_equipment_slot"><code>api.register_equipment_slot</code></h3>
+<p>GDScript: <code>api.register_equipment_slot(slot_name: String, def := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerEquipmentSlot(slotName, def)</code></p>
+<p>Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching
+<code>equip_slot</code> go in it; its modifiers apply while worn. def: display_name.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_equipment_slot(&quot;charm&quot;, {&quot;display_name&quot;: &quot;Charm&quot;})
+</code></pre>
+
+<p><strong>See also:</strong> <code>get_stat</code>, <code>register_slot</code></p>
+<h3 id="apiregister_stat"><code>api.register_stat</code></h3>
+<p>GDScript: <code>api.register_stat(stat_name: String, base: float) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerStat(statName, base)</code></p>
+<p>Adds a player stat with a base value. Items and effects change it with modifiers; read it with
+player.get_stat(name). Engine stats: see ItemRegistry.BASE_STATS.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_stat(&quot;proving:resolve&quot;, 1.0)
+</code></pre>
+
+<p><strong>See also:</strong> <code>can_see_target</code>, <code>health_fraction</code></p>
+<h3 id="apiset_gameplay"><code>api.set_gameplay</code></h3>
+<p>GDScript: <code>api.set_gameplay(values: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.setGameplay(values)</code></p>
+<p>Game-wide rules: item_drops ("entity" | "inventory"), keep_inventory, pvp, fall_damage,
+natural_regeneration, mob_spawning.</p>
+<pre class="codehilite"><code class="language-gdscript">api.set_gameplay({&quot;keep_inventory&quot;: true, &quot;natural_regeneration&quot;: true, &quot;tutorials&quot;: true})
+</code></pre>
+
+<h3 id="apiget_gameplay"><code>api.get_gameplay</code></h3>
+<p>GDScript: <code>api.get_gameplay(rule: String)</code></p>
+<p>JavaScript: <code>api.getGameplay(rule)</code></p>
+<p>A gameplay rule's current value (see set_gameplay), or null.</p>
+<h3 id="apiplayer_roles"><code>api.player_roles</code></h3>
+<p>GDScript: <code>api.player_roles(player_id: String) -&gt; Array</code></p>
+<p>JavaScript: <code>api.playerRoles(playerId: string): string[]</code></p>
+<p>A player's roles by player id (the default role included).</p>
+<p><strong>See also:</strong> <code>roles_of</code></p>
+<h3 id="apiset_player_role"><code>api.set_player_role</code></h3>
+<p>GDScript: <code>api.set_player_role(player_id: String, role: String, on := true) -&gt; bool</code></p>
+<p>JavaScript: <code>api.setPlayerRole(playerId: string, role: string, on?: boolean): boolean</code></p>
+<p>Gives (or takes) a role. Returns whether anything changed.</p>
+<p><strong>See also:</strong> <code>give</code>, <code>take</code></p>
+<h3 id="apiset_physics"><code>api.set_physics</code></h3>
+<p>GDScript: <code>api.set_physics(values: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.setPhysics(values: Record&lt;string, number | boolean&gt;): void</code></p>
+<p>Movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and <code>void_below</code>.</p>
+<p><strong>See also:</strong> <code>set_rules</code></p>
+<h3 id="apiget_players"><code>api.get_players</code></h3>
+<p>GDScript: <code>api.get_players() -&gt; Array</code></p>
+<p>JavaScript: <code>api.getPlayers()</code></p>
+<p>Everyone online (player objects).</p>
+<h3 id="apifind_player"><code>api.find_player</code></h3>
+<p>GDScript: <code>api.find_player(player_name: String)</code></p>
+<p>JavaScript: <code>api.findPlayer(name: string): Player | null</code></p>
+<p>The online player with this name (any case), or null.</p>
+<h3 id="apibroadcast"><code>api.broadcast</code></h3>
+<p>GDScript: <code>api.broadcast(text: String) -&gt; void</code></p>
+<p>JavaScript: <code>api.broadcast(text: string): void</code></p>
+<p>Sends a chat message to everyone.</p>
+<p><strong>See also:</strong> <code>add_death_messages</code>, <code>broadcast_chat</code></p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#players-and-gameplay">Players and gameplay</a></li><li class="sub"><a href="#apiplayers">api.players</a></li><li class="sub"><a href="#apiset_player_rig">api.set_player_rig</a></li><li class="sub"><a href="#apiregister_cosmetic">api.register_cosmetic</a></li><li class="sub"><a href="#apiregister_cosmetic_category">api.register_cosmetic_category</a></li><li class="sub"><a href="#apiset_cosmetics_policy">api.set_cosmetics_policy</a></li><li class="sub"><a href="#apiregister_equipment_slot">api.register_equipment_slot</a></li><li class="sub"><a href="#apiregister_stat">api.register_stat</a></li><li class="sub"><a href="#apiset_gameplay">api.set_gameplay</a></li><li class="sub"><a href="#apiget_gameplay">api.get_gameplay</a></li><li class="sub"><a href="#apiplayer_roles">api.player_roles</a></li><li class="sub"><a href="#apiset_player_role">api.set_player_role</a></li><li class="sub"><a href="#apiset_physics">api.set_physics</a></li><li class="sub"><a href="#apiget_players">api.get_players</a></li><li class="sub"><a href="#apifind_player">api.find_player</a></li><li class="sub"><a href="#apibroadcast">api.broadcast</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../../../search/main.js" defer></script>
+<script src="../../../lang/main.js" defer></script>
+</body>
+</html>

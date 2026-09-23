@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How do I… &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="../..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="../..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../mod-api/">Overview</a></li>
+          <li><a class="" href="../mod-api/blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../mod-api/crafting/">Crafting</a></li>
+          <li><a class="" href="../mod-api/events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../mod-api/everything-else/">Everything else</a></li>
+          <li><a class="" href="../mod-api/guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../mod-api/items/">Items</a></li>
+          <li><a class="" href="../mod-api/logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../mod-api/mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../mod-api/players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../mod-api/server/">Server</a></li>
+          <li><a class="" href="../mod-api/sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../mod-api/world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../engine/">Engine internals</a></li>
+          <li><a class="cur" href="./">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../modding/">Writing a mod</a></li>
+          <li><a class="" href="../../loot/">Loot tables</a></li>
+          <li><a class="" href="../../hosting/">Running a server</a></li>
+          <li><a class="" href="../../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../playing/">Playing</a></li>
+          <li><a class="" href="../../engine/">The engine</a></li>
+          <li><a class="" href="../../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="how-do-i">How do I…</h1>
+<p>The guide is arranged by subsystem and the reference by function name. Nobody arrives with
+either: they arrive with a question. This is the same material, indexed by the question.</p>
+<p>Every link goes into <a href="../../modding/">modding.md</a>; the API each one uses is in
+<a href="../mod-api/">mod-api.md</a>.</p>
+<h2 id="getting-started">Getting started</h2>
+<ul>
+<li><a href="../../modding/#writing-a-mod">How do I start a mod at all?</a></li>
+<li><a href="../../modding/#javascript-mods">Do I have to write GDScript, or can I use JavaScript?</a></li>
+<li><a href="../../modding/#example-a-worked-mod">Is there a complete small mod I can read?</a></li>
+<li><a href="../../modding/#reloading-mods">How do I see my changes without restarting the server?</a></li>
+<li><a href="../../modding/#logs-and-errors-for-mod-authors">Where do errors go when my mod breaks?</a></li>
+</ul>
+<h2 id="blocks-and-the-world">Blocks and the world</h2>
+<ul>
+<li><a href="../../modding/#gdscript-mods">How do I add a block?</a></li>
+<li><a href="../../modding/#blocks-over-time-light-and-plants">How do I make a block glow, grow, or change over time?</a></li>
+<li><a href="../../modding/#changing-many-blocks-at-once">How do I change a lot of blocks at once without lagging the server?</a></li>
+<li><a href="../../modding/#a-private-copy-of-a-space">How do I give a player their own copy of an area?</a></li>
+<li><a href="../../modding/#shipping-a-world">How do I ship a world I built by hand?</a></li>
+</ul>
+<h2 id="items-crafting-and-machines">Items, crafting and machines</h2>
+<ul>
+<li><a href="../../modding/#items-and-crafting">How do I add an item, and a recipe for it?</a></li>
+<li><a href="../../modding/#where-a-thing-comes-from">How do I tell a player where something comes from if it is not crafted?</a></li>
+<li><a href="../../modding/#containers-crafting-stations-and-smelting">How do I add a chest, a furnace or a workbench?</a></li>
+<li><a href="../../modding/#tools-weapons-armor-and-progression">How do I make tools that wear out, or armour that protects?</a></li>
+<li><a href="../../modding/#bags-and-stores-that-are-the-same-everywhere">How do I give a player a bag, or a bank that follows them?</a></li>
+</ul>
+<h2 id="creatures-and-people">Creatures and people</h2>
+<ul>
+<li><a href="../../modding/#entities-combat-inventory-and-sound">How do I add a creature?</a></li>
+<li><a href="../../modding/#mob-ai">How do I make it behave - hunt, flee, wander, guard?</a></li>
+<li><a href="../../modding/#avatars-and-cosmetics">How do I let a player change how they look?</a></li>
+</ul>
+<h2 id="look-sound-and-feel">Look, sound and feel</h2>
+<ul>
+<li><a href="../../modding/#effects-glows-trails-and-particles">How do I add particles, a glow or a trail?</a></li>
+<li><a href="../../modding/#music">How do I add music, and make it change with the place?</a></li>
+<li><a href="../../modding/#ambience">How do I add the small sounds a place makes on its own?</a></li>
+<li><a href="../../modding/#wind">How do I make the wind blow?</a></li>
+</ul>
+<h2 id="telling-the-player-things">Telling the player things</h2>
+<ul>
+<li><a href="../../modding/#guidebook">How do I write a guidebook page?</a></li>
+<li><a href="../../modding/#tutorials-and-tips">How do I teach somebody the first few steps?</a></li>
+<li><a href="../../modding/#a-story-to-walk-through">How do I write a story to walk through?</a></li>
+<li><a href="../../modding/#the-block-palette-creative">How do I let a creative player reach every block?</a></li>
+</ul>
+<h2 id="shipping-it">Shipping it</h2>
+<ul>
+<li><a href="../../modding/#mod-packages-versions-and-validation">How do I package my mod so other people can install it?</a></li>
+<li><a href="../../modding/#mod-packages-versions-and-validation">How do I check my mod before I share it?</a></li>
+<li><a href="../../modding/#dev-tools-f8">What tools are there while I am building?</a></li>
+</ul>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#how-do-i">How do I…</a></li><li class="sub"><a href="#getting-started">Getting started</a></li><li class="sub"><a href="#blocks-and-the-world">Blocks and the world</a></li><li class="sub"><a href="#items-crafting-and-machines">Items, crafting and machines</a></li><li class="sub"><a href="#creatures-and-people">Creatures and people</a></li><li class="sub"><a href="#look-sound-and-feel">Look, sound and feel</a></li><li class="sub"><a href="#telling-the-player-things">Telling the player things</a></li><li class="sub"><a href="#shipping-it">Shipping it</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../../search/main.js" defer></script>
+<script src="../../lang/main.js" defer></script>
+</body>
+</html>

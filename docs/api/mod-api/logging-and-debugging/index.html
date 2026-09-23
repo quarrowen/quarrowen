@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logging and debugging &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="../../..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="../../..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec open">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../">Overview</a></li>
+          <li><a class="" href="../blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../crafting/">Crafting</a></li>
+          <li><a class="" href="../events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../everything-else/">Everything else</a></li>
+          <li><a class="" href="../guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../items/">Items</a></li>
+          <li><a class="cur" href="./">Logging and debugging</a></li>
+          <li><a class="" href="../mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../server/">Server</a></li>
+          <li><a class="" href="../sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../../engine/">Engine internals</a></li>
+          <li><a class="" href="../../how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../modding/">Writing a mod</a></li>
+          <li><a class="" href="../../../loot/">Loot tables</a></li>
+          <li><a class="" href="../../../hosting/">Running a server</a></li>
+          <li><a class="" href="../../../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../playing/">Playing</a></li>
+          <li><a class="" href="../../../engine/">The engine</a></li>
+          <li><a class="" href="../../../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../../../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="logging-and-debugging">Logging and debugging</h1>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<h3 id="apiinfo"><code>api.info</code></h3>
+<p>GDScript: <code>api.info(message) -&gt; void</code></p>
+<p>JavaScript: <code>api.info(...parts: unknown[]): void</code></p>
+<p>Logs a line from this mod (console, <world>/logs/latest.log and the dev tools).</p>
+<h3 id="apidebug_box"><code>api.debug_box</code></h3>
+<p>GDScript: <code>api.debug_box(from: Vector3, to: Vector3, color := "#ffcc00", seconds := 2.0, label := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.debugBox(from, to, color, seconds, label)</code></p>
+<p>Debug drawing for developers (shown to admins with the dev overlay's Draw toggle on; cheap when
+nobody watches). Shapes expire after <code>seconds</code>. Colors are "#rrggbb" or "#rrggbbaa".</p>
+<p><strong>See also:</strong> <code>debug_text</code>, <code>draw</code></p>
+<h3 id="apidebug_line"><code>api.debug_line</code></h3>
+<p>GDScript: <code>api.debug_line(from: Vector3, to: Vector3, color := "#ffcc00", seconds := 2.0) -&gt; void</code></p>
+<p>JavaScript: <code>api.debugLine(from, to, color, seconds)</code></p>
+<p>A debug line between two points (see debug_box).</p>
+<p><strong>See also:</strong> <code>draw</code></p>
+<h3 id="apidebug_text"><code>api.debug_text</code></h3>
+<p>GDScript: <code>api.debug_text(position: Vector3, text: String, color := "#ffffff", seconds := 2.0) -&gt; void</code></p>
+<p>JavaScript: <code>api.debugText(position, text, color, seconds)</code></p>
+<p>A debug label floating at a position, always facing the camera (see debug_box).</p>
+<p><strong>See also:</strong> <code>draw</code></p>
+<h3 id="apidebug_path"><code>api.debug_path</code></h3>
+<p>GDScript: <code>api.debug_path(points: Array, color := "#60ff90", seconds := 2.0) -&gt; void</code></p>
+<p>JavaScript: <code>api.debugPath(points, color, seconds)</code></p>
+<p>A debug path through a list of points (Vector3 or [x, y, z]), with a dot at each (see debug_box).</p>
+<p><strong>See also:</strong> <code>draw</code></p>
+<h3 id="apidebug_sphere"><code>api.debug_sphere</code></h3>
+<p>GDScript: <code>api.debug_sphere(center: Vector3, radius := 0.5, color := "#6090ff", seconds := 2.0) -&gt; void</code></p>
+<p>JavaScript: <code>api.debugSphere(center, radius, color, seconds)</code></p>
+<p>A debug wire sphere (see debug_box).</p>
+<p><strong>See also:</strong> <code>draw</code></p>
+<h3 id="apidebug"><code>api.debug</code></h3>
+<p>GDScript: <code>api.debug(message) -&gt; void</code></p>
+<p>JavaScript: <code>api.debug(...parts: unknown[]): void</code></p>
+<p>Log levels for authors: debug lines only appear with <code>/log level &lt;mod&gt; debug</code> (or --log-level).
+Messages go to the server console, <world>/logs/latest.log and the dev tools.</p>
+<h3 id="apiwarn"><code>api.warn</code></h3>
+<p>GDScript: <code>api.warn(message) -&gt; void</code></p>
+<p>JavaScript: <code>api.warn(...parts: unknown[]): void</code></p>
+<p>Logs a warning from this mod (shown in yellow in the dev tools).</p>
+<h3 id="apierror"><code>api.error</code></h3>
+<p>GDScript: <code>api.error(message) -&gt; void</code></p>
+<p>JavaScript: <code>api.error(...parts: unknown[]): void</code></p>
+<p>Logs an error from the mod (grouped like script errors and shown to admins).</p>
+<h3 id="apiset_server_info"><code>api.set_server_info</code></h3>
+<p>GDScript: <code>api.set_server_info(values: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.setServerInfo(values: { name?: string; description?: string; motd?: string }): void</code></p>
+<p>Sets the server name/description shown to connecting clients.</p>
+<pre class="codehilite"><code class="language-gdscript">api.set_server_info({&quot;name&quot;: &quot;Proving Ground&quot;, &quot;motd&quot;: &quot;Nothing here is meant to be fun.&quot;})
+</code></pre>
+
+<h3 id="apicompany_info"><code>api.company_info</code></h3>
+<p>GDScript: <code>api.company_info(company_id: int) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.companyInfo(companyId)</code></p>
+<p><strong>See also:</strong> <code>claim_plot</code>, <code>plot_problem</code></p>
+<h3 id="apiassembly_info"><code>api.assembly_info</code></h3>
+<p>GDScript: <code>api.assembly_info(assembly_id: int) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.assemblyInfo(assemblyId)</code></p>
+<p>{id, realm, origin, offset, cells, name}, or {}.</p>
+<h3 id="apiclaim_info"><code>api.claim_info</code></h3>
+<p>GDScript: <code>api.claim_info(claim_id: int) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.claimInfo(claimId)</code></p>
+<p>One claim: {realm, chunks, owner, player_id, name, centre, cost, paused}, or {}.</p>
+<h3 id="apilink_info"><code>api.link_info</code></h3>
+<p>GDScript: <code>api.link_info(id: int) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.linkInfo(id)</code></p>
+<p>One link: {kind, a, b, length}, or {} if there is no such link.</p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#logging-and-debugging">Logging and debugging</a></li><li class="sub"><a href="#apiinfo">api.info</a></li><li class="sub"><a href="#apidebug_box">api.debug_box</a></li><li class="sub"><a href="#apidebug_line">api.debug_line</a></li><li class="sub"><a href="#apidebug_text">api.debug_text</a></li><li class="sub"><a href="#apidebug_path">api.debug_path</a></li><li class="sub"><a href="#apidebug_sphere">api.debug_sphere</a></li><li class="sub"><a href="#apidebug">api.debug</a></li><li class="sub"><a href="#apiwarn">api.warn</a></li><li class="sub"><a href="#apierror">api.error</a></li><li class="sub"><a href="#apiset_server_info">api.set_server_info</a></li><li class="sub"><a href="#apicompany_info">api.company_info</a></li><li class="sub"><a href="#apiassembly_info">api.assembly_info</a></li><li class="sub"><a href="#apiclaim_info">api.claim_info</a></li><li class="sub"><a href="#apilink_info">api.link_info</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../../../search/main.js" defer></script>
+<script src="../../../lang/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What is still missing &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../api/mod-api/">Overview</a></li>
+          <li><a class="" href="../api/mod-api/blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../api/mod-api/crafting/">Crafting</a></li>
+          <li><a class="" href="../api/mod-api/events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../api/mod-api/everything-else/">Everything else</a></li>
+          <li><a class="" href="../api/mod-api/guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../api/mod-api/items/">Items</a></li>
+          <li><a class="" href="../api/mod-api/logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../api/mod-api/mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../api/mod-api/players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../api/mod-api/server/">Server</a></li>
+          <li><a class="" href="../api/mod-api/sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../api/mod-api/world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../api/engine/">Engine internals</a></li>
+          <li><a class="" href="../api/how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../modding/">Writing a mod</a></li>
+          <li><a class="" href="../loot/">Loot tables</a></li>
+          <li><a class="" href="../hosting/">Running a server</a></li>
+          <li><a class="" href="../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../playing/">Playing</a></li>
+          <li><a class="" href="../engine/">The engine</a></li>
+          <li><a class="cur" href="./">What is still missing</a></li>
+          <li><a class="" href="../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="what-the-engine-still-needs">What the engine still needs</h1>
+<p>Quarrowen's rule is that <strong>the engine provides capabilities and mods provide content</strong>. This is the list
+of capabilities it does not have yet, in the order that unlocks the most.</p>
+<p>It comes from working backwards: taking the things people build on top of voxel games — the machines,
+the magic, the economies, the dungeons, the storage systems — and asking not "how would we write that"
+but <strong>"what could our engine not express, that whoever built it had to reach past the game to do?"</strong>
+About a hundred such things collapse into twenty-three answers, because most of them are different
+content over the same few gaps.</p>
+<p><strong>The test each of these has to pass</strong>: could two mods build genuinely <em>different</em> things on it, or
+does it bake one game's answer into the engine? A capability is a mechanism — the engine propagates,
+stores, detects and notifies; the mod decides what any of it means. Where something below still fails
+that test, it says so rather than pretending.</p>
+<p>Names, recipes, balance and voice are ours throughout. What is taken from the genre is <em>what a player can
+do</em>, never what somebody else called it — the engine keeps plain descriptive names for its capabilities
+(<code>signals</code>, <code>dimensions</code>, <code>networks</code>) and the mods name their own materials. Quarrowen is an independent
+project and stays one.</p>
+<h2 id="where-we-are">Where we are</h2>
+<p><strong>Seventeen of the twenty-three capabilities below are built</strong> (20 September 2026). Each one is marked
+where it appears, so this page stays a list of what is <em>left</em> rather than a record of what was wanted.</p>
+<p>Before all that: graves, roles and permissions, travel between servers, cosmetics, a guidebook,
+tutorials, milestones, loot tables, structures as data, worlds a mod can ship, crafting minigames and
+forging, containers and stations, recipe discovery, held-use charging, ambience, server-chosen music,
+weather, a map with markers, "what am I looking at", UGC moderation, and a hub.</p>
+<p>Twelve biomes, eighty blocks, eleven creatures, a boss, four games.</p>
+<h3 id="what-is-left-shortest-honest-answer">What is left, shortest honest answer</h3>
+<ul>
+<li><strong>No capabilities.</strong> All 26 are built; the last three (area tools, nested inventories, instances)
+  landed on 21 September 2026. What is left is content, four known limits, and the four 1.0 items.</li>
+<li><strong>Four known limits</strong> in things that <em>are</em> built - see "Where the built things stop" below.</li>
+<li><strong>All of the content</strong>, which is not capability and is now the larger half of the work: the seven
+  games were deleted on 21 September, so <code>base</code> has to be re-scoped to nouns and the packs and games
+  written on top of it. See "The mod architecture" below.</li>
+<li><strong>Four things for 1.0</strong>: touch controls, instrumenting the network, compressing chunks, interest
+  management.</li>
+</ul>
+<h2 id="the-capabilities">The capabilities</h2>
+<h3 id="1-dimensions-built">1. Dimensions — built</h3>
+<p>Separate worlds with their own generator, chunk storage and rules, reached through a portal, with
+entities and items crossing between them. About a quarter of everything below assumes this exists, and it
+changes the save format, so it wants doing early rather than bolted on.</p>
+<p>The two the bundled game wants: <strong>the Emberdeep</strong>, hot and dark and under everything, and <strong>the Hush</strong>, a
+still strange place at the edge of the map.</p>
+<h3 id="2-networks-built-all-three-layers">2. Networks — built (all three layers)</h3>
+<p>One capability, stated once: <strong>a quantity that moves between blocks along a network</strong>. Power, items,
+fluids and magic are the same problem with different units, so a mod declares its unit and the engine
+never learns what electricity is.</p>
+<p>If only one thing after dimensions gets built, it is this. It is the foundation of every machine, every
+pipe, every storage system and every mana pool anyone will ever want to write here.</p>
+<p><strong>Two kinds of network, and the second was nearly missed.</strong> "A quantity that moves" assumes something
+<em>stored and conserved</em> — it buffers, fills and runs out. Mechanical power is not that shape. Rotation is
+a speed and a twist; it arrives the instant the shaft turns, nothing accumulates in the gearbox, and a
+network with two sources fights rather than adds.</p>
+<p>Both are wanted (the user, 2026-09-19: gears, shafts, windmills). So <code>networks</code> carries two kinds:</p>
+<ul>
+<li><strong>Stored</strong> — a quantity with a capacity, which fills, drains and can run out. Power, items, fluids, mana.</li>
+<li><strong>Driven</strong> — a value propagated from a source through everything connected, with no buffer anywhere.
+  Speed and direction, resolved each tick, and conflicting sources are an error a mod is told about
+  rather than an average the engine invents.</li>
+</ul>
+<p><strong>And a second way of being connected: links.</strong> Everything above assumes a thing is joined to the six
+blocks touching it, which is how dust on a floor works and how signals were built. It is the least
+interesting way to wire anything, and it makes every machine sit in a paved trench.</p>
+<p>A <strong>link</strong> joins two connector blocks <em>directly</em>, whatever lies between them, with a cable drawn across
+the gap - sagging, because the sag is most of why a strung cable looks like a cable. The quantity jumps
+the link rather than walking the cells.</p>
+<p>This belongs here and not with signals (the user, 2026-09-19: <em>"why not make it look like an actual
+wire... why does it need to stick to a block or surface?"</em>). Power, fluids, items and rotation all want
+"these two are joined" without paving the ground between them, so building it once for wires and again
+for pipes would be building it twice. Adjacency stays for the cheap early thing a child lays along the
+floor; links are what a base looks like once it is a base.</p>
+<p><strong>A link has a <em>kind</em>, and the kind decides almost everything.</strong> A mod declares a kind - "cable",
+"pipe", "beam" - and with it: what it is drawn as, how far it may reach, what it costs to lay, whether
+it needs clear air, and whether it may leave the world it is in. The engine holds links and knows none
+of that, which is what keeps it from deciding that everything is a wire.</p>
+<p>The three kinds already known to be wanted, and they are not variations of one:</p>
+<ul>
+<li><strong>Cables sag.</strong> Electricity strung between poles, a catenary, and the sag is most of why it reads as
+  a cable at all.</li>
+<li><strong>Pipes do not.</strong> A fluid line is rigid; drawn with the same droop it would look broken. Which also
+  means a pipe wants a <em>shorter</em> maximum span than a cable, because a long rigid tube hanging in air
+  looks wrong in a way a long cable does not.</li>
+<li><strong>Wireless has nothing to draw.</strong> Whether it is allowed at all is the mod's business, and so is its
+  range - which is not a constant but something a mod may raise with an upgrade, so the engine asks
+  rather than stores it.</li>
+</ul>
+<p><strong>Only wireless may leave the world it is in</strong> (the user, 2026-09-19). A cable or a pipe joins two
+places in one realm, full stop: a physical thing cannot run through the gap between worlds, and
+pretending otherwise makes nonsense of what a portal is for. A wireless link may cross, if the mod
+that owns it says so - which is what lets a quarry in the Emberdeep report back to a base in the
+overworld without anybody laying a cable through a portal.</p>
+<p>That makes a link's endpoints <strong>(realm, position, face)</strong> rather than just a position - and cross-realm
+is the one case where the two realms differ.</p>
+<p><strong>The rules, decided with the user before it is built</strong> (2026-09-19):</p>
+<ul>
+<li><strong>A node is a <em>face</em> of a block, not the block.</strong> A machine takes power on one side and pushes items
+  out of another, which is how anybody actually builds a factory; one node per block cannot say that.
+  It costs more to store and is harder to undo later, which is why it is decided now.</li>
+<li><strong>Laying a link costs the item it is made of</strong>, by length. A long run is then a decision rather than
+  a formality, relays are earned rather than imposed, and copper has a job.</li>
+<li><strong>A limit on how far apart two connectors may be</strong> - of the order of 8 to 14 blocks for a cable and
+  shorter for a pipe, per kind and settable by the host, with a pole or relay needed to go further. Two things at once: it stops a player stringing a
+  cable across a continent, and it keeps the <strong>sag</strong> believable, because a catenary over a hundred
+  blocks either dips into the ground or is drawn as a straight line and stops looking like a cable.</li>
+<li><strong>The span has to be clear air.</strong> A cable that clips through a floor or a hillside looks broken, and
+  worse, it lets a player run power through a wall as if the wall were not there. So the line is
+  checked when the link is made and refused if anything solid is in the way.</li>
+<li>
+<p><strong>And it stays clear.</strong> A block placed into an existing span breaks the link and drops the cable, for
+  the same reason: the alternative is a cable quietly passing through a wall somebody built later.
+  Announced to whoever placed the block, because a link failing silently is a bug report.</p>
+</li>
+<li>
+<p><strong>What a machine does when the network cannot supply it is the mod's business.</strong> Stop dead, or run
+  slower, or run badly - the engine says "you asked for twenty and you have seven" and has no opinion
+  about what that means. A lamp and a smelter should not have to agree.</p>
+</li>
+</ul>
+<p>What it also needs that nothing here has yet: links saved with the world - they are a record of where
+somebody <em>chose</em> to run a cable and cannot be re-derived from the blocks the way a signal level can -
+broken when either end is mined, a cap on how many one connector may carry, and a client that can draw
+a sagging curve between two arbitrary points, which it currently cannot do at all.</p>
+<h3 id="3-signals-built">3. Signals — built</h3>
+<p>A block can emit a level, a block can declare itself able to carry one, and a block can be told when the
+level reaching it changes. That is the whole capability, and it is deliberately less than it first
+looked: <strong>gates, delays, inverters and latches are blocks a mod writes</strong>, each one reading its
+neighbours and emitting accordingly. An engine that ships an AND gate has decided what logic looks like,
+which is not its business.</p>
+<p>In the bundled game the material is <strong>quickdust</strong>, laid in lines and gathered from <strong>quickstone</strong>, and a
+block carrying a signal is <em>quickened</em>. (Quick in the old sense: alive.) Another mod's wiring can look
+nothing like it.</p>
+<p><strong>Built, and adjacency-only.</strong> A level spreads to the six blocks touching a cell, so quickdust is laid
+along a surface. That is the cheap thing worth having early, and it is not the interesting one: a
+strung cable between two connectors wants <strong>links</strong> (see capability 2), which signals will use as soon
+as they exist rather than growing a second kind of wiring of its own.</p>
+<h3 id="4-keeping-the-world-awake-built">4. Keeping the world awake — built</h3>
+<p>An area that keeps ticking when nobody is standing in it. Small, and not optional once machines exist:
+a pump in a far-off place feeding a tank back at the base is the ordinary case, and it is one of the
+things that <strong>cannot</strong> be caught up afterwards, because what it did depended on the rest of the world
+while it was doing it.</p>
+<p>It is small only as an API — a claim on some chunks, by a mod or by a block a player placed. What it
+costs is the whole of "How much of the world is running" below, and that section is where the rules
+for it are, because a claim that the engine always honours is a claim that one player can use to stop
+the server. Note especially that a claim is needed at the end that <em>decides</em> something, not along the
+whole pipeline: filling a buffer in a sleeping chunk is free.</p>
+<p><strong>Moved here from eleventh place</strong> (19 September 2026) after the user asked what happens to a pump in
+another dimension feeding a tank at their base. The honest answer was that it stops — and a machine
+that only runs while you stand beside it is most of the point of building it gone. So this belongs
+with networks rather than long after them: the two capabilities are only half a feature apart.</p>
+<h3 id="5-item-modifiers-built">5. Item modifiers — built</h3>
+<p>Named modifiers on an item that change its stats and hook events, applied at a station and readable in
+the tooltip. Items already carry data, quality and stats, so this is an extension rather than a new
+system.</p>
+<h3 id="6-flowing-liquids-built">6. Flowing liquids — built</h3>
+<p>Water and lava exist as blocks and sit exactly where they are put. They do not spread, do not fall, do
+not fill a hollow, and do not meet each other. That absence is larger than it sounds: <strong>a bucket is not
+worth carrying</strong> if what comes out of it cannot go anywhere, a cave cannot flood, a moat is a row of
+still squares, and the stone that forms where lava meets water — the obvious black glassy block a player
+expects to find and mine — has no way to exist.</p>
+<p>A block-level flow, with a source, a level that decreases with distance, and a rule for what happens
+where two liquids meet. It is the last purely-vanilla system missing, and it is the reason to do it
+before the industrial half rather than after.</p>
+<h3 id="7-fluids-in-containers-built">7. Fluids in containers — built</h3>
+<p>A fluid as a quantity that can sit in a tank and travel a network — which is a different problem from
+the one above, and neither gives you the other. A tank does not spread; a puddle does not pipe.</p>
+<h3 id="8-multiblocks-built">8. Multiblocks — built</h3>
+<p>Recognise a shape a player has assembled and treat it as one machine with one inventory and one
+controller. Structure templates already describe shapes for world generation; this is noticing one that
+somebody built by hand.</p>
+<h3 id="9-creature-abilities-built">9. Creature abilities — built</h3>
+<p><strong>This entry was badly out of date.</strong> Phases (<code>ai.phases</code>, gated on health, changing speed, aggression
+and the attack list), boss bars (<code>ai.boss</code>), summons, explode, charge, leap, slam and a wind-up
+telegraph on every attack all existed already. What was genuinely missing was one thing: an attack
+could not <strong>apply a condition</strong>, which was not possible until conditions were built the same day.</p>
+<p>So a spider that poisons and a boss that slows you are now data - <code>"condition": {"condition":
+"vanilla:poison", "seconds": 8, "chance": 0.5}</code> on any attack - where before they meant a mod catching
+<code>entity_damage</code> and reaching for the victim itself. Ranged attacks carry it on the projectile, because
+by the time an arrow lands the mob may be dead or shooting at somebody else.</p>
+<p>The remainder - <strong>lingering areas</strong> - was built straight after as <code>fields.gd</code>, and <code>"lingers"</code> on an
+attack is how a slam leaves a pool burning where it landed.</p>
+<h3 id="9a-fields-built">9a. Fields — built</h3>
+<p>Ground that does something to whoever stands in it, for a while. Not on the original list and needed
+the moment creature abilities were finished: a slam hurts what is near it at that instant, and a pool
+of fire left burning had nowhere to live. Useful well beyond fights - a campfire's warmth, gas from a
+cracked pipe, a healing circle in a village.</p>
+<p>Always visible: placing one starts a running effect and letting it go stops it, because an invisible
+thing on the floor that hurts a child is not a hazard but a trick. Each field keeps its own next-tick
+time, so forty campfires cost forty radius searches a second between them rather than forty a frame.</p>
+<h3 id="10-characters-built">10. Characters — built</h3>
+<p>People who stand somewhere, have a name and a face, hold a conversation and offer something. A character
+is a name, a colour and lines with options; the engine draws every one of them the same way, so a child
+who has learned to talk to one has learned to talk to all. <code>goes_to</code> moves along, <code>does</code> hands anything
+at all to the mod, and two shortcuts cover what characters are overwhelmingly for: <code>gives</code> hands over an
+objective, <code>sells</code> opens a shop. Bramble was rewritten on top of it and her hand-built panel is gone.</p>
+<h3 id="10a-shops-built">10a. Shops — built</h3>
+<p>Not on the original list, and needed the moment characters existed: a village stall, a pedlar, a vending
+block. Prices are paid out of a ledger, or in goods, or both, so a game with no money barters; <code>sells</code>
+turns an offer round and the player is paid. The half that matters is <strong>stock</strong> - a shop with unlimited
+everything is a creative menu with an extra step - and it refills on the way past, so a village of forty
+stalls is not forty things ticking for nobody.</p>
+<h3 id="11-objectives-built">11. Objectives — built</h3>
+<p>Steps, conditions and rewards, given and tracked. Tutorials teach and milestones commemorate; this is
+neither, and a mod should be able to hang a story, a daily errand or a contract on the same frame.</p>
+<h3 id="12-experience-built-as-one-thing-with-balances">12. Experience — built, as one thing with balances</h3>
+<p>A number that goes up when a player does a thing, with thresholds a mod reads. What counts, what the
+levels mean and whether they unlock anything at all is the mod's business — the engine counts and
+remembers.</p>
+<h3 id="13-balances-built-see-12-they-are-one-capability">13. Balances — built (see 12: they are one capability)</h3>
+<p>A named quantity a player owns, that mods can read and change without agreeing on what it is. Coins,
+reputation, contribution, a guild's standing: the engine stores a number against a player and a name,
+and never learns that one of them is money.</p>
+<h3 id="14-claims-built-as-plots">14. Claims — built, as <em>plots</em></h3>
+<p>An area with an owner and permissions, which the engine consults before an edit. What may be claimed,
+how much, and what it costs are the mod's.</p>
+<h3 id="15-companies-built">15. Companies — built</h3>
+<p>Groups of players that other things can be owned by — a claim, a balance, a base. Deliberately separate
+from claims: plenty of servers want one without the other.</p>
+<h3 id="16-applied-effects-built">16. Applied effects — built</h3>
+<p>Built as <strong>conditions</strong> (<code>engine/server/conditions.gd</code>), named that way because <code>effect_registry.gd</code>
+already means particles. A condition is a stat change, or something that repeats on a timer, or both -
+and the timer is the half a plain timed modifier could never express, which is what poison,
+regeneration and burning all are. Creatures get the ticking half; they have no stat table, so
+swiftness on a cow does nothing yet.</p>
+<p>A station to brew them at is still content, and nothing in the engine is in the way of it.</p>
+<h3 id="17-companions-built">17. Companions — built</h3>
+<p><strong>Three of the four parts already existed in <code>taming.gd</code></strong>: a tamed creature follows, belongs to
+somebody, and does not despawn, so it is still there tomorrow. Taking instruction was one boolean,
+<code>sitting</code>, toggled by right-clicking - fine for a dog, and out of room the moment there is a third
+thing to say.</p>
+<p>Orders now. Three are the engine's own because all three are about <em>where</em>: follow, stay and guard.
+Anything else a mod registers maps to a behaviour, so the engine sets the order and the behaviour
+decides what it looks like. Right-clicking a companion opens a panel rather than toggling, the same
+way talking to a character opens a conversation - a child cannot discover what they cannot see.</p>
+<p><code>sitting</code> was kept rather than replaced: the sit behaviour and its pose were proven, and "stay" is
+exactly what they already did.</p>
+<h3 id="18-vehicles-built-capability-no-bundled-vehicle-yet">18. Vehicles — built (capability; no bundled vehicle yet)</h3>
+<p>An entity type with a <code>vehicle</code> block becomes rideable. <strong>Protocol 47.</strong></p>
+<p>The design decision that matters: <strong>a rider stops simulating themselves</strong>. That is the third case of a
+shape the server already had twice - a dead player and a sleeping one both drain their input queue and
+stay put - so riding slots in beside them instead of threading a new idea through the physics. It also
+means <code>player_physics.gd</code> and <code>physics.rs</code> were not touched at all, which is the difference between a
+vehicle that might break walking and one that cannot.</p>
+<p>Steering reuses the input fields that already exist: throttle forward and back, the vehicle turns
+towards wherever the rider looks, sneak gets off. Nothing new crosses the wire except "you are riding
+that" - and the client needs that one message, because otherwise it predicts walking, the server puts
+it back, and that is rubber-banding.</p>
+<p><strong>The client half is tested now.</strong> It was not when this shipped: nothing bundled was rideable, so the
+riding path had never been driven by a real client. The Proving Ground has a raft, and <code>e2e:proving</code>
+mounts it, checks the rider follows the vehicle rather than predicting its own walk, and gets off
+again. A model would still make it <em>look</em> like something, but the capability is proven.</p>
+<h3 id="19-area-tools-built">19. Area tools — built</h3>
+<p>Placing or breaking many blocks at once with a preview, respecting permissions and the edit budget.
+Mining a whole vein is the same capability with a different rule for choosing the blocks.</p>
+<p>Built as four calls that keep <strong>choosing</strong> the cells separate from <strong>changing</strong> them, because between
+the two is where a tool shows a preview, counts the cost, or asks whether you meant it:</p>
+<pre class="codehilite"><code>var cells := api.area_cells(&quot;vein&quot;, {&quot;position&quot;: at, &quot;player&quot;: p, &quot;max&quot;: 64})
+api.show_area(p, cells)
+var done := api.area_edit(p, cells, {&quot;block&quot;: 0})
+</code></pre>
+
+<p>Shapes are <code>box</code>, <code>sphere</code> and <code>vein</code>, plus whatever a mod adds with <code>register_area_rule</code> - a line, a
+wall, everything touching one face. A vein floods over the six faces, not all twenty-six: a diagonal
+touch is not the same lump to anyone looking at it, and counting it joins two veins through one
+buried ore.</p>
+<p><strong>The point is that it is not <code>fill</code>.</strong> Every cell goes through the plot check, the block events, the
+loot roll, tool wear, hunger and the player's edit budget, by calling the same <code>break_block_for</code> and
+<code>place_block_for</code> that a hand-swung pick calls - so a mod listening for <code>block_broken</code> hears an area
+edit exactly as it hears a pickaxe. <code>fill</code> stays the admin door that asks none of that.</p>
+<p>Three decisions worth keeping: a selection reaching into somebody's garden <strong>does the part outside
+it</strong> and reports the rest as <code>skipped</code>, rather than refusing the lot, so a vein can run up to a
+boundary and stop. Reach is asked once of the nearest cell (<code>REACH_OF_SELECTION</code>, 24 blocks) rather
+than per cell, since the point of an area tool is to shape more than you can touch. And the cost is
+paid in the <strong>existing</strong> edit budget at <code>CELLS_PER_TOKEN</code> cells per token, so there is no second pool
+to tune or forget to drain.</p>
+<h3 id="20-text-in-the-world-built">20. Text in the world — built</h3>
+<p>Half of this entry already existed: <strong>mod-defined corners of the interface</strong> are <code>show_ui</code> with an
+anchor, all four corners included, and <strong>a live value inside a piece of text</strong> is calling <code>show_ui</code>
+again with the new number, which is how every other panel here updates.</p>
+<p>What was missing was words in the <em>world</em>, and that is <code>api.float_text</code> - a <code>Label3D</code> that rises,
+fades and goes. Drawn through walls on purpose: a damage number that disappears because the thing you
+hit stepped behind a post is a number nobody can read, and being readable at a glance is the whole
+value of it. It can follow a player or a creature, so a number stays with what it came off rather than
+hanging where the blow landed.</p>
+<p>Damage numbers themselves are <strong>content, in vanilla</strong>, because a quieter survival game might want
+none. The engine only knows how to make a word float. <strong>Protocol 48.</strong></p>
+<h3 id="21-inventories-inside-things-built">21. Inventories inside things — built</h3>
+<p>An item that contains an inventory, and a container that is the same container wherever you open it.</p>
+<p>Two halves of one capability, because both are containers whose contents are <strong>not at a position</strong> -
+which is why the addressing had to change before either could exist. A container screen is now
+identified by a tagged string rather than a <code>Vector3i</code>:</p>
+<pre class="codehilite"><code>b:12,64,-3     a block, backed by that block's data
+i:7            the bag in the viewer's own inventory slot 7, backed by that item's data
+s:mod:vault    a shared store, backed by a table saved with the world
+</code></pre>
+
+<p>A <strong>bag</strong> is an item whose definition names a <code>container</code> type, the way a chest block does. Its
+contents live in the item's own data, so it holds what it holds wherever it goes - into a chest, onto
+the floor, into someone else's hands - with nothing to keep in step. <code>api.open_bag(player, slot)</code>.</p>
+<p>A <strong>shared store</strong> is declared by name (<code>api.shared_store</code>) and opened from anywhere
+(<code>api.open_shared</code>). <strong>Whose it is, is the name's business</strong>: one vault for the server is <code>"vault"</code>,
+one each is <code>"vault_" + player_id</code>. That keeps the sharing rule in the mod and the engine a table.</p>
+<p>Two rules the engine enforces rather than trusting mods with. <strong>A bag cannot go inside a bag</strong> - the
+outer one holds the inner one's item data, so copying the outer stack copies its contents, and there
+is no version of nesting that is not somebody's duplication exploit. And <strong>the slot holding an open
+bag is locked</strong>, because the bag's address <em>is</em> that slot; moving it would leave the screen pointing
+at whatever landed there.</p>
+<h3 id="22-moving-assemblies-built-with-limits">22. Moving assemblies — built, with limits</h3>
+<p>A group of blocks that leaves the grid and becomes one moving thing — a platform on a track, a drawbridge
+swinging, a windmill's sails, a whole contraption a player built and set going — then sets back down and
+becomes blocks again.</p>
+<p><strong>This is the hardest capability on the page</strong>, and it is here because the mechanical half is wanted
+properly rather than as decoration. A voxel world is a grid, and this is the one thing that asks it not
+to be: the assembly needs its own position and rotation, its own collision, a player able to stand on it
+and be carried, and blocks that keep working while they are off the grid. Nothing else on this list
+fights the engine's basic shape in that way.</p>
+<p>It wants <code>networks</code> (driven kind) and <code>multiblocks</code> first, since it is what those two are <em>for</em>.</p>
+<h3 id="23-instances-built">23. Instances — built</h3>
+<p>A private copy of a space, entered and left. Much cheaper once dimensions exist, being a dimension with
+a lifetime.</p>
+<p>That is exactly what it turned out to be, and it is why this was small: dimensions already built the
+hard half - a separate world with its own terrain, creatures, tickers and coordinate space, running
+in the same server at the same time. An instance adds three things to a realm, and each is a
+decision rather than an omission:</p>
+<ul>
+<li><strong>It is never written to disk.</strong> The realm is marked <code>ephemeral</code> and <code>_save_all</code> skips it. A run
+  that outlived the server would be a folder nobody can get back into, and a crash mid-run would
+  leave one every time.</li>
+<li><strong>Everybody is put back where they came from.</strong> The return point is taken when they <em>enter</em>, not
+  worked out when they leave — by closing time, where they came from may be the only thing left to
+  know. Held by the engine rather than on the player, so it never becomes part of the save format
+  for something that cannot survive a restart.</li>
+<li><strong>Empty is not the same as finished.</strong> It closes after <code>empty_seconds</code> with nobody in it, not the
+  moment the last player steps out, because stepping out for a moment is a thing people do. A
+  dungeon that vanished behind you while you checked your bag is a bug nobody could explain. A mod
+  that means <em>now</em> calls <code>close_instance</code>.</li>
+</ul>
+<p><code>register_instance</code>, <code>open_instance</code>, <code>enter_instance</code>, <code>leave_instance</code>, <code>close_instance</code>,
+<code>instance_of</code>, <code>instance_data</code>. Two runs of the same kind are two worlds, not two names for one.</p>
+<h2 id="touch-controls-and-the-ipad">Touch controls, and the iPad</h2>
+<p>Wanted for 1.0 (the user, 2026-09-19). An iOS build today would install and be unplayable: everything
+assumes a mouse, a keyboard and a captured pointer. What it needs is a control scheme rather than a
+port - a thumbstick, a look area, tap-to-break and hold-to-place, a reachable hotbar, and inventory
+screens that work with a finger rather than a hover.</p>
+<p>Order: touch controls first, then a local build, then TestFlight, then CI. Nothing about it is blocked
+by anything else on this page, and it is the only item here that would put the game in a child's hands
+somewhere other than a desk.</p>
+<h2 id="how-much-of-the-world-is-running">How much of the world is running</h2>
+<p>The other standing concern, and the one dimensions makes urgent (the user, 19 September 2026: <em>"Might
+not be needed for all realms to tick all the time... Otherwise a lot of machines by a bunch of players
+in their bases can overwhelm servers"</em>).</p>
+<p>Today the server ticks one world, and everything in it that is loaded. That is affordable because there
+is one world, loaded means <em>near a player</em>, and the only things in it that move are creatures and a few
+crops. Three items on this page change all three of those at once: <strong>dimensions</strong> multiplies the worlds,
+<strong>networks</strong> fills them with machines that tick whether or not anyone is watching, and <strong>keeping the
+world awake</strong> is a player asking for the machines to keep going after they leave. The family server is
+a homelab box, so this is not a theoretical budget.</p>
+<p>Four rules, settled before the rest is built, because the ticking model shapes how each one is written.
+The first two are in the engine already; what is built is listed at the end of this section.</p>
+<p><strong>1. A realm with nobody in it does not tick at all.</strong> Not cheaply — not at all. Its clock keeps
+running, and when somebody arrives its blocks are handed the ticks they missed, which is the mechanism
+<code>block_ticks</code> already uses for a chunk that was unloaded and came back (<code>MAX_CATCH_UP</code>, so crops grow
+while nobody is near). Applying it one level up means an empty Hush costs the server nothing, and the
+cost of <em>having</em> a dimension is close to zero until someone goes there. This is what makes it safe for
+a mod to register five realms.</p>
+<p>Catch-up is bounded, and that bound is a design statement rather than an optimisation: returning to a
+realm after a week must not produce a week of simulation in one tick. A block that has been asleep is
+told <strong>how long</strong>, not given that many ticks, and a mod that wants a week of growth computes it.</p>
+<p><strong>1a. Catch-up is not a substitute for running, and knowing which is which is the whole game.</strong> The
+user's case, and it is the right one to test the model against (19 September 2026): <em>a lava pump in a
+remote place, sending what it draws to a tank back at the base</em>.</p>
+<p>Crops can be caught up because <strong>what they do is a function of elapsed time and nothing else</strong> — an
+hour asleep is twelve stages of wheat, and the answer is the same whether it was computed as it went or
+all at once at the end. A pump is not that. What it does depends on whether the tank was full, whether
+somebody cut the pipe, and what else was drawing from the network while it ran. There is no sum that
+gives the right answer afterwards. <strong>It either runs or it did not happen.</strong></p>
+<p>So a block falls into one of three kinds, and the mod says which:</p>
+<ul>
+<li><strong>Catches up</strong> — time is the only input. Crops, decay, a fire burning down. Sleeps freely.</li>
+<li><strong>Resumes</strong> — sleeping loses nothing worth recovering. A spawner, an ambient effect. Sleeps freely.</li>
+<li><strong>Must run</strong> — the outcome depends on things outside its own chunk. Pumps, sorters, anything feeding
+  a network. This one <strong>cannot sleep correctly</strong>, so it has to be kept awake (capability 4) and that
+  costs budget (rule 3). That is the honest price, and the player pays it knowingly rather than
+  discovering their base quietly stopped.</li>
+</ul>
+<p>The <code>catch_up</code> option on <code>register_block_tick</code> already distinguishes the first two. The third is new
+with claims, and a mod that marks everything "must run" is a mod that spends its player's whole budget.</p>
+<p><strong>1b. Delivering into a sleeping chunk is free, because storage is data and not simulation.</strong> The tank
+at the base does not need to be running to be filled — the pump is running, and a stored network's job
+is to move a quantity into a buffer, which is a number in block data whether anyone is watching or not.
+The consequence is the useful one: the player claims <strong>the pump</strong>, not the whole pipeline, and not the
+base they are standing in anyway. The same is true across realms, which is what "wirelessly to a tank
+in my base" needs — a network may span realms, and only the end that has to <em>decide</em> something needs
+to be awake.</p>
+<p>Driven networks (rotation) are the opposite and it is worth saying so: nothing is stored, so a driven
+network that is asleep is simply stopped. A windmill somebody left running in the Hush stops turning
+when they leave unless it is claimed, and the roadmap prefers that to pretending.</p>
+<p><strong>2. Simulation distance is not view distance.</strong> They were one number (<code>VIEW_RADIUS</code>, 8) answering two
+questions: how far can a player <em>see</em>, and how far does the world <em>run</em>. Seeing costs bandwidth,
+running costs the tick, so they are two settings now, simulation defaulting below view — a server owner
+who is short of CPU and one who is short of upstream can each turn down the right one.</p>
+<p><strong>3. A chunk kept awake costs somebody a budget.</strong> This is the one that matters, and the answer is
+deliberately not a count of chunks. Two force-loaded chunks holding a large sorting machine cost more
+than twenty holding a field, so a limit of "four chunks each" is generous to the player causing the
+problem and mean to everyone else. Instead the engine <strong>measures what each claim costs in tick time</strong>
+and spends a budget the server owner sets.</p>
+<p>When the budget is exceeded, the engine sheds — and <em>which</em> claim stops is the real decision:</p>
+<ul>
+<li><strong>Most expensive claim first</strong>, not oldest and not newest. One runaway machine should stop before ten
+  modest ones, and the player who built the expensive thing is the one who can fix it.</li>
+<li><strong>The player is told</strong>, plainly and by name of place: their claim is paused, and why. A world that
+  silently stops working is a bug report; a world that says "your workshop is asleep, it was doing too
+  much" is a game telling a child something true.</li>
+<li><strong>Nothing is deleted, ever.</strong> Shedding pauses; the blocks and their contents stay exactly as they
+  were. The engine does not get to destroy what a player built because it was slow.</li>
+</ul>
+<p><strong>4. The tick is time-sliced across realms, not divided between them.</strong> With several realms occupied,
+each gets a slice of a per-tick simulation budget and a realm that does not finish resumes where it
+stopped — the pattern <code>_drain_save_queue(SAVE_BUDGET_USEC)</code> already uses for saving. Dividing the tick
+evenly instead would mean the realm with one player in it and the realm with eight both getting half,
+and a busy realm juddering to protect an idle one.</p>
+<p>What this is deliberately <em>not</em>: no automatic difficulty on machines, no per-player entity tax, no
+naming and shaming of whoever is slowest in chat. The server owner sets a budget, the engine keeps to
+it and says what it did.</p>
+<p><strong>Instrument before tuning.</strong> Every number above — the default simulation distance, the budget, the
+catch-up bound — is a guess until the server can say where its tick actually goes. It already records
+sections per tick (<code>dev_tools.record</code>); what is missing is the same breakdown <strong>per realm and per
+claim</strong>, which is the first thing to build when this work starts and the cheapest.</p>
+<p><strong>Built so far</strong> (19 September 2026): rules 1 and 2. A realm with nobody in it does nothing;
+<code>view_distance</code> and <code>simulation_distance</code> are separate host settings (<code>QW_VIEW_DISTANCE</code>,
+<code>QW_SIMULATION_DISTANCE</code>, 8 and 6); and a block outside the simulated set sleeps rather than stops —
+its chunk keeps the clock and hands it the missed ticks on waking, with the true <code>elapsed</code> beside the
+capped count. Rules 3 and 4 wait on claims and on more than one occupied realm respectively.</p>
+<h2 id="sending-less-before-sending-it-differently">Sending less, before sending it differently</h2>
+<p>A standing concern rather than a capability: the server streams a great deal — terrain, assets,
+entity snapshots — and lag is the thing a child feels first.</p>
+<p><strong>The transport is already reasonable.</strong> ENet over UDP with DTLS, with three channels delivered
+independently, so a burst of terrain does not hold up chat or block changes behind it, and movement is
+unreliable-ordered on its own channel because a stale position is worth nothing. That is most of what a
+modern transport would buy.</p>
+<p><strong>All four of these are 1.0 work</strong> (agreed 19 September 2026), in this order:</p>
+<ol>
+<li><strong>Instrument it.</strong> Bytes per second by message kind, and how long a join actually takes. Everything
+   below is guesswork until this exists, and it is the cheapest item here.</li>
+<li>~~<strong>Fix what is on the wrong channel.</strong>~~ Done the day it was noticed: <code>s_asset_piece</code> was on the
+   default channel, where everything small and urgent lives, so the join burst competed with chat, block
+   changes and UI. One line.</li>
+<li><strong>Compress chunk payloads.</strong> Terrain is highly repetitive and is currently sent raw.</li>
+<li><strong>Interest management.</strong> Send what is near a player rather than what exists — of the four, the one
+   that changes the shape of the problem rather than trimming it. It is also what makes a busy server
+   possible at all, and it will want care: the rule for <em>what is near</em> has to answer for entities,
+   block changes, sounds and effects, each of which has a different idea of how far away is too far.</li>
+</ol>
+<p>Today's lazy asset lane was this kind of win already, and took megabytes out of the join path outright.</p>
+<p><strong>QUIC: decided against</strong> (19 September 2026), rather than deferred. ENet already gives independent
+channels, which is the main thing it would buy; DTLS covers the encryption; and the remaining benefit —
+better congestion control — is second-order. Against that, Godot's multiplayer sits on <code>ENetMultiplayerPeer</code>,
+so it means writing a <code>MultiplayerPeer</code> of our own: feasible, since the good QUIC libraries are Rust and
+there is already a Rust extension here, but a deep change to the one part of the system that currently
+works.</p>
+<p>The condition for reopening it is specific: <strong>the instrumentation in item 1 showing the transport itself
+is the bottleneck</strong>, rather than what is being put through it. Nobody should revisit this on a hunch.</p>
+<h2 id="the-content-that-matters-most-what-is-in-the-ground-done">The content that matters most: what is in the ground — done</h2>
+<p><strong>Built 20 September.</strong> Copper, gold and sunstone went in, with deep variants of coal, iron, copper and
+gold set in deepstone rather than stone. Quickstone and blackglass had already landed with the signal
+and liquid capabilities. The ladder is now wood → stone/copper → iron/gold → cobalt → sunstone, with
+copper and gold as sidegrades rather than rungs: copper shortens the long stretch where a child has a
+stone pickaxe and nothing better, and gold is quicker than anything short of cobalt and breaks while
+you watch, which is a lesson about trade-offs that costs nothing to learn.</p>
+<p>Named sunstone rather than the obvious thing: a stone that holds the light, found where there is none.</p>
+<p>What is below is the original entry, kept because the reasoning still explains the shape.</p>
+<p>Three ores and two metals is not a survival game. Today: coal, iron and cobalt, plus arcana's mana
+crystal — so every tool tree ends at the same place and there is nothing to find at depth that changes
+what you can make.</p>
+<p>This is <strong>content, not capability</strong>: <code>add_ore_pass</code> already places ore by depth, biome and rarity, and
+<code>register_material</code> already makes a metal into a full set of tools and armour. Nothing in the engine is
+in the way. But it is the single biggest thing between the survival game and the depth a child expects,
+so it belongs on this page even though no engine work is needed.</p>
+<p>What it wants, roughly, and this is a design job rather than a list to copy:</p>
+<ul>
+<li><strong>A common metal</strong> shallow and everywhere, for the things you make a lot of — wire, pipes, fittings.
+  Copper is the obvious one and is a real material with no baggage.</li>
+<li><strong>A soft precious metal</strong> for decoration and for things that conduct — gold.</li>
+<li><strong>A hard gem tier</strong> below iron, for the tools you keep. Diamond is a real stone; the name is free.</li>
+<li><strong>The signal material</strong> — <strong>quickstone</strong>, which capability 3 already needs, found deep and in quantity.</li>
+<li><strong>Deep variants</strong> of the common ores, so mining <em>down</em> is a different activity from mining <em>along</em>.</li>
+<li><strong>The black glass</strong> where lava meets water: unbreakable by ordinary tools, the gate to the Emberdeep,
+  and impossible until liquids flow (capability 6). It is the clearest example of why that capability
+  comes before the industrial half.</li>
+</ul>
+<p>Ores are also where the engine's rules are load-bearing rather than decorative: <strong>saves store block
+names, not ids</strong>, so adding a dozen ores to the middle of the registry cannot corrupt an existing world.
+That habit was kept for exactly this.</p>
+<h2 id="content-the-engine-is-already-ready-for">Content the engine is already ready for</h2>
+<p>Worth saying plainly, so nobody builds engine support for something that needs none. All of this is
+buildable today by anyone, with no engine change at all:</p>
+<p>decoration blocks of every kind, carved and coloured variants, ore types and world features, lights and
+lamps, chests and furnaces of larger sizes, item magnets and collectors, bins that destroy what is put
+in them, faster leaf decay, a block that plays music, teleport stones between places you have visited,
+custom menus, permission tiers, and a looking-glass that names what you are pointing at.</p>
+<p>The one decoration idea that is <em>not</em> content is textures that join up across neighbouring blocks, which
+is a rendering capability.</p>
+<p><strong>Seasons belong here too</strong>, which was not obvious. They were on the capability list until the question
+was asked properly: a mod already has persistent storage, the world clock, and an event for everything
+that happens in it. A long cycle that crops and creatures read is a number a mod keeps and publishes —
+no engine change. What is genuinely missing is <strong>weather</strong>, and that is listed on its own below.</p>
+<h2 id="the-games-and-mods-to-build">The games and mods to build</h2>
+<p>Ten, rather than the sprawl this could become:</p>
+<table>
+<thead>
+<tr>
+<th>Mod</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>base</code></td>
+<td>blocks, tools, crafting — exists</td>
+</tr>
+<tr>
+<td><code>vanilla</code></td>
+<td>the survival game — exists, and grows to the genre's full depth</td>
+</tr>
+<tr>
+<td><code>deep</code></td>
+<td>the Emberdeep and the Hush</td>
+</tr>
+<tr>
+<td><code>machines</code></td>
+<td>power, pipes, automation, storage networks</td>
+</tr>
+<tr>
+<td><code>arcana</code></td>
+<td>magic: mana, spells, rituals — exists</td>
+</tr>
+<tr>
+<td><code>guild</code></td>
+<td>economy, objectives, characters, trade — exists</td>
+</tr>
+<tr>
+<td><code>frontier</code></td>
+<td>claims, companies, waystones</td>
+</tr>
+<tr>
+<td><code>kitchen</code></td>
+<td>farming, food, bees, orchards</td>
+</tr>
+<tr>
+<td><code>build</code></td>
+<td>decoration and building tools</td>
+</tr>
+<tr>
+<td><code>hearthhold</code></td>
+<td>the story game — exists</td>
+</tr>
+</tbody>
+</table>
+<h2 id="the-mod-architecture-settled-21-september-2026">The mod architecture, settled 21 September 2026</h2>
+<p>Until now the engine shipped seven games and was tested through them, so every engine change dragged
+seven mods behind it and coverage was whatever the content happened to use. That is being undone.</p>
+<p><strong><code>base</code> owns nouns. Games own rules.</strong> Things that <em>exist</em> in a world - blocks, liquids, terrain,
+biomes, trees, crops, flowers, grass, mobs, animals, birds - are <code>base</code>. Progression, survival,
+recipes, what a player is <em>for</em> - that is a game. The test of whether the line is real: <strong>a creative
+game ships zero recipes and everything still exists and works.</strong></p>
+<p><code>base</code> therefore has no furnace, no logic gates and no tools. Those live in content packs a game pulls
+in - <code>simple_gear</code> (things you hold or wear) and <code>simple_machines</code> (things that do something). Two
+rather than four: splitting later is easy, merging after people depend on the ids is not.</p>
+<p>Testing moves to <strong>the Proving Ground</strong> (<code>tests/mods/proving</code>), one mod that uses every capability, in
+GDScript and JavaScript. It depends on nothing, because <code>base</code> will churn constantly as it grows and a
+test mod that rides on it fails for the wrong reasons.</p>
+<h3 id="three-capabilities-this-architecture-needs-and-does-not-have">Three capabilities this architecture needs and does not have</h3>
+<p><strong>24. Extending another mod's definitions — built.</strong> <code>extend_loot</code> already existed and its comment stated the
+principle - "adds pools to a table another mod owns, without forking it" - but it is the only registry
+with one. The same is needed for entities, blocks, recipes, containers and stations: adding an attack
+to somebody's creature, a slot to their machine. <strong>Additive only.</strong> Adding a pool is commutative and
+three mods can do it safely; "set health to 40" means last-loaded wins, which is a conflict system
+nobody asked to design.</p>
+<p>Built as <code>extend_entity</code> (<code>ai.attacks</code>, <code>ai.behaviors</code>, <code>ai.phases</code>, <code>drops</code>) and <code>extend_block</code>
+(<code>drops</code>). <strong>A block cannot be extended beyond its drops</strong>: everything else about one is baked into
+lookup tables at registration and cannot change afterwards, which the call says rather than
+half-doing. Containers and stations are out for the same reason - changing a container's slot count
+would change saved containers.</p>
+<p><strong>25. Excludes — built.</strong> A game wanting 80% of a pack must be able to refuse the rest. Not as
+<code>remove_block()</code>: registering and then deleting shifts every id after it, leaves every recipe and loot
+table that referenced it dangling, and cannot work anyway because a game loads <em>after</em> the mod it
+depends on. Instead, <strong>declared in <code>mod.json</code> and read before any mod registers anything</strong>:</p>
+<pre class="codehilite"><code>{&quot;id&quot;: &quot;my_game&quot;, &quot;depends&quot;: [&quot;base@^1.0&quot;],
+ &quot;excludes&quot;: [&quot;base:cobalt_*&quot;, &quot;base:sunstone_ore&quot;, &quot;#base:charms&quot;]}
+</code></pre>
+
+<p>Never registered is safe where registered-then-removed is not: no id churn, and anything referencing a
+missing name is dropped with a <strong>warning</strong> at load - not an error, because the pack that wrote the
+recipe did nothing wrong, a game downstream refused an ingredient. Seven registration points make that
+distinction. Wildcards do the bulk work; <strong>tags do not</strong>, because a tag is registered at runtime and
+exclusions are applied before anything registers. <code>remove_mod</code> is the same mechanism with a wider
+wildcard, and mostly a non-need - if you do not want a mod, do not depend on it.</p>
+<p><strong>26. Flight — built.</strong> <code>"fly": {"height": 8, "speed_up": 0.6}</code> in a creature's <code>ai</code>, beside <code>climb</code>
+and <code>hop</code>. A flier <strong>never asks the ground pathfinder anything</strong> - going over what a walker goes round
+is its whole advantage, and a path through walkable cells would throw that away - and it drives its own
+height, so its entity wants <code>gravity: 0</code>.</p>
+<p>With nowhere to be it holds station above <strong>whatever is below it</strong>, not above sea level: a height
+measured from the horizon means flying into a hill. A bird that drifts to the ground and a bird that
+climbs away for ever both look like bugs, so it does neither.</p>
+<p><strong>No 3D pathfinding</strong>, deliberately. A bird steering straight at its goal and rising over what is in
+the way is what a bird looks like; A* through open air would cost far more and look no better.</p>
+<h2 id="what-is-still-only-half-decided-which-content">What is still only half-decided: which content</h2>
+<p><code>docs/parity.local.md</code> (19 September) derived fifteen capabilities from a gap analysis, and that list
+is essentially this roadmap - nearly all of it is now built. What it never answered is <strong>which blocks,
+creatures and biomes actually get built</strong>, and that is the long programme.</p>
+<p><strong>Decided 22 September 2026</strong>, and deliberately wider than the principle that was proposed here:</p>
+<ul>
+<li><strong>Blocks: a palette you can build with, about 110.</strong> Several woods, stones and a proper colour
+  range, <em>even where they add no engine range</em>. The principle version - one block per shape and
+  material class, around fifty - proves the engine and leaves a child short of choices, and choices
+  are what a building game is. Roughly double the texture work, which Phase 4 was regenerating
+  anyway.</li>
+<li><strong>Creatures: a recognisable ecology, 12-16.</strong> Several per biome, so a place feels inhabited rather
+  than demonstrated. <strong>The models already exist</strong>: fourteen were archived from the deleted games into
+  <code>art/models/</code>, which is precisely why they were the one thing kept. They need re-theming, not
+  remaking.</li>
+<li><strong>First game: the creative sandbox.</strong> Zero recipes, everything available. It is the test that the
+  base/game line held - if a creative game ships no recipes and everything still exists and works,
+  the line is real - and the children can build in it the day it exists.</li>
+</ul>
+<p>The principle still governs <em>biomes</em>: one per generation technique that is genuinely different, not
+one per name.</p>
+<h2 id="order">Order</h2>
+<p><strong>The 19 September list is done.</strong> Weather, dimensions, signals, networks, keeping the world awake,
+fluids, multiblocks, driven networks and moving assemblies were built in that order over the two days
+after it was written, and item modifiers, objectives, ledgers, plots and companies with them. What
+follows is what is left, in the order that now unlocks the most.</p>
+<p><strong>Characters and shops went first</strong> and are done, which leaves a <strong>village</strong> with no missing capability
+at all: structures, facilities, jobs, ownership, conversation and trade all exist. What a village needs
+now is content - somebody to write the villagers.</p>
+<ol>
+<li><strong>The content</strong>, which is where the remaining weight is: re-scope <code>base</code> to nouns, write
+   <code>simple_gear</code> and <code>simple_machines</code>, then the games. Doing the three capabilities first means the
+   packs get designed against an API that has stopped moving.</li>
+</ol>
+<h2 id="where-the-built-things-stop">Where the built things stop</h2>
+<p>Limits in capabilities that <em>are</em> built, recorded so they are found on purpose rather than discovered.</p>
+<ul>
+<li><strong>A moving assembly is not solid.</strong> You can stand on one and be carried; you can walk through its
+  side. Making it collide means teaching the voxel physics about boxes that are not on the grid, which
+  is the physics/Rust twin pair, for a platform that is already rideable.</li>
+<li><strong>A moving assembly does not turn.</strong> A drawbridge travels along an arc; its blocks do not rotate.</li>
+<li><strong>Liquid depth is two states, not eight.</strong> A flow past a few blocks becomes a thin slab. Per-level
+  heights need block states sent to the mesher and its greedy-merging key re-cut, in the GDScript
+  mesher <em>and</em> the Rust one, which must agree exactly - a great deal of risk for a cosmetic gain.</li>
+<li><strong>Belts scroll, conveyed items do not slide.</strong> The belt surface moves; what is being carried is a
+  parcel in flight with no position of its own to draw.</li>
+</ul>
+<h2 id="content-the-capabilities-are-waiting-for">Content the capabilities are waiting for</h2>
+<p>None of this needs engine work. All of it is what makes the engine worth having.</p>
+<ul>
+<li><strong>Ores worth digging for</strong> - copper, gold, a hard gem, deep variants. Quickstone landed with signals;
+  the rest did not, and the ores that did exist went with the games.</li>
+<li><strong>A reason to build a factory.</strong> Power, pipes, belts, machines and rotation all exist; what is
+  missing is a progression that makes a child want one. That progression is a <em>game's</em> job now, not
+  <code>simple_machines</code>'.</li>
+<li><strong>Creature voices</strong>, still generated. The clearest brief the AI-audio phase could have - and the
+  brief has to be rewritten, because the creatures it named no longer exist.</li>
+<li><strong>A guided game.</strong> The thinking from the deleted story game is kept in <code>docs/hearthhold.md</code> and
+  should feed whatever replaces it; nothing about it needs engine work.</li>
+</ul>
+<h2 id="for-10">For 1.0</h2>
+<ul>
+<li><strong>Touch controls</strong>, and then an iPad build - see above; the only item that puts the game in a child's
+  hands somewhere other than a desk.</li>
+<li><strong>Instrument the network</strong>, then <strong>compress chunk payloads</strong>, then <strong>interest management</strong> - in that
+  order, because the first makes the other two answerable rather than guesswork.</li>
+<li><strong>Migration and corruption-proofing</strong> become real work the day 1.0.0 ships, and not before.</li>
+</ul>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#what-the-engine-still-needs">What the engine still needs</a></li><li class="sub"><a href="#where-we-are">Where we are</a></li><li class="sub"><a href="#the-capabilities">The capabilities</a></li><li class="sub"><a href="#touch-controls-and-the-ipad">Touch controls, and the iPad</a></li><li class="sub"><a href="#how-much-of-the-world-is-running">How much of the world is running</a></li><li class="sub"><a href="#sending-less-before-sending-it-differently">Sending less, before sending it differently</a></li><li class="sub"><a href="#the-content-that-matters-most-what-is-in-the-ground-done">The content that matters most: what is in the ground — done</a></li><li class="sub"><a href="#content-the-engine-is-already-ready-for">Content the engine is already ready for</a></li><li class="sub"><a href="#the-games-and-mods-to-build">The games and mods to build</a></li><li class="sub"><a href="#the-mod-architecture-settled-21-september-2026">The mod architecture, settled 21 September 2026</a></li><li class="sub"><a href="#what-is-still-only-half-decided-which-content">What is still only half-decided: which content</a></li><li class="sub"><a href="#order">Order</a></li><li class="sub"><a href="#where-the-built-things-stop">Where the built things stop</a></li><li class="sub"><a href="#content-the-capabilities-are-waiting-for">Content the capabilities are waiting for</a></li><li class="sub"><a href="#for-10">For 1.0</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../search/main.js" defer></script>
+<script src="../lang/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guidebook and tutorials &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="../../..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="../../..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec open">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../">Overview</a></li>
+          <li><a class="" href="../blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../crafting/">Crafting</a></li>
+          <li><a class="" href="../events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../everything-else/">Everything else</a></li>
+          <li><a class="cur" href="./">Guidebook and tutorials</a></li>
+          <li><a class="" href="../items/">Items</a></li>
+          <li><a class="" href="../logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../server/">Server</a></li>
+          <li><a class="" href="../sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../../engine/">Engine internals</a></li>
+          <li><a class="" href="../../how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../modding/">Writing a mod</a></li>
+          <li><a class="" href="../../../loot/">Loot tables</a></li>
+          <li><a class="" href="../../../hosting/">Running a server</a></li>
+          <li><a class="" href="../../../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../playing/">Playing</a></li>
+          <li><a class="" href="../../../engine/">The engine</a></li>
+          <li><a class="" href="../../../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../../../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="guidebook-and-tutorials">Guidebook and tutorials</h1>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<h3 id="apiregister_guide_chapter"><code>api.register_guide_chapter</code></h3>
+<p>GDScript: <code>api.register_guide_chapter(chapter_name: String, def := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerGuideChapter(chapterName, def)</code></p>
+<p>A guidebook chapter: {title, icon (item name), order, description}. Names without ":" are this mod's.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_guide_chapter(&quot;proving&quot;, {&quot;title&quot;: &quot;The Proving Ground&quot;, &quot;order&quot;: 1})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_chapter</code>, <code>item</code>, <code>qualified</code></p>
+<h3 id="apiregister_guide_page"><code>api.register_guide_page</code></h3>
+<p>GDScript: <code>api.register_guide_page(page_name: String, def: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerGuidePage(pageName, def)</code></p>
+<p>A guidebook page (see engine/shared/guide_registry.gd): {chapter, title, icon, order, unlock: {item (a
+name or a list of names, any of which opens it) |
+recipe | entity | flag | page}, hint, keywords, blocks: [{type: text | heading | items | recipe |
+entity | image | tip | link | keys, ...}]}. Item, entity, page and flag names without ":" are this
+mod's; image blocks take a texture path in this mod.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_guide_page(&quot;what&quot;, {&quot;chapter&quot;: &quot;proving&quot;, &quot;title&quot;: &quot;What this is&quot;,
+    &quot;content&quot;: [{&quot;type&quot;: &quot;text&quot;, &quot;text&quot;: &quot;A mod that exists to be tested.&quot;}]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_page</code>, <code>qualified</code>, <code>register_asset</code></p>
+<h3 id="apiopen_guide"><code>api.open_guide</code></h3>
+<p>GDScript: <code>api.open_guide(player, page := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.openGuide(player, page)</code></p>
+<p>Opens the guidebook for a player at a page ("" = where they left off).</p>
+<p><strong>See also:</strong> <code>open</code>, <code>qualified</code></p>
+<h3 id="apiset_guide_flag"><code>api.set_guide_flag</code></h3>
+<p>GDScript: <code>api.set_guide_flag(player, flag: String, on := true) -&gt; void</code></p>
+<p>JavaScript: <code>api.setGuideFlag(player, flag, on)</code></p>
+<p>Guide flags unlock pages with <code>unlock: {flag}</code> (names without ":" are this mod's). Saved per player.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>set_flag</code></p>
+<h3 id="apihas_guide_flag"><code>api.has_guide_flag</code></h3>
+<p>GDScript: <code>api.has_guide_flag(player, flag: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.hasGuideFlag(player, flag)</code></p>
+<p>Whether a player has a guide flag (see set_guide_flag).</p>
+<p><strong>See also:</strong> <code>has_flag</code>, <code>qualified</code></p>
+<h3 id="apiunlock_guide_page"><code>api.unlock_guide_page</code></h3>
+<p>GDScript: <code>api.unlock_guide_page(player, page: String, notify := true) -&gt; bool</code></p>
+<p>JavaScript: <code>api.unlockGuidePage(player, page, notify)</code></p>
+<p>Unlocks a guide page for a player whatever its condition. Returns true if it was locked.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>unlock</code></p>
+<h3 id="apiis_guide_page_unlocked"><code>api.is_guide_page_unlocked</code></h3>
+<p>GDScript: <code>api.is_guide_page_unlocked(player, page: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.isGuidePageUnlocked(player, page)</code></p>
+<p>Whether a guide page is open to a player.</p>
+<p><strong>See also:</strong> <code>is_unlocked</code>, <code>qualified</code></p>
+<h3 id="apiregister_tutorial"><code>api.register_tutorial</code></h3>
+<p>GDScript: <code>api.register_tutorial(tutorial_name: String, def: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerTutorial(tutorialName, def)</code></p>
+<p>A tutorial: guided goals completed by real actions (see engine/server/tutorials.gd for goal types):
+{title, description, order, auto_start, reward: [[item, count]], steps: [{title, text, icon, goal: {type,
+target, count, ...}, hint: {block | entity | position} or false, page, reward}]}. Names without ":" are
+this mod's.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_tutorial(&quot;basics&quot;, {&quot;display_name&quot;: &quot;Basics&quot;, &quot;auto_start&quot;: true, &quot;order&quot;: 1,
+    &quot;modes&quot;: [&quot;survival&quot;], &quot;steps&quot;: [
+    {&quot;title&quot;: &quot;Find a rock&quot;, &quot;goal&quot;: {&quot;type&quot;: &quot;break&quot;, &quot;target&quot;: [&quot;proving:rock&quot;]}},
+    {&quot;title&quot;: &quot;Hold four&quot;, &quot;goal&quot;: {&quot;type&quot;: &quot;have&quot;, &quot;target&quot;: [&quot;proving:rock&quot;], &quot;count&quot;: 4}},
+    {&quot;title&quot;: &quot;Say when&quot;, &quot;goal&quot;: {&quot;type&quot;: &quot;manual&quot;}}]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_handler</code>, <code>announce</code>, <code>qualified</code></p>
+<h3 id="apiregister_tip"><code>api.register_tip</code></h3>
+<p>GDScript: <code>api.register_tip(tip_name: String, def: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerTip(tipName, def)</code></p>
+<p>A one-time contextual tip: {text, icon, page (guide page to read more), trigger: a goal}.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_tip(&quot;basics&quot;, {&quot;text&quot;: &quot;Rock is the thing to dig&quot;, &quot;trigger&quot;: {&quot;type&quot;: &quot;night&quot;}})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_handler</code>, <code>qualified</code></p>
+<h3 id="apistart_tutorial"><code>api.start_tutorial</code></h3>
+<p>GDScript: <code>api.start_tutorial(player, tutorial_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.startTutorial(player, tutorialName)</code></p>
+<p>Starts (or restarts) a tutorial for a player. Returns false if it does not exist.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>start</code></p>
+<h3 id="apistop_tutorial"><code>api.stop_tutorial</code></h3>
+<p>GDScript: <code>api.stop_tutorial(player) -&gt; void</code></p>
+<p>JavaScript: <code>api.stopTutorial(player)</code></p>
+<p>Stops the player's running tutorial; it will not start by itself again.</p>
+<p><strong>See also:</strong> <code>step</code>, <code>stop</code></p>
+<h3 id="apiadvance_tutorial"><code>api.advance_tutorial</code></h3>
+<p>GDScript: <code>api.advance_tutorial(player) -&gt; void</code></p>
+<p>JavaScript: <code>api.advanceTutorial(player)</code></p>
+<p>Completes the player's current tutorial step (for "manual" goals).</p>
+<p><strong>See also:</strong> <code>advance</code></p>
+<h3 id="apiget_tutorial_state"><code>api.get_tutorial_state</code></h3>
+<p>GDScript: <code>api.get_tutorial_state(player) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.getTutorialState(player)</code></p>
+<p>{active, step, progress, done: [ids]} for a player.</p>
+<p><strong>See also:</strong> <code>now</code>, <code>state_of</code></p>
+<h3 id="apishow_tip"><code>api.show_tip</code></h3>
+<p>GDScript: <code>api.show_tip(player, tip_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.showTip(player, tipName)</code></p>
+<p>Shows a registered tip now (even if seen before).</p>
+<p><strong>See also:</strong> <code>icon_of</code>, <code>key_name</code>, <code>library</code>, <code>node_key</code>, <code>qualified</code>, <code>state_of</code></p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#guidebook-and-tutorials">Guidebook and tutorials</a></li><li class="sub"><a href="#apiregister_guide_chapter">api.register_guide_chapter</a></li><li class="sub"><a href="#apiregister_guide_page">api.register_guide_page</a></li><li class="sub"><a href="#apiopen_guide">api.open_guide</a></li><li class="sub"><a href="#apiset_guide_flag">api.set_guide_flag</a></li><li class="sub"><a href="#apihas_guide_flag">api.has_guide_flag</a></li><li class="sub"><a href="#apiunlock_guide_page">api.unlock_guide_page</a></li><li class="sub"><a href="#apiis_guide_page_unlocked">api.is_guide_page_unlocked</a></li><li class="sub"><a href="#apiregister_tutorial">api.register_tutorial</a></li><li class="sub"><a href="#apiregister_tip">api.register_tip</a></li><li class="sub"><a href="#apistart_tutorial">api.start_tutorial</a></li><li class="sub"><a href="#apistop_tutorial">api.stop_tutorial</a></li><li class="sub"><a href="#apiadvance_tutorial">api.advance_tutorial</a></li><li class="sub"><a href="#apiget_tutorial_state">api.get_tutorial_state</a></li><li class="sub"><a href="#apishow_tip">api.show_tip</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../../../search/main.js" defer></script>
+<script src="../../../lang/main.js" defer></script>
+</body>
+</html>

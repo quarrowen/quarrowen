@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="../..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="../..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec open">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="cur" href="./">Overview</a></li>
+          <li><a class="" href="blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="crafting/">Crafting</a></li>
+          <li><a class="" href="events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="everything-else/">Everything else</a></li>
+          <li><a class="" href="guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="items/">Items</a></li>
+          <li><a class="" href="logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="server/">Server</a></li>
+          <li><a class="" href="sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../engine/">Engine internals</a></li>
+          <li><a class="" href="../how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../modding/">Writing a mod</a></li>
+          <li><a class="" href="../../loot/">Loot tables</a></li>
+          <li><a class="" href="../../hosting/">Running a server</a></li>
+          <li><a class="" href="../../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../playing/">Playing</a></li>
+          <li><a class="" href="../../engine/">The engine</a></li>
+          <li><a class="" href="../../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="mod-api-reference">Mod API reference</h1>
+<p>Every function a mod can call, generated from <code>engine/server/mod_api.gd</code> by
+<code>mod_tool.tscn -- docs</code>. For the engine's own readers - the registries and helpers behind
+these - see <a href="../engine/">engine.md</a>.</p>
+<p>Mod API 1.0.0 · game 0.42.0</p>
+<p>Every entry carries both signatures. A mod is written in GDScript or in JavaScript and
+the two are the same API, so the reference shows the same function both ways rather than
+leaving one of them to be guessed at.</p>
+<h2 id="chapters">Chapters</h2>
+<dl>
+<dt><a href="logging-and-debugging/">Logging and debugging</a></dt>
+<dd>14 functions.</dd>
+<dt><a href="events--commands-and-timers/">Events, commands and timers</a></dt>
+<dd>6 functions.</dd>
+<dt><a href="guidebook-and-tutorials/">Guidebook and tutorials</a></dt>
+<dd>14 functions.</dd>
+<dt><a href="crafting/">Crafting</a></dt>
+<dd>21 functions.</dd>
+<dt><a href="items/">Items</a></dt>
+<dd>11 functions.</dd>
+<dt><a href="mobs-and-entities/">Mobs and entities</a></dt>
+<dd>14 functions.</dd>
+<dt><a href="world-generation/">World generation</a></dt>
+<dd>21 functions.</dd>
+<dt><a href="blocks-and-the-world/">Blocks and the world</a></dt>
+<dd>34 functions.</dd>
+<dt><a href="players-and-gameplay/">Players and gameplay</a></dt>
+<dd>15 functions.</dd>
+<dt><a href="sounds--effects-and-assets/">Sounds, effects and assets</a></dt>
+<dd>7 functions.</dd>
+<dt><a href="server/">Server</a></dt>
+<dd>1 function.</dd>
+<dt><a href="everything-else/">Everything else</a></dt>
+<dd>159 functions.</dd>
+</dl>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#mod-api-reference">Mod API reference</a></li><li class="sub"><a href="#chapters">Chapters</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../../search/main.js" defer></script>
+<script src="../../lang/main.js" defer></script>
+</body>
+</html>

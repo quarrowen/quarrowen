@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Distributing a build &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../api/mod-api/">Overview</a></li>
+          <li><a class="" href="../api/mod-api/blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../api/mod-api/crafting/">Crafting</a></li>
+          <li><a class="" href="../api/mod-api/events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../api/mod-api/everything-else/">Everything else</a></li>
+          <li><a class="" href="../api/mod-api/guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../api/mod-api/items/">Items</a></li>
+          <li><a class="" href="../api/mod-api/logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../api/mod-api/mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../api/mod-api/players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../api/mod-api/server/">Server</a></li>
+          <li><a class="" href="../api/mod-api/sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../api/mod-api/world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../api/engine/">Engine internals</a></li>
+          <li><a class="" href="../api/how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../modding/">Writing a mod</a></li>
+          <li><a class="" href="../loot/">Loot tables</a></li>
+          <li><a class="" href="../hosting/">Running a server</a></li>
+          <li><a class="cur" href="./">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../playing/">Playing</a></li>
+          <li><a class="" href="../engine/">The engine</a></li>
+          <li><a class="" href="../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="getting-the-game-and-mods-to-players">Getting the game (and mods) to players</h1>
+<blockquote>
+<p><strong>The bundled games were removed on 21 September 2026</strong> and will be rebuilt for 1.0 (see
+<code>docs/roadmap.md</code>). Examples below that name <code>vanilla</code>, <code>hearthhold</code>, <code>industry</code>, <code>arcana</code>, <code>guild</code>,
+<code>skyblock</code> or <code>oneblock</code> describe how things <em>were</em>, and still illustrate the capability correctly -
+but you cannot run them as written. The mod the tests use now is <code>tests/mods/proving</code>, which uses
+every capability the engine has and is the best worked example there is.</p>
+</blockquote>
+<p>How a build reaches a Mac, how it updates itself, and how mods are found, installed, configured and
+chosen for a world. Written before alpha 2 so the first public release already works this way.</p>
+<h2 id="1-what-a-release-publishes">1. What a release publishes</h2>
+<p><code>tools/make_release.sh</code> builds everything and writes the two files the game reads:</p>
+<pre class="codehilite"><code>Quarrowen-&lt;version&gt;-mac-arm64.zip     the app
+mods/&lt;id&gt;-&lt;version&gt;.zip                one zip per mod (base, vanilla, arcana, industry, guild,
+                                       skyblock, oneblock)
+update.json                            {version, notes, builds: {macos: {url, sha256, size}}}
+mods.json                              the mod index: [{id, version, url, sha256, size}]
+</code></pre>
+
+<p>Both JSON files carry a checksum for every download. Nothing is installed without matching it.</p>
+<h2 id="2-where-it-is-published-github-pages">2. Where it is published: GitHub Pages</h2>
+<p>A plain static site, so a kid can open one page and press Download:</p>
+<pre class="codehilite"><code>https://quarrowen.com/
+  index.html            what it is, Download for Mac, &quot;first launch&quot; instructions
+  update.json           the updater's manifest (same file the release attaches)
+  mods.json             the mod index
+  v&lt;version&gt;/...        the zips
+</code></pre>
+
+<p><strong>The repository is public</strong> (2026-09-16), so Pages and release assets both download without an
+account - a private repository's release assets need a token, which a game cannot carry. The address is
+baked into the client (<code>engine/client/updater.gd</code>), never taken from a server, and <code>project.godot</code>'s
+<code>quarrowen/update_manifest_url</code> can point a fork somewhere else.</p>
+<p><code>tools/publish_site.sh</code> pushes the page, <code>update.json</code> and <code>mods.json</code> to the <code>gh-pages</code> branch, and
+with <code>--with-release</code> attaches the zips to the GitHub release (release assets do not count against the
+repository size, which matters at ~62 MB per build). Without a release it serves the zips from the
+branch instead.</p>
+<h2 id="2a-signing-the-app-for-macos">2a. Signing the app for macOS</h2>
+<p>Two different signatures, easily confused:</p>
+<ul>
+<li><strong>The app bundle</strong> is signed with an <strong>Apple Developer ID Application</strong> certificate and notarized by
+  Apple, so macOS opens it without the right-click dance. This is about the operating system trusting the
+  download. <code>tools/package_mac.sh</code> does it when the certificate is in the keychain (and falls back to an
+  ad-hoc signature, with a message, when it is not).</li>
+<li><strong>The update manifest</strong> is signed with the project's own release key (§2b), which is about the <em>game</em>
+  trusting an update. Neither replaces the other.</li>
+</ul>
+<pre class="codehilite"><code class="language-sh">xcrun notarytool store-credentials quarrowen-notary --apple-id &lt;you@example.com&gt; \
+  --team-id &lt;TEAM ID&gt; --password &lt;app-specific password&gt;   # once
+tools/make_release.sh                                        # signs, hardens, notarizes, staples
+</code></pre>
+
+<p><code>QUARROWEN_SKIP_NOTARIZE=1</code> signs without the (slow, online) notarization step, for a quick local build.
+The Team ID is in App Store Connect under Membership details; <code>security find-identity -v -p codesigning</code>
+shows the certificate once it is installed.</p>
+<p><strong>Two things expire.</strong> The signing certificate lasts five years (the current one to <strong>17 September 2031</strong>,
+tracked in PROGRESS.md), and after that releases keep building but stop being trusted until a new one is
+made. The notarization credentials are tied to an app-specific password: revoke that password in the
+Apple ID settings and <code>store-credentials</code> has to be run again.</p>
+<p><strong>A Developer ID certificate carries the name of whoever owns the account</strong>, and <code>codesign -dv</code> on any
+downloaded build shows it. That is how macOS tells a player who signed the thing they are about to run,
+so it cannot be hidden; an individual account therefore publishes under a personal name, and only an
+organisation account shows a company instead.</p>
+<p><strong>Installing the certificate on a new machine</strong> needs Apple's <em>Developer ID Certification Authority</em>
+intermediate as well (apple.com/certificateauthority, "Developer ID - G2"). Without it the certificate is
+in the keychain but not valid, and <code>security find-identity -v</code> lists nothing at all - which looks exactly
+like the certificate failing to install.</p>
+<h2 id="2b-signing-a-release">2b. Signing a release</h2>
+<p>The manifest is signed, and a client only installs an update whose manifest one of its built-in release
+keys signed. Without this, whoever controlled the website or its DNS could hand every player a build: the
+checksum in the manifest only proves the download matches <em>that manifest</em>.</p>
+<pre class="codehilite"><code class="language-sh">godot --headless --path . -s tools/release_key.gd -- new     # once: writes ~/.config/quarrowen/release_key.pem
+                                                             # and prints the public half for RELEASE_KEYS
+tools/make_release.sh                                        # signs update.json automatically when the key is there
+</code></pre>
+
+<ul>
+<li>The <strong>private key never leaves the maintainer's machine</strong> and is not in this repository. Back it up; losing
+  it means shipping a build with a new key before releases can resume.</li>
+<li>The <strong>public halves</strong> live in <code>engine/client/updater.gd</code> (<code>RELEASE_KEYS</code>), so they travel with each build.</li>
+<li><strong>Rotating:</strong> add the new public key alongside the old one, ship that build, <em>then</em> start signing with the
+  new key, and drop the old entry a release or two later. The updater accepts any listed key.</li>
+<li>A build whose <code>RELEASE_KEYS</code> are empty (anything up to 0.38.0) accepts an unsigned manifest, so the
+  transition costs nothing; from the first build that carries a key, an unsigned or badly signed manifest is
+  ignored with a message rather than installed.</li>
+</ul>
+<h2 id="3-updating">3. Updating</h2>
+<p>The client checks the manifest when the menu opens (Settings → Network turns it off, Settings →
+Account has a "Check for updates" button). When a newer version exists the menu banner offers it:
+download → checksum → a small script waits for the game to quit, unpacks the zip, swaps the app,
+clears the macOS quarantine flag and starts the new one. A failed swap puts the old app back.</p>
+<p>Servers never hand the client a download address. A server can only say which protocol version it
+needs; the client then offers the update from its own pinned source.</p>
+<h3 id="releasing-from-ci">Releasing from CI</h3>
+<p>A release can be cut by CI, so no particular machine has to be awake. It runs <strong>only on a <code>v*</code> tag</strong> and
+<strong>only after a human approves it</strong>, because the certificate signs software as a named person: a leaked
+Developer ID means somebody can ship malware that macOS tells your children came from you.</p>
+<p>The gate is <em>reaching the job</em>, not hiding the values. Any step inside a job that can read a secret can
+print it, so the protection that matters is the approval on the <code>release</code> environment.</p>
+<p><strong>Naming an <code>environment:</code> in the workflow does not by itself gate anything.</strong> GitHub creates a missing
+environment implicitly, with no protection rules, and the job then runs unattended - which is exactly
+what happened the first time a tag was pushed with this job in place. The approval exists only once
+somebody adds required reviewers to that environment by hand. So the job is also switched off by a
+repository variable, and both have to be done deliberately:</p>
+<ul>
+<li><strong><code>SIGN_IN_CI</code> = <code>true</code></strong> (Settings → Secrets and variables → Actions → Variables). Without it the job
+  is skipped, which is how it ships.</li>
+<li><strong>Required reviewers on the <code>release</code> environment.</strong> Check them: Settings → Environments → release
+  should list at least one reviewer. An environment with no protection rules is not a gate.</li>
+</ul>
+<p><strong>Set up once.</strong></p>
+<ol>
+<li>
+<p><strong>An environment called <code>release</code></strong> - repository Settings → Environments → New environment → add
+   yourself under <em>Required reviewers</em>. Without the reviewers it is not a gate at all (see above), so
+   check the environment afterwards and confirm it lists one.</p>
+</li>
+<li>
+<p><strong>An App Store Connect API key</strong> for notarisation, at appstoreconnect.apple.com → Users and Access →
+   Integrations → App Store Connect API → <strong>+</strong>, with the <em>Developer</em> role. Download the <code>.p8</code> <strong>once</strong>
+   (Apple will not show it again) and note the Key ID and Issuer ID. An API key rather than the
+   app-specific password in your keychain: it is scoped to notarisation and revocable on its own, where
+   an app-specific password authenticates as your whole Apple Account.</p>
+</li>
+<li>
+<p><strong>Your Developer ID certificate as a <code>.p12</code></strong> - Keychain Access → My Certificates → right-click
+   <em>Developer ID Application: …</em> → Export, and give it a strong password.</p>
+</li>
+<li>
+<p><strong>Six repository secrets</strong> (Settings → Secrets and variables → Actions):</p>
+</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Secret</th>
+<th>What goes in it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MACOS_CERT_P12</code></td>
+<td><code>base64 -i cert.p12 \| pbcopy</code></td>
+</tr>
+<tr>
+<td><code>MACOS_CERT_PASSWORD</code></td>
+<td>the password you gave the export</td>
+</tr>
+<tr>
+<td><code>NOTARY_KEY_P8</code></td>
+<td><code>base64 -i AuthKey_XXXX.p8 \| pbcopy</code></td>
+</tr>
+<tr>
+<td><code>NOTARY_KEY_ID</code></td>
+<td>the Key ID, e.g. <code>A1B2C3D4E5</code></td>
+</tr>
+<tr>
+<td><code>NOTARY_ISSUER_ID</code></td>
+<td>the Issuer ID (a UUID)</td>
+</tr>
+<tr>
+<td><code>RELEASE_SIGNING_KEY</code></td>
+<td>the contents of <code>~/.config/quarrowen/release_key.pem</code></td>
+</tr>
+</tbody>
+</table>
+<ol>
+<li><strong>The variable <code>SIGN_IN_CI</code> set to <code>true</code></strong>, on the Variables tab beside the secrets. This is the
+   switch; everything above is inert without it.</li>
+</ol>
+<p>That last one is the key the <em>game</em> checks, not macOS: it signs <code>update.json</code> and <code>mods.json</code> so a
+   client will not install an update the project did not publish. Losing it means shipping a build with a
+   new key before updates can resume (§2b), so keep the original where it is as well.</p>
+<p>Then a release is: push a <code>v*</code> tag, approve the run, and the images, the signed app, the disk image, the
+GitHub release and the site all follow. Delete the local copies of the <code>.p12</code> and <code>.p8</code> afterwards - they
+are in GitHub now, and a spare copy in Downloads is one more place to lose them from.</p>
+<p><strong>Rotating or revoking.</strong> The API key can be revoked in App Store Connect and replaced by changing one
+secret. A leaked certificate is revoked at developer.apple.com → Certificates, which invalidates future
+signatures; builds already notarised keep working, because the ticket is stapled into them.</p>
+<p>Signing on a Mac by hand still works exactly as before (<code>tools/make_release.sh</code> with a keychain profile),
+and is what to fall back on if CI is unavailable.</p>
+<h3 id="cutting-a-release">Cutting a release</h3>
+<p>In this order, because the middle step is what the children actually feel:</p>
+<ol>
+<li><code>tools/run_tests.sh</code> and <code>QW_NATIVE=0 PORT_BASE=25700 tools/run_tests.sh</code> - both suites.</li>
+<li>Bump <code>GAME_VERSION</code> in <code>engine/shared/protocol.gd</code>, and <code>VERSION</code> too if anything the client and
+   server must agree on has changed (RPCs, or the block shape table).</li>
+<li>Write the release notes in PROGRESS.md, and regenerate the save fixture for the new version
+   (<code>tools/make_save_fixture.tscn -- --out=tests/fixtures/saves/&lt;version&gt;</code>).</li>
+<li><strong>Bump the pinned image in <code>deploy/server/.env.example</code></strong> (<code>QW_IMAGE</code>, <code>QW_HUB_IMAGE</code>). It is pinned
+   so a server never moves on its own; the cost of that is remembering to move it here.</li>
+<li>Tag <code>v&lt;version&gt;</code> and push it. CI builds both server images from the tag alone, and waits for approval
+   before signing anything.</li>
+<li>Bring the family server up on the new version (edit its <code>.env</code>, <code>docker compose pull &amp;&amp; up -d</code>)
+   <strong>before</strong> approving the release. A client that updates itself cannot join a server still on the old
+   protocol, so publishing first locks everyone out for as long as the server takes to follow.</li>
+<li>Approve the <code>release</code> job (Actions → the run → Review deployments). It signs, notarizes, staples,
+   attaches the files to the GitHub release and publishes the site. By hand instead:
+   <code>tools/make_release.sh &amp;&amp; tools/publish_site.sh --with-release</code> on a Mac with the certificate.</li>
+<li>Download the app from the site and open it, on a Mac that has never seen this build. Gatekeeper's
+   verdict on the real download is the only one that counts.</li>
+</ol>
+<h2 id="4-mods-the-problem">4. Mods: the problem</h2>
+<p>Today the app carries <code>base</code>, <code>vanilla</code> and the add-ons inside <code>Quarrowen.app/Contents/Resources/mods</code>,
+and a dedicated server keeps its own copy in <code>/mods</code>. That covers the bundled games, but not:</p>
+<ul>
+<li>a player wanting a mod that does not ship with the game,</li>
+<li>a host choosing which mods a <em>local</em> world runs beyond the bundled list,</li>
+<li>a mod needing settings (difficulty, rates, feature switches) without editing its code.</li>
+</ul>
+<p>Joining a server never needs an install: mods run on the server, and clients already download the
+textures, models and sounds they need. The mod list matters for <strong>hosting</strong>.</p>
+<h2 id="5-mods-the-plan-factorio-style">5. Mods: the plan (Factorio-style)</h2>
+<h3 id="51-where-mods-live">5.1 Where mods live</h3>
+<table>
+<thead>
+<tr>
+<th>Place</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>inside the app</td>
+<td>the mods that ship with a release; refreshed on update</td>
+</tr>
+<tr>
+<td><code>user://mods/</code></td>
+<td>mods the player installed; survives updates, per computer</td>
+</tr>
+<tr>
+<td>a server's <code>/mods</code> volume</td>
+<td>what that server runs (already how the Docker image works)</td>
+</tr>
+</tbody>
+</table>
+<p><code>ModLoader.search_dirs</code> already looks in all three, so nothing changes in the engine's loading.</p>
+<h3 id="52-the-in-game-mod-list-menu-mods-done-0390">5.2 The in-game mod list (menu → Mods) — done, 0.39.0</h3>
+<p>A sidebar page with three tabs, next to Play and Multiplayer:</p>
+<ul>
+<li><strong>Installed</strong>: everything found, with version, what kind of mod it is, and where it came from. Remove
+  works only on mods in <code>user://mods</code> - the ones inside the app come back with every update anyway, and
+  it warns first when another installed mod depends on it.</li>
+<li><strong>Available</strong>: the entries from <code>mods.json</code> that are not installed, with size. Install downloads,
+  checks the checksum, and unpacks into <code>user://mods/&lt;id&gt;/</code>.</li>
+<li><strong>Updates</strong>: an installed mod with a newer version in the index. Only mods the player installed appear
+  here; a bundled mod is updated by updating the game.</li>
+</ul>
+<p>Dependencies come from the index (<code>depends</code>) and are installed first, in order; a dependency the index
+does not offer stops the install with a plain message instead of leaving a mod that cannot load.</p>
+<p><code>mods.json</code> is built by <code>mod_tool -- index</code> from the packed zips themselves, so what the list claims and
+what it ships cannot drift, and it is <strong>signed with the release key</strong> exactly like <code>update.json</code>: a
+checksum only proves a download matches <em>that list</em>, so the list itself has to be the project's.</p>
+<h3 id="53-choosing-mods-for-a-world">5.3 Choosing mods for a world</h3>
+<p>The New world dialog already picks a game (vanilla, skyblock, One Block) plus add-ons. It grows into:
+the game list is every installed mod with <code>"game": true</code>, the add-on list every other installed mod, and
+the choice is saved in <code>world.json</code> (it already is). Nothing changes for servers: their mod list stays
+<code>QW_MODS</code> in the compose file, and the same zips drop into their <code>/mods</code> folder.</p>
+<h3 id="54-safety">5.4 Safety</h3>
+<p>A GDScript mod is code that runs on whoever hosts the world. So:</p>
+<ul>
+<li>the <strong>curated index</strong> (<code>mods.json</code> from our own site) is what the browser offers by default;</li>
+<li>installing from a file or another address is behind an "Advanced" toggle with a plain warning that a
+  mod can do anything the game can;</li>
+<li>JavaScript mods stay sandboxed (they already are) - the natural home for community content;</li>
+<li>every download is checksummed against the index, and an installed mod records where it came from.</li>
+</ul>
+<h2 id="6-mod-settings-done-0390">6. Mod settings (done, 0.39.0)</h2>
+<p>Mods expose values a host can change without touching code (spawn rates, whether a feature is on, a
+difficulty). A mod declares a schema and reads values; it never draws a screen:</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_settings({
+    &quot;monster_rate&quot;: {&quot;label&quot;: &quot;How many monsters&quot;, &quot;type&quot;: &quot;float&quot;, &quot;default&quot;: 1.0, &quot;min&quot;: 0.0, &quot;max&quot;: 3.0,
+                     &quot;help&quot;: &quot;Multiplies how often monsters appear.&quot;},
+    &quot;keep_tools&quot;:   {&quot;label&quot;: &quot;Keep tools when you die&quot;, &quot;type&quot;: &quot;bool&quot;, &quot;default&quot;: true},
+    &quot;difficulty&quot;:   {&quot;label&quot;: &quot;Difficulty&quot;, &quot;type&quot;: &quot;choice&quot;, &quot;default&quot;: &quot;normal&quot;,
+                     &quot;choices&quot;: [[&quot;easy&quot;, &quot;Easy&quot;], [&quot;normal&quot;, &quot;Normal&quot;], [&quot;hard&quot;, &quot;Hard&quot;]]},
+})
+
+var rate: float = api.setting(&quot;monster_rate&quot;)      # read anywhere, including while the mod starts
+api.on(&quot;settings_changed&quot;, func(ev): ...)          # react while the server runs
+</code></pre>
+
+<p>Types: <code>bool</code>, <code>int</code>, <code>float</code> (<code>min</code>/<code>max</code>/<code>step</code>), <code>choice</code> (<code>choices: [[value, label]]</code>) and <code>text</code>.
+A malformed entry is dropped with a warning instead of taking the server down, and a value that does not
+fit (out of range, not one of the choices) is clamped or refused rather than stored.</p>
+<p><strong>The server owns the values</strong> - a setting is not client UI. All three ways in change the same thing on
+the server, and the last one wins:</p>
+<ol>
+<li>the schema's <code>default</code>;</li>
+<li><code>mod_settings.json</code> in the server's data folder, or <code>--mod-settings=&lt;path or inline JSON&gt;</code> /
+   <code>QW_MOD_SETTINGS</code> for compose - for a dedicated server nobody logs into:
+   <code>json
+   { "vanilla": { "monsters": "few", "day_minutes": 5 } }</code></li>
+<li>what an admin changed in game, kept in the world's <code>world.json</code> under <code>mod_settings</code>, so a world
+   carries its own rules and a backup restores them. Values from the file are <em>not</em> copied into the
+   world, so removing a line from the file takes effect again.</li>
+</ol>
+<p>Admins change them two ways, both checked against their role on the server: <code>/modsettings [mod] [key
+value|reset]</code>, and a section per mod in the Server settings screen, built from the schema - no new UI
+work per mod. A value for a mod that is not loaded this session is kept, not dropped.</p>
+<p><strong>Per-player client preferences</strong> (a mod's HUD position, say) come later through the same schema on the
+client's settings screen; the server-side values were the piece that mattered.</p>
+<h2 id="2c-building-for-ipad">2c. Building for iPad</h2>
+<p><code>tools/package_ios.sh</code> produces <code>build/ios/Quarrowen.xcodeproj</code>. Godot's iOS export does <strong>not</strong> make
+a finished app: it makes an Xcode project that you open, give a signing team to, and run on a device
+or archive for TestFlight. The script's job ends where Xcode's begins.</p>
+<pre class="codehilite"><code class="language-sh">cp apple.env.example apple.env    # once: put your Team ID in it
+tools/package_ios.sh              # debug build
+tools/package_ios.sh --release
+</code></pre>
+
+<p><strong>Your Apple Team ID is not in this repository.</strong> <code>export_presets.cfg</code> is committed and the repo is
+public, so the iOS preset carries an empty <code>app_store_team_id</code> and the real one lives in <code>apple.env</code>,
+which <code>.gitignore</code> already covers through its <code>*.env</code> rule. The script exports from a throwaway copy
+of the project with the value patched in - the same trick <code>package_mac.sh</code> uses to keep local editor
+addons out of the app. Nothing with your account in it is ever written to a tracked file.</p>
+<p>Two settings that are not optional and cost an export attempt each to discover:</p>
+<ul>
+<li><strong><code>min_ios_version</code> must be 14.0 or above.</strong> Godot 4.7 renders through Metal on iOS and refuses to
+  export below 14, with "Metal renderer require iOS 14+".</li>
+<li><strong>The team id must be set</strong>, even for a debug export that you are going to re-sign in Xcode anyway.</li>
+</ul>
+<p>The Rust extension travels with it: <code>package_ios.sh</code> builds both <code>ios</code> and <code>ios-sim</code> frameworks first,
+and they land in <code>Quarrowen/dylibs/native/bin/</code>. Xcode picks whichever the destination needs.</p>
+<p><strong>Not yet done:</strong> nothing has been run on a device, there is no provisioning profile in the repo and
+no TestFlight build has been made.</p>
+<h2 id="6b-mods-on-ipad">6b. Mods on iPad</h2>
+<p>The iPad build (milestone 3 in PROGRESS.md) hosts local worlds the same way the Mac does, so <strong>bundled
+mods work there</strong>: vanilla, skyblock, One Block and the add-ons ship inside the app and need no install.</p>
+<p>Downloading <em>more</em> mods on iOS is deliberately left out of that first build. A GDScript mod is code, and
+App Store rule 2.5.2 is about apps that download and run code that changes what they do - not a fight
+worth having for alpha. The plan when it matters:</p>
+<ul>
+<li>iPad: the bundled mods, and <strong>JavaScript mods</strong> (already sandboxed) as the path for anything fetched;</li>
+<li>Mac: the full list above, GDScript mods included;</li>
+<li>joining a server is unaffected on every platform - its mods run on the server.</li>
+</ul>
+<h2 id="7-order-of-work">7. Order of work</h2>
+<ol>
+<li><strong>Distribution</strong> (before alpha 2): <code>make_release.sh</code>, the Pages site, the public distribution repo,
+   the download page, and the updater pointed at it. Alpha 2 is then downloaded, not handed over.</li>
+<li>~~<strong>Mod settings</strong>: schema, storage in the world, the Server settings section, the data-dir file.~~ Done.</li>
+<li>~~<strong>Mod list in game</strong>: installed/available/updates from the index, install and remove, and the New
+   world dialog listing installed mods.~~ Done (the New world dialog already lists whatever is installed,
+   and now re-reads it after an install).</li>
+<li><strong>Community mods</strong>: the advanced install path, and what a public index would need (submissions,
+   review, a "verified" mark).</li>
+</ol>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#getting-the-game-and-mods-to-players">Getting the game (and mods) to players</a></li><li class="sub"><a href="#1-what-a-release-publishes">1. What a release publishes</a></li><li class="sub"><a href="#2-where-it-is-published-github-pages">2. Where it is published: GitHub Pages</a></li><li class="sub"><a href="#2a-signing-the-app-for-macos">2a. Signing the app for macOS</a></li><li class="sub"><a href="#2b-signing-a-release">2b. Signing a release</a></li><li class="sub"><a href="#3-updating">3. Updating</a></li><li class="sub"><a href="#4-mods-the-problem">4. Mods: the problem</a></li><li class="sub"><a href="#5-mods-the-plan-factorio-style">5. Mods: the plan (Factorio-style)</a></li><li class="sub"><a href="#6-mod-settings-done-0390">6. Mod settings (done, 0.39.0)</a></li><li class="sub"><a href="#2c-building-for-ipad">2c. Building for iPad</a></li><li class="sub"><a href="#6b-mods-on-ipad">6b. Mods on iPad</a></li><li class="sub"><a href="#7-order-of-work">7. Order of work</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../search/main.js" defer></script>
+<script src="../lang/main.js" defer></script>
+</body>
+</html>

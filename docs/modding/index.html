@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Writing a mod &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../api/mod-api/">Overview</a></li>
+          <li><a class="" href="../api/mod-api/blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../api/mod-api/crafting/">Crafting</a></li>
+          <li><a class="" href="../api/mod-api/events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../api/mod-api/everything-else/">Everything else</a></li>
+          <li><a class="" href="../api/mod-api/guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../api/mod-api/items/">Items</a></li>
+          <li><a class="" href="../api/mod-api/logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../api/mod-api/mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../api/mod-api/players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../api/mod-api/server/">Server</a></li>
+          <li><a class="" href="../api/mod-api/sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../api/mod-api/world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../api/engine/">Engine internals</a></li>
+          <li><a class="" href="../api/how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="cur" href="./">Writing a mod</a></li>
+          <li><a class="" href="../loot/">Loot tables</a></li>
+          <li><a class="" href="../hosting/">Running a server</a></li>
+          <li><a class="" href="../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../playing/">Playing</a></li>
+          <li><a class="" href="../engine/">The engine</a></li>
+          <li><a class="" href="../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="writing-a-mod">Writing a mod</h1>
+<blockquote>
+<p><strong>The bundled games were removed on 21 September 2026</strong> and will be rebuilt for 1.0 (see
+<code>docs/roadmap.md</code>). Examples below that name <code>vanilla</code>, <code>hearthhold</code>, <code>industry</code>, <code>arcana</code>, <code>guild</code>,
+<code>skyblock</code> or <code>oneblock</code> describe how things <em>were</em>, and still illustrate the capability correctly -
+but you cannot run them as written. The mod the tests use now is <code>tests/mods/proving</code>, which uses
+every capability the engine has and is the best worked example there is.</p>
+</blockquote>
+<p>A mod defines the game: blocks, items, entities, world generation, rules, recipes, machines, commands and
+UI. The engine provides the capabilities; mods provide everything a player sees. Mods are written in
+GDScript or JavaScript, and the full generated API reference is in <a href="../api/">api/index.html</a>.</p>
+<h2 id="writing-a-mod_1">Writing a mod</h2>
+<p><strong>Quick start:</strong> the menu's <strong>Create a mod…</strong> (or <code>godot --headless --path . res://tools/mod_tool.tscn -- new
+my_mod [--lang=js] [--kind=game]</code>) writes a starter mod: a block, an item, recipes, an event handler with
+logging and debug drawing, a command, a guide page, a tutorial, generated textures and a README, then
+offers to host it in developer mode. Add-ons play with Vanilla; games generate their own world. The full
+API reference is <strong>docs/api/index.html</strong>, generated from the engine's doc comments and TypeScript
+declarations (<code>mod_tool.tscn -- docs</code>; a test fails if it is stale). The menu's <strong>Developer mode</strong> box
+hosts any game with the dev tools and the file watcher on (<code>--host=proving,my_mod --dev</code> from the
+command line). Mods created from an exported game go to <code>user://mods</code>, which servers search by default.</p>
+<p>Mods are GDScript (<code>main.gd</code>) or JavaScript (<code>main.js</code>); both use the same API and can depend on and
+interoperate with each other.</p>
+<h3 id="javascript-mods">JavaScript mods</h3>
+<pre class="codehilite"><code class="language-js">// mods/my_mod/main.js   (mod.json: {&quot;id&quot;: &quot;my_mod&quot;, &quot;depends&quot;: [&quot;base&quot;], &quot;main&quot;: &quot;main.js&quot;})
+export function setup(api) {
+  const ruby = api.registerBlock(&quot;ruby_ore&quot;, { textures: &quot;textures/ruby.png&quot;, light: 5 });
+  api.addOrePass({ ore: &quot;my_mod:ruby_ore&quot;, veins: 2, min_y: 5, max_y: 30 });
+  api.on(&quot;block_broken&quot;, ({ player, block }) =&gt; {
+    if (block === ruby) player.showTitle(&quot;Shiny!&quot;);
+  });
+  api.command(&quot;rubies&quot;, &quot;Count your rubies&quot;, (player) =&gt; player.sendMessage(`${player.countOf(ruby)} rubies`));
+}
+</code></pre>
+
+<ul>
+<li>Runs in QuickJS-NG (ES2023: classes, modules, destructuring, <code>async</code>) embedded in the native
+  extension. Types for editors/TypeScript: <code>engine/server/js/quarrowen.d.ts</code>; API surface:
+  <code>engine/server/js/prelude.js</code>.</li>
+<li><strong>Sandboxed:</strong> only ECMAScript built-ins exist (no filesystem, network or process access), the heap
+  is capped at 64 MB and each callback is interrupted after 200 ms. Script errors are logged and never
+  crash the server (<code>tests/js_sandbox_test.tscn</code>).</li>
+<li>Values cross the boundary as JSON: positions are <code>{x, y, z}</code>, players are <code>Player</code> objects,
+  <code>getBlockData</code> returns a copy (save with <code>setBlockData</code>). JavaScript can't run on world-generation
+  threads, so JS mods use <code>addOrePass</code> for world generation.</li>
+<li>The example <code>mods/guild</code> uses models, items, recipes, an ore pass, server UI with a shop, saved
+  per-player data and mod storage, cancellable events and drop rewriting, commands, timers, other
+  mods' items, sounds, a monster-hunting quest (<code>entity_death</code>) and <code>/guild bounty</code>, which spawns a
+  zombie carrying entity data worth 5 coins.</li>
+</ul>
+<h3 id="gdscript-mods">GDScript mods</h3>
+<pre class="codehilite"><code>mods/my_mod/mod.json   {&quot;id&quot;: &quot;my_mod&quot;, &quot;name&quot;: &quot;My Mod&quot;, &quot;depends&quot;: [&quot;base&quot;], &quot;game&quot;: false}
+mods/my_mod/main.gd
+</code></pre>
+
+<pre class="codehilite"><code class="language-gdscript">extends &quot;res://engine/server/mod.gd&quot;
+
+func setup(api) -&gt; void:
+    var crystal = api.register_block(&quot;crystal&quot;, {
+        &quot;model&quot;: &quot;models/crystal.glb&quot;,          # 3D model block (bake with tools/bake_model.py)
+        &quot;textures&quot;: &quot;textures/crystal_icon.png&quot;, # hotbar icon
+        &quot;light&quot;: 12, &quot;interactive&quot;: true,
+    })
+    api.on(&quot;block_placed&quot;, func(ev):
+        if ev.block == crystal:
+            api.set_block_data(ev.position, {&quot;charge&quot;: 0}))
+    api.on(&quot;block_interact&quot;, func(ev):
+        var data = api.get_block_data(ev.position)
+        data.charge += 1                         # saved with the world
+        ev.player.show_title(&quot;Charge %d&quot; % data.charge, &quot;&quot;, 1.5))
+</code></pre>
+
+<p>The API (<code>engine/server/mod_api.gd</code>, <code>server_player.gd</code>) covers:
+- <strong>Content:</strong> <code>register_block</code> (cube textures, <code>render</code>, <code>light</code>, <code>interactive</code>, <code>model</code>,
+  <code>orientation</code>, <code>connect_group</code> + <code>model_arm</code>, <code>drops</code>), <code>register_item</code> (<code>icon</code>, <code>usable</code>,
+  <code>max_stack</code>), <code>register_recipe</code>, <code>register_asset</code>, <code>block("base:stone")</code>, <code>item("base:coal")</code>,
+  <code>get_drops</code>, <code>is_solid</code>, <code>is_breakable</code>.
+- <strong>World:</strong> <code>set_world_generator</code> and <code>add_generation_pass</code> (both run on worker threads),
+  <code>set_spawn_handler</code>, <code>set_physics</code>
+  (including <code>void_below</code>), <code>get_block</code> / <code>get_loaded_block</code> / <code>set_block</code> / <code>fill</code>, <code>surface_y</code>,
+  <code>sees_sky</code>, <code>set_world_time</code> / <code>get_time_of_day</code> / <code>get_daylight</code>.
+- <strong>Block state:</strong> <code>get_block_state</code>, <code>set_block(pos, id, keep_data, state)</code>, <code>facing_from_yaw</code>,
+  <code>facing_direction</code>. Oriented blocks get a facing automatically when placed.
+- <strong>Block data (block entities):</strong> <code>set_block_data</code> / <code>get_block_data</code> / <code>clear_block_data</code>,
+  <code>find_block_data</code>. Saved with the world and removed when the block is broken or replaced.
+- <strong>Players:</strong> <code>teleport</code>, <code>give</code> / <code>take</code> / <code>count_of</code> / <code>drop</code>, <code>set_creative</code>, <code>set_hotbar</code>,
+  <code>send_message</code>, <code>show_title</code>, <code>show_ui</code> / <code>hide_ui</code>, <code>data</code> (persisted), <code>kick</code>, <code>health</code> /
+  <code>max_health</code> / <code>damage</code> / <code>heal</code> / <code>set_health</code> / <code>kill</code>, <code>spawn_point</code>, <code>push</code>, <code>play_sound</code>.
+- <strong>Entities, combat &amp; sound:</strong> <code>register_entity</code>, <code>spawn_entity</code>, <code>spawn_projectile</code>, <code>drop_item</code>,
+  <code>get_entities</code>, <code>add_spawn_rule</code>, <code>set_spawn_caps</code>, <code>register_sound</code>, <code>play_sound</code>, <code>set_gameplay</code> (see below).
+- <strong>Events:</strong> <code>player_join</code>, <code>player_leave</code>, <code>tick</code>, <code>block_break</code> (cancellable, editable drops),
+  <code>block_broken</code>, <code>block_place</code> (cancellable), <code>block_placed</code>, <code>block_interact</code>, <code>item_use</code>,
+  <code>item_crafted</code>, <code>chat</code> (cancellable), <code>ui_action</code>, <code>item_drop</code>, <code>item_pickup</code>, <code>player_attack</code>,
+  <code>player_damage</code>, <code>player_death</code>, <code>player_respawn</code>, <code>entity_spawned</code>, <code>entity_removed</code>,
+  <code>entity_damage</code>, <code>entity_death</code>, <code>entity_interact</code>, <code>entity_natural_spawn</code>, <code>projectile_hit</code>
+  (most cancellable or editable; see the header of <code>mod_api.gd</code>).
+- <strong>Other:</strong> <code>register_command</code>, <code>after</code> / <code>every</code> / <code>cancel</code>, <code>storage</code> (persisted per mod),
+  <code>broadcast</code>, <code>set_server_info</code>.</p>
+<h3 id="items-and-crafting">Items and crafting</h3>
+<p>Every block is also an item (same id); <code>register_item</code> adds non-block items with ids from 65536. The
+engine provides a crafting menu (C) listing every <code>register_recipe</code> recipe, greyed out when the player
+lacks inputs. Drops may name items (<code>"drops": "base:coal"</code>). Right-clicking with a <code>usable</code> item fires
+<code>item_use</code> with the target block, face normal and look direction.</p>
+<h3 id="wind">Wind</h3>
+<p>Wind is a world property: a heading in degrees clockwise from north, and a strength from 0 (still) to
+1 (a gale). It leans the grass, drags the cloud deck along and streaks it out, and anything else that
+wants to read it can.</p>
+<pre class="codehilite"><code class="language-gdscript">api.set_wind(240.0, 0.85)          # from the south-west, hard
+api.set_wind(90.0, 0.3, 120.0)     # from the east, gently, for two minutes
+api.get_wind()                     # {angle: 240.0, strength: 0.85}
+</code></pre>
+
+<p><code>seconds</code> works the way it does for <code>set_weather</code>: 0 means until something says otherwise. <strong>While a
+mod holds the wind the engine stops drifting it</strong>, so a storm's gale does not wander off halfway
+through; when the hold runs out the engine takes it back and starts nudging it again. A world nobody
+has written weather for still breathes.</p>
+<p><strong>Wind is visual.</strong> Nothing in the simulation reads it — projectiles fly straight, fires do not
+spread downwind, sailing is not a thing the engine does. That is deliberate: it means a mod can move
+the wind as freely as it likes without having to think about fairness or about what the server and
+client might disagree on. The server sends a heading that changes every half-minute or so, and each
+client works out the gusts itself from position and time.</p>
+<p>Weather and wind are separate, because a still downpour is a real thing. A mod that wants them
+together says so:</p>
+<pre class="codehilite"><code class="language-gdscript">api.on(&quot;weather_changed&quot;, func(ev):
+    if String(ev.get(&quot;weather&quot;, &quot;&quot;)) == &quot;mod:storm&quot;:
+        api.set_wind(240.0, 0.85))
+</code></pre>
+
+<p>Admins can try it with <code>/wind &lt;degrees&gt; [strength]</code>, and <code>/wind drift</code> hands it back to the engine.</p>
+<h3 id="where-a-thing-comes-from">Where a thing comes from</h3>
+<p>The crafting menu answers "how is this made". It cannot answer the other half of the question, which
+is where the ore, the leather and the chest-bottom sword come from — none of those are made. A player
+holding a block they cannot craft has no way to ask where another one would come from, and the bigger
+a mod's block palette gets, the more often that is the only question they have.</p>
+<p><code>api.sources_of(item_id)</code> answers it, and <strong>almost all of the answer is derived rather than declared</strong>.
+The engine already knows every block's drops, every creature's drops, every loot table and every ore
+pass; a mod that registered a grazer with <code>"drops": [["mod:hide", 1]]</code> has already said where hide
+comes from, and asking it to say so again in a second registry is how the two fall out of step.</p>
+<pre class="codehilite"><code class="language-gdscript">for source in api.sources_of(api.item(&quot;base:coal&quot;)):
+    print(source)
+# {kind: &quot;block&quot;,  from: &quot;Coal Ore&quot;, detail: &quot;mined&quot;, chance: 1.0}
+# {kind: &quot;ground&quot;, from: &quot;Coal Ore&quot;, detail: &quot;in the ground, y 5 to 64&quot;, chance: 1.0}
+</code></pre>
+
+<p><code>kind</code> is one of <code>block</code>, <code>creature</code>, <code>container</code>, <code>ground</code> or <code>other</code>, and <code>from</code> is the name a player
+would recognise, not the internal one. Certain sources sort before chancy ones, because the reliable
+answer is the one a player wants first.</p>
+<p><strong><code>chance</code> is a real probability, not a label.</strong> It comes from the loot registry, which weighs each
+entry against its pool and folds in how many times the pool rolls and the host's loot-rate setting. So
+a creature written like this reports 1.0 for meat and 0.5 for hide, and a player can be told "about
+half the time":</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_entity(&quot;elk&quot;, {..., &quot;drops&quot;: [[&quot;mod:meat&quot;, 2], [&quot;mod:hide&quot;, 1, 0.5]]})
+</code></pre>
+
+<p><code>api.register_source(item_id, {...})</code> is for the things nothing can infer — an item handed over by a
+character, or one that washes up after a storm:</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_source(api.item(&quot;mod:token&quot;), {
+    &quot;kind&quot;: &quot;other&quot;,
+    &quot;from&quot;: &quot;the keeper&quot;,
+    &quot;detail&quot;: &quot;handed over for a favour&quot;,   # a sentence; a player reads it
+    &quot;chance&quot;: 0.5,
+})
+</code></pre>
+
+<p>Declare only what is genuinely undiscoverable. Anything already written as a drop or a loot entry is
+found without being told, and a duplicate declaration shows the player the same answer twice.</p>
+<h3 id="the-block-palette-creative">The block palette (creative)</h3>
+<p>Press <strong>B</strong> in a creative game for the block palette: every registered block, grouped and searchable,
+with a click to put a stack in hand. It needs no registration — a mod that registers blocks gets the
+palette for them, with the same icons the inventory uses.</p>
+<p>The server checks the player really is in creative mode before handing anything over, so a client
+asking for a stack in a survival game gets nothing. A game that wants the palette in survival should
+not: give the player a workbench instead.</p>
+<h3 id="tools-weapons-armor-and-progression">Tools, weapons, armor and progression</h3>
+<p>The engine supplies the pieces: item definitions with tool, weapon and armor stats, per-item data,
+equipment slots, a stat system with modifiers, timed mining with tiers, durability, and events. How
+items progress (experience, kills, upgrades, sockets) is entirely up to mods.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_item(&quot;ruby_pickaxe&quot;, {
+    &quot;icon&quot;: &quot;textures/ruby_pickaxe.png&quot;, &quot;durability&quot;: 900,
+    &quot;tool&quot;: {&quot;type&quot;: &quot;pickaxe&quot;, &quot;tier&quot;: 4, &quot;speed&quot;: 9},       # breaks blocks up to tier 4, 9x faster
+    &quot;weapon&quot;: {&quot;damage&quot;: 4, &quot;cooldown&quot;: 0.5},
+    &quot;modifiers&quot;: [{&quot;stat&quot;: &quot;move_speed&quot;, &quot;amount&quot;: 0.05, &quot;op&quot;: &quot;multiply&quot;}],   # while held
+})
+api.register_item(&quot;ruby_helmet&quot;, {&quot;equip_slot&quot;: &quot;head&quot;, &quot;durability&quot;: 400, &quot;armor&quot;: {&quot;armor&quot;: 3, &quot;toughness&quot;: 2}})
+api.register_block(&quot;ruby_ore&quot;, {&quot;textures&quot;: &quot;textures/ruby_ore.png&quot;, &quot;hardness&quot;: 4, &quot;tier&quot;: 3, &quot;tool&quot;: &quot;pickaxe&quot;})
+api.register_equipment_slot(&quot;ring&quot;, {&quot;display_name&quot;: &quot;Ring&quot;})
+api.register_stat(&quot;mana_regen&quot;, 1.0)
+
+# Progression is just item data + events: this sword levels up with kills.
+api.on(&quot;entity_death&quot;, func(ev):
+    var p = ev.attacker
+    if p == null or p.get(&quot;peer_id&quot;) == null or p.get_item(p.selected_slot).item != api.item(&quot;my_mod:blade&quot;):
+        return
+    var data: Dictionary = p.get_item(p.selected_slot).data.duplicate(true)
+    data.kills = int(data.get(&quot;kills&quot;, 0)) + 1
+    data.name = &quot;Blade +%d&quot; % (data.kills / 10)
+    data.lore = [&quot;%d kills&quot; % data.kills]
+    data.modifiers = [{&quot;stat&quot;: &quot;attack_damage&quot;, &quot;amount&quot;: data.kills / 10}]
+    p.set_item_data(p.selected_slot, data))
+</code></pre>
+
+<ul>
+<li><strong>Mining:</strong> blocks have <code>hardness</code> (seconds by hand is about hardness x 1.5), a <code>tier</code> needed for
+  drops and an effective <code>tool</code> type; tools have <code>type</code>, <code>tier</code> and <code>speed</code>. Survival players hold the
+  button while a crack animation plays (others nearby see it too); the server checks the time before
+  accepting the break, and a tool that is too weak mines slowly and yields nothing. Creative is instant.</li>
+<li><strong>Item data:</strong> every stack can carry a Dictionary (<code>get_item</code>, <code>set_item_data</code>, <code>give(item, count,
+  data)</code>). The engine reads <code>damage</code> (wear), <code>name</code>, <code>lore</code> and <code>modifiers</code>; mods keep anything else
+  there (xp, level, sockets, owner). Stacks only merge when their data matches; data survives drops,
+  deaths and saves.</li>
+<li><strong>Equipment:</strong> head, chest, legs, feet and offhand slots plus any a mod registers, shown beside the
+  inventory. Shift-click or right-click wears armor.</li>
+<li><strong>Stats:</strong> <code>max_health</code>, <code>armor</code>, <code>toughness</code>, <code>attack_damage</code>, <code>attack_cooldown</code>, <code>reach</code>,
+  <code>crit_chance</code>, <code>crit_multiplier</code>, <code>knockback</code>, <code>knockback_resistance</code>, <code>mining_speed</code>, <code>move_speed</code>,
+  and mod stats from <code>register_stat</code>. They come from worn items, the held tool or weapon, modifiers in
+  item data and timed modifiers (<code>player.add_modifier(id, stat, amount, op, seconds)</code>), and the
+  <code>player_stats</code> event can adjust the result. Armor reduces attack, mob and projectile damage;
+  <code>move_speed</code> changes that player's physics (predicted on the client).</li>
+<li><strong>Combat:</strong> weapon damage and cooldown, jump-attack criticals, <code>crit_chance</code>, sweeps that hit mobs
+  around the target, and knockback.</li>
+<li><strong>Durability</strong> (on by default; <code>set_gameplay({"durability": false})</code> turns it off): tools wear when
+  mining, weapons when hitting, armor when hit; <code>item_durability</code> can change or cancel wear and
+  <code>item_break</code> fires when an item wears out. Hotbar and inventory slots show a wear bar; tooltips list
+  stats, durability and lore.</li>
+<li><strong>Bundled:</strong> wooden, stone and iron pickaxes, axes, shovels and swords, iron armor (base), leather
+  armor from pigs (vanilla), the Soul Blade that levels with kills (Arcana, GDScript) and the
+  Prospector's Pick that mines faster as it gains experience (Guild, JavaScript).</li>
+</ul>
+<h3 id="changing-many-blocks-at-once">Changing many blocks at once</h3>
+<p>Choosing the cells and changing them are two calls, because between them is where a tool shows a
+preview, counts the cost, or asks whether the player meant it:</p>
+<pre class="codehilite"><code class="language-gdscript">var cells: Array = api.area_cells(&quot;vein&quot;, {&quot;position&quot;: at, &quot;player&quot;: p, &quot;max&quot;: 64})
+api.show_area(p, cells, {&quot;seconds&quot;: 3.0})            # outlines them for that player
+var done: Dictionary = api.area_edit(p, cells, {&quot;block&quot;: 0})   # 0 breaks; a block id places
+p.send_message(&quot;Mined %d of %d.&quot; % [done.changed, cells.size()])
+</code></pre>
+
+<ul>
+<li><code>area_cells(shape, ctx)</code> — <code>"box"</code> (<code>{from, to}</code>), <code>"sphere"</code> (<code>{position, radius}</code>), <code>"vein"</code>
+  (<code>{position, block, max}</code>), or a shape you registered. <code>max</code> caps what comes back.</li>
+<li><code>register_area_rule(name, chooser)</code> — your own shape: a line, a wall, everything touching one face.
+  The chooser is handed the context you passed and returns an Array of Vector3i.</li>
+<li><code>area_edit(player, cells, {block, drops, realm})</code> — returns <code>{changed, skipped, refused, reason}</code>.</li>
+<li><code>show_area(player, cells, {color, seconds})</code> — <code>seconds</code> 0 holds the outline until it is cleared;
+  an empty list takes it away.</li>
+</ul>
+<p><strong>This is not <code>fill</code>.</strong> Every cell goes through the plot check, the block events, the loot roll, tool
+wear, hunger and the player's edit budget — it calls the same code a hand-swung pick calls, so your
+<code>block_broken</code> handler hears an area edit exactly as it hears a pickaxe. <code>api.fill</code> is the admin door
+and asks none of that; use it for world generation and <code>/</code> commands, not for something a player holds.</p>
+<p>A selection that reaches into somebody else's plot <strong>does the part outside it</strong> and reports the rest
+as <code>skipped</code>, so a vein can run up to a boundary and stop rather than the whole thing being refused.
+A solid block is never placed in a cell somebody is standing in. Reach is asked once, of the nearest
+cell, at 24 blocks.</p>
+<h3 id="a-private-copy-of-a-space">A private copy of a space</h3>
+<p>An instance is a realm with a lifetime: the same separate world a dimension gives you, but made on
+demand and thrown away when it empties.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_instance(&quot;dungeon&quot;, {&quot;generator&quot;: Rooms.new(), &quot;empty_seconds&quot;: 30, &quot;max_players&quot;: 4})
+
+var run: String = api.open_instance(&quot;dungeon&quot;, {&quot;seed&quot;: 7, &quot;data&quot;: {&quot;party&quot;: team}})
+api.enter_instance(player, run, Vector3(8, 65, 8))   # remembers where they were
+api.leave_instance(player)                           # puts them back there
+api.close_instance(run)                              # everybody out, space thrown away
+</code></pre>
+
+<p>Also <code>instance_of(player)</code> (the instance they are in, or <code>""</code>) and <code>instance_data(id)</code> (whatever you
+kept with it). Two runs of the same kind are two worlds, not two names for one. Without a generator
+the space is empty air, which is what you want if your mod builds its own room in it.</p>
+<p><strong>Nothing in an instance is saved.</strong> It is deliberately not somewhere to keep things: a run that
+outlived the server would be a folder nobody can get back into. Anything a player should keep has to
+leave with them.</p>
+<p><strong>It closes when it has been empty for <code>empty_seconds</code>, not the moment the last player steps out</strong> —
+stepping out for a moment is a thing people do, and a dungeon that vanished behind you while you
+checked your bag is a bug nobody could explain. Call <code>close_instance</code> when you mean now.</p>
+<p>Events: <code>instance_opened</code>, <code>instance_entered</code>, <code>instance_left</code>, <code>instance_closed</code>.</p>
+<h3 id="bags-and-stores-that-are-the-same-everywhere">Bags, and stores that are the same everywhere</h3>
+<p>Two kinds of container whose contents are not at a position.</p>
+<p>A <strong>bag</strong> is an item whose definition names a <code>container</code> type, the way a chest block does:</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_container(&quot;satchel&quot;, {&quot;title&quot;: &quot;Satchel&quot;, &quot;slots&quot;: 9})
+api.register_item(&quot;satchel&quot;, {&quot;display_name&quot;: &quot;Satchel&quot;, &quot;max_stack&quot;: 1, &quot;usable&quot;: true,
+    &quot;container&quot;: &quot;satchel&quot;})
+api.on(&quot;item_use&quot;, func(ev): api.open_bag(ev.player, ev.player.selected_slot))
+</code></pre>
+
+<p>Its contents live in the item's own data, so it holds what it holds wherever it goes — into a chest,
+onto the floor, into somebody else's hands — with nothing to keep in step.</p>
+<p>A <strong>shared store</strong> is the same contents wherever it is opened:</p>
+<pre class="codehilite"><code class="language-gdscript">api.shared_store(&quot;vault&quot;, &quot;vault_type&quot;)          # declare once, in setup
+api.open_shared(player, &quot;vault&quot;)                 # open it from anywhere
+var v = api.get_shared(&quot;vault&quot;)                  # or read it without a screen
+</code></pre>
+
+<p><strong>Whose it is, is the name's business.</strong> One vault for the whole server is <code>"vault"</code>; one each is
+<code>"vault_" + player.player_id</code>. The engine keeps a table of names, so it never has to guess which you
+meant. Contents are saved with the world, and survive their mod being uninstalled and reinstalled.</p>
+<p>Two rules the engine enforces: <strong>a bag cannot be put inside a bag</strong> (the outer one holds the inner
+one's data, so copying the stack copies the contents — every version of nesting is somebody's
+duplication exploit), and <strong>the slot holding an open bag is locked</strong> while it is open, because the
+bag's address is that slot.</p>
+<h3 id="blocks-over-time-light-and-plants">Blocks over time, light and plants</h3>
+<p>Blocks can change on their own: crops grow, farmland dries, saplings become trees. Mods register a
+tick handler per block type; the engine only visits blocks of those types, and when a chunk comes back
+after being unloaded each block gets the ticks it missed in one call, so farms keep growing while
+nobody is near. Scheduled ticks run once at a set time and survive restarts.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_block_tick(&quot;my_mod:mushroom&quot;, func(ctx):
+    # ctx: position, block, state, ticks (&gt; 1 when catching up), reason (&quot;random&quot; | &quot;scheduled&quot;), payload
+    if api.get_light(ctx.position) &lt; 8:
+        api.set_block(ctx.position, api.block(&quot;my_mod:big_mushroom&quot;)),
+    {&quot;interval&quot;: 60})                                       # about once a minute per block
+api.schedule_block_tick(position, 5.0, {&quot;fuse&quot;: true})    # the block's handler runs in 5 s
+api.register_block(&quot;my_mod:mushroom&quot;, {&quot;textures&quot;: &quot;textures/mushroom.png&quot;, &quot;render&quot;: &quot;plant&quot;,
+    &quot;support&quot;: [&quot;base:dirt&quot;, &quot;base:grass&quot;]})               # breaks when its support goes
+</code></pre>
+
+<ul>
+<li><code>api.get_light(pos)</code> (0-15, block light or daylight-scaled sky light) and <code>get_light_levels(pos)</code>
+  estimate light on the server from column heights and nearby light sources.</li>
+<li>Block keys: <code>render: "plant"</code> (two crossed quads), <code>support</code> ("solid" or block names it must stand
+  on; it cannot be placed elsewhere and pops off as items when that block goes), <code>replaceable</code>
+  (placing a block there replaces it, like tall grass). <code>api.break_block(pos)</code> breaks a block
+  without a player and fires <code>block_destroyed</code> (drops may be changed).</li>
+<li><strong>Bundled farming (base):</strong> hoes till grass or dirt into farmland; wheat seeds (from tall grass)
+  grow through four stages with light, twice as fast on farmland near water; ripe wheat makes bread;
+  farmland dries back to dirt when bare and dry; saplings (from leaves) grow into trees. Vanilla
+  terrain grows tall grass and flowers.</li>
+</ul>
+<h3 id="containers-crafting-stations-and-smelting">Containers, crafting stations and smelting</h3>
+<p>Container blocks (chests, furnaces, machines) keep their slots in block data, so contents are saved
+with the world and spill out when the block breaks. Right-clicking one opens it beside the inventory
+with the usual click rules; shift-click moves stacks between the container and the backpack, and
+everyone viewing sees changes live.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_container(&quot;kiln&quot;, {&quot;title&quot;: &quot;Kiln&quot;, &quot;groups&quot;: [
+    {&quot;name&quot;: &quot;input&quot;, &quot;count&quot;: 2, &quot;label&quot;: &quot;Clay&quot;},
+    {&quot;name&quot;: &quot;fuel&quot;, &quot;count&quot;: 1, &quot;label&quot;: &quot;Fuel&quot;, &quot;accepts&quot;: &quot;fuel&quot;},        # or [item names] / Callable
+    {&quot;name&quot;: &quot;output&quot;, &quot;count&quot;: 2, &quot;label&quot;: &quot;Pots&quot;, &quot;take_only&quot;: true}],   # players can only take
+    &quot;progress&quot;: [{&quot;name&quot;: &quot;fire&quot;, &quot;label&quot;: &quot;Firing&quot;, &quot;color&quot;: &quot;#ff8a3c&quot;}]})
+api.register_block(&quot;kiln&quot;, {&quot;textures&quot;: &quot;textures/kiln.png&quot;, &quot;container&quot;: &quot;kiln&quot;})
+api.on(&quot;container_changed&quot;, func(ev):                  # a player moved items in or out
+    var c = ev.container                               # get_item, set_item, add, take, group, state
+    c.set_progress(&quot;fire&quot;, 0.5))
+api.register_block(&quot;anvil&quot;, {&quot;textures&quot;: &quot;textures/anvil.png&quot;, &quot;station&quot;: &quot;anvil&quot;})
+api.register_recipe({&quot;base:iron_ingot&quot;: 3}, &quot;my_mod:blade&quot;, 1, {&quot;station&quot;: &quot;anvil&quot;})
+api.register_process(&quot;firing&quot;, &quot;my_mod:clay&quot;, &quot;my_mod:pot&quot;, 1, 12.0)   # api.get_process(&quot;firing&quot;, id)
+api.set_fuel(&quot;my_mod:peat&quot;, 40.0)                                        # api.get_fuel(id)
+</code></pre>
+
+<ul>
+<li><strong>Crafting screen:</strong> C (or right-clicking a station) opens a recipe book with search, category tabs,
+  a craftable filter, what you have and still need (including items in chests within 4 blocks of a
+  station, which crafting draws from), stats compared with what you hold or wear, Craft / Craft all and
+  Pin (a HUD tracker that updates as you gather). R / U over any item opens how it is made / what it
+  is used in; ingredients link to their own recipes. <code>register_recipe(..., {station, category, id})</code>,
+  <code>register_recipe_category(name, {display_name, icon})</code>, event <code>item_crafted {player, item, count, recipe}</code>.</li>
+<li><strong>Stations:</strong> blocks with <code>station: "&lt;name&gt;"</code> unlock recipes that need that station (plus the ones
+  crafted anywhere). Creative players craft everything anywhere.</li>
+<li><strong>Discovery:</strong> with the <code>recipe_discovery</code> gameplay rule (on by default) players learn recipes. Each
+  recipe's <code>unlock</code> is "known" (from the start), "pickup" (default: the first time you hold one of its
+  ingredients), "blueprint" (items with <code>teaches: [recipe ids]</code>, or any item whose data carries
+  <code>teaches</code>, teach it when used), "experiment" (the crafting grid) or "secret" (hidden until taught).
+  The recipe book counts "Discovered 28 / 51", shows undiscovered recipes as silhouettes with how to
+  find them and an optional <code>hint</code>, and bookshelves around a station reveal an ingredient, then all of
+  them, then the result. New recipes pop a toast. <code>player.learn_recipe(id)</code>, <code>player.knows_recipe(id)</code>,
+  event <code>recipe_learned {player, recipe, source}</code>. Creative players know everything. Bundled: forge
+  plans (skeletons, Guild shop) teach the forge and anvil, workbench plans (zombies, shop) the
+  reinforced frame. (Clients receive every recipe so the book works offline of the server; a modified
+  client could read undiscovered ones.)</li>
+<li><strong>Experimentation grid:</strong> the crafting screen's Experiment tab has a 3x3 grid. Players arrange items
+  they hold (nothing is used up) and Try: a recipe with exactly those ingredients (and, for recipes
+  with a <code>pattern</code>, that arrangement, shifted or mirrored) is discovered if its unlock is "experiment"
+  or "pickup", can be crafted right away if known, and blueprint recipes say plans are needed. Near
+  misses hint: wrong arrangement, amounts off, something missing (bookshelves name it), something
+  extra. Experiments are rate-limited and need the items in hand. Shaped recipes:
+  <code>register_recipe({}, "base:torch", 4, {"pattern": ["C", "S"], "key": {"C": "base:coal", "S": "base:stick"}, "unlock": "experiment"})</code>.
+  Bundled: torches (coal or charcoal over a stick) and hay bales (a grid of wheat).</li>
+<li><strong>Tools from parts:</strong> alongside the fixed tools, a Toolsmith’s Bench makes parts (pickaxe/axe/shovel heads,
+  sword blades, handles, grips, bindings, guards) from any registered material and assembles them in
+  the crafting screen's Assemble tab. The head decides tier, mining speed and damage, the handle's
+  material scales durability, and every material adds its trait (stat modifiers, durability, speed,
+  damage, glow). The result is the tool item with item data (<code>tool</code>, <code>weapon</code>, <code>durability</code>,
+  <code>modifiers</code>, <code>icon_layers</code>, lore), and its icon and held model are composed from the part sprites
+  tinted by material. Part recipes are generated for every material × part type. Bundled materials:
+  wood, stone, iron (base), bone (vanilla), gold coins (guild, JS) and mana shards (arcana, glows).</li>
+</ul>
+<pre class="codehilite"><code class="language-gdscript">api.register_material(&quot;iron&quot;, {&quot;item&quot;: &quot;base:iron_ingot&quot;, &quot;color&quot;: &quot;#dcdce2&quot;, &quot;tier&quot;: 3, &quot;speed&quot;: 6.0, &quot;durability&quot;: 250,
+    &quot;damage&quot;: 2.0, &quot;handle&quot;: 1.2, &quot;trait&quot;: {&quot;name&quot;: &quot;Balanced&quot;, &quot;description&quot;: &quot;+10% mining speed&quot;, &quot;speed_mult&quot;: 0.1}})
+api.register_part_type(&quot;pickaxe_head&quot;, {&quot;sprite&quot;: &quot;textures/parts/pickaxe_head.png&quot;, &quot;cost&quot;: 3, &quot;station&quot;: &quot;tool_forge&quot;})
+api.register_assembly(&quot;forged_pickaxe&quot;, {&quot;display_name&quot;: &quot;Pickaxe&quot;, &quot;tool_type&quot;: &quot;pickaxe&quot;, &quot;damage&quot;: 2.0, &quot;station&quot;: &quot;tool_forge&quot;,
+    &quot;slots&quot;: [{&quot;name&quot;: &quot;head&quot;, &quot;part&quot;: &quot;pickaxe_head&quot;}, {&quot;name&quot;: &quot;handle&quot;, &quot;part&quot;: &quot;tool_handle&quot;}, {&quot;name&quot;: &quot;binding&quot;, &quot;part&quot;: &quot;binding&quot;}]})
+</code></pre>
+
+<p>Any item's data can override its definition's <code>tool</code>, <code>weapon</code> and <code>durability</code>.
+- <strong>Crafting by hand (skill minigames):</strong> recipes and assemblies with a <code>skill</code> show a "by hand" button
+  next to Craft. It opens a short minigame and the result gets a quality: Standard (the same as
+  crafting normally, also what you get for stopping early), Fine +10%, Superior +20% or Masterwork
+  +30%. Quality raises durability, mining speed, weapon damage and armor, prefixes the name, adds a
+  star line to the lore, and Masterwork also credits the makers and glows (<code>skill_crafted</code> event lets
+  mods change the result). Ingredients are taken when the game starts. Minigame types: <code>timing</code> (strike
+  while a marker is inside a shrinking zone; <code>cool</code> makes it speed up), <code>hold</code> (keep a gauge inside a
+  drifting band) and <code>sequence</code> (press prompted directions in time). A station's <code>quality</code> grant
+  widens zones. A "Relaxed timing" checkbox (server rule <code>minigame_assist</code>) slows markers and widens
+  zones. Team <code>timing</code> games: "With a partner" invites others at the station from their co-op panel;
+  the partner works the bellows (keep heat in the green band, pump just before strikes for a sync
+  bonus, too hot burns a strike) while the starter hammers. The server replays inputs with the shared
+  scoring code and clamps each input's time to the connection's latency. Bundled: forging (iron tools,
+  iron armor, forged tools from parts), stitching (vanilla leather armor), channeling (Arcana soul
+  blade and crystal helmet).</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_minigame(&quot;forging&quot;, {&quot;title&quot;: &quot;Forge by hand&quot;, &quot;type&quot;: &quot;timing&quot;, &quot;rounds&quot;: 5, &quot;speed&quot;: 0.75, &quot;zone&quot;: 0.2, &quot;cool&quot;: 9.0, &quot;team&quot;: true})
+api.register_recipe({&quot;base:iron_ingot&quot;: 3, &quot;base:stick&quot;: 2}, &quot;base:iron_pickaxe&quot;, 1, {&quot;station&quot;: &quot;crafting_table&quot;, &quot;skill&quot;: &quot;base:forging&quot;})
+</code></pre>
+
+<ul>
+<li><strong>Upgradable stations:</strong> <code>register_station(name, def)</code> adds tiers (blocks upgraded in place with a kit
+  item), workshop upgrades (blocks within a radius grant features, tier, speed, quality, chest reach,
+  hints) and multiblock structures (a pattern around a core block, any rotation). Recipes ask for
+  <code>tier</code> and <code>needs</code> (features). The station screen shows the tier, which workshop blocks were found
+  and what the missing ones would add, the next tier's kit with an Upgrade button, and structure
+  status with a build guide that shows ghost blocks where pieces go.</li>
+</ul>
+<pre class="codehilite"><code class="language-gdscript">api.register_station(&quot;crafting_table&quot;, {
+    &quot;tiers&quot;: [{&quot;block&quot;: &quot;base:crafting_table&quot;}, {&quot;block&quot;: &quot;base:sturdy_workbench&quot;, &quot;kit&quot;: &quot;base:reinforced_frame&quot;}],
+    &quot;workshop&quot;: {&quot;radius&quot;: 4, &quot;upgrades&quot;: [{&quot;block&quot;: &quot;base:anvil&quot;, &quot;grants&quot;: {&quot;features&quot;: [&quot;metalwork&quot;], &quot;quality&quot;: 0.1}}]}})
+api.register_station(&quot;forge&quot;, {&quot;grants&quot;: {&quot;features&quot;: [&quot;forging&quot;]},
+    &quot;multiblock&quot;: {&quot;core&quot;: &quot;base:forge&quot;, &quot;legend&quot;: {&quot;B&quot;: &quot;base:brick&quot;}, &quot;pattern&quot;: [&quot;BCB&quot;, &quot;BBB&quot;, &quot; B &quot;]}})
+api.register_recipe({&quot;base:iron_ingot&quot;: 8}, &quot;base:iron_chestplate&quot;, 1, {&quot;station&quot;: &quot;crafting_table&quot;, &quot;tier&quot;: 2, &quot;needs&quot;: [&quot;metalwork&quot;]})
+</code></pre>
+
+<ul>
+<li><strong>Co-op crafting:</strong> everyone at a station shares a session: the screen lists who is there and which
+  recipe each looks at, a 9-slot shared tray (stacks remember who put them in; you take back your
+  own, the station's owner and their <code>player.team</code> take anything; gameplay rule <code>tray_access</code> =
+  "anyone" opens it up) that crafting there can draw from, and a job queue. Recipes with <code>time</code> are
+  crafted in the queue while players are present; each extra player adds 50% speed (up to 2.5x) on top
+  of the station's workshop speed. Recipes with <code>project: true</code> are built together: anyone contributes
+  ingredients over time, progress floats above the station for everyone nearby, and
+  <code>project_completed {position, recipe, item, contributors}</code> lets mods reward who helped (the Guild
+  Banner pays coins back to its contributors). Events: <code>craft_job_started</code>, <code>craft_job_finished</code>,
+  <code>project_contributed</code>, <code>project_completed</code>.</li>
+<li><strong>Bundled progression (base):</strong> crafting table → furnace → iron ingots → bricks → Forge (a brick
+  structure) → anvil and reinforced frame. An anvil next to the table unlocks iron tools; the
+  reinforced frame upgrades the table to a Sturdy Workbench for iron armor; tool racks speed crafting
+  and reach chests further away; bookshelves will power recipe hints.</li>
+<li><strong>Bundled (base):</strong> crafting table (tools, weapons, armor, hoes, chests and furnaces need one), chest
+  (27 slots) and furnace. The furnace smelts ore into ingots, sand into glass, cobblestone into stone,
+  logs into charcoal and (vanilla) raw into cooked porkchops; it glows while burning and keeps
+  smelting while nobody watches, catching up after its chunk was unloaded. Coal, charcoal, wood and
+  wooden tools are fuel.</li>
+</ul>
+<h3 id="effects-glows-trails-and-particles">Effects: glows, trails and particles</h3>
+<p>Effects are data the server names and clients draw, so mods never ship client code. An effect mixes
+particle emitters, a light flash, camera shake and a sound (see <code>engine/shared/effect_registry.gd</code>).
+Built in: <code>engine:hit</code>, <code>engine:crit</code>, <code>engine:smoke</code>, <code>engine:sparkle</code>, <code>engine:magic</code>, <code>engine:heal</code>,
+<code>engine:dust</code>, <code>engine:explosion</code>.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_effect(&quot;frost_burst&quot;, {
+    &quot;emitters&quot;: [{&quot;amount&quot;: 30, &quot;lifetime&quot;: 0.8, &quot;speed&quot;: [1, 4], &quot;spread&quot;: 180, &quot;gravity&quot;: 2, &quot;drag&quot;: 2,
+        &quot;size&quot;: [0.15, 0.0], &quot;colors&quot;: [&quot;#ffffff&quot;, &quot;#80d0ff&quot;, &quot;#2060ff00&quot;], &quot;texture&quot;: &quot;star&quot;}],
+    &quot;light&quot;: {&quot;color&quot;: &quot;#80d0ff&quot;, &quot;energy&quot;: 3, &quot;range&quot;: 6, &quot;seconds&quot;: 0.4},
+    &quot;shake&quot;: {&quot;strength&quot;: 0.3, &quot;seconds&quot;: 0.3, &quot;radius&quot;: 8}})
+api.play_effect(&quot;frost_burst&quot;, position, {&quot;scale&quot;: 1.5, &quot;follow&quot;: entity})
+
+api.register_item(&quot;frost_blade&quot;, {&quot;icon&quot;: &quot;textures/frost_blade.png&quot;, &quot;weapon&quot;: {&quot;damage&quot;: 7},
+    &quot;glow&quot;: {&quot;color&quot;: &quot;#80d0ff&quot;, &quot;energy&quot;: 0.8, &quot;light&quot;: 3},        # emissive, lights its surroundings
+    &quot;trail&quot;: {&quot;color&quot;: &quot;#80d0ffa0&quot;, &quot;seconds&quot;: 0.25},                 # ribbon while swinging
+    &quot;effects&quot;: {&quot;hit&quot;: &quot;frost_burst&quot;, &quot;held&quot;: &quot;engine:sparkle&quot;}})     # swing, hit, use, held, break
+</code></pre>
+
+<ul>
+<li><strong>Items:</strong> <code>glow</code> (held items; armor lights up its texture), <code>trail</code>, and <code>effects</code> played on swing,
+  hit (at the target; default <code>engine:hit</code>), use, while held and when the item breaks. Item data can
+  override <code>glow</code>, <code>trail</code> and <code>effects</code> per stack, so progression can change looks (the Soul Blade glows
+  brighter each level and trails wisps at level 4).</li>
+<li><strong>Mob attacks:</strong> <code>windup_effect</code> (follows the mob while it telegraphs) and <code>effect</code> (when the attack
+  lands); the Colossus stomp raises dust and shakes the camera.</li>
+<li><strong>Engine:</strong> critical hits sparkle, broken blocks scatter debris from their texture, and the "fast"
+  graphics preset halves particle counts.</li>
+<li><strong>Bundled:</strong> Arcana blink, cast, spark impacts, Soul Blade glow/trail/aura and a glowing Crystal Helmet;
+  Guild gold bursts, a shimmering levelled pick, quest sparkles and meteor explosions; iron swords trail.</li>
+</ul>
+<h3 id="avatars-and-cosmetics">Avatars and cosmetics</h3>
+<p><strong>Player creations (in progress):</strong> the avatar editor (menu) has <strong>Paint a skin…</strong>: a 64x64 skin painter
+with a turning 3D preview (pencil, eraser, fill with a small tolerance, picker, mirror, body and outer
+layers, undo/redo, PNG import/export). Saved skins go to the local creation library (<code>user://creations</code>)
+and are worn in the Skin category; a worn skin replaces the painted face and clothes, while 3D accessories
+still show. In the hat, hair, glasses, back and face categories, <strong>Build…</strong> opens a voxel builder (layer
+by layer on a top-down grid with body-part guides, mirror, copy layer, undo; voxels merge into at most 64
+boxes) and <strong>Import model…</strong> places a GLB (size, offset and rotation sliders; refused if over 512 KB,
+4,000 triangles or 256 px textures). Format and limits: <code>engine/shared/creations.gd</code>.</p>
+<p><strong>Creations on servers:</strong> when you join (or change your look) the game offers the creations you wear to
+the server; it asks for the files it lacks and you upload them in pieces (paced, size-checked, only the
+author may bring a creation). The server validates them again and stores them in <code>&lt;world&gt;/ugc/</code>. Policy
+(<code>--ugc=auto|trusted|approval|off</code>, or <code>api.set_ugc_policy({accept, kinds, library, max_per_player,
+max_bytes_per_player})</code>): with <code>auto</code> creations are approved at once, <code>trusted</code> approves admins' and
+trusted players', <code>approval</code> keeps them hidden until approved, <code>off</code> refuses them. Approved creations
+become cosmetics here; other players' clients fetch, re-check and cache what they need to draw
+(<code>user://ugc_cache</code>). In game the avatar editor has your creation tools plus <strong>Server library…</strong>, which
+lists approved creations for the category so you can wear other players' work (if <code>library</code> is on). Your
+own creations stay in your portable look; library picks are remembered per server. Events
+<code>ugc_uploaded {player, creation, cancelled, reason}</code> and <code>ugc_status {id, status, reason}</code>.</p>
+<p><strong>Moderation:</strong> players report a creation someone wears from the pause menu (<strong>Report a creation…</strong>) or
+with <code>/report &lt;player&gt; [reason]</code>; each player reports a creation once, and after <code>report_hide</code> reports
+(default 3, 0 = never) it is hidden until reviewed. Admins get <strong>Review creations</strong> in the pause menu
+(filters for waiting, reported, approved, rejected and removed; skin and 3D previews; reports; approve,
+reject, remove for good, clear reports, trust or ban the creator), the same in the dev dashboard's
+<strong>Creations</strong> tab, and <code>/ugc list|approve|reject|remove &lt;id prefix&gt; [reason]</code>, <code>/ugc trust|untrust|ban|unban
+&lt;player&gt;</code> and <code>/ugc policy &lt;key&gt; &lt;value&gt;</code>. Removed creations are blocklisted by content hash; trusted
+creators skip the queue under <code>accept=trusted</code>; banned creators cannot upload and their creations are
+hidden. Mods use <code>ugc_list</code>, <code>ugc_get</code>, <code>ugc_set_status</code>, <code>ugc_report</code>, <code>ugc_trust</code> and <code>ugc_ban</code>
+(JavaScript: <code>ugcList</code>, <code>ugcGet</code>, <code>ugcSetStatus</code>, <code>ugcTrust</code>, <code>ugcBan</code>), and the <code>ugc_reported {player, id,
+reason, details, reports, cancelled}</code> event can veto reports. <code>ugc_status</code> also carries <code>by</code>.</p>
+<p>Players are drawn with a rig of 10 boxes (head, torso, upper and lower arms and legs) textured in the
+standard 64x64 box-unwrap skin layout, animated procedurally (walking, running, jumping, swinging,
+looking, getting hurt). Held items and worn armor show on everyone's avatar, F5 cycles first person,
+behind and in front, and first person shows your arm and held item. Servers can replace the rig with
+<code>api.set_player_rig(def)</code> (see <code>engine/shared/player_rig.gd</code>); outfits keep working because they are
+drawn in layout regions, not per part.</p>
+<p>A player's look is plain data: skin color (or per-part body colors) and one cosmetic per category
+(face, pants, shoes, shirt, jacket, hair, hat, glasses, back). Esc &gt; <strong>Customize avatar</strong> (or the main
+menu) opens the editor with a turning preview.</p>
+<ul>
+<li><strong>Portable look:</strong> built-in cosmetics are part of the engine; your choices are saved on your
+  computer and appear on every server that allows them.</li>
+<li><strong>Server cosmetics:</strong> mods register their own, free for everyone or granted to players (quest
+  rewards, shops, ranks). Ownership and picks are saved per player with the world.</li>
+<li><strong>Armor or cosmetics:</strong> a cosmetic that covers an armor slot (hats cover the head) shows instead of
+  that armor piece; each player can choose per slot to show their armor instead.</li>
+<li><strong>Server control:</strong> <code>set_cosmetics_policy</code> can disallow built-in cosmetics or recoloring, force armor
+  or cosmetics to show, block categories or items, and dress everyone in a uniform;
+  <code>player.set_avatar_override</code> and the <code>avatar_change</code> event change individual looks (teams, disguises).</li>
+</ul>
+<p>Cosmetics are data, so they need no art tools: <code>paint</code> fills areas of the skin layout, <code>pixels</code> draws a
+face, <code>boxes</code> builds a voxel accessory at the category's attachment point, or use a <code>texture</code> (64x64
+layer) or glTF <code>model</code>.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_cosmetic(&quot;pirate_hat&quot;, {&quot;category&quot;: &quot;hat&quot;, &quot;color&quot;: &quot;#2a2a2a&quot;, &quot;unlocked&quot;: false,
+    &quot;boxes&quot;: [{&quot;from&quot;: [-6, 0, -4], &quot;size&quot;: [12, 2, 8]}, {&quot;from&quot;: [-4, 2, -3], &quot;size&quot;: [8, 3, 6]},
+        {&quot;from&quot;: [-1, 3, -3.2], &quot;size&quot;: [2, 2, 0.3], &quot;color&quot;: &quot;#f0f0f0&quot;}]})
+api.register_cosmetic(&quot;sash&quot;, {&quot;category&quot;: &quot;jacket&quot;, &quot;color&quot;: &quot;#b03030&quot;,
+    &quot;paint&quot;: [{&quot;region&quot;: &quot;torso_overlay&quot;, &quot;rows&quot;: [4, 6], &quot;sides&quot;: [&quot;front&quot;, &quot;back&quot;, &quot;left&quot;, &quot;right&quot;]}]})
+api.set_cosmetics_policy({&quot;armor&quot;: &quot;player&quot;, &quot;blocked&quot;: [&quot;back&quot;]})
+player.grant_cosmetic(&quot;my_mod:pirate_hat&quot;)
+player.set_avatar_override({&quot;wear&quot;: {&quot;shirt&quot;: {&quot;id&quot;: &quot;builtin:tshirt&quot;, &quot;color&quot;: &quot;#4a78d0&quot;}}})   # blue team
+</code></pre>
+
+<p>Bundled: the Mage robe and the Archmage hat for a level 3 Soul Blade (Arcana, GDScript) and the Guild
+cape for three completed quests (Guild, JavaScript). Uploading your own skins and 3D clothing is not
+supported yet.</p>
+<h3 id="music">Music</h3>
+<p>Music comes from the server, so what a player hears is the game's decision, not the client's:</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_music(&quot;valley&quot;, &quot;music/valley.ogg&quot;, {
+    &quot;attribution&quot;: &quot;Kevin MacLeod - Meadow (CC0)&quot;,   # required
+    &quot;volume&quot;: 0.9, &quot;loop&quot;: true})
+
+api.play_music(null, &quot;valley&quot;, {&quot;fade&quot;: 6.0})   # null = everybody; or a player
+api.stop_music(player, {&quot;fade&quot;: 3.0})
+</code></pre>
+
+<p>Three things worth knowing:</p>
+<ul>
+<li><strong>Asking for the track that is already playing does nothing.</strong> So a mod can call <code>play_music</code> on a
+  timer, on every biome change, every night - whatever decides the music - without restarting it.</li>
+<li><strong>Music never delays a join.</strong> Its audio is registered as a <em>lazy</em> asset: listed for the client but
+  not part of the download a player waits through to get in. It arrives afterwards and starts when it
+  is ready. (<code>api.register_asset(path, {"lazy": true})</code> if you want that lane for something else. Use it
+  only for things the world can be drawn without.)</li>
+<li><strong><code>attribution</code> is required.</strong> Running a server means redistributing whatever a mod put in it, to
+  children and to anyone else who joins, and a track whose source nobody wrote down is one whose licence
+  nobody can check later. A track without it is refused at registration, loudly, while the person who
+  can fix it is still looking. <code>/music</code> shows the credits in game.</li>
+</ul>
+<p>Only the game should drive the music. If your mod builds on another one, guard the timer with
+<code>api.is_game()</code> - otherwise two mods fight over it and whoever ran last wins.</p>
+<p>The bundled tracks are placeholders generated by <code>tools/generate_music.py</code>, like every texture and sound
+effect here. Replacing them with real CC0 music is welcome; bring the attribution with it.</p>
+<h3 id="a-story-to-walk-through">A story to walk through</h3>
+<p>A story is a world people move through rather than rebuild. One line:</p>
+<pre class="codehilite"><code class="language-gdscript">api.set_default_role(&quot;visitor&quot;)
+</code></pre>
+
+<p><code>visitor</code> is a stock role: chat and interact, no build. So doors, chests, levers and stations all still
+work, and the valley stays as its author left it. The engine already refuses a break or a place without
+the <code>build</code> permission, tells the player why (once every few seconds, not once a click) and puts the
+block back on the client that predicted it.</p>
+<p>Give building back to whoever should have it — a builder role for yourself while authoring, say — with
+<code>/role give &lt;player&gt; member</code>.</p>
+<h3 id="shipping-a-world">Shipping a world</h3>
+<p>A mod can bring an authored world with it — a valley someone built for a story, rather than terrain the
+generator made. Put the archive in the mod and name it in <code>mod.json</code>:</p>
+<pre class="codehilite"><code class="language-json">{ &quot;id&quot;: &quot;myvalley&quot;, &quot;kind&quot;: &quot;game&quot;, &quot;world&quot;: &quot;world.zip&quot; }
+</code></pre>
+
+<p><strong>There is no map format to learn, because a world save already is one.</strong> Authoring a map is:</p>
+<ol>
+<li>Play a world and build the thing.</li>
+<li><code>/backup</code> — that writes exactly the archive this wants.</li>
+<li>Copy it into your mod as <code>world.zip</code> and add the <code>world</code> line.</li>
+</ol>
+<p>So the editor is the game, and the distribution channel is the mod list.</p>
+<p>Two rules it will not bend:</p>
+<ul>
+<li><strong>It only runs on the first start of a world.</strong> A world somebody has played is never overwritten by a
+  mod update — losing a child's building to a version bump is not something that may happen.</li>
+<li><strong>A missing or unreadable archive stops the server</strong>, with the reason, rather than generating terrain
+  instead. A story mod whose valley is absent is not a story mod, and starting anyway would strand
+  players in a world the triggers do not fit.</li>
+</ul>
+<p><code>world.json</code> inside the archive carries the spawn, so where players arrive is part of the map. What
+happens there is the mod's business — see <code>set_spawn_handler</code> and <code>set_rejoin_handler</code> above.</p>
+<h3 id="ambience">Ambience</h3>
+<p>The occasional sound that tells you where you are, rather than one you caused:</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_ambience({&quot;sound&quot;: &quot;wind&quot;, &quot;sky&quot;: true, &quot;every&quot;: [22.0, 55.0], &quot;volume&quot;: 0.45})
+api.register_ambience({&quot;sound&quot;: &quot;drip&quot;, &quot;sky&quot;: false, &quot;depth&quot;: [0, 48], &quot;every&quot;: [14.0, 40.0]})
+api.register_ambience({&quot;sound&quot;: &quot;lapping&quot;, &quot;near&quot;: [&quot;base:water&quot;], &quot;radius&quot;: 7})
+</code></pre>
+
+<p>Conditions: <code>sky</code> (true outdoors, false under something), <code>depth</code> <code>[low, high]</code>, <code>biome</code> (one or a
+list), <code>near</code> (block names — the sound then comes <em>from</em> one of them, so water laps from the water
+rather than from inside your head), <code>radius</code>, <code>chance</code>. <code>every</code> is <code>[minimum, maximum]</code> seconds and is
+kept <strong>per player</strong>, so two people in different places hear their own surroundings.</p>
+<p>Keep it quiet and infrequent. This arrives unasked, and the job is to be noticed once and then stop
+being noticed — a wind that announces itself is worse than silence.</p>
+<h3 id="entities-combat-inventory-and-sound">Entities, combat, inventory and sound</h3>
+<pre class="codehilite"><code class="language-gdscript">api.register_sound(&quot;growl&quot;, [&quot;sounds/growl1.ogg&quot;, &quot;sounds/growl2.ogg&quot;], {&quot;range&quot;: 20})
+api.register_entity(&quot;wolf&quot;, {
+    &quot;model&quot;: &quot;models/wolf.glb&quot;,        # parts named leg_a*, leg_b*, arm_a*, arm_b*, head animate
+    &quot;width&quot;: 0.6, &quot;height&quot;: 0.85, &quot;health&quot;: 12, &quot;speed&quot;: 4.0,
+    &quot;ai&quot;: {&quot;preset&quot;: &quot;hostile&quot;, &quot;aggression&quot;: 0.8, &quot;group&quot;: &quot;wolves&quot;,   # see &quot;Mob AI&quot; below
+        &quot;attacks&quot;: [{&quot;name&quot;: &quot;bite&quot;, &quot;type&quot;: &quot;melee&quot;, &quot;damage&quot;: 3, &quot;windup&quot;: 0.3}]},
+    &quot;drops&quot;: [[&quot;base:coal&quot;, 1, 0.5]],  # [item, count, chance]
+    &quot;sounds&quot;: {&quot;hurt&quot;: &quot;growl&quot;, &quot;ambient&quot;: &quot;growl&quot;},
+    &quot;persistent&quot;: false,              # true: saved with its chunk (animals); false: despawns far from players
+})
+api.add_spawn_rule({&quot;entity&quot;: &quot;wolf&quot;, &quot;category&quot;: &quot;monster&quot;, &quot;light&quot;: [0, 7], &quot;on&quot;: [&quot;base:grass&quot;, &quot;base:snow&quot;], &quot;max_nearby&quot;: 3, &quot;group&quot;: [2, 4]})
+api.register_item(&quot;club&quot;, {&quot;icon&quot;: &quot;textures/club.png&quot;, &quot;max_stack&quot;: 1, &quot;attack_damage&quot;: 6})
+api.on(&quot;entity_death&quot;, func(ev):
+    if ev.attacker != null and ev.entity.type_name == &quot;my_mod:wolf&quot;:
+        ev.attacker.send_message(&quot;You defeated a wolf&quot;))
+</code></pre>
+
+<ul>
+<li><strong>Entities</strong> are simulated only on the server: gravity and voxel collision (batched in native code),
+  engine mob AI (next section), knockback, hurt cooldowns and death drops. Projectiles
+  (<code>kind: "projectile"</code>, e.g. Arcana's Wand of Sparks) sweep against blocks, mobs and players each
+  tick and fire <code>projectile_hit</code>. Dropped item stacks (the built-in <code>engine:item</code>) are pulled toward
+  nearby players, merge with neighbours and despawn after 5 minutes.</li>
+<li><strong>Replication:</strong> each player receives spawn/despawn messages for entities within 64 blocks and
+  compact unreliable position updates only for entities that moved (resting items and idle mobs
+  cost nothing). Clients interpolate like remote players and animate model parts procedurally.</li>
+<li><strong>Health:</strong> players have 20 health, shown as hearts in survival. Damage comes from mobs, projectiles,
+  falls (landing speed, so low-gravity worlds hurt less), the void and mods; health regenerates after
+  a few seconds without damage. Death shows a respawn screen and optionally drops the inventory.
+  Left-click attacks the mob or player under the crosshair (server-checked reach, line of sight and
+  cooldown; damage from the held item's <code>attack_damage</code>).</li>
+<li><strong>Hunger and food:</strong> survival players have hunger (0-20, drumsticks beside the hearts) and hidden
+  saturation that is used up first. Sprinting, jumping, swimming, mining, fighting, taking damage and
+  healing add exhaustion (4 exhaustion = 1 point). Natural regeneration needs 18+ hunger (faster when
+  full and saturated); at 6 or less you cannot sprint; at 0 you starve down to
+  <code>starvation_min_health</code> (default 1, 0 lets players starve to death). Items with <code>food</code> are eaten by
+  holding use: <code>{hunger, saturation, eat_time, always, heal, remainder, color, effects}</code> where effects
+  are timed stat modifiers with a chance (rotten flesh's food poisoning raises <code>hunger_drain</code>). Crafting
+  quality makes food up to 30% more filling. Stats <code>exhaustion</code> and <code>hunger_drain</code> let gear and
+  effects change hunger; the <code>player_eat</code> event can change or cancel a meal; players have
+  <code>set_hunger</code>, <code>add_exhaustion</code> and <code>feed</code>; commands <code>/feed</code> and <code>/hunger &lt;0-20&gt;</code>. Bundled food:
+  apple 4, bread 5, raw/cooked porkchop 3/8, rotten flesh 4 (vanilla), trail ration 6 plus a speed
+  boost (Guild, JavaScript).</li>
+<li><strong>Eating animation:</strong> food is served on a plate (<code>style: "plate"</code>, the default) or eaten from the
+  hand (<code>"hand"</code>): your arm brings it to your mouth chomp by chomp, it loses a bite at each third of
+  <code>eat_time</code> (bites are cut out of the item's own icon, so mod foods work too), pixel crumbs in the
+  food's <code>color</code> fall, and the plate empties. Drinks and potions (<code>"drink"</code>) are swigged straight from
+  the bottle with gulp sounds and give back their <code>remainder</code>. Other players see the same: the left
+  hand holds the plate, the right lifts the food, the head tips back for drinks. The hunger bar pops
+  as a meal lands. Bundled drinks: apple juice (base, bottles from glass) and mana potions (Arcana,
+  restore mana through <code>player_eat</code>).</li>
+</ul>
+<pre class="codehilite"><code class="language-gdscript">api.register_item(&quot;bread&quot;, {&quot;icon&quot;: &quot;textures/bread.png&quot;, &quot;food&quot;: {&quot;hunger&quot;: 5, &quot;saturation&quot;: 6.0}})
+</code></pre>
+
+<ul>
+<li><strong>Biomes and world generation:</strong> the engine biome generator (<code>api.use_biome_generator</code>) picks biomes
+  from smooth climate noise (temperature, humidity, weirdness, peaks) and continentalness (land or
+  ocean), blends biome heights so borders are smooth, and takes surface blocks, plants and features from
+  the closest biome. <code>register_biome(name, {climate, ocean, height: {base, variation, peaks}, surface:
+  {top, filler, depth, underwater, beach, stone}, features: [{feature, per_chunk}], plants: [{block,
+  chance, on}]})</code>; <code>register_feature(name, {type: tree | column | boulder | spike | mushroom | patch,
+  ...})</code> or a GDScript Callable. Features may cross chunk borders (positions depend only on their own
+  chunk, and each chunk keeps the blocks that fall inside it). Spawn rules take <code>biomes</code>; <code>get_biome</code>,
+  <code>/biome</code>. Vanilla: plains, forest, birch flower forest, taiga, snowy tundra, desert, swamp, savanna,
+  mountains and ocean with oak, birch, spruce, acacia and swamp trees, cacti, boulders, ferns and dead
+  bushes (new base blocks; all logs make planks).
+  Biomes with a <code>weirdness</code> value only appear where the weirdness noise passes it, which makes them
+  rare: vanilla's glowing mushroom fields (mycelium, huge red and glowing mushrooms, boomshrooms) and
+  shadowwood (gloomgrass, towering dark trees, nightblooms, night stalkers even at dusk), and Arcana's
+  crystal highlands (crystal stone and glowing mana spires) that Arcana adds to any biome world.
+  Caves: <code>add_cave_carver({tunnels, caverns, ravines, lava, lava_level, water_level, entrance_chance})</code>
+  carves winding tunnels and big caverns from interpolated 3D noise, deep ravines, lava below
+  <code>lava_level</code> and water lakes in low caverns, without breaching seas (cells that cannot hold a cave
+  are skipped). Biomes can set their own <code>surface.water</code> (vanilla's glowing pools in mushroom fields
+  and murky gloom water in shadowwood; Arcana's glowing mana springs) and trees can hang <code>fruit</code>
+  (shadowwood's glowing pods). Blocks with <code>contact_damage: {amount, interval, cause}</code> hurt players
+  and mobs inside them (lava). Vanilla ores are placed by depth: coal high, iron in the middle and the
+  new cobalt ore (smelts into cobalt ingots) deep near the lava.</li>
+<li>
+<p><strong>Structures:</strong> build something in creative, then <code>/struct pos1</code> and <code>/struct pos2</code> (on the blocks
+  you look at; a box outline shows the selection) and <code>/struct save &lt;name&gt; [keep_air]</code> to write a JSON
+  template to the world's <code>structures/</code> folder (<code>/struct place &lt;name&gt; [rotation]</code> and <code>/struct list</code>).
+  Copy the file into a mod and <code>register_structure_template(name, "structures/x.json")</code>. Templates keep
+  block states and block data, so a chest can carry <code>{loot: "&lt;table&gt;"}</code> and a spawner <code>{spawner:
+  {entity, count, range}}</code>. <code>register_structure(name, {templates or generator, spacing, separation,
+  biomes, place: surface | underground, y, sink, foundation, swaps: {biome: {block: block}}, reach,
+  chance})</code> places at most one per region of <code>spacing</code> chunks, rotated, with per-biome material swaps,
+  deterministically so pieces line up across chunk borders; GDScript generators return pieces for
+  code-built layouts. <code>register_loot_table(name, {rolls, entries})</code> fills structure chests the first
+  time they are opened. Blocks with <code>spawner: true</code> (base's monster spawner) spawn mobs in the dark
+  near players.
+  Vanilla structures (templates in <code>mods/vanilla/structures/</code>, written by <code>tools/generate_structures.py</code>):
+  underground dungeons with a zombie, skeleton or spider spawner, cobwebs and two loot chests; ruins
+  and watchtowers built from local materials (sandstone in deserts, spruce in taiga, acacia on the
+  savanna); branching mineshafts generated in code from corridor, crossing and room pieces with chests
+  and webs; and rare ancient arenas in plains, savanna and desert whose altar wakes the Colossus when
+  a survival player walks in, guarding cobalt, iron and shadow essence.</p>
+</li>
+<li>
+<p><strong>Natural spawning:</strong> spawn rules pick spots on the surface and in caves near each player and check
+  the light there (block light or daylight-scaled sky light, 0-15). Monsters default to light 0-7, so
+  night, caves and unlit rooms spawn them and torches keep an area safe; animals default to 9-15 on
+  sunny ground. Rules add <code>category</code>, <code>light</code>, <code>place</code> (surface/underground), <code>group</code> (pack size), and
+  categories cap mobs around each player (<code>set_spawn_caps</code>). Monsters despawn far from everyone (at
+  once beyond 96 blocks, now and then beyond 32); animals, persistent mobs and mobs with data
+  <code>no_despawn</code> stay. <code>/mobs</code> shows counts and caps.</p>
+</li>
+<li>
+<p><strong>Farm animals and breeding:</strong> mobs with <code>breeding: {food, love_seconds, cooldown, grow_seconds,
+  baby_scale, tempt}</code> follow players holding their food, fall in love when fed (hearts), pair up with
+  another in love nearby and have a baby that is drawn smaller, drops nothing and grows up (feeding
+  speeds it up). Entities have a replicated look (<code>entity.set_look({scale, hide, tint, pose})</code>): model parts
+  can be hidden or tinted by name prefix. Events <code>entity_fed</code>, <code>entity_bred</code>, <code>entity_grew</code>;
+  <code>entity_interact</code> can be cancelled. Vanilla adds cows (beef, leather, milk with a bucket, which
+  cures food poisoning), sheep (shears take wool in the sheep's color and it regrows; nine wool colors
+  from dyes made of bone, coal, poppies, dandelions, saplings and mixes; lambs inherit or mix colors;
+  wool makes matching beds) and chickens (chicken, feathers, eggs laid every few minutes); cows and
+  sheep eat wheat, chickens seeds, pigs apples.</p>
+</li>
+<li>
+<p><strong>Taming:</strong> mobs with <code>taming: {items, chance, follow_distance, teleport_distance}</code> are tamed by
+  right-clicking them with one of <code>items</code> (each try uses one). A tamed mob belongs to that player: it
+  follows them and teleports to catch up, never targets them, attacks whatever hurts its owner or
+  whatever its owner hits, never despawns, and sits or stands when its owner right-clicks it (a
+  sitting pose on the client). Events <code>entity_tamed</code>, <code>entity_sit</code>; data <code>owner</code>, <code>owner_name</code>,
+  <code>sitting</code>. Vanilla wolves are neutral pack animals tamed with bones, wear a red collar once tamed
+  and breed on meat.</p>
+</li>
+<li>
+<p><strong>Monster traits:</strong> mob AI configs add <code>climb</code> (walks up walls when blocked; pair with a high
+  <code>step_up</code>), <code>hop: {interval, height}</code> (moves only in hops), <code>day_temperament</code> (e.g. "neutral" while
+  standing in bright daylight) and <code>fear_light</code> (flees to darkness when its spot, or a torch held
+  nearby, reaches that light level); entity definitions add <code>split: {entity, count}</code> (breaks into
+  smaller mobs on death). Vanilla spiders climb, pounce and ignore players by day unless hit (string);
+  slimes hop around caves and split large -&gt; medium -&gt; small (slimeballs); rare night stalkers hunt
+  the darkest nights and caves, fast and clever, but flee light and torches (shadow essence).</p>
+</li>
+<li>
+<p><strong>Explosions:</strong> <code>api.explode(position, power, options)</code> casts rays that lose strength with distance
+  and each block's <code>blast_resistance</code> (default from hardness; unbreakable blocks and liquids stop the
+  blast), destroys what they get through (drops with a 1 / power chance), and hurts and knocks back
+  players and mobs by distance and cover (armor helps). Mob explosions only break blocks while the
+  <code>mob_griefing</code> rule is on; any explosion can pass <code>break_blocks: false</code>. The <code>explosion</code> event lists
+  the blocks and can change or cancel them. Mob attacks gain <code>type: "explode"</code> (a fuse wind-up; it
+  fizzles if the target gets <code>fuse_escape</code> blocks away). Vanilla's boomshroom is a walking mushroom
+  that sneaks up, hisses and explodes (boom spores when killed).</p>
+</li>
+<li>
+<p><strong>Beds and respawning:</strong> a bed is a two-block piece (the foot where you click, the head behind it;
+  breaking either half removes both). Right-clicking one sets your respawn point; at night, with no
+  hostile mobs within 8 blocks and the bed free, you lie down (the screen dims, "Leave bed" or any
+  movement gets you up; damage wakes you). When <code>sleep_percentage</code> of online players (default 100) have
+  slept for 5 seconds, the night skips to morning. Respawning uses your bed if it still stands with room
+  beside it, otherwise the world spawn with a message. Others see you lying on the bed. Engine keys:
+  <code>bed: true</code> and <code>pair</code> on blocks; events <code>player_sleep</code>, <code>player_wake</code>, <code>night_skipped</code>; rules
+  <code>sleeping</code>, <code>sleep_percentage</code>. Bundled: a straw bed (3 planks + hay bale).</p>
+</li>
+<li>
+<p><strong>Gameplay rules</strong> (<code>set_gameplay</code>, or <code>/gameplay rule value</code>): <code>item_drops</code> ("entity" or
+  "inventory"; Skyblock uses inventory so drops don't fall into the void), <code>keep_inventory</code>, <code>pvp</code>,
+  <code>fall_damage</code>, <code>natural_regeneration</code>, <code>hunger</code>, <code>starvation_min_health</code>, <code>sleeping</code>, <code>sleep_percentage</code>, <code>mob_spawning</code>, <code>mob_griefing</code>.</p>
+</li>
+<li><strong>Inventory:</strong> 36 slots. E opens the inventory screen (left click moves stacks, right click
+  splits or places one, shift-click moves between hotbar and inventory, clicking outside drops); Q
+  drops the held item (Ctrl+Q the whole stack). All clicks are resolved on the server.</li>
+<li><strong>Sound:</strong> mods ship <code>.ogg</code> or <code>.wav</code> files that stream to clients like textures. Blocks name
+  <code>sounds</code> for break, place and footsteps (the client plays its own actions immediately; the server
+  sends them to everyone else nearby). A pool of 16 spatial voices keeps audio cheap; the pause menu
+  has a volume slider. Engine sounds (hurt, pickup, swing) are built into the client.
+  <code>tools/generate_sounds.py</code> synthesizes the bundled placeholder effects.</li>
+<li><strong>Admin commands:</strong> <code>/give</code>, <code>/tp</code>, <code>/summon</code>, <code>/heal</code>, <code>/gamemode</code>, <code>/gameplay</code>; everyone has
+  <code>/kill</code>. The vanilla game lets anyone use <code>/gamemode survival|creative</code>; at night zombies spawn
+  (and burn at sunrise), pigs graze by day, and leaves sometimes drop apples.</li>
+</ul>
+<h3 id="mob-ai">Mob AI</h3>
+<p>Mob AI is an engine capability; mods pick a preset and tune anything, per type or per mob.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_entity(&quot;colossus&quot;, {
+    &quot;model&quot;: &quot;models/colossus.glb&quot;, &quot;width&quot;: 1.2, &quot;height&quot;: 7.2, &quot;health&quot;: 400, &quot;speed&quot;: 2.4,
+    &quot;ai&quot;: {
+        &quot;preset&quot;: &quot;boss&quot;,                      # hostile | neutral | passive | archer | boss | wander | none
+        &quot;aggression&quot;: 0.8, &quot;intelligence&quot;: 0.9, &quot;courage&quot;: 1.0,
+        &quot;sight_range&quot;: 40, &quot;leash&quot;: 48, &quot;step_up&quot;: 2, &quot;boss&quot;: {&quot;name&quot;: &quot;Ancient Colossus&quot;},
+        &quot;attacks&quot;: [
+            {&quot;name&quot;: &quot;stomp&quot;, &quot;type&quot;: &quot;slam&quot;, &quot;damage&quot;: 9, &quot;radius&quot;: 5, &quot;windup&quot;: 1.1, &quot;cooldown&quot;: 5},
+            {&quot;name&quot;: &quot;punch&quot;, &quot;type&quot;: &quot;melee&quot;, &quot;damage&quot;: 11, &quot;range&quot;: 2.2, &quot;arc&quot;: 120, &quot;windup&quot;: 0.7},
+        ],
+        &quot;phases&quot;: [{&quot;health_below&quot;: 0.5, &quot;message&quot;: &quot;The Ancient Colossus roars in fury!&quot;, &quot;speed_multiplier&quot;: 1.35,
+            &quot;add_attacks&quot;: [{&quot;name&quot;: &quot;charge&quot;, &quot;type&quot;: &quot;charge&quot;, &quot;damage&quot;: 14, &quot;min_range&quot;: 6, &quot;range&quot;: 24}]}],
+    },
+})
+var boss = api.spawn_entity(&quot;colossus&quot;, position)
+boss.tune({&quot;aggression&quot;: 1.0})                   # this one only
+boss.set_target(player)
+</code></pre>
+
+<ul>
+<li><strong>Navigation:</strong> A* on the voxel grid for the mob's real size (a 1.2x7.2 boss needs a 2x2x8 gap),
+  climbing up to <code>step_up</code> blocks, dropping at most <code>max_drop</code>, optional swimming, never entering
+  blocks marked <code>"hazard": true</code>, and keeping away from lethal edges. Paths are string-pulled and
+  re-planned when the target moves; a per-tick budget keeps the cost flat.</li>
+<li><strong>Senses and memory:</strong> sight within <code>sight_range</code> and a <code>fov</code> cone, blocked by opaque blocks;
+  hearing noises (block breaking and placing, fighting, sprinting, <code>make_noise</code>) within
+  <code>hearing_range</code>; memory of where enemies were last seen and where they were heading, for
+  <code>memory</code> seconds. Threat tables: whoever hurts a mob most becomes its target.</li>
+<li><strong>Decisions:</strong> each think (4x a second) behaviours are scored and the best runs: idle, wander,
+  investigate (a noise or an ally's call), engage, search (go where the target was last heading),
+  flee (below <code>(1 - courage) / 2</code> health, or passive mobs hurt or approached within <code>skittish</code>),
+  return home (past <code>leash</code>; bosses reset), scripted goals and mod behaviours.</li>
+<li><strong>Tactics:</strong> melee mobs spread around a shared target instead of stacking and circle while their
+  attacks recharge; ranged mobs keep <code>preferred_range</code>, strafe, retreat when approached and lead
+  moving targets; <code>agility</code> sidesteps incoming projectiles; spotting or being hurt alerts allies of
+  the same <code>group</code>; <code>enemy_groups</code> lets mobs fight other mobs; heavy hits stagger wind-ups; hurt mobs
+  that fled stay away and recover before returning. <code>intelligence</code> scales prediction, flanking and
+  shot leading; <code>aggression</code> scales pursuit distance and attack tempo.</li>
+<li><strong>Attacks</strong> (<code>melee</code>, <code>ranged</code>, <code>leap</code>, <code>charge</code>, <code>slam</code>, <code>summon</code>, <code>custom</code>) all telegraph with a
+  wind-up the client animates, so players can dodge, block line of sight or interrupt. Selection
+  weighs range, cooldowns, health conditions and the situation (slams when several enemies are close,
+  charges over open ground, summons when alone). <code>custom</code> attacks fire <code>mob_attack</code> for the mod to act.</li>
+<li><strong>Bosses:</strong> <code>phases</code> change attacks, speed and aggression at health thresholds (<code>mob_phase</code>) and
+  <code>boss</code> shows a health bar to nearby players.</li>
+<li><strong>Mod hooks:</strong> <code>register_mob_behavior(name, {score, update, stop})</code> adds behaviours that compete
+  with the engine's (JavaScript: <code>api.registerMobBehavior</code>); entity methods <code>set_target</code>, <code>add_threat</code>,
+  <code>tune</code>, <code>alert</code>, <code>set_home</code>, <code>perform_attack</code>, <code>set_goal</code>; events <code>mob_target</code> (cancellable),
+  <code>mob_attack</code> (cancellable) and <code>mob_phase</code>. Reference: <code>engine/server/ai/mob_config.gd</code>.</li>
+<li><strong>In the bundled games:</strong> zombie packs (claw + lunge, they call each other in), skeleton archers
+  that kite and dodge, pig herds that scatter together, the Ancient Colossus (<code>/colossus</code>), and in the
+  guild mod an elite bounty zombie tuned from JavaScript and a coin snatcher whose loot-grabbing
+  behaviour is written in JavaScript (<code>/guild goblin</code>).</li>
+<li><strong>Cost:</strong> 300 mobs with about 130 hunting 10 players, plus 200 item stacks: 3.5 ms per tick with
+  the native extension, 9.3 ms with the GDScript fallback (<code>tests/bench.tscn</code>).</li>
+</ul>
+<h3 id="guidebook">Guidebook</h3>
+<p>An illustrated book players open with <strong>G</strong>, from the pause menu or by using a <strong>Survival Guide</strong> item
+(base: 1 planks + 1 stick). Mods write it; the engine draws it, tracks progress and syncs it.</p>
+<ul>
+<li><strong>Chapters and pages</strong> (<code>register_guide_chapter(name, {title, icon, order, description})</code>,
+  <code>register_guide_page(name, {chapter, title, icon, order, unlock, hint, keywords, blocks})</code>; JS
+  <code>registerGuideChapter</code> / <code>registerGuidePage</code>). Pages are lists of blocks: <code>text</code> (BBCode), <code>heading</code>,
+  <code>tip</code>, <code>items</code> (icons you click to open the recipe book), <code>recipe</code> (live cards from the real
+  recipes, hidden while undiscovered), <code>entity</code> (a turning 3D portrait), <code>image</code> (a texture in the
+  mod), <code>link</code> (another page) and <code>keys</code> (the player's current key for an action).</li>
+<li><strong>Unlocks</strong> keep spoilers hidden: <code>{item}</code> once held, <code>{recipe}</code> once known, <code>{entity}</code> once seen within
+  12 blocks, <code>{flag}</code> set by a mod (<code>api.set_guide_flag(player, flag)</code>, JS <code>player.setGuideFlag</code>), or
+  <code>{biome}</code> once visited, <code>{page}</code> after reading another page. Locked pages show "???" and a hint. <code>api.unlock_guide_page</code>
+  and <code>api.open_guide(player, page)</code> (JS <code>player.unlockGuidePage</code> / <code>openGuide</code>) do it directly.</li>
+<li>Bundled chapters: First Steps, Survival, Crafting and Smithing (base), Animals, Monsters and The World
+  (vanilla), Arcana, Industry, and the Adventurers' Guild (written in JavaScript). Recipe blocks also
+  show smelting. <code>tests/gameplay_test.gd</code> checks that every item, mob, page and recipe they name exists.</li>
+<li>Unlocks, reads, flags and the last open page are saved per player. New pages pop up a note and a
+  "Guide · N new" badge; the book has search, back/forward and previous/next page, and reopens where
+  you left off. Event <code>guide_page_unlocked {player, page}</code>.</li>
+</ul>
+<h3 id="tutorials-and-tips">Tutorials and tips</h3>
+<p>Guided goals in the player's own world, completed by doing the real thing. A tracker on the left shows
+the current step, its progress and the guide page it links to ([G] opens that page); a bobbing marker
+and a screen-edge arrow point at the nearest matching block or mob. The vanilla <strong>Survival Basics</strong>
+tutorial (logs → planks → table → pickaxe → stone → food → bed → sleep) starts for new survival players
+and for sandbox players who switch to survival.</p>
+<ul>
+<li><code>register_tutorial(name, {title, description, order, auto_start, reward: [[item, count]], steps: [{title,
+  text, icon, goal, hint, page, reward}]})</code> (JS <code>registerTutorial</code>). Goals: <code>break</code>, <code>place</code>, <code>craft</code>,
+  <code>pickup</code>, <code>eat</code>, <code>use_item</code>, <code>use_block</code>, <code>equip</code>, <code>kill</code>, <code>breed</code>, <code>tame</code>, <code>learn</code>, <code>read</code>,
+  <code>unlock_page</code>, <code>sleep</code>, <code>respawn</code>, <code>death</code>, <code>damage</code>, <code>upgrade</code>, <code>assemble</code> with a <code>target</code> (names,
+  <code>*</code> wildcards, e.g. <code>base:*log</code>) and <code>count</code>; <code>event</code> for any engine or mod event; polled <code>have</code>,
+  <code>depth</code>, <code>reach</code>, <code>biome</code>, <code>hunger_below</code>, <code>health_below</code>, <code>night</code>, <code>flag</code>; and <code>manual</code>
+  (<code>api.advance_tutorial(player)</code>). Hints: <code>{block}</code>, <code>{entity}</code> or <code>{position}</code> (break, use_block,
+  kill, breed, tame and reach goals get one automatically).</li>
+<li><code>register_tip(name, {text, icon, page, trigger: goal})</code> (JS <code>registerTip</code>): shown once per player, at
+  most one every 12 seconds, with [G] to read more.</li>
+<li>Players skip steps, stop or replay tutorials and turn tips off from the pause menu's <strong>Tutorials</strong>
+  panel or <code>/tutorial list | start &lt;id&gt; | skip | stop | tips on|off</code>. Progress is saved per player.
+  Rule <code>tutorials</code> (auto-start). Events <code>tutorial_started</code>, <code>tutorial_step</code>, <code>tutorial_completed</code>,
+  <code>tip_shown</code>. Also <code>api.start_tutorial</code>, <code>stop_tutorial</code>, <code>get_tutorial_state</code>, <code>show_tip</code>.</li>
+</ul>
+<h3 id="example-a-worked-mod">Example: a worked mod</h3>
+<p>The two worked examples that stood here described the Industry and Arcana mods, both deleted on
+21 September 2026. Rather than describe mods you cannot run, the example to read is
+<strong><code>tests/mods/proving</code></strong> - the Proving Ground, which the test suite plays.</p>
+<p>It is a better example than either of them was, for a reason that is not about freshness: its rule is
+that <em>if the engine can do it, this mod does it</em>, so it is the one place where every capability on this
+page appears in working code. It is also deliberately plain - no textures, no models, no dependencies -
+so what you are reading is the API and not somebody's art direction.</p>
+<pre class="codehilite"><code>godot --headless --path . -- --server --mods=proving --world=test --port=24600
+</code></pre>
+
+<p><code>tests/mods/proving/</code> is laid out by capability family: <code>things.gd</code> (blocks, items, recipes), <code>life.gd</code>
+(creatures and their abilities), <code>society.gd</code> (characters, shops, objectives, companions), <code>machines.gd</code>
+(energy, fluids, signals, multiblocks) and <code>presentation.gd</code> (effects, music, weather, tutorials).
+<code>tests/mods/proving_js/</code> is the same idea in JavaScript.</p>
+<h2 id="logs-and-errors-for-mod-authors">Logs and errors (for mod authors)</h2>
+<ul>
+<li><strong>Logging:</strong> <code>api.debug / info / warn / error(message)</code> in GDScript, <code>console.debug / log / warn / error</code>
+  (or <code>api.debug</code> ...) in JavaScript. Lines go to the console, <code>&lt;world&gt;/logs/latest.log</code> (the last five
+  runs are kept) and the dev tools. Debug lines are hidden until you raise a mod's level:
+  <code>/log level my_mod debug</code>, or start the server with <code>--log-level=warn,my_mod:debug</code>. <code>/log [mod] [count]</code>
+  shows recent lines in chat.</li>
+<li><strong>Script errors are caught:</strong> GDScript runtime errors (through Godot's Logger with script backtraces)
+  and JavaScript exceptions (with their JS stack) are attributed to the mod whose code was running, with
+  file, line and stack, and grouped with a count. <code>api.error</code> reports the same way. Admins get a red card
+  in game for each new error ("Error in my_mod main.gd:42"); <code>/errors</code> lists them, <code>/errors clear [mod]</code>,
+  <code>/errors mute | unmute</code>.</li>
+</ul>
+<h3 id="dev-tools-f8">Dev tools (F8)</h3>
+<p>Admins (or everyone on a server started with <code>--dev</code>) press <strong>F8</strong> for a side panel; the game keeps
+running beside it (click the world to play, F8 to get the mouse back, F8 again to close).</p>
+<ul>
+<li><strong>Logs:</strong> live server log with source, level and text filters. <strong>Errors:</strong> script errors by mod with
+  counts, file:line and the stack.</li>
+<li><strong>Inspect:</strong> what the crosshair points at (up to 64 blocks): a block's name, state, block data, light,
+  biome, definition and station status; a mob's health, data and AI (behaviour, target, threat, path,
+  goal); a player's health, hunger, stats, modifiers, data and tutorial. Refreshes every second.</li>
+<li><strong>Events:</strong> a live trace of events (filter by name, <code>block_*</code>), each with its payload (players,
+  entities, blocks and items by name), the handlers that ran in order with their mod and time, who
+  cancelled it and what they changed.</li>
+<li><strong>Perf:</strong> server time over the last 10 seconds per mod: event handlers, scheduled tasks, commands,
+  block ticks and mob behaviours (ms per second, calls, average and worst), next to the engine's own
+  tick costs.</li>
+<li><strong>Draw:</strong> shows mods' debug drawings and the engine's AI view (behaviour labels, target lines, paths
+  and homes of mobs within 32 blocks). Drawings stay on with the panel closed.</li>
+<li>Debug drawing API: <code>api.debug_box(from, to, color, seconds, label)</code>, <code>debug_line</code>, <code>debug_text</code>,
+  <code>debug_path</code>, <code>debug_sphere</code> (JS: <code>api.draw.box / line / text / path / sphere</code>). Nothing is sent or
+  queued while nobody watches.</li>
+</ul>
+<h3 id="dev-dashboard-web">Dev dashboard (web)</h3>
+<p>The same tools in a browser, handy on a second screen or for a headless server. Start the server with
+<code>--dev-web=24580</code> (or <code>--dev</code>, which serves it on the game port + 15); it prints
+<code>Dev dashboard: http://127.0.0.1:24580/?token=...</code> and admins can get the address with <code>/devweb</code>.
+It listens on 127.0.0.1 unless <code>--dev-web-host</code> says otherwise, and every request needs the token.
+Tabs: Logs (filters, follow), Errors (stacks), Events (live trace with a filter), Perf (sortable),
+Inspect (a player, what they look at, a block by coordinates or an entity id, live), Creations (review
+player creations) and Server (mods, players). <code>#perf</code>-style links open a tab. JSON API: <code>/api/state</code>,
+<code>/api/inspect</code>, <code>/api/clear_errors</code>, <code>/api/reload</code>, <code>/api/ugc*</code> (see <code>engine/server/dev_web.gd</code>).</p>
+<p>With the native extension the dashboard is served by a Rust HTTP server (<code>native/src/http.rs</code>, tiny_http
+on its own threads: keep-alive, many browsers at once) and the page gets live updates pushed twice a
+second over Server-Sent Events (<code>/api/stream</code>); the status line says "live (push)". Game data is still
+read on the game thread. Without the extension a small GDScript server answers and the page polls.</p>
+<h3 id="reloading-mods">Reloading mods</h3>
+<ul>
+<li><strong>Quick reload</strong> (<code>/reload &lt;mod&gt;</code> or <code>all</code>, or the dashboard's Server tab): the mod's scripts are
+  recompiled and its <code>setup</code> runs again. Event handlers, commands, timers, block tick handlers, mob
+  behaviours, spawn rules, recipes, guide pages, tutorials and tips are replaced; blocks, items and
+  entities it registers again update in place with the same ids; recipes keep their places (ones it no
+  longer registers are hidden); players see the new definitions, recipe book, guide and tutorials at
+  once. A script that does not compile leaves the old version running. Anything that cannot change live
+  (a new block, item, entity, sound, effect or file, and world generation) is skipped with a note to do
+  a full reload. Keep state that must survive in <code>api.storage</code>, player or entity data.</li>
+<li><strong>File watcher:</strong> on with <code>--dev</code> (or <code>/reload watch on</code>): saving a <code>.gd</code>, <code>.js</code> or <code>.json</code> file in a
+  mod folder reloads that mod half a second later and tells admins the result; changed textures,
+  models, sounds or <code>mod.json</code> ask for a full reload.</li>
+<li><strong>Full reload</strong> (<code>/reload full</code>): the server saves, restarts in place with the same settings and reads
+  every mod again (new blocks, textures, models); players get a "Reloading mods…" notice and the game
+  reconnects them automatically. Needs the dedicated server scene or the Host menu (both are). Event
+  <code>mod_reloaded {mod, ok, notes, error}</code>.</li>
+</ul>
+<h3 id="mod-packages-versions-and-validation">Mod packages, versions and validation</h3>
+<ul>
+<li><strong>mod.json</strong> gains <code>engine</code> (the mod API range it works with, e.g. <code>"^1.0"</code>; this engine is
+  <code>Protocol.MOD_API_VERSION</code> 1.0.0), dependency ranges (<code>"depends": ["base@^1.0", {"id": "arcana",
+  "version": "&gt;=1.2 &lt;2"}]</code> or <code>{"base": "^1.0"}</code>), <code>optional_depends</code> (loaded first when installed),
+  <code>conflicts</code>, <code>authors</code>, <code>license</code> and <code>homepage</code>. Ranges: <code>^</code>, <code>~</code>, <code>&gt;=</code>/<code>&lt;</code>..., <code>1.x</code>, spaces for
+  "and", <code>||</code> for "or" (<code>engine/shared/semver.gd</code>). Load errors say exactly what is wrong ("arcana needs
+  base ^2.0, but base 1.4.0 is installed").</li>
+<li><strong>Packages:</strong> <code>godot --headless --path . res://tools/mod_tool.tscn -- pack mods/my_mod</code> validates the mod
+  and writes <code>build/mods/my_mod-1.2.0.zip</code>. Drop the zip into any mods folder (<code>--mods-dir</code>); the server
+  unpacks it once into <code>user://mod_cache/</code> and loads it like a folder (a folder with the same id wins).</li>
+<li><strong>Validator:</strong> <code>mod_tool.tscn -- validate mods/my_mod [--json]</code> (exit code 1 on errors), or <code>/validate
+  my_mod</code> in game. It checks the manifest (typos like "dependencies", versions, ranges, engine range,
+  main script), files (unreadable images, oversized files, textures over 256 px that players download,
+  files nothing uses), that every GDScript compiles, a real load in a throwaway server (errors and
+  warnings with file:line, missing assets), and references in what the mod registered: block drops,
+  sounds, containers and pairs; item teaches and food remainders; entity drops and sounds; guide page
+  icons, unlocks, items, recipes, entities, links and keys; tutorial and tip goal targets and pages.
+  <code>tools/run_tests.sh</code> validates every bundled mod.</li>
+</ul>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#writing-a-mod">Writing a mod</a></li><li class="sub"><a href="#writing-a-mod_1">Writing a mod</a></li><li class="sub"><a href="#logs-and-errors-for-mod-authors">Logs and errors (for mod authors)</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../search/main.js" defer></script>
+<script src="../lang/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crafting &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="../../..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="../../..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec open">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../">Overview</a></li>
+          <li><a class="" href="../blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="cur" href="./">Crafting</a></li>
+          <li><a class="" href="../events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../everything-else/">Everything else</a></li>
+          <li><a class="" href="../guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../items/">Items</a></li>
+          <li><a class="" href="../logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../server/">Server</a></li>
+          <li><a class="" href="../sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../../engine/">Engine internals</a></li>
+          <li><a class="" href="../../how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../modding/">Writing a mod</a></li>
+          <li><a class="" href="../../../loot/">Loot tables</a></li>
+          <li><a class="" href="../../../hosting/">Running a server</a></li>
+          <li><a class="" href="../../../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../playing/">Playing</a></li>
+          <li><a class="" href="../../../engine/">The engine</a></li>
+          <li><a class="" href="../../../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../../../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="crafting">Crafting</h1>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<h3 id="apiregister_recipe"><code>api.register_recipe</code></h3>
+<p>GDScript: <code>api.register_recipe(inputs: Dictionary, output: String, count := 1, options := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerRecipe(inputs: Record&lt;string, number&gt;, output: string, count?: number, options?: { station?: string; tier?: number; needs?: string[]; category?: string; id?: string; time?: number; project?: boolean; unlock?: "known" | "pickup" | "blueprint" | "experiment" | "secret"; hint?: string; skill?: string }): void</code></p>
+<p>Shapeless recipe: <code>inputs</code> maps item names to counts. Appears in the engine crafting menu (C key).
+options: pattern (["C", "S"]) with key ({"C": "base:coal", "S": "base:stick"}) makes the recipe shaped for
+the experimentation grid (its inputs are counted from the pattern; pass {} as inputs), unlock ("known" | "pickup" (default) | "blueprint" | "experiment" | "secret") and hint (text
+shown while undiscovered) for recipe discovery, time (seconds in the station's queue; more players there craft faster), project (built
+together: players contribute ingredients over time, see project_completed), tier (minimum station
+tier), needs ([station features]), station (name of the crafting station block needed, e.g. "crafting_table"; blocks declare
+<code>station: "&lt;name&gt;"</code>; without one it is crafted anywhere), category (recipe book tab: tools, weapons,
+armor, blocks, food, materials, misc or one from register_recipe_category), id (defaults to
+"<mod>:<output name>").
+An input named "#base:logs" means <em>any</em> member of that tag. Held back until every mod has loaded and
+then written out as one recipe per member, because the whole point of a tag is that a mod loading
+later can add to it - resolving one here would silently miss whatever comes after.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_recipe({&quot;#proving:rubble&quot;: 2}, &quot;proving:soil&quot;, 1, {&quot;id&quot;: &quot;soil_from_any_rubble&quot;})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_recipe</code>, <code>defer_tag_recipe</code>, <code>is_excluded</code>, <code>item</code>, <code>item_name</code>, <code>qualified</code></p>
+<h3 id="apiregister_material"><code>api.register_material</code></h3>
+<p>GDScript: <code>api.register_material(material_name: String, def: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.registerMaterial(name: string, def: { display_name?: string; item: string; color?: string; tier?: number; speed?: number; durability?: number; damage?: number; handle?: number; trait?: { name: string; description?: string; modifiers?: StatModifier[]; durability_mult?: number; speed_mult?: number; damage_add?: number; glow?: ItemDef["glow"] } }): void</code></p>
+<p>A material parts can be made of: {display_name, item (raw material item name), color, tier, speed,
+durability, damage, handle (durability multiplier as a handle), trait: {name, description, modifiers,
+durability_mult, speed_mult, damage_add, glow}}. Every part type gets a recipe for it.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_material(&quot;dull&quot;, {&quot;display_name&quot;: &quot;Dull&quot;, &quot;item&quot;: &quot;proving:token&quot;, &quot;color&quot;: &quot;#888888&quot;,
+    &quot;tier&quot;: 2, &quot;speed&quot;: 4.0, &quot;durability&quot;: 100, &quot;damage&quot;: 1.0, &quot;handle&quot;: 1.6,
+    &quot;trait&quot;: {&quot;name&quot;: &quot;Plain&quot;, &quot;description&quot;: &quot;nothing special&quot;, &quot;speed_mult&quot;: 0.0}})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_material</code>, <code>item</code>, <code>qualified</code></p>
+<h3 id="apiregister_part_type"><code>api.register_part_type</code></h3>
+<p>GDScript: <code>api.register_part_type(part_name: String, def: Dictionary) -&gt; int</code></p>
+<p>JavaScript: <code>api.registerPartType(name: string, def: { display_name?: string; sprite: string; cost?: number; station?: string }): number</code></p>
+<p>A kind of part (registers the part item): {display_name, sprite (grayscale 16x16 image tinted by the
+material), cost (material per part), station (where parts are made)}.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_part_type(&quot;head&quot;, {&quot;display_name&quot;: &quot;Head&quot;, &quot;cost&quot;: 3, &quot;station&quot;: &quot;proving:bench&quot;})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_part_type</code>, <code>register_asset</code>, <code>register_item</code></p>
+<h3 id="apiregister_assembly"><code>api.register_assembly</code></h3>
+<p>GDScript: <code>api.register_assembly(assembly_name: String, def: Dictionary) -&gt; int</code></p>
+<p>JavaScript: <code>api.registerAssembly(name: string, def: { display_name?: string; icon?: string; slots: { name: string; part: string; label?: string }[]; tool_type?: string; damage?: number; cooldown?: number; reach?: number; sweep?: number; station?: string; skill?: string }): number</code></p>
+<p>A tool or weapon built from parts (registers its item): {display_name, icon (shown for plain
+stacks), slots: [{name, part, label}], tool_type, damage, cooldown, reach, sweep, station}. The
+first slot is the head. Part names without ":" are this mod's.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_assembly(&quot;prover&quot;, {&quot;display_name&quot;: &quot;Prover&quot;, &quot;tool_type&quot;: &quot;pickaxe&quot;, &quot;damage&quot;: 3.0,
+    &quot;station&quot;: &quot;proving:bench&quot;, &quot;skill&quot;: &quot;proving:steady&quot;,
+    &quot;slots&quot;: [{&quot;name&quot;: &quot;head&quot;, &quot;part&quot;: &quot;head&quot;, &quot;label&quot;: &quot;Head&quot;},
+        {&quot;name&quot;: &quot;grip&quot;, &quot;part&quot;: &quot;handle&quot;, &quot;label&quot;: &quot;Handle&quot;}]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_assembly</code>, <code>qualified</code>, <code>register_item</code></p>
+<h3 id="apiregister_minigame"><code>api.register_minigame</code></h3>
+<p>GDScript: <code>api.register_minigame(minigame_name: String, def: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.registerMinigame(name: string, def: { title?: string; type?: "timing" | "hold" | "sequence"; verb?: string; rounds?: number; speed?: number; zone?: number; cool?: number; team?: boolean; duration?: number; window?: number }): void</code></p>
+<p>A crafting minigame recipes and assemblies can name as their <code>skill</code> (crafting by hand for better
+quality; see engine/shared/minigame.gd): {title, type: "timing" | "hold" | "sequence", verb, rounds,
+speed, zone, cool, team (bellows + hammer), duration, window}.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_minigame(&quot;steady&quot;, {&quot;title&quot;: &quot;Hold Steady&quot;, &quot;type&quot;: &quot;timing&quot;, &quot;verb&quot;: &quot;Strike&quot;,
+    &quot;rounds&quot;: 3, &quot;speed&quot;: 1.0, &quot;zone&quot;: 0.25})
+</code></pre>
+
+<p><strong>See also:</strong> <code>register</code></p>
+<h3 id="apiregister_station"><code>api.register_station</code></h3>
+<p>GDScript: <code>api.register_station(station_name: String, def: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.registerStation(name: string, def: StationDef): void</code></p>
+<p>Makes a station upgradable (see engine/server/stations.gd): tiers [{block, title, kit, grants}],
+workshop {radius, upgrades: [{block, title, max, grants}]}, multiblock {core, pattern, legend,
+title}. grants: {features, tier, speed, quality, pull_radius, hints}. Blocks involved still declare
+<code>station: "&lt;name&gt;"</code>. Recipes then ask for <code>tier</code> and <code>needs</code> (features).</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_station(&quot;bench&quot;, {&quot;workshop&quot;: {&quot;radius&quot;: 2,
+    &quot;upgrades&quot;: [{&quot;block&quot;: &quot;proving:lamp&quot;, &quot;title&quot;: &quot;Bright&quot;, &quot;grants&quot;: {&quot;features&quot;: [&quot;bright&quot;]}}]}})
+</code></pre>
+
+<p><strong>See also:</strong> <code>register</code></p>
+<h3 id="apiget_station"><code>api.get_station</code></h3>
+<p>GDScript: <code>api.get_station(position: Vector3i) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.getStation(position: Vec3): Record&lt;string, unknown&gt;</code></p>
+<p>The station at a position: {name, title, tier, tier_title, features, speed, quality, pull_radius,
+hints, detected, available, next, structure}, or {}.</p>
+<p><strong>See also:</strong> <code>evaluate</code></p>
+<h3 id="apiregister_recipe_category"><code>api.register_recipe_category</code></h3>
+<p>GDScript: <code>api.register_recipe_category(category_name: String, def := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerRecipeCategory(categoryName, def)</code></p>
+<pre class="codehilite"><code class="language-gdscript">api.register_recipe_category(&quot;proven&quot;, {&quot;display_name&quot;: &quot;Proven&quot;, &quot;icon&quot;: &quot;proving:token&quot;})
+</code></pre>
+
+<p><strong>See also:</strong> <code>has_category</code>, <code>item</code>, <code>register_category</code></p>
+<h3 id="apiregister_container"><code>api.register_container</code></h3>
+<p>GDScript: <code>api.register_container(container_name: String, def: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerContainer(name: string, def: { title?: string; groups: { name: string; count: number; columns?: number; label?: string; take_only?: boolean; accepts?: string[] | "fuel" }[]; progress?: { name: string; label?: string; color?: string }[] }): boolean</code></p>
+<p>Registers a container type (see engine/server/containers.gd): {title, groups: [{name, count,
+columns, label, take_only, accepts}], progress: [{name, label, color}]}. Blocks use it with
+<code>container: "&lt;name&gt;"</code> and open it on right-click. Names without ":" are this mod's.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_container(&quot;crate&quot;, {&quot;title&quot;: &quot;Crate&quot;,
+    &quot;groups&quot;: [{&quot;name&quot;: &quot;items&quot;, &quot;count&quot;: 6}, {&quot;name&quot;: &quot;fuel&quot;, &quot;count&quot;: 1, &quot;accepts&quot;: &quot;fuel&quot;}],
+    &quot;progress&quot;: [{&quot;name&quot;: &quot;work&quot;, &quot;label&quot;: &quot;Work&quot;, &quot;color&quot;: &quot;#80ff80&quot;}]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>on</code>, <code>open_bag</code>, <code>qualified</code>, <code>register</code>, <code>register_item</code></p>
+<h3 id="apiget_container"><code>api.get_container</code></h3>
+<p>GDScript: <code>api.get_container(position: Vector3i)</code></p>
+<p>JavaScript: <code>api.getContainer(position)</code></p>
+<p>The container at a position (engine/server/container.gd), or null.</p>
+<p><strong>See also:</strong> <code>block_key</code>, <code>get_block_data</code>, <code>get_block_loaded</code>, <code>realm_of</code>, <code>set_block_data</code>, <code>type_of_block</code></p>
+<h3 id="apiopen_container"><code>api.open_container</code></h3>
+<p>GDScript: <code>api.open_container(player, position: Vector3i) -&gt; bool</code></p>
+<p>JavaScript: <code>api.openContainer(player: Player, position: Vec3): boolean</code></p>
+<p>Opens a container's screen for a player (as if they right-clicked it).</p>
+<p><strong>See also:</strong> <code>open</code></p>
+<h3 id="apiset_fuel"><code>api.set_fuel</code></h3>
+<p>GDScript: <code>api.set_fuel(item_name: String, seconds: float) -&gt; void</code></p>
+<p>JavaScript: <code>api.setFuel(item: string, seconds: number): void</code></p>
+<p>Makes an item burn in fuel slots for <code>seconds</code>.</p>
+<pre class="codehilite"><code class="language-gdscript">api.set_fuel(&quot;proving:token&quot;, 20.0)
+</code></pre>
+
+<p><strong>See also:</strong> <code>item</code></p>
+<h3 id="apiget_fuel"><code>api.get_fuel</code></h3>
+<p>GDScript: <code>api.get_fuel(item_id: int) -&gt; float</code></p>
+<p>JavaScript: <code>api.getFuel(item: ItemId): number</code></p>
+<p>How many seconds an item burns in a furnace (0 = not fuel).</p>
+<p><strong>See also:</strong> <code>register_process</code></p>
+<h3 id="apiregister_process"><code>api.register_process</code></h3>
+<p>GDScript: <code>api.register_process(kind: String, input: String, output: String, count := 1, seconds := 10.0) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerProcess(kind: string, input: string, output: string, count?: number, seconds?: number): void</code></p>
+<p>A processing recipe machines look up by kind: register_process("smelting", "base:iron_ore",
+"base:iron_ingot", 1, 10.0).</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_process(&quot;grinding&quot;, &quot;proving:plain&quot;, &quot;proving:rock&quot;, 1, 2.0)
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_process</code>, <code>is_excluded</code>, <code>item</code>, <code>qualified</code></p>
+<h3 id="apiget_process"><code>api.get_process</code></h3>
+<p>GDScript: <code>api.get_process(kind: String, item_id: int) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.getProcess(kind: string, item: ItemId): { output: ItemId; count: number; seconds: number } | Record&lt;string, never&gt;</code></p>
+<p>{output, count, seconds} for an input, or {} when that kind of machine cannot process it.</p>
+<h3 id="apilift_assembly"><code>api.lift_assembly</code></h3>
+<p>GDScript: <code>api.lift_assembly(positions: Array, options := {}) -&gt; int</code></p>
+<p>JavaScript: <code>api.liftAssembly(positions, options)</code></p>
+<p>Takes a set of blocks out of the world and holds them as one moving thing: a platform on a track, a
+drawbridge, a contraption somebody built and started. Returns an assembly id, or 0 - and then
+<code>assembly_problem()</code> says why in words a player can be shown.</p>
+<p>The blocks leave the world at once, keeping their state and their data, so nothing is ever in two
+places. What moves it, how fast and when it stops are yours; the engine moves blocks and has never
+heard of a piston.</p>
+<p><strong>See also:</strong> <code>lift</code>, <code>qualified</code></p>
+<h3 id="apimove_assembly"><code>api.move_assembly</code></h3>
+<p>GDScript: <code>api.move_assembly(assembly_id: int, by: Vector3) -&gt; bool</code></p>
+<p>JavaScript: <code>api.moveAssembly(assemblyId, by)</code></p>
+<p>Moves it, and carries whoever is standing on it. <code>by</code> may be fractional - being off the grid is the
+entire point.</p>
+<p><strong>See also:</strong> <code>assembly_problem</code>, <code>move</code></p>
+<h3 id="apisettle_assembly"><code>api.settle_assembly</code></h3>
+<p>GDScript: <code>api.settle_assembly(assembly_id: int) -&gt; bool</code></p>
+<p>JavaScript: <code>api.settleAssembly(assemblyId)</code></p>
+<p>Puts it back into the world where it has got to. <strong>Refused if something is in the way</strong>, rather than
+landing on top of it - an engine that deletes what somebody built because a machine arrived is not
+one to build with. Returns false, and <code>assembly_problem()</code> says so.</p>
+<p><strong>See also:</strong> <code>settle</code></p>
+<h3 id="apiassembly_problem"><code>api.assembly_problem</code></h3>
+<p>GDScript: <code>api.assembly_problem() -&gt; String</code></p>
+<p>JavaScript: <code>api.assemblyProblem()</code></p>
+<p>Why the last lift or settle was refused.</p>
+<p><strong>See also:</strong> <code>register_multiblock</code></p>
+<h3 id="apifill_container"><code>api.fill_container</code></h3>
+<p>GDScript: <code>api.fill_container(container, table_name: String, context := {}) -&gt; int</code></p>
+<p>JavaScript: <code>api.fillContainer(container, tableName, context)</code></p>
+<p>Fills a container from a loot table, now. The obvious call for a chest that appears when a boss
+dies, or a reward handed out at the end of a run.</p>
+<p>var chest = api.get_container(where)
+api.fill_container(chest, "boss_hoard", {"player": winner})</p>
+<p>Rolls into the <strong>empty</strong> slots, leaving anything already in there alone, so filling a chest twice
+does not throw away what somebody put in it. Returns how many stacks went in.</p>
+<p>The other two ways a container gets loot are still there and still right: a structure's chest
+carries <code>{"loot": "table"}</code> in its block data and rolls itself the first time it is opened, which
+is what a dungeon laid out from a template wants, and <code>roll_loot</code> hands back the stacks for a mod
+that wants to put them somewhere other than a container. (2026-09-21)</p>
+<p><strong>See also:</strong> <code>get_item</code>, <code>roll_loot</code>, <code>set_item</code></p>
+<h3 id="apishow_crafting"><code>api.show_crafting</code></h3>
+<p>GDScript: <code>api.show_crafting(player) -&gt; void</code></p>
+<p>JavaScript: <code>api.showCrafting(player: Player): void</code></p>
+<p>Opens the crafting screen for a player, crafting by hand.</p>
+<p><strong>See also:</strong> <code>open_crafting</code></p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#crafting">Crafting</a></li><li class="sub"><a href="#apiregister_recipe">api.register_recipe</a></li><li class="sub"><a href="#apiregister_material">api.register_material</a></li><li class="sub"><a href="#apiregister_part_type">api.register_part_type</a></li><li class="sub"><a href="#apiregister_assembly">api.register_assembly</a></li><li class="sub"><a href="#apiregister_minigame">api.register_minigame</a></li><li class="sub"><a href="#apiregister_station">api.register_station</a></li><li class="sub"><a href="#apiget_station">api.get_station</a></li><li class="sub"><a href="#apiregister_recipe_category">api.register_recipe_category</a></li><li class="sub"><a href="#apiregister_container">api.register_container</a></li><li class="sub"><a href="#apiget_container">api.get_container</a></li><li class="sub"><a href="#apiopen_container">api.open_container</a></li><li class="sub"><a href="#apiset_fuel">api.set_fuel</a></li><li class="sub"><a href="#apiget_fuel">api.get_fuel</a></li><li class="sub"><a href="#apiregister_process">api.register_process</a></li><li class="sub"><a href="#apiget_process">api.get_process</a></li><li class="sub"><a href="#apilift_assembly">api.lift_assembly</a></li><li class="sub"><a href="#apimove_assembly">api.move_assembly</a></li><li class="sub"><a href="#apisettle_assembly">api.settle_assembly</a></li><li class="sub"><a href="#apiassembly_problem">api.assembly_problem</a></li><li class="sub"><a href="#apifill_container">api.fill_container</a></li><li class="sub"><a href="#apishow_crafting">api.show_crafting</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../../../search/main.js" defer></script>
+<script src="../../../lang/main.js" defer></script>
+</body>
+</html>

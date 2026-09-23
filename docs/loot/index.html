@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loot tables &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../api/mod-api/">Overview</a></li>
+          <li><a class="" href="../api/mod-api/blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../api/mod-api/crafting/">Crafting</a></li>
+          <li><a class="" href="../api/mod-api/events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../api/mod-api/everything-else/">Everything else</a></li>
+          <li><a class="" href="../api/mod-api/guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../api/mod-api/items/">Items</a></li>
+          <li><a class="" href="../api/mod-api/logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../api/mod-api/mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../api/mod-api/players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../api/mod-api/server/">Server</a></li>
+          <li><a class="" href="../api/mod-api/sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../api/mod-api/world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../api/engine/">Engine internals</a></li>
+          <li><a class="" href="../api/how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../modding/">Writing a mod</a></li>
+          <li><a class="cur" href="./">Loot tables</a></li>
+          <li><a class="" href="../hosting/">Running a server</a></li>
+          <li><a class="" href="../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../playing/">Playing</a></li>
+          <li><a class="" href="../engine/">The engine</a></li>
+          <li><a class="" href="../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="loot-and-drops">Loot and drops</h1>
+<blockquote>
+<p><strong>The bundled games were removed on 21 September 2026</strong> and will be rebuilt for 1.0 (see
+<code>docs/roadmap.md</code>). Examples below that name <code>vanilla</code>, <code>hearthhold</code>, <code>industry</code>, <code>arcana</code>, <code>guild</code>,
+<code>skyblock</code> or <code>oneblock</code> describe how things <em>were</em>, and still illustrate the capability correctly -
+but you cannot run them as written. The mod the tests use now is <code>tests/mods/proving</code>, which uses
+every capability the engine has and is the best worked example there is.</p>
+</blockquote>
+<p>One way to say "what comes out of this", used by every source: a mob that dies, a block that breaks, a
+chest in a dungeon, a fishing line, a reward. Before this, those were three unrelated pieces of code with
+three shapes, none of which a host could tune or another mod could extend.</p>
+<h2 id="1-a-table">1. A table</h2>
+<pre class="codehilite"><code class="language-gdscript">api.register_loot(&quot;zombie&quot;, {
+    &quot;pools&quot;: [
+        # Almost always some flesh.
+        {&quot;rolls&quot;: [0, 2], &quot;entries&quot;: [
+            {&quot;item&quot;: &quot;base:rotten_flesh&quot;, &quot;count&quot;: [1, 2], &quot;weight&quot;: 3},
+            {&quot;empty&quot;: true, &quot;weight&quot;: 1},
+        ]},
+        # Only when a player did it, and rarely.
+        {&quot;rolls&quot;: 1, &quot;when&quot;: {&quot;killed_by&quot;: &quot;player&quot;}, &quot;entries&quot;: [
+            {&quot;item&quot;: &quot;base:iron_ingot&quot;, &quot;weight&quot;: 1},
+            {&quot;table&quot;: &quot;vanilla:junk&quot;, &quot;weight&quot;: 4},   # roll another table instead
+            {&quot;empty&quot;: true, &quot;weight&quot;: 45},
+        ]},
+    ],
+})
+</code></pre>
+
+<ul>
+<li><strong>pools</strong> roll independently, so "always some flesh, and separately a small chance of something good"
+  needs no arithmetic. <code>rolls</code> is a number or a <code>[min, max]</code> range.</li>
+<li><strong>entries</strong> carry a <code>weight</code> (relative, within the pool), and one of <code>item</code>, <code>table</code> (roll another
+  table) or <code>empty: true</code> (the miss - this is how a chance below 1 is written).</li>
+<li><strong>count</strong> is a number or <code>[min, max]</code>.</li>
+<li><strong>data</strong> is the item data a dropped stack carries (durability, quality, a part's material).</li>
+<li><strong>when</strong> is a condition, on a pool or a single entry (§2).</li>
+<li>A table with no <code>pools</code> may use the old <code>{rolls, entries}</code> shape; it is read as a single pool.</li>
+</ul>
+<p>Tables can also be <strong>JSON files</strong> in a mod: every <code>loot/*.json</code> in the mod folder is registered under
+<code>&lt;mod&gt;:&lt;file name&gt;</code>, so a creator tunes numbers without touching code.</p>
+<h2 id="2-conditions">2. Conditions</h2>
+<p><code>when</code> takes any of these; all of them have to hold:</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>killed_by</code></td>
+<td><code>"player"</code>, <code>"mob"</code>, <code>"fire"</code>, <code>"fall"</code>, … - what caused it</td>
+</tr>
+<tr>
+<td><code>tool</code></td>
+<td>an item name, or <code>{"material": "iron"}</code> / <code>{"tier": 2}</code> - what it was broken with</td>
+</tr>
+<tr>
+<td><code>biome</code>, <code>depth</code>, <code>time</code></td>
+<td>where and when it happened (<code>depth</code> is a <code>[min, max]</code> of Y)</td>
+</tr>
+<tr>
+<td><code>chance</code></td>
+<td>a plain 0-1 roll, for when weights are overkill</td>
+</tr>
+<tr>
+<td><code>first_time</code></td>
+<td>the first time <em>this player</em> gets this (per mob type, per chest)</td>
+</tr>
+</tbody>
+</table>
+<p>The <strong>context</strong> a source passes in carries the player, the tool, the position and what did the killing,
+so a mod's condition sees the same facts the engine does.</p>
+<h2 id="3-sources">3. Sources</h2>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Table</th>
+<th>Context</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a mob dies</td>
+<td>the entity's <code>loot</code>, or one generated from its old <code>drops</code></td>
+<td>killer, tool, position, biome, depth</td>
+</tr>
+<tr>
+<td>a block breaks</td>
+<td>the block's <code>loot</code>, or one from its <code>drops</code></td>
+<td>player, tool, position, biome, depth</td>
+</tr>
+<tr>
+<td>a chest is opened</td>
+<td>the container's <code>loot</code> block data</td>
+<td>player, position; seeded so the same chest holds the same loot</td>
+</tr>
+<tr>
+<td>a mod asks</td>
+<td><code>api.roll_loot(name, context)</code></td>
+<td>whatever the mod passes</td>
+</tr>
+</tbody>
+</table>
+<p>An entity or block that still declares <code>drops: [[item, count, chance]]</code> keeps working: it is turned into
+a table with one pool per line at load, so every old mod gets conditions, tuning and extension for free.</p>
+<h2 id="4-extending-someone-elses-table">4. Extending someone else's table</h2>
+<p>A mod (or a server's own small mod) adds to or replaces a table without forking the mod that owns it. A
+mob's or block's generated table is named <code>mob:&lt;entity&gt;</code> or <code>block:&lt;block&gt;</code>:</p>
+<pre class="codehilite"><code class="language-gdscript">api.extend_loot(&quot;mob:vanilla:zombie&quot;, {&quot;pools&quot;: [{&quot;rolls&quot;: 1, &quot;entries&quot;: [{&quot;item&quot;: &quot;mymod:charm&quot;, &quot;weight&quot;: 1}]}]})
+api.register_loot(&quot;mob:vanilla:zombie&quot;, {...})   # start again: registering a name again replaces it
+</code></pre>
+
+<h2 id="5-what-a-player-notices">5. What a player notices</h2>
+<ul>
+<li><strong>A rare drop is an event.</strong> Rarity is worked out from the weights, so the engine knows without being
+  told. A drop of 6% or less sparkles where it lands, keeps sparkling for a few seconds so it is not lost
+  in the grass, plays a sound and is announced in chat. A handler can set <code>announce: false</code> on the
+  <code>rare_loot</code> event to keep a particular find quiet.</li>
+<li><strong>Shared chests roll per player.</strong> A chest whose data says <code>personal: true</code> (every vanilla structure
+  chest) rolls separately for each player: what you find is handed straight to you, once each, so nobody
+  has to race a sibling for the good item. The chest is then an ordinary chest to keep things in. Doing
+  it this way means no per-viewer container view, so it needed no protocol change; the trade is that the
+  loot arrives in your pack rather than sitting in the box.</li>
+<li><strong>Bad luck does not last.</strong> A pity counter gives the table's rarest entry after 40 rolls without a
+  find. The first time a player meets a table the engine emits <code>loot_first_time</code>, and a <code>first_time</code>
+  condition can hold a pool back for exactly that moment - vanilla uses it so your first pig, cow, zombie
+  and so on leaves something extra.</li>
+<li><strong>Every item says where it comes from.</strong> Its tooltip ends with "Dropped by Zombie (12%), Stone" - the
+  few likeliest sources, worked out from the tables and sent to the client when it joins. The fastest way
+  to learn a world, and it costs one line in the payload the server already sends.</li>
+</ul>
+<h2 id="6-tuning">6. Tuning</h2>
+<p>Two levels, because an event needs more than one dial:</p>
+<ul>
+<li><strong>How much loot</strong> (less / normal / lots) is a vanilla mod setting in the admin screen: one multiplier on
+  every pool's roll count, for the whole server.</li>
+<li><strong>One thing at a time</strong>, for an event: <code>/loot boost base:coal 3 60</code> makes coal three times as common for
+  an hour and then stops on its own; <code>/loot boost vanilla:dungeon 2</code> enriches one table until it is
+  changed back. Mods do the same with <code>api.set_loot_boost(target, factor, seconds)</code>. <code>/loot</code> shows what is
+  turned up, <code>/loot clear</code> puts everything back.</li>
+</ul>
+<p>Both are kept with the world. A pool marked <code>guaranteed: true</code> ignores them, so a drop something depends
+on cannot be tuned away.</p>
+<h2 id="7-left-for-later">7. Left for later</h2>
+<p>Per-player luck as a stat, weather conditions, airdrops on a schedule, fishing tables by biome and
+depth, and drop telemetry in the dev dashboard. The table format already has room for all of them.</p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#loot-and-drops">Loot and drops</a></li><li class="sub"><a href="#1-a-table">1. A table</a></li><li class="sub"><a href="#2-conditions">2. Conditions</a></li><li class="sub"><a href="#3-sources">3. Sources</a></li><li class="sub"><a href="#4-extending-someone-elses-table">4. Extending someone else's table</a></li><li class="sub"><a href="#5-what-a-player-notices">5. What a player notices</a></li><li class="sub"><a href="#6-tuning">6. Tuning</a></li><li class="sub"><a href="#7-left-for-later">7. Left for later</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../search/main.js" defer></script>
+<script src="../lang/main.js" defer></script>
+</body>
+</html>

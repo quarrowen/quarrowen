@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Items &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="../../..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="../../..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec open">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../">Overview</a></li>
+          <li><a class="" href="../blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../crafting/">Crafting</a></li>
+          <li><a class="" href="../events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../everything-else/">Everything else</a></li>
+          <li><a class="" href="../guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="cur" href="./">Items</a></li>
+          <li><a class="" href="../logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../server/">Server</a></li>
+          <li><a class="" href="../sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../../engine/">Engine internals</a></li>
+          <li><a class="" href="../../how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../modding/">Writing a mod</a></li>
+          <li><a class="" href="../../../loot/">Loot tables</a></li>
+          <li><a class="" href="../../../hosting/">Running a server</a></li>
+          <li><a class="" href="../../../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../playing/">Playing</a></li>
+          <li><a class="" href="../../../engine/">The engine</a></li>
+          <li><a class="" href="../../../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../../../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="items">Items</h1>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<h3 id="apiregister_item"><code>api.register_item</code></h3>
+<p>GDScript: <code>api.register_item(item_name: String, def: Dictionary) -&gt; int</code></p>
+<p>JavaScript: <code>api.registerItem(name: string, def: ItemDef): ItemId</code></p>
+<p>Registers a non-block item. <code>icon</code> is a texture path; <code>usable</code> makes right-click fire item_use.
+<code>group</code> names its drawer in the creative palette, as on a block; <code>hidden: true</code> keeps it out.
+Returns the item id (&gt;= 256), or -1.</p>
+<pre class="codehilite"><code class="language-gdscript">ids.pail = api.register_item(&quot;pail&quot;, {&quot;display_name&quot;: &quot;Pail&quot;, &quot;max_stack&quot;: 1, &quot;usable&quot;: true})
+</code></pre>
+
+<p><strong>See also:</strong> <code>is_excluded</code>, <code>qualified</code>, <code>register</code>, <code>register_asset</code>, <code>reload</code></p>
+<h3 id="apidrop_item"><code>api.drop_item</code></h3>
+<p>GDScript: <code>api.drop_item(item_id: int, count: int, position: Vector3, realm_id := "")</code></p>
+<p>JavaScript: <code>api.dropItem(item: ItemId, count: number, position: Vec3): Entity | null</code></p>
+<p>Drops an item stack entity (players walk over it to pick it up).</p>
+<p><strong>See also:</strong> <code>max_stack</code>, <code>qualified</code>, <code>register_instance</code>, <code>spawn</code></p>
+<h3 id="apiitem"><code>api.item</code></h3>
+<p>GDScript: <code>api.item(item_name: String) -&gt; int</code></p>
+<p>JavaScript: <code>api.item(name: string): ItemId</code></p>
+<p>Looks up any block or item id by name ("base:coal", or a local name). -1 if unknown.</p>
+<h3 id="apiitem_name"><code>api.item_name</code></h3>
+<p>GDScript: <code>api.item_name(id: int) -&gt; String</code></p>
+<p>JavaScript: <code>api.itemName(id: ItemId): string</code></p>
+<p>The full name ("mod:name") of a block or item id, or "".</p>
+<h3 id="apiitem_max_stack"><code>api.item_max_stack</code></h3>
+<p>GDScript: <code>api.item_max_stack(id: int) -&gt; int</code></p>
+<p>JavaScript: <code>api.itemMaxStack(id)</code></p>
+<p>How many of this item fit in one slot.</p>
+<p><strong>See also:</strong> <code>max_stack</code></p>
+<h3 id="apiitem_display_name"><code>api.item_display_name</code></h3>
+<p>GDScript: <code>api.item_display_name(id: int) -&gt; String</code></p>
+<p>JavaScript: <code>api.itemDisplayName(id: ItemId): string</code></p>
+<p>The name players see for a block or item id.</p>
+<h3 id="apiitem_tool"><code>api.item_tool</code></h3>
+<p>GDScript: <code>api.item_tool(id: int, item_data := {}) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.itemTool(id, itemData)</code></p>
+<p>The tool stats in force for one stack: <code>{type, tier, speed}</code>, or <code>{}</code> when it is not a tool.</p>
+<p><code>item_data</code> is the stack's own data (<code>ev.data</code>, an inventory slot's data). <strong>Pass it</strong>: a tool built
+from parts carries its stats there, so reading the definition alone reports the plain one's numbers.</p>
+<p>Ask this rather than keeping a set of ids. <code>base</code>'s farming kept <code>ids.hoes</code> and filled it as it
+registered each hoe, which meant tilling only worked for hoes <code>base</code> itself had registered - so the
+moment the hoes moved to <code>simple_gear</code> (2026-09-23) grass stopped turning into farmland. A mod that
+adds a better hoe now works without anything knowing it exists.</p>
+<p><strong>See also:</strong> <code>tool_of</code></p>
+<h3 id="apiitem_weapon"><code>api.item_weapon</code></h3>
+<p>GDScript: <code>api.item_weapon(id: int, item_data := {}) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.itemWeapon(id, itemData)</code></p>
+<p>The weapon stats in force for one stack: <code>{damage, cooldown, reach, crit_chance, knockback,
+sweep}</code>, or <code>{}</code> when it is not a weapon. Per-stack data wins, as with <code>item_tool</code>.</p>
+<p><strong>See also:</strong> <code>category</code>, <code>key</code>, <code>unlock</code>, <code>weapon_of</code></p>
+<h3 id="apirequire_item"><code>api.require_item</code></h3>
+<p>GDScript: <code>api.require_item(item_name: String) -&gt; int</code></p>
+<p>JavaScript: <code>api.requireItem(itemName)</code></p>
+<p>As require_block, for an item or a block (they share an id space).</p>
+<pre class="codehilite"><code class="language-gdscript">ev.player.give(api.require_item(&quot;proving:prod&quot;), 1)
+</code></pre>
+
+<p><strong>See also:</strong> <code>item</code></p>
+<h3 id="apisend_item"><code>api.send_item</code></h3>
+<p>GDScript: <code>api.send_item(from: Dictionary, item_name: String, count := 1, data := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.sendItem(from, itemName, count, data)</code></p>
+<p>Sends a thing along the links to whichever connected face will take it. Returns false if nothing
+would, which is how a machine knows to hold on to it rather than dropping it on the floor.</p>
+<p><strong>Things are not a quantity.</strong> A pickaxe with twelve durability and a name somebody gave it cannot
+be halved and is not interchangeable with the next one, so this is its own mechanism rather than
+power with a different unit - though it travels the same links. Destinations take turns, so a line
+of chests fills evenly rather than the first one found swallowing everything.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>send</code>, <code>tag</code></p>
+<h3 id="apion_item_arrived"><code>api.on_item_arrived</code></h3>
+<p>GDScript: <code>api.on_item_arrived(handler: Callable) -&gt; void</code></p>
+<p>JavaScript: <code>api.onItemArrived(handler)</code></p>
+<p>Told when something arrives: {realm, position, face, item, count, data, from}.</p>
+<p><strong>See also:</strong> <code>on_arrived</code></p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#items">Items</a></li><li class="sub"><a href="#apiregister_item">api.register_item</a></li><li class="sub"><a href="#apidrop_item">api.drop_item</a></li><li class="sub"><a href="#apiitem">api.item</a></li><li class="sub"><a href="#apiitem_name">api.item_name</a></li><li class="sub"><a href="#apiitem_max_stack">api.item_max_stack</a></li><li class="sub"><a href="#apiitem_display_name">api.item_display_name</a></li><li class="sub"><a href="#apiitem_tool">api.item_tool</a></li><li class="sub"><a href="#apiitem_weapon">api.item_weapon</a></li><li class="sub"><a href="#apirequire_item">api.require_item</a></li><li class="sub"><a href="#apisend_item">api.send_item</a></li><li class="sub"><a href="#apion_item_arrived">api.on_item_arrived</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../../../search/main.js" defer></script>
+<script src="../../../lang/main.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Running a server &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../api/mod-api/">Overview</a></li>
+          <li><a class="" href="../api/mod-api/blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../api/mod-api/crafting/">Crafting</a></li>
+          <li><a class="" href="../api/mod-api/events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../api/mod-api/everything-else/">Everything else</a></li>
+          <li><a class="" href="../api/mod-api/guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../api/mod-api/items/">Items</a></li>
+          <li><a class="" href="../api/mod-api/logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../api/mod-api/mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../api/mod-api/players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../api/mod-api/server/">Server</a></li>
+          <li><a class="" href="../api/mod-api/sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../api/mod-api/world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../api/engine/">Engine internals</a></li>
+          <li><a class="" href="../api/how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../modding/">Writing a mod</a></li>
+          <li><a class="" href="../loot/">Loot tables</a></li>
+          <li><a class="cur" href="./">Running a server</a></li>
+          <li><a class="" href="../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../playing/">Playing</a></li>
+          <li><a class="" href="../engine/">The engine</a></li>
+          <li><a class="" href="../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="playing-quarrowen-at-home">Playing Quarrowen at home</h1>
+<blockquote>
+<p><strong>The bundled games were removed on 21 September 2026</strong> and will be rebuilt for 1.0 (see
+<code>docs/roadmap.md</code>). Examples below that name <code>vanilla</code>, <code>hearthhold</code>, <code>industry</code>, <code>arcana</code>, <code>guild</code>,
+<code>skyblock</code> or <code>oneblock</code> describe how things <em>were</em>, and still illustrate the capability correctly -
+but you cannot run them as written. The mod the tests use now is <code>tests/mods/proving</code>, which uses
+every capability the engine has and is the best worked example there is.</p>
+</blockquote>
+<p>A family setup: the server runs in Docker on a home Linux machine, and everyone plays from their own Mac
+(Apple silicon) on the same home network.</p>
+<ul>
+<li><a href="#1-the-server-ubuntu--docker">1. The server (Ubuntu + Docker)</a></li>
+<li><a href="#2-the-macs">2. The Macs</a></li>
+<li><a href="#3-first-game">3. First game</a></li>
+<li><a href="#4-admin-cheat-sheet">4. Admin cheat sheet</a></li>
+<li><a href="#5-backups-and-updates">5. Backups and updates</a></li>
+<li><a href="#6-when-something-goes-wrong">6. When something goes wrong</a></li>
+</ul>
+<h2 id="1-the-server-ubuntu-docker">1. The server (Ubuntu + Docker)</h2>
+<p>You need Docker with the Compose plugin (<code>docker compose version</code> should work). Nothing else: the server
+is a published image, so this machine never compiles anything and does not need the repository.</p>
+<p><strong>Get the three files.</strong> They are all the server needs:</p>
+<pre class="codehilite"><code class="language-sh">mkdir -p ~/quarrowen &amp;&amp; cd ~/quarrowen
+base=https://raw.githubusercontent.com/quarrowen/quarrowen/master/deploy/server
+curl -fsSLO &quot;$base/compose.yaml&quot;
+curl -fsSL -o .env.example &quot;$base/.env.example&quot;
+curl -fsSLO &quot;$base/link-servers.sh&quot; &amp;&amp; chmod +x link-servers.sh
+</code></pre>
+
+<p><strong>Choose names.</strong> Copy the example settings and edit them:</p>
+<pre class="codehilite"><code class="language-sh">cp .env.example .env
+nano .env
+</code></pre>
+
+<ul>
+<li><code>ADMINS</code>: your in-game name. Admins can change game modes, teleport, approve skins and manage who may join.</li>
+<li><code>ALLOWLIST</code>: everyone who may join, by the name they will type in the game (for example <code>Alex,Sam,Robin</code>).
+  Nobody else can get in. You can add people later from inside the game.</li>
+<li><code>CREATIONS=approval</code>: painted skins and hats wait for an admin to approve them before others see them.</li>
+<li><code>CHAT_FILTER=on</code>: swear words in chat are masked.</li>
+</ul>
+<p><strong>Start it.</strong> The images are built by CI from each release tag and published to GitHub Packages, so this
+downloads rather than compiles:</p>
+<pre class="codehilite"><code class="language-sh">docker compose pull
+docker compose up -d
+docker compose logs -f     # Ctrl+C stops watching, not the server
+</code></pre>
+
+<p>(If a pull is refused with "denied" or "not found", the package is still private. On GitHub open the
+repository's <strong>Packages</strong> and set both <code>server</code> and <code>hub</code> to public - package settings, change
+visibility. It only needs doing once each, and public packages have no storage limit.)</p>
+<p>It is ready when the log says <code>running game</code>. The server starts again by itself after a reboot.</p>
+<p><strong>Firewall.</strong> If the machine uses <code>ufw</code>, open the two game ports (UDP):</p>
+<pre class="codehilite"><code class="language-sh">sudo ufw allow 24565:24566/udp
+</code></pre>
+
+<p>Note the machine's address on your network (something like <code>192.168.1.x</code>): <code>hostname -I</code>.</p>
+<p><strong>Which mods each world runs.</strong> Two different things, and the difference is worth knowing:</p>
+<ul>
+<li><strong>Present</strong>: every world's mods folder gets all the bundled mods, refreshed from the image on each
+  start. The log says so: <code>mods in /mods refreshed from the image: arcana base guild hearthhold ...</code>.</li>
+<li><strong>Loaded</strong>: only what that world's <code>*_MODS</code> in <code>.env</code> names, <strong>plus what those depend on</strong>. So
+  <code>HEARTHHOLD_MODS=hearthhold</code> loads base and vanilla too, because Hearthhold depends on them, and
+  <code>SKYBLOCK_MODS=skyblock</code> loads base but not vanilla, because Skyblock does not need it.</li>
+</ul>
+<p>You never list <code>base</code> or <code>vanilla</code> yourself: naming the game brings them. To add an add-on to one world,
+list it - <code>HEARTHHOLD_MODS=hearthhold,arcana,industry</code> - and <code>docker compose up -d</code>. The server's log
+names exactly what it loaded, which is the quickest way to check.</p>
+<p><strong>Mods live beside each world, not inside the image.</strong> The container holds the engine and a seed copy of
+the mods it shipped with; each world has its own mods folder, in a Docker volume of its own. To add a game
+or an add-on to one world:</p>
+<pre class="codehilite"><code class="language-sh">docker cp ~/my_mod quarrowen-hearthhold:/mods/      # a mod folder with a mod.json inside
+nano .env                                           # HEARTHHOLD_MODS=hearthhold,my_mod
+docker compose up -d
+</code></pre>
+
+<p>A volume rather than a folder on the host, for two reasons that both showed up the first time this ran: a
+host folder is created by Docker as root and the server runs as an ordinary user, so it could not write
+its own mods into it; and three worlds refreshing the same folder on start is a race. <code>docker run --rm -v
+quarrowen-mods-hearthhold:/m -v "$PWD":/out debian cp -r /m /out/mods-hearthhold</code> copies one out to look at.</p>
+<p>On each start the mods that came with the engine (<code>base</code>, <code>vanilla</code>, the add-ons) are refreshed from the
+image so an update cannot leave stale content behind; everything else there is left alone. Set
+<code>SEED_MODS=missing</code> to keep your own edits to the bundled mods, or <code>SEED_MODS=never</code> to manage them yourself.</p>
+<h2 id="2-the-macs">2. The Macs</h2>
+<p>On each Mac, download from <a href="https://quarrowen.com">quarrowen.com</a>, open the disk image and drag
+<strong>Quarrowen</strong> into <strong>Applications</strong>. It is signed and notarized, so it opens by double-clicking, and it
+offers its own updates from then on - no copying builds around.</p>
+<p>Make sure the server and the Macs are on the same version. A client refuses a server whose protocol
+differs, and says so at the door, which is better than misbehaving quietly but is still a locked door.
+<code>QW_IMAGE</code> in <code>.env</code> pins the server's version; the client's is under Settings → Account.</p>
+<p><strong>If you built the app yourself</strong> rather than downloading it, macOS blocks it the first time: right-click
+(or Control-click) <strong>Quarrowen</strong> in Applications, choose <strong>Open</strong>, then <strong>Open</strong> again. If there is no
+Open button, try to open it once, then <strong>System Settings → Privacy &amp; Security → Open Anyway</strong>. After that
+it opens normally. (<code>tools/package_mac.sh</code> builds one; it signs with a Developer ID certificate if the
+machine has one, and ad hoc if not, saying which.)</p>
+<p>A MacBook Air runs the game well on the default graphics. If it feels slow, open <strong>Settings → Graphics</strong> and
+choose <strong>Fast</strong>.</p>
+<h2 id="3-first-game">3. First game</h2>
+<ol>
+<li><strong>You first.</strong> Open Quarrowen, click the name under <strong>Playing as</strong> at the bottom left and type your admin name
+   exactly as in <code>ADMINS</code>. The first player to use a name on a server keeps it, so join before sharing.</li>
+<li>Go to <strong>Multiplayer → LAN</strong>. The server appears there (the name from <code>SERVER_NAME</code>). Double-click it.
+   If it does not appear, type the server's address (the one from <code>hostname -I</code>) in the box at the top and press <strong>Join</strong>.</li>
+<li>Check you are admin: press <strong>T</strong> and type <code>/whoami</code>.</li>
+<li><strong>The kids.</strong> On each Mac, set <strong>Playing as</strong> to the name you put in <code>ALLOWLIST</code>, then <strong>Multiplayer → LAN</strong> and join.
+   Click <strong>Add to favorites</strong> so it is one click next time.</li>
+</ol>
+<p>The game starts in creative mode (build freely, no monsters bother you). Each player can switch their own mode
+with <code>/gamemode survival</code> (a small starter kit, hunger, monsters at night) or <code>/gamemode creative</code>. Press <strong>G</strong>
+for the guide book and <strong>Esc → Settings</strong> for controls.</p>
+<h2 id="4-admin-cheat-sheet">4. Admin cheat sheet</h2>
+<p><strong>Without typing anything:</strong> press Esc → <strong>Server settings…</strong> (admins only). It has the rules as switches
+(PvP, keep-inventory, monsters, hunger, fall damage...), the time of day, "everyone plays in
+survival/creative", who may join, the cheat checks and a backup button. Everything below still works in chat.</p>
+<p>Press <strong>T</strong>, type a command, press Enter. <code>/help</code> lists them all.</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/allow add Name</code></td>
+<td>let someone join (<code>/allow remove Name</code>, <code>/allow list</code>)</td>
+</tr>
+<tr>
+<td><code>/players</code></td>
+<td>who is online</td>
+</tr>
+<tr>
+<td><code>/kick Name</code></td>
+<td>disconnect someone</td>
+</tr>
+<tr>
+<td><code>/op Name</code></td>
+<td>make someone an admin (<code>/deop Name</code> to undo)</td>
+</tr>
+<tr>
+<td><code>/time day</code></td>
+<td>make it day (<code>/time night</code>, <code>/time noon</code>)</td>
+</tr>
+<tr>
+<td><code>/tp Name</code></td>
+<td>go to a player</td>
+</tr>
+<tr>
+<td><code>/fly</code></td>
+<td>fly (creative mode, or the "fly" permission). Double-tap jump does it too; jump rises, Shift sinks</td>
+</tr>
+<tr>
+<td><code>/sethome</code>, <code>/home</code></td>
+<td>remember a spot and come back to it (everyone can)</td>
+</tr>
+<tr>
+<td><code>/back</code></td>
+<td>go to where you last died (your grave holds your things)</td>
+</tr>
+<tr>
+<td><code>/lowgravity</code></td>
+<td>low gravity for everyone, for big jumps (again to turn it off)</td>
+</tr>
+<tr>
+<td><code>/gameplay mob_spawning false</code></td>
+<td>no monsters (<code>true</code> to bring them back)</td>
+</tr>
+<tr>
+<td><code>/gameplay chat_filter true</code></td>
+<td>turn the chat filter on or off</td>
+</tr>
+<tr>
+<td><code>/ugc list</code></td>
+<td>skins and hats waiting for approval; <code>/ugc approve &lt;id&gt;</code>, <code>/ugc trust Name</code> to skip approval for someone</td>
+</tr>
+<tr>
+<td><code>/backup</code></td>
+<td>save a backup now</td>
+</tr>
+<tr>
+<td><code>/role give Sam builder</code></td>
+<td>give someone a role (<code>/role list</code> shows them; <code>/role take</code> removes)</td>
+</tr>
+<tr>
+<td><code>/perms Sam</code></td>
+<td>what someone's roles let them do</td>
+</tr>
+</tbody>
+</table>
+<p>Admins also get <strong>Esc → Review creations</strong> to see and approve painted skins with previews, and <strong>Esc → Players and
+roles</strong> to give roles (builder, moderator, admin) or kick someone, without typing commands.</p>
+<h2 id="5-backups-and-updates">5. Backups and updates</h2>
+<p><strong>Backups</strong> are made every hour while people play (the last 48 are kept) inside the Docker volume. To copy the
+whole world out to a folder:</p>
+<pre class="codehilite"><code class="language-sh">docker run --rm -v quarrowen-hearthhold:/data -v &quot;$PWD&quot;:/out debian tar czf /out/hearthhold-world.tgz -C /data .
+</code></pre>
+
+<p>(<code>docker volume ls</code> shows the exact volume name.) The volume also holds the server's identity: keep it, or
+every Mac will warn that the server's identity changed.</p>
+<p><strong>Worlds survive updates</strong>, from alpha 4 on: builds, chests, animals and inventories are kept. A world saved
+by anything older is refused rather than converted. Each world has its own volume, named outright in the
+Compose file (<code>quarrowen-hearthhold</code>, <code>quarrowen-oneblock</code>, <code>quarrowen-skyblock</code>, <code>quarrowen-hub</code>), so they
+stay put wherever the folder lives or whatever it is called. <code>docker volume ls</code> shows what is on the machine.</p>
+<p><strong>The Macs update themselves.</strong> When the menu opens, the game checks the download page and offers the new
+version in a banner; pressing Update downloads it, checks it against the checksum published with the release
+and swaps the app (Settings → Network turns the check off, Settings → Account has a "Check for updates"
+button). Nothing is ever downloaded from a game server - a server can only say which version it needs.</p>
+<p><strong>Coming from before alpha 4.</strong> Nothing is carried across: worlds, players and identity keys all start
+again. Alpha 4 moved the client's folder and dropped the code that read older saves, so a world from
+alpha 3 or earlier will not load, and each Mac is a new player as far as a server is concerned - add the
+children to <code>ALLOWLIST</code> again, or let them join once with it turned off. Old data is not deleted, just no
+longer read: on a Mac it stays in <code>~/Library/Application Support/Godot/app_userdata/Quarrowen</code>, and on the
+server in whatever volume it was in.</p>
+<p><strong>Starting one world again.</strong> A world holds its own story: in Hearthhold, once the hearth is lit,
+chapter one is done for everyone who joins afterwards. To give a world a clean start without disturbing
+anything else:</p>
+<pre class="codehilite"><code class="language-sh">docker compose stop hearthhold
+docker run --rm -v quarrowen-hearthhold:/data alpine \
+  sh -c 'rm -rf /data/hearthhold /data/backups/hearthhold'
+docker compose up -d hearthhold
+</code></pre>
+
+<p>Name the world in place of <code>hearthhold</code> for the others; the volume and the folder inside it share its
+name. <strong>Do not delete the volume itself.</strong> It also holds <code>identity/</code>, which is what the Macs pin so they
+know the server is the same one - losing it makes every client warn that the server's identity changed -
+and <code>network.json</code>, which is what lets players travel between the worlds. Removing only the world folder
+and its backups keeps both, so nothing needs re-linking and nobody is warned.</p>
+<p>A player who has already started a tutorial keeps their place, since progress is saved per player rather
+than per world. <code>/tutorial stop</code> and then <code>/tutorial start &lt;id&gt;</code> begins one again (<code>/tutorial list</code>).</p>
+<p><strong>Updating.</strong> Server and Macs must run the same version: a server refuses a client on a different
+protocol. <code>.env</code> pins the server to an exact version for that reason, so it never moves on its own while
+the children are still on the old client. To update, publish the release for the Macs first, then:</p>
+<pre class="codehilite"><code class="language-sh">cd ~/quarrowen
+nano .env                                  # QW_IMAGE / QW_HUB_IMAGE -&gt; the new version
+docker compose pull &amp;&amp; docker compose up -d
+</code></pre>
+
+<p>Set them to <code>:latest</code> instead if you would rather follow every release automatically - with the caveat
+that any <code>docker compose pull</code>, whatever you ran it for, then moves all three worlds at once.
+Re-download compose.yaml when it changes (rarely).</p>
+<p>Then publish the release with <code>tools/make_release.sh</code> (it builds the app, the mod zips, the download page
+and the update manifest - see docs/distribution.md); the Macs pick it up by themselves. <code>tools/package_mac.sh</code>
+alone still builds just the app if you want to copy it over by hand. Mods update with the
+engine: the bundled ones are refreshed in <code>mods/</code> on the next start (unless <code>SEED_MODS</code> says otherwise), so a
+mod change does not need a rebuild - only <code>docker compose restart</code>.</p>
+<h2 id="three-worlds-travel-between-them-and-the-hub">Three worlds, travel between them, and the hub</h2>
+<p><code>docker compose up -d</code> starts all three worlds and the hub. Open their ports once:</p>
+<pre class="codehilite"><code class="language-sh">sudo ufw allow 24565:24570/udp   # the three worlds (each uses its port and the next one up)
+sudo ufw allow 24600/tcp         # the hub
+</code></pre>
+
+<p><strong>The hub is a server list, not a way to travel.</strong> Each world announces itself to it, so the game's
+Multiplayer screen shows Hearthhold, One Block and Sky Islands by name and nobody types an address. That
+is all it does. Moving a player from one world to another is a separate thing, below.</p>
+<p><strong>Travel</strong> (portals, <code>/server &lt;name&gt;</code>, the Worlds panel) needs each world to know the others' 32-character
+server ids, and those only exist once a server has started. So after the first <code>up</code>:</p>
+<pre class="codehilite"><code class="language-sh">./link-servers.sh
+</code></pre>
+
+<p>It reads each id, writes a <code>network.json</code> into each world naming the other two, and restarts them. Run it
+again after adding a world, or after deleting a volume - a new volume means a new id.</p>
+<p>Two things it decides, both overridable:</p>
+<ul>
+<li><strong>The address players are sent to.</strong> Travelling hands the <em>client</em> an address to reconnect to, so it has
+  to be one the player's computer can reach. The script works out this machine's LAN address; if players
+  come in some other way (a hostname, a port forward), say so: <code>LINK_ADDRESS=quarrowen.example ./link-servers.sh</code>.</li>
+<li><strong>Whether pockets come along.</strong> Off by default - One Block is no challenge if you arrive with a chest
+  from Hearthhold. Each world remembers its own inventory, so nothing is lost by travelling and coming
+  back. <code>CARRY_INVENTORY=true ./link-servers.sh</code> if you would rather things travelled.</li>
+</ul>
+<p>Then in game:</p>
+<ul>
+<li><code>/server oneblock</code>, <code>/server skyblock</code>, <code>/server hearthhold</code> - anyone may.</li>
+<li>Or build a <strong>portal</strong>: place Portal blocks (creative inventory), stand next to them and type
+  <code>/portal oneblock</code>. Walking in takes you there. To choose where travellers arrive, stand on the spot on
+  the far side and type <code>/network arrival dock</code>, then point portals at it with <code>/portal hearthhold dock</code>.</li>
+<li><code>/network</code> lists what this world is linked to, and <code>/network reload</code> re-reads the file.</li>
+</ul>
+<p>A player on the allowlist is allowed on all three, and an arrival skips the check (<code>admit</code>), so nobody is
+bounced halfway through a portal.</p>
+<p><strong>What the three are.</strong> Hearthhold is survival with a story: a valley whose light went out, people to find
+and houses to build them. One Block gives everyone a single block over the void that becomes something
+else each time it is broken, in phases. Sky Islands gives everyone a small island, a cobblestone
+generator and a list of challenges. Hearthhold is the one to start a child on.</p>
+<h2 id="6-when-something-goes-wrong">6. When something goes wrong</h2>
+<ul>
+<li><strong>The server is not in the LAN list.</strong> Check the Mac and the server are on the same network (guest Wi-Fi is often
+  separate), that <code>docker compose logs</code> says <code>running game</code>, and the firewall step. Joining by address still works
+  when discovery is blocked.</li>
+<li><strong>"This server is private."</strong> The name is not on the allowlist: <code>/allow add Name</code> (check the spelling), or add it
+  to <code>ALLOWLIST</code> and run <code>docker compose up -d</code>.</li>
+<li><strong>"The name belongs to another player."</strong> Someone else already used that name on this server. Pick another name,
+  or remove the old player's entry (ask for help).</li>
+<li><strong>"Its identity has changed since your last visit."</strong> The server was rebuilt without its data volume, so it has a
+  new identity. If you know that is what happened, click <strong>Trust new identity</strong>.</li>
+<li><strong>Version mismatch.</strong> Update both sides (see above).</li>
+<li><strong>Everything is slow.</strong> Settings → Graphics → Fast, and close other apps.</li>
+</ul>
+<h2 id="a-word-about-skins">A word about skins</h2>
+<p>The game lets children paint a skin, and import a PNG to start from. Anything they wear can be offered to
+the server they join, and other players there may then wear it too - which is lovely when it is their own
+drawing, and awkward when it is a skin downloaded from a site that belongs to somebody else.</p>
+<p>The family server accepts creations automatically (<code>--ugc=auto</code>), which suits people who know each other.
+For a server with strangers on it, <code>--ugc=approval</code> holds every creation until an admin says yes, and
+<code>--ugc=off</code> turns sharing off entirely. Either way an admin can review, hide and remove creations in game.</p>
+<h2 id="playing-at-home">Playing at home</h2>
+<p>This guide walks through a family setup: the server in Docker on a home Linux machine
+(<code>deploy/server/compose.yaml</code> with an allowlist, creations approval and the chat filter), the Mac app
+built with <code>tools/package_mac.sh</code> (ad-hoc signed; first launch via right-click → Open), joining through
+Multiplayer → LAN, and an admin cheat sheet.</p>
+<p>Private servers: <code>--allowlist=Ann,Ben</code> (or <code>QW_ALLOWLIST</code>) lets only those players and admins join; admins
+manage it with <code>/allow list | add &lt;name&gt; | remove &lt;name&gt; | on | off</code>. A listed name is tied to the first
+identity that joins with it. <code>--chat-filter=on</code> (the <code>chat_filter</code> gameplay rule) masks common swear words
+and look-alike spellings in chat and refuses such player names; add words in <code>&lt;world&gt;/chat_filter.txt</code>.</p>
+<h3 id="roles-and-permissions">Roles and permissions</h3>
+<p>Every player has the default role (<code>member</code>, or <code>--default-role=visitor</code> for look-but-don't-build servers) plus
+any roles given to them. Built-in roles, highest first: <strong>owner</strong> (everything; <code>--admins</code> names and the local
+host), <strong>admin</strong> (everything but making owners), <strong>moderator</strong> (kick, teleport, review creations, the allowlist,
+alerts; inherits builder), <strong>builder</strong> (structures; inherits member), <strong>member</strong> (build, interact, chat, creative;
+inherits visitor), <strong>visitor</strong> (chat, interact). Permissions are names like <code>build</code>, <code>interact</code>, <code>chat</code>,
+<code>creative</code>, <code>ugc.review</code>, <code>allowlist.manage</code>, <code>dev.tools</code>, <code>roles.manage</code> and <code>command.&lt;name&gt;</code> for admin-only
+commands; <code>*</code> and <code>group.*</code> match many, <code>-name</code> denies (and wins).</p>
+<p>In game: <code>/role list | info &lt;role&gt; | give|take &lt;player&gt; &lt;role&gt; | create &lt;role&gt; [inherits] | delete &lt;role&gt; |
+allow|deny|remove &lt;role&gt; &lt;permission&gt; | tag &lt;role&gt; &lt;tag&gt; [#color] | reset &lt;role&gt;</code> and <code>/perms [player]</code>; <code>/op</code>
+and <code>/deop</code> give and take admin. Admins also get <strong>Players and roles…</strong> in the pause menu (roles as chips, give a
+role, kick). Managers can only hand out roles below their own; only owners edit roles. Chat shows the highest
+role tag (<code>[Mod] Sam</code>, the <code>role_tags</code> rule). Mods: <code>player.has_permission(name)</code>, <code>register_permission(name,
+description, roles)</code>, <code>player_roles(id)</code>, <code>set_player_role(id, role, on)</code> and the <code>role_changed</code> event
+(JavaScript: <code>hasPermission</code>, <code>registerPermission</code>, <code>playerRoles</code>, <code>setPlayerRole</code>). Saved in world.json.</p>
+<h3 id="anti-cheat">Anti-cheat</h3>
+<p>The server simulates movement from inputs, checks reach, break times, attack cooldowns and edit rates, so a
+modified client cannot simply fly, teleport or instamine. On top of that, <code>engine/server/anticheat.gd</code> watches
+for clients pushing past those limits: <strong>timer</strong> (inputs faster than the game runs; the server lets a client take
+at most ~5% more steps than ticks, so sped-up inputs gain nothing), <strong>reach</strong>, <strong>fast_break</strong>, <strong>attack_rate</strong>,
+<strong>bad_packet</strong> and <strong>flood</strong> (more than 400 messages a second are dropped). Each check keeps a score per player
+that decays over time, so lag and the odd early click fade away: past a warning level moderators are told
+(<code>moderation.alerts</code>), past a kick level the player is kicked. <code>--anticheat=kick|log|off</code> (in game <code>/anticheat
+mode ...</code>), <code>/anticheat [player]</code> for scores and recent flags. Players with <code>anticheat.bypass</code> (admins) are only
+logged; mods can cancel with the <code>cheat_detected {player, check, score, detail, cancelled}</code> event.</p>
+<h3 id="save-compatibility">Save compatibility</h3>
+<p>Worlds must keep working across updates, from alpha 4 (0.40.0) on. Chunks save blocks by name, containers and
+entities by name, and since save format 2 player inventories and equipment are saved by item name too (<code>items</code>
+in each player record) - which is what makes adding, removing and reordering blocks safe. A world in an older
+format is refused rather than converted: there is no converter, and nothing from before alpha 4 is carried
+forward. <code>tests/save_compat_test.tscn</code> loads a world written by each release (<code>tests/fixtures/saves/&lt;version&gt;/</code>,
+made with <code>tools/make_save_fixture.tscn</code> from that release's checkout) and checks builds, chest contents,
+animals, inventories and worn equipment. Mods: store names (<code>items.name_of</code>), never numeric ids, in block data,
+player data and storage.</p>
+<h3 id="server-networks-transfers-and-portals">Server networks: transfers and portals</h3>
+<p>Servers that trust each other send players between them. Each lists the others in <code>&lt;data dir&gt;/network.json</code>
+(<code>{"servers": {"sky": {"name", "address", "port", "id", "send", "receive", "inventory", "admit", "hop"}}}</code>;
+a server's id is printed at startup and by <code>/network id</code>). Moving a player (<code>/transfer &lt;player&gt; &lt;server&gt;
+[arrival]</code>, <code>/server &lt;name&gt;</code> when <code>hop</code> is on, a <strong>Portal</strong> block pointed with <code>/portal &lt;server&gt; [arrival]</code>, or
+<code>player.transfer_to(server, arrival, data)</code> from mods) signs a two-minute ticket with the source server's
+identity key. The client connects to the destination and hands it over; the destination accepts it only from
+servers on its list, for this player and this server, once. <code>address</code> is what the <em>client</em> is told to connect
+to, so it must be reachable from a player's computer - never <code>127.0.0.1</code>, which is theirs, not yours. Arrival points are named with <code>/network arrival
+&lt;id&gt;</code>. With <code>inventory</code> on both sides, inventories travel by item name (unknown items are reported) and the
+source keeps a copy until the player turns up, so a failed trip loses nothing. <code>admit</code> lets arrivals skip the
+allowlist. Events: <code>player_transfer {player, server, arrival, data, cancelled, reason}</code> (cancellable, data can be
+changed) and <code>player_arrived {player, from, arrival, data}</code>; <code>network_servers()</code>, <code>set_arrival_point(id, pos)</code>.
+Example setup: <code>deploy/server/compose.yaml</code> (three worlds and a hub) with <code>deploy/server/link-servers.sh</code>,
+which fills in each server's network.json once the ids exist. See docs/hosting.md.</p>
+<h2 id="dedicated-server-docker">Dedicated server &amp; Docker</h2>
+<p><code>scenes/server.tscn</code> (<code>engine/server_main.gd</code>) loads no client code. Every option is a CLI arg or an
+environment variable: <code>QW_PORT</code>, <code>QW_MODS</code>, <code>QW_MODS_DIR</code>, <code>QW_DATA_DIR</code>, <code>QW_WORLD</code>,
+<code>QW_SEED</code>, <code>QW_MAX_PLAYERS</code>, <code>QW_METRICS</code>, <code>QW_ADMINS</code>, <code>QW_ADMIN_TOKEN</code>,
+<code>QW_BACKUP_INTERVAL</code>, <code>QW_BACKUP_KEEP</code>, <code>QW_RESTORE</code>, <code>QW_NAME</code> and <code>QW_MOTD</code> (shown in
+server lists) and <code>QW_QUERY_PORT</code>: status queries for menus (name, message, game, players, ping)
+are answered over UDP on the game port + 1 by default (0 turns them off; rate limited per address).
+<code>QW_HUB</code> lists the server on a hub (with <code>QW_PUBLIC_ADDRESS</code> and <code>QW_TAGS</code>).</p>
+<p><strong>How much world to run.</strong> <code>QW_VIEW_DISTANCE</code> (default 8) is how many chunks of terrain each player is
+sent; <code>QW_SIMULATION_DISTANCE</code> (default 6, never more than the view) is how many chunks around them
+actually tick. They are separate because they cost different things - seeing costs upload, running
+costs CPU - so a machine short of one need not give up the other. Blocks outside the simulated set are
+not stopped but asleep: when somebody comes back they are handed the time they missed, so crops go on
+growing and furnaces go on burning while nobody is near. A world with nobody in it at all does no work.</p>
+<h3 id="hub-service">Hub service</h3>
+<p><code>services/hub</code> is a small Rust service (axum, SQLite) for the public server list, short invite codes
+menu news, and friends and parties (sign-in with the identity key); see its README. Servers announce every 30 seconds, signed with their identity key, and
+the hub proves the address with a signed status query before listing it. Players point the game at a
+hub in Settings → Network (or <code>QW_HUB</code>). <code>tools/run_tests.sh</code> builds it and runs its unit tests and
+<code>tests/hub_test.tscn</code> (a real hub and game server) when cargo is installed.</p>
+<pre class="codehilite"><code class="language-sh">docker build -t quarrowen-server .
+docker run -p 24565-24566:24565-24566/udp -v voxel-data:/data -e QW_MODS=proving quarrowen-server
+docker compose up        # each world on its own port (status on the next port)
+</code></pre>
+
+<p>The image compiles the Rust extension for the target architecture, exports the "Linux Server" preset
+and ships the engine only (about 250 MB). <strong>Mods live in the <code>/mods</code> volume, not in the image:</strong> on
+every start <code>deploy/entrypoint.sh</code> refreshes the mods the engine shipped with into <code>/mods</code> and leaves
+everything else there alone, so a mod is added by dropping its folder (or a packaged zip) in and
+restarting - no rebuild. <code>QW_SEED_MODS=missing</code> keeps your edits to the bundled mods, <code>never</code>
+leaves the folder entirely to you. Worlds live in the <code>/data</code> volume. SIGTERM and SIGINT trigger a
+save before exit, so <code>docker stop</code> is safe.</p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#playing-quarrowen-at-home">Playing Quarrowen at home</a></li><li class="sub"><a href="#1-the-server-ubuntu-docker">1. The server (Ubuntu + Docker)</a></li><li class="sub"><a href="#2-the-macs">2. The Macs</a></li><li class="sub"><a href="#3-first-game">3. First game</a></li><li class="sub"><a href="#4-admin-cheat-sheet">4. Admin cheat sheet</a></li><li class="sub"><a href="#5-backups-and-updates">5. Backups and updates</a></li><li class="sub"><a href="#three-worlds-travel-between-them-and-the-hub">Three worlds, travel between them, and the hub</a></li><li class="sub"><a href="#6-when-something-goes-wrong">6. When something goes wrong</a></li><li class="sub"><a href="#a-word-about-skins">A word about skins</a></li><li class="sub"><a href="#playing-at-home">Playing at home</a></li><li class="sub"><a href="#dedicated-server-docker">Dedicated server &amp; Docker</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../search/main.js" defer></script>
+<script src="../lang/main.js" defer></script>
+</body>
+</html>

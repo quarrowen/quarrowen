@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobs and entities &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="../../..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="../../..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec open">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../">Overview</a></li>
+          <li><a class="" href="../blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../crafting/">Crafting</a></li>
+          <li><a class="" href="../events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../everything-else/">Everything else</a></li>
+          <li><a class="" href="../guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../items/">Items</a></li>
+          <li><a class="" href="../logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="cur" href="./">Mobs and entities</a></li>
+          <li><a class="" href="../players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../server/">Server</a></li>
+          <li><a class="" href="../sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../../engine/">Engine internals</a></li>
+          <li><a class="" href="../../how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../modding/">Writing a mod</a></li>
+          <li><a class="" href="../../../loot/">Loot tables</a></li>
+          <li><a class="" href="../../../hosting/">Running a server</a></li>
+          <li><a class="" href="../../../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../playing/">Playing</a></li>
+          <li><a class="" href="../../../engine/">The engine</a></li>
+          <li><a class="" href="../../../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../../../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="mobs-and-entities">Mobs and entities</h1>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<h3 id="apiregister_entity"><code>api.register_entity</code></h3>
+<p>GDScript: <code>api.register_entity(entity_name: String, def: Dictionary) -&gt; int</code></p>
+<p>JavaScript: <code>api.registerEntity(name: string, def: EntityDef): number</code></p>
+<p>Registers an entity type (mob, projectile, object). See EntityRegistry.register for keys. Model and
+sprite paths are relative to the mod folder; sound names without a ":" are this mod's.
+Returns the type id, or -1.</p>
+<pre class="codehilite"><code class="language-gdscript">ids.grazer = api.register_entity(&quot;grazer&quot;, {&quot;kind&quot;: &quot;mob&quot;, &quot;display_name&quot;: &quot;Grazer&quot;,
+    &quot;width&quot;: 0.8, &quot;height&quot;: 1.0, &quot;health&quot;: 10, &quot;speed&quot;: 2.2, &quot;category&quot;: &quot;animal&quot;, &quot;persistent&quot;: true,
+    &quot;taming&quot;: {&quot;items&quot;: [&quot;proving:grain&quot;], &quot;chance&quot;: 1.0, &quot;follow_distance&quot;: 3.0, &quot;teleport_distance&quot;: 16.0},
+    &quot;breeding&quot;: {&quot;items&quot;: [&quot;proving:grain&quot;], &quot;cooldown&quot;: 5.0},
+    &quot;nameplate&quot;: {&quot;show_health&quot;: true},
+    # Drops, so it has a loot table another mod can extend - which is what extend_loot is for.
+    &quot;drops&quot;: [[&quot;proving:token&quot;, 1], [&quot;proving:grain&quot;, 2]],
+    &quot;ai&quot;: {&quot;preset&quot;: &quot;passive&quot;, &quot;wander_radius&quot;: 6}})
+</code></pre>
+
+<p><strong>See also:</strong> <code>folder</code>, <code>is_excluded</code>, <code>qualified</code>, <code>register</code>, <code>register_asset</code>, <code>reload</code></p>
+<h3 id="apiexplode"><code>api.explode</code></h3>
+<p>GDScript: <code>api.explode(position: Vector3, power: float, options := {}) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.explode(position, power, options)</code></p>
+<p>Sets off an explosion (see engine/server/explosions.gd): power ~3 is a mob blast. options: source,
+break_blocks, drop_chance, damage (multiplier), effect, sound. Returns the explosion event.</p>
+<p><strong>See also:</strong> <code>blast_resistance</code>, <code>break_block</code>, <code>cast</code>, <code>damage</code>, <code>damage_player</code>, <code>get_block_v</code></p>
+<h3 id="apientity_type"><code>api.entity_type</code></h3>
+<p>GDScript: <code>api.entity_type(entity_name: String) -&gt; int</code></p>
+<p>JavaScript: <code>api.entityType(entityName)</code></p>
+<p>Entity type id by name ("vanilla:zombie", or a local name). -1 if unknown.</p>
+<p><strong>See also:</strong> <code>qualified</code></p>
+<h3 id="apispawn_entity"><code>api.spawn_entity</code></h3>
+<p>GDScript: <code>api.spawn_entity(entity_name: String, position: Vector3, options := {})</code></p>
+<p>JavaScript: <code>api.spawnEntity(type: string, position: Vec3, options?: { yaw?: number; velocity?: Vec3; data?: Record&lt;string, unknown&gt; }): Entity | null</code></p>
+<p>Spawns an entity. options: yaw, velocity (Vector3), data (Dictionary), owner (player or entity,
+for projectiles), <strong>realm</strong> (which world to put it in; the overworld by default). Returns the
+entity or null.</p>
+<p><code>realm</code> matters for instances: without it every spawn landed in the overworld, so a dungeon could
+be entered but never populated. (2026-09-21)</p>
+<p><strong>See also:</strong> <code>entity_type</code>, <code>qualified</code>, <code>register_instance</code>, <code>spawn</code></p>
+<h3 id="apispawn_projectile"><code>api.spawn_projectile</code></h3>
+<p>GDScript: <code>api.spawn_projectile(entity_name: String, from: Vector3, velocity: Vector3, owner = null, realm_id := "")</code></p>
+<p>JavaScript: <code>api.spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner?: Player | Entity | null): Entity | null</code></p>
+<p>Fires a projectile entity from <code>from</code> with <code>velocity</code>, credited to <code>owner</code> (player or entity).</p>
+<p><strong>See also:</strong> <code>entity_type</code>, <code>qualified</code>, <code>register_instance</code>, <code>spawn</code></p>
+<h3 id="apiget_entities"><code>api.get_entities</code></h3>
+<p>GDScript: <code>api.get_entities(center: Vector3, radius: float, entity_name := "") -&gt; Array</code></p>
+<p>JavaScript: <code>api.getEntities(center, radius, entityName)</code></p>
+<p>Living entities within <code>radius</code> of <code>center</code>, optionally only of one type.</p>
+<p><strong>See also:</strong> <code>entity_type</code>, <code>in_radius</code></p>
+<h3 id="apiget_entity"><code>api.get_entity</code></h3>
+<p>GDScript: <code>api.get_entity(entity_id: int)</code></p>
+<p>JavaScript: <code>api.getEntity(entityId)</code></p>
+<p>The entity with this id, or null if it is gone.</p>
+<h3 id="apiregister_mob_behavior"><code>api.register_mob_behavior</code></h3>
+<p>GDScript: <code>api.register_mob_behavior(behavior_name: String, def: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.registerMobBehavior(behaviorName, def)</code></p>
+<p>Registers a mob behaviour that mobs listing it in ai.behaviors can choose. <code>def</code>:
+score:  Callable(brain) -&gt; float   utility each think; the highest scoring behaviour runs.
+Engine scores: idle 0.05, wander 0.1, investigate 0.4, search &lt;= 0.65, engage 0.7-0.9,
+return_home 0.95+, flee 1.05, scripted 1.2
+update: Callable(brain, delta)     called each think while it runs; use brain.move_to / stop /
+look_at, brain.target, brain.entity, brain.can_see_target(), brain.health_fraction()
+stop:   Callable(brain)            optional, when another behaviour takes over</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_mob_behavior(&quot;forage&quot;, {
+    &quot;score&quot;: func(brain): return 0.2 if api.order_of(brain.entity) == &quot;proving:forage&quot; else 0.0,
+    &quot;update&quot;: func(brain, _delta): brain.stop(),
+})
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code></p>
+<h3 id="apimake_noise"><code>api.make_noise</code></h3>
+<p>GDScript: <code>api.make_noise(position: Vector3, radius: float, source = null) -&gt; void</code></p>
+<p>JavaScript: <code>api.makeNoise(position, radius, source)</code></p>
+<p>Lets mobs hear something at <code>position</code> (they come to investigate). <code>source</code> may be a player.</p>
+<p><strong>See also:</strong> <code>category</code>, <code>place</code></p>
+<h3 id="apiadd_spawn_rule"><code>api.add_spawn_rule</code></h3>
+<p>GDScript: <code>api.add_spawn_rule(def: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.addSpawnRule(rule: SpawnRule): void</code></p>
+<p>Natural spawning. def: entity (name), category ("monster" | "animal" | "ambient" | "misc"; default
+from the mob's AI), light [min, max] (0-15; monsters default to [0, 7] so torches keep them away,
+animals to [9, 15]), place ("any" | "surface" | "underground"), time ("night" | "day" | "any"), on
+(block names the mob may stand on; default any), group [min, max] (pack size), max_nearby (per
+player), max_total, chance (per player per second), min_distance, max_distance. See
+engine/server/spawning.gd for caps and despawning.</p>
+<pre class="codehilite"><code class="language-gdscript">api.add_spawn_rule({&quot;entity&quot;: &quot;biter&quot;, &quot;group&quot;: [1, 2]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>add_rule</code>, <code>block</code>, <code>entity_type</code>, <code>is_excluded</code>, <code>qualified</code></p>
+<h3 id="apiset_spawn_caps"><code>api.set_spawn_caps</code></h3>
+<p>GDScript: <code>api.set_spawn_caps(caps: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.setSpawnCaps(caps)</code></p>
+<p>How many mobs of each category may be around each player: {monster, animal, ambient, misc}.</p>
+<pre class="codehilite"><code class="language-gdscript">var apply_caps := func(): api.set_spawn_caps({&quot;monster&quot;: int(caps.get(String(api.setting(&quot;monsters&quot;)), 24))})
+</code></pre>
+
+<p><strong>See also:</strong> <code>set_caps</code></p>
+<h3 id="apirequire_entity"><code>api.require_entity</code></h3>
+<p>GDScript: <code>api.require_entity(entity_name: String) -&gt; int</code></p>
+<p>JavaScript: <code>api.requireEntity(entityName)</code></p>
+<p>As require_block, for an entity type.</p>
+<p><strong>See also:</strong> <code>entity_type</code></p>
+<h3 id="apiextend_entity"><code>api.extend_entity</code></h3>
+<p>GDScript: <code>api.extend_entity(entity_name: String, additions: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.extendEntity(entityName, additions)</code></p>
+<p>Adds to a creature another mod owns, without forking it: a new attack on their boss, another drop,
+an extra behaviour.</p>
+<p>api.extend_entity("proving:grazer", {"ai": {"attacks": [{"name": "kick", "type": "melee"}]}})</p>
+<p><strong>Additive only, and that is the whole design.</strong> Appending to a list is commutative: three mods can
+each add an attack and the result does not depend on which loaded last. "Set the health to 40" is
+not, and supporting it would mean inventing a conflict system nobody asked for. What can be added:
+<code>ai.attacks</code>, <code>ai.behaviors</code>, <code>ai.phases</code> and <code>drops</code>. Anything else is refused and says so.</p>
+<p>Takes effect for creatures spawned afterwards. One already walking about keeps the brain it was
+given, which is why this belongs in <code>setup()</code> rather than halfway through a game.</p>
+<p><strong>See also:</strong> <code>entity_type</code>, <code>is_excluded</code>, <code>qualified</code></p>
+<h3 id="apiset_spawn_handler"><code>api.set_spawn_handler</code></h3>
+<p>GDScript: <code>api.set_spawn_handler(handler: Callable) -&gt; void</code></p>
+<p>JavaScript: <code>api.setSpawnHandler(handler)</code></p>
+<p>Where a player who has never played here before starts: <code>handler(player) -&gt; Vector3</code>.</p>
+<p>This runs before the world around it is loaded, so it is also the right place to <em>build</em> the thing
+the player should open their eyes on. Placing a structure from <code>player_join</code> instead is too late -
+the player has already been put at the old position and sees themselves moved. (playtest, 2026-09-18)</p>
+<pre class="codehilite"><code class="language-gdscript">api.set_spawn_handler(func(_player): return Vector3(0.5, GROUND_Y + 1, 0.5))
+</code></pre>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#mobs-and-entities">Mobs and entities</a></li><li class="sub"><a href="#apiregister_entity">api.register_entity</a></li><li class="sub"><a href="#apiexplode">api.explode</a></li><li class="sub"><a href="#apientity_type">api.entity_type</a></li><li class="sub"><a href="#apispawn_entity">api.spawn_entity</a></li><li class="sub"><a href="#apispawn_projectile">api.spawn_projectile</a></li><li class="sub"><a href="#apiget_entities">api.get_entities</a></li><li class="sub"><a href="#apiget_entity">api.get_entity</a></li><li class="sub"><a href="#apiregister_mob_behavior">api.register_mob_behavior</a></li><li class="sub"><a href="#apimake_noise">api.make_noise</a></li><li class="sub"><a href="#apiadd_spawn_rule">api.add_spawn_rule</a></li><li class="sub"><a href="#apiset_spawn_caps">api.set_spawn_caps</a></li><li class="sub"><a href="#apirequire_entity">api.require_entity</a></li><li class="sub"><a href="#apiextend_entity">api.extend_entity</a></li><li class="sub"><a href="#apiset_spawn_handler">api.set_spawn_handler</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../../../search/main.js" defer></script>
+<script src="../../../lang/main.js" defer></script>
+</body>
+</html>

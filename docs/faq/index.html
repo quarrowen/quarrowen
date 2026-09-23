@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Questions &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../api/mod-api/">Overview</a></li>
+          <li><a class="" href="../api/mod-api/blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../api/mod-api/crafting/">Crafting</a></li>
+          <li><a class="" href="../api/mod-api/events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../api/mod-api/everything-else/">Everything else</a></li>
+          <li><a class="" href="../api/mod-api/guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../api/mod-api/items/">Items</a></li>
+          <li><a class="" href="../api/mod-api/logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../api/mod-api/mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../api/mod-api/players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../api/mod-api/server/">Server</a></li>
+          <li><a class="" href="../api/mod-api/sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../api/mod-api/world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../api/engine/">Engine internals</a></li>
+          <li><a class="" href="../api/how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../modding/">Writing a mod</a></li>
+          <li><a class="" href="../loot/">Loot tables</a></li>
+          <li><a class="" href="../hosting/">Running a server</a></li>
+          <li><a class="" href="../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../playing/">Playing</a></li>
+          <li><a class="" href="../engine/">The engine</a></li>
+          <li><a class="" href="../roadmap/">What is still missing</a></li>
+          <li><a class="cur" href="./">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="questions">Questions</h1>
+<h2 id="is-this-minecraft">Is this Minecraft?</h2>
+<p>No. It is an independent voxel game, written from scratch, and it is not affiliated with or endorsed by
+Mojang, Microsoft or Roblox. It shares a genre the way a platformer shares a genre: blocks, crafting and
+a first-person view are the vocabulary, not the game. Quarrowen's own idea is that <strong>the server decides
+the game</strong> — the client carries no content at all, so the same app plays a survival world, an island
+puzzle or a story, depending only on which server you join.</p>
+<h2 id="what-does-it-cost">What does it cost?</h2>
+<p>Nothing. It is free to play, free to modify and free to share for anything noncommercial, under the
+<a href="../LICENSE">PolyForm Noncommercial</a> licence. That is deliberately <strong>not</strong> an OSI open source licence:
+commercial use needs a separate one. Worth knowing before you build a business on it.</p>
+<h2 id="what-do-i-need-to-run-it">What do I need to run it?</h2>
+<p>A Mac with Apple silicon. It is signed and notarized, so it opens by double-clicking with no security
+detour.</p>
+<p>There is a <strong>Windows</strong> build too, linked from the download page. It is unsigned, so Windows asks before
+running it the first time, and it does not update itself yet - you download the new one when there is
+one. Linux is not published, though the engine builds for it.</p>
+<p>A server wants a Linux box with Docker — a spare mini PC or an old laptop is plenty for a family.</p>
+<h2 id="is-it-safe-for-children">Is it safe for children?</h2>
+<p>It was built for children, and that has shaped it:</p>
+<ul>
+<li><strong>Only people you allow can join.</strong> <code>ALLOWLIST</code> in the server's settings, and travel between your own
+  worlds carries the permission across.</li>
+<li><strong>Chat can be filtered</strong>, and is not written to the server log.</li>
+<li><strong>Player creations</strong> (painted skins, hats) can require an adult's approval before anyone else sees them.</li>
+<li><strong>No accounts, no email, no telemetry.</strong> A player is a key on their own computer. Nothing is collected
+  and nothing is sent anywhere except the server you choose to join.</li>
+<li>Death messages and hints are written to be read by an eight-year-old at bedtime.</li>
+</ul>
+<h2 id="can-my-children-play-together">Can my children play together?</h2>
+<p>Yes — that is what it is for. Run one server for the family and everyone joins it from the menu. You can
+run several worlds side by side (a survival world, an island world, a story) and walk between them
+through portals or with <code>/server &lt;name&gt;</code>.</p>
+<h2 id="does-it-update-itself">Does it update itself?</h2>
+<p>Yes. The client checks when the menu opens and offers the new version; it never downloads from a game
+server, only from the project's own address, and it checks a signature before installing. You can turn
+the check off in Settings → Network.</p>
+<p>A server and its players must run the same version — a mismatch is refused at the door with a message
+saying so, rather than misbehaving quietly.</p>
+<h2 id="where-are-my-worlds-and-settings-kept">Where are my worlds and settings kept?</h2>
+<p><code>~/Library/Application Support/Quarrowen</code>. Settings → <strong>Files</strong> lists every folder with a button that
+opens it, which is easier than finding that path by hand. Downloaded content is cleared out as it grows;
+your worlds, creations and account key never are.</p>
+<h2 id="can-i-make-my-own-blocks-creatures-or-games">Can I make my own blocks, creatures or games?</h2>
+<p>Yes, and that is the interesting part. A mod can add blocks, items, creatures, world generation, recipes,
+machines, commands and UI, in <strong>GDScript or JavaScript</strong>, and everyone who joins your server downloads it
+automatically. Start with <a href="../modding/">modding.md</a>; the full reference is
+<a href="../api/">api/index.html</a>.</p>
+<h2 id="what-is-hearthhold">What is Hearthhold?</h2>
+<p>The story game that comes with it. A valley whose light went out: light the hearth, see the night out,
+find the people who scattered into the hills and build them somewhere to live. It exists partly to prove
+a point — everything it does is built on the same mod API anyone else can use.</p>
+<h2 id="something-is-broken-what-do-i-do">Something is broken. What do I do?</h2>
+<p>Settings → <strong>Files</strong> → Logs, and look at the most recent one. For a server, <code>docker compose logs -f</code>. Then
+open an issue with what you were doing and what the log said — a bug report from a real session is worth
+more than any amount of testing.</p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#questions">Questions</a></li><li class="sub"><a href="#is-this-minecraft">Is this Minecraft?</a></li><li class="sub"><a href="#what-does-it-cost">What does it cost?</a></li><li class="sub"><a href="#what-do-i-need-to-run-it">What do I need to run it?</a></li><li class="sub"><a href="#is-it-safe-for-children">Is it safe for children?</a></li><li class="sub"><a href="#can-my-children-play-together">Can my children play together?</a></li><li class="sub"><a href="#does-it-update-itself">Does it update itself?</a></li><li class="sub"><a href="#where-are-my-worlds-and-settings-kept">Where are my worlds and settings kept?</a></li><li class="sub"><a href="#can-i-make-my-own-blocks-creatures-or-games">Can I make my own blocks, creatures or games?</a></li><li class="sub"><a href="#what-is-hearthhold">What is Hearthhold?</a></li><li class="sub"><a href="#something-is-broken-what-do-i-do">Something is broken. What do I do?</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../search/main.js" defer></script>
+<script src="../lang/main.js" defer></script>
+</body>
+</html>

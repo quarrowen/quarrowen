@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Everything else &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="../../..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="../../..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec open">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../">Overview</a></li>
+          <li><a class="" href="../blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../crafting/">Crafting</a></li>
+          <li><a class="" href="../events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="cur" href="./">Everything else</a></li>
+          <li><a class="" href="../guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../items/">Items</a></li>
+          <li><a class="" href="../logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../server/">Server</a></li>
+          <li><a class="" href="../sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../../engine/">Engine internals</a></li>
+          <li><a class="" href="../../how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../modding/">Writing a mod</a></li>
+          <li><a class="" href="../../../loot/">Loot tables</a></li>
+          <li><a class="" href="../../../hosting/">Running a server</a></li>
+          <li><a class="" href="../../../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../../../playing/">Playing</a></li>
+          <li><a class="" href="../../../engine/">The engine</a></li>
+          <li><a class="" href="../../../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../../../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="everything-else">Everything else</h1>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<h3 id="apireloading"><code>api.reloading</code></h3>
+<p>GDScript: <code>api.reloading := false  (property)</code></p>
+<p>True while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,
+items and entities that exist update in place; things that cannot change live are skipped and noted.</p>
+<h3 id="apiregister_ambience"><code>api.register_ambience</code></h3>
+<p>GDScript: <code>api.register_ambience(options: Dictionary) -&gt; String</code></p>
+<p>JavaScript: <code>api.registerAmbience(options: { sound: string; every?: [number, number]; sky?: boolean; depth?: [number, number]; biome?: string | string[]; near?: string | string[]; radius?: number; chance?: number; volume?: number; pitch?: number; }): string</code></p>
+<p>Registers an occasional atmospheric sound near a player: wind out in the open, a drip in the dark,
+water lapping by a lake. Returns "" or why it was refused.</p>
+<p>api.register_ambience({"sound": "wind", "sky": true, "every": [20.0, 45.0]})
+api.register_ambience({"sound": "drip", "sky": false, "depth": [0, 45], "every": [8.0, 25.0]})
+api.register_ambience({"sound": "lapping", "near": ["base:water"], "radius": 6})</p>
+<p>Conditions: <code>sky</code> (true outdoors, false under something), <code>depth</code> [low, high], <code>biome</code> (one or a
+list), <code>near</code> (block names - the sound then comes <em>from</em> one of them, so water laps from the water),
+<code>radius</code>, <code>chance</code>. <code>every</code> is [minimum, maximum] seconds, kept per player, so two people in
+different places hear their own surroundings rather than each other's.</p>
+<p>In the engine rather than in a mod because otherwise every mod that wanted weather or caves would
+write the same four decisions - how often is too often, how far can it be, who else hears it, what
+about somebody asleep - and none of them would agree.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_ambience({&quot;sound&quot;: &quot;proving:chime&quot;, &quot;sky&quot;: true, &quot;every&quot;: [20.0, 45.0]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>register</code>, <code>set_default_role</code></p>
+<h3 id="apiset_default_role"><code>api.set_default_role</code></h3>
+<p>GDScript: <code>api.set_default_role(role_name: String) -&gt; String</code></p>
+<p>JavaScript: <code>api.setDefaultRole(role: string): string</code></p>
+<p>The role every player has unless somebody gives them another. This is how a mod makes a story: the
+stock "visitor" role is chat and interact with no build, so the valley stays as its author left it
+while doors, chests and levers still work.</p>
+<p>api.set_default_role("visitor")   # a world to walk through, not one to change</p>
+<p>Story mode needed no new capability in the end: "build" has been a permission since roles existed,
+the engine already refuses a break or a place without it, tells the player why (once every three
+seconds, not once a click) and puts the block back on the client that predicted it. All that was
+missing was a mod being able to say which role people start in. Returns "" or why not.</p>
+<p><strong>See also:</strong> <code>exists</code></p>
+<h3 id="apiregister_weather"><code>api.register_weather</code></h3>
+<p>GDScript: <code>api.register_weather(weather_name: String, def: Dictionary) -&gt; int</code></p>
+<p>JavaScript: <code>api.registerWeather(weatherName, def)</code></p>
+<p>Registers a kind of weather. The engine draws it and keeps everyone in the same sky; the mod decides
+what it looks like and when it happens.</p>
+<p>api.register_weather("rain", {
+"emitter": {"amount": 220, "lifetime": 1.1, "speed": [16, 20], "direction": [0, -1, 0],
+"spread": 3, "size": [0.05, 0.05], "colors": ["#9fc4e8aa"], "shape": "box",
+"extents": [18, 1, 18]},
+"sound": "rain", "sky_tint": "#6a7686", "light_scale": 0.72})</p>
+<p><code>emitter</code> is the same shape as an effect's (see register_effect), drawn continuously above whoever is
+out in it. <code>sound</code> loops while it falls, <code>sky_tint</code> colours the sky, <code>light_scale</code> darkens the world,
+<code>fog</code> closes the distance in.</p>
+<p><strong>When it rains is not here.</strong> That is a mod's decision and games want wildly different answers - a
+survival world on a timer, a story where the storm arrives because the story says so.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_weather(&quot;haze&quot;, {&quot;display_name&quot;: &quot;Haze&quot;, &quot;darkness&quot;: 0.2, &quot;particles&quot;: &quot;puff&quot;})
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code>, <code>register</code>, <code>reload</code></p>
+<h3 id="apiset_weather"><code>api.set_weather</code></h3>
+<p>GDScript: <code>api.set_weather(weather_name: String, options := {}) -&gt; void</code></p>
+<p>JavaScript: <code>api.setWeather(weatherName, options)</code></p>
+<p>Starts weather for everyone, or stops it with "". <code>seconds</code> of 0 leaves it until something changes it.</p>
+<h3 id="apiget_weather"><code>api.get_weather</code></h3>
+<p>GDScript: <code>api.get_weather() -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.getWeather()</code></p>
+<p>What the sky is doing: {name, intensity}. <code>name</code> is "" when it is clear.</p>
+<p><strong>See also:</strong> <code>register_music</code>, <code>weather_state</code></p>
+<h3 id="apiregister_music"><code>api.register_music</code></h3>
+<p>GDScript: <code>api.register_music(track_name: String, file: String, options := {}) -&gt; int</code></p>
+<p>JavaScript: <code>api.registerMusic(name: string, file: string, options: { attribution: string; volume?: number; loop?: boolean }): number</code></p>
+<p>Registers a music track. <code>attribution</code> is required: say who made it and under what licence.</p>
+<p>api.register_music("valley", "music/valley.ogg", {
+"attribution": "Kevin MacLeod - Meadow (CC0)", "volume": 0.8})</p>
+<p>The audio is registered as a <em>lazy</em> asset, so it does not join the download a player waits through to
+get in; it arrives quietly afterwards and the track starts when it is ready. Nothing is ever held up
+waiting for music, which is the whole reason the lazy lane exists.</p>
+<p>Attribution is required rather than encouraged because whoever runs a server is redistributing this
+to their children and anyone else who joins, and a track whose source nobody wrote down is one whose
+licence nobody can check later. <code>/music</code> shows the credits in game.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_music(&quot;daylight&quot;, &quot;music/daylight.ogg&quot;, {&quot;volume&quot;: 0.9, &quot;attribution&quot;: credit})
+</code></pre>
+
+<p><strong>See also:</strong> <code>register</code>, <code>register_asset</code>, <code>reload</code></p>
+<h3 id="apiplay_music"><code>api.play_music</code></h3>
+<p>GDScript: <code>api.play_music(player, track_name: String, options := {}) -&gt; void</code></p>
+<p>JavaScript: <code>api.playMusic(player: Player | null, name: string, options?: { fade?: number; restart?: boolean }): void</code></p>
+<p>Starts a track for one player, or for everybody when <code>player</code> is null. Playing the track that is
+already playing does nothing, so this is safe to call every time the biome or the time of day
+changes - which is how a mod will actually want to use it.</p>
+<p>options: {fade (seconds to cross over, default 2.0), restart (start again even if it is already
+playing, default false)}.</p>
+<pre class="codehilite"><code class="language-gdscript">api.play_music(ev.player, &quot;night&quot; if api.get_daylight() &lt; 0.3 else &quot;daylight&quot;, {&quot;fade&quot;: 6.0}))
+</code></pre>
+
+<p><strong>See also:</strong> <code>send_music</code></p>
+<h3 id="apistop_music"><code>api.stop_music</code></h3>
+<p>GDScript: <code>api.stop_music(player, options := {}) -&gt; void</code></p>
+<p>JavaScript: <code>api.stopMusic(player: Player | null, options?: { fade?: number }): void</code></p>
+<p>Fades the music out for one player, or for everybody when <code>player</code> is null.</p>
+<p><strong>See also:</strong> <code>send_music</code></p>
+<h3 id="apiset_map_marker"><code>api.set_map_marker</code></h3>
+<p>GDScript: <code>api.set_map_marker(player, marker_id: String, marker: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.setMapMarker(player, markerId, marker)</code></p>
+<p>Puts a marker on a player's map and compass (it stays until removed).
+<code>marker</code> = {label, position, color, dimension}. Markers are per player, so a home or a grave only shows
+to whoever it belongs to. <code>dimension</code> ("" = the ordinary world) hides it while they are somewhere else.</p>
+<p><strong>See also:</strong> <code>dimension_of</code></p>
+<h3 id="apiclear_map_marker"><code>api.clear_map_marker</code></h3>
+<p>GDScript: <code>api.clear_map_marker(player, marker_id: String) -&gt; void</code></p>
+<p>JavaScript: <code>api.clearMapMarker(player, markerId)</code></p>
+<p>Takes a marker off a player's map.</p>
+<h3 id="apiset_world_marker"><code>api.set_world_marker</code></h3>
+<p>GDScript: <code>api.set_world_marker(marker_id: String, marker: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.setWorldMarker(markerId, marker)</code></p>
+<p>Puts a marker on everyone's map and compass (a village, a shared base, an event). Saved with the world.
+<code>marker</code> = {label, position, color, dimension} ("" = the ordinary world).</p>
+<h3 id="apiclear_world_marker"><code>api.clear_world_marker</code></h3>
+<p>GDScript: <code>api.clear_world_marker(marker_id: String) -&gt; void</code></p>
+<p>JavaScript: <code>api.clearWorldMarker(markerId)</code></p>
+<p>Takes a marker off everyone's map.</p>
+<h3 id="apiopen_bag"><code>api.open_bag</code></h3>
+<p>GDScript: <code>api.open_bag(player, slot: int) -&gt; bool</code></p>
+<p>JavaScript: <code>api.openBag(player, slot)</code></p>
+<p>Opens the bag a player is carrying in one of their own inventory slots.</p>
+<p>A bag is an item whose definition names a <code>container</code> type, the way a chest block does. Its
+contents live in the item's own data, so it holds what it holds wherever it goes - into a chest,
+onto the floor, into somebody else's hands - with no bookkeeping to keep the two in step.</p>
+<p>api.register_item("satchel", {"display_name": "Satchel", "container": "proving:satchel"})
+api.on("item_use", func(ev): api.open_bag(ev.player, ev.player.selected_slot))</p>
+<p>A bag cannot be put inside a bag; the engine refuses it, because a container that can contain
+itself is a duplication bug waiting for somebody to find it.</p>
+<pre class="codehilite"><code class="language-gdscript">if not api.open_bag(player, player.selected_slot):
+</code></pre>
+
+<p><strong>See also:</strong> <code>open_item</code>, <code>shared_store</code></p>
+<h3 id="apishared_store"><code>api.shared_store</code></h3>
+<p>GDScript: <code>api.shared_store(store_name: String, container_type: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.sharedStore(storeName, containerType)</code></p>
+<p>Declares a store that is the same contents wherever it is opened. Returns false if the container
+type is unknown.</p>
+<p><strong>Whose it is, is the name's business.</strong> One vault for the server is <code>shared_store("vault", ...)</code>;
+one each is <code>shared_store("vault_" + p.player_id, ...)</code>. The engine keeps a table of names, which
+is why it does not need to know which you meant.</p>
+<pre class="codehilite"><code class="language-gdscript">api.shared_store(&quot;vault&quot;, &quot;vault&quot;)
+</code></pre>
+
+<p><strong>See also:</strong> <code>declare_store</code></p>
+<h3 id="apiopen_shared"><code>api.open_shared</code></h3>
+<p>GDScript: <code>api.open_shared(player, store_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.openShared(player, storeName)</code></p>
+<p>Opens a shared store for a player. Declare it with <code>shared_store</code> first.</p>
+<pre class="codehilite"><code class="language-gdscript">api.open_shared(player, &quot;vault&quot;))
+</code></pre>
+
+<p><strong>See also:</strong> <code>open_store</code></p>
+<h3 id="apiget_shared"><code>api.get_shared</code></h3>
+<p>GDScript: <code>api.get_shared(store_name: String)</code></p>
+<p>JavaScript: <code>api.getShared(storeName)</code></p>
+<p>The contents of a shared store without opening a screen, for a mod that wants to read or fill one.
+Returns null if it was never declared.</p>
+<p><strong>See also:</strong> <code>store_key</code></p>
+<h3 id="apiplay_decal"><code>api.play_decal</code></h3>
+<p>GDScript: <code>api.play_decal(position: Vector3, normal := Vector3i.UP, look := {}, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.playDecal(position, normal, look, realmId)</code></p>
+<p>Leaves a mark on the world: scorch where a blast went off, a stain under something leaking.
+look: {color, size, seconds} - no seconds leaves it until older marks push it out.</p>
+<p>It projects onto whatever is underneath, so it follows the shape of the ground and does not have to
+know what it landed on. <code>normal</code> turns it to lie on a wall rather than the floor.</p>
+<pre class="codehilite"><code class="language-gdscript">api.play_decal(at - Vector3(0, 0.5, 0), Vector3i.UP, {&quot;color&quot;: &quot;#222222&quot;, &quot;size&quot;: 2.0})
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code>, <code>realm_of</code></p>
+<h3 id="apiscreen_tint"><code>api.screen_tint</code></h3>
+<p>GDScript: <code>api.screen_tint(player, look := {}) -&gt; void</code></p>
+<p>JavaScript: <code>api.screenTint(player, look)</code></p>
+<p>Washes a colour over one player's view: underwater, poisoned, standing too near the fire.
+look: {color, strength 0-1, seconds} - no seconds holds it until it is changed or cleared, which is
+what "underwater" wants; seconds fades it out, which is what a flash wants. strength 0 clears it.</p>
+<p>A tint on the <em>view</em>, which nothing could do before - weather colours the sky and the fog, and that
+is not the same thing. It obeys the player's accessibility setting for flashes, because a
+full-screen colour is exactly what somebody may need turned down and a mod should not overrule it.</p>
+<pre class="codehilite"><code class="language-gdscript">api.screen_tint(player, {&quot;color&quot;: &quot;#3366aa&quot;, &quot;strength&quot;: 0.3})
+</code></pre>
+
+<h3 id="apiplay_beam"><code>api.play_beam</code></h3>
+<p>GDScript: <code>api.play_beam(from: Vector3, to: Vector3, look := {}, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.playBeam(from, to, look, realmId)</code></p>
+<p>Draws a line between two places for a moment: a spell going off, an arc of lightning, a beam
+holding something up. look: color, width, seconds, sag (0 is straight, higher hangs).</p>
+<p>Its own call rather than an effect with a shape, because an emitter says "from here, outwards" and
+can never say "from here to there".</p>
+<pre class="codehilite"><code class="language-gdscript">api.play_beam(at + Vector3(0, 1, 0), at + Vector3(0, 1, 6), {&quot;color&quot;: &quot;#88ddff&quot;, &quot;seconds&quot;: 0.5})
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code>, <code>realm_of</code></p>
+<h3 id="apifound_company"><code>api.found_company</code></h3>
+<p>GDScript: <code>api.found_company(company_name: String, founder_id: String) -&gt; int</code></p>
+<p>JavaScript: <code>api.foundCompany(companyName, founderId)</code></p>
+<p>A group of players that things can belong to: a guild, a town, a crew. Returns its id, or 0.</p>
+<p><strong>Separate from plots on purpose</strong>, though a plot is the obvious thing for one to own: plenty of
+servers want groups without land, and plenty want land without groups. What a rank means is yours -
+the engine only keeps who is in what and what they are called, and holds one opinion of its own:
+the last owner cannot leave or be demoted, because a company nobody owns cannot be wound up and
+everything it holds becomes unreachable.</p>
+<p><strong>See also:</strong> <code>create</code></p>
+<h3 id="apidisband_company"><code>api.disband_company</code></h3>
+<p>GDScript: <code>api.disband_company(company_id: int) -&gt; bool</code></p>
+<p>JavaScript: <code>api.disbandCompany(companyId)</code></p>
+<p><strong>See also:</strong> <code>disband</code></p>
+<h3 id="apiset_company_rank"><code>api.set_company_rank</code></h3>
+<p>GDScript: <code>api.set_company_rank(company_id: int, player_id: String, rank: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.setCompanyRank(companyId, playerId, rank)</code></p>
+<p>Ranks are "member", "officer", "owner", least to most.</p>
+<p><strong>See also:</strong> <code>set_rank</code></p>
+<h3 id="apiremove_from_company"><code>api.remove_from_company</code></h3>
+<p>GDScript: <code>api.remove_from_company(company_id: int, player_id: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.removeFromCompany(companyId, playerId)</code></p>
+<h3 id="apicompany_rank"><code>api.company_rank</code></h3>
+<p>GDScript: <code>api.company_rank(company_id: int, player_id: String) -&gt; String</code></p>
+<p>JavaScript: <code>api.companyRank(companyId, playerId)</code></p>
+<p><strong>See also:</strong> <code>rank_of</code></p>
+<h3 id="apicompany_at_least"><code>api.company_at_least</code></h3>
+<p>GDScript: <code>api.company_at_least(company_id: int, player_id: String, rank: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.companyAtLeast(companyId, playerId, rank)</code></p>
+<p>Whether somebody is at least this rank.</p>
+<p><strong>See also:</strong> <code>at_least</code></p>
+<h3 id="apicompanies_of"><code>api.companies_of</code></h3>
+<p>GDScript: <code>api.companies_of(who) -&gt; Array</code></p>
+<p>JavaScript: <code>api.companiesOf(who)</code></p>
+<p>Every company somebody is in: [{id, name, rank}].</p>
+<p><strong>See also:</strong> <code>of_player</code></p>
+<h3 id="apiclaim_plot"><code>api.claim_plot</code></h3>
+<p>GDScript: <code>api.claim_plot(from: Vector3i, to: Vector3i, options := {}) -&gt; int</code></p>
+<p>JavaScript: <code>api.claimPlot(from, to, options)</code></p>
+<p>Marks out a piece of ground with an owner. The engine asks before letting anybody change a block
+inside it, on every edit path at once. Returns the plot id, or 0 - and <code>plot_problem()</code> says why.</p>
+<p>api.claim_plot(from, to, {"owner": player.player_id, "name": "Rowan's garden"})
+api.claim_plot(from, to, {"company": guild_id})</p>
+<p><strong>What may be claimed, how much and what it costs are yours.</strong> The engine stores a box and an owner
+and enforces it. Plots may not overlap - two owners of one block is a question with no good answer -
+and admins are never stopped, because somebody has to be able to put right a plot marked over a
+village.</p>
+<p><strong>See also:</strong> <code>claim</code>, <code>qualified</code></p>
+<h3 id="apirelease_plot"><code>api.release_plot</code></h3>
+<p>GDScript: <code>api.release_plot(plot_id: int) -&gt; bool</code></p>
+<p>JavaScript: <code>api.releasePlot(plotId)</code></p>
+<p><strong>See also:</strong> <code>release</code></p>
+<h3 id="apiplot_problem"><code>api.plot_problem</code></h3>
+<p>GDScript: <code>api.plot_problem() -&gt; String</code></p>
+<p>JavaScript: <code>api.plotProblem()</code></p>
+<h3 id="apiplot_at"><code>api.plot_at</code></h3>
+<p>GDScript: <code>api.plot_at(position: Vector3i, realm_id := "") -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.plotAt(position, realmId)</code></p>
+<p>The plot a block is in, or {}.</p>
+<p><strong>See also:</strong> <code>at</code>, <code>qualified</code></p>
+<h3 id="apimay_build"><code>api.may_build</code></h3>
+<p>GDScript: <code>api.may_build(player, position: Vector3i, realm_id := "") -&gt; bool</code></p>
+<p>JavaScript: <code>api.mayBuild(player, position, realmId)</code></p>
+<p>Whether this player may change a block here. The engine already asks this itself before any edit;
+this is for a mod that wants to check before offering something.</p>
+<p><strong>See also:</strong> <code>at</code>, <code>may_build_in</code>, <code>qualified</code></p>
+<h3 id="apiadd_plot_member"><code>api.add_plot_member</code></h3>
+<p>GDScript: <code>api.add_plot_member(plot_id: int, player_id: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.addPlotMember(plotId, playerId)</code></p>
+<p><strong>See also:</strong> <code>add_member</code></p>
+<h3 id="apiremove_plot_member"><code>api.remove_plot_member</code></h3>
+<p>GDScript: <code>api.remove_plot_member(plot_id: int, player_id: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.removePlotMember(plotId, playerId)</code></p>
+<p><strong>See also:</strong> <code>remove_member</code></p>
+<h3 id="apiplots_of"><code>api.plots_of</code></h3>
+<p>GDScript: <code>api.plots_of(who) -&gt; Array</code></p>
+<p>JavaScript: <code>api.plotsOf(who)</code></p>
+<p>Every plot somebody has a say in.</p>
+<p><strong>See also:</strong> <code>of_player</code>, <code>register_objective</code></p>
+<h3 id="apiregister_objective"><code>api.register_objective</code></h3>
+<p>GDScript: <code>api.register_objective(objective_name: String, def: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerObjective(objectiveName, def)</code></p>
+<p>Something a player has been asked to do: a story, a daily errand, a contract, a delivery.</p>
+<p>api.register_objective("deliver_the_post", {"display_name": "The Post",
+"steps": [{"text": "Take the letter to Bramble"}, {"text": "Bring her answer back"}]})</p>
+<p><strong>Not a tutorial and not a milestone</strong>, both of which exist already. A tutorial teaches, starts
+itself and is the same for everybody; a milestone notices something that already happened. An
+objective is given, can be refused, runs alongside others, has steps in an order, and can be
+abandoned.</p>
+<p><strong>The engine never decides whether a step is done.</strong> It counts, remembers and tells you; you watch
+whatever event means "they did it" and call advance_objective. Otherwise the engine would have to
+learn what delivering a letter is.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_objective(&quot;errand&quot;, {&quot;display_name&quot;: &quot;An Errand&quot;,
+    &quot;steps&quot;: [{&quot;text&quot;: &quot;Go and see&quot;}, {&quot;text&quot;: &quot;Come back&quot;, &quot;count&quot;: 2}]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>register</code></p>
+<h3 id="apigive_objective"><code>api.give_objective</code></h3>
+<p>GDScript: <code>api.give_objective(player, objective_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.giveObjective(player, objectiveName)</code></p>
+<p>Gives one to a player. False if they have it, have finished one that does not repeat, or are
+carrying as many as they may.</p>
+<p><strong>See also:</strong> <code>give</code>, <code>qualified</code></p>
+<h3 id="apiadvance_objective"><code>api.advance_objective</code></h3>
+<p>GDScript: <code>api.advance_objective(player, objective_name: String, amount := 1) -&gt; bool</code></p>
+<p>JavaScript: <code>api.advanceObjective(player, objectiveName, amount)</code></p>
+<p>Counts towards the step they are on; finishing the last step fires <code>objective_done</code>, which is where
+a reward belongs - the engine has no idea what a reward would be.</p>
+<p><strong>See also:</strong> <code>advance</code>, <code>qualified</code></p>
+<h3 id="apiabandon_objective"><code>api.abandon_objective</code></h3>
+<p>GDScript: <code>api.abandon_objective(player, objective_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.abandonObjective(player, objectiveName)</code></p>
+<p><strong>See also:</strong> <code>abandon</code>, <code>qualified</code></p>
+<h3 id="apiobjectives_of"><code>api.objectives_of</code></h3>
+<p>GDScript: <code>api.objectives_of(player) -&gt; Array</code></p>
+<p>JavaScript: <code>api.objectivesOf(player)</code></p>
+<p>What they are doing now: [{name, display_name, step, of, text, progress, needed}].</p>
+<p><strong>See also:</strong> <code>active_for</code></p>
+<h3 id="apihas_objective"><code>api.has_objective</code></h3>
+<p>GDScript: <code>api.has_objective(player, objective_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.hasObjective(player, objectiveName)</code></p>
+<p><strong>See also:</strong> <code>qualified</code></p>
+<h3 id="apiobjective_finished"><code>api.objective_finished</code></h3>
+<p>GDScript: <code>api.objective_finished(player, objective_name: String) -&gt; int</code></p>
+<p>JavaScript: <code>api.objectiveFinished(player, objectiveName)</code></p>
+<p>How many times they have finished it.</p>
+<p><strong>See also:</strong> <code>finished</code>, <code>qualified</code>, <code>register_character</code></p>
+<h3 id="apiregister_character"><code>api.register_character</code></h3>
+<p>GDScript: <code>api.register_character(character_name: String, def: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerCharacter(characterName, def)</code></p>
+<p>Somebody to talk to: a villager, a guide, a shopkeeper, a character in a story.</p>
+<p>api.register_character("bramble", {"display_name": "Bramble", "color": "#ffd166", "lines": {
+"start": {"text": "Oh - somebody. I saw your fire from the ridge.", "options": [
+{"text": "What have you got?", "sells": "bramble_wares"},
+{"text": "Need anything doing?", "gives": "deliver_the_post"},
+{"text": "Who are you?", "goes_to": "who"}]},
+"who": {"text": "Bramble. I mend things, mostly.",
+"options": [{"text": "I see", "goes_to": "start"}]}}})</p>
+<p>The engine draws the conversation, so every character in every mod looks and works the same way - a
+child who has learned to talk to one has learned to talk to all of them. It knows a conversation is
+lines with options and nothing else about what any of it means.</p>
+<p><code>goes_to</code> moves to another line, <code>gives</code> hands over an objective, <code>sells</code> opens a shop, and <code>does</code>
+fires <code>character_choice</code> for anything else at all.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_character(&quot;keeper&quot;, {&quot;display_name&quot;: &quot;The Keeper&quot;, &quot;color&quot;: &quot;#ffd166&quot;, &quot;lines&quot;: {
+    &quot;start&quot;: {&quot;text&quot;: &quot;You again.&quot;, &quot;options&quot;: [
+        {&quot;text&quot;: &quot;What have you got?&quot;, &quot;sells&quot;: &quot;stall&quot;},
+        {&quot;text&quot;: &quot;Anything to do?&quot;, &quot;gives&quot;: &quot;errand&quot;},
+        {&quot;text&quot;: &quot;Who are you?&quot;, &quot;goes_to&quot;: &quot;who&quot;},
+        {&quot;text&quot;: &quot;Nothing&quot;, &quot;does&quot;: &quot;wave&quot;}]},
+    &quot;who&quot;: {&quot;text&quot;: &quot;The keeper of this place.&quot;, &quot;options&quot;: [{&quot;text&quot;: &quot;I see&quot;, &quot;goes_to&quot;: &quot;start&quot;}]},
+    &quot;settled&quot;: {&quot;text&quot;: &quot;Settled in, then.&quot;}}})
+</code></pre>
+
+<p><strong>See also:</strong> <code>register</code></p>
+<h3 id="apitalk_to"><code>api.talk_to</code></h3>
+<p>GDScript: <code>api.talk_to(player, character_name: String, options := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.talkTo(player, characterName, options)</code></p>
+<p>Starts a conversation, usually from an <code>entity_interact</code> handler. <code>line</code> is where to open - which
+is yours, because whether somebody has settled in or is still a stranger is a fact about your story
+and not about conversations.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>talk</code></p>
+<h3 id="apihas_met"><code>api.has_met</code></h3>
+<p>GDScript: <code>api.has_met(player, character_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.hasMet(player, characterName)</code></p>
+<p>Whether this player has ever spoken to them, which is most of what "we have met before" needs.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>register_shop</code></p>
+<h3 id="apiregister_shop"><code>api.register_shop</code></h3>
+<p>GDScript: <code>api.register_shop(shop_name: String, def: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerShop(shopName, def)</code></p>
+<p>Somewhere to buy and sell: a village stall, a pedlar, a vending machine.</p>
+<p>api.register_shop("bramble_wares", {"display_name": "Bramble's Wares", "offers": [
+{"item": "rope", "count": 2, "price": 4, "ledger": "coins", "stock": 10, "restock": 600.0},
+{"item": "apple", "price": 1, "ledger": "coins", "sells": true},
+{"item": "lantern", "cost": [{"item": "iron_bar", "count": 2}, {"item": "coal"}]}]})</p>
+<p><strong>Coins are not assumed.</strong> A price is a number out of a ledger, or a list of items, or both, so a
+game with no money barters perfectly well. <code>sells: true</code> turns an offer round - the player hands
+the item over and is paid for it.</p>
+<p><strong>Stock is the part that matters.</strong> A shop with unlimited everything is a creative menu with an
+extra step; <code>stock</code> and <code>restock</code> are what make the blacksmith who has three swords this week
+somewhere worth going back to. Leave <code>stock</code> out for an offer that never runs dry.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_shop(&quot;stall&quot;, {&quot;display_name&quot;: &quot;The Stall&quot;, &quot;offers&quot;: [
+    {&quot;item&quot;: &quot;proving:token&quot;, &quot;count&quot;: 2, &quot;price&quot;: 5, &quot;ledger&quot;: &quot;coins&quot;, &quot;stock&quot;: 3, &quot;restock&quot;: 30.0},
+    {&quot;item&quot;: &quot;proving:rock&quot;, &quot;count&quot;: 4, &quot;cost&quot;: [{&quot;item&quot;: &quot;proving:token&quot;, &quot;count&quot;: 1}]},
+    {&quot;item&quot;: &quot;proving:plain&quot;, &quot;price&quot;: 1, &quot;ledger&quot;: &quot;coins&quot;, &quot;sells&quot;: true}]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>register</code></p>
+<h3 id="apishow_shop"><code>api.show_shop</code></h3>
+<p>GDScript: <code>api.show_shop(player, shop_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.showShop(player, shopName)</code></p>
+<p>Opens the stall. Drawn by the engine, like a conversation, so every shop works the same way.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>show</code></p>
+<h3 id="apishop_trade"><code>api.shop_trade</code></h3>
+<p>GDScript: <code>api.shop_trade(player, shop_name: String, index: int) -&gt; bool</code></p>
+<p>JavaScript: <code>api.shopTrade(player, shopName, index)</code></p>
+<p>Does one trade directly, for a shop with no panel - a vending block, a delivery chute. False when
+it cannot happen, and <code>shop_problem</code> says why in words a child can read.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>trade</code></p>
+<h3 id="apishop_problem"><code>api.shop_problem</code></h3>
+<p>GDScript: <code>api.shop_problem() -&gt; String</code></p>
+<p>JavaScript: <code>api.shopProblem()</code></p>
+<h3 id="apishop_offers"><code>api.shop_offers</code></h3>
+<p>GDScript: <code>api.shop_offers(player, shop_name: String) -&gt; Array</code></p>
+<p>JavaScript: <code>api.shopOffers(player, shopName)</code></p>
+<p>What is on the shelves: [{index, item, name, count, price, ledger, cost, sells, left, can}].</p>
+<p><strong>See also:</strong> <code>offers_for</code>, <code>qualified</code>, <code>register_entity</code>, <code>set_nameplate</code></p>
+<h3 id="apiset_nameplate"><code>api.set_nameplate</code></h3>
+<p>GDScript: <code>api.set_nameplate(target, spec := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.setNameplate(target, spec)</code></p>
+<p>The label over a thing's head: what it is called, how hurt it is, and anything you want to add.</p>
+<p>api.set_nameplate(mob, {"lines": ["Wants: wheat"], "show_health": true})
+api.register_entity("cow", {..., "nameplate": {"show_health": true}})</p>
+<p>Creatures are quiet by default - a field of forty sheep each wearing a label is worse than no
+labels - so a type only gets one if its definition says so, or a mod sets one on a particular
+creature. Players always have their name.</p>
+<p><code>spec</code> merges with what is already there, so you can add a line without knowing whether health is
+being shown. Keys: name, lines (up to 4), show_health, color, range, hidden.</p>
+<p><strong>See also:</strong> <code>set_plate</code></p>
+<h3 id="apinameplate_of"><code>api.nameplate_of</code></h3>
+<p>GDScript: <code>api.nameplate_of(target) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.nameplateOf(target)</code></p>
+<p>What is over its head now, defaults included.</p>
+<p><strong>See also:</strong> <code>plate_of</code></p>
+<h3 id="apiclear_nameplate"><code>api.clear_nameplate</code></h3>
+<p>GDScript: <code>api.clear_nameplate(target) -&gt; bool</code></p>
+<p>JavaScript: <code>api.clearNameplate(target)</code></p>
+<p><strong>See also:</strong> <code>float_text</code>, <code>follow</code></p>
+<h3 id="apifloat_text"><code>api.float_text</code></h3>
+<p>GDScript: <code>api.float_text(text: String, position: Vector3, options := {}, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.floatText(text, position, options, realmId)</code></p>
+<p>A word that floats in the world for a moment and then goes: the damage off a hit, "+3" over a
+chest, a name over a thing.</p>
+<p>api.float_text("12", position, {"color": "#ff6666", "follow": mob})</p>
+<p>Transient on purpose - nothing is stored and nobody has to clean it up. It is drawn through walls,
+because a number that vanishes behind a post is a number nobody can read.</p>
+<p>options: color, seconds, rise (how far it drifts up), size, follow (a player or entity it sticks to).</p>
+<pre class="codehilite"><code class="language-gdscript">api.float_text(&quot;%d&quot; % roundi(was - float(ev.health)),
+    e.body.position + Vector3(0, e.def.height * 0.9, 0),
+    {&quot;color&quot;: &quot;#ffd166&quot;, &quot;follow&quot;: e, &quot;seconds&quot;: 0.8}))
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code>, <code>register_entity</code></p>
+<h3 id="apimount"><code>api.mount</code></h3>
+<p>GDScript: <code>api.mount(player, entity) -&gt; bool</code></p>
+<p>JavaScript: <code>api.mount(player, entity)</code></p>
+<p>Puts a player on a vehicle - an entity whose type has a <code>vehicle</code> block. Returns false when it is
+full, too far away, or they are already riding something.</p>
+<p>api.register_entity("boat", {"kind": "mob", "model": "models/boat.glb", "ai": {"preset": "none"},
+"vehicle": {"seats": 2, "speed": 6.0, "turn_speed": 3.0, "floats": true}})</p>
+<p>A rider stops simulating themselves: their position comes from the vehicle and their input becomes
+steering - throttle forward and back, and the vehicle turns towards wherever they are looking.
+Sneak gets off. The player's own physics is untouched, which is why riding cannot break walking.</p>
+<p><strong>See also:</strong> <code>config_of</code>, <code>is_alive</code>, <code>riders_of</code>, <code>tell_riding</code></p>
+<h3 id="apidismount"><code>api.dismount</code></h3>
+<p>GDScript: <code>api.dismount(player, to = null) -&gt; bool</code></p>
+<p>JavaScript: <code>api.dismount(player, to)</code></p>
+<p>Takes a player off. <code>to</code> is where to put them down; by default beside the vehicle.</p>
+<p><strong>See also:</strong> <code>riders_of</code>, <code>tell_riding</code></p>
+<h3 id="apiriding"><code>api.riding</code></h3>
+<p>GDScript: <code>api.riding(player)</code></p>
+<p>JavaScript: <code>api.riding(player)</code></p>
+<p>The entity a player is riding, or null.</p>
+<h3 id="apiriders_of"><code>api.riders_of</code></h3>
+<p>GDScript: <code>api.riders_of(entity) -&gt; Array</code></p>
+<p>JavaScript: <code>api.ridersOf(entity)</code></p>
+<p>Who is aboard, as player ids.</p>
+<p><strong>See also:</strong> <code>order</code>, <code>register_order</code></p>
+<h3 id="apiregister_order"><code>api.register_order</code></h3>
+<p>GDScript: <code>api.register_order(order_name: String, def := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerOrder(orderName, def)</code></p>
+<p>Something a tamed creature can be told to do.</p>
+<p>api.register_order("fetch", {"display_name": "Fetch that", "behavior": "my_mod:fetch"})
+api.order(dog, "fetch")</p>
+<p>Taming already gave a companion three of its four parts - it follows, it is owned, and it does not
+despawn. Taking instruction was one boolean, <code>sitting</code>, toggled by right-clicking, which runs out
+the moment there are three things to say.</p>
+<p>Three orders are the engine's own, because all three are about <em>where</em>: <code>engine:follow</code>,
+<code>engine:stay</code> and <code>engine:guard</code>. Anything else maps to a behaviour registered with
+<code>register_mob_behavior</code> - the engine sets the order, your behaviour decides what it looks like.</p>
+<p>Right-clicking a companion opens the order panel, drawn by the engine. Restrict what a particular
+creature may be told by handling <code>companion_orders</code> and editing <code>orders</code>.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_order(&quot;forage&quot;, {&quot;display_name&quot;: &quot;Forage here&quot;, &quot;behavior&quot;: &quot;proving:forage&quot;})
+</code></pre>
+
+<p><strong>See also:</strong> <code>at</code>, <code>qualified</code>, <code>register</code></p>
+<h3 id="apiorder"><code>api.order</code></h3>
+<p>GDScript: <code>api.order(entity, order_name: String, options := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.order(entity, orderName, options)</code></p>
+<p>Tells a creature something. options: at (where, for orders that need a place; defaults to where it
+is standing).</p>
+<p><strong>See also:</strong> <code>give</code>, <code>now</code>, <code>qualified</code></p>
+<h3 id="apiorder_of"><code>api.order_of</code></h3>
+<p>GDScript: <code>api.order_of(entity) -&gt; String</code></p>
+<p>JavaScript: <code>api.orderOf(entity)</code></p>
+<p>What it is being told to do now ("engine:follow" when nobody has said otherwise).</p>
+<pre class="codehilite"><code class="language-gdscript">&quot;score&quot;: func(brain): return 0.2 if api.order_of(brain.entity) == &quot;proving:forage&quot; else 0.0,
+</code></pre>
+
+<h3 id="apishow_orders"><code>api.show_orders</code></h3>
+<p>GDScript: <code>api.show_orders(player, entity) -&gt; bool</code></p>
+<p>JavaScript: <code>api.showOrders(player, entity)</code></p>
+<p>Opens the order panel for a player, as right-clicking their own companion does.</p>
+<p><strong>See also:</strong> <code>place_field</code>, <code>register_field</code>, <code>show</code></p>
+<h3 id="apiregister_field"><code>api.register_field</code></h3>
+<p>GDScript: <code>api.register_field(field_name: String, def: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerField(fieldName, def)</code></p>
+<p>Ground that does something to whoever stands in it, for a while: a pool of fire left where a boss
+landed, gas from a cracked pipe, the warmth of a campfire, a healing circle in a village.</p>
+<p>api.register_field("fire_pool", {"radius": 3.0, "seconds": 10.0, "effect": "engine:flame",
+"tick": {"seconds": 1.0, "damage": 2.0, "cause": "fire"},
+"condition": {"condition": "burning", "seconds": 4.0}})</p>
+<p>api.place_field("fire_pool", position, {"seconds": 20.0, "owner": mob})</p>
+<p><strong>Called a field because plots and claims are taken</strong> - plots are ground with an owner, claims are
+ground kept awake. <strong>It is always visible</strong>: an invisible thing on the floor that hurts a child is
+not a hazard but a trick, so placing one starts a running effect. You choose which; you cannot
+choose none.</p>
+<p><code>affects</code> is "everyone", "players" or "creatures" - not "enemies", which would mean the engine
+learning about sides. <code>except_owner</code> (on by default) keeps whoever left it out of their own fire.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_field(&quot;scorch&quot;, {&quot;display_name&quot;: &quot;Scorch&quot;, &quot;radius&quot;: 3.0, &quot;seconds&quot;: 8.0,
+    &quot;effect&quot;: &quot;engine:smoke&quot;, &quot;tick&quot;: {&quot;seconds&quot;: 1.0, &quot;damage&quot;: 1.0, &quot;cause&quot;: &quot;scorch&quot;},
+    &quot;condition&quot;: {&quot;condition&quot;: &quot;venom&quot;, &quot;seconds&quot;: 3.0}})
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code>, <code>register</code></p>
+<h3 id="apiplace_field"><code>api.place_field</code></h3>
+<p>GDScript: <code>api.place_field(field_name: String, position: Vector3, options := {}) -&gt; int</code></p>
+<p>JavaScript: <code>api.placeField(fieldName, position, options)</code></p>
+<p>Puts one down. options: seconds, radius, level (multiplies damage, heal and the condition's level),
+owner (a player or creature it will not touch), realm. Returns its id, or 0.</p>
+<p><strong>See also:</strong> <code>place</code>, <code>qualified</code></p>
+<h3 id="apiclear_field"><code>api.clear_field</code></h3>
+<p>GDScript: <code>api.clear_field(id: int) -&gt; bool</code></p>
+<p>JavaScript: <code>api.clearField(id)</code></p>
+<h3 id="apifields_at"><code>api.fields_at</code></h3>
+<p>GDScript: <code>api.fields_at(position: Vector3, realm_id := "") -&gt; Array</code></p>
+<p>JavaScript: <code>api.fieldsAt(position, realmId)</code></p>
+<p>Every field a point is inside: [{id, kind, realm, position, radius, level, seconds}].</p>
+<p><strong>See also:</strong> <code>at</code>, <code>qualified</code>, <code>register_condition</code></p>
+<h3 id="apiregister_condition"><code>api.register_condition</code></h3>
+<p>GDScript: <code>api.register_condition(condition_name: String, def: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerCondition(conditionName, def)</code></p>
+<p>Something a player or a creature is temporarily under: swiftness, poison, a well-fed glow.</p>
+<p>api.register_condition("swiftness", {"display_name": "Swiftness", "color": "#7fd6ff",
+"modifiers": [{"stat": "move_speed", "amount": 0.2, "op": "multiply"}], "max_level": 3})</p>
+<p>api.register_condition("poison", {"display_name": "Poison", "good": false,
+"tick": {"seconds": 1.5, "damage": 1.0, "cause": "poison"}})</p>
+<p><strong>Called a condition because <code>register_effect</code> already means particles.</strong> A condition is a stat
+change, or something that repeats on a timer, or both - and the timer is the part a plain timed
+modifier could never express, which is what poison, regeneration and burning all need.</p>
+<p>Levels multiply rather than re-describe: Swiftness II is the same modifiers doubled. <code>stacks</code> says
+what a second helping does - "strongest" (the default), "refresh" or "extend".</p>
+<p>What stays yours: what conditions exist, what brews or cures them, and what a level means.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_condition(&quot;venom&quot;, {&quot;display_name&quot;: &quot;Venom&quot;, &quot;good&quot;: false, &quot;color&quot;: &quot;#89c24a&quot;,
+    &quot;tick&quot;: {&quot;seconds&quot;: 1.0, &quot;damage&quot;: 1.0, &quot;cause&quot;: &quot;venom&quot;}, &quot;max_level&quot;: 3})
+</code></pre>
+
+<p><strong>See also:</strong> <code>register</code></p>
+<h3 id="apigive_condition"><code>api.give_condition</code></h3>
+<p>GDScript: <code>api.give_condition(target, condition_name: String, options := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.giveCondition(target, conditionName, options)</code></p>
+<p>Gives one to a player or a creature. options: seconds (0 = until taken away), level.</p>
+<p><strong>See also:</strong> <code>give</code>, <code>qualified</code></p>
+<h3 id="apiclear_condition"><code>api.clear_condition</code></h3>
+<p>GDScript: <code>api.clear_condition(target, condition_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.clearCondition(target, conditionName)</code></p>
+<p><strong>See also:</strong> <code>qualified</code></p>
+<h3 id="apiclear_conditions"><code>api.clear_conditions</code></h3>
+<p>GDScript: <code>api.clear_conditions(target, only_bad := false) -&gt; int</code></p>
+<p>JavaScript: <code>api.clearConditions(target, onlyBad)</code></p>
+<p>Takes everything away, or with <code>only_bad</code> everything unpleasant - which is the whole of what a cure
+is, and saves listing every affliction in the game. Returns how many went.</p>
+<p><strong>See also:</strong> <code>clear_all</code></p>
+<h3 id="apihas_condition"><code>api.has_condition</code></h3>
+<p>GDScript: <code>api.has_condition(target, condition_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.hasCondition(target, conditionName)</code></p>
+<p><strong>See also:</strong> <code>qualified</code></p>
+<h3 id="apicondition_level"><code>api.condition_level</code></h3>
+<p>GDScript: <code>api.condition_level(target, condition_name: String) -&gt; int</code></p>
+<p>JavaScript: <code>api.conditionLevel(target, conditionName)</code></p>
+<p>0 when they do not have it.</p>
+<p><strong>See also:</strong> <code>level_of</code>, <code>qualified</code></p>
+<h3 id="apiconditions_of"><code>api.conditions_of</code></h3>
+<p>GDScript: <code>api.conditions_of(target) -&gt; Array</code></p>
+<p>JavaScript: <code>api.conditionsOf(target)</code></p>
+<p>What they are under: [{name, display_name, color, level, good, seconds}], <code>seconds</code> -1 for one that
+does not run out.</p>
+<p><strong>See also:</strong> <code>of_target</code>, <code>register_ledger</code></p>
+<h3 id="apiregister_ledger"><code>api.register_ledger</code></h3>
+<p>GDScript: <code>api.register_ledger(ledger_name: String, def := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerLedger(ledgerName, def)</code></p>
+<p>A named number a player owns: coins, reputation, contribution, experience, a guild's standing.</p>
+<p>api.register_ledger("coins", {"display_name": "Coins", "min": 0})
+api.register_ledger("delving", {"display_name": "Delving", "levels": [0, 50, 150, 400]})</p>
+<p><strong>Balances and experience are one thing here, not two.</strong> They are the same storage asked a
+different question - a balance is a number you care about the value of, experience is one you care
+about the level of - so a ledger given thresholds answers about levels as well.</p>
+<p>The engine stores a number against a player and a name and never learns that one of them is money.
+What a level unlocks, whether anything unlocks at all, whether coins may go negative: all yours.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_ledger(&quot;coins&quot;, {&quot;display_name&quot;: &quot;Coins&quot;, &quot;min&quot;: 0})
+</code></pre>
+
+<p><strong>See also:</strong> <code>register</code></p>
+<h3 id="apibalance_of"><code>api.balance_of</code></h3>
+<p>GDScript: <code>api.balance_of(player, ledger_name: String) -&gt; float</code></p>
+<p>JavaScript: <code>api.balanceOf(player, ledgerName)</code></p>
+<pre class="codehilite"><code class="language-gdscript">{&quot;type&quot;: &quot;progress&quot;, &quot;value&quot;: int(api.balance_of(player, &quot;coins&quot;)), &quot;max&quot;: 10, &quot;color&quot;: &quot;#6fcf97&quot;},
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code>, <code>value_of</code></p>
+<h3 id="apiadd_balance"><code>api.add_balance</code></h3>
+<p>GDScript: <code>api.add_balance(player, ledger_name: String, amount: float) -&gt; float</code></p>
+<p>JavaScript: <code>api.addBalance(player, ledgerName, amount)</code></p>
+<p>Adds (or, with a negative amount, takes away). Returns what it ended up as, which is not always what
+was asked for when the ledger has a floor or a ceiling.</p>
+<pre class="codehilite"><code class="language-gdscript">api.add_balance(ev.player, &quot;coins&quot;, 1.0))
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code></p>
+<h3 id="apiset_balance"><code>api.set_balance</code></h3>
+<p>GDScript: <code>api.set_balance(player, ledger_name: String, value: float) -&gt; float</code></p>
+<p>JavaScript: <code>api.setBalance(player, ledgerName, value)</code></p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>set_value</code></p>
+<h3 id="apispend_balance"><code>api.spend_balance</code></h3>
+<p>GDScript: <code>api.spend_balance(player, ledger_name: String, amount: float) -&gt; bool</code></p>
+<p>JavaScript: <code>api.spendBalance(player, ledgerName, amount)</code></p>
+<p>Takes <code>amount</code> only if there is that much. Written as one call on purpose: a shop that checks and
+then subtracts has a gap between the two, and this does not.</p>
+<p><strong>See also:</strong> <code>at</code>, <code>qualified</code>, <code>spend</code></p>
+<h3 id="apilevel_of"><code>api.level_of</code></h3>
+<p>GDScript: <code>api.level_of(player, ledger_name: String) -&gt; int</code></p>
+<p>JavaScript: <code>api.levelOf(player, ledgerName)</code></p>
+<p>What level they are at (0 when the ledger has no thresholds).</p>
+<p><strong>See also:</strong> <code>level_for</code>, <code>qualified</code>, <code>value_of</code></p>
+<h3 id="apilevel_progress"><code>api.level_progress</code></h3>
+<p>GDScript: <code>api.level_progress(player, ledger_name: String) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.levelProgress(player, ledgerName)</code></p>
+<p>{level, value, into (0-1 through this level), needed, next} - for a bar on the screen.</p>
+<p><strong>See also:</strong> <code>progress_of</code>, <code>qualified</code></p>
+<h3 id="apibalances_of"><code>api.balances_of</code></h3>
+<p>GDScript: <code>api.balances_of(player) -&gt; Array</code></p>
+<p>JavaScript: <code>api.balancesOf(player)</code></p>
+<p>Everything a player has any of: [{name, display_name, value, level}].</p>
+<p><strong>See also:</strong> <code>all_of</code>, <code>register_modifier</code></p>
+<h3 id="apiregister_modifier"><code>api.register_modifier</code></h3>
+<p>GDScript: <code>api.register_modifier(modifier_name: String, def: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerModifier(modifierName, def)</code></p>
+<p>A named mark that can be put on a particular item and changes what it does - an enchantment, in
+your own words.</p>
+<p>api.register_modifier("keen", {"display_name": "Keen", "max_level": 3,
+"per_level": [{"stat": "damage", "amount": 1.0}], "applies_to": ["#base:axes"]})</p>
+<p><code>applies_to</code> names items or tags; empty means anything. The stat changes are worked out per level,
+and a line of lore is written into the item so its tooltip says "Keen II" without anything new on
+the wire.</p>
+<p><strong>There is no hook system here on purpose.</strong> A mark that should set things alight is a mod listening
+to the hit event it already has and asking whether the weapon is kindled. A second way of doing what
+events already do would be worse than one.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_modifier(&quot;keen&quot;, {&quot;display_name&quot;: &quot;Keen&quot;, &quot;max_level&quot;: 3,
+    &quot;per_level&quot;: [{&quot;stat&quot;: &quot;attack_damage&quot;, &quot;amount&quot;: 1.0}], &quot;applies_to&quot;: [&quot;#proving:prods&quot;]})
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code>, <code>register</code></p>
+<h3 id="apiapply_modifier"><code>api.apply_modifier</code></h3>
+<p>GDScript: <code>api.apply_modifier(item_data: Dictionary, item_name: String, modifier_name: String, level := 1) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.applyModifier(itemData, itemName, modifierName, level)</code></p>
+<p>Puts a mark on an item, returning the new item data (level 0 takes it off). The item is returned
+unchanged if the mark does not belong on it, so a mistake gives back an item rather than a mess.</p>
+<p><strong>See also:</strong> <code>apply</code>, <code>qualified</code></p>
+<h3 id="apimodifier_level"><code>api.modifier_level</code></h3>
+<p>GDScript: <code>api.modifier_level(item_data: Dictionary, modifier_name: String) -&gt; int</code></p>
+<p>JavaScript: <code>api.modifierLevel(itemData, modifierName)</code></p>
+<p>What level of a mark an item carries, or 0.</p>
+<p><strong>See also:</strong> <code>level_of</code>, <code>qualified</code></p>
+<h3 id="apimodifiers_on"><code>api.modifiers_on</code></h3>
+<p>GDScript: <code>api.modifiers_on(item_data: Dictionary) -&gt; Array</code></p>
+<p>JavaScript: <code>api.modifiersOn(itemData)</code></p>
+<p>Every mark on an item: [{name, level, display_name}].</p>
+<p><strong>See also:</strong> <code>assembly_problem</code>, <code>marks_on</code></p>
+<h3 id="apiregister_liquid"><code>api.register_liquid</code></h3>
+<p>GDScript: <code>api.register_liquid(block_name: String, def := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerLiquid(blockName, def)</code></p>
+<p>Makes a block a liquid that goes somewhere: spreads, falls, and dries up when nothing feeds it.</p>
+<p>api.register_liquid("water", {"range": 7, "falls": true, "speed": 0.25})</p>
+<p>def: <code>range</code> (how many blocks from a source before it runs out), <code>falls</code>, <code>speed</code> (seconds between
+steps - lava is slow, which is most of what makes it frightening), <code>shallow</code> (a block to use once it
+has spread <code>shallow_from</code> blocks - give it a slab shape and a thin sheet looks and wades like one).</p>
+<p>The level lives in the block's state: 0 is a source and never runs out, and each block outwards is
+one weaker. Nothing new is written to disk or sent to clients, because states already were.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_liquid(&quot;slime&quot;, {&quot;range&quot;: 4, &quot;falls&quot;: true, &quot;speed&quot;: 0.4,
+    &quot;shallow&quot;: &quot;proving:slime_thin&quot;, &quot;shallow_from&quot;: 2})
+</code></pre>
+
+<p><strong>See also:</strong> <code>block</code>, <code>is_excluded</code>, <code>qualified</code>, <code>register</code>, <code>register_block_tick</code></p>
+<h3 id="apiregister_liquid_meeting"><code>api.register_liquid_meeting</code></h3>
+<p>GDScript: <code>api.register_liquid_meeting(a_name: String, b_name: String, result_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerLiquidMeeting(aName, bName, resultName)</code></p>
+<p>What forms where two different liquids meet - the black glass where lava meets water. The engine
+has never heard of obsidian; it only knows that two of them touching makes a third thing.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_liquid_meeting(&quot;slime&quot;, &quot;proving:slime&quot;, &quot;proving:plain&quot;)
+</code></pre>
+
+<p><strong>See also:</strong> <code>block</code>, <code>is_excluded</code>, <code>qualified</code>, <code>register_meeting</code></p>
+<h3 id="apikeep_awake"><code>api.keep_awake</code></h3>
+<p>GDScript: <code>api.keep_awake(position: Vector3i, options := {}) -&gt; int</code></p>
+<p>JavaScript: <code>api.keepAwake(position, options)</code></p>
+<p>Keeps the world around a position awake when nobody is standing there, so a machine goes on running
+after its owner walks away. Returns a claim id.</p>
+<p>options: <code>radius</code> (chunks either side, 0-8), <code>player_id</code> (who to tell if it has to be paused),
+<code>name</code> (what to call the place when telling them), <code>realm</code>.</p>
+<p><strong>This costs somebody something, and the engine says so.</strong> Claims are charged what their chunks
+actually spend in block ticks, and when they exceed the share of a tick the host allows, the
+dearest is paused first and its owner is told in plain words. Nothing is ever deleted - pausing
+stops the ticking and leaves the blocks and their contents alone.</p>
+<p>Only things that <em>cannot</em> be caught up need this. Crops and furnaces work out what they missed when
+somebody comes back; a pump feeding a network cannot, because what it did depended on the rest of
+the world while it was doing it.</p>
+<p><strong>See also:</strong> <code>qualified</code></p>
+<h3 id="apilet_sleep"><code>api.let_sleep</code></h3>
+<p>GDScript: <code>api.let_sleep(claim_id: int) -&gt; bool</code></p>
+<p>JavaScript: <code>api.letSleep(claimId)</code></p>
+<p>Stops keeping it awake.</p>
+<h3 id="apiwake_claim"><code>api.wake_claim</code></h3>
+<p>GDScript: <code>api.wake_claim(claim_id: int) -&gt; bool</code></p>
+<p>JavaScript: <code>api.wakeClaim(claimId)</code></p>
+<p>Lets a paused claim run again.</p>
+<p><strong>See also:</strong> <code>resume</code>, <code>set_accepts</code></p>
+<h3 id="apiset_accepts"><code>api.set_accepts</code></h3>
+<p>GDScript: <code>api.set_accepts(node: Dictionary, filter := {}) -&gt; void</code></p>
+<p>JavaScript: <code>api.setAccepts(node, filter)</code></p>
+<p>What a face will take, as items and tags. An empty filter takes anything, which is what an ordinary
+pipe end is; <code>deny: true</code> turns it inside out, which is how "everything except cobblestone" is said.</p>
+<p>api.set_accepts(node, {"tags": ["base:logs"]})</p>
+<p><strong>See also:</strong> <code>key_name</code>, <code>node_key</code>, <code>qualified</code>, <code>tag</code></p>
+<h3 id="apistop_accepting"><code>api.stop_accepting</code></h3>
+<p>GDScript: <code>api.stop_accepting(node: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.stopAccepting(node)</code></p>
+<p><strong>See also:</strong> <code>key_name</code>, <code>node_key</code>, <code>qualified</code>, <code>tag</code></p>
+<h3 id="apiwould_accept"><code>api.would_accept</code></h3>
+<p>GDScript: <code>api.would_accept(from: Dictionary, item_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.wouldAccept(from, itemName)</code></p>
+<p>Whether anything connected would take this, without sending it.</p>
+<p><strong>See also:</strong> <code>key_name</code>, <code>node_key</code>, <code>qualified</code>, <code>reachable</code>, <code>tag</code></p>
+<h3 id="apiregister_drive"><code>api.register_drive</code></h3>
+<p>GDScript: <code>api.register_drive(unit_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerDrive(unitName)</code></p>
+<p>A kind of value <em>driven</em> through the links rather than stored in them: rotation, and anything else
+that means "this end turns, so that end turns".</p>
+<p><strong>Not the same as a quantity.</strong> Power buffers, fills and runs out, and two generators on one grid
+add up. Rotation is a speed and a direction, it arrives the instant the shaft turns, nothing
+accumulates anywhere, and two sources driving one line do not add - they fight, and the engine says
+so rather than inventing an average nobody asked for.</p>
+<p>Gearing is not here. A gearbox is a block that reads one line and drives another at a different
+speed, which is a few lines in a mod - and then the engine has no opinion about what ratios exist.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_drive(&quot;shaft&quot;)
+</code></pre>
+
+<p><strong>See also:</strong> <code>register_unit</code></p>
+<h3 id="apiset_drive"><code>api.set_drive</code></h3>
+<p>GDScript: <code>api.set_drive(unit_name: String, node: Dictionary, value: float) -&gt; void</code></p>
+<p>JavaScript: <code>api.setDrive(unitName, node, value)</code></p>
+<p>This face drives at <code>value</code> - a speed, with a sign for which way round. 0 stops driving.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>set_source</code>, <code>tag</code></p>
+<h3 id="apidriven_at"><code>api.driven_at</code></h3>
+<p>GDScript: <code>api.driven_at(unit_name: String, node: Dictionary) -&gt; float</code></p>
+<p>JavaScript: <code>api.drivenAt(unitName, node)</code></p>
+<p>What a face is being driven at. Zero when nothing drives it, and zero when the line is jammed,
+because a jammed line does not turn.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>tag</code>, <code>value_at</code></p>
+<h3 id="apidrive_jammed"><code>api.drive_jammed</code></h3>
+<p>GDScript: <code>api.drive_jammed(unit_name: String, node: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.driveJammed(unitName, node)</code></p>
+<p>Whether two sources are fighting over the line this face is on.</p>
+<p><strong>See also:</strong> <code>jammed_at</code>, <code>qualified</code>, <code>tag</code></p>
+<h3 id="apion_driven"><code>api.on_driven</code></h3>
+<p>GDScript: <code>api.on_driven(unit_name: String, handler: Callable) -&gt; void</code></p>
+<p>JavaScript: <code>api.onDriven(unitName, handler)</code></p>
+<p>Told when what a face is driven at changes: {realm, position, face, unit, value, jammed}.</p>
+<p><strong>See also:</strong> <code>on_changed</code>, <code>qualified</code></p>
+<h3 id="apiregister_unit"><code>api.register_unit</code></h3>
+<p>GDScript: <code>api.register_unit(unit_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerUnit(unitName)</code></p>
+<p>A kind of quantity that moves along links: power, steam, water, mana. The engine keeps them apart
+by name and learns nothing else about any of them.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_unit(&quot;power&quot;)
+</code></pre>
+
+<h3 id="apiset_supply"><code>api.set_supply</code></h3>
+<p>GDScript: <code>api.set_supply(unit_name: String, node: Dictionary, amount: float) -&gt; void</code></p>
+<p>JavaScript: <code>api.setSupply(unitName, node, amount)</code></p>
+<p>This face offers this much per second (0 to stop). A generator running; a tank draining.</p>
+<p><strong>See also:</strong> <code>key_name</code>, <code>node_key</code>, <code>qualified</code>, <code>tag</code></p>
+<h3 id="apiset_demand"><code>api.set_demand</code></h3>
+<p>GDScript: <code>api.set_demand(unit_name: String, node: Dictionary, amount: float) -&gt; void</code></p>
+<p>JavaScript: <code>api.setDemand(unitName, node, amount)</code></p>
+<p>This face wants this much per second (0 to stop asking).</p>
+<p><strong>See also:</strong> <code>key_name</code>, <code>node_key</code>, <code>qualified</code>, <code>tag</code></p>
+<h3 id="apireceived"><code>api.received</code></h3>
+<p>GDScript: <code>api.received(unit_name: String, node: Dictionary) -&gt; float</code></p>
+<p>JavaScript: <code>api.received(unitName, node)</code></p>
+<p>What a face is actually receiving, which is not always what it asked for.</p>
+<p><strong>See also:</strong> <code>key_name</code>, <code>node_key</code>, <code>qualified</code>, <code>tag</code></p>
+<h3 id="apion_received"><code>api.on_received</code></h3>
+<p>GDScript: <code>api.on_received(unit_name: String, handler: Callable) -&gt; void</code></p>
+<p>JavaScript: <code>api.onReceived(unitName, handler)</code></p>
+<p>Told when what a face receives changes: {realm, position, face, unit, wanted, got}.</p>
+<p><strong>What a shortfall means is yours to decide.</strong> The engine says "you asked for twenty and you have
+seven" and has no opinion about whether that is a furnace running slowly, a lamp going dim or a
+pump stopping dead. When there is not enough to go round everybody gets the same fraction of what
+they asked for, so a grid under load dims all over rather than failing in an order nobody can see.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>register_link_kind</code></p>
+<h3 id="apiregister_link_kind"><code>api.register_link_kind</code></h3>
+<p>GDScript: <code>api.register_link_kind(kind_name: String, def := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerLinkKind(kindName, def)</code></p>
+<p>A kind of connection a player can lay: a cable, a pipe, an aerial.</p>
+<p>api.register_link_kind("cable", {"span": 12, "item": "base:copper_wire", "draw": "cable"})
+api.register_link_kind("aerial", {"wireless": true, "span": 48, "crosses_realms": true})</p>
+<p>def: <code>span</code> (how far it reaches), <code>item</code> (what a block of it costs to lay), <code>draw</code> - "cable" sags,
+"pipe" is rigid and wants a shorter span, "" draws nothing - <code>wireless</code> (nothing drawn, no clear
+line needed), <code>crosses_realms</code> (wireless only; a cable is a physical thing and cannot run through
+the gap between worlds), <code>needs_air</code>, <code>per_node</code> (how many may meet at one face).</p>
+<p>A node is a <strong>face</strong> of a block, so a machine can take power in one side and push items out of
+another. Raise the reach of a particular connector by handling the <code>link_reach</code> event - that is
+where an upgrade or a better aerial belongs, rather than in the kind itself.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_link_kind(&quot;cable&quot;, {&quot;span&quot;: 10.0, &quot;needs_air&quot;: true, &quot;draw&quot;: &quot;cable&quot;, &quot;color&quot;: &quot;#c2703c&quot;})
+</code></pre>
+
+<p><strong>See also:</strong> <code>link_problem</code>, <code>register_kind</code></p>
+<h3 id="apilink"><code>api.link</code></h3>
+<p>GDScript: <code>api.link(kind_name: String, a: Dictionary, b: Dictionary) -&gt; int</code></p>
+<p>JavaScript: <code>api.link(kindName, a, b)</code></p>
+<p>Joins two faces. Each end is {realm, position, face} - realm "" is the world a server starts with,
+face is 0..5 (up, down, north, south, west, east). Returns the link id, or 0; when it is 0,
+<code>link_problem()</code> says why in a sentence a player can be shown.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>tag</code></p>
+<h3 id="apilink_problem"><code>api.link_problem</code></h3>
+<p>GDScript: <code>api.link_problem() -&gt; String</code></p>
+<p>JavaScript: <code>api.linkProblem()</code></p>
+<p>Why the last link() was refused.</p>
+<h3 id="apilink_refused"><code>api.link_refused</code></h3>
+<p>GDScript: <code>api.link_refused(kind_name: String, a: Dictionary, b: Dictionary) -&gt; String</code></p>
+<p>JavaScript: <code>api.linkRefused(kindName, a, b)</code></p>
+<p>Whether two faces could be joined, without joining them: "" means yes, anything else is the reason.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>tag</code>, <code>why_not</code></p>
+<h3 id="apiunlink"><code>api.unlink</code></h3>
+<p>GDScript: <code>api.unlink(id: int, why := "removed") -&gt; bool</code></p>
+<p>JavaScript: <code>api.unlink(id, why)</code></p>
+<p>Removes a link by id.</p>
+<p><strong>See also:</strong> <code>cut</code></p>
+<h3 id="apilinks_at"><code>api.links_at</code></h3>
+<p>GDScript: <code>api.links_at(position: Vector3i, realm_id := "") -&gt; Array</code></p>
+<p>JavaScript: <code>api.linksAt(position, realmId)</code></p>
+<p>Every link touching a block, as ids.</p>
+<p><strong>See also:</strong> <code>at_block</code>, <code>qualified</code></p>
+<h3 id="apitag"><code>api.tag</code></h3>
+<p>GDScript: <code>api.tag(tag_name: String, names: Array) -&gt; void</code></p>
+<p>JavaScript: <code>api.tag(tagName, names)</code></p>
+<p>Puts blocks or items into a named group: "any log", "any ore", "anything a pipe may carry".</p>
+<p>api.tag("logs", ["base:oak_log", "base:birch_log"])   # in base: defines base:logs
+api.tag("base:logs", ["cherry:cherry_log"])            # elsewhere: adds to base:logs</p>
+<p>A bare name is your own mod's, as everywhere else here; writing it out in full always means exactly
+what it says. <strong>Adding to another mod's tag is the point</strong> - a mod that adds a tree can put its wood
+in <code>base:logs</code> and every recipe the base game wrote for logs accepts it, without the base game
+knowing that mod exists.</p>
+<p>A tag in a namespace no installed mod owns is kept and warned about rather than refused, so a mod
+that integrates with another when it happens to be there does not have to guard every call.</p>
+<pre class="codehilite"><code class="language-gdscript">api.tag(&quot;currency&quot;, [&quot;proving:token&quot;])
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code></p>
+<h3 id="apitagged"><code>api.tagged</code></h3>
+<p>GDScript: <code>api.tagged(tag_name: String) -&gt; Array</code></p>
+<p>JavaScript: <code>api.tagged(tagName)</code></p>
+<p>The names in a tag (empty if nothing has defined it).</p>
+<p><strong>See also:</strong> <code>names_in</code>, <code>qualified</code></p>
+<h3 id="apihas_tag"><code>api.has_tag</code></h3>
+<p>GDScript: <code>api.has_tag(name: String, tag_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.hasTag(name, tagName)</code></p>
+<p>Whether a block or item name is in a tag. Reads as "does this thing have this tag", which is why the
+thing comes first here and the tag comes first in <code>tag</code> and <code>tagged</code>.</p>
+<p>Both arguments are strings, so getting them the wrong way round used to return a quiet <code>false</code> and a
+mod that simply never matched anything. Now it says so. (2026-09-20)</p>
+<p><strong>See also:</strong> <code>exists</code>, <code>qualified</code></p>
+<h3 id="apitags_of"><code>api.tags_of</code></h3>
+<p>GDScript: <code>api.tags_of(name: String) -&gt; Array</code></p>
+<p>JavaScript: <code>api.tagsOf(name)</code></p>
+<p>Every tag a block or item is in.</p>
+<p><strong>See also:</strong> <code>qualified</code></p>
+<h3 id="apiregister_signal"><code>api.register_signal</code></h3>
+<p>GDScript: <code>api.register_signal(block_name: String, handler: Callable) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerSignal(blockName, handler)</code></p>
+<p>Tells <code>handler(ctx)</code> when the level arriving at a block of this type changes: a door that should
+open, a lamp that should light, a machine that should start. ctx = {position, block, level,
+previous, realm}.</p>
+<p>Signals are three block keys and this one call. A block emits (<code>signal: 15</code> in its definition, or
+set_signal for a lever that is only sometimes on), a block carries (<code>signal_carry: true</code>, one level
+weaker each block, so fifteen blocks and it is gone), and a block listens - this.</p>
+<p><strong>Gates, delays, inverters, latches and repeaters are blocks you write</strong>, each one listening here
+and emitting with set_signal. The engine has no opinion about what logic looks like, because a
+puzzle game and a factory want different answers and it is not the engine's business to pick.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_signal(&quot;core&quot;, func(ctx):
+    api.set_block_data(ctx.position, {&quot;level&quot;: int(ctx.level)}))
+</code></pre>
+
+<p><strong>See also:</strong> <code>block</code>, <code>is_excluded</code>, <code>qualified</code>, <code>register</code></p>
+<h3 id="apiset_signal"><code>api.set_signal</code></h3>
+<p>GDScript: <code>api.set_signal(position: Vector3i, level: int, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.setSignal(position, level, realmId)</code></p>
+<p>Makes the block at <code>position</code> emit <code>level</code> (0 to 15; 0 stops it). For a lever being flipped, a plate
+being stood on, or a gate of your own working out what it should be saying.</p>
+<pre class="codehilite"><code class="language-gdscript">api.set_signal(ev.position, 15 if api.signal_at(ev.position) == 0 else 0))
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code>, <code>register_instance</code>, <code>set_source</code></p>
+<h3 id="apisignal_at"><code>api.signal_at</code></h3>
+<p>GDScript: <code>api.signal_at(position: Vector3i, realm_id := "") -&gt; int</code></p>
+<p>JavaScript: <code>api.signalAt(position, realmId)</code></p>
+<p>The strongest level arriving at a position from anything touching it.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>reaching</code>, <code>register_instance</code></p>
+<h3 id="apiregister_instance"><code>api.register_instance</code></h3>
+<p>GDScript: <code>api.register_instance(kind_name: String, def := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerInstance(kindName, def)</code></p>
+<p>Declares a kind of private, throwaway space: a dungeon, a puzzle room, an arena.</p>
+<p>An instance <strong>is a realm with a lifetime</strong> - the same separate world dimensions already give you,
+but made on demand and thrown away when it empties. Nothing in one is written to disk.</p>
+<p>api.register_instance("dungeon", {"generator": Rooms.new(), "empty_seconds": 30,
+"max_players": 4})</p>
+<p>def: {generator, passes, empty_seconds, max_players, display_name}. Without a generator the space
+is empty air, which is what a mod that builds its own room wants.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_instance(&quot;trial&quot;, {&quot;display_name&quot;: &quot;The Trial&quot;, &quot;empty_seconds&quot;: 5.0, &quot;max_players&quot;: 2})
+</code></pre>
+
+<p><strong>See also:</strong> <code>register</code></p>
+<h3 id="apiopen_instance"><code>api.open_instance</code></h3>
+<p>GDScript: <code>api.open_instance(kind_name: String, options := {}) -&gt; String</code></p>
+<p>JavaScript: <code>api.openInstance(kindName, options)</code></p>
+<p>Opens one and returns its id, or "" if it could not be opened.</p>
+<p>options: {seed, data (anything you want to keep with it; read it back with <code>instance_data</code>)}.</p>
+<pre class="codehilite"><code class="language-gdscript">var run: String = api.open_instance(&quot;trial&quot;, {&quot;data&quot;: {&quot;opened_for&quot;: player.name}})
+</code></pre>
+
+<p><strong>See also:</strong> <code>open</code></p>
+<h3 id="apienter_instance"><code>api.enter_instance</code></h3>
+<p>GDScript: <code>api.enter_instance(player, instance_id: String, position: Vector3) -&gt; bool</code></p>
+<p>JavaScript: <code>api.enterInstance(player, instanceId, position)</code></p>
+<p>Sends a player in, remembering where they were so <code>leave_instance</code> can put them back.</p>
+<pre class="codehilite"><code class="language-gdscript">api.enter_instance(player, run, Vector3(0.5, 66, 0.5))
+</code></pre>
+
+<p><strong>See also:</strong> <code>enter</code></p>
+<h3 id="apileave_instance"><code>api.leave_instance</code></h3>
+<p>GDScript: <code>api.leave_instance(player) -&gt; bool</code></p>
+<p>JavaScript: <code>api.leaveInstance(player)</code></p>
+<p>Puts a player back where they were before they entered.</p>
+<pre class="codehilite"><code class="language-gdscript">api.leave_instance(player)
+</code></pre>
+
+<p><strong>See also:</strong> <code>leave</code></p>
+<h3 id="apiclose_instance"><code>api.close_instance</code></h3>
+<p>GDScript: <code>api.close_instance(instance_id: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.closeInstance(instanceId)</code></p>
+<p>Closes one now: everybody inside goes back and the space is thrown away. An instance also closes
+itself once it has been empty for its kind's <code>empty_seconds</code>.</p>
+<p><strong>See also:</strong> <code>close</code></p>
+<h3 id="apiinstance_of"><code>api.instance_of</code></h3>
+<p>GDScript: <code>api.instance_of(player) -&gt; String</code></p>
+<p>JavaScript: <code>api.instanceOf(player)</code></p>
+<p>The instance a player is in, or "".</p>
+<pre class="codehilite"><code class="language-gdscript">var here: String = api.instance_of(player)
+</code></pre>
+
+<h3 id="apiinstance_data"><code>api.instance_data</code></h3>
+<p>GDScript: <code>api.instance_data(instance_id: String) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.instanceData(instanceId)</code></p>
+<p>What you kept with an instance when you opened it.</p>
+<p><strong>See also:</strong> <code>add_ore_pass</code>, <code>add_realm</code>, <code>data_of</code>, <code>decorate</code></p>
+<h3 id="apiadd_realm"><code>api.add_realm</code></h3>
+<p>GDScript: <code>api.add_realm(realm_id: String, options := {}) -&gt; Object</code></p>
+<p>JavaScript: <code>api.addRealm(realmId, options)</code></p>
+<p>Adds another world to this server, reached through a portal. Call it while the mod is setting up.</p>
+<p>var deep := api.add_realm("emberdeep", {"name": "The Emberdeep", "generator": MyCaves.new()})</p>
+<p>options: name (shown when travelling), generator (as set_world_generator, but for this world),
+passes (objects with decorate(chunk, seed), as ore passes are), seed (by default derived from the
+world's seed and this realm's name, so it is stable but not the same terrain as the overworld).</p>
+<p>Ores, biomes and features go in with the realm's id: <code>api.add_ore_pass({...}, "emberdeep")</code>.</p>
+<p>Returns the realm, or null if the name is taken. The id is qualified with the mod's own name, so two
+mods may both have an "underworld" without meeting. A realm costs nothing until somebody is standing
+in it: an empty one is not ticked at all (see docs/roadmap.md, "How much of the world is running").</p>
+<p>To send somebody there: a portal block whose block data is {portal: {realm: "<mod>:emberdeep"}},
+or send_to_realm. What the world is made of is the generator's business, and what it means is yours.</p>
+<pre class="codehilite"><code class="language-gdscript">api.add_realm(&quot;deep&quot;, {&quot;display_name&quot;: &quot;The Deep&quot;, &quot;generator&quot;: &quot;void&quot;})
+</code></pre>
+
+<p><strong>See also:</strong> <code>attach</code>, <code>reload</code>, <code>set_storage</code>, <code>start</code></p>
+<h3 id="apirealm_of"><code>api.realm_of</code></h3>
+<p>GDScript: <code>api.realm_of(player) -&gt; String</code></p>
+<p>JavaScript: <code>api.realmOf(player)</code></p>
+<p>Which world a player is standing in, as the id add_realm was given ("" is the one a server starts
+with). Positions mean nothing without it: every world has a block at the same coordinates.</p>
+<pre class="codehilite"><code class="language-gdscript">var realm_id: String = api.realm_of(player)
+</code></pre>
+
+<h3 id="apisend_to_realm"><code>api.send_to_realm</code></h3>
+<p>GDScript: <code>api.send_to_realm(player, realm_id: String, position: Vector3) -&gt; bool</code></p>
+<p>JavaScript: <code>api.sendToRealm(player, realmId, position)</code></p>
+<p>Moves a player to another world, standing at <code>position</code>. Returns false if there is no such world, or
+they are already in it. Cancellable by a mod through the <code>player_realm_change</code> event, which may also
+change where they come out.</p>
+<p><strong>See also:</strong> <code>ensure_area_loaded</code>, <code>generate</code>, <code>index</code>, <code>links_for</code>, <code>qualified</code>, <code>realm_of</code></p>
+<h3 id="apiset_wind"><code>api.set_wind</code></h3>
+<p>GDScript: <code>api.set_wind(degrees: float, strength := 0.5, seconds := 0.0) -&gt; void</code></p>
+<p>JavaScript: <code>api.setWind(degrees, strength, seconds)</code></p>
+<p>Sets the wind: <code>degrees</code> clockwise from north, <code>strength</code> 0 (still) to 1 (a gale), <code>seconds</code> 0 for
+until something says otherwise - the same shape as <code>set_weather</code>.</p>
+<p>Wind is visual: it leans the grass, drags the clouds and slants the rain. Nothing in the simulation
+depends on it, so a mod may move it as freely as it likes. While a mod holds it the engine stops
+drifting it on its own.</p>
+<pre class="codehilite"><code class="language-gdscript">api.set_wind(240.0, 0.85)
+</code></pre>
+
+<h3 id="apiget_wind"><code>api.get_wind</code></h3>
+<p>GDScript: <code>api.get_wind() -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.getWind()</code></p>
+<p>The wind right now: <code>{angle, strength}</code>. The gusts a player actually sees are worked out on each
+client, so this is the average rather than the instant.</p>
+<p><strong>See also:</strong> <code>wind_state</code></p>
+<h3 id="apicontent_conflicts"><code>api.content_conflicts</code></h3>
+<p>GDScript: <code>api.content_conflicts() -&gt; Array</code></p>
+<p>JavaScript: <code>api.contentConflicts()</code></p>
+<p>Content two mods both claim: [{kind ("name" | "ore" | "biome"), detail, mods}].</p>
+<p>The engine reports these and never resolves them, because every one can be deliberate - a second
+kind of copper may be the whole point of your mod. <code>detail</code> is a sentence naming both sides. A pack
+or a game can use this to refuse to ship, or to print a warning of its own.</p>
+<h3 id="apisources_of"><code>api.sources_of</code></h3>
+<p>GDScript: <code>api.sources_of(item_id: int) -&gt; Array</code></p>
+<p>JavaScript: <code>api.sourcesOf(itemId)</code></p>
+<p>Everywhere an item comes from that is not a recipe: blocks that drop it, creatures that drop it,
+loot tables that hold it, ore in the ground.</p>
+<p>Returns [{kind, from, detail, chance}] with the reliable sources first. <code>kind</code> is one of "block",
+"creature", "container", "ground" or "other".</p>
+<p><strong>Mostly derived, not declared.</strong> The engine already knows every loot table, every block's drops,
+every creature's drops and every ore pass, so a mod that registered a creature with <code>drops</code> has
+already said where that item comes from - being asked to say it again in a second registry is how
+the two fall out of step.</p>
+<p><strong>See also:</strong> <code>chance_of</code>, <code>describe</code>, <code>kind_of</code>, <code>of_item</code></p>
+<h3 id="apiregister_source"><code>api.register_source</code></h3>
+<p>GDScript: <code>api.register_source(item_name: String, source: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerSource(itemName, source)</code></p>
+<p>Declares a source nothing can infer: traded by somebody, washed up after a storm, given as a
+reward. <code>detail</code> is shown to a player, so write it as a sentence.</p>
+<p>source: {kind ("block"|"creature"|"container"|"ground"|"other"), from, detail, chance}.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_source(&quot;proving:token&quot;, {&quot;kind&quot;: &quot;other&quot;, &quot;from&quot;: &quot;the keeper&quot;,
+    &quot;detail&quot;: &quot;handed over for a favour&quot;, &quot;chance&quot;: 0.5})
+</code></pre>
+
+<p><strong>See also:</strong> <code>declare</code>, <code>item</code></p>
+<h3 id="apiregister_milestone"><code>api.register_milestone</code></h3>
+<p>GDScript: <code>api.register_milestone(milestone_name: String, def: Dictionary) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerMilestone(milestoneName, def)</code></p>
+<p>A milestone: something a player has done, remembered for the life of the world and paid out once
+(see engine/server/milestones.gd). Goals are written exactly as tutorial goals are - {type, target,
+count}, type being an event goal (break, place, craft, kill, ...) or "event" - but the count is a
+lifetime total. No target means anything of that kind counts.
+{title, description, goal, icon, order, secret (hidden until reached), announce (tell everyone),
+reward: {items: [[item, count]], cosmetic}}. The usual reward is a cosmetic, because a cosmetic is
+something other players can see. Names without ":" are this mod's.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_milestone(&quot;first_stone&quot;, {&quot;display_name&quot;: &quot;First Stone&quot;,
+    &quot;goal&quot;: {&quot;type&quot;: &quot;break&quot;, &quot;target&quot;: [&quot;proving:rock&quot;]}})
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code>, <code>register</code></p>
+<h3 id="apimilestone_reached"><code>api.milestone_reached</code></h3>
+<p>GDScript: <code>api.milestone_reached(player, milestone_name: String) -&gt; bool</code></p>
+<p>JavaScript: <code>api.milestoneReached(player, milestoneName)</code></p>
+<p>Whether a player has reached a milestone, for gating something behind it.</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>reached</code></p>
+<h3 id="apiset_ugc_policy"><code>api.set_ugc_policy</code></h3>
+<p>GDScript: <code>api.set_ugc_policy(values: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.setUgcPolicy(values: { enabled?: boolean; accept?: "auto" | "trusted" | "approval" | "off"; kinds?: ("skin" | "accessory" | "model")[]; library?: boolean; max_per_player?: number; max_bytes_per_player?: number; report_hide?: number }): void</code></p>
+<p>How this server treats player creations (engine/server/ugc.gd): {enabled, accept: "auto" | "trusted" |
+"approval" | "off", kinds: ["skin", "accessory", "model"], library (others may wear approved ones),
+max_per_player, max_bytes_per_player}. Saved with the world.</p>
+<p><strong>See also:</strong> <code>set_policy</code></p>
+<h3 id="apiugc_list"><code>api.ugc_list</code></h3>
+<p>GDScript: <code>api.ugc_list(filter := "approved") -&gt; Array</code></p>
+<p>JavaScript: <code>api.ugcList(filter?: "pending" | "reported" | "approved" | "rejected" | "removed" | "all"): Record&lt;string, unknown&gt;[]</code></p>
+<p>Player creations for review or rewards: filter pending | reported | approved | rejected | removed | all.
+Each: {id, manifest {kind, category, name, author, author_name}, status, reason, reports, uploaded_by, size}.</p>
+<p><strong>See also:</strong> <code>review_list</code></p>
+<h3 id="apiugc_get"><code>api.ugc_get</code></h3>
+<p>GDScript: <code>api.ugc_get(id: String) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.ugcGet(id)</code></p>
+<p>One creation's record, or {}.</p>
+<h3 id="apiugc_set_status"><code>api.ugc_set_status</code></h3>
+<p>GDScript: <code>api.ugc_set_status(id: String, status: String, reason := "") -&gt; bool</code></p>
+<p>JavaScript: <code>api.ugcSetStatus(id, status, reason)</code></p>
+<p>Approves, rejects (hidden; the author may upload a fixed version) or removes (blocked for good) a creation.</p>
+<p><strong>See also:</strong> <code>set_status</code></p>
+<h3 id="apiugc_report"><code>api.ugc_report</code></h3>
+<p>GDScript: <code>api.ugc_report(player, id: String, reason := "other", details := "") -&gt; String</code></p>
+<p>JavaScript: <code>api.ugcReport(player, id, reason, details)</code></p>
+<p>Files a report as a player (e.g. from a mod's own report button).</p>
+<p><strong>See also:</strong> <code>report</code></p>
+<h3 id="apiugc_trust"><code>api.ugc_trust</code></h3>
+<p>GDScript: <code>api.ugc_trust(player_id: String, on := true) -&gt; void</code></p>
+<p>JavaScript: <code>api.ugcTrust(playerId, on)</code></p>
+<p>Trusted creators' uploads skip the approval queue when the policy accepts "trusted".</p>
+<p><strong>See also:</strong> <code>set_trusted</code></p>
+<h3 id="apiugc_ban"><code>api.ugc_ban</code></h3>
+<p>GDScript: <code>api.ugc_ban(player_id: String, on := true, reason := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.ugcBan(playerId, on, reason)</code></p>
+<p>Stops (or allows again) a player uploading creations; banning also hides their creations.</p>
+<p><strong>See also:</strong> <code>set_banned</code></p>
+<h3 id="apiregister_permission"><code>api.register_permission</code></h3>
+<p>GDScript: <code>api.register_permission(permission: String, description: String, roles := []) -&gt; void</code></p>
+<p>JavaScript: <code>api.registerPermission(permission: string, description: string, roles?: string[]): void</code></p>
+<p>Describes a permission a mod checks with player.has_permission, and which built-in roles get it by
+default (e.g. ["moderator"]; admins and owners have every permission anyway).</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_permission(&quot;proving.prove&quot;, &quot;May prove things&quot;, [&quot;moderator&quot;])
+</code></pre>
+
+<p><strong>See also:</strong> <code>merge</code>, <code>role</code></p>
+<h3 id="apinetwork_servers"><code>api.network_servers</code></h3>
+<p>GDScript: <code>api.network_servers() -&gt; Array</code></p>
+<p>JavaScript: <code>api.networkServers(): { key: string; name: string; address: string; port: number; hop: boolean; inventory: boolean }[]</code></p>
+<p>The servers players can travel to from here (network.json): [{key, name, address, port, hop, inventory}].</p>
+<h3 id="apiset_arrival_point"><code>api.set_arrival_point</code></h3>
+<p>GDScript: <code>api.set_arrival_point(id: String, position: Vector3) -&gt; void</code></p>
+<p>JavaScript: <code>api.setArrivalPoint(id, position)</code></p>
+<p>Names a spot where players arriving from other servers can appear (tickets name it as their arrival).</p>
+<p><strong>See also:</strong> <code>set_arrival</code></p>
+<h3 id="apiraycast"><code>api.raycast</code></h3>
+<p>GDScript: <code>api.raycast(origin: Vector3, direction: Vector3, max_distance := 5.0, options := {}) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.raycast( origin: { x: number; y: number; z: number }, direction: { x: number; y: number; z: number }, maxDistance?: number, options?: { liquids?: boolean }, ): { hit: boolean; position?: { x: number; y: number; z: number }; normal?: { x: number; y: number; z: number }; block?: number }</code></p>
+<p>What a ray from <code>origin</code> in <code>direction</code> hits: <code>{hit, position, normal, block}</code> (position and normal are
+Vector3i; <code>hit</code> is false when it reaches <code>max_distance</code> or unloaded world).</p>
+<p>By default it sees what a player's crosshair sees, which deliberately looks straight through water -
+you aim at the riverbed, not the river. Pass <code>{"liquids": true}</code> when the liquid is the point: a
+fishing rod has to find the water's surface, and there is no other way to ask where that is.</p>
+<p>var look := api.look_direction(player)
+var hit := api.raycast(player.get_eye_position(), look, 6.0, {"liquids": true})
+options.realm names the world to cast in; without it, the one a server starts with.</p>
+<pre class="codehilite"><code class="language-gdscript">var hit: Dictionary = api.raycast(player.get_eye_position(), api.look_direction(player), 6.0)
+</code></pre>
+
+<p><strong>See also:</strong> <code>cast</code>, <code>qualified</code>, <code>raycast_lut_with_liquids</code>, <code>register_instance</code></p>
+<h3 id="apilook_direction"><code>api.look_direction</code></h3>
+<p>GDScript: <code>api.look_direction(player) -&gt; Vector3</code></p>
+<p>JavaScript: <code>api.lookDirection(player)</code></p>
+<p>Where a player is looking, as a unit vector. The same direction the engine uses for their reach.</p>
+<p><strong>See also:</strong> <code>column</code></p>
+<h3 id="apiset_rejoin_handler"><code>api.set_rejoin_handler</code></h3>
+<p>GDScript: <code>api.set_rejoin_handler(handler: Callable) -&gt; void</code></p>
+<p>JavaScript: <code>api.setRejoinHandler(handler)</code></p>
+<p>Where a player who has played here before comes back to: <code>handler(player, saved_position) -&gt; Vector3</code>.
+Return <code>Vector3.INF</code> to leave them where they logged out, which is what happens with no handler.</p>
+<p>A separate question from <code>set_spawn_handler</code>, and usually a different answer. A story might want a
+first-time arrival at the structure it placed, and everyone after that back in their own bed. A lobby
+server wants the opposite: everybody, every time, in the lobby. Answering both with one handler meant
+a mod could only have one of them.</p>
+<p><strong>See also:</strong> <code>decorate</code></p>
+<h3 id="apiis_liquid"><code>api.is_liquid</code></h3>
+<p>GDScript: <code>api.is_liquid(block: int) -&gt; bool</code></p>
+<p>JavaScript: <code>api.isLiquid(block: number): boolean</code></p>
+<p>Whether a block id is a liquid (water, lava, and anything a mod declares <code>liquid: true</code>).</p>
+<h3 id="apiarea_cells"><code>api.area_cells</code></h3>
+<p>GDScript: <code>api.area_cells(rule_name: String, ctx := {}) -&gt; Array</code></p>
+<p>JavaScript: <code>api.areaCells(ruleName, ctx)</code></p>
+<p>The cells a shape covers: "box" ({from, to}), "sphere" ({position, radius}), "vein"
+({position, block, max}) or a shape a mod registered. <code>max</code> caps how many come back.</p>
+<p>var cells := api.area_cells("vein", {"position": at, "player": p, "max": 64})</p>
+<p>Choosing the cells and changing them are separate on purpose: between the two is where a tool
+shows a preview, counts what it would cost, or asks whether the player really meant it.</p>
+<pre class="codehilite"><code class="language-gdscript">var cells: Array = api.area_cells(&quot;vein&quot;, {&quot;position&quot;: at, &quot;player&quot;: player, &quot;max&quot;: 64})
+</code></pre>
+
+<p><strong>See also:</strong> <code>cells</code></p>
+<h3 id="apiregister_area_rule"><code>api.register_area_rule</code></h3>
+<p>GDScript: <code>api.register_area_rule(rule_name: String, chooser: Callable) -&gt; void</code></p>
+<p>JavaScript: <code>api.registerAreaRule(ruleName, chooser)</code></p>
+<p>Registers a way of choosing cells, for a tool the three built-in shapes do not describe - a line,
+a wall, everything touching one face. The callable is handed the context <code>area_cells</code> was called
+with and returns an Array of Vector3i.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_area_rule(&quot;column&quot;, func(ctx):
+    var at: Vector3i = ctx.get(&quot;position&quot;, Vector3i.ZERO)
+    var height: int = clampi(int(ctx.get(&quot;height&quot;, 4)), 1, 32)
+    var out: Array = []
+    for dy in height:
+        out.append(at + Vector3i(0, dy, 0))
+    return out)
+</code></pre>
+
+<p><strong>See also:</strong> <code>register_rule</code></p>
+<h3 id="apiarea_edit"><code>api.area_edit</code></h3>
+<p>GDScript: <code>api.area_edit(player, cells: Array, options := {}) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.areaEdit(player, cells, options)</code></p>
+<p>Changes every cell a player is allowed to change. <code>block</code> 0 (or absent) breaks instead of places.</p>
+<p>options: {block, drops (default true), realm}.</p>
+<p>Returns {changed, skipped, refused, reason}. <strong>This is not <code>fill</code>.</strong> Every cell goes through the
+plot check, the block events, the loot roll, tool wear and the player's edit budget, so a mod
+listening for <code>block_broken</code> hears this exactly as it hears a pickaxe, and a selection reaching
+into somebody's garden does the part outside it and reports the rest as <code>skipped</code>. <code>fill</code> is the
+admin door and asks none of that.</p>
+<pre class="codehilite"><code class="language-gdscript">var done: Dictionary = api.area_edit(player, cells, {&quot;block&quot;: 0})
+</code></pre>
+
+<p><strong>See also:</strong> <code>apply</code></p>
+<h3 id="apishow_area"><code>api.show_area</code></h3>
+<p>GDScript: <code>api.show_area(player, cells: Array, options := {}) -&gt; void</code></p>
+<p>JavaScript: <code>api.showArea(player, cells, options)</code></p>
+<p>Outlines a selection for one player, before they commit to it. <code>seconds</code> 0 holds it until it is
+cleared, which is what a tool with a live selection wants; an empty list takes it away.</p>
+<p>options: {color, seconds}.</p>
+<pre class="codehilite"><code class="language-gdscript">api.show_area(player, cells, {&quot;seconds&quot;: 3.0})
+</code></pre>
+
+<p><strong>See also:</strong> <code>preview</code></p>
+<h3 id="apiadd_death_messages"><code>api.add_death_messages</code></h3>
+<p>GDScript: <code>api.add_death_messages(key: String, lines: Array) -&gt; void</code></p>
+<p>JavaScript: <code>api.addDeathMessages(key, lines)</code></p>
+<p>More ways of saying that somebody died, so a mod’s own mobs get their own send-off rather than the
+engine’s general one. <code>key</code> is a cause ("lava", "fall", "magic") or the name of an entity; the first
+"%s" is the player and a second one is whatever did it. One is picked at random, never the same twice
+running, alongside the lines already there.</p>
+<p>api.add_death_messages("mymod:dragon", ["%s was toasted by %s", "%s argued with %s and lost"])</p>
+<p>Keep them kind: say what happened, never what anyone is like. Children read these about themselves.</p>
+<p><strong>See also:</strong> <code>count</code>, <code>qualified</code>, <code>register_settings</code></p>
+<h3 id="apiregister_settings"><code>api.register_settings</code></h3>
+<p>GDScript: <code>api.register_settings(schema: Dictionary) -&gt; void</code></p>
+<p>JavaScript: <code>api.registerSettings(schema)</code></p>
+<p>Declares the settings a host may change without editing this mod, as {key: definition}. Each
+definition takes a <code>type</code> ("bool", "int", "float", "choice" or "text"), a <code>label</code> players see, an
+optional <code>help</code> line, a <code>default</code>, <code>min</code>/<code>max</code>/<code>step</code> for numbers and <code>choices</code> ([[value, label]])
+for a choice. Call it while the mod loads; declaring the same key again updates its definition.</p>
+<p>api.register_settings({
+"monster_rate": {"label": "How many monsters", "type": "float", "default": 1.0, "min": 0.0, "max": 3.0,
+"help": "Multiplies how often monsters appear."},
+"difficulty":   {"label": "Difficulty", "type": "choice", "default": "normal",
+"choices": [["easy", "Easy"], ["normal", "Normal"], ["hard", "Hard"]]},
+})</p>
+<p>The server owns the values, so all three ways in agree: mod_settings.json in the server's data
+folder, the /modsettings command, and the admin settings screen. They live in the world, so a world
+carries its own settings and a backup restores them.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_settings({
+    &quot;monsters&quot;: {&quot;label&quot;: &quot;How many monsters&quot;, &quot;type&quot;: &quot;choice&quot;, &quot;default&quot;: &quot;normal&quot;,
+        &quot;choices&quot;: [[&quot;none&quot;, &quot;None&quot;], [&quot;few&quot;, &quot;A few&quot;], [&quot;normal&quot;, &quot;Normal&quot;], [&quot;many&quot;, &quot;Lots&quot;]]},
+    &quot;day_minutes&quot;: {&quot;label&quot;: &quot;Minutes in a day&quot;, &quot;type&quot;: &quot;int&quot;, &quot;default&quot;: 20, &quot;min&quot;: 2, &quot;max&quot;: 120},
+    &quot;zombies_burn&quot;: {&quot;label&quot;: &quot;Monsters burn by day&quot;, &quot;type&quot;: &quot;bool&quot;, &quot;default&quot;: true},
+})
+</code></pre>
+
+<p><strong>See also:</strong> <code>register</code></p>
+<h3 id="apisetting"><code>api.setting</code></h3>
+<p>GDScript: <code>api.setting(key: String)</code></p>
+<p>JavaScript: <code>api.setting(key)</code></p>
+<p>This mod's setting, as the host left it (its default until someone changes it). null if not declared.</p>
+<p><strong>See also:</strong> <code>get_value</code>, <code>is_game</code>, <code>on</code>, <code>show_title</code></p>
+<h3 id="apiis_game"><code>api.is_game</code></h3>
+<p>GDScript: <code>api.is_game() -&gt; bool</code></p>
+<p>JavaScript: <code>api.isGame(): boolean</code></p>
+<p>Is this mod the game being played, or is it being used as a foundation by another one?</p>
+<p>A game mod is often somebody else's dependency: a story game builds on a sandbox one, so the
+sandbox's blocks, creatures and recipes are all wanted, but its title card and its welcome are not -
+the player is in the story. Guard anything that speaks for the whole game with this:</p>
+<p>api.on("player_join", func(ev):
+if api.is_game():
+ev.player.show_title("Open Sandbox", "Build anything", 4.0))</p>
+<p>The game is the first mod the server was asked to load that declares <code>"kind": "game"</code>; a game loaded
+only because something else depends on it is not it. Add-ons (kind "addon") are never the game.</p>
+<h3 id="apigame_id"><code>api.game_id</code></h3>
+<p>GDScript: <code>api.game_id() -&gt; String</code></p>
+<p>JavaScript: <code>api.gameId()</code></p>
+<p>The id of the game being played, whichever mod this is. Useful for an add-on that wants to behave
+differently depending on the game it has been added to.</p>
+<h3 id="apisettings"><code>api.settings</code></h3>
+<p>GDScript: <code>api.settings() -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.settings()</code></p>
+<p>Every setting of this mod as {key: value}, for passing to something that wants a config dictionary.</p>
+<p><strong>See also:</strong> <code>get_block_data</code>, <code>list</code>, <code>merge</code></p>
+<h3 id="apiset_setting"><code>api.set_setting</code></h3>
+<p>GDScript: <code>api.set_setting(key: String, value) -&gt; String</code></p>
+<p>JavaScript: <code>api.setSetting(key, value)</code></p>
+<p>Changes one of this mod's settings from code (the same path the admin screen uses, so handlers of
+<code>settings_changed</code> run). Returns "" or why it was refused.</p>
+<p><strong>See also:</strong> <code>set_value</code></p>
+<h3 id="apiqualified"><code>api.qualified</code></h3>
+<p>GDScript: <code>api.static qualified(ref: String, owner: String) -&gt; String</code></p>
+<p>JavaScript: <code>api.qualified(ref, owner)</code></p>
+<p>The same rule, for the capabilities that hold names a mod wrote inside a definition - a shop's
+ledger, a character's shop - and so must qualify them against that mod rather than against
+whoever happens to be asking later. Public because three things need it and a private function two
+systems copy is a fact about the code that ought to be visible in the code.</p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#everything-else">Everything else</a></li><li class="sub"><a href="#apireloading">api.reloading</a></li><li class="sub"><a href="#apiregister_ambience">api.register_ambience</a></li><li class="sub"><a href="#apiset_default_role">api.set_default_role</a></li><li class="sub"><a href="#apiregister_weather">api.register_weather</a></li><li class="sub"><a href="#apiset_weather">api.set_weather</a></li><li class="sub"><a href="#apiget_weather">api.get_weather</a></li><li class="sub"><a href="#apiregister_music">api.register_music</a></li><li class="sub"><a href="#apiplay_music">api.play_music</a></li><li class="sub"><a href="#apistop_music">api.stop_music</a></li><li class="sub"><a href="#apiset_map_marker">api.set_map_marker</a></li><li class="sub"><a href="#apiclear_map_marker">api.clear_map_marker</a></li><li class="sub"><a href="#apiset_world_marker">api.set_world_marker</a></li><li class="sub"><a href="#apiclear_world_marker">api.clear_world_marker</a></li><li class="sub"><a href="#apiopen_bag">api.open_bag</a></li><li class="sub"><a href="#apishared_store">api.shared_store</a></li><li class="sub"><a href="#apiopen_shared">api.open_shared</a></li><li class="sub"><a href="#apiget_shared">api.get_shared</a></li><li class="sub"><a href="#apiplay_decal">api.play_decal</a></li><li class="sub"><a href="#apiscreen_tint">api.screen_tint</a></li><li class="sub"><a href="#apiplay_beam">api.play_beam</a></li><li class="sub"><a href="#apifound_company">api.found_company</a></li><li class="sub"><a href="#apidisband_company">api.disband_company</a></li><li class="sub"><a href="#apiset_company_rank">api.set_company_rank</a></li><li class="sub"><a href="#apiremove_from_company">api.remove_from_company</a></li><li class="sub"><a href="#apicompany_rank">api.company_rank</a></li><li class="sub"><a href="#apicompany_at_least">api.company_at_least</a></li><li class="sub"><a href="#apicompanies_of">api.companies_of</a></li><li class="sub"><a href="#apiclaim_plot">api.claim_plot</a></li><li class="sub"><a href="#apirelease_plot">api.release_plot</a></li><li class="sub"><a href="#apiplot_problem">api.plot_problem</a></li><li class="sub"><a href="#apiplot_at">api.plot_at</a></li><li class="sub"><a href="#apimay_build">api.may_build</a></li><li class="sub"><a href="#apiadd_plot_member">api.add_plot_member</a></li><li class="sub"><a href="#apiremove_plot_member">api.remove_plot_member</a></li><li class="sub"><a href="#apiplots_of">api.plots_of</a></li><li class="sub"><a href="#apiregister_objective">api.register_objective</a></li><li class="sub"><a href="#apigive_objective">api.give_objective</a></li><li class="sub"><a href="#apiadvance_objective">api.advance_objective</a></li><li class="sub"><a href="#apiabandon_objective">api.abandon_objective</a></li><li class="sub"><a href="#apiobjectives_of">api.objectives_of</a></li><li class="sub"><a href="#apihas_objective">api.has_objective</a></li><li class="sub"><a href="#apiobjective_finished">api.objective_finished</a></li><li class="sub"><a href="#apiregister_character">api.register_character</a></li><li class="sub"><a href="#apitalk_to">api.talk_to</a></li><li class="sub"><a href="#apihas_met">api.has_met</a></li><li class="sub"><a href="#apiregister_shop">api.register_shop</a></li><li class="sub"><a href="#apishow_shop">api.show_shop</a></li><li class="sub"><a href="#apishop_trade">api.shop_trade</a></li><li class="sub"><a href="#apishop_problem">api.shop_problem</a></li><li class="sub"><a href="#apishop_offers">api.shop_offers</a></li><li class="sub"><a href="#apiset_nameplate">api.set_nameplate</a></li><li class="sub"><a href="#apinameplate_of">api.nameplate_of</a></li><li class="sub"><a href="#apiclear_nameplate">api.clear_nameplate</a></li><li class="sub"><a href="#apifloat_text">api.float_text</a></li><li class="sub"><a href="#apimount">api.mount</a></li><li class="sub"><a href="#apidismount">api.dismount</a></li><li class="sub"><a href="#apiriding">api.riding</a></li><li class="sub"><a href="#apiriders_of">api.riders_of</a></li><li class="sub"><a href="#apiregister_order">api.register_order</a></li><li class="sub"><a href="#apiorder">api.order</a></li><li class="sub"><a href="#apiorder_of">api.order_of</a></li><li class="sub"><a href="#apishow_orders">api.show_orders</a></li><li class="sub"><a href="#apiregister_field">api.register_field</a></li><li class="sub"><a href="#apiplace_field">api.place_field</a></li><li class="sub"><a href="#apiclear_field">api.clear_field</a></li><li class="sub"><a href="#apifields_at">api.fields_at</a></li><li class="sub"><a href="#apiregister_condition">api.register_condition</a></li><li class="sub"><a href="#apigive_condition">api.give_condition</a></li><li class="sub"><a href="#apiclear_condition">api.clear_condition</a></li><li class="sub"><a href="#apiclear_conditions">api.clear_conditions</a></li><li class="sub"><a href="#apihas_condition">api.has_condition</a></li><li class="sub"><a href="#apicondition_level">api.condition_level</a></li><li class="sub"><a href="#apiconditions_of">api.conditions_of</a></li><li class="sub"><a href="#apiregister_ledger">api.register_ledger</a></li><li class="sub"><a href="#apibalance_of">api.balance_of</a></li><li class="sub"><a href="#apiadd_balance">api.add_balance</a></li><li class="sub"><a href="#apiset_balance">api.set_balance</a></li><li class="sub"><a href="#apispend_balance">api.spend_balance</a></li><li class="sub"><a href="#apilevel_of">api.level_of</a></li><li class="sub"><a href="#apilevel_progress">api.level_progress</a></li><li class="sub"><a href="#apibalances_of">api.balances_of</a></li><li class="sub"><a href="#apiregister_modifier">api.register_modifier</a></li><li class="sub"><a href="#apiapply_modifier">api.apply_modifier</a></li><li class="sub"><a href="#apimodifier_level">api.modifier_level</a></li><li class="sub"><a href="#apimodifiers_on">api.modifiers_on</a></li><li class="sub"><a href="#apiregister_liquid">api.register_liquid</a></li><li class="sub"><a href="#apiregister_liquid_meeting">api.register_liquid_meeting</a></li><li class="sub"><a href="#apikeep_awake">api.keep_awake</a></li><li class="sub"><a href="#apilet_sleep">api.let_sleep</a></li><li class="sub"><a href="#apiwake_claim">api.wake_claim</a></li><li class="sub"><a href="#apiset_accepts">api.set_accepts</a></li><li class="sub"><a href="#apistop_accepting">api.stop_accepting</a></li><li class="sub"><a href="#apiwould_accept">api.would_accept</a></li><li class="sub"><a href="#apiregister_drive">api.register_drive</a></li><li class="sub"><a href="#apiset_drive">api.set_drive</a></li><li class="sub"><a href="#apidriven_at">api.driven_at</a></li><li class="sub"><a href="#apidrive_jammed">api.drive_jammed</a></li><li class="sub"><a href="#apion_driven">api.on_driven</a></li><li class="sub"><a href="#apiregister_unit">api.register_unit</a></li><li class="sub"><a href="#apiset_supply">api.set_supply</a></li><li class="sub"><a href="#apiset_demand">api.set_demand</a></li><li class="sub"><a href="#apireceived">api.received</a></li><li class="sub"><a href="#apion_received">api.on_received</a></li><li class="sub"><a href="#apiregister_link_kind">api.register_link_kind</a></li><li class="sub"><a href="#apilink">api.link</a></li><li class="sub"><a href="#apilink_problem">api.link_problem</a></li><li class="sub"><a href="#apilink_refused">api.link_refused</a></li><li class="sub"><a href="#apiunlink">api.unlink</a></li><li class="sub"><a href="#apilinks_at">api.links_at</a></li><li class="sub"><a href="#apitag">api.tag</a></li><li class="sub"><a href="#apitagged">api.tagged</a></li><li class="sub"><a href="#apihas_tag">api.has_tag</a></li><li class="sub"><a href="#apitags_of">api.tags_of</a></li><li class="sub"><a href="#apiregister_signal">api.register_signal</a></li><li class="sub"><a href="#apiset_signal">api.set_signal</a></li><li class="sub"><a href="#apisignal_at">api.signal_at</a></li><li class="sub"><a href="#apiregister_instance">api.register_instance</a></li><li class="sub"><a href="#apiopen_instance">api.open_instance</a></li><li class="sub"><a href="#apienter_instance">api.enter_instance</a></li><li class="sub"><a href="#apileave_instance">api.leave_instance</a></li><li class="sub"><a href="#apiclose_instance">api.close_instance</a></li><li class="sub"><a href="#apiinstance_of">api.instance_of</a></li><li class="sub"><a href="#apiinstance_data">api.instance_data</a></li><li class="sub"><a href="#apiadd_realm">api.add_realm</a></li><li class="sub"><a href="#apirealm_of">api.realm_of</a></li><li class="sub"><a href="#apisend_to_realm">api.send_to_realm</a></li><li class="sub"><a href="#apiset_wind">api.set_wind</a></li><li class="sub"><a href="#apiget_wind">api.get_wind</a></li><li class="sub"><a href="#apicontent_conflicts">api.content_conflicts</a></li><li class="sub"><a href="#apisources_of">api.sources_of</a></li><li class="sub"><a href="#apiregister_source">api.register_source</a></li><li class="sub"><a href="#apiregister_milestone">api.register_milestone</a></li><li class="sub"><a href="#apimilestone_reached">api.milestone_reached</a></li><li class="sub"><a href="#apiset_ugc_policy">api.set_ugc_policy</a></li><li class="sub"><a href="#apiugc_list">api.ugc_list</a></li><li class="sub"><a href="#apiugc_get">api.ugc_get</a></li><li class="sub"><a href="#apiugc_set_status">api.ugc_set_status</a></li><li class="sub"><a href="#apiugc_report">api.ugc_report</a></li><li class="sub"><a href="#apiugc_trust">api.ugc_trust</a></li><li class="sub"><a href="#apiugc_ban">api.ugc_ban</a></li><li class="sub"><a href="#apiregister_permission">api.register_permission</a></li><li class="sub"><a href="#apinetwork_servers">api.network_servers</a></li><li class="sub"><a href="#apiset_arrival_point">api.set_arrival_point</a></li><li class="sub"><a href="#apiraycast">api.raycast</a></li><li class="sub"><a href="#apilook_direction">api.look_direction</a></li><li class="sub"><a href="#apiset_rejoin_handler">api.set_rejoin_handler</a></li><li class="sub"><a href="#apiis_liquid">api.is_liquid</a></li><li class="sub"><a href="#apiarea_cells">api.area_cells</a></li><li class="sub"><a href="#apiregister_area_rule">api.register_area_rule</a></li><li class="sub"><a href="#apiarea_edit">api.area_edit</a></li><li class="sub"><a href="#apishow_area">api.show_area</a></li><li class="sub"><a href="#apiadd_death_messages">api.add_death_messages</a></li><li class="sub"><a href="#apiregister_settings">api.register_settings</a></li><li class="sub"><a href="#apisetting">api.setting</a></li><li class="sub"><a href="#apiis_game">api.is_game</a></li><li class="sub"><a href="#apigame_id">api.game_id</a></li><li class="sub"><a href="#apisettings">api.settings</a></li><li class="sub"><a href="#apiset_setting">api.set_setting</a></li><li class="sub"><a href="#apiqualified">api.qualified</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../../../search/main.js" defer></script>
+<script src="../../../lang/main.js" defer></script>
+</body>
+</html>

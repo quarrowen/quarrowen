@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href=".">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="cur" href=".">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="api/mod-api/">Overview</a></li>
+          <li><a class="" href="api/mod-api/blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="api/mod-api/crafting/">Crafting</a></li>
+          <li><a class="" href="api/mod-api/events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="api/mod-api/everything-else/">Everything else</a></li>
+          <li><a class="" href="api/mod-api/guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="api/mod-api/items/">Items</a></li>
+          <li><a class="" href="api/mod-api/logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="api/mod-api/mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="api/mod-api/players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="api/mod-api/server/">Server</a></li>
+          <li><a class="" href="api/mod-api/sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="api/mod-api/world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="api/engine/">Engine internals</a></li>
+          <li><a class="" href="api/how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="modding/">Writing a mod</a></li>
+          <li><a class="" href="loot/">Loot tables</a></li>
+          <li><a class="" href="hosting/">Running a server</a></li>
+          <li><a class="" href="distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="playing/">Playing</a></li>
+          <li><a class="" href="engine/">The engine</a></li>
+          <li><a class="" href="roadmap/">What is still missing</a></li>
+          <li><a class="" href="faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="quarrowen">Quarrowen</h1>
+<p>A voxel game engine in Godot with a Rust extension, built so that <strong>the engine provides capabilities
+and mods provide content</strong>. If a feature names a particular block, item or story it belongs in a mod;
+if it lets <em>any</em> mod do that kind of thing it belongs in the engine.</p>
+<p>That line is why this reference exists and why it is the shape it is. The mod API is over 260
+functions and none of them require reaching into engine internals, so a mod written against it keeps
+working: the loudest complaint about modding in this genre is that every release rewrites the
+internals and every mod must be rewritten with them. Here nothing forces that.</p>
+<h2 id="the-reference">The reference</h2>
+<dl>
+<dt><a href="api/mod-api/">Mod API</a></dt>
+<dd>Every function a mod can call. Start here.</dd>
+<dt><a href="api/engine/">Engine internals</a></dt>
+<dd>The registries and readers behind the API, grouped by the question they answer rather than by folder.</dd>
+<dt><a href="api/how-do-i/">How do I…</a></dt>
+<dd>The short path to a task when you know what you want and not what it is called.</dd>
+</dl>
+<p>All three are <strong>generated from the engine's own sources</strong>, so they cannot drift from the code — a
+test fails when they are stale. Each entry carries its signature, the remarks its doc comment holds,
+and a <strong>See Also</strong> derived from what the function actually calls, following through private helpers
+because the useful link usually runs through one.</p>
+<h2 id="guides">Guides</h2>
+<ul>
+<li><strong><a href="modding/">Writing a mod</a></strong> — from an empty folder to something that loads, in GDScript or JavaScript.</li>
+<li><strong><a href="loot/">Loot tables</a></strong> — weights, pools and how "how likely is this drop" is actually answered.</li>
+<li><strong><a href="hosting/">Running a server</a></strong> — for a family, a classroom or the public.</li>
+<li><strong><a href="distribution/">Distributing a build</a></strong> — packaging and release.</li>
+</ul>
+<h2 id="a-note-on-content">A note on content</h2>
+<p>The engine ships with <code>base</code>, which owns <strong>nouns</strong> — blocks, liquids, biomes, flora and fauna, the
+things that simply exist. Progression, recipes and survival are <strong>rules</strong>, and rules belong to a
+game. The test of whether that line is holding is a blunt one: a creative game ships zero recipes and
+everything still exists and works.</p>
+<p>So if you are looking for where the furnace recipe lives, it is not in <code>base</code>, and that is deliberate.</p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#quarrowen">Quarrowen</a></li><li class="sub"><a href="#the-reference">The reference</a></li><li class="sub"><a href="#guides">Guides</a></li><li class="sub"><a href="#a-note-on-content">A note on content</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="search/main.js" defer></script>
+<script src="lang/main.js" defer></script>
+</body>
+</html>
