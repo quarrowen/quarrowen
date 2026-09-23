@@ -46,6 +46,7 @@ const OWNED := {
 	"entries": "engine/server/loot.gd",
 	"emitters": "engine/shared/effect_registry.gd",
 	"drops": "engine/shared/entity_registry.gd",
+	"notable": "engine/shared/entity_registry.gd",
 }
 
 const HEADER := """# Who reaches into a structure another file owns.

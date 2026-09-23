@@ -2890,7 +2890,7 @@ api.add_death_messages("mymod:dragon", ["%s was toasted by %s", "%s argued with 
 
 Keep them kind: say what happened, never what anyone is like. Children read these about themselves.
 
-**See also:** `qualified`, `register_settings`
+**See also:** `count`, `qualified`, `register_settings`
 
 ### `api.register_settings(schema: Dictionary) -> void`
 

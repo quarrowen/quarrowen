@@ -55,6 +55,7 @@ const REFERENCES := [
 	["Crafting minigames", "res://engine/shared/minigame.gd"],
 	["Stations", "res://engine/server/stations.gd"],
 	["Spawning", "res://engine/server/spawning.gd"],
+	["Rare creatures", "res://engine/server/sightings.gd"],
 	["Explosions", "res://engine/server/explosions.gd"],
 	["Sleep", "res://engine/server/sleep.gd"],
 	["Hunger", "res://engine/server/hunger.gd"],

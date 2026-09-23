@@ -72,7 +72,8 @@ func _draw() -> void:
 			var degrees := str(tick)
 			draw_string(_font, Vector2(x - degrees.length() * 3.0, HEIGHT - 11.0), degrees, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1, 0.55))
 	for entry in _markers:
-		_pin(entry.get("position", Vector3.ZERO), Color.html(str(entry.get("color", "#ffd166"))), facing, true)
+		_pin(entry.get("position", Vector3.ZERO), Color.html(str(entry.get("color", "#ffd166"))), facing, true,
+			str(entry.get("label", "")))
 	for entry in _players:
 		if not entry.get("you", false):
 			_pin(entry.get("position", Vector3.ZERO), Color(0.42, 0.72, 1.0), facing, false)
@@ -91,7 +92,10 @@ func _screen_x(relative_degrees: float) -> float:
 
 
 ## Ticks sit just under the heading, above the letters.
-func _pin(position: Vector3, color: Color, facing: float, diamond: bool) -> void:
+## A marker's name rides under its tick, so a countdown the server writes into the label is something
+## the player watches without opening the map. Only markers get one: the same text over every nearby
+## player would be a crowd of names across the sky. (the user, 2026-09-23)
+func _pin(position: Vector3, color: Color, facing: float, diamond: bool, label := "") -> void:
 	var to := Vector2(position.x - origin.x, position.z - origin.z)
 	if to.length() < 1.0:
 		return
@@ -105,3 +109,10 @@ func _pin(position: Vector3, color: Color, facing: float, diamond: bool) -> void
 	else:
 		draw_circle(Vector2(x, y), 4.0, color)
 	draw_arc(Vector2(x, y), 5.0, 0.0, TAU, 12, Color(0, 0, 0, 0.5), 1.0)
+	if label.is_empty():
+		return
+	# Centred under the tick, and nudged back inside the strip at either end rather than drawn off it.
+	var width := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+	var text_x := clampf(x - width * 0.5, 1.0, maxf(WIDTH - width - 1.0, 1.0))
+	draw_string(_font, Vector2(text_x + 1.0, y + 17.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0, 0, 0, 0.7))
+	draw_string(_font, Vector2(text_x, y + 16.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, color)

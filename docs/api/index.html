@@ -76,6 +76,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#ref-crafting-minigames">Crafting minigames</a>
 <a href="#ref-stations">Stations</a>
 <a href="#ref-spawning">Spawning</a>
+<a href="#ref-rare-creatures">Rare creatures</a>
 <a href="#ref-explosions">Explosions</a>
 <a href="#ref-sleep">Sleep</a>
 <a href="#ref-hunger">Hunger</a>
@@ -1596,6 +1597,18 @@ declare module &quot;quarrowen&quot; {
     sounds?: { hurt?: string; death?: string; ambient?: string; attack?: string };
     /** Saved with the world (otherwise despawns when no player is near). */
     persistent?: boolean;
+    /**
+     * A creature the whole server is told about when one appears: a line in chat, and a marker on
+     * everybody's map and compass that follows it and counts down. `true` takes the defaults.
+     * `minutes` is how long it waits to be found before it leaves (0 = never).
+     */
+    notable?: boolean | {
+      announce?: string;
+      /** &quot;%s&quot; is whoever killed it. */
+      slain?: string;
+      gone?: string;
+      label?: string; color?: string; minutes?: number;
+    };
   }
 
   export interface SpawnRule {
@@ -2356,6 +2369,27 @@ Categories cap how many of their mobs may be near each player (`caps`, changeabl
 set_spawn_caps). Monsters and ambient mobs despawn: at once beyond 96 blocks from every player, and
 now and then beyond 32. Animals stay (so farms keep their animals); so do persistent entities and any
 entity with data `no_despawn` (named, tamed, bred, ...).</pre></section>
+<section id="ref-rare-creatures" class="ref"><h2>Rare creatures <span class="file">engine/server/sightings.gd</span></h2><pre class="block">The creatures the whole server is told about: the rare ones, announced when they arrive, marked on
+everybody's map and compass while they are about, and gone again if nobody comes.
+
+**Why this is engine rather than mod.** A mod can already say a line (`api.broadcast`) and put a
+marker down (`api.set_world_marker`), and that is most of this. What it cannot do cheaply is the
+*following*: the creature wanders, so the marker has to move with it, and a mod doing that needs a
+handler running every tick across every entity to find out where its monster got to. Here it is one
+sweep over a list that is almost always empty.
+
+Modelled on `GameServer.announce_rare_loot`, which had already answered the same question for a
+rare drop: say it in chat, make a noise, and leave something on screen so the find is not lost. A
+hunt is that shape with the quarry moving - so the marker follows, and there is a clock on it.
+
+**The clock is the part that makes it a hunt.** Without one the creature stands where it spawned
+until somebody wanders past, the compass needle stops meaning &quot;go now&quot;, and a night's worth of them
+pile up on the map. With one, the announcement is an invitation with an end to it. (the user,
+2026-09-23)
+
+What opts a creature in is `notable` on its definition; `EntityRegistry._read_notable` says what
+may go in it. Nothing here decides *which* creatures are rare - that is a spawn rule, and spawn
+rules belong to a game.</pre></section>
 <section id="ref-explosions" class="ref"><h2>Explosions <span class="file">engine/server/explosions.gd</span></h2><pre class="block">Explosions: `explode(center, power, options)`.
 
 Blocks: rays go out from the center losing strength with distance and with each block's blast

@@ -827,7 +827,7 @@ level), owner (a player or a creature), realm.
 
 Every field a point is inside, for a mod that wants to ask rather than be told.
 
-**See also:** `get_block_v`
+**See also:** `get_block_v`, `uptime`
 
 ### `to_saved() -> Array`
 
@@ -889,7 +889,7 @@ Sends a player in, remembering where they were so `leave` can put them back.
 
 Puts a player back where they were before they entered. Returns false if they were not in one.
 
-**See also:** `allowed`, `close`, `finish`, `get_block`, `send_to_realm`, `sign`
+**See also:** `allowed`, `close`, `finish`, `get_block`, `gone`, `send_to_realm`
 
 ### `close(instance_id: String) -> bool`
 
@@ -988,7 +988,7 @@ def: layers (bottom first, each a list of rows of characters), key (character ->
 
 Is a machine of this pattern standing with its controller here? Worked out now rather than looked up.
 
-**See also:** `get_block_v`
+**See also:** `get_block_v`, `uptime`
 
 ### `block_changed(pos: Vector3i, _old: int, _block: int) -> void`
 
@@ -1027,7 +1027,7 @@ Marks out a plot. `owner` is a player id, or use `company` for one owned by a gr
 
 The plot a block is in, or {}.
 
-**See also:** `get_block_v`
+**See also:** `get_block_v`, `uptime`
 
 ### `add_member(id: int, player_id: String) -> bool`
 
@@ -1456,7 +1456,7 @@ Materials, parts and tools built from parts (shared definitions from the server)
 
 Shows what an experiment did: the discovered or known result, or a hint.
 
-**See also:** `area_cells`, `at_station`, `box_mesh`, `count_of`, `craftable_times`, `icon_of`
+**See also:** `area_cells`, `at_station`, `box_mesh`, `count`, `count_of`, `craftable_times`
 
 ### `open(station_info: Dictionary, station_stock: Dictionary) -> void`
 
@@ -1511,6 +1511,8 @@ Applies a station session update; rebuilds the co-op panel only when more than p
 *client/crafting_screen.gd*
 
 Short text for a station name ("crafting_table" -> "Crafting Table").
+
+**See also:** `count`
 
 ### `stat_preview(item: int) -> PackedStringArray`
 
@@ -2729,7 +2731,7 @@ The realm these creatures are in.
 
 options: yaw, velocity (Vector3), data (Dictionary), owner, item (id), count, pickup_delay
 
-**See also:** `attach`
+**See also:** `arrived`, `attach`
 
 ### `drop_item(item: int, count: int, pos: Vector3, velocity := Vector3.INF, pickup_delay := ITEM_PICKUP_DELAY, item_data := {}) -> Entity`
 
@@ -3211,9 +3213,22 @@ engine/server/ai/mob_config.gd (mobs only)
 damage (projectiles: damage dealt on hit), lifetime (seconds, 0 = forever)
 drops: [[item name or id, count], ...] on death; sounds: {hurt, death, ambient, attack}
 persistent: saved with the chunk it is in (otherwise despawns when no player is near)
+notable: the whole server is told when one appears, and it is marked on everybody's map and
+compass - the marker follows it and counts down - until it dies or its time runs out.
+{announce, slain ("%s" is the killer), gone, label, color, minutes (0 = never leaves)},
+or `true` for the defaults. For the rare ones worth hunting; see server/sightings.gd.
 `replace`: an existing type of that name gets the new definition in place (same id; mod reloads).
 
 **See also:** `add_handler`, `category`, `clean_color`, `clean_def`, `clean_effects`, `clean_food`
+
+### `notable_of(type_id: int) -> Dictionary`
+
+*shared/entity_registry.gd*
+
+Whether this type is one the server announces, and how. `{}` when it is not.
+
+A function rather than a reach into `defs[id].notable`, because `notable` is a shape a mod wrote
+and this registry normalised, and those have one owner here - see engine/owned.txt.
 
 ### `id_of(type_name: String) -> int`
 
@@ -5818,7 +5833,7 @@ Puts a setting back to its default (and to whatever the data folder's file says)
 Every setting of every mod (or one mod), for the admin screen and /modsettings:
 [{mod, key, type, label, help, value, default, changed, ...}], in a stable order.
 
-**See also:** `get_value`, `is_id`, `open`, `read_meta`
+**See also:** `count`, `get_value`, `is_id`, `open`, `read_meta`
 
 ### `mods() -> Array`
 
@@ -5929,6 +5944,8 @@ Everywhere `item_id` comes from, most likely first. Always returns an Array.
 *shared/semver.gd*
 
 [major, minor, patch, prerelease] or [] when not a version.
+
+**See also:** `count`
 
 ### `static compare(a: String, b: String) -> int`
 
@@ -6083,7 +6100,7 @@ The hub's invite code for this server ("QW-ABC-123"), once listed.
 
 Asks the hub to drop the listing (best effort, on shutdown: a blocking request with a short timeout).
 
-**See also:** `allowed`, `close`, `finish`, `get_block`, `send_to_realm`, `sign`
+**See also:** `allowed`, `close`, `finish`, `get_block`, `gone`, `send_to_realm`
 
 ### `transfer(p, target: String, options := {}) -> String`
 
@@ -6172,6 +6189,8 @@ What someone shares: an invite code when possible, else "address:port".
 *shared/invite_code.gd*
 
 {address, port} from a code or "host[:port]" text, or {error}.
+
+**See also:** `count`
 
 ### `static local_address() -> String`
 
@@ -6713,7 +6732,7 @@ Validates and saves a creation. Returns {ok, error, manifest}.
 
 Manifests of every creation, newest first.
 
-**See also:** `get_value`, `is_id`, `open`, `read_meta`
+**See also:** `count`, `get_value`, `is_id`, `open`, `read_meta`
 
 ### `static update(id: String, changes: Dictionary) -> bool`
 
@@ -7528,7 +7547,7 @@ Downloads the update, checks it and hands over to the installer script.
 
 [{id, title, game, mods, seed, created_at, last_played, size}] newest played first.
 
-**See also:** `get_value`, `is_id`, `open`, `read_meta`
+**See also:** `count`, `get_value`, `is_id`, `open`, `read_meta`
 
 ### `static id_for(title: String, root := "") -> String`
 
@@ -8257,6 +8276,12 @@ What mods let a host change without editing them (see engine/server/mod_settings
 
 Loaded mods: id -> manifest, in load order, and id -> the running mod (GDScript instance or JsMod).
 
+### `sightings := Sightings.new(self)  (property)`
+
+*server/game_server.gd*
+
+The rare creatures the whole server is told about, and the markers that follow them.
+
 ### `connect := Connect.new(self)  (property)`
 
 *server/game_server.gd*
@@ -8337,6 +8362,14 @@ The first time a listed name joins, its entry is tied to that identity (so the n
 *server/game_server.gd*
 
 Whether a player's roles grant a permission (config admins have everything).
+
+### `uptime() -> float`
+
+*server/game_server.gd*
+
+Seconds since the server started ticking. What `schedule` measures against, so anything timing an
+event of its own should ask here rather than reach for a wall clock - a paused or slow server then
+counts the same time everything else does.
 
 ### `after_mod_reload() -> void`
 
@@ -8624,7 +8657,7 @@ Positions of loaded blocks that have data, optionally only of one block type.
 Adds ways of saying somebody died (see ModApi.add_death_messages). `key` is a cause, or the name of an
 entity so a mod's own mob gets its own send-off; "%s" is the player, and a second "%s" is what did it.
 
-**See also:** `qualified`, `register_settings`
+**See also:** `count`, `qualified`, `register_settings`
 
 ### `announce_rare_loot(player, item: int, count: int, position: Vector3) -> void`
 
@@ -9029,13 +9062,73 @@ the explosion is a noise, not fifty pieces of feedback.
 
 Everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report.
 
+### `start() -> void`
+
+*server/sightings.gd*
+
+Starts the sweep. Called once the server is running, because `schedule` needs its clock.
+
+**See also:** `add_chunk`, `add_command`, `add_handler`, `add_mod_dir`, `add_recipe`, `advance`
+
+### `arrived(e) -> void`
+
+*server/sightings.gd*
+
+A creature has appeared. Announces it and marks it, if it is one of the notable ones.
+
+Every spawn comes through here, including the ordinary ones, so the first line is the one that
+matters: `notable_of` answers `{}` for almost everything and this returns having done nothing.
+
+**See also:** `at_path_end`, `broadcast_chat`, `key_name`, `node_key`, `notable_of`, `play_sound_to`
+
+### `slain(e, attacker) -> void`
+
+*server/sightings.gd*
+
+It died. Says who, then clears up.
+
+**See also:** `broadcast_chat`, `count`, `gone`, `key_name`, `node_key`
+
+### `gone(e) -> void`
+
+*server/sightings.gd*
+
+It is no longer in the world, for whatever reason. Takes its marker off the map.
+
+**See also:** `key_name`, `node_key`
+
+### `update() -> void`
+
+*server/sightings.gd*
+
+Moves each marker to where its creature is now, and sees off the ones whose time has run out.
+
+### `rebuild() -> void`
+
+*server/sightings.gd*
+
+Rebuilds the list from the creatures actually in the world, and sweeps any marker left behind.
+
+Called after a world loads. Notable creatures are saved with their chunk, so one can outlive the
+session it appeared in - and its marker is saved with the world too, which would otherwise leave a
+compass pointing at a monster that had long since been dealt with. Nothing is re-announced: a line
+in chat is for the moment it happened.
+
+**See also:** `is_alive`, `key_name`, `node_key`, `notable_of`, `uptime`
+
+### `count() -> int`
+
+*server/sightings.gd*
+
+How many are being tracked, for the tests and for an admin wondering what is loose.
+
 ### `static list(backup_dir: String) -> Array`
 
 *server/world_backups.gd*
 
 Newest first. Each entry: {name, path, size, modified}.
 
-**See also:** `get_value`, `is_id`, `open`, `read_meta`
+**See also:** `count`, `get_value`, `is_id`, `open`, `read_meta`
 
 ### `static create(world_dir: String, zip_path: String) -> String`
 

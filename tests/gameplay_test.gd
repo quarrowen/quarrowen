@@ -4392,10 +4392,23 @@ func _base_is_nouns() -> void:
 	# no entities at all until 2026-09-23 - they went with the deleted games.
 	var creatures := 0
 	for name in ["base:sheep", "base:cow", "base:pig", "base:chicken", "base:wolf", "base:dustling",
-			"base:clatterjack", "base:mirelet", "base:night_stalker", "base:colossus"]:
+			"base:clatterjack", "base:mirelet", "base:night_stalker", "base:colossus",
+			"base:wisp", "base:hollow_piper", "base:barrow_warden", "base:palemoth"]:
 		if server.entities.registry.id_of(name) >= 0:
 			creatures += 1
-	_check(creatures == 10, "and the world still has things living in it (%d of 10)" % creatures)
+	_check(creatures == 14, "and the world still has things living in it (%d of 14)" % creatures)
+	# The rare four are nouns like the rest: they exist, they say what they are worth announcing, and
+	# **not one of them spawns**, because where something lives is a rule. That last clause is the one
+	# worth asserting - a spawn rule written here fires in every world built on `base`, which is how
+	# the Proving Ground's flat test world filled up with mobs and stopped a save queue draining.
+	var wisp: int = server.entities.registry.id_of("base:wisp")
+	_check(not server.entities.registry.notable_of(wisp).is_empty(),
+		"a rare creature carries what the server should say about it")
+	_check(server.items.id_of("base:emberheart") > 0 and server.items.id_of("base:moonpearl") > 0,
+		"and what it is worth killing for exists as well")
+	_check(server.entities.spawning.rules.is_empty(),
+		"and base spawns none of them, because where something lives is a rule (%d rules)"
+			% server.entities.spawning.rules.size())
 	server.queue_free()
 	await get_tree().process_frame
 

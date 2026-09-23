@@ -217,6 +217,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#e-server-game-server-gd">game_server.gd</a>
 <div class="group">Everything else</div>
 <a href="#e-server-conflicts-gd">conflicts.gd</a>
+<a href="#e-server-sightings-gd">sightings.gd</a>
 <a href="#e-server-world-backups-gd">world_backups.gd</a>
 <a href="#e-shared-net-access-gd">net_access.gd</a>
 <a href="#e-shared-voxel-world-gd">voxel_world.gd</a>
@@ -1228,6 +1229,10 @@ engine/server/ai/mob_config.gd (mobs only)
 damage (projectiles: damage dealt on hit), lifetime (seconds, 0 = forever)
 drops: [[item name or id, count], ...] on death; sounds: {hurt, death, ambient, attack}
 persistent: saved with the chunk it is in (otherwise despawns when no player is near)
+notable: the whole server is told when one appears, and it is marked on everybody's map and
+compass - the marker follows it and counts down - until it dies or its time runs out.
+{announce, slain (&quot;%s&quot; is the killer), gone, label, color, minutes (0 = never leaves)},
+or `true` for the defaults. for the rare ones worth hunting; see server/sightings.gd.
 `replace`: an existing type of that name gets the new definition in place (same id; mod reloads). shared/entity_registry.gd creatures and ai"><div class="sig"><code>register(def: Dictionary, replace := false) -&gt; int</code></div><p>Definition keys (all optional except name):
 kind: "mob" | "projectile" | "object" | "item"
 model: glTF asset (nodes named leg_a / leg_b / arm_a / arm_b swing while walking, head turns)
@@ -1239,7 +1244,18 @@ engine/server/ai/mob_config.gd (mobs only)
 damage (projectiles: damage dealt on hit), lifetime (seconds, 0 = forever)
 drops: [[item name or id, count], ...] on death; sounds: {hurt, death, ambient, attack}
 persistent: saved with the chunk it is in (otherwise despawns when no player is near)
+notable: the whole server is told when one appears, and it is marked on everybody's map and
+compass - the marker follows it and counts down - until it dies or its time runs out.
+{announce, slain ("%s" is the killer), gone, label, color, minutes (0 = never leaves)},
+or `true` for the defaults. For the rare ones worth hunting; see server/sightings.gd.
 `replace`: an existing type of that name gets the new definition in place (same id; mod reloads).</p></div>
+<div class="card" data-search="notable_of whether this type is one the server announces, and how. `{}` when it is not.
+
+a function rather than a reach into `defs[id].notable`, because `notable` is a shape a mod wrote
+and this registry normalised, and those have one owner here - see engine/owned.txt. shared/entity_registry.gd creatures and ai"><div class="sig"><code>notable_of(type_id: int) -&gt; Dictionary</code></div><p>Whether this type is one the server announces, and how. `{}` when it is not.
+
+A function rather than a reach into `defs[id].notable`, because `notable` is a shape a mod wrote
+and this registry normalised, and those have one owner here - see engine/owned.txt.</p></div>
 <div class="card" data-search="id_of the id registered under this name, or **-1 if nothing is**.
 
 -1 is an answer, not an error: mods rely on it to make optional content optional. but **a -1 kept
@@ -2510,6 +2526,7 @@ Both from the host's configuration; see the constants above for why they are sep
 <div class="card" data-search="ugc player creations: uploads, the server library and serving them (see engine/server/ugc.gd). server/game_server.gd the server itself"><div class="sig"><code>ugc := Ugc.new(self)  (property)</code></div><p>Player creations: uploads, the server library and serving them (see engine/server/ugc.gd).</p></div>
 <div class="card" data-search="mod_settings what mods let a host change without editing them (see engine/server/mod_settings.gd). server/game_server.gd the server itself"><div class="sig"><code>mod_settings := ModSettings.new(self)  (property)</code></div><p>What mods let a host change without editing them (see engine/server/mod_settings.gd).</p></div>
 <div class="card" data-search="mod_manifests loaded mods: id -&gt; manifest, in load order, and id -&gt; the running mod (gdscript instance or jsmod). server/game_server.gd the server itself"><div class="sig"><code>mod_manifests := {}  (property)</code></div><p>Loaded mods: id -> manifest, in load order, and id -> the running mod (GDScript instance or JsMod).</p></div>
+<div class="card" data-search="sightings the rare creatures the whole server is told about, and the markers that follow them. server/game_server.gd the server itself"><div class="sig"><code>sightings := Sightings.new(self)  (property)</code></div><p>The rare creatures the whole server is told about, and the markers that follow them.</p></div>
 <div class="card" data-search="connect blocks that notice their neighbours: fences joining into a run, panes into a window. server/game_server.gd the server itself"><div class="sig"><code>connect := Connect.new(self)  (property)</code></div><p>Blocks that notice their neighbours: fences joining into a run, panes into a window.</p></div>
 <div class="card" data-search="assembly materials, parts and tools built from parts (see assembly). server/game_server.gd the server itself"><div class="sig"><code>assembly := Assembly.new()  (property)</code></div><p>Materials, parts and tools built from parts (see Assembly).</p></div>
 <div class="card" data-search="add_realm adds a world beside the overworld. a mod calls this while it is setting up, before the world loads,
@@ -2543,6 +2560,11 @@ by name until that name first joins and binds the entry to the player's identity
 <div class="card" data-search="allowlist_add adds a player by name (or id) to the allowlist. server/game_server.gd the server itself"><div class="sig"><code>allowlist_add(name_or_id: String) -&gt; void</code></div><p>Adds a player by name (or id) to the allowlist.</p></div>
 <div class="card" data-search="allowlist_bind the first time a listed name joins, its entry is tied to that identity (so the name cannot be taken). server/game_server.gd the server itself"><div class="sig"><code>allowlist_bind(player_id: String, player_name: String) -&gt; void</code></div><p>The first time a listed name joins, its entry is tied to that identity (so the name cannot be taken).</p></div>
 <div class="card" data-search="has_permission whether a player's roles grant a permission (config admins have everything). server/game_server.gd the server itself"><div class="sig"><code>has_permission(p, permission: String) -&gt; bool</code></div><p>Whether a player's roles grant a permission (config admins have everything).</p></div>
+<div class="card" data-search="uptime seconds since the server started ticking. what `schedule` measures against, so anything timing an
+event of its own should ask here rather than reach for a wall clock - a paused or slow server then
+counts the same time everything else does. server/game_server.gd the server itself"><div class="sig"><code>uptime() -&gt; float</code></div><p>Seconds since the server started ticking. What `schedule` measures against, so anything timing an
+event of its own should ask here rather than reach for a wall clock - a paused or slow server then
+counts the same time everything else does.</p></div>
 <div class="card" data-search="after_mod_reload after a quick reload: clients get the new definitions, recipe book, guide and tutorials. server/game_server.gd the server itself"><div class="sig"><code>after_mod_reload() -&gt; void</code></div><p>After a quick reload: clients get the new definitions, recipe book, guide and tutorials.</p></div>
 <div class="card" data-search="open_crafting_refresh refreshes a player's open crafting screen (the recipe book may have changed). server/game_server.gd the server itself"><div class="sig"><code>open_crafting_refresh(p: ServerPlayer) -&gt; void</code></div><p>Refreshes a player's open crafting screen (the recipe book may have changed).</p></div>
 <div class="card" data-search="tell_moderators messages for admins only (moderation). server/game_server.gd the server itself"><div class="sig"><code>tell_moderators(text: String) -&gt; void</code></div><p>Messages for admins only (moderation).</p></div>
@@ -2820,6 +2842,29 @@ the explosion is a noise, not fifty pieces of feedback. server/game_server.gd th
 `sound` is off for a blast, which breaks fifty blocks in one instant: fifty break sounds on top of
 the explosion is a noise, not fifty pieces of feedback.</p></div></section>
 <section id="e-server-conflicts-gd"><h2>conflicts.gd <span class="file">server/conflicts.gd</span></h2><p class="lead">Two mods quietly standing on each other, found before a player notices.</p><div class="card" data-search="find everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report. server/conflicts.gd everything else"><div class="sig"><code>find() -&gt; Array</code></div><p>Everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report.</p></div></section>
+<section id="e-server-sightings-gd"><h2>sightings.gd <span class="file">server/sightings.gd</span></h2><p class="lead">The creatures the whole server is told about: the rare ones, announced when they arrive, marked on everybody's map and compass while they are about, and gone again if nobody comes.</p><div class="card" data-search="start starts the sweep. called once the server is running, because `schedule` needs its clock. server/sightings.gd everything else"><div class="sig"><code>start() -&gt; void</code></div><p>Starts the sweep. Called once the server is running, because `schedule` needs its clock.</p></div>
+<div class="card" data-search="arrived a creature has appeared. announces it and marks it, if it is one of the notable ones.
+
+every spawn comes through here, including the ordinary ones, so the first line is the one that
+matters: `notable_of` answers `{}` for almost everything and this returns having done nothing. server/sightings.gd everything else"><div class="sig"><code>arrived(e) -&gt; void</code></div><p>A creature has appeared. Announces it and marks it, if it is one of the notable ones.
+
+Every spawn comes through here, including the ordinary ones, so the first line is the one that
+matters: `notable_of` answers `{}` for almost everything and this returns having done nothing.</p></div>
+<div class="card" data-search="slain it died. says who, then clears up. server/sightings.gd everything else"><div class="sig"><code>slain(e, attacker) -&gt; void</code></div><p>It died. Says who, then clears up.</p></div>
+<div class="card" data-search="gone it is no longer in the world, for whatever reason. takes its marker off the map. server/sightings.gd everything else"><div class="sig"><code>gone(e) -&gt; void</code></div><p>It is no longer in the world, for whatever reason. Takes its marker off the map.</p></div>
+<div class="card" data-search="update moves each marker to where its creature is now, and sees off the ones whose time has run out. server/sightings.gd everything else"><div class="sig"><code>update() -&gt; void</code></div><p>Moves each marker to where its creature is now, and sees off the ones whose time has run out.</p></div>
+<div class="card" data-search="rebuild rebuilds the list from the creatures actually in the world, and sweeps any marker left behind.
+
+called after a world loads. notable creatures are saved with their chunk, so one can outlive the
+session it appeared in - and its marker is saved with the world too, which would otherwise leave a
+compass pointing at a monster that had long since been dealt with. nothing is re-announced: a line
+in chat is for the moment it happened. server/sightings.gd everything else"><div class="sig"><code>rebuild() -&gt; void</code></div><p>Rebuilds the list from the creatures actually in the world, and sweeps any marker left behind.
+
+Called after a world loads. Notable creatures are saved with their chunk, so one can outlive the
+session it appeared in - and its marker is saved with the world too, which would otherwise leave a
+compass pointing at a monster that had long since been dealt with. Nothing is re-announced: a line
+in chat is for the moment it happened.</p></div>
+<div class="card" data-search="count how many are being tracked, for the tests and for an admin wondering what is loose. server/sightings.gd everything else"><div class="sig"><code>count() -&gt; int</code></div><p>How many are being tracked, for the tests and for an admin wondering what is loose.</p></div></section>
 <section id="e-server-world-backups-gd"><h2>world_backups.gd <span class="file">server/world_backups.gd</span></h2><p class="lead">World backups: zip archives of a world's save folder, named &lt;world&gt;-YYYYmmdd-HHMMSS.zip. Saves write each file atomically (temp file + rename), so archiving while the server keeps running captures every file whole; the server flushes pending changes right before a backup starts.</p><div class="card" data-search="list newest first. each entry: {name, path, size, modified}. server/world_backups.gd everything else"><div class="sig"><code>static list(backup_dir: String) -&gt; Array</code></div><p>Newest first. Each entry: {name, path, size, modified}.</p></div>
 <div class="card" data-search="create worker thread safe. archives every file under `world_dir` into `zip_path`. returns &quot;&quot; or an error. server/world_backups.gd everything else"><div class="sig"><code>static create(world_dir: String, zip_path: String) -&gt; String</code></div><p>Worker thread safe. Archives every file under `world_dir` into `zip_path`. Returns "" or an error.</p></div>
 <div class="card" data-search="prune deletes the oldest backups beyond `keep`. returns how many were removed. server/world_backups.gd everything else"><div class="sig"><code>static prune(backup_dir: String, keep: int) -&gt; int</code></div><p>Deletes the oldest backups beyond `keep`. Returns how many were removed.</p></div>
@@ -2844,7 +2889,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1193 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1203 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

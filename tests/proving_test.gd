@@ -249,12 +249,58 @@ func _behaviour(server) -> void:
 		p.state.position + Vector3(1, 0, 0), {})
 	_check(server.vehicles.mount(p, raft) and p.riding == raft.id, "and a raft can be ridden")
 	server.vehicles.dismount(p)
+	_notable(server, p)
 	_area_tools(server, server.mod_instances.proving.api, p)
 	_nested_inventories(server, server.mod_instances.proving.api, p)
 	_instances(server, server.mod_instances.proving.api, p)
 	_sources_and_palette(server, server.mod_instances.proving.api, p)
 	_wind(server, server.mod_instances.proving.api)
 	_conflicts(server)
+
+
+## A creature the whole server is told about: announced, marked, followed, and gone when its time is up.
+##
+## Asserted against the world markers rather than against the tracker's own list, because the marker is
+## the part a player actually sees - it is what reaches the map screen and the compass. A tracker that
+## counts correctly and writes no marker is the failure worth catching.
+func _notable(server, p) -> void:
+	var before: int = server.world_markers.size()
+	var quarry = server.entities.spawn(server.entities.registry.id_of("proving:quarry"),
+		p.state.position + Vector3(2, 0, 0), {})
+	_check(quarry != null and server.sightings.count() == 1, "a notable creature is picked up when it spawns")
+	var marker_id := ""
+	for id: String in server.world_markers:
+		if id.begins_with("engine:notable-"):
+			marker_id = id
+	_check(not marker_id.is_empty() and server.world_markers.size() == before + 1,
+		"and puts one marker on everybody's map")
+	var label := str(server.world_markers.get(marker_id, {}).get("label", ""))
+	# The countdown rides in the label, so this is the whole of "the players can see the clock".
+	_check(label.begins_with("Quarry") and (label.ends_with("s") or label.ends_with("m")),
+		"whose label carries the name and the time left ('%s')" % label)
+
+	# The marker follows the creature. A marker left where the thing spawned is the bug this exists to
+	# rule out: it looks right for the first second and then quietly lies.
+	quarry.body.position += Vector3(8, 0, 0)
+	server.sightings.update()
+	_check(server.world_markers[marker_id].position.distance_to(quarry.body.position) < 0.01,
+		"and moves with it rather than staying where it appeared")
+
+	# The clock running out takes the creature away as well as its marker - the point of the clock is
+	# that a hunt nobody came on ends, rather than piling up on the map for ever.
+	server._time += 600.0
+	server.sightings.update()
+	_check(not server.world_markers.has(marker_id) and server.sightings.count() == 0,
+		"and both are gone when its time runs out")
+	_check(not quarry.is_alive() or quarry.removed, "along with the creature itself")
+
+	# Killed rather than timed out: the same clearing up, by the other road.
+	var second = server.entities.spawn(server.entities.registry.id_of("proving:quarry"),
+		p.state.position + Vector3(2, 0, 0), {})
+	_check(server.sightings.count() == 1, "a second one is tracked in its turn")
+	server.entities.kill(second, "player", p)
+	_check(server.sightings.count() == 0 and server.world_markers.size() == before,
+		"and killing it takes the marker off the map")
 
 
 ## Where things come from, and the creative catalogue: the two halves of "what exists" that the

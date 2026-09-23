@@ -27,6 +27,10 @@ func _init() -> void:
 ##   damage (projectiles: damage dealt on hit), lifetime (seconds, 0 = forever)
 ##   drops: [[item name or id, count], ...] on death; sounds: {hurt, death, ambient, attack}
 ##   persistent: saved with the chunk it is in (otherwise despawns when no player is near)
+##   notable: the whole server is told when one appears, and it is marked on everybody's map and
+##            compass - the marker follows it and counts down - until it dies or its time runs out.
+##            {announce, slain ("%s" is the killer), gone, label, color, minutes (0 = never leaves)},
+##            or `true` for the defaults. For the rare ones worth hunting; see server/sightings.gd.
 ## `replace`: an existing type of that name gets the new definition in place (same id; mod reloads).
 func register(def: Dictionary, replace := false) -> int:
 	var type_name := String(def.get("name", ""))
@@ -54,6 +58,7 @@ func register(def: Dictionary, replace := false) -> int:
 	d.persistent = bool(def.get("persistent", false))
 	d.sounds = def.get("sounds", {}) if def.get("sounds") is Dictionary else {}
 	d.drops = def.get("drops", []) if def.get("drops") is Array else []
+	d.notable = _read_notable(def.get("notable"), d.display_name)
 	if ids.has(type_name):
 		var existing: int = ids[type_name]
 		d.id = existing
@@ -65,6 +70,47 @@ func register(def: Dictionary, replace := false) -> int:
 	defs.append(d)
 	ids[type_name] = id
 	return id
+
+
+## What a definition asks for by way of being announced, normalised to {announce, slain, gone, label,
+## color, minutes} - or `{}`, which is nearly every creature, so a caller can test it as a boolean.
+##
+## `true` means "notable, with the defaults", because that is all most of them want and a mod should
+## not have to write a sentence to get one. Nothing here names anything of the mod's own - no sound,
+## no effect - deliberately: a name nested inside a definition has to be qualified at the API
+## boundary, four have been missed one at a time, and the announcement sounds the same whoever makes
+## it. (2026-09-23)
+##
+## `minutes` is how long it waits to be found before it leaves (0 = it never does, which is what a
+## boss wants). A hunt with no clock is not a hunt: the creature would still be standing there
+## tomorrow, and the marker on everybody's compass would stop meaning "go now".
+static func _read_notable(value, display_name: String) -> Dictionary:
+	if value is bool:
+		if not value:
+			return {}
+		value = {}
+	if not (value is Dictionary):
+		return {}
+	return {
+		"announce": String(value.get("announce", "%s is out there somewhere." % display_name)).left(160),
+		# "%s" is whoever did it. Kind by default, because the server reads these out to children.
+		"slain": String(value.get("slain", "%%s saw off the %s." % display_name)).left(160),
+		"gone": String(value.get("gone", "The %s has slipped away." % display_name)).left(160),
+		"label": String(value.get("label", display_name)).left(32),
+		"color": String(value.get("color", "#ffd166")).left(9),
+		"minutes": clampf(float(value.get("minutes", 10.0)), 0.0, 120.0),
+	}
+
+
+## Whether this type is one the server announces, and how. `{}` when it is not.
+##
+## A function rather than a reach into `defs[id].notable`, because `notable` is a shape a mod wrote
+## and this registry normalised, and those have one owner here - see engine/owned.txt.
+func notable_of(type_id: int) -> Dictionary:
+	if not is_valid(type_id):
+		return {}
+	var notable = defs[type_id].get("notable", {})
+	return notable if notable is Dictionary else {}
 
 
 ## The id registered under this name, or **-1 if nothing is**.

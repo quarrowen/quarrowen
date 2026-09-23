@@ -101,6 +101,9 @@ func spawn(type_id: int, pos: Vector3, options := {}) -> Entity:
 		projectiles.append(e)
 	entities[e.id] = e
 	_server.emit("entity_spawned", {"entity": e})
+	# Rare creatures announce themselves and get a marker that follows them; see server/sightings.gd.
+	# Almost every spawn leaves here having done nothing, which is why it sits on the common path.
+	_server.sightings.arrived(e)
 	return e
 
 
@@ -127,6 +130,7 @@ func remove(e: Entity) -> void:
 	if e.removed:
 		return
 	e.removed = true
+	_server.sightings.gone(e)
 	entities.erase(e.id)
 	if e.brain != null:
 		ai.detach(e)
@@ -423,6 +427,8 @@ func kill(e: Entity, cause := "magic", attacker = null) -> void:
 		for i in randi_range(int(range_[0]), int(range_[1])):
 			var offset := Vector3(randf_range(-0.4, 0.4), 0.1, randf_range(-0.4, 0.4))
 			spawn(registry.id_of(str(split.entity)), e.body.position + offset, {"velocity": offset * 6.0 + Vector3(0, 3, 0)})
+	# Before `remove` takes the marker down, because this is the line that says who got it.
+	_server.sightings.slain(e, attacker)
 	e.dying = true
 	e.health = 0.0
 	_server.broadcast_entity_event(e, Event.DEATH, 0)

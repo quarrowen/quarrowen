@@ -377,6 +377,14 @@ func _init() -> void:
 			if shared_name in ["cobblestone", "anvil_top", "tool_rack"]:
 				_save(copy, String(gear) + shared_name + ".png")
 
+	# What the rare night creatures leave behind (mods/base/creatures.gd). Appended, as everything must
+	# be. Three are the same round shape in different colours so they read as one set of curios, and the
+	# reed is a different shape because it is a different kind of thing - something made, not found.
+	_save(_curio(Color(1.0, 0.72, 0.30), Color(0.55, 0.18, 0.10)), base + "emberheart.png")
+	_save(_curio(Color(0.93, 0.96, 1.0), Color(0.45, 0.55, 0.72)), base + "moonpearl.png")
+	_save(_curio(Color(0.66, 0.82, 0.48), Color(0.28, 0.32, 0.26)), base + "warden_core.png")
+	_save(_hollow_reed(), base + "hollow_reed.png")
+
 	# A SceneTree script runs until it is told not to. Without this the tool wrote every texture
 	# correctly and then sat there for ever; three of them were found still running an hour later,
 	# looking like a hung build rather than a finished one. (2026-09-19)
@@ -2159,3 +2167,36 @@ func _clear(img: Image, x: int, y: int) -> bool:
 	if x < 0 or y < 0 or x >= TILE or y >= TILE:
 		return true
 	return img.get_pixel(x, y).a < 0.8
+
+
+## A curio: a rounded stone with a bright core, the three of them differing only in colour so they read
+## as one set in the hotbar. Close kin to `_colossus_heart`, kept separate because that one is a
+## specific thing with a specific look and this is a shape three items share.
+func _curio(core: Color, rim: Color) -> Image:
+	var img := _blank()
+	for y in TILE:
+		for x in TILE:
+			var d := Vector2(x - 7.5, y - 8.0).length()
+			if d > 5.6:
+				continue
+			# Lit from the top left, like everything else here, so the set sits with the rest.
+			var lift := clampf(1.0 - (Vector2(x - 6.0, y - 6.5).length() / 6.0), 0.0, 1.0)
+			img.set_pixel(x, y, _vary(rim.lerp(core, clampf(lift * 1.15, 0.0, 1.0)), 0.05))
+	return img
+
+
+## A cut reed with finger holes: something that was made rather than found, which is the whole point of
+## it being the one curio that is not a stone.
+func _hollow_reed() -> Image:
+	var img := _blank()
+	var cane := Color(0.62, 0.52, 0.32)
+	for y in range(2, 15):
+		for x in range(6, 10):
+			img.set_pixel(x, y, _vary(cane.darkened(0.25) if x == 6 or x == 9 else cane, 0.05))
+	for y in [3, 14]:
+		for x in range(5, 11):
+			img.set_pixel(x, y, cane.darkened(0.4))  # the bound ends
+	for y in [6, 9, 12]:
+		img.set_pixel(7, y, Color(0.18, 0.13, 0.08))
+		img.set_pixel(8, y, Color(0.18, 0.13, 0.08))
+	return _lit(img)

@@ -83,6 +83,7 @@ const ModSettings = preload("res://engine/server/mod_settings.gd")
 const Creations = preload("res://engine/shared/creations.gd")
 const Explosions = preload("res://engine/server/explosions.gd")
 const Loot = preload("res://engine/server/loot.gd")
+const Sightings = preload("res://engine/server/sightings.gd")
 const Spawners = preload("res://engine/server/spawners.gd")
 const StructureTools = preload("res://engine/server/structure_tools.gd")
 const Connect = preload("res://engine/server/connect.gd")
@@ -410,6 +411,8 @@ var mod_instances := {}
 signal full_reload_requested
 var explosions := Explosions.new(self)
 var loot := Loot.new(self)
+## The rare creatures the whole server is told about, and the markers that follow them.
+var sightings := Sightings.new(self)
 var spawners := Spawners.new(self)
 var structure_tools := StructureTools.new(self)
 ## Blocks that notice their neighbours: fences joining into a run, panes into a window.
@@ -644,6 +647,9 @@ func start(config: Dictionary) -> Error:
 	if dev_mode:
 		mod_reload.set_watching(true)
 	_started = true
+	# Needs the server clock, so it starts with the server rather than being built with one.
+	sightings.start()
+	sightings.rebuild()
 	# Said once at startup, as a warning rather than a refusal: every one of these can be deliberate,
 	# and the author is the only one who knows. Saying nothing is what the genre does, and it leaves
 	# pack authors to notice duplicate ores by playing far enough to find both. (2026-09-22)
@@ -957,6 +963,13 @@ func has_permission(p, permission: String) -> bool:
 	if _config_admins.has(p.player_id) or _config_admins.has(p.name.to_lower()):
 		return true
 	return roles.has(p.player_id, permission)
+
+
+## Seconds since the server started ticking. What `schedule` measures against, so anything timing an
+## event of its own should ask here rather than reach for a wall clock - a paused or slow server then
+## counts the same time everything else does.
+func uptime() -> float:
+	return _time
 
 
 func schedule(seconds: float, callback: Callable, interval: float, owner := "engine") -> int:

@@ -144,3 +144,35 @@ func _who_lives_here(api) -> void:
 		"place": "surface", "group": [1, 1], "max_nearby": 1, "chance": 0.004})
 	api.add_spawn_rule({"entity": "base:boomshroom", "category": "monster", "time": "night",
 		"group": [1, 2], "max_nearby": 2, "chance": 0.01})
+	_the_rare_ones(api)
+
+
+## The four the server is told about when they turn up.
+##
+## **Rare is a number, and the number lives here.** What a Wisp *is* belongs to `base`; that you meet
+## one about once a fortnight of nights is this game's decision, and a survival game that wants them
+## every night only changes `chance`. The engine does the rest: announcing one, marking it on
+## everybody's compass with the time left on it, and taking it away again if nobody comes.
+##
+## `chance` is rolled per player per second, so these are small on purpose. At 0.0004 a player out at
+## night meets one roughly every forty minutes of darkness; `max_nearby: 1` and `max_total: 1` are what
+## make it *the* Wisp rather than a wisp. Without `max_total` a server of six children would have six
+## of them out at once and the announcement would stop meaning anything.
+func _the_rare_ones(api) -> void:
+	# Out in the open, where a light in the distance is something you can see and set off towards.
+	api.add_spawn_rule({"entity": "base:wisp", "category": "monster", "time": "night",
+		"place": "surface", "max_nearby": 1, "max_total": 1, "chance": 0.0004,
+		"min_distance": 40.0, "max_distance": 72.0})
+	api.add_spawn_rule({"entity": "base:hollow_piper", "category": "monster", "time": "night",
+		"place": "surface", "max_nearby": 1, "max_total": 1, "chance": 0.0003,
+		"min_distance": 40.0, "max_distance": 72.0})
+	# Stone things come up out of stony ground, which is the one of the four you can go looking for
+	# rather than wait for.
+	api.add_spawn_rule({"entity": "base:barrow_warden", "category": "monster", "time": "night",
+		"place": "surface", "on": ["base:stone", "base:gravel", "base:cobblestone"],
+		"max_nearby": 1, "max_total": 1, "chance": 0.0006})
+	# The harmless one is the least rare of the four and needs no darkness to stand in: `light` is
+	# widened past the monster default because it is an animal and animals want light to spawn in,
+	# while this one wants the night without minding the moon.
+	api.add_spawn_rule({"entity": "base:palemoth", "category": "animal", "time": "night",
+		"place": "surface", "light": [0, 15], "max_nearby": 1, "max_total": 2, "chance": 0.0009})

@@ -126,6 +126,20 @@ func _survival(api) -> void:
 			{"type": "items", "items": ["base:wheat_seeds", "base:wheat", "base:bread", "base:hay_bale"]},
 			{"type": "tip", "text": "Crops keep growing while you are away; come back to a ripe field."},
 		]})
+	# A child who sees "A Wisp is drifting somewhere out in the dark" in chat needs somewhere to find
+	# out what that means, what the countdown on the compass is counting down to, and - the part that
+	# matters at bedtime - that one of the four will not hurt them.
+	api.register_guide_page("night_visitors", {"chapter": "survival", "title": "Night Visitors",
+		"icon": "base:moonpearl", "order": 4, "keywords": "rare wisp piper warden palemoth night hunt marker compass",
+		"blocks": [
+			{"type": "text", "text": "Now and then at night the server says that something rare has turned up. A mark appears on your [b]compass[/b] and on your [b]map[/b], and it moves as the creature moves, so you can follow it."},
+			{"type": "text", "text": "The mark counts down. When the time runs out the creature goes, and you have to wait for the next one - so when you see the message, go."},
+			{"type": "heading", "text": "What you might meet"},
+			{"type": "text", "text": "The [b]Palemoth[/b] is harmless. It only wants to get away from you, and it is worth more than most things that bite."},
+			{"type": "text", "text": "The [b]Wisp[/b] is a light that will not be caught easily. The [b]Barrow Warden[/b] is slow, very tough, and comes up out of stony ground. The [b]Hollow Piper[/b] is tall and never hurries, and walking away from it works."},
+			{"type": "items", "items": ["base:moonpearl", "base:emberheart", "base:warden_core", "base:hollow_reed"]},
+			{"type": "tip", "text": "Take a friend, and take a torch. Whatever they leave behind, nobody else can get any other way."},
+		]})
 	api.register_guide_page("storage", {"chapter": "survival", "title": "Chests", "icon": "simple_machines:chest", "order": 3,
 		"unlock": {"item": "base:planks"}, "keywords": "chest storage container inventory",
 		"blocks": [

@@ -24,6 +24,15 @@ func _creatures() -> void:
 		# Drops, so it has a loot table another mod can extend - which is what extend_loot is for.
 		"drops": [["proving:token", 1], ["proving:grain", 2]],
 		"ai": {"preset": "passive", "wander_radius": 6}})
+	# One the whole server is told about: announced when it appears, marked on everybody's map and
+	# compass while it is about, and taken away again when its time is up. Short minutes so a test can
+	# sit through the clock running out rather than mock it. (2026-09-23)
+	ids.quarry = api.register_entity("quarry", {"kind": "mob", "display_name": "Quarry",
+		"width": 0.7, "height": 1.4, "health": 12, "speed": 2.0, "category": "monster", "persistent": true,
+		"notable": {"announce": "A Quarry is about.", "slain": "%s got the Quarry.",
+			"gone": "The Quarry has gone.", "color": "#ff66aa", "minutes": 0.05},
+		"drops": [["proving:token", 2]],
+		"ai": {"preset": "hostile", "aggression": 0.5}})
 	ids.biter = api.register_entity("biter", {"kind": "mob", "display_name": "Biter",
 		"width": 0.7, "height": 1.2, "health": 20, "speed": 3.0, "category": "monster",
 		"nameplate": {"show_health": true, "color": "#ff8866"},

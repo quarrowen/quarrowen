@@ -141,6 +141,18 @@ declare module "quarrowen" {
     sounds?: { hurt?: string; death?: string; ambient?: string; attack?: string };
     /** Saved with the world (otherwise despawns when no player is near). */
     persistent?: boolean;
+    /**
+     * A creature the whole server is told about when one appears: a line in chat, and a marker on
+     * everybody's map and compass that follows it and counts down. `true` takes the defaults.
+     * `minutes` is how long it waits to be found before it leaves (0 = never).
+     */
+    notable?: boolean | {
+      announce?: string;
+      /** "%s" is whoever killed it. */
+      slain?: string;
+      gone?: string;
+      label?: string; color?: string; minutes?: number;
+    };
   }
 
   export interface SpawnRule {
