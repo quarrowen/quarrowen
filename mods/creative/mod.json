@@ -1,0 +1,13 @@
+{
+	"id": "creative",
+	"name": "Creative",
+	"version": "1.0.0",
+	"description": "A world and everything in it, and nothing to survive. Build.",
+	"kind": "game",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.0",
+	"depends": ["base@^1.0", "simple_machines@^1.0", "simple_gear@^1.0"],
+	"main": "main.gd"
+}

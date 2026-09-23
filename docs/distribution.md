@@ -300,6 +300,36 @@ work per mod. A value for a mod that is not loaded this session is kept, not dro
 **Per-player client preferences** (a mod's HUD position, say) come later through the same schema on the
 client's settings screen; the server-side values were the piece that mattered.
 
+## 2c. Building for iPad
+
+`tools/package_ios.sh` produces `build/ios/Quarrowen.xcodeproj`. Godot's iOS export does **not** make
+a finished app: it makes an Xcode project that you open, give a signing team to, and run on a device
+or archive for TestFlight. The script's job ends where Xcode's begins.
+
+```sh
+cp apple.env.example apple.env    # once: put your Team ID in it
+tools/package_ios.sh              # debug build
+tools/package_ios.sh --release
+```
+
+**Your Apple Team ID is not in this repository.** `export_presets.cfg` is committed and the repo is
+public, so the iOS preset carries an empty `app_store_team_id` and the real one lives in `apple.env`,
+which `.gitignore` already covers through its `*.env` rule. The script exports from a throwaway copy
+of the project with the value patched in - the same trick `package_mac.sh` uses to keep local editor
+addons out of the app. Nothing with your account in it is ever written to a tracked file.
+
+Two settings that are not optional and cost an export attempt each to discover:
+
+- **`min_ios_version` must be 14.0 or above.** Godot 4.7 renders through Metal on iOS and refuses to
+  export below 14, with "Metal renderer require iOS 14+".
+- **The team id must be set**, even for a debug export that you are going to re-sign in Xcode anyway.
+
+The Rust extension travels with it: `package_ios.sh` builds both `ios` and `ios-sim` frameworks first,
+and they land in `Quarrowen/dylibs/native/bin/`. Xcode picks whichever the destination needs.
+
+**Not yet done:** nothing has been run on a device, there is no provisioning profile in the repo and
+no TestFlight build has been made.
+
 ## 6b. Mods on iPad
 
 The iPad build (milestone 3 in PROGRESS.md) hosts local worlds the same way the Mac does, so **bundled

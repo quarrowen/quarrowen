@@ -63,7 +63,16 @@ export QW_OFFLINE=1
 GODOT_LOG=(--log-file "$WORK/godot/test.log")
 echo "godot: $GODOT"
 echo "logs:  $WORK"
-"$GODOT" --headless "${GODOT_LOG[@]}" --path . --import >"$WORK/import.log" 2>&1
+# **Bounded, because `--import` does its work and then sometimes does not exit.** Seen on 2026-09-23:
+# the log reaches "first_scan_filesystem DONE" and "Editor layout ready", the process drops to 0% CPU
+# and sits there for ever. It is not the editor being open, the MCP addon, a stale .godot or the size
+# of build/ - it reproduces on a clean copy of the project with all of those removed. Since this line
+# had no timeout, one lingering import hung the entire suite, and two of them hung for over an hour
+# before anybody noticed.
+#
+# The import's *work* is finished by then, so killing it is safe and the run continues. If a resource
+# really had failed to import, the tests that use it fail immediately afterwards and say so.
+timeout 90 "$GODOT" --headless "${GODOT_LOG[@]}" --path . --import >"$WORK/import.log" 2>&1 || true
 
 SERVER_GENERATION=0
 

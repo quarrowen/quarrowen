@@ -5389,3 +5389,94 @@ Neither platform is finished. There is no iOS export preset, no Android export p
 keystore, and nothing has run on hardware or an emulator. Until that happens the honest status is
 "the library compiles", and the deletion above means a failure there is now loud instead of slow -
 which is the trade that was chosen.
+
+## macOS and iPad builds (2026-09-23)
+
+**macOS: built and run.** `Quarrowen-0.42.0-mac-arm64.dmg` (88 MB), signed with the Developer ID,
+notarization skipped. Launched it: the menu comes up at 0.42.0, the four packs are in
+`Contents/Resources/mods`, and `libquarrowen_native.dylib` is in `Contents/Frameworks` - which now
+matters, because without it the game stops rather than slows.
+
+**There is nothing to play in it, and that is expected.** All four bundled packs are `"kind":
+"library"`; there is no game, so "New world" has nothing to create a world *with*. The menu, avatar
+editor, mods screen, settings and joining a server all work. This is precisely the state PROGRESS has
+described since the games were deleted, and the creative game is the next Phase 4 item.
+
+**iPad: the Xcode project generates.** `tools/package_ios.sh` produces
+`build/ios/Quarrowen.xcodeproj` with `quarrowen_native.framework` inside it. Godot's iOS export does
+not make a finished app - it makes a project to open, sign and run - so this is as far as it goes
+without a device.
+
+Two things cost an export attempt each:
+
+- **`min_ios_version` must be 14.0+**, because Godot 4.7 renders through Metal on iOS: *"Metal
+  renderer require iOS 14+"*.
+- **The team id is required even for a debug export** you intend to re-sign in Xcode anyway.
+
+### The Team ID is not in the repository
+
+The user asked for it to stay out of git, which was the right instinct: `export_presets.cfg` is
+committed and this repo is public. So the preset carries an empty `app_store_team_id`, the real value
+lives in `apple.env` (already covered by `.gitignore`'s `*.env`, with `apple.env.example` beside it),
+and `package_ios.sh` exports from a throwaway copy of the project with the value patched into *that*
+copy only - the same trick `package_mac.sh` uses to keep editor addons out of the app. Nothing with
+the account in it reaches a tracked file or the docs.
+
+**Still not done:** nothing has run on a device or the simulator, there is no provisioning profile,
+and no TestFlight build exists. "The Xcode project generates" is the honest status.
+
+## `base` gets a world, and the creative game exists (2026-09-23)
+
+`base` alone generated **nothing** - the biomes went with the seven deleted games, so a player spawned
+into empty space and fell for ever. It has seven biomes now, one per generation technique that is
+genuinely different rather than a tour of climates: meadow (rolling, wooded), forest (trees close
+enough to lose yourself in), desert (no trees at all), peaks (`peaks` large where the others use
+`variation`), tundra (above the snow line), marsh (land that sits just under the waterline) and
+ocean. Plus the trees, cacti, boulders and patches they place.
+
+**`mods/creative/` is the first game since the deletion**, and it is thirty lines: no blocks, no
+items, no recipes. It turns the biome generator on, scatters the ores, carves the caves, lays a
+deepstone floor below y=30, and switches off everything that can interrupt building. If that file
+ever needs to register a block, the base/game line has moved.
+
+### Where the line actually falls, learned by getting it wrong
+
+The first attempt put the whole world in `base` - generator, ores, caves, deepstone - and two tests
+failed in a way that was much more informative than the failure looked:
+
+- **`ai` - "the blast broke the floor".** The AI arena sets its own flat world generator at y=10 and
+  expects a blast to break the stone floor. It did not, because **ore passes, cave carvers and
+  generation passes attach to the *realm*, not to the generator** - so `base`'s deepstone pass ran
+  over the arena's custom world and turned its floor to deepstone, which survives the blast.
+- **`persistence`** compared a world generated with the Proving Ground's flat generator against the
+  same world reopened with `base` alone, and the two no longer matched.
+
+So: **registering a biome is a noun; installing a generator is a rule.** `base` declares what a meadow
+is made of and stops there; `creative` decides the world is made of them, how much iron is in it and
+whether it has caves - which a survival game will want to answer differently. Both tests then passed
+untouched, which is the good kind of fix.
+
+## The suite hung for an hour, twice, on `--import` (2026-09-23)
+
+The user spotted it: *"i think there are some hung tasks too, quite a few running for more than 1
+hour"*. Three things were stuck, and only one mattered.
+
+**`tools/run_tests.sh` ran Godot's `--import` with no timeout**, and `--import` had started finishing
+its work and then not exiting - the log reaches `first_scan_filesystem DONE` and `Editor layout
+ready`, the process drops to 0% CPU and sits there. One hung import hangs the whole suite, silently,
+for ever.
+
+Chased properly before patching, and it is **none** of the obvious suspects: not the editor being
+open, not the MCP addon (disabled it), not a stale `.godot` (deleted it), not the 3.9 GB that had
+accumulated in `build/` (gitignored, but Godot does not read .gitignore - it has a `.gdignore` now).
+It reproduces on a clean rsync'd copy of the project with all of those removed.
+
+The import's *work* is done by the time it stalls, so the line is bounded now (`timeout 90 ... ||
+true`) and the run continues; a resource that genuinely failed to import fails the tests that use it
+a few seconds later. The suite is 215s, of which 90 is that stall - worth going back to, but never
+again worth an hour.
+
+**Two mistakes of mine around it, both worth naming.** I started a second suite while one was still
+running, and two concurrent runs deadlocked on `--import`. And I killed a `tools/build_native.sh`
+mid-flight, which does `rm -f` then `cp` - so `native/bin/` was left **empty**, and with the extension
+now mandatory that is a much worse state than it used to be. Rebuild after killing a build.
