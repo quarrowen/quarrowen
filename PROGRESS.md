@@ -5102,3 +5102,89 @@ A server run from source without building it is on the twins like anything else.
 **Consequence worth acting on before the iPad milestone:** the fallbacks have never been profiled,
 only tested for correctness. Meshing and physics in GDScript on an A-series chip is the open question,
 and if it is too slow the answer is the iOS Rust target, not a smaller render distance.
+
+## Should the GDScript twins be deleted? Measured, 2026-09-23
+
+The user: *"i would still want to just remove gdscript fallback and use rust as much as possible,
+this is better for performance right? and also we can reduce our test suite time as well right?"*
+Targets named: Windows, macOS, iOS, Android. Investigated rather than answered from taste.
+
+**First, a premise worth correcting.** Deleting the fallback does not make Rust faster. Where Rust
+runs today it already runs; the twins are dead code on those platforms. The performance win is
+entirely on platforms where Rust is *not built* - today iOS and Android - and that win comes from
+**building the iOS and Android targets**, not from deleting GDScript. The two are separable, and the
+order matters (below).
+
+### What the twins actually cost, measured
+
+`tests/bench.tscn --chunks=120 --steps=12000`, one machine (M1 Max), native against `QW_NATIVE=0`:
+
+| | native | twins | ratio |
+|---|---|---|---|
+| mesh build | 1.191 ms/chunk | 18.133 ms/chunk | **15.2x** |
+| player physics | 0.002 ms/step | 0.031 ms/step | **15.5x** |
+| entity tick (294 mobs) | 3.405 ms/tick | 11.803 ms/tick | **3.5x** |
+| worldgen | 3.054 ms/chunk | 3.026 ms/chunk | same (GDScript either way) |
+| chunk encode | 0.009 ms/chunk | 0.010 ms/chunk | same (Godot's zstd) |
+
+**And the meshers are not the same algorithm.** The bench labels give it away: native is *"mesh build
++ lighting + greedy"* and emits **120 quads**; the twin is *"mesh build"* and emits **30,720**. The
+GDScript mesher has no greedy merging and uses `ApproxLight` instead of the flood fill. So an iPad on
+the twins today would not merely run slower - it would push a couple of hundred times the geometry
+and light the world by a different model. **The fallback is not a faithful reference implementation**,
+which also weakens the argument that running the suite twice is a meaningful cross-check.
+
+### What deleting would remove
+
+**≈833 lines of fallback-only GDScript**, against 2,326 lines of Rust. Not "all the GDScript":
+
+- `chunk_mesher.gd` 244 of 307 (`Surface`, the fallback `build` body, `ApproxLight`)
+- `pathfinder.gd` 261 of 352 (everything below its own `# --- GDScript twin of ... ---` banner)
+- `player_physics.gd` 104 of 243 - the `Rules`, `State` and `PlayerInput` wire format stay
+- `block_shapes.gd` 74 of 128 - `sweep`, `_crosses`, `step_target` only
+- `entity_physics.gd` 46 of 93, `_build_snapshot` 44, `dev_web.gd` TCP transport ~60
+
+**Four things look like twins and are not, and must stay:** `BlockShapes.overlaps`/`boxes_of` (every
+mob spawn goes through it, unguarded, `spawning.gd:196`); `EntityPhysics.segment_hits_box` (eight
+unguarded sites - client reach and server projectile hits); **projectile physics has no native path
+at all** (`entities.gd:270-346` - arrows integrate in GDScript in every build); and `VoxelWorld`
+itself, where the Rust side is a write-through *mirror* and the GDScript dict is authoritative.
+
+It would also remove the obligation CLAUDE.md lists first under "Things that must change together" -
+keeping four GDScript/Rust pairs in step - which has cost real time.
+
+### What deleting would lose
+
+- **The second full-suite run.** Today every gameplay/AI/physics assertion executes against two
+  implementations. But see the mesher finding above: they are not equivalent, so it is a weaker
+  cross-check than it sounds. `_shape_twins` compares the shape *table*, and it reads the Rust source
+  as text, so it cannot see a stale binary - it survives either way.
+- **A contributor without a Rust toolchain can no longer run the game.** `run_tests.sh` skips the
+  build when `cargo` is absent, so today a fresh clone works, slowly. That is a real open-source cost.
+- **Silent degradation becomes a hard failure.** Today a missing or unloadable library means "slow";
+  after, it means "does not run". Arguably better - a hard failure is honest - but it is a change.
+
+### Has the fallback ever caught a real bug? No.
+
+Searched PROGRESS.md and the history: **zero** cases where `QW_NATIVE=0` exposed a divergence or an
+engine bug the native run did not. It has produced three false alarms, all test-harness faults
+surfaced by the slower simulation (PROGRESS 2213-2224, 3270-3291, 4414-4417) which cost a day between
+them. The one recorded failure in the other direction was a *stale native library* (commit `9f3f317`)
+making a fence test fail for hours - which deleting the twins would not have prevented.
+
+### The decision, and its order
+
+The direction is right. **The order is not negotiable**, because two of the four target platforms
+have no Rust library today:
+
+1. **Build `aarch64-apple-ios` (+ simulator) and the Android targets, and add them to
+   `quarrowen_native.gdextension`.** This is where the entire performance win lives.
+2. **Only then delete the twins**, and drop the second CI job and `QW_NATIVE`.
+
+Deleting first would turn iPad and Android from *slow* into *does not run*, and godot-rust's own
+README calls Android, Wasm and iOS "experimental support" - so step 1 is the risky one and wants to
+be finished and proven before the safety net goes.
+
+Test-suite saving, measured: the two suites are **125s and 129s** here, not the "about eight minutes"
+this repo has been claiming. Deleting the second saves ~2 minutes locally; in CI it saves a job but no
+Rust build, because the native job already builds the library the test job downloads.
