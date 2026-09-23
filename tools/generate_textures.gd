@@ -385,6 +385,23 @@ func _init() -> void:
 	_save(_curio(Color(0.66, 0.82, 0.48), Color(0.28, 0.32, 0.26)), base + "warden_core.png")
 	_save(_hollow_reed(), base + "hollow_reed.png")
 
+	# What the curios turn into (mods/simple_gear/curios.gd). Appended like everything else, and drawn
+	# with the shapes that already exist: the point of a sidegrade is that it reads as a pickaxe or a
+	# chestplate at a glance and differs in colour, not that it is a new silhouette to learn.
+	_save(_item(Color(0.96, 0.62, 0.24), "pickaxe"), gear + "emberheart_pick.png")
+	_save(_item(Color(0.55, 0.60, 0.45), "chestplate"), gear + "warden_plate.png")
+	_save(_armor_layer(Color(0.55, 0.60, 0.45), Color(0.30, 0.36, 0.28)), gear + "warden_armor.png")
+	_save(_charm(Color(0.88, 0.93, 1.0), Color(0.35, 0.40, 0.52)), gear + "moonpearl_charm.png")
+
+	# Meat, raw and cooked. The `meat` glyph already draws a cut with a bone in it, so this is six
+	# colours rather than six drawings: raw is pink and pale, cooked is browner and darker, which is
+	# the whole distinction a child needs to make at a glance in a hotbar.
+	for cut in [["porkchop", Color(0.90, 0.58, 0.58), Color(0.72, 0.44, 0.30)],
+			["beef", Color(0.80, 0.38, 0.34), Color(0.55, 0.30, 0.22)],
+			["chicken", Color(0.94, 0.80, 0.62), Color(0.78, 0.56, 0.32)]]:
+		_save(_item(cut[1], "meat"), base + "raw_%s.png" % cut[0])
+		_save(_item(cut[2], "meat"), base + "cooked_%s.png" % cut[0])
+
 	# A SceneTree script runs until it is told not to. Without this the tool wrote every texture
 	# correctly and then sat there for ever; three of them were found still running an hour later,
 	# looking like a hung build rather than a finished one. (2026-09-19)

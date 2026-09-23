@@ -60,14 +60,18 @@ func _rules(api) -> void:
 		"natural_regeneration": true,
 		"keep_inventory": false,
 		"mob_griefing": false,
-		"pvp": false,
+		# **On, by the user's call** (2026-09-24), against the recommendation here, which was that two
+		# siblings should not be able to hit each other. Their children and their judgement - and it is
+		# not a one-way door: `/gameplay pvp false` turns it off on a running server without a restart,
+		# which is the thing to reach for if an evening goes wrong rather than editing this file.
+		"pvp": true,
 		"item_drops": "entity",
 		"recipe_discovery": true,
 		"tutorials": true,
 		"sleeping": true,
-		# **Half, not all.** With two players, 100 means either child can hold the other in the dark by
-		# not going to bed - which is a sibling argument the game does not need to host. At 50 one of
-		# them can call it: whoever is tired of the night ends it.
+		# **Half, not all**, confirmed by the user 2026-09-24: with two playing, one going to bed ends
+		# the night. At 100 either child can hold the other in the dark by refusing to sleep, which is
+		# a sibling argument the game does not need to host.
 		"sleep_percentage": 50,
 	})
 

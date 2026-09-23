@@ -97,6 +97,11 @@ func setup(mod_api, sounds: Dictionary) -> void:
 			["base:deep_gold_ore", "base:gold_ingot"]]:
 		if api.item(recipe[0]) > 0:
 			api.register_process("smelting", recipe[0], recipe[1], 1, 10.0)
+	# Cooking meat, which is a rule: `base` says a raw porkchop and a cooked one both exist, and this
+	# says a furnace turns one into the other. Same ten seconds as smelting - a child waiting on dinner
+	# should not be waiting longer than a child waiting on iron. (2026-09-24)
+	for meat in ["porkchop", "beef", "chicken"]:
+		api.register_process("smelting", "base:raw_" + meat, "base:cooked_" + meat, 1, 10.0)
 
 	# Blueprints teach the forge line; they drop from monsters and are sold by traders.
 	api.register_item("forge_plans", {"display_name": "Forge Plans", "icon": "textures/blueprint.png",

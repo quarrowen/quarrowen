@@ -9,6 +9,7 @@ extends "res://engine/server/mod.gd"
 ## crafting table's station, and the Toolsmith's Bench is built at one.
 
 const Forging = preload("forging.gd")
+const Curios = preload("curios.gd")
 
 ## Iron gear needs an anvil beside the table; iron armour also needs a Sturdy Workbench.
 ## Iron gear can also be forged by hand at the anvil for better quality (the "forging" minigame).
@@ -20,12 +21,16 @@ const ARMORY := {"station": "crafting_table", "needs": ["metalwork"], "tier": 2,
 const ARMOR_PIECES := [["helmet", "head"], ["chestplate", "chest"], ["leggings", "legs"], ["boots", "feet"]]
 
 var forging := Forging.new()
+## Kept as a member, not a temporary: a RefCounted nobody holds is freed the moment setup returns and
+## takes its registrations with it (CLAUDE.md).
+var curios := Curios.new()
 
 
 func setup(api) -> void:
 	_register_tools(api)
 	_register_charms(api)
 	_register_hoes(api)
+	curios.setup(api)
 	forging.setup(api, {"stone": {"break": "base:stone", "place": "base:stone", "step": "base:stone_step"}})
 
 

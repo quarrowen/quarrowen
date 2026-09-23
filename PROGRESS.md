@@ -6064,3 +6064,48 @@ the engine can express - "never wears out", "shrugs off knockback" - needs check
 Sketch, unchanged: Emberheart a tool that never wears but mines no faster than iron; Warden Core
 armour that shrugs off knockback and is heavy; Moonpearl something that helps at night; Hollow Reed
 probably not gear at all.
+
+### The curios do something, and the game finally has food (2026-09-24)
+
+**Gear, in `simple_gear/curios.gd`** - sidegrades as chosen, one curio making one piece, because a
+Wisp drops a single Emberheart and a set would mean farming a creature meant to be met a handful of
+times:
+
+- **Emberheart Pick** - `durability: 0`, which is the engine's "never wears out", and otherwise
+  exactly an iron pick. Will not mine cobalt, will not mine faster. You still want a cobalt pickaxe;
+  you never again lose one halfway down a shaft.
+- **Warden Plate** - `knockback_resistance: 0.8` and `move_speed x 0.9`, with iron's armour points, so
+  it stands in for an iron chestplate rather than beating it.
+- **Moonpearl Charm** - does nothing on its own, deliberately. The night effect is a rule and belongs
+  to the game.
+
+Icons reuse the existing silhouettes in different colours: a sidegrade should read as a pickaxe at a
+glance and differ in colour, not be a new shape to learn. No RNG re-roll - checked, as the file
+demands.
+
+### The hunger note turned out to be a missing-food problem
+
+*"either go a bit easy or make food easily available so they dont keep starving too often"* - and the
+rate was never the problem. **There were three foods in the entire game**: bread, an apple, apple
+juice. Not one animal dropped anything edible; the pig's drop was `[["base:apple", 0, 0.0]]`, a
+placeholder with a count of zero, and the cow and chicken dropped nothing at all. The only reliable
+way to eat was to farm wheat, which is a long first evening for a child who is also being chased.
+
+So `base` has meat now, raw and cooked, and `simple_machines` cooks it in a furnace in the same ten
+seconds as smelting iron - a child waiting on dinner should not wait longer than one waiting on a
+pickaxe. Raw is edible on purpose, because a first night should not require a furnace, but it is thin
+(3 hunger against 8) so cooking is worth the trouble. Chicken is worth less either way, which is the
+usual bargain for the easiest animal to catch. Pigs and cows drop 2, chickens 1.
+
+Both halves of the usual split: `base` says raw and cooked meat exist, `simple_machines` says a
+furnace turns one into the other, and no game has to invent dinner.
+
+### Still to come in Firstlight
+
+Decided with the user 2026-09-24, none of it built: the Moonpearl's **night effect** (a condition
+while dark that cancels some `mob_target` events, since the engine has no stealth stat and that event
+is cancellable); the **Hollow Reed calling something rare** when played at night, which turns the hunt
+from waiting into something you do; and **the Ancient Colossus as an ending** - it exists in `base`
+with 300 health and a boss preset and nothing has ever spawned it. A multiblock built deep from blocks
+`base` already has is the likely way to wake it, since there is no sunstone *block*, only the ore and
+the item.

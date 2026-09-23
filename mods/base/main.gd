@@ -95,6 +95,28 @@ func setup(api) -> void:
 	# Food: hold use to eat (hunger points out of 20; saturation keeps you full for longer).
 	api.register_item("apple", {"display_name": "Apple", "icon": "textures/apple.png", "food": {"hunger": 4, "saturation": 2.4, "color": "#d83030"}})
 
+	# **Meat, because until 2026-09-24 there were three foods in the whole game** - bread, an apple and
+	# apple juice - and not one animal dropped anything edible. The pig's drop was a placeholder with a
+	# count of zero. So the only reliable way to eat was to farm wheat, which is a long first evening
+	# for a child who is also being chased. (the user: "make food easily available so they dont keep
+	# starving too often")
+	#
+	# Raw and cooked are both nouns and both belong here; *cooking* is a rule and lives in
+	# `simple_machines`. Raw is edible on purpose - a first night should not require a furnace - but it
+	# is thin, and the cooked version is worth the trouble. Chicken is the one to think twice about,
+	# which is the usual bargain for the easiest animal to catch.
+	for meat in [
+		{"name": "porkchop", "display": "Porkchop", "raw": [3, 1.8], "cooked": [8, 12.8], "colour": "#e08a8a"},
+		{"name": "beef", "display": "Beef", "raw": [3, 1.8], "cooked": [8, 12.8], "colour": "#c05a4a"},
+		{"name": "chicken", "display": "Chicken", "raw": [2, 1.2], "cooked": [6, 7.2], "colour": "#e8c090"},
+	]:
+		api.register_item("raw_" + String(meat.name), {"group": "Food", "display_name": "Raw " + String(meat.display),
+			"icon": "textures/raw_%s.png" % meat.name,
+			"food": {"hunger": int(meat.raw[0]), "saturation": float(meat.raw[1]), "color": String(meat.colour)}})
+		api.register_item("cooked_" + String(meat.name), {"group": "Food", "display_name": "Cooked " + String(meat.display),
+			"icon": "textures/cooked_%s.png" % meat.name,
+			"food": {"hunger": int(meat.cooked[0]), "saturation": float(meat.cooked[1]), "color": String(meat.colour)}})
+
 	# Raw materials: nouns, so they stay here. What you *make* from them is `simple_gear`'s business.
 	api.register_item("stick", {"group": "Materials", "icon": "textures/stick.png"})
 	api.register_item("iron_ingot", {"group": "Materials", "display_name": "Iron Ingot", "icon": "textures/iron_ingot.png"})

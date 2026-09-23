@@ -36,7 +36,9 @@ func _farm(api) -> void:
 	api.register_entity("pig", {"kind": "mob", "display_name": "Pig", "model": "models/pig.glb",
 		"width": 0.9, "height": 0.9, "health": 10, "speed": 2.0, "category": "animal", "persistent": true,
 		"breeding": {"items": ["base:wheat"], "cooldown": 30.0},
-		"drops": [["base:apple", 0, 0.0]],
+		# Real food since 2026-09-24. This was `[["base:apple", 0, 0.0]]` - a placeholder that dropped
+		# nothing, because there was no meat to drop to.
+		"drops": [["base:raw_porkchop", 2]],
 		"ai": {"preset": "passive", "wander_radius": 8}})
 	api.register_entity("sheep", {"kind": "mob", "display_name": "Sheep", "model": "models/sheep.glb",
 		"width": 0.9, "height": 1.2, "health": 10, "speed": 1.9, "category": "animal", "persistent": true,
@@ -48,10 +50,12 @@ func _farm(api) -> void:
 	api.register_entity("cow", {"kind": "mob", "display_name": "Cow", "model": "models/cow.glb",
 		"width": 1.0, "height": 1.4, "health": 12, "speed": 1.8, "category": "animal", "persistent": true,
 		"breeding": {"items": ["base:wheat"], "cooldown": 40.0},
+		"drops": [["base:raw_beef", 2]],
 		"ai": {"preset": "passive", "wander_radius": 8}})
 	api.register_entity("chicken", {"kind": "mob", "display_name": "Chicken", "model": "models/chicken.glb",
 		"width": 0.5, "height": 0.7, "health": 4, "speed": 1.6, "category": "animal", "persistent": true,
 		"breeding": {"items": ["base:wheat_seeds"], "cooldown": 30.0},
+		"drops": [["base:raw_chicken", 1]],
 		"ai": {"preset": "passive", "wander_radius": 10}})
 
 
