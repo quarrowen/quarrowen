@@ -1179,6 +1179,30 @@
 			],
 			"gd": "item_name"
 		},
+		"itemTool": {
+			"args": [
+				{
+					"kind": "int"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "item_tool"
+		},
+		"itemWeapon": {
+			"args": [
+				{
+					"kind": "int"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "item_weapon"
+		},
 		"keepAwake": {
 			"args": [
 				{

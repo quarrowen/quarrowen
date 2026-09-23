@@ -284,7 +284,7 @@ then written out as one recipe per member, because the whole point of a tag is t
 later can add to it - resolving one here would silently miss whatever comes after.
 
 ```gdscript
-api.register_recipe({"proving:rock": 2}, "proving:plain", 1, {"unlock": "known"})
+api.register_recipe({"#proving:rubble": 2}, "proving:soil", 1, {"id": "soil_from_any_rubble"})
 ```
 
 **See also:** `add_recipe`, `defer_tag_recipe`, `is_excluded`, `item`, `item_name`, `qualified`
@@ -526,7 +526,26 @@ How many of this item fit in one slot.
 
 The name players see for a block or item id.
 
-**See also:** `category`, `key`, `unlock`
+### `api.item_tool(id: int, item_data := {}) -> Dictionary`
+
+The tool stats in force for one stack: `{type, tier, speed}`, or `{}` when it is not a tool.
+
+`item_data` is the stack's own data (`ev.data`, an inventory slot's data). **Pass it**: a tool built
+from parts carries its stats there, so reading the definition alone reports the plain one's numbers.
+
+Ask this rather than keeping a set of ids. `base`'s farming kept `ids.hoes` and filled it as it
+registered each hoe, which meant tilling only worked for hoes `base` itself had registered - so the
+moment the hoes moved to `simple_gear` (2026-09-23) grass stopped turning into farmland. A mod that
+adds a better hoe now works without anything knowing it exists.
+
+**See also:** `tool_of`
+
+### `api.item_weapon(id: int, item_data := {}) -> Dictionary`
+
+The weapon stats in force for one stack: `{damage, cooldown, reach, crit_chance, knockback,
+sweep}`, or `{}` when it is not a weapon. Per-stack data wins, as with `item_tool`.
+
+**See also:** `category`, `key`, `unlock`, `weapon_of`
 
 ### `api.require_item(item_name: String) -> int`
 

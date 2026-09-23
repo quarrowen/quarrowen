@@ -3,23 +3,17 @@ extends "res://engine/server/mod.gd"
 ## as "base:<name>".
 
 const Farming = preload("farming.gd")
-const Forging = preload("forging.gd")
 const Beds = preload("beds.gd")
 const Nature = preload("nature.gd")
 const Graves = preload("graves.gd")
 const Openings = preload("openings.gd")
 const Colours = preload("colours.gd")
-const TABLE := {"station": "crafting_table"}
 ## Iron gear needs an anvil beside the table; iron armor also needs a Sturdy Workbench.
 ## Iron gear can also be forged by hand at the anvil for better quality (the "forging" minigame).
-const METALWORK := {"station": "crafting_table", "needs": ["metalwork"], "skill": "base:forging"}
-const ARMORY := {"station": "crafting_table", "needs": ["metalwork"], "tier": 2, "time": 6.0, "skill": "base:forging"}
 ## [name, slot, ...] - the armor pieces every armor-bearing material gets, in the order their numbers
 ## are written in the materials table.
-const ARMOR_PIECES := [["helmet", "head"], ["chestplate", "chest"], ["leggings", "legs"], ["boots", "feet"]]
 
 var farming := Farming.new()
-var forging := Forging.new()
 var beds := Beds.new()
 var nature := Nature.new()
 var graves := Graves.new()
@@ -97,15 +91,16 @@ func setup(api) -> void:
 	# Food: hold use to eat (hunger points out of 20; saturation keeps you full for longer).
 	api.register_item("apple", {"display_name": "Apple", "icon": "textures/apple.png", "food": {"hunger": 4, "saturation": 2.4, "color": "#d83030"}})
 
-	api.register_recipe({"base:log": 1}, "base:planks", 4, {"unlock": "known"})
-	api.register_recipe({"base:gravel": 2, "base:coal": 1}, "base:brick", 4)
-	api.register_recipe({"base:cobblestone": 1}, "base:gravel", 1)
-	_register_tools(api)
+	# Raw materials: nouns, so they stay here. What you *make* from them is `simple_gear`'s business.
+	api.register_item("stick", {"group": "Materials", "icon": "textures/stick.png"})
+	api.register_item("iron_ingot", {"group": "Materials", "display_name": "Iron Ingot", "icon": "textures/iron_ingot.png"})
+	api.register_item("cobalt_ingot", {"group": "Materials", "display_name": "Cobalt Ingot", "icon": "textures/cobalt_ingot.png"})
+	api.register_item("copper_ingot", {"group": "Materials", "display_name": "Copper Ingot", "icon": "textures/copper_ingot.png"})
+	api.register_item("gold_ingot", {"group": "Materials", "display_name": "Gold Ingot", "icon": "textures/gold_ingot.png"})
+	api.register_item("sunstone", {"group": "Materials", "display_name": "Sunstone", "icon": "textures/sunstone.png"})
 	_register_shapes(api, {"stone": stone, "wood": wood})
 	farming.setup(api, {"dirt": dirt, "grass": grass})
 	nature.setup(api, {"wood": wood, "grass": grass, "stone": stone})
-	_register_charms(api)  # after nature: the charms are made of deepstone, which nature registers
-	forging.setup(api, {"stone": stone})
 	beds.setup(api, {"wood": wood})
 	graves.setup(api, {"stone": stone})
 	openings.setup(api, {"stone": stone, "wood": wood})
@@ -121,89 +116,6 @@ func setup(api) -> void:
 ## not wearing the traveller's. That is where the interesting decisions live, and it is where mods should
 ## put effects that are not "more armor".
 ##
-## Deepstone is the common ingredient on purpose: charms are the second thing a cobalt pickaxe buys.
-func _register_charms(api) -> void:
-	api.register_equipment_slot("trinket", {"display_name": "Charm"})
-	# Each takes deepstone and one thing that says what it is for, so the three recipes are told apart by
-	# what a child would guess anyway: coal for the miner, a stick for the walker, cobalt for the heavy one.
-	var charms := [
-		["miners_charm", "Miner's Charm", "A knot of deepstone that seems to want to be swung.",
-			[{"stat": "mining_speed", "amount": 0.25, "op": "multiply"}], {"base:coal": 3}],
-		["wayfarers_charm", "Wayfarer's Charm", "Light on its string, and the road feels shorter.",
-			[{"stat": "move_speed", "amount": 0.12, "op": "multiply"}, {"stat": "exhaustion", "amount": -0.2, "op": "multiply"}],
-			{"base:stick": 2}],
-		["stoneheart_charm", "Stoneheart Charm", "Heavy, warm, and it does not let go of you.",
-			[{"stat": "max_health", "amount": 4.0, "op": "add"}, {"stat": "knockback_resistance", "amount": 0.15, "op": "add"}],
-			{"base:cobalt_ingot": 1}],
-	]
-	for charm in charms:
-		api.register_item(charm[0], {"display_name": charm[1], "icon": "textures/%s.png" % charm[0],
-			"equip_slot": "trinket", "lore": [charm[2]], "modifiers": charm[3], "max_stack": 1})
-		var recipe: Dictionary = {"base:deepstone": 2}
-		recipe.merge(charm[4])
-		api.register_recipe(recipe, "base:" + charm[0], 1, ARMORY)
-
-
-## Basic tiered tools, swords and armor. Tiers: 1 wood, 2 stone, 3 iron, 4 cobalt (stone needs tier 1,
-## iron ore tier 2, cobalt ore tier 3, and only cobalt tools bring up deepstone). Other mods can add
-## tiers above or new tool types entirely.
-##
-## A material is one row in the table below and everything else follows from it, armor included: adding
-## cobalt meant adding a row, which is the point. A ladder where each rung is written out by hand is a
-## ladder where the fourth rung quietly disagrees with the third.
-func _register_tools(api) -> void:
-	api.register_item("stick", {"icon": "textures/stick.png"})
-	api.register_item("iron_ingot", {"display_name": "Iron Ingot", "icon": "textures/iron_ingot.png"})
-	api.register_item("cobalt_ingot", {"display_name": "Cobalt Ingot", "icon": "textures/cobalt_ingot.png"})
-	api.register_item("copper_ingot", {"display_name": "Copper Ingot", "icon": "textures/copper_ingot.png"})
-	api.register_item("gold_ingot", {"display_name": "Gold Ingot", "icon": "textures/gold_ingot.png"})
-	api.register_item("sunstone", {"display_name": "Sunstone", "icon": "textures/sunstone.png"})
-	api.register_recipe({"base:planks": 2}, "base:stick", 4, {"unlock": "known"})
-	var materials := [
-		{"name": "wooden", "display": "Wooden", "tier": 1, "speed": 2.0, "durability": 60, "damage": 4.0, "input": "base:planks"},
-		{"name": "stone", "display": "Stone", "tier": 2, "speed": 4.0, "durability": 130, "damage": 5.0, "input": "base:cobblestone"},
-		{"name": "iron", "display": "Iron", "tier": 3, "speed": 6.0, "durability": 250, "damage": 6.0, "input": "base:iron_ingot",
-			"armor": {"durability": 180, "points": [2.0, 6.0, 5.0, 2.0], "cost": [5, 8, 7, 4]}},
-		{"name": "cobalt", "display": "Cobalt", "tier": 4, "speed": 8.5, "durability": 520, "damage": 7.0, "input": "base:cobalt_ingot",
-			"armor": {"durability": 420, "points": [3.0, 8.0, 6.0, 3.0], "cost": [5, 8, 7, 4], "toughness": 1.0}},
-		# Sidegrades, not rungs. Copper sits between stone and iron and is far easier to come by, so the
-		# long stretch where a child has a stone pickaxe and nothing better is shorter. Gold is the
-		# opposite bargain: quicker than anything until cobalt, and it breaks while you watch - which is
-		# a lesson about trade-offs that costs nothing to learn.
-		{"name": "copper", "display": "Copper", "tier": 2, "speed": 5.0, "durability": 180, "damage": 5.5, "input": "base:copper_ingot",
-			"armor": {"durability": 140, "points": [2.0, 5.0, 4.0, 2.0], "cost": [5, 8, 7, 4]}},
-		{"name": "gold", "display": "Gold", "tier": 3, "speed": 11.0, "durability": 70, "damage": 5.0, "input": "base:gold_ingot",
-			"armor": {"durability": 90, "points": [2.0, 6.0, 5.0, 2.0], "cost": [5, 8, 7, 4]}},
-		{"name": "sunstone", "display": "Sunstone", "tier": 5, "speed": 10.0, "durability": 900, "damage": 8.0, "input": "base:sunstone",
-			"armor": {"durability": 700, "points": [3.0, 9.0, 7.0, 3.0], "cost": [5, 8, 7, 4], "toughness": 2.0}},
-	]
-	for m in materials:
-		var station: Dictionary = METALWORK if m.tier >= 3 else TABLE
-		for tool in [["pickaxe", 3, 2.0], ["axe", 3, 3.0], ["shovel", 1, 1.5]]:
-			var item_name := "%s_%s" % [m.name, tool[0]]
-			api.register_item(item_name, {"display_name": "%s %s" % [m.display, String(tool[0]).capitalize()], "icon": "textures/%s.png" % item_name,
-				"durability": m.durability, "tool": {"type": tool[0], "tier": m.tier, "speed": m.speed},
-				"weapon": {"damage": tool[2] + m.tier * 0.5, "cooldown": 0.8 if tool[0] == "axe" else 0.5}})
-			api.register_recipe({m.input: tool[1], "base:stick": 2}, "base:" + item_name, 1, station)
-		api.register_item("%s_sword" % m.name, {"display_name": "%s Sword" % m.display, "icon": "textures/%s_sword.png" % m.name,
-			"durability": m.durability, "weapon": {"damage": m.damage, "cooldown": 0.6, "sweep": 0.3},
-			"trail": {"color": "#ffffff60", "width": 0.45}})
-		api.register_recipe({m.input: 2, "base:stick": 1}, "base:%s_sword" % m.name, 1, station)
-		if not (m.get("armor") is Dictionary):
-			continue
-		var armor: Dictionary = m.armor
-		for i in ARMOR_PIECES.size():
-			var piece: Array = ARMOR_PIECES[i]
-			var def := {"display_name": "%s %s" % [m.display, String(piece[0]).capitalize()],
-				"icon": "textures/%s_%s.png" % [m.name, piece[0]], "equip_slot": piece[1],
-				"durability": armor.durability, "armor": {"armor": armor.points[i]},
-				"armor_texture": "textures/%s_armor.png" % m.name}
-			if armor.has("toughness"):
-				def.armor["toughness"] = armor.toughness
-			api.register_item("%s_%s" % [m.name, piece[0]], def)
-			api.register_recipe({m.input: armor.cost[i]}, "base:%s_%s" % [m.name, piece[0]], 1, ARMORY)
-
-
 ## Blocks that do not fill their cell: slabs (half a block, walked onto without jumping), stairs (four
 ## facings, one item that places the one facing you) and a fence (a post you cannot jump over).
 func _register_shapes(api, sounds: Dictionary) -> void:
@@ -231,8 +143,6 @@ func _register_shapes(api, sounds: Dictionary) -> void:
 		slab_top.merge({"display_name": "%s Slab" % material.display, "shape": "slab_top",
 			"placeable": false, "drops": "base:" + slab_name, "full_block": String(material.from)}, true)
 		api.register_block("%s_slab_top" % material.id, slab_top)
-		api.register_recipe({String(material.from): 3}, "base:" + slab_name, 6, {"station": "crafting_table"})
-		api.register_recipe({"base:" + slab_name: 2}, String(material.from), 1, {"station": "crafting_table"})
 
 		var variant_names := []
 		for facing in facings:
@@ -244,7 +154,6 @@ func _register_shapes(api, sounds: Dictionary) -> void:
 			if i > 0:
 				stairs.placeable = false  # you always carry the north one; placing turns it to face you
 			api.register_block("%s_stairs_%s" % [material.id, facings[i]], stairs)
-		api.register_recipe({String(material.from): 6}, variant_names[0], 4, {"station": "crafting_table"})
 
 	# A fence joins up with whatever is beside it: sixteen forms, one per combination of the four sides,
 	# swapped by the engine when anything next to it changes (engine/server/connect.gd). Only the lone
@@ -265,4 +174,3 @@ func _register_shapes(api, sounds: Dictionary) -> void:
 		if mask > 0:
 			fence.placeable = false  # placing the post is enough; it joins up by itself
 		api.register_block(forms[mask].get_slice(":", 1), fence)
-	api.register_recipe({"base:planks": 4, "base:stick": 2}, "base:fence", 3, {"station": "crafting_table"})

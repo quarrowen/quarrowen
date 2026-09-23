@@ -39,33 +39,16 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	ids.seeds = api.register_item("wheat_seeds", {"display_name": "Wheat Seeds", "icon": "textures/wheat_seeds.png", "usable": true})
 	ids.wheat = api.register_item("wheat", {"display_name": "Wheat", "icon": "textures/wheat.png"})
 	ids.bread = api.register_item("bread", {"display_name": "Bread", "icon": "textures/bread.png", "food": {"hunger": 5, "saturation": 6.0, "color": "#c89040"}})
-	api.register_recipe({"base:wheat": 3}, "base:bread", 1, {"category": "food"})
 	# Drinks are swigged straight from the bottle and give it back.
 	api.register_item("glass_bottle", {"display_name": "Glass Bottle", "icon": "textures/glass_bottle.png"})
-	api.register_recipe({"base:glass": 3}, "base:glass_bottle", 3, {"category": "materials"})
 	api.register_item("apple_juice", {"display_name": "Apple Juice", "icon": "textures/apple_juice.png", "max_stack": 16,
 		"food": {"hunger": 4, "saturation": 4.0, "eat_time": 1.4, "style": "drink", "color": "#f0b040", "remainder": "base:glass_bottle"}})
-	api.register_recipe({"base:apple": 2, "base:glass_bottle": 1}, "base:apple_juice", 1, {"category": "food"})
 
 	# Found by experimenting: arranged in the crafting grid (see the recipe patterns).
 	api.register_block("torch", {"group": "Light", "display_name": "Torch", "textures": "textures/torch.png", "render": "plant", "light": 14,
 		"hardness": 0.0, "support": "solid", "sounds": sounds.grass})
 	api.register_block("hay_bale", {"group": "Nature", "display_name": "Straw Bale", "sounds": sounds.grass, "hardness": 0.5,
 		"textures": {"top": "textures/hay_bale_top.png", "bottom": "textures/hay_bale_top.png", "side": "textures/hay_bale_side.png"}})
-	api.register_recipe({}, "base:hay_bale", 1, {"pattern": ["WWW", "WWW", "WWW"], "key": {"W": "base:wheat"}, "unlock": "experiment",
-		"category": "blocks", "hint": "A whole grid of the harvest, bundled."})
-	api.register_recipe({"base:hay_bale": 1}, "base:wheat", 9, {"id": "wheat_from_hay"})
-	ids.hoes = {}
-	for m in [{"name": "wooden", "input": "base:planks", "tier": 1, "durability": 60},
-			{"name": "stone", "input": "base:cobblestone", "tier": 2, "durability": 130},
-			{"name": "iron", "input": "base:iron_ingot", "tier": 3, "durability": 250}]:
-		var hoe: int = api.register_item("%s_hoe" % m.name, {"display_name": "%s Hoe" % m.name.capitalize(),
-			"icon": "textures/%s_hoe.png" % m.name, "durability": m.durability, "usable": true,
-			"tool": {"type": "hoe", "tier": m.tier, "speed": 1.0 + m.tier}, "weapon": {"damage": 1.0, "cooldown": 0.4}})
-		ids.hoes[hoe] = true
-		api.register_recipe({m.input: 2, "base:stick": 2}, "base:%s_hoe" % m.name, 1,
-			{"station": "crafting_table", "needs": ["metalwork"]} if m.name == "iron" else {"station": "crafting_table"})
-
 	for stage in WHEAT_STAGES - 1:
 		api.register_block_tick("base:wheat_%d" % stage, _grow_wheat, {"interval": WHEAT_INTERVAL})
 	api.register_block_tick("base:farmland", _dry_farmland, {"interval": 30.0})
@@ -104,7 +87,11 @@ func _on_item_use(ev: Dictionary) -> void:
 	if api.get_block(above) != 0 and api.get_block(above) != ids.tall_grass:
 		return
 	var block: int = api.get_block(pos)
-	if ids.hoes.has(ev.item) and (block == api.block("base:grass") or block == api.block("base:dirt")):
+	# **Anything whose tool type is "hoe"**, not a list of ids this mod happened to register. The hoes
+	# live in `simple_gear` now, and farmland is a fact about soil rather than about who sells shovels;
+	# a mod that adds a better hoe tills grass without anything here knowing it exists. (2026-09-23)
+	if String(api.item_tool(ev.item, ev.get("data", {})).get("type", "")) == "hoe" \
+			and (block == api.block("base:grass") or block == api.block("base:dirt")):
 		if api.get_block(above) == ids.tall_grass:
 			api.set_block(above, 0)
 		api.set_block(pos, ids.farmland, "", false, 1 if _near_water(pos) else 0)

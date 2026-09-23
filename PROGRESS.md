@@ -5188,3 +5188,79 @@ be finished and proven before the safety net goes.
 Test-suite saving, measured: the two suites are **125s and 129s** here, not the "about eight minutes"
 this repo has been claiming. Deleting the second saves ~2 minutes locally; in CI it saves a job but no
 Rust build, because the native job already builds the library the test job downloads.
+
+### Agreed order (the user, 2026-09-23)
+
+Finish the verb split (`simple_gear`), then take on the iOS/Android native build and the deletion of
+the twins as one piece of work.
+
+## Roadmap: a cinematic arrival instead of appearing in your own eyes (2026-09-23, not now)
+
+The user: *"currently when a player logs in to the server, after the loading screen we just load the
+player scene in first person perspective. instead will be nice to have a cinematic third person zoom
+in kinda effect which will end smoothly in the first person perspective!"*
+
+Worth noting that the pieces already exist, which is what makes this cheap: the client already has
+`camera_mode` (0 first person, 1/2 third), driven per-shot by `tests/screenshot.gd --camera=N`, and
+tweens are used freely in the client. So the shape is: hold the camera behind and above the avatar at
+the spawn point, let the world finish meshing, then tween position and FOV in to the eyes and hand
+control over - rather than cutting.
+
+Two things to get right when it is built:
+- **It must not delay play.** The join already waits on chunks; the flight should happen *over* the
+  last of that wait and be skippable by any input, or it becomes a tax paid on every login.
+- **Once per session, not once per world load.** A child who dies twenty times does not want twenty
+  establishing shots.
+
+## The verb split, part two: `base` reaches zero recipes (2026-09-23)
+
+**The line holds for the first time.** `base` alone now starts with **0 recipes, 141 blocks and 98
+palette entries across 14 drawers** - the sentence written down on 21 September, finally true. It is
+a test rather than an intention now (`_base_is_nouns` in `tests/gameplay_test.gd`), and it asserts
+*zero* on purpose: the moment one recipe is allowed back, the next is an argument rather than a
+failure.
+
+Three packs where there was one:
+
+- **`simple_gear`** - tools, weapons, armour, charms, hoes, and the Toolsmith's Bench with its parts,
+  materials and forging minigame. Depends on `base` and `simple_machines`, because gear is made *at*
+  something.
+- **`simple_machines`** - gains `crafting.gd`: the everyday recipes that were scattered through
+  `base` beside the blocks they make. Planks, sticks, bricks, gravel, sandstone, slabs, stairs,
+  fences, doors, panes, the bed, bread and juice.
+- **`guidebook`** - its own mod, which was not the plan. The guide went to `simple_machines` in part
+  one "under protest"; the validator then caught `simple_machines` naming `simple_gear:iron_pickaxe`,
+  which is a pack depending upward. **A thing that documents three packs depends on three packs.** It
+  is still game content and moves again when a guided game exists.
+
+### `api.item_tool`, and a reader that was private and got reimplemented
+
+`base`'s farming kept `ids.hoes`, a set it filled as it registered each hoe, so tilling only worked
+for hoes `base` itself had registered - the moment the hoes moved, grass stopped turning into
+farmland. `ItemRegistry.tool_of` has always done this properly (per-stack data wins, so a forged tool
+reports its own stats) and was used five times inside the engine and **exposed to mods nowhere**.
+
+Now `api.item_tool(id, data)` and `api.item_weapon(id, data)` are public, and `base` asks any held
+item for its tool type. A mod that adds a better hoe tills grass without anything knowing it exists.
+This is the third time an engine-internal reader has been reimplemented rather than found.
+
+### Tags: "any plank" and "this plank", both
+
+The user: *"dont forget about the tags we implemented. so a machine could ask for specific type of
+planks as well as any plank, both could be possible"*. Both already work - `{"#base:planks": 4}` for
+any member, `{"base:oak_planks": 4}` for one - and the tag form is expanded after every mod has
+loaded, into one real recipe per member with the member's name appended to the id.
+
+`base` now tags `planks` as well as `logs`, while there is still only one kind of plank, so the
+recipes written against it keep working when Phase 4 gives each wood species its own. The Proving
+Ground exercises both halves (`soil_from_any_rubble` takes either member, `turf_from_rock_only`
+insists on one), because "the tag form works" and "the exact form still works" are two claims.
+
+### What the rename cost, again
+
+The same lesson as part one, twice more. `crafting_table`, `furnace`, `forge`, `cooking` and
+`tool_forge` are all **guide page ids and block names**, so a mechanical rename of page ids hit
+thirty-odd block references across the guide, the stations and the tests. Caught by the validator and
+the suite, but it is now clear that this project's naming has a structural hazard: **pages, blocks,
+recipes, minigames, materials and sounds share one namespace shape and nothing distinguishes them at
+a glance.** A rename script must always be context-aware here, never textual.

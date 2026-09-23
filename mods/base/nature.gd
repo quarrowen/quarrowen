@@ -14,7 +14,6 @@ func setup(api, sounds: Dictionary) -> void:
 			"textures": {"all": "textures/%s_log_side.png" % wood, "top": "textures/%s_log_top.png" % wood, "bottom": "textures/%s_log_top.png" % wood}})
 		api.register_block("%s_leaves" % wood, {"group": "Wood", "display_name": "%s Leaves" % wood.capitalize(), "textures": "textures/%s_leaves.png" % wood,
 			"render": "cutout", "drops": "", "sway": true, "sounds": sounds.grass, "hardness": 0.2})
-		api.register_recipe({"base:%s_log" % wood: 1}, "base:planks", 4, {"unlock": "known", "id": "planks_from_%s" % wood})
 	# **`base` says which of its blocks are logs; it does not say that logs burn.** That a log is fuel
 	# is a rule and belongs to whatever pack wants it - `simple_machines` reads this tag. Before the
 	# split, `simple_machines` preloaded this file for its `WOODS` constant, which is one mod reaching
@@ -24,11 +23,18 @@ func setup(api, sounds: Dictionary) -> void:
 	for wood in WOODS:
 		logs.append("base:%s_log" % wood)
 	api.tag("logs", logs)
+	# **And the same for planks, while there is only one kind of them.**
+	#
+	# A recipe can name a member (`base:oak_planks`) or the tag (`#base:planks`, "any plank"), and the
+	# difference is the whole point: a workbench wants any plank, a fancy chest might want oak. Tagging
+	# now costs nothing and means the recipes written against it keep working when Phase 4 gives each
+	# wood species its own planks - at which point this list grows and nothing downstream changes.
+	# (the user, 2026-09-23: "a machine could ask for specific type of planks as well as any plank")
+	api.tag("planks", ["base:planks"])
 	api.register_block("cactus", {"group": "Nature", "display_name": "Cactus", "sounds": sounds.grass, "hardness": 0.4, "hazard": true, "support": ["base:sand", "base:cactus"],
 		"textures": {"all": "textures/cactus_side.png", "top": "textures/cactus_top.png", "bottom": "textures/cactus_top.png"}, "render": "cutout"})
 	api.register_block("sandstone", {"group": "Stone", "display_name": "Sandstone", "sounds": sounds.stone, "hardness": 0.8, "tier": 1, "tool": "pickaxe",
 		"textures": {"all": "textures/sandstone_side.png", "top": "textures/sandstone_top.png", "bottom": "textures/sandstone_top.png"}})
-	api.register_recipe({"base:sand": 4}, "base:sandstone", 1, {"category": "blocks"})
 	api.register_block("dead_bush", {"group": "Nature", "display_name": "Dry Shrub", "textures": "textures/dead_bush.png", "render": "plant", "replaceable": true,
 		"hardness": 0.0, "drops": "base:stick", "support": ["base:sand"], "sounds": sounds.grass})
 	# Lava: fills the deepest caves; glows and burns.

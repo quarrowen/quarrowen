@@ -41,7 +41,7 @@ func _ready() -> void:
 	seed(int(_args.seed))
 	server = GameServer.new()
 	add_child(server)
-	var err: Error = server.start({"mods": PackedStringArray(["base", "simple_machines", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": "soak_%d" % Time.get_ticks_msec(), "data_dir": _data_dir,
+	var err: Error = server.start({"mods": PackedStringArray(["base", "simple_machines", "simple_gear", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": "soak_%d" % Time.get_ticks_msec(), "data_dir": _data_dir,
 		"seed": int(_args.seed), "offline": true})
 	if err != OK:
 		print("[soak] server failed to start: %s" % error_string(err))

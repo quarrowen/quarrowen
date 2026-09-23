@@ -27,6 +27,12 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	# A two-block thing, which had no user here: the half you carry, and the half that comes with it.
 	# `placeable: false` on the far half is what keeps it out of the creative palette and out of a
 	# player's hands, so this pair is also what proves the palette refuses it. (2026-09-23)
+	# **Both halves of "any" and "exactly this".** `rock` and `plain` are the two members of one tag;
+	# one recipe below takes either, the next insists on one of them. A machine wanting any plank and a
+	# machine wanting oak are the same question. (the user, 2026-09-23)
+	api.tag("rubble", ["proving:rock", "proving:plain"])
+	api.register_recipe({"#proving:rubble": 2}, "proving:soil", 1, {"id": "soil_from_any_rubble"})
+	api.register_recipe({"proving:rock": 4}, "proving:turf", 1, {"id": "turf_from_rock_only"})
 	ids.mast = api.register_block("mast", {"display_name": "Mast", "hardness": 1.0,
 		"pair": {"block": "proving:mast_top", "direction": "up"}})
 	ids.mast_top = api.register_block("mast_top", {"display_name": "Mast Top", "hardness": 1.0,

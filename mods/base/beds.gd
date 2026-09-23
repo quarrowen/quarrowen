@@ -13,4 +13,3 @@ func setup(api, sounds: Dictionary) -> void:
 	var head := common.duplicate()
 	head.merge({"display_name": "Bed", "model": "models/bed_head.glb", "placeable": false, "pair": {"block": "base:bed", "direction": "front"}})
 	api.register_block("bed_head", head)
-	api.register_recipe({"base:planks": 3, "base:hay_bale": 1}, "base:bed", 1, {"station": "crafting_table", "category": "blocks"})

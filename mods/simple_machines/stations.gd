@@ -87,8 +87,8 @@ func setup(mod_api, sounds: Dictionary) -> void:
 		api.set_fuel(log_name, 15.0)
 		api.register_process("smelting", log_name, "simple_machines:charcoal", 1, 10.0)
 	for fuel in [["base:coal", 80.0], ["simple_machines:charcoal", 80.0], ["base:planks", 15.0], ["simple_machines:crafting_table", 15.0],
-			["simple_machines:chest", 15.0], ["base:stick", 5.0], ["base:sapling", 5.0], ["base:wooden_pickaxe", 10.0], ["base:wooden_axe", 10.0],
-			["base:wooden_shovel", 10.0], ["base:wooden_sword", 10.0], ["base:wooden_hoe", 10.0]]:
+			["simple_machines:chest", 15.0], ["base:stick", 5.0], ["base:sapling", 5.0], ["simple_gear:wooden_pickaxe", 10.0], ["simple_gear:wooden_axe", 10.0],
+			["simple_gear:wooden_shovel", 10.0], ["simple_gear:wooden_sword", 10.0], ["simple_gear:wooden_hoe", 10.0]]:
 		api.set_fuel(fuel[0], fuel[1])
 	for recipe in [["base:iron_ore", "base:iron_ingot"], ["base:cobalt_ore", "base:cobalt_ingot"], ["base:sand", "base:glass"], ["base:cobblestone", "base:stone"],
 			["base:log", "simple_machines:charcoal"], ["base:clay", "base:brick"],

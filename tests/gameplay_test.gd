@@ -108,6 +108,7 @@ func _ready() -> void:
 	await _items_of_missing_mods()
 	await _block_shapes()
 	_shape_twins()
+	await _base_is_nouns()
 	_shader_names()
 	await _doors_and_windows()
 	await _shape_meshing()
@@ -918,9 +919,9 @@ func _equipment() -> void:
 	p.state.position = Vector3(8.5, y + 1, 8.5)
 	p.edit_tokens = 100.0
 	var chest := p.equipment_slot("chest")
-	var chestplate: int = items.id_of("base:iron_chestplate")
-	var helmet: int = items.id_of("base:iron_helmet")
-	var sword: int = items.id_of("base:iron_sword")
+	var chestplate: int = items.id_of("simple_gear:iron_chestplate")
+	var helmet: int = items.id_of("simple_gear:iron_helmet")
+	var sword: int = items.id_of("simple_gear:iron_sword")
 	# The slots sit after the backpack in one array, in registration order, so a mod adding one (base's
 	# charm slot) lengthens the inventory rather than moving anything already in it.
 	_check(chest == Inventory.SIZE + 1 and p.inventory.total() == Inventory.SIZE + items.slots.size(),
@@ -994,7 +995,7 @@ func _equipment() -> void:
 	var dropped: Array = server.entities.in_radius(Vector3(target) + Vector3(0.5, 0.5, 0.5), 2.0, EntityRegistry.ITEM)
 	_check(server.world.get_block_v(target) == 0 and dropped.is_empty(), "stone broke by hand but dropped nothing")
 	server.set_block_authoritative(target, stone)
-	var pick: int = items.id_of("base:stone_pickaxe")
+	var pick: int = items.id_of("simple_gear:stone_pickaxe")
 	p.inventory.set_slot(0, pick, 1)
 	p.refresh_stats()
 	server.on_mine_start(77, target)
@@ -1019,7 +1020,7 @@ func _farming() -> void:
 	var found := BlockTicks.scan(blocks, PackedInt32Array([44, 300]))
 	_check(found.size() == 2 and found[Chunk.index(3, 40, 5)] == 300 and found[Chunk.index(9, 70, 1)] == 44, "tick index finds exactly the listed block ids (%s)" % found)
 
-	var server = _start("farming_%d" % Time.get_ticks_msec(), ["base", "simple_machines", "proving"])
+	var server = _start("farming_%d" % Time.get_ticks_msec(), ["base", "simple_machines", "simple_gear", "guidebook", "proving"])
 	var ticks = server.block_ticks
 	var reg = server.registry
 	var farmland: int = reg.id_of("base:farmland")
@@ -1175,7 +1176,7 @@ func _containers() -> void:
 	server.on_inventory_closed(81)
 
 	# Stations: recipes that need a crafting table.
-	var pick: int = items.id_of("base:wooden_pickaxe")
+	var pick: int = items.id_of("simple_gear:wooden_pickaxe")
 	var recipe: Dictionary = server.recipes.recipes.filter(func(r): return r.output == pick)[0]
 	p.inventory.clear()
 	p.inventory.set_slot(0, items.id_of("base:planks"), 8)
@@ -1200,7 +1201,7 @@ func _containers() -> void:
 	_check(server.craftable_times(p, recipe) == 3, "three pickaxes' worth of planks nearby")
 	_check(server.craft(p, server.recipes.recipes.find(recipe), 64) == 3 and p.inventory.count_of(pick) == 3
 		and near_chest.get_item(0).item == 0 and near_chest.get_item(1).count == 4, "craft-all took ingredients from the chest")
-	_check(server.recipes.recipes.find(recipe) == server.recipes.index_of("base:wooden_pickaxe") and recipe.category == "tools",
+	_check(server.recipes.recipes.find(recipe) == server.recipes.index_of("simple_gear:wooden_pickaxe") and recipe.category == "tools",
 		"recipes get ids and categories")
 	server.queue_free()
 	await get_tree().process_frame
@@ -1226,8 +1227,8 @@ func _stations() -> void:
 	var ingot: int = items.id_of("base:iron_ingot")
 	p.inventory.set_slot(0, ingot, 20)
 	p.inventory.set_slot(1, items.id_of("base:stick"), 8)
-	var iron_pick: Dictionary = server.recipes.recipes[server.recipes.index_of("base:iron_pickaxe")]
-	var chestplate: Dictionary = server.recipes.recipes[server.recipes.index_of("base:iron_chestplate")]
+	var iron_pick: Dictionary = server.recipes.recipes[server.recipes.index_of("simple_gear:iron_pickaxe")]
+	var chestplate: Dictionary = server.recipes.recipes[server.recipes.index_of("simple_gear:iron_chestplate")]
 	server.on_interact(83, table)
 	var info: Dictionary = p.crafting_station
 	_check(info.tier == 1 and info.features.is_empty() and info.available.size() == 3 and info.next.title == "Sturdy Workbench",
@@ -1316,16 +1317,16 @@ func _coop() -> void:
 	_check(bo.inventory.count_of(items.id_of("simple_machines:chest")) == 1 and server.sessions.coop(table).tray.is_empty(), "Bo crafted a chest from his tray planks")
 
 	# Timed crafts: helpers speed up the queue.
-	var plate: int = server.recipes.index_of("base:iron_chestplate")
+	var plate: int = server.recipes.index_of("simple_gear:iron_chestplate")
 	ada.inventory.set_slot(0, items.id_of("base:iron_ingot"), 8)
 	server.craft(ada, plate)
 	_check(server.sessions.coop(table).jobs.size() == 1 and ada.inventory.count_of(items.id_of("base:iron_ingot")) == 0
-		and ada.inventory.count_of(items.id_of("base:iron_chestplate")) == 0, "a timed recipe joins the queue and takes its ingredients")
+		and ada.inventory.count_of(items.id_of("simple_gear:iron_chestplate")) == 0, "a timed recipe joins the queue and takes its ingredients")
 	_check(is_equal_approx(StationSessions.speedup(3, 0.0), 2.0), "three players craft twice as fast")
 	server.sessions.update(2.5)
 	_check(server.sessions.coop(table).jobs.size() == 1, "not done after 2.5 s with helpers (5 of 6 s)")
 	server.sessions.update(1.0)
-	_check(server.sessions.coop(table).jobs.is_empty() and ada.inventory.count_of(items.id_of("base:iron_chestplate")) == 1,
+	_check(server.sessions.coop(table).jobs.is_empty() and ada.inventory.count_of(items.id_of("simple_gear:iron_chestplate")) == 1,
 		"the chestplate finished early thanks to helpers")
 
 	# Projects: several players contribute; completion lists who helped.
@@ -1359,13 +1360,13 @@ func _discovery() -> void:
 	p.edit_tokens = 100.0
 	var learned := []
 	server.add_handler("recipe_learned", func(ev): learned.append([ev.recipe, ev.source]), 0)
-	_check(p.knows_recipe("base:planks") and p.knows_recipe("simple_machines:crafting_table") and not p.knows_recipe("simple_machines:chest"),
+	_check(p.knows_recipe("simple_machines:stick") and p.knows_recipe("simple_machines:crafting_table") and not p.knows_recipe("simple_machines:chest"),
 		"basics are known from the start, the rest is not")
-	var gravel_recipe: Dictionary = server.recipes.recipes[server.recipes.index_of("base:gravel")]
+	var gravel_recipe: Dictionary = server.recipes.recipes[server.recipes.index_of("simple_machines:gravel")]
 	p.inventory.set_slot(0, items.id_of("base:cobblestone"), 4)
 	_check(server.craftable_times(p, gravel_recipe) == 0, "an undiscovered recipe cannot be crafted even with the ingredients")
 	p.sync_inventory()
-	_check(p.knows_recipe("base:gravel") and learned.has(["base:gravel", "pickup"]) and server.craftable_times(p, gravel_recipe) == 4,
+	_check(p.knows_recipe("simple_machines:gravel") and learned.has(["simple_machines:gravel", "pickup"]) and server.craftable_times(p, gravel_recipe) == 4,
 		"holding cobblestone discovered what it makes")
 	p.inventory.set_slot(1, items.id_of("base:brick"), 6)
 	p.inventory.set_slot(2, items.id_of("simple_machines:furnace"), 1)
@@ -1377,9 +1378,9 @@ func _discovery() -> void:
 	_check(p.knows_recipe("simple_machines:forge") and p.knows_recipe("simple_machines:anvil") and p.inventory.count_of(items.id_of("simple_machines:forge_plans")) == 0,
 		"reading forge plans taught the forge and the anvil and used them up")
 	# A generic blueprint: any item with `teaches` in its item data.
-	p.inventory.set_slot(3, items.id_of("simple_machines:workbench_plans"), 1, {"teaches": ["base:iron_chestplate"], "name": "Armorer's Notes"})
+	p.inventory.set_slot(3, items.id_of("simple_machines:workbench_plans"), 1, {"teaches": ["simple_gear:iron_chestplate"], "name": "Armorer's Notes"})
 	server.on_use_item(95, false, Vector3i.ZERO, Vector3i.ZERO)
-	_check(p.knows_recipe("base:iron_chestplate") and not p.knows_recipe("simple_machines:reinforced_frame"), "item data can carry which recipes a blueprint teaches")
+	_check(p.knows_recipe("simple_gear:iron_chestplate") and not p.knows_recipe("simple_machines:reinforced_frame"), "item data can carry which recipes a blueprint teaches")
 	server._store_player(p)
 	_check(server._meta.players.scholar.recipes.has("simple_machines:forge") and server._meta.players.scholar.seen_items.has("base:brick"), "discoveries are saved")
 	p.inventory.creative = true
@@ -1419,7 +1420,7 @@ func _experiments() -> void:
 	result = attempt.call([wheat, wheat, wheat, wheat, wheat, wheat, wheat, wheat, 0])
 	_check(result.status == "close" and result.hint.contains("amounts"), "eight wheat hints that the amounts are off (%s)" % result.hint)
 	result = attempt.call([wheat, wheat, wheat, wheat, wheat, wheat, wheat, wheat, wheat])
-	_check(result.status == "discovered" and p.knows_recipe("base:hay_bale"), "nine wheat discovers the hay bale")
+	_check(result.status == "discovered" and p.knows_recipe("simple_machines:hay_bale"), "nine wheat discovers the hay bale")
 	result = attempt.call([items.id_of("base:iron_ingot"), 0, 0, 0, 0, 0, 0, 0, 0])
 	_check(result.status == "invalid", "you cannot experiment with items you do not hold")
 	lab._last.clear()
@@ -1449,37 +1450,37 @@ func _assembly() -> void:
 	var y: int = server.surface_height(8, 8)
 	p.state.position = Vector3(8.5, y + 1, 8.5)
 	p.edit_tokens = 100.0
-	_check(asm.materials.has("base:iron") and asm.materials.has("proving:dull") and asm.assemblies.has("base:forged_pickaxe"),
+	_check(asm.materials.has("simple_gear:iron") and asm.materials.has("proving:dull") and asm.assemblies.has("simple_gear:forged_pickaxe"),
 		"materials and assemblies are registered")
-	var head_recipe: int = server.recipes.index_of("base:pickaxe_head/base:iron")
-	_check(head_recipe >= 0 and server.recipes.index_of("base:tool_handle/proving:dull") >= 0, "part recipes exist for every material")
+	var head_recipe: int = server.recipes.index_of("simple_gear:pickaxe_head/simple_gear:iron")
+	_check(head_recipe >= 0 and server.recipes.index_of("simple_gear:tool_handle/proving:dull") >= 0, "part recipes exist for every material")
 	# Parts need the Toolsmith’s Bench.
 	p.inventory.set_slot(0, items.id_of("base:iron_ingot"), 5)
 	p.inventory.set_slot(1, items.id_of("proving:token"), 2)
 	server.open_crafting(p, {})
 	_check(server.craft(p, head_recipe) == 0, "parts cannot be made without a Toolsmith’s Bench")
 	var forge := Vector3i(10, y + 1, 8)
-	server.set_block_authoritative(forge, reg.id_of("base:tool_forge"))
+	server.set_block_authoritative(forge, reg.id_of("simple_gear:tool_forge"))
 	server.on_interact(97, forge)
 	_check(p.crafting_station.get("name", "") == "tool_forge", "the Toolsmith’s Bench opens as a station")
 	_check(server.craft(p, head_recipe) == 1, "an iron pickaxe head is forged")
-	server.craft(p, server.recipes.index_of("base:tool_handle/proving:dull"))
-	server.craft(p, server.recipes.index_of("base:binding/base:iron"))
+	server.craft(p, server.recipes.index_of("simple_gear:tool_handle/proving:dull"))
+	server.craft(p, server.recipes.index_of("simple_gear:binding/simple_gear:iron"))
 	var find := func(item_name: String) -> int:
 		for i in 36:
 			if p.inventory.ids[i] == items.id_of(item_name) and p.inventory.counts[i] > 0:
 				return i
 		return -1
-	var head_slot: int = find.call("base:pickaxe_head")
-	var handle_slot: int = find.call("base:tool_handle")
-	var binding_slot: int = find.call("base:binding")
-	_check(head_slot >= 0 and p.inventory.data[head_slot].get("material") == "base:iron" and p.inventory.data[head_slot].has("icon_layers"),
+	var head_slot: int = find.call("simple_gear:pickaxe_head")
+	var handle_slot: int = find.call("simple_gear:tool_handle")
+	var binding_slot: int = find.call("simple_gear:binding")
+	_check(head_slot >= 0 and p.inventory.data[head_slot].get("material") == "simple_gear:iron" and p.inventory.data[head_slot].has("icon_layers"),
 		"parts carry their material and icon")
-	_check(not server.assemble(p, "base:forged_pickaxe", PackedInt32Array([handle_slot, head_slot, binding_slot])), "parts in the wrong slots are refused")
-	_check(not server.assemble(p, "base:forged_sword", PackedInt32Array([head_slot, handle_slot, binding_slot])), "parts for another assembly are refused")
-	_check(server.assemble(p, "base:forged_pickaxe", PackedInt32Array([head_slot, handle_slot, binding_slot])), "a pickaxe is assembled from parts")
-	var tool_slot: int = find.call("base:forged_pickaxe")
-	_check(tool_slot >= 0 and find.call("base:pickaxe_head") < 0 and find.call("base:tool_handle") < 0, "assembling consumes the parts")
+	_check(not server.assemble(p, "simple_gear:forged_pickaxe", PackedInt32Array([handle_slot, head_slot, binding_slot])), "parts in the wrong slots are refused")
+	_check(not server.assemble(p, "simple_gear:forged_sword", PackedInt32Array([head_slot, handle_slot, binding_slot])), "parts for another assembly are refused")
+	_check(server.assemble(p, "simple_gear:forged_pickaxe", PackedInt32Array([head_slot, handle_slot, binding_slot])), "a pickaxe is assembled from parts")
+	var tool_slot: int = find.call("simple_gear:forged_pickaxe")
+	_check(tool_slot >= 0 and find.call("simple_gear:pickaxe_head") < 0 and find.call("simple_gear:tool_handle") < 0, "assembling consumes the parts")
 	if tool_slot >= 0:
 		var id: int = p.inventory.ids[tool_slot]
 		var data: Dictionary = p.inventory.data[tool_slot]
@@ -1599,10 +1600,10 @@ func _skill_crafting() -> void:
 	p.inventory.set_slot(1, items.id_of("base:stick"), 32)
 	helper.edit_tokens = 100.0
 	server.on_interact(98, table)
-	var pick_index: int = server.recipes.index_of("base:iron_pickaxe")
-	var pick: int = items.id_of("base:iron_pickaxe")
-	_check(server.recipes.recipes[pick_index].skill == "base:forging" and skill.defs.has("base:forging"), "iron tools can be forged by hand")
-	_check(skill.start(p, {"recipe": server.recipes.index_of("base:stone_pickaxe")}) == 0, "recipes without a minigame cannot be crafted by hand")
+	var pick_index: int = server.recipes.index_of("simple_gear:iron_pickaxe")
+	var pick: int = items.id_of("simple_gear:iron_pickaxe")
+	_check(server.recipes.recipes[pick_index].skill == "simple_gear:forging" and skill.defs.has("simple_gear:forging"), "iron tools can be forged by hand")
+	_check(skill.start(p, {"recipe": server.recipes.index_of("simple_gear:stone_pickaxe")}) == 0, "recipes without a minigame cannot be crafted by hand")
 	skill.time_override = 100.0
 	var id: int = skill.start(p, {"recipe": pick_index})
 	_check(id > 0 and p.inventory.count_of(items.id_of("base:iron_ingot")) == 17, "starting takes the ingredients")
@@ -1667,9 +1668,9 @@ func _skill_crafting() -> void:
 	_check(not g.is_empty() and not g.team and g.started > 0.0, "without a partner the game starts solo")
 	skill.input(p, "quit", 0.0)
 	# Assemblies: forged tools from parts can be forged by hand too.
-	var quality: Dictionary = skill.apply_quality(items.id_of("base:iron_chestplate"), {}, Minigame.QUALITIES[2], ["A"])
+	var quality: Dictionary = skill.apply_quality(items.id_of("simple_gear:iron_chestplate"), {}, Minigame.QUALITIES[2], ["A"])
 	_check(quality.modifiers[0].stat == "armor" and quality.modifiers[0].amount > 0.0 and quality.name.begins_with("Superior"), "quality adds armor to armor")
-	_check(server.assembly.assemblies["base:forged_pickaxe"].skill == "base:forging", "assemblies name their minigame")
+	_check(server.assembly.assemblies["simple_gear:forged_pickaxe"].skill == "simple_gear:forging", "assemblies name their minigame")
 	server.queue_free()
 	await get_tree().process_frame
 
@@ -1894,11 +1895,11 @@ func _guide() -> void:
 	var server = _start("guide_%d" % Time.get_ticks_msec())
 	var guide = server.guide
 	var reg = guide.registry
-	_check(not reg.get_chapter("simple_machines:basics").is_empty() and not reg.get_page("simple_machines:welcome").is_empty(), "mods register guide chapters and pages")
-	_check(reg.chapter_pages("simple_machines:basics")[0].id == "simple_machines:welcome", "pages are sorted by order")
-	_check(reg.get_page("simple_machines:crafting_table").unlock == {"item": "base:planks"}, "unlock references are qualified")
+	_check(not reg.get_chapter("guidebook:basics").is_empty() and not reg.get_page("guidebook:welcome").is_empty(), "mods register guide chapters and pages")
+	_check(reg.chapter_pages("guidebook:basics")[0].id == "guidebook:welcome", "pages are sorted by order")
+	_check(reg.get_page("guidebook:crafting_table").unlock == {"item": "base:planks"}, "unlock references are qualified")
 	var api = preload("res://engine/server/mod_api.gd").new(server, {"id": "tester", "dir": "res://tests"})
-	api.register_guide_page("secret", {"chapter": "simple_machines:basics", "unlock": {"flag": "found_it"},
+	api.register_guide_page("secret", {"chapter": "guidebook:basics", "unlock": {"flag": "found_it"},
 		"blocks": [{"type": "items", "items": ["planks", "base:stick"]}, {"type": "bogus"}, {"type": "link", "page": "welcome"}]})
 	var secret: Dictionary = reg.get_page("tester:secret")
 	_check(secret.blocks.size() == 2 and secret.blocks[0].items == ["tester:planks", "base:stick"] and secret.blocks[1].page == "tester:welcome",
@@ -1908,42 +1909,42 @@ func _guide() -> void:
 	server.players[110] = p
 	server.gameplay.recipe_discovery = true
 	guide.sync(p)
-	_check(guide.is_unlocked(p, "simple_machines:welcome") and guide.is_unlocked(p, "simple_machines:wood"), "pages without conditions start unlocked")
-	_check(not guide.is_unlocked(p, "simple_machines:crafting_table") and not guide.is_unlocked(p, "simple_machines:food"), "locked pages wait for their condition")
-	_check(not guide.is_unlocked(p, "simple_machines:forge"), "recipe pages stay locked while the recipe is unknown")
+	_check(guide.is_unlocked(p, "guidebook:welcome") and guide.is_unlocked(p, "guidebook:wood"), "pages without conditions start unlocked")
+	_check(not guide.is_unlocked(p, "guidebook:crafting_table") and not guide.is_unlocked(p, "guidebook:food"), "locked pages wait for their condition")
+	_check(not guide.is_unlocked(p, "guidebook:forge"), "recipe pages stay locked while the recipe is unknown")
 	var unlocked := []
 	api.on("guide_page_unlocked", func(ev): unlocked.append(ev.page))
 	p.inventory.set_slot(0, server.items.id_of("base:planks"), 4)
 	p.sync_inventory()
 	guide.update(2.0)
-	_check(guide.is_unlocked(p, "simple_machines:crafting_table") and unlocked.has("simple_machines:crafting_table"), "holding an item unlocks its page")
-	guide.on_read(p, "simple_machines:crafting_table")
+	_check(guide.is_unlocked(p, "guidebook:crafting_table") and unlocked.has("guidebook:crafting_table"), "holding an item unlocks its page")
+	guide.on_read(p, "guidebook:crafting_table")
 	guide.on_read(p, "tester:secret")
-	_check(guide.state_of(p).last == "simple_machines:crafting_table" and not guide.state_of(p).read.has("tester:secret"), "reading remembers the page; locked pages cannot be read")
-	guide.on_read(p, "simple_machines:wood")
-	_check(guide.is_unlocked(p, "simple_machines:food"), "reading a page unlocks pages that follow it")
+	_check(guide.state_of(p).last == "guidebook:crafting_table" and not guide.state_of(p).read.has("tester:secret"), "reading remembers the page; locked pages cannot be read")
+	guide.on_read(p, "guidebook:wood")
+	_check(guide.is_unlocked(p, "guidebook:food"), "reading a page unlocks pages that follow it")
 	server.learn_recipe(p, "simple_machines:forge")
 	guide.update(2.0)
-	_check(guide.is_unlocked(p, "simple_machines:forge"), "learning a recipe unlocks its page")
+	_check(guide.is_unlocked(p, "guidebook:forge"), "learning a recipe unlocks its page")
 	api.set_guide_flag(p, "found_it")
 	_check(guide.is_unlocked(p, "tester:secret") and api.has_guide_flag(p, "found_it"), "mod flags unlock pages")
 	var cow = server.entities.spawn(server.entities.registry.id_of("proving:grazer"), p.state.position + Vector3(3, 0, 0))
-	api.register_guide_page("cows", {"chapter": "simple_machines:basics", "unlock": {"entity": "proving:grazer"}, "blocks": []})
+	api.register_guide_page("cows", {"chapter": "guidebook:basics", "unlock": {"entity": "proving:grazer"}, "blocks": []})
 	guide.update(2.0)
 	_check(cow != null and guide.is_unlocked(p, "tester:cows"), "seeing a mob unlocks its page")
-	_check(api.unlock_guide_page(p, "simple_machines:stone_tools", false) and guide.is_unlocked(p, "simple_machines:stone_tools"), "mods can unlock pages directly")
+	_check(api.unlock_guide_page(p, "guidebook:stone_tools", false) and guide.is_unlocked(p, "guidebook:stone_tools"), "mods can unlock pages directly")
 	server._store_player(p)
 	var saved: Dictionary = server._meta.players.reader.guide
 	var q := ServerPlayer.new(server, 111, "Reader2")
 	guide.load_player(q, JSON.parse_string(JSON.stringify(saved)))
-	_check(guide.is_unlocked(q, "tester:secret") and guide.state_of(q).last == "simple_machines:wood" and guide.has_flag(q, "tester:found_it"),
+	_check(guide.is_unlocked(q, "tester:secret") and guide.state_of(q).last == "guidebook:wood" and guide.has_flag(q, "tester:found_it"),
 		"guide progress is saved")
 	var net: Dictionary = JSON.parse_string(JSON.stringify(reg.to_network()))
 	var copy = preload("res://engine/shared/guide_registry.gd").new()
 	copy.load_network(net)
-	_check(copy.pages.size() == reg.pages.size() and copy.get_page("simple_machines:wood").blocks.size() == reg.get_page("simple_machines:wood").blocks.size(),
+	_check(copy.pages.size() == reg.pages.size() and copy.get_page("guidebook:wood").blocks.size() == reg.get_page("guidebook:wood").blocks.size(),
 		"the guide reaches clients intact")
-	_check(preload("res://engine/shared/guide_registry.gd").page_text(reg.get_page("simple_machines:wood")).contains("sticks"), "page text is searchable")
+	_check(preload("res://engine/shared/guide_registry.gd").page_text(reg.get_page("guidebook:wood")).contains("sticks"), "page text is searchable")
 	server.queue_free()
 	await get_tree().process_frame
 
@@ -2583,7 +2584,7 @@ func _mod_reload() -> void:
 	_write_reload_mod(mod_dir, RELOAD_MOD_A, "hello A")
 	var server := GameServer.new()
 	add_child(server)
-	var err: Error = server.start({"mods": PackedStringArray(["base", "simple_machines", "proving", "reloadme"]), "mod_dirs": PackedStringArray([mods_dir, "res://tests/mods"]),
+	var err: Error = server.start({"mods": PackedStringArray(["base", "simple_machines", "simple_gear", "guidebook", "proving", "reloadme"]), "mod_dirs": PackedStringArray([mods_dir, "res://tests/mods"]),
 		"world": "reload_%d" % Time.get_ticks_msec(), "data_dir": DATA_DIR, "seed": 42, "offline": true})
 	_check(err == OK, "the reload test mod loads")
 	if err != OK:
@@ -3053,7 +3054,7 @@ func _examples() -> void:
 	var ids := ["loot_example", "events_example", "worldgen_example", "ui_example"]
 	if ClassDB.class_exists(&"NativeJsRuntime"):
 		ids.append("js_example")
-	var server = _start("examples_%d" % Time.get_ticks_msec(), ["base", "simple_machines", "proving"] + ids, ["res://tests/mods", "res://examples"])
+	var server = _start("examples_%d" % Time.get_ticks_msec(), ["base", "simple_machines", "simple_gear", "guidebook", "proving"] + ids, ["res://tests/mods", "res://examples"])
 	server.dev_log.drain()
 	var errors: Array = server.dev_log.sorted_errors().filter(func(e): return ids.has(str(e.source)))
 	_check(errors.is_empty(), "every example loads without errors %s" % str(errors.map(func(e): return e.message).slice(0, 3)))
@@ -3072,7 +3073,7 @@ func _examples() -> void:
 ## forest could not light a furnace with the only trees around them (playtest, 2026-09-16), so this
 ## checks the rule rather than a list: the next wood someone adds is covered too.
 func _fuels() -> void:
-	var server = _start("fuels_%d" % Time.get_ticks_msec(), ["base", "simple_machines", "proving"])
+	var server = _start("fuels_%d" % Time.get_ticks_msec(), ["base", "simple_machines", "simple_gear", "guidebook", "proving"])
 	var woods := []
 	var cold := []
 	var uncharrable := []
@@ -3127,7 +3128,7 @@ func _first_session() -> void:
 	# register a tip at all, which the Proving Ground does.
 	var tips: Dictionary = server.tutorials.tips
 	_check(tips.has("proving:basics"), "a mod's tip is registered (%s)" % str(tips.keys()))
-	var recipe_index: int = server.recipes.index_of("base:tool_forge")
+	var recipe_index: int = server.recipes.index_of("simple_gear:tool_forge")
 	_check(recipe_index >= 0 and server.recipes.recipes[recipe_index].station == "crafting_table",
 		"and a Toolsmith’s Bench is built at an ordinary crafting table")
 	var skeleton: int = server.entities.registry.id_of("proving:biter")
@@ -4359,6 +4360,34 @@ func _shader_names() -> void:
 	_check(clashes.is_empty(), "no shader declares one name twice (%s)" % str(clashes))
 
 
+## **The line `base` is built on, asserted rather than believed.** `base` owns nouns; a game owns rules.
+##
+## The test of it, written down on 21 September 2026 and true for the first time on 2026-09-23: **a
+## creative game takes `base` alone, ships zero recipes, and everything still exists and works.** Until
+## the verb split that sentence was an intention - `base` had forty recipes, the tools, the armour and
+## the furnace. It is a test now, because an intention is what this codebase keeps proving it forgets.
+##
+## Asserting zero rather than "few" on purpose: the moment one recipe is allowed back, the next is an
+## argument rather than a failure.
+func _base_is_nouns() -> void:
+	var server = _start("base_nouns_%d" % Time.get_ticks_msec(), ["base"], [])
+	_check(server.recipes.recipes.is_empty(),
+		"base alone ships no recipes at all (%d)" % server.recipes.recipes.size())
+	# And everything still exists: a world's worth of blocks, reachable from the creative palette.
+	_check(server.registry.defs.size() > 120,
+		"and still has the blocks a world is made of (%d)" % server.registry.defs.size())
+	var listed := 0
+	for key: String in server.palette_groups():
+		listed += server.palette_groups()[key].size()
+	_check(listed > 80, "and a creative player can still reach them (%d in the palette)" % listed)
+	_check(server.items.id_of("base:iron_ingot") > 0 and server.registry.id_of("base:cloth_teal") > 0,
+		"raw materials and colours are nouns, so they stayed")
+	_check(server.registry.id_of("simple_machines:furnace") < 0 and server.items.id_of("simple_gear:iron_pickaxe") < 0,
+		"while the machines and the gear did not come with it")
+	server.queue_free()
+	await get_tree().process_frame
+
+
 ## Doors and windows. A house needs a way in that shuts, and something to see out of - and both are what
 ## a child decorates with, which is most of what they do with the game.
 func _doors_and_windows() -> void:
@@ -5151,7 +5180,7 @@ func _transfers() -> void:
 	var p := ServerPlayer.new(lobby, 170, "Traveller")
 	p.player_id = "traveller_id"
 	lobby.players[170] = p
-	var sword: int = lobby.items.id_of("base:stone_sword")
+	var sword: int = lobby.items.id_of("simple_gear:stone_sword")
 	p.inventory.set_slot(3, sword, 1, {"damage": 5})
 	var leaving := []
 	lobby.add_handler("player_transfer", func(ev):
@@ -5189,8 +5218,8 @@ func _transfers() -> void:
 	var q := ServerPlayer.new(sky, 171, "Traveller")
 	q.player_id = "traveller_id"
 	sky.players[171] = q
-	var missing: Array = sky.transfers.unpack_inventory(q, {"slots": [[3, "base:stone_sword", 1, {"damage": 5}], [4, "nomod:gizmo", 2, {}]], "equipment": {}})
-	_check(q.inventory.count_of(sky.items.id_of("base:stone_sword")) == 1 and q.inventory.data[3].get("damage") == 5 and missing == ["nomod:gizmo"],
+	var missing: Array = sky.transfers.unpack_inventory(q, {"slots": [[3, "simple_gear:stone_sword", 1, {"damage": 5}], [4, "nomod:gizmo", 2, {}]], "equipment": {}})
+	_check(q.inventory.count_of(sky.items.id_of("simple_gear:stone_sword")) == 1 and q.inventory.data[3].get("damage") == 5 and missing == ["nomod:gizmo"],
 		"carried items arrive by name; unknown ones are reported")
 	var arrived := []
 	sky.add_handler("player_arrived", func(ev): arrived.append([ev.from, ev.arrival, ev.data]), 0)
@@ -5506,7 +5535,7 @@ func _api(server):
 	return preload("res://engine/server/mod_api.gd").new(server, {"id": "tester", "dir": "res://tests"})
 
 
-func _start(world: String, mods := ["base", "simple_machines", "proving"], mod_dirs := ["res://tests/mods"]):
+func _start(world: String, mods := ["base", "simple_machines", "simple_gear", "guidebook", "proving"], mod_dirs := ["res://tests/mods"]):
 	var server := GameServer.new()
 	add_child(server)
 	var err: Error = server.start({"mods": PackedStringArray(mods), "mod_dirs": PackedStringArray(mod_dirs),

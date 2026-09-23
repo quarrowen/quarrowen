@@ -81,7 +81,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	var missing = GameServer.new()
 	add_child(missing)
-	_check(missing.start({"mods": PackedStringArray(["base", "simple_machines", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": world, "data_dir": DATA_DIR, "offline": true, "restore": "nope.zip"}) != OK,
+	_check(missing.start({"mods": PackedStringArray(["base", "simple_machines", "simple_gear", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": world, "data_dir": DATA_DIR, "offline": true, "restore": "nope.zip"}) != OK,
 		"restoring a missing backup refuses to start")
 	missing.queue_free()
 	await get_tree().process_frame
@@ -148,7 +148,7 @@ func _world_without_its_mod() -> void:
 func _start(world: String, extra := {}):
 	var server := GameServer.new()
 	add_child(server)
-	var config := {"mods": PackedStringArray(["base", "simple_machines", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": world, "data_dir": DATA_DIR, "seed": 42, "offline": true}
+	var config := {"mods": PackedStringArray(["base", "simple_machines", "simple_gear", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": world, "data_dir": DATA_DIR, "seed": 42, "offline": true}
 	config.merge(extra, true)
 	var err: Error = server.start(config)
 	if err != OK:

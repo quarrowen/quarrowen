@@ -1,0 +1,13 @@
+{
+	"id": "guidebook",
+	"name": "Guidebook",
+	"version": "1.0.0",
+	"description": "The in-game Survival Guide: what the blocks, machines and gear are for. Content for a game to include, not a game itself.",
+	"kind": "library",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.0",
+	"depends": ["base@^1.0", "simple_machines@^1.0", "simple_gear@^1.0"],
+	"main": "main.gd"
+}

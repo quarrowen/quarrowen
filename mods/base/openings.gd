@@ -64,7 +64,6 @@ func _doors(sounds: Dictionary) -> void:
 				"pair": {"block": "base:%s_%s_open" % [wood.id, facing], "direction": "down"}}, true)
 			api.register_block("%s_%s_open_top" % [wood.id, facing], ajar_top)
 		ids.door = api.block(shut[0])
-		api.register_recipe({String(wood.from): 6}, shut[0], 2, {"station": "crafting_table", "unlock": "known"})
 
 
 ## Panes: glass to see through, bars to see through and not climb through. Placed along whichever axis
@@ -87,7 +86,6 @@ func _windows(sounds: Dictionary) -> void:
 			if axis != "x":
 				def.placeable = false
 			api.register_block("%s_%s" % [pane.id, axis], def)
-		api.register_recipe({String(pane.from): 6}, names[0], int(pane.count), {"station": "crafting_table", "category": "blocks"})
 
 
 ## Right-clicking a door swings it, both halves together. A door that is opened from either half behaves

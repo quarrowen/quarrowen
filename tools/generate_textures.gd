@@ -32,6 +32,8 @@ func _init() -> void:
 	var snow := Color(0.95, 0.97, 1.0)
 	var base := "res://mods/base/textures/"
 	var machines := "res://mods/simple_machines/textures/"
+	var gear := "res://mods/simple_gear/textures/"
+	var book := "res://mods/guidebook/textures/"
 
 	_save(_noise(stone, 0.07), base + "stone.png")
 	_save(_noise(dirt, 0.07), base + "dirt.png")
@@ -42,7 +44,7 @@ func _init() -> void:
 	_save(_log_top(), base + "log_top.png")
 	_save(_leaves(), base + "leaves.png")
 	_save(_planks(), base + "planks.png")
-	_save(_cobblestone(), base + "cobblestone.png")
+	_save(_cobblestone(), gear + "cobblestone.png")
 	_save(_noise(Color(0.22, 0.42, 0.86, 0.72), 0.03), base + "water.png")
 	_save(_noise(Color(0.28, 0.28, 0.28), 0.18), base + "bedrock.png")
 	_save(_glass(), base + "glass.png")
@@ -85,8 +87,8 @@ func _init() -> void:
 	_save(_icon(Color(0.45, 0.32, 0.2), Color(0.95, 0.85, 0.6), "grid"), guild + "quest_board_icon.png")
 
 	# Gameplay items (appended last so the random sequence for earlier textures is unchanged).
-	_save(_item(Color(0.62, 0.45, 0.25), "sword"), base + "wooden_sword.png")
-	_save(_item(Color(0.6, 0.6, 0.63), "sword"), base + "stone_sword.png")
+	_save(_item(Color(0.62, 0.45, 0.25), "sword"), gear + "wooden_sword.png")
+	_save(_item(Color(0.6, 0.6, 0.63), "sword"), gear + "stone_sword.png")
 	_save(_item(Color(0.85, 0.15, 0.15), "apple"), base + "apple.png")
 	var vanilla := "res://mods/vanilla/textures/"
 	# The `make_dir_recursive_absolute` that stood here is gone. With the mod deleted it was *creating*
@@ -118,19 +120,19 @@ func _init() -> void:
 	var materials := {"wooden": Color(0.62, 0.45, 0.25), "stone": Color(0.6, 0.6, 0.63), "iron": Color(0.85, 0.85, 0.88)}
 	for material in materials:
 		for tool in ["pickaxe", "axe", "shovel"]:
-			_save(_item(materials[material], tool), base + "%s_%s.png" % [material, tool])
-	_save(_item(Color(0.85, 0.85, 0.88), "sword"), base + "iron_sword.png")
+			_save(_item(materials[material], tool), gear + "%s_%s.png" % [material, tool])
+	_save(_item(Color(0.85, 0.85, 0.88), "sword"), gear + "iron_sword.png")
 	_save(_item(Color(0.55, 0.4, 0.22), "stick"), base + "stick.png")
 	_save(_item(Color(0.85, 0.85, 0.88), "ingot"), base + "iron_ingot.png")
 	_save(_item(Color(0.55, 0.35, 0.2), "hide"), vanilla + "leather.png")
 	var armors := {"leather": Color(0.55, 0.35, 0.2), "iron": Color(0.82, 0.83, 0.86)}
 	for material in armors:
 		for piece in ["helmet", "chestplate", "leggings", "boots"]:
-			_save(_item(armors[material], piece), (vanilla if material == "leather" else base) + "%s_%s.png" % [material, piece])
+			_save(_item(armors[material], piece), (vanilla if material == "leather" else gear) + "%s_%s.png" % [material, piece])
 	_save(_item(Color(0.62, 0.35, 0.95), "sword"), arcana + "soul_blade.png")
 	_save(_item(Color(1.0, 0.8, 0.25), "pickaxe"), guild + "prospector_pick.png")
 	# Worn armor in the 64x64 skin layout; each armor slot only uses the regions it covers.
-	_save(_armor_layer(Color(0.78, 0.8, 0.84), Color(0.5, 0.52, 0.58)), base + "iron_armor.png")
+	_save(_armor_layer(Color(0.78, 0.8, 0.84), Color(0.5, 0.52, 0.58)), gear + "iron_armor.png")
 	_save(_armor_layer(Color(0.55, 0.35, 0.2), Color(0.38, 0.23, 0.12)), vanilla + "leather_armor.png")
 
 	# Farming and plants (appended last so earlier textures keep their random sequence).
@@ -145,7 +147,7 @@ func _init() -> void:
 	_save(_wheat_item(), base + "wheat.png")
 	_save(_bread(), base + "bread.png")
 	for material in materials:
-		_save(_hoe(materials[material]), base + "%s_hoe.png" % material)
+		_save(_hoe(materials[material]), gear + "%s_hoe.png" % material)
 
 	# Stations and containers (appended last so earlier textures keep their random sequence).
 	_save(_crafting_table_top(), machines + "crafting_table_top.png")
@@ -159,9 +161,9 @@ func _init() -> void:
 	_save(_item(Color(0.72, 0.42, 0.25), "meat"), vanilla + "cooked_porkchop.png")
 
 	# Station upgrades (appended last so earlier textures keep their random sequence).
-	_save(_anvil(true), base + "anvil_top.png")
+	_save(_anvil(true), gear + "anvil_top.png")
 	_save(_anvil(false), machines + "anvil_side.png")
-	_save(_tool_rack(), base + "tool_rack.png")
+	_save(_tool_rack(), gear + "tool_rack.png")
 	_save(_bookshelf(), machines + "bookshelf.png")
 	_save(_sturdy_top(), machines + "sturdy_workbench_top.png")
 	_save(_sturdy_side(), machines + "sturdy_workbench_side.png")
@@ -173,9 +175,9 @@ func _init() -> void:
 	_save(_hay(true), base + "hay_bale_top.png")
 	_save(_hay(false), base + "hay_bale_side.png")
 	# Part sprites: light grayscale shapes the client tints with each material's color.
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(base + "parts"))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(gear + "parts"))
 	for part in ["pickaxe_head", "axe_head", "shovel_head", "sword_blade", "tool_handle", "binding", "sword_grip", "guard"]:
-		_save(_part(part), base + "parts/%s.png" % part)
+		_save(_part(part), gear + "parts/%s.png" % part)
 
 	# Food (appended last so earlier textures keep their random sequence).
 	_save(_item(Color(0.5, 0.58, 0.3), "meat"), vanilla + "rotten_flesh.png")
@@ -252,7 +254,7 @@ func _init() -> void:
 	_save(_cage(), base + "spawner.png")
 	_save(_web(), vanilla + "cobweb.png")
 	_save(_altar(), vanilla + "ancient_altar.png")
-	_save(_guide_book(), machines + "guide_book.png")
+	_save(_guide_book(), book + "guide_book.png")
 
 
 
@@ -287,15 +289,15 @@ func _init() -> void:
 	# Cobalt gear, deepstone and the charms (appended last so earlier textures keep their random sequence).
 	var cobalt := Color(0.32, 0.5, 0.72)
 	for tool in ["pickaxe", "axe", "shovel"]:
-		_save(_item(cobalt, tool), base + "cobalt_%s.png" % tool)
-	_save(_item(cobalt, "sword"), base + "cobalt_sword.png")
+		_save(_item(cobalt, tool), gear + "cobalt_%s.png" % tool)
+	_save(_item(cobalt, "sword"), gear + "cobalt_sword.png")
 	for piece in ["helmet", "chestplate", "leggings", "boots"]:
 		_save(_item(cobalt, piece), base + "cobalt_%s.png" % piece)
-	_save(_armor_layer(cobalt, cobalt.darkened(0.35)), base + "cobalt_armor.png")
+	_save(_armor_layer(cobalt, cobalt.darkened(0.35)), gear + "cobalt_armor.png")
 	_save(_noise(Color(0.17, 0.17, 0.21), 0.05), base + "deepstone.png")
-	_save(_charm(Color(0.35, 0.35, 0.4), Color(0.2, 0.2, 0.22)), base + "miners_charm.png")
-	_save(_charm(Color(0.6, 0.72, 0.5), Color(0.35, 0.28, 0.18)), base + "wayfarers_charm.png")
-	_save(_charm(cobalt, Color(0.3, 0.3, 0.34)), base + "stoneheart_charm.png")
+	_save(_charm(Color(0.35, 0.35, 0.4), Color(0.2, 0.2, 0.22)), gear + "miners_charm.png")
+	_save(_charm(Color(0.6, 0.72, 0.5), Color(0.35, 0.28, 0.18)), gear + "wayfarers_charm.png")
+	_save(_charm(cobalt, Color(0.3, 0.3, 0.34)), gear + "stoneheart_charm.png")
 	_save(_colossus_heart(), vanilla + "colossus_heart.png")
 	_save(_bow(), vanilla + "bow.png")
 	_save(_arrow_item(), vanilla + "arrow_item.png")
@@ -342,8 +344,8 @@ func _init() -> void:
 	_save(_item(sunstone, "shard"), base + "sunstone.png")
 	for metal in [[copper, "copper"], [gold, "gold"], [sunstone, "sunstone"]]:
 		for tool in ["pickaxe", "axe", "shovel", "sword", "helmet", "chestplate", "leggings", "boots"]:
-			_save(_item(metal[0], tool), base + "%s_%s.png" % [metal[1], tool])
-		_save(_armor_layer(metal[0], (metal[0] as Color).darkened(0.35)), base + "%s_armor.png" % metal[1])
+			_save(_item(metal[0], tool), gear + "%s_%s.png" % [metal[1], tool])
+		_save(_armor_layer(metal[0], (metal[0] as Color).darkened(0.35)), gear + "%s_armor.png" % metal[1])
 
 	# Deep variants (appended last so earlier textures keep their random sequence). The same metal in
 	# deepstone rather than stone, so the wall tells you how far down you are without a coordinate.
@@ -367,10 +369,13 @@ func _init() -> void:
 	# cheaper than it looks: assets travel to clients by content hash, so two identical files are one
 	# transfer. The alternative is for the pack to reach into `base`'s folder, which is the kind of
 	# thing that works until somebody moves a file. (2026-09-23)
-	for shared_name in ["brick", "planks", "anvil_top", "tool_rack"]:
+	for shared_name in ["brick", "planks", "anvil_top", "tool_rack", "cobblestone"]:
 		var from_base: String = base + shared_name + ".png"
 		if ResourceLoader.exists(from_base):
-			_save(Image.load_from_file(ProjectSettings.globalize_path(from_base)), String(machines) + shared_name + ".png")
+			var copy := Image.load_from_file(ProjectSettings.globalize_path(from_base))
+			_save(copy, String(machines) + shared_name + ".png")
+			if shared_name in ["cobblestone", "anvil_top", "tool_rack"]:
+				_save(copy, String(gear) + shared_name + ".png")
 
 	# A SceneTree script runs until it is told not to. Without this the tool wrote every texture
 	# correctly and then sat there for ever; three of them were found still running an hour later,

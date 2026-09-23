@@ -317,6 +317,21 @@ func _sources_and_palette(server, api, p) -> void:
 	p.inventory.creative = false
 	_check(listed.has(server.registry.id_of("proving:mast")), "while the half you do carry is on offer")
 
+	# **A recipe can ask for any member of a tag, or for one thing exactly.** Both matter: a workbench
+	# takes any plank, a fancy chest insists on oak. The tag form is expanded once every mod has loaded,
+	# so it becomes one real recipe per member. (2026-09-23)
+	var any_rubble := 0
+	var rock_only := 0
+	for recipe: Dictionary in server.recipes.recipes:
+		if String(recipe.get("id", "")).contains("soil_from_any_rubble"):
+			any_rubble += 1
+		elif String(recipe.get("id", "")).contains("turf_from_rock_only"):
+			rock_only += 1
+	# One per member, each with the member's name on the end of its id, or they would overwrite
+	# one another in the recipe book.
+	_check(any_rubble == 2, "a recipe naming a tag becomes one per member (%d)" % any_rubble)
+	_check(rock_only == 1, "and a recipe naming one thing stays one (%d)" % rock_only)
+
 	# The palette: what a creative player may take. Server-owned, because it hands out items.
 	p.inventory.creative = true
 	p.inventory.cursor_id = 0

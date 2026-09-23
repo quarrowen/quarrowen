@@ -9,14 +9,14 @@ const GameServer = preload("res://engine/server/game_server.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
 
-const MODS := ["base", "simple_machines", "proving", "proving_js"]
+const MODS := ["base", "simple_machines", "simple_gear", "proving", "proving_js"]
 const INVENTORY := [
-	[0, "base:stone_sword", 1, {}], [1, "base:stone_pickaxe", 1, {"damage": 12}], [2, "base:planks", 48, {}],
+	[0, "simple_gear:stone_sword", 1, {}], [1, "simple_gear:stone_pickaxe", 1, {"damage": 12}], [2, "base:planks", 48, {}],
 	[4, "base:iron_ingot", 9, {}], [5, "base:apple", 3, {}], [9, "proving:token", 4, {}],
 	[12, "proving:prod", 1, {}], [14, "proving:grain", 11, {}],
 	[20, "base:glass", 64, {}], [35, "base:coal", 2, {}],
 ]
-const EQUIPMENT := {"chest": ["base:iron_chestplate", 1, {}]}
+const EQUIPMENT := {"chest": ["simple_gear:iron_chestplate", 1, {}]}
 const BLOCKS := [[0, 1, 0, "base:planks"], [1, 1, 0, "base:glass"], [2, 1, 0, "proving:lamp"], [0, 2, 0, "base:planks"], [3, 1, 0, "proving:wire"]]
 const CHEST := [[0, "base:iron_ingot", 5], [1, "proving:token", 2], [26, "base:apple", 1]]
 

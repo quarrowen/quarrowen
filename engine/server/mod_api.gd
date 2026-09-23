@@ -773,6 +773,25 @@ func item_display_name(id: int) -> String:
 	return _server.items.display_name(id)
 
 
+## The tool stats in force for one stack: `{type, tier, speed}`, or `{}` when it is not a tool.
+##
+## `item_data` is the stack's own data (`ev.data`, an inventory slot's data). **Pass it**: a tool built
+## from parts carries its stats there, so reading the definition alone reports the plain one's numbers.
+##
+## Ask this rather than keeping a set of ids. `base`'s farming kept `ids.hoes` and filled it as it
+## registered each hoe, which meant tilling only worked for hoes `base` itself had registered - so the
+## moment the hoes moved to `simple_gear` (2026-09-23) grass stopped turning into farmland. A mod that
+## adds a better hoe now works without anything knowing it exists.
+func item_tool(id: int, item_data := {}) -> Dictionary:
+	return _server.items.tool_of(id, item_data)
+
+
+## The weapon stats in force for one stack: `{damage, cooldown, reach, crit_chance, knockback,
+## sweep}`, or `{}` when it is not a weapon. Per-stack data wins, as with `item_tool`.
+func item_weapon(id: int, item_data := {}) -> Dictionary:
+	return _server.items.weapon_of(id, item_data)
+
+
 ## Shapeless recipe: `inputs` maps item names to counts. Appears in the engine crafting menu (C key).
 ## options: pattern (["C", "S"]) with key ({"C": "base:coal", "S": "base:stick"}) makes the recipe shaped for
 ## the experimentation grid (its inputs are counted from the pattern; pass {} as inputs), unlock ("known" | "pickup" (default) | "blueprint" | "experiment" | "secret") and hint (text

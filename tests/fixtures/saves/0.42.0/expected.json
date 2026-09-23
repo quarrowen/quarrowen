@@ -55,7 +55,7 @@
 	],
 	"equipment": {
 		"chest": [
-			"base:iron_chestplate",
+			"simple_gear:iron_chestplate",
 			1,
 			{}
 		]
@@ -63,13 +63,13 @@
 	"inventory": [
 		[
 			0,
-			"base:stone_sword",
+			"simple_gear:stone_sword",
 			1,
 			{}
 		],
 		[
 			1,
-			"base:stone_pickaxe",
+			"simple_gear:stone_pickaxe",
 			1,
 			{
 				"damage": 12
@@ -127,6 +127,7 @@
 	"mods": [
 		"base",
 		"simple_machines",
+		"simple_gear",
 		"proving",
 		"proving_js"
 	],

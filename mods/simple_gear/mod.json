@@ -1,0 +1,13 @@
+{
+	"id": "simple_gear",
+	"name": "Simple Gear",
+	"version": "1.0.0",
+	"description": "Tools, weapons, armour and charms, and the benches that build them from parts. Not a game on its own.",
+	"kind": "library",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.0",
+	"depends": ["base@^1.0", "simple_machines@^1.0"],
+	"main": "main.gd"
+}
