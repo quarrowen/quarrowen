@@ -5837,3 +5837,29 @@ helpers exists for precisely this.
 **Not decided:** which generator, and where it is hosted. Deliberately not decided yet - a generator
 is not something this project should be writing itself, and the choice is cheap to make later
 because the Markdown is the thing that matters.
+
+### The generator: MkDocs with the Material theme (user, 2026-09-23)
+
+*"Let's have a nice static site generator with a nice theme"*, and then the naming question settled:
+*"it's fine to mention it. It's a tool we use like godot etc. so not a concern. Just verify
+licensing"*. So CLAUDE.md now says what was always true in practice - Godot is named on its first
+line - that the rule is **dependency versus comparison**, and a tool we build on gets named wherever
+it is functionally required.
+
+**Licences checked before adopting, from PyPI metadata rather than memory:**
+
+| | version | licence |
+|---|---|---|
+| MkDocs | 1.6.1 | BSD |
+| Material for MkDocs | 9.7.7 | MIT |
+
+Both permissive, no copyleft, fine for a public repository and for whatever quarrowen.com becomes.
+Material has a paid Insiders tier; the MIT release is what this uses and is enough.
+
+Why this pair over the alternatives: the target is a reference site, not a marketing site. It wants a
+dense member tree on the left, one page per function, and search that actually finds a function name
+- which is the part most themes do badly and this one does well out of the box. The heavier
+React-based generators are built for product sites with docs attached, which is the opposite shape.
+
+**Still to do:** the landing page (currently written by `tools/make_release.sh`, already a release
+blocker), wiring `docs/api/*.md` into the nav, and deciding where it is hosted.

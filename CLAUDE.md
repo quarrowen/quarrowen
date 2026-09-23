@@ -428,6 +428,16 @@ recorded. Nothing should only exist in the conversation.
   README, `docs/faq.md`, the in-game about box and the release page. Those are the only places, and
   `tools/generate_icon.py` explaining what the icon deliberately is not.
 
+  **And the rule was never about our own dependencies.** Godot is named on the first line of this
+  file and in every build script, because you cannot install a thing you may not spell. A tool this
+  project actually builds on - the engine, the language, the static site generator - is named
+  wherever it is functionally required, and its licence is checked before it is adopted. (the user,
+  2026-09-23: *"it's fine to mention it. It's a tool we use like godot etc. so not a concern. Just
+  verify licensing"*.) Written down because the absolute wording above stopped work once: the
+  distinction is **dependency versus comparison**, not whether the name belongs to a company. Naming
+  what we stand on is unavoidable; reaching for someone else's product to describe our own is the
+  thing that keeps going wrong.
+
 ## Where things are
 
 - `engine/` - the engine. `client/`, `server/`, `shared/`, `net/`.
