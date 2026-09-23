@@ -5892,3 +5892,29 @@ better. Sketch, not settled:
 - **Hollow Reed** - likely not gear at all.
 
 Still reachable by mining alone, just slower, which is what "a real shortcut" was chosen to mean.
+
+### package_ios.sh now finishes on its own (2026-09-23)
+
+Both iOS defects fixed at the source, and the script verified end to end: **`ARCHIVE SUCCEEDED`,
+exit 0**, a 583 MB Xcode project with a signed archive, no hand-holding.
+
+- **The export is allowed to fail.** Godot's iOS exporter ends by running `xcodebuild archive`, which
+  needs a provisioning profile that cannot exist until a device is registered - and registration does
+  not happen headlessly, however correct the account, certificate and team are. The Xcode project is
+  written *before* the archive step, so the script now judges on whether the project exists rather
+  than on the exit code. That is what its own header always promised ("this script's job ends where
+  Xcode's begins") and what it did not do.
+- **The signing contradiction is patched after export.** Godot writes `CODE_SIGN_STYLE = Automatic`
+  together with a hardcoded `CODE_SIGN_IDENTITY = "Apple Distribution"` into the Release
+  configuration. Both cannot be true - automatic signing is what picks the identity - and Xcode
+  refuses the whole target with "conflicting provisioning settings" before building anything,
+  including Debug, which was already correct. The script rewrites it to "Apple Development" in the
+  generated project, so the fix survives regeneration instead of being a manual edit that the next
+  run undoes. A distribution build will set its identity deliberately rather than inherit this.
+
+Once a device has been registered through Xcode once, the archive succeeds headlessly from then on -
+which is what just happened. **The remaining iOS debt is the simulator**, and it is not ours: Godot
+4.7.2's iOS template ships an x86_64-only simulator library, so nothing can be built for an Apple
+silicon simulator. If that is ever fixed upstream, the other half is that the export embeds only the
+device framework and ignores the gdextension's `.simulator` entries; one `.xcframework` holding both
+slices is the answer and was verified to build.

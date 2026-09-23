@@ -6,7 +6,7 @@
 # open, pick a signing team in, and run on a device or archive for TestFlight. So this script's job
 # ends where Xcode's begins.
 #
-#   tools/package_ios.sh              # device build
+#   tools/package_ios.sh              # generate the Xcode project
 #   tools/package_ios.sh --release    # release export rather than debug
 #
 # **Your Apple Team ID is not in this repository.** `export_presets.cfg` is committed and this repo is
@@ -51,6 +51,26 @@ if bundle:
 open(path, 'w').write(s)
 PY
 
+# **The export is allowed to fail, and usually will the first time.** Godot's iOS exporter finishes by
+# running `xcodebuild archive`, which needs a provisioning profile - and a profile cannot exist until
+# the device is registered, which does not happen headlessly however correct the account, the
+# certificate and the team are (2026-09-23, an evening of finding that out). The Xcode project is
+# written *before* the archive step, so a failed archive still leaves exactly what this script's own
+# header promises: something to open. Judge on whether the project exists, not on the exit code.
+set +e
 "$GODOT" --headless --path "$stage" "$mode" "iOS" "$out/Quarrowen.xcodeproj"
+set -e
+[ -d "$out/Quarrowen.xcodeproj" ] || { echo "export produced no Xcode project - see the output above" >&2; exit 1; }
+
+# **Godot writes a contradiction into the Release configuration**: `CODE_SIGN_STYLE = Automatic` and a
+# hardcoded `CODE_SIGN_IDENTITY = "Apple Distribution"`. Both cannot be true - automatic signing is
+# what chooses the identity - so Xcode refuses the target with "conflicting provisioning settings"
+# before it will build anything, including Debug, which was already correct. Development signing is
+# what a build run from here is for; a distribution build will set its own identity deliberately
+# rather than inherit this one.
+/usr/bin/sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Distribution";/CODE_SIGN_IDENTITY = "Apple Development";/g' \
+	"$out/Quarrowen.xcodeproj/project.pbxproj"
+
 echo "Xcode project at $out/Quarrowen.xcodeproj ($(du -sh "$out" | cut -f1))"
 echo "Open it, choose your team under Signing & Capabilities, and run on a device."
+echo "The first device needs this: Xcode registers it, and only the GUI can."
