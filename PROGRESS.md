@@ -5863,3 +5863,32 @@ React-based generators are built for product sites with docs attached, which is 
 
 **Still to do:** the landing page (currently written by `tools/make_release.sh`, already a release
 blocker), wiring `docs/api/*.md` into the nav, and deciding where it is hosted.
+
+### Two decisions taken from mockups rather than descriptions (user, 2026-09-23)
+
+**The site look: direction C, "Quarrowen's own."** Three directions were built as real HTML rendered
+with the actual `api.register_block` entry - a dense nineties reference in paper and serif, a modern
+technical one in cool greys and a single blue, and one that takes its colour from the game:
+stone-dark navigation, sunstone amber marking where you are, grass green for section headings, a slab
+serif with weight. Same bones in all three (member tree left, one page per function, signature ->
+remarks -> parameters -> See Also); only the voice differs. C won.
+
+Worth recording *why this was shown rather than described*: the first suggestion was the Material
+theme, which the user disliked on sight - picked here for its search and navigation while ignoring
+that the ask was explicitly about the look, and it is a design language belonging to somebody else
+besides. **The theme is ours either way**; MkDocs is only the generator underneath. Mockups are cheap
+and opinions about looks are not transferable in prose.
+
+**The curios are sidegrades, not a fifth rung.** *"For the curios I agree with your suggestion.
+Sidegrade gear"*. This fits the ladder `simple_gear` already has, where copper and gold are
+deliberately not rungs - copper shortens the dull stretch after stone, gold is blisteringly quick and
+breaks while you watch, which that file calls "a lesson about trade-offs that costs nothing to
+learn". So the four become a fifth category of the same kind: interesting rather than strictly
+better. Sketch, not settled:
+
+- **Emberheart** - a tool that never wears out, but mines no faster than iron.
+- **Warden Core** - armour that shrugs off knockback, heavier to move in.
+- **Moonpearl** - something that helps at night specifically.
+- **Hollow Reed** - likely not gear at all.
+
+Still reachable by mining alone, just slower, which is what "a real shortcut" was chosen to mean.
