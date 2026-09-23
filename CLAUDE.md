@@ -70,9 +70,10 @@ of several ordinary ways to end up without it - see "When the Rust extension is 
 and every native feature has a GDScript twin, so the engine runs either way. That is not a theoretical
 safety net - **it is the shipping path for at least one target**:
 
-- **iOS/iPad has no native build at all.** `quarrowen_native.gdextension` declares macOS, Linux
-  x86_64, Linux arm64 and Windows x86_64, and nothing else. Building for `aarch64-apple-ios` is listed
-  as outstanding work for the iPad milestone in PROGRESS.md. Until that is done, the iPad client runs
+- **iOS/iPad: we have not built one.** `quarrowen_native.gdextension` declares macOS, Linux x86_64,
+  Linux arm64 and Windows x86_64, and nothing else. **This is a gap in our build, not a limit of
+  Rust** - `aarch64-apple-ios` is an ordinary Rust target and godot-rust documents iOS export - it is
+  simply work nobody has done yet (milestone 6 in PROGRESS.md). Until it is done the iPad client runs
   **entirely** on the fallbacks, and their performance is the iPad's performance.
 - **Any platform outside that list**: Android, Web, Windows on arm64.
 - **A fresh clone**, until `tools/build_native.sh` or the suite builds one.

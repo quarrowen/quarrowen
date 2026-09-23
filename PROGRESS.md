@@ -5066,11 +5066,28 @@ modelled on `_portrait()`. Worth it for one or two pages; **not** the general an
 Asked whether there is any real scenario, client or server, where the fallbacks run. There is, and
 one of them is a shipping target rather than a contingency. Checked rather than assumed:
 
-- **iOS/iPad: no native build exists.** `quarrowen_native.gdextension` declares macOS, Linux x86_64,
+- **iOS/iPad: we have not built one.** `quarrowen_native.gdextension` declares macOS, Linux x86_64,
   Linux arm64 and Windows x86_64 and nothing else, and milestone 6 in this file lists building
   `aarch64-apple-ios` as work still to do. Until then **the iPad client is 100% GDScript twins**, and
   their speed is the iPad's speed. That is the answer that matters: the second suite is not insurance,
   it is the only coverage the children's iPads will have.
+
+  **To be clear, this is our gap and not a limitation of Rust** (checked 2026-09-23, because the
+  wording above could be read the other way). `aarch64-apple-ios` is an ordinary Rust target - this
+  file has had `rustup target add aarch64-apple-ios aarch64-apple-ios-sim` written down since the
+  iPad milestone was planned - and godot-rust documents iOS export. The specifics, from
+  https://godot-rust.github.io/book/toolchain/export-mac-and-ios.html :
+
+  - `cargo build --target=aarch64-apple-ios --release` produces a `.dylib`.
+  - **It must then be wrapped in a `.framework` bundle** with an `Info.plist`; iOS will not take a
+    bare `.dylib`, and it is not a static library either.
+  - The `.gdextension` gains an `ios.release = "...ios.framework"` entry beside the existing four.
+
+  Not covered by that page and therefore unknown to us: the simulator target
+  (`aarch64-apple-ios-sim`, which the sim build will need), iOS code signing - the book's signing
+  section is explicitly macOS-only - and anything about App Store review of an embedded framework.
+  godot-rust's own README calls Android, Wasm and iOS "experimental support" with tooling still
+  lacking, so budget for friction rather than an afternoon.
 - **Anything off that list**: Android, Web, Windows on arm64.
 - **A fresh clone.** `native/bin/` is gitignored and **no binary is tracked** - `git ls-files` finds
   zero `.dylib`/`.so`/`.dll`. CI builds one per platform. CLAUDE.md claimed the opposite ("a checked-in
