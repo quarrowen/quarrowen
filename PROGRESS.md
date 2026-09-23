@@ -5596,4 +5596,22 @@ the curios are *for* is a game's business; `base` says they exist.
   - the survival game is where these come alive. The Proving Ground is what exercises the capability.
 - `chance` is per player per second: 0.0003-0.0009, with `max_total: 1`. Without `max_total` a server
   of six children would have six Wisps out at once and the announcement would stop meaning anything.
+- **Spawning needs a loaded chunk, and that is the binding constraint.** `find_spot` picks a bearing
+  and a distance around one player, and gives up on the attempt if `has_chunk` is false - six
+  attempts, then the roll is wasted. Chunks are kept to `view_distance + UNLOAD_MARGIN` (8 + 2 = 160
+  blocks) and tick to `simulation_distance` (96), so the 24-72 block spawn ring is comfortably inside
+  both. The four are `persistent: true` because the ordinary despawn rules would take a monster
+  beyond 96 blocks from everyone, and randomly at 1/30 a second beyond 32 - a quarry that evaporates
+  while you run home for a sword is not a quarry. The ten-minute clock bounds them instead. When a
+  chunk does unload, `unload_chunk` serialises and removes them, which fires `gone` and takes the
+  marker off; `load_chunk` respawns them with their saved `data`, which carries `notable_seen`, so
+  they are re-tracked without re-announcing. (the user, 2026-09-23: *"wondering about chunk loaded"*)
+- **The Barrow Warden was very nearly unspawnable, and nothing failed.** `place: "surface"` with
+  `on: [stone, gravel, cobblestone]`, when every biome's `surface.top` is grass, sand, snow or gravel
+  - so exposed stone and cobblestone come almost only from boulder features. And `find_spot` abandons
+  the whole attempt when the first standing spot it finds is not in `on`, rather than carrying on up
+  the column. It now has a second rule underground, where stone is everywhere, and that is the one
+  that will actually fire; the surface rule stays as the rarer half. Found by reading `spawning.gd`
+  while answering a question about chunk loading, which is the only way this kind of mistake gets
+  found - a rule that never fires produces no error, no warning and no test failure.
 - The Proving Ground's `proving:quarry` uses `minutes: 0.05` so a test can sit through the clock.

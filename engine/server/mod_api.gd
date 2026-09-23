@@ -732,6 +732,13 @@ func add_spawn_rule(def: Dictionary) -> void:
 		var id := block(String(block_ref))
 		if id > 0:
 			on.append(id)
+		else:
+			# Said out loud, because the failure is otherwise invisible: a name that does not resolve
+			# used to be dropped silently, and a rule left with an empty `on` stops restricting
+			# anything while a rule left with the wrong one spawns nothing at all. Neither produces an
+			# error, a warning or a test failure - you find out by never meeting the creature.
+			# (2026-09-23, after a spawn rule that could barely fire went unnoticed.)
+			_missing("add_spawn_rule (on)", String(block_ref))
 	rule.on = on
 	rule.owner = mod_id
 	_server.entities.add_spawn_rule(rule)

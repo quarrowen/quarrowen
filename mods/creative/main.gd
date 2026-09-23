@@ -167,7 +167,21 @@ func _the_rare_ones(api) -> void:
 		"place": "surface", "max_nearby": 1, "max_total": 1, "chance": 0.0003,
 		"min_distance": 40.0, "max_distance": 72.0})
 	# Stone things come up out of stony ground, which is the one of the four you can go looking for
-	# rather than wait for.
+	# rather than wait for - so it gets two rules, and **underground is the one that will actually
+	# fire.** Written with only the surface rule first, and it was very nearly unspawnable: every
+	# biome's `surface.top` is grass, sand, snow or gravel, so exposed stone and cobblestone come
+	# almost entirely from boulder features, and `find_spot` abandons the whole attempt when the first
+	# standing spot it finds is not in `on` rather than carrying on up the column. Six attempts against
+	# perhaps two percent of columns, times 0.0006 a second, is a creature that exists on paper.
+	# (2026-09-23, found by reading spawning.gd rather than by playing - which is the only way this
+	# kind of mistake gets found, because nothing about it fails.)
+	# No `time` on this one, following the deep rules above: a cave does not care what hour it is, and
+	# underground *is* night, which is the whole reason the four are night creatures.
+	api.add_spawn_rule({"entity": "base:barrow_warden", "category": "monster",
+		"place": "underground", "on": ["base:stone", "base:deepstone", "base:gravel"],
+		"max_nearby": 1, "max_total": 1, "chance": 0.0006})
+	# The surface one stays as the rarer half, because meeting one standing by a boulder under the sky
+	# is a better story than meeting one in a tunnel - it is just not a thing to rely on.
 	api.add_spawn_rule({"entity": "base:barrow_warden", "category": "monster", "time": "night",
 		"place": "surface", "on": ["base:stone", "base:gravel", "base:cobblestone"],
 		"max_nearby": 1, "max_total": 1, "chance": 0.0006})
