@@ -1,0 +1,46 @@
+# Publishes the reference site to quarrowen.com/docs/.
+#
+# **Manual on purpose.** A docs change should not republish a live domain on its own: the same branch
+# carries `update.json`, which the installed client polls, and an unattended publish is the kind of
+# thing that goes wrong at two in the morning. Releases publish it too - see the `docs` step in the
+# release job in ci.yml - so the site is never more than a release behind without somebody choosing.
+# (the user, 2026-09-24: "for now manual trigger but do wire it into the release CI")
+name: Docs
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and report what would change, push nothing"
+        type: boolean
+        default: false
+
+# One at a time. Two publishes racing on the same branch is a non-fast-forward push and a failed run
+# at best, and half a site at worst.
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # push the pages branch
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # publish_docs.sh works in a worktree on the pages branch
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build and publish
+        env:
+          DOCS_VENV: .venv-docs
+        run: |
+          git config user.name "quarrowen-ci"
+          git config user.email "releases@quarrowen.com"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            tools/publish_docs.sh --dry-run
+          else
+            tools/publish_docs.sh
+          fi

@@ -14,7 +14,10 @@
 
 site_name: Quarrowen
 site_description: A voxel game engine you can mod - the reference for its mod API and its internals.
-site_url: https://quarrowen.com/
+# **The subpath matters.** The same branch serves the download page and `update.json`, which the
+# installed client polls - so the reference lives under /docs/ and leaves those alone. A wrong
+# site_url here produces a site whose internal links all point one directory too high.
+site_url: https://quarrowen.com/docs/
 copyright: Quarrowen is free software. Not affiliated with any other game or its publisher.
 
 docs_dir: docs

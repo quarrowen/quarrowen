@@ -5991,3 +5991,32 @@ time. It waits 40 frames for a worker task's files to appear, which is a stopwat
 different hat. Not fixed here, but written down with the cause confirmed rather than guessed: **the
 thing watching the run is the first suspect when the run fails**, which CLAUDE.md already says about
 durations and now says about load.
+
+## Publishing the docs: quarrowen.com/docs/, by hand and on release (user, 2026-09-24)
+
+*"Docs subpath is good. And also for now manual trigger but do wire it into the release CI"*.
+
+**Why a subpath and not the root.** The `gh-pages` branch is not empty: it serves the download page,
+`icon.png`, the screenshots, per-version folders, and - the one that matters - **`update.json` and
+its signature, which the installed client polls, pinned to quarrowen.com by CNAME**. The docs site
+has an `index.html` of its own, so publishing it to the root would replace the landing page and break
+the updater for anything already installed. Under `docs/` both coexist, which is what was asked for
+anyway: the reference *alongside* a landing page.
+
+**`tools/publish_docs.sh`** builds with `--strict` and writes `docs/` alone, in a worktree on the
+pages branch - the same shape as `publish_site.sh`, including its hard-won guard against orphaning a
+branch that already has a site on it. `--dry-run` builds and reports without pushing.
+
+**It refuses to push anything outside `docs/`.** The safety of the whole arrangement is that one
+claim, and a claim a script does not check is one that holds until the day it does not. Verified in
+both directions rather than assumed: the guard fires on a staged `update.json` and stays silent on a
+docs-only change.
+
+**Two ways in.** `.github/workflows/docs.yml` is `workflow_dispatch` only, with a `dry_run` input -
+a docs change should not republish a live domain unattended. And the release job in `ci.yml` runs it
+straight after `publish_site.sh`, so a release never ships with a site describing the version before
+it. Safe in that order because both use a worktree on the same branch and git permits only one, but
+`publish_site.sh` removes its own on exit.
+
+**Not yet done:** nothing has been published. The dry run reports 32 files and ~20k lines, all under
+`docs/`. The first real publish is a button somebody presses.

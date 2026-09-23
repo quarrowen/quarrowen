@@ -252,6 +252,11 @@ jobs:
           git config user.email "releases@quarrowen.com"
           tools/make_release.sh
           tools/publish_site.sh --with-release
+          # The reference, to quarrowen.com/docs/, so a release never ships with a site describing the
+          # version before it. Safe to run straight after the site publish: both work in a worktree on
+          # the pages branch and git allows only one at a time, but publish_site.sh removes its own on
+          # exit. This one writes `docs/` alone and leaves update.json where it is. (2026-09-24)
+          tools/publish_docs.sh
           echo "published $version"
 
       - name: Put the keys beyond use
