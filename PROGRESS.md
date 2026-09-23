@@ -5313,3 +5313,34 @@ godot-rust calls Android support experimental alongside iOS.
 delete the GDScript fallbacks. iOS is built but unproven and Android is not built at all - deleting
 the twins today would turn two target platforms from slow into broken, which is exactly the failure
 the order was chosen to avoid.
+
+## Android builds too (2026-09-23)
+
+`tools/build_native.sh android` produces all three ABIs - `android-arm64` (arm64-v8a),
+`android-arm32` (armeabi-v7a) and `android-x86_64` (the emulator) - and the extension declares them.
+
+Setup, done on this machine and worth writing down because the next person will need it:
+
+```sh
+brew install --cask android-commandlinetools
+export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools
+yes | sdkmanager --licenses
+sdkmanager "ndk;29.0.14206865" "platform-tools"
+cargo install cargo-ndk
+export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865
+```
+
+Two snags, one shared with iOS:
+
+- **The same missing QuickJS bindings**, for the same reason, fixed the same way: a
+  `cfg(target_os = "android")` dependency with the `bindgen` feature. The NDK's clang does the
+  reading. That makes two of our four target platforms that `rquickjs-sys` has no prebuilt bindings
+  for, which is worth remembering before adding a fifth.
+- **`cargo-ndk` 4.x changed its flags.** `-p` is cargo's `--package` now, not the platform; the API
+  level is `-P/--platform`. Passing `-p 24` gets *"unknown package: 24"* followed by a panic report
+  asking you to file a bug, which is a long way from "wrong flag".
+
+`ANDROID_API` defaults to 24 in the script - what Godot 4 targets. Raising it drops older tablets.
+
+**Still not proven on a device.** As with iOS: the libraries build and link, there is no Android
+export preset, no keystore, and nothing has run on hardware or an emulator.

@@ -20,11 +20,15 @@ tiny_http = { version = "0.12", default-features = false }
 [target.'cfg(unix)'.dependencies]
 signal-hook = "0.4.4"
 
-# **iOS has no prebuilt QuickJS bindings**, so generate them at build time. `rquickjs-sys` ships a
-# checked-in `bindings/<target>.rs` for the platforms it knows about and iOS is not one of them; its
-# own build warning says to use `bindgen`, which reads the C headers with libclang. Xcode supplies
-# that clang. See tools/build_native.sh for the matching link flags. (2026-09-23)
+# **The mobile targets have no prebuilt QuickJS bindings**, so generate them at build time.
+# `rquickjs-sys` ships a checked-in `bindings/<target>.rs` for the platforms it knows about, and
+# neither iOS nor Android is among them; its own build warning says to use `bindgen`, which reads the
+# C headers with libclang instead. Xcode supplies that clang for iOS and the NDK does for Android.
+# See tools/build_native.sh for the matching link flags. (2026-09-23)
 [target.'cfg(target_os = "ios")'.dependencies]
+rquickjs = { version = "0.13.0", features = ["loader", "bindgen"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
 rquickjs = { version = "0.13.0", features = ["loader", "bindgen"] }
 
 [profile.release]

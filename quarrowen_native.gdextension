@@ -24,3 +24,12 @@ ios.debug = "res://native/bin/ios/quarrowen_native.framework"
 ios.release = "res://native/bin/ios/quarrowen_native.framework"
 ios.debug.simulator = "res://native/bin/ios-sim/quarrowen_native.framework"
 ios.release.simulator = "res://native/bin/ios-sim/quarrowen_native.framework"
+
+; Android, built by `tools/build_native.sh android` through the NDK. Three ABIs: two real devices and
+; x86_64 for the emulator. QuickJS needs its bindings generated here too - see native/Cargo.toml.
+android.debug.arm64 = "res://native/bin/android-arm64/libquarrowen_native.so"
+android.release.arm64 = "res://native/bin/android-arm64/libquarrowen_native.so"
+android.debug.arm32 = "res://native/bin/android-arm32/libquarrowen_native.so"
+android.release.arm32 = "res://native/bin/android-arm32/libquarrowen_native.so"
+android.debug.x86_64 = "res://native/bin/android-x86_64/libquarrowen_native.so"
+android.release.x86_64 = "res://native/bin/android-x86_64/libquarrowen_native.so"

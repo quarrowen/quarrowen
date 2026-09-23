@@ -7,8 +7,12 @@
 #   tools/build_native.sh linux-arm64  # cross target (needs the Rust target + linker)
 #   tools/build_native.sh ios          # device .framework (needs Xcode + the Rust iOS target)
 #   tools/build_native.sh ios-sim      # simulator .framework
+#   tools/build_native.sh android      # all three ABIs (needs the NDK and cargo-ndk)
 set -euo pipefail
 cd "$(dirname "$0")/../native"
+
+# Android minimum API. 24 is what Godot 4 targets; raising it drops older tablets.
+ANDROID_API="${ANDROID_API:-24}"
 
 platform="${1:-}"
 if [ -z "$platform" ]; then
@@ -63,6 +67,13 @@ PLIST
   echo "installed native/bin/$3/quarrowen_native.framework"
 }
 
+# Android goes through the NDK's own clang, which cargo-ndk wires up. `ANDROID_NDK_HOME` has to point
+# at an installed NDK; `sdkmanager "ndk;<version>"` puts one under the SDK root.
+android_abi() { # abi rust_triple dest_dir
+  cargo ndk -t "$1" -P "$ANDROID_API" build --release
+  install_lib "target/$2/release/libquarrowen_native.so" "$3" libquarrowen_native.so
+}
+
 case "$platform" in
   macos-host)
     cargo build --release
@@ -73,6 +84,13 @@ case "$platform" in
   ios-sim)
     rustup target add aarch64-apple-ios-sim >/dev/null
     ios_framework aarch64-apple-ios-sim iossim ios-sim ;;
+  android)
+    : "${ANDROID_NDK_HOME:?set ANDROID_NDK_HOME to an installed NDK (sdkmanager \"ndk;<version>\")}"
+    command -v cargo-ndk >/dev/null || { echo "cargo-ndk missing: cargo install cargo-ndk" >&2; exit 1; }
+    rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android >/dev/null
+    android_abi arm64-v8a   aarch64-linux-android   android-arm64
+    android_abi armeabi-v7a armv7-linux-androideabi android-arm32
+    android_abi x86_64      x86_64-linux-android    android-x86_64 ;;
   macos)
     rustup target add aarch64-apple-darwin x86_64-apple-darwin >/dev/null
     cargo build --release --target aarch64-apple-darwin
