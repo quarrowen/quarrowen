@@ -499,7 +499,7 @@ func _bed_icon(blanket := Color(0.75, 0.22, 0.17)) -> Image:
 				c = blanket if y > 8 else blanket.lightened(0.15)  # blanket
 			if c.a > 0.0:
 				img.set_pixel(x, y, c)
-	return img
+	return _lit(img)
 
 
 ## A glass bottle with a cork, filled with `liquid` (alpha 0 = empty).
@@ -521,7 +521,7 @@ func _bottle(liquid: Color) -> Image:
 				if x == 5 and y >= 8 and y <= 11:
 					c = Color(1, 1, 1, 0.9)  # highlight
 				img.set_pixel(x, y, c)
-	return img
+	return _lit(img)
 
 
 func _torch() -> Image:
@@ -557,7 +557,7 @@ func _blueprint() -> Image:
 	for x in range(2, 14):
 		img.set_pixel(x, 2, Color(0.12, 0.25, 0.55))
 		img.set_pixel(x, 13, Color(0.12, 0.25, 0.55))
-	return img
+	return _lit(img)
 
 
 func _banner() -> Image:
@@ -791,23 +791,42 @@ func _flower(petal: Color, center: Color) -> Image:
 	return img
 
 
+## A scatter of seeds with a lit top and a body, rather than nine random two-pixel ticks. Placed
+## rather than rolled: a handful of seeds wants to look scattered, and random placement at this size
+## gives clumps and gaps that read as dirt.
 func _seeds() -> Image:
 	var img := _blank()
-	for i in 9:
-		var p := Vector2i(rng.randi_range(3, 12), rng.randi_range(4, 12))
-		img.set_pixel(p.x, p.y, Color(0.45, 0.6, 0.2))
-		img.set_pixel(p.x, p.y + 1, Color(0.35, 0.5, 0.15))
-	return img
+	var body := Color(0.47, 0.62, 0.24)
+	var lit := Color(0.63, 0.77, 0.36)
+	for spot in [Vector2i(5, 6), Vector2i(9, 5), Vector2i(7, 9), Vector2i(11, 9), Vector2i(4, 11), Vector2i(9, 12)]:
+		img.set_pixel(spot.x, spot.y, _vary(lit, 0.04))
+		img.set_pixel(spot.x, spot.y + 1, _vary(body, 0.04))
+		img.set_pixel(spot.x + 1, spot.y + 1, _vary(body, 0.04))
+	return _lit(img)
 
 
+## A stalk with ears up it, rather than a diagonal smear. What says "wheat" is the pairs of grains
+## angling up and away from a straight stem; the old one had the stem and nothing else. (2026-09-23)
 func _wheat_item() -> Image:
 	var img := _blank()
-	for i in range(2, 14):
-		img.set_pixel(15 - i, i, _vary(Color(0.8, 0.68, 0.3), 0.05))
-	for i in range(2, 8):
-		img.set_pixel(15 - i - 1, i, _vary(Color(0.92, 0.8, 0.38), 0.05))
-		img.set_pixel(15 - i + 1, i, _vary(Color(0.88, 0.75, 0.33), 0.05))
-	return img
+	var stem := Color(0.59, 0.49, 0.20)
+	var grain := Color(0.89, 0.77, 0.38)
+	var lit := Color(0.96, 0.87, 0.55)
+	for y in range(4, 15):
+		img.set_pixel(8, y, _vary(stem, 0.05))
+	var tier := 0
+	for y in range(3, 11, 2):
+		var reach := 3 - tier / 2
+		for k in range(1, reach + 1):
+			var c := lit if k == reach else grain
+			img.set_pixel(8 - k, y + k - 1, _vary(c, 0.05))
+			img.set_pixel(8 + k, y + k - 1, _vary(c, 0.05))
+		tier += 1
+	img.set_pixel(8, 2, lit)
+	img.set_pixel(8, 3, grain)
+	for k in range(1, 4):
+		img.set_pixel(8 + k, 12 + k / 3, _vary(stem, 0.05))  # a leaf low on the stem
+	return _lit(img)
 
 
 func _bread() -> Image:
@@ -818,7 +837,7 @@ func _bread() -> Image:
 			if d < 1.0:
 				var crust := Color(0.72, 0.45, 0.2) if y > 7 or d > 0.8 else Color(0.85, 0.6, 0.3)
 				img.set_pixel(x, y, _vary(crust, 0.05))
-	return img
+	return _lit(img)
 
 
 ## A hoe: a blade set square across the end of the haft, hanging down on one side.
@@ -857,7 +876,7 @@ func _hoe(head: Color) -> Image:
 			elif ch == "+":
 				tone = HAFT.lightened(0.18)
 			img.set_pixel(x, y, _vary(tone, 0.05))
-	return img
+	return _lit(img)
 
 
 ## Box-unfold rectangles of a skin layout region [u, v, w, h, d]: top, bottom, right, front, left, back.
@@ -909,8 +928,9 @@ func _item(color: Color, glyph: String) -> Image:
 	var img := _blank()
 	# The four tools are drawn from real silhouettes (see `_tool_rows`); everything else is still a
 	# condition per glyph, which is fine for a lump or a coin and was never fine for a pickaxe.
-	if glyph in ["pickaxe", "axe", "shovel", "sword"]:
-		var rows := _tool_rows(glyph)
+	if glyph in ["pickaxe", "axe", "shovel", "sword", "helmet", "chestplate", "leggings", "boots", "ingot"]:
+		var rows := _tool_rows(glyph) if glyph in ["pickaxe", "axe", "shovel", "sword"] \
+			else _armour_rows(glyph)
 		for y in TILE:
 			for x in TILE:
 				var ch := rows[y][x]
@@ -919,6 +939,8 @@ func _item(color: Color, glyph: String) -> Image:
 				var tone := color
 				if ch == "=":
 					tone = color.lightened(0.22)
+				elif ch == "-":
+					tone = color.darkened(0.28)
 				elif ch == "|":
 					tone = HAFT
 				elif ch == "+":
@@ -959,7 +981,7 @@ func _item(color: Color, glyph: String) -> Image:
 				if glyph == "meat" and x > 10 and absi(y - 12) <= 1:
 					c = Color(0.95, 0.92, 0.85)  # bone
 				img.set_pixel(x, y, _vary(c, 0.06))
-	return img
+	return _lit(img)
 
 
 func _cable() -> Image:
@@ -1379,18 +1401,22 @@ func _pot_top() -> Image:
 func _bowl(filling: Color) -> Image:
 	var img := _blank()
 	var wood := Color(0.55, 0.38, 0.22)
+	# **A rim, and a hollow under it.** Empty, this used to be one flat ellipse of wood - a brown
+	# pebble. A bowl reads as a bowl because you can see into it, so the rim is lighter than the body
+	# and what is inside is darker than both, whether that is stew or shadow. (2026-09-23)
 	for y in TILE:
 		for x in TILE:
-			var dx := (x - 7.5) / 6.5
-			var dy := (y - 9.0) / 4.5
+			var dx := (x - 7.5) / 6.3
+			var dy := (y - 9.2) / 4.2
 			if dx * dx + dy * dy > 1.0 or y < 6:
 				continue
-			var inner: bool = y <= 8 and absf(x - 7.5) < 5.0
-			if filling.a > 0.0 and inner:
-				img.set_pixel(x, y, _vary(filling, 0.05))
+			if y <= 7:
+				img.set_pixel(x, y, _vary(wood.lightened(0.18), 0.05))
+			elif y <= 8 and absf(x - 7.5) < 4.6:
+				img.set_pixel(x, y, _vary(filling if filling.a > 0.0 else wood.darkened(0.35), 0.05))
 			else:
-				img.set_pixel(x, y, _vary(wood.darkened(0.15 if y > 11 else 0.0), 0.05))
-	return img
+				img.set_pixel(x, y, _vary(wood.darkened(0.3 if y > 11 else 0.0), 0.05))
+	return _lit(img)
 
 
 ## A round pie or cake with a lattice top.
@@ -1699,13 +1725,18 @@ func _quickdust(lit: bool) -> Image:
 func _quickdust_item() -> Image:
 	var img := _blank()
 	var warm := Color(0.95, 0.66, 0.22)
-	for y in range(8, 13):
-		var half := 6 - (y - 8)
-		for x in range(8 - half, 8 + half):
-			img.set_pixel(x, y, _vary(warm.darkened(0.1 * (y - 8) * 0.3), 0.07))
-	for n in 10:
-		img.set_pixel(rng.randi_range(4, 11), rng.randi_range(8, 12), _vary(warm.lightened(0.3), 0.1))
-	return img
+	# **A heap, which is wide at the bottom.** This was the other way up - widest at the top row and
+	# narrowing downward - so a pile of dust drew as a funnel and read as a bowl. (2026-09-23)
+	for y in range(8, 14):
+		var half := 1 + (y - 8)
+		for x in range(8 - half, 8 + half + 1):
+			img.set_pixel(x, y, _vary(warm.darkened(0.25) if y > 12 else warm, 0.07))
+	for n in 9:
+		var x := rng.randi_range(5, 11)
+		var y := rng.randi_range(9, 12)
+		if img.get_pixel(x, y).a > 0.0:
+			img.set_pixel(x, y, _vary(warm.lightened(0.3), 0.1))
+	return _lit(img)
 
 
 ## A lever: a pale base plate with a dark handle leaning out of it.
@@ -1978,3 +2009,137 @@ func _draw_sword(g: Array) -> void:
 		_mark(g, 4 - i, 12 + i, "+")
 	_mark(g, 0, 15, "=")
 	_mark(g, 1, 15, "=")
+
+## The four armour pieces, in the same character rows the tools use, plus `-` for a shaded edge.
+##
+## **Two tones were not enough.** A belt drawn one shade lighter than the leg below it is not a belt
+## at 16 pixels, it is a leg; the first attempt came out as an archway. What separates the parts of a
+## piece of armour is a *dark* line - a brow under a dome, a seam down a breastplate, a cuff, a sole -
+## so these get a third tone and spend it on exactly those. (2026-09-23)
+func _armour_rows(piece: String) -> PackedStringArray:
+	var g := []
+	for y in TILE:
+		var row := []
+		for x in TILE:
+			row.append(".")
+		g.append(row)
+	match piece:
+		"helmet": _draw_helmet(g)
+		"chestplate": _draw_chestplate(g)
+		"leggings": _draw_leggings(g)
+		"boots": _draw_boots(g)
+		"ingot": _draw_ingot(g)
+	var out := PackedStringArray()
+	for row: Array in g:
+		out.append("".join(row))
+	return out
+
+
+func _fill(g: Array, x0: int, x1: int, y0: int, y1: int, ch := "#") -> void:
+	for y in range(y0, y1 + 1):
+		for x in range(x0, x1 + 1):
+			_mark(g, x, y, ch)
+
+
+func _draw_helmet(g: Array) -> void:
+	for y in TILE:
+		for x in TILE:
+			if y <= 10 and sqrt(pow((float(x) - 7.5) / 6.2, 2.0) + pow((float(y) - 8.0) / 6.6, 2.0)) <= 1.0:
+				g[y][x] = "#"
+	_fill(g, 4, 11, 7, 7, "-")    # the brow: a shadow line is what turns a dome into a helmet
+	_fill(g, 5, 10, 8, 10, ".")   # the sight opening
+	_fill(g, 4, 5, 8, 10, "#")    # cheeks either side of it
+	_fill(g, 10, 11, 8, 10, "#")
+	_fill(g, 4, 11, 11, 11, "-")  # and a chin bar to close it
+	_crown(g)
+
+
+func _draw_chestplate(g: Array) -> void:
+	_fill(g, 4, 11, 4, 12)
+	_fill(g, 2, 3, 4, 7)          # pauldrons, or it is a shirt
+	_fill(g, 12, 13, 4, 7)
+	_fill(g, 6, 9, 3, 4, ".")     # neck opening
+	_fill(g, 7, 8, 6, 11, "-")    # centre seam
+	_fill(g, 4, 11, 12, 12, "-")  # belted hem
+	_crown(g)
+
+
+func _draw_leggings(g: Array) -> void:
+	_fill(g, 3, 12, 3, 5)
+	_fill(g, 3, 12, 5, 5, "-")    # the belt, dark, or waist and leg read as one slab
+	_fill(g, 3, 6, 6, 13)
+	_fill(g, 9, 12, 6, 13)
+	_fill(g, 3, 6, 13, 13, "-")   # cuffs
+	_fill(g, 9, 12, 13, 13, "-")
+	_crown(g)
+
+
+func _draw_boots(g: Array) -> void:
+	for x0 in [1, 9]:
+		_fill(g, x0, x0 + 4, 3, 9)        # the shaft
+		_fill(g, x0, x0 + 6, 10, 12)      # the foot, stepping forward
+		_fill(g, x0, x0 + 6, 13, 13, "-")  # and a sole, so it stands on something
+	_crown(g)
+
+
+## An ingot: a flat lit top face, sloping sides, a dark foot.
+##
+## The old one was a trapezoid drawn in a single tone, and a single-tone trapezoid with noise on it is
+## a pebble. What makes a cast bar read is that you are looking at *two* faces of it at once - the top
+## you could stamp, and the side that falls away from it. (2026-09-23)
+func _draw_ingot(g: Array) -> void:
+	_fill(g, 5, 10, 6, 7, "=")    # the top face, square on
+	_fill(g, 4, 11, 8, 8)         # the shoulders, falling away
+	_fill(g, 3, 12, 9, 10)
+	_fill(g, 3, 12, 11, 11, "-")  # and the foot it sits on
+
+
+## The one light every item here is lit by: from up and to the left.
+##
+## **Art direction, not an engine feature.** The same pass could run in the client over every mod's
+## icons at once, and that would be the engine having an opinion about what content looks like, which
+## is the one opinion it is not supposed to have. A mod that wants glossy items draws them glossy.
+## (the user, 2026-09-23: "we can't add some kind of gloss or something for items eh")
+##
+## Edges facing the light lift, edges facing away drop, and the corner square to it gets a little
+## more. It is the cheapest thing that turns a cut-out silhouette into something solid - a single tone
+## with noise on it reads as a sticker whatever shape it is cut into, which is why the ingots looked
+## like pebbles even after they were the right shape.
+const LIT_LIFT := 0.36
+const LIT_DROP := 0.26
+const LIT_SPEC := 0.16
+
+
+func _lit(img: Image) -> Image:
+	# Read from a copy: lighting a pixel and then asking its neighbour about it walks the highlight
+	# across the sprite one pixel at a time.
+	# `duplicate()` is typed Resource, so this must be annotated or the whole script fails to parse
+	# and every texture silently stops being generated (CLAUDE.md).
+	var src: Image = img.duplicate()
+	for y in TILE:
+		for x in TILE:
+			var c: Color = src.get_pixel(x, y)
+			if c.a < 0.8:
+				continue
+			var up := _clear(src, x, y - 1)
+			var left := _clear(src, x - 1, y)
+			var k := 0.0
+			if up or left:
+				k += LIT_LIFT
+			if up and left:
+				k += LIT_SPEC
+			if _clear(src, x, y + 1) or _clear(src, x + 1, y):
+				k -= LIT_DROP
+			if k > 0.0:
+				img.set_pixel(x, y, c.lerp(Color(1.0, 1.0, 1.0, c.a), k))
+			elif k < 0.0:
+				img.set_pixel(x, y, c.darkened(-k))
+	return img
+
+
+## Whether nothing is drawn at this pixel. Off the tile counts as nothing, so a sprite that runs to
+## the edge is still lit along it.
+func _clear(img: Image, x: int, y: int) -> bool:
+	if x < 0 or y < 0 or x >= TILE or y >= TILE:
+		return true
+	return img.get_pixel(x, y).a < 0.8

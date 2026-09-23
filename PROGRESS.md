@@ -4924,3 +4924,49 @@ sand come out visually identical, and coal ore's blobs move, which is what a re-
 
 Not touched, and worth a look another day: the armour icons (helmet reads as an arch, boots as two
 small blocks) and the ingot. They are weak rather than wrong, which is a different job from this one.
+
+## The armour, the rest of the icons, and one light for all of them (2026-09-23)
+
+Second half of the sprite work, after the tools. The same fault ran through everything: a boolean
+condition per glyph can only draw rectangles, so the helmet was an archway, the boots two small
+blocks, the leggings a flat pair of trousers and the chestplate a t-shirt.
+
+**Two tones were not enough for armour.** The first attempt lit a belt one shade *lighter* than the
+leg below it, which at sixteen pixels is not a belt, it is a leg - the whole thing came out as an
+archway again. What separates the parts of a piece of armour is a **dark** line: a brow under a dome,
+a seam down a breastplate, a cuff, a sole. So the armour glyphs get a third tone and spend it on
+exactly those, and each piece now has the one detail that names it - a sight slit and chin bar,
+pauldrons, a belt, a shaft and a sole.
+
+Also redrawn, all the same class of fault:
+
+- **The ingot** was a trapezoid in a single tone, which is a pebble. A cast bar reads because you see
+  two faces at once: a flat lit top you could stamp, and a side falling away from it.
+- **The dust heap was upside down** - widest at its top row, narrowing downward - so it drew as a
+  funnel and read as a bowl.
+- **The bowl** was one flat ellipse of wood. A bowl reads because you can see *into* it, so the rim
+  is lighter than the body and the inside darker than both, whether that is stew or shadow.
+- **Wheat** was a diagonal smear with no ears; **seeds** were nine random two-pixel ticks, which at
+  this size clump and read as dirt, so they are placed rather than rolled.
+
+### One light, and where that decision belongs
+
+The user: *"we can't add some kind of gloss or something for items eh which will make it nicer to
+look at?"* Yes - edges facing up-left lift, edges facing away drop, the corner square to the light
+gets a little more. It is the cheapest thing that turns a cut-out into a solid, and it is why the
+ingots still looked like pebbles even once they were the right *shape*.
+
+**Two approaches were tried and one rejected on principle.** A dark outline round each sprite does
+nothing here, because every surface it is drawn on is already dark. A straight diagonal sheen band
+reads as a scratch across the sprite rather than as shine.
+
+More importantly, the pass could run in the **client**, over every mod's icons at once - and it is
+not going there. That would be the engine having an opinion about what content looks like, which is
+the one opinion it is not supposed to have. A mod that wants glossy items draws them glossy. So this
+is art direction in `base`'s own generator, and the general version stays unbuilt on purpose.
+
+### Still weak, and left alone deliberately
+
+Coal and charcoal are both dark blobs - distinguishable, but only just. The charms are pouches and
+read as pouches, which is fine but says nothing about what each one does. Neither is *wrong*, and
+guessing at them without the user looking is how the water got eight rounds of work.
