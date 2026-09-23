@@ -5011,14 +5011,20 @@ func _scale() -> void:
 	# nothing else. What the comment above actually promises is that a spread save writes every chunk,
 	# so that is what is checked now, and it does not care how many calls it took. (2026-09-21)
 	_check(server._save_queue.is_empty() and not server._save_meta_pending, "a save spread over %d ticks finishes" % drains)
-	WorkerThreadPool.wait_for_task_completion(server._save_task)
-	server._save_task = -1
-	# Wait for the files, do not assume them. The writes go out on a worker task, and waiting once on
-	# `_save_task` catches the task that happened to be running rather than the one that finishes the
-	# job - so under load this read zero of twelve. Which makes it the second flaky check in this spot:
-	# I replaced a stopwatch with something that still assumed timing. (2026-09-22)
+	# **Wait on whatever task is running now, on every pass.** `game_server._save_task` is replaced by
+	# each drain, so waiting on it once captures the task that happened to be in flight and not the one
+	# that finishes the job - and counting files then becomes a race that a loaded machine loses.
+	#
+	# Third time in this spot, and the first two are why this one is written the long way: a stopwatch
+	# (2026-09-21), then a single wait plus forty frames (2026-09-22), which still read zero of twelve
+	# whenever anything else was using the CPU. The suite runs a server of its own throughout for the
+	# e2e tests, so "anything else" is the normal case - which is why it passed alone and failed in a
+	# full run, and why blaming the browser I had left open was wrong. (2026-09-23)
 	var written := 0
-	for attempt in 40:
+	for attempt in 600:
+		if server._save_task != -1:
+			WorkerThreadPool.wait_for_task_completion(server._save_task)
+			server._save_task = -1
 		written = 0
 		for pos in edited:
 			if FileAccess.file_exists(server.realm.chunk_path(Vector2i(floori(pos.x / 16.0), floori(pos.z / 16.0)))):
