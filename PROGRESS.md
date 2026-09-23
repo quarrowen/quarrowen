@@ -5682,3 +5682,44 @@ and the three bugs above are its instances: a rule that cannot fire, a rule with
 and a reference page repeating both. **A spawn rule says nothing when it is wrong** - so the rule of
 thumb is that spawn rules need measuring, not reading, and there is now a tool and a test for each.
 - The Proving Ground's `proving:quarry` uses `minutes: 0.05` so a test can sit through the clock.
+
+## The iOS simulator is a dead end on Apple silicon, and it is the toolchain's fault (2026-09-23)
+
+The simulator runtime finally went in (`sudo xcodebuild -runFirstLaunch`, then
+`xcodebuild -downloadPlatform iOS`; iOS 26.3, and an `iPad Air (5th generation)` device type is
+available even though no simulator is created for it by default). It still cannot run the game, and
+the reason is worth writing down so nobody spends an evening on it twice.
+
+**Godot 4.7.2's iOS export template ships a simulator library that is x86_64 only.** Measured:
+
+```sh
+unzip -j ~/Library/.../export_templates/4.7.2.stable/ios.zip \
+  "libgodot.ios.debug.xcframework/ios-arm64_x86_64-simulator/libgodot.a" -d /tmp/x
+lipo -info /tmp/x/libgodot.a
+# Non-fat file: architecture: x86_64
+```
+
+The directory is *named* `ios-arm64_x86_64-simulator` and contains one architecture. The file size
+gives it away too - 207 MB against 220 MB for the arm64 device slice, where a universal build would
+be the sum. So on an M1, where the simulator is arm64, every object in it is skipped and the link
+dies on an undefined `_main`. No Godot iOS project can be built for the simulator with these
+templates; nothing about this is ours.
+
+**Two real defects of ours were found on the way, and both stand:**
+
+- The export embeds only the **device** framework. `quarrowen_native.gdextension` declares
+  `ios.debug.simulator` and `ios.release.simulator` pointing at `native/bin/ios-sim/`, and the iOS
+  exporter does not use them - `build/ios/Quarrowen/dylibs/` contains `native/bin/ios/` alone. The
+  first simulator link failed on exactly that: *"building for 'iOS-simulator', but linking in dylib
+  built for 'iOS'"*. The fix, when it matters, is one `.xcframework` holding both slices rather than
+  two frameworks; `xcodebuild -create-xcframework` builds it from what `build_native.sh` already
+  produces, and it was verified to contain `ios-arm64` and `ios-arm64-simulator`. Not applied,
+  because there is currently nothing to test it on.
+- `tools/package_ios.sh` cannot finish without an Apple ID signed into Xcode: *"No Accounts"* and
+  *"No profiles for 'com.quarrowen.client'"*. `apple.env` holds the Team ID but Xcode itself has no
+  account, and Godot's export runs `xcodebuild archive` for device as its only mode.
+
+**So the way to test on an iPad is the iPad.** Sign an Apple ID into Xcode and run on the device -
+which is better verification than a simulator anyway (real GPU, real thermals, real touch). A free
+Apple ID gives seven-day provisioning if the paid one is inconvenient. The simulator path can be
+revisited if Godot ships an arm64-simulator template.
