@@ -5754,3 +5754,36 @@ with `--archive` for the case where provisioning is already set up.
 **Unverified and worth knowing:** the iPad is on **iPadOS 27.0** while Xcode 26.3 carries the iOS
 26.2 SDK. Nothing has failed on this yet, but if Run reports an unsupported OS version, that is the
 next wall and the fix is updating Xcode.
+
+### It runs on an iPad Air 5 (2026-09-23)
+
+All four gates cleared, and the build launched on the device:
+
+```
+Launched application with com.quarrowen.client bundle identifier.
+Initialize godot-rust (API v4.7.stable.official, runtime v4.7.2.stable.official, safeguards balanced)
+```
+
+Seven lines of console, no errors, and the only notes are a CoreText remark about `.SFCompact` from
+Godot's own UI code. `com.quarrowen.client` 0.42.0, on `iPad13,17` running iPadOS 27.0 - so the
+Xcode 26.3 / iPadOS 27 version gap never bit.
+
+**That second line is the whole reason the iOS work mattered.** The GDScript twins were deleted the
+same day and the engine now hard-requires the native library, so "does the Rust extension load on iOS
+hardware" was the open question underneath all of it - not "does Godot export an Xcode project".
+Cross-compiled to `ios-arm64`, wrapped in a `.framework` with an `@rpath` install name and
+`libclang_rt.ios.a` linked in for `___chkstk_darwin`, embedded, signed, installed, initialising.
+
+**What this does not prove**: anything past startup. It launched and did not crash. The client is
+built for keyboard and mouse and nothing has been done for touch, so the honest expectation is a menu
+that draws correctly and cannot be used. Whether the UI is even legible at that resolution is
+unknown - it was laid out for a laptop window.
+
+**One thing left dirty.** The signing fix was made in the *generated* `build/ios/Quarrowen.xcodeproj`,
+so the next `package_ios.sh` run undoes it. Godot writes `CODE_SIGN_STYLE = Automatic` **and** a
+hardcoded `CODE_SIGN_IDENTITY = "Apple Distribution"` into the Release configuration, and those
+cannot both be true - automatic signing is what picks the identity. Xcode refuses with "conflicting
+provisioning settings". Debug was already correct ("Apple Development"), and the scheme runs Debug,
+so the error was the Release half poisoning the editor. The durable fix belongs in the export
+pipeline rather than a generated file; now that the device is registered, the headless path is worth
+making work.
