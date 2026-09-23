@@ -265,11 +265,22 @@ func _build_sidebar() -> Control:
 		if social != null:
 			social.player_name = t)
 	card_box.add_child(_name_edit)
-	var quit := MenuTheme.nav(Button.new())
-	quit.toggle_mode = false
-	quit.text = "Quit"
-	quit.pressed.connect(func(): quit_requested.emit())
-	side.add_child(quit)
+	# **No Quit where an app cannot quit itself.** On iOS it did nothing at all - the button was there,
+	# a child pressed it, and the game stayed put (found on an iPad Air, 2026-09-23). That is not a bug
+	# to fix so much as a platform rule: Apple's guidelines say an app does not terminate itself, and
+	# `NOTIFICATION_WM_CLOSE_REQUEST` is ignored. Android has the back gesture and the app switcher, and
+	# a browser tab has a close button of its own. A button that does nothing is worse than no button,
+	# especially for a child who will press it again harder.
+	#
+	# The first platform check in the engine, which is why it is a string comparison and not a helper:
+	# there is nothing yet for it to join. When touch controls arrive there will be, and this should
+	# move into it rather than be copied.
+	if not OS.get_name() in ["iOS", "Android", "Web"]:
+		var quit := MenuTheme.nav(Button.new())
+		quit.toggle_mode = false
+		quit.text = "Quit"
+		quit.pressed.connect(func(): quit_requested.emit())
+		side.add_child(quit)
 	return side
 
 

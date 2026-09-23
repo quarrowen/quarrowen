@@ -5787,3 +5787,22 @@ provisioning settings". Debug was already correct ("Apple Development"), and the
 so the error was the Release half poisoning the editor. The durable fix belongs in the export
 pipeline rather than a generated file; now that the device is registered, the headless path is worth
 making work.
+
+### What the iPad actually showed (2026-09-23)
+
+Two findings from ten minutes on real hardware, which is why it was worth doing:
+
+- **Touch works, and that was not expected.** The prediction here was a menu that draws correctly and
+  cannot be used, because the client is built for keyboard and mouse and nothing has been done for
+  touch. Godot's synthesised touch-to-mouse is evidently enough for menu navigation. **Not to be
+  over-read**: menu buttons working is a long way from playing. Mining, placing, looking around and
+  the hotbar all still need real touch handling, and none of that has been tried.
+- **Quit did nothing**, and could not have. Apple's guidelines say an app does not terminate itself,
+  so `NOTIFICATION_WM_CLOSE_REQUEST` is ignored on iOS. The button is now not built on iOS, Android
+  or Web - Android has the back gesture and the app switcher, a browser tab has its own close button,
+  and a button that does nothing is worse than no button, especially for a child who will press it
+  again harder.
+
+That `if not OS.get_name() in [...]` is the **first platform check in the engine**, which is why it
+is a bare string comparison rather than a helper: there is nothing yet for it to join. When touch
+controls arrive there will be, and it should move into that rather than be copied.
