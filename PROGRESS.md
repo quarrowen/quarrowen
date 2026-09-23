@@ -5021,3 +5021,67 @@ Measured before starting, which is why it was worth doing: of the 290 `base:` re
 An asset path is relative to the mod that names it, and `simple_machines` names planks and brick for
 its benches and its forge. Copying beats reaching into `base`'s folder, and costs almost nothing:
 assets travel to clients by content hash, so two identical files are one transfer.
+
+## Roadmap: animated pages in the guide book (2026-09-23, not now)
+
+The user, looking at the book: *"is it static? … possible to show animations as well? for example an
+animation of how to do advanced crafting or how to do coop crafting or how to experiment, how to
+build multiblock structures, how to upgrade anvils, furnaces, etc?"* **Not now, but written down so
+it does not evaporate.** The research is done; the work is not started.
+
+**Today it is static, with exactly one exception.** A page is an array of blocks and the client
+dispatches on `type` in one `match` (`engine/client/guide_screen.gd:377-421`): `text`, `heading`,
+`tip`, `items`, `recipe`, `entity`, `image`, `link`, `keys`. The whitelist is
+`GuideRegistry.BLOCK_TYPES` and anything outside it is **silently dropped** at `add_page()`, with no
+validator warning - so a typo'd block type simply vanishes. The one moving thing is the creature
+portrait: `_process` spins it at 0.8 rad/s (`guide_screen.gd:157-160`), and it is a real `SubViewport`
+with its own camera, light and environment (`_portrait`, `:602-652`).
+
+**The cheap option, and the one to build: a sprite-sheet block.** `{type: "anim", asset, frames,
+cols, fps}`, drawn as a `TextureRect` whose `AtlasTexture.region` advances on a looping tween. It
+reuses the `image` block's entire existing path - the mod declares a file, `mod_api.gd:2523` registers
+it as an asset, `texture_of` resolves it client-side - so it needs no new client capability, adds one
+network asset rather than one per frame, and is disposed by the page teardown that already runs on
+every navigation. The cost is almost entirely art.
+
+Two constraints that decide the design:
+
+- **Guide images are eager assets.** `register_asset` is called without `{"lazy": true}`, unlike
+  music, so every frame is part of the download a player waits through before joining. One sheet, not
+  twelve frames. If that is still too much, `{"lazy": true}` works - the `image` branch already
+  returns `null` for a texture that has not arrived, so a late frame is a blank rather than an error.
+- **No mod code runs on the client.** Mods are server-side; the book is data. An animation has to be
+  something the engine's client already knows how to play, which rules out mods shipping a scene.
+
+**The separate, larger prize: multiblock pages that draw themselves.** The Forge page's structure
+"diagram" is hand-typed ASCII art (`mods/simple_machines/guide.gd:191`) that can drift from the real
+pattern in `stations.gd` with nothing to catch it. The engine has the pattern, but never sends it:
+`stations.to_network()` deliberately ships only `structure: title`. The other half already exists -
+`game_client.on_structure_guide()` builds real block meshes from `ItemMesh.mesh_for` and pulses them
+for the in-world ghost overlay. Joining them means extending `to_network()` and writing a `_diorama()`
+modelled on `_portrait()`. Worth it for one or two pages; **not** the general animation mechanism.
+
+## Where the Rust extension is *not* used, which is more places than it sounds (2026-09-23)
+
+Asked whether there is any real scenario, client or server, where the fallbacks run. There is, and
+one of them is a shipping target rather than a contingency. Checked rather than assumed:
+
+- **iOS/iPad: no native build exists.** `quarrowen_native.gdextension` declares macOS, Linux x86_64,
+  Linux arm64 and Windows x86_64 and nothing else, and milestone 6 in this file lists building
+  `aarch64-apple-ios` as work still to do. Until then **the iPad client is 100% GDScript twins**, and
+  their speed is the iPad's speed. That is the answer that matters: the second suite is not insurance,
+  it is the only coverage the children's iPads will have.
+- **Anything off that list**: Android, Web, Windows on arm64.
+- **A fresh clone.** `native/bin/` is gitignored and **no binary is tracked** - `git ls-files` finds
+  zero `.dylib`/`.so`/`.dll`. CI builds one per platform. CLAUDE.md claimed the opposite ("a checked-in
+  build artifact") until today; corrected there.
+- **A library present but unloadable** - wrong arch, Gatekeeper, an ABI mismatch after a Godot
+  upgrade. `Native.enabled()` keys off `ClassDB.class_exists(&"NativeVoxelWorld")`, so it degrades
+  silently to the twins instead of crashing. Kind, and easy to miss: the only symptom is being slow.
+
+The deployed Linux server is the one guaranteed case - `Dockerfile` fails the build without the `.so`.
+A server run from source without building it is on the twins like anything else.
+
+**Consequence worth acting on before the iPad milestone:** the fallbacks have never been profiled,
+only tested for correctness. Meshing and physics in GDScript on an A-series chip is the open question,
+and if it is too slow the answer is the iOS Rust target, not a smaller render distance.

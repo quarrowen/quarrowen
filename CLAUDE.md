@@ -47,15 +47,45 @@ else entirely.
   silently desynchronises any hand-written entry for it. Reordering `set_block` would have broken
   every JavaScript `setBlock` call this way. Grep `prelude.js` for the name before you reorder.
 
-**The GDExtension is a checked-in build artifact.** `tools/run_tests.sh` rebuilds it when `native/src` is
-newer and stops if that build fails. It did not always: a Rust file that did not compile once left the old
-library in place and the suite reported on physics nobody was writing any more.
+**The GDExtension is built, never committed.** `native/bin/` is gitignored and no `.dylib`, `.so` or
+`.dll` is tracked; CI builds one per platform and the release job bundles them. `tools/run_tests.sh`
+rebuilds it when `native/src` is newer and stops if that build fails. It did not always: a Rust file
+that did not compile once left the old library in place and the suite reported on physics nobody was
+writing any more. (This paragraph said "checked-in build artifact" until 2026-09-23, which was simply
+untrue - worth correcting, because the next person to read it would have gone looking for a file that
+is not there.)
+
+**So a fresh clone runs on the GDScript fallbacks until something builds the library**, which is one
+of several ordinary ways to end up without it - see "When the Rust extension is not there" below.
 
 - **A new registry and `mod_reload._forget`.** Every registry a mod can put something in has to be
   cleared there, or reloading a mod that used it fails with "setup raised errors" on the way back in.
   Conditions, fields, characters, shops, ledgers, objectives, orders, modifiers, links, multiblocks,
   units and drives were all missed, and it went unnoticed until one mod declared all of them at once.
   (2026-09-21)
+
+## When the Rust extension is not there
+
+`Native.enabled()` (`engine/shared/native.gd`) is false whenever `NativeVoxelWorld` is not registered,
+and every native feature has a GDScript twin, so the engine runs either way. That is not a theoretical
+safety net - **it is the shipping path for at least one target**:
+
+- **iOS/iPad has no native build at all.** `quarrowen_native.gdextension` declares macOS, Linux
+  x86_64, Linux arm64 and Windows x86_64, and nothing else. Building for `aarch64-apple-ios` is listed
+  as outstanding work for the iPad milestone in PROGRESS.md. Until that is done, the iPad client runs
+  **entirely** on the fallbacks, and their performance is the iPad's performance.
+- **Any platform outside that list**: Android, Web, Windows on arm64.
+- **A fresh clone**, until `tools/build_native.sh` or the suite builds one.
+- **A library that fails to load** - wrong architecture, blocked by Gatekeeper, an ABI mismatch after a
+  Godot upgrade. It degrades silently to the fallbacks rather than crashing, which is the kind failure
+  and also the kind that hides.
+
+The deployed Linux server is the one place it is guaranteed: `Dockerfile` fails the build unless the
+`.so` is present. Anyone running a server from source without building it gets the fallbacks.
+
+**This is why `QW_NATIVE=0 tools/run_tests.sh` is not optional.** It is not testing a contingency; it
+is testing what the children's iPads will actually run.
+
 
 ## The tests must not touch the player's folder
 
