@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% if page and page.title and not page.is_homepage %}{{ page.title }} &middot; {% endif %}{{ config.site_name }}</title>
+{% if page and page.meta and page.meta.description %}<meta name="description" content="{{ page.meta.description }}">
+{% elif config.site_description %}<meta name="description" content="{{ config.site_description }}">{% endif %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ 'css/quarrowen.css'|url }}">
+{%- for path in config.extra_css %}<link rel="stylesheet" href="{{ path|url }}">{%- endfor %}
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="{{ nav.homepage.url|url if nav.homepage else base_url }}">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">{{ config.site_name }}</span>
+  </a>
+  <span class="ver">{{ config.extra.version_label if config.extra and config.extra.version_label else '' }}</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+    {%- for item in nav %}
+      {%- if item.children %}
+        <div class="grp">{{ item.title }}</div>
+        <ul>
+        {%- for child in item.children %}
+          <li><a class="{% if child.active %}cur{% endif %}" href="{{ child.url|url }}">{{ child.title }}</a></li>
+        {%- endfor %}
+        </ul>
+      {%- else %}
+        <ul><li><a class="{% if item.active %}cur{% endif %}" href="{{ item.url|url }}">{{ item.title }}</a></li></ul>
+      {%- endif %}
+    {%- endfor %}
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      {{ page.content }}
+    </article>
+
+    <footer class="foot">
+      {%- if page and page.meta and page.meta.source %}<p class="src">Generated from <code>{{ page.meta.source }}</code>. Edits belong in the source, not here.</p>{%- endif %}
+      <p>{{ config.copyright if config.copyright else '' }}</p>
+    </footer>
+  </main>
+
+  {%- if page and page.toc %}
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+    {%- for t in page.toc %}
+      <li><a href="{{ t.url }}">{{ t.title }}</a></li>
+      {%- for c in t.children %}<li class="sub"><a href="{{ c.url }}">{{ c.title }}</a></li>{%- endfor %}
+    {%- endfor %}
+    </ul>
+  </aside>
+  {%- endif %}
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="{{ 'search/main.js'|url }}" defer></script>
+{%- for path in config.extra_javascript %}<script src="{{ path|url }}" defer></script>{%- endfor %}
+</body>
+</html>

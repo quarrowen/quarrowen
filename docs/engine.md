@@ -7,7 +7,7 @@
 > every capability the engine has and is the best worked example there is.
 
 How Quarrowen is put together, for anyone working on the engine itself rather than on a mod. See also
-[CLAUDE.md](../CLAUDE.md) at the repository root, which lists the things that are easy to get wrong.
+[CLAUDE.md](https://github.com/quarrowen/quarrowen/blob/master/CLAUDE.md) at the repository root, which lists the things that are easy to get wrong.
 
 ## Running
 

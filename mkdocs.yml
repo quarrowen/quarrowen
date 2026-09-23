@@ -1,0 +1,81 @@
+# The documentation site: quarrowen.com's reference half.
+#
+#   python3 -m venv .venv-docs && .venv-docs/bin/pip install -r requirements-docs.txt
+#   .venv-docs/bin/mkdocs serve          # http://127.0.0.1:8000
+#   .venv-docs/bin/mkdocs build          # -> build/docs/
+#
+# **The theme is ours** (`site_theme/`), not an installed one. MkDocs is here for the navigation, the
+# search index and the build; the look was chosen from mockups on 2026-09-23 and is written by hand.
+#
+# **The API pages are generated** - `mod_tool.tscn -- docs` writes docs/api/*.md from the engine's own
+# sources, and a test fails when they are stale. Never edit them here; edit the doc comment they come
+# from. The two big generated HTML files (index.html, engine.html) are deliberately *not* in the nav:
+# they are 500KB single pages that predate this site and exist only because README links them.
+
+site_name: Quarrowen
+site_description: A voxel game engine you can mod - the reference for its mod API and its internals.
+site_url: https://quarrowen.com/
+copyright: Quarrowen is free software. Not affiliated with any other game or its publisher.
+
+docs_dir: docs
+# **Not `site/`.** That directory already exists in this repository and holds the release page's
+# screenshots - and `mkdocs build` *cleans* its output directory first, so pointing it there deleted
+# fifteen tracked files on the first run. `build/` is gitignored already, and the trademark scanner
+# skips it, which matters because the generated search index contains every word in the docs
+# including the marks the disclaimers are allowed to name. (2026-09-23)
+site_dir: build/docs
+
+theme:
+  name: null
+  custom_dir: site_theme
+  include_search_page: false
+  search_index_only: true
+
+extra:
+  version_label: "0.42.0"
+
+markdown_extensions:
+  - toc:
+      permalink: false
+      # The generated reference nests three deep (chapter, then function, then its sections), and the
+      # on-this-page column is only useful if it stops at the functions.
+      toc_depth: 3
+  - tables
+  - fenced_code
+  - codehilite:
+      guess_lang: false
+  - admonition
+  - attr_list
+  - def_list
+
+plugins:
+  - search
+
+# Curated rather than automatic. `docs/` also holds working notes, a deleted game's manual and a
+# `.local` file that is nobody else's business, and a site that publishes whatever happens to be in a
+# folder is a site that one day publishes something it should not.
+nav:
+  - Quarrowen: index.md
+  - Reference:
+      - Mod API: api/mod-api.md
+      - Engine internals: api/engine.md
+      - How do I…: api/how-do-i.md
+  - Guides:
+      - Writing a mod: modding.md
+      - Loot tables: loot.md
+      - Running a server: hosting.md
+      - Distributing a build: distribution.md
+  - About:
+      - Playing: playing.md
+      - The engine: engine.md
+      - What is still missing: roadmap.md
+      - Questions: faq.md
+
+# Kept out of the site rather than out of the repository. `mods_plan.md` says "superseded" on its
+# first line, `hearthhold.md` is design material for a game deleted on 2026-09-21, and a `.local` file
+# is one person's own notes. A site that publishes whatever is in a folder eventually publishes one of
+# these.
+exclude_docs: |
+  mods_plan.md
+  hearthhold.md
+  *.local.md

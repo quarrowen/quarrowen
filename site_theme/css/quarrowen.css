@@ -1,0 +1,252 @@
+/* The reference site's look: direction C, chosen from mockups on 2026-09-23.
+ *
+ * Dense reference bones - member tree on the left, one page per function, signature then remarks then
+ * See Also - with the colour taken from the game rather than from a theme: stone-dark navigation,
+ * sunstone amber for where you are, grass green for section headings, a slab serif with some weight.
+ *
+ * Written rather than installed, on purpose. An off-the-shelf theme was suggested first and disliked
+ * on sight, and a documentation site is the one place where looking like everybody else's is a real
+ * cost: it is the first thing a modder sees of this project. */
+
+:root {
+  --paper:      #f4f1ea;  /* aged page, not white */
+  --paper-sunk: #e9e3d5;  /* signature blocks, inline code */
+  --ink:        #221f1a;
+  --ink-soft:   #574f42;
+  --ink-faint:  #7c7361;
+  --rule:       #ded6c4;
+
+  --stone:      #2f3630;  /* the navigation column */
+  --stone-lit:  #3b443c;
+  --moss:       #b9c4b4;  /* text on stone */
+  --parchment:  #f0e6cf;  /* headings on stone */
+
+  --sunstone:   #e0a02c;  /* where you are, and only that */
+  --grass:      #6f8f4e;  /* section headings, rules that mean something */
+  --deep:       #241f14;  /* code blocks */
+  --link:       #8a6a1e;
+
+  --slab: "Zilla Slab", Georgia, "Times New Roman", serif;
+  --ui:   "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --tree-w: 264px;
+  --onpage-w: 200px;
+  color-scheme: light;
+}
+
+/* A single committed look. The game's palette is warm and specific and a dark inversion of it reads
+ * as a different product; the navigation column is already dark, which is where the weight belongs. */
+
+* { box-sizing: border-box; }
+html { scroll-padding-top: 76px; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--ui); font-size: 16px; line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.skip {
+  position: absolute; left: -9999px; top: 0; z-index: 30;
+  background: var(--sunstone); color: var(--deep); padding: 10px 16px; font-weight: 700;
+}
+.skip:focus { left: 0; }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 2px solid var(--sunstone); outline-offset: 2px; }
+
+/* ---- the bar across the top ---- */
+.top {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 18px; height: 56px;
+  background: var(--stone); color: var(--parchment);
+  border-bottom: 3px solid var(--sunstone);
+}
+.brand { display: flex; align-items: center; gap: 10px; color: var(--parchment); }
+.brand:hover { text-decoration: none; }
+.brand-mark {
+  width: 17px; height: 17px; background: var(--sunstone);
+  /* a block, seen from a corner - the one piece of ornament on the page */
+  clip-path: polygon(50% 0, 100% 27%, 100% 73%, 50% 100%, 0 73%, 0 27%);
+}
+.brand-name { font-family: var(--slab); font-weight: 700; font-size: 1.12rem; letter-spacing: -.01em; }
+.ver { font-family: var(--mono); font-size: .74rem; color: var(--moss); }
+.find { margin-left: auto; }
+.find input {
+  width: min(320px, 42vw); padding: 7px 11px;
+  background: var(--stone-lit); color: var(--parchment);
+  border: 1px solid #4a534b; font: inherit; font-size: .88rem;
+}
+.find input::placeholder { color: #8a9487; }
+.menu-btn {
+  display: none; background: var(--stone-lit); color: var(--parchment);
+  border: 1px solid #4a534b; padding: 7px 12px; font: inherit; font-size: .84rem; cursor: pointer;
+}
+
+/* ---- three columns ---- */
+.shell {
+  display: grid;
+  grid-template-columns: var(--tree-w) minmax(0, 1fr) var(--onpage-w);
+  max-width: 1400px; margin: 0 auto;
+  align-items: start;
+}
+
+/* ---- the member tree ---- */
+.tree {
+  position: sticky; top: 56px; max-height: calc(100vh - 56px); overflow-y: auto;
+  background: var(--stone); color: var(--moss);
+  padding: 18px 0 40px; font-size: .88rem;
+  min-height: calc(100vh - 56px);
+}
+.tree .grp {
+  font-family: var(--slab); font-weight: 700; color: var(--parchment);
+  padding: 14px 18px 4px; font-size: .95rem;
+}
+.tree .grp:first-child { padding-top: 0; }
+.tree ul { list-style: none; margin: 0; padding: 0; }
+.tree li a {
+  display: block; padding: 3px 18px; color: var(--moss);
+  font-family: var(--mono); font-size: .8rem;
+  overflow-wrap: anywhere;
+}
+.tree li a:hover { background: var(--stone-lit); color: var(--parchment); text-decoration: none; }
+.tree li a.cur { background: var(--sunstone); color: var(--deep); font-weight: 500; }
+
+/* ---- the page ---- */
+.doc { padding: 30px 40px 72px; min-width: 0; }
+.doc h1 {
+  font-family: var(--slab); font-weight: 700; font-size: 1.9rem; letter-spacing: -.015em;
+  margin: 0 0 .5em; text-wrap: balance;
+}
+.doc h2 {
+  font-family: var(--slab); font-weight: 700; font-size: 1.3rem;
+  margin: 2.2em 0 .5em; padding-bottom: .22em; border-bottom: 2px solid var(--grass);
+  text-wrap: balance;
+}
+/* One function per heading: the signature is the heading, so it gets the monospace and the rule. */
+.doc h3 {
+  font-family: var(--mono); font-weight: 500; font-size: .96rem;
+  margin: 2em 0 .6em; padding: 9px 13px;
+  background: var(--paper-sunk); border-left: 3px solid var(--grass);
+  overflow-wrap: anywhere;
+}
+.doc h3 code { background: none; padding: 0; font-size: 1em; }
+.doc h4 {
+  font-family: var(--slab); font-weight: 700; color: var(--grass);
+  font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; margin: 1.6em 0 .4em;
+}
+.doc p, .doc li { color: var(--ink-soft); }
+.doc p { margin: 0 0 .85em; max-width: 74ch; }
+.doc ul, .doc ol { max-width: 74ch; padding-left: 1.3em; }
+.doc li { margin: .22em 0; }
+.doc strong { color: var(--ink); font-weight: 700; }
+.doc hr { border: 0; border-top: 1px solid var(--rule); margin: 2.4em 0; }
+
+.doc code {
+  font-family: var(--mono); font-size: .86em;
+  background: var(--paper-sunk); padding: .1em .35em;
+  overflow-wrap: anywhere;
+}
+.doc pre {
+  background: var(--deep); color: #efe5cd; padding: 14px 16px;
+  overflow-x: auto; margin: 1em 0; max-width: 74ch; line-height: 1.5;
+}
+.doc pre code { background: none; padding: 0; color: inherit; font-size: .82rem; }
+
+/* Definition lists carry the "what is on this page" blocks - a term and what it is. Styled because
+ * `def_list` is on and an unstyled dl reads as two unrelated paragraphs. */
+.doc dl { margin: 1.1em 0; max-width: 74ch; }
+.doc dt { font-weight: 700; color: var(--ink); margin-top: .9em; }
+.doc dt:first-child { margin-top: 0; }
+.doc dd { margin: .15em 0 0 1.3em; color: var(--ink-soft); }
+
+/* An empty header row still draws its rule, which reads as a stray line under the heading above it.
+ * Markdown makes headerless tables easy to write by accident. (2026-09-23) */
+.doc table thead:empty, .doc table th:empty { border-bottom: 0; padding: 0; }
+
+.doc blockquote {
+  margin: 1.2em 0; padding: .2em 0 .2em 16px;
+  border-left: 3px solid var(--sunstone); color: var(--ink-faint);
+}
+
+/* Tables carry the real reference data - parameters, keys, defaults - so they get the most care. */
+.doc table {
+  border-collapse: collapse; width: 100%; margin: 1.2em 0; font-size: .9rem;
+  font-variant-numeric: tabular-nums;
+}
+.doc table th {
+  text-align: left; font-family: var(--slab); font-size: .82rem;
+  letter-spacing: .05em; text-transform: uppercase; color: var(--ink);
+  border-bottom: 2px solid var(--grass); padding: 7px 10px;
+}
+.doc table td { border-bottom: 1px solid var(--rule); padding: 7px 10px; color: var(--ink-soft); vertical-align: top; }
+.doc table tr:hover td { background: var(--paper-sunk); }
+.doc .tw { overflow-x: auto; }
+
+/* ---- on this page ---- */
+.onpage {
+  position: sticky; top: 56px; max-height: calc(100vh - 56px); overflow-y: auto;
+  padding: 30px 18px 40px; font-size: .82rem;
+  border-left: 1px solid var(--rule);
+}
+.onpage .grp {
+  font-family: var(--slab); font-weight: 700; color: var(--ink);
+  font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px;
+}
+.onpage ul { list-style: none; margin: 0; padding: 0; }
+.onpage li { margin: 0 0 3px; }
+.onpage li.sub { padding-left: 11px; }
+.onpage a { color: var(--ink-faint); font-family: var(--mono); font-size: .75rem; overflow-wrap: anywhere; }
+.onpage a:hover { color: var(--link); }
+
+/* ---- search results ---- */
+.results { margin-bottom: 26px; padding-bottom: 18px; border-bottom: 2px solid var(--grass); }
+.results h2 { font-family: var(--slab); font-size: 1.1rem; margin: 0 0 .5em; border: 0; padding: 0; }
+.results ol { list-style: none; padding: 0; margin: 0; }
+.results li { margin: 0 0 12px; }
+.results a { font-family: var(--mono); font-size: .9rem; font-weight: 500; }
+.results p { margin: .15em 0 0; font-size: .85rem; color: var(--ink-faint); }
+
+.foot {
+  margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--rule);
+  color: var(--ink-faint); font-size: .82rem;
+}
+.foot p { color: inherit; margin: 0 0 .3em; }
+.foot code { font-size: .84em; }
+
+/* ---- narrower ---- */
+@media (max-width: 1180px) {
+  .shell { grid-template-columns: var(--tree-w) minmax(0, 1fr); }
+  .onpage { display: none; }
+}
+@media (max-width: 860px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .menu-btn { display: block; }
+  .find input { width: 40vw; }
+  .tree {
+    display: none; position: static; max-height: none; min-height: 0;
+    padding: 12px 0 20px;
+  }
+  .tree.open { display: block; }
+  .doc { padding: 22px 18px 56px; }
+  .doc h1 { font-size: 1.55rem; }
+}
+@media (max-width: 480px) {
+  .top { gap: 10px; padding: 0 14px; }
+  .brand-name { font-size: 1rem; }
+  .ver { display: none; }
+  .find input { width: 34vw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+@media print {
+  .top, .tree, .onpage, .results { display: none; }
+  .shell { display: block; }
+  .doc { padding: 0; }
+  body { background: #fff; }
+}

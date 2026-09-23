@@ -1,0 +1,10 @@
+# The documentation site (mkdocs.yml, site_theme/). Not needed to build or play the game.
+#
+#   python3 -m venv .venv-docs && .venv-docs/bin/pip install -r requirements-docs.txt
+#   .venv-docs/bin/mkdocs serve
+#
+# **MkDocs alone, and no theme package.** The theme here is ours (site_theme/), so there is nothing
+# to install for it and nothing to dislike: the first suggestion was an off-the-shelf theme and it was
+# rejected on sight, which is what prompted building the look ourselves. MkDocs is BSD-licensed and
+# brings its own search, which is the part that is genuinely tedious to write. (2026-09-23)
+mkdocs==1.6.1

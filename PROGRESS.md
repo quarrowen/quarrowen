@@ -5918,3 +5918,29 @@ which is what just happened. **The remaining iOS debt is the simulator**, and it
 silicon simulator. If that is ever fixed upstream, the other half is that the export embeds only the
 device framework and ignores the gdextension's `.simulator` entries; one `.xcframework` holding both
 slices is the answer and was verified to build.
+
+### The docs site is scaffolded, and it nearly ate the release screenshots (2026-09-23)
+
+`mkdocs.yml`, `site_theme/` and `requirements-docs.txt` - direction C, built by hand, no theme
+package. MkDocs 1.6.1 (BSD) alone; the search script is ours too, because `search_index_only` ships
+the index without anything to read it. 13 pages, 1717 indexed sections, builds clean in `--strict`.
+
+**`site_dir: site` deleted fifteen tracked files on the first run.** `site/` already exists in this
+repository and holds the release page's screenshots, and `mkdocs build` *cleans* its output directory
+before writing. Restored with `git checkout`, and the output now goes to `build/docs/` - which is
+gitignored already and, less obviously, is skipped by the trademark scanner. That second part matters:
+the generated search index contains every word in the docs, so it picked up a mark that only
+`faq.md`'s disclaimer is allowed to name, and the check failed on generated output. Both problems had
+the same cause, which was choosing an output directory without looking to see whether it was free.
+
+Also fixed while strict mode complained: `docs/engine.md` linked to `../CLAUDE.md`, which is not a
+published page, and `docs/` holds three files that should never be on a public site - a superseded
+plan, design material for a game deleted on 2026-09-21, and somebody's `.local` notes. Those are
+excluded by name rather than by hoping nobody adds them to the nav.
+
+**Agreed next, not yet built:** one page per chapter rather than one 260-function page (the member
+tree cannot list members that are not pages), and **both languages shown with a selector** - the
+generator already parses `quarrowen.d.ts` for real TypeScript signatures and `bindings.json` carries
+every JavaScript method's argument kinds, defaults and the GDScript name it maps to, plus a `refused`
+list of the two it cannot reach. So both signatures are derivable rather than invented. The staleness
+test compares whole files and will need to compare a set.

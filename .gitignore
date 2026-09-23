@@ -23,3 +23,6 @@ deploy/*/mods/
 *.log
 logs/
 backups/
+
+# Documentation site virtualenv (see requirements-docs.txt)
+.venv-docs/
