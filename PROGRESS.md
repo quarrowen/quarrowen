@@ -5723,3 +5723,34 @@ templates; nothing about this is ours.
 which is better verification than a simulator anyway (real GPU, real thermals, real touch). A free
 Apple ID gives seven-day provisioning if the paid one is inconvenient. The simulator path can be
 revisited if Godot ships an arm64-simulator template.
+
+### Getting onto a real iPad: the order the gates open in (2026-09-23)
+
+Four separate gates, each reporting an error that says nothing about the next one, so they can only be
+found one at a time. In order:
+
+1. **No Apple ID in Xcode** - *"No Accounts: Add a new account in Accounts settings."* Signing in
+   fixes it, and the error then *changes*, which is how you know it worked.
+2. **No device registered to the team** - *"Communication with Apple failed: Your team has no devices
+   from which to generate a provisioning profile."* Connecting the iPad is not enough on its own.
+3. **Developer Mode off on the device** - and this one is invisible from the error above, which still
+   says "no devices". The tell is `xcrun devicectl list devices`, which reports **`connected (no
+   DDI)`** rather than `connected`, and `devicectl list devices -v` which says
+   `developerModeStatus: disabled`. Settings > Privacy & Security > Developer Mode, then a restart.
+   Required since iOS 16; the menu only appears after a Mac has tried a development connection.
+4. **Registering the device still needs the Xcode GUI once.** With the account signed in, the device
+   connected and Developer Mode on, `xcodebuild -allowProvisioningUpdates` *still* reported "your
+   team has no devices". The signing identity and team were verified correct at that point
+   (`security find-identity -v -p codesigning` matches `APPLE_TEAM_ID`), so it is the registration
+   itself that will not happen headlessly. Opening the generated project and pressing Run registers
+   the device; after that the headless path should work.
+
+**Which makes `tools/package_ios.sh` wrong for first-time setup, and worth changing.** Its header
+says "this script's job ends where Xcode's begins" - but it then runs `xcodebuild archive` through
+Godot's export, which needs a provisioning profile that cannot exist until a device is registered,
+which needs Xcode. Chicken and egg. It should generate the project and stop unless asked to archive,
+with `--archive` for the case where provisioning is already set up.
+
+**Unverified and worth knowing:** the iPad is on **iPadOS 27.0** while Xcode 26.3 carries the iOS
+26.2 SDK. Nothing has failed on this yet, but if Run reports an unsupported OS version, that is the
+next wall and the fix is updating Xcode.
