@@ -5480,3 +5480,48 @@ again worth an hour.
 running, and two concurrent runs deadlocked on `--import`. And I killed a `tools/build_native.sh`
 mid-flight, which does `rm -f` then `cp` - so `native/bin/` was left **empty**, and with the extension
 now mandatory that is a much worse state than it used to be. Rebuild after killing a build.
+
+## `base` gets its fauna (2026-09-23)
+
+Thirteen creatures, from the models kept back on 21 September because no script can regenerate them.
+`base` had **no entities at all** until now - a world you can build in but where nothing moves is a
+diorama.
+
+### Naming, which the user asked to be careful about
+
+*"keep in mind the points about making sure we don't step on the toes of..."* - so the rule applied
+was stricter than the trademark check, which only looks for names in text. The check passes (0
+places), but the real risk is *looking* derivative, and that is a design decision rather than a grep:
+
+- **Real animals keep real names.** Pig, sheep, cow, chicken, wolf, spider. Nobody owns sheep, and a
+  child has to recognise one.
+- **The genre's three iconic monsters are re-themed**, because that trio together is the thing that
+  would read as a copy. The bouncing blob is a **Mirelet**, a marsh creature, which is also what
+  makes the marsh biome worth having. The dried-out wanderer is a **Dustling**. The bowman is a
+  **Clatterjack**. Their models are reused; their names, characters and roles are this world's.
+- **Night Stalker, Boomshroom and Ancient Colossus** were this project's own inventions already and
+  keep their names.
+
+### The same architectural mistake, a third time in one day
+
+The first version registered the creatures *and* their spawn rules in `base`, and the suite caught it
+in a way that took a minute to read and was worth every second: **"a save spread over 1000 ticks
+finishes"** failed, with 0 of 12 chunks written.
+
+Spawn rules attach to the **realm**, exactly as ore passes and generation passes do. So `base`'s
+rules fired in the Proving Ground's flat test world, mobs wandered through it, chunks were dirtied
+faster than the save queue could drain, and the queue never emptied. Nothing about the failure
+mentioned mobs.
+
+That is three for one day - the generator, the ore and deepstone passes, and now spawning - and they
+are all the same sentence: **anything that attaches to the realm is a rule, whatever it looks like.**
+`base` declares that a Mirelet exists; `creative` decides where one lives. The rules are written out
+in full in `mods/creative/main.gd` and are inert there, because that game turns `mob_spawning` off -
+kept anyway so a survival game starts from something that works.
+
+### Worth knowing
+
+- `pig` drops nothing yet (`["base:apple", 0, 0.0]` is a placeholder weight); food is a game's
+  business and there is no cooked meat to drop to.
+- The sheep drops **white cloth**, since `base` now has sixteen colours of it. Dyeing is a rule.
+- The wolf is tameable with apples, because a child with a dog is a different game from one without.

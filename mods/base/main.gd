@@ -9,6 +9,7 @@ const Graves = preload("graves.gd")
 const Openings = preload("openings.gd")
 const Colours = preload("colours.gd")
 const Worldgen = preload("worldgen.gd")
+const Creatures = preload("creatures.gd")
 ## Iron gear needs an anvil beside the table; iron armor also needs a Sturdy Workbench.
 ## Iron gear can also be forged by hand at the anvil for better quality (the "forging" minigame).
 ## [name, slot, ...] - the armor pieces every armor-bearing material gets, in the order their numbers
@@ -21,6 +22,7 @@ var graves := Graves.new()
 var openings := Openings.new()
 var colours := Colours.new()
 var worldgen := Worldgen.new()
+var creatures := Creatures.new()
 
 
 func setup(api) -> void:
@@ -111,6 +113,8 @@ func setup(api) -> void:
 	colours.setup(api, {"dirt": dirt, "stone": stone})
 	# Last: every block a biome names has to exist before the biome is registered.
 	worldgen.setup(api)
+	# After farming, whose wheat and seeds the animals breed on.
+	creatures.setup(api)
 
 
 ## A charm slot, and three things to put in it.

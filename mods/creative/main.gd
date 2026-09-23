@@ -23,6 +23,7 @@ const SEA_LEVEL := 62
 
 func setup(api) -> void:
 	_world(api)
+	_who_lives_here(api)
 	# Nothing that interrupts building. Mobs still exist as content, they simply are not spawned -
 	# a child placing blocks on a cliff does not want a skeleton arriving.
 	api.set_gameplay({
@@ -109,3 +110,37 @@ class DeepStone:
 					var at := Chunk.index(x, y, z) << 1
 					if chunk.blocks.decode_u16(at) == stone:
 						chunk.blocks.encode_u16(at, deep)
+
+
+## Where `base`'s creatures live.
+##
+## **A game's decision, like the generator.** Spawn rules attach to the realm rather than to a biome,
+## so rules written in `base` fire in every world built on it - which is how the Proving Ground's flat
+## test world ended up with mobs wandering through it, dirtying chunks fast enough that a save queue
+## never drained. (2026-09-23)
+##
+## They are all here and all inert, because this game sets `mob_spawning: false` - a builder does not
+## want a skeleton archer arriving. They are written down anyway so a survival game can start from
+## something that works rather than from an empty file, and so that turning spawning back on in a
+## creative world is one setting rather than an afternoon.
+func _who_lives_here(api) -> void:
+	for animal in [["pig", 3], ["sheep", 4], ["cow", 3], ["chicken", 4]]:
+		api.add_spawn_rule({"entity": "base:" + String(animal[0]), "category": "animal", "time": "day",
+			"place": "surface", "on": ["base:grass"], "group": [2, int(animal[1])],
+			"max_nearby": 4, "chance": 0.02})
+	api.add_spawn_rule({"entity": "base:wolf", "category": "animal", "place": "surface",
+		"on": ["base:grass", "base:snow"], "group": [1, 3], "max_nearby": 2, "chance": 0.008})
+	# The marsh is the Mirelet's, which is what makes a marsh worth naming.
+	api.add_spawn_rule({"entity": "base:mirelet", "category": "monster", "place": "surface",
+		"on": ["base:grass", "base:dirt"], "group": [2, 4], "max_nearby": 4, "chance": 0.012})
+	for monster in ["dustling", "clatterjack", "spider", "goblin"]:
+		api.add_spawn_rule({"entity": "base:" + monster, "category": "monster", "time": "night",
+			"group": [1, 3], "max_nearby": 3, "chance": 0.02})
+	# Underground, at any hour, because a cave does not care what time it is.
+	for deep in ["dustling", "clatterjack", "spider"]:
+		api.add_spawn_rule({"entity": "base:" + deep, "category": "monster", "place": "underground",
+			"group": [1, 2], "max_nearby": 3, "chance": 0.018})
+	api.add_spawn_rule({"entity": "base:night_stalker", "category": "monster", "time": "night",
+		"place": "surface", "group": [1, 1], "max_nearby": 1, "chance": 0.004})
+	api.add_spawn_rule({"entity": "base:boomshroom", "category": "monster", "time": "night",
+		"group": [1, 2], "max_nearby": 2, "chance": 0.01})

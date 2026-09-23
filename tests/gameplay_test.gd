@@ -4388,6 +4388,14 @@ func _base_is_nouns() -> void:
 		"raw materials and colours are nouns, so they stayed")
 	_check(server.registry.id_of("simple_machines:furnace") < 0 and server.items.id_of("simple_gear:iron_pickaxe") < 0,
 		"while the machines and the gear did not come with it")
+	# Fauna is a noun too, and "everything still exists" has to include the things that move. base had
+	# no entities at all until 2026-09-23 - they went with the deleted games.
+	var creatures := 0
+	for name in ["base:sheep", "base:cow", "base:pig", "base:chicken", "base:wolf", "base:dustling",
+			"base:clatterjack", "base:mirelet", "base:night_stalker", "base:colossus"]:
+		if server.entities.registry.id_of(name) >= 0:
+			creatures += 1
+	_check(creatures == 10, "and the world still has things living in it (%d of 10)" % creatures)
 	server.queue_free()
 	await get_tree().process_frame
 
