@@ -175,16 +175,21 @@ func _the_rare_ones(api) -> void:
 	# perhaps two percent of columns, times 0.0006 a second, is a creature that exists on paper.
 	# (2026-09-23, found by reading spawning.gd rather than by playing - which is the only way this
 	# kind of mistake gets found, because nothing about it fails.)
-	# No `time` on this one, following the deep rules above: a cave does not care what hour it is, and
-	# underground *is* night, which is the whole reason the four are night creatures.
-	api.add_spawn_rule({"entity": "base:barrow_warden", "category": "monster",
-		"place": "underground", "on": ["base:stone", "base:deepstone", "base:gravel"],
-		"max_nearby": 1, "max_total": 1, "chance": 0.0006})
-	# The surface one stays as the rarer half, because meeting one standing by a boulder under the sky
-	# is a better story than meeting one in a tunnel - it is just not a thing to rely on.
+	# **The Warden cannot go underground, and the reason is its shoulders.** An underground rule was
+	# tried and measured worse than the surface one it was meant to rescue - 0.2% against 4.2%
+	# (`tools/spawn_probe.tscn`). It is nothing to do with the block list: the Dustling, 0.7 wide,
+	# finds a cave spot 35% of the time, while the Spider, 0.7 *tall* and 1.1 wide, manages 2.2%. Caves
+	# here are narrow, `find_spot` only clears two blocks of headroom before `collides` judges the
+	# whole body, and this one is 1.1 by 2.4. So it stays above ground, which suits a thing that comes
+	# up out of a burial mound anyway. (2026-09-23)
+	#
+	# `chance` is ten times its siblings' to pay for the block list: 4.2% of attempts find anywhere to
+	# stand, against 99% for the Wisp, so the same number would make it ten times rarer rather than
+	# equally rare. 0.006 x 0.042 is about one an hour of darkness per player, which across a handful
+	# of nights is the "not a lot" that was asked for.
 	api.add_spawn_rule({"entity": "base:barrow_warden", "category": "monster", "time": "night",
 		"place": "surface", "on": ["base:stone", "base:gravel", "base:cobblestone"],
-		"max_nearby": 1, "max_total": 1, "chance": 0.0006})
+		"max_nearby": 1, "max_total": 1, "chance": 0.006})
 	# The harmless one is the least rare of the four and needs no darkness to stand in: `light` is
 	# widened past the monster default because it is an animal and animals want light to spawn in,
 	# while this one wants the night without minding the moon.

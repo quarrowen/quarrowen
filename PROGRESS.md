@@ -5610,8 +5610,47 @@ the curios are *for* is a game's business; `base` says they exist.
   `on: [stone, gravel, cobblestone]`, when every biome's `surface.top` is grass, sand, snow or gravel
   - so exposed stone and cobblestone come almost only from boulder features. And `find_spot` abandons
   the whole attempt when the first standing spot it finds is not in `on`, rather than carrying on up
-  the column. It now has a second rule underground, where stone is everywhere, and that is the one
-  that will actually fire; the surface rule stays as the rarer half. Found by reading `spawning.gd`
-  while answering a question about chunk loading, which is the only way this kind of mistake gets
-  found - a rule that never fires produces no error, no warning and no test failure.
+  the column. Found by reading `spawning.gd` while answering a question about chunk loading, which is
+  the only way this kind of mistake gets found unaided: a rule that never fires produces no error, no
+  warning and no test failure.
+
+### Reading the code diagnosed it and then got the fix wrong, which is the lesson
+
+The first fix was a second rule **underground**, where stone is everywhere. That reasoning was sound
+and the result was worse: measured, underground is **0.2%** against the surface rule's 4.2%.
+
+The block list was never the problem down there. The Dustling, 0.7 wide, finds a cave spot 35% of the
+time; the **Spider, 0.7 tall and 1.1 wide, manages 4%**. Caves here are narrow, `find_spot` clears
+only two blocks of headroom before `collides` judges the whole body, and the Warden is 1.1 by 2.4. It
+simply does not fit. So it stays above ground - which suits a thing that comes up out of a burial
+mound - with `chance` raised tenfold to 0.006 to pay for the block list: 4% of attempts finding
+anywhere to stand, against 99% for the Wisp, means the same number would have made it ten times
+rarer rather than equally rare.
+
+**The honest version of what happened**: the user asked *"did you verify that the mob indeed spawned?
+tested?"* and the answer was no. The Proving Ground spawns its notable creature with
+`entities.spawn()` directly, so the announce-mark-follow-expire path is genuinely covered and
+**natural spawning was not tested at all** - and creative sets `mob_spawning: false`, so nothing in
+the suite ever runs `spawning.run()` against these rules. Both the diagnosis and the fix were
+reasoned from reading `find_spot`. One was right and one was backwards, and there was no way to tell
+which without measuring.
+
+### `tools/spawn_probe.tscn`
+
+So that is now a tool, because this is the second time in one day the same class of mistake has been
+made and the first time anything could see it:
+
+```sh
+godot --headless --path . res://tools/spawn_probe.tscn -- [game]
+```
+
+It generates a real world, then asks `find_spot` 400 times per rule and prints how often there is
+anywhere to stand, and on what. It deliberately does **not** roll `chance` - it measures the half a
+rule's author gets wrong, and `chance` multiplies in afterwards.
+
+Two things it taught about itself, both the same shape as the bug it was built for: probed at night,
+every animal rule read 0.0%, which is correct behaviour (animals want light 9-15) and would have been
+five false alarms; and a `time: "any"` rule only has to work at *some* hour, so it is tried at both
+and reported at the better one. **A 0.0% row now means a rule that can never place anything.** There
+are none.
 - The Proving Ground's `proving:quarry` uses `minutes: 0.05` so a test can sit through the clock.
