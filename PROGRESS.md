@@ -6020,3 +6020,47 @@ it. Safe in that order because both use a worktree on the same branch and git pe
 
 **Not yet done:** nothing has been published. The dry run reports 32 files and ~20k lines, all under
 `docs/`. The first real publish is a button somebody presses.
+
+## Firstlight: the survival game exists (2026-09-24)
+
+`mods/firstlight/`, and it **registers no blocks and no items** - the same test as `creative` from the
+other side. Creative proves the content works with no rules at all; this proves the rules are all a
+game has to bring. 27 of 27 green, `validate:firstlight` picked up automatically.
+
+**The name is the design.** What a survival game is about, for a child, is the first dawn: the dark is
+frightening, you shelter, and then it is morning and you managed it. Everything is tuned to make that
+land and then repeat at a larger scale - the first night, the first cave, the first announcement.
+
+### The three rules that are not the obvious choice
+
+- **`keep_inventory: false`, which is gentler than it sounds.** `base` gives a death a **grave**: a
+  container block holding everything, openable only by the player who died. Dying costs the walk back
+  and the nerve to make it, not an evening's work. A consequence a child can recover from is one they
+  take seriously; one they cannot is a child who stops playing.
+- **`pvp: false`.** Two siblings on one server.
+- **`mob_griefing: false`.** A Boomshroom taking a wall out of the house they spent an evening on is
+  the most demoralising thing this genre does to a new player. It still goes off and still hurts; it
+  cannot unbuild anything.
+
+And one the user may want to overrule: **`sleep_percentage: 50`** rather than 100, so that either
+child can end a night rather than either child being able to hold the other in the dark.
+`starvation_min_health: 1.0` is the engine default and stays: hunger hurts and stops one hit short of
+killing you, which is what lets it be pressure rather than cruelty.
+
+### Measured, not assumed
+
+`tools/spawn_probe.tscn -- firstlight`: every rule can place its creature, no 0.0% rows, Barrow Warden
+at 5.0% with the tenfold `chance` that pays for its block list. **The rare four fire here for the
+first time** - `creative` sets `mob_spawning: false`, so in that game they have never once appeared.
+
+### Next, and the decision it needs
+
+The **curios as sidegrades**, which is the design the user chose and the thing this game is missing.
+The question is where the gear lives: `simple_gear` owns *what an iron pickaxe is*, so an Emberheart
+tool is its business and Firstlight should own only the progression. Registering them in Firstlight
+would mean the game registering items, which is the line its own header says it does not cross. What
+the engine can express - "never wears out", "shrugs off knockback" - needs checking before writing it.
+
+Sketch, unchanged: Emberheart a tool that never wears but mines no faster than iron; Warden Core
+armour that shrugs off knockback and is heavy; Moonpearl something that helps at night; Hollow Reed
+probably not gear at all.
