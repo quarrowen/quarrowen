@@ -1,0 +1,13 @@
+{
+	"id": "simple_machines",
+	"name": "Simple Machines",
+	"version": "1.0.0",
+	"description": "Workbenches, furnaces, containers and signals. The verbs a game does with base's nouns. Not a game on its own.",
+	"kind": "library",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.0",
+	"depends": ["base@^1.0"],
+	"main": "main.gd"
+}

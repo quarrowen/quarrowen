@@ -1019,7 +1019,7 @@ func _farming() -> void:
 	var found := BlockTicks.scan(blocks, PackedInt32Array([44, 300]))
 	_check(found.size() == 2 and found[Chunk.index(3, 40, 5)] == 300 and found[Chunk.index(9, 70, 1)] == 44, "tick index finds exactly the listed block ids (%s)" % found)
 
-	var server = _start("farming_%d" % Time.get_ticks_msec(), ["base", "proving"])
+	var server = _start("farming_%d" % Time.get_ticks_msec(), ["base", "simple_machines", "proving"])
 	var ticks = server.block_ticks
 	var reg = server.registry
 	var farmland: int = reg.id_of("base:farmland")
@@ -1118,7 +1118,7 @@ func _containers() -> void:
 	p.state.position = Vector3(8.5, y + 1, 8.5)
 	p.edit_tokens = 100.0
 	var chest_pos := Vector3i(10, y + 1, 8)
-	server.set_block_authoritative(chest_pos, reg.id_of("base:chest"))
+	server.set_block_authoritative(chest_pos, reg.id_of("simple_machines:chest"))
 	var cobble: int = items.id_of("base:cobblestone")
 	var coal: int = items.id_of("base:coal")
 	p.inventory.set_slot(0, cobble, 40)
@@ -1143,8 +1143,8 @@ func _containers() -> void:
 	# hand rather than through the server's tick, so it has to work out that set itself.
 	server._refresh_simulation()
 	var furnace_pos := Vector3i(10, y + 1, 10)
-	var furnace: int = reg.id_of("base:furnace")
-	var furnace_lit: int = reg.id_of("base:furnace_lit")
+	var furnace: int = reg.id_of("simple_machines:furnace")
+	var furnace_lit: int = reg.id_of("simple_machines:furnace_lit")
 	var ore: int = items.id_of("base:iron_ore")
 	var ingot: int = items.id_of("base:iron_ingot")
 	server.set_block_authoritative(furnace_pos, furnace)
@@ -1182,7 +1182,7 @@ func _containers() -> void:
 	p.inventory.set_slot(1, items.id_of("base:stick"), 4)
 	_check(recipe.station == "crafting_table" and not server._can_craft(p, recipe), "a pickaxe needs a crafting table")
 	var table_pos := Vector3i(8, y + 1, 10)
-	server.set_block_authoritative(table_pos, reg.id_of("base:crafting_table"))
+	server.set_block_authoritative(table_pos, reg.id_of("simple_machines:crafting_table"))
 	p.hurt_timer = 0.0
 	server.on_interact(81, table_pos)
 	_check(p.crafting_station.get("name") == "crafting_table" and server._can_craft(p, recipe),
@@ -1192,7 +1192,7 @@ func _containers() -> void:
 	# The table draws ingredients from a chest beside it; craft-all makes as many as it can.
 	p.inventory.clear()
 	var chest_near := table_pos + Vector3i(1, 0, 0)
-	server.set_block_authoritative(chest_near, reg.id_of("base:chest"))
+	server.set_block_authoritative(chest_near, reg.id_of("simple_machines:chest"))
 	var near_chest = server.containers.get_container(chest_near)
 	near_chest.set_item(0, items.id_of("base:planks"), 9)
 	near_chest.set_item(1, items.id_of("base:stick"), 10)
@@ -1222,7 +1222,7 @@ func _stations() -> void:
 				server.set_block_authoritative(Vector3i(x, y + dy, z), 0)
 			server.set_block_authoritative(Vector3i(x, y, z), reg.id_of("base:stone"))
 	var table := Vector3i(10, y + 1, 8)
-	server.set_block_authoritative(table, reg.id_of("base:crafting_table"))
+	server.set_block_authoritative(table, reg.id_of("simple_machines:crafting_table"))
 	var ingot: int = items.id_of("base:iron_ingot")
 	p.inventory.set_slot(0, ingot, 20)
 	p.inventory.set_slot(1, items.id_of("base:stick"), 8)
@@ -1233,30 +1233,30 @@ func _stations() -> void:
 	_check(info.tier == 1 and info.features.is_empty() and info.available.size() == 3 and info.next.title == "Sturdy Workbench",
 		"a plain crafting table is tier 1 with three possible upgrades")
 	_check(not server._can_craft(p, iron_pick), "iron tools need metalwork")
-	server.set_block_authoritative(table + Vector3i(2, 0, 0), reg.id_of("base:anvil"))
+	server.set_block_authoritative(table + Vector3i(2, 0, 0), reg.id_of("simple_machines:anvil"))
 	server.on_interact(83, table)
 	info = p.crafting_station
 	_check(info.features.has("metalwork") and is_equal_approx(info.quality, 0.1) and info.detected.size() == 1, "an anvil nearby adds metalwork and quality")
 	_check(server._can_craft(p, iron_pick) and not server._can_craft(p, chestplate), "metalwork unlocks iron tools but armor needs tier 2")
 	var far_chest := table + Vector3i(0, 0, 5)
-	server.set_block_authoritative(far_chest, reg.id_of("base:chest"))
+	server.set_block_authoritative(far_chest, reg.id_of("simple_machines:chest"))
 	server.containers.get_container(far_chest).set_item(0, items.id_of("base:planks"), 3)
 	_check(not server.crafting_stock(p).has(items.id_of("base:planks")), "a chest 5 blocks away is out of reach")
-	server.set_block_authoritative(table + Vector3i(-1, 0, 0), reg.id_of("base:tool_rack"))
+	server.set_block_authoritative(table + Vector3i(-1, 0, 0), reg.id_of("simple_machines:tool_rack"))
 	server.on_interact(83, table)
 	_check(server.crafting_stock(p).get(items.id_of("base:planks")) == 3 and p.crafting_station.speed > 0.1, "a tool rack reaches further chests and speeds crafting")
 
-	p.inventory.set_slot(2, items.id_of("base:reinforced_frame"), 1)
+	p.inventory.set_slot(2, items.id_of("simple_machines:reinforced_frame"), 1)
 	server.on_station_action(83, "upgrade")
-	_check(server.world.get_block_v(table) == reg.id_of("base:sturdy_workbench") and p.inventory.count_of(items.id_of("base:reinforced_frame")) == 0
+	_check(server.world.get_block_v(table) == reg.id_of("simple_machines:sturdy_workbench") and p.inventory.count_of(items.id_of("simple_machines:reinforced_frame")) == 0
 		and p.crafting_station.tier == 2 and p.crafting_station.next.is_empty(), "a reinforced frame upgrades the table to a Sturdy Workbench")
 	_check(server._can_craft(p, chestplate), "the Sturdy Workbench with an anvil makes iron armor")
 
 	# Multiblock: the forge only works once its bricks are in place (any rotation).
-	var anvil_recipe: Dictionary = server.recipes.recipes[server.recipes.index_of("base:anvil")]
+	var anvil_recipe: Dictionary = server.recipes.recipes[server.recipes.index_of("simple_machines:anvil")]
 	var brick: int = reg.id_of("base:brick")
 	var core := Vector3i(15, y + 1, 12)
-	server.set_block_authoritative(core, reg.id_of("base:forge"))
+	server.set_block_authoritative(core, reg.id_of("simple_machines:forge"))
 	p.state.position = Vector3(13.5, y + 1, 12.5)
 	server.on_interact(83, core)
 	_check(p.crafting_station.structure.missing == 6 and not server._can_craft(p, anvil_recipe), "an unfinished forge lists 6 missing bricks and cannot forge")
@@ -1294,14 +1294,14 @@ func _coop() -> void:
 	var cy: ServerPlayer = crew[2]
 	ada.team = "red"
 	var table := Vector3i(10, y + 1, 10)
-	server.set_block_authoritative(table, reg.id_of("base:sturdy_workbench"))
-	server.set_block_authoritative(table + Vector3i(2, 0, 0), reg.id_of("base:anvil"))
+	server.set_block_authoritative(table, reg.id_of("simple_machines:sturdy_workbench"))
+	server.set_block_authoritative(table + Vector3i(2, 0, 0), reg.id_of("simple_machines:anvil"))
 	server.sessions.claim(table, ada)
 	for p in crew:
 		server.on_interact(p.peer_id, table)
 	_check(server.sessions.view(table).players.size() == 3, "three players share the station session")
-	server.on_station_coop(bo.peer_id, "view", server.recipes.index_of("base:chest"))
-	_check(server.sessions.view(table).players.any(func(e): return e.name == "Bo" and e.recipe == server.recipes.index_of("base:chest")),
+	server.on_station_coop(bo.peer_id, "view", server.recipes.index_of("simple_machines:chest"))
+	_check(server.sessions.view(table).players.any(func(e): return e.name == "Bo" and e.recipe == server.recipes.index_of("simple_machines:chest")),
 		"the session shows which recipe each player is looking at")
 
 	var planks: int = items.id_of("base:planks")
@@ -1312,8 +1312,8 @@ func _coop() -> void:
 	cy.team = "red"
 	_check(server.sessions.may_take(cy, server.sessions.coop(table), server.sessions.coop(table).tray[0]), "the owner's team can use the tray")
 	cy.team = ""
-	server.craft(bo, server.recipes.index_of("base:chest"))
-	_check(bo.inventory.count_of(items.id_of("base:chest")) == 1 and server.sessions.coop(table).tray.is_empty(), "Bo crafted a chest from his tray planks")
+	server.craft(bo, server.recipes.index_of("simple_machines:chest"))
+	_check(bo.inventory.count_of(items.id_of("simple_machines:chest")) == 1 and server.sessions.coop(table).tray.is_empty(), "Bo crafted a chest from his tray planks")
 
 	# Timed crafts: helpers speed up the queue.
 	var plate: int = server.recipes.index_of("base:iron_chestplate")
@@ -1329,7 +1329,7 @@ func _coop() -> void:
 		"the chestplate finished early thanks to helpers")
 
 	# Projects: several players contribute; completion lists who helped.
-	var index: int = server.add_recipe({planks: 10, items.id_of("base:cobblestone"): 4}, items.id_of("base:furnace"), 1, "crafting_table", {"project": true, "id": "test:furnace_project"})
+	var index: int = server.add_recipe({planks: 10, items.id_of("base:cobblestone"): 4}, items.id_of("simple_machines:furnace"), 1, "crafting_table", {"project": true, "id": "test:furnace_project"})
 	var completed := []
 	server.add_handler("project_completed", func(ev): completed.append(ev), 0)
 	_check(server.craft(ada, index) == 0, "projects cannot be crafted directly")
@@ -1359,7 +1359,7 @@ func _discovery() -> void:
 	p.edit_tokens = 100.0
 	var learned := []
 	server.add_handler("recipe_learned", func(ev): learned.append([ev.recipe, ev.source]), 0)
-	_check(p.knows_recipe("base:planks") and p.knows_recipe("base:crafting_table") and not p.knows_recipe("base:chest"),
+	_check(p.knows_recipe("base:planks") and p.knows_recipe("simple_machines:crafting_table") and not p.knows_recipe("simple_machines:chest"),
 		"basics are known from the start, the rest is not")
 	var gravel_recipe: Dictionary = server.recipes.recipes[server.recipes.index_of("base:gravel")]
 	p.inventory.set_slot(0, items.id_of("base:cobblestone"), 4)
@@ -1368,22 +1368,22 @@ func _discovery() -> void:
 	_check(p.knows_recipe("base:gravel") and learned.has(["base:gravel", "pickup"]) and server.craftable_times(p, gravel_recipe) == 4,
 		"holding cobblestone discovered what it makes")
 	p.inventory.set_slot(1, items.id_of("base:brick"), 6)
-	p.inventory.set_slot(2, items.id_of("base:furnace"), 1)
+	p.inventory.set_slot(2, items.id_of("simple_machines:furnace"), 1)
 	p.sync_inventory()
-	_check(not p.knows_recipe("base:forge"), "blueprint recipes are not discovered by picking up ingredients")
-	p.inventory.set_slot(3, items.id_of("base:forge_plans"), 1)
+	_check(not p.knows_recipe("simple_machines:forge"), "blueprint recipes are not discovered by picking up ingredients")
+	p.inventory.set_slot(3, items.id_of("simple_machines:forge_plans"), 1)
 	p.inventory.selected = 3
 	server.on_use_item(95, false, Vector3i.ZERO, Vector3i.ZERO)
-	_check(p.knows_recipe("base:forge") and p.knows_recipe("base:anvil") and p.inventory.count_of(items.id_of("base:forge_plans")) == 0,
+	_check(p.knows_recipe("simple_machines:forge") and p.knows_recipe("simple_machines:anvil") and p.inventory.count_of(items.id_of("simple_machines:forge_plans")) == 0,
 		"reading forge plans taught the forge and the anvil and used them up")
 	# A generic blueprint: any item with `teaches` in its item data.
-	p.inventory.set_slot(3, items.id_of("base:workbench_plans"), 1, {"teaches": ["base:iron_chestplate"], "name": "Armorer's Notes"})
+	p.inventory.set_slot(3, items.id_of("simple_machines:workbench_plans"), 1, {"teaches": ["base:iron_chestplate"], "name": "Armorer's Notes"})
 	server.on_use_item(95, false, Vector3i.ZERO, Vector3i.ZERO)
-	_check(p.knows_recipe("base:iron_chestplate") and not p.knows_recipe("base:reinforced_frame"), "item data can carry which recipes a blueprint teaches")
+	_check(p.knows_recipe("base:iron_chestplate") and not p.knows_recipe("simple_machines:reinforced_frame"), "item data can carry which recipes a blueprint teaches")
 	server._store_player(p)
-	_check(server._meta.players.scholar.recipes.has("base:forge") and server._meta.players.scholar.seen_items.has("base:brick"), "discoveries are saved")
+	_check(server._meta.players.scholar.recipes.has("simple_machines:forge") and server._meta.players.scholar.seen_items.has("base:brick"), "discoveries are saved")
 	p.inventory.creative = true
-	_check(p.knows_recipe("base:reinforced_frame"), "creative players know every recipe")
+	_check(p.knows_recipe("simple_machines:reinforced_frame"), "creative players know every recipe")
 	server.queue_free()
 	await get_tree().process_frame
 
@@ -1412,7 +1412,7 @@ func _experiments() -> void:
 	var result: Dictionary = attempt.call([stick, 0, 0, coal, 0, 0, 0, 0, 0])
 	_check(result.status == "close" and result.hint.contains("arranged"), "the right items in the wrong arrangement get a hint (%s)" % result.hint)
 	result = attempt.call([0, coal, 0, 0, stick, 0, 0, 0, 0])
-	_check(result.status == "discovered" and p.knows_recipe("base:torch") and server.recipes.recipes[result.recipe].output == reg.id_of("base:torch"),
+	_check(result.status == "discovered" and p.knows_recipe("simple_machines:torch") and server.recipes.recipes[result.recipe].output == reg.id_of("base:torch"),
 		"coal above a stick (anywhere in the grid) discovers torches")
 	result = attempt.call([0, 0, 0, 0, 0, coal, 0, 0, stick])
 	_check(result.status == "known", "trying a known recipe says so and allows crafting it")
@@ -1427,13 +1427,13 @@ func _experiments() -> void:
 	_check(lab.experiment(p, [coal, 0, 0, stick, 0, 0, 0, 0, 0]).status == "invalid", "experiments have a short cooldown")
 	# Blueprint recipes cannot be experimented into existence.
 	var table := Vector3i(10, y + 1, 8)
-	server.set_block_authoritative(table, reg.id_of("base:crafting_table"))
+	server.set_block_authoritative(table, reg.id_of("simple_machines:crafting_table"))
 	server.on_interact(96, table)
 	p.inventory.set_slot(3, items.id_of("base:brick"), 6)
-	p.inventory.set_slot(4, items.id_of("base:furnace"), 1)
+	p.inventory.set_slot(4, items.id_of("simple_machines:furnace"), 1)
 	var brick: int = items.id_of("base:brick")
-	result = attempt.call([brick, brick, brick, brick, items.id_of("base:furnace"), brick, brick, 0, 0])
-	_check(result.status == "blueprint" and not p.knows_recipe("base:forge"), "matching a blueprint recipe says plans are needed")
+	result = attempt.call([brick, brick, brick, brick, items.id_of("simple_machines:furnace"), brick, brick, 0, 0])
+	_check(result.status == "blueprint" and not p.knows_recipe("simple_machines:forge"), "matching a blueprint recipe says plans are needed")
 	server.queue_free()
 	await get_tree().process_frame
 
@@ -1593,8 +1593,8 @@ func _skill_crafting() -> void:
 	helper.state.position = Vector3(9.5, y + 1, 9.5)
 	p.edit_tokens = 100.0
 	var table := Vector3i(10, y + 1, 8)
-	server.set_block_authoritative(table, reg.id_of("base:crafting_table"))
-	server.set_block_authoritative(table + Vector3i(2, 0, 0), reg.id_of("base:anvil"))
+	server.set_block_authoritative(table, reg.id_of("simple_machines:crafting_table"))
+	server.set_block_authoritative(table + Vector3i(2, 0, 0), reg.id_of("simple_machines:anvil"))
 	p.inventory.set_slot(0, items.id_of("base:iron_ingot"), 20)
 	p.inventory.set_slot(1, items.id_of("base:stick"), 32)
 	helper.edit_tokens = 100.0
@@ -1894,11 +1894,11 @@ func _guide() -> void:
 	var server = _start("guide_%d" % Time.get_ticks_msec())
 	var guide = server.guide
 	var reg = guide.registry
-	_check(not reg.get_chapter("base:basics").is_empty() and not reg.get_page("base:welcome").is_empty(), "mods register guide chapters and pages")
-	_check(reg.chapter_pages("base:basics")[0].id == "base:welcome", "pages are sorted by order")
-	_check(reg.get_page("base:crafting_table").unlock == {"item": "base:planks"}, "unlock references are qualified")
+	_check(not reg.get_chapter("simple_machines:basics").is_empty() and not reg.get_page("simple_machines:welcome").is_empty(), "mods register guide chapters and pages")
+	_check(reg.chapter_pages("simple_machines:basics")[0].id == "simple_machines:welcome", "pages are sorted by order")
+	_check(reg.get_page("simple_machines:crafting_table").unlock == {"item": "base:planks"}, "unlock references are qualified")
 	var api = preload("res://engine/server/mod_api.gd").new(server, {"id": "tester", "dir": "res://tests"})
-	api.register_guide_page("secret", {"chapter": "base:basics", "unlock": {"flag": "found_it"},
+	api.register_guide_page("secret", {"chapter": "simple_machines:basics", "unlock": {"flag": "found_it"},
 		"blocks": [{"type": "items", "items": ["planks", "base:stick"]}, {"type": "bogus"}, {"type": "link", "page": "welcome"}]})
 	var secret: Dictionary = reg.get_page("tester:secret")
 	_check(secret.blocks.size() == 2 and secret.blocks[0].items == ["tester:planks", "base:stick"] and secret.blocks[1].page == "tester:welcome",
@@ -1908,42 +1908,42 @@ func _guide() -> void:
 	server.players[110] = p
 	server.gameplay.recipe_discovery = true
 	guide.sync(p)
-	_check(guide.is_unlocked(p, "base:welcome") and guide.is_unlocked(p, "base:wood"), "pages without conditions start unlocked")
-	_check(not guide.is_unlocked(p, "base:crafting_table") and not guide.is_unlocked(p, "base:food"), "locked pages wait for their condition")
-	_check(not guide.is_unlocked(p, "base:forge"), "recipe pages stay locked while the recipe is unknown")
+	_check(guide.is_unlocked(p, "simple_machines:welcome") and guide.is_unlocked(p, "simple_machines:wood"), "pages without conditions start unlocked")
+	_check(not guide.is_unlocked(p, "simple_machines:crafting_table") and not guide.is_unlocked(p, "simple_machines:food"), "locked pages wait for their condition")
+	_check(not guide.is_unlocked(p, "simple_machines:forge"), "recipe pages stay locked while the recipe is unknown")
 	var unlocked := []
 	api.on("guide_page_unlocked", func(ev): unlocked.append(ev.page))
 	p.inventory.set_slot(0, server.items.id_of("base:planks"), 4)
 	p.sync_inventory()
 	guide.update(2.0)
-	_check(guide.is_unlocked(p, "base:crafting_table") and unlocked.has("base:crafting_table"), "holding an item unlocks its page")
-	guide.on_read(p, "base:crafting_table")
+	_check(guide.is_unlocked(p, "simple_machines:crafting_table") and unlocked.has("simple_machines:crafting_table"), "holding an item unlocks its page")
+	guide.on_read(p, "simple_machines:crafting_table")
 	guide.on_read(p, "tester:secret")
-	_check(guide.state_of(p).last == "base:crafting_table" and not guide.state_of(p).read.has("tester:secret"), "reading remembers the page; locked pages cannot be read")
-	guide.on_read(p, "base:wood")
-	_check(guide.is_unlocked(p, "base:food"), "reading a page unlocks pages that follow it")
-	server.learn_recipe(p, "base:forge")
+	_check(guide.state_of(p).last == "simple_machines:crafting_table" and not guide.state_of(p).read.has("tester:secret"), "reading remembers the page; locked pages cannot be read")
+	guide.on_read(p, "simple_machines:wood")
+	_check(guide.is_unlocked(p, "simple_machines:food"), "reading a page unlocks pages that follow it")
+	server.learn_recipe(p, "simple_machines:forge")
 	guide.update(2.0)
-	_check(guide.is_unlocked(p, "base:forge"), "learning a recipe unlocks its page")
+	_check(guide.is_unlocked(p, "simple_machines:forge"), "learning a recipe unlocks its page")
 	api.set_guide_flag(p, "found_it")
 	_check(guide.is_unlocked(p, "tester:secret") and api.has_guide_flag(p, "found_it"), "mod flags unlock pages")
 	var cow = server.entities.spawn(server.entities.registry.id_of("proving:grazer"), p.state.position + Vector3(3, 0, 0))
-	api.register_guide_page("cows", {"chapter": "base:basics", "unlock": {"entity": "proving:grazer"}, "blocks": []})
+	api.register_guide_page("cows", {"chapter": "simple_machines:basics", "unlock": {"entity": "proving:grazer"}, "blocks": []})
 	guide.update(2.0)
 	_check(cow != null and guide.is_unlocked(p, "tester:cows"), "seeing a mob unlocks its page")
-	_check(api.unlock_guide_page(p, "base:stone_tools", false) and guide.is_unlocked(p, "base:stone_tools"), "mods can unlock pages directly")
+	_check(api.unlock_guide_page(p, "simple_machines:stone_tools", false) and guide.is_unlocked(p, "simple_machines:stone_tools"), "mods can unlock pages directly")
 	server._store_player(p)
 	var saved: Dictionary = server._meta.players.reader.guide
 	var q := ServerPlayer.new(server, 111, "Reader2")
 	guide.load_player(q, JSON.parse_string(JSON.stringify(saved)))
-	_check(guide.is_unlocked(q, "tester:secret") and guide.state_of(q).last == "base:wood" and guide.has_flag(q, "tester:found_it"),
+	_check(guide.is_unlocked(q, "tester:secret") and guide.state_of(q).last == "simple_machines:wood" and guide.has_flag(q, "tester:found_it"),
 		"guide progress is saved")
 	var net: Dictionary = JSON.parse_string(JSON.stringify(reg.to_network()))
 	var copy = preload("res://engine/shared/guide_registry.gd").new()
 	copy.load_network(net)
-	_check(copy.pages.size() == reg.pages.size() and copy.get_page("base:wood").blocks.size() == reg.get_page("base:wood").blocks.size(),
+	_check(copy.pages.size() == reg.pages.size() and copy.get_page("simple_machines:wood").blocks.size() == reg.get_page("simple_machines:wood").blocks.size(),
 		"the guide reaches clients intact")
-	_check(preload("res://engine/shared/guide_registry.gd").page_text(reg.get_page("base:wood")).contains("sticks"), "page text is searchable")
+	_check(preload("res://engine/shared/guide_registry.gd").page_text(reg.get_page("simple_machines:wood")).contains("sticks"), "page text is searchable")
 	server.queue_free()
 	await get_tree().process_frame
 
@@ -2583,7 +2583,7 @@ func _mod_reload() -> void:
 	_write_reload_mod(mod_dir, RELOAD_MOD_A, "hello A")
 	var server := GameServer.new()
 	add_child(server)
-	var err: Error = server.start({"mods": PackedStringArray(["base", "proving", "reloadme"]), "mod_dirs": PackedStringArray([mods_dir, "res://tests/mods"]),
+	var err: Error = server.start({"mods": PackedStringArray(["base", "simple_machines", "proving", "reloadme"]), "mod_dirs": PackedStringArray([mods_dir, "res://tests/mods"]),
 		"world": "reload_%d" % Time.get_ticks_msec(), "data_dir": DATA_DIR, "seed": 42, "offline": true})
 	_check(err == OK, "the reload test mod loads")
 	if err != OK:
@@ -2980,7 +2980,7 @@ func _loot() -> void:
 	# Everyone who opens a dungeon chest gets their own loot, so nobody races a sibling for it.
 	loot.register("test:chest", {"pools": [{"rolls": 2, "entries": [{"item": "base:iron_ingot", "count": [2, 2]}]}]})
 	var chest_at := Vector3i(6, 62, 6)
-	server.set_block_authoritative(chest_at, server.registry.id_of("base:chest"))
+	server.set_block_authoritative(chest_at, server.registry.id_of("simple_machines:chest"))
 	server.set_block_data(chest_at, {"loot": "test:chest", "personal": true, "structure_seed": 99})
 	var ann := ServerPlayer.new(server, 141, "Ann")
 	ann.player_id = "ann"
@@ -3053,7 +3053,7 @@ func _examples() -> void:
 	var ids := ["loot_example", "events_example", "worldgen_example", "ui_example"]
 	if ClassDB.class_exists(&"NativeJsRuntime"):
 		ids.append("js_example")
-	var server = _start("examples_%d" % Time.get_ticks_msec(), ["base", "proving"] + ids, ["res://tests/mods", "res://examples"])
+	var server = _start("examples_%d" % Time.get_ticks_msec(), ["base", "simple_machines", "proving"] + ids, ["res://tests/mods", "res://examples"])
 	server.dev_log.drain()
 	var errors: Array = server.dev_log.sorted_errors().filter(func(e): return ids.has(str(e.source)))
 	_check(errors.is_empty(), "every example loads without errors %s" % str(errors.map(func(e): return e.message).slice(0, 3)))
@@ -3072,7 +3072,7 @@ func _examples() -> void:
 ## forest could not light a furnace with the only trees around them (playtest, 2026-09-16), so this
 ## checks the rule rather than a list: the next wood someone adds is covered too.
 func _fuels() -> void:
-	var server = _start("fuels_%d" % Time.get_ticks_msec(), ["base", "proving"])
+	var server = _start("fuels_%d" % Time.get_ticks_msec(), ["base", "simple_machines", "proving"])
 	var woods := []
 	var cold := []
 	var uncharrable := []
@@ -3667,7 +3667,7 @@ func _assemblies() -> void:
 	var api = _api(server)
 	var reg = server.registry
 	var stone: int = reg.id_of("base:stone")
-	var chest: int = reg.id_of("base:chest")
+	var chest: int = reg.id_of("simple_machines:chest")
 	var y: int = server.surface_height(540, 540) + 3
 	for dx in range(-1, 6):
 		for dz in range(-1, 3):
@@ -3967,7 +3967,10 @@ func _parcels() -> void:
 ## later can add to a group an earlier one defined, and its recipes then accept the new thing.
 func _tags() -> void:
 	var server = _start("tags_%d" % Time.get_ticks_msec())
-	var base_api = server.mod_instances.get("base").signals.api
+	# base's own api handle, because this test is about what a *bare* name qualifies to - which is the
+	# calling mod's namespace. Taken from a submodule base still owns; it used to come from `signals`,
+	# which now belongs to simple_machines. (2026-09-23)
+	var base_api = server.mod_instances.get("base").farming.api
 	_check(base_api.tagged("base:nothing_defines_this").is_empty(), "a tag nobody defined is empty rather than an error")
 
 	base_api.tag("planky", ["base:oak_log"])
@@ -3988,7 +3991,11 @@ func _tags() -> void:
 	# The headline case, end to end: base tags its woods, and a recipe written against the tag turns
 	# into one real recipe per wood once every mod has had its say.
 	var woods: int = base_api.tagged("base:logs").size()
-	_check(woods == 3, "and there are three of them (%d)" % woods)
+	# Four, not three: `base` tags the oak log alongside birch, spruce and acacia. The tag used to be
+	# built by simple_machines out of a constant it read from base's source, and that list happened to
+	# leave the plain log out - so oak burned (a hand-written fuel entry) but could not be charred.
+	# Asking base to say which of its blocks are logs made that inconsistency go away. (2026-09-23)
+	_check(woods == 4, "and there are four of them (%d)" % woods)
 	var before: int = server.recipes.recipes.size()
 	base_api.register_recipe({"#base:logs": 1}, "base:stick", 8, {"id": "tagtest"})
 	_check(server.recipes.recipes.size() == before, "a recipe naming a tag waits rather than resolving early")
@@ -4057,13 +4064,13 @@ func _signals() -> void:
 	_check(sig.level_at(out) == MAX_SIGNAL - 1, "and speaks up when it is not (%d)" % sig.level_at(out))
 	# And the content built on it: a lever, a run of quickdust, a lamp at the end. None of which the
 	# engine knows anything about - they are blocks and handlers in mods/base/signals.gd.
-	var dust: int = reg.id_of("base:quickdust")
-	var dust_lit: int = reg.id_of("base:quickdust_lit")
-	var lever: int = reg.id_of("base:lever")
-	var lamp_off: int = reg.id_of("base:quicklamp")
-	var lamp_lit: int = reg.id_of("base:quicklamp_lit")
+	var dust: int = reg.id_of("simple_machines:quickdust")
+	var dust_lit: int = reg.id_of("simple_machines:quickdust_lit")
+	var lever: int = reg.id_of("simple_machines:lever")
+	var lamp_off: int = reg.id_of("simple_machines:quicklamp")
+	var lamp_lit: int = reg.id_of("simple_machines:quicklamp_lit")
 	_check(dust > 0 and lever > 0 and lamp_off > 0, "the base mod registers quickdust, a lever and a lamp")
-	_check(reg.defs[dust_lit].light > 0 and reg.defs[reg.id_of("base:quickstone")].light > 0,
+	_check(reg.defs[dust_lit].light > 0 and reg.defs[reg.id_of("simple_machines:quickstone")].light > 0,
 		"carrying quickdust and quickstone give off light of their own")
 
 	var row := func(n: int) -> Vector3i: return Vector3i(80 + n, y, 80)
@@ -4073,11 +4080,11 @@ func _signals() -> void:
 	server.set_block_authoritative(row.call(5), lamp_off)
 	_check(server.world.get_block_v(row.call(5)) == lamp_off, "the lamp starts dark")
 
-	var base_mod = server.mod_instances.get("base")
-	base_mod.signals._flip(row.call(0), null)
+	var machines_mod = server.mod_instances.get("simple_machines")
+	machines_mod.signals._flip(row.call(0), null)
 	_check(server.world.get_block_v(row.call(1)) == dust_lit, "flipping the lever lights the dust")
 	_check(server.world.get_block_v(row.call(5)) == lamp_lit, "and the lamp at the end of the run")
-	base_mod.signals._flip(row.call(0), null)
+	machines_mod.signals._flip(row.call(0), null)
 	_check(server.world.get_block_v(row.call(1)) == dust and server.world.get_block_v(row.call(5)) == lamp_off,
 		"flipping it back puts everything out")
 
@@ -5499,7 +5506,7 @@ func _api(server):
 	return preload("res://engine/server/mod_api.gd").new(server, {"id": "tester", "dir": "res://tests"})
 
 
-func _start(world: String, mods := ["base", "proving"], mod_dirs := ["res://tests/mods"]):
+func _start(world: String, mods := ["base", "simple_machines", "proving"], mod_dirs := ["res://tests/mods"]):
 	var server := GameServer.new()
 	add_child(server)
 	var err: Error = server.start({"mods": PackedStringArray(mods), "mod_dirs": PackedStringArray(mod_dirs),

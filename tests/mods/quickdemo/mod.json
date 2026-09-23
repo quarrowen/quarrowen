@@ -3,6 +3,6 @@
 	"name": "Quickdust demo (tests)",
 	"version": "1.0.0",
 	"description": "Builds a lit quickdust circuit in front of the player, for screenshots. Not shipped.",
-	"depends": ["base"],
+	"depends": ["base", "simple_machines"],
 	"game": false
 }

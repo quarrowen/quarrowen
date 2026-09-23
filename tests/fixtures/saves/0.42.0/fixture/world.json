@@ -1,0 +1,174 @@
+{
+	"allowlist": {
+		"enabled": false,
+		"players": {}
+	},
+	"clock": 0.0,
+	"companies": [],
+	"created_at": 1790126797,
+	"fields": [],
+	"format": 2,
+	"game": "proving",
+	"last_played": 1790126797,
+	"links": [],
+	"loot": {
+		"boosts": {},
+		"rate": 1.0
+	},
+	"mod_settings": {},
+	"mod_storage": {},
+	"mods": [
+		"base",
+		"simple_machines",
+		"proving",
+		"proving_js"
+	],
+	"names": {
+		"fixture": "f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1"
+	},
+	"player_roles": {},
+	"players": {
+		"f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1": {
+			"cosmetics": [],
+			"creative": false,
+			"data": {},
+			"exhaustion": 0.0,
+			"guide": {
+				"biomes": [],
+				"entities": [],
+				"flags": [],
+				"last": "",
+				"read": [],
+				"unlocked": []
+			},
+			"health": 20.0,
+			"hunger": 20.0,
+			"items": {
+				"equipment": {
+					"chest": [
+						"base:iron_chestplate",
+						1,
+						{}
+					]
+				},
+				"slots": [
+					[
+						0,
+						"base:stone_sword",
+						1,
+						{}
+					],
+					[
+						1,
+						"base:stone_pickaxe",
+						1,
+						{
+							"damage": 12
+						}
+					],
+					[
+						2,
+						"base:planks",
+						48,
+						{}
+					],
+					[
+						4,
+						"base:iron_ingot",
+						9,
+						{}
+					],
+					[
+						5,
+						"base:apple",
+						3,
+						{}
+					],
+					[
+						9,
+						"proving:token",
+						4,
+						{}
+					],
+					[
+						12,
+						"proving:prod",
+						1,
+						{}
+					],
+					[
+						14,
+						"proving:grain",
+						11,
+						{}
+					],
+					[
+						20,
+						"base:glass",
+						64,
+						{}
+					],
+					[
+						35,
+						"base:coal",
+						2,
+						{}
+					]
+				]
+			},
+			"modifiers": {},
+			"name": "Fixture",
+			"position": [
+				20.5,
+				67.0,
+				23.5
+			],
+			"realm": "",
+			"recipes": [],
+			"saturation": 5.0,
+			"seen_items": [],
+			"server_wear": {},
+			"spawn_bed": null,
+			"spawn_point": null,
+			"tutorial": {
+				"active": "",
+				"done": [],
+				"progress": 0,
+				"step": 0,
+				"stopped": [],
+				"tips": [],
+				"tips_off": false
+			}
+		}
+	},
+	"plots": [],
+	"roles": {
+		"moderator": {
+			"permissions": [
+				"command.kick",
+				"command.players",
+				"command.tp",
+				"command.clearmobs",
+				"command.ugc",
+				"ugc.review",
+				"command.allow",
+				"allowlist.manage",
+				"moderation.alerts",
+				"command.transfer",
+				"proving.prove"
+			]
+		}
+	},
+	"seed": 1234,
+	"shop_stock": {},
+	"stores": {
+		"proving:vault": {
+			"type": "proving:vault"
+		}
+	},
+	"time": [
+		0.5,
+		0.0
+	],
+	"world_markers": {}
+}

@@ -4970,3 +4970,54 @@ is art direction in `base`'s own generator, and the general version stays unbuil
 Coal and charcoal are both dark blobs - distinguishable, but only just. The charms are pouches and
 read as pouches, which is fine but says nothing about what each one does. Neither is *wrong*, and
 guessing at them without the user looking is how the water got eight rounds of work.
+
+## The verb split, part one: `simple_machines` (2026-09-23)
+
+`base` owns nouns and a game owns rules; machines and gear are their own packs. That was settled on
+21 September and this is the first half of making it true. `mods/simple_machines/` now owns the
+workbenches, the furnace, chests, cooking, the forge and the signal blocks - every block whose reason
+for existing is to *act* on something `base` registered.
+
+The test of the line is unchanged and still not met: **a creative game takes `base` alone, ships zero
+recipes, and everything still exists.** `base` still has ~30 recipes and all the tools and armour;
+those leave with `simple_gear`, which is next.
+
+Measured before starting, which is why it was worth doing: of the 290 `base:` references in
+`tests/gameplay_test.gd`, only ~46 name things that move. The churn looked far worse than it was.
+
+### What it cost, and the four things worth keeping
+
+- **A cross-mod `preload`.** `stations.gd` preloaded `base/nature.gd` for its `WOODS` constant - one
+  mod reading another's source. Replaced by a tag: `base` declares which of its blocks are logs,
+  `simple_machines` asks `api.tagged("base:logs")` and decides they burn. A mod that adds a tree now
+  joins in without this pack knowing the tree exists. It also fixed an inconsistency nobody had
+  noticed: the old constant left the plain oak log out, so oak burned (a hand-written fuel entry) but
+  could not be charred.
+- **`api.block("base:quickdust")` after the block moved.** Returns -1, which becomes 65535 as a u16,
+  and 65535 is UNLOADED - so the symptom was a lever that no longer lit its dust, not an error.
+  Exactly the hazard CLAUDE.md describes. These ids are kept in a table, so they use `require_block`
+  now, which says so at load.
+- **Recipe *ids* are namespaced too**, not just blocks. `knows_recipe("base:torch")` became
+  `simple_machines:torch` even though the recipe still outputs `base:torch`. Easy to miss because the
+  output name is the one you read.
+- **A mechanical rename needs a whole-word match and a careful eye.** Rewriting `base:<name>` for the
+  23 names that moved also hit `base:wood` **the sound**, and `base:tool_forge` **the block**, because
+  `wood` and `tool_forge` are also guide *page* ids. Three wrong rewrites, all caught by tests. Two of
+  them would have been silent: a sound that does not exist is not an error, it is silence.
+
+### Deliberate breaks
+
+- **The save format.** A block that changes mods changes its name, and a 0.41.1 chest is now a block
+  no mod claims - so the container at that position is gone. Allowed before 1.0 and done knowingly:
+  the 0.41.1 fixture is dropped and replaced by one written by this build. `GAME_VERSION` is 0.42.0
+  and `Protocol.VERSION` is 51.
+- **The guide moved to `simple_machines` under protest.** It is game content - it teaches crafting,
+  survival and workshops - and its real home is the guided game, which does not exist yet. It could
+  not stay in `base`, because a page about the crafting table has to name the crafting table and
+  `base` may not depend on a pack. Move it the moment there is a game to move it into.
+
+### Four shared textures are written twice, on purpose
+
+An asset path is relative to the mod that names it, and `simple_machines` names planks and brick for
+its benches and its forge. Copying beats reaching into `base`'s folder, and costs almost nothing:
+assets travel to clients by content hash, so two identical files are one transfer.

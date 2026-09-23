@@ -5,8 +5,8 @@ extends Node
 ##     [--yaw=0.8] [--pitch=-0.25] [--commands="/industry demo|/time night"] [--wait=3] [--menu=crafting]
 ##     [--camera=0|1|2] [--avatar='{"wear": {...}}' (join with) | --wear='{...}' (change in game)]
 ##     [--editor=hat (opens the avatar editor on a category)] [--swing=0.12 (capture that long into a swing)]
-##     [--open=base:chest (place and open a block)] [--craft=base:wooden_pickaxe (recipe book on a recipe)]
-##     [--guide=base:wood (the guidebook on a page) [--search=text]] [--settings=Graphics (settings screen on a tab)]
+##     [--open=simple_machines:chest (place and open a block)] [--craft=base:wooden_pickaxe (recipe book on a recipe)]
+##     [--guide=simple_machines:wood (the guidebook on a page) [--search=text]] [--settings=Graphics (settings screen on a tab)]
 
 const GameClient = preload("res://engine/client/game_client.gd")
 
@@ -72,7 +72,7 @@ func _ready() -> void:
 		client._set_inventory_open(true)
 		client._inventory_screen._hovered = int(options.hover)
 	if not String(options.open).is_empty():
-		# Place a container block in front and open it: --open=base:furnace (fill it with --commands first).
+		# Place a container block in front and open it: --open=simple_machines:furnace (fill it with --commands first).
 		var id: int = client.items.id_of(options.open)
 		Net.c_chat.rpc_id(1, "/give %s" % options.open)
 		await get_tree().create_timer(0.8).timeout
@@ -128,7 +128,7 @@ func _ready() -> void:
 		client._crafting_screen.experiment_requested.emit(cells)
 		await get_tree().create_timer(0.8).timeout
 	if not String(options.forge).is_empty():
-		# Tools from parts at an open Tool Forge: --forge=base:pickaxe_head/base:iron,base:tool_handle/base:wood,...
+		# Tools from parts at an open Tool Forge: --forge=base:pickaxe_head/base:iron,base:tool_handle/simple_machines:wood,...
 		# crafts each part recipe (give the materials with --commands), then opens the Assemble tab.
 		for recipe_id in String(options.forge).split(","):
 			Net.c_craft.rpc_id(1, client.recipes.index_of(recipe_id), 1)
@@ -159,7 +159,7 @@ func _ready() -> void:
 		client._view_model.start_meal(meal)
 		client._self_avatar.start_meal(meal)
 	if not String(options.guide).is_empty():
-		# The guidebook: --guide=base:wood (or "last") [--search=planks].
+		# The guidebook: --guide=simple_machines:wood (or "last") [--search=planks].
 		await get_tree().create_timer(1.0).timeout
 		client._set_guide_open(true, "" if options.guide == "last" else options.guide)
 		if not String(options.search).is_empty():
@@ -179,7 +179,7 @@ func _ready() -> void:
 		client._dev_pick()
 	if not String(options.tip).is_empty():
 		# A tip card as the server would send it: --tip="Some text"
-		client.on_tip({"id": "shot", "text": options.tip, "icon": "base:apple", "page": "base:food", "seconds": 30.0})
+		client.on_tip({"id": "shot", "text": options.tip, "icon": "base:apple", "page": "simple_machines:food", "seconds": 30.0})
 	if not String(options.tutorials).is_empty():
 		client._tutorial_hud.open_panel()  # --tutorials=1
 	if not String(options.wear).is_empty():

@@ -4,7 +4,7 @@ Every function a mod can call, generated from `engine/server/mod_api.gd` by
 `mod_tool.tscn -- docs`. For the engine's own readers - the registries and helpers behind
 these - see [engine.md](engine.md).
 
-Mod API 1.0.0 · game 0.41.1
+Mod API 1.0.0 · game 0.42.0
 
 
 ## Logging and debugging

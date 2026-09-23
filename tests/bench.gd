@@ -21,7 +21,7 @@ func _ready() -> void:
 	var server := GameServer.new()
 	add_child(server)
 	DirAccess.make_dir_recursive_absolute("user://bench")
-	server.start({"mods": PackedStringArray(["base", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": "bench_%d" % Time.get_ticks_msec(),
+	server.start({"mods": PackedStringArray(["base", "simple_machines", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": "bench_%d" % Time.get_ticks_msec(),
 		"data_dir": "user://bench", "seed": 42, "offline": true})
 	var world = server.world
 	var side := ceili(sqrt(chunk_count))

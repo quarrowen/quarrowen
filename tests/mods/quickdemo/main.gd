@@ -17,10 +17,10 @@ func setup(mod_api) -> void:
 func _build(player, _args) -> void:
 	var here := Vector3i(player.position.floor()) + Vector3i(0, -1, 0)
 	var stone: int = api.block("base:stone")
-	var dust: int = api.block("base:quickdust")
-	var lever: int = api.block("base:lever")
-	var lamp: int = api.block("base:quicklamp")
-	var ore: int = api.block("base:quickstone")
+	var dust: int = api.block("simple_machines:quickdust")
+	var lever: int = api.block("simple_machines:lever")
+	var lamp: int = api.block("simple_machines:quicklamp")
+	var ore: int = api.block("simple_machines:quickstone")
 
 	# A dark stone plinth to lay it on, so the glow has something to read against.
 	for dx in range(-1, 10):

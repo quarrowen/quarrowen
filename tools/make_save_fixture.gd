@@ -9,7 +9,7 @@ const GameServer = preload("res://engine/server/game_server.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
 
-const MODS := ["base", "proving", "proving_js"]
+const MODS := ["base", "simple_machines", "proving", "proving_js"]
 const INVENTORY := [
 	[0, "base:stone_sword", 1, {}], [1, "base:stone_pickaxe", 1, {"damage": 12}], [2, "base:planks", 48, {}],
 	[4, "base:iron_ingot", 9, {}], [5, "base:apple", 3, {}], [9, "proving:token", 4, {}],
@@ -46,7 +46,7 @@ func _run() -> void:
 	for b in BLOCKS:
 		server.set_block_authoritative(origin + Vector3i(b[0], b[1] - 1, b[2]), server.registry.id_of(b[3]))
 	var chest_pos := origin + Vector3i(-2, 0, 0)
-	server.set_block_authoritative(chest_pos, server.registry.id_of("base:chest"))
+	server.set_block_authoritative(chest_pos, server.registry.id_of("simple_machines:chest"))
 	var chest = server.containers.get_container(chest_pos)
 	for c in CHEST:
 		chest.set_item(c[0], server.items.id_of(c[1]), c[2])

@@ -15,6 +15,15 @@ func setup(api, sounds: Dictionary) -> void:
 		api.register_block("%s_leaves" % wood, {"group": "Wood", "display_name": "%s Leaves" % wood.capitalize(), "textures": "textures/%s_leaves.png" % wood,
 			"render": "cutout", "drops": "", "sway": true, "sounds": sounds.grass, "hardness": 0.2})
 		api.register_recipe({"base:%s_log" % wood: 1}, "base:planks", 4, {"unlock": "known", "id": "planks_from_%s" % wood})
+	# **`base` says which of its blocks are logs; it does not say that logs burn.** That a log is fuel
+	# is a rule and belongs to whatever pack wants it - `simple_machines` reads this tag. Before the
+	# split, `simple_machines` preloaded this file for its `WOODS` constant, which is one mod reaching
+	# into another's folder: it works until somebody moves a file, and it makes the pack impossible to
+	# use without this exact layout. A tag is the supported way to ask. (2026-09-23)
+	var logs := ["base:log"]
+	for wood in WOODS:
+		logs.append("base:%s_log" % wood)
+	api.tag("logs", logs)
 	api.register_block("cactus", {"group": "Nature", "display_name": "Cactus", "sounds": sounds.grass, "hardness": 0.4, "hazard": true, "support": ["base:sand", "base:cactus"],
 		"textures": {"all": "textures/cactus_side.png", "top": "textures/cactus_top.png", "bottom": "textures/cactus_top.png"}, "render": "cutout"})
 	api.register_block("sandstone", {"group": "Stone", "display_name": "Sandstone", "sounds": sounds.stone, "hardness": 0.8, "tier": 1, "tool": "pickaxe",

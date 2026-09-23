@@ -3,15 +3,11 @@ extends "res://engine/server/mod.gd"
 ## as "base:<name>".
 
 const Farming = preload("farming.gd")
-const Stations = preload("stations.gd")
 const Forging = preload("forging.gd")
 const Beds = preload("beds.gd")
 const Nature = preload("nature.gd")
-const Guide = preload("guide.gd")
 const Graves = preload("graves.gd")
-const Cooking = preload("cooking.gd")
 const Openings = preload("openings.gd")
-const Signals = preload("signals.gd")
 const Colours = preload("colours.gd")
 const TABLE := {"station": "crafting_table"}
 ## Iron gear needs an anvil beside the table; iron armor also needs a Sturdy Workbench.
@@ -23,14 +19,10 @@ const ARMORY := {"station": "crafting_table", "needs": ["metalwork"], "tier": 2,
 const ARMOR_PIECES := [["helmet", "head"], ["chestplate", "chest"], ["leggings", "legs"], ["boots", "feet"]]
 
 var farming := Farming.new()
-var stations := Stations.new()
 var forging := Forging.new()
 var beds := Beds.new()
 var nature := Nature.new()
-var signals := Signals.new()
-var guide := Guide.new()
 var graves := Graves.new()
-var cooking := Cooking.new()
 var openings := Openings.new()
 var colours := Colours.new()
 
@@ -113,17 +105,13 @@ func setup(api) -> void:
 	farming.setup(api, {"dirt": dirt, "grass": grass})
 	nature.setup(api, {"wood": wood, "grass": grass, "stone": stone})
 	_register_charms(api)  # after nature: the charms are made of deepstone, which nature registers
-	stations.setup(api, {"wood": wood, "stone": stone})
 	forging.setup(api, {"stone": stone})
 	beds.setup(api, {"wood": wood})
 	graves.setup(api, {"stone": stone})
-	cooking.setup(api, {"stone": stone, "wood": wood})
 	openings.setup(api, {"stone": stone, "wood": wood})
-	signals.setup(api, {"stone": stone})  # after the tools and glass it builds a lamp from
 	# After the sound dicts exist; nothing else depends on the colour sets, and nothing they depend on
 	# comes later.
 	colours.setup(api, {"dirt": dirt, "stone": stone})
-	guide.setup(api)
 
 
 ## A charm slot, and three things to put in it.

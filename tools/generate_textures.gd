@@ -31,6 +31,7 @@ func _init() -> void:
 	var grass := Color(0.38, 0.64, 0.25)
 	var snow := Color(0.95, 0.97, 1.0)
 	var base := "res://mods/base/textures/"
+	var machines := "res://mods/simple_machines/textures/"
 
 	_save(_noise(stone, 0.07), base + "stone.png")
 	_save(_noise(dirt, 0.07), base + "dirt.png")
@@ -147,27 +148,27 @@ func _init() -> void:
 		_save(_hoe(materials[material]), base + "%s_hoe.png" % material)
 
 	# Stations and containers (appended last so earlier textures keep their random sequence).
-	_save(_crafting_table_top(), base + "crafting_table_top.png")
-	_save(_crafting_table_side(), base + "crafting_table_side.png")
-	_save(_chest(false), base + "chest_side.png")
-	_save(_chest(true), base + "chest_top.png")
-	_save(_furnace(0), base + "furnace_side.png")
-	_save(_furnace(1), base + "furnace_front.png")
-	_save(_furnace(2), base + "furnace_front_lit.png")
-	_save(_item(Color(0.2, 0.17, 0.15), "lump"), base + "charcoal.png")
+	_save(_crafting_table_top(), machines + "crafting_table_top.png")
+	_save(_crafting_table_side(), machines + "crafting_table_side.png")
+	_save(_chest(false), machines + "chest_side.png")
+	_save(_chest(true), machines + "chest_top.png")
+	_save(_furnace(0), machines + "furnace_side.png")
+	_save(_furnace(1), machines + "furnace_front.png")
+	_save(_furnace(2), machines + "furnace_front_lit.png")
+	_save(_item(Color(0.2, 0.17, 0.15), "lump"), machines + "charcoal.png")
 	_save(_item(Color(0.72, 0.42, 0.25), "meat"), vanilla + "cooked_porkchop.png")
 
 	# Station upgrades (appended last so earlier textures keep their random sequence).
 	_save(_anvil(true), base + "anvil_top.png")
-	_save(_anvil(false), base + "anvil_side.png")
+	_save(_anvil(false), machines + "anvil_side.png")
 	_save(_tool_rack(), base + "tool_rack.png")
-	_save(_bookshelf(), base + "bookshelf.png")
-	_save(_sturdy_top(), base + "sturdy_workbench_top.png")
-	_save(_sturdy_side(), base + "sturdy_workbench_side.png")
-	_save(_forge_front(), base + "forge_front.png")
-	_save(_reinforced_frame(), base + "reinforced_frame.png")
+	_save(_bookshelf(), machines + "bookshelf.png")
+	_save(_sturdy_top(), machines + "sturdy_workbench_top.png")
+	_save(_sturdy_side(), machines + "sturdy_workbench_side.png")
+	_save(_forge_front(), machines + "forge_front.png")
+	_save(_reinforced_frame(), machines + "reinforced_frame.png")
 	_save(_banner(), guild + "guild_banner.png")
-	_save(_blueprint(), base + "blueprint.png")
+	_save(_blueprint(), machines + "blueprint.png")
 	_save(_torch(), base + "torch.png")
 	_save(_hay(true), base + "hay_bale_top.png")
 	_save(_hay(false), base + "hay_bale_side.png")
@@ -251,7 +252,7 @@ func _init() -> void:
 	_save(_cage(), base + "spawner.png")
 	_save(_web(), vanilla + "cobweb.png")
 	_save(_altar(), vanilla + "ancient_altar.png")
-	_save(_guide_book(), base + "guide_book.png")
+	_save(_guide_book(), machines + "guide_book.png")
 
 
 
@@ -259,10 +260,10 @@ func _init() -> void:
 	_save(_grave(false), base + "grave_side.png")
 	_save(_grave(true), base + "grave_top.png")
 	# Cooking (appended last so earlier textures keep their random sequence).
-	_save(_pot_side(), base + "cooking_pot_side.png")
-	_save(_pot_top(), base + "cooking_pot_top.png")
-	_save(_bowl(Color(0, 0, 0, 0)), base + "bowl.png")
-	_save(_pie(Color(0.9, 0.45, 0.3)), base + "apple_pie.png")
+	_save(_pot_side(), machines + "cooking_pot_side.png")
+	_save(_pot_top(), machines + "cooking_pot_top.png")
+	_save(_bowl(Color(0, 0, 0, 0)), machines + "bowl.png")
+	_save(_pie(Color(0.9, 0.45, 0.3)), machines + "apple_pie.png")
 	_save(_bowl(Color(0.55, 0.32, 0.18)), vanilla + "beef_stew.png")
 	_save(_bowl(Color(0.78, 0.6, 0.35)), vanilla + "mushroom_stew.png")
 	_save(_bowl(Color(0.45, 0.75, 0.55)), vanilla + "glowcap_soup.png")
@@ -311,13 +312,13 @@ func _init() -> void:
 
 	# Signals: quickstone in the rock, the quickdust it grinds into, the lever that wakes it and the
 	# lamp it lights. Appended at the end, like everything else, for the reason written above.
-	_save(_quickstone(), base + "quickstone.png")
-	_save(_quickdust(false), base + "quickdust.png")
-	_save(_quickdust(true), base + "quickdust_lit.png")
-	_save(_quickdust_item(), base + "quickdust_item.png")
-	_save(_lever(), base + "lever.png")
-	_save(_quicklamp(false), base + "quicklamp.png")
-	_save(_quicklamp(true), base + "quicklamp_lit.png")
+	_save(_quickstone(), machines + "quickstone.png")
+	_save(_quickdust(false), machines + "quickdust.png")
+	_save(_quickdust(true), machines + "quickdust_lit.png")
+	_save(_quickdust_item(), machines + "quickdust_item.png")
+	_save(_lever(), machines + "lever.png")
+	_save(_quicklamp(false), machines + "quicklamp.png")
+	_save(_quicklamp(true), machines + "quicklamp_lit.png")
 
 	# The cable spool and the pole it is strung between (appended at the end, as everything is).
 	var industry_late := "res://mods/industry/textures/"
@@ -360,6 +361,16 @@ func _init() -> void:
 	for entry in Colours.COLOURS:
 		_save(_wool(entry[1]), base + "cloth_%s.png" % entry[0])
 		_save(_plaster(entry[1]), base + "plaster_%s.png" % entry[0])
+
+	# **Four textures written twice, on purpose.** An asset path is relative to the mod that names it,
+	# and `simple_machines` names planks and brick for its benches and its forge. Copying them is
+	# cheaper than it looks: assets travel to clients by content hash, so two identical files are one
+	# transfer. The alternative is for the pack to reach into `base`'s folder, which is the kind of
+	# thing that works until somebody moves a file. (2026-09-23)
+	for shared_name in ["brick", "planks", "anvil_top", "tool_rack"]:
+		var from_base: String = base + shared_name + ".png"
+		if ResourceLoader.exists(from_base):
+			_save(Image.load_from_file(ProjectSettings.globalize_path(from_base)), String(machines) + shared_name + ".png")
 
 	# A SceneTree script runs until it is told not to. Without this the tool wrote every texture
 	# correctly and then sat there for ever; three of them were found still running an hour later,
