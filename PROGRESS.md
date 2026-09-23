@@ -4,7 +4,7 @@ Last updated: 2026-09-14. Read this first when resuming.
 
 ## Repository and branches
 
-Remote: `git@github.com:quarrowen/quarrowen.git` (private, default branch `master`). The repo
+Remote: `git@github.com:quarrowen/quarrowen.git` (**public**, default branch `master`). The repo
 was recreated on 2026-09-14 with rewritten history (attribution lines and `.mcp.json` removed), so
 the old PR pages (#1-#5: hardening, gameplay foundation, engine mob AI, equipment core, visuals) no
 longer exist; their work is on `master`. The crafting milestone and the survival loop were merged into `master` on 2026-09-14. If SSH to GitHub times out, push over HTTPS with
@@ -5806,3 +5806,34 @@ Two findings from ten minutes on real hardware, which is why it was worth doing:
 That `if not OS.get_name() in [...]` is the **first platform check in the engine**, which is why it
 is a bare string comparison rather than a helper: there is nothing yet for it to join. When touch
 controls arrive there will be, and it should move into that rather than be copied.
+
+## quarrowen.com: a landing page and a reference site (user, 2026-09-23)
+
+*"we need to get the [...] site working so that quarrowen.com can be replaced with a proper website"*
+- a landing page, and the API reference, engine reference and other docs alongside it.
+
+**The look the user asked for is the nineties vendor documentation site** - the same thing CLAUDE.md
+already points at when it says the generated reference is *"laid out the way the great vendor API
+libraries of the nineties laid out a page: signature, then the Remarks the `##` comment carries, then
+a See Also"*. Named in conversation; not named here, because it is a product and the rule covers
+products, not only games. That rule was broken repeatedly once already over exactly this kind of
+reference, which is why the euphemism exists.
+
+What that style actually means, so it is not just a mood: a dense left-hand tree of namespaces and
+members; one page per function; every page the same shape (signature, Remarks, parameters, See Also);
+no scrolling marketing between the reader and the answer; searchable and linkable. The generated
+Markdown is already written that way - the See Also that follows the call graph through private
+helpers exists for precisely this.
+
+**The pieces that exist:**
+
+- `docs/api/mod-api.md` and `docs/api/engine.md` - the source of truth, generated, grouped by the
+  question being asked. Plus `how-do-i.md`.
+- `tools/make_release.sh` writes a landing page today (what it is, download, first-launch steps). It
+  needs rewriting and is already on the release-blocker list.
+- `index.html` / `engine.html` are generated too, but are 500KB single files that nobody can search -
+  they exist because README and CONTRIBUTING link them, not because they are the plan.
+
+**Not decided:** which generator, and where it is hosted. Deliberately not decided yet - a generator
+is not something this project should be writing itself, and the choice is cheap to make later
+because the Markdown is the thing that matters.
