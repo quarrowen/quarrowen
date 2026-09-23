@@ -5344,3 +5344,48 @@ Two snags, one shared with iOS:
 
 **Still not proven on a device.** As with iOS: the libraries build and link, there is no Android
 export preset, no keystore, and nothing has run on hardware or an emulator.
+
+## The GDScript twins are gone (2026-09-23)
+
+Done on the user's explicit call, against my recommendation to wait until the mobile builds were
+proven on hardware. Recording that plainly: the libraries build for all four targets and neither iOS
+nor Android has run on a device, so the risk taken is that a platform which cannot load its library
+now **fails** rather than running slowly. The mitigation chosen was to build Android first, so that
+at the moment of deletion every target platform at least had a library.
+
+**969 lines removed, 132 added, across 11 files.** What went:
+
+| | lines |
+|---|---|
+| `pathfinder.gd` - everything below its own "GDScript twin of pathfind.rs" banner | 261 |
+| `chunk_mesher.gd` - `Surface`, the fallback `build` body, `ApproxLight` | 244 |
+| `player_physics.gd` - `step`'s body, `_supported`, `_move_axis`, `_collides` | 104 |
+| `block_shapes.gd` - `sweep`, `_crosses`, `step_target` | 74 |
+| `dev_web.gd` - the TCP transport | ~60 |
+| `entity_physics.gd` - `step`, `_move_axis` | 46 |
+| `game_server.gd` - `_build_snapshot` | 44 |
+
+**What stayed, because it was never a twin**: `BlockShapes.overlaps`/`boxes_of` (every mob spawn,
+unguarded), `EntityPhysics.segment_hits_box` (reach and projectile hits, eight sites), projectile
+physics entirely - `physics.rs` implements players and entities and not arrows - and `VoxelWorld`,
+where the Rust side is a write-through mirror and the GDScript store is authoritative.
+
+`Native.enabled()` is now a report rather than a switch, and `Native.create` says what is wrong,
+once, when a class is missing. `QW_NATIVE` is gone from the engine, the harness and CI, and the
+second CI job with it.
+
+### The measured result
+
+- **Suite: 126s, one run.** It was 125 + 129 for the pair, so verification halves.
+- **Two tests got better rather than worse.** The snapshot test used to build a GDScript snapshot,
+  assert against it, and then check only that the native builder agreed about the *player cap* - the
+  two byte streams were never compared. It now asserts against the builder that actually ships.
+- `_shape_twins` survives and is the last GDScript/Rust pair in the codebase: one table, written
+  twice. It still reads the Rust source rather than the binary, which remains its known weakness.
+
+### What is still owed on mobile
+
+Neither platform is finished. There is no iOS export preset, no Android export preset, no signing or
+keystore, and nothing has run on hardware or an emulator. Until that happens the honest status is
+"the library compiles", and the deletion above means a failure there is now loud instead of slow -
+which is the trade that was chosen.

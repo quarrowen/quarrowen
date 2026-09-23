@@ -8,8 +8,9 @@ const MobConfig = preload("res://engine/server/ai/mob_config.gd")
 const Pathfinder = preload("res://engine/server/ai/pathfinder.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
-const PATHS_PER_TICK_NATIVE := 8
-const PATHS_PER_TICK_SCRIPT := 2
+## How many path searches one tick may run. Eight, because the search is in Rust; the GDScript
+## twin could only afford two, and it is gone. (2026-09-23)
+const PATHS_PER_TICK := 8
 const GRID_CELL := 8.0
 ## Ticks between rebuilding the neighbour grid and engagement groups (mobs move < 1 block meanwhile).
 const GRID_INTERVAL := 4
@@ -163,7 +164,7 @@ func request_path(brain: MobBrain, from: Vector3i, goal: Vector3i, radius: float
 
 
 func _process_paths() -> void:
-	var budget := PATHS_PER_TICK_NATIVE if server.world.native else PATHS_PER_TICK_SCRIPT
+	var budget := PATHS_PER_TICK
 	while budget > 0 and not _path_queue.is_empty():
 		var entry: Array = _path_queue.pop_front()
 		var brain: MobBrain = entry[0]

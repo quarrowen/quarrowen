@@ -2611,81 +2611,29 @@ func _send_snapshots() -> void:
 
 
 func _send_snapshots_to(list: Array, full_rate: bool) -> void:
-	if Native.enabled():
-		var ids := PackedInt32Array()
-		var seqs := PackedInt32Array()
-		var positions := PackedVector3Array()
-		var velocities := PackedVector3Array()
-		var yaws := PackedFloat32Array()
-		var pitches := PackedFloat32Array()
-		var grounded := PackedByteArray()
-		for p: ServerPlayer in list:
-			ids.append(p.peer_id)
-			seqs.append(p.last_processed_seq)
-			positions.append(p.state.position)
-			velocities.append(p.state.velocity)
-			yaws.append(p.yaw)
-			pitches.append(p.pitch)
-			grounded.append(1 if p.state.on_ground else 0)
-		var payloads: Array = ClassDB.class_call_static(&"NativeSnapshots", &"build", ids, seqs, positions,
-			velocities, yaws, pitches, grounded, INTEREST_RADIUS, NEAR_RADIUS, full_rate)
-		for i in mini(list.size(), payloads.size()):
-			Net.s_snapshot.rpc_id(list[i].peer_id, tick, payloads[i])
-		return
+	var ids := PackedInt32Array()
+	var seqs := PackedInt32Array()
+	var positions := PackedVector3Array()
+	var velocities := PackedVector3Array()
+	var yaws := PackedFloat32Array()
+	var pitches := PackedFloat32Array()
+	var grounded := PackedByteArray()
 	for p: ServerPlayer in list:
-		Net.s_snapshot.rpc_id(p.peer_id, tick, _build_snapshot(p, full_rate))
+		ids.append(p.peer_id)
+		seqs.append(p.last_processed_seq)
+		positions.append(p.state.position)
+		velocities.append(p.state.velocity)
+		yaws.append(p.yaw)
+		pitches.append(p.pitch)
+		grounded.append(1 if p.state.on_ground else 0)
+	var payloads: Array = ClassDB.class_call_static(&"NativeSnapshots", &"build", ids, seqs, positions,
+		velocities, yaws, pitches, grounded, INTEREST_RADIUS, NEAR_RADIUS, full_rate)
+	for i in mini(list.size(), payloads.size()):
+		Net.s_snapshot.rpc_id(list[i].peer_id, tick, payloads[i])
 
 
 ## Other players per snapshot (20 bytes each), nearest first, so a crowd stays under the network MTU.
 const SNAPSHOT_MAX_PLAYERS := 64
-
-## Per-player snapshot: the recipient's own authoritative state, then compact entries for other
-## players within INTEREST_RADIUS (beyond NEAR_RADIUS only at full rate). GDScript twin of
-## NativeSnapshots.build; both produce the same layout.
-func _build_snapshot(p: ServerPlayer, full_rate: bool) -> PackedByteArray:
-	var buf := StreamPeerBuffer.new()
-	var s = p.state
-	buf.put_32(p.last_processed_seq)
-	buf.put_float(s.position.x)
-	buf.put_float(s.position.y)
-	buf.put_float(s.position.z)
-	buf.put_float(s.velocity.x)
-	buf.put_float(s.velocity.y)
-	buf.put_float(s.velocity.z)
-	buf.put_u8(1 if s.on_ground else 0)
-	var count_at := buf.get_position()
-	buf.put_u16(0)
-	var count := 0
-	var radius_sq := INTEREST_RADIUS * INTEREST_RADIUS
-	var near_sq := NEAR_RADIUS * NEAR_RADIUS
-	var picked := []  # [dist_sq, player]
-	for other: ServerPlayer in players.values():
-		if other == p:
-			continue
-		var dist_sq: float = other.state.position.distance_squared_to(s.position)
-		if dist_sq > radius_sq or (dist_sq > near_sq and not full_rate):
-			continue
-		picked.append([dist_sq, other])
-	if picked.size() > SNAPSHOT_MAX_PLAYERS:
-		picked.sort_custom(func(x, y): return x[0] < y[0])
-		picked.resize(SNAPSHOT_MAX_PLAYERS)
-	for entry in picked:
-		var other: ServerPlayer = entry[1]
-		buf.put_32(other.peer_id)
-		buf.put_float(other.state.position.x)
-		buf.put_float(other.state.position.y)
-		buf.put_float(other.state.position.z)
-		buf.put_u16(int(wrapf(other.yaw, 0.0, TAU) / TAU * 65535.0))
-		buf.put_16(int(clampf(other.pitch, -PI * 0.5, PI * 0.5) / (PI * 0.5) * 32767.0))
-		count += 1
-	var end := buf.get_position()
-	buf.seek(count_at)
-	buf.put_u16(count)
-	buf.seek(end)
-	return buf.data_array
-
-
-# --- World time ---------------------------------------------------------------------------------
 
 func _advance_time(delta: float) -> void:
 	if _day_length > 0.0:

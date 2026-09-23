@@ -24,12 +24,11 @@ own packs (`simple_machines`, `simple_gear`), so a game can take the blocks and 
 These pairs have bitten before. Changing one without the other produces a bug that looks like something
 else entirely.
 
-- **Physics.** `engine/shared/player_physics.gd` ⇄ `native/src/physics.rs`. The client predicts the same
-  step the server runs, so divergence shows up as rubber-banding, not as an error.
-- **Block shapes.** `BlockRegistry.SHAPE_BOXES` ⇄ the consts and `boxes_of` match in `native/src/physics.rs`.
-  A test (`_shape_twins`) compares them, but it reads the Rust *source*, so it cannot tell you the built
-  library is stale - see below.
-- **Mesher and pathfinder** have the same GDScript/Rust arrangement.
+- **Block shapes.** `BlockRegistry.SHAPE_BOXES` ⇄ the consts and `boxes_of` match in
+  `native/src/physics.rs`. A test (`_shape_twins`) compares them, but it reads the Rust *source*, so
+  it cannot tell you the built library is stale - see below. **This is the last surviving pair**: the
+  physics, mesher and pathfinder twins were deleted on 2026-09-23 and the Rust is now the only
+  implementation, so there is nothing left for them to disagree with.
 - **The two mod APIs.** `engine/server/mod_api.gd` ⇄ the JavaScript bridge. Written by hand, they
   drifted to 139 of 262 functions before anybody counted (2026-09-20), so the bridge is now generated:
   `engine/server/js/bindings.json` comes from the GDScript signatures and both `js_mod.gd` and
@@ -64,29 +63,35 @@ of several ordinary ways to end up without it - see "When the Rust extension is 
   units and drives were all missed, and it went unnoticed until one mod declared all of them at once.
   (2026-09-21)
 
-## When the Rust extension is not there
+## The Rust extension is required
 
-`Native.enabled()` (`engine/shared/native.gd`) is false whenever `NativeVoxelWorld` is not registered,
-and every native feature has a GDScript twin, so the engine runs either way. That is not a theoretical
-safety net - **it is the shipping path for at least one target**:
+There is no GDScript fallback any more. `native/` is the only implementation of the mesher, the
+physics, the pathfinder, the world mirror, snapshots, the JS runtime, the dev dashboard's HTTP and
+the process signals - and a missing library is an error at the first thing that asks for it, not a
+silent slowdown.
 
-- **iOS/iPad: we have not built one.** `quarrowen_native.gdextension` declares macOS, Linux x86_64,
-  Linux arm64 and Windows x86_64, and nothing else. **This is a gap in our build, not a limit of
-  Rust** - `aarch64-apple-ios` is an ordinary Rust target and godot-rust documents iOS export - it is
-  simply work nobody has done yet (milestone 6 in PROGRESS.md). Until it is done the iPad client runs
-  **entirely** on the fallbacks, and their performance is the iPad's performance.
-- **Any platform outside that list**: Android, Web, Windows on arm64.
-- **A fresh clone**, until `tools/build_native.sh` or the suite builds one.
-- **A library that fails to load** - wrong architecture, blocked by Gatekeeper, an ABI mismatch after a
-  Godot upgrade. It degrades silently to the fallbacks rather than crashing, which is the kind failure
-  and also the kind that hides.
+**The twins were deleted on 2026-09-23**, once the library built for all four target platforms
+(Windows, macOS, iOS, Android). They had cost more than they were worth, measured rather than
+guessed: the mesher ran 15x slower, player physics 15x, the entity tick 3.5x - and the two meshers
+were not the same algorithm, so the twin drew a visibly different world with two orders of magnitude
+more geometry. 833 lines that had to be kept in step by hand, and in the project's whole history the
+`QW_NATIVE=0` suite never caught a single real bug; it raised three false alarms that cost a day.
 
-The deployed Linux server is the one place it is guaranteed: `Dockerfile` fails the build unless the
-`.so` is present. Anyone running a server from source without building it gets the fallbacks.
+So: **one suite now** (`tools/run_tests.sh`), and `QW_NATIVE` no longer exists.
 
-**This is why `QW_NATIVE=0 tools/run_tests.sh` is not optional.** It is not testing a contingency; it
-is testing what the children's iPads will actually run.
+Four things survived the deletion because they were never twins - they run in every build and have no
+Rust counterpart:
 
+- `BlockShapes.overlaps` / `boxes_of` - every mob spawn goes through them, unguarded.
+- `EntityPhysics.segment_hits_box` - the client's reach and the server's projectile hits, eight sites.
+- **Projectile physics entirely** (`entities.gd`): `physics.rs` implements players and entities and
+  not arrows, so they integrate in GDScript.
+- `VoxelWorld` itself: the Rust world is a *write-through mirror*, and the GDScript chunk store is
+  authoritative.
+
+**A fresh clone has no library** - `native/bin/` is gitignored and nothing is tracked - so
+`tools/build_native.sh` is now a prerequisite to running anything, not an optimisation. The suite
+rebuilds it when `native/src` is newer and stops if that build fails.
 
 ## The tests must not touch the player's folder
 
@@ -99,12 +104,11 @@ sets `QW_USER_DIR`, and a test asserts the mechanism works rather than trusting 
 
 ## Running the tests
 
-Both suites, always. The second one exercises the GDScript fallbacks, which are what run where there is no
-native library:
+One suite. There was a second (`QW_NATIVE=0`) exercising the GDScript twins until they were deleted
+on 2026-09-23; see "The Rust extension is required" above.
 
 ```sh
 tools/run_tests.sh
-QW_NATIVE=0 PORT_BASE=25700 tools/run_tests.sh
 ```
 
 `ONLY=gameplay tools/run_tests.sh` narrows it while working; `EXCEPT="e2e:*"` is the inverse. The suite
@@ -113,8 +117,9 @@ prints where its logs are - read them rather than guessing, especially for an e2
 A test that waits a fixed number of seconds for the server to do something will pass here and fail on a
 small CI runner, which simulates less in that time. Wait for the event, not for a stopwatch.
 
-Both suites together take about eight minutes. If a run appears to take far longer than that, suspect
-the thing watching it rather than the run.
+It takes about two minutes on an M1 Max - measured, after the second suite went; it was four for the
+pair. If a run appears to take far longer than that, suspect the thing watching it rather than the
+run.
 
 **Never wait for the suite with `pgrep -f` on its own command line.** This:
 

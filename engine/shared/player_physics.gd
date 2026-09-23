@@ -114,126 +114,19 @@ static func look_direction(yaw: float, pitch: float) -> Vector3:
 	return Vector3(-sin(yaw) * cos(pitch), sin(pitch), -cos(yaw) * cos(pitch))
 
 
+## One movement step, run identically by the client (prediction) and the server (authority).
+##
+## The GDScript twin of this was deleted on 2026-09-23 along with the rest; it was 94 lines that had
+## to agree exactly with `native/src/physics.rs` or the symptom was rubber-banding rather than an
+## error. The extension is required now, so there is one implementation and nothing to disagree with.
 static func step(s: State, input: PlayerInput, world, rules: Rules) -> void:
 	s.sneaking = input.sneak
-	if world.native:
-		var flags := int(input.jump) | (int(input.sprint) << 1) | (int(input.sneak) << 2) | (int(s.flying) << 3)
-		var out: PackedFloat32Array = world.native.step_player(s.position, s.velocity, s.on_ground, input.move,
-			input.yaw, flags, rules.packed)
-		s.position = Vector3(out[0], out[1], out[2])
-		s.velocity = Vector3(out[3], out[4], out[5])
-		s.on_ground = out[6] > 0.5
-		return
-	var solid := rules.solid_lut
-	var shapes := rules.shape_lut
-	if _collides(s.position, world, solid, shapes):
-		# Stuck inside a block (e.g. terrain changed around us): push upward until free.
-		s.position.y += 0.25
-		s.velocity = Vector3.ZERO
-		s.on_ground = false
-		return
-
-	var move := input.move
-	if move.length_squared() > 1.0:
-		move = move.normalized()
-	var forward := Vector3(-sin(input.yaw), 0.0, -cos(input.yaw))
-	var right := Vector3(cos(input.yaw), 0.0, -sin(input.yaw))
-	var wish := right * move.x + forward * move.y
-	var in_liquid := rules.liquid_lut[world.get_block(floori(s.position.x), floori(s.position.y + 0.4), floori(s.position.z))] == 1
-
-	var speed := rules.sprint_speed if input.sprint and move.y > 0.0 else rules.walk_speed
-	if s.flying:
-		speed = FLY_SPEED * (FLY_SPRINT if input.sprint else 1.0)
-	elif input.sneak and s.on_ground:
-		speed *= SNEAK_SPEED
-	if in_liquid and not s.flying:
-		speed *= 0.5
-	var accel := rules.ground_accel if s.on_ground or in_liquid or s.flying else rules.air_accel
-	var horizontal := Vector2(s.velocity.x, s.velocity.z).move_toward(Vector2(wish.x, wish.z) * speed, accel * DT)
-	s.velocity.x = horizontal.x
-	s.velocity.z = horizontal.y
-
-	if s.flying:
-		# Flying: jump rises, crouch sinks, neither drifts.
-		var rise := (FLY_RISE if input.jump else 0.0) - (FLY_RISE if input.sneak else 0.0)
-		s.velocity.y = move_toward(s.velocity.y, rise, rules.ground_accel * DT)
-	elif in_liquid:
-		var target_vy := rules.swim_speed if input.jump else -rules.sink_speed
-		s.velocity.y = move_toward(s.velocity.y, target_vy, 20.0 * DT)
-	else:
-		if input.jump and s.on_ground:
-			s.velocity.y = rules.jump_velocity
-		s.velocity.y = maxf(s.velocity.y - rules.gravity * DT, -rules.terminal_velocity)
-
-	var motion := s.velocity * DT
-	var largest := maxf(absf(motion.x), maxf(absf(motion.y), absf(motion.z)))
-	var steps := maxi(1, ceili(largest / MAX_SUBSTEP))
-	var part := motion / steps
-	# Crouching on solid ground: a sideways step that would leave nothing underfoot is refused.
-	var edge_guard: bool = input.sneak and s.on_ground and not s.flying and not in_liquid
-	var was_grounded := s.on_ground
-	s.on_ground = false
-	for i in steps:
-		if _move_axis(s, 1, part.y, world, solid, shapes):
-			if part.y < 0.0:
-				s.on_ground = true
-			s.velocity.y = 0.0
-			part.y = 0.0
-		var before := s.position
-		var blocked_x := _move_axis(s, 0, part.x, world, solid, shapes)
-		if not blocked_x and edge_guard and not _supported(s.position, world, solid, shapes):
-			s.position = before
-			s.velocity.x = 0.0
-			part.x = 0.0
-		before = s.position
-		var blocked_z := _move_axis(s, 2, part.z, world, solid, shapes)
-		if not blocked_z and edge_guard and not _supported(s.position, world, solid, shapes):
-			s.position = before
-			s.velocity.z = 0.0
-			part.z = 0.0
-		# Walking into something low (a slab, the first step of a stairs) lifts the player onto it and lets
-		# the same step carry on, so stairs are climbed by walking rather than jumping.
-		#
-		# Swimming counts as grounded for this. In water the jump key only eases the rise to swim_speed,
-		# which peaks about a quarter of a block short of a bank at the water's own level - so getting out
-		# meant breaking a block and climbing into the hole, and players mashed jump trying (which is also
-		# how one of them turned flight on by accident). (playtest, 2026-09-18)
-		if (blocked_x or blocked_z) and (was_grounded or s.on_ground or in_liquid) and not s.flying and not input.sneak:
-			var step_dir := Vector3(part.x if blocked_x else 0.0, 0.0, part.z if blocked_z else 0.0)
-			if step_dir.length_squared() > 0.0:
-				var top := BlockShapes.step_target(s.position, HALF_WIDTH, HEIGHT, step_dir, world, solid, shapes)
-				if top > -INF and top - s.position.y <= BlockShapes.STEP_HEIGHT:
-					s.position.y = top + SKIN
-					s.velocity.y = maxf(s.velocity.y, 0.0)
-					s.on_ground = true
-					if blocked_x:
-						blocked_x = _move_axis(s, 0, part.x, world, solid, shapes)
-					if blocked_z:
-						blocked_z = _move_axis(s, 2, part.z, world, solid, shapes)
-		if blocked_x:
-			s.velocity.x = 0.0
-			part.x = 0.0
-		if blocked_z:
-			s.velocity.z = 0.0
-			part.z = 0.0
-
-
-## Whether there is solid ground just under the player's box (used by the crouch edge guard).
-static func _supported(position: Vector3, world, solid: PackedByteArray, shapes: PackedByteArray) -> bool:
-	return _collides(position - Vector3(0, 0.08, 0), world, solid, shapes)
-
-
-## Moves along one axis; on collision snaps flush against the blocking voxel. Returns true on collision.
-## Moves along one axis as far as the blocks (whole cells, slabs, stairs, fences) allow.
-## Returns true when something stopped it short.
-static func _move_axis(s: State, axis: int, delta: float, world, solid: PackedByteArray, shapes: PackedByteArray) -> bool:
-	var swept := BlockShapes.sweep(s.position, HALF_WIDTH, HEIGHT, axis, delta, world, solid, shapes)
-	s.position[axis] += swept.delta
-	return swept.hit
-
-
-static func _collides(p: Vector3, world, solid: PackedByteArray, shapes := PackedByteArray()) -> bool:
-	return BlockShapes.overlaps(p, HALF_WIDTH, HEIGHT, world, solid, shapes)
+	var flags := int(input.jump) | (int(input.sprint) << 1) | (int(input.sneak) << 2) | (int(s.flying) << 3)
+	var out: PackedFloat32Array = world.native.step_player(s.position, s.velocity, s.on_ground, input.move,
+		input.yaw, flags, rules.packed)
+	s.position = Vector3(out[0], out[1], out[2])
+	s.velocity = Vector3(out[3], out[4], out[5])
+	s.on_ground = out[6] > 0.5
 
 
 ## True if a player standing at feet position `p` overlaps the unit block at `block`.

@@ -4,7 +4,6 @@
 #
 #   tools/run_tests.sh                 # uses $GODOT or `godot` on PATH
 #   GODOT=/path/to/godot tools/run_tests.sh
-#   QW_NATIVE=0 tools/run_tests.sh  # exercise the GDScript fallbacks
 #   ONLY=e2e:proving,gameplay tools/run_tests.sh  # just these tests (names as printed; "e2e:*" and globs work)
 #   EXCEPT="e2e:*" tools/run_tests.sh  # everything but these (EXCEPT wins over ONLY)
 #   REPEAT=10 ONLY=e2e:proving tools/run_tests.sh  # run each selected test 10 times (hunting flaky tests)
@@ -169,9 +168,10 @@ fi
 
 # The GDExtension is a built artifact checked in under native/bin, so a source edit does not reach the
 # tests until somebody rebuilds it. Running anyway is worse than not running at all: the suite reports
-# on a library nobody is writing any more, and a real divergence between the Rust and its GDScript twin
-# passes green. So rebuild when the source is newer, and stop if that rebuild fails.
-if [ "${QW_NATIVE:-1}" != "0" ] && command -v cargo >/dev/null 2>&1; then
+# on a library nobody is writing any more. So rebuild when the source is newer, and stop if that
+# rebuild fails - there is no GDScript twin to fall back to since 2026-09-23, so a stale or missing
+# library is not "slow", it is "nothing works".
+if command -v cargo >/dev/null 2>&1; then
   lib="$(command ls native/bin/*/libquarrowen_native.dylib native/bin/*/libquarrowen_native.so 2>/dev/null | head -1)"
   if [ -z "$lib" ] || [ -n "$(find native/src native/Cargo.toml -newer "$lib" 2>/dev/null)" ]; then
     echo "native library is behind native/src; rebuilding"
@@ -228,9 +228,7 @@ run_scene "gameplay" "$WORK/gameplay.log" res://tests/gameplay_test.tscn
 run_scene "ai" "$WORK/ai.log" res://tests/ai_test.tscn
 # Mob AI on generated terrain: stuck, hopping in place, dithering, blind hits and failed chases stay under limits.
 run_scene "ai-soak" "$WORK/ai_soak.log" res://tests/ai_soak.tscn --seconds=60 --sites=4 --check
-if [ "${QW_NATIVE:-1}" != "0" ]; then
-  run_scene "js-sandbox" "$WORK/js_sandbox.log" res://tests/js_sandbox_test.tscn
-fi
+run_scene "js-sandbox" "$WORK/js_sandbox.log" res://tests/js_sandbox_test.tscn
 for extra in tests/host_flow_test.tscn tests/reload_test.tscn tests/transfer_test.tscn tests/save_compat_test.tscn; do
   [ -f "$extra" ] && run_scene "$(basename "$extra" .tscn)" "$WORK/$(basename "$extra" .tscn).log" "res://$extra"
 done

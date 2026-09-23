@@ -5008,26 +5008,27 @@ func _scale() -> void:
 		p.state.position = Vector3(i * 0.5, 80, 0)
 		server.players[500 + i] = p
 		crowd.append(p)
-	var snapshot: PackedByteArray = server._build_snapshot(crowd[0], true)
+	# **The real builder, not a GDScript stand-in.** This used to run the twin and then check only that
+	# the native one agreed about the player cap - the two byte streams were never compared. The twin
+	# is gone (2026-09-23), so the assertions moved onto the thing that actually ships.
+	var ids := PackedInt32Array()
+	var positions := PackedVector3Array()
+	for p in crowd:
+		ids.append(p.peer_id)
+		positions.append(p.state.position)
+	var zeros_f := PackedFloat32Array()
+	zeros_f.resize(crowd.size())
+	var zeros_b := PackedByteArray()
+	zeros_b.resize(crowd.size())
+	var payloads: Array = ClassDB.class_call_static(&"NativeSnapshots", &"build", ids, ids, positions, positions,
+		zeros_f, zeros_f, zeros_b, GameServer.INTEREST_RADIUS, GameServer.NEAR_RADIUS, true)
+	var snapshot: PackedByteArray = payloads[0]
 	var count := snapshot.decode_u16(29)
 	var farthest := 0.0
 	for k in count:
 		farthest = maxf(farthest, snapshot.decode_float(29 + 2 + k * 20 + 4))
 	_check(count == GameServer.SNAPSHOT_MAX_PLAYERS and snapshot.size() < 1340 and is_equal_approx(farthest, GameServer.SNAPSHOT_MAX_PLAYERS * 0.5),
 		"crowded snapshots keep the nearest %d players (%d bytes)" % [count, snapshot.size()])
-	if GameServer.Native.enabled():
-		var ids := PackedInt32Array()
-		var positions := PackedVector3Array()
-		for p in crowd:
-			ids.append(p.peer_id)
-			positions.append(p.state.position)
-		var zeros_f := PackedFloat32Array()
-		zeros_f.resize(crowd.size())
-		var zeros_b := PackedByteArray()
-		zeros_b.resize(crowd.size())
-		var payloads: Array = ClassDB.class_call_static(&"NativeSnapshots", &"build", ids, ids, positions, positions, zeros_f, zeros_f, zeros_b,
-			GameServer.INTEREST_RADIUS, GameServer.NEAR_RADIUS, true)
-		_check(payloads[0].decode_u16(29) == GameServer.SNAPSHOT_MAX_PLAYERS, "the native snapshot builder keeps the same cap")
 	for p in crowd:
 		server.players.erase(p.peer_id)
 	server.queue_free()

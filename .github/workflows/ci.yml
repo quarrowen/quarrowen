@@ -98,10 +98,8 @@ jobs:
           curl -fsSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
           unzip -q godot.zip -d "$RUNNER_TEMP/godot"
           echo "GODOT=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
-      - name: Run test suite (native)
+      - name: Run test suite
         run: tools/run_tests.sh
-      - name: Run test suite (GDScript fallbacks)
-        run: QW_NATIVE=0 PORT_BASE=26600 tools/run_tests.sh
       # The suite writes every server and test log to a temporary folder and prints where. Without this
       # a CI-only failure can only be guessed at, which is worse than not knowing.
       - name: Collect logs

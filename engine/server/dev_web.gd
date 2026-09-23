@@ -30,7 +30,6 @@ const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 const PAGE := "res://engine/server/dev_web/index.html"
 const VIEWER_ID := -1000
 const VIEWER_TIMEOUT := 5.0
-const MAX_REQUEST := 16384
 const PUSH_INTERVAL := 0.5
 const Native = preload("res://engine/shared/native.gd")
 
@@ -38,8 +37,6 @@ var token := ""
 var port := 0
 var host := "127.0.0.1"
 var _server
-var _tcp: TCPServer
-var _clients: Array[Dictionary] = []  # {peer: StreamPeerTCP, data: PackedByteArray, since}
 var _last_poll := -100.0
 var _page := ""
 var _native: Object  # NativeHttpServer when the extension is loaded
@@ -57,20 +54,16 @@ func start(listen_port: int, bind_host := "127.0.0.1", keep_token := "") -> Erro
 	port = listen_port
 	host = bind_host
 	token = keep_token if not keep_token.is_empty() else Crypto.new().generate_random_bytes(12).hex_encode()
+	# The GDScript TCP transport that used to stand in here went with the rest of the twins on
+	# 2026-09-23. It served one request per connection and could not push, so the page polled.
 	_native = Native.create(&"NativeHttpServer")
-	if _native != null:
-		var problem: String = _native.listen(host, port, token)
-		if not problem.is_empty():
-			_server.dev_log.add("error", "server", "Dev dashboard could not listen on %s:%d (%s)" % [host, port, problem])
-			_native = null
-			return ERR_CANT_CREATE
-	else:
-		_tcp = TCPServer.new()
-		var err := _tcp.listen(port, host)
-		if err != OK:
-			_server.dev_log.add("error", "server", "Dev dashboard could not listen on %s:%d (%s)" % [host, port, error_string(err)])
-			_tcp = null
-			return err
+	if _native == null:
+		return ERR_CANT_CREATE
+	var problem: String = _native.listen(host, port, token)
+	if not problem.is_empty():
+		_server.dev_log.add("error", "server", "Dev dashboard could not listen on %s:%d (%s)" % [host, port, problem])
+		_native = null
+		return ERR_CANT_CREATE
 	_page = FileAccess.get_file_as_string(PAGE)
 	# Deliberately without the token. The URL carries a live credential that grants the logs, player
 	# positions, reloads and the ban controls, and the log is the one place it must not be: it is read by
@@ -86,21 +79,15 @@ func url() -> String:
 
 
 func running() -> bool:
-	return _tcp != null or _native != null
+	return _native != null
 
 
-## True when the native server (with live push) is in use.
+## Kept because callers ask it; there is only the one transport now, and it pushes.
 func streaming() -> bool:
 	return _native != null
 
 
 func stop() -> void:
-	for c in _clients:
-		c.peer.disconnect_from_host()
-	_clients.clear()
-	if _tcp != null:
-		_tcp.stop()
-		_tcp = null
 	if _native != null:
 		_native.stop()
 		_native = null
@@ -110,35 +97,6 @@ func stop() -> void:
 func update(delta := 0.0) -> void:
 	if _native != null:
 		_update_native(delta)
-		return
-	if _tcp == null:
-		return
-	while _tcp.is_connection_available():
-		var peer := _tcp.take_connection()
-		_clients.append({"peer": peer, "data": PackedByteArray(), "since": Time.get_ticks_msec()})
-	for c in _clients.duplicate():
-		var peer: StreamPeerTCP = c.peer
-		peer.poll()
-		var status := peer.get_status()
-		if status != StreamPeerTCP.STATUS_CONNECTED or Time.get_ticks_msec() - c.since > 5000:
-			_clients.erase(c)
-			continue
-		var available := peer.get_available_bytes()
-		if available > 0:
-			var chunk: Array = peer.get_partial_data(available)
-			if chunk[0] == OK:
-				c.data.append_array(chunk[1])
-		var text: String = c.data.get_string_from_utf8()
-		if c.data.size() > MAX_REQUEST:
-			_respond(peer, 413, "text/plain", "request too large")
-			_clients.erase(c)
-		elif text.contains("\r\n\r\n"):
-			var parts := text.get_slice("\r\n", 0).split(" ")
-			var target := parts[1] if parts.size() > 1 else ""
-			var answer := _route(parts[0], target.get_slice("?", 0), target.get_slice("?", 1) if target.contains("?") else "")
-			_respond_raw(peer, answer[0], answer[1], answer[2])
-			_clients.erase(c)
-	_expire_viewer()
 
 
 func _update_native(delta: float) -> void:
@@ -298,14 +256,3 @@ static func _text(code: int, content_type: String, body: String) -> Array:
 	return [code, content_type, body.to_utf8_buffer()]
 
 
-static func _respond(peer: StreamPeerTCP, code: int, content_type: String, body: String) -> void:
-	_respond_raw(peer, code, content_type, body.to_utf8_buffer())
-
-
-static func _respond_raw(peer: StreamPeerTCP, code: int, content_type: String, bytes: PackedByteArray) -> void:
-	var reason: String = {200: "OK", 403: "Forbidden", 404: "Not Found", 405: "Method Not Allowed", 413: "Payload Too Large"}.get(code, "OK")
-	var head := "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %d\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n" % [
-		code, reason, content_type, bytes.size()]
-	peer.put_data(head.to_utf8_buffer())
-	peer.put_data(bytes)
-	peer.disconnect_from_host()

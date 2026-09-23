@@ -613,7 +613,7 @@ goes into `data`.
 
 Builds the read-only context meshing threads need from the registry and atlas.
 
-**See also:** `enabled`, `index`
+**See also:** `index`
 
 ### `static build(chunks: Array, ctx: Dictionary) -> Array`
 
@@ -623,7 +623,7 @@ Builds the read-only context meshing threads need from the registry and atlas.
 not loaded. Returns [solid_arrays, translucent_arrays, models]; models is a PackedInt32Array of
 (block id, x, y, z, sky light, block light) per model block.
 
-**See also:** `add_handler`, `agent_for`, `area_cells`, `at`, `attach`, `body_font`
+**See also:** `area_cells`, `body_font`, `box`, `box_mesh`, `check_icon`, `close_icon`
 
 ### `rules := {}  (property)`
 
@@ -965,7 +965,7 @@ holding it up.
 
 One step for the liquid at `pos`. Called from a scheduled block tick.
 
-**See also:** `block`, `block_state`, `box`, `collides`, `family_of`, `get_block`
+**See also:** `block_state`, `family_of`, `get_block_v`, `set_block_authoritative`
 
 ### `patterns := {}  (property)`
 
@@ -1308,23 +1308,6 @@ The boxes a block fills, or the whole cell when it has no shape of its own.
 True when the box at `position` overlaps any solid block.
 
 **See also:** `boxes_of`, `get_block`
-
-### `static sweep(position: Vector3, half_width: float, height: float, axis: int, delta: float, world, solid: PackedByteArray, shapes: PackedByteArray) -> Dictionary`
-
-*shared/block_shapes.gd*
-
-Moves the box along one axis as far as the blocks allow. Returns the distance actually travelled;
-`hit` is true when something stopped it short.
-
-**See also:** `boxes_of`, `get_block`, `move`, `prune`
-
-### `static step_target(position: Vector3, half_width: float, height: float, direction: Vector3, world, solid: PackedByteArray, shapes: PackedByteArray, reach := STEP_HEIGHT) -> float`
-
-*shared/block_shapes.gd*
-
-The highest surface under the box within `reach`, or -INF: where a step up would put the feet.
-
-**See also:** `boxes_of`, `get_block`, `overlaps`
 
 ### `states := {}  (property)`
 
@@ -1894,7 +1877,7 @@ Item data for a part made of a material.
 
 The finished tool's item data from {slot name: material name}, or {} if something is invalid.
 
-**See also:** `add_handler`, `agent_for`, `area_cells`, `at`, `attach`, `body_font`
+**See also:** `area_cells`, `body_font`, `box`, `box_mesh`, `check_icon`, `close_icon`
 
 ### `creative := false  (property)`
 
@@ -2596,8 +2579,6 @@ behind, and a second copy would drift from this one.
 
 {status: Status, nodes: Array[Vector3i]} from start to the end node.
 
-**See also:** `chapter_pages`, `get_block`, `sorted_chapters`
-
 ### `settle(position: Vector3, agent: PackedInt32Array) -> Vector3i`
 
 *server/ai/pathfinder.gd*
@@ -3208,15 +3189,6 @@ The rider's share of a server tick, called instead of walking them. Returns afte
 queue either way, so the client's prediction queue does not stall.
 
 **See also:** `at_path_end`, `config_of`, `dismount`, `get_block`, `is_alive`, `node_center`
-
-### `static step(b: Body, world, solid: PackedByteArray, liquid: PackedByteArray, dt: float, gravity: float, drag := 0.0, shapes := PackedByteArray()) -> void`
-
-*shared/entity_physics.gd*
-
-Integrates one step. `gravity` in blocks/s^2, `drag` per second applied to horizontal velocity
-when airborne (ground friction comes from the caller steering velocity).
-
-**See also:** `block`, `block_state`, `box`, `collides`, `family_of`, `get_block`
 
 ### `static segment_hits_box(from: Vector3, dir: Vector3, max_t: float, box_min: Vector3, box_max: Vector3) -> float`
 
@@ -4340,6 +4312,18 @@ The respawn position from a player's bed, or Vector3.INF (and a message) when it
 *server/status_query.gd*
 
 The server's identity key (signs proofs for the hub); set by the server when it starts listening.
+
+### `static step(s: State, input: PlayerInput, world, rules: Rules) -> void`
+
+*shared/player_physics.gd*
+
+One movement step, run identically by the client (prediction) and the server (authority).
+
+The GDScript twin of this was deleted on 2026-09-23 along with the rest; it was 94 lines that had
+to agree exactly with `native/src/physics.rs` or the symptom was rubber-banding rather than an
+error. The extension is required now, so there is one implementation and nothing to disagree with.
+
+**See also:** `block_state`, `family_of`, `get_block_v`, `set_block_authoritative`
 
 ### `static overlaps_block(p: Vector3, block: Vector3i) -> bool`
 
@@ -5872,7 +5856,7 @@ What goes into world.json: the values an admin set, untouched for mods that are 
 options: id, name, language ("gdscript" | "javascript"), kind ("addon" | "game"), author, description.
 Returns {ok, dir, files: [relative paths], error}.
 
-**See also:** `broadcast_entity_event`, `close`, `create`, `enabled`, `exists`, `heading`
+**See also:** `broadcast_entity_event`, `close`, `create`, `exists`, `heading`, `id_for`
 
 ### `static id_from_name(display_name: String) -> String`
 
@@ -6195,13 +6179,22 @@ What someone shares: an invite code when possible, else "address:port".
 
 The first private IPv4 address of this computer (to invite people on the same network), or "".
 
+### `static enabled() -> bool`
+
+*shared/native.gd*
+
+Whether the extension is loaded. Kept as a function because a handful of callers want to *report*
+it (the server's startup line, the benchmark's labels) rather than depend on it.
+
+**See also:** `level_of`
+
 ### `static create(native_class: StringName) -> Object`
 
 *shared/native.gd*
 
-Returns a new instance of a native class, or null when the extension is unavailable.
+A new instance of a native class. Never null in a working build; says what is wrong when it is.
 
-**See also:** `broadcast_entity_event`, `close`, `create`, `enabled`, `exists`, `heading`
+**See also:** `broadcast_entity_event`, `close`, `create`, `exists`, `heading`, `id_for`
 
 ### `static key_id(key: CryptoKey) -> String`
 
@@ -6365,7 +6358,7 @@ line {from, to}, text {position, text}, path {points}, sphere {center, radius}.
 
 *server/dev_web.gd*
 
-True when the native server (with live push) is in use.
+Kept because callers ask it; there is only the one transport now, and it pushes.
 
 
 ## The client
@@ -7297,7 +7290,7 @@ expensive - it is something being wrong. (2026-09-21)
 
 Prunes every cache back inside its budget. Returns bytes freed, for the log.
 
-**See also:** `boxes_of`, `get_block`, `move`, `prune`
+**See also:** `prune`
 
 ### `static prune(dir: String, budget: int) -> int`
 
@@ -7550,7 +7543,7 @@ A folder name for a new world from its title: letters, digits and underscores, u
 Creates the folder and a world.json with the title, mods and seed, so the list shows it before the
 first launch. The server fills in the rest when it starts.
 
-**See also:** `broadcast_entity_event`, `close`, `create`, `enabled`, `exists`, `heading`
+**See also:** `broadcast_entity_event`, `close`, `create`, `exists`, `heading`, `id_for`
 
 ### `static delete(id: String, root := "") -> bool`
 
@@ -7609,7 +7602,7 @@ Called when the server sends the catalogue.
 
 A material that scrolls `texture`. One shader for every belt; one material per texture.
 
-**See also:** `broadcast_entity_event`, `close`, `create`, `enabled`, `exists`, `heading`
+**See also:** `broadcast_entity_event`, `close`, `create`, `exists`, `heading`, `id_for`
 
 ### `static texture_of(mesh: Mesh) -> Texture2D`
 
@@ -7742,7 +7735,7 @@ The party leader's server, when someone else leads and shares it ({} otherwise).
 `images`: asset name -> Image. Returns {texture, surface, uv: name -> Rect2, pixels: name -> Rect2}.
 Unknown names should fall back to the MISSING ("") entry, a magenta checker.
 
-**See also:** `add_handler`, `agent_for`, `area_cells`, `at`, `attach`, `body_font`
+**See also:** `area_cells`, `body_font`, `box`, `box_mesh`, `check_icon`, `close_icon`
 
 ### `static build_surface(built: Dictionary) -> Image`
 
@@ -9050,7 +9043,7 @@ Newest first. Each entry: {name, path, size, modified}.
 
 Worker thread safe. Archives every file under `world_dir` into `zip_path`. Returns "" or an error.
 
-**See also:** `broadcast_entity_event`, `close`, `create`, `enabled`, `exists`, `heading`
+**See also:** `broadcast_entity_event`, `close`, `create`, `exists`, `heading`, `id_for`
 
 ### `static prune(backup_dir: String, keep: int) -> int`
 

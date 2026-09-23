@@ -97,7 +97,7 @@ func _ready() -> void:
 	if ClassDB.class_exists(&"NativeProcess"):
 		_signals = ClassDB.class_call_static(&"NativeProcess", &"install_shutdown_handlers")
 	print("[server] native extension %s, graceful signal shutdown %s" % [
-		"loaded" if Native.enabled() else "not loaded (GDScript fallbacks)", "on" if _signals else "off"])
+		"loaded" if Native.enabled() else "NOT LOADED - the game will not run", "on" if _signals else "off"])
 
 	_config = {
 		"port": int(options.port),

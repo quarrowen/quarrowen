@@ -220,41 +220,33 @@ func _step_bodies(list: Array[Entity], delta: float) -> void:
 	var world = realm.world
 	var before := PackedVector3Array()
 	before.resize(list.size())
-	if world.native:
-		var packed := PackedFloat32Array()
-		packed.resize(list.size() * 11)
-		for i in list.size():
-			var b := list[i].body
-			var o := i * 11
-			before[i] = b.position
-			packed[o] = b.position.x
-			packed[o + 1] = b.position.y
-			packed[o + 2] = b.position.z
-			packed[o + 3] = b.velocity.x
-			packed[o + 4] = b.velocity.y
-			packed[o + 5] = b.velocity.z
-			packed[o + 6] = b.half_width
-			packed[o + 7] = b.height
-			packed[o + 8] = list[i].def.gravity
-			packed[o + 9] = list[i].def.drag
-			packed[o + 10] = 1.0 if b.on_ground else 0.0
-		var out: PackedFloat32Array = world.native.step_entities(packed, delta)
-		for i in list.size():
-			var b := list[i].body
-			var o := i * 7
-			b.position = Vector3(out[o], out[o + 1], out[o + 2])
-			b.velocity = Vector3(out[o + 3], out[o + 4], out[o + 5])
-			var flags := int(out[o + 6])
-			b.on_ground = flags & 1 != 0
-			b.blocked = flags & 2 != 0
-			b.in_liquid = flags & 4 != 0
-	else:
-		var solid: PackedByteArray = _server.registry.solid_lut
-		var liquid: PackedByteArray = _server.registry.liquid_lut
-		for i in list.size():
-			before[i] = list[i].body.position
-			EntityPhysics.step(list[i].body, world, solid, liquid, delta, list[i].def.gravity, list[i].def.drag,
-				_server.registry.shape_lut)
+	var packed := PackedFloat32Array()
+	packed.resize(list.size() * 11)
+	for i in list.size():
+		var b := list[i].body
+		var o := i * 11
+		before[i] = b.position
+		packed[o] = b.position.x
+		packed[o + 1] = b.position.y
+		packed[o + 2] = b.position.z
+		packed[o + 3] = b.velocity.x
+		packed[o + 4] = b.velocity.y
+		packed[o + 5] = b.velocity.z
+		packed[o + 6] = b.half_width
+		packed[o + 7] = b.height
+		packed[o + 8] = list[i].def.gravity
+		packed[o + 9] = list[i].def.drag
+		packed[o + 10] = 1.0 if b.on_ground else 0.0
+	var out: PackedFloat32Array = world.native.step_entities(packed, delta)
+	for i in list.size():
+		var b := list[i].body
+		var o := i * 7
+		b.position = Vector3(out[o], out[o + 1], out[o + 2])
+		b.velocity = Vector3(out[o + 3], out[o + 4], out[o + 5])
+		var flags := int(out[o + 6])
+		b.on_ground = flags & 1 != 0
+		b.blocked = flags & 2 != 0
+		b.in_liquid = flags & 4 != 0
 	for i in list.size():
 		var e := list[i]
 		var b := e.body
