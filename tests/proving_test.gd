@@ -250,12 +250,63 @@ func _behaviour(server) -> void:
 	_check(server.vehicles.mount(p, raft) and p.riding == raft.id, "and a raft can be ridden")
 	server.vehicles.dismount(p)
 	_notable(server, p)
+	_spawn_rules(server, p)
 	_area_tools(server, server.mod_instances.proving.api, p)
 	_nested_inventories(server, server.mod_instances.proving.api, p)
 	_instances(server, server.mod_instances.proving.api, p)
 	_sources_and_palette(server, server.mod_instances.proving.api, p)
 	_wind(server, server.mod_instances.proving.api)
 	_conflicts(server)
+
+
+## Natural spawning: that a rule resolved what it named, and that it can find anywhere to put a creature.
+##
+## **This is the half nothing was asserting, and it is the half that fails silently.** A spawn rule
+## that can never fire produces no error, no warning and no test failure - you find out by never
+## meeting the creature. Two of them got written on 2026-09-23: one in a game, where `on` named blocks
+## that are almost never at the surface, and one here, where three keys (`min_light`, `max_light`,
+## `weight`) were not keys `spawning.gd` reads at all. Neither made a sound.
+##
+## So: the `on` list resolved to a real id, and `find_spot` both finds somewhere and gets the ground
+## right. `tools/spawn_probe.tscn` does the same thing across a whole game when you want numbers.
+func _spawn_rules(server, p) -> void:
+	var rules: Array = server.entities.spawning.rules
+	var grazer: int = server.entities.registry.id_of("proving:grazer")
+	var rule := {}
+	for entry: Dictionary in rules:
+		if int(entry.entity) == grazer:
+			rule = entry
+	_check(not rule.is_empty(), "a mod's spawn rule reaches the spawner (%d rules)" % rules.size())
+	if rule.is_empty():
+		return
+	# The silent failure itself: `add_spawn_rule` turns block *names* into ids and drops any that does
+	# not resolve, so a typo leaves an empty list that quietly stops restricting anything.
+	var turf: int = server.registry.id_of("proving:turf")
+	_check((rule.on as Array) == [turf], "and its `on` list resolved to a block id rather than being dropped")
+	# `light` is read as a pair, and this rule deliberately asks for one that is **not** the animal
+	# default of [9, 15] - otherwise passing would prove only that the default happened to match. That
+	# is exactly how three dead keys survived here unnoticed: `max_light: 4` was quietly getting the
+	# monster default of 7, and everything looked fine.
+	_check((rule.light as Array) == [10, 15], "and `light` was read as the pair spawning wants (%s)" % str(rule.light))
+
+	# Somewhere to stand. The world here is flat turf, so every spot found must be on turf - which is
+	# the assertion that a wrong `on` list would fail rather than merely under-deliver.
+	for cx in range(-3, 4):
+		for cz in range(-3, 4):
+			server._ensure_chunk(Vector2i(cx, cz))
+	var found := 0
+	var wrong := 0
+	for i in 60:
+		# Daylight, because this rule is the animal half and animals want light 9-15. Probing at the
+		# wrong hour measures nothing, which cost `spawn_probe` two runs to learn.
+		var at: Vector3 = server.entities.spawning.find_spot(p.state.position, rule, 1.0)
+		if at == Vector3.INF:
+			continue
+		found += 1
+		if server.world.get_block(floori(at.x), floori(at.y) - 1, floori(at.z)) != turf:
+			wrong += 1
+	_check(found > 0, "and the spawner can find somewhere to put one (%d of 60 attempts)" % found)
+	_check(wrong == 0, "every one of them standing on what the rule asked for (%d wrong)" % wrong)
 
 
 ## A creature the whole server is told about: announced, marked, followed, and gone when its time is up.

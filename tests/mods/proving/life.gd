@@ -50,9 +50,22 @@ func _creatures() -> void:
 			"phases": [{"health_below": 0.5, "message": "The biter is angry", "speed_multiplier": 1.3}],
 			"boss": {"name": "The Biter", "bar_range": 32}}})
 	# A boss bar and phases need something that will not die on the first hit.
-	api.add_spawn_rule({"entity": "biter", "max_light": 4, "weight": 1, "group": [1, 2]})
-	# An animal rule too: spawning is a capability with two halves, and the quiet half wants light.
-	api.add_spawn_rule({"entity": "grazer", "min_light": 9, "weight": 1, "group": [1, 3], "on": ["proving:turf"]})
+	#
+	# **This said `min_light`, `max_light` and `weight` until 2026-09-23, and `spawning.gd` reads none
+	# of them** - it wants `light: [min, max]`. Nothing failed, and the proof that it should have is
+	# right here: `max_light: 4` was asking for pitch dark and quietly getting the monster default of
+	# 7. The generated reference page carried the dead keys too, because its example is lifted from
+	# this file, so every mod author was being shown them.
+	#
+	# **The two rules now split the job deliberately.** This one names no `light` at all, so it proves
+	# the category default still applies (gameplay_test asserts it is [0, 7]) - which is what the old
+	# line was accidentally testing and nobody knew.
+	api.add_spawn_rule({"entity": "biter", "group": [1, 2]})
+	# And this one names a `light` that is **not** the animal default of [9, 15], so it proves a rule's
+	# own value is actually read rather than merely matching what it would have got anyway. `on` is the
+	# other half, and the silently droppable one - an unresolved block name is not an error - so the
+	# test checks this resolved to a real id and that what gets placed is standing on it.
+	api.add_spawn_rule({"entity": "grazer", "light": [10, 15], "group": [1, 3], "on": ["proving:turf"]})
 	# A wild one wears no collar; taming puts it on. Set on spawn rather than in the definition,
 	# because `look` is per-creature state and taming is what changes it.
 	api.on("entity_spawned", func(ev):

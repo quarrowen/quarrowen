@@ -5653,4 +5653,32 @@ every animal rule read 0.0%, which is correct behaviour (animals want light 9-15
 five false alarms; and a `time: "any"` rule only has to work at *some* hour, so it is tried at both
 and reported at the better one. **A 0.0% row now means a rule that can never place anything.** There
 are none.
+
+### And the suite now asserts it, which found the third one
+
+The probe is a tool somebody has to remember to run, so `tests/proving_test.gd::_spawn_rules` makes it
+a ratchet: the rule reaches the spawner, its `on` list resolved to a real block id, its `light` was
+read as the pair `spawning.gd` wants, `find_spot` finds somewhere, and **what it finds is standing on
+the block the rule asked for**. Verified by breaking it on purpose - a one-letter typo in the block
+name fails on exactly the right line rather than passing quietly.
+
+Writing it turned up a third instance, in the Proving Ground itself: its two spawn rules used
+`min_light`, `max_light` and `weight`, and `spawning.gd` reads **none** of those. `max_light: 4` was
+asking for pitch dark and silently getting the monster default of 7. Worse, `docs/api/mod-api.md`
+takes its `add_spawn_rule` example straight from that file, so **the published reference was teaching
+mod authors three keys that do nothing**.
+
+The two rules now split the work deliberately, which is the part worth keeping: the biter names no
+`light` at all, so it proves the category default still applies (`gameplay_test` asserts [0, 7] - and
+that assertion, it turns out, was the only thing quietly testing the default all along); the grazer
+names `[10, 15]`, which is *not* the animal default, so it proves a rule's own value is read rather
+than merely matching what it would have got anyway. Asserting a value equal to the default proves
+nothing, and that is exactly how the dead keys survived.
+
+### Why none of this was caught before
+
+`add_spawn_rule` dropped an unresolved block name silently; it now says so. That is the general fix,
+and the three bugs above are its instances: a rule that cannot fire, a rule with keys nobody reads,
+and a reference page repeating both. **A spawn rule says nothing when it is wrong** - so the rule of
+thumb is that spawn rules need measuring, not reading, and there is now a tool and a test for each.
 - The Proving Ground's `proving:quarry` uses `minutes: 0.05` so a test can sit through the clock.

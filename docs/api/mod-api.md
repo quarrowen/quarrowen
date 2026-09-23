@@ -672,7 +672,7 @@ player), max_total, chance (per player per second), min_distance, max_distance. 
 engine/server/spawning.gd for caps and despawning.
 
 ```gdscript
-api.add_spawn_rule({"entity": "biter", "max_light": 4, "weight": 1, "group": [1, 2]})
+api.add_spawn_rule({"entity": "biter", "group": [1, 2]})
 ```
 
 **See also:** `add_rule`, `block`, `entity_type`, `is_excluded`, `qualified`
