@@ -4118,10 +4118,14 @@ or `true` for the defaults. For the rare ones worth hunting; see server/sighting
 
 GDScript: `notable_of(type_id: int) -> Dictionary`
 
+JavaScript: `api.notableOf(typeId)`
+
 Whether this type is one the server announces, and how. `{}` when it is not.
 
 A function rather than a reach into `defs[id].notable`, because `notable` is a shape a mod wrote
 and this registry normalised, and those have one owner here - see engine/owned.txt.
+
+**See also:** `entity_type`
 
 ### `id_of`
 

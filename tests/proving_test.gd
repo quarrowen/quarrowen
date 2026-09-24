@@ -223,6 +223,13 @@ func _behaviour(server) -> void:
 	_check(server.characters.talk(p, "proving:keeper"), "a conversation opens")
 	server.on_ui_action(201, "engine:talk", "say:start:1")
 	_check(server.objectives.has(p, "proving:errand"), "an option handed over an objective")
+	# `order` sorts the list, so the one given second comes back first. The whole point is a story's
+	# spine sitting above its errands however they were handed out, and chronological order is what
+	# it has to beat - so the test gives them in the wrong order deliberately.
+	server.objectives.give(p, "proving:daily")
+	var list: Array = server.objectives.active_for(p)
+	_check(list.size() >= 2 and String(list[0].name) == "proving:daily",
+		"and `order` decides what the player reads first, not when it was given")
 	server.characters.talk(p, "proving:keeper")
 	server.on_ui_action(201, "engine:talk", "say:start:0")
 	_check(p.ui_ids.has("engine:shop"), "another opened the stall")

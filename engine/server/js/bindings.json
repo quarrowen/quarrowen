@@ -1442,6 +1442,14 @@
 			"args": [],
 			"gd": "network_servers"
 		},
+		"notableOf": {
+			"args": [
+				{
+					"kind": "any"
+				}
+			],
+			"gd": "notable_of"
+		},
 		"objectiveFinished": {
 			"args": [
 				{

@@ -157,6 +157,22 @@ Fades the music out for one player, or for everybody when `player` is null.
 
 **See also:** `send_music`
 
+### `api.notable_of`
+
+GDScript: `api.notable_of(entity_or_name) -> Dictionary`
+
+JavaScript: `api.notableOf(entityOrName)`
+
+Whether this type is one the whole server is told about, and how: {announce, slain, gone, label,
+color, minutes}, or `{}` for the overwhelming majority that are not. Takes a type id or a name.
+
+For a mod that wants to do something when a *rare* creature is involved without keeping its own
+list of which ones are rare - "you killed one of the ones worth hunting" is a question about the
+registry, and a mod that answers it from a hand-written list stops being right the moment anybody
+adds a fifth.
+
+**See also:** `entity_type`
+
 ### `api.set_map_marker`
 
 GDScript: `api.set_map_marker(player, marker_id: String, marker: Dictionary) -> void`
@@ -462,7 +478,7 @@ JavaScript: `api.plotsOf(who)`
 
 Every plot somebody has a say in.
 
-**See also:** `of_player`, `register_objective`
+**See also:** `list`, `of_player`, `register_objective`
 
 ### `api.register_objective`
 
@@ -474,6 +490,11 @@ Something a player has been asked to do: a story, a daily errand, a contract, a 
 
 api.register_objective("deliver_the_post", {"display_name": "The Post",
 "steps": [{"text": "Take the letter to Bramble"}, {"text": "Bring her answer back"}]})
+
+`order` decides where it sits in the player's list (lower first, ties in the order they were
+given): **a story's spine belongs above its errands**, and without it the list is purely
+chronological, so a game that hands out side tasks at the start buries the one line that says what
+the game is about.
 
 **Not a tutorial and not a milestone**, both of which exist already. A tutorial teaches, starts
 itself and is the same for everybody; a milestone notices something that already happened. An

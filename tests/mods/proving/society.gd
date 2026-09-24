@@ -16,8 +16,9 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	api.register_ledger("standing", {"display_name": "Standing", "levels": [10, 30, 60]})
 	api.register_objective("errand", {"display_name": "An Errand",
 		"steps": [{"text": "Go and see"}, {"text": "Come back", "count": 2}]})
+	# `order` puts a story's spine above its errands: given second and listed first.
 	api.register_objective("daily", {"display_name": "A Daily Thing", "repeatable": true,
-		"steps": [{"text": "Again"}]})
+		"order": -1, "steps": [{"text": "Again"}]})
 	api.register_shop("stall", {"display_name": "The Stall", "offers": [
 		{"item": "proving:token", "count": 2, "price": 5, "ledger": "coins", "stock": 3, "restock": 30.0},
 		{"item": "proving:rock", "count": 4, "cost": [{"item": "proving:token", "count": 1}]},

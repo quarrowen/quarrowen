@@ -601,6 +601,18 @@ func entity_type(entity_name: String) -> int:
 	return _server.entities.registry.id_of(_qualify_ref(entity_name))
 
 
+## Whether this type is one the whole server is told about, and how: {announce, slain, gone, label,
+## color, minutes}, or `{}` for the overwhelming majority that are not. Takes a type id or a name.
+##
+## For a mod that wants to do something when a *rare* creature is involved without keeping its own
+## list of which ones are rare - "you killed one of the ones worth hunting" is a question about the
+## registry, and a mod that answers it from a hand-written list stops being right the moment anybody
+## adds a fifth.
+func notable_of(entity_or_name) -> Dictionary:
+	var type_id: int = entity_or_name if entity_or_name is int else entity_type(String(entity_or_name))
+	return _server.entities.registry.notable_of(type_id)
+
+
 ## Spawns an entity. options: yaw, velocity (Vector3), data (Dictionary), owner (player or entity,
 ## for projectiles), **realm** (which world to put it in; the overworld by default). Returns the
 ## entity or null.
@@ -1330,6 +1342,11 @@ func plots_of(who) -> Array:
 ##
 ##     api.register_objective("deliver_the_post", {"display_name": "The Post",
 ##         "steps": [{"text": "Take the letter to Bramble"}, {"text": "Bring her answer back"}]})
+##
+## `order` decides where it sits in the player's list (lower first, ties in the order they were
+## given): **a story's spine belongs above its errands**, and without it the list is purely
+## chronological, so a game that hands out side tasks at the start buries the one line that says what
+## the game is about.
 ##
 ## **Not a tutorial and not a milestone**, both of which exist already. A tutorial teaches, starts
 ## itself and is the same for everybody; a milestone notices something that already happened. An

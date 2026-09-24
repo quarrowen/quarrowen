@@ -53,6 +53,11 @@ func register(objective_name: String, def: Dictionary, owner := "engine") -> boo
 		"steps": steps,
 		# Whether it can be given again once it is done - a daily errand can, a story cannot.
 		"repeatable": bool(def.get("repeatable", false)),
+		# Where it sits in the list: lower first, ties in the order they were given. **A story's spine
+		# should sit above its errands**, and without this the list is purely chronological - so a
+		# game that hands out five side tasks at the start buries the one line saying what the game is
+		# about, and buries it further with every act that completes. (2026-09-24)
+		"order": int(def.get("order", 0)),
 		"owner": owner,
 	}
 	return true
@@ -142,6 +147,7 @@ func active_for(player) -> Array:
 	if player == null:
 		return []
 	var out := []
+	var given := 0
 	var book := _book(player)
 	for objective_name: String in book.active:
 		var kind: Dictionary = kinds.get(objective_name, {})
@@ -151,7 +157,16 @@ func active_for(player) -> Array:
 		var step := clampi(int(state.step), 0, (kind.steps as Array).size() - 1)
 		out.append({"name": objective_name, "display_name": String(kind.display_name),
 			"step": step, "of": (kind.steps as Array).size(), "text": String(kind.steps[step].text),
-			"progress": int(state.progress), "needed": int(kind.steps[step].count)})
+			"progress": int(state.progress), "needed": int(kind.steps[step].count),
+			"order": int(kind.order), "_given": given})
+		given += 1
+	# By `order`, then by when it was given. The second key is what makes this stable: sorting on one
+	# field alone leaves everything of equal order in whatever order the sort happened to leave it,
+	# which means a list that reshuffles itself every time anything changes.
+	out.sort_custom(func(a, b):
+		return int(a.order) < int(b.order) if int(a.order) != int(b.order) else int(a._given) < int(b._given))
+	for entry in out:
+		entry.erase("_given")
 	return out
 
 
