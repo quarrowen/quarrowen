@@ -6507,7 +6507,9 @@ it matters the day anybody else can reach it.
     discards `glow.light` - the value reaches the client and is dropped one line short.
 25. **Charms and trinkets have no visual path at all** - no mesh, no armour texture. A glowing charm
     is invisible as well as unlit.
-26. **The Moonpearl night effect** - the last of the three agreed with the user, unstarted.
+26. ~~**The Moonpearl night effect**~~ Done 2026-09-24. Worn after dark, monsters do not take against
+    you beyond seven blocks - `mob_target` refused, rather than a stat. Distance and not chance, so a
+    child can learn it.
 27. **Firstlight's story never points at a guide page** - overstated in the first version of this
     list as "depends on the guidebook and never uses it", which is wrong: G opens the book, the HUD
     badges unread pages ("Guide - 7 new"), and all 21 are reachable. What is missing is smaller and
@@ -6739,3 +6741,25 @@ Three things went wrong, and two were mine:
 That last one is the second thing this week that was believed rather than checked (the first was the
 Proving Ground's structure "covering" `register_structure` while placing nothing). Both were in a list
 of problems, which is exactly where an unmeasured claim is most expensive: it gets budgeted for.
+
+### The Moonpearl does something, and a mod can ask what you are wearing (2026-09-24)
+
+The last of the three agreed on 24 September. Worn after dark, the charm makes monsters notice you
+later: `mob_target` is refused while they are further than seven blocks away. **Distance, not chance**
+- a monster that rolls a die each time you meet is one a child cannot learn, and one that simply does
+not see you until you are close is a rule they can plan around.
+
+Two things it needed, and the interesting part is that only one was expected:
+
+- **`api.worn(player, slot)`.** A mod could be *told* when worn gear changed (`equipment_changed` has
+  existed all along) and could not *ask* what it was - so anything acting on equipment had to watch
+  every change and rebuild the state itself, including for players already wearing the thing when it
+  loaded, which no event can tell it. Asking was the half that was missing.
+- **The mark is a Dictionary in the mod, not a condition.** The engine refuses a condition that
+  neither changes a stat nor runs a timer, and it is right to: that guard catches a mod that filled
+  one in halfway. This mark genuinely does neither - all it does is make a handler say no - so it
+  lives in the mod. Worth recording that the refusal was correct and the temptation was to give the
+  condition a token stat to get past it.
+
+Also fixed: the handler read `target.player_id` without checking there was one. A mob can take against
+another mob, and that target has no player id at all.

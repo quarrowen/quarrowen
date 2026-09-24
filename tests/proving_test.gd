@@ -253,6 +253,18 @@ func _behaviour(server) -> void:
 	_check(server.characters.talk(p, "proving:keeper"), "a conversation opens")
 	server.on_ui_action(201, "engine:talk", "say:start:1")
 	_check(server.objectives.has(p, "proving:errand"), "an option handed over an objective")
+
+	# What somebody is wearing, asked rather than remembered. The empty answer matters as much as the
+	# full one: a slot nobody registered and an empty slot both say 0, so a mod cannot tell them apart
+	# by accident and act on a -1.
+	var dressed = server.mod_instances.proving.api
+	_check(dressed.worn(p, "charm") == 0, "nothing worn in a slot reads as 0")
+	_check(dressed.worn(p, "not_a_slot") == 0, "and so does a slot nobody registered")
+	var charm: int = server.items.id_of("proving:prod")
+	var charm_slot: int = p.inventory.equipment_index("charm")
+	if charm_slot >= 0:
+		p.inventory.set_slot(charm_slot, charm, 1, {})
+		_check(dressed.worn(p, "charm") == charm, "and a mod can ask what a player has on")
 	# `order` sorts the list, so the one given second comes back first. The whole point is a story's
 	# spine sitting above its errands however they were handed out, and chronological order is what
 	# it has to beat - so the test gives them in the wrong order deliberately.

@@ -70,16 +70,13 @@ blocked: [cosmetic names or categories]
 uniform: avatar data laid over every player, e.g. {wear: {shirt: {id: "builtin:tshirt", color: "#d94c4c"}}}
 For per-player looks (teams, disguises) use player.set_avatar_override or the avatar_change event.
 
-**See also:** `refresh_avatar`, `set_policy`
+**See also:** `item`, `refresh_avatar`, `set_policy`, `worn`
 
 ### `api.register_equipment_slot`
 
 GDScript: `api.register_equipment_slot(slot_name: String, def := {}) -> bool`
 
 JavaScript: `api.registerEquipmentSlot(slotName, def)`
-
-Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching
-`equip_slot` go in it; its modifiers apply while worn. def: display_name.
 
 ```gdscript
 api.register_equipment_slot("charm", {"display_name": "Charm"})

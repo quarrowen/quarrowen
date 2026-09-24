@@ -173,6 +173,26 @@ adds a fifth.
 
 **See also:** `entity_type`
 
+### `api.worn`
+
+GDScript: `api.worn(player, slot_name: String) -> int`
+
+JavaScript: `api.worn(player, slotName)`
+
+Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching
+`equip_slot` go in it; its modifiers apply while worn. def: display_name.
+What a player is wearing in a slot, as an item id, or 0 for nothing. Slot names are the ones
+`register_equipment_slot` created, plus the engine's own ("head", "chest", "legs", "feet").
+
+if api.worn(player, "trinket") == api.item("simple_gear:moonpearl_charm"):
+
+**A mod could be told when this changed and could not ask what it was.** `equipment_changed` has
+existed all along, so a mod wanting to act on worn gear had to watch every change and rebuild the
+state itself - including for players who were already wearing the thing when it loaded, which an
+event cannot tell it. Asking is the half that was missing. (2026-09-24)
+
+**See also:** `equipment_index`
+
 ### `api.set_map_marker`
 
 GDScript: `api.set_map_marker(player, marker_id: String, marker: Dictionary) -> void`

@@ -46,4 +46,4 @@ leaving one of them to be guessed at.
 :   1 function.
 
 [Everything else](mod-api/everything-else.md)
-:   161 functions.
+:   162 functions.

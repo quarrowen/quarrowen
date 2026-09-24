@@ -44,8 +44,9 @@ func setup(api) -> void:
 	api.register_recipe({"base:warden_core": 1, "base:iron_ingot": 5}, "simple_gear:warden_plate", 1, METALWORK)
 
 	# **The charm does nothing on its own, on purpose.** Worn, it is a bead on a cord; a game decides
-	# what the night does with it. `firstlight` gives a condition while it is dark that makes monsters
-	# notice you later, which is the thing the engine has no stat for and an event can do.
+	# what the night does with it. `firstlight` makes monsters notice you later while it is dark - by
+	# refusing `mob_target` beyond a few blocks, which is the thing the engine has no stat for and an
+	# event can do. See mods/firstlight/moonpearl.gd. (2026-09-24)
 	api.register_item("moonpearl_charm", {"group": "Curios", "display_name": "Moonpearl Charm",
 		"icon": "textures/moonpearl_charm.png", "max_stack": 1, "equip_slot": "trinket",
 		"lore": "Cold to hold. The dark seems to mind you less."})

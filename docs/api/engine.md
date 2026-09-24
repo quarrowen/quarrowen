@@ -2551,7 +2551,7 @@ GDScript: `static is_block_item(id: int) -> bool`
 Whether an id is a block rather than a registered item. Every block is also an item, and block ids
 run below `FIRST_ITEM` while item ids start there.
 
-**See also:** `attack_damage`, `max_stack`, `place`, `sweep`
+**See also:** `attack_damage`, `max_stack`, `place`, `sweep`, `worn`
 
 ### `register`
 

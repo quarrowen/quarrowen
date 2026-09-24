@@ -3505,6 +3505,17 @@
 			],
 			"gd": "warn"
 		},
+		"worn": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "worn"
+		},
 		"wouldAccept": {
 			"args": [
 				{
