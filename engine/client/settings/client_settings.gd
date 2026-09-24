@@ -85,6 +85,8 @@ const SCHEMA := {
 		"help": "Light bursts from effects and the red flash when you are hurt."},
 	"crafting/relaxed_timing": {"tab": "Accessibility", "label": "Relaxed minigame timing", "type": "bool", "default": false,
 		"help": "Slower markers, bigger zones and longer windows. Every result is still at least Standard."},
+	"interface/debug_info": {"tab": "Interface", "label": "Show technical readout", "type": "bool", "default": false,
+		"help": "Position, frame rate, ping, chunk and mesh counts, in the top corner. F3 toggles it too, and whichever way you leave it is how it starts next time. Off by default: it is for somebody fixing the game, not playing it."},
 	"interface/compass": {"tab": "Accessibility", "label": "Compass at the top of the screen", "type": "bool", "default": true,
 		"help": "Which way you are facing, with a mark for players nearby and for your home and grave."},
 	"accessibility/menu_motion": {"tab": "Accessibility", "label": "Moving camera in the menu", "type": "bool", "default": true},

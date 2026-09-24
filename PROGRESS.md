@@ -6658,3 +6658,29 @@ the one published by hand, and mentions none of the four.
 
 Also fixed on the way: `--hud=0` in the screenshot harness did not hide the task list, which was
 added this morning. The first picture that wanted a clean world had a quest log in the corner.
+
+### The technical readout was on by default, and the controls hint was inside it (user, 2026-09-24)
+
+*"is the game's debug hud shown or hidden by default?"* - shown, and it was eight lines: frame rate,
+XYZ, chunk, ping, pending inputs, corrections, mesh queue depth, sounds played. A child opening a game
+built for them got a performance profiler in the corner of the sky.
+
+Two separate faults, which is why the fix is not one line:
+
+- **The default was wrong.** It is off now, and F3 is *saved* - it was not, so anybody who turned it
+  off turned it off again every single launch. There is a settings entry for it too
+  (`interface/debug_info`), because a thing you can toggle should also be findable.
+- **The controls hint was the last line of the debug block**, so the one line a player wants shared a
+  switch with seven they do not. Turning off the clutter lost you the only thing saying how to open
+  your inventory; keeping the hint kept the mesh queue. It is its own thing now, and it fades after
+  45 seconds, because a hint that never leaves is furniture.
+
+**And it is drawn rather than written** (the user: *"maybe showing the key mnemonic as a picture of a
+key in a keyboard?"*). `[T] chat  [E] inventory` read as debug output because it *was* debug output.
+It is keycaps now - a rounded cap with a thicker bottom edge, which is most of what makes a rectangle
+look like something you could press - taking its corner radius from the hotbar so it belongs to the
+same interface.
+
+The first version used the hotbar's pale fill and was unreadable: those slots are light because they
+sit on a dark belt, and these float over whatever the player is looking at. Dark caps with a light rim
+read on a bright sky and on grass both. Found by photographing it, not by reasoning about it.

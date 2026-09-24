@@ -115,6 +115,9 @@ const INPUT_REDUNDANCY := 3
 const MAX_PENDING_INPUTS := 240
 const TELEPORT_DISTANCE := 3.0
 const RENDER_DISTANCE := 8 * 16
+## How long the controls hint stays up before fading. Generous on purpose: an eight-year-old reading
+## it is also looking at everything else.
+const CONTROLS_HINT_SECONDS := 45.0
 const CHAT_LINES := 8
 const CHAT_LINE_LIFETIME := 10.0
 const ATTACK_REACH := 4.5
@@ -322,6 +325,9 @@ var _status_label: Label
 ## Shown only while something is downloading; see `_set_progress`.
 var _progress_bar: ProgressBar
 var _debug_label: Label
+## The controls hint, which is for the player rather than for whoever is fixing the game. Drawn as
+## keycaps rather than written as "[T] chat"; fades once they have had time to read it.
+var _controls_hint: Control
 var _hotbar: HBoxContainer
 ## Name of what the player is holding, shown above the hotbar for a moment when it changes.
 var _held_label: Label
@@ -2815,7 +2821,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		graphics.cycle()
 		_apply_graphics(true)
 	elif event.is_action_pressed("toggle_debug"):
+		# Saved, so the choice survives a restart. It did not, so anybody who turned it off turned it
+		# off again every single launch.
 		_debug_label.visible = not _debug_label.visible
+		ClientSettings.shared().set_value("interface/debug_info", _debug_label.visible)
 	elif event.is_action_pressed("toggle_hud"):
 		# No message about how to get it back: the label that would say so lives inside the thing being
 		# hidden. F1 again is the answer, and it is in Settings > Controls.
@@ -3856,9 +3865,26 @@ func _build_hud() -> void:
 	_server_ui.action_pressed.connect(_on_ui_action)
 	_hud_root.add_child(_server_ui)
 
+	# **The technical readout is off unless somebody asks for it** (the user, 2026-09-24: "by default
+	# it should be hidden"). It was on for every new player: eight lines of mesh-queue depth, pending
+	# inputs and corrections in the corner of a game for children, seven of them meaningless to anyone
+	# not fixing the engine.
 	_debug_label = _shadow_label()
-	_debug_label.position = Vector2(10, 8)
+	_debug_label.position = Vector2(10, 30)  # below the controls hint, which owns the top line
+	_debug_label.visible = bool(ClientSettings.shared().get_value("interface/debug_info"))
 	_hud_root.add_child(_debug_label)
+
+	# **The controls hint is not debug information and no longer shares its switch.** It was the last
+	# line of that block, so a player who turned off the clutter also lost the only thing telling them
+	# how to open their inventory - and a player who kept the hint kept the frame counter with it.
+	_controls_hint = _build_controls_hint()
+	_hud_root.add_child(_controls_hint)
+	# Long enough to be read twice by somebody who is also looking at a new world, then gone. A hint
+	# that never leaves stops being a hint and becomes furniture - and this one sits over the sky.
+	var fade := create_tween()
+	fade.tween_interval(CONTROLS_HINT_SECONDS)
+	fade.tween_property(_controls_hint, "modulate:a", 0.0, 2.0)
+	fade.tween_callback(func(): _controls_hint.visible = false)
 
 	_status_label = _shadow_label()
 	_status_label.set_anchors_preset(Control.PRESET_CENTER)
@@ -4519,6 +4545,68 @@ func _show_held_name() -> void:
 	_held_until = Time.get_ticks_msec() / 1000.0 + 2.0
 
 
+## The controls hint: a row of keycaps with what each one does beside it.
+##
+## **Drawn rather than written** (the user, 2026-09-24: "maybe showing the key mnemonic as a picture
+## of a key in a keyboard?"). It was one line of `[T] chat  [E] inventory  ...`, which reads as debug
+## output because that is what it was - it lived inside the technical readout. A key that looks like a
+## key is also the one part of this a child can act on without reading a word of it.
+##
+## Takes its shape from the hotbar slots so it belongs to the same interface: the belt's soft fill and
+## rounded corners, or the classic style's flatter box.
+func _build_controls_hint() -> Control:
+	var row := HBoxContainer.new()
+	row.position = Vector2(10, 8)
+	row.add_theme_constant_override("separation", 14)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for hint in [["T", "chat"], ["E", "inventory"], ["Q", "drop"], ["C", "crafting"], ["Esc", "menu"]]:
+		var pair := HBoxContainer.new()
+		pair.add_theme_constant_override("separation", 5)
+		pair.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pair.add_child(_keycap(String(hint[0])))
+		var what := _shadow_label()
+		what.text = String(hint[1])
+		what.add_theme_font_size_override("font_size", 13)
+		what.add_theme_color_override("font_color", Color(0.94, 0.94, 0.90, 0.92))
+		what.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pair.add_child(what)
+		row.add_child(pair)
+	return row
+
+
+## One key, drawn as a key: a small raised cap with the letter on it.
+func _keycap(key: String) -> Control:
+	var cap := PanelContainer.new()
+	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var style := StyleBoxFlat.new()
+	# **Dark, not light.** The hotbar's slots are a pale fill because they sit on a dark belt; these
+	# float over whatever the player is looking at, and a white-on-sky keycap was unreadable the first
+	# time it was photographed against a bright morning. Dark caps with a light rim read on both.
+	style.bg_color = Color(0.05, 0.06, 0.08, 0.66)
+	style.border_color = Color(1, 1, 1, 0.38)
+	style.set_border_width_all(1)
+	# A key is taller than it is deep, so the bottom edge is thicker - that lip is most of what makes
+	# a rectangle read as something you could press.
+	style.border_width_bottom = 3
+	style.set_corner_radius_all(5 if _hud_belt() else 2)
+	style.content_margin_left = 7
+	style.content_margin_right = 7
+	style.content_margin_top = 2
+	style.content_margin_bottom = 1
+	cap.add_theme_stylebox_override("panel", style)
+	var label := _shadow_label()
+	label.text = key
+	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Single letters get a square cap; "Esc" is allowed to be wider than it is tall.
+	if key.length() == 1:
+		label.custom_minimum_size.x = 10
+	cap.add_child(label)
+	return cap
+
+
 func _shadow_label() -> Label:
 	var label := Label.new()
 	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
@@ -4569,8 +4657,7 @@ func _update_hud() -> void:
 		"Players %d   %s   holding %s   target %s" % [_remote_players.size() + 1, "creative" if inventory.creative else "survival",
 			items.display_name(selected) if selected > 0 else "nothing", target_text],
 		"Entities %d   health %.1f / %.0f   sounds played %d" % [_entities.size(), health, max_health, _sounds.played],
-		"Graphics: %s (%d%% render scale)   [F4] change" % [graphics.preset, roundi(graphics.value("render_scale") * 100)],
-		"[F3] debug  [T] chat  [E] inventory  [Q] drop  [C] crafting  [Esc] menu  [1-9 / wheel] slot",
+		"Graphics: %s (%d%% render scale)   [F4] change   [F3] hide this" % [graphics.preset, roundi(graphics.value("render_scale") * 100)],
 	])
 
 

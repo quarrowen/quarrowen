@@ -44,6 +44,7 @@ func _ready() -> void:
 	if String(options.get("hud", "")) == "0":
 		# --hud=0 for a picture of the world rather than of the interface.
 		client._debug_label.visible = false
+		client._controls_hint.visible = false
 		if client._tutorial_hud != null:
 			client._tutorial_hud.visible = false
 		# The task list is part of the interface too. Missed when it was added this morning, and the
