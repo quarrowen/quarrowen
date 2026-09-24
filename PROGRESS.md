@@ -6102,13 +6102,20 @@ furnace turns one into the other, and no game has to invent dinner.
 
 ### Still to come in Firstlight
 
-Decided with the user 2026-09-24, none of it built: the Moonpearl's **night effect** (a condition
-while dark that cancels some `mob_target` events, since the engine has no stealth stat and that event
-is cancellable); the **Hollow Reed calling something rare** when played at night, which turns the hunt
-from waiting into something you do; and **the Ancient Colossus as an ending** - it exists in `base`
-with 300 health and a boss preset and nothing has ever spawned it. A multiblock built deep from blocks
-`base` already has is the likely way to wake it, since there is no sunstone *block*, only the ore and
-the item.
+Decided with the user 2026-09-24. **Two of the three are now built** (see further down this file):
+the Hollow Reed calls something rare, and the ending exists as a ruin you repair and light.
+
+What is left from that list:
+
+- The Moonpearl's **night effect** - a condition while dark that cancels some `mob_target` events,
+  since the engine has no stealth stat and that event is cancellable. Unstarted.
+- **The Ancient Colossus is still never seen.** It exists in `base` - 7.2 blocks tall, 300 health, a
+  boss preset, its own model - and nothing in the game has ever spawned one. The ending currently
+  broadcasts three lines of text and changes the spawn caps; the thing the whole story is named after
+  never appears on screen. That is the largest gap in Firstlight now.
+
+The last sentence of this entry used to say there was no sunstone *block*, only the ore and the item.
+That stopped being true on 2026-09-24 - `base:sunstone_block` exists and the altar is made of it.
 
 ### The menu backdrop has been failing every frame, and only launching it showed that (2026-09-24)
 
