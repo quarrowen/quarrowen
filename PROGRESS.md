@@ -6687,3 +6687,30 @@ same interface.
 The first version used the hotbar's pale fill and was unreadable: those slots are light because they
 sit on a dark belt, and these float over whatever the player is looking at. Dark caps with a light rim
 read on a bright sky and on grass both. Found by photographing it, not by reasoning about it.
+
+### The cinematic arrival, built (user, 2026-09-23, done 2026-09-24)
+
+*"a cinematic third person zoom in kinda effect which will end smoothly in the first person
+perspective"*. The camera starts nine metres behind and four and a half up, looking over the player's
+shoulder at the world they have arrived in, and eases in to their eyes over 2.2 seconds.
+
+Both constraints written down when it was deferred are honoured. **It does not delay play**: it
+starts the moment the world is drawn under them, which is the end of a wait they were already
+serving, and *any* key, click or stick movement ends it instantly - the skip is checked before the
+chat guard so it cannot be a frame late. **Once per session, not once per world load**: a `static
+var`, so dying twenty times does not buy twenty establishing shots, and neither does rejoining.
+
+Three things went wrong, and two were mine:
+
+- **The first trigger never fired.** It hung off the loading status bar clearing, and that bar only
+  appears when there is content to download - so joining a local server showed no bar, cleared no
+  bar, and flew not at all. It keys on the world being drawn now.
+- **The camera flew through hills.** The ordinary third-person camera stops at walls with a raycast
+  and this did not, so the first second was spent inside whatever was behind you. Spawning with your
+  back to a slope is the common case, not the corner.
+- **The harness could not photograph it.** Every capture came out as the frame *after* the flight had
+  finished, because the screenshot tool spends 120 frames settling before the shutter - two to four
+  seconds at these render sizes, against a 2.2-second move. `--warmup=N` now trades settling against
+  timing. It is a real trade: at `--warmup=0` the frame is unsettled and renders in bands, and
+  twelve frames is not always enough either. Verified instead by instrumenting the camera path
+  (open air throughout, ending exactly at the eye position) plus one clean mid-flight frame.

@@ -11,13 +11,14 @@ extends Node
 ##       [--look_wait=6 (seconds to wait for it to turn up - a companion may still be walking over)]
 ##       [--goto=4 (stand 4 m from it first; needs the server started with QW_ADMINS=<--name>)]
 ##       [--stand=133,12,127 (or stand exactly here instead - indoors, where the side matters)]
+##     [--warmup=0 (skip the 120-frame settle; needed to photograph anything that moves and ends)]
 
 const GameClient = preload("res://engine/client/game_client.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera", "look": "", "look_wait": "6", "goto": "", "stand": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera", "look": "", "look_wait": "6", "goto": "", "stand": "", "warmup": "120"}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -221,7 +222,12 @@ func _ready() -> void:
 	RenderingServer.viewport_set_measure_render_time(viewport_rid, true)
 	var cpu := 0.0
 	var gpu := 0.0
-	for i in 120:
+	# **--warmup=0 for anything that does not last.** The frame after a screenshot is read back is
+	# never representative, so 120 frames of settling is right for photographing a *place*. It is
+	# fatally wrong for photographing a *moment*: at these render sizes it is two to four seconds, so
+	# a two-second camera move cannot be caught at all - every attempt came out as the frame after it
+	# had finished. (2026-09-24)
+	for i in int(options.get("warmup", "120")):
 		await get_tree().process_frame
 		cpu += RenderingServer.viewport_get_measured_render_time_cpu(viewport_rid) + RenderingServer.get_frame_setup_time_cpu()
 		gpu += RenderingServer.viewport_get_measured_render_time_gpu(viewport_rid)

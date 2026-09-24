@@ -118,6 +118,13 @@ const RENDER_DISTANCE := 8 * 16
 ## How long the controls hint stays up before fading. Generous on purpose: an eight-year-old reading
 ## it is also looking at everything else.
 const CONTROLS_HINT_SECONDS := 45.0
+## The arrival: how long the camera takes to come in, how far back it starts and how high.
+##
+## Short on purpose. This plays over the tail of a join the player is already waiting through, and
+## anything longer than a breath stops being an establishing shot and becomes a door you cannot open.
+const ARRIVAL_SECONDS := 2.2
+const ARRIVAL_BACK := 9.0
+const ARRIVAL_UP := 4.5
 const CHAT_LINES := 8
 const CHAT_LINE_LIFETIME := 10.0
 const ATTACK_REACH := 4.5
@@ -328,6 +335,13 @@ var _debug_label: Label
 ## The controls hint, which is for the player rather than for whoever is fixing the game. Drawn as
 ## keycaps rather than written as "[T] chat"; fades once they have had time to read it.
 var _controls_hint: Control
+## The cinematic arrival (the user, 2026-09-23: "a cinematic third person zoom in kinda effect which
+## will end smoothly in the first person perspective"). Seconds elapsed, or -1.0 when not flying.
+var _arrival := -1.0
+## **Once per session, not once per world load.** A child who dies twenty times does not want twenty
+## establishing shots - and rejoining a world after a crash is not an arrival either. Static, so it
+## survives the client being rebuilt for another world in the same run.
+static var _arrived_this_session := false
 var _hotbar: HBoxContainer
 ## Name of what the player is holding, shown above the hotbar for a moment when it changes.
 var _held_label: Label
@@ -1920,8 +1934,19 @@ func _process(delta: float) -> void:
 		_compass.look(yaw, state.position)
 	ugc.update(delta)
 
-	if _status_label.visible and _can_simulate() and _chunk_nodes.has(VoxelWorld.chunk_coord_of(state.position)):
+	var standing_in_a_drawn_world := _can_simulate() and _chunk_nodes.has(VoxelWorld.chunk_coord_of(state.position))
+	if _status_label.visible and standing_in_a_drawn_world:
 		_set_status("")
+	# **Over the tail of the wait, not after it.** The join already made them wait for chunks; the
+	# flight starts the moment the world is drawn under them, so it costs nothing anybody was not
+	# already spending.
+	#
+	# Keyed on the world being ready rather than on the status bar clearing, which is what the first
+	# version did - and the status bar only appears when there is content to download, so joining a
+	# local server showed no bar, cleared no bar, and never flew at all.
+	if standing_in_a_drawn_world and not _arrived_this_session and not dead and _sleep.is_empty():
+		_arrived_this_session = true
+		_arrival = 0.0
 
 	var fraction := Engine.get_physics_interpolation_fraction()
 	_render_offset = _render_offset.lerp(Vector3.ZERO, 1.0 - exp(-delta * 15.0))
@@ -1931,6 +1956,8 @@ func _process(delta: float) -> void:
 	if not _sleep.is_empty():
 		_update_sleep()
 	_camera.rotation = Vector3(pitch, yaw, 0.0)
+	if _arrival >= 0.0:
+		_fly_in(delta, render_position, eye)
 	_update_self_avatar(delta, render_position)
 	_camera.position += _effects.shake_offset
 
@@ -1955,17 +1982,56 @@ func _process(delta: float) -> void:
 		_screen_tint.color.a = maxf(_screen_tint.color.a - delta / _screen_fade, 0.0)
 
 
+## The arrival: the camera starts behind and above the player looking at them, and comes in to their
+## eyes. Runs *after* the ordinary camera placement above and overwrites it, so the moment it finishes
+## there is nothing to hand over - the camera is already exactly where the normal path would put it.
+##
+## **Skippable from the first frame** (any key, any click, any movement - see `_skip_arrival`), which
+## matters more than the flight being pretty. A cutscene you cannot leave is a tax on every login, and
+## this one plays while a child is already impatient to move.
+##
+## Eased out rather than linear, so it settles into the eyes instead of stopping dead.
+func _fly_in(delta: float, render_position: Vector3, eye: float) -> void:
+	_arrival += delta
+	var t := clampf(_arrival / ARRIVAL_SECONDS, 0.0, 1.0)
+	if t >= 1.0:
+		_arrival = -1.0
+		return
+	var eased := 1.0 - pow(1.0 - t, 3.0)
+	var eyes: Vector3 = render_position + Vector3(0.0, eye, 0.0)
+	# Behind the way they are facing, and up: the shot looks over their shoulder at the world they
+	# have arrived in, which is the half worth showing.
+	var away := (Vector3(sin(yaw), 0.0, cos(yaw)) * ARRIVAL_BACK + Vector3(0.0, ARRIVAL_UP, 0.0)).normalized()
+	var reach := Vector2(ARRIVAL_BACK, ARRIVAL_UP).length() * (1.0 - eased)
+	# **Stop at walls**, the way the ordinary third-person camera does. Without this the shot spends
+	# its first second inside whatever is behind you - a hill, a tree, the dark - which is a worse
+	# arrival than no arrival. Spawning with your back to a slope is the common case, not the corner.
+	var ray := VoxelRaycast.cast(world, registry.solid_lut, eyes, away, reach)
+	if ray.hit:
+		reach = maxf(eyes.distance_to(Vector3(ray.position) + Vector3.ONE * 0.5) - 0.6, 0.0)
+	_camera.position = eyes + away * reach
+	# Tilted down at the start so the player is in frame, level by the time it arrives.
+	_camera.rotation = Vector3(pitch - 0.35 * (1.0 - eased), yaw, 0.0)
+
+
+## Anything the player does ends the arrival immediately. Called from input rather than checked here,
+## so it cannot be a frame late.
+func _skip_arrival() -> void:
+	_arrival = -1.0
+
+
 ## Your own character: hidden in first person; in third person the camera pulls back (stopping at
 ## walls) behind you, or in front of you facing back.
 func _update_self_avatar(delta: float, render_position: Vector3) -> void:
 	if _self_avatar == null:
 		return
-	_self_avatar.visible = camera_mode != CameraMode.FIRST_PERSON
+	_self_avatar.visible = camera_mode != CameraMode.FIRST_PERSON or _arrival >= 0.0
 	_self_avatar.position = render_position
 	_self_avatar.rotation.y = _self_avatar.sleep_yaw if _self_avatar.sleep_yaw != null else yaw
 	_self_avatar.set_dead(dead)
 	_self_avatar.animate(delta, state.velocity, state.on_ground, pitch)
-	_view_model.visible = camera_mode == CameraMode.FIRST_PERSON and not dead and _sleep.is_empty()
+	# The held item would hang in mid-air in front of a camera that is nine metres behind its owner.
+	_view_model.visible = camera_mode == CameraMode.FIRST_PERSON and not dead and _sleep.is_empty() and _arrival < 0.0
 	var held := inventory.selected_item()
 	var look: Dictionary = {}
 	if held >= ItemRegistry.FIRST_ITEM:
@@ -2750,6 +2816,12 @@ func _aim_the_sky(sun_direction: Vector3, sun_tint: Color, day: float) -> void:
 # --- Input --------------------------------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
+	# **Before anything else, including the chat guard.** Any press, click or stick movement ends the
+	# arrival - a player who has decided to move has decided the shot is over, and making them wait
+	# for it turns two seconds of scenery into an obstacle they meet on every login.
+	if _arrival >= 0.0 and (event is InputEventKey or event is InputEventMouseButton
+			or event is InputEventJoypadButton or event is InputEventJoypadMotion):
+		_skip_arrival()
 	if _chat_input.visible:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
