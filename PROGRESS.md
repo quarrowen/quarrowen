@@ -6423,12 +6423,13 @@ to leave alone, not by age. Roughly a hundred items; the shape matters more than
 
 ### Live and public, right now
 
-1. **quarrowen.com serves the 0.41.1 landing page, advertising `vanilla`** - a game deleted on 21
-   September. Anyone arriving is offered a download for a game that no longer exists, one version
-   behind. Found by fetching the site, not from any entry here. `/docs/` is live and current
-   (an earlier entry saying nothing had been published is stale).
-2. **`tools/make_release.sh` refuses to run until its landing-page section is rewritten.** That is a
-   hard release blocker and the reason (1) has not been corrected.
+1. ~~**quarrowen.com serves the 0.41.1 landing page, advertising `vanilla`**~~ Fixed 2026-09-24. The
+   games section and the per-mod download tables are gone from gh-pages, and a line under the
+   download says 0.41.1 still works, its games were retired, and the next version is being rebuilt.
+   The 0.41.1 downloads are left alone because they work and there is nothing else to offer yet.
+2. **`tools/make_release.sh` still refuses to run until its landing-page section is rewritten.** The
+   live page is now honest, but the *generator* still emits the old shape, so the first release after
+   this will put the dead games straight back. Fix the generator before cutting anything.
 
 ### Security - the cluster that blocks public hosting
 
