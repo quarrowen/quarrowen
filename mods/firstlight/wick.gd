@@ -28,19 +28,48 @@ const COATS := [
 	["#7a4f4f", "Rust"], ["#6b6340", "Olive"],
 ]
 
+const Story = preload("res://mods/firstlight/story.gd")
+
 var api
 var ids := {}
+## Kept as a member. A RefCounted nobody holds is freed the moment the line ends, and every handler
+## it registered goes with it - silently, because registering succeeded.
+var story := Story.new()
 
 
 func setup(mod_api) -> void:
 	api = mod_api
 	_register(api)
 	_conversation(api)
+	story.setup(api)
+	# What the player *said*, turned into what the story does. `does` on an option fires this.
+	api.on("character_choice", func(ev):
+		if String(ev.get("character", "")) != "firstlight:wick":
+			return
+		# if/elif rather than `match`: a `match` inside a lambda is a parse error in GDScript, and a
+		# parse error here takes the whole mod down with a message about a different file.
+		var choice := String(ev.get("choice", ""))
+		if choice == "begin":
+			story.begin(ev.player)
+		elif choice == "remind":
+			ev.player.send_message("[Wick] %s" % story.remind(ev.player)))
+	# Handing over the next act when the one before it lands, so the chain walks itself and nobody has
+	# to remember to go back and ask. He still says it out loud, which is the part that makes it a
+	# story rather than a list refreshing.
+	api.on("objective_done", func(ev):
+		if String(ev.get("objective", "")).begins_with("firstlight:act_"):
+			story.advance_to_next(ev.player))
 	# One each. Two children on a server should not be arguing about whose turn it is to have the
 	# guide, and a Wick apiece costs nothing - he is a talking signpost, not a resource.
 	api.on("player_join", func(ev):
 		if ev.player != null:
-			_ensure_wick(ev.player))
+			_ensure_wick(ev.player)
+			# **The story starts on arrival, not on being spoken to.** It was the other way round for
+			# an afternoon, and a player who walked off before talking to him had a guided game with
+			# nothing guiding it - which is the exact complaint that started all this. Talking to him
+			# is how you learn *why*; the list is there either way. Safe to call every join: an act
+			# already held or finished is skipped.
+			story.begin(ev.player))
 	# Right-click him to talk. The engine draws the conversation, so it looks like every other
 	# character in every other mod - a child who has learned one has learned all of them.
 	_watch(api)

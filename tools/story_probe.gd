@@ -60,7 +60,23 @@ func _ready() -> void:
 		print("wick look: tint=%s plate=%s" % [str(look.get("tint", {})), str(look.get("nameplate", {}))])
 		print("wick at:   %s  (%.1f m from player)" % [e.body.position, e.body.position.distance_to(p.state.position)])
 
-	var objectives: Array = server.objectives.of(p) if server.objectives.has_method("of") else []
-	print("tasks:     %s" % (str(objectives) if not objectives.is_empty() else "none yet"))
+	# `active_for`, not `of`. It was `of` for a day, which does not exist - so the probe answered
+	# "none yet" however many tasks the player was holding, and reported a working story as a broken
+	# one. A `has_method` guard around a name nobody checked is a guard that hides the mistake.
+	var objectives: Array = server.objectives.active_for(p)
+	if objectives.is_empty():
+		print("tasks:     none yet")
+	for task in objectives:
+		print("task:      %-24s step %d/%d  %s" % [String(task.get("display_name", "")),
+			int(task.get("step", 0)) + 1, int(task.get("of", 1)), String(task.get("text", ""))])
+	if OS.get_cmdline_user_args().has("--names"):
+		var items := []
+		for d in server.items.defs:
+			items.append(str(d.get("name", "")))
+		print("items:     %s" % ", ".join(items))
+		var blocks := []
+		for d in server.registry.defs:
+			blocks.append(str(d.get("name", "")))
+		print("blocks:    %s" % ", ".join(blocks))
 	print("")
 	get_tree().quit(0)

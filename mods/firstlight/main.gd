@@ -25,12 +25,15 @@ const Wick = preload("wick.gd")
 const DEEP_FROM := 30
 
 ## Where the sea sits. The same number `base`'s biome heights are written against.
+const Colossus = preload("res://mods/firstlight/colossus.gd")
+
 const SEA_LEVEL := 62
 
 
 ## Kept as a member: a RefCounted nobody holds is freed the moment setup returns, taking its handlers
 ## with it, silently (CLAUDE.md).
 var wick := Wick.new()
+var colossus := Colossus.new()
 
 
 func setup(api) -> void:
@@ -38,6 +41,7 @@ func setup(api) -> void:
 	_world(api)
 	_who_lives_here(api)
 	wick.setup(api)
+	colossus.setup(api)
 
 
 ## What kind of game this is, in one dictionary.
