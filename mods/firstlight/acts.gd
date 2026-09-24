@@ -21,9 +21,15 @@ extends RefCounted
 
 ## `on` is the event kind story.gd watches; `is`/`any` name blocks or items; `below` is a depth;
 ## `name` is a multiblock's. A goal with no test at all counts anything of that kind.
+##
+## `page` is a guide page the act unlocks when it is handed over, where one would help. Most acts have
+## none: the book already unlocks pages when you find the thing they are about, and an act that
+## unlocked a page you could not use yet would be a spoiler rather than help. These five are the ones
+## where Wick asks for something the book explains better than he does. (2026-09-24)
 const ACTS := [
 	{"id": "act_waking", "name": "Waking",
 		"said": "Wood first. Everything starts with wood, I find.",
+		"page": "guidebook:wood",
 		"description": "Wick keeps the lights, and the lights have been going out.",
 		"steps": [
 			{"text": "Gather six logs", "count": 6,
@@ -41,6 +47,7 @@ const ACTS := [
 
 	{"id": "act_hearth", "name": "Something Hot",
 		"said": "You'll want a fire. Cold food is food, but it isn't much of a morning.",
+		"page": "guidebook:food",
 		"steps": [
 			{"text": "Put down a furnace", "goal": {"on": "place", "is": "simple_machines:furnace"}},
 			{"text": "Cook three things", "count": 3,
@@ -49,12 +56,14 @@ const ACTS := [
 
 	{"id": "act_stone", "name": "Stone",
 		"said": "Wood wears out. Stone is the next honest thing.",
+		"page": "guidebook:stone_tools",
 		"steps": [
 			{"text": "Mine twenty stone", "count": 20, "goal": {"on": "break", "is": "base:stone"}},
 			{"text": "Make a stone pickaxe", "goal": {"on": "craft", "is": "simple_gear:stone_pickaxe"}}]},
 
 	{"id": "act_iron", "name": "Iron",
 		"said": "Iron's in the dark bits of the stone. You'll know it when you see it - it looks like it's hiding.",
+		"page": "guidebook:furnace",
 		"steps": [
 			{"text": "Mine five iron ore", "count": 5,
 				"goal": {"on": "break", "any": ["base:iron_ore", "base:deep_iron_ore"]}},
@@ -90,6 +99,7 @@ const ACTS := [
 
 	{"id": "act_cobalt", "name": "Cobalt",
 		"said": "That blue stuff. Nothing else will get through the floor of the world, and the floor is where we're going.",
+		"page": "guidebook:deep_ores",
 		"steps": [
 			{"text": "Smelt three cobalt", "count": 3, "goal": {"on": "craft", "is": "base:cobalt_ingot"}},
 			{"text": "Make a cobalt pickaxe", "goal": {"on": "craft", "is": "simple_gear:cobalt_pickaxe"}}]},

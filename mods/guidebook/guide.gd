@@ -63,6 +63,18 @@ func _first_steps(api) -> void:
 			{"type": "tip", "text": "A tool that is too weak mines slowly and gets nothing. Iron ore needs a stone pickaxe or better; cobalt needs iron."},
 			{"type": "link", "page": "furnace"},
 		]})
+	# The ores the book never covered. Copper and gold are sidegrades rather than rungs and want saying
+	# so; sunstone is what the deep is *for*, and a child who finds a vein of it should be able to look
+	# it up rather than guess. (2026-09-24)
+	api.register_guide_page("deep_ores", {"chapter": "basics", "title": "The Deeper Ores", "icon": "base:sunstone", "order": 4,
+		"unlock": {"item": "base:cobalt_ore"}, "keywords": "copper gold sunstone deepstone ore deep mine rare",
+		"blocks": [
+			{"type": "text", "text": "Below the ordinary stone the world turns to [b]deepstone[/b]: darker, harder, and only a cobalt pickaxe will lift it. What lives down there is worth the walk."},
+			{"type": "items", "items": ["base:copper_ore", "base:gold_ore", "base:sunstone_ore", "base:deepstone"]},
+			{"type": "text", "text": "[b]Copper[/b] sits between stone and iron and is easy to find, so it shortens the dull stretch before iron. [b]Gold[/b] is quicker to dig with than anything until cobalt, and it wears out while you watch - a trade, not a mistake."},
+			{"type": "text", "text": "[b]Sunstone[/b] keeps a little of the sun in it. It is the rarest thing in the ground and the old lights were made of it."},
+			{"type": "tip", "text": "Neither copper nor gold is a step on the way to cobalt. You can go straight from iron, and many do."},
+		]})
 	api.register_guide_page("food", {"chapter": "basics", "title": "Hunger and Food", "icon": "base:apple", "order": 4,
 		"unlock": {"page": "guidebook:wood"}, "keywords": "eat hunger starve health regenerate saturation drumstick",
 		"blocks": [

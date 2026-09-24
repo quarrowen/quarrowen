@@ -177,6 +177,12 @@ func advance_to_next(player) -> bool:
 			return false  # they are in the middle of this one
 		api.give_objective(player, act_id)
 		player.send_message("[Wick] %s" % String(act.get("said", act.name)))
+		# The page that explains what he just asked for, where there is one. Unlocked rather than
+		# opened: a book that opens itself over the world is a thing you have to close, and a child
+		# who wants it will see the badge count go up.
+		var page := String(act.get("page", ""))
+		if not page.is_empty():
+			api.unlock_guide_page(player, page)
 		return true
 	return false
 

@@ -35,6 +35,9 @@ const ITEM_PICKUP_RANGE := 1.1
 const ITEM_MERGE_RANGE := 1.0
 const HURT_INVULNERABLE := 0.45
 const KNOCKBACK := 7.0
+## What a creature that was flying and has stopped falls at. The same as an ordinary mob's, so a dead
+## bird drops the way anything else does rather than at a speed of its own.
+const FALLEN_GRAVITY := 32.0
 const SLEEP_AFTER_TICKS := 20
 const SLEEPING_STEP_INTERVAL := 15
 const PROJECTILE_OWNER_GRACE := 0.25
@@ -240,7 +243,18 @@ func _step_bodies(list: Array[Entity], delta: float) -> void:
 		packed[o + 5] = b.velocity.z
 		packed[o + 6] = b.half_width
 		packed[o + 7] = b.height
+		# **A flier that dies falls.** A flying creature carries `gravity: 0` because its brain drives
+		# its own Y; when it dies the brain stops and nothing takes the flight away, so it hung in the
+		# air exactly where it was killed. Recorded as a known limit on 2026-09-21 and left "until
+		# something bundled actually flies" - `base`'s Wisp flies now. (2026-09-24)
+		#
+		# **Dying only, not sleeping.** The original note named both, and applying it to sleep would be
+		# worse than the bug: a sleeping entity is one no player is near, so every distant bird would
+		# quietly come down and be found on the ground later. It is still flying, it is just not being
+		# asked about.
 		packed[o + 8] = list[i].def.gravity
+		if packed[o + 8] <= 0.0 and list[i].dying:
+			packed[o + 8] = FALLEN_GRAVITY
 		packed[o + 9] = list[i].def.drag
 		packed[o + 10] = 1.0 if b.on_ground else 0.0
 	var out: PackedFloat32Array = world.native.step_entities(packed, delta)

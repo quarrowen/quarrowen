@@ -6456,8 +6456,10 @@ it matters the day anybody else can reach it.
 9. **Three flaky tests, none diagnosed**: `host_flow_test` ("host client joined its own server"),
    `multiplayer` (a different assertion each time), and the save-queue timing tests (third
    occurrence, explicitly not fixed).
-10. **`--import` hangs after finishing its work.** Worked around with a 90-second timeout that now
-    costs 90 seconds of every run.
+10. ~~**`--import` hangs after finishing its work.**~~ Not reproducible on 2026-09-24: timed twice,
+    4.0 seconds and a clean exit both times. The 90-second `timeout` in `run_tests.sh` costs nothing
+    when the import exits normally, so it is cheap insurance and stays. Listed here (by me) as "costs
+    90 seconds of every run", which was simply wrong and was believed rather than measured.
 11. **A guide page naming a block type outside `BLOCK_TYPES` is silently dropped**, with no validator
     warning.
 12. **Water flow replaces `replaceable` blocks including crops** - digging a channel past a field
@@ -6714,3 +6716,26 @@ Three things went wrong, and two were mine:
   timing. It is a real trade: at `--warmup=0` the frame is unsettled and renders in bands, and
   twelve frames is not always enough either. Verified instead by instrumenting the camera path
   (open air throughout, ending exactly at the eye position) plus one clean mid-flight frame.
+
+### The smaller items, and one that turned out not to exist (2026-09-24)
+
+- **A dead flier falls.** Recorded as a known limit on 2026-09-21 and left "until something bundled
+  actually flies"; `base`'s Wisp flies now, so a killed one hung in the air where it died. Gravity is
+  substituted for a `gravity: 0` creature that is dying. **Dying only, not sleeping** - the original
+  note named both, and doing it for sleep would be worse than the bug, because a sleeping entity is
+  one no player is near, so every distant bird would quietly come down and be found on the ground.
+- **The deeper ores have a guide page.** Copper, gold, sunstone and deepstone, which the book never
+  covered - and sunstone is what the whole ending is made of, so a child finding a vein could not
+  look it up.
+- **Five acts unlock the page that explains them.** Unlocked, not opened: a book that opens itself
+  over the world is something you have to close, and the HUD already badges unread pages. Only five,
+  because the book unlocks pages when you find the thing they are about anyway, and unlocking one you
+  cannot use yet is a spoiler rather than help.
+- ~~`--import` hangs, costing 90 seconds of every run~~ - **not true.** Timed twice on 2026-09-24: 4.0
+  seconds and a clean exit both times. The 90-second `timeout` costs nothing when the import exits
+  normally, so it stays as cheap insurance. I had written it into the open-items list as a standing
+  tax without ever measuring it.
+
+That last one is the second thing this week that was believed rather than checked (the first was the
+Proving Ground's structure "covering" `register_structure` while placing nothing). Both were in a list
+of problems, which is exactly where an unmeasured claim is most expensive: it gets budgeted for.
