@@ -72,13 +72,26 @@ be entered but never populated. (2026-09-21)
 
 **See also:** `entity_type`, `qualified`, `register_instance`, `spawn`
 
+### `api.remove_entity`
+
+GDScript: `api.remove_entity(entity) -> bool`
+
+JavaScript: `api.removeEntity(entity)`
+
+Fires a projectile entity from `from` with `velocity`, credited to `owner` (player or entity).
+Takes an entity out of the world **without killing it**: no drops, no death, nothing told about
+it. The opposite of `spawn_entity`, which a mod could do and then not undo.
+
+Killing was the only thing available and it is not the same thing. A story creature that has said
+its piece and should go, a boss that settles back down rather than falling over, a prop that was
+only there for a moment - all of those are removals, and doing them with damage means loot on the
+floor and a death message a child reads as something having gone wrong. (2026-09-24)
+
 ### `api.spawn_projectile`
 
 GDScript: `api.spawn_projectile(entity_name: String, from: Vector3, velocity: Vector3, owner = null, realm_id := "")`
 
 JavaScript: `api.spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner?: Player | Entity | null): Entity | null`
-
-Fires a projectile entity from `from` with `velocity`, credited to `owner` (player or entity).
 
 **See also:** `entity_type`, `qualified`, `register_instance`, `spawn`
 

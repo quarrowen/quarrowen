@@ -10,13 +10,14 @@ extends Node
 ##     [--look=firstlight:wick | --look=12,70,34 (aim at a creature or a point; beats guessing a yaw)]
 ##       [--look_wait=6 (seconds to wait for it to turn up - a companion may still be walking over)]
 ##       [--goto=4 (stand 4 m from it first; needs the server started with QW_ADMINS=<--name>)]
+##       [--stand=133,12,127 (or stand exactly here instead - indoors, where the side matters)]
 
 const GameClient = preload("res://engine/client/game_client.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera", "look": "", "look_wait": "6", "goto": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera", "look": "", "look_wait": "6", "goto": "", "stand": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -270,7 +271,9 @@ func _measure(seconds: float) -> void:
 ## the picture is of where the subject is rather than where it was.
 func _frame(client, options: Dictionary, wait_seconds: float) -> void:
 	var target := String(options.look)
-	if not String(options.get("goto", "")).is_empty():
+	if not String(options.get("stand", "")).is_empty():
+		await _stand_at(client, String(options.stand))
+	elif not String(options.get("goto", "")).is_empty():
 		await _go_to(client, target, float(options.goto), wait_seconds)
 	await _look_at(client, target, wait_seconds)
 
@@ -323,19 +326,41 @@ func _go_to(client, target: String, distance: float, wait_seconds: float) -> voi
 		back = Vector3(0, 0, 1)  # already on top of it: back off southwards rather than divide by zero
 	var stand: Vector3 = point - back.normalized() * maxf(distance, 0.5)
 	stand.y = point.y + 1.0  # a little above it, so the drop settles us on whatever is underfoot
-	# Judged against where we asked to be, not against how far we travelled: the second pass often only
-	# has to shuffle a metre, and "it hardly moved" would report that as a refused command.
-	Net.c_chat.rpc_id(1, "/tp %.2f %.2f %.2f" % [stand.x, stand.y, stand.z])
+	if await _teleport(client, stand, "--goto"):
+		print("[screenshot] standing at %s, %.1f m from %s" % [client.state.position,
+			client.state.position.distance_to(point), target])
+
+
+## **--stand puts the camera exactly where you say**, for when the direction matters as much as the
+## distance. `--goto` backs off along the line you were already approaching from, which is right for a
+## creature in the open and wrong indoors: photographing the altar it parked the camera hard against a
+## pillar, and the picture was a wall. Underground, in a structure, or anywhere with a composition in
+## mind, name the spot. (2026-09-24)
+func _stand_at(client, where: String) -> void:
+	var bits := where.split(",")
+	if bits.size() != 3:
+		print("[screenshot] --stand wants x,y,z")
+		return
+	var spot := Vector3(float(bits[0]), float(bits[1]), float(bits[2]))
+	if await _teleport(client, spot, "--stand"):
+		print("[screenshot] standing at %s" % client.state.position)
+
+
+## Teleports and waits to actually be there. Judged against where we asked to be, not against how far
+## we travelled: the pass immediately before the shutter often only has to shuffle a metre, and "it
+## hardly moved" would report that as a refused command.
+func _teleport(client, to: Vector3, what: String) -> bool:
+	Net.c_chat.rpc_id(1, "/tp %.2f %.2f %.2f" % [to.x, to.y, to.z])
 	var deadline := Time.get_ticks_msec() + 5000
 	while Time.get_ticks_msec() < deadline:
 		await get_tree().create_timer(0.1).timeout
-		if client.state.position.distance_to(stand) < 2.0:
+		if client.state.position.distance_to(to) < 2.0:
 			break
-	if client.state.position.distance_to(stand) >= 2.0:
-		print("[screenshot] --goto: never arrived - is the server running with QW_ADMINS=%s?" % client.player_name)
-		return
+	if client.state.position.distance_to(to) >= 2.0:
+		print("[screenshot] %s: never arrived - is the server running with QW_ADMINS=%s?" % [what, client.player_name])
+		return false
 	await _meshed(client)  # the new place has to draw before the picture is worth taking
-	print("[screenshot] standing at %s, %.1f m from %s" % [client.state.position, client.state.position.distance_to(point), target])
+	return true
 
 
 ## "x,y,z" as a point, or the nearest creature of that type, aiming at the middle of it rather than its

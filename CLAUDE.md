@@ -259,6 +259,18 @@ up would bury the part that matters rather than surface it.
   compile, so the `get_tree().quit()` at the end of it never runs and `mod_tool.tscn` sits there for
   ever. Run tool scenes with `timeout` - and with the full path to Godot, because `godot` is a shell
   function here and `timeout` cannot see it. (2026-09-20)
+- **A local counter inside a lambda.** GDScript captures locals **by value**, so `step += 1` inside a
+  `func():` increments a copy that is thrown away the moment the call returns - the counter reads 1
+  on every tick for ever. There is no warning and nothing fails: the symptom is something that moves
+  once and then stops, which reads as a physics or a timer problem. Put the state in a member, or in
+  an Array or Dictionary, which are references and so survive. The Colossus rose four centimetres and
+  stood there for the rest of the world's life. (2026-09-24)
+- **Spawning an entity inside solid blocks.** `api.spawn_entity` refuses when there is nowhere to
+  stand and returns null, and a mod that does not check carries on as though it worked. Spawn into
+  open air and then set `position`, which has no such check. (2026-09-24)
+- **Spawning a non-persistent entity where no player is.** It is removed the same tick for having
+  nobody near it, which is indistinguishable from a spawn that failed. Every test that places a
+  creature somewhere has to put a player there too.
 - **`godot --check-only --script <file>`.** It reports success on a file that does not parse. To check a
   script really compiles, `load()` it and ask `can_instantiate()` - which is what the suite does for every
   script under `engine/`.

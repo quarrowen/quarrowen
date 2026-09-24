@@ -634,6 +634,20 @@ func spawn_entity(entity_name: String, position: Vector3, options := {}):
 
 
 ## Fires a projectile entity from `from` with `velocity`, credited to `owner` (player or entity).
+## Takes an entity out of the world **without killing it**: no drops, no death, nothing told about
+## it. The opposite of `spawn_entity`, which a mod could do and then not undo.
+##
+## Killing was the only thing available and it is not the same thing. A story creature that has said
+## its piece and should go, a boss that settles back down rather than falling over, a prop that was
+## only there for a moment - all of those are removals, and doing them with damage means loot on the
+## floor and a death message a child reads as something having gone wrong. (2026-09-24)
+func remove_entity(entity) -> bool:
+	if entity == null or not is_instance_valid(entity) or entity.removed:
+		return false
+	_server.entities.remove(entity)
+	return true
+
+
 func spawn_projectile(entity_name: String, from: Vector3, velocity: Vector3, owner = null, realm_id := ""):
 	# Fired where the shooter is, not in the overworld: an arrow loosed in a dungeon has to stay there.
 	var into = _realm_or_default(realm_id if not realm_id.is_empty() else (String(owner.realm_id) if owner != null and "realm_id" in owner else ""))

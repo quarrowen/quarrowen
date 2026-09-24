@@ -28,7 +28,7 @@ leaving one of them to be guessed at.
 :   11 functions.
 
 [Mobs and entities](mod-api/mobs-and-entities.md)
-:   15 functions.
+:   16 functions.
 
 [World generation](mod-api/world-generation.md)
 :   22 functions.

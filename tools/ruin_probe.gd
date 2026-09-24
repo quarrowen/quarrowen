@@ -33,4 +33,23 @@ func _ready() -> void:
 		var at: Vector3 = api.find_structure("altar_site", from)
 		print("locator from %s -> %s (%.0f blocks away)" % [str(from), str(at),
 			Vector2(at.x - from.x, at.z - from.z).length() if at != Vector3.INF else -1.0])
+		if at == Vector3.INF:
+			continue
+		# Is the hall actually carved? Count air in the box the template claims to occupy.
+		for c in range(-2, 3):
+			for d in range(-2, 3):
+				server.ensure_area_loaded(Vector3(at.x + c * 16, at.y, at.z + d * 16))
+		var air := 0
+		var headroom := 0
+		for dx in range(-10, 11):
+			for dz in range(-10, 11):
+				for dy in range(1, 18):
+					if server.realm.world.get_block_v(Vector3i(at.x + dx, at.y + dy, at.z + dz)) == 0:
+						air += 1
+		for dy in range(1, 20):
+			if server.realm.world.get_block_v(Vector3i(at.x, at.y + dy, at.z)) == 0:
+				headroom = dy
+			else:
+				break
+		print("  hall: %d air blocks in the 21x17x21 box, %d clear above the altar" % [air, headroom])
 	get_tree().quit(0)

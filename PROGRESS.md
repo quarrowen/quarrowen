@@ -6371,3 +6371,46 @@ The general lesson, and it is the one this file keeps relearning: **a call that 
 is not a capability that works.** Structures, unlike most things, cannot be checked by asking a
 registry - the registry happily holds a set that will never fire - so the only honest test is to look
 at the world.
+
+### The Colossus is seen (user, 2026-09-24)
+
+Chosen over Illuminance and the other candidates: the ending of the game the whole story is named
+after was three lines of chat, while a seven-metre creature with its own model had sat in `base`
+since creatures existed and had never once been spawned by anything.
+
+Lighting the altar now brings it up out of the chamber floor over four seconds, turns it to face
+whoever is nearest, holds it there for six, and lets it back down. It never fights and cannot be
+hurt: `mob_target` and `entity_damage` are both cancellable, so a child who panics and swings at it
+achieves nothing. Killing it was never the ending.
+
+**The chamber became a hall to make room for it** (the user: *"chambers should be huge right
+especially for boss fights"*). Twenty-one across and eighteen tall against a creature seven blocks
+high, with four standing pillars and four broken ones, because a cramped boss room makes the boss
+look small. That it is also a far better ruin is a happy accident of having had to make it taller.
+
+### Four failures, in order, none of which reported anything
+
+Worth writing down as a sequence, because each one looked exactly like the previous one's symptom
+and only measurement told them apart. The ending "did not work" four times for four different
+reasons:
+
+1. **The altar multiblock formed and `_wake` never ran** - except it did. There was no evidence
+   either way until `tools/ending_server.gd` subscribed to `multiblock_formed` itself and printed it.
+   *A handler that produces nothing visible is indistinguishable from a handler that never ran.*
+2. **`api.spawn_entity` refuses to spawn into solid rock** and returns null quietly, so the ending
+   fired, no creature appeared, and the closing lines ran as though one had. Spawn into the open air
+   of the hall and then set `position`, which has no such check.
+3. **A non-persistent creature spawned where no player is standing is removed the same tick.** The
+   test player was 180 blocks away on the surface; in a real game you are at the altar when you light
+   it. The test server now teleports them down first.
+4. **A GDScript lambda captures locals by value.** `step += 1` inside the timer incremented a copy,
+   so the counter read 1 on every tick and the Colossus rose four centimetres and stopped. An Array
+   is a reference and survives. All three of these are now in CLAUDE.md under "Things that look safe
+   and are not".
+
+`api.remove_entity` was added on the way: a mod could spawn and had no way to unspawn, and killing is
+not the same thing - it drops loot and prints a death message a child reads as something gone wrong.
+
+`--stand=x,y,z` was added to the screenshot harness. `--goto` backs off along the line you were
+already approaching from, which is right in the open and wrong indoors: photographing the altar it
+parked the camera hard against a pillar and the picture was a wall.
