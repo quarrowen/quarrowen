@@ -235,6 +235,12 @@ run_scene "persistence" "$WORK/persistence.log" res://tests/persistence_test.tsc
 run_scene "identity" "$WORK/identity.log" res://tests/identity_test.tscn
 run_scene "gameplay" "$WORK/gameplay.log" res://tests/gameplay_test.tscn
 run_scene "ai" "$WORK/ai.log" res://tests/ai_test.tscn
+# Firstlight's chain: does a player who joins get greeted, and can the acts be finished with the gear
+# the acts themselves grant? Neither question is one `mod_tool validate` asks - it proves a mod loads,
+# not that anything happens when somebody arrives. This caught two progression traps that made the
+# game unfinishable while validating perfectly, and then sat unrun for a day, which is how a guard
+# rots. (2026-09-24)
+run_scene "story:firstlight" "$WORK/story_firstlight.log" res://tools/story_probe.tscn firstlight
 # Mob AI on generated terrain: stuck, hopping in place, dithering, blind hits and failed chases stay under limits.
 run_scene "ai-soak" "$WORK/ai_soak.log" res://tests/ai_soak.tscn --seconds=60 --sites=4 --check
 run_scene "js-sandbox" "$WORK/js_sandbox.log" res://tests/js_sandbox_test.tscn

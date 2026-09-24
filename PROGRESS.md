@@ -6465,11 +6465,13 @@ it matters the day anybody else can reach it.
 
 ### Verification gaps - things that might be broken and nobody would know
 
-14. **Firstlight acts 7-14 have never been played.** Two progression traps were already found by
-    measurement in acts 5-8; there is no reason to think the rest is clean.
-15. **None of the probes run in the suite.** `story_probe` carries the reachability guard that caught
-    both traps and exits non-zero, and nothing calls it. Same for `spawn_probe`, `ruin_probe`,
-    `ending_probe`. A guard nobody runs is a guard that rots.
+14. ~~**Firstlight acts 7-14 have never been played.**~~ Done 2026-09-24: `story_probe` now walks all
+    fourteen acts by firing the event each step waits for and checking the next act arrives. It
+    proves the *wiring*; it cannot prove an act watches the right event (see below), so a real
+    playthrough is still worth one evening before 1.0.
+15. ~~**None of the probes run in the suite.**~~ `story:firstlight` runs in the suite as of
+    2026-09-24. `spawn_probe`, `ruin_probe` and `ending_probe` are still manual - they measure rates
+    and photograph things rather than asserting, so leaving them out is a choice rather than a gap.
 16. **Nothing in the suite ever opens the main menu.** That is why the backdrop failed every frame
     for days. The `SCRIPT ERROR` log guard *does* exist (run_tests.sh:219, :263) and covers every log
     the suite writes - the gap is that the menu never writes one. (An entry above says the check
@@ -6576,3 +6578,23 @@ variants (built, rendered, refused); a client-wide item gloss pass (the engine h
 how content looks); option-key validation (offered and declined); 3D pathfinding for fliers, a gearbox
 in drives, storage in flows, gates in signals (all the mod's job); documenting the other 896 engine
 functions; the showcase video.
+
+### The chain walks, and one claim about the walker was wrong (2026-09-24)
+
+`story_probe` now runs in the suite as `story:firstlight`, and it does two things: the static
+reachability check that caught both progression traps, and a new walk that fires the event each step
+is waiting for, in order, through all fourteen acts and out the other side of the ending.
+
+Both were verified by **breaking them on purpose** rather than by watching them pass. Pointing act 4
+at deepstone fails the run; typing `hand_lanturn` for `hand_lantern` stops the walk at act 6.
+
+**And one thing it cannot do, which was claimed here before it was checked.** The walk was described
+as catching an act that watches the wrong event. It does not: `_fire` reads the same table the story
+reads, so changing a goal's `on` from `eat` to `tame` changes both sides together and the walk sails
+past. Tested, found passing, and the docstring corrected to say so. The defence against that one is
+playing the game, and there is no substitute.
+
+Worth keeping as a general shape: **a test written from the same table as the thing it tests is
+tautological in exactly the dimension the table describes.** It still earns its place on every other
+dimension - ids, counts, ordering, hand-over, the filters in `_score` - which is where every bug so
+far has actually been.

@@ -79,8 +79,123 @@ func _ready() -> void:
 			blocks.append(str(d.get("name", "")))
 		print("blocks:    %s" % ", ".join(blocks))
 	var problems := _reachable(server)
+	problems += await _walk(server, p)
 	print("")
 	get_tree().quit(1 if not problems.is_empty() else 0)
+
+
+## **Walks the whole chain by firing the events the goals wait for.**
+##
+## For every act in order it emits the event each step is listening for, as many times as the step
+## asks, then checks the act finished and the next one was handed over.
+##
+## **What it catches, tested by breaking each one on purpose:** a goal naming a block or item that
+## does not exist (the commonest content typo - the id comes back -1 and matches nothing); a goal
+## kind this file does not know how to fire; a step that does not advance on the right event, which
+## is where `_score`'s filters and the qualified-name mismatch both live; an act that never finishes;
+## and a chain that stops handing over the next act.
+##
+## **What it cannot catch, and this was checked rather than assumed:** an act watching the *wrong*
+## event. `_fire` reads the same table the story reads, so pointing a goal at a different event kind
+## changes both sides together and the walk sails past it. That claim was made here first and was
+## wrong; breaking `"on": "eat"` to `"on": "tame"` still passed. Only playing it catches that.
+##
+## It is not a playthrough. It proves the wiring, which is where the bugs have actually been. Whether
+## a player can find eight sunstone is a different question and ore generation answers it.
+## (2026-09-24)
+func _walk(server, p) -> Array:
+	var Acts = load("res://mods/firstlight/acts.gd")
+	var api = server._api_for("firstlight")
+	if Acts == null or api == null:
+		return []
+	var problems := []
+	print("")
+	for act in Acts.ACTS:
+		var act_id := String(act.id)
+		if not api.has_objective(p, act_id):
+			problems.append("%s was never handed over" % act_id)
+			print("CHAIN STOPPED: %s was never handed over" % act_id)
+			break
+		var ok := true
+		for i in (act.steps as Array).size():
+			var step: Dictionary = act.steps[i]
+			var before := _step_of(api, p, act_id)
+			for _n in int(step.get("count", 1)):
+				_fire(server, api, p, step.get("goal", {}))
+			await get_tree().process_frame
+			var after := _step_of(api, p, act_id)
+			# -1 means the objective is gone, which for the last step is exactly right.
+			if after == before and after != -1:
+				problems.append("%s step %d did not advance (%s)" % [act_id, i + 1, String(step.text)])
+				print("STUCK: %s step %d - %s" % [act_id, i + 1, String(step.text)])
+				ok = false
+				break
+		if not ok:
+			break
+		if api.objective_finished(p, act_id) < 1:
+			problems.append("%s never finished" % act_id)
+			print("STUCK: %s never finished" % act_id)
+			break
+		print("walked:    %s" % act_id)
+	if problems.is_empty():
+		print("chain:     all %d acts walk to the end" % (Acts.ACTS as Array).size())
+	return problems
+
+
+## Which step of an objective a player is on, or -1 when they are not holding it.
+func _step_of(api, p, objective_name: String) -> int:
+	for task in api.objectives_of(p):
+		if String(task.get("name", "")).ends_with(":" + objective_name):
+			return int(task.get("step", -1))
+	return -1
+
+
+## Emits the event one goal is waiting for. Mirrors story.gd `_listen`; if that gains a kind, this
+## has to gain it too, and the walk will say so by getting stuck.
+func _fire(server, api, p, goal: Dictionary) -> void:
+	var kind := String(goal.get("on", ""))
+	var named := String(goal.get("is", ""))
+	if named.is_empty() and goal.get("any") is Array and not (goal.any as Array).is_empty():
+		named = String(goal.any[0])
+	match kind:
+		"break":
+			server.emit("block_broken", {"player": p, "block": server.registry.ids.get(named, 1)})
+		"place":
+			server.emit("block_placed", {"player": p, "block": server.registry.ids.get(named, 1)})
+		"craft":
+			server.emit("item_crafted", {"player": p, "item": server.items.id_of(named), "count": 1})
+		"carry":
+			server.emit("item_pickup", {"player": p, "item": server.items.id_of(named), "count": 1})
+		"eat":
+			server.emit("player_eat", {"player": p, "item": server.items.id_of(named)})
+		"tame":
+			server.emit("entity_tamed", {"player": p})
+		"night":
+			server.emit("player_wake", {"player": p, "reason": "woke"})
+		"notable":
+			var rare = _a_rare_one(server, api, p)
+			if rare != null:
+				server.emit("entity_death", {"entity": rare, "cause": "hit", "attacker": p, "drops": []})
+		"built":
+			server.emit("multiblock_formed", {"realm": server.realm.id, "name": String(goal.get("name", "")),
+				"controller": Vector3i(p.state.position), "origin": Vector3i(p.state.position), "cells": []})
+		"depth":
+			# A state rather than an event, so the story looks at it on a timer. Put the player there
+			# and run the clock forward past the next tick.
+			p.state.position.y = float(goal.get("below", 30.0)) - 5.0
+			server._time += 5.1
+			server._run_tasks()
+
+
+## Something the whole server would be told about, spawned so `entity_death` carries a real type.
+func _a_rare_one(server, api, p):
+	for type_name in api.entity_types():
+		if api.notable_of(String(type_name)).is_empty():
+			continue
+		var made = api.spawn_entity(String(type_name), p.state.position + Vector3(2.0, 0.0, 2.0))
+		if made != null:
+			return made
+	return null
 
 
 ## **Can the chain actually be finished with the gear the chain grants?**
