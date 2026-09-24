@@ -78,5 +78,48 @@ func _ready() -> void:
 		for d in server.registry.defs:
 			blocks.append(str(d.get("name", "")))
 		print("blocks:    %s" % ", ".join(blocks))
+	var problems := _reachable(server)
 	print("")
-	get_tree().quit(0)
+	get_tree().quit(1 if not problems.is_empty() else 0)
+
+
+## **Can the chain actually be finished with the gear the chain grants?**
+##
+## Asks the registries, walking the acts in order and carrying a running tool tier: every mining step
+## is checked against the best pickaxe any earlier act has asked the player to make. It exists because
+## the answer was no and nothing said so - "mine ten deepstone" sat at act 7, deepstone is tier 4, and
+## the only act that grants a tier 4 pickaxe came later. A child following the story exactly would
+## have stopped dead there, and the acts all validated perfectly. (2026-09-24)
+func _reachable(server) -> Array:
+	var Acts = load("res://mods/firstlight/acts.gd")
+	if Acts == null:
+		return []
+	var have := 0  # best pickaxe tier the chain has asked for so far
+	var problems := []
+	for act in Acts.ACTS:
+		for step in act.steps:
+			var goal: Dictionary = step.get("goal", {})
+			var named := [String(goal.get("is", ""))] + Array(goal.get("any", []))
+			if String(goal.get("on", "")) == "break":
+				for block_name in named:
+					var id: int = server.registry.ids.get(String(block_name), -1)
+					if id < 0:
+						continue
+					var needs := int(server.registry.defs[id].get("tier", 0))
+					if needs > have:
+						problems.append("%s asks for %s (tier %d) with only a tier %d pickaxe" % [
+							String(act.id), block_name, needs, have])
+			elif String(goal.get("on", "")) == "craft":
+				for item_name in named:
+					if not String(item_name).ends_with("_pickaxe"):
+						continue
+					var item_id: int = server.items.id_of(String(item_name))
+					if item_id <= 0:
+						continue
+					var tool: Dictionary = server.items.get_def(item_id).get("tool", {})
+					have = maxi(have, int(tool.get("tier", 0)))
+	for line in problems:
+		print("UNREACHABLE: %s" % line)
+	if problems.is_empty():
+		print("reachable: every mining step is within the pickaxe the chain has granted by then")
+	return problems

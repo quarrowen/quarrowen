@@ -58,7 +58,11 @@ const ACTS := [
 		"steps": [
 			{"text": "Mine five iron ore", "count": 5,
 				"goal": {"on": "break", "any": ["base:iron_ore", "base:deep_iron_ore"]}},
-			{"text": "Smelt five iron", "count": 5, "goal": {"on": "craft", "is": "base:iron_ingot"}}]},
+			{"text": "Smelt five iron", "count": 5, "goal": {"on": "craft", "is": "base:iron_ingot"}},
+			# Not decoration: without this the chain never asks for a tier 3 pickaxe at all, and act 8's
+			# cobalt ore is tier 3. Found by `story_probe`, which walks the acts carrying a running tool
+			# tier - not by reading them, where it is invisible.
+			{"text": "Make an iron pickaxe", "goal": {"on": "craft", "is": "simple_gear:iron_pickaxe"}}]},
 
 	# The act the whole lantern capability was built for, and the one Wick has been waiting to ask for.
 	{"id": "act_lantern", "name": "A Light to Carry",
@@ -66,17 +70,34 @@ const ACTS := [
 		"steps": [
 			{"text": "Make a hand lantern", "goal": {"on": "craft", "is": "simple_gear:hand_lantern"}}]},
 
-	{"id": "act_down", "name": "Down",
-		"said": "Down, then. I'll be behind you, being no help whatsoever.",
-		"steps": [
-			{"text": "Get deep underground", "goal": {"on": "depth", "below": 30.0}},
-			{"text": "Mine ten deepstone", "count": 10, "goal": {"on": "break", "is": "base:deepstone"}}]},
-
+	# **Armed before deep, and cobalt before deepstone.** Both orderings are load-bearing and the second
+	# one was wrong: "mine ten deepstone" sat here at act 7 and deepstone is tier 4, which only a cobalt
+	# pickaxe lifts - so the chain asked for something the gear it had granted could not do, and would
+	# have stopped dead on a child who followed it exactly. Cobalt *ore* is tier 3, so an iron pickaxe
+	# reaches it where a cave has opened the deep up; deepstone itself has to wait for the pick it is
+	# the reason for. (2026-09-24)
 	{"id": "act_armed", "name": "Armed",
 		"said": "I'd feel better if you had something sharp. And something between you and everything else.",
 		"steps": [
 			{"text": "Make an iron sword", "goal": {"on": "craft", "is": "simple_gear:iron_sword"}},
 			{"text": "Make an iron chestplate", "goal": {"on": "craft", "is": "simple_gear:iron_chestplate"}}]},
+
+	{"id": "act_down", "name": "Down",
+		"said": "Down, then. I'll be behind you, being no help whatsoever.",
+		"steps": [
+			{"text": "Get deep underground", "goal": {"on": "depth", "below": 30.0}},
+			{"text": "Find five cobalt ore", "count": 5, "goal": {"on": "break", "is": "base:cobalt_ore"}}]},
+
+	{"id": "act_cobalt", "name": "Cobalt",
+		"said": "That blue stuff. Nothing else will get through the floor of the world, and the floor is where we're going.",
+		"steps": [
+			{"text": "Smelt three cobalt", "count": 3, "goal": {"on": "craft", "is": "base:cobalt_ingot"}},
+			{"text": "Make a cobalt pickaxe", "goal": {"on": "craft", "is": "simple_gear:cobalt_pickaxe"}}]},
+
+	{"id": "act_deep", "name": "The Floor of the World",
+		"said": "There. Hear how quiet it's got? We're under everything now.",
+		"steps": [
+			{"text": "Mine ten deepstone", "count": 10, "goal": {"on": "break", "is": "base:deepstone"}}]},
 
 	{"id": "act_hunt", "name": "The Ones Worth Hunting",
 		"said": "When the whole world stops to tell you something's out there - that's one of them. They leave things behind.",

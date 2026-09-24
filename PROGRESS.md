@@ -6305,3 +6305,25 @@ second list goes stale the first time somebody edits an act, and the failure wou
 - `base:sunstone_block` exists as a noun with no recipe of its own; Firstlight owns the recipe. A
   creative game takes the block and ships nothing, which is the line holding correctly.
 - The Moonpearl night effect and the Hollow Reed calling something rare are both still unstarted.
+
+### The chain was unfinishable, twice, and validating said nothing (2026-09-24)
+
+`mod_tool validate firstlight` reported 0 errors on a story a child could not complete. Two separate
+progression traps, neither visible by reading the acts:
+
+- **"Mine ten deepstone" sat at act 7.** Deepstone is tier 4 and only a cobalt pickaxe lifts it; the
+  chain's last word on tools at that point was iron. Found by checking the block's `tier` against the
+  gear the acts had granted.
+- **The chain never asked for an iron pickaxe at all.** Act 5 smelts iron ingots and act 7 makes an
+  iron *sword* and *chestplate* - so the best pickaxe the story had ever asked for was stone, and
+  cobalt ore is tier 3. This one was found by the check rather than by thinking, after the first fix
+  had already been made and looked sufficient.
+
+The order is now: iron (and an iron pickaxe) → armed → down and find cobalt ore → cobalt pickaxe →
+deepstone → the hunt → sunstone → the altar → the ending. Fourteen acts.
+
+**`tools/story_probe.tscn` now checks this and exits non-zero.** It walks the acts in order carrying
+a running pickaxe tier and compares every `break` goal's block tier against it. That is the whole
+guard: a progression trap is a fact about two registries and an ordering, and no amount of reading
+the story finds it. Worth generalising if a second game gets a chain - it is thirty lines and it
+caught two real ones the first time it ran.
