@@ -2944,6 +2944,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	hunger.set_hunger(p, p.hunger)  # applies the no-sprint modifier when starving
 	hunger.sync(p, true)
 	guide.sync(p)
+	objectives.sync(p)  # a task list they were halfway through is the first thing they look for
 	for other: ServerPlayer in players.values():
 		if other != p:
 			Net.s_player_joined.rpc_id(peer_id, other.peer_id, other.name)

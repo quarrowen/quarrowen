@@ -84,6 +84,7 @@ func give(player, objective_name: String) -> bool:
 		return false
 	book.active[objective_name] = {"step": 0, "progress": 0}
 	server.emit("objective_given", {"player": player, "objective": objective_name})
+	sync(player)
 	return true
 
 
@@ -111,6 +112,7 @@ func advance(player, objective_name: String, amount := 1) -> bool:
 		book.done[objective_name] = int(book.done.get(objective_name, 0)) + 1
 		server.emit("objective_done", {"player": player, "objective": objective_name,
 			"times": int(book.done[objective_name])})
+	sync(player)
 	return true
 
 
@@ -123,7 +125,16 @@ func abandon(player, objective_name: String) -> bool:
 	if not book.active.erase(objective_name):
 		return false
 	server.emit("objective_abandoned", {"player": player, "objective": objective_name})
+	sync(player)
 	return true
+
+
+## Sends the task list to whoever it belongs to. **Pushed on every change rather than asked for**, the
+## way the tutorial tracker is: a list you have to request is a list that is wrong for as long as
+## nobody asked, and the one moment it matters is the moment it changed.
+func sync(player) -> void:
+	if player != null and player.has_method("_online") and player._online():
+		Net.s_objectives.rpc_id(player.peer_id, {"active": active_for(player)})
 
 
 ## What they are doing now: [{name, display_name, step, of, text, progress, needed}].

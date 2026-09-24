@@ -63,6 +63,7 @@ const EffectPlayer = preload("res://engine/client/effects/effect_player.gd")
 const CraftingScreen = preload("res://engine/client/crafting_screen.gd")
 const GuideScreen = preload("res://engine/client/guide_screen.gd")
 const TutorialHud = preload("res://engine/client/tutorial_hud.gd")
+const ObjectiveHud = preload("res://engine/client/objective_hud.gd")
 const DevOverlay = preload("res://engine/client/dev_overlay.gd")
 const DebugDraw = preload("res://engine/client/debug_draw.gd")
 const CableView = preload("res://engine/client/cable_view.gd")
@@ -370,6 +371,7 @@ var _minigame_screen: MinigameScreen
 var _guide_screen: GuideScreen
 var _guide_badge: Label
 var _tutorial_hud: TutorialHud
+var _objective_hud: ObjectiveHud
 var _dev_alerts: VBoxContainer
 var _dev_overlay: DevOverlay
 var _debug_draw: DebugDraw
@@ -3055,6 +3057,12 @@ func on_tutorial(view: Dictionary) -> void:
 	_tutorial_hud.set_view(view)
 
 
+## The task list, pushed whenever it changes. See engine/client/objective_hud.gd for why this took
+## until there was a game with a story in it to notice was missing.
+func on_objectives(view: Dictionary) -> void:
+	_objective_hud.set_view(view)
+
+
 func on_tutorial_event(kind: String, title: String) -> void:
 	_tutorial_hud.step_done(kind)
 	if kind == "completed":
@@ -4135,6 +4143,8 @@ func _build_hud() -> void:
 	_tutorial_hud.client = self
 	_tutorial_hud.action_requested.connect(func(action, arg): Net.c_tutorial.rpc_id(1, action, arg))
 	_hud_root.add_child(_tutorial_hud)
+	_objective_hud = ObjectiveHud.new()
+	_hud_root.add_child(_objective_hud)
 	_guide_screen = GuideScreen.new()
 	_guide_screen.items = items
 	_guide_screen.recipes = recipes

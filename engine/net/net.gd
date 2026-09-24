@@ -1196,3 +1196,11 @@ func s_player_event(peer_id: int, kind: int) -> void:
 func s_sound(sound_id: int, position: Vector3, volume: float, pitch: float, positional: bool) -> void:
 	if client:
 		client.on_sound(sound_id, position, volume, pitch, positional)
+
+
+## What this player has been asked to do: {active: [{name, display_name, step, of, text, progress,
+## needed}]}. Sent whenever it changes, so the task list is never stale and the client never asks.
+@rpc("authority", "call_remote", "reliable")
+func s_objectives(view: Dictionary) -> void:
+	if client:
+		client.on_objectives(view)
