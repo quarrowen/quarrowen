@@ -1756,6 +1756,11 @@ func balances_of(player) -> Array:
 ## and a line of lore is written into the item so its tooltip says "Keen II" without anything new on
 ## the wire.
 ##
+## A mark may also carry `glow: {color, energy, light}`, which makes the marked item shine and - when
+## `light` is a radius in blocks - light the world around whoever holds or wears it. Energy and radius
+## both scale with the level, and the brightest mark on an item wins rather than the sum, so stacking
+## two of them does not blind anybody.
+##
 ## **There is no hook system here on purpose.** A mark that should set things alight is a mod listening
 ## to the hit event it already has and asking whether the weapon is kindled. A second way of doing what
 ## events already do would be worse than one.

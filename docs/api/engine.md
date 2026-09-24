@@ -8277,7 +8277,13 @@ Lies down in a bed: `head` is the [x, z] direction from the feet to the pillow, 
 
 GDScript: `set_armor_glow(glow: Dictionary) -> void`
 
-Glowing armor: {color, energy} lights up the armor texture in its own colors; {} turns it off.
+Glowing armor: {color, energy} lights up the armor texture in its own colors, and `light` (a radius
+in blocks) makes it light the world around the wearer too. {} turns both off.
+
+**`light` arrived here for weeks and was thrown away.** The server already computed it from the
+worn stack's data and shipped it in `appearance.armor_glow`; this function read `color` and
+`energy` and dropped the rest on the floor, so armour could look lit and never lit anything. Held
+items have made a real light out of the same field all along (avatar/item_mesh.gd). (2026-09-24)
 
 ### `animate`
 

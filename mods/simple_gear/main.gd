@@ -29,6 +29,7 @@ var curios := Curios.new()
 func setup(api) -> void:
 	_register_tools(api)
 	_register_lantern(api)
+	_register_illuminance(api)
 	_register_charms(api)
 	_register_hoes(api)
 	curios.setup(api)
@@ -81,10 +82,13 @@ func _register_tools(api) -> void:
 			if armor.has("toughness"):
 				def.armor["toughness"] = armor.toughness
 			api.register_item("%s_%s" % [m.name, piece[0]], def)
+			# The group Illuminance is allowed on. A tag rather than a list, so a mod adding its own
+			# armour can join `simple_gear:armour` and the mark works on it without this file - which
+			# is the whole argument for tags (see engine/shared/tag_registry.gd).
+			api.tag("armour", ["simple_gear:%s_%s" % [m.name, piece[0]]])
 			api.register_recipe({m.input: armor.cost[i]}, "simple_gear:%s_%s" % [m.name, piece[0]], 1, ARMORY)
 
 
-## Deepstone is the common ingredient on purpose: charms are the second thing a cobalt pickaxe buys.
 ## **A light you carry, rather than one you put down.** `base` has had a torch since the beginning and
 ## it is a block: to see, you stop, you place it, and the dark ahead is still dark. This is the other
 ## half, and it is the thing a child asks for the first time they go down a hole.
@@ -106,6 +110,29 @@ func _register_lantern(api) -> void:
 		"simple_gear:hand_lantern", 1, TABLE)
 
 
+## **Illuminance: armour that carries its own light.** A mark rather than an item, because "this
+## particular chestplate glows" is exactly what a mark is for - and because it then works on any
+## armour a mod adds without this file hearing about it.
+##
+## Three levels, seven and a half blocks of light at the top against the Hand Lantern's nine - the
+## lantern costs you a hand and should win. What this buys is not brightness, it is having both hands
+## free in the dark, which is the whole reason anybody would want it.
+##
+## The energy is low on purpose. It multiplies the armour texture's emission as well as the light, and
+## the first version at 0.9 per level came out as a featureless white slab at level 3 - the armour
+## stopped looking like armour. Seen rather than reasoned about.
+##
+## It needed two small engine changes and neither was new machinery: a mark could already rewrite an
+## item's stats and lore and could not touch its glow, and worn armour already *received* a light
+## radius from the server and threw it away. See engine/server/modifiers.gd and
+## engine/client/avatar/avatar.gd. (2026-09-24)
+func _register_illuminance(api) -> void:
+	api.register_modifier("illuminance", {"display_name": "Illuminance", "max_level": 3,
+		"applies_to": ["#simple_gear:armour"],
+		"glow": {"color": "#ffd9a0", "energy": 0.35, "light": 2.5}})
+
+
+## Deepstone is the common ingredient on purpose: charms are the second thing a cobalt pickaxe buys.
 func _register_charms(api) -> void:
 	api.register_equipment_slot("trinket", {"display_name": "Charm"})
 	# Each takes deepstone and one thing that says what it is for, so the three recipes are told apart by

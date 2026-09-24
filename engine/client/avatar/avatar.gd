@@ -34,6 +34,7 @@ var _dead := false
 var _holding := false
 var _held_look := {}
 var _trail: SwingTrail
+var _armor_light: OmniLight3D = null  # made only when worn gear asks to light the world
 ## The current meal (see ViewModel.start_meal): the right hand brings the held food to the mouth, the
 ## left holds the plate; drinks are tipped back with the head raised.
 var _meal := {}
@@ -207,13 +208,42 @@ func swing(with_trail := true) -> void:
 		_trail.start(mesh.get_node_or_null("grip"), mesh.get_node_or_null("tip"), _held_look.trail, SWING_SECONDS)
 
 
-## Glowing armor: {color, energy} lights up the armor texture in its own colors; {} turns it off.
+## Glowing armor: {color, energy} lights up the armor texture in its own colors, and `light` (a radius
+## in blocks) makes it light the world around the wearer too. {} turns both off.
+##
+## **`light` arrived here for weeks and was thrown away.** The server already computed it from the
+## worn stack's data and shipped it in `appearance.armor_glow`; this function read `color` and
+## `energy` and dropped the rest on the floor, so armour could look lit and never lit anything. Held
+## items have made a real light out of the same field all along (avatar/item_mesh.gd). (2026-09-24)
 func set_armor_glow(glow: Dictionary) -> void:
 	_armor_material.emission_enabled = not glow.is_empty()
 	if not glow.is_empty():
 		_armor_material.emission = Color.html(String(glow.color))
-		_armor_material.emission_energy_multiplier = float(glow.energy)
+		# **The texture's emission is capped where the light's energy is not.** Armour albedo is close
+		# to white, so a multiplier much above this saturates every texel and the piece stops looking
+		# like armour at all - a glowing chestplate became a featureless white slab at level 3. The
+		# light around the wearer still uses the full energy, so a stronger mark reads as a wider,
+		# brighter pool rather than as a brighter box. Seen rather than reasoned about. (2026-09-24)
+		_armor_material.emission_energy_multiplier = minf(float(glow.energy), 0.5)
 		_armor_material.emission_texture = _armor_material.albedo_texture
+	var radius := float(glow.get("light", 0.0)) if not glow.is_empty() else 0.0
+	if radius <= 0.0:
+		# Made only when something actually asks for one, and freed the moment it stops - the same
+		# rule nameplates follow, and for the same reason: a room of forty players should not be forty
+		# lights nobody asked for.
+		if _armor_light != null:
+			_armor_light.queue_free()
+			_armor_light = null
+		return
+	if _armor_light == null:
+		_armor_light = OmniLight3D.new()
+		_armor_light.shadow_enabled = false  # nothing else at runtime casts shadows either
+		# On the body rather than a limb, and above the feet, so it reads as the wearer glowing.
+		_armor_light.position = Vector3(0.0, 1.0, 0.0)
+		add_child(_armor_light)
+	_armor_light.light_color = Color.html(String(glow.color))
+	_armor_light.light_energy = float(glow.energy)
+	_armor_light.omni_range = radius
 
 
 func hurt() -> void:

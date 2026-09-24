@@ -6599,3 +6599,34 @@ Worth keeping as a general shape: **a test written from the same table as the th
 tautological in exactly the dimension the table describes.** It still earns its place on every other
 dimension - ids, counts, ordering, hand-over, the filters in `_score` - which is where every bug so
 far has actually been.
+
+### Illuminance, and a light that had been arriving and being discarded (user, 2026-09-24)
+
+*"a player can craft a lantern as an item and when they have it selected in their action bar, they
+can see around them at night right?"* - yes, and the checking was the interesting part. Three things
+had to be true and **two already were**: the enchantment system exists (`modifiers.gd`, "marks", with
+levels, tag gating and auto lore), and per-stack `glow` already beat an item's own definition and
+already lit the world for a *held* item.
+
+What was missing was small and in two places:
+
+- **A mark could not touch an item's glow.** `_rebuild` regenerated `modifiers` and `lore` from the
+  marks and nothing else. It writes `glow` now, brightest mark winning rather than the sum, energy and
+  radius both scaling with the level.
+- **Worn armour received a light radius and threw it away.** The server has been computing
+  `appearance.armor_glow` from the worn stack's data all along and shipping the whole thing;
+  `Avatar.set_armor_glow` read `color` and `energy` and dropped `light` on the floor. Exactly the
+  shape of the lantern radius that no mod had ever set: the capability finished, the value in flight,
+  and one line short of working.
+
+`simple_gear:illuminance` is the content - three levels, 7.5 blocks at the top against the Hand
+Lantern's nine, because the lantern costs you a hand and should win. It goes on `#simple_gear:armour`,
+a tag the armour loop now writes as it registers each piece, so a mod adding its own armour joins in
+without simple_gear knowing.
+
+**Two things only looking could have found.** At 0.9 energy per level the chestplate came out as a
+featureless white slab - armour albedo is near white and the emission multiplier saturates it - so
+the texture's emission is capped at 0.5 while the *light* keeps the full energy. A stronger mark now
+reads as a wider, brighter pool rather than a brighter box. And the server picked the brightest armour
+glow by energy alone, so a bright-but-lightless piece could mask a dimmer one that actually lit the
+room; a piece that lights now beats one that only shines.

@@ -85,6 +85,12 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	api.tag("prods", ["proving:prod"])
 	api.register_modifier("keen", {"display_name": "Keen", "max_level": 3,
 		"per_level": [{"stat": "attack_damage", "amount": 1.0}], "applies_to": ["#proving:prods"]})
+	# A mark that lights the world as well as changing a stat. Both halves on one mark on purpose: the
+	# glow is written into the item's data beside the modifiers, and a mark that only did one of them
+	# would not prove they coexist.
+	api.register_modifier("kindled", {"display_name": "Kindled", "max_level": 2,
+		"per_level": [{"stat": "attack_damage", "amount": 0.5}],
+		"glow": {"color": "#ffcc88", "energy": 0.4, "light": 3.0}, "applies_to": ["#proving:prods"]})
 	# A forge material of our own, so the parts-and-assembly capability is covered without base's.
 	api.register_material("dull", {"display_name": "Dull", "item": "proving:token", "color": "#888888",
 		"tier": 2, "speed": 4.0, "durability": 100, "damage": 1.0, "handle": 1.6,

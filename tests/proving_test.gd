@@ -161,6 +161,20 @@ func _registries(server) -> void:
 	_check(server.mod_instances.proving.api.find_structure("no_such_site", Vector3.ZERO) == Vector3.INF,
 		"and asking about a set nobody registered says so rather than guessing")
 
+	# A mark that makes the thing it is on glow. Asserted through `visuals`, which is what the server
+	# actually reads when it decides what to tell everyone about a held or worn item - a `glow` written
+	# into item data that `visuals` did not prefer would light nothing.
+	var lit_rod: Dictionary = server.modifiers.apply({}, "proving:prod", "proving:kindled", 2)
+	_check(lit_rod.get("glow") is Dictionary and float(lit_rod.glow.get("light", 0.0)) == 6.0,
+		"a mark can make an item glow, and it grows with the level")
+	_check(lit_rod.get("modifiers") is Array and not (lit_rod.modifiers as Array).is_empty(),
+		"and it still changes the stats it always did")
+	var seen: Dictionary = server.items.visuals(server.items.id_of("proving:prod"), lit_rod)
+	_check(float(seen.glow.get("light", 0.0)) == 6.0,
+		"and the glow the marks wrote is the one the server reads back")
+	var bare: Dictionary = server.modifiers.apply(lit_rod, "proving:prod", "proving:kindled", 0)
+	_check(not bare.has("glow"), "and taking the mark off takes the light with it")
+
 	var silly: Dictionary = EntityRegistry._read_light({"part": "x", "range": 400.0, "energy": 99.0})
 	_check(float(silly.range) == 16.0 and float(silly.energy) == 8.0,
 		"and a mod asking for a range of 400 is clamped rather than ending the night")

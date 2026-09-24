@@ -4431,11 +4431,25 @@ func refresh_appearance(p: ServerPlayer) -> void:
 			appearance.held_look = {"glow": look.glow, "trail": look.trail, "held": look.effects.get("held", "")}
 			if held_data.get("icon_layers") is Array:
 				appearance.held_look.icon_layers = held_data.icon_layers  # tools built from parts look like their parts
-	# The brightest glow among visible armor lights the whole armor texture.
+	# The brightest glow among visible armor lights the whole armor texture - and, if it carries a
+	# radius, the ground around the wearer.
+	#
+	# **A piece that lights beats one that only shines**, whatever their energies. Ranking on energy
+	# alone meant a bright-but-lightless chestplate could mask a dimmer piece that actually lit the
+	# room, which is the wrong way round and would have made Illuminance look broken on anybody
+	# wearing a full set. (2026-09-24)
 	for slot_name in visible:
 		var slot_index := p.inventory.equipment_index(slot_name)
 		var glow: Dictionary = items.visuals(visible[slot_name], p.inventory.data[slot_index] if slot_index >= 0 else {}).glow
-		if not glow.is_empty() and float(glow.energy) > float(appearance.get("armor_glow", {}).get("energy", 0.0)):
+		if glow.is_empty():
+			continue
+		var best: Dictionary = appearance.get("armor_glow", {})
+		var lights := float(glow.get("light", 0.0)) > 0.0
+		var best_lights := float(best.get("light", 0.0)) > 0.0
+		if lights != best_lights:
+			if lights:
+				appearance.armor_glow = glow
+		elif float(glow.energy) > float(best.get("energy", 0.0)):
 			appearance.armor_glow = glow
 	var ev := emit("player_appearance", {"player": p, "appearance": appearance})
 	appearance = ev.appearance

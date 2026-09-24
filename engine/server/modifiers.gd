@@ -22,6 +22,9 @@ extends RefCounted
 ## shows that - so a tooltip says "Keen II" with nothing new on the wire.
 
 const MAX_LEVEL := 10
+## Borrowed rather than reimplemented: `clean_glow` already has the clamps and the defaults, and a
+## second copy of them here is the reimplementation this codebase keeps writing down.
+const ItemRegistry = preload("res://engine/shared/item_registry.gd")
 
 var server
 
@@ -47,6 +50,10 @@ func register(modifier_name: String, def: Dictionary, owner := "engine") -> bool
 		"display_name": String(def.get("display_name", modifier_name.capitalize())),
 		"max_level": clampi(int(def.get("max_level", 1)), 1, MAX_LEVEL),
 		"per_level": per_level,
+		# A mark may also make the thing glow, and the glow grows with the level. Normalised by the
+		# item registry so the clamps are the same ones an item's own `glow` gets - a mark asking for
+		# a radius of 400 is a mod bug, not a reason for the night to end.
+		"glow": ItemRegistry.clean_glow(def.get("glow")),
 		# Item names, or "#tag" for a group. Empty means anything, which is what a mod means by a mark
 		# that can go on anything at all.
 		"applies_to": (def.get("applies_to", []) as Array).map(func(n) -> String: return String(n)) \
@@ -121,6 +128,7 @@ func apply(item_data: Dictionary, item_name: String, modifier_name: String, leve
 func _rebuild(data: Dictionary) -> void:
 	var modifiers := []
 	var lore := []
+	var glow := {}
 	for mark in data.marks:
 		var kind: Dictionary = kinds.get(String(mark.name), {})
 		if kind.is_empty():
@@ -129,6 +137,13 @@ func _rebuild(data: Dictionary) -> void:
 		for effect: Dictionary in kind.per_level:
 			modifiers.append({"stat": effect.stat, "amount": float(effect.amount) * level, "op": effect.op})
 		lore.append("%s %s" % [kind.display_name, _numeral(level)] if level > 1 else String(kind.display_name))
+		# The brightest mark wins rather than the sum, so stacking two lights does not blind anybody.
+		# Energy and radius both scale with the level: a Illuminance II lantern-coat is twice the lamp.
+		if not (kind.glow as Dictionary).is_empty():
+			var lit := {"color": kind.glow.color, "energy": float(kind.glow.energy) * level,
+				"light": float(kind.glow.light) * level}
+			if float(lit.light) > float(glow.get("light", -1.0)):
+				glow = lit
 	if modifiers.is_empty():
 		data.erase("modifiers")
 	else:
@@ -139,6 +154,12 @@ func _rebuild(data: Dictionary) -> void:
 		data.erase("lore")
 	else:
 		data.lore = lore
+	# Per-stack `glow` already beats the item's own definition everywhere it is read
+	# (ItemRegistry.visuals), so writing it here is all a mark has to do to light the world.
+	if glow.is_empty():
+		data.erase("glow")
+	else:
+		data.glow = glow
 
 
 ## I, II, III... Roman up to ten, because "Keen 2" reads like a version number.
