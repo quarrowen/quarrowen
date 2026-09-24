@@ -6785,3 +6785,30 @@ and four decisions in them are worth keeping:
 
 They work on somebody who is not online, which is when most bans are actually decided - `player_id_of`
 resolves a name through the same table that binds names to identities at join.
+
+### Identity stays keyless, and gains an export (user, 2026-09-24)
+
+Asked whether to keep the no-registration model now that public servers are the eventual target.
+Decision: **keep keypairs as the identity and add deliberate key export/import**, rather than
+accounts.
+
+What keypairs already buy, and it is more than it looks: the id is derived from a public key and
+joining proves possession of the private half, so it is unforgeable in a way a username and password
+is not - and there is nothing to breach, because the server holds no credentials. Bans, roles and the
+allowlist all key on it.
+
+What they cost, honestly: **losing the key loses the person.** Reinstall, new laptop, wiped profile,
+and they are a stranger to every server, with no recovery path by design. Two devices are two people.
+And a ban costs a reinstall to evade rather than an account - the same as any hardware ban, but worth
+naming.
+
+Export/import fixes the two real pains without taking on the third thing. **The reason not to take
+accounts is not effort, it is that the players are children**: an email address is identifiable data
+about a minor, which pulls in consent, retention, deletion and age assurance - obligations this
+project does not have today and would have permanently. An export button buys most of the recovery
+for none of that.
+
+If shared reputation across public servers is ever wanted, the hub can sign attestations *about a
+public key* ("this key was banned on three listed servers") with no registration either. Not now.
+
+**Not built yet** - this is the decision, not the work.
