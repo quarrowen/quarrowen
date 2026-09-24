@@ -338,10 +338,12 @@ var _controls_hint: Control
 ## The cinematic arrival (the user, 2026-09-23: "a cinematic third person zoom in kinda effect which
 ## will end smoothly in the first person perspective"). Seconds elapsed, or -1.0 when not flying.
 var _arrival := -1.0
-## **Once per session, not once per world load.** A child who dies twenty times does not want twenty
-## establishing shots - and rejoining a world after a crash is not an arrival either. Static, so it
-## survives the client being rebuilt for another world in the same run.
-static var _arrived_this_session := false
+## **Once per client, and a client is exactly one arrival.** This was `static` so that dying twenty
+## times did not buy twenty establishing shots - but death does not build a new client, so an ordinary
+## member already had that covered, and the static one was actively wrong: two clients can overlap
+## while one is being torn down, and the reset in `_exit_tree` then let the second fly as well. That
+## is what "it ran twice, stitched together a bit weirdly" was. (the user, 2026-09-25)
+var _arrived_this_session := false
 var _hotbar: HBoxContainer
 ## Name of what the player is holding, shown above the hotbar for a moment when it changes.
 var _held_label: Label
@@ -1993,16 +1995,22 @@ func _process(delta: float) -> void:
 ##
 ## Eased out rather than linear, so it settles into the eyes instead of stopping dead.
 func _fly_in(delta: float, render_position: Vector3, eye: float) -> void:
-	_arrival += delta
+	# **The frame that finishes a join is enormous**, because it is the frame the world finished
+	# meshing on - often whole seconds of wall clock. Adding a raw delta spent the entire flight in one
+	# or two frames, so it "worked" everywhere it was measured and was invisible in the actual game:
+	# the camera was already home before anything drew. Clamped to a sane frame, so a stall costs the
+	# flight 33 milliseconds rather than all of it. (the user, 2026-09-24: "no change in arrival")
+	_arrival += minf(delta, 1.0 / 30.0)
 	var t := clampf(_arrival / ARRIVAL_SECONDS, 0.0, 1.0)
 	if t >= 1.0:
 		_arrival = -1.0
 		return
 	var eased := 1.0 - pow(1.0 - t, 3.0)
 	var eyes: Vector3 = render_position + Vector3(0.0, eye, 0.0)
-	# Behind the way they are facing, and up: the shot looks over their shoulder at the world they
-	# have arrived in, which is the half worth showing.
-	var away := (Vector3(sin(yaw), 0.0, cos(yaw)) * ARRIVAL_BACK + Vector3(0.0, ARRIVAL_UP, 0.0)).normalized()
+	# **In front of them, looking back at their face** (the user, 2026-09-25). It started behind the
+	# shoulder, which showed the world but not the person who had just arrived in it - and the whole
+	# point of an establishing shot for a child is seeing themselves standing there.
+	var away := (Vector3(-sin(yaw), 0.0, -cos(yaw)) * ARRIVAL_BACK + Vector3(0.0, ARRIVAL_UP, 0.0)).normalized()
 	var reach := Vector2(ARRIVAL_BACK, ARRIVAL_UP).length() * (1.0 - eased)
 	# **Stop at walls**, the way the ordinary third-person camera does. Without this the shot spends
 	# its first second inside whatever is behind you - a hill, a tree, the dark - which is a worse
@@ -2011,8 +2019,21 @@ func _fly_in(delta: float, render_position: Vector3, eye: float) -> void:
 	if ray.hit:
 		reach = maxf(eyes.distance_to(Vector3(ray.position) + Vector3.ONE * 0.5) - 0.6, 0.0)
 	_camera.position = eyes + away * reach
-	# Tilted down at the start so the player is in frame, level by the time it arrives.
-	_camera.rotation = Vector3(pitch - 0.35 * (1.0 - eased), yaw, 0.0)
+	# **Aimed at the player the whole way, not swept through a fixed arc.** Sweeping the yaw from
+	# `yaw + PI` to `yaw` only pointed at them at the two ends: in between the camera was looking past
+	# them at empty ground, so the first two frames of a photographed flight had no player in them at
+	# all. Working the angle out from where they actually are keeps them in frame at every moment,
+	# whatever the easing is doing to the distance.
+	var to_player: Vector3 = eyes - _camera.position
+	var aim_yaw := yaw + PI
+	var aim_pitch := -0.30
+	if to_player.length() > 0.5:
+		aim_yaw = atan2(-to_player.x, -to_player.z)
+		aim_pitch = atan2(to_player.y, Vector2(to_player.x, to_player.z).length())
+	# The last quarter hands over to their own view, so control arrives already pointing where they
+	# will be looking rather than snapping at the end.
+	var hand_over := clampf((eased - 0.75) / 0.25, 0.0, 1.0)
+	_camera.rotation = Vector3(lerpf(aim_pitch, pitch, hand_over), lerp_angle(aim_yaw, yaw, hand_over), 0.0)
 
 
 ## Anything the player does ends the arrival immediately. Called from input rather than checked here,

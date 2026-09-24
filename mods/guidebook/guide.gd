@@ -67,7 +67,11 @@ func _first_steps(api) -> void:
 	# so; sunstone is what the deep is *for*, and a child who finds a vein of it should be able to look
 	# it up rather than guess. (2026-09-24)
 	api.register_guide_page("deep_ores", {"chapter": "basics", "title": "The Deeper Ores", "icon": "base:sunstone", "order": 4,
-		"unlock": {"item": "base:cobalt_ore"}, "keywords": "copper gold sunstone deepstone ore deep mine rare",
+		# **Any of the four opens it, not the deepest one.** It was gated on cobalt ore, which meant you
+		# could not read about *copper* until you had *cobalt* - backwards, since copper is the early
+		# material and the reason the page exists is to say so. (found in play, 2026-09-24)
+		"unlock": {"item": ["base:copper_ore", "base:gold_ore", "base:cobalt_ore", "base:sunstone_ore", "base:deepstone"]},
+		"keywords": "copper gold sunstone deepstone ore deep mine rare",
 		"blocks": [
 			{"type": "text", "text": "Below the ordinary stone the world turns to [b]deepstone[/b]: darker, harder, and only a cobalt pickaxe will lift it. What lives down there is worth the walk."},
 			{"type": "items", "items": ["base:copper_ore", "base:gold_ore", "base:sunstone_ore", "base:deepstone"]},

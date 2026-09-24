@@ -52,6 +52,12 @@ const AIR := 3
 ## player sees is the top of its head rather than all of it at once.
 const BURIED := 9.0
 
+## The rise, in steps and seconds per step. Four seconds up, four still, four down - written as a
+## count of small steps rather than a few big ones so the client has something continuous to draw.
+const RISE_STEP := 0.05
+const RISING := 80        # 4 seconds up
+const STILL_UNTIL := 160  # and four standing there before it goes back down
+
 var api
 var _lit := {}     # realm -> true, so the ending happens once per world and not once per rebuild
 var _found := {}   # player id -> the ruin we pointed them at
@@ -237,14 +243,20 @@ func _rise(at: Vector3) -> void:
 	var step := [0]
 	# Roughly twelve seconds all told: up over four, still for four, down over four. Slow on purpose -
 	# a seven-metre figure that moves quickly is a jump scare, and this is a goodnight.
-	api.every(0.25, func():
+	#
+	# **Twenty steps a second, not four.** At a quarter of a second the thing jumped nearly half a
+	# block at a time and held still for fifteen frames in between, which reads as teleporting rather
+	# than rising - "the ending was glitchy" (the user, 2026-09-25). Setting `position` zeroes the
+	# velocity, so the client has nothing to interpolate *through*: the only thing that makes this
+	# smooth is taking smaller steps.
+	api.every(RISE_STEP, func():
 		if giant == null or not is_instance_valid(giant) or giant.removed:
 			return
 		step[0] += 1
 		var n: int = step[0]
-		if n <= 16:
-			giant.position = Vector3(here.x, lerpf(start, here.y, float(n) / 16.0), here.z)
-		elif n == 17:
+		if n <= RISING:
+			giant.position = Vector3(here.x, lerpf(start, here.y, float(n) / float(RISING)), here.z)
+		elif n == RISING + 1:
 			# It should actually look at them, since the line says so. Nearest player, once, at the top
 			# of the rise - it has no AI running to turn it, and a seven-metre figure with its back to
 			# you is a different scene from the one the words describe.
@@ -257,9 +269,9 @@ func _rise(at: Vector3) -> void:
 				giant.yaw = atan2(-to.x, -to.z)
 			api.broadcast("It stands up out of the floor, and looks at you, and does not do anything else.")
 			api.broadcast("[Wick] Oh. Oh, it's just tired. All this time and it was just tired.")
-		elif n >= 32 and n <= 48:
-			giant.position = Vector3(here.x, lerpf(here.y, start, float(n - 32) / 16.0), here.z)
-		elif n == 49:
+		elif n >= STILL_UNTIL and n <= STILL_UNTIL + RISING:
+			giant.position = Vector3(here.x, lerpf(here.y, start, float(n - STILL_UNTIL) / float(RISING)), here.z)
+		elif n == STILL_UNTIL + RISING + 1:
 			api.remove_entity(giant)
 			_waking = 0
 			_closing_words())

@@ -6868,3 +6868,33 @@ nobody else can read.
 
 The throttle numbers are deliberately generous: a family behind one router shares an address, and a
 child whose laptop slept reconnects in a flurry. This is meant to stop a script, not a household.
+
+### Playtesting the arrival found three things reasoning had not (user, 2026-09-25)
+
+The first person to actually play it found all three in about ten minutes. Worth keeping as a record
+of what mechanical verification cannot reach.
+
+1. **"No change in arrival, no cinematic or anything."** The frame that finishes a join is enormous -
+   it is the frame the world finished meshing on, often whole seconds of wall clock - and the flight
+   advanced by a raw `delta`, so the entire 2.2 seconds was spent in one or two frames. It worked in
+   every measurement I took, because a steadily-running client has small deltas, and was invisible in
+   the actual game. Clamped to a thirtieth of a second per frame. Confirmed by instrumenting: 133
+   frames, where before it would have been one.
+2. **"It ran twice, stitched together a bit weirdly."** The once-per-session flag was `static`, and
+   `_exit_tree` reset it - so when two clients overlap while one is being torn down, the second flew
+   as well. It is an ordinary member now, which is what it should always have been: death does not
+   build a new client, so a plain member already prevented twenty establishing shots, and the static
+   one bought nothing and broke reconnecting.
+3. **"Possible to make the flyin come from the front so I see the player's face?"** It started behind
+   the shoulder. Now in front - and *aimed at the player every frame* rather than swept through a
+   fixed arc, because the first attempt only pointed at them at the two ends and spent the middle
+   looking past them at empty ground.
+
+Also from play: **the Deeper Ores page was gated on cobalt ore**, so you could not read about copper
+until you had cobalt - backwards, since copper is the early material and saying so is the page's whole
+purpose. Any of the five now opens it.
+
+And **the ending moved in quarter-second jumps** - nearly half a block at a time with fifteen frames
+of stillness between, which reads as teleporting rather than rising. Setting `position` zeroes the
+velocity, so the client has nothing to interpolate through; the only thing that makes it smooth is
+smaller steps. Twenty a second now.
