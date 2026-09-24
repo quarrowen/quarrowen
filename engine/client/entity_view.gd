@@ -82,6 +82,7 @@ func setup(id: int, def: Dictionary, parts: Array, sprite: Texture2D, pos: Vecto
 					if not _parts.has(key):
 						_parts[key] = []
 					_parts[key].append(pivot)
+			_maybe_light(def, part_name, pivot, model_scale)
 	elif sprite != null:
 		var s := Sprite3D.new()
 		s.texture = sprite
@@ -111,6 +112,34 @@ func setup(id: int, def: Dictionary, parts: Array, sprite: Texture2D, pos: Vecto
 
 ## {scale, hide: [part prefixes], tint: {part prefix: "#rrggbb"}} from the server (babies, sheared or
 ## dyed sheep, ...).
+## Hangs a real light on a named model part, when the type asked for one.
+##
+## **Made only for a part that matches**, the way a nameplate is made only for a creature that has
+## one: a field of forty sheep should not be forty lights, and neither should the six legs of a
+## creature whose model happens to contain the word the mod chose. The prefix match is the same one
+## `tint` and `hide` use, so a mod that knows how to recolour a part knows how to light it.
+##
+## The light lives under the part's pivot, so it swings with an arm and leaves with a hidden part. It
+## casts no shadows - nothing else at runtime does either, and a swinging shadow-caster on every
+## creature is the kind of thing that turns a playable frame rate into a slideshow.
+func _maybe_light(def: Dictionary, part_name: String, pivot: Node3D, model_scale: float) -> void:
+	var want = def.get("light")
+	if not (want is Dictionary) or want.is_empty():
+		return
+	var prefix := String(want.get("part", ""))
+	var radius := float(want.get("range", 0.0))
+	if prefix.is_empty() or radius <= 0.0 or not part_name.begins_with(prefix):
+		return
+	var light := OmniLight3D.new()
+	light.light_color = Color.html(String(want.get("color", "#ffffff")))
+	light.light_energy = float(want.get("energy", 1.0))
+	# The pivot sits inside the scaled holder, so a range in blocks has to be divided back out or a
+	# half-size creature would light half as far as the mod asked for.
+	light.omni_range = radius / maxf(model_scale, 0.01)
+	light.shadow_enabled = false
+	pivot.add_child(light)
+
+
 ## Where the camera is, so the plate can fade with distance. Set by the client each frame.
 func update_plate(camera_position: Vector3) -> void:
 	if _plate != null:

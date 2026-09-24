@@ -5,7 +5,7 @@ extends RefCounted
 
 const MAX_TYPES := 1024
 const ITEM := 0
-const NETWORK_FIELDS := ["name", "display_name", "model", "sprite", "width", "height", "scale", "kind", "glow"]
+const NETWORK_FIELDS := ["name", "display_name", "model", "sprite", "width", "height", "scale", "kind", "glow", "light"]
 const KINDS := ["item", "mob", "projectile", "object"]
 
 var defs: Array[Dictionary] = []
@@ -21,6 +21,11 @@ func _init() -> void:
 ##   model: glTF asset (nodes named leg_a / leg_b / arm_a / arm_b swing while walking, head turns)
 ##   sprite: texture asset drawn as a billboard when there is no model (projectiles, particles)
 ##   width, height: collision box in blocks; scale: model scale; glow: unshaded (e.g. magic sparks)
+##   light: a model part that lights the world around it - {part: "lantern", color, energy 0-8,
+##          range 0-16 blocks}. `glow` only makes a part draw at full brightness; this one actually
+##          casts. Items have had the same thing for weeks (item_registry.clean_glow) and creatures
+##          had no way to say it, which is how a lamplighter ended up carrying a lamp that lit
+##          nothing. Use it sparingly: it is a real light per creature on screen.
 ##   health (0 = cannot be damaged), speed, gravity, drag, knockback_resistance (0-1)
 ##   ai: a preset name or a Dictionary of behaviour settings, attacks and phases; see
 ##       engine/server/ai/mob_config.gd (mobs only)
@@ -47,6 +52,7 @@ func register(def: Dictionary, replace := false) -> int:
 	d.height = clampf(float(def.get("height", 1.8 if d.kind == "mob" else 0.25)), 0.05, 16.0)
 	d.scale = clampf(float(def.get("scale", 1.0)), 0.05, 10.0)
 	d.glow = bool(def.get("glow", false))
+	d.light = _read_light(def.get("light"))
 	d.health = maxf(float(def.get("health", 10.0 if d.kind == "mob" else 0.0)), 0.0)
 	d.speed = clampf(float(def.get("speed", 2.5)), 0.0, 40.0)
 	d.gravity = float(def.get("gravity", 32.0 if d.kind != "projectile" else 12.0))
@@ -99,6 +105,25 @@ static func _read_notable(value, display_name: String) -> Dictionary:
 		"label": String(value.get("label", display_name)).left(32),
 		"color": String(value.get("color", "#ffd166")).left(9),
 		"minutes": clampf(float(value.get("minutes", 10.0)), 0.0, 120.0),
+	}
+
+
+## A model part that casts light, normalised to {part, color, energy, range} - or `{}`, which is
+## nearly every creature, so a caller can test it as a boolean.
+##
+## The clamps are the point, exactly as they are in `item_registry.clean_glow`, whose numbers these
+## match on purpose: a creature asking for a range of 400 is a mod bug, not a reason for the night to
+## end. `part` is matched as a prefix against the model's node names, the same way `tint` and `hide`
+## are, so "arm" lights both arms and "lantern" lights the lantern.
+static func _read_light(value) -> Dictionary:
+	if not (value is Dictionary) or value.is_empty():
+		return {}
+	var color := String(value.get("color", "#ffffff"))
+	return {
+		"part": String(value.get("part", "")).left(32).to_lower(),
+		"color": color if Color.html_is_valid(color) else "#ffffff",
+		"energy": clampf(float(value.get("energy", 1.0)), 0.0, 8.0),
+		"range": clampf(float(value.get("range", 0.0)), 0.0, 16.0),
 	}
 
 

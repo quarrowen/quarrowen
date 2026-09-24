@@ -8,6 +8,7 @@ extends Node
 
 const GameServer = preload("res://engine/server/game_server.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
+const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 
 const DATA_DIR := "user://proving_test"
 var _failures := 0
@@ -135,6 +136,18 @@ func _registries(server) -> void:
 		"objectives, from both languages")
 	_check(server.companions.kinds.has("proving:forage") and server.companions.kinds.has("proving_js:js_wait"),
 		"orders, from both languages")
+
+	# A model part that casts light. Asserted on the network table rather than on the definition,
+	# because the whole capability is that it reaches the client - it was a NETWORK_FIELDS omission
+	# away from being invisible, which is the failure this would not otherwise catch.
+	var creatures = server.entities.registry
+	var lit: Dictionary = creatures.to_network()[creatures.id_of("proving:flitter")]
+	_check(lit.get("light") is Dictionary and float(lit.light.get("range", 0.0)) == 7.0
+		and String(lit.light.get("part", "")) == "body",
+		"a creature's model part can light the world, and the client is told")
+	var silly: Dictionary = EntityRegistry._read_light({"part": "x", "range": 400.0, "energy": 99.0})
+	_check(float(silly.range) == 16.0 and float(silly.energy) == 8.0,
+		"and a mod asking for a range of 400 is clamped rather than ending the night")
 
 	_check(server.multiblock_patterns.has("proving:engine"), "a multiblock pattern")
 	_check(server.liquid_kinds.has(reg.id_of("proving:slime")), "a liquid")

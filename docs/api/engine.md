@@ -3070,8 +3070,6 @@ items, projectiles and model-less entities.
 
 GDScript: `update_plate(camera_position: Vector3) -> void`
 
-{scale, hide: [part prefixes], tint: {part prefix: "#rrggbb"}} from the server (babies, sheared or
-dyed sheep, ...).
 Where the camera is, so the plate can fade with distance. Set by the client each frame.
 
 **See also:** `update_for_camera`
@@ -3345,7 +3343,7 @@ GDScript: `give(entity, order_name: String, options := {}) -> bool`
 Tells it something. `options.at` is where, for orders that need a place; it defaults to where the
 creature is standing, which is what "guard this spot" means when somebody says it out loud.
 
-**See also:** `add_modifier`, `exists`, `give_overflow`, `is_alive`, `set_sitting`, `wake`
+**See also:** `add_modifier`, `exists`, `give_overflow`, `is_alive`, `set_sitting`, `sync`
 
 ### `orders_for`
 
@@ -4095,6 +4093,11 @@ kind: "mob" | "projectile" | "object" | "item"
 model: glTF asset (nodes named leg_a / leg_b / arm_a / arm_b swing while walking, head turns)
 sprite: texture asset drawn as a billboard when there is no model (projectiles, particles)
 width, height: collision box in blocks; scale: model scale; glow: unshaded (e.g. magic sparks)
+light: a model part that lights the world around it - {part: "lantern", color, energy 0-8,
+range 0-16 blocks}. `glow` only makes a part draw at full brightness; this one actually
+casts. Items have had the same thing for weeks (item_registry.clean_glow) and creatures
+had no way to say it, which is how a lamplighter ended up carrying a lamp that lit
+nothing. Use it sparingly: it is a real light per creature on screen.
 health (0 = cannot be damaged), speed, gravity, drag, knockback_resistance (0-1)
 ai: a preset name or a Dictionary of behaviour settings, attacks and phases; see
 engine/server/ai/mob_config.gd (mobs only)
@@ -4539,7 +4542,7 @@ GDScript: `give(target, condition_name: String, options := {}) -> bool`
 Gives one. `seconds` 0 means until it is taken away. Returns false when the target already has
 something stronger and the condition does not stack.
 
-**See also:** `add_modifier`, `exists`, `give_overflow`, `is_alive`, `set_sitting`, `wake`
+**See also:** `add_modifier`, `exists`, `give_overflow`, `is_alive`, `set_sitting`, `sync`
 
 ### `clear_all`
 
@@ -4598,7 +4601,7 @@ GDScript: `sync(p, force := false) -> void`
 
 Sends hunger when it changes (-1 while the `hunger` rule is off, which hides the bar).
 
-**See also:** `refresh`, `state_of`, `view`
+**See also:** `active_for`, `refresh`, `state_of`, `view`
 
 ### `update`
 
@@ -5202,7 +5205,7 @@ read as "if it worked" and meant "if it failed" - the kind of thing that is righ
 somebody thought about it and wrong everywhere it was copied to. The count is still available from
 `give_overflow` for the two callers that want to say how much ended up on the floor. (2026-09-21)
 
-**See also:** `add_modifier`, `exists`, `give_overflow`, `is_alive`, `set_sitting`, `wake`
+**See also:** `add_modifier`, `exists`, `give_overflow`, `is_alive`, `set_sitting`, `sync`
 
 ### `give_overflow`
 
@@ -6016,6 +6019,16 @@ GDScript: `static key_name(action: String) -> String`
 
 The first key bound to an input action ("G", "Space", "Left Mouse").
 
+### `set_view`
+
+*client/objective_hud.gd*
+
+GDScript: `set_view(view: Dictionary) -> void`
+
+{active: [{name, display_name, step, of, text, progress, needed}]} from the server.
+
+**See also:** `icon_of`, `key_name`, `new_game`, `node_key`, `texture`, `uptime`
+
 ### `step_done`
 
 *client/tutorial_hud.gd*
@@ -6256,7 +6269,7 @@ GDScript: `sync(p) -> void`
 
 Sends the full guide state after joining.
 
-**See also:** `refresh`, `state_of`, `view`
+**See also:** `active_for`, `refresh`, `state_of`, `view`
 
 ### `unlock`
 
@@ -6523,7 +6536,7 @@ GDScript: `give(player, objective_name: String) -> bool`
 Gives it to a player. Returns false if they already have it, have finished one that cannot be
 repeated, or are carrying as many as they may.
 
-**See also:** `add_modifier`, `exists`, `give_overflow`, `is_alive`, `set_sitting`, `wake`
+**See also:** `add_modifier`, `exists`, `give_overflow`, `is_alive`, `set_sitting`, `sync`
 
 ### `advance`
 
@@ -6545,6 +6558,20 @@ GDScript: `abandon(player, objective_name: String) -> bool`
 
 Gives up on one. Kept separate from finishing it, because "I am not doing this" and "I did this"
 are different things and a mod may want to say so.
+
+**See also:** `sync`
+
+### `sync`
+
+*server/objectives.gd*
+
+GDScript: `sync(player) -> void`
+
+Sends the task list to whoever it belongs to. **Pushed on every change rather than asked for**, the
+way the tutorial tracker is: a list you have to request is a list that is wrong for as long as
+nobody asked, and the one moment it matters is the moment it changed.
+
+**See also:** `active_for`, `refresh`, `state_of`, `view`
 
 ### `active_for`
 
@@ -9098,6 +9125,17 @@ A new recipe: remember it and celebrate (several at once are grouped into one to
 
 **See also:** `open`
 
+### `on_objectives`
+
+*client/game_client.gd*
+
+GDScript: `on_objectives(view: Dictionary) -> void`
+
+The task list, pushed whenever it changes. See engine/client/objective_hud.gd for why this took
+until there was a game with a story in it to notice was missing.
+
+**See also:** `set_view`
+
 ### `on_dev_error`
 
 *client/game_client.gd*
@@ -9691,7 +9729,7 @@ GDScript: `show_palette(groups: Dictionary, items, atlas) -> void`
 
 Called when the server sends the catalogue.
 
-**See also:** `icon_of`
+**See also:** `icon_of`, `uptime`
 
 ### `create`
 

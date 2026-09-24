@@ -126,6 +126,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#e-shared-weather-registry-gd">weather_registry.gd</a>
 <div class="group">Progression and story</div>
 <a href="#e-client-guide-screen-gd">guide_screen.gd</a>
+<a href="#e-client-objective-hud-gd">objective_hud.gd</a>
 <a href="#e-client-tutorial-hud-gd">tutorial_hud.gd</a>
 <a href="#e-client-ugc-client-gd">ugc_client.gd</a>
 <a href="#e-client-ugc-review-gd">ugc_review.gd</a>
@@ -1023,11 +1024,7 @@ blocks, armor, tools, weapons, food, else materials.</p></div>
 <section id="e-client-entity-view-gd"><h2>entity_view.gd <span class="file">client/entity_view.gd</span></h2><div class="card" data-search="setup `parts`: [{name, mesh, transform}] from modellibrary.load_parts, or empty. `sprite`: texture for
 items, projectiles and model-less entities. client/entity_view.gd creatures and ai"><div class="sig"><code>setup(id: int, def: Dictionary, parts: Array, sprite: Texture2D, pos: Vector3, yaw: float) -&gt; void</code></div><p>`parts`: [{name, mesh, transform}] from ModelLibrary.load_parts, or empty. `sprite`: texture for
 items, projectiles and model-less entities.</p></div>
-<div class="card" data-search="update_plate {scale, hide: [part prefixes], tint: {part prefix: &quot;#rrggbb&quot;}} from the server (babies, sheared or
-dyed sheep, ...).
-where the camera is, so the plate can fade with distance. set by the client each frame. client/entity_view.gd creatures and ai"><div class="sig"><code>update_plate(camera_position: Vector3) -&gt; void</code></div><p>{scale, hide: [part prefixes], tint: {part prefix: "#rrggbb"}} from the server (babies, sheared or
-dyed sheep, ...).
-Where the camera is, so the plate can fade with distance. Set by the client each frame.</p></div>
+<div class="card" data-search="update_plate where the camera is, so the plate can fade with distance. set by the client each frame. client/entity_view.gd creatures and ai"><div class="sig"><code>update_plate(camera_position: Vector3) -&gt; void</code></div><p>Where the camera is, so the plate can fade with distance. Set by the client each frame.</p></div>
 <div class="card" data-search="windup the mob is about to attack: arms rise and it glows, so players can react. client/entity_view.gd creatures and ai"><div class="sig"><code>windup() -&gt; void</code></div><p>The mob is about to attack: arms rise and it glows, so players can react.</p></div>
 <div class="card" data-search="despawn server despawn: plays out a running death or pickup animation first. client/entity_view.gd creatures and ai"><div class="sig"><code>despawn() -&gt; void</code></div><p>Server despawn: plays out a running death or pickup animation first.</p></div>
 <div class="card" data-search="aabb hit box for client-side targeting. client/entity_view.gd creatures and ai"><div class="sig"><code>aabb() -&gt; AABB</code></div><p>Hit box for client-side targeting.</p></div></section>
@@ -1248,6 +1245,11 @@ kind: &quot;mob&quot; | &quot;projectile&quot; | &quot;object&quot; | &quot;item
 model: gltf asset (nodes named leg_a / leg_b / arm_a / arm_b swing while walking, head turns)
 sprite: texture asset drawn as a billboard when there is no model (projectiles, particles)
 width, height: collision box in blocks; scale: model scale; glow: unshaded (e.g. magic sparks)
+light: a model part that lights the world around it - {part: &quot;lantern&quot;, color, energy 0-8,
+range 0-16 blocks}. `glow` only makes a part draw at full brightness; this one actually
+casts. items have had the same thing for weeks (item_registry.clean_glow) and creatures
+had no way to say it, which is how a lamplighter ended up carrying a lamp that lit
+nothing. use it sparingly: it is a real light per creature on screen.
 health (0 = cannot be damaged), speed, gravity, drag, knockback_resistance (0-1)
 ai: a preset name or a dictionary of behaviour settings, attacks and phases; see
 engine/server/ai/mob_config.gd (mobs only)
@@ -1263,6 +1265,11 @@ kind: "mob" | "projectile" | "object" | "item"
 model: glTF asset (nodes named leg_a / leg_b / arm_a / arm_b swing while walking, head turns)
 sprite: texture asset drawn as a billboard when there is no model (projectiles, particles)
 width, height: collision box in blocks; scale: model scale; glow: unshaded (e.g. magic sparks)
+light: a model part that lights the world around it - {part: "lantern", color, energy 0-8,
+range 0-16 blocks}. `glow` only makes a part draw at full brightness; this one actually
+casts. Items have had the same thing for weeks (item_registry.clean_glow) and creatures
+had no way to say it, which is how a lamplighter ended up carrying a lamp that lit
+nothing. Use it sparingly: it is a real light per creature on screen.
 health (0 = cannot be damaged), speed, gravity, drag, knockback_resistance (0-1)
 ai: a preset name or a Dictionary of behaviour settings, attacks and phases; see
 engine/server/ai/mob_config.gd (mobs only)
@@ -1659,6 +1666,7 @@ only after checking it, or use the `require_*` form at the API boundary.</p></di
 <div class="card" data-search="add_unlocked adds newly unlocked pages; returns them. client/guide_screen.gd progression and story"><div class="sig"><code>add_unlocked(pages: PackedStringArray) -&gt; Array</code></div><p>Adds newly unlocked pages; returns them.</p></div>
 <div class="card" data-search="lock_hint what reveals a locked page. client/guide_screen.gd progression and story"><div class="sig"><code>lock_hint(page: Dictionary) -&gt; String</code></div><p>What reveals a locked page.</p></div>
 <div class="card" data-search="key_name the first key bound to an input action (&quot;g&quot;, &quot;space&quot;, &quot;left mouse&quot;). client/guide_screen.gd progression and story"><div class="sig"><code>static key_name(action: String) -&gt; String</code></div><p>The first key bound to an input action ("G", "Space", "Left Mouse").</p></div></section>
+<section id="e-client-objective-hud-gd"><h2>objective_hud.gd <span class="file">client/objective_hud.gd</span></h2><p class="lead">The task list: what this player has been asked to do, and how far along they are.</p><div class="card" data-search="set_view {active: [{name, display_name, step, of, text, progress, needed}]} from the server. client/objective_hud.gd progression and story"><div class="sig"><code>set_view(view: Dictionary) -&gt; void</code></div><p>{active: [{name, display_name, step, of, text, progress, needed}]} from the server.</p></div></section>
 <section id="e-client-tutorial-hud-gd"><h2>tutorial_hud.gd <span class="file">client/tutorial_hud.gd</span></h2><p class="lead">Tutorial tracker, tips and hint markers. - The tracker (left side) shows the running tutorial's current step, its progress and a key to read   the linked guide page; it flashes when a step is done. - Tips slide in below it for a few seconds. - Hints: a bobbing marker above the nearest matching block or mob (or a position) and an arrow at   the screen edge while it is off screen. Blocks are searched a slice at a time around the player. - The tutorials panel (from the pause menu) lists tutorials to start or replay, skip/stop and tips.</p><div class="card" data-search="step_done a step was finished: a quick green flash (the next step arrives with the view). client/tutorial_hud.gd progression and story"><div class="sig"><code>step_done(kind: String) -&gt; void</code></div><p>A step was finished: a quick green flash (the next step arrives with the view).</p></div>
 <div class="card" data-search="preferred_page the page the g key should open: the tip on show, else the current step's page (if not read yet). client/tutorial_hud.gd progression and story"><div class="sig"><code>preferred_page(read: Dictionary) -&gt; String</code></div><p>The page the G key should open: the tip on show, else the current step's page (if not read yet).</p></div></section>
 <section id="e-client-ugc-client-gd"><h2>ugc_client.gd <span class="file">client/ugc_client.gd</span></h2><p class="lead">The client side of player creations (see engine/server/ugc.gd): offers the player's own worn creations to the server and uploads them when asked, fetches creations other players wear, checks and caches them (user://ugc_cache), registers them as cosmetics, and browses the server library.</p><div class="card" data-search="offer_worn offers the player's own creations worn in `avatar` to the server. client/ugc_client.gd progression and story"><div class="sig"><code>offer_worn(avatar: Dictionary) -&gt; void</code></div><p>Offers the player's own creations worn in `avatar` to the server.</p></div>
@@ -1760,6 +1768,11 @@ whatever it thinks the reward is. The engine has no idea what a reward would be.
 <div class="card" data-search="abandon gives up on one. kept separate from finishing it, because &quot;i am not doing this&quot; and &quot;i did this&quot;
 are different things and a mod may want to say so. server/objectives.gd progression and story"><div class="sig"><code>abandon(player, objective_name: String) -&gt; bool</code></div><p>Gives up on one. Kept separate from finishing it, because "I am not doing this" and "I did this"
 are different things and a mod may want to say so.</p></div>
+<div class="card" data-search="sync sends the task list to whoever it belongs to. **pushed on every change rather than asked for**, the
+way the tutorial tracker is: a list you have to request is a list that is wrong for as long as
+nobody asked, and the one moment it matters is the moment it changed. server/objectives.gd progression and story"><div class="sig"><code>sync(player) -&gt; void</code></div><p>Sends the task list to whoever it belongs to. **Pushed on every change rather than asked for**, the
+way the tutorial tracker is: a list you have to request is a list that is wrong for as long as
+nobody asked, and the one moment it matters is the moment it changed.</p></div>
 <div class="card" data-search="active_for what they are doing now: [{name, display_name, step, of, text, progress, needed}]. server/objectives.gd progression and story"><div class="sig"><code>active_for(player) -&gt; Array</code></div><p>What they are doing now: [{name, display_name, step, of, text, progress, needed}].</p></div>
 <div class="card" data-search="finished how many times they have finished it (0 if never). server/objectives.gd progression and story"><div class="sig"><code>finished(player, objective_name: String) -&gt; int</code></div><p>How many times they have finished it (0 if never).</p></div></section>
 <section id="e-server-shops-gd"><h2>shops.gd <span class="file">server/shops.gd</span></h2><p class="lead">Somewhere to buy and sell: a village stall, a travelling pedlar, a vending machine in a factory.</p><div class="card" data-search="kinds name -&gt; {name, display_name, offers: [...], owner} server/shops.gd progression and story"><div class="sig"><code>kinds := {}  (property)</code></div><p>Name -> {name, display_name, offers: [...], owner}</p></div>
@@ -2226,6 +2239,9 @@ otherwise against the face that was hit. client/game_client.gd the client"><div 
 Where a block goes when placing against a target: into replaceable blocks (tall grass) themselves,
 otherwise against the face that was hit.</p></div>
 <div class="card" data-search="on_recipe_learned a new recipe: remember it and celebrate (several at once are grouped into one toast). client/game_client.gd the client"><div class="sig"><code>on_recipe_learned(index: int, source: String) -&gt; void</code></div><p>A new recipe: remember it and celebrate (several at once are grouped into one toast).</p></div>
+<div class="card" data-search="on_objectives the task list, pushed whenever it changes. see engine/client/objective_hud.gd for why this took
+until there was a game with a story in it to notice was missing. client/game_client.gd the client"><div class="sig"><code>on_objectives(view: Dictionary) -&gt; void</code></div><p>The task list, pushed whenever it changes. See engine/client/objective_hud.gd for why this took
+until there was a game with a story in it to notice was missing.</p></div>
 <div class="card" data-search="on_dev_error script errors on the server, for admins: a red card per error (repeats update its count). client/game_client.gd the client"><div class="sig"><code>on_dev_error(e: Dictionary) -&gt; void</code></div><p>Script errors on the server, for admins: a red card per error (repeats update its count).</p></div>
 <div class="card" data-search="on_station_label floating progress text above a station for everyone nearby (&quot;&quot; removes it). client/game_client.gd the client"><div class="sig"><code>on_station_label(pos: Vector3i, text: String) -&gt; void</code></div><p>Floating progress text above a station for everyone nearby ("" removes it).</p></div>
 <div class="card" data-search="on_structure_guide ghost blocks where a structure's missing blocks go (red where a block is in the way). clears after
@@ -2920,7 +2936,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1204 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1207 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

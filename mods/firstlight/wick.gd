@@ -60,6 +60,10 @@ func _register(api) -> void:
 		"speed": 4.2,  # a little faster than a player walks, so keeping up is his problem and not yours
 		"category": "misc", "persistent": true,
 		"nameplate": {"show_health": false},
+		# He is the lamplighter; the lamp had better work. The emissive in the model makes the glass
+		# look lit, and this makes it light the ground - the two are different things, and for a while
+		# he had only the first.
+		"light": {"part": "lantern", "color": "#ffc65a", "energy": 1.6, "range": 9.0},
 		"interactive": true,
 		# No `items`: he is never tamed by feeding, only handed over by `api.tame` when you first meet.
 		# The distances are what stop him being lost - he teleports rather than pathing round a ravine.

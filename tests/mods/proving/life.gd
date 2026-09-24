@@ -111,6 +111,10 @@ func _companions_and_vehicles() -> void:
 	# because a flier drives its own height.
 	ids.flitter = api.register_entity("flitter", {"kind": "mob", "display_name": "Flitter",
 		"width": 0.4, "height": 0.4, "health": 4, "speed": 4.0, "gravity": 0.0, "category": "animal",
+		# A creature that lights what it flies over. It has no model here, so nothing draws - the
+		# point is that the definition survives the registry and reaches the client, which is where
+		# the capability was missing.
+		"light": {"part": "body", "color": "#88ccff", "energy": 2.0, "range": 7.0},
 		"ai": {"preset": "passive", "wander_radius": 10, "fly": {"height": 6.0, "speed_up": 0.8}}})
 	ids.raft = api.register_entity("raft", {"kind": "mob", "display_name": "Raft",
 		"width": 1.2, "height": 0.5, "health": 20, "speed": 1.0, "category": "misc", "persistent": true,
