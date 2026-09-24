@@ -6239,3 +6239,69 @@ works too.
 ("I love glows n shiny effects"), so a real light on a carried lantern is worth considering - but that
 is an engine capability (a model part that emits light), not a Firstlight detail, and it has not been
 discussed.
+
+## Firstlight has a story now, and the engine can show it (user, 2026-09-24)
+
+Twelve acts and five side tasks, in `mods/firstlight/acts.gd` (the writing) and `story.gd` (the
+machinery), with the ending in `colossus.gd`. The user chose **ten-plus with side tasks** over a
+three-act sprint.
+
+The arc: you wake in a meadow beside a man who keeps lights and cannot fight. The lights have been
+going out because something under the world woke up, and the nights have been getting fuller ever
+since. Acts 1-6 are an ordinary survival opening given a name (wood, a roof, a fire, stone, iron, and
+then a lantern of your own); 7-9 take you under and arm you; 10-12 are the part only this game has -
+sunstone, an altar of it on deepstone, and a light set in the middle.
+
+**The Colossus is not killed.** It is put back to sleep. There is no boss fight, no villain, and
+nothing threatens anybody the player loves. The reward is the one thing this game can give that means
+anything: the monster caps drop and stay dropped, so the world they go back to afterwards is visibly
+the world they changed.
+
+### Two engine gaps the story found
+
+- **Objectives never reached the client.** A mod could register a task, give it, advance it and
+  finish it, and no part of the screen ever said so. That is exactly what was reported the first time
+  Firstlight was played - *"isnt it supposed to be a guided story? i dont see the quest/task list"* -
+  and it was never a bug in the game. There is now `s_objectives`, pushed on every change the way the
+  tutorial tracker is, and `engine/client/objective_hud.gd` top right.
+- **`order` on an objective.** Without it the list is purely chronological, so handing out five side
+  tasks at the start buried the one line saying what the game is about - and buried it further with
+  every act that completed. Lower sorts first, ties in the order given. Caught by looking at the
+  screenshot rather than by reasoning about it.
+
+Also added: `api.notable_of`, so a mod can ask *"was that one of the rare ones?"* instead of keeping
+its own list of which creatures are rare - a list that stops being right the moment anybody adds a
+fifth. Act 9 is the only caller so far and would have been a hardcoded array without it.
+
+### The story starts on arrival, not on being spoken to
+
+It was the other way round for an afternoon. A player who walked off before talking to Wick had a
+guided game with nothing guiding it, which is the original complaint again in a new shape. Talking to
+him is how you learn *why*; the list is there either way.
+
+### A table, not twelve watchers
+
+Each step carries a `goal` (`{"on": "break", "is": "base:stone"}`) and one handler per event kind
+walks whoever is holding a matching step. The first draft was a bespoke watcher per act and act 7
+quietly watched the wrong event, because there was nowhere for that mistake to show up. The ids the
+goals name are read off the table rather than listed beside it, for the same reason: a hand-written
+second list goes stale the first time somebody edits an act, and the failure would be a stored -1.
+
+### Things that cost time and are worth knowing
+
+- **`match` inside a lambda is a parse error in GDScript.** The message named `main.gd`, which does
+  not contain the `match` - the real error was in `wick.gd`, and `main.gd` failed only because its
+  `const Wick = preload(...)` then resolved to nothing. **When two files fail to compile together,
+  fix the one that is not about a missing type first.**
+- **`story_probe` reported a working story as a broken one.** It asked for `server.objectives.of(p)`,
+  which does not exist, behind a `has_method` guard - so it printed "none yet" however many tasks the
+  player held. A guard around a name nobody checked is a guard that hides the mistake. It is
+  `active_for`, and the probe now prints each task rather than the array.
+
+### Still open
+
+- The altar wants a look: it is four sunstone blocks and a torch, which is legible but not a moment.
+  A structure worth finding would be better than a shape worth building, and was not attempted.
+- `base:sunstone_block` exists as a noun with no recipe of its own; Firstlight owns the recipe. A
+  creative game takes the block and ships nothing, which is the line holding correctly.
+- The Moonpearl night effect and the Hollow Reed calling something rare are both still unstarted.

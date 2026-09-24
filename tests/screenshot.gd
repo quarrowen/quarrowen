@@ -211,14 +211,6 @@ func _ready() -> void:
 		await _meshed(client)
 	if not String(options.mine).is_empty():
 		await get_tree().create_timer(float(options.mine)).timeout  # let the crack grow
-	# **Frame it again at the last moment.** The first pass happens before `--wait` and `--after`,
-	# because commands want to run facing the right way - but anything that walks has moved by the time
-	# the shutter opens. A shot of Wick came out as a picture of the grass he had been standing on,
-	# which reads exactly like a model that is not rendering; and because a companion *follows*, the
-	# next one came out as his hat brim from 0.7 m. Standing again as well as aiming again fixes both,
-	# and costs nothing when the subject is a block that never moved. (2026-09-24)
-	if not String(options.look).is_empty():
-		await _frame(client, options, 0.0)
 	var viewport_rid := get_viewport().get_viewport_rid()
 	RenderingServer.viewport_set_measure_render_time(viewport_rid, true)
 	var cpu := 0.0
@@ -233,6 +225,16 @@ func _ready() -> void:
 	if not String(options.swing).is_empty():
 		client._self_swing()  # capture mid-swing to show trails
 		await get_tree().create_timer(float(options.swing)).timeout
+	# **Frame it again at the last possible moment**, after the render-time measurement above, not
+	# before it. The first pass happens before `--wait` and `--after`, because commands want to run
+	# facing the right way - but anything that walks has moved by the time the shutter opens. A shot of
+	# Wick came out as a picture of the grass he had been standing on, which reads exactly like a model
+	# that is not rendering; and because a companion *follows*, the next one came out as his hat brim
+	# from 0.7 m. Re-framing before the 120-frame warm-up was still too early - two seconds is a long
+	# walk - so it goes here, with only the swing between it and the shutter. (2026-09-24)
+	if not String(options.look).is_empty():
+		await _frame(client, options, 0.0)
+		await get_tree().process_frame
 	get_viewport().get_texture().get_image().save_png(options.out)
 	print("[screenshot] saved %s" % options.out)
 	# --fps=N: hold the same view for N seconds and report what it cost to draw. A picture says what a

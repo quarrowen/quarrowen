@@ -328,6 +328,11 @@ exactly that reason, and not knowing `chance_of` existed is what caused the bug 
 Run it after touching `engine/server/mod_api.gd`, any `## ` header comment listed in
 `tools/docs_generator.gd`, `engine/server/js/quarrowen.d.ts`, or any doc comment in a reader file.
 
+**Regenerate `bindings` before `docs`, not after.** The reference reads `bindings.json` to decide
+which functions carry a "JS" tag, so running them the other way round produces docs that are stale
+the moment the bindings are written - and the suite then fails on documentation nobody touched,
+which reads as a flaky test rather than an ordering mistake. (2026-09-24)
+
 `engine/owned.txt` is generated separately, and only needs regenerating when something stops reaching
 into a shape it does not own:
 
