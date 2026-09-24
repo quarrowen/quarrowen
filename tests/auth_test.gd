@@ -19,6 +19,20 @@ func _ready() -> void:
 
 
 func _run() -> void:
+	# 0. A signature is bound to the server it was made for. **This is the whole point of the audience
+	# argument**: without it, a hostile server could pass a real server's challenge on to you and
+	# replay your answer to log in as you. The test that matters is not that the right pair verifies,
+	# it is that the wrong one does not. (2026-09-24)
+	var Identity = load("res://engine/shared/identity.gd")
+	var key: CryptoKey = Identity.load_or_create("auth_audience")
+	var nonce: PackedByteArray = Identity.new_nonce()
+	var signed: PackedByteArray = Identity.sign(key, nonce, "server-one")
+	_check(Identity.verify(key, nonce, signed, "server-one"), "a signature verifies for the server it was made for")
+	_check(not Identity.verify(key, nonce, signed, "server-two"),
+		"and is worthless at another server, so a relayed challenge cannot be replayed")
+	_check(not Identity.verify(key, Identity.new_nonce(), signed, "server-one"),
+		"and a different nonce is refused too")
+
 	# 1. A guest claims a name, gets saved items, cannot use admin commands.
 	var guest = await _join("auth_guest", "Guest")
 	if guest == null:

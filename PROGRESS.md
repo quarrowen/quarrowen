@@ -6438,12 +6438,15 @@ to leave alone, not by age. Roughly a hundred items; the shape matters more than
 Recorded 2026-09-17 and untouched since. None of it matters for a family server behind a LAN; all of
 it matters the day anybody else can reach it.
 
-3. No per-IP connection cap and no timeout on a half-finished join: 64 sockets lock everyone out.
+3. ~~No per-IP connection cap and no timeout on a half-finished join.~~ Done 2026-09-24. A banned
+   address is refused before any identity exists; six connections per address per ten seconds is the
+   throttle; a handshake that has not finished in fifteen seconds is swept.
 4. ~~No `/ban` and no `/mute`.~~ Done 2026-09-24. Both keyed on the player id, written into the
    world's metadata beside the allowlist, and enforced after authentication - a ban on a *claimed*
    id would let anybody lock out anybody by asserting their name.
-5. The join challenge signs only the nonce, so a hostile server can relay a signature. The hub
-   already does this correctly, so the fix has a worked example in the tree.
+5. ~~The join challenge signs only the nonce.~~ Done 2026-09-24. What is signed is now
+   `quarrowen-join:<server id>:<nonce>`, so an answer is worthless anywhere but the server that asked.
+   `Protocol.VERSION` 53.
 6. The server parses untrusted PNG and glTF in-process; glTF external-URI resolution and hostile-GLB
    memory are both unverified.
 7. RPC arguments are decoded before any size cap; UGC fetch has no global egress budget; creation and
@@ -6842,3 +6845,26 @@ Worth recording one mistake: removing the test's HTTP helper by searching backwa
 cut into a triple-quoted string constant twelve lines below it, and the file stopped parsing. Deleting
 by *content* - find the function, find the next top-level declaration, assert what lies between is
 only what you meant to remove - was both safer and shorter.
+
+### Relay, throttling and the admin token (2026-09-24)
+
+**The signature relay is closed.** Signing a bare nonce proves you hold a key and nothing else, so a
+hostile server could take a real server's challenge, hand it to you as its own, and replay your answer
+to log in as you. What is signed is now a purpose, the server's id and the nonce. The test that
+matters is not that the right pair verifies - it is that a signature made for one server is refused by
+another, and that is what `tests/auth_test.gd` now asserts.
+
+**Two cheap denials of service are closed.** A banned address is refused at connect, before any
+identity exists to check; one address may open six connections per ten seconds; and a handshake that
+has not finished in fifteen seconds is dropped. That last one was the cheapest attack in the project:
+open sockets, send nothing, and sixty-four of them lock everybody out - costing the attacker nothing,
+because they never have to prove anything.
+
+**The admin token was guessable and public.** It came from two `randi()` calls - a non-cryptographic
+PRNG seeded from the clock - and travelled as `--admin-token=...`, which puts it in `ps` for every
+other user on the machine, while granting whoever holds it admin of the world and the ability to shut
+it down. It is 24 CSPRNG bytes now and rides in the environment, which the child process inherits and
+nobody else can read.
+
+The throttle numbers are deliberately generous: a family behind one router shares an address, and a
+child whose laptop slept reconnects in a flurry. This is meant to stop a script, not a household.

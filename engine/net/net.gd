@@ -564,9 +564,9 @@ func s_kick(reason: String) -> void:
 
 
 @rpc("authority", "call_remote", "reliable")
-func s_challenge(nonce: PackedByteArray) -> void:
+func s_challenge(nonce: PackedByteArray, server_id: String) -> void:
 	if client:
-		client.on_challenge(nonce)
+		client.on_challenge(nonce, server_id)
 
 
 @rpc("authority", "call_remote", "reliable")

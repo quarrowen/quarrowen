@@ -28,6 +28,7 @@ extends Node
 ##   --seed=123            QW_SEED          seed for a new world
 ##   --metrics=10          QW_METRICS       print tick/bandwidth stats every N seconds
 ##   --admin-token=xyz     QW_ADMIN_TOKEN   token the local host uses to shut down / become admin
+##                                          (prefer the environment: an argument is visible in `ps`)
 ##   --admins=a,b          QW_ADMINS        admin player ids (see /whoami) or names
 ##   --backup-interval=60  QW_BACKUP_INTERVAL  minutes between automatic world backups (0 = off)
 ##   --backup-keep=24      QW_BACKUP_KEEP   backups kept per world (oldest deleted)

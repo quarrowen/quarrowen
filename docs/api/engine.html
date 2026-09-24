@@ -1324,6 +1324,21 @@ it. (2026-09-18) shared/identity.gd creatures and ai"><div class="sig"><code>sta
 the player's own folder: a test run used to overwrite default.pem and take the player's account with
 it. (2026-09-18)</p></div>
 <div class="card" data-search="load_or_create loads the named identity from user://identity, creating it on first use. shared/identity.gd creatures and ai"><div class="sig"><code>static load_or_create(identity_name := &quot;default&quot;, bits := DEFAULT_BITS) -&gt; CryptoKey</code></div><p>Loads the named identity from user://identity, creating it on first use.</p></div>
+<div class="card" data-search="sign signs the challenge. **`audience` is who the signature is *for*, and leaving it out is the bug this
+parameter exists to fix.**
+
+signing a bare nonce proves you hold the key and nothing else - so a hostile server could take the
+nonce a real server handed it, pass it to you as its own challenge, and replay your answer to log
+in as you. binding the server's id into what is signed makes the answer worthless anywhere else:
+the real server hashes its own id and the signature no longer matches. the hub has always done it
+this way; the game handshake did not. (2026-09-24) shared/identity.gd creatures and ai"><div class="sig"><code>static sign(key: CryptoKey, nonce: PackedByteArray, audience := &quot;&quot;) -&gt; PackedByteArray</code></div><p>Signs the challenge. **`audience` is who the signature is *for*, and leaving it out is the bug this
+parameter exists to fix.**
+
+Signing a bare nonce proves you hold the key and nothing else - so a hostile server could take the
+nonce a real server handed it, pass it to you as its own challenge, and replay your answer to log
+in as you. Binding the server's id into what is signed makes the answer worthless anywhere else:
+the real server hashes its own id and the signature no longer matches. The hub has always done it
+this way; the game handshake did not. (2026-09-24)</p></div>
 <div class="card" data-search="parse_public_key server side: parses a public key pem; returns null if it is not a usable key. shared/identity.gd creatures and ai"><div class="sig"><code>static parse_public_key(pem: String) -&gt; CryptoKey</code></div><p>Server side: parses a public key PEM; returns null if it is not a usable key.</p></div>
 <div class="card" data-search="player_id stable id derived from the public key (32 hex characters). shared/identity.gd creatures and ai"><div class="sig"><code>static player_id(key: CryptoKey) -&gt; String</code></div><p>Stable id derived from the public key (32 hex characters).</p></div>
 <div class="card" data-search="export_encrypted returns the json text of an encrypted identity file. shared/identity.gd creatures and ai"><div class="sig"><code>static export_encrypted(key: CryptoKey, passphrase: String, iterations := EXPORT_ITERATIONS) -&gt; String</code></div><p>Returns the JSON text of an encrypted identity file.</p></div>
@@ -2981,7 +2996,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1211 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1212 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

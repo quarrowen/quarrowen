@@ -4202,6 +4202,23 @@ Loads the named identity from user://identity, creating it on first use.
 
 **See also:** `load`, `path_for`, `save`
 
+### `sign`
+
+*shared/identity.gd*
+
+GDScript: `static sign(key: CryptoKey, nonce: PackedByteArray, audience := "") -> PackedByteArray`
+
+Signs the challenge. **`audience` is who the signature is *for*, and leaving it out is the bug this
+parameter exists to fix.**
+
+Signing a bare nonce proves you hold the key and nothing else - so a hostile server could take the
+nonce a real server handed it, pass it to you as its own challenge, and replay your answer to log
+in as you. Binding the server's id into what is signed makes the answer worthless anywhere else:
+the real server hashes its own id and the signature no longer matches. The hub has always done it
+this way; the game handshake did not. (2026-09-24)
+
+**See also:** `finish`, `start`
+
 ### `parse_public_key`
 
 *shared/identity.gd*

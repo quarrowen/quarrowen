@@ -137,7 +137,14 @@ func _run_dedicated_server() -> void:
 ## `extra`: more server arguments (e.g. --dev, --mods-dir=...).
 func _host(game: String, port: int, player_name: String, extra := PackedStringArray()) -> void:
 	_stop_local_server()
-	var token := "%x%x" % [randi(), randi()]
+	# **A real random token, and not on the command line.** It was two `randi()` calls - a
+	# non-cryptographic PRNG seeded from the clock, so guessable - and it was passed as
+	# `--admin-token=...`, which puts it in `ps` for every other user on the machine. This token makes
+	# whoever holds it an admin of the world and can shut it down. The server reads `QW_ADMIN_TOKEN`
+	# for any option, so the environment carries it instead: inherited by the child we are about to
+	# start, invisible to everybody else. (2026-09-24)
+	var token := Crypto.new().generate_random_bytes(24).hex_encode()
+	OS.set_environment("QW_ADMIN_TOKEN", token)
 	var args := PackedStringArray()
 	if not OS.has_feature("template"):
 		# Running from the editor binary: point it at this project and its server scene.
@@ -145,7 +152,7 @@ func _host(game: String, port: int, player_name: String, extra := PackedStringAr
 	else:
 		# Exported builds cannot be given a scene on the command line: --server switches to it (see _ready).
 		args.append_array(["--headless", "--", "--server"])
-	args.append_array(["--mods=%s" % game, "--port=%d" % port, "--admin-token=%s" % token])
+	args.append_array(["--mods=%s" % game, "--port=%d" % port])
 	args.append_array(extra)
 	_server_pid = OS.create_process(OS.get_executable_path(), args)
 	if _server_pid <= 0:

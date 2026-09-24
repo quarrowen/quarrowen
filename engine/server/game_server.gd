@@ -2105,6 +2105,8 @@ func _physics_process(delta: float) -> void:
 	var t0 := Time.get_ticks_usec()
 	tick += 1
 	dev_log.drain()
+	if tick % 60 == 0:
+		_sweep_half_open()
 	_time += delta
 	_stream_assets()
 	_poll_chunk_jobs()
@@ -2861,7 +2863,7 @@ func on_hello(peer_id: int, protocol: int, player_name: String, public_key: Stri
 	var nonce := Identity.new_nonce()
 	_joining[peer_id] = {"name": clean_name, "player_id": player_id, "key": key, "nonce": nonce,
 		"authenticated": false, "queue": [], "offset": 0, "requested": false}
-	Net.s_challenge.rpc_id(peer_id, nonce)
+	Net.s_challenge.rpc_id(peer_id, nonce, transfers.own_id)
 
 
 ## The client proves it holds the private key for the identity it presented.
@@ -2869,7 +2871,7 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 	var j: Dictionary = _joining.get(peer_id, {})
 	if j.is_empty() or j.authenticated:
 		return
-	if not Identity.verify(j.key, j.nonce, signature):
+	if not Identity.verify(j.key, j.nonce, signature, transfers.own_id):
 		_joining.erase(peer_id)
 		kick(peer_id, "Authentication failed")
 		return
@@ -3131,6 +3133,26 @@ func _on_peer_connected(peer_id: int) -> void:
 	_joining_since[peer_id] = now
 
 
+## Drops connections that opened and never finished the handshake.
+##
+## **The cheapest denial of service there is**: open sockets, send nothing, and the server holds each
+## one waiting for a name and a signature that are never coming. Sixty-four of them and nobody else
+## can get in - and it costs the attacker nothing, because they never have to prove anything. A
+## player's whole handshake is two round trips, so fifteen seconds is generous even on a bad line.
+func _sweep_half_open() -> void:
+	var now := Time.get_ticks_msec()
+	for peer_id: int in _joining_since.keys():
+		if players.has(peer_id) or not _joining_since.has(peer_id):
+			_joining_since.erase(peer_id)
+			continue
+		if now - int(_joining_since[peer_id]) < HANDSHAKE_TIMEOUT_MS:
+			continue
+		_joining_since.erase(peer_id)
+		_joining.erase(peer_id)
+		dev_log.add("info", "server", "dropped a connection that never finished joining")
+		kick(peer_id, "Took too long to join.")
+
+
 ## Where a peer is connecting from, or "" when that cannot be told (offline play, a peer already gone).
 func peer_address(peer_id: int) -> String:
 	var peer = multiplayer.multiplayer_peer
@@ -3141,6 +3163,7 @@ func peer_address(peer_id: int) -> String:
 
 
 func _on_peer_disconnected(peer_id: int) -> void:
+	_joining_since.erase(peer_id)
 	_joining.erase(peer_id)
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null:

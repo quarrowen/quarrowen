@@ -471,14 +471,15 @@ func _on_connected() -> void:
 		Net.c_transfer_ticket.rpc_id(1, str(transfer_ticket.get("ticket", "")), str(transfer_ticket.get("signature", "")))
 
 
-func on_challenge(nonce: PackedByteArray) -> void:
+func on_challenge(nonce: PackedByteArray, server_id: String) -> void:
 	# Sign only what a server challenge looks like, so a server cannot get anything else signed with the
-	# identity key (such as a hub sign-in).
+	# identity key (such as a hub sign-in). `server_id` binds the answer to *this* server, so a hostile
+	# one cannot pass on a real server's challenge and replay what comes back. (2026-09-24)
 	if nonce.size() != Identity.NONCE_BYTES:
 		_leave("The server sent an invalid login challenge")
 		return
 	_set_status("Authenticating...")
-	Net.c_auth.rpc_id(1, Identity.sign(test_signing_key if test_signing_key != null else _identity, nonce))
+	Net.c_auth.rpc_id(1, Identity.sign(test_signing_key if test_signing_key != null else _identity, nonce, server_id))
 
 
 ## Gives up on a server that took the connection and then said nothing.

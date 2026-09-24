@@ -46,8 +46,16 @@ static func public_pem(key: CryptoKey) -> String:
 	return key.save_to_string(true)
 
 
-static func sign(key: CryptoKey, nonce: PackedByteArray) -> PackedByteArray:
-	return Crypto.new().sign(HashingContext.HASH_SHA256, _digest(nonce), key)
+## Signs the challenge. **`audience` is who the signature is *for*, and leaving it out is the bug this
+## parameter exists to fix.**
+##
+## Signing a bare nonce proves you hold the key and nothing else - so a hostile server could take the
+## nonce a real server handed it, pass it to you as its own challenge, and replay your answer to log
+## in as you. Binding the server's id into what is signed makes the answer worthless anywhere else:
+## the real server hashes its own id and the signature no longer matches. The hub has always done it
+## this way; the game handshake did not. (2026-09-24)
+static func sign(key: CryptoKey, nonce: PackedByteArray, audience := "") -> PackedByteArray:
+	return Crypto.new().sign(HashingContext.HASH_SHA256, _digest(_bind(nonce, audience)), key)
 
 
 ## Server side: parses a public key PEM; returns null if it is not a usable key.
@@ -66,10 +74,20 @@ static func player_id(key: CryptoKey) -> String:
 	return ctx.finish().hex_encode().left(32)
 
 
-static func verify(key: CryptoKey, nonce: PackedByteArray, signature: PackedByteArray) -> bool:
+static func verify(key: CryptoKey, nonce: PackedByteArray, signature: PackedByteArray, audience := "") -> bool:
 	if signature.is_empty() or signature.size() > 1024:
 		return false
-	return Crypto.new().verify(HashingContext.HASH_SHA256, _digest(nonce), signature, key)
+	return Crypto.new().verify(HashingContext.HASH_SHA256, _digest(_bind(nonce, audience)), signature, key)
+
+
+## What is actually signed: a purpose, who it is for, and the nonce. The purpose is there so a
+## signature made for this handshake can never be mistaken for one made for anything else we sign
+## later - the mistake this whole change is about, one layer up.
+static func _bind(nonce: PackedByteArray, audience: String) -> PackedByteArray:
+	if audience.is_empty():
+		return nonce
+	var bound := "quarrowen-join:%s:" % audience
+	return bound.to_utf8_buffer() + nonce
 
 
 static func new_nonce() -> PackedByteArray:
