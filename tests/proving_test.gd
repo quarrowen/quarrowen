@@ -243,7 +243,12 @@ func _behaviour(server) -> void:
 	var grazer = server.entities.spawn(server.entities.registry.id_of("proving:grazer"),
 		p.state.position + Vector3(1, 0, 0), {})
 	_check(grazer != null, "a creature spawns")
-	server.entities.taming.tame(grazer, p)
+	# Handed over directly rather than fed: the engine had the behaviour and no way for a mod to ask
+	# for it, which is what a story character who is a companion on sight needs. (2026-09-24)
+	var mod_api = server.mod_instances.proving.api
+	_check(mod_api.tame(grazer, p) and server.entities.taming.is_tamed(grazer),
+		"a mod can make a creature somebody's companion without feeding it")
+	_check(not mod_api.tame(null, p), "and asking about nothing is refused rather than crashing")
 	_check(server.companions.give(grazer, "proving:forage"), "and takes an order a mod registered")
 	var raft = server.entities.spawn(server.entities.registry.id_of("proving:raft"),
 		p.state.position + Vector3(1, 0, 0), {})

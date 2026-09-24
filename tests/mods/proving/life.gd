@@ -66,6 +66,16 @@ func _creatures() -> void:
 	# other half, and the silently droppable one - an unresolved block name is not an error - so the
 	# test checks this resolved to a real id and that what gets placed is standing on it.
 	api.add_spawn_rule({"entity": "grazer", "light": [10, 15], "group": [1, 3], "on": ["proving:turf"]})
+	# **Taming without the feeding.** `api.tame` hands a creature over directly, which is how a story
+	# character is a companion from the moment you meet him rather than after somebody works out what
+	# he eats. Exercised here as a command, because a test can run a command and cannot hold out an
+	# apple. (2026-09-24)
+	api.register_command("adopt", "Make the nearest grazer yours", func(player, _args):
+		for e in api.get_entities(player.position, 12.0, "proving:grazer"):
+			if api.tame(e, player):
+				player.send_message("It follows you now.")
+				return
+		player.send_message("No grazer close enough."))
 	# A wild one wears no collar; taming puts it on. Set on spawn rather than in the definition,
 	# because `look` is per-creature state and taming is what changes it.
 	api.on("entity_spawned", func(ev):

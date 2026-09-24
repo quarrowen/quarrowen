@@ -80,6 +80,10 @@ JavaScript: `api.getEntities(center, radius, entityName)`
 
 Living entities within `radius` of `center`, optionally only of one type.
 
+```gdscript
+for e in api.get_entities(player.position, 12.0, "proving:grazer"):
+```
+
 **See also:** `entity_type`, `in_radius`
 
 ### `api.get_entity`

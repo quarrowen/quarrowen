@@ -782,11 +782,11 @@ Who is aboard, as player ids.
 
 **See also:** `order`, `register_order`
 
-### `api.register_order`
+### `api.tame`
 
-GDScript: `api.register_order(order_name: String, def := {}) -> bool`
+GDScript: `api.tame(entity, player) -> bool`
 
-JavaScript: `api.registerOrder(orderName, def)`
+JavaScript: `api.tame(entity, player)`
 
 Something a tamed creature can be told to do.
 
@@ -800,6 +800,29 @@ the moment there are three things to say.
 Three orders are the engine's own, because all three are about *where*: `engine:follow`,
 `engine:stay` and `engine:guard`. Anything else maps to a behaviour registered with
 `register_mob_behavior` - the engine sets the order, your behaviour decides what it looks like.
+
+Makes `entity` belong to `player`, as taming does: it follows them, it does not despawn, and it
+teleports to them rather than being left behind on the wrong side of a ravine.
+
+**The programmatic half of taming, which was missing.** A creature could only become somebody's
+companion by being fed the items its `taming` block names - fine for a wolf, useless for a story
+character who is a companion from the moment you meet him, and for anything a mod wants to hand
+over as a reward. The behaviour was all already there; there was no way to ask for it.
+(2026-09-24, wanted by Firstlight's guide.)
+
+Returns false if the entity is gone or is not a creature that can be owned.
+
+```gdscript
+if api.tame(e, player):
+```
+
+**See also:** `is_alive`, `key_of`, `play_effect`, `set_plate`, `set_target`
+
+### `api.register_order`
+
+GDScript: `api.register_order(order_name: String, def := {}) -> bool`
+
+JavaScript: `api.registerOrder(orderName, def)`
 
 Right-clicking a companion opens the order panel, drawn by the engine. Restrict what a particular
 creature may be told by handling `companion_orders` and editing `orders`.

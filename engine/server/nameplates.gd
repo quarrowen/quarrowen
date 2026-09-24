@@ -73,11 +73,65 @@ func plate_of(target) -> Dictionary:
 	var look = target.data.get("look")
 	var plate = look.get("nameplate") if look is Dictionary else null
 	if plate is Dictionary:
-		return (plate as Dictionary).duplicate()
+		return _with_owner(target, (plate as Dictionary).duplicate())
 	var fallback := default_for(target.def)
 	if not fallback.is_empty():
 		fallback["name"] = String(target.def.get("display_name", ""))
-	return fallback
+	return _with_owner(target, fallback)
+
+
+## Whose it is, written on it.
+##
+## **Taming already knew and nobody could see it.** `taming.tame` stores `owner_name` and the plate
+## ignored it, so two children with a wolf each had two identical wolves. Derived here rather than
+## written in at taming time: the owner is already on the entity, and a second copy in the plate is a
+## second thing to keep in step. (the user, 2026-09-24: "even when a player tames a mob the players
+## name gets added to the mobs nameplate")
+##
+## A tamed creature gets a plate even if its kind normally has none - that is the point, and it is the
+## only case where a label appears uninvited. A field of forty sheep stays unlabelled; the one you
+## tamed does not.
+func _with_owner(target, plate: Dictionary) -> Dictionary:
+	var owner_name := String(target.data.get("owner_name", ""))
+	if owner_name.is_empty():
+		return plate
+	if plate.is_empty():
+		plate = {"show_health": false, "range": 24.0, "color": "#ffffff",
+			"name": String(target.def.get("display_name", ""))}
+	var lines: Array = (plate.get("lines", []) as Array).duplicate() if plate.get("lines") is Array else []
+	var mark := "%s's" % owner_name
+	if not lines.has(mark):
+		lines.append(mark)
+	plate["lines"] = lines
+	return plate
+
+
+## Writes a plate at spawn for the creatures that should wear one before anybody hits them.
+##
+## **Only the rare ones**, which is a deliberate line rather than an oversight (the user, 2026-09-24):
+##
+## - **A `notable` creature is announced to the whole server and marked on everybody's compass**, so
+##   arriving at it and finding an unlabelled shape would be a worse moment than not announcing it.
+##   It wears its name from the start.
+## - **Ordinary mobs and animals keep the old behaviour** - a plate the first time they take damage.
+##   A meadow of sheep each wearing a label is worse than no labels, which is why `default_for`
+##   refuses by default and why this does not override it.
+## - **Players already have one** and always did: `remote_player.gd` applies a plate on setup, so this
+##   never had anything to do with them.
+## - **Tamed creatures** get theirs from `taming.tame`, because whose it is only becomes true then.
+func ensure(target) -> void:
+	if target == null or target.get_script() == ServerPlayer:
+		return
+	var look = target.data.get("look") if target.data is Dictionary else null
+	if look is Dictionary and look.get("nameplate") is Dictionary:
+		return  # already wearing one
+	if server.entities.registry.notable_of(target.type).is_empty():
+		return  # an ordinary creature: it gets a plate when something hits it, and not before
+	var plate := plate_of(target)
+	if plate.is_empty():
+		plate = {"show_health": true, "range": 32.0, "color": "#ffd166",
+			"name": String(target.def.get("display_name", ""))}
+	_write(target, plate)
 
 
 ## Takes it away entirely.

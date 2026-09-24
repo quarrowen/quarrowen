@@ -3465,7 +3465,7 @@ GDScript: `spawn(type_id: int, pos: Vector3, options := {}) -> Entity`
 
 options: yaw, velocity (Vector3), data (Dictionary), owner, item (id), count, pickup_delay
 
-**See also:** `arrived`, `attach`
+**See also:** `arrived`, `attach`, `ensure`
 
 ### `drop_item`
 
@@ -3840,6 +3840,28 @@ GDScript: `plate_of(target) -> Dictionary`
 What is over its head now, defaults included.
 
 **See also:** `default_for`
+
+### `ensure`
+
+*server/nameplates.gd*
+
+GDScript: `ensure(target) -> void`
+
+Writes a plate at spawn for the creatures that should wear one before anybody hits them.
+
+**Only the rare ones**, which is a deliberate line rather than an oversight (the user, 2026-09-24):
+
+- **A `notable` creature is announced to the whole server and marked on everybody's compass**, so
+arriving at it and finding an unlabelled shape would be a worse moment than not announcing it.
+It wears its name from the start.
+- **Ordinary mobs and animals keep the old behaviour** - a plate the first time they take damage.
+A meadow of sheep each wearing a label is worse than no labels, which is why `default_for`
+refuses by default and why this does not override it.
+- **Players already have one** and always did: `remote_player.gd` applies a plate on setup, so this
+never had anything to do with them.
+- **Tamed creatures** get theirs from `taming.tame`, because whose it is only becomes true then.
+
+**See also:** `close`, `notable_of`, `open`, `plate_of`, `set_look`
 
 ### `clear`
 

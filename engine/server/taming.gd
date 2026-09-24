@@ -92,6 +92,9 @@ func tame(e, p) -> void:
 	e.data.owner_name = p.name
 	e.data.no_despawn = true
 	e.data.erase("sitting")
+	# Whose it is, written over its head. A tamed creature gets a plate even if its kind has none -
+	# which is the whole point when two children each have a wolf.
+	_entities._server.nameplates.set_plate(e, {"lines": ["%s's" % p.name]})
 	if e.brain != null:
 		e.brain.memory.erase(_entities.ai.key_of(p))
 		e.brain.threat.erase(_entities.ai.key_of(p))

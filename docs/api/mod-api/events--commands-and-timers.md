@@ -39,18 +39,12 @@ JavaScript: `api.registerCommand(command, description, handler, permission)`
 it to server admins (QW_ADMINS, /op, or the local host).
 
 ```gdscript
-api.register_command("trial", "Go into a private copy of a room", func(player, _args):
-	var here: String = api.instance_of(player)
-	if not here.is_empty():
-		api.leave_instance(player)
-		player.send_message("Back out.")
-		return
-	var run: String = api.open_instance("trial", {"data": {"opened_for": player.name}})
-	if run.is_empty():
-		player.send_message("No room to open one.")
-		return
-	api.enter_instance(player, run, Vector3(0.5, 66, 0.5))
-	player.send_message("You are in %s." % run))
+api.register_command("adopt", "Make the nearest grazer yours", func(player, _args):
+	for e in api.get_entities(player.position, 12.0, "proving:grazer"):
+		if api.tame(e, player):
+			player.send_message("It follows you now.")
+			return
+	player.send_message("No grazer close enough."))
 ```
 
 **See also:** `add_command`

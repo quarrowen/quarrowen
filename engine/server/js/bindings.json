@@ -3320,6 +3320,17 @@
 			],
 			"gd": "talk_to"
 		},
+		"tame": {
+			"args": [
+				{
+					"kind": "any"
+				},
+				{
+					"kind": "player"
+				}
+			],
+			"gd": "tame"
+		},
 		"ugcBan": {
 			"args": [
 				{

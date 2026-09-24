@@ -104,6 +104,8 @@ func spawn(type_id: int, pos: Vector3, options := {}) -> Entity:
 	# Rare creatures announce themselves and get a marker that follows them; see server/sightings.gd.
 	# Almost every spawn leaves here having done nothing, which is why it sits on the common path.
 	_server.sightings.arrived(e)
+	# The label a definition asked for, put on now rather than the first time it is hit.
+	_server.nameplates.ensure(e)
 	return e
 
 

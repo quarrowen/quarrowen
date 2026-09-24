@@ -1182,6 +1182,31 @@ are quiet by default - a field of forty sheep each wearing a label is worse than
 add a line without knowing whether health is being shown. server/nameplates.gd creatures and ai"><div class="sig"><code>set_plate(target, spec := {}) -&gt; bool</code></div><p>Sets or changes what is over something's head. `spec` merges with whatever is there, so a mod can
 add a line without knowing whether health is being shown.</p></div>
 <div class="card" data-search="plate_of what is over its head now, defaults included. server/nameplates.gd creatures and ai"><div class="sig"><code>plate_of(target) -&gt; Dictionary</code></div><p>What is over its head now, defaults included.</p></div>
+<div class="card" data-search="ensure writes a plate at spawn for the creatures that should wear one before anybody hits them.
+
+**only the rare ones**, which is a deliberate line rather than an oversight (the user, 2026-09-24):
+
+- **a `notable` creature is announced to the whole server and marked on everybody's compass**, so
+arriving at it and finding an unlabelled shape would be a worse moment than not announcing it.
+it wears its name from the start.
+- **ordinary mobs and animals keep the old behaviour** - a plate the first time they take damage.
+a meadow of sheep each wearing a label is worse than no labels, which is why `default_for`
+refuses by default and why this does not override it.
+- **players already have one** and always did: `remote_player.gd` applies a plate on setup, so this
+never had anything to do with them.
+- **tamed creatures** get theirs from `taming.tame`, because whose it is only becomes true then. server/nameplates.gd creatures and ai"><div class="sig"><code>ensure(target) -&gt; void</code></div><p>Writes a plate at spawn for the creatures that should wear one before anybody hits them.
+
+**Only the rare ones**, which is a deliberate line rather than an oversight (the user, 2026-09-24):
+
+- **A `notable` creature is announced to the whole server and marked on everybody's compass**, so
+arriving at it and finding an unlabelled shape would be a worse moment than not announcing it.
+It wears its name from the start.
+- **Ordinary mobs and animals keep the old behaviour** - a plate the first time they take damage.
+A meadow of sheep each wearing a label is worse than no labels, which is why `default_for`
+refuses by default and why this does not override it.
+- **Players already have one** and always did: `remote_player.gd` applies a plate on setup, so this
+never had anything to do with them.
+- **Tamed creatures** get theirs from `taming.tame`, because whose it is only becomes true then.</p></div>
 <div class="card" data-search="clear takes it away entirely. server/nameplates.gd creatures and ai"><div class="sig"><code>clear(target) -&gt; bool</code></div><p>Takes it away entirely.</p></div>
 <div class="card" data-search="health_changed called when something's health moves. only reaches the client for a plate that actually draws it. server/nameplates.gd creatures and ai"><div class="sig"><code>health_changed(target) -&gt; void</code></div><p>Called when something's health moves. Only reaches the client for a plate that actually draws it.</p></div></section>
 <section id="e-server-spawning-gd"><h2>spawning.gd <span class="file">server/spawning.gd</span></h2><p class="lead">Natural spawning and despawning of mobs.</p><div class="card" data-search="category_of_type a mob type's category: its `category` key, else from its ai (hostile, archer and boss presets or a
@@ -2895,7 +2920,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1203 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1204 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>
