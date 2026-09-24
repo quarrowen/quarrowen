@@ -6414,3 +6414,165 @@ not the same thing - it drops loot and prints a death message a child reads as s
 `--stand=x,y,z` was added to the screenshot harness. `--goto` backs off along the line you were
 already approaching from, which is right in the open and wrong indoors: photographing the altar it
 parked the camera hard against a pillar and the picture was a wall.
+
+## Open items, as at 2026-09-24
+
+A full sweep of this file, reconciled against the code - which mattered: several entries below were
+already done, and one of the biggest problems was not in this file at all. Ordered by what it costs
+to leave alone, not by age. Roughly a hundred items; the shape matters more than the count.
+
+### Live and public, right now
+
+1. **quarrowen.com serves the 0.41.1 landing page, advertising `vanilla`** - a game deleted on 21
+   September. Anyone arriving is offered a download for a game that no longer exists, one version
+   behind. Found by fetching the site, not from any entry here. `/docs/` is live and current
+   (an earlier entry saying nothing had been published is stale).
+2. **`tools/make_release.sh` refuses to run until its landing-page section is rewritten.** That is a
+   hard release blocker and the reason (1) has not been corrected.
+
+### Security - the cluster that blocks public hosting
+
+Recorded 2026-09-17 and untouched since. None of it matters for a family server behind a LAN; all of
+it matters the day anybody else can reach it.
+
+3. No per-IP connection cap and no timeout on a half-finished join: 64 sockets lock everyone out.
+4. No `/ban` and no `/mute`. `/kick` is undoable in two seconds; the allowlist is the only durable
+   exclusion.
+5. The join challenge signs only the nonce, so a hostile server can relay a signature. The hub
+   already does this correctly, so the fix has a worked example in the tree.
+6. The server parses untrusted PNG and glTF in-process; glTF external-URI resolution and hostile-GLB
+   memory are both unverified.
+7. RPC arguments are decoded before any size cap; UGC fetch has no global egress budget; creation and
+   hub names skip the chat filter; `c_map` and `c_ugc_*` are unrated and O(N); `_admin_token` comes
+   from `randi()` and is visible in `ps`.
+
+### Bugs
+
+8. **A flier with `gravity: 0` floats when it dies or sleeps.** Recorded as "worth fixing when
+   something bundled actually flies" - `base`'s Wisp flies now, so it is live.
+9. **Three flaky tests, none diagnosed**: `host_flow_test` ("host client joined its own server"),
+   `multiplayer` (a different assertion each time), and the save-queue timing tests (third
+   occurrence, explicitly not fixed).
+10. **`--import` hangs after finishing its work.** Worked around with a 90-second timeout that now
+    costs 90 seconds of every run.
+11. **A guide page naming a block type outside `BLOCK_TYPES` is silently dropped**, with no validator
+    warning.
+12. **Water flow replaces `replaceable` blocks including crops** - digging a channel past a field
+    washes it away.
+13. Unresolved and possibly already fixed: `e2e:combat` dropping snapshots under `Buffer full`;
+    `/time night` doing nothing during the video attempt; water reading as a pale panel against a
+    bank. Each needs a look before it is either closed or chased.
+
+### Verification gaps - things that might be broken and nobody would know
+
+14. **Firstlight acts 7-14 have never been played.** Two progression traps were already found by
+    measurement in acts 5-8; there is no reason to think the rest is clean.
+15. **None of the probes run in the suite.** `story_probe` carries the reachability guard that caught
+    both traps and exits non-zero, and nothing calls it. Same for `spawn_probe`, `ruin_probe`,
+    `ending_probe`. A guard nobody runs is a guard that rots.
+16. **Nothing in the suite ever opens the main menu.** That is why the backdrop failed every frame
+    for days. The `SCRIPT ERROR` log guard *does* exist (run_tests.sh:219, :263) and covers every log
+    the suite writes - the gap is that the menu never writes one. (An entry above says the check
+    itself is missing; that is wrong.)
+17. **No test that a world whose mods are missing still opens and keeps unknown blocks**, though the
+    engine promises exactly that. Reached twice from different directions and still not done.
+18. **iOS and Android are not in CI at all**, though both are declared in the gdextension and built by
+    hand on one laptop.
+
+### Platform
+
+19. **Touch controls for iPad: nothing attempted.** It launches on an iPad Air 5 and is unplayable -
+    no mining, placing, looking or hotbar.
+20. **Android: no export preset, no keystore, never run on hardware or an emulator.**
+21. **iOS: no TestFlight build, no provisioning beyond one registered device.** The simulator is a
+    dead end upstream (Godot ships an x86_64-only simulator library).
+22. **Windows self-update is written and has never run on Windows**; Windows is deliberately kept out
+    of `update.json`, and its zip checksum is in no signed manifest. Code signing not purchased.
+23. **The Mobile renderer decision is unmade.** Forward+ is desktop/console; the iPad forces the
+    question and the answer changes what every other performance item is worth.
+
+### Missing capability or content
+
+24. **Illuminance, and a light already being thrown away.** The enchantment system exists
+    (`modifiers.gd`), per-stack `glow` already beats the registry default, and a *held* item already
+    casts light. Two pieces missing: marks regenerate `modifiers` and `lore` but not `glow`
+    (modifiers.gd:121), and `Avatar.set_armor_glow` (avatar.gd:211) reads `color` and `energy` and
+    discards `glow.light` - the value reaches the client and is dropped one line short.
+25. **Charms and trinkets have no visual path at all** - no mesh, no armour texture. A glowing charm
+    is invisible as well as unlit.
+26. **The Moonpearl night effect** - the last of the three agreed with the user, unstarted.
+27. **Firstlight depends on the guidebook and never uses it.** 21 pages load and no act, conversation
+    or task points at one. The guidebook also still lives in its own mod "under protest" and was
+    always meant to move into the guided game, which now exists.
+28. **Guide pages for copper, gold, sunstone and the newer ores** - the book covers only the older.
+29. **Model-block collision is one cell, so tree canopies are walk-through.** Deferred until `base`
+    had trees; it has them now.
+30. **25 creatures are still on placeholder synth voices**, earmarked for an AI audio phase that has
+    not started - as are layered music stems, its stated prerequisite.
+31. **Villages and villagers: nobody has written any content**, though every capability exists.
+32. **Assemblies are not solid while moving** (you walk through the side) and cannot rotate.
+33. **No spectator or detached camera** - it blocked the showcase video and would serve screenshots.
+34. **Eating animation**, asked for and never built. **Crafting minigame** lacks quality for smelting
+    and food. **Beds keep full-block collision.**
+35. **Animated guide pages and self-drawing multiblock pages** - the Forge page's ASCII diagram can
+    silently drift from the real pattern.
+36. **A HUD safe-area anchor**, so a mod panel does not land on the belt.
+37. **Accessibility: no gamepad bindings, no colour-blind palettes, no subtitles for sounds.**
+38. **Hub, friends, transfers, anti-cheat**: no TLS of its own, no listing moderation, no blocking or
+    friend chat, no certificate pinning from a transfer ticket, no x-ray or autoclicker mitigation.
+39. **The cinematic arrival on join**, and **invite links** (`quarrowen://`), both deliberately parked.
+40. **A Lua mod runtime** - two to three days on the generated bridge, not obviously next.
+
+### Debt
+
+41. **The unexplained one-second frame stall.** A retirement budget was added and proved not to be the
+    cause. What this needs is a profiler, not another theory.
+42. **The fps harness cannot measure what it is used for**: +/-15 fps variance, 46 megapixels, fill-
+    bound, so vertex-side changes are invisible to it. Do not bisect anything subtle with it.
+43. **Every `.glb` was generated by a one-off command line and committed with no recorded spec.** Only
+    Wick has a `build.sh`, written today after the cost landed.
+44. **`_shape_twins` reads the Rust *source* as text**, so it cannot tell you the built library is
+    stale. The last surviving GDScript/Rust pair.
+45. **48% of public engine functions have no doc comment**; only the twelve reader files are enforced.
+46. **Nothing detects logic quietly reimplemented from scratch.** The ratchet catches reaching into
+    another file's shapes, not rewriting its logic. It has happened three times.
+47. **Names collide across namespaces** (pages, blocks, recipes, minigames, materials, sounds all
+    share one shape), so a textual rename is structurally unsafe and has already rewritten the wrong
+    thing.
+48. **Registration order is a live hazard** - a generator built before its blocks silently gets -1 -
+    and only CLAUDE.md guards it.
+49. **`tests/gameplay_test.gd` names `base:` content 198 times** (an entry above says 290; it has come
+    down). The fix is to assert the capability instead.
+50. **Nine docs still describe the deleted games**, `hearthhold.md` and `roadmap.md` worst.
+51. **`deploy/server/.env.example` is pinned to 0.41.1** against a 0.42.0 tree - correct until a
+    release is cut, and exactly the step the checklist says is easy to miss.
+52. **The realistic preset is unresolved** on whether the mesher should still bake face shade when
+    lit, and on cave behaviour once sky light stops multiplying albedo. Terrain shadow casting and
+    cascades are unchecked on the machine that decides (a base M1 Air), where it runs 25-29 fps.
+53. **The macOS Developer ID certificate expires 17 September 2031**, and notarization depends on a
+    revocable app-specific password.
+54. **Probes are accumulating in `tools/`.** `ending_server.gd` exists to photograph one thing. Keep
+    it deliberately or delete it.
+
+### Already done, though earlier entries still say otherwise
+
+- **A model part can emit real light** - built today; the entry calling it undiscussed is stale.
+- **`base` ships zero recipes**, so the base/game line is holding. An entry says 40 still live there.
+- **`/docs/` is published and current.** An entry says nothing has been published.
+- **"The server refuses a reconnect under a name that just left" is not a bug.** Names are owned by
+  player id in `_meta.names` (game_server.gd:2736); a test client whose `QW_USER_DIR` was wiped is a
+  different person asking for somebody else's name. Being refused is correct.
+- **Textures carry material data.** Normals and roughness are derived per texture. What remains is a
+  question - whether authored maps are worth asking a non-artist for - not a task.
+- **The reason not to tag is different now.** It is that the games were deleted, not that the children
+  are on 0.41.1; they are not playing at all until 1.0.
+
+### Deliberately rejected, and worth not re-opening
+
+QUIC (ENet+DTLS already buys most of it); `ARRAY_FLAG_COMPRESS_ATTRIBUTES` (quantises the colour
+channel that carries baked light); stable per-world block ids and typed id wrappers (saving by name
+covers the risk); the slab-ramp terrain pass (works, looks worse); the lantern HUD and its four
+variants (built, rendered, refused); a client-wide item gloss pass (the engine having an opinion about
+how content looks); option-key validation (offered and declined); 3D pathfinding for fliers, a gearbox
+in drives, storage in flows, gates in signals (all the mod's job); documenting the other 896 engine
+functions; the showcase video.
