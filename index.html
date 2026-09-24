@@ -166,82 +166,18 @@
     rules all arrive from whichever server you join.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/Quarrowen-0.41.1-mac-arm64.dmg">Download for Mac <small>0.41.1 · 74M</small></a>
-      <a class="btn ghost" href="#games">See the games</a>
+      <a class="btn ghost" href="/docs/">Read the reference</a>
     </div>
     <p class="under">Apple silicon · signed and notarized · updates itself · Real footsteps, wind and water, and a float to watch while you fish.</p>
     <p class="under"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/Quarrowen-0.41.1-windows-x86_64.zip">Windows (45M)</a> — unsigned, so Windows asks before running it, and it does not update itself yet.</p>
+    <p class="under"><b>0.41.1 is the last release of the engine in this shape</b>, and it still works.
+    The games that came with it were retired in September while the next version is rebuilt around a new
+    one, so there is nothing to browse here yet. The <a href="/docs/">reference</a> is current.</p>
   </div>
 </div>
 
 <div class="wrap">
 
-<section id="games">
-  <h2>Four games, <span>one download</span></h2>
-  <p class="sub">Every one of these is a mod. None of it is built into the app — so your server can load
-  something else entirely, and everyone who joins gets it automatically.</p>
-
-  <div class="game">
-    <div class="shot">
-      <img src="shots/hearthhold-outpost.jpg" alt="An abandoned outpost with a charter board, a cold hearth, and the tutorial pointing the way.">
-    </div>
-    <div>
-      <p class="kind">Story</p>
-      <h3>Hearthhold</h3>
-      <p>A valley whose light went out. Light the hearth, see the night out, then find the people who
-      scattered into the hills and build them somewhere to live. The guidebook fills in as you play, so
-      afterwards it reads as the story of what actually happened to you.</p>
-      <div class="figures">
-        <div><b>157</b> blocks</div><div><b>294</b> assets</div><div><b>4</b> chapters</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="game">
-    <div class="shot">
-      <img src="shots/vanilla-hills.jpg" alt="Green hills, a cliff face, a beach and grazing animals, with the hotbar and health below.">
-    </div>
-    <div>
-      <p class="kind">Survival &amp; building</p>
-      <h3>Vanilla</h3>
-      <p>Generated terrain with caves, ores, weather, animals, monsters and a seven-block boss in its own
-      arena. Recipes are discovered by experimenting rather than looked up, which is the good bit.</p>
-      <div class="figures">
-        <div><b>156</b> blocks</div><div><b>294</b> assets</div><div><b>4</b> gear tiers</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="game">
-    <div class="shot">
-      <img src="shots/oneblock-vista.jpg" alt="A single block suspended in empty sky.">
-    </div>
-    <div>
-      <p class="kind">Challenge</p>
-      <h3>One Block</h3>
-      <p>Everyone gets a single block over the void, and it comes back as something else each time you
-      break it — dirt, then stone and ores, then stranger things, with the odd creature or crate of
-      treasure instead.</p>
-      <div class="figures">
-        <div><b>153</b> blocks</div><div><b>287</b> assets</div><div><b>6</b> phases</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="game">
-    <div class="shot">
-      <img src="shots/skyblock.jpg" alt="A tiny island in an empty sky, with a list of challenges.">
-    </div>
-    <div>
-      <p class="kind">Challenge</p>
-      <h3>Sky Islands</h3>
-      <p>An island each, a cobblestone generator, and a list of challenges to stretch what little you
-      started with. Don't fall off.</p>
-      <div class="figures">
-        <div><b>112</b> blocks</div><div><b>153</b> assets</div><div><b>12</b> challenges</div>
-      </div>
-    </div>
-  </div>
-</section>
 
 <section id="different">
   <h2>How this is <span>different</span></h2>
@@ -264,8 +200,8 @@
     <div class="diff">
       <h3>A mod can change anything</h3>
       <p>Blocks, creatures and their AI, world generation, machines, crafting, UI panels, commands,
-      whole games. Hearthhold is a mod. Vanilla is a mod. The engine only supplies capabilities, which
-      means anything the bundled games do, yours can do.</p>
+      whole games. Every game that ships with it is a mod too. The engine only supplies capabilities,
+      which means anything a bundled game does, yours can do.</p>
     </div>
     <div class="diff">
       <h3>Two languages, one of them sandboxed</h3>
@@ -332,12 +268,6 @@
 <b>QW_HUB_IMAGE</b>=ghcr.io/quarrowen/quarrowen/hub:0.41.1
 
 docker compose pull &amp;&amp; docker compose up -d</pre>
-  </div>
-  <div class="mods">
-    <h3>Mods in this release</h3>
-    <p class="sub" style="margin:0 0 18px">Every game comes with the download; these are for adding one to
-    a server by hand. In the game, the Mods page does it for you.</p>
-    <h3>Games</h3><p class="dim">A world runs one of these.</p><table><tr><td><b>Hearthhold</b><br><span class="dim">A valley whose light went out. Find the people who scattered into the hills, build them somewhere to live, and get the light lit again before another long night.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/hearthhold-0.1.0.zip">hearthhold-0.1.0.zip</a><br><span class="dim">100K</span></td></tr><tr><td><b>One Block</b><br><span class="dim">One block over the void. Break it and something else takes its place: dirt, then stone and ores, then creatures and crates. Build outwards from what you collect.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/oneblock-1.0.0.zip">oneblock-1.0.0.zip</a><br><span class="dim">4.0K</span></td></tr><tr><td><b>Skyblock</b><br><span class="dim">Survive on your own tiny island above the void. Mine the generator, complete challenges, expand.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/skyblock-1.0.0.zip">skyblock-1.0.0.zip</a><br><span class="dim">4.0K</span></td></tr><tr><td><b>Vanilla Sandbox</b><br><span class="dim">Endless generated terrain with mountains, oceans and forests. Creative building.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/vanilla-1.0.0.zip">vanilla-1.0.0.zip</a><br><span class="dim">1.0M</span></td></tr></table><h3>Add-ons</h3><p class="dim">Extra content on top of a game.</p><table><tr><td><b>Arcana</b><br><span class="dim">A mana system: crystals spawn underground, pylons recharge mana, wands cast spells. Add to any game, e.g. --mods=vanilla,arcana</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/arcana-1.0.0.zip">arcana-1.0.0.zip</a><br><span class="dim">36K</span></td></tr><tr><td><b>Adventurers' Guild</b><br><span class="dim">A JavaScript mod: quest boards, gold coins, a shop that sells other mods' items, gold ore, meteor showers and a guild leaderboard. Add to any game, e.g. --mods=vanilla,guild</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/guild-1.0.0.zip">guild-1.0.0.zip</a><br><span class="dim">56K</span></td></tr><tr><td><b>Industry</b><br><span class="dim">Power networks: coal generators and solar panels feed cables, batteries, lamps and auto-miners. Add to any game, e.g. --mods=vanilla,industry</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/industry-1.0.0.zip">industry-1.0.0.zip</a><br><span class="dim">140K</span></td></tr></table><h3>Library</h3><p class="dim">Blocks and items the others are built on; every game needs it.</p><table><tr><td><b>Base Blocks</b><br><span class="dim">Common terrain and building blocks shared by other mods. Not a game on its own.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/base-1.0.0.zip">base-1.0.0.zip</a><br><span class="dim">224K</span></td></tr></table>
   </div>
 </section>
 
