@@ -402,6 +402,9 @@ func _init() -> void:
 		_save(_item(cut[1], "meat"), base + "raw_%s.png" % cut[0])
 		_save(_item(cut[2], "meat"), base + "cooked_%s.png" % cut[0])
 
+	# A light you can carry, as opposed to the torch you have to put down (mods/simple_gear).
+	_save(_lantern(), gear + "hand_lantern.png")
+
 	# A SceneTree script runs until it is told not to. Without this the tool wrote every texture
 	# correctly and then sat there for ever; three of them were found still running an hour later,
 	# looking like a hung build rather than a finished one. (2026-09-19)
@@ -2216,4 +2219,30 @@ func _hollow_reed() -> Image:
 	for y in [6, 9, 12]:
 		img.set_pixel(7, y, Color(0.18, 0.13, 0.08))
 		img.set_pixel(8, y, Color(0.18, 0.13, 0.08))
+	return _lit(img)
+
+
+## A hand lantern: a dark frame around a pane of light, with a ring to carry it by.
+##
+## Drawn rather than tinted from an existing glyph because there is no existing glyph for it - a
+## lantern is not a tool, a charm or a lump, and the one thing it has to say at a glance in a hotbar
+## is "this is the bright one".
+func _lantern() -> Image:
+	var img := _blank()
+	var iron := Color(0.26, 0.22, 0.17)
+	var flame := Color(1.0, 0.78, 0.35)
+	for y in range(1, 4):  # the carrying ring
+		for x in [7, 8]:
+			img.set_pixel(x, y, iron if y > 1 else iron.lightened(0.2))
+	for y in range(4, 15):
+		for x in range(4, 12):
+			var edge := x <= 4 or x >= 11 or y == 4 or y == 14
+			if edge:
+				img.set_pixel(x, y, _vary(iron, 0.06))
+			elif y in [5, 13]:
+				img.set_pixel(x, y, iron.lightened(0.15))  # the cap and the base plate
+			else:
+				# Brightest in the middle and falling off, so it reads as light rather than as paint.
+				var away := absf(float(x) - 7.5) / 3.5 + absf(float(y) - 9.0) / 5.0
+				img.set_pixel(x, y, flame.lerp(Color(0.95, 0.55, 0.18), clampf(away, 0.0, 1.0)))
 	return _lit(img)

@@ -28,6 +28,7 @@ var curios := Curios.new()
 
 func setup(api) -> void:
 	_register_tools(api)
+	_register_lantern(api)
 	_register_charms(api)
 	_register_hoes(api)
 	curios.setup(api)
@@ -84,6 +85,27 @@ func _register_tools(api) -> void:
 
 
 ## Deepstone is the common ingredient on purpose: charms are the second thing a cobalt pickaxe buys.
+## **A light you carry, rather than one you put down.** `base` has had a torch since the beginning and
+## it is a block: to see, you stop, you place it, and the dark ahead is still dark. This is the other
+## half, and it is the thing a child asks for the first time they go down a hole.
+##
+## Nothing new in the engine was needed, which is worth writing down. `ItemRegistry.clean_glow` has
+## carried `{color, energy, light}` for weeks - `light` being a radius in blocks - and `item_mesh.gd`
+## has been making a real `OmniLight3D` out of it just as long. **Every mod that had ever set `glow`
+## set only the colour and the energy**, so the radius stayed 0 and not one item in the game had ever
+## actually lit anything. The capability was finished and unused. (2026-09-24)
+##
+## Iron and coal, at a plain table: it is meant to be the thing you make before your first night
+## underground, not a reward for having already survived one.
+func _register_lantern(api) -> void:
+	api.register_item("hand_lantern", {"group": "Tools", "display_name": "Hand Lantern",
+		"icon": "textures/hand_lantern.png", "max_stack": 1, "durability": 0,
+		"lore": ["Holds a small fire kindly, and asks nothing for it."],
+		"glow": {"color": "#ffc65a", "energy": 1.5, "light": 9.0}})
+	api.register_recipe({"base:iron_ingot": 3, "base:coal": 1, "base:stick": 1},
+		"simple_gear:hand_lantern", 1, TABLE)
+
+
 func _register_charms(api) -> void:
 	api.register_equipment_slot("trinket", {"display_name": "Charm"})
 	# Each takes deepstone and one thing that says what it is for, so the three recipes are told apart by
