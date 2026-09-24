@@ -69,7 +69,6 @@ const Milestones = preload("res://engine/server/milestones.gd")
 const Charging = preload("res://engine/server/charging.gd")
 const DevLog = preload("res://engine/server/dev_log.gd")
 const DevTools = preload("res://engine/server/dev_tools.gd")
-const DevWeb = preload("res://engine/server/dev_web.gd")
 const StatusQuery = preload("res://engine/server/status_query.gd")
 const HubAnnouncer = preload("res://engine/server/hub_announcer.gd")
 const ChatFilter = preload("res://engine/server/chat_filter.gd")
@@ -95,6 +94,12 @@ const DEFAULT_MAX_PLAYERS := 64
 ## format bump needs a migration written for it; there is no longer one here, because nothing from
 ## before alpha 4 is carried forward.
 const SAVE_FORMAT := 2
+## How many connections one address may open in the window before it is asked to wait, and how long a
+## handshake may stay unfinished. Generous: a family behind one router shares an address, and a child
+## whose laptop slept reconnects in a flurry.
+const JOIN_BURST := 6
+const JOIN_WINDOW_MS := 10000
+const HANDSHAKE_TIMEOUT_MS := 15000
 
 ## Other players are replicated only within this distance (blocks) of the recipient...
 const INTEREST_RADIUS := 96.0
@@ -297,6 +302,13 @@ var _save_queue: Dictionary:
 		return realm.save_queue
 var _save_writes: Array = []  # serialized [path, text] waiting for the rest of the save
 var _save_meta_pending := false
+## Address -> the times it recently connected, for the throttle. Not saved: a burst is a thing that is
+## happening, not a thing that happened.
+var _recent_joins := {}
+## Peer -> when it connected, so a handshake that never finishes can be swept up. A socket held open
+## by somebody who never authenticates is the cheapest denial of service there is: 64 of them and
+## nobody else can get in.
+var _joining_since := {}
 var _js_mods: Array = []  # keeps JavaScript runtimes alive
 ## Crafting recipes and categories (sent to clients for the recipe book).
 var recipes := RecipeRegistry.new()
@@ -387,7 +399,6 @@ var dev_tools := DevTools.new(self)
 ## --dev: every player gets the developer tools (local development).
 var dev_mode := false
 ## The dev dashboard web server (--dev-web=port).
-var dev_web := DevWeb.new(self)
 var status_query := StatusQuery.new(self)
 ## Lists the server on a hub (a child node while online; null for offline servers).
 var hub: HubAnnouncer
@@ -638,6 +649,7 @@ func start(config: Dictionary) -> Error:
 		return err
 	Net.server = self
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
+	multiplayer.peer_connected.connect(_on_peer_connected)
 	port = int(config.get("port", 24565))
 	status_query.key = tls[0]
 	transfers.setup(data_dir, tls[0])
@@ -651,11 +663,6 @@ func start(config: Dictionary) -> Error:
 			dev_log.add("warn", "server", "Hub listing needs status queries (--query-port is 0)")
 		else:
 			hub.start(str(config.hub), tls[0], str(config.get("public_address", "")), str(config.get("tags", "")).split(",", false))
-	var web_port := int(config.get("dev_web", 0))
-	if web_port == 0 and dev_mode:
-		web_port = int(config.get("port", 24565)) + 15
-	if web_port > 0:
-		dev_web.start(web_port, str(config.get("dev_web_host", "127.0.0.1")), str(config.get("dev_web_token", "")))
 	if dev_mode:
 		mod_reload.set_watching(true)
 	_started = true
@@ -673,7 +680,6 @@ func start(config: Dictionary) -> Error:
 
 
 func _exit_tree() -> void:
-	dev_web.stop()
 	if hub != null:
 		hub.leave()
 	status_query.stop()
@@ -1074,11 +1080,6 @@ func _register_builtin_commands() -> void:
 		_cmd_ugc, "engine", "admin")
 	add_command("report", "<player> [inappropriate|offensive|copied|spam|other] - report a creation someone is wearing", _cmd_report, "engine")
 	add_command("reload", "<mod> | all | full | watch on|off - reload mods while the server runs", _cmd_reload, "engine", "admin")
-	add_command("devweb", "- the dev dashboard's address", func(player, _args):
-		if dev_web.running():
-			player.send_message("Dev dashboard: %s" % dev_web.url())
-		else:
-			player.send_message("The dev dashboard is off. Start the server with --dev-web=24580 (or --dev)."), "engine", "admin")
 	add_command("players", "List online players", _cmd_players, "engine")
 	add_command("op", "<player> - grant admin", _cmd_op.bind(true), "engine", "admin")
 	add_command("anticheat", "[player | recent | mode kick|log|off] - cheat checks", _cmd_anticheat, "engine", "admin")
@@ -2131,7 +2132,6 @@ func _physics_process(delta: float) -> void:
 	sleep.update(delta)
 	guide.update(delta)
 	dev_tools.update(delta)
-	dev_web.update(delta)
 	status_query.update()
 	mod_reload.update(delta)
 	ugc.update(delta)
@@ -3100,6 +3100,44 @@ func _default_spawn() -> Vector3:
 		if world.get_block(8, y, 8) != BlockRegistry.AIR:
 			return Vector3(8.5, y + 1, 8.5)
 	return Vector3(8.5, 64, 8.5)
+
+
+## The first thing that happens to a stranger, before any of ours runs.
+##
+## **Two defences that do not need an identity**, because at this point there is not one yet - the
+## keypair arrives in the next message. A banned address is refused outright, and an address opening
+## connections faster than anybody plays is slowed down. Neither stops a determined griefer with a
+## second network; both stop the cheap version, which is most of it. (2026-09-24)
+func _on_peer_connected(peer_id: int) -> void:
+	var address := peer_address(peer_id)
+	if address.is_empty():
+		return
+	if (_meta.get("ip_bans", {}) as Dictionary).has(address):
+		dev_log.add("info", "server", "refused a connection from a banned address")
+		kick(peer_id, "You are banned from this server.")
+		return
+	# A half-open join holds a socket, and there are only so many. Anything faster than a person
+	# reconnecting after a crash is something else.
+	var now := Time.get_ticks_msec()
+	var seen: Array = _recent_joins.get(address, [])
+	seen = seen.filter(func(t): return now - int(t) < JOIN_WINDOW_MS)
+	if seen.size() >= JOIN_BURST:
+		dev_log.add("warn", "server", "throttled repeated connections from one address")
+		kick(peer_id, "Too many connections from your address just now. Wait a moment and try again.")
+		_recent_joins[address] = seen
+		return
+	seen.append(now)
+	_recent_joins[address] = seen
+	_joining_since[peer_id] = now
+
+
+## Where a peer is connecting from, or "" when that cannot be told (offline play, a peer already gone).
+func peer_address(peer_id: int) -> String:
+	var peer = multiplayer.multiplayer_peer
+	if peer == null or not (peer is ENetMultiplayerPeer):
+		return ""
+	var enet = peer.get_peer(peer_id)
+	return String(enet.get_remote_address()) if enet != null else ""
 
 
 func _on_peer_disconnected(peer_id: int) -> void:

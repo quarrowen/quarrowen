@@ -6852,7 +6852,7 @@ GDScript: `stop(p) -> void`
 
 Stops the active tutorial (it will not start by itself again).
 
-**See also:** `close`, `state_of`, `step`, `sync`, `unsubscribe`
+**See also:** `close`, `state_of`, `step`, `sync`
 
 ### `advance`
 
@@ -8159,24 +8159,6 @@ GDScript: `draw(owner: String, shape: Dictionary) -> void`
 
 shape: {type: box | line | text | path | sphere, color, seconds, ...}; box {min, max} or {center, size},
 line {from, to}, text {position, text}, path {points}, sphere {center, radius}.
-
-### `start`
-
-*server/dev_web.gd*
-
-GDScript: `start(listen_port: int, bind_host := "127.0.0.1", keep_token := "") -> Error`
-
-`keep_token`: reuse a token (a full reload keeps open dashboards working).
-
-**See also:** `add_chunk`, `add_command`, `add_handler`, `add_mod_dir`, `add_recipe`, `advance`
-
-### `streaming`
-
-*server/dev_web.gd*
-
-GDScript: `streaming() -> bool`
-
-Kept because callers ask it; there is only the one transport now, and it pushes.
 
 
 ## The client
@@ -10547,11 +10529,11 @@ GDScript: `dev_mode := false  (property)`
 
 --dev: every player gets the developer tools (local development).
 
-### `dev_web`
+### `status_query`
 
 *server/game_server.gd*
 
-GDScript: `dev_web := DevWeb.new(self)  (property)`
+GDScript: `status_query := StatusQuery.new(self)  (property)`
 
 The dev dashboard web server (--dev-web=port).
 
@@ -11018,6 +11000,14 @@ GDScript: `on_claim_admin(peer_id: int, token: String) -> void`
 The local host proves it launched this server and becomes a permanent admin.
 
 **See also:** `give`, `send_message`
+
+### `peer_address`
+
+*server/game_server.gd*
+
+GDScript: `peer_address(peer_id: int) -> String`
+
+Where a peer is connecting from, or "" when that cannot be told (offline play, a peer already gone).
 
 ### `mark_simulation_stale`
 

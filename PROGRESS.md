@@ -6449,6 +6449,8 @@ it matters the day anybody else can reach it.
 7. RPC arguments are decoded before any size cap; UGC fetch has no global egress budget; creation and
    hub names skip the chat filter; `c_map` and `c_ugc_*` are unrated and O(N); `_admin_token` comes
    from `randi()` and is visible in `ps`.
+8. ~~The dev dashboard is full control through a URL token over plain HTTP, GET with side effects.~~
+   **Deleted on 2026-09-24** rather than secured (the user). Nothing replaces it.
 
 ### Bugs
 
@@ -6812,3 +6814,31 @@ If shared reputation across public servers is ever wanted, the hub can sign atte
 public key* ("this key was banned on three listed servers") with no registration either. Not now.
 
 **Not built yet** - this is the decision, not the work.
+
+### The dev dashboard is gone (user, 2026-09-24)
+
+Asked whether to harden it or drop it, the user chose to delete it outright and administer everything
+from the client through roles. It is a real reduction: it was the one place in the project where a URL
+token over plain HTTP could approve a creation, reload a mod or clear the error log - a control plane
+with GET side effects - and securing it meant TLS, POST and authentication for a second copy of tools
+that already exist in the game.
+
+**What made this cheap was that almost nothing was lost.** The F8 overlay already carried the logs,
+errors, event trace, profiler and inspector; `engine/client/ugc_review.gd` already carried creation
+moderation in the pause menu; `/reload` already existed as a command. The dashboard's routes were
+mostly a second front on the same data.
+
+`native/src/http.rs` went with it - `NativeHttpServer` had no other caller - and `tiny_http` left the
+Rust dependency list. 229 lines deleted against 88 added, most of the additions being the bans and
+mutes this cluster started with.
+
+**The risk, named plainly:** a headless dedicated server can now only be administered by joining it
+with an admin role. If it will not start, or the world will not load, the only diagnosis is its log -
+which does go to stdout (`dev_log.gd` echoes every line), so `docker logs` is the fallback. There is
+no server console; if that turns out to hurt, stdin commands on the dedicated server are the thing to
+build, not the dashboard again.
+
+Worth recording one mistake: removing the test's HTTP helper by searching backwards for a blank line
+cut into a triple-quoted string constant twelve lines below it, and the file stopped parsing. Deleting
+by *content* - find the function, find the next top-level declaration, assert what lies between is
+only what you meant to remove - was both safer and shorter.

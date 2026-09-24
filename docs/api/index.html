@@ -82,7 +82,6 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#ref-hunger">Hunger</a>
 <a href="#ref-logs-and-errors">Logs and errors</a>
 <a href="#ref-dev-tools">Dev tools</a>
-<a href="#ref-dev-dashboard">Dev dashboard</a>
 <a href="#ref-reloading">Reloading</a>
 <a href="#ref-validator">Validator</a>
 </nav>
@@ -2508,31 +2507,6 @@ everyone when the server runs with --dev.
 - Debug draw: `draw(owner, shape)` queues boxes, lines, labels and paths that expire; watchers get them
   each tick. `ai_debug` draws mob paths, targets and homes near watchers.
 Viewers subscribe with a set of channels: logs, errors, perf, events, draw, ai, inspect.</pre></section>
-<section id="ref-dev-dashboard" class="ref"><h2>Dev dashboard <span class="file">engine/server/dev_web.gd</span></h2><pre class="block">The dev dashboard: a tiny HTTP server on the game server that serves engine/server/dev_web/index.html
-and a JSON API over the same data as the F8 overlay (logs, errors, event trace, profiler, inspector),
-for a browser next to the game or on a headless server.
-
-Off unless configured: --dev-web=24580 (or on by default with --dev). It binds 127.0.0.1 unless
---dev-web-host says otherwise, and every request needs the token printed at start (also shown to
-admins by /devweb).
-
-Two transports answer the same routes: with the native extension, NativeHttpServer
-(native/src/http.rs) parses HTTP on its own threads (keep-alive, many clients) and adds
-/api/stream, a Server-Sent Events stream the game pushes the state to every PUSH_INTERVAL seconds,
-so the page need not poll; without it, a small GDScript TCPServer (one request per connection) and
-the page polls /api/state.
-
-API (all GET, ?token=...):
-  /api/state?logs_after=N&amp;events_after=N&amp;events=0|1&amp;filter=...   everything new since the last poll
-  /api/inspect?player=&lt;peer&gt;  |  &amp;look=1 (what that player looks at)  |  entity=&lt;id&gt;  |  x=&amp;y=&amp;z=
-  /api/clear_errors[?source=mod]
-  /api/reload?mod=&lt;id&gt; | mod=all | mod=full
-  /api/ugc?filter=pending|reported|approved|rejected|removed|all&amp;text=   creations for review
-  /api/ugc_action?action=set_status|trust|ban|clear_reports&amp;id=&amp;status=&amp;reason=&amp;player_id=&amp;on=
-  /api/ugc_file?id=   a creation's file (skin PNG, accessory JSON, model GLB)
-  /api/stream   (native only) events: `state` (the /api/state answer with only what is new since the
-                last push, using the dashboard's last /api/state parameters)
-A dashboard that polls within VIEWER_TIMEOUT seconds counts as a dev tools viewer (so events are traced).</pre></section>
 <section id="ref-reloading" class="ref"><h2>Reloading <span class="file">engine/server/mod_reload.gd</span></h2><pre class="block">Reloading mods while the server runs.
 
 Quick reload (`reload(mod_id)`, /reload &lt;mod&gt;): forgets what the mod hooked in live (event handlers,

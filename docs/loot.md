@@ -115,4 +115,4 @@ on cannot be tuned away.
 ## 7. Left for later
 
 Per-player luck as a stat, weather conditions, airdrops on a schedule, fishing tables by biome and
-depth, and drop telemetry in the dev dashboard. The table format already has room for all of them.
+depth, and drop telemetry. The table format already has room for all of them.

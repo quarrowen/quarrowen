@@ -373,7 +373,7 @@ func update(delta: float) -> void:
 		_ai_timer = 0.0
 	for peer_id in viewers.keys():
 		if viewers[peer_id].get("web", false):
-			continue  # the dashboard polls instead (see dev_web.gd)
+			continue  # nothing is polling for these any more (the dev dashboard went on 2026-09-24)
 		var p = _server.players.get(peer_id)
 		if p == null or not allowed(p):
 			viewers.erase(peer_id)

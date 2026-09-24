@@ -35,8 +35,6 @@ extends Node
 ##   --log-level=info      QW_LOG_LEVEL     debug | info | warn | error, or per mod: all:warn,my_mod:debug
 ##   --ugc=auto            QW_UGC           player creations: auto | trusted | approval | off
 ##   --dev                 QW_DEV           developer mode: every player gets the dev tools (F8), dashboard on
-##   --dev-web=24580       QW_DEV_WEB       serve the dev dashboard on this port (default with --dev: port + 15)
-##   --dev-web-host=127.0.0.1 QW_DEV_WEB_HOST address the dashboard listens on (token protected)
 
 const GameServer = preload("res://engine/server/game_server.gd")
 const Native = preload("res://engine/shared/native.gd")
@@ -72,8 +70,6 @@ const DEFAULTS := {
 	"log-level": "",
 	"dev": "",
 	"ugc": "",
-	"dev-web": "0",
-	"dev-web-host": "127.0.0.1",
 }
 
 var _server: Node
@@ -130,8 +126,6 @@ func _ready() -> void:
 		"log_level": options["log-level"],
 		"dev": options.dev == "true" or options.dev == "1",
 		"ugc": options.ugc,
-		"dev_web": int(options["dev-web"]),
-		"dev_web_host": options["dev-web-host"],
 	}
 	var err := _start_server()
 	_write_start_error(err)
@@ -162,7 +156,6 @@ func _start_server() -> Error:
 	add_child(_server)
 	var err: Error = _server.start(_config)
 	_config.restore = ""  # a backup is restored once, not again on a full reload
-	_config.dev_web_token = _server.dev_web.token  # open dashboards keep working after a full reload
 	_server.full_reload_requested.connect(_full_reload, CONNECT_DEFERRED)
 	return err
 

@@ -61,7 +61,6 @@ const REFERENCES := [
 	["Hunger", "res://engine/server/hunger.gd"],
 	["Logs and errors", "res://engine/server/dev_log.gd"],
 	["Dev tools", "res://engine/server/dev_tools.gd"],
-	["Dev dashboard", "res://engine/server/dev_web.gd"],
 	["Reloading", "res://engine/server/mod_reload.gd"],
 	["Validator", "res://engine/server/mod_validator.gd"],
 ]

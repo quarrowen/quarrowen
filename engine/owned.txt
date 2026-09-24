@@ -26,5 +26,4 @@ drops engine/shared/entity_registry.gd engine/server/sources.gd
 emitters engine/shared/effect_registry.gd engine/client/effects/effect_player.gd
 emitters engine/shared/effect_registry.gd engine/server/mod_api.gd
 entries engine/server/loot.gd engine/server/dev_tools.gd
-entries engine/server/loot.gd engine/server/dev_web.gd
 entries engine/server/loot.gd engine/server/mod_validator.gd

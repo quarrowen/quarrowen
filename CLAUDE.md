@@ -66,7 +66,7 @@ of several ordinary ways to end up without it - see "When the Rust extension is 
 ## The Rust extension is required
 
 There is no GDScript fallback any more. `native/` is the only implementation of the mesher, the
-physics, the pathfinder, the world mirror, snapshots, the JS runtime, the dev dashboard's HTTP and
+physics, the pathfinder, the world mirror, snapshots, the JS runtime and
 the process signals - and a missing library is an error at the first thing that asks for it, not a
 silent slowdown.
 

@@ -3,7 +3,6 @@
 
 use godot::prelude::*;
 
-mod http;
 mod js;
 mod mesher;
 mod pathfind;

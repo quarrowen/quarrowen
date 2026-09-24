@@ -562,8 +562,8 @@ own creations stay in your portable look; library picks are remembered per serve
 with `/report <player> [reason]`; each player reports a creation once, and after `report_hide` reports
 (default 3, 0 = never) it is hidden until reviewed. Admins get **Review creations** in the pause menu
 (filters for waiting, reported, approved, rejected and removed; skin and 3D previews; reports; approve,
-reject, remove for good, clear reports, trust or ban the creator), the same in the dev dashboard's
-**Creations** tab, and `/ugc list|approve|reject|remove <id prefix> [reason]`, `/ugc trust|untrust|ban|unban
+reject, remove for good, clear reports, trust or ban the creator), and
+`/ugc list|approve|reject|remove <id prefix> [reason]`, `/ugc trust|untrust|ban|unban
 <player>` and `/ugc policy <key> <value>`. Removed creations are blocklisted by content hash; trusted
 creators skip the queue under `accept=trusted`; banned creators cannot upload and their creations are
 hidden. Mods use `ugc_list`, `ugc_get`, `ugc_set_status`, `ugc_report`, `ugc_trust` and `ugc_ban`
@@ -1029,21 +1029,17 @@ running beside it (click the world to play, F8 to get the mouse back, F8 again t
   `debug_path`, `debug_sphere` (JS: `api.draw.box / line / text / path / sphere`). Nothing is sent or
   queued while nobody watches.
 
-### Dev dashboard (web)
+### Where the dev tools live
 
-The same tools in a browser, handy on a second screen or for a headless server. Start the server with
-`--dev-web=24580` (or `--dev`, which serves it on the game port + 15); it prints
-`Dev dashboard: http://127.0.0.1:24580/?token=...` and admins can get the address with `/devweb`.
-It listens on 127.0.0.1 unless `--dev-web-host` says otherwise, and every request needs the token.
-Tabs: Logs (filters, follow), Errors (stacks), Events (live trace with a filter), Perf (sortable),
-Inspect (a player, what they look at, a block by coordinates or an entity id, live), Creations (review
-player creations) and Server (mods, players). `#perf`-style links open a tab. JSON API: `/api/state`,
-`/api/inspect`, `/api/clear_errors`, `/api/reload`, `/api/ugc*` (see `engine/server/dev_web.gd`).
+**In the game, and nowhere else.** The F8 overlay above is the whole surface: logs, errors, the event
+trace, the profiler and the inspector.
 
-With the native extension the dashboard is served by a Rust HTTP server (`native/src/http.rs`, tiny_http
-on its own threads: keep-alive, many browsers at once) and the page gets live updates pushed twice a
-second over Server-Sent Events (`/api/stream`); the status line says "live (push)". Game data is still
-read on the game thread. Without the extension a small GDScript server answers and the page polls.
+There was a web dashboard serving the same data over HTTP until 2026-09-24. It was deleted rather than
+secured: every route was a GET carrying a URL token, and several of them changed things - approving a
+creation, reloading a mod, clearing errors - which is a control plane nobody should expose, and
+hardening it meant TLS, POST and real authentication for a second copy of tools that already existed
+in the game. Moderation lives on roles in the client; a headless server is read through its log, which
+goes to stdout.
 
 ### Reloading mods
 
