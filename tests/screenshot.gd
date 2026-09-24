@@ -7,12 +7,16 @@ extends Node
 ##     [--editor=hat (opens the avatar editor on a category)] [--swing=0.12 (capture that long into a swing)]
 ##     [--open=simple_machines:chest (place and open a block)] [--craft=simple_gear:wooden_pickaxe (recipe book on a recipe)]
 ##     [--guide=guidebook:wood (the guidebook on a page) [--search=text]] [--settings=Graphics (settings screen on a tab)]
+##     [--look=firstlight:wick | --look=12,70,34 (aim at a creature or a point; beats guessing a yaw)]
+##       [--look_wait=6 (seconds to wait for it to turn up - a companion may still be walking over)]
+##       [--goto=4 (stand 4 m from it first; needs the server started with QW_ADMINS=<--name>)]
 
 const GameClient = preload("res://engine/client/game_client.gd")
+const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera"}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera", "look": "", "look_wait": "6", "goto": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -25,6 +29,12 @@ func _ready() -> void:
 	await _meshed(client)
 	client.yaw = float(options.yaw)
 	client.pitch = float(options.pitch)
+	# **`--look` aims the camera at something instead of you guessing an angle.** Testing an NPC, a
+	# structure or a block used to mean firing screenshots at different yaws until the thing appeared -
+	# a dozen renders to photograph a character standing two metres away. (the user, 2026-09-24: "being
+	# able to get the test player to the correct spot and view and yaw will be helpful")
+	if not String(options.look).is_empty():
+		await _frame(client, options, float(options.look_wait))
 	# Let a few inputs carry the new facing to the server before commands that build in front of us.
 	await get_tree().create_timer(0.5).timeout
 	for command in String(options.commands).split("|", false):
@@ -201,6 +211,14 @@ func _ready() -> void:
 		await _meshed(client)
 	if not String(options.mine).is_empty():
 		await get_tree().create_timer(float(options.mine)).timeout  # let the crack grow
+	# **Frame it again at the last moment.** The first pass happens before `--wait` and `--after`,
+	# because commands want to run facing the right way - but anything that walks has moved by the time
+	# the shutter opens. A shot of Wick came out as a picture of the grass he had been standing on,
+	# which reads exactly like a model that is not rendering; and because a companion *follows*, the
+	# next one came out as his hat brim from 0.7 m. Standing again as well as aiming again fixes both,
+	# and costs nothing when the subject is a block that never moved. (2026-09-24)
+	if not String(options.look).is_empty():
+		await _frame(client, options, 0.0)
 	var viewport_rid := get_viewport().get_viewport_rid()
 	RenderingServer.viewport_set_measure_render_time(viewport_rid, true)
 	var cpu := 0.0
@@ -242,6 +260,101 @@ func _measure(seconds: float) -> void:
 	# The median as well as the mean: an average of 40 made of 60s and 15s is not 40 to play.
 	print("[fps] avg %.1f  median %.1f  worst %.1f  best %.1f  (%d samples)" % [
 		total / samples.size(), samples[samples.size() / 2], samples[0], samples[-1], samples.size()])
+
+
+## Points the camera at a creature by type name ("firstlight:wick"), or at "x,y,z".
+##
+## Stand where the caller asked, then aim. Both halves are re-run immediately before the shutter, so
+## the picture is of where the subject is rather than where it was.
+func _frame(client, options: Dictionary, wait_seconds: float) -> void:
+	var target := String(options.look)
+	if not String(options.get("goto", "")).is_empty():
+		await _go_to(client, target, float(options.goto), wait_seconds)
+	await _look_at(client, target, wait_seconds)
+
+
+## Waits for the thing to exist, because a companion may still be walking towards you when the client
+## finishes joining - and a shot of where it was going to be is the same useless picture as a shot of
+## the wrong direction.
+func _look_at(client, target: String, wait_seconds: float) -> void:
+	var point := await _wait_for(client, target, wait_seconds)
+	if point == Vector3.INF:
+		print("[screenshot] --look=%s found nothing; keeping the given yaw and pitch" % target)
+		return
+	var eye: Vector3 = client.state.position + Vector3(0.0, PlayerPhysics.EYE_HEIGHT, 0.0)
+	var to: Vector3 = point - eye
+	var flat := Vector2(to.x, to.z).length()
+	if flat < 0.01:
+		return
+	# Forward is (-sin(yaw), 0, -cos(yaw)) - see the `ahead` calculation below - so this inverts it.
+	client.yaw = atan2(-to.x, -to.z)
+	client.pitch = clampf(atan2(to.y, flat), -1.5, 1.5)
+	print("[screenshot] looking at %s (%.1f m away) yaw %.2f pitch %.2f" % [target, to.length(), client.yaw, client.pitch])
+	await get_tree().create_timer(0.4).timeout
+
+
+## Looks once and then keeps looking until the deadline, so a zero wait still answers - which is what
+## the aim taken immediately before the shutter needs.
+func _wait_for(client, target: String, wait_seconds: float) -> Vector3:
+	var deadline := Time.get_ticks_msec() + int(maxf(wait_seconds, 0.0) * 1000.0)
+	while true:
+		var point := _find(client, target)
+		if point != Vector3.INF or Time.get_ticks_msec() >= deadline:
+			return point
+		await get_tree().create_timer(0.25).timeout
+	return Vector3.INF
+
+
+## **--goto stands you next to the thing before aiming at it.** Knowing the yaw is only half of it: a
+## guide thirty metres off is four pixels tall however accurately the camera points at him. Teleports to
+## `distance` metres back along the line you are already approaching from, so the shot keeps the
+## direction the caller chose. (the user, 2026-09-24: "not just look, but can also teleport near the
+## target right")
+func _go_to(client, target: String, distance: float, wait_seconds: float) -> void:
+	var point := await _wait_for(client, target, wait_seconds)
+	if point == Vector3.INF:
+		print("[screenshot] --goto: nothing called %s to stand near" % target)
+		return
+	var back: Vector3 = point - client.state.position
+	back.y = 0.0
+	if back.length() < 0.01:
+		back = Vector3(0, 0, 1)  # already on top of it: back off southwards rather than divide by zero
+	var stand: Vector3 = point - back.normalized() * maxf(distance, 0.5)
+	stand.y = point.y + 1.0  # a little above it, so the drop settles us on whatever is underfoot
+	# Judged against where we asked to be, not against how far we travelled: the second pass often only
+	# has to shuffle a metre, and "it hardly moved" would report that as a refused command.
+	Net.c_chat.rpc_id(1, "/tp %.2f %.2f %.2f" % [stand.x, stand.y, stand.z])
+	var deadline := Time.get_ticks_msec() + 5000
+	while Time.get_ticks_msec() < deadline:
+		await get_tree().create_timer(0.1).timeout
+		if client.state.position.distance_to(stand) < 2.0:
+			break
+	if client.state.position.distance_to(stand) >= 2.0:
+		print("[screenshot] --goto: never arrived - is the server running with QW_ADMINS=%s?" % client.player_name)
+		return
+	await _meshed(client)  # the new place has to draw before the picture is worth taking
+	print("[screenshot] standing at %s, %.1f m from %s" % [client.state.position, client.state.position.distance_to(point), target])
+
+
+## "x,y,z" as a point, or the nearest creature of that type, aiming at the middle of it rather than its
+## feet - a plate sits above the head and a 1.5 m guide photographed at ankle height is a picture of grass.
+func _find(client, target: String) -> Vector3:
+	if target.contains(","):
+		var bits := target.split(",")
+		if bits.size() == 3:
+			return Vector3(float(bits[0]), float(bits[1]), float(bits[2]))
+		return Vector3.INF
+	var best := Vector3.INF
+	var nearest := INF
+	for view in client._entities.values():
+		if str(view.type_def.get("name", "")) != target:
+			continue
+		var at: Vector3 = view.global_position + Vector3(0.0, float(view.height) * 0.6, 0.0)
+		var d: float = at.distance_to(client.state.position)
+		if d < nearest:
+			nearest = d
+			best = at
+	return best
 
 
 func _meshed(client) -> void:
