@@ -10701,6 +10701,45 @@ GDScript: `is_allowed(player_id: String, player_name: String) -> bool`
 Whether a player may join: always when the allowlist is off; else admins and listed players (by id, or
 by name until that name first joins and binds the entry to the player's identity).
 
+### `ban_of`
+
+*server/game_server.gd*
+
+GDScript: `ban_of(player_id: String) -> Dictionary`
+
+Whether this player is banned, and what they were told. `{}` when they are not.
+
+**Separate from the allowlist on purpose.** The allowlist answers "is this a private server and are
+you on the list"; a ban answers "you in particular are not welcome here", and it has to work on a
+public server where the allowlist is off. Running them together would mean banning somebody turned
+the whole server private.
+
+### `is_muted`
+
+*server/game_server.gd*
+
+GDScript: `is_muted(player_id: String) -> bool`
+
+Whether this player may not speak.
+
+### `set_ban`
+
+*server/game_server.gd*
+
+GDScript: `set_ban(player_id: String, banned: bool, player_name := "", reason := "", by := "") -> void`
+
+Bans or unbans by player id. The id is the durable half - a name is kept only so the list reads as
+something a person can review.
+
+### `player_id_of`
+
+*server/game_server.gd*
+
+GDScript: `player_id_of(name_or_id: String) -> String`
+
+The id behind a name, whether or not they are online - so somebody can be banned while they are
+not there, which is when most bans are actually written.
+
 ### `allowlist_add`
 
 *server/game_server.gd*
@@ -10968,7 +11007,7 @@ GDScript: `on_auth(peer_id: int, signature: PackedByteArray) -> void`
 
 The client proves it holds the private key for the identity it presented.
 
-**See also:** `accept`, `allowlist_bind`, `give`, `is_allowed`, `kick`, `sources_index`
+**See also:** `accept`, `allowlist_bind`, `ban_of`, `give`, `is_allowed`, `kick`
 
 ### `on_claim_admin`
 

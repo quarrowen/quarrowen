@@ -601,6 +601,13 @@ func start(config: Dictionary) -> Error:
 	# A private server: only listed players (and admins) may join. Names given here are added to the list.
 	if not (_meta.get("allowlist") is Dictionary):
 		_meta.allowlist = {"enabled": false, "players": {}}
+	# **Bans and mutes are by player id**, which is derived from a keypair and cannot be forged, so a
+	# new name does not shake one off. Kept in the world's own metadata beside the allowlist, so they
+	# survive a restart - the thing `/kick` could never do. (2026-09-24)
+	if not (_meta.get("bans") is Dictionary):
+		_meta.bans = {}   # player id -> {name, reason, by, at}
+	if not (_meta.get("mutes") is Dictionary):
+		_meta.mutes = {}  # player id -> {name, reason, by, at}
 	for entry in str(config.get("allowlist", "")).split(",", false):
 		allowlist_add(entry.strip_edges())
 	if not str(config.get("allowlist", "")).is_empty():
@@ -918,6 +925,53 @@ func is_allowed(player_id: String, player_name: String) -> bool:
 	return false
 
 
+## Whether this player is banned, and what they were told. `{}` when they are not.
+##
+## **Separate from the allowlist on purpose.** The allowlist answers "is this a private server and are
+## you on the list"; a ban answers "you in particular are not welcome here", and it has to work on a
+## public server where the allowlist is off. Running them together would mean banning somebody turned
+## the whole server private.
+func ban_of(player_id: String) -> Dictionary:
+	var entry = (_meta.get("bans", {}) as Dictionary).get(player_id)
+	return entry if entry is Dictionary else {}
+
+
+## Whether this player may not speak.
+func is_muted(player_id: String) -> bool:
+	return (_meta.get("mutes", {}) as Dictionary).has(player_id)
+
+
+## Bans or unbans by player id. The id is the durable half - a name is kept only so the list reads as
+## something a person can review.
+func set_ban(player_id: String, banned: bool, player_name := "", reason := "", by := "") -> void:
+	if player_id.is_empty():
+		return
+	if banned:
+		_meta.bans[player_id] = {"name": player_name, "reason": reason, "by": by, "at": Time.get_unix_time_from_system()}
+	else:
+		_meta.bans.erase(player_id)
+	_save_meta_pending = true
+
+
+func set_mute(player_id: String, muted: bool, player_name := "", reason := "", by := "") -> void:
+	if player_id.is_empty():
+		return
+	if muted:
+		_meta.mutes[player_id] = {"name": player_name, "reason": reason, "by": by, "at": Time.get_unix_time_from_system()}
+	else:
+		_meta.mutes.erase(player_id)
+	_save_meta_pending = true
+
+
+## The id behind a name, whether or not they are online - so somebody can be banned while they are
+## not there, which is when most bans are actually written.
+func player_id_of(name_or_id: String) -> String:
+	var key := name_or_id.to_lower()
+	if key.length() == 32 and key.is_valid_hex_number():
+		return key
+	return String(_meta.names.get(key, ""))
+
+
 ## Adds a player by name (or id) to the allowlist.
 func allowlist_add(name_or_id: String) -> void:
 	if name_or_id.is_empty():
@@ -1039,6 +1093,8 @@ func _register_builtin_commands() -> void:
 	add_command("allow", "[list | add <name> | remove <name> | on | off] - who may join a private server", _cmd_allow, "engine", "admin")
 	add_command("deop", "<player> - revoke admin", _cmd_op.bind(false), "engine", "admin")
 	add_command("kick", "<player> [reason] - disconnect a player", _cmd_kick, "engine", "admin")
+	add_command("ban", "<player> [reason] | list | remove <player> - keep a player out for good", _cmd_ban, "engine", "admin")
+	add_command("mute", "<player> [reason] | list | remove <player> - stop a player speaking", _cmd_mute, "engine", "admin")
 	add_command("whoami", "Show your player id and permissions", _cmd_whoami, "engine")
 	add_command("backup", "Back up the world now", _cmd_backup, "engine", "admin")
 	add_command("backups", "List world backups", _cmd_backups, "engine", "admin")
@@ -1444,6 +1500,71 @@ func _cmd_kick(player, args: PackedStringArray) -> void:
 		player.send_message("No online player named '%s'" % (args[0] if args.size() > 0 else ""))
 		return
 	kick(target.peer_id, " ".join(args.slice(1)) if args.size() > 1 else "Kicked by %s" % player.name)
+
+
+## **A ban outlives the session and the name.** `/kick` disconnects and the player is back in two
+## seconds with the same identity; this writes the player id into the world so they are refused at the
+## door, tomorrow as much as now. Works on somebody who is not online, which is when most bans are
+## actually decided.
+func _cmd_ban(player, args: PackedStringArray) -> void:
+	_cmd_exclude(player, args, true)
+
+
+func _cmd_mute(player, args: PackedStringArray) -> void:
+	_cmd_exclude(player, args, false)
+
+
+## `/ban` and `/mute` are the same command with a different verb, so they are one implementation: both
+## take a name or an id, both list, both remove, and both key on the player id.
+func _cmd_exclude(player, args: PackedStringArray, is_ban: bool) -> void:
+	var verb := "ban" if is_ban else "mute"
+	var book: Dictionary = _meta.bans if is_ban else _meta.mutes
+	var first := String(args[0]).to_lower() if args.size() > 0 else ""
+	if first == "list" or first.is_empty():
+		if book.is_empty():
+			player.send_message("Nobody is %sned." % verb if is_ban else "Nobody is muted.")
+			return
+		player.send_message("%sned (%d):" % [verb.capitalize(), book.size()])
+		for id: String in book:
+			var e: Dictionary = book[id]
+			player.send_message("  %s%s" % [str(e.get("name", id)),
+				" - %s" % str(e.get("reason", "")) if not str(e.get("reason", "")).is_empty() else ""])
+		return
+	if first == "remove" or first == "un" + verb:
+		var who := String(args[1]) if args.size() > 1 else ""
+		var id := player_id_of(who)
+		if id.is_empty() or not book.has(id):
+			player.send_message("'%s' is not %sned." % [who, verb])
+			return
+		if is_ban:
+			set_ban(id, false)
+		else:
+			set_mute(id, false)
+		player.send_message("%s is no longer %sned." % [who, verb])
+		return
+	var target_name := String(args[0])
+	var target_id := player_id_of(target_name)
+	if target_id.is_empty():
+		player.send_message("Nobody called '%s' has been here, so there is no identity to %s. They have to join once first." % [target_name, verb])
+		return
+	# Refusing to ban an admin is not politeness: it is the thing that stops one admin locking the
+	# others out of a server nobody can then get back into.
+	if roles.has(target_id, "admin") or roles.has(target_id, "owner") or _config_admins.has(target_id):
+		player.send_message("%s is an admin here. Take that away first if you mean it." % target_name)
+		return
+	var reason := " ".join(args.slice(1)) if args.size() > 1 else ""
+	if is_ban:
+		set_ban(target_id, true, target_name, reason, player.name)
+		var online = _find_online(target_name)
+		if online != null:
+			kick(online.peer_id, "You are banned from this server.%s" % ("  %s" % reason if not reason.is_empty() else ""))
+	else:
+		set_mute(target_id, true, target_name, reason, player.name)
+		var speaking = _find_online(target_name)
+		if speaking != null:
+			speaking.send_message("You have been muted here.%s" % ("  %s" % reason if not reason.is_empty() else ""))
+	player.send_message("%s is %sned." % [target_name, verb])
+	dev_log.add("info", "server", "%s %sned %s (%s)" % [player.name, verb, target_name, target_id])
 
 
 ## Attribution is required when a track is registered precisely so that this can exist. A player, or a
@@ -2760,6 +2881,15 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 			dev_log.add("warn", "server", "%s arrived with a transfer ticket that was refused: %s" % [j.name, accepted.error])
 		else:
 			j.transfer = accepted
+	# **Checked after authentication, not before.** A ban is on a player id, and the id is only proven
+	# once the challenge is answered - refusing on a claimed id would let anybody lock out anybody by
+	# asserting their name.
+	var ban := ban_of(j.player_id)
+	if not ban.is_empty():
+		_joining.erase(peer_id)
+		dev_log.add("info", "server", "%s (%s) is banned and was refused" % [j.name, j.player_id])
+		kick(peer_id, "You are banned from this server.%s" % ("  %s" % str(ban.reason) if not str(ban.get("reason", "")).is_empty() else ""))
+		return
 	if not (j.has("transfer") and j.transfer.entry.admit) and not is_allowed(j.player_id, j.name):
 		_joining.erase(peer_id)
 		dev_log.add("info", "server", "%s (%s) is not on the allowlist" % [j.name, j.player_id])
@@ -3904,6 +4034,12 @@ func on_chat(peer_id: int, text: String) -> void:
 			dev_tools.record(command.mod, "command:/" + parts[0].to_lower(), Time.get_ticks_usec() - t)
 		return
 	if not _may(p, "chat", "You can't chat on this server"):
+		return
+	# **After commands, so a muted player can still use /help and /spawn.** Muting is about what
+	# everybody else has to read, not about taking the game away - and a mute that also stopped
+	# somebody asking how to leave would be a worse thing than the shouting it was meant to stop.
+	if is_muted(p.player_id):
+		p.send_message("You are muted here, so nobody else sees that.")
 		return
 	if gameplay.chat_filter:
 		clean = chat_filter.clean(clean)

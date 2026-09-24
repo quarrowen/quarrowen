@@ -2627,6 +2627,24 @@ permission name (see engine/server/roles.gd).</p></div>
 <div class="card" data-search="is_allowed whether a player may join: always when the allowlist is off; else admins and listed players (by id, or
 by name until that name first joins and binds the entry to the player's identity). server/game_server.gd the server itself"><div class="sig"><code>is_allowed(player_id: String, player_name: String) -&gt; bool</code></div><p>Whether a player may join: always when the allowlist is off; else admins and listed players (by id, or
 by name until that name first joins and binds the entry to the player's identity).</p></div>
+<div class="card" data-search="ban_of whether this player is banned, and what they were told. `{}` when they are not.
+
+**separate from the allowlist on purpose.** the allowlist answers &quot;is this a private server and are
+you on the list&quot;; a ban answers &quot;you in particular are not welcome here&quot;, and it has to work on a
+public server where the allowlist is off. running them together would mean banning somebody turned
+the whole server private. server/game_server.gd the server itself"><div class="sig"><code>ban_of(player_id: String) -&gt; Dictionary</code></div><p>Whether this player is banned, and what they were told. `{}` when they are not.
+
+**Separate from the allowlist on purpose.** The allowlist answers "is this a private server and are
+you on the list"; a ban answers "you in particular are not welcome here", and it has to work on a
+public server where the allowlist is off. Running them together would mean banning somebody turned
+the whole server private.</p></div>
+<div class="card" data-search="is_muted whether this player may not speak. server/game_server.gd the server itself"><div class="sig"><code>is_muted(player_id: String) -&gt; bool</code></div><p>Whether this player may not speak.</p></div>
+<div class="card" data-search="set_ban bans or unbans by player id. the id is the durable half - a name is kept only so the list reads as
+something a person can review. server/game_server.gd the server itself"><div class="sig"><code>set_ban(player_id: String, banned: bool, player_name := &quot;&quot;, reason := &quot;&quot;, by := &quot;&quot;) -&gt; void</code></div><p>Bans or unbans by player id. The id is the durable half - a name is kept only so the list reads as
+something a person can review.</p></div>
+<div class="card" data-search="player_id_of the id behind a name, whether or not they are online - so somebody can be banned while they are
+not there, which is when most bans are actually written. server/game_server.gd the server itself"><div class="sig"><code>player_id_of(name_or_id: String) -&gt; String</code></div><p>The id behind a name, whether or not they are online - so somebody can be banned while they are
+not there, which is when most bans are actually written.</p></div>
 <div class="card" data-search="allowlist_add adds a player by name (or id) to the allowlist. server/game_server.gd the server itself"><div class="sig"><code>allowlist_add(name_or_id: String) -&gt; void</code></div><p>Adds a player by name (or id) to the allowlist.</p></div>
 <div class="card" data-search="allowlist_bind the first time a listed name joins, its entry is tied to that identity (so the name cannot be taken). server/game_server.gd the server itself"><div class="sig"><code>allowlist_bind(player_id: String, player_name: String) -&gt; void</code></div><p>The first time a listed name joins, its entry is tied to that identity (so the name cannot be taken).</p></div>
 <div class="card" data-search="has_permission whether a player's roles grant a permission (config admins have everything). server/game_server.gd the server itself"><div class="sig"><code>has_permission(p, permission: String) -&gt; bool</code></div><p>Whether a player's roles grant a permission (config admins have everything).</p></div>
@@ -2965,7 +2983,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1208 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1212 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

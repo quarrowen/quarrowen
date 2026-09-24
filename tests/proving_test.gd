@@ -254,6 +254,24 @@ func _behaviour(server) -> void:
 	server.on_ui_action(201, "engine:talk", "say:start:1")
 	_check(server.objectives.has(p, "proving:errand"), "an option handed over an objective")
 
+	# Bans and mutes: durable, keyed on the player id, and refusing an admin.
+	var banned_id := "deadbeefdeadbeefdeadbeefdeadbeef"
+	server.set_ban(banned_id, true, "Nuisance", "kept breaking the roof", "Tester")
+	_check(not server.ban_of(banned_id).is_empty(), "a ban is written")
+	_check(String(server.ban_of(banned_id).reason) == "kept breaking the roof", "and remembers why")
+	_check(server.ban_of("someone_else").is_empty(), "and only touches who it names")
+	server.set_ban(banned_id, false)
+	_check(server.ban_of(banned_id).is_empty(), "and can be lifted")
+	server.set_mute(banned_id, true, "Nuisance")
+	_check(server.is_muted(banned_id) and not server.is_muted(p.player_id),
+		"a mute is separate from a ban and from everybody else")
+	server.set_mute(banned_id, false)
+	# The id behind a name, so somebody can be banned while they are not online - which is when most
+	# bans are actually decided. The name half cannot be asserted here: these players are constructed
+	# directly rather than joining, and it is *joining* that binds a name to an id.
+	_check(server.player_id_of(banned_id) == banned_id, "an id given where a name was expected is taken as an id")
+	_check(server.player_id_of("nobody-was-ever-called-this").is_empty(), "and an unknown name resolves to nothing")
+
 	# What somebody is wearing, asked rather than remembered. The empty answer matters as much as the
 	# full one: a slot nobody registered and an empty slot both say 0, so a mod cannot tell them apart
 	# by accident and act on a -1.

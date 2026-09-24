@@ -6439,8 +6439,9 @@ Recorded 2026-09-17 and untouched since. None of it matters for a family server 
 it matters the day anybody else can reach it.
 
 3. No per-IP connection cap and no timeout on a half-finished join: 64 sockets lock everyone out.
-4. No `/ban` and no `/mute`. `/kick` is undoable in two seconds; the allowlist is the only durable
-   exclusion.
+4. ~~No `/ban` and no `/mute`.~~ Done 2026-09-24. Both keyed on the player id, written into the
+   world's metadata beside the allowlist, and enforced after authentication - a ban on a *claimed*
+   id would let anybody lock out anybody by asserting their name.
 5. The join challenge signs only the nonce, so a hostile server can relay a signature. The hub
    already does this correctly, so the fix has a worked example in the tree.
 6. The server parses untrusted PNG and glTF in-process; glTF external-URI resolution and hostile-GLB
@@ -6763,3 +6764,24 @@ Two things it needed, and the interesting part is that only one was expected:
 
 Also fixed: the handler read `target.player_id` without checking there was one. A mob can take against
 another mob, and that target has no player id at all.
+
+### Moderation: bans and mutes (2026-09-24)
+
+`/kick` disconnected somebody and they were back in two seconds with the same identity; the allowlist
+was the only durable exclusion and it makes the whole server private. `/ban` and `/mute` now exist,
+and four decisions in them are worth keeping:
+
+- **Keyed on the player id**, which comes from a keypair and cannot be forged, so a new name does not
+  shake one off. Stored in the world's own metadata, so they survive a restart.
+- **Separate from the allowlist.** The allowlist answers "is this server private and are you on the
+  list"; a ban answers "you in particular are not welcome", and has to work on a public server where
+  the allowlist is off. Running them together would mean banning one person turned the server
+  private for everybody.
+- **Checked after authentication.** A ban is on an id and the id is only *proven* once the challenge
+  is answered. Refusing on a claimed id would let anybody lock out anybody by asserting their name.
+- **An admin cannot be banned**, and a muted player can still use commands. The first stops one admin
+  locking the others out of a server nobody can then get back into; the second is because a mute is
+  about what everybody else has to read, not about taking the game away.
+
+They work on somebody who is not online, which is when most bans are actually decided - `player_id_of`
+resolves a name through the same table that binds names to identities at join.
