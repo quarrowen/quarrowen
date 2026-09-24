@@ -6506,9 +6506,12 @@ it matters the day anybody else can reach it.
 25. **Charms and trinkets have no visual path at all** - no mesh, no armour texture. A glowing charm
     is invisible as well as unlit.
 26. **The Moonpearl night effect** - the last of the three agreed with the user, unstarted.
-27. **Firstlight depends on the guidebook and never uses it.** 21 pages load and no act, conversation
-    or task points at one. The guidebook also still lives in its own mod "under protest" and was
-    always meant to move into the guided game, which now exists.
+27. **Firstlight's story never points at a guide page** - overstated in the first version of this
+    list as "depends on the guidebook and never uses it", which is wrong: G opens the book, the HUD
+    badges unread pages ("Guide - 7 new"), and all 21 are reachable. What is missing is smaller and
+    still worth doing: no act, conversation or task links to the page that would help with it. The
+    guidebook also still lives in its own mod "under protest" and was always meant to move into the
+    guided game, which now exists.
 28. **Guide pages for copper, gold, sunstone and the newer ores** - the book covers only the older.
 29. **Model-block collision is one cell, so tree canopies are walk-through.** Deferred until `base`
     had trees; it has them now.
