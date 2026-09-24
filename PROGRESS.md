@@ -6142,3 +6142,51 @@ The client starts its own headless server when you pick a game, so there is noth
 Two traps: it strips the MCP autoloads from `project.godot` (check `git diff` afterwards), and
 `user://` is the installed app's real folder, so worlds land beside the children's unless
 `QW_USER_DIR` points somewhere else.
+
+### Ninety seconds of play found two things the suite did not (2026-09-24)
+
+The user ran Firstlight from source and immediately hit both.
+
+**The host of a survival world could fly.** Hosting makes you admin, `admin`'s permissions are
+`["*", "-roles.owner"]`, and `*` includes `fly` - so whoever starts the world is not playing the same
+game as the other child. Three ways out were put to the user; they chose **a game can refuse flight**,
+which is now a `flight` gameplay rule, default true, false in Firstlight.
+
+The distinction that makes it work: **a double-tap on jump is an accident, `/fly` is a decision.** So
+`may_fly(p, deliberate)` lets the command through for anyone holding the permission and stops the
+double-tap. A game saying "this is not a game you fly in" is not the same as "the admin may never
+fly". Three assertions in `gameplay_test`, all seen to pass.
+
+**And the menu backdrop had been throwing on every frame** - `_request_chunk` took a `Realm` in the
+dimensions work and neither caller in `menu_backdrop.gd` was updated. GDScript checks arity at call
+time, so nothing failed to parse; the world behind the menu simply never generated, which reads as a
+still image rather than as a bug.
+
+### The check that would have caught both, and the white water
+
+The e2e tests launch a real client, so they *run* this code. They assert on gameplay and not on the
+log, which is why a script error repeating every frame passes. **A check that fails a run when the
+client prints `SCRIPT ERROR` would have caught the backdrop, the shader that never compiled, and
+probably the next one.** Not built; worth building.
+
+### Add-ons no longer offer what the game already requires
+
+*"i thought the firstlight game spec would already specify which mods it depends on"* - it does, and
+the Play dialog offered them as tick-boxes anyway, then loaded them regardless if you said no. The
+list now subtracts the chosen game's transitive dependencies and rebuilds when the choice changes.
+Firstlight requires all three, so it shows no add-ons at all.
+
+Worth recording how that went wrong on the way: the first attempt used the rebuild lambda above its
+own `var`, which is a **parse error that takes the entire menu down** - the client came up with no
+menu at all. Caught by relaunching rather than by assuming, which is the whole lesson of this entry.
+
+### Still missing from Firstlight, and the user noticed
+
+*"isnt it supposed to be a guided story? i dont see the quest/task list"* - correct, and not a bug.
+The game today has a world, monsters, food and gear, and **no stated goal and nothing tracking
+progress**. The Colossus ending was agreed and deliberately not started. `register_objective` exists
+and nothing uses it. That is the next piece and the one that turns this from a sandbox with hunger
+into a game.
+
+Two different things worth keeping apart: a **guided story** (the guidebook's real home, still its own
+game on the roadmap) and **Firstlight's far goal** (gear up, find the deep, wake the Colossus).

@@ -10719,7 +10719,7 @@ when it finishes. Returns false if a backup is already running.
 
 *server/game_server.gd*
 
-GDScript: `set_flying(p: ServerPlayer, enabled: bool) -> bool`
+GDScript: `set_flying(p: ServerPlayer, enabled: bool, deliberate := false) -> bool`
 
 Starts or stops flight for a player, telling their client. Returns false when they may not fly.
 
@@ -10729,9 +10729,12 @@ Starts or stops flight for a player, telling their client. Returns false when th
 
 *server/game_server.gd*
 
-GDScript: `may_fly(p: ServerPlayer) -> bool`
+GDScript: `may_fly(p: ServerPlayer, deliberate := false) -> bool`
 
 Creative players fly; anyone else needs the "fly" permission.
+Whether `p` may fly. `deliberate` is a command rather than a double-tap on the jump key: a game that
+turns flight off is saying "this is not a game you fly in", not "the admin may never fly", so an
+explicit `/fly` still goes through and an accidental double-tap does not.
 
 **See also:** `has_permission`
 

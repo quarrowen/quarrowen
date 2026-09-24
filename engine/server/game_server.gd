@@ -211,6 +211,11 @@ var gameplay := {
 	"sleeping": true,  # beds let players sleep through the night (they always set the respawn point)
 	"sleep_percentage": 100,  # percent of online players who must sleep to skip the night
 	"mob_spawning": true,
+	# Whether flight is available at all here. Off in a survival game: the host of a world is its admin
+	# and admin's "*" includes `fly`, so without this the person hosting - often a child on their own
+	# world - can always fly, and survival quietly is not survival. `/fly` still works for somebody who
+	# has the permission and means it; this only stops the double-tap. (the user, 2026-09-24)
+	"flight": true,
 	"mob_griefing": true,  # explosions caused by mobs break blocks
 	"durability": true,  # tools, weapons and armor wear out
 	"tray_access": "contributors",  # station trays: "contributors" (plus owner and team) | "anyone"
@@ -1619,8 +1624,8 @@ func _cmd_heal(player, args: PackedStringArray) -> void:
 
 
 ## Starts or stops flight for a player, telling their client. Returns false when they may not fly.
-func set_flying(p: ServerPlayer, enabled: bool) -> bool:
-	if enabled and not may_fly(p):
+func set_flying(p: ServerPlayer, enabled: bool, deliberate := false) -> bool:
+	if enabled and not may_fly(p, deliberate):
 		return false
 	if p.state.flying == enabled:
 		return true
@@ -1633,8 +1638,13 @@ func set_flying(p: ServerPlayer, enabled: bool) -> bool:
 
 
 ## Creative players fly; anyone else needs the "fly" permission.
-func may_fly(p: ServerPlayer) -> bool:
-	return p.inventory.creative or has_permission(p, "fly")
+## Whether `p` may fly. `deliberate` is a command rather than a double-tap on the jump key: a game that
+## turns flight off is saying "this is not a game you fly in", not "the admin may never fly", so an
+## explicit `/fly` still goes through and an accidental double-tap does not.
+func may_fly(p: ServerPlayer, deliberate := false) -> bool:
+	if p.inventory.creative:
+		return true
+	return has_permission(p, "fly") and (deliberate or bool(gameplay.get("flight", true)))
 
 
 func on_set_flying(peer_id: int, enabled: bool) -> void:
@@ -1646,7 +1656,7 @@ func on_set_flying(peer_id: int, enabled: bool) -> void:
 
 
 func _cmd_fly(player, _args: PackedStringArray) -> void:
-	if not set_flying(player, not player.state.flying):
+	if not set_flying(player, not player.state.flying, true):
 		player.send_message("Flying is not allowed for you here (creative mode, or ask an admin for the \"fly\" permission)")
 		return
 	player.send_message("Flying: %s (double-tap jump in game; jump rises, crouch sinks)" % ("on" if player.state.flying else "off"))

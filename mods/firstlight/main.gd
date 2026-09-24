@@ -34,15 +34,16 @@ func setup(api) -> void:
 
 ## What kind of game this is, in one dictionary.
 ##
-## The three that are not the obvious choice, and why:
+## The three that are not the obvious choice, and why (`pvp` is on at the user's request - see below):
 ##
 ## - **`keep_inventory: false`, which sounds harsher than it is.** `base` gives a death a **grave** - a
 ##   container block holding everything, that only the player who died can open. So dying costs you the
 ##   walk back and the nerve to make it, not an afternoon's work. That is the whole bargain: a
 ##   consequence a child can recover from is a consequence they will take seriously; one they cannot is
 ##   a child who stops playing.
-## - **`pvp: false`.** Two siblings on one server. This is not a thing they should be able to do to each
-##   other by accident, or on purpose.
+## - **`flight: false`.** The host of a world is its admin and admin's `*` includes `fly`, so without
+##   this whoever starts the world is not playing the same game as the other child. Found by playing
+##   it, which is the only way this sort of thing is found.
 ## - **`mob_griefing: false`.** A Boomshroom walking into the house you spent an evening on and taking a
 ##   wall out is the single most demoralising thing this genre does to a new player. The creature still
 ##   goes off and still hurts; it just cannot unbuild anything.
@@ -57,6 +58,12 @@ func _rules(api) -> void:
 		"fall_damage": true,
 		"durability": true,
 		"mob_spawning": true,
+		# **No flying.** The host of a world is its admin, and admin's "*" permission includes `fly` -
+		# so without this the person hosting can always fly, which in a game for two children means
+		# whoever started the world is not playing the same game as the other one. Found by the user
+		# playing it, which is the only way this sort of thing is found. `/fly` still works for an
+		# admin who means it. (2026-09-24)
+		"flight": false,
 		"natural_regeneration": true,
 		"keep_inventory": false,
 		"mob_griefing": false,

@@ -128,6 +128,30 @@ func installed_games() -> Array:
 	return _games
 
 
+## Every mod `game_id` brings with it, transitively, including itself.
+##
+## **A game's dependencies are not add-ons.** Firstlight declares `simple_machines`, `simple_gear` and
+## `guidebook`, the loader pulls them in whether or not anybody ticks a box, and offering them anyway
+## asks the player to choose something that is not a choice - then loads it regardless if they say no,
+## which is worse than the question. (the user, 2026-09-24: "i thought the firstlight game spec would
+## already specify which mods it depends on")
+func _required_by(game_id: String) -> Dictionary:
+	var out := {}
+	var pending: Array = [game_id]
+	while not pending.is_empty():
+		var id: String = pending.pop_back()
+		if out.has(id):
+			continue
+		out[id] = true
+		for m in _games + _addons:
+			if str(m.id) != id:
+				continue
+			for dep in m.get("depends", []):
+				if dep is Dictionary and not out.has(str(dep.id)):
+					pending.append(str(dep.id))
+	return out
+
+
 func _discover_mods() -> void:
 	_games = []
 	_addons = []
@@ -501,25 +525,41 @@ func open_new_world() -> void:
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	description.custom_minimum_size = Vector2(520, 36)  # wrapping labels need a width, or the dialog grows very tall
 	box.add_child(description)
-	game.item_selected.connect(func(i): description.text = str(_games[i].description))
-	# The first installed game. This used to look for "vanilla" and fall back to the first; with that
-	# mod gone the search never matched, so the fallback was all that ever ran. (2026-09-21)
-	if not _games.is_empty():
-		game.select(0)
-		description.text = str(_games[0].description)
+	# Add-ons, minus whatever the chosen game already requires - and rebuilt when that choice changes,
+	# because two games rarely depend on the same set. Declared before the dropdown is wired up: a
+	# lambda is a local, so using it above its `var` is a parse error and takes the whole menu with it.
 	var checks := []
-	if not _addons.is_empty():
-		box.add_child(MenuTheme.muted("Add-ons"))
-		var flow := HFlowContainer.new()
-		flow.custom_minimum_size = Vector2(520, 40)  # a width, so it does not measure as one item per line
-		box.add_child(flow)
+	var addon_label := MenuTheme.muted("Add-ons")
+	box.add_child(addon_label)
+	var flow := HFlowContainer.new()
+	flow.custom_minimum_size = Vector2(520, 40)  # a width, so it does not measure as one item per line
+	box.add_child(flow)
+	var rebuild_addons := func(index: int) -> void:
+		checks.clear()
+		for child in flow.get_children():
+			flow.remove_child(child)  # out of the tree first: queue_free frees at end of frame (CLAUDE.md)
+			child.queue_free()
+		var required: Dictionary = _required_by(str(_games[index].id)) if index >= 0 and index < _games.size() else {}
 		for a in _addons:
+			if required.has(str(a.id)):
+				continue
 			var check := CheckBox.new()
 			check.text = a.name
 			check.tooltip_text = str(a.description)
 			check.set_meta("id", a.id)
 			flow.add_child(check)
 			checks.append(check)
+		addon_label.visible = not checks.is_empty()
+		flow.visible = not checks.is_empty()
+	game.item_selected.connect(func(i):
+		description.text = str(_games[i].description)
+		rebuild_addons.call(i))
+	# The first installed game. This used to look for "vanilla" and fall back to the first; with that
+	# mod gone the search never matched, so the fallback was all that ever ran. (2026-09-21)
+	if not _games.is_empty():
+		game.select(0)
+		description.text = str(_games[0].description)
+	rebuild_addons.call(0 if not _games.is_empty() else -1)
 	var seed_edit: LineEdit = _labeled(box, "Seed", LineEdit.new())
 	seed_edit.placeholder_text = "random (or any word or number)"
 	var status := Label.new()

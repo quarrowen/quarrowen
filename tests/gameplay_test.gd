@@ -745,6 +745,22 @@ func _movement() -> void:
 
 	# Survival: no flying without the permission, and walking off the platform falls.
 	_check(not server.set_flying(p, true) and not p.state.flying, "a survival player without the permission cannot fly")
+
+	# **A game can refuse flight outright**, which is what stops the host of a survival world flying
+	# over it: hosting makes you admin, and admin's "*" permission includes `fly`. The distinction is
+	# between a double-tap on jump, which is an accident, and `/fly`, which is somebody deciding - so
+	# the deliberate form still goes through for anyone who has the permission. (the user found this by
+	# playing Firstlight and flying, 2026-09-24)
+	server.roles.give(p.player_id, "admin")
+	_check(server.may_fly(p), "an admin can fly where the game allows it")
+	server.gameplay.flight = false
+	_check(not server.set_flying(p, true) and not p.state.flying,
+		"and cannot when the game says no, however many permissions they have")
+	_check(server.set_flying(p, true, true) and p.state.flying,
+		"but an explicit /fly still obeys them - the rule stops the double-tap, not the decision")
+	server.set_flying(p, false)
+	server.gameplay.flight = true
+
 	p.set_creative(true)
 	_check(server.set_flying(p, true) and p.state.flying, "a creative player can fly")
 	var start_y: float = p.state.position.y

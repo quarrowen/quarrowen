@@ -109,7 +109,8 @@ GDScript: `api.set_gameplay(values: Dictionary) -> void`
 JavaScript: `api.setGameplay(values)`
 
 Game-wide rules: item_drops ("entity" | "inventory"), keep_inventory, pvp, fall_damage,
-natural_regeneration, mob_spawning.
+natural_regeneration, mob_spawning, flight (false stops the double-tap in a survival game; `/fly`
+still obeys an admin who means it). See GameServer.gameplay for the full list and the defaults.
 
 ```gdscript
 api.set_gameplay({"keep_inventory": true, "natural_regeneration": true, "tutorials": true})

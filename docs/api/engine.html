@@ -2576,8 +2576,14 @@ it is, which is the whole reason this crosses the wire at all.</p></div>
 <div class="card" data-search="backup_now flushes pending saves, then archives the world on a worker thread. `requester` (peer id) is told
 when it finishes. returns false if a backup is already running. server/game_server.gd the server itself"><div class="sig"><code>backup_now(requester := 0) -&gt; bool</code></div><p>Flushes pending saves, then archives the world on a worker thread. `requester` (peer id) is told
 when it finishes. Returns false if a backup is already running.</p></div>
-<div class="card" data-search="set_flying starts or stops flight for a player, telling their client. returns false when they may not fly. server/game_server.gd the server itself"><div class="sig"><code>set_flying(p: ServerPlayer, enabled: bool) -&gt; bool</code></div><p>Starts or stops flight for a player, telling their client. Returns false when they may not fly.</p></div>
-<div class="card" data-search="may_fly creative players fly; anyone else needs the &quot;fly&quot; permission. server/game_server.gd the server itself"><div class="sig"><code>may_fly(p: ServerPlayer) -&gt; bool</code></div><p>Creative players fly; anyone else needs the "fly" permission.</p></div>
+<div class="card" data-search="set_flying starts or stops flight for a player, telling their client. returns false when they may not fly. server/game_server.gd the server itself"><div class="sig"><code>set_flying(p: ServerPlayer, enabled: bool, deliberate := false) -&gt; bool</code></div><p>Starts or stops flight for a player, telling their client. Returns false when they may not fly.</p></div>
+<div class="card" data-search="may_fly creative players fly; anyone else needs the &quot;fly&quot; permission.
+whether `p` may fly. `deliberate` is a command rather than a double-tap on the jump key: a game that
+turns flight off is saying &quot;this is not a game you fly in&quot;, not &quot;the admin may never fly&quot;, so an
+explicit `/fly` still goes through and an accidental double-tap does not. server/game_server.gd the server itself"><div class="sig"><code>may_fly(p: ServerPlayer, deliberate := false) -&gt; bool</code></div><p>Creative players fly; anyone else needs the "fly" permission.
+Whether `p` may fly. `deliberate` is a command rather than a double-tap on the jump key: a game that
+turns flight off is saying "this is not a game you fly in", not "the admin may never fly", so an
+explicit `/fly` still goes through and an accidental double-tap does not.</p></div>
 <div class="card" data-search="damage_player returns true if damage applied. `direction` sets the knockback direction (defaults to away from
 the attacker). `bypass_cooldown` lets continuous damage (void) ignore the invulnerability window. server/game_server.gd the server itself"><div class="sig"><code>damage_player(p: ServerPlayer, amount: float, cause: String, attacker = null, direction := Vector3.ZERO, bypass_cooldown := false, knockback := 6.0) -&gt; bool</code></div><p>Returns true if damage applied. `direction` sets the knockback direction (defaults to away from
 the attacker). `bypass_cooldown` lets continuous damage (void) ignore the invulnerability window.</p></div>
