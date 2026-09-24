@@ -76,6 +76,12 @@ func setup(api) -> void:
 	# there is none. Deep, rare, and only cobalt tools will lift it.
 	api.register_block("sunstone_ore", {"group": "Ore", "textures": "textures/sunstone_ore.png", "display_name": "Sunstone Ore",
 		"drops": "base:sunstone", "sounds": stone, "hardness": 5.0, "tier": 4, "tool": "pickaxe"})
+	# Sunstone gathered back into a solid block, which glows in its own right. A noun and nothing more:
+	# no recipe here, because how you get one is a rule and rules belong to a game. Firstlight builds
+	# an altar out of these; another game may decide they are simply a nice lamp. (2026-09-24)
+	api.register_block("sunstone_block", {"group": "Ore", "textures": "textures/sunstone_block.png",
+		"display_name": "Sunstone Block", "sounds": stone, "hardness": 3.0, "tier": 2, "tool": "pickaxe",
+		"light": 15})
 	# The same metals again, set in deepstone instead of stone. Harder to break and they look different,
 	# so mining *down* is a different activity from mining *along* rather than the same one lower - and
 	# the wall tells a child how deep they are without reading a coordinate.

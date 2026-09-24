@@ -405,6 +405,10 @@ func _init() -> void:
 	# A light you can carry, as opposed to the torch you have to put down (mods/simple_gear).
 	_save(_lantern(), gear + "hand_lantern.png")
 
+	# Sunstone gathered into a block. The ore is flecks of it in grey; this is the stone itself, so it
+	# is the same orange over its own warm ground rather than over stone.
+	_save(_noise(Color(0.98, 0.66, 0.26), 0.09), base + "sunstone_block.png")
+
 	# A SceneTree script runs until it is told not to. Without this the tool wrote every texture
 	# correctly and then sat there for ever; three of them were found still running an hour later,
 	# looking like a hung build rather than a finished one. (2026-09-19)
