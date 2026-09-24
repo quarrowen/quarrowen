@@ -6109,3 +6109,36 @@ from waiting into something you do; and **the Ancient Colossus as an ending** - 
 with 300 health and a boss preset and nothing has ever spawned it. A multiblock built deep from blocks
 `base` already has is the likely way to wake it, since there is no sunstone *block*, only the ore and
 the item.
+
+### The menu backdrop has been failing every frame, and only launching it showed that (2026-09-24)
+
+The user asked to run the game from source. The client came up, and the log was one error repeated
+forever:
+
+```
+SCRIPT ERROR: Invalid call to function '_request_chunk' in base 'Node (game_server.gd)'.
+              Expected 2 argument(s).   at: _poll_jobs (menu_backdrop.gd:328)
+```
+
+`_request_chunk` gained a `Realm` parameter in the dimensions work and the two callers in
+`menu_backdrop.gd` were never updated. **GDScript only checks arity at call time**, so nothing failed
+to parse, no test caught it, and the menu has been throwing on every frame of its own backdrop - the
+world behind the menu simply never generated, which reads as "the backdrop is a still image" rather
+than as a bug. That is the third thing this week that was invisible until somebody looked at the
+running thing rather than the source: the white water, the spawn rules, this.
+
+Worth noticing what did *not* catch it. The suite launches the client for the e2e tests, so it runs
+this code - but it asserts on gameplay, not on a clean log. A check that fails the run when the
+client prints SCRIPT ERROR would have caught this, the white water's shader failure, and probably the
+next one. Recorded rather than built.
+
+**How to run it from source**, since it was not written down anywhere:
+
+```sh
+/Applications/Godot.app/Contents/MacOS/Godot --path . res://scenes/main.tscn
+```
+
+The client starts its own headless server when you pick a game, so there is nothing else to launch.
+Two traps: it strips the MCP autoloads from `project.godot` (check `git diff` afterwards), and
+`user://` is the installed app's real folder, so worlds land beside the children's unless
+`QW_USER_DIR` points somewhere else.

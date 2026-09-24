@@ -325,7 +325,7 @@ func _poll_jobs() -> void:
 		var ahead: Vector2i = _queue[i]
 		for dx in range(-1, 2):
 			for dz in range(-1, 2):
-				_server._request_chunk(ahead + Vector2i(dx, dz))
+				_server._request_chunk(_server.realm, ahead + Vector2i(dx, dz))
 	while _jobs.size() < MESH_JOBS and not _queue.is_empty():
 		var coord: Vector2i = _queue[0]
 		var missing := false
@@ -334,7 +334,7 @@ func _poll_jobs() -> void:
 				var c := coord + Vector2i(dx, dz)
 				if not _server.world.chunks.has(c):
 					missing = true
-					_server._request_chunk(c)
+					_server._request_chunk(_server.realm, c)
 		if missing:
 			return
 		_queue.pop_front()
