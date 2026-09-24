@@ -46,6 +46,10 @@ func _ready() -> void:
 		client._debug_label.visible = false
 		if client._tutorial_hud != null:
 			client._tutorial_hud.visible = false
+		# The task list is part of the interface too. Missed when it was added this morning, and the
+		# first picture that wanted a clean world had a quest log in the corner of it.
+		if client._objective_hud != null:
+			client._objective_hud.visible = false
 	if not String(options.menu).is_empty():
 		Net.c_open_menu.rpc_id(1, options.menu)
 	if not String(options.map).is_empty():

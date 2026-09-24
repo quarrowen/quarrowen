@@ -6427,9 +6427,11 @@ to leave alone, not by age. Roughly a hundred items; the shape matters more than
    games section and the per-mod download tables are gone from gh-pages, and a line under the
    download says 0.41.1 still works, its games were retired, and the next version is being rebuilt.
    The 0.41.1 downloads are left alone because they work and there is nothing else to offer yet.
-2. **`tools/make_release.sh` still refuses to run until its landing-page section is rewritten.** The
-   live page is now honest, but the *generator* still emits the old shape, so the first release after
-   this will put the dead games straight back. Fix the generator before cutting anything.
+2. ~~**`tools/make_release.sh` still refuses to run until its landing-page section is rewritten.**~~
+   Done 2026-09-24. The hand-written "Four games, one download" section is gone, the hero image no
+   longer carries a deleted game's name, and the mod tables were always generated from each
+   `mod.json` - so the page now names Creative, Firstlight and the four packs because those are what
+   is in the build. The guard is removed with it.
 
 ### Security - the cluster that blocks public hosting
 
@@ -6630,3 +6632,29 @@ the texture's emission is capped at 0.5 while the *light* keeps the full energy.
 reads as a wider, brighter pool rather than a brighter box. And the server picked the brightest armour
 glow by energy alone, so a bright-but-lightless piece could mask a dimmer one that actually lit the
 room; a piece that lights now beats one that only shines.
+
+### The release page generates itself now (2026-09-24)
+
+`make_release.sh` had refused to build since 21 September, and the refusal was right: it carried a
+hand-written section describing Hearthhold, Vanilla, One Block and Sky Islands, with a screenshot of
+each, three days after all four were deleted. Publishing would have advertised games nobody could
+play, quietly, because a stale `<section>` is still valid HTML.
+
+The fix was mostly deletion. **The mod tables were never the problem** - they are built from each
+`mod.json` in the build, so today they name Creative, Firstlight and the four packs without anybody
+editing anything. What went was the hand-written part: the four game cards, the hero image called
+`vanilla-vista.jpg` (renamed `hero.jpg` - the picture itself is generic terrain, only its name named
+a dead game), the line "Hearthhold is a mod. Vanilla is a mod.", and the button pointing at the
+section that no longer exists. Four screenshots of deleted games went with them.
+
+The general point, and the reason the guard could go rather than be updated: **a page generated from
+the build cannot go stale the way one written by hand does.** The guard existed because the page had
+facts in it that nothing checked; the parts that remain are either generated or say nothing that can
+expire.
+
+Verified by extracting the generator's heredoc and expanding it with stand-in values, because a real
+dry run needs a notarised build. The page it emits is balanced HTML, has the same five sections as
+the one published by hand, and mentions none of the four.
+
+Also fixed on the way: `--hud=0` in the screenshot harness did not hide the task list, which was
+added this morning. The first picture that wanted a clean world had a quest log in the corner.

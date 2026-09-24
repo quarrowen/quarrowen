@@ -29,28 +29,15 @@ case "$base_url" in */releases/download/*) flat=1 ;; esac
 notes="${NOTES:-A new version of Quarrowen.}"
 files="v$version"
 
-# The download page still sells Hearthhold, Vanilla, One Block and Sky Islands, with screenshots of
-# each. All four were deleted on 21 September 2026, so publishing now would advertise games that are
-# not in the build - and it would do it quietly, because a stale <section> is still valid HTML.
+# **The page lists the mods that are in the build**, read from each mod.json, rather than describing
+# games in hardcoded HTML. It did the latter until 2026-09-24, and a guard sat here refusing to build
+# because the four games it described had been deleted three days earlier - so the page would have
+# advertised games nobody could play, quietly, because a stale <section> is still valid HTML.
 #
-# Refusing here rather than leaving a note in a file somebody has to remember to read. This fires
-# before package_mac.sh, so it costs a second rather than a notarised build, and it names the fix.
-# Delete this block as part of writing the new games section. (2026-09-21)
-if [ "${QW_SITE_IS_REWRITTEN:-0}" != "1" ]; then
-  cat >&2 <<'BLOCKED'
-make_release.sh: refusing to build.
-
-The "Four games, one download" section of the download page describes Hearthhold, Vanilla, One Block
-and Sky Islands. Those mods were deleted on 21 September 2026 and are not in this build, so the page
-would be advertising games nobody can play, alongside screenshots of them.
-
-Rewrite that section (and the hero image, and the "Hearthhold is a mod. Vanilla is a mod." line in the
-modding blurb) for whatever 1.0 actually ships, then delete this guard from tools/make_release.sh.
-
-To build anyway - for a dry run, never to publish - set QW_SITE_IS_REWRITTEN=1.
-BLOCKED
-  exit 1
-fi
+# The guard is gone because the thing it guarded against is: the hand-written "Four games, one
+# download" section has been removed, the hero image no longer carries a deleted game's name, and the
+# only mods the page names are the ones whose zips are beside it. A page generated from the build
+# cannot go stale the way one written by hand does, which is the actual fix. (2026-09-24)
 
 rm -rf "$out"
 mkdir -p "$out/$files/mods"
@@ -182,7 +169,7 @@ done
 mod_sections=""
 [ -n "$games_rows" ] && mod_sections="$mod_sections<h3>Games</h3><p class=\"dim\">A world runs one of these.</p><table>$games_rows</table>"
 [ -n "$addon_rows" ] && mod_sections="$mod_sections<h3>Add-ons</h3><p class=\"dim\">Extra content on top of a game.</p><table>$addon_rows</table>"
-[ -n "$library_rows" ] && mod_sections="$mod_sections<h3>Library</h3><p class=\"dim\">Blocks and items the others are built on; every game needs it.</p><table>$library_rows</table>"
+[ -n "$library_rows" ] && mod_sections="$mod_sections<h3>Packs</h3><p class=\"dim\">What a game is built from. A game names the ones it wants.</p><table>$library_rows</table>"
 
 cat > "$out/index.html" <<EOF
 <!doctype html>
@@ -344,7 +331,7 @@ cat > "$out/index.html" <<EOF
 </style>
 
 <div class="hero">
-  <img class="hero-img" src="shots/vanilla-vista.jpg"
+  <img class="hero-img" src="shots/hero.jpg"
        alt="Green hills with an ore-streaked cliff, trees and a beach beyond.">
   <div class="wrap">
     <p class="name">Quarrowen</p>
@@ -353,7 +340,7 @@ cat > "$out/index.html" <<EOF
     rules all arrive from whichever server you join.</p>
     <div class="cta">
       <a class="btn" href="$dmg_url">Download for Mac <small>$version · $(human "$out/$files/$download_name")</small></a>
-      <a class="btn ghost" href="#games">See the games</a>
+      <a class="btn ghost" href="/docs/">Read the reference</a>
     </div>
     <p class="under">Apple silicon · signed and notarized · updates itself · $notes</p>
     $win_button
@@ -361,74 +348,6 @@ cat > "$out/index.html" <<EOF
 </div>
 
 <div class="wrap">
-
-<section id="games">
-  <h2>Four games, <span>one download</span></h2>
-  <p class="sub">Every one of these is a mod. None of it is built into the app — so your server can load
-  something else entirely, and everyone who joins gets it automatically.</p>
-
-  <div class="game">
-    <div class="shot">
-      <img src="shots/hearthhold-outpost.jpg" alt="An abandoned outpost with a charter board, a cold hearth, and the tutorial pointing the way.">
-    </div>
-    <div>
-      <p class="kind">Story</p>
-      <h3>Hearthhold</h3>
-      <p>A valley whose light went out. Light the hearth, see the night out, then find the people who
-      scattered into the hills and build them somewhere to live. The guidebook fills in as you play, so
-      afterwards it reads as the story of what actually happened to you.</p>
-      <div class="figures">
-        <div><b>157</b> blocks</div><div><b>294</b> assets</div><div><b>4</b> chapters</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="game">
-    <div class="shot">
-      <img src="shots/vanilla-hills.jpg" alt="Green hills, a cliff face, a beach and grazing animals, with the hotbar and health below.">
-    </div>
-    <div>
-      <p class="kind">Survival &amp; building</p>
-      <h3>Vanilla</h3>
-      <p>Generated terrain with caves, ores, weather, animals, monsters and a seven-block boss in its own
-      arena. Recipes are discovered by experimenting rather than looked up, which is the good bit.</p>
-      <div class="figures">
-        <div><b>156</b> blocks</div><div><b>294</b> assets</div><div><b>4</b> gear tiers</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="game">
-    <div class="shot">
-      <img src="shots/oneblock-vista.jpg" alt="A single block suspended in empty sky.">
-    </div>
-    <div>
-      <p class="kind">Challenge</p>
-      <h3>One Block</h3>
-      <p>Everyone gets a single block over the void, and it comes back as something else each time you
-      break it — dirt, then stone and ores, then stranger things, with the odd creature or crate of
-      treasure instead.</p>
-      <div class="figures">
-        <div><b>153</b> blocks</div><div><b>287</b> assets</div><div><b>6</b> phases</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="game">
-    <div class="shot">
-      <img src="shots/skyblock.jpg" alt="A tiny island in an empty sky, with a list of challenges.">
-    </div>
-    <div>
-      <p class="kind">Challenge</p>
-      <h3>Sky Islands</h3>
-      <p>An island each, a cobblestone generator, and a list of challenges to stretch what little you
-      started with. Don't fall off.</p>
-      <div class="figures">
-        <div><b>112</b> blocks</div><div><b>153</b> assets</div><div><b>12</b> challenges</div>
-      </div>
-    </div>
-  </div>
-</section>
 
 <section id="different">
   <h2>How this is <span>different</span></h2>
@@ -451,8 +370,8 @@ cat > "$out/index.html" <<EOF
     <div class="diff">
       <h3>A mod can change anything</h3>
       <p>Blocks, creatures and their AI, world generation, machines, crafting, UI panels, commands,
-      whole games. Hearthhold is a mod. Vanilla is a mod. The engine only supplies capabilities, which
-      means anything the bundled games do, yours can do.</p>
+      whole games. Every game that ships with it is a mod too. The engine only supplies capabilities,
+      which means anything a bundled game does, yours can do.</p>
     </div>
     <div class="diff">
       <h3>Two languages, one of them sandboxed</h3>

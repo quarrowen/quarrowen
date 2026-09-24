@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bvtc5rd1hlg0m"
-path="res://.godot/imported/hearthhold-vista.jpg-c92f1e5bddd5ace0f92d36c374c17255.ctex"
+uid="uid://dbldk44sypmy5"
+path="res://.godot/imported/hero.jpg-8686de91c92d72a39e6f688bd40ed792.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://site/screenshots/hearthhold-vista.jpg"
-dest_files=["res://.godot/imported/hearthhold-vista.jpg-c92f1e5bddd5ace0f92d36c374c17255.ctex"]
+source_file="res://site/screenshots/hero.jpg"
+dest_files=["res://.godot/imported/hero.jpg-8686de91c92d72a39e6f688bd40ed792.ctex"]
 
 [params]
 
