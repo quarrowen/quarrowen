@@ -32,11 +32,16 @@ def parse_box(spec):
     parts = spec.split(",")
     lo = [float(v) for v in parts[0:3]]
     hi = [float(v) for v in parts[3:6]]
-    color = parts[6].lstrip("#")
+    # A trailing "!" means the box glows: "#e8a33d!" is a lantern, not a lantern-coloured block. It
+    # becomes a glTF emissive factor, which Godot imports as material emission - so the light is part
+    # of the model and no mod has to remember to switch it on. (2026-09-24)
+    token = parts[6].strip()
+    glowing = token.endswith("!")
+    color = token.rstrip("!").lstrip("#")
     srgb = [int(color[i : i + 2], 16) / 255.0 for i in (0, 2, 4)]
     # glTF color factors are linear; hex colors are sRGB.
     rgb = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in srgb]
-    return lo, hi, rgb
+    return lo, hi, rgb, glowing
 
 
 def parse_parts(args):
@@ -79,7 +84,7 @@ def main():
     for part_index, (part_name, pivot, part_boxes) in enumerate(parts):
       doc["nodes"].append({"name": part_name, "mesh": part_index, "translation": pivot})
       doc["meshes"].append({"name": part_name, "primitives": []})
-      for lo, hi, rgb in part_boxes:
+      for lo, hi, rgb, glowing in part_boxes:
         index = len(doc["materials"])
         boxes += 1
         lo = [lo[a] - pivot[a] for a in range(3)]
@@ -100,7 +105,13 @@ def main():
             {"bufferView": nrm_view, "componentType": 5126, "count": len(normals), "type": "VEC3"},
             {"bufferView": idx_view, "componentType": 5123, "count": len(indices), "type": "SCALAR"},
         ]
-        doc["materials"].append({"pbrMetallicRoughness": {"baseColorFactor": rgb + [1.0], "metallicFactor": 0.1, "roughnessFactor": 0.8}})
+        material = {"pbrMetallicRoughness": {"baseColorFactor": rgb + [1.0], "metallicFactor": 0.1, "roughnessFactor": 0.8}}
+        if glowing:
+            # Full-strength emission in the box's own colour, so a lantern reads as lit rather than as
+            # a pale block, and keeps reading at night when it is the only thing a child can see.
+            material["emissiveFactor"] = rgb
+            material["extensions"] = {"KHR_materials_emissive_strength": {"emissiveStrength": 2.5}}
+        doc["materials"].append(material)
         doc["meshes"][part_index]["primitives"].append({"attributes": {"POSITION": acc, "NORMAL": acc + 1}, "indices": acc + 2, "material": index})
 
     binary.extend(b"\0" * (-len(binary) % 4))
