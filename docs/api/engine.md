@@ -760,6 +760,24 @@ goes into `data`.
 
 **See also:** `get_block_data`, `get_block_loaded`, `get_block_state`
 
+### `nearest`
+
+*server/worldgen/structures.gd*
+
+GDScript: `nearest(set_name: String, from: Vector3, gen, rings := 4) -> Vector3`
+
+Where the nearest structure of a set is, or Vector3.INF. Searches outwards from the region the
+point is in, up to `rings` regions away.
+
+**A locator, because a structure nobody can find is the same as no structure.** Everything here is
+computed from the world seed and the region, so this asks the same question chunk generation asks
+and gets the same answer - without generating anything. A game that wants to point a player at the
+dungeon it placed had otherwise to guess a position and hope, which is exactly what Firstlight did
+for an afternoon: it marked a spot near the player and the ruin was two thousand blocks away.
+(2026-09-24)
+
+**See also:** `start_for`
+
 
 ## Blocks and the world
 

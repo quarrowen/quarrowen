@@ -449,7 +449,24 @@ biome, so every column has a clear winner and borders blend over a short distanc
 structure then keeps the terrain there). block data in the region (chest contents, spawner settings)
 goes into `data`. server/worldgen/structures.gd world generation"><div class="sig"><code>static capture(server, lo: Vector3i, hi: Vector3i, keep_air := false) -&gt; Dictionary</code></div><p>A template dictionary (JSON-ready) from a region of a world. `keep_air`: leave air cells out (the
 structure then keeps the terrain there). Block data in the region (chest contents, spawner settings)
-goes into `data`.</p></div></section>
+goes into `data`.</p></div>
+<div class="card" data-search="nearest where the nearest structure of a set is, or vector3.inf. searches outwards from the region the
+point is in, up to `rings` regions away.
+
+**a locator, because a structure nobody can find is the same as no structure.** everything here is
+computed from the world seed and the region, so this asks the same question chunk generation asks
+and gets the same answer - without generating anything. a game that wants to point a player at the
+dungeon it placed had otherwise to guess a position and hope, which is exactly what firstlight did
+for an afternoon: it marked a spot near the player and the ruin was two thousand blocks away.
+(2026-09-24) server/worldgen/structures.gd world generation"><div class="sig"><code>nearest(set_name: String, from: Vector3, gen, rings := 4) -&gt; Vector3</code></div><p>Where the nearest structure of a set is, or Vector3.INF. Searches outwards from the region the
+point is in, up to `rings` regions away.
+
+**A locator, because a structure nobody can find is the same as no structure.** Everything here is
+computed from the world seed and the region, so this asks the same question chunk generation asks
+and gets the same answer - without generating anything. A game that wants to point a player at the
+dungeon it placed had otherwise to guess a position and hope, which is exactly what Firstlight did
+for an afternoon: it marked a spot near the player and the ruin was two thousand blocks away.
+(2026-09-24)</p></div></section>
 <section id="e-client-chunk-mesher-gd"><h2>chunk_mesher.gd <span class="file">client/chunk_mesher.gd</span></h2><p class="lead">Builds render arrays for one chunk: flood-fill lighting and greedy merging, in Rust (`native/src/mesher.rs`), producing the vertex format documented in voxel_material.gd. Safe to run on worker threads.</p><div class="card" data-search="make_context builds the read-only context meshing threads need from the registry and atlas. client/chunk_mesher.gd blocks and the world"><div class="sig"><code>static make_context(registry, atlas_uv: Dictionary) -&gt; Dictionary</code></div><p>Builds the read-only context meshing threads need from the registry and atlas.</p></div>
 <div class="card" data-search="build `chunks`: 9 packedbytearrays for the 3x3 neighbourhood, index (dx + 1) + (dz + 1) * 3, empty where
 not loaded. returns [solid_arrays, translucent_arrays, models]; models is a packedint32array of
@@ -2936,7 +2953,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1207 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1208 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

@@ -601,6 +601,16 @@ func entity_type(entity_name: String) -> int:
 	return _server.entities.registry.id_of(_qualify_ref(entity_name))
 
 
+## Every creature type registered, by name. For a mod that wants to act on a *kind* of creature
+## rather than a named one - "all the rare ones", "everything that flies" - without keeping a list
+## that stops being right the moment anybody adds another.
+func entity_types() -> Array:
+	var out := []
+	for d in _server.entities.registry.defs:
+		out.append(String(d.get("name", "")))
+	return out
+
+
 ## Whether this type is one the whole server is told about, and how: {announce, slain, gone, label,
 ## color, minutes}, or `{}` for the overwhelming majority that are not. Takes a type id or a name.
 ##
@@ -2321,6 +2331,20 @@ func register_structure_template(template_name: String, source) -> bool:
 ## story's outpost, a rescue site, a prize somebody hid.
 func place_structure(template_name: String, at: Vector3i, rotation := 0) -> bool:
 	return _server.structure_tools.place(_qualify_ref(template_name), at, rotation, _server.realm)
+
+
+## Where the nearest structure of a set is, or Vector3.INF if there is none within `rings` regions.
+##
+##     api.find_structure("altar_site", player.position)
+##
+## Asks world generation the same question it asks itself, without generating anything - so this
+## works for a structure nobody has been near yet, which is the whole point of pointing somebody at
+## one. **A structure nobody can find is the same as no structure**: without this a game had to guess
+## a position and hope, and Firstlight marked a spot near the player while the ruin it meant was two
+## thousand blocks away.
+func find_structure(structure_name: String, near: Vector3, realm_id := "", rings := 4) -> Vector3:
+	var gen = biome_generator(realm_id)
+	return gen.structures.nearest(_qualify_ref(structure_name), near, gen, clampi(rings, 1, 8))
 
 
 func register_structure(structure_name: String, def: Dictionary) -> void:

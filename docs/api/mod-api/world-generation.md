@@ -105,7 +105,25 @@ Stamps a template into the world now, rotated a quarter turn at a time (0-3). Wh
 does, for a mod that wants to build something itself rather than leave it to world generation: a
 story's outpost, a rescue site, a prize somebody hid.
 
-**See also:** `place`, `qualified`
+**See also:** `find_structure`, `place`, `qualified`
+
+### `api.find_structure`
+
+GDScript: `api.find_structure(structure_name: String, near: Vector3, realm_id := "", rings := 4) -> Vector3`
+
+JavaScript: `api.findStructure(structureName, near, realmId, rings)`
+
+Where the nearest structure of a set is, or Vector3.INF if there is none within `rings` regions.
+
+api.find_structure("altar_site", player.position)
+
+Asks world generation the same question it asks itself, without generating anything - so this
+works for a structure nobody has been near yet, which is the whole point of pointing somebody at
+one. **A structure nobody can find is the same as no structure**: without this a game had to guess
+a position and hope, and Firstlight marked a spot near the player while the ruin it meant was two
+thousand blocks away.
+
+**See also:** `biome_generator`, `nearest`, `qualified`
 
 ### `api.register_structure`
 
@@ -114,7 +132,8 @@ GDScript: `api.register_structure(structure_name: String, def: Dictionary) -> vo
 JavaScript: `api.registerStructure(name: string, def: Record<string, unknown>): void`
 
 ```gdscript
-api.register_structure("hut_site", {"template": "proving:hut", "rarity": 0.0})
+api.register_structure("hut_site", {"templates": [{"template": "proving:hut"}],
+	"place": "underground", "y": [8, 24], "spacing": 8, "separation": 2})
 ```
 
 **See also:** `add_set`, `biome_generator`, `qualified`, `register_loot`

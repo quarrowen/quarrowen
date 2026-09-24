@@ -145,6 +145,22 @@ func _registries(server) -> void:
 	_check(lit.get("light") is Dictionary and float(lit.light.get("range", 0.0)) == 7.0
 		and String(lit.light.get("part", "")) == "body",
 		"a creature's model part can light the world, and the client is told")
+	# Asking the registry what kinds exist, rather than a mod keeping its own list of them. The pair
+	# is the point: `entity_types` finds them all and `notable_of` says which are the rare ones, so
+	# "do something when a rare creature is involved" needs no hardcoded names anywhere.
+	var kinds: Array = server.mod_instances.proving.api.entity_types()
+	_check(kinds.has("proving:grazer") and kinds.has("engine:item"),
+		"a mod can ask what creature types exist (%d of them)" % kinds.size())
+
+	# Where world generation put something, asked without generating it - the question a game needs
+	# answered to point a player at a dungeon. Asserted by *finding* one rather than by the call not
+	# erroring: a structure set with no usable template registers perfectly happily and places nothing,
+	# which is how this mod's own hut went unnoticed for weeks.
+	var hut: Vector3 = server.mod_instances.proving.api.find_structure("hut_site", Vector3.ZERO)
+	_check(hut != Vector3.INF, "world generation can be asked where a structure is (%s)" % str(hut))
+	_check(server.mod_instances.proving.api.find_structure("no_such_site", Vector3.ZERO) == Vector3.INF,
+		"and asking about a set nobody registered says so rather than guessing")
+
 	var silly: Dictionary = EntityRegistry._read_light({"part": "x", "range": 400.0, "energy": 99.0})
 	_check(float(silly.range) == 16.0 and float(silly.energy) == 8.0,
 		"and a mod asking for a range of 400 is clamped rather than ending the night")

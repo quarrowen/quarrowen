@@ -47,6 +47,16 @@ Entity type id by name ("vanilla:zombie", or a local name). -1 if unknown.
 
 **See also:** `qualified`
 
+### `api.entity_types`
+
+GDScript: `api.entity_types() -> Array`
+
+JavaScript: `api.entityTypes()`
+
+Every creature type registered, by name. For a mod that wants to act on a *kind* of creature
+rather than a named one - "all the rare ones", "everything that flies" - without keeping a list
+that stops being right the moment anybody adds another.
+
 ### `api.spawn_entity`
 
 GDScript: `api.spawn_entity(entity_name: String, position: Vector3, options := {})`

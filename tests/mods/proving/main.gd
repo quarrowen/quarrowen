@@ -61,7 +61,14 @@ func setup(mod_api) -> void:
 	# load says plainly, and is why it says it.
 	api.register_structure_template("hut", {"size": [2, 1, 2], "palette": ["proving:rock"],
 		"blocks": [[0, 0, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0], [1, 0, 1, 0]]})
-	api.register_structure("hut_site", {"template": "proving:hut", "rarity": 0.0})
+	# **`templates` (an array) and `chance`, not `template` and `rarity`.** It was the latter pair for
+	# weeks: neither key is read, so the set had no templates, could never place anything, and the
+	# coverage ratchet counted `register_structure` as exercised by a call that did nothing. Exactly
+	# the failure this mod exists to prevent, sitting inside this mod. Asserted now by asking the
+	# engine where one is, which is a question only a set that can really place one can answer.
+	# (2026-09-24)
+	api.register_structure("hut_site", {"templates": [{"template": "proving:hut"}],
+		"place": "underground", "y": [8, 24], "spacing": 8, "separation": 2})
 	life.setup(api, ids)
 	society.setup(api, ids)
 	machines.setup(api, ids)

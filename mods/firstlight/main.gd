@@ -26,6 +26,7 @@ const DEEP_FROM := 30
 
 ## Where the sea sits. The same number `base`'s biome heights are written against.
 const Colossus = preload("res://mods/firstlight/colossus.gd")
+const Reed = preload("res://mods/firstlight/reed.gd")
 
 const SEA_LEVEL := 62
 
@@ -34,6 +35,7 @@ const SEA_LEVEL := 62
 ## with it, silently (CLAUDE.md).
 var wick := Wick.new()
 var colossus := Colossus.new()
+var reed := Reed.new()
 
 
 func setup(api) -> void:
@@ -42,6 +44,7 @@ func setup(api) -> void:
 	_who_lives_here(api)
 	wick.setup(api)
 	colossus.setup(api)
+	reed.setup(api)
 
 
 ## What kind of game this is, in one dictionary.

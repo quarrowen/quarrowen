@@ -295,3 +295,34 @@ static func capture(server, lo: Vector3i, hi: Vector3i, keep_air := false) -> Di
 				if not block_data.is_empty():
 					data["%d,%d,%d" % [local.x, local.y, local.z]] = block_data.duplicate(true)
 	return {"size": [b.x - a.x + 1, b.y - a.y + 1, b.z - a.z + 1], "palette": palette, "blocks": blocks, "data": data}
+
+
+## Where the nearest structure of a set is, or Vector3.INF. Searches outwards from the region the
+## point is in, up to `rings` regions away.
+##
+## **A locator, because a structure nobody can find is the same as no structure.** Everything here is
+## computed from the world seed and the region, so this asks the same question chunk generation asks
+## and gets the same answer - without generating anything. A game that wants to point a player at the
+## dungeon it placed had otherwise to guess a position and hope, which is exactly what Firstlight did
+## for an afternoon: it marked a spot near the player and the ruin was two thousand blocks away.
+## (2026-09-24)
+func nearest(set_name: String, from: Vector3, gen, rings := 4) -> Vector3:
+	var found := Vector3.INF
+	var best := INF
+	for s in sets:
+		if String(s.name) != set_name:
+			continue
+		var here := Vector2i(floori(from.x / (s.spacing * Chunk.SIZE_X)), floori(from.z / (s.spacing * Chunk.SIZE_Z)))
+		for dx in range(-rings, rings + 1):
+			for dz in range(-rings, rings + 1):
+				var start := start_for(s, here + Vector2i(dx, dz), gen)
+				if start.is_empty():
+					continue
+				var at := Vector3(start.origin)
+				# Flat distance: the player walks there, and a hundred blocks of depth is not a
+				# hundred blocks of walking.
+				var d := Vector2(at.x - from.x, at.z - from.z).length()
+				if d < best:
+					best = d
+					found = at
+	return found

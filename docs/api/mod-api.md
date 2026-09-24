@@ -28,10 +28,10 @@ leaving one of them to be guessed at.
 :   11 functions.
 
 [Mobs and entities](mod-api/mobs-and-entities.md)
-:   14 functions.
+:   15 functions.
 
 [World generation](mod-api/world-generation.md)
-:   21 functions.
+:   22 functions.
 
 [Blocks and the world](mod-api/blocks-and-the-world.md)
 :   34 functions.

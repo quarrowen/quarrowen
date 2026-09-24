@@ -1,5 +1,5 @@
 extends RefCounted
-## The twelve acts of Firstlight, and the five side tasks, as data.
+## The fourteen acts of Firstlight, and the five side tasks, as data.
 ##
 ## Separate from `story.gd` on purpose: that file is the machinery and this one is the writing, and
 ## the writing is the part somebody will want to change at nine at night without reading a handler.
@@ -7,10 +7,10 @@ extends RefCounted
 ##
 ## **The arc.** You wake in a meadow with a man who keeps lights and cannot fight. The lights have
 ## been going out because something under the world woke up, and the nights have been getting fuller
-## ever since. Acts 1-6 are an ordinary survival opening given a name; 7-9 take you under; 10-12 are
-## the part that only this game has. Nothing here threatens anybody the player loves, there is no
-## villain, and the Colossus is not killed - it is put back to sleep, which is what Wick has wanted
-## for a very long time and has never been brave enough to do on his own.
+## ever since. Acts 1-6 are an ordinary survival opening given a name; 7-10 arm you and take you under
+## as far as the world goes; 11-14 are the part only this game has. Nothing here threatens anybody
+## the player loves, there is no villain, and the Colossus is not killed - it is put back to sleep,
+## which is what Wick has wanted for a very long time and has never been brave enough to do alone.
 ##
 ## **`said` is what Wick says when he hands it over**, in his voice: warm, a little apologetic, never
 ## grand. `text` is what the task list shows, which is flatter on purpose - a list is read at a
@@ -99,22 +99,28 @@ const ACTS := [
 		"steps": [
 			{"text": "Mine ten deepstone", "count": 10, "goal": {"on": "break", "is": "base:deepstone"}}]},
 
+	# **Not left to the dice.** Rare creatures spawn at roughly four ten-thousandths per attempt, which
+	# is right for a surprise and wrong for a step you cannot finish without. The Hollow Reed makes it
+	# deterministic without making it free - see reed.gd. (the user, 2026-09-24)
 	{"id": "act_hunt", "name": "The Ones Worth Hunting",
-		"said": "When the whole world stops to tell you something's out there - that's one of them. They leave things behind.",
+		"said": "When the whole world stops to tell you something's out there - that's one of them. If you have a reed, play it after dark. Something always answers.",
+		"description": "Play a hollow reed at night, or wait for one to find you.",
 		"steps": [
 			{"text": "See off something the world was warned about", "goal": {"on": "notable"}}]},
 
+	# Eight ore makes exactly the two blocks the ruin is missing, with nothing left over - see the
+	# recipe in colossus.gd for why it is four-to-one and not the conventional nine.
 	{"id": "act_sunstone", "name": "Sunstone",
 		"said": "There's a stone down there that keeps a bit of the sun in it. That's what the old lights were made of.",
 		"steps": [
-			{"text": "Mine nine sunstone ore", "count": 9, "goal": {"on": "break", "is": "base:sunstone_ore"}},
-			{"text": "Make four sunstone blocks", "count": 4, "goal": {"on": "craft", "is": "base:sunstone_block"}}]},
+			{"text": "Mine eight sunstone ore", "count": 8, "goal": {"on": "break", "is": "base:sunstone_ore"}},
+			{"text": "Make two sunstone blocks", "count": 2, "goal": {"on": "craft", "is": "base:sunstone_block"}}]},
 
-	{"id": "act_altar", "name": "The Altar",
-		"said": "There's a shape it has to be. Four corners of sunstone on deepstone, and the last light in the middle.",
-		"description": "A ring of sunstone on deepstone, with a lantern at its heart.",
+	{"id": "act_altar", "name": "The Old Light",
+		"said": "Somebody built one of these long before either of us. Two of its corners are still standing. Put the other two back.",
+		"description": "A ruined altar in the deep, two corners short of whole.",
 		"steps": [
-			{"text": "Build the altar deep underground", "goal": {"on": "built", "name": "firstlight:altar"}}]},
+			{"text": "Find the ruin and set its missing corners", "goal": {"on": "built", "name": "firstlight:altar"}}]},
 
 	{"id": "act_firstlight", "name": "Firstlight",
 		"said": "Right. I've been not doing this for a very long time. Let's go and not do it together.",

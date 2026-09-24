@@ -630,6 +630,10 @@
 			],
 			"gd": "entity_type"
 		},
+		"entityTypes": {
+			"args": [],
+			"gd": "entity_types"
+		},
 		"error": {
 			"args": [
 				{
@@ -778,6 +782,25 @@
 				}
 			],
 			"gd": "find_player"
+		},
+		"findStructure": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				},
+				{
+					"default": 4,
+					"kind": "int"
+				}
+			],
+			"gd": "find_structure"
 		},
 		"floatText": {
 			"args": [

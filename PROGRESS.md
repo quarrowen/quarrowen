@@ -6327,3 +6327,40 @@ a running pickaxe tier and compares every `break` goal's block tier against it. 
 guard: a progression trap is a fact about two registries and an ordering, and no amount of reading
 the story finds it. Worth generalising if a second game gets a chain - it is thirty lines and it
 caught two real ones the first time it ran.
+
+### The altar is found, not built, and the reed calls what act 11 needs (user, 2026-09-24)
+
+Both taken from the two options put to the user. The altar was the weakest thing in the game - "place
+four sunstone blocks and a torch" made the ending a recipe - and act 11 was a required step gated on
+a roughly 1-in-2500 spawn, which is not difficulty, it is waiting.
+
+**The ruin.** A broken altar generates in the deep, two of its four sunstone corners still standing
+and two fallen as rubble beside where they were. Arriving teaches the shape without a word, and the
+last act is repairing somebody else's work. Wick marks the real one on the compass when act 12 lands.
+
+**The reed.** Play a Hollow Reed after dark, above ground, and one of the creatures the whole server
+is told about answers - chosen by asking the registry which types are notable, so a fifth rare
+creature is callable the day it is added. Four minutes between plays, and it spawns behind you at
+18-26 m so you hear it coming rather than find it in your face.
+
+### Three bugs this found, none of which a validation would ever have caught
+
+- **`spacing` is in chunks, not blocks.** 160 meant one ruin every 2,560 blocks. Found by writing
+  `tools/ruin_probe.tscn` and scanning the world for sunstone, which returned zero. It is 24 now,
+  about 380 blocks.
+- **Wick's marker pointed at a spot near the player and hoped.** With the ruin kilometres away that
+  was a walk to nowhere, and it looked perfectly fine in code - a marker that points somewhere
+  plausible is indistinguishable from one that points somewhere true. Now `api.find_structure` asks
+  world generation the same seeded question it asks itself, without generating anything, so it works
+  for a structure nobody has been near. Verified against the probe: the locator's answer and the
+  blocks actually in the world agree to within the corner offset.
+- **The Proving Ground's own structure could never place anything.** `register_structure` was called
+  with `{"template": ..., "rarity": 0.0}` and the keys are `templates` (an array) and `chance`, so
+  the set had no templates and generated nothing - while `uncovered.txt` counted `register_structure`
+  as exercised. Precisely the failure this mod exists to prevent, sitting inside it, for weeks. It is
+  now asserted by *finding* one, which is a question only a set that really places can answer.
+
+The general lesson, and it is the one this file keeps relearning: **a call that returns without error
+is not a capability that works.** Structures, unlike most things, cannot be checked by asking a
+registry - the registry happily holds a set that will never fire - so the only honest test is to look
+at the world.
