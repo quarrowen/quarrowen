@@ -6,7 +6,8 @@ extends "res://engine/server/mod.gd"
 ## tuned to make that moment land and then repeat at a larger scale - the first night, the first cave,
 ## the first time something rare is announced and you go after it.
 ##
-## **This registers no blocks and no items.** `base` owns the nouns, `simple_machines` and
+## **This registers no blocks and no items** - the one creature it does register is Wick, its
+## storyteller, who is neither and whom no other game would want. `base` owns the nouns, `simple_machines` and
 ## `simple_gear` own the things you build and hold, and a game owns the *rules*: how hungry, how dark,
 ## how punishing, what lives where, and what any of it is for. If this file ever needs to register a
 ## block, the line has moved. (The same test as `creative`, from the other side: creative proves the
@@ -17,6 +18,7 @@ extends "res://engine/server/mod.gd"
 ## rather than a requirement. Finishable **alone**, better with two.
 
 const Chunk = preload("res://engine/shared/chunk.gd")
+const Wick = preload("wick.gd")
 
 ## Where the stone stops being ordinary. Below this the world is deepstone - harder, darker, and the
 ## reason a cobalt pickaxe is worth making.
@@ -26,10 +28,16 @@ const DEEP_FROM := 30
 const SEA_LEVEL := 62
 
 
+## Kept as a member: a RefCounted nobody holds is freed the moment setup returns, taking its handlers
+## with it, silently (CLAUDE.md).
+var wick := Wick.new()
+
+
 func setup(api) -> void:
 	_rules(api)
 	_world(api)
 	_who_lives_here(api)
+	wick.setup(api)
 
 
 ## What kind of game this is, in one dictionary.
