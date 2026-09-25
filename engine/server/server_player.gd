@@ -57,6 +57,9 @@ var sent_chunks := {}
 var pending_chunks: Array[Vector2i] = []
 var stream_center := Vector2i(1 << 30, 0)
 var edit_tokens := 0.0
+## Request name -> when it was last served, for handlers that cost real work per call. See
+## `GameServer.too_often`.
+var _last_request := {}
 var ui_ids := {}
 var known_entities := {}  # entity id -> true (replicated to this player)
 var known_entities_stale := true

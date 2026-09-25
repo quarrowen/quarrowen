@@ -26,6 +26,12 @@ const Cosmetics = preload("res://engine/shared/cosmetics.gd")
 
 const PIECE_SIZE := 32 * 1024
 const SEND_BYTES_PER_TICK := 256 * 1024
+## **A ceiling across everybody, not only per peer.** Each peer was allowed a quarter of a megabyte a
+## tick - about 15 MB/s - with nothing above it, so sixteen players asking for creations at once was
+## 240 MB/s of upstream. On a home line that is the game unplayable for everyone; on a metered box it
+## is a bill. The per-peer budget is what keeps one person from starving the others; this is what
+## keeps the server from starving itself. (2026-09-25)
+const SEND_BYTES_PER_TICK_ALL := 1024 * 1024
 const UPLOAD_BYTES_PER_SECOND := 512 * 1024
 const MAX_PENDING_UPLOADS := 4
 const STATUSES := ["pending", "approved", "rejected", "removed"]
@@ -200,6 +206,12 @@ func _refusal(p, m: Dictionary) -> String:
 		return ""
 	if banned_creators.has(p.player_id):
 		return "you may not upload creations here"
+	# **A creation's name is text other children read**, shown under their avatar and in the library,
+	# and it went past the chat filter that every other player-written string goes through. A server
+	# that filters chat and refuses a rude player name was still letting one through on a hat.
+	# (2026-09-25)
+	if _server.gameplay.chat_filter and not _server.chat_filter.is_clean(str(m.get("name", ""))):
+		return "please give it a different name"
 	if str(m.get("author", "")) != p.player_id:
 		# Says what it compared. "Only the author" with nothing else is impossible to act on when you are
 		# the author: an empty field and a mismatched one read exactly the same. (playtest, 2026-09-18)
@@ -341,13 +353,19 @@ func fetch(p, ids: PackedStringArray) -> void:
 
 
 func update(_delta: float) -> void:
+	# Shared out in the order peers happen to be in, which is fair enough for something that only
+	# matters when many people arrive together: everybody gets served, the worst case is that the
+	# last one waits a tick longer.
+	var shared := SEND_BYTES_PER_TICK_ALL
 	for peer_id in _send.keys():
+		if shared <= 0:
+			break
 		var p = _server.players.get(peer_id)
 		var queue: Array = _send[peer_id]
 		if p == null or queue.is_empty():
 			_send.erase(peer_id)
 			continue
-		var budget := SEND_BYTES_PER_TICK
+		var budget := mini(SEND_BYTES_PER_TICK, shared)
 		while budget > 0 and not queue.is_empty():
 			var item: Array = queue[0]
 			var bytes := payload(item[0])
@@ -358,6 +376,7 @@ func update(_delta: float) -> void:
 			Net.s_ugc_piece.rpc_id(peer_id, item[0], item[1], bytes.size(), piece)
 			item[1] += piece.size()
 			budget -= piece.size()
+			shared -= piece.size()
 			if item[1] >= bytes.size():
 				queue.pop_front()
 	for peer_id in _uploads.keys():

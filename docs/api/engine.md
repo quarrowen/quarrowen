@@ -6983,7 +6983,7 @@ GDScript: `offer(p, manifests: Array) -> Dictionary`
 
 A client offers creations it wears. Returns {request: [ids], status: {id: [status, reason]}}.
 
-**See also:** `is_id`
+**See also:** `is_clean`, `is_id`
 
 ### `upload_piece`
 
@@ -6993,7 +6993,7 @@ GDScript: `upload_piece(p, id: String, offset: int, total: int, bytes: PackedByt
 
 A piece of an upload. Completes (validates and stores) when the last piece arrives.
 
-**See also:** `close`, `ensure_registered`, `is_admin`, `open`, `payload_extension`, `reapply_requested_avatar`
+**See also:** `close`, `ensure_registered`, `is_admin`, `is_clean`, `open`, `payload_extension`
 
 ### `set_status`
 
@@ -11407,16 +11407,23 @@ The players and roles panel. Answers with {players, roles, can_kick, denied?}.
 Which world a player is in. One world today ("" is it); mods that add dimensions set this key on the
 player, and the map, compass and markers follow them there.
 
-### `on_map`
+### `too_often`
 
 *server/game_server.gd*
 
-GDScript: `on_map(peer_id: int) -> void`
+GDScript: `too_often(p: ServerPlayer, what: String, seconds: float) -> bool`
 
 What the player's map shows: everyone in the same dimension (unless the server hides them) and the
 markers mods set, also filtered to that dimension.
+**Handlers that do real work per call need a floor on how often.**
 
-**See also:** `dimension_of`, `get_block`, `has_permission`, `receive`
+Three of them had none: `c_map` walks every player and generates a chunk, and the two UGC listings
+walk the whole library. None of that is expensive once; all of it is expensive at a thousand calls
+a second, and nothing stopped a client sending them that fast. A client asking politely is
+unaffected - the map screen polls every two seconds and these floors are well under that.
+
+Returns true when the call came too soon and should be dropped. Silent on purpose: an answer
+explaining the limit is itself a reply to send, and a client that is misbehaving is not reading it.
 
 ### `on_worlds_panel`
 

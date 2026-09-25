@@ -6449,9 +6449,9 @@ it matters the day anybody else can reach it.
    `Protocol.VERSION` 53.
 6. The server parses untrusted PNG and glTF in-process; glTF external-URI resolution and hostile-GLB
    memory are both unverified.
-7. RPC arguments are decoded before any size cap; UGC fetch has no global egress budget; creation and
-   hub names skip the chat filter; `c_map` and `c_ugc_*` are unrated and O(N); `_admin_token` comes
-   from `randi()` and is visible in `ps`.
+7. RPC arguments are decoded before any size cap. The rest of this line is done as of 2026-09-25:
+   UGC egress has a server-wide ceiling, creation names and hub listings go through the chat filter,
+   `c_map` and `c_ugc_*` are rate limited, and the admin token is CSPRNG bytes in the environment.
 8. ~~The dev dashboard is full control through a URL token over plain HTTP, GET with side effects.~~
    **Deleted on 2026-09-24** rather than secured (the user). Nothing replaces it.
 
@@ -6931,3 +6931,23 @@ the way at that point, because the pause menu cannot be open and the world is dr
 
 `auto_capture_mouse` exists so the screenshot harness can refuse it. A test run that steals the
 cursor for a minute is its own small cruelty, and this session runs dozens of them.
+
+### Rate limits, an egress ceiling and two unfiltered places (2026-09-25)
+
+- **Three handlers that did real work per call had no floor on how often.** `c_map` walks every
+  player *and generates a chunk*; the two UGC listings walk the whole library. None is expensive
+  once; all are expensive a thousand times a second, and nothing stopped a client doing that. The
+  limits are half a second, a second and a quarter of a second - well under what a polite client
+  asks for, so nobody playing notices.
+- **UGC egress had a per-peer budget and no ceiling above it.** A quarter of a megabyte per peer per
+  tick is about 15 MB/s; sixteen players arriving together was 240 MB/s of upstream, which on a home
+  line is the game unplayable for everyone and on a metered box is a bill. The per-peer budget stops
+  one person starving the others; the new server-wide one stops the server starving itself.
+- **Two places where somebody else's words reached a child unfiltered.** A creation's *name* is shown
+  under an avatar and in the library and went past the filter that refuses a rude player name. And
+  hub listings - server names, messages of the day, the news feed - are written by strangers and are
+  read *before* joining anything; they are masked in `_clean_server`, which is the one place every
+  listing passes through.
+
+What is left of the cluster: RPC arguments are decoded before any size cap applies, which the
+original note said "needs measuring" and still does, and the approval gate for unknown identities.

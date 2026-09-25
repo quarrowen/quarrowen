@@ -4806,9 +4806,29 @@ func dimension_of(p) -> String:
 
 ## What the player's map shows: everyone in the same dimension (unless the server hides them) and the
 ## markers mods set, also filtered to that dimension.
+## **Handlers that do real work per call need a floor on how often.**
+##
+## Three of them had none: `c_map` walks every player and generates a chunk, and the two UGC listings
+## walk the whole library. None of that is expensive once; all of it is expensive at a thousand calls
+## a second, and nothing stopped a client sending them that fast. A client asking politely is
+## unaffected - the map screen polls every two seconds and these floors are well under that.
+##
+## Returns true when the call came too soon and should be dropped. Silent on purpose: an answer
+## explaining the limit is itself a reply to send, and a client that is misbehaving is not reading it.
+func too_often(p: ServerPlayer, what: String, seconds: float) -> bool:
+	var now := _time
+	var last: float = p._last_request.get(what, -1000.0)
+	if now - last < seconds:
+		return true
+	p._last_request[what] = now
+	return false
+
+
 func on_map(peer_id: int) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null or not p._online():
+		return
+	if too_often(p, "map", 0.5):
 		return
 	var here := dimension_of(p)
 	var people := []
@@ -5005,7 +5025,7 @@ func on_ugc_admin(peer_id: int, action: String, args: Dictionary) -> void:
 
 func on_ugc_offer(peer_id: int, manifests: Array) -> void:
 	var p: ServerPlayer = players.get(peer_id)
-	if p != null:
+	if p != null and not too_often(p, "ugc_offer", 1.0):
 		ugc.offer(p, manifests)
 
 
@@ -5023,7 +5043,7 @@ func on_ugc_fetch(peer_id: int, ids: PackedStringArray) -> void:
 
 func on_ugc_library(peer_id: int, query: Dictionary, offset: int) -> void:
 	var p: ServerPlayer = players.get(peer_id)
-	if p != null and p._online():
+	if p != null and p._online() and not too_often(p, "ugc_library", 0.25):
 		var page := ugc.library(query, maxi(0, offset))
 		Net.s_ugc_library.rpc_id(peer_id, page.items, page.total, ugc.policy)
 

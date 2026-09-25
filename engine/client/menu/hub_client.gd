@@ -10,6 +10,12 @@ signal news_received(items: Array, error: String)
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
 const NetAccess = preload("res://engine/shared/net_access.gd")
+## **Text from a hub is written by strangers.** A server name and a message of the day are chosen by
+## whoever runs that server, shown in a list a child reads before they have joined anything, and went
+## through no filter at all - while chat on our own server is filtered and a rude player name is
+## refused. Masked here, at the one place every listing passes through. (2026-09-25)
+const ChatFilter = preload("res://engine/server/chat_filter.gd")
+static var _filter := ChatFilter.new()
 
 const MAX_RESPONSE := 512 * 1024
 
@@ -53,11 +59,13 @@ func fetch_news() -> void:
 			news_received.emit([], error if not error.is_empty() else "no news")
 			return
 		news_received.emit(data.filter(func(n): return n is Dictionary).slice(0, 8).map(func(n):
-			return {"title": str(n.get("title", "")).left(80), "body": str(n.get("body", "")).left(400), "url": str(n.get("url", "")).left(300)}), ""))
+			return {"title": _filter.clean(str(n.get("title", "")).left(80)),
+				"body": _filter.clean(str(n.get("body", "")).left(400)), "url": str(n.get("url", "")).left(300)}), ""))
 
 
 static func _clean_server(s: Dictionary) -> Dictionary:
-	return {"name": str(s.get("name", "")).left(64), "motd": str(s.get("motd", "")).left(256), "address": str(s.get("address", "")).left(253),
+	return {"name": _filter.clean(str(s.get("name", "")).left(64)), "motd": _filter.clean(str(s.get("motd", "")).left(256)),
+		"address": str(s.get("address", "")).left(253),
 		"port": clampi(int(s.get("port", 0)), 1, 65535), "game": str(s.get("game", "")).left(64), "game_name": str(s.get("game_name", "")).left(64),
 		"players": clampi(int(s.get("players", 0)), 0, 100000), "max_players": clampi(int(s.get("max_players", 0)), 0, 100000),
 		"protocol": int(s.get("protocol", 0)), "version": str(s.get("version", "")).left(32), "code": str(s.get("code", "")).left(16),
