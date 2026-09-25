@@ -5030,6 +5030,8 @@ GDScript: `has_permission(permission: String) -> bool`
 
 Whether this player's roles grant a permission ("build", "creative", "ugc.review", a mod's own ...).
 
+**See also:** `is_admitted`
+
 ### `transfer_to`
 
 *server/server_player.gd*
@@ -10784,13 +10786,14 @@ GDScript: `allowlist_bind(player_id: String, player_name: String) -> void`
 
 The first time a listed name joins, its entry is tied to that identity (so the name cannot be taken).
 
-### `has_permission`
+### `is_admitted`
 
 *server/game_server.gd*
 
-GDScript: `has_permission(p, permission: String) -> bool`
+GDScript: `is_admitted(player_id: String) -> bool`
 
-Whether a player's roles grant a permission (config admins have everything).
+Whether this identity has been let in. Admins are always in - otherwise turning approval on would
+lock out the person who has to do the admitting.
 
 ### `uptime`
 

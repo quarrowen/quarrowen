@@ -2669,7 +2669,9 @@ not there, which is when most bans are actually written. server/game_server.gd t
 not there, which is when most bans are actually written.</p></div>
 <div class="card" data-search="allowlist_add adds a player by name (or id) to the allowlist. server/game_server.gd the server itself"><div class="sig"><code>allowlist_add(name_or_id: String) -&gt; void</code></div><p>Adds a player by name (or id) to the allowlist.</p></div>
 <div class="card" data-search="allowlist_bind the first time a listed name joins, its entry is tied to that identity (so the name cannot be taken). server/game_server.gd the server itself"><div class="sig"><code>allowlist_bind(player_id: String, player_name: String) -&gt; void</code></div><p>The first time a listed name joins, its entry is tied to that identity (so the name cannot be taken).</p></div>
-<div class="card" data-search="has_permission whether a player's roles grant a permission (config admins have everything). server/game_server.gd the server itself"><div class="sig"><code>has_permission(p, permission: String) -&gt; bool</code></div><p>Whether a player's roles grant a permission (config admins have everything).</p></div>
+<div class="card" data-search="is_admitted whether this identity has been let in. admins are always in - otherwise turning approval on would
+lock out the person who has to do the admitting. server/game_server.gd the server itself"><div class="sig"><code>is_admitted(player_id: String) -&gt; bool</code></div><p>Whether this identity has been let in. Admins are always in - otherwise turning approval on would
+lock out the person who has to do the admitting.</p></div>
 <div class="card" data-search="uptime seconds since the server started ticking. what `schedule` measures against, so anything timing an
 event of its own should ask here rather than reach for a wall clock - a paused or slow server then
 counts the same time everything else does. server/game_server.gd the server itself"><div class="sig"><code>uptime() -&gt; float</code></div><p>Seconds since the server started ticking. What `schedule` measures against, so anything timing an

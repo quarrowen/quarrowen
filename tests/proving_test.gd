@@ -254,6 +254,19 @@ func _behaviour(server) -> void:
 	server.on_ui_action(201, "engine:talk", "say:start:1")
 	_check(server.objectives.has(p, "proving:errand"), "an option handed over an objective")
 
+	# The approval gate: a stranger may look and nothing else, and an admin is never locked out by it.
+	# **The precondition is the test.** Without it this passes just as well on a player who could never
+	# build in the first place, and proves nothing at all.
+	_check(server.has_permission(p, "build"), "an ordinary player can build before approval is asked for")
+	server.gameplay.approval = true
+	_check(not server.has_permission(p, "build") and not server.has_permission(p, "chat"),
+		"with approval on, somebody nobody admitted cannot build or chat")
+	_check(server.has_permission(p, "build") == false, "and the refusal is not a one-off")
+	server.admit(p.player_id, p.name, "Tester")
+	_check(server.has_permission(p, "build"), "and can once they are let in")
+	_check(server.is_admitted(p.player_id), "which is remembered")
+	server.gameplay.approval = false
+
 	# Bans and mutes: durable, keyed on the player id, and refusing an admin.
 	var banned_id := "deadbeefdeadbeefdeadbeefdeadbeef"
 	server.set_ban(banned_id, true, "Nuisance", "kept breaking the roof", "Tester")

@@ -230,6 +230,12 @@ var gameplay := {
 	"chat_filter": false,  # mask swear words in chat and refuse such player names (see engine/server/chat_filter.gd)
 	"share_positions": true,  # everyone sees everyone on the map (off: only admins do)
 	"role_tags": true,  # show the player's highest role tag in chat ("[Mod] Name")
+	# **Somebody nobody has admitted may look and nothing else.** A keypair ban is one deleted file, so
+	# on a server strangers can reach it stops a lazy griefer and nothing more. This is the layer that
+	# actually works: an unknown identity arrives able to walk and look, and cannot build, break, chat
+	# or upload until an admin says so. Off by default - it costs a queue somebody has to watch, which
+	# is the right trade only when you cannot vouch for who turns up. (2026-09-25)
+	"approval": false,
 }
 var server_info := {"name": "Quarrowen Server", "game": "", "description": "", "motd": "", "mods": []}
 ## Map markers mods set for a player: player id -> {marker id: {label, position, color}} (see ModApi.set_map_marker).
@@ -619,6 +625,8 @@ func start(config: Dictionary) -> Error:
 		_meta.bans = {}   # player id -> {name, reason, by, at}
 	if not (_meta.get("mutes") is Dictionary):
 		_meta.mutes = {}  # player id -> {name, reason, by, at}
+	if not (_meta.get("admitted") is Dictionary):
+		_meta.admitted = {}  # player id -> {name, by, at}; only consulted when gameplay.approval is on
 	for entry in str(config.get("allowlist", "")).split(",", false):
 		allowlist_add(entry.strip_edges())
 	if not str(config.get("allowlist", "")).is_empty():
@@ -1022,12 +1030,33 @@ func _permitted(p, command: Dictionary) -> bool:
 
 
 ## Whether a player's roles grant a permission (config admins have everything).
+## What a visitor may not do while they wait. Movement, looking and reading are all absent on purpose:
+## somebody deciding whether they want to stay should be able to see the place.
+const VISITOR_CANNOT := ["build", "interact", "chat", "creative", "ugc.upload", "ugc.wear"]
+
+
 func has_permission(p, permission: String) -> bool:
 	if p == null:
 		return false
 	if _config_admins.has(p.player_id) or _config_admins.has(p.name.to_lower()):
 		return true
+	if gameplay.approval and permission in VISITOR_CANNOT and not is_admitted(p.player_id) \
+			and not roles.has(p.player_id, "admin"):
+		return false
 	return roles.has(p.player_id, permission)
+
+
+## Whether this identity has been let in. Admins are always in - otherwise turning approval on would
+## lock out the person who has to do the admitting.
+func is_admitted(player_id: String) -> bool:
+	return (_meta.get("admitted", {}) as Dictionary).has(player_id) or roles.has(player_id, "admin")
+
+
+func admit(player_id: String, player_name := "", by := "") -> void:
+	if player_id.is_empty():
+		return
+	_meta.admitted[player_id] = {"name": player_name, "by": by, "at": Time.get_unix_time_from_system()}
+	_save_meta_pending = true
 
 
 ## Seconds since the server started ticking. What `schedule` measures against, so anything timing an
@@ -1096,6 +1125,7 @@ func _register_builtin_commands() -> void:
 	add_command("kick", "<player> [reason] - disconnect a player", _cmd_kick, "engine", "admin")
 	add_command("ban", "<player> [reason] | list | remove <player> - keep a player out for good", _cmd_ban, "engine", "admin")
 	add_command("mute", "<player> [reason] | list | remove <player> - stop a player speaking", _cmd_mute, "engine", "admin")
+	add_command("admit", "<player> | list - let somebody in when this server asks for approval", _cmd_admit, "engine", "admin")
 	add_command("whoami", "Show your player id and permissions", _cmd_whoami, "engine")
 	add_command("backup", "Back up the world now", _cmd_backup, "engine", "admin")
 	add_command("backups", "List world backups", _cmd_backups, "engine", "admin")
@@ -1501,6 +1531,35 @@ func _cmd_kick(player, args: PackedStringArray) -> void:
 		player.send_message("No online player named '%s'" % (args[0] if args.size() > 0 else ""))
 		return
 	kick(target.peer_id, " ".join(args.slice(1)) if args.size() > 1 else "Kicked by %s" % player.name)
+
+
+## Who is waiting, and letting them in. Only means anything while `approval` is on.
+##
+## **Refusing is `/ban`, not a verb of its own.** Somebody you will not admit and somebody you have
+## thrown out are the same person as far as the door is concerned, and a second list of "refused"
+## identities would be a ban list that did not stop them coming back.
+func _cmd_admit(player, args: PackedStringArray) -> void:
+	if not gameplay.approval:
+		player.send_message("This server lets anybody in. Turn approval on to use this.")
+		return
+	var first := String(args[0]) if args.size() > 0 else "list"
+	if first.to_lower() == "list":
+		var waiting := []
+		for p: ServerPlayer in players.values():
+			if not is_admitted(p.player_id):
+				waiting.append(p.name)
+		player.send_message("Waiting to be let in: %s" % (", ".join(waiting) if not waiting.is_empty() else "nobody"))
+		return
+	var id := player_id_of(first)
+	if id.is_empty():
+		player.send_message("Nobody called '%s' has been here." % first)
+		return
+	admit(id, first, player.name)
+	var who = _find_online(first)
+	if who != null:
+		who.send_message("%s has let you in. The world is yours now." % player.name)
+	player.send_message("%s is in." % first)
+	dev_log.add("info", "server", "%s admitted %s (%s)" % [player.name, first, id])
 
 
 ## **A ban outlives the session and the name.** `/kick` disconnects and the player is back in two
@@ -3112,6 +3171,14 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	if not server_info.motd.is_empty():
 		p.send_message(server_info.motd)
 	broadcast_chat("%s is here" % player_name)
+	# **Nobody waits without being told they are waiting**, and nobody is expected to notice a queue
+	# they were never shown. A gate that is silent at both ends is a game that looks broken to the
+	# visitor and invisible to the admin.
+	if gameplay.approval and not is_admitted(p.player_id):
+		p.send_message("You can look around, but you cannot build or chat here until somebody lets you in.")
+		for other: ServerPlayer in players.values():
+			if has_permission(other, "admin"):
+				other.send_message("%s is waiting to be let in.  /admit %s" % [player_name, player_name])
 	print("[server] %s joined (peer %d, player id %s%s)" % [player_name, peer_id, player_id, ", admin" if is_admin(p) else ""])
 	# Before the event, so a mod asking what somebody is under during player_join gets the truth.
 	conditions.resume(p)

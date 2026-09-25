@@ -6975,3 +6975,44 @@ one spike of a few hundred megabytes is survivable on anything that is not alrea
 Worth being plain about the residue: on a home server this was never more than noise, and on a small
 VPS several peers doing it simultaneously is still an out-of-memory kill. The real fix would be a cap
 in the transport, which is upstream.
+
+### The approval gate, and the end of the security cluster (2026-09-25)
+
+The last item, and the only one that actually answers the question a keypair ban cannot: *"They can
+just regen a new key pair and keep griefing"* (the user, 2026-09-24). Quite right - evading a keypair
+ban is deleting one file, and no identity scheme stops a determined griefer on an open port.
+
+With `approval` on, an identity nobody has admitted arrives able to walk, look and read, and cannot
+build, break, chat, use creative or upload a creation. `/admit <player>` lets them in and the
+decision is kept; `/admit list` shows who is waiting. Both ends are told: the visitor learns why
+nothing works, and every admin online is told somebody is waiting *and* the command to use. A gate
+that is silent at both ends looks like a broken game to one person and does not exist to the other.
+
+Two decisions inside it:
+
+- **Refusing is `/ban`, not a verb of its own.** Somebody you will not admit and somebody you have
+  thrown out are the same person as far as the door is concerned, and a separate "refused" list would
+  be a ban list that did not stop them coming back.
+- **Admins are admitted by definition**, or turning approval on would lock out the only person who
+  can do the admitting.
+
+Off by default, because it costs a queue somebody has to watch - the right trade only when you cannot
+vouch for who turns up.
+
+**The test needed a precondition to be worth anything.** Asserting that a visitor cannot build passes
+just as well on a player who could never build, and proves nothing; it now asserts the same player
+*could* build a line earlier. That is the second time this week a check would have passed vacuously -
+the structure test and this one - and both were caught by asking what a green result would mean if
+the feature were absent.
+
+### The cluster, closed
+
+All seven items from 2026-09-17 are done: per-IP caps and a handshake sweep, `/ban` and `/mute`, the
+signature relay, the untrusted-asset surface (measured and found closed by an empty base path), RPC
+size (measured, bounded, repetition made costly), rate limits and an egress ceiling, the chat filter
+on creation and hub names, and the admin token. The dev dashboard went rather than being hardened.
+
+What is *not* claimed: none of this makes a public server safe to leave unattended. It makes the
+cheap attacks cost something and gives an operator the tools to run a gated one. The honest summary
+is the one from the discussion that started it - griefing on an open port is a staffing problem, and
+the engine's job is to make the gate possible, not to pretend the gate is unnecessary.
