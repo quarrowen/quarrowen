@@ -4230,6 +4230,35 @@ GDScript: `static public_text(key: Dictionary) -> String`
 
 The public half as text, which is what crosses the wire.
 
+### `private_text`
+
+*shared/identity.gd*
+
+GDScript: `static private_text(key: Dictionary) -> String`
+
+The private half as text: 44 characters of base64. **This is the whole account** - anybody who reads
+it is you - and it exists as text for exactly one reason: so that moving an identity to another device
+is reading it off one screen and typing it into the other. No network, no server in the middle, no
+code to expire, and a copy on paper is a backup that outlives the house. An RSA key at 1,675
+characters could do none of that, which is why it is no longer an RSA key. (2026-09-25)
+
+### `from_private_text`
+
+*shared/identity.gd*
+
+GDScript: `static from_private_text(typed: String) -> Dictionary`
+
+A key pair from what somebody typed, or `{}` when it is not one. **Forgiving about spaces and line
+breaks**, because the normal case is a hand copy off another screen or a paste that wrapped, and
+refusing those would make the feature feel broken when nothing was wrong.
+
+**It cannot tell you that you typed it wrong**, and no version of it could: any 32 bytes is a valid
+Ed25519 private key, so a key with one character changed is a real key belonging to a person who has
+never existed. What makes that survivable is upstream - `install` keeps the key it replaced, and the
+caller shows which id you have become, so a wrong one is visible and undoable rather than silent.
+
+**See also:** `pair_from`
+
 ### `sign`
 
 *shared/identity.gd*
@@ -4281,51 +4310,6 @@ Whether this public key signed the challenge. Takes the public bytes, since that
 ever has of somebody.
 
 **See also:** `finish`, `key_id`, `parse_public_key`, `start`
-
-### `new_transfer_code`
-
-*shared/identity.gd*
-
-GDScript: `static new_transfer_code() -> String`
-
-A fresh transfer code, in groups for reading out: "ABCD-EFGH-IJKL-MNOP-QRST".
-
-### `tidy_transfer_code`
-
-*shared/identity.gd*
-
-GDScript: `static tidy_transfer_code(typed: String) -> String`
-
-What the code looks like once dashes, spaces and case are forgiven. Typing it back is the one part a
-person does by hand, so every way of getting it slightly wrong that still means the same thing is
-accepted.
-
-### `transfer_handle`
-
-*shared/identity.gd*
-
-GDScript: `static transfer_handle(code: String) -> String`
-
-**The half of the code the server is allowed to see.** A transfer is stored under this, and it is a
-hash - so a server holding the ciphertext holds nothing that decrypts it. Splitting the code this
-way is the whole reason the server can be handed an encrypted private key at all: store it under
-the code itself and "encrypted" would mean nothing, because the key would have arrived with it.
-
-**See also:** `finish`, `start`, `tidy_transfer_code`
-
-### `export_for_transfer`
-
-*shared/identity.gd*
-
-GDScript: `static export_for_transfer(key: Dictionary, code: String) -> String`
-
-Encrypting and decrypting *for a transfer*, as a pair, so the two ends cannot disagree about what
-the passphrase was. **Both tidy the code first**: the person reading it out says the letters and the
-person typing it may or may not put the dashes in, and a key derived from the difference is a
-transfer that fails with "wrong code" when the code was right. Found by testing the untidy path
-rather than the neat one. (2026-09-25)
-
-**See also:** `export_encrypted`, `tidy_transfer_code`
 
 ### `export_encrypted`
 

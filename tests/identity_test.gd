@@ -29,7 +29,7 @@ func _ready() -> void:
 	doc = JSON.parse_string(text)
 	doc.iterations = 20001
 	_check(Identity.import_encrypted(JSON.stringify(doc), passphrase).has("error"), "modified parameters rejected")
-	_transfer()
+	_typed()
 	_check(Identity.import_encrypted("{}", passphrase).get("error", "").contains("Not a Quarrowen"), "unrelated file rejected")
 
 	# Installing replaces the named identity and keeps the previous one.
@@ -49,33 +49,30 @@ func _ready() -> void:
 	get_tree().quit(0 if _failures == 0 else 1)
 
 
-## Moving an identity to another device, and the one property that makes it safe to leave an encrypted
-## private key on a server for ten minutes: **the server is never given the key.**
-func _transfer() -> void:
-	var key: Dictionary = Identity.load_or_create("transfer_source")
-	var code := Identity.new_transfer_code()
-	_check(code.length() == Identity.TRANSFER_GROUPS * (Identity.TRANSFER_GROUP_SIZE + 1) - 1,
-		"a transfer code is groups of characters (%s)" % code)
-	_check(not code.contains("0") and not code.contains("O") and not code.contains("1"),
-		"and avoids characters that look like each other")
-	# Typed back with the dashes lost, the case wrong and a stray space: still the same code.
-	var sloppy := code.to_lower().replace("-", " ") + " "
-	_check(Identity.transfer_handle(sloppy) == Identity.transfer_handle(code),
-		"a code typed untidily still finds the same transfer")
-	# The handle is what the server sees. It must not be the code.
-	var handle := Identity.transfer_handle(code)
-	_check(handle.length() == 32 and handle.is_valid_hex_number(), "the handle is a hash")
-	_check(not handle.contains(Identity.tidy_transfer_code(code)), "and is not the code itself")
-	# **The property that matters**: holding the blob and the handle - everything the server has - must
-	# not be enough to read the identity. Only the code does that, and the code never reaches it.
-	var blob := Identity.export_for_transfer(key, code)
-	_check(Identity.import_from_transfer(blob, handle).has("error"),
-		"what the server holds cannot open what the server holds")
-	var wrong := Identity.new_transfer_code()
-	_check(Identity.import_from_transfer(blob, wrong).has("error"), "and another code does not open it either")
-	var got := Identity.import_from_transfer(blob, sloppy)
-	_check(got.get("error", "").is_empty() and Identity.player_id(got.key) == Identity.player_id(key),
-		"while the right code, typed untidily, gives back the same identity")
+## Moving an identity to another device is now typing it in: 44 characters of base64, off one screen and
+## into the other. **The untidy path is the one that matters** - a key copied by hand arrives with a line
+## break or a stray space in it far more often than not, and refusing those would make a working key look
+## like a broken one.
+func _typed() -> void:
+	var key: Dictionary = Identity.load_or_create("typed_source")
+	var text := Identity.private_text(key)
+	_check(text.length() == 44, "a key is 44 characters, short enough to type (%d)" % text.length())
+	var back := Identity.from_private_text(text)
+	_check(not back.is_empty() and Identity.player_id(back) == Identity.player_id(key), "typing it back gives the same identity")
+	var untidy := " %s\n  %s \n" % [text.substr(0, 20), text.substr(20)]
+	_check(Identity.player_id(Identity.from_private_text(untidy)) == Identity.player_id(key),
+		"and so does a copy that arrived wrapped and padded with spaces")
+	_check(Identity.from_private_text("").is_empty(), "nothing is not a key")
+	_check(Identity.from_private_text("not a key at all").is_empty(), "nor is a sentence")
+	# **Any 32 bytes is a valid Ed25519 private key**, so a key typed with one character wrong cannot be
+	# detected - it is simply a different person, one nobody has ever been. Pasting the *public* half,
+	# which is the same length and alphabet and so the likeliest mistake, is the clearest case of it.
+	# Nothing here can refuse that; what makes it survivable is upstream, and both halves are asserted
+	# below: `install` keeps the key it replaced, and the menu says which id you have become.
+	var mistake := Identity.from_private_text(Identity.public_text(key))
+	_check(not mistake.is_empty() and Identity.player_id(mistake) != Identity.player_id(key),
+		"a key typed wrong is a different person rather than an error, which is why install keeps a backup")
+	_check(Identity.from_private_text("A".repeat(Identity.MAX_KEY_TEXT + 1)).is_empty(), "an oversized string is refused before it is decoded")
 
 
 func _check(ok: bool, what: String) -> void:

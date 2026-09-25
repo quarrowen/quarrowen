@@ -37,27 +37,16 @@ static func dir() -> String:
 
 const KEY_BYTES := 32
 const SIGNATURE_BYTES := 64
-## A public key as text: base64 of 32 bytes. Kept as a bound rather than an equality so a future
-## format has somewhere to go, and so a stranger's oversized string is refused before it is decoded.
-const MAX_PUBLIC_TEXT := 128
+## Either half of a key as text: base64 of 32 bytes, so 44 characters. Kept as a bound rather than an
+## equality so a future format has somewhere to go, and so a stranger's oversized string is refused
+## before anything decodes it.
+const MAX_KEY_TEXT := 128
 const NONCE_BYTES := 32
 
 
 const EXPORT_FORMAT := "quarrowen-identity"
 const EXPORT_ITERATIONS := 210000
 const MIN_PASSPHRASE_LENGTH := 8
-
-## Moving an identity to another device: the shape of the one-time code, and how it is split.
-##
-## **The code is read aloud and typed, so the alphabet avoids every pair that looks alike** - no O or
-## 0, no I or 1, no S or 5. Five groups of four is a hundred bits, which is far more than is needed to
-## stop somebody guessing it within the ten minutes it lives, and is chosen for the *other* threat: the
-## server holds the ciphertext, so the code must resist an offline attack by whoever runs it. It is
-## their own identity, so this is belt and braces - but the cost of the braces is four more characters.
-const TRANSFER_ALPHABET := "ABCDEFGHJKLMNPQRTUVWXYZ2346789"
-const TRANSFER_GROUPS := 5
-const TRANSFER_GROUP_SIZE := 4
-
 
 static func path_for(identity_name := "default") -> String:
 	return dir().path_join(identity_name.validate_filename() + ".key")
@@ -98,6 +87,30 @@ static func public_text(key: Dictionary) -> String:
 	return Marshalls.raw_to_base64(key.get("public", PackedByteArray()))
 
 
+## The private half as text: 44 characters of base64. **This is the whole account** - anybody who reads
+## it is you - and it exists as text for exactly one reason: so that moving an identity to another device
+## is reading it off one screen and typing it into the other. No network, no server in the middle, no
+## code to expire, and a copy on paper is a backup that outlives the house. An RSA key at 1,675
+## characters could do none of that, which is why it is no longer an RSA key. (2026-09-25)
+static func private_text(key: Dictionary) -> String:
+	return Marshalls.raw_to_base64(key.get("private", PackedByteArray()))
+
+
+## A key pair from what somebody typed, or `{}` when it is not one. **Forgiving about spaces and line
+## breaks**, because the normal case is a hand copy off another screen or a paste that wrapped, and
+## refusing those would make the feature feel broken when nothing was wrong.
+##
+## **It cannot tell you that you typed it wrong**, and no version of it could: any 32 bytes is a valid
+## Ed25519 private key, so a key with one character changed is a real key belonging to a person who has
+## never existed. What makes that survivable is upstream - `install` keeps the key it replaced, and the
+## caller shows which id you have become, so a wrong one is visible and undoable rather than silent.
+static func from_private_text(typed: String) -> Dictionary:
+	var tidy := typed.strip_escapes().replace(" ", "")
+	if tidy.length() > MAX_KEY_TEXT:
+		return {}
+	return pair_from(Marshalls.base64_to_raw(tidy))
+
+
 ## Signs the challenge. **`audience` is who the signature is *for*, and leaving it out is the bug this
 ## parameter exists to fix.**
 ##
@@ -118,7 +131,7 @@ static func sign(key: Dictionary, message: PackedByteArray, audience := "") -> P
 ## Server side: the 32 public bytes a client sent, or an empty array when it is not a usable key.
 ## Checked for length *before* decoding, so an oversized string from a stranger costs nothing.
 static func parse_public_key(text: String) -> PackedByteArray:
-	if text.length() > MAX_PUBLIC_TEXT:
+	if text.length() > MAX_KEY_TEXT:
 		return PackedByteArray()
 	var bytes := Marshalls.base64_to_raw(text)
 	return bytes if bytes.size() == KEY_BYTES else PackedByteArray()
@@ -156,65 +169,10 @@ static func new_nonce() -> PackedByteArray:
 	return Crypto.new().generate_random_bytes(NONCE_BYTES)
 
 
-static func _digest(bytes: PackedByteArray) -> PackedByteArray:
-	var ctx := HashingContext.new()
-	ctx.start(HashingContext.HASH_SHA256)
-	ctx.update(bytes)
-	return ctx.finish()
-
-
 # --- Export / import ------------------------------------------------------------------------------
 # The identity *is* the account, so it is exported encrypted: PBKDF2-HMAC-SHA256 stretches the
 # passphrase, AES-256-CBC encrypts the private key and HMAC-SHA256 authenticates the ciphertext
 # (encrypt-then-MAC, separate keys), so a wrong passphrase or a modified file is detected.
-
-## A fresh transfer code, in groups for reading out: "ABCD-EFGH-IJKL-MNOP-QRST".
-static func new_transfer_code() -> String:
-	var crypto := Crypto.new()
-	var bytes := crypto.generate_random_bytes(TRANSFER_GROUPS * TRANSFER_GROUP_SIZE)
-	var groups := []
-	for g in TRANSFER_GROUPS:
-		var chunk := ""
-		for i in TRANSFER_GROUP_SIZE:
-			chunk += TRANSFER_ALPHABET[bytes[g * TRANSFER_GROUP_SIZE + i] % TRANSFER_ALPHABET.length()]
-		groups.append(chunk)
-	return "-".join(groups)
-
-
-## What the code looks like once dashes, spaces and case are forgiven. Typing it back is the one part a
-## person does by hand, so every way of getting it slightly wrong that still means the same thing is
-## accepted.
-static func tidy_transfer_code(typed: String) -> String:
-	var out := ""
-	for c in typed.to_upper():
-		if TRANSFER_ALPHABET.contains(c):
-			out += c
-	return out
-
-
-## **The half of the code the server is allowed to see.** A transfer is stored under this, and it is a
-## hash - so a server holding the ciphertext holds nothing that decrypts it. Splitting the code this
-## way is the whole reason the server can be handed an encrypted private key at all: store it under
-## the code itself and "encrypted" would mean nothing, because the key would have arrived with it.
-static func transfer_handle(code: String) -> String:
-	var ctx := HashingContext.new()
-	ctx.start(HashingContext.HASH_SHA256)
-	ctx.update(("quarrowen-transfer-handle:" + tidy_transfer_code(code)).to_utf8_buffer())
-	return ctx.finish().hex_encode().left(32)
-
-
-## Encrypting and decrypting *for a transfer*, as a pair, so the two ends cannot disagree about what
-## the passphrase was. **Both tidy the code first**: the person reading it out says the letters and the
-## person typing it may or may not put the dashes in, and a key derived from the difference is a
-## transfer that fails with "wrong code" when the code was right. Found by testing the untidy path
-## rather than the neat one. (2026-09-25)
-static func export_for_transfer(key: Dictionary, code: String) -> String:
-	return export_encrypted(key, tidy_transfer_code(code))
-
-
-static func import_from_transfer(blob: String, code: String) -> Dictionary:
-	return import_encrypted(blob, tidy_transfer_code(code))
-
 
 ## Returns the JSON text of an encrypted identity file.
 static func export_encrypted(key: Dictionary, passphrase: String, iterations := EXPORT_ITERATIONS) -> String:

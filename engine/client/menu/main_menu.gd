@@ -87,6 +87,9 @@ var _status_timer := 0.0
 # Settings
 var _identity_label: Label
 var _passphrase_edit: LineEdit
+var _key_edit: LineEdit
+var _key_reveal: Button
+var _key_typed: LineEdit
 
 
 func _ready() -> void:
@@ -1186,10 +1189,47 @@ func _build_settings() -> Control:
 	_identity_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_identity_label.custom_minimum_size.x = 300
 	account.add_child(_identity_label)
-	var about := MenuTheme.muted("Your identity key is your account on every server. Export it (encrypted with a passphrase) to play from another computer.", 13)
+	var about := MenuTheme.muted("Your identity key is your account on every server. To play from another "
+		+ "device, copy the key across - or write it down somewhere safe, which is also how you get it back "
+		+ "if this computer is lost.", 13)
 	about.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	about.custom_minimum_size.x = 300
 	account.add_child(about)
+
+	# **Hidden until asked for.** The key is 44 characters precisely so it can be read off one screen and
+	# typed into another - which also means anybody who reads it over a shoulder is you from then on, so
+	# it is never on screen unless somebody asked for it this minute (see _hide_key).
+	_key_edit = _labeled(account, "Your key", LineEdit.new())
+	_key_edit.editable = false
+	_key_edit.placeholder_text = "hidden"
+	_key_reveal = Button.new()
+	_key_reveal.text = "Show my key"
+	_key_reveal.pressed.connect(_toggle_key)
+	var key_row := HBoxContainer.new()
+	key_row.add_child(_key_reveal)
+	var copy := Button.new()
+	copy.text = "Copy"
+	copy.pressed.connect(func():
+		DisplayServer.clipboard_set(Identity.private_text(Identity.load_or_create()))
+		show_message("Key copied. Anybody who has it can play as you.", "info"))
+	key_row.add_child(copy)
+	account.add_child(key_row)
+
+	# The other end of the same journey: type in the key from the device you are moving from. The one you
+	# are replacing is kept as a backup by Identity.install, because installing the wrong key over the
+	# right one is otherwise the end of that player.
+	_key_typed = _labeled(account, "Use a key", LineEdit.new())
+	_key_typed.placeholder_text = "paste or type the key from your other device"
+	var use := Button.new()
+	use.text = "Use this key"
+	use.pressed.connect(_use_typed_key)
+	var use_row := HBoxContainer.new()  # in a row so it sizes to its text, like every other button here
+	use_row.add_child(use)
+	account.add_child(use_row)
+
+	account.add_child(HSeparator.new())
+	account.add_child(MenuTheme.muted("Or move it as a file, encrypted with a passphrase - safer to send "
+		+ "or keep on a memory stick than a key in plain text.", 13))
 	_passphrase_edit = _labeled(account, "Passphrase", LineEdit.new())
 	_passphrase_edit.secret = true
 	_passphrase_edit.placeholder_text = "at least %d characters" % Identity.MIN_PASSPHRASE_LENGTH
@@ -1229,6 +1269,39 @@ func _build_settings() -> Control:
 func _refresh_identity() -> void:
 	var exists := FileAccess.file_exists(Identity.path_for())
 	_identity_label.text = "Identity: %s" % (Identity.player_id(Identity.load_or_create()) if exists else "created when you first join")
+	# The page is built once, so a revealed key would otherwise still be on screen the next time anybody
+	# opened Settings - including somebody else at the same computer.
+	_hide_key()
+
+
+func _hide_key() -> void:
+	if _key_edit == null:
+		return  # _refresh_identity can run while the page is still being built
+	_key_edit.text = ""
+	_key_reveal.text = "Show my key"
+
+
+## Shows or hides the key. Hiding clears the field rather than masking it, so it cannot be read back out
+## of a screenshot taken while the settings page was open.
+func _toggle_key() -> void:
+	if _key_edit.text.is_empty():
+		_key_edit.text = Identity.private_text(Identity.load_or_create())
+		_key_reveal.text = "Hide my key"
+	else:
+		_hide_key()
+
+
+func _use_typed_key() -> void:
+	var pair: Dictionary = Identity.from_private_text(_key_typed.text)
+	if pair.is_empty():
+		show_message("That does not look like a key. It is 44 characters, from the other device's settings.", "error")
+		return
+	if Identity.install(pair) != OK:
+		show_message("Could not save that key", "error")
+		return
+	_key_typed.text = ""
+	_refresh_identity()
+	show_message("You are now %s. The key you had is kept as a backup beside it." % Identity.player_id(pair), "success")
 
 
 func _pick_identity_file(exporting: bool) -> void:

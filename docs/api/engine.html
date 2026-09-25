@@ -1332,6 +1332,30 @@ the server is still the same server to everybody who trusts it. shared/identity.
 world rather than in the player's identity folder, because it belongs to the world: copy the save and
 the server is still the same server to everybody who trusts it.</p></div>
 <div class="card" data-search="public_text the public half as text, which is what crosses the wire. shared/identity.gd creatures and ai"><div class="sig"><code>static public_text(key: Dictionary) -&gt; String</code></div><p>The public half as text, which is what crosses the wire.</p></div>
+<div class="card" data-search="private_text the private half as text: 44 characters of base64. **this is the whole account** - anybody who reads
+it is you - and it exists as text for exactly one reason: so that moving an identity to another device
+is reading it off one screen and typing it into the other. no network, no server in the middle, no
+code to expire, and a copy on paper is a backup that outlives the house. an rsa key at 1,675
+characters could do none of that, which is why it is no longer an rsa key. (2026-09-25) shared/identity.gd creatures and ai"><div class="sig"><code>static private_text(key: Dictionary) -&gt; String</code></div><p>The private half as text: 44 characters of base64. **This is the whole account** - anybody who reads
+it is you - and it exists as text for exactly one reason: so that moving an identity to another device
+is reading it off one screen and typing it into the other. No network, no server in the middle, no
+code to expire, and a copy on paper is a backup that outlives the house. An RSA key at 1,675
+characters could do none of that, which is why it is no longer an RSA key. (2026-09-25)</p></div>
+<div class="card" data-search="from_private_text a key pair from what somebody typed, or `{}` when it is not one. **forgiving about spaces and line
+breaks**, because the normal case is a hand copy off another screen or a paste that wrapped, and
+refusing those would make the feature feel broken when nothing was wrong.
+
+**it cannot tell you that you typed it wrong**, and no version of it could: any 32 bytes is a valid
+ed25519 private key, so a key with one character changed is a real key belonging to a person who has
+never existed. what makes that survivable is upstream - `install` keeps the key it replaced, and the
+caller shows which id you have become, so a wrong one is visible and undoable rather than silent. shared/identity.gd creatures and ai"><div class="sig"><code>static from_private_text(typed: String) -&gt; Dictionary</code></div><p>A key pair from what somebody typed, or `{}` when it is not one. **Forgiving about spaces and line
+breaks**, because the normal case is a hand copy off another screen or a paste that wrapped, and
+refusing those would make the feature feel broken when nothing was wrong.
+
+**It cannot tell you that you typed it wrong**, and no version of it could: any 32 bytes is a valid
+Ed25519 private key, so a key with one character changed is a real key belonging to a person who has
+never existed. What makes that survivable is upstream - `install` keeps the key it replaced, and the
+caller shows which id you have become, so a wrong one is visible and undoable rather than silent.</p></div>
 <div class="card" data-search="sign signs the challenge. **`audience` is who the signature is *for*, and leaving it out is the bug this
 parameter exists to fix.**
 
@@ -1364,28 +1388,6 @@ public bytes on their own - which is what a server has.</p></div>
 <div class="card" data-search="verify whether this public key signed the challenge. takes the public bytes, since that is all a server
 ever has of somebody. shared/identity.gd creatures and ai"><div class="sig"><code>static verify(public: PackedByteArray, message: PackedByteArray, signature: PackedByteArray, audience := &quot;&quot;) -&gt; bool</code></div><p>Whether this public key signed the challenge. Takes the public bytes, since that is all a server
 ever has of somebody.</p></div>
-<div class="card" data-search="new_transfer_code a fresh transfer code, in groups for reading out: &quot;abcd-efgh-ijkl-mnop-qrst&quot;. shared/identity.gd creatures and ai"><div class="sig"><code>static new_transfer_code() -&gt; String</code></div><p>A fresh transfer code, in groups for reading out: "ABCD-EFGH-IJKL-MNOP-QRST".</p></div>
-<div class="card" data-search="tidy_transfer_code what the code looks like once dashes, spaces and case are forgiven. typing it back is the one part a
-person does by hand, so every way of getting it slightly wrong that still means the same thing is
-accepted. shared/identity.gd creatures and ai"><div class="sig"><code>static tidy_transfer_code(typed: String) -&gt; String</code></div><p>What the code looks like once dashes, spaces and case are forgiven. Typing it back is the one part a
-person does by hand, so every way of getting it slightly wrong that still means the same thing is
-accepted.</p></div>
-<div class="card" data-search="transfer_handle **the half of the code the server is allowed to see.** a transfer is stored under this, and it is a
-hash - so a server holding the ciphertext holds nothing that decrypts it. splitting the code this
-way is the whole reason the server can be handed an encrypted private key at all: store it under
-the code itself and &quot;encrypted&quot; would mean nothing, because the key would have arrived with it. shared/identity.gd creatures and ai"><div class="sig"><code>static transfer_handle(code: String) -&gt; String</code></div><p>**The half of the code the server is allowed to see.** A transfer is stored under this, and it is a
-hash - so a server holding the ciphertext holds nothing that decrypts it. Splitting the code this
-way is the whole reason the server can be handed an encrypted private key at all: store it under
-the code itself and "encrypted" would mean nothing, because the key would have arrived with it.</p></div>
-<div class="card" data-search="export_for_transfer encrypting and decrypting *for a transfer*, as a pair, so the two ends cannot disagree about what
-the passphrase was. **both tidy the code first**: the person reading it out says the letters and the
-person typing it may or may not put the dashes in, and a key derived from the difference is a
-transfer that fails with &quot;wrong code&quot; when the code was right. found by testing the untidy path
-rather than the neat one. (2026-09-25) shared/identity.gd creatures and ai"><div class="sig"><code>static export_for_transfer(key: Dictionary, code: String) -&gt; String</code></div><p>Encrypting and decrypting *for a transfer*, as a pair, so the two ends cannot disagree about what
-the passphrase was. **Both tidy the code first**: the person reading it out says the letters and the
-person typing it may or may not put the dashes in, and a key derived from the difference is a
-transfer that fails with "wrong code" when the code was right. Found by testing the untidy path
-rather than the neat one. (2026-09-25)</p></div>
 <div class="card" data-search="export_encrypted returns the json text of an encrypted identity file. shared/identity.gd creatures and ai"><div class="sig"><code>static export_encrypted(key: Dictionary, passphrase: String, iterations := EXPORT_ITERATIONS) -&gt; String</code></div><p>Returns the JSON text of an encrypted identity file.</p></div>
 <div class="card" data-search="import_encrypted decrypts an exported identity. returns {key: {private, public}, player_id} or {error: string}. shared/identity.gd creatures and ai"><div class="sig"><code>static import_encrypted(text: String, passphrase: String) -&gt; Dictionary</code></div><p>Decrypts an exported identity. Returns {key: {private, public}, player_id} or {error: String}.</p></div>
 <div class="card" data-search="install saves `key` as the named identity. an existing different identity is kept as a .bak file. shared/identity.gd creatures and ai"><div class="sig"><code>static install(key: Dictionary, identity_name := &quot;default&quot;) -&gt; Error</code></div><p>Saves `key` as the named identity. An existing different identity is kept as a .bak file.</p></div>
@@ -3097,7 +3099,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1224 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1222 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

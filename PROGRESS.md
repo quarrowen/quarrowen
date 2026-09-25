@@ -7165,5 +7165,28 @@ the RSA crate's arbitrary-precision arithmetic went and Ed25519's fixed-size fie
 it - which is a footnote, not a reason. Counted rather than guessed, after a first draft of this
 paragraph read the diff's line counts as crate counts and claimed 44.
 
-Still to build: the two menu screens, now much simpler - show your key, and a box to paste one into.
-The countdown bar and the collected-notice were requirements of the relay and no longer exist.
+**The two menu screens, built the same day.** Settings → Account now has "Show my key" (hidden until
+asked for, and cleared rather than masked when hidden, so it cannot be read out of a screenshot taken
+while the page was open) and a box to type one into. The encrypted-file export stays beside them for
+the careful path - safer to send or to leave on a memory stick than a key in plain text.
+
+Deleted with the relay: `new_transfer_code`, `tidy_transfer_code`, `transfer_handle`,
+`export_for_transfer`, `import_from_transfer`, the look-alike alphabet and `_digest`, plus the test
+that exercised them. Worth naming as a shape: **for half a day that was 48 lines of working, tested,
+documented dead code**, kept alive by nothing but its own test, and a green suite said so every time.
+A test is not evidence that a feature has callers.
+
+**And a way to look at the menu, built because this change landed in it.** `tests/menu_shot.gd`
+photographs any main-menu page (`--page=settings --tab=Account`). `screenshot.gd` covers the game and
+its overlays, and its `--settings` opens the *pause* settings - a different screen - so the menu's own
+pages were the one part of the interface that could only be checked by launching the game and clicking,
+which is exactly the check nobody does. It found a full-width "Use this key" button sitting between two
+compact ones on the first shot.
+
+**One property that cannot be fixed and so is written down instead.** Any 32 bytes is a valid Ed25519
+private key, so a key typed with one character wrong is not an error - it is a real key belonging to a
+person who has never existed, and nothing in `from_private_text` could tell the difference. The
+mitigations are both upstream and both now asserted: `install` keeps the key it replaced as a backup,
+and the menu says *which* id you have just become, so a wrong one is visible and undoable rather than
+silent. The encrypted file export does not have this hazard, because its MAC catches a bad passphrase -
+which is a reason to keep it rather than a reason to prefer it.
