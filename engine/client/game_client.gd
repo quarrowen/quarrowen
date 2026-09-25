@@ -146,6 +146,9 @@ var test_signing_key: CryptoKey = null
 ## Tests: announce this protocol version instead of the real one.
 var test_protocol := -1
 ## Accept gameplay input without a captured mouse (headless bots / tests).
+## Whether arriving in a world grabs the mouse. True for a person playing; the screenshot harness
+## turns it off, because a test run that steals the cursor for a minute is its own small cruelty.
+var auto_capture_mouse := true
 var ignore_mouse_capture := false
 ## Your portable avatar (Cosmetics data) sent to the server on join; null loads the saved one.
 var avatar = null
@@ -1958,6 +1961,13 @@ func _process(delta: float) -> void:
 		_hud_root.visible = true
 		if _curtain != null and is_instance_valid(_curtain):
 			_curtain.leave()
+		# **Playing, not waiting to be asked.** The mouse was captured on the first click, which meant
+		# arriving in a world and finding that looking around did nothing until you clicked - a small
+		# thing that makes a game feel broken at exactly the moment it should feel like somewhere you
+		# have turned up. Nothing is in the way at this point: the curtain is going and the pause menu
+		# cannot be open. (the user, 2026-09-25)
+		if auto_capture_mouse and not _pause_panel.visible and not ignore_mouse_capture:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		if not dead and _sleep.is_empty():
 			_arrival = 0.0
 

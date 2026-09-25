@@ -27,6 +27,8 @@ func _ready() -> void:
 	client.server_port = int(options.port)
 	client.player_name = String(options.name)
 	client.avatar = JSON.parse_string(options.avatar) if not String(options.avatar).is_empty() else {}
+	# A shot is not a person playing: arriving must not grab the cursor off whoever is at the machine.
+	client.auto_capture_mouse = false
 	add_child(client)
 	await _meshed(client)
 	client.yaw = float(options.yaw)

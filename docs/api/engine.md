@@ -8771,13 +8771,15 @@ GDScript: `test_protocol := -1  (property)`
 
 Tests: announce this protocol version instead of the real one.
 
-### `ignore_mouse_capture`
+### `auto_capture_mouse`
 
 *client/game_client.gd*
 
-GDScript: `ignore_mouse_capture := false  (property)`
+GDScript: `auto_capture_mouse := true  (property)`
 
 Accept gameplay input without a captured mouse (headless bots / tests).
+Whether arriving in a world grabs the mouse. True for a person playing; the screenshot harness
+turns it off, because a test run that steals the cursor for a minute is its own small cruelty.
 
 ### `avatar`
 

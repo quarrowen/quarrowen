@@ -6921,3 +6921,13 @@ to do, and the third is the one easy to skip:
 
 Checked that a failed connection cannot strand anybody behind it: `_leave` emits `exited`, the client
 is freed, and the curtain goes with it.
+
+### The mouse is captured on arrival (user, 2026-09-25)
+
+It was captured on the first *click*, so arriving in a world and finding that looking around did
+nothing until you clicked - a small thing that makes a game feel broken at exactly the moment it
+should feel like somewhere you have turned up. It is taken when the curtain lifts now; nothing is in
+the way at that point, because the pause menu cannot be open and the world is drawn.
+
+`auto_capture_mouse` exists so the screenshot harness can refuse it. A test run that steals the
+cursor for a minute is its own small cruelty, and this session runs dozens of them.
