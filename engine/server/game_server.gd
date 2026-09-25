@@ -6052,11 +6052,20 @@ func _drain_save_queue(budget_usec: int, wait := false) -> void:
 	if not _save_meta_pending and _queued_chunks() == 0:
 		return
 	var start := Time.get_ticks_usec()
+	# **At least one chunk per call, whatever the budget says.** The check used to run before anything
+	# was written, so a budget this call had already exceeded - which a budget of 0 always has, because
+	# the microsecond clock moves between the two lines - meant returning having done nothing at all.
+	# A queue drained only by calls that are each allowed to do nothing is a queue that never empties:
+	# the save-queue test failed exactly this way on a loaded machine, twice today, and the same shape
+	# on a busy server would be a world that stopped saving while looking like it was trying.
+	# (2026-09-25)
+	var written := 0
 	for r: Realm in realms.values():
 		for coord: Vector2i in r.save_queue.keys():
-			if budget_usec >= 0 and Time.get_ticks_usec() - start > budget_usec:
+			if written > 0 and budget_usec >= 0 and Time.get_ticks_usec() - start > budget_usec:
 				return
 			r.save_queue.erase(coord)
+			written += 1
 			if r.world.chunks.has(coord):
 				_save_writes.append(_serialize_chunk(r, coord))
 				r.save_dirty.erase(coord)

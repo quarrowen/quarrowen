@@ -6460,9 +6460,9 @@ it matters the day anybody else can reach it.
 
 8. **A flier with `gravity: 0` floats when it dies or sleeps.** Recorded as "worth fixing when
    something bundled actually flies" - `base`'s Wisp flies now, so it is live.
-9. **Three flaky tests, none diagnosed**: `host_flow_test` ("host client joined its own server"),
-   `multiplayer` (a different assertion each time), and the save-queue timing tests (third
-   occurrence, explicitly not fixed).
+9. **Two flaky tests, none diagnosed**: `host_flow_test` ("host client joined its own server") and
+   `multiplayer` (a different assertion each time). ~~The save-queue timing tests~~ were the third
+   flake and are fixed - see below; it turned out not to be a timing problem at all.
 10. ~~**`--import` hangs after finishing its work.**~~ Not reproducible on 2026-09-24: timed twice,
     4.0 seconds and a clean exit both times. The 90-second `timeout` in `run_tests.sh` costs nothing
     when the import exits normally, so it is cheap insurance and stays. Listed here (by me) as "costs
@@ -7016,3 +7016,32 @@ What is *not* claimed: none of this makes a public server safe to leave unattend
 cheap attacks cost something and gives an operator the tools to run a gated one. The honest summary
 is the one from the discussion that started it - griefing on an open port is a staffing problem, and
 the engine's job is to make the gate possible, not to pretend the gate is unnecessary.
+
+### The save-queue flake was a real starvation bug (2026-09-25)
+
+Three times this test has been rewritten to be less timing-dependent, and it failed twice more today
+in ordinary full-suite runs. The fourth look found that the test was right and the engine was wrong.
+
+`_drain_save_queue` checked its budget **before writing anything**:
+
+    if budget_usec >= 0 and Time.get_ticks_usec() - start > budget_usec:
+        return
+
+With a budget of 0 - which is what the test passes, deliberately, to force the save to spread over
+several calls - the microsecond clock has always moved between `start` and that line on a loaded
+machine. So the call returned having done nothing, a thousand calls did nothing, and the queue never
+emptied. It passed alone, where the clock often had not moved yet, and failed in a full run where the
+e2e server keeps the machine busy. That is precisely the pattern the last two rewrites described and
+attributed to the test.
+
+**The same shape on a real server is a world that stops saving while appearing to try.** The drain is
+called with a real budget in the tick, so it has not bitten - but a budget it has already exceeded on
+entry is reachable under load, and the failure mode is silent.
+
+One chunk is now written per call whatever the budget says. Three `gameplay` runs and two full suites
+clean.
+
+Worth keeping as a lesson: **a test that has been "made less flaky" three times is evidence about the
+code, not about the test.** Each rewrite made the test describe the bug more precisely - the last one
+even wrote down that a budget of 0 "stops after one chunk on a machine whose clock moved" - and
+nobody followed that sentence into the engine.
