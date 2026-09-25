@@ -6449,7 +6449,8 @@ it matters the day anybody else can reach it.
    `Protocol.VERSION` 53.
 6. The server parses untrusted PNG and glTF in-process; glTF external-URI resolution and hostile-GLB
    memory are both unverified.
-7. RPC arguments are decoded before any size cap. The rest of this line is done as of 2026-09-25:
+7. ~~RPC arguments are decoded before any size cap.~~ Measured 2026-09-25 - see below. The rest of
+   this line is done too:
    UGC egress has a server-wide ceiling, creation names and hub listings go through the chat filter,
    `c_map` and `c_ugc_*` are rate limited, and the admin token is CSPRNG bytes in the environment.
 8. ~~The dev dashboard is full control through a URL token over plain HTTP, GET with side effects.~~
@@ -6951,3 +6952,26 @@ cursor for a minute is its own small cruelty, and this session runs dozens of th
 
 What is left of the cluster: RPC arguments are decoded before any size cap applies, which the
 original note said "needs measuring" and still does, and the approval gate for unknown identities.
+
+### What an oversized RPC actually costs, measured (2026-09-25)
+
+The note said "RPC arguments are decoded before any size cap applies. Needs measuring." It has been,
+with `tools/rpc_flood.tscn`, against a handler reachable *before* authentication - the worst case,
+because it costs the sender no identity and no standing.
+
+**An 8 MB string cost the server about 76 MB while it was decoded**, roughly ten times the payload.
+ENet will carry 32 MB, so one packet is a ~300 MB spike from somebody who has proved nothing.
+
+**It does not accumulate**, which is the reassuring half: six more sends added 20 MB, so the memory
+comes back. This is a spike, not a leak.
+
+**What could and could not be done about it.** Godot decodes the packet before any handler runs and
+exposes no transport-level cap, so the spike itself cannot be prevented from GDScript. Every pre-auth
+handler was already truncating what it *keeps* - the name, the key, the ticket, the signature are all
+bounded - so the only way to hurt anybody was to repeat it. Repeating it now costs the connection: a
+join handler that receives more than 256 KB drops the peer. That turns an attack into a one-off, and
+one spike of a few hundred megabytes is survivable on anything that is not already at its limit.
+
+Worth being plain about the residue: on a home server this was never more than noise, and on a small
+VPS several peers doing it simultaneously is still an out-of-memory kill. The real fix would be a cap
+in the transport, which is upstream.

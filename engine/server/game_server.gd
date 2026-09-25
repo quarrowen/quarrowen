@@ -2832,6 +2832,8 @@ func on_hello(peer_id: int, protocol: int, player_name: String, public_key: Stri
 	# server. Net._sender() hands out 0 for a peer that is flooding. (security review, 2026-09-18)
 	if peer_id <= 1:
 		return
+	if _absurd(peer_id, player_name.length() + public_key.length()):
+		return
 	if players.has(peer_id) or _joining.has(peer_id):
 		return
 	if protocol != Protocol.VERSION:
@@ -2917,9 +2919,33 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 
 
 func on_transfer_ticket(peer_id: int, ticket: String, signature: String) -> void:
+	if _absurd(peer_id, ticket.length() + signature.length()):
+		return
 	var j: Dictionary = _joining.get(peer_id, {})
 	if not j.is_empty() and not j.authenticated and not j.has("ticket"):
 		j.ticket = [ticket.left(Transfers.TransferTicket.MAX_SIZE), signature.left(2048)]
+
+
+## Drops a peer that sent a message far larger than any real one, before it can send another.
+##
+## **Measured rather than assumed** (2026-09-25): an 8 MB string to a pre-authentication handler cost
+## the server about 76 MB while it was decoded - roughly ten times the payload - and ENet will carry
+## 32 MB, so one packet can be a 300 MB spike from somebody with no identity. It does *not*
+## accumulate: six more sends added 20 MB, so the memory comes back.
+##
+## That means this cannot prevent the spike - Godot decodes the packet before any handler runs, and
+## exposes no transport-level cap. What it can do is make it a *one-off*: the handlers all truncate
+## what they keep, so the only way to hurt anybody was to repeat it, and now repeating it costs the
+## connection. On a home server this was never more than noise; on a small VPS several peers doing it
+## at once is an out-of-memory kill.
+func _absurd(peer_id: int, size: int) -> bool:
+	# Generous: the largest honest pre-join message is a transfer ticket and a signature, both of
+	# which are kilobytes. A hundred of those is still nothing anybody sends by accident.
+	if size < 256 * 1024:
+		return false
+	dev_log.add("warn", "server", "dropped a peer that sent %d KB to a join handler" % (size / 1024))
+	kick(peer_id, "That message was too large.")
+	return true
 
 
 ## The local host proves it launched this server and becomes a permanent admin.
