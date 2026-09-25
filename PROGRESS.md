@@ -7190,3 +7190,66 @@ mitigations are both upstream and both now asserted: `install` keeps the key it 
 and the menu says *which* id you have just become, so a wrong one is visible and undoable rather than
 silent. The encrypted file export does not have this hazard, because its MAC catches a bad passphrase -
 which is a reason to keep it rather than a reason to prefer it.
+
+### What an identity actually carries, and the two things it does not (2026-09-25)
+
+Traced after the user asked what moves when you carry a key to another device. **The key carries
+nothing**: `default.key` is 32 raw bytes, and the encrypted export adds only the crypto parameters
+needed to unwrap them. An identity is a *claim*, not a container - it lets each server recognise you
+and hand back what it was already holding under your id.
+
+**Follows the key, per server** (all of it in `<data dir>/<world>/world.json`, under
+`_meta.players[<id>]`): inventory and equipment, position, realm, vitals, spawn point and bed, creative
+flag, discovered recipes, `seen_items` (which drives guidebook unlocks), guidebook and tutorial state,
+and the free-form `data` bag - where objectives, milestones and in-flight transfer escrow actually live.
+Alongside it in the same file: the name claim (`_meta.names`), roles, bans, mutes, allowlist entry,
+approval state, and that server's own cosmetics (`owned_cosmetics`, `server_wear`). Creation authorship
+is credited to the id in the world's `ugc/index.json`.
+
+**Follows the key via the hub**, when one is configured: friends, friend requests, friend code (derived
+from the id, so it is the same code on every device by construction), display name as last signed in,
+created/last seen. Parties and presence are memory-only.
+
+**Stays on the device**: `user://avatar.json`, `user://creations/` (the source files),
+`user://settings.cfg` (display name, keybinds, graphics), hosted worlds, server favourites, pinned
+recipes, certificate pins, every cache.
+
+#### The two sharp edges
+
+**Your look does not come with you.** The avatar is not in the handshake at all - `c_hello` carries
+`(protocol, name, public key)` and the avatar arrives afterwards by `c_set_avatar`. The server splits
+it: the *server* half (picks from that server's library) is saved, the *portable* half (built-ins and
+your own creations) lives only in `p.portable_avatar`, which is **absent from `_store_player`**. So it
+comes from the client's `avatar.json` each session or from nowhere. Net effect on a new tablet: you are
+provably you, you get all your things back, and you look like a default player - which is most of the
+point of the feature, quietly failing.
+
+**Your display name does not either.** It is in `settings.cfg` and defaults to empty. Type a different
+one on a new device and the server admits you under it, while your old name stays claimed by your same
+id. Nothing is stolen; you are simply now a second name.
+
+#### Where this was left
+
+Three routes were put to the user: (1) persist `portable_avatar` in `world.json` beside `server_wear`;
+(2) keep it on the hub against the id; (3) both, server as the floor and hub as the carry-across. They
+are not redundant - (1) covers *new device, server you have played on*, which is the family-server case;
+(2) covers *new device, server you have never joined*, which (1) cannot by definition. The user leaned
+to (3).
+
+**Two things settled before it was parked, worth keeping:**
+
+- **Seed, not sync.** A live mirror means two masters and a conflict rule, and neither is wanted. The
+  local `avatar.json` always wins where it exists; the stored copy is read *only* by a device that has
+  none, and the moment it is used it is written locally and the remote copy is ignored again. No
+  background upload, no polling, no "which is newer".
+- **Only the portable avatar would ever reach a hub** - skin and body colours plus worn ids, a few
+  hundred bytes. Never inventory, progress, position, mod data, worlds or settings.
+
+**Open, and deliberately not decided:** whether the hub half should be opt-in (a Settings toggle,
+default off) or implied by configuring a hub at all. The user has pushed back before on the hub
+widening its role (*"does this mean a public hub Quarrowen hosts is gonna be a required thing?"*), so
+this is theirs to call rather than a default to pick. Worth knowing when it is picked up: a hub already
+holds name, friend code, friends and live presence, so the avatar would be joining a small profile
+rather than creating one.
+
+Parked by the user, 2026-09-25: *"let's work on this later"*.
