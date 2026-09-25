@@ -1222,7 +1222,16 @@ func c_identity_claim(handle: String) -> void:
 		server.on_identity_claim(_sender(), handle)
 
 
+## `seconds` is how long a stashed identity has left, so the device that left it can count down
+## honestly rather than assume a number the server may not agree with.
 @rpc("authority", "call_remote", "reliable")
-func s_identity_transfer(ok: bool, blob: String, message: String) -> void:
+func s_identity_transfer(ok: bool, blob: String, message: String, seconds: float) -> void:
 	if client:
-		client.on_identity_transfer(ok, blob, message)
+		client.on_identity_transfer(ok, blob, message, seconds)
+
+
+## Somebody collected the identity this device left. The code is spent at this point, not expiring.
+@rpc("authority", "call_remote", "reliable")
+func s_identity_claimed() -> void:
+	if client:
+		client.on_identity_claimed()

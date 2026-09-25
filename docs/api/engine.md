@@ -10902,7 +10902,7 @@ The online player with this id, or null. Two loops already did this by hand.
 
 *server/game_server.gd*
 
-GDScript: `stash_identity(handle: String, blob: String) -> String`
+GDScript: `stash_identity(handle: String, blob: String, by_peer := 0) -> String`
 
 Holds an encrypted identity for the owner's other device to collect.
 

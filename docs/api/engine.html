@@ -2712,7 +2712,7 @@ it is, which is the whole reason this crosses the wire at all.</p></div>
 
 **the server cannot read what it is holding**, and that is by construction rather than by promise:
 it is given a *hash* of the transfer code, never the code, so the key that decrypts the blob never
-arrives here. see `identity.transfer_handle`. server/game_server.gd the server itself"><div class="sig"><code>stash_identity(handle: String, blob: String) -&gt; String</code></div><p>Holds an encrypted identity for the owner's other device to collect.
+arrives here. see `identity.transfer_handle`. server/game_server.gd the server itself"><div class="sig"><code>stash_identity(handle: String, blob: String, by_peer := 0) -&gt; String</code></div><p>Holds an encrypted identity for the owner's other device to collect.
 
 **The server cannot read what it is holding**, and that is by construction rather than by promise:
 it is given a *hash* of the transfer code, never the code, so the key that decrypts the blob never

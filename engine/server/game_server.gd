@@ -1548,14 +1548,16 @@ func _cmd_kick(player, args: PackedStringArray) -> void:
 ## **The server cannot read what it is holding**, and that is by construction rather than by promise:
 ## it is given a *hash* of the transfer code, never the code, so the key that decrypts the blob never
 ## arrives here. See `Identity.transfer_handle`.
-func stash_identity(handle: String, blob: String) -> String:
+func stash_identity(handle: String, blob: String, by_peer := 0) -> String:
 	if handle.length() != 32 or not handle.is_valid_hex_number():
 		return "that is not a transfer code"
 	if blob.length() > MAX_TRANSFER_BYTES:
 		return "that identity is too large to move this way"
 	if _identity_transfers.size() >= MAX_TRANSFERS and not _identity_transfers.has(handle):
 		return "too many transfers are waiting here just now - try again in a few minutes"
-	_identity_transfers[handle] = {"blob": blob, "at": _time}
+	# Who left it, so they can be told the moment it is collected. Kept as a peer id rather than a
+	# player id because it is only useful while they are still here to be told.
+	_identity_transfers[handle] = {"blob": blob, "at": _time, "by": by_peer}
 	return ""
 
 
@@ -1568,6 +1570,12 @@ func claim_identity(handle: String) -> String:
 	_identity_transfers.erase(handle)
 	if _time - float(entry.at) > TRANSFER_TTL:
 		return ""
+	# **Tell the device that left it.** Otherwise the only way to know a code has been used is to
+	# discover it no longer works, which is indistinguishable from it having expired - and a person
+	# staring at a code that has already done its job has no way to tell that it is finished.
+	var by := int(entry.get("by", 0))
+	if by > 0 and players.has(by):
+		Net.s_identity_claimed.rpc_id(by)
 	return String(entry.blob)
 
 
@@ -3024,8 +3032,11 @@ func on_identity_stash(peer_id: int, handle: String, blob: String) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null or _absurd(peer_id, blob.length()) or too_often(p, "identity", 2.0):
 		return
-	var problem := stash_identity(handle, blob)
-	Net.s_identity_transfer.rpc_id(peer_id, problem.is_empty(), "", problem)
+	var problem := stash_identity(handle, blob, peer_id)
+	# The seconds go back with the answer so the other end can show a real countdown rather than
+	# assume a number that the server might change.
+	Net.s_identity_transfer.rpc_id(peer_id, problem.is_empty(), "", problem,
+		TRANSFER_TTL if problem.is_empty() else 0.0)
 
 
 func on_identity_claim(peer_id: int, handle: String) -> void:
@@ -3034,7 +3045,7 @@ func on_identity_claim(peer_id: int, handle: String) -> void:
 		return
 	var blob := claim_identity(handle)
 	Net.s_identity_transfer.rpc_id(peer_id, not blob.is_empty(), blob,
-		"" if not blob.is_empty() else "No identity is waiting under that code here. It may have been collected already, or run out of time.")
+		"" if not blob.is_empty() else "No identity is waiting under that code here. It may have been collected already, or run out of time.", 0.0)
 
 
 func on_transfer_ticket(peer_id: int, ticket: String, signature: String) -> void:

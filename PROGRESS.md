@@ -7084,4 +7084,16 @@ wrong case, derives a different key from the same code) needed `export_for_trans
 `import_from_transfer` as a pair so the two ends cannot disagree; and the property worth asserting is
 not that the right code works but that **what the server holds cannot open what the server holds**.
 
-Still to build: the two menu screens. The protocol, the crypto and the server side are done.
+**Two things the waiting device must be told** (the user, 2026-09-25), and both are server-pushed
+rather than assumed by the client:
+
+- **How long is left.** The stash reply carries the seconds, so the countdown is the server's number
+  rather than a constant the client hopes still matches. A code that has quietly expired otherwise
+  fails for a reason nobody can see.
+- **That it has been collected.** `s_identity_claimed` reaches the device that left it the moment
+  somebody picks it up. Without it, the only way to learn a code is spent is to find it no longer
+  works - which looks exactly like expiry. **"It worked" and "you waited too long" must not be the
+  same screen**, which is why it is a separate signal rather than a flag on the reply.
+
+Still to build: the two menu screens. The protocol, the crypto and the server side are done, and the
+screens have those two behaviours as requirements rather than as afterthoughts.

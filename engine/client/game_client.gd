@@ -481,11 +481,18 @@ func _on_connected() -> void:
 
 ## The answer to a stash or a claim: `identity_transfer(ok, blob, message)`. The menu listens; the
 ## client only carries it, because decrypting belongs with the key and the key never leaves the device.
-signal identity_transfer(ok: bool, blob: String, message: String)
+signal identity_transfer(ok: bool, blob: String, message: String, seconds: float)
+## The code this device left has been used. It is spent, not expired, and the difference is the whole
+## reason this is a separate signal: one means "it worked", the other means "you waited too long".
+signal identity_claimed
 
 
-func on_identity_transfer(ok: bool, blob: String, message: String) -> void:
-	identity_transfer.emit(ok, blob, message)
+func on_identity_transfer(ok: bool, blob: String, message: String, seconds: float) -> void:
+	identity_transfer.emit(ok, blob, message, seconds)
+
+
+func on_identity_claimed() -> void:
+	identity_claimed.emit()
 
 
 func on_challenge(nonce: PackedByteArray, server_id: String) -> void:
