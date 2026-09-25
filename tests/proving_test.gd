@@ -264,6 +264,10 @@ func _behaviour(server) -> void:
 	# The guards: a handle that is not a hash, and a blob far larger than any identity.
 	_check(not server.stash_identity("not-a-handle", "x", 0).is_empty(), "a handle that is not a hash is refused")
 	_check(not server.stash_identity(handle, "x".repeat(64 * 1024), 0).is_empty(), "and an oversized one is too")
+	# Who left it, so they can be told the moment it is collected. The push itself cannot be asserted
+	# end to end - see tests/auth_test.gd for why - so the half that can be is.
+	server.stash_identity(handle, "ciphertext", 77)
+	_check(int(server._identity_transfers[handle].by) == 77, "a transfer remembers which device left it")
 
 	# The approval gate: a stranger may look and nothing else, and an admin is never locked out by it.
 	# **The precondition is the test.** Without it this passes just as well on a player who could never

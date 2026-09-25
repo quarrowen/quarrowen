@@ -2203,10 +2203,13 @@ stays at chest height rather than snapping to the thing's feet.</p></div></secti
 <div class="card" data-search="identity_name which saved identity (user://identity/&lt;name&gt;.pem) to log in with. client/game_client.gd the client"><div class="sig"><code>identity_name := &quot;default&quot;  (property)</code></div><p>Which saved identity (user://identity/<name>.pem) to log in with.</p></div>
 <div class="card" data-search="test_signing_key tests only: sign challenges with this key instead of the identity (must fail authentication). client/game_client.gd the client"><div class="sig"><code>test_signing_key: CryptoKey = null  (property)</code></div><p>Tests only: sign challenges with this key instead of the identity (must fail authentication).</p></div>
 <div class="card" data-search="test_protocol tests: announce this protocol version instead of the real one. client/game_client.gd the client"><div class="sig"><code>test_protocol := -1  (property)</code></div><p>Tests: announce this protocol version instead of the real one.</p></div>
-<div class="card" data-search="auto_capture_mouse accept gameplay input without a captured mouse (headless bots / tests).
-whether arriving in a world grabs the mouse. true for a person playing; the screenshot harness
-turns it off, because a test run that steals the cursor for a minute is its own small cruelty. client/game_client.gd the client"><div class="sig"><code>auto_capture_mouse := true  (property)</code></div><p>Accept gameplay input without a captured mouse (headless bots / tests).
-Whether arriving in a world grabs the mouse. True for a person playing; the screenshot harness
+<div class="card" data-search="transfer_claim accept gameplay input without a captured mouse (headless bots / tests).
+set before connecting to fetch an identity instead of joining: the transfer handle to ask for. the
+connection sends nothing else and expects `identity_transfer` in reply. client/game_client.gd the client"><div class="sig"><code>transfer_claim := &quot;&quot;  (property)</code></div><p>Accept gameplay input without a captured mouse (headless bots / tests).
+Set before connecting to fetch an identity instead of joining: the transfer handle to ask for. The
+connection sends nothing else and expects `identity_transfer` in reply.</p></div>
+<div class="card" data-search="auto_capture_mouse whether arriving in a world grabs the mouse. true for a person playing; the screenshot harness
+turns it off, because a test run that steals the cursor for a minute is its own small cruelty. client/game_client.gd the client"><div class="sig"><code>auto_capture_mouse := true  (property)</code></div><p>Whether arriving in a world grabs the mouse. True for a person playing; the screenshot harness
 turns it off, because a test run that steals the cursor for a minute is its own small cruelty.</p></div>
 <div class="card" data-search="avatar your portable avatar (cosmetics data) sent to the server on join; null loads the saved one. client/game_client.gd the client"><div class="sig"><code>avatar = null  (property)</code></div><p>Your portable avatar (Cosmetics data) sent to the server on join; null loads the saved one.</p></div>
 <div class="card" data-search="realm which of the server's worlds this player is standing in (&quot;&quot; is the overworld), and what to call it.
@@ -2779,6 +2782,19 @@ its own halfway through.</p></div>
 <div class="card" data-search="on_identity_stash **both ends require a player**, so a stranger cannot fill the table from the door. rate limited for
 the same reason: guessing a handle is hopeless at a hundred bits, but nothing should be free. server/game_server.gd the server itself"><div class="sig"><code>on_identity_stash(peer_id: int, handle: String, blob: String) -&gt; void</code></div><p>**Both ends require a player**, so a stranger cannot fill the table from the door. Rate limited for
 the same reason: guessing a handle is hopeless at a hundred bits, but nothing should be free.</p></div>
+<div class="card" data-search="on_identity_claim **answered for a peer that has not joined, and that is the point.** the device collecting an
+identity has the wrong one by definition - that is why it is asking - so requiring a player would
+mean an allowlist, a ban or the approval gate turned it away before it could ask, and the feature
+would work only where it was least needed.
+
+safe because the handle is a hundred bits and a wrong one is answered with nothing. the rate limit
+is kept per peer rather than per player, since there is no player to keep it on. server/game_server.gd the server itself"><div class="sig"><code>on_identity_claim(peer_id: int, handle: String) -&gt; void</code></div><p>**Answered for a peer that has not joined, and that is the point.** The device collecting an
+identity has the wrong one by definition - that is why it is asking - so requiring a player would
+mean an allowlist, a ban or the approval gate turned it away before it could ask, and the feature
+would work only where it was least needed.
+
+Safe because the handle is a hundred bits and a wrong one is answered with nothing. The rate limit
+is kept per peer rather than per player, since there is no player to keep it on.</p></div>
 <div class="card" data-search="on_claim_admin the local host proves it launched this server and becomes a permanent admin. server/game_server.gd the server itself"><div class="sig"><code>on_claim_admin(peer_id: int, token: String) -&gt; void</code></div><p>The local host proves it launched this server and becomes a permanent admin.</p></div>
 <div class="card" data-search="peer_address where a peer is connecting from, or &quot;&quot; when that cannot be told (offline play, a peer already gone). server/game_server.gd the server itself"><div class="sig"><code>peer_address(peer_id: int) -&gt; String</code></div><p>Where a peer is connecting from, or "" when that cannot be told (offline play, a peer already gone).</p></div>
 <div class="card" data-search="mark_simulation_stale says the simulated set needs working out again. claims call it; so does anything else that changes
@@ -3064,7 +3080,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1221 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1223 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

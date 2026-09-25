@@ -8809,13 +8809,22 @@ GDScript: `test_protocol := -1  (property)`
 
 Tests: announce this protocol version instead of the real one.
 
+### `transfer_claim`
+
+*client/game_client.gd*
+
+GDScript: `transfer_claim := ""  (property)`
+
+Accept gameplay input without a captured mouse (headless bots / tests).
+Set before connecting to fetch an identity instead of joining: the transfer handle to ask for. The
+connection sends nothing else and expects `identity_transfer` in reply.
+
 ### `auto_capture_mouse`
 
 *client/game_client.gd*
 
 GDScript: `auto_capture_mouse := true  (property)`
 
-Accept gameplay input without a captured mouse (headless bots / tests).
 Whether arriving in a world grabs the mouse. True for a person playing; the screenshot harness
 turns it off, because a test run that steals the cursor for a minute is its own small cruelty.
 
@@ -11107,6 +11116,22 @@ GDScript: `on_identity_stash(peer_id: int, handle: String, blob: String) -> void
 the same reason: guessing a handle is hopeless at a hundred bits, but nothing should be free.
 
 **See also:** `kick`, `stash_identity`, `too_often`
+
+### `on_identity_claim`
+
+*server/game_server.gd*
+
+GDScript: `on_identity_claim(peer_id: int, handle: String) -> void`
+
+**Answered for a peer that has not joined, and that is the point.** The device collecting an
+identity has the wrong one by definition - that is why it is asking - so requiring a player would
+mean an allowlist, a ban or the approval gate turned it away before it could ask, and the feature
+would work only where it was least needed.
+
+Safe because the handle is a hundred bits and a wrong one is answered with nothing. The rate limit
+is kept per peer rather than per player, since there is no player to keep it on.
+
+**See also:** `claim_identity`
 
 ### `on_claim_admin`
 

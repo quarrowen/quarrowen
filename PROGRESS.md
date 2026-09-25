@@ -7095,5 +7095,26 @@ rather than assumed by the client:
   works - which looks exactly like expiry. **"It worked" and "you waited too long" must not be the
   same screen**, which is why it is a separate signal rather than a flag on the reply.
 
-Still to build: the two menu screens. The protocol, the crypto and the server side are done, and the
-screens have those two behaviours as requirements rather than as afterthoughts.
+**Collecting an identity is not joining, and it cannot be** (the user, 2026-09-25: *"but if that
+server is requiring a specific identity how?"*). The first version required a player at both ends,
+which is a bootstrapping failure: the device doing the collecting has the wrong identity *by
+definition* - that is why it is asking - so an allowlist, a ban or the approval gate would turn it
+away before it could ask, and the feature would have worked only where it was not needed.
+
+A transfer-only connection now never says hello. It connects, asks its one question, and leaves. The
+rate limit for it is kept per peer rather than per player, because there is no player to keep it on,
+and a wrong handle is answered with nothing - which is safe at a hundred bits.
+
+That also answers the second half of the question: **it does not have to be done from in-game.** The
+launcher can make this connection itself, which is where it belongs, since moving an identity is
+something you do *before* playing.
+
+Still to build: the two menu screens. The protocol, the crypto, the server and the client's
+transfer-only connection are done, and the screens have the countdown and the collected-notice as
+requirements rather than as afterthoughts.
+
+**One thing that cannot be tested here, written down rather than left as a gap.** The "it has been
+collected" push is not covered end to end: `Net.client` is one global reference per process, so the
+moment a second client enters the tree in a test it *becomes* the client, and a message addressed to
+the first is delivered to the second. Two real devices are two processes and do not share it. The
+half that can be asserted - that a stash remembers which device left it - is.

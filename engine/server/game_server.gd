@@ -314,6 +314,9 @@ var _save_queue: Dictionary:
 		return realm.save_queue
 var _save_writes: Array = []  # serialized [path, text] waiting for the rest of the save
 var _save_meta_pending := false
+## Peer -> when it last asked for an identity. Kept per peer because a peer collecting one has not
+## joined and so has no player to hang a limit on.
+var _claim_attempts := {}
 ## Transfer handle -> {blob, at}. **Memory only, never saved.** An encrypted identity waiting to be
 ## picked up by its owner's other device: it must not reach the disk, a world save or a backup, and it
 ## must not survive a restart. Erased on the first claim and swept after TRANSFER_TTL. (2026-09-25)
@@ -3039,10 +3042,18 @@ func on_identity_stash(peer_id: int, handle: String, blob: String) -> void:
 		TRANSFER_TTL if problem.is_empty() else 0.0)
 
 
+## **Answered for a peer that has not joined, and that is the point.** The device collecting an
+## identity has the wrong one by definition - that is why it is asking - so requiring a player would
+## mean an allowlist, a ban or the approval gate turned it away before it could ask, and the feature
+## would work only where it was least needed.
+##
+## Safe because the handle is a hundred bits and a wrong one is answered with nothing. The rate limit
+## is kept per peer rather than per player, since there is no player to keep it on.
 func on_identity_claim(peer_id: int, handle: String) -> void:
-	var p: ServerPlayer = players.get(peer_id)
-	if p == null or too_often(p, "identity", 2.0):
+	var now := Time.get_ticks_msec()
+	if now - int(_claim_attempts.get(peer_id, -10000)) < 2000:
 		return
+	_claim_attempts[peer_id] = now
 	var blob := claim_identity(handle)
 	Net.s_identity_transfer.rpc_id(peer_id, not blob.is_empty(), blob,
 		"" if not blob.is_empty() else "No identity is waiting under that code here. It may have been collected already, or run out of time.", 0.0)
@@ -3328,6 +3339,7 @@ func peer_address(peer_id: int) -> String:
 
 func _on_peer_disconnected(peer_id: int) -> void:
 	_joining_since.erase(peer_id)
+	_claim_attempts.erase(peer_id)
 	_joining.erase(peer_id)
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null:

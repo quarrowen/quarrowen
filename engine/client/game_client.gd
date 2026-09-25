@@ -146,6 +146,9 @@ var test_signing_key: CryptoKey = null
 ## Tests: announce this protocol version instead of the real one.
 var test_protocol := -1
 ## Accept gameplay input without a captured mouse (headless bots / tests).
+## Set before connecting to fetch an identity instead of joining: the transfer handle to ask for. The
+## connection sends nothing else and expects `identity_transfer` in reply.
+var transfer_claim := ""
 ## Whether arriving in a world grabs the mouse. True for a person playing; the screenshot harness
 ## turns it off, because a test run that steals the cursor for a minute is its own small cruelty.
 var auto_capture_mouse := true
@@ -473,6 +476,15 @@ func _connect() -> void:
 
 func _on_connected() -> void:
 	_mark_join("connect")
+	# **Collecting an identity is not joining**, and must not be, or it could not work at all: the
+	# device doing the collecting has the wrong identity by definition - that is the whole reason it is
+	# asking - so an allowlist, a ban or the approval gate would turn it away before it could ask.
+	# A transfer-only connection never says hello; it asks its one question and leaves.
+	# (the user, 2026-09-25: "but if that server is requiring a specific identity how?")
+	if not transfer_claim.is_empty():
+		_set_status("Asking for your identity…")
+		Net.c_identity_claim.rpc_id(1, transfer_claim)
+		return
 	_set_status("Handshaking...")
 	Net.c_hello.rpc_id(1, Protocol.VERSION, player_name, Identity.public_pem(_identity))
 	if not transfer_ticket.is_empty():
