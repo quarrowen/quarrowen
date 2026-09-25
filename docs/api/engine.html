@@ -192,6 +192,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#e-client-housekeeping-gd">housekeeping.gd</a>
 <a href="#e-client-item-icons-gd">item_icons.gd</a>
 <a href="#e-client-item-visuals-gd">item_visuals.gd</a>
+<a href="#e-client-loading-curtain-gd">loading_curtain.gd</a>
 <a href="#e-client-map-screen-gd">map_screen.gd</a>
 <a href="#e-client-menu-downloads-gd">downloads.gd</a>
 <a href="#e-client-menu-main-menu-gd">main_menu.gd</a>
@@ -2347,6 +2348,11 @@ from the definition and from item data (&quot;lore&quot;: [...]). client/item_vi
 from the definition and from item data ("lore": [...]).</p></div>
 <div class="card" data-search="update_wear_bar adds or updates a thin bar along the bottom of an item slot showing remaining durability. client/item_visuals.gd the client"><div class="sig"><code>static update_wear_bar(slot: Control, items, id: int, item_data: Dictionary) -&gt; void</code></div><p>Adds or updates a thin bar along the bottom of an item slot showing remaining durability.</p></div>
 <div class="card" data-search="shield_icon 9x9 shield: `fill` 1 = full, 0.5 = left half, 0 = empty outline. client/item_visuals.gd the client"><div class="sig"><code>static shield_icon(fill: float) -&gt; ImageTexture</code></div><p>9x9 shield: `fill` 1 = full, 0.5 = left half, 0 = empty outline.</p></div></section>
+<section id="e-client-loading-curtain-gd"><h2>loading_curtain.gd <span class="file">client/loading_curtain.gd</span></h2><p class="lead">The black between the menu and the world: what a player looks at while a server is found, content downloads and the ground is built.</p><div class="card" data-search="status the line under the title: &quot;connecting…&quot;, &quot;downloading…&quot;, &quot;loading terrain…&quot;. client/loading_curtain.gd the client"><div class="sig"><code>status(text: String) -&gt; void</code></div><p>The line under the title: "Connecting…", "Downloading…", "Loading terrain…".</p></div>
+<div class="card" data-search="progress the bar, or anything negative to hide it. most of the steps have nothing to measure, which is why
+the blocks above keep moving regardless. client/loading_curtain.gd the client"><div class="sig"><code>progress(fraction: float) -&gt; void</code></div><p>The bar, or anything negative to hide it. Most of the steps have nothing to measure, which is why
+the blocks above keep moving regardless.</p></div>
+<div class="card" data-search="leave the world is ready. fades out and frees itself; safe to call twice. client/loading_curtain.gd the client"><div class="sig"><code>leave() -&gt; void</code></div><p>The world is ready. Fades out and frees itself; safe to call twice.</p></div></section>
 <section id="e-client-map-screen-gd"><h2>map_screen.gd <span class="file">client/map_screen.gd</span></h2><p class="lead">The map (M): the world from above, drawn from the chunks this client already has, with everyone on the server, your home and your grave marked. Nothing extra is downloaded - the picture is built from the blocks around you, so it only shows where somebody has been.</p><div class="card" data-search="zoom_by zooms in (+1) or out (-1). the buttons call this, and so does the mouse wheel: reaching for the wheel
 over a map is what everybody does, and it used to change the hotbar behind the map instead. client/map_screen.gd the client"><div class="sig"><code>zoom_by(steps: int) -&gt; void</code></div><p>Zooms in (+1) or out (-1). The buttons call this, and so does the mouse wheel: reaching for the wheel
 over a map is what everybody does, and it used to change the hotbar behind the map instead.</p></div></section>
@@ -2996,7 +3002,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1212 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1215 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

@@ -6898,3 +6898,26 @@ And **the ending moved in quarter-second jumps** - nearly half a block at a time
 of stillness between, which reads as teleporting rather than rising. Setting `position` zeroes the
 velocity, so the client has nothing to interpolate through; the only thing that makes it smooth is
 smaller steps. Twenty a second now.
+
+### The loading screen is black now, and hands over to the flight (user, 2026-09-25)
+
+*"It makes the player think the game isn't responding or hung... showing the health bar and compass
+during the connecting screen is just wonky."* Both true, and the second explains the first: the world
+rendered behind a status line from the first frame, with the compass, the belt and the health bar
+drawn over a half-built world, so the honest reading was a hung game rather than a busy one.
+
+`engine/client/loading_curtain.gd` covers everything until the ground is built. Three things it has
+to do, and the third is the one easy to skip:
+
+- **Cover everything.** The HUD is hidden from the moment the client is built and only revealed when
+  the world is drawn - a half-built world is never on show.
+- **Move.** A row of blocks lights along, regardless of whether anything can be measured. That
+  matters most in the steps that have no percentage: handshaking and authenticating have no fraction
+  to report and are exactly where a still screen reads as frozen. The download bar still appears when
+  there is a real number.
+- **Leave by fading, on the same frame the flight starts.** The black fades off a camera that is
+  already moving rather than revealing a still one. Cutting would throw away the moment the arrival
+  exists to create.
+
+Checked that a failed connection cannot strand anybody behind it: `_leave` emits `exited`, the client
+is freed, and the curtain goes with it.

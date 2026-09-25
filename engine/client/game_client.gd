@@ -64,6 +64,7 @@ const CraftingScreen = preload("res://engine/client/crafting_screen.gd")
 const GuideScreen = preload("res://engine/client/guide_screen.gd")
 const TutorialHud = preload("res://engine/client/tutorial_hud.gd")
 const ObjectiveHud = preload("res://engine/client/objective_hud.gd")
+const LoadingCurtain = preload("res://engine/client/loading_curtain.gd")
 const DevOverlay = preload("res://engine/client/dev_overlay.gd")
 const DebugDraw = preload("res://engine/client/debug_draw.gd")
 const CableView = preload("res://engine/client/cable_view.gd")
@@ -394,6 +395,8 @@ var _guide_screen: GuideScreen
 var _guide_badge: Label
 var _tutorial_hud: TutorialHud
 var _objective_hud: ObjectiveHud
+## Black over everything until the world is built; see engine/client/loading_curtain.gd.
+var _curtain: LoadingCurtain
 var _dev_alerts: VBoxContainer
 var _dev_overlay: DevOverlay
 var _debug_draw: DebugDraw
@@ -1947,9 +1950,16 @@ func _process(delta: float) -> void:
 	# Keyed on the world being ready rather than on the status bar clearing, which is what the first
 	# version did - and the status bar only appears when there is content to download, so joining a
 	# local server showed no bar, cleared no bar, and never flew at all.
-	if standing_in_a_drawn_world and not _arrived_this_session and not dead and _sleep.is_empty():
+	if standing_in_a_drawn_world and not _arrived_this_session:
 		_arrived_this_session = true
-		_arrival = 0.0
+		# **The curtain lifts and the flight starts on the same frame**, so the black fades off a
+		# camera that is already moving rather than revealing a still one. Cutting would throw away
+		# the moment the flight exists to make.
+		_hud_root.visible = true
+		if _curtain != null and is_instance_valid(_curtain):
+			_curtain.leave()
+		if not dead and _sleep.is_empty():
+			_arrival = 0.0
 
 	var fraction := Engine.get_physics_interpolation_fraction()
 	_render_offset = _render_offset.lerp(Vector3.ZERO, 1.0 - exp(-delta * 15.0))
@@ -3942,6 +3952,11 @@ func _build_hud() -> void:
 	_hud_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_hud_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_hud_root)
+	# **The interface does not exist until the world does.** A compass and a health bar over a
+	# half-built world is what made the old loading screen read as a hung game rather than a busy one.
+	_hud_root.visible = false
+	_curtain = LoadingCurtain.new()
+	layer.add_child(_curtain)
 
 	var crosshair := Control.new()
 	crosshair.set_anchors_preset(Control.PRESET_CENTER)
@@ -4711,6 +4726,8 @@ func _shadow_label() -> Label:
 
 
 func _set_status(text: String) -> void:
+	if _curtain != null and is_instance_valid(_curtain):
+		_curtain.status(text)
 	_status_label.text = text
 	_status_label.visible = not text.is_empty()
 	# Any status that is not about downloading takes the bar away with it, so it cannot be left behind
@@ -4721,6 +4738,8 @@ func _set_status(text: String) -> void:
 
 ## Fills the bar under the status line, or hides it with anything negative.
 func _set_progress(fraction: float) -> void:
+	if _curtain != null and is_instance_valid(_curtain):
+		_curtain.progress(fraction)
 	if _progress_bar == null:
 		return
 	_progress_bar.visible = fraction >= 0.0

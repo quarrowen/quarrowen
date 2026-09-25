@@ -7003,7 +7003,7 @@ GDScript: `set_status(id: String, status: String, reason := "", by := "") -> boo
 
 Changes a creation's status (moderation). "removed" also blocks the content for good.
 
-**See also:** `draw`, `ensure_registered`, `payload_extension`, `reapply_requested_avatar`, `save_index`, `worn_ids`
+**See also:** `draw`, `ensure_registered`, `payload_extension`, `reapply_requested_avatar`, `save_index`, `status`
 
 ### `fetch`
 
@@ -9463,6 +9463,33 @@ GDScript: `static shield_icon(fill: float) -> ImageTexture`
 9x9 shield: `fill` 1 = full, 0.5 = left half, 0 = empty outline.
 
 **See also:** `create`
+
+### `status`
+
+*client/loading_curtain.gd*
+
+GDScript: `status(text: String) -> void`
+
+The line under the title: "Connecting…", "Downloading…", "Loading terrain…".
+
+### `progress`
+
+*client/loading_curtain.gd*
+
+GDScript: `progress(fraction: float) -> void`
+
+The bar, or anything negative to hide it. Most of the steps have nothing to measure, which is why
+the blocks above keep moving regardless.
+
+### `leave`
+
+*client/loading_curtain.gd*
+
+GDScript: `leave() -> void`
+
+The world is ready. Fades out and frees itself; safe to call twice.
+
+**See also:** `allowed`, `close`, `finish`, `get_block`, `gone`, `send_to_realm`
 
 ### `zoom_by`
 
