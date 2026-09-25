@@ -25,6 +25,17 @@ const EXPORT_FORMAT := "quarrowen-identity"
 const EXPORT_ITERATIONS := 210000
 const MIN_PASSPHRASE_LENGTH := 8
 
+## Moving an identity to another device: the shape of the one-time code, and how it is split.
+##
+## **The code is read aloud and typed, so the alphabet avoids every pair that looks alike** - no O or
+## 0, no I or 1, no S or 5. Five groups of four is a hundred bits, which is far more than is needed to
+## stop somebody guessing it within the ten minutes it lives, and is chosen for the *other* threat: the
+## server holds the ciphertext, so the code must resist an offline attack by whoever runs it. It is
+## their own identity, so this is belt and braces - but the cost of the braces is four more characters.
+const TRANSFER_ALPHABET := "ABCDEFGHJKLMNPQRTUVWXYZ2346789"
+const TRANSFER_GROUPS := 5
+const TRANSFER_GROUP_SIZE := 4
+
 
 static func path_for(identity_name := "default") -> String:
 	return dir().path_join(identity_name.validate_filename() + ".pem")
@@ -107,6 +118,54 @@ static func _digest(bytes: PackedByteArray) -> PackedByteArray:
 # (encrypt-then-MAC, separate keys), so a wrong passphrase or a modified file is detected.
 
 ## Returns the JSON text of an encrypted identity file.
+## A fresh transfer code, in groups for reading out: "ABCD-EFGH-IJKL-MNOP-QRST".
+static func new_transfer_code() -> String:
+	var crypto := Crypto.new()
+	var bytes := crypto.generate_random_bytes(TRANSFER_GROUPS * TRANSFER_GROUP_SIZE)
+	var groups := []
+	for g in TRANSFER_GROUPS:
+		var chunk := ""
+		for i in TRANSFER_GROUP_SIZE:
+			chunk += TRANSFER_ALPHABET[bytes[g * TRANSFER_GROUP_SIZE + i] % TRANSFER_ALPHABET.length()]
+		groups.append(chunk)
+	return "-".join(groups)
+
+
+## What the code looks like once dashes, spaces and case are forgiven. Typing it back is the one part a
+## person does by hand, so every way of getting it slightly wrong that still means the same thing is
+## accepted.
+static func tidy_transfer_code(typed: String) -> String:
+	var out := ""
+	for c in typed.to_upper():
+		if TRANSFER_ALPHABET.contains(c):
+			out += c
+	return out
+
+
+## **The half of the code the server is allowed to see.** A transfer is stored under this, and it is a
+## hash - so a server holding the ciphertext holds nothing that decrypts it. Splitting the code this
+## way is the whole reason the server can be handed an encrypted private key at all: store it under
+## the code itself and "encrypted" would mean nothing, because the key would have arrived with it.
+static func transfer_handle(code: String) -> String:
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_SHA256)
+	ctx.update(("quarrowen-transfer-handle:" + tidy_transfer_code(code)).to_utf8_buffer())
+	return ctx.finish().hex_encode().left(32)
+
+
+## Encrypting and decrypting *for a transfer*, as a pair, so the two ends cannot disagree about what
+## the passphrase was. **Both tidy the code first**: the person reading it out says the letters and the
+## person typing it may or may not put the dashes in, and a key derived from the difference is a
+## transfer that fails with "wrong code" when the code was right. Found by testing the untidy path
+## rather than the neat one. (2026-09-25)
+static func export_for_transfer(key: CryptoKey, code: String) -> String:
+	return export_encrypted(key, tidy_transfer_code(code))
+
+
+static func import_from_transfer(blob: String, code: String) -> Dictionary:
+	return import_encrypted(blob, tidy_transfer_code(code))
+
+
 static func export_encrypted(key: CryptoKey, passphrase: String, iterations := EXPORT_ITERATIONS) -> String:
 	var crypto := Crypto.new()
 	var salt := crypto.generate_random_bytes(16)

@@ -6817,7 +6817,9 @@ for none of that.
 If shared reputation across public servers is ever wanted, the hub can sign attestations *about a
 public key* ("this key was banned on three listed servers") with no registration either. Not now.
 
-**Not built yet** - this is the decision, not the work.
+**The crypto was already built** - `export_encrypted`/`import_encrypted`, PBKDF2-HMAC-SHA256 at
+210,000 iterations, with wrong-passphrase and tamper tests, since before this conversation. Recording
+it as "not built" was wrong and was written without looking. What was missing was a way to *move* it.
 
 ### The dev dashboard is gone (user, 2026-09-24)
 
@@ -7045,3 +7047,41 @@ Worth keeping as a lesson: **a test that has been "made less flaky" three times 
 code, not about the test.** Each rewrite made the test describe the bug more precisely - the last one
 even wrote down that a budget of 0 "stops after one chunk on a machine whose clock moved" - and
 nobody followed that sentence into the engine.
+
+### Moving an identity: a code redeemed at a server, not a hub (user, 2026-09-25)
+
+*"So does this mean a public hub Quarrowen hosts is gonna be a required thing?"* - a fair stop, and
+the answer was yes to what I had proposed, which I had not said. The hub is optional today (the
+setting defaults to empty, "no hub") and nothing requires it; making identity transfer the first thing
+that did would have changed the shape of the project without anybody deciding to.
+
+**It relays through whatever server both devices already use.** For a family that is their own
+server: it is already trusted with the world, already running, already reachable on the LAN with no
+internet at all. A hub can offer the same two endpoints later, optionally, when there is one.
+
+**QR was considered and measured rather than guessed at.** The export document is 2,565 characters
+against a QR maximum of 2,953 - it fits, at the lowest error correction, as a version 40 code of
+177x177 modules. That is the densest QR there is, with no correction headroom, scanned off a laptop
+screen by an iPad camera. And Godot ships no QR *decoder*, so reading one means a native plugin on
+the platform with the least tooling. The root cause is RSA-2048: a 1,675-character private key. Ed25519
+would make a QR trivial and would also change every player id in existence.
+
+**The server holds an encrypted private key and cannot read it, by construction rather than promise.**
+The code is split client-side: the handle the server stores it under is `SHA-256(code)`, and the key
+that decrypts it is `PBKDF2(code)`. The code itself never reaches the server. Storing the blob under
+the code would have meant "encrypted" was decoration, because the key would have arrived with the
+ciphertext - which is the obvious version of this and the wrong one.
+
+Single use, erased on the claim, ten-minute expiry, **held in memory and never written to disk** so it
+cannot reach a world save or a backup, and gone on restart.
+
+The residual risk, stated rather than hidden: whoever runs the server could take the ciphertext and
+attack the code offline. That is why the code is a hundred bits of unambiguous characters rather than
+a passphrase a child chooses - and why it matters little either way, since the operator is the owner.
+
+Two things testing found that reasoning had not: the untidy path (a code typed without dashes, in the
+wrong case, derives a different key from the same code) needed `export_for_transfer` and
+`import_from_transfer` as a pair so the two ends cannot disagree; and the property worth asserting is
+not that the right code works but that **what the server holds cannot open what the server holds**.
+
+Still to build: the two menu screens. The protocol, the crypto and the server side are done.

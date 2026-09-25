@@ -1204,3 +1204,25 @@ func s_sound(sound_id: int, position: Vector3, volume: float, pitch: float, posi
 func s_objectives(view: Dictionary) -> void:
 	if client:
 		client.on_objectives(view)
+
+
+## Leaves an encrypted identity for the same person's other device, under a hash of the one-time code.
+## The code itself never reaches the server, so what is stored cannot be decrypted by it.
+@rpc("any_peer", "call_remote", "reliable")
+func c_identity_stash(handle: String, blob: String) -> void:
+	if server:
+		server.on_identity_stash(_sender(), handle, blob)
+
+
+## Collects one, once. An empty answer means there was nothing there, which is also what an expired or
+## already-collected transfer looks like - the three are deliberately indistinguishable.
+@rpc("any_peer", "call_remote", "reliable")
+func c_identity_claim(handle: String) -> void:
+	if server:
+		server.on_identity_claim(_sender(), handle)
+
+
+@rpc("authority", "call_remote", "reliable")
+func s_identity_transfer(ok: bool, blob: String, message: String) -> void:
+	if client:
+		client.on_identity_transfer(ok, blob, message)

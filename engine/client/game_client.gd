@@ -479,6 +479,15 @@ func _on_connected() -> void:
 		Net.c_transfer_ticket.rpc_id(1, str(transfer_ticket.get("ticket", "")), str(transfer_ticket.get("signature", "")))
 
 
+## The answer to a stash or a claim: `identity_transfer(ok, blob, message)`. The menu listens; the
+## client only carries it, because decrypting belongs with the key and the key never leaves the device.
+signal identity_transfer(ok: bool, blob: String, message: String)
+
+
+func on_identity_transfer(ok: bool, blob: String, message: String) -> void:
+	identity_transfer.emit(ok, blob, message)
+
+
 func on_challenge(nonce: PackedByteArray, server_id: String) -> void:
 	# Sign only what a server challenge looks like, so a server cannot get anything else signed with the
 	# identity key (such as a hub sign-in). `server_id` binds the answer to *this* server, so a hostile

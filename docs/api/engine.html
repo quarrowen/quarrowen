@@ -1342,7 +1342,30 @@ the real server hashes its own id and the signature no longer matches. The hub h
 this way; the game handshake did not. (2026-09-24)</p></div>
 <div class="card" data-search="parse_public_key server side: parses a public key pem; returns null if it is not a usable key. shared/identity.gd creatures and ai"><div class="sig"><code>static parse_public_key(pem: String) -&gt; CryptoKey</code></div><p>Server side: parses a public key PEM; returns null if it is not a usable key.</p></div>
 <div class="card" data-search="player_id stable id derived from the public key (32 hex characters). shared/identity.gd creatures and ai"><div class="sig"><code>static player_id(key: CryptoKey) -&gt; String</code></div><p>Stable id derived from the public key (32 hex characters).</p></div>
-<div class="card" data-search="export_encrypted returns the json text of an encrypted identity file. shared/identity.gd creatures and ai"><div class="sig"><code>static export_encrypted(key: CryptoKey, passphrase: String, iterations := EXPORT_ITERATIONS) -&gt; String</code></div><p>Returns the JSON text of an encrypted identity file.</p></div>
+<div class="card" data-search="new_transfer_code returns the json text of an encrypted identity file.
+a fresh transfer code, in groups for reading out: &quot;abcd-efgh-ijkl-mnop-qrst&quot;. shared/identity.gd creatures and ai"><div class="sig"><code>static new_transfer_code() -&gt; String</code></div><p>Returns the JSON text of an encrypted identity file.
+A fresh transfer code, in groups for reading out: "ABCD-EFGH-IJKL-MNOP-QRST".</p></div>
+<div class="card" data-search="tidy_transfer_code what the code looks like once dashes, spaces and case are forgiven. typing it back is the one part a
+person does by hand, so every way of getting it slightly wrong that still means the same thing is
+accepted. shared/identity.gd creatures and ai"><div class="sig"><code>static tidy_transfer_code(typed: String) -&gt; String</code></div><p>What the code looks like once dashes, spaces and case are forgiven. Typing it back is the one part a
+person does by hand, so every way of getting it slightly wrong that still means the same thing is
+accepted.</p></div>
+<div class="card" data-search="transfer_handle **the half of the code the server is allowed to see.** a transfer is stored under this, and it is a
+hash - so a server holding the ciphertext holds nothing that decrypts it. splitting the code this
+way is the whole reason the server can be handed an encrypted private key at all: store it under
+the code itself and &quot;encrypted&quot; would mean nothing, because the key would have arrived with it. shared/identity.gd creatures and ai"><div class="sig"><code>static transfer_handle(code: String) -&gt; String</code></div><p>**The half of the code the server is allowed to see.** A transfer is stored under this, and it is a
+hash - so a server holding the ciphertext holds nothing that decrypts it. Splitting the code this
+way is the whole reason the server can be handed an encrypted private key at all: store it under
+the code itself and "encrypted" would mean nothing, because the key would have arrived with it.</p></div>
+<div class="card" data-search="export_for_transfer encrypting and decrypting *for a transfer*, as a pair, so the two ends cannot disagree about what
+the passphrase was. **both tidy the code first**: the person reading it out says the letters and the
+person typing it may or may not put the dashes in, and a key derived from the difference is a
+transfer that fails with &quot;wrong code&quot; when the code was right. found by testing the untidy path
+rather than the neat one. (2026-09-25) shared/identity.gd creatures and ai"><div class="sig"><code>static export_for_transfer(key: CryptoKey, code: String) -&gt; String</code></div><p>Encrypting and decrypting *for a transfer*, as a pair, so the two ends cannot disagree about what
+the passphrase was. **Both tidy the code first**: the person reading it out says the letters and the
+person typing it may or may not put the dashes in, and a key derived from the difference is a
+transfer that fails with "wrong code" when the code was right. Found by testing the untidy path
+rather than the neat one. (2026-09-25)</p></div>
 <div class="card" data-search="import_encrypted decrypts an exported identity. returns {key: cryptokey, player_id} or {error: string}. shared/identity.gd creatures and ai"><div class="sig"><code>static import_encrypted(text: String, passphrase: String) -&gt; Dictionary</code></div><p>Decrypts an exported identity. Returns {key: CryptoKey, player_id} or {error: String}.</p></div>
 <div class="card" data-search="install saves `key` as the named identity. an existing different identity is kept as a .bak file. shared/identity.gd creatures and ai"><div class="sig"><code>static install(key: CryptoKey, identity_name := &quot;default&quot;) -&gt; Error</code></div><p>Saves `key` as the named identity. An existing different identity is kept as a .bak file.</p></div>
 <div class="card" data-search="pbkdf2_sha256 pbkdf2-hmac-sha256 with a single 32-byte output block. shared/identity.gd creatures and ai"><div class="sig"><code>static pbkdf2_sha256(password: PackedByteArray, salt: PackedByteArray, iterations: int) -&gt; PackedByteArray</code></div><p>PBKDF2-HMAC-SHA256 with a single 32-byte output block.</p></div></section>
@@ -2685,6 +2708,18 @@ counts the same time everything else does.</p></div>
 it is, which is the whole reason this crosses the wire at all. server/game_server.gd the server itself"><div class="sig"><code>tell_riding(p: ServerPlayer) -&gt; void</code></div><p>Tells a client whether it is riding, and on what. The client stops predicting its own movement while
 it is, which is the whole reason this crosses the wire at all.</p></div>
 <div class="card" data-search="player_by_id the online player with this id, or null. two loops already did this by hand. server/game_server.gd the server itself"><div class="sig"><code>player_by_id(player_id: String)</code></div><p>The online player with this id, or null. Two loops already did this by hand.</p></div>
+<div class="card" data-search="stash_identity holds an encrypted identity for the owner's other device to collect.
+
+**the server cannot read what it is holding**, and that is by construction rather than by promise:
+it is given a *hash* of the transfer code, never the code, so the key that decrypts the blob never
+arrives here. see `identity.transfer_handle`. server/game_server.gd the server itself"><div class="sig"><code>stash_identity(handle: String, blob: String) -&gt; String</code></div><p>Holds an encrypted identity for the owner's other device to collect.
+
+**The server cannot read what it is holding**, and that is by construction rather than by promise:
+it is given a *hash* of the transfer code, never the code, so the key that decrypts the blob never
+arrives here. See `Identity.transfer_handle`.</p></div>
+<div class="card" data-search="claim_identity hands it over once and forgets it. **once**: a code that still works after it has been used is a
+code somebody can use again, and the honest moment to delete it is the moment it is asked for. server/game_server.gd the server itself"><div class="sig"><code>claim_identity(handle: String) -&gt; String</code></div><p>Hands it over once and forgets it. **Once**: a code that still works after it has been used is a
+code somebody can use again, and the honest moment to delete it is the moment it is asked for.</p></div>
 <div class="card" data-search="backup_now flushes pending saves, then archives the world on a worker thread. `requester` (peer id) is told
 when it finishes. returns false if a backup is already running. server/game_server.gd the server itself"><div class="sig"><code>backup_now(requester := 0) -&gt; bool</code></div><p>Flushes pending saves, then archives the world on a worker thread. `requester` (peer id) is told
 when it finishes. Returns false if a backup is already running.</p></div>
@@ -2741,6 +2776,9 @@ its own halfway through.</p></div>
 <div class="card" data-search="block_sound sound name for a block action (&quot;break&quot;, &quot;place&quot;, &quot;step&quot;); empty when the block has none. server/game_server.gd the server itself"><div class="sig"><code>block_sound(block: int, action: String) -&gt; String</code></div><p>Sound name for a block action ("break", "place", "step"); empty when the block has none.</p></div>
 <div class="card" data-search="set_world_time `time_of_day`: 0 = midnight, 0.25 = sunrise, 0.5 = noon. `day_length` in seconds, 0 = frozen. server/game_server.gd the server itself"><div class="sig"><code>set_world_time(time_of_day: float, day_length: float) -&gt; void</code></div><p>`time_of_day`: 0 = midnight, 0.25 = sunrise, 0.5 = noon. `day_length` in seconds, 0 = frozen.</p></div>
 <div class="card" data-search="on_auth the client proves it holds the private key for the identity it presented. server/game_server.gd the server itself"><div class="sig"><code>on_auth(peer_id: int, signature: PackedByteArray) -&gt; void</code></div><p>The client proves it holds the private key for the identity it presented.</p></div>
+<div class="card" data-search="on_identity_stash **both ends require a player**, so a stranger cannot fill the table from the door. rate limited for
+the same reason: guessing a handle is hopeless at a hundred bits, but nothing should be free. server/game_server.gd the server itself"><div class="sig"><code>on_identity_stash(peer_id: int, handle: String, blob: String) -&gt; void</code></div><p>**Both ends require a player**, so a stranger cannot fill the table from the door. Rate limited for
+the same reason: guessing a handle is hopeless at a hundred bits, but nothing should be free.</p></div>
 <div class="card" data-search="on_claim_admin the local host proves it launched this server and becomes a permanent admin. server/game_server.gd the server itself"><div class="sig"><code>on_claim_admin(peer_id: int, token: String) -&gt; void</code></div><p>The local host proves it launched this server and becomes a permanent admin.</p></div>
 <div class="card" data-search="peer_address where a peer is connecting from, or &quot;&quot; when that cannot be told (offline play, a peer already gone). server/game_server.gd the server itself"><div class="sig"><code>peer_address(peer_id: int) -&gt; String</code></div><p>Where a peer is connecting from, or "" when that cannot be told (offline play, a peer already gone).</p></div>
 <div class="card" data-search="mark_simulation_stale says the simulated set needs working out again. claims call it; so does anything else that changes
@@ -3026,7 +3064,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1215 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1221 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

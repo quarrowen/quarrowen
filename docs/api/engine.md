@@ -4239,15 +4239,51 @@ Stable id derived from the public key (32 hex characters).
 
 **See also:** `finish`, `start`
 
-### `export_encrypted`
+### `new_transfer_code`
 
 *shared/identity.gd*
 
-GDScript: `static export_encrypted(key: CryptoKey, passphrase: String, iterations := EXPORT_ITERATIONS) -> String`
+GDScript: `static new_transfer_code() -> String`
 
 Returns the JSON text of an encrypted identity file.
+A fresh transfer code, in groups for reading out: "ABCD-EFGH-IJKL-MNOP-QRST".
 
-**See also:** `finish`, `pbkdf2_sha256`, `player_id`, `start`
+### `tidy_transfer_code`
+
+*shared/identity.gd*
+
+GDScript: `static tidy_transfer_code(typed: String) -> String`
+
+What the code looks like once dashes, spaces and case are forgiven. Typing it back is the one part a
+person does by hand, so every way of getting it slightly wrong that still means the same thing is
+accepted.
+
+### `transfer_handle`
+
+*shared/identity.gd*
+
+GDScript: `static transfer_handle(code: String) -> String`
+
+**The half of the code the server is allowed to see.** A transfer is stored under this, and it is a
+hash - so a server holding the ciphertext holds nothing that decrypts it. Splitting the code this
+way is the whole reason the server can be handed an encrypted private key at all: store it under
+the code itself and "encrypted" would mean nothing, because the key would have arrived with it.
+
+**See also:** `finish`, `start`, `tidy_transfer_code`
+
+### `export_for_transfer`
+
+*shared/identity.gd*
+
+GDScript: `static export_for_transfer(key: CryptoKey, code: String) -> String`
+
+Encrypting and decrypting *for a transfer*, as a pair, so the two ends cannot disagree about what
+the passphrase was. **Both tidy the code first**: the person reading it out says the letters and the
+person typing it may or may not put the dashes in, and a key derived from the difference is a
+transfer that fails with "wrong code" when the code was right. Found by testing the untidy path
+rather than the neat one. (2026-09-25)
+
+**See also:** `export_encrypted`, `tidy_transfer_code`
 
 ### `import_encrypted`
 
@@ -10862,6 +10898,27 @@ GDScript: `player_by_id(player_id: String)`
 
 The online player with this id, or null. Two loops already did this by hand.
 
+### `stash_identity`
+
+*server/game_server.gd*
+
+GDScript: `stash_identity(handle: String, blob: String) -> String`
+
+Holds an encrypted identity for the owner's other device to collect.
+
+**The server cannot read what it is holding**, and that is by construction rather than by promise:
+it is given a *hash* of the transfer code, never the code, so the key that decrypts the blob never
+arrives here. See `Identity.transfer_handle`.
+
+### `claim_identity`
+
+*server/game_server.gd*
+
+GDScript: `claim_identity(handle: String) -> String`
+
+Hands it over once and forgets it. **Once**: a code that still works after it has been used is a
+code somebody can use again, and the honest moment to delete it is the moment it is asked for.
+
 ### `backup_now`
 
 *server/game_server.gd*
@@ -11039,6 +11096,17 @@ GDScript: `on_auth(peer_id: int, signature: PackedByteArray) -> void`
 The client proves it holds the private key for the identity it presented.
 
 **See also:** `accept`, `allowlist_bind`, `ban_of`, `give`, `is_allowed`, `kick`
+
+### `on_identity_stash`
+
+*server/game_server.gd*
+
+GDScript: `on_identity_stash(peer_id: int, handle: String, blob: String) -> void`
+
+**Both ends require a player**, so a stranger cannot fill the table from the door. Rate limited for
+the same reason: guessing a handle is hopeless at a hundred bits, but nothing should be free.
+
+**See also:** `kick`, `stash_identity`, `too_often`
 
 ### `on_claim_admin`
 
