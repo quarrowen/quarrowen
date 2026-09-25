@@ -7317,3 +7317,48 @@ Two things kept from the original because they were right, and both are about ki
 mechanism: mined blocks go straight to the backpack, because nothing catches a dropped item over a
 void; and falling off teleports you back at y = -12 - *"The void spat you back out"* - which catches a
 child before the engine's own void damage at y = -32 ever applies.
+
+### The renderer decision had already been made, by default, and never measured (2026-09-25)
+
+`rendering_method.mobile = mobile` is Godot's default and nothing here overrides it, so **"Forward+ on
+desktop, Mobile on mobile" was already the state of things** rather than a choice waiting to be made.
+The roadmap presented it as an open question; what was actually open was whether the second target
+worked, because **nobody had ever run the Mobile renderer, on any machine.**
+
+Half of that is answerable without an iPad, so it was: `tools/renderer_shots.sh` photographs the same
+world under each method and greps for `SHADER ERROR`.
+
+**No shader errors in either.** Terrain, trees, snow, sky, clouds and water all render, and water
+renders blue - the white-sheet failure mode the water shader once had does not recur. The two images
+differ by 4% (mean 10.6 of 255), concentrated in **ground lighting** rather than sky; geometry and
+textures are identical.
+
+**One real bug, found and fixed.** `graphics_settings.gd:57` asked for FSR upscaling whenever render
+scale dropped below 1.0, and FSR is Forward+ only. Every iOS and Android build printed "FSR1 3D scaling
+is only available when using the Forward+ renderer" and then silently upscaled some other way. Worth
+more than a stray warning suggests: **dropping the render scale is exactly the lever you reach for on a
+tablet**, so the one upscaler in the code was the one unavailable where it was most wanted. It now
+checks `RenderingServer.get_current_rendering_method()` first.
+
+**The general lesson, which is the same one the GDScript twins taught**: a second implementation nobody
+exercises is not a fallback, it is an untested branch. The Mobile renderer had been our shipping target
+for every mobile build since the iOS preset was written, and one afternoon of actually looking at it
+found a misconfiguration that would have cost a day of "why is the iPad blurry".
+
+#### Two mistakes made while measuring, both worth keeping
+
+- **The first run compared two loading screens and looked like a result.** Mobile never joined -
+  both clients were called Camera with different identities, so the server's name claim refused the
+  second, which then sat on "Handshaking..." while the harness photographed the curtain and reported a
+  confident 60 fps. `tools/look_shots.sh` carries a comment warning about exactly this shape and I
+  wrote a variant of that comment into the new tool before walking into it. The tool now **fails loudly
+  when a client never reached the world**, because a comparison of two black screens must not be able
+  to look like a comparison.
+- **`--stand` was guessed at rather than read.** It only runs as part of `--look` and is silently
+  ignored on its own, so three runs were framed from inside a hillside. `/fly` then `/tp` is the lever
+  that works, and the order matters or the camera falls back into the hole.
+
+**Still to do, and it needs the hardware:** frame rate on the actual iPad Air 5. The figures here are
+vsync-capped at 60 and say nothing about a tablet GPU. Prerequisites are all in place - `apple.env`,
+Xcode 26.3, the iOS native libraries already built - and `tools/package_ios.sh` generates the Xcode
+project. First deployment needs a cable; Xcode can go wireless once the device has been paired.

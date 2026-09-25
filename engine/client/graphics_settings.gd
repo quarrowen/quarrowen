@@ -54,7 +54,16 @@ func apply_environment(env: Environment, viewport: Viewport) -> void:
 	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if value("fxaa") else Viewport.SCREEN_SPACE_AA_DISABLED
 	var scale: float = value("render_scale")
 	viewport.scaling_3d_scale = scale
-	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if scale < 1.0 else Viewport.SCALING_3D_MODE_BILINEAR
+	# **FSR is Forward+ only, and mobile devices do not run Forward+.** Godot's default
+	# `rendering_method.mobile` is the Mobile renderer, so every iOS and Android build takes this path -
+	# and asking for FSR there printed "FSR1 3D scaling is only available when using the Forward+
+	# renderer" on every launch and then silently upscaled some other way. It mattered more than a
+	# stray warning suggests: dropping the render scale is exactly the lever you reach for on a tablet,
+	# so the one upscaler we use was the one unavailable where it was most needed. Found by running the
+	# Mobile renderer on the desktop, which nothing had ever done. (2026-09-25)
+	var fsr_available := RenderingServer.get_current_rendering_method() == "forward_plus"
+	viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if scale < 1.0 and fsr_available \
+		else Viewport.SCALING_3D_MODE_BILINEAR
 
 
 ## The realistic preset's half of the environment. Split out so it can be turned on and off while the
