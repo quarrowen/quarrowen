@@ -174,8 +174,8 @@ fn is_private(ip: IpAddr) -> bool {
 }
 
 /// Parses and checks a signed request: body size, signature, clock. Returns the key.
-fn signed_key(headers: &HeaderMap, body: &[u8], key_pem: &str, time: i64) -> Result<keys::PublicKey, Response> {
-    let key = keys::PublicKey::from_pem(key_pem).map_err(|e| error(StatusCode::BAD_REQUEST, e))?;
+fn signed_key(headers: &HeaderMap, body: &[u8], key_text: &str, time: i64) -> Result<keys::PublicKey, Response> {
+    let key = keys::PublicKey::from_text(key_text).map_err(|e| error(StatusCode::BAD_REQUEST, e))?;
     let signature = headers.get("x-quarrowen-signature").and_then(|v| v.to_str().ok()).unwrap_or("");
     if !key.verify(body, signature) {
         return Err(error(StatusCode::UNAUTHORIZED, "bad signature"));
@@ -344,7 +344,7 @@ async fn login(State(hub): State<Arc<Hub>>, ConnectInfo(peer): ConnectInfo<Socke
     if !hub.config.public_url.is_empty() && l.hub.trim_end_matches('/') != hub.config.public_url.trim_end_matches('/') {
         return error(StatusCode::UNAUTHORIZED, "this sign-in was made for another hub");
     }
-    let key = match keys::PublicKey::from_pem(&l.key) {
+    let key = match keys::PublicKey::from_text(&l.key) {
         Ok(key) => key,
         Err(e) => return error(StatusCode::BAD_REQUEST, e),
     };

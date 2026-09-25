@@ -1,7 +1,25 @@
 extends RefCounted
-## Player identity: an RSA key pair per client. The public key's hash is the player's permanent id on
-## every server; logging in means signing a server-chosen random challenge. Names are display names,
+## Player identity: an Ed25519 key pair per client. The public key's hash is the player's permanent id
+## on every server; logging in means signing a server-chosen random challenge. Names are display names,
 ## bound to the first identity that claims them on each server.
+##
+## A **server** has one of these too, since 2026-09-25 (`Net.load_or_create_server_key`), so that one
+## kind of key and one kind of id run through the whole project rather than two that look alike.
+##
+## **Ed25519 rather than RSA, and the reason is a number.** Godot's `Crypto` offers only RSA, and an
+## RSA-2048 private key is 1,675 characters of PEM. That size decided the whole design of moving an
+## identity between devices: too big to type, too big for a QR anybody can scan, so it had to travel
+## over a network - either both devices on one LAN, or a server holding it in the middle. A server
+## holding player keys is the wrong shape for identities that are meant to be local, and the user said
+## so. An Ed25519 private key is **32 bytes**: 44 characters of base64, read off one screen and typed
+## into the other, or written on paper. (2026-09-25)
+##
+## Signing lives in the Rust extension (`native/src/identity.rs`) because Godot cannot do it. The
+## extension is required anyway.
+##
+## **A key here is a Dictionary of both halves**, `{private, public}`, and that is deliberate: both are
+## 32 bytes, so a function taking a bare array could be handed the wrong one and would quietly compute
+## a different player id. There is no shape of mistake this design allows.
 
 const UserPaths = preload("res://engine/shared/user_paths.gd")
 
@@ -15,9 +33,13 @@ static func dir() -> String:
 	# the tools set only QW_USER_DIR, and `tools/look_shots.sh` was therefore signing in to its throwaway
 	# servers as the player. (2026-09-22)
 	return override if not override.is_empty() else UserPaths.path("identity")
-const DEFAULT_BITS := 2048
-const MIN_BITS_PEM_LENGTH := 200
-const MAX_PEM_LENGTH := 4096
+
+
+const KEY_BYTES := 32
+const SIGNATURE_BYTES := 64
+## A public key as text: base64 of 32 bytes. Kept as a bound rather than an equality so a future
+## format has somewhere to go, and so a stranger's oversized string is refused before it is decoded.
+const MAX_PUBLIC_TEXT := 128
 const NONCE_BYTES := 32
 
 
@@ -38,23 +60,42 @@ const TRANSFER_GROUP_SIZE := 4
 
 
 static func path_for(identity_name := "default") -> String:
-	return dir().path_join(identity_name.validate_filename() + ".pem")
+	return dir().path_join(identity_name.validate_filename() + ".key")
 
 
-## Loads the named identity from user://identity, creating it on first use.
-static func load_or_create(identity_name := "default", bits := DEFAULT_BITS) -> CryptoKey:
-	var path := path_for(identity_name)
-	var key := CryptoKey.new()
-	if FileAccess.file_exists(path) and key.load(path) == OK:
-		return key
-	key = Crypto.new().generate_rsa(bits)
-	DirAccess.make_dir_recursive_absolute(dir())
-	key.save(path)
-	return key
+## A key pair from 32 private bytes: `{private, public}`, or `{}` when the bytes are the wrong size.
+static func pair_from(private: PackedByteArray) -> Dictionary:
+	if private.size() != KEY_BYTES:
+		return {}
+	var public: PackedByteArray = ClassDB.class_call_static(&"NativeIdentity", &"public_key", private)
+	return {} if public.size() != KEY_BYTES else {"private": private, "public": public}
 
 
-static func public_pem(key: CryptoKey) -> String:
-	return key.save_to_string(true)
+## Loads the named identity, creating it on first use. Returns `{private, public}`.
+static func load_or_create(identity_name := "default") -> Dictionary:
+	return load_or_create_at(path_for(identity_name))
+
+
+## The same, at an exact path rather than a name under `dir()`. A server's own identity lives beside its
+## world rather than in the player's identity folder, because it belongs to the world: copy the save and
+## the server is still the same server to everybody who trusts it.
+static func load_or_create_at(path: String) -> Dictionary:
+	if FileAccess.file_exists(path):
+		var pair := pair_from(FileAccess.get_file_as_bytes(path))
+		if not pair.is_empty():
+			return pair
+	var made := pair_from(ClassDB.class_call_static(&"NativeIdentity", &"generate"))
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file != null:
+		file.store_buffer(made.private)
+		file.close()
+	return made
+
+
+## The public half as text, which is what crosses the wire.
+static func public_text(key: Dictionary) -> String:
+	return Marshalls.raw_to_base64(key.get("public", PackedByteArray()))
 
 
 ## Signs the challenge. **`audience` is who the signature is *for*, and leaving it out is the bug this
@@ -65,40 +106,50 @@ static func public_pem(key: CryptoKey) -> String:
 ## in as you. Binding the server's id into what is signed makes the answer worthless anywhere else:
 ## the real server hashes its own id and the signature no longer matches. The hub has always done it
 ## this way; the game handshake did not. (2026-09-24)
-static func sign(key: CryptoKey, nonce: PackedByteArray, audience := "") -> PackedByteArray:
-	return Crypto.new().sign(HashingContext.HASH_SHA256, _digest(_bind(nonce, audience)), key)
+##
+## With no `audience` this signs `message` exactly as given, which is how everything that is not a login
+## challenge uses it: a transfer ticket, a hub announce, a status proof. Ed25519 signs the whole message,
+## so there is no digest to agree on separately.
+static func sign(key: Dictionary, message: PackedByteArray, audience := "") -> PackedByteArray:
+	return ClassDB.class_call_static(&"NativeIdentity", &"sign", key.get("private", PackedByteArray()),
+		_bind(message, audience))
 
 
-## Server side: parses a public key PEM; returns null if it is not a usable key.
-static func parse_public_key(pem: String) -> CryptoKey:
-	if pem.length() < MIN_BITS_PEM_LENGTH or pem.length() > MAX_PEM_LENGTH:
-		return null
-	var key := CryptoKey.new()
-	return key if key.load_from_string(pem, true) == OK else null
+## Server side: the 32 public bytes a client sent, or an empty array when it is not a usable key.
+## Checked for length *before* decoding, so an oversized string from a stranger costs nothing.
+static func parse_public_key(text: String) -> PackedByteArray:
+	if text.length() > MAX_PUBLIC_TEXT:
+		return PackedByteArray()
+	var bytes := Marshalls.base64_to_raw(text)
+	return bytes if bytes.size() == KEY_BYTES else PackedByteArray()
 
 
-## Stable id derived from the public key (32 hex characters).
-static func player_id(key: CryptoKey) -> String:
+## Stable id derived from the public key (32 hex characters). Takes a `{private, public}` pair or the
+## public bytes on their own - which is what a server has.
+static func player_id(key) -> String:
+	var public: PackedByteArray = key.get("public", PackedByteArray()) if key is Dictionary else key
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
-	ctx.update(key.save_to_string(true).to_utf8_buffer())
+	ctx.update(public)
 	return ctx.finish().hex_encode().left(32)
 
 
-static func verify(key: CryptoKey, nonce: PackedByteArray, signature: PackedByteArray, audience := "") -> bool:
-	if signature.is_empty() or signature.size() > 1024:
+## Whether this public key signed the challenge. Takes the public bytes, since that is all a server
+## ever has of somebody.
+static func verify(public: PackedByteArray, message: PackedByteArray, signature: PackedByteArray, audience := "") -> bool:
+	if signature.size() != SIGNATURE_BYTES or public.size() != KEY_BYTES:
 		return false
-	return Crypto.new().verify(HashingContext.HASH_SHA256, _digest(_bind(nonce, audience)), signature, key)
+	return ClassDB.class_call_static(&"NativeIdentity", &"verify", public, _bind(message, audience), signature)
 
 
 ## What is actually signed: a purpose, who it is for, and the nonce. The purpose is there so a
 ## signature made for this handshake can never be mistaken for one made for anything else we sign
 ## later - the mistake this whole change is about, one layer up.
-static func _bind(nonce: PackedByteArray, audience: String) -> PackedByteArray:
+static func _bind(message: PackedByteArray, audience: String) -> PackedByteArray:
 	if audience.is_empty():
-		return nonce
+		return message
 	var bound := "quarrowen-join:%s:" % audience
-	return bound.to_utf8_buffer() + nonce
+	return bound.to_utf8_buffer() + message
 
 
 static func new_nonce() -> PackedByteArray:
@@ -117,7 +168,6 @@ static func _digest(bytes: PackedByteArray) -> PackedByteArray:
 # passphrase, AES-256-CBC encrypts the private key and HMAC-SHA256 authenticates the ciphertext
 # (encrypt-then-MAC, separate keys), so a wrong passphrase or a modified file is detected.
 
-## Returns the JSON text of an encrypted identity file.
 ## A fresh transfer code, in groups for reading out: "ABCD-EFGH-IJKL-MNOP-QRST".
 static func new_transfer_code() -> String:
 	var crypto := Crypto.new()
@@ -158,7 +208,7 @@ static func transfer_handle(code: String) -> String:
 ## person typing it may or may not put the dashes in, and a key derived from the difference is a
 ## transfer that fails with "wrong code" when the code was right. Found by testing the untidy path
 ## rather than the neat one. (2026-09-25)
-static func export_for_transfer(key: CryptoKey, code: String) -> String:
+static func export_for_transfer(key: Dictionary, code: String) -> String:
 	return export_encrypted(key, tidy_transfer_code(code))
 
 
@@ -166,12 +216,13 @@ static func import_from_transfer(blob: String, code: String) -> Dictionary:
 	return import_encrypted(blob, tidy_transfer_code(code))
 
 
-static func export_encrypted(key: CryptoKey, passphrase: String, iterations := EXPORT_ITERATIONS) -> String:
+## Returns the JSON text of an encrypted identity file.
+static func export_encrypted(key: Dictionary, passphrase: String, iterations := EXPORT_ITERATIONS) -> String:
 	var crypto := Crypto.new()
 	var salt := crypto.generate_random_bytes(16)
 	var iv := crypto.generate_random_bytes(16)
 	var keys := _derive_keys(passphrase, salt, iterations)
-	var plaintext := key.save_to_string(false).to_utf8_buffer()
+	var plaintext: PackedByteArray = key.get("private", PackedByteArray()).duplicate()
 	var padding := 16 - plaintext.size() % 16
 	for i in padding:
 		plaintext.append(padding)
@@ -186,7 +237,7 @@ static func export_encrypted(key: CryptoKey, passphrase: String, iterations := E
 	return JSON.stringify(doc, "\t")
 
 
-## Decrypts an exported identity. Returns {key: CryptoKey, player_id} or {error: String}.
+## Decrypts an exported identity. Returns {key: {private, public}, player_id} or {error: String}.
 static func import_encrypted(text: String, passphrase: String) -> Dictionary:
 	var doc = JSON.parse_string(text) if text.length() < 16384 else null
 	if not (doc is Dictionary) or doc.get("format") != EXPORT_FORMAT or int(doc.get("version", 0)) != 1:
@@ -211,25 +262,34 @@ static func import_encrypted(text: String, passphrase: String) -> Dictionary:
 	var padding := plaintext[plaintext.size() - 1]
 	if padding < 1 or padding > 16:
 		return {"error": "Identity file is damaged"}
-	var key := CryptoKey.new()
-	if key.load_from_string(plaintext.slice(0, plaintext.size() - padding).get_string_from_utf8()) != OK:
+	var pair := pair_from(plaintext.slice(0, plaintext.size() - padding))
+	if pair.is_empty():
 		return {"error": "Identity file does not contain a valid key"}
-	return {"key": key, "player_id": player_id(key)}
+	return {"key": pair, "player_id": player_id(pair)}
 
 
 ## Saves `key` as the named identity. An existing different identity is kept as a .bak file.
-static func install(key: CryptoKey, identity_name := "default") -> Error:
+static func install(key: Dictionary, identity_name := "default") -> Error:
+	if key.get("private", PackedByteArray()).size() != KEY_BYTES:
+		return ERR_INVALID_DATA
 	DirAccess.make_dir_recursive_absolute(dir())
 	var path := path_for(identity_name)
 	if FileAccess.file_exists(path):
-		var current := CryptoKey.new()
-		if current.load(path) == OK and player_id(current) == player_id(key):
+		var current := pair_from(FileAccess.get_file_as_bytes(path))
+		if not current.is_empty() and player_id(current) == player_id(key):
 			return OK
+		# **The one you are replacing is kept.** Installing the wrong identity over the right one is
+		# otherwise unrecoverable, and the whole reason this exists is that a lost key is a lost person.
 		var backup := "%s.bak-%d" % [path, int(Time.get_unix_time_from_system())]
 		var err := DirAccess.rename_absolute(path, backup)
 		if err != OK:
 			return err
-	return key.save(path)
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return FileAccess.get_open_error()
+	file.store_buffer(key.private)
+	file.close()
+	return OK
 
 
 static func _mac_input(doc: Dictionary) -> PackedByteArray:

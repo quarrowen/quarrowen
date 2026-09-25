@@ -23,7 +23,7 @@ class Bot:
 	var bytes_in := 0
 	var rng := RandomNumberGenerator.new()
 	var recent: Array[PackedByteArray] = []
-	var key: CryptoKey
+	var key := {}
 
 	func start(address: String, port: int) -> void:
 		rng.seed = index * 7919
@@ -35,9 +35,9 @@ class Bot:
 		net.client = self
 		net.pin_servers = false
 		add_child(net)
-		# Bots use small throwaway keys; real clients keep a 2048-bit identity on disk.
-		key = Crypto.new().generate_rsa(1024)
-		api.connected_to_server.connect(func(): net.c_hello.rpc_id(1, Protocol.VERSION, "bot%03d" % index, Identity.public_pem(key)))
+		# A throwaway identity per bot, kept only in memory - a real client keeps one on disk.
+		key = Identity.pair_from(ClassDB.class_call_static(&"NativeIdentity", &"generate"))
+		api.connected_to_server.connect(func(): net.c_hello.rpc_id(1, Protocol.VERSION, "bot%03d" % index, Identity.public_text(key)))
 		net.create_client(address, port)
 
 	func _physics_process(_delta: float) -> void:

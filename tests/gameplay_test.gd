@@ -5126,10 +5126,10 @@ func _private_server() -> void:
 
 func _transfers() -> void:
 	var TransferTicket = preload("res://engine/shared/transfer_ticket.gd")
-	var crypto := Crypto.new()
-	var lobby_key := crypto.generate_rsa(2048)
-	var sky_key := crypto.generate_rsa(2048)
-	var stranger_key := crypto.generate_rsa(2048)
+	var Identity = preload("res://engine/shared/identity.gd")
+	var lobby_key: Dictionary = Identity.load_or_create("gameplay_lobby")
+	var sky_key: Dictionary = Identity.load_or_create("gameplay_sky")
+	var stranger_key: Dictionary = Identity.load_or_create("gameplay_stranger")
 	var lobby_id: String = TransferTicket.key_id(lobby_key)
 	var sky_id: String = TransferTicket.key_id(sky_key)
 	# Two offline servers that trust each other.

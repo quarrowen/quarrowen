@@ -254,21 +254,6 @@ func _behaviour(server) -> void:
 	server.on_ui_action(201, "engine:talk", "say:start:1")
 	_check(server.objectives.has(p, "proving:errand"), "an option handed over an objective")
 
-	# Moving an identity: left once, collected once, and gone the moment it is collected.
-	var Id = load("res://engine/shared/identity.gd")
-	var code: String = Id.new_transfer_code()
-	var handle: String = Id.transfer_handle(code)
-	_check(server.stash_identity(handle, "pretend-ciphertext", 0).is_empty(), "an identity can be left for another device")
-	_check(server.claim_identity(handle) == "pretend-ciphertext", "and collected with the code")
-	_check(server.claim_identity(handle).is_empty(), "and is gone the moment it is collected, not on a timer")
-	# The guards: a handle that is not a hash, and a blob far larger than any identity.
-	_check(not server.stash_identity("not-a-handle", "x", 0).is_empty(), "a handle that is not a hash is refused")
-	_check(not server.stash_identity(handle, "x".repeat(64 * 1024), 0).is_empty(), "and an oversized one is too")
-	# Who left it, so they can be told the moment it is collected. The push itself cannot be asserted
-	# end to end - see tests/auth_test.gd for why - so the half that can be is.
-	server.stash_identity(handle, "ciphertext", 77)
-	_check(int(server._identity_transfers[handle].by) == 77, "a transfer remembers which device left it")
-
 	# The approval gate: a stranger may look and nothing else, and an admin is never locked out by it.
 	# **The precondition is the test.** Without it this passes just as well on a player who could never
 	# build in the first place, and proves nothing at all.

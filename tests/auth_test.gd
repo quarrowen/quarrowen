@@ -6,6 +6,7 @@ extends Node
 const GameClient = preload("res://engine/client/game_client.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
 const KnownServers = preload("res://engine/net/known_servers.gd")
+const Identity = preload("res://engine/shared/identity.gd")
 
 var _port := 25601
 var _failures := 0
@@ -24,13 +25,15 @@ func _run() -> void:
 	# replay your answer to log in as you. The test that matters is not that the right pair verifies,
 	# it is that the wrong one does not. (2026-09-24)
 	var Identity = load("res://engine/shared/identity.gd")
-	var key: CryptoKey = Identity.load_or_create("auth_audience")
+	var key: Dictionary = Identity.load_or_create("auth_audience")
 	var nonce: PackedByteArray = Identity.new_nonce()
 	var signed: PackedByteArray = Identity.sign(key, nonce, "server-one")
-	_check(Identity.verify(key, nonce, signed, "server-one"), "a signature verifies for the server it was made for")
-	_check(not Identity.verify(key, nonce, signed, "server-two"),
+	# `verify` takes the public bytes, not the pair: that is all a server ever has of somebody.
+	var public: PackedByteArray = key.public
+	_check(Identity.verify(public, nonce, signed, "server-one"), "a signature verifies for the server it was made for")
+	_check(not Identity.verify(public, nonce, signed, "server-two"),
 		"and is worthless at another server, so a relayed challenge cannot be replayed")
-	_check(not Identity.verify(key, Identity.new_nonce(), signed, "server-one"),
+	_check(not Identity.verify(public, Identity.new_nonce(), signed, "server-one"),
 		"and a different nonce is refused too")
 
 	# 1. A guest claims a name, gets saved items, cannot use admin commands.
@@ -95,47 +98,8 @@ func _run() -> void:
 	_check(guest != null, "restored pin connects again")
 	if guest != null:
 		await _leave(guest)
-	await _identity_transfer()
 	_finish()
 
-
-## **Collecting an identity must work for a device that cannot join.** That is the whole point: the
-## device asking has the wrong identity by definition, so if this needed a player, it would work only
-## where it was not needed. Tested with a connection that never says hello. (the user, 2026-09-25)
-func _identity_transfer() -> void:
-	var Identity = load("res://engine/shared/identity.gd")
-	var code: String = Identity.new_transfer_code()
-	var handle: String = Identity.transfer_handle(code)
-	# Left by somebody who *is* a player, which is the real shape: you export from the device you are
-	# already playing on.
-	var owner = await _join("auth_owner", "Owner")
-	if owner == null:
-		return _check(false, "could not connect to leave an identity")
-	var left := {"ok": false, "seconds": 0.0}
-	owner.identity_transfer.connect(func(ok, _blob, _msg, seconds): left.ok = ok; left.seconds = seconds)
-	Net.c_identity_stash.rpc_id(1, handle, Identity.export_for_transfer(owner._identity, code))
-	await _wait(func(): return left.ok, 5.0)
-	_check(left.ok and left.seconds > 60.0, "an identity can be left, with a real countdown (%ds)" % int(left.seconds))
-	# Now the other device: a different identity, and it never joins.
-	var fetcher = GameClient.new()
-	fetcher.server_port = _port
-	fetcher.identity_name = "auth_fetcher"
-	fetcher.ignore_mouse_capture = true
-	fetcher.transfer_claim = handle
-	var got := {"blob": ""}
-	fetcher.identity_transfer.connect(func(_ok, blob, _msg, _s): got.blob = blob)
-	add_child(fetcher)  # a client connects when it enters the tree, the same as any other
-	await _wait(func(): return not got.blob.is_empty(), 8.0)
-	_check(not got.blob.is_empty(), "and collected by a device that never joined")
-	var opened: Dictionary = Identity.import_from_transfer(got.blob, code) if not got.blob.is_empty() else {"error": "nothing"}
-	_check(opened.get("error", "").is_empty(), "which opens with the code")
-	# **The "it has been collected" push cannot be tested here**, and the reason is worth writing down
-	# rather than leaving as a missing check: `Net.client` is one global reference per process, so the
-	# moment this second client enters the tree it *becomes* the client, and a message addressed to the
-	# first one is delivered to the second. Two real devices are two processes and do not share it. The
-	# server half - that a stash remembers who left it - is asserted in tests/proving_test.gd instead.
-	fetcher.queue_free()
-	await _leave(owner)
 
 
 ## Returns the client once in-game, or the exit message String when `expect_failure`.
@@ -149,7 +113,7 @@ func _join(identity: String, player_name: String, expect_failure := false, tampe
 	var result := {"message": null}
 	client.exited.connect(func(msg): result.message = msg)
 	if tamper:
-		client.test_signing_key = Crypto.new().generate_rsa(1024)
+		client.test_signing_key = Identity.load_or_create("auth_impostor")
 	add_child(client)
 	var deadline := Time.get_ticks_msec() + 20000
 	while Time.get_ticks_msec() < deadline:

@@ -1139,7 +1139,7 @@ GDScript: `leave(player) -> bool`
 
 Puts a player back where they were before they entered. Returns false if they were not in one.
 
-**See also:** `allowed`, `close`, `finish`, `get_block`, `gone`, `send_to_realm`
+**See also:** `allowed`, `close`, `get_block`, `gone`, `public_text`, `send_to_realm`
 
 ### `close`
 
@@ -1743,7 +1743,7 @@ GDScript: `static make(kind: String, category: String, payload: PackedByteArray,
 
 Builds a manifest for new content (the id comes from the payload).
 
-**See also:** `content_id`, `finish`, `key_id`, `sign`, `start`
+**See also:** `content_id`, `key_id`, `public_text`, `sign`
 
 ### `validate`
 
@@ -4192,21 +4192,49 @@ Where identities live. QW_IDENTITY_DIR moves them, which is how the tests keep t
 the player's own folder: a test run used to overwrite default.pem and take the player's account with
 it. (2026-09-18)
 
+### `pair_from`
+
+*shared/identity.gd*
+
+GDScript: `static pair_from(private: PackedByteArray) -> Dictionary`
+
+A key pair from 32 private bytes: `{private, public}`, or `{}` when the bytes are the wrong size.
+
 ### `load_or_create`
 
 *shared/identity.gd*
 
-GDScript: `static load_or_create(identity_name := "default", bits := DEFAULT_BITS) -> CryptoKey`
+GDScript: `static load_or_create(identity_name := "default") -> Dictionary`
 
-Loads the named identity from user://identity, creating it on first use.
+Loads the named identity, creating it on first use. Returns `{private, public}`.
 
-**See also:** `load`, `path_for`, `save`
+**See also:** `load_or_create_at`
+
+### `load_or_create_at`
+
+*shared/identity.gd*
+
+GDScript: `static load_or_create_at(path: String) -> Dictionary`
+
+The same, at an exact path rather than a name under `dir()`. A server's own identity lives beside its
+world rather than in the player's identity folder, because it belongs to the world: copy the save and
+the server is still the same server to everybody who trusts it.
+
+**See also:** `close`, `open`, `pair_from`
+
+### `public_text`
+
+*shared/identity.gd*
+
+GDScript: `static public_text(key: Dictionary) -> String`
+
+The public half as text, which is what crosses the wire.
 
 ### `sign`
 
 *shared/identity.gd*
 
-GDScript: `static sign(key: CryptoKey, nonce: PackedByteArray, audience := "") -> PackedByteArray`
+GDScript: `static sign(key: Dictionary, message: PackedByteArray, audience := "") -> PackedByteArray`
 
 Signs the challenge. **`audience` is who the signature is *for*, and leaving it out is the bug this
 parameter exists to fix.**
@@ -4217,15 +4245,18 @@ in as you. Binding the server's id into what is signed makes the answer worthles
 the real server hashes its own id and the signature no longer matches. The hub has always done it
 this way; the game handshake did not. (2026-09-24)
 
-**See also:** `finish`, `start`
+With no `audience` this signs `message` exactly as given, which is how everything that is not a login
+challenge uses it: a transfer ticket, a hub announce, a status proof. Ed25519 signs the whole message,
+so there is no digest to agree on separately.
 
 ### `parse_public_key`
 
 *shared/identity.gd*
 
-GDScript: `static parse_public_key(pem: String) -> CryptoKey`
+GDScript: `static parse_public_key(text: String) -> PackedByteArray`
 
-Server side: parses a public key PEM; returns null if it is not a usable key.
+Server side: the 32 public bytes a client sent, or an empty array when it is not a usable key.
+Checked for length *before* decoding, so an oversized string from a stranger costs nothing.
 
 **See also:** `key`
 
@@ -4233,11 +4264,23 @@ Server side: parses a public key PEM; returns null if it is not a usable key.
 
 *shared/identity.gd*
 
-GDScript: `static player_id(key: CryptoKey) -> String`
+GDScript: `static player_id(key) -> String`
 
-Stable id derived from the public key (32 hex characters).
+Stable id derived from the public key (32 hex characters). Takes a `{private, public}` pair or the
+public bytes on their own - which is what a server has.
 
 **See also:** `finish`, `start`
+
+### `verify`
+
+*shared/identity.gd*
+
+GDScript: `static verify(public: PackedByteArray, message: PackedByteArray, signature: PackedByteArray, audience := "") -> bool`
+
+Whether this public key signed the challenge. Takes the public bytes, since that is all a server
+ever has of somebody.
+
+**See also:** `finish`, `key_id`, `parse_public_key`, `start`
 
 ### `new_transfer_code`
 
@@ -4245,7 +4288,6 @@ Stable id derived from the public key (32 hex characters).
 
 GDScript: `static new_transfer_code() -> String`
 
-Returns the JSON text of an encrypted identity file.
 A fresh transfer code, in groups for reading out: "ABCD-EFGH-IJKL-MNOP-QRST".
 
 ### `tidy_transfer_code`
@@ -4275,7 +4317,7 @@ the code itself and "encrypted" would mean nothing, because the key would have a
 
 *shared/identity.gd*
 
-GDScript: `static export_for_transfer(key: CryptoKey, code: String) -> String`
+GDScript: `static export_for_transfer(key: Dictionary, code: String) -> String`
 
 Encrypting and decrypting *for a transfer*, as a pair, so the two ends cannot disagree about what
 the passphrase was. **Both tidy the code first**: the person reading it out says the letters and the
@@ -4285,21 +4327,31 @@ rather than the neat one. (2026-09-25)
 
 **See also:** `export_encrypted`, `tidy_transfer_code`
 
+### `export_encrypted`
+
+*shared/identity.gd*
+
+GDScript: `static export_encrypted(key: Dictionary, passphrase: String, iterations := EXPORT_ITERATIONS) -> String`
+
+Returns the JSON text of an encrypted identity file.
+
+**See also:** `finish`, `pbkdf2_sha256`, `player_id`, `start`
+
 ### `import_encrypted`
 
 *shared/identity.gd*
 
 GDScript: `static import_encrypted(text: String, passphrase: String) -> Dictionary`
 
-Decrypts an exported identity. Returns {key: CryptoKey, player_id} or {error: String}.
+Decrypts an exported identity. Returns {key: {private, public}, player_id} or {error: String}.
 
-**See also:** `finish`, `pbkdf2_sha256`, `player_id`, `start`
+**See also:** `finish`, `pair_from`, `pbkdf2_sha256`, `player_id`, `start`
 
 ### `install`
 
 *shared/identity.gd*
 
-GDScript: `static install(key: CryptoKey, identity_name := "default") -> Error`
+GDScript: `static install(key: Dictionary, identity_name := "default") -> Error`
 
 Saves `key` as the named identity. An existing different identity is kept as a .bak file.
 
@@ -5596,9 +5648,10 @@ The respawn position from a player's bed, or Vector3.INF (and a message) when it
 
 *server/status_query.gd*
 
-GDScript: `key: CryptoKey  (property)`
+GDScript: `key: Dictionary = {}  (property)`
 
-The server's identity key (signs proofs for the hub); set by the server when it starts listening.
+The server's Ed25519 identity key (signs proofs for the hub); set by the server when it starts
+listening. Empty until then, and on an offline server.
 
 ### `step`
 
@@ -7845,10 +7898,31 @@ so an impostor cannot complete the connection; the first connection trusts and p
 
 GDScript: `static load_or_create_server_identity(dir: String) -> Array`
 
-Loads the server's DTLS identity from `dir`, creating a self-signed one on first start.
+Loads the server's DTLS certificate from `dir`, creating a self-signed one on first start. This is how
+the server is *reached*; who it *is* comes from `load_or_create_server_key` below.
 Returns [CryptoKey, X509Certificate, certificate PEM text].
 
 **See also:** `load`, `save`
+
+### `load_or_create_server_key`
+
+*net/net.gd*
+
+GDScript: `static load_or_create_server_key(dir: String) -> Dictionary`
+
+The server's own Ed25519 identity: **who it is**, as against the certificate above, which is only
+how it is reached. This is what signs transfer tickets, status proofs and hub announces, and its
+hash is the server id other servers put in their `network.json`.
+
+**These were one key until 2026-09-25.** The certificate's RSA key did both jobs, which was tidy
+while everything was RSA - and then players moved to Ed25519 so that an identity would fit in
+something a person can type, and the hub, which verifies both servers' and players' signatures with
+the same code, could no longer read the server's. Two keys is also the more honest shape: a
+certificate is replaceable and an identity is not, so a server that regenerates its certificate no
+longer stops being itself to everybody who trusted it. The certificate stays RSA because Godot's
+`generate_self_signed_certificate` takes nothing else.
+
+**See also:** `load_or_create_at`
 
 ### `peer_rtt_ms`
 
@@ -7882,7 +7956,7 @@ GDScript: `leave() -> void`
 
 Asks the hub to drop the listing (best effort, on shutdown: a blocking request with a short timeout).
 
-**See also:** `allowed`, `close`, `finish`, `get_block`, `gone`, `send_to_realm`
+**See also:** `allowed`, `close`, `get_block`, `gone`, `public_text`, `send_to_realm`
 
 ### `transfer`
 
@@ -8029,21 +8103,22 @@ A new instance of a native class. Never null in a working build; says what is wr
 
 *shared/transfer_ticket.gd*
 
-GDScript: `static key_id(key: CryptoKey) -> String`
+GDScript: `static key_id(key) -> String`
 
-The id servers use for each other: the first 32 hex characters of SHA-256 over the public key PEM.
+The id servers use for each other: the same id a player has, over the server's own public key, so
+there is one id scheme in the project rather than two that look alike.
 
-**See also:** `pem_id`
+**See also:** `player_id`
 
 ### `make`
 
 *shared/transfer_ticket.gd*
 
-GDScript: `static make(source_key: CryptoKey, fields: Dictionary) -> Dictionary`
+GDScript: `static make(source_key: Dictionary, fields: Dictionary) -> Dictionary`
 
 {ticket: JSON text, signature: base64}
 
-**See also:** `content_id`, `finish`, `key_id`, `sign`, `start`
+**See also:** `content_id`, `key_id`, `public_text`, `sign`
 
 ### `verify`
 
@@ -8055,7 +8130,7 @@ Checks a ticket's signature and shape. `trusted`: source id -> anything truthy.
 Returns {ok: true, data} or {ok: false, error}. Expiry, destination and replay are the caller's checks
 too (see `check`), since they need the destination's own details.
 
-**See also:** `finish`, `pem_id`, `start`
+**See also:** `finish`, `key_id`, `parse_public_key`, `start`
 
 ### `check`
 
@@ -8791,13 +8866,13 @@ Passed by the menu when this client launched a local server it should stop on ex
 
 GDScript: `identity_name := "default"  (property)`
 
-Which saved identity (user://identity/<name>.pem) to log in with.
+Which saved identity (user://identity/<name>.key) to log in with.
 
 ### `test_signing_key`
 
 *client/game_client.gd*
 
-GDScript: `test_signing_key: CryptoKey = null  (property)`
+GDScript: `test_signing_key := {}  (property)`
 
 Tests only: sign challenges with this key instead of the identity (must fail authentication).
 
@@ -8809,22 +8884,13 @@ GDScript: `test_protocol := -1  (property)`
 
 Tests: announce this protocol version instead of the real one.
 
-### `transfer_claim`
-
-*client/game_client.gd*
-
-GDScript: `transfer_claim := ""  (property)`
-
-Accept gameplay input without a captured mouse (headless bots / tests).
-Set before connecting to fetch an identity instead of joining: the transfer handle to ask for. The
-connection sends nothing else and expects `identity_transfer` in reply.
-
 ### `auto_capture_mouse`
 
 *client/game_client.gd*
 
 GDScript: `auto_capture_mouse := true  (property)`
 
+Accept gameplay input without a captured mouse (headless bots / tests).
 Whether arriving in a world grabs the mouse. True for a person playing; the screenshot harness
 turns it off, because a test run that steals the cursor for a minute is its own small cruelty.
 
@@ -9538,7 +9604,7 @@ GDScript: `leave() -> void`
 
 The world is ready. Fades out and frees itself; safe to call twice.
 
-**See also:** `allowed`, `close`, `finish`, `get_block`, `gone`, `send_to_realm`
+**See also:** `allowed`, `close`, `get_block`, `gone`, `public_text`, `send_to_realm`
 
 ### `zoom_by`
 
@@ -9982,7 +10048,7 @@ GDScript: `current_server := {}  (property)`
 
 *client/social/social_client.gd*
 
-GDScript: `key: CryptoKey  (property)`
+GDScript: `key := {}  (property)`
 
 For tests: sign in with this key instead of the player's identity.
 
@@ -10090,7 +10156,7 @@ GDScript: `static verify(bytes: PackedByteArray, sha256: String, size := 0) -> b
 
 Whether a downloaded file is exactly what the manifest described.
 
-**See also:** `finish`, `pem_id`, `start`
+**See also:** `finish`, `key_id`, `parse_public_key`, `start`
 
 ### `installed_path`
 
@@ -10907,27 +10973,6 @@ GDScript: `player_by_id(player_id: String)`
 
 The online player with this id, or null. Two loops already did this by hand.
 
-### `stash_identity`
-
-*server/game_server.gd*
-
-GDScript: `stash_identity(handle: String, blob: String, by_peer := 0) -> String`
-
-Holds an encrypted identity for the owner's other device to collect.
-
-**The server cannot read what it is holding**, and that is by construction rather than by promise:
-it is given a *hash* of the transfer code, never the code, so the key that decrypts the blob never
-arrives here. See `Identity.transfer_handle`.
-
-### `claim_identity`
-
-*server/game_server.gd*
-
-GDScript: `claim_identity(handle: String) -> String`
-
-Hands it over once and forgets it. **Once**: a code that still works after it has been used is a
-code somebody can use again, and the honest moment to delete it is the moment it is asked for.
-
 ### `backup_now`
 
 *server/game_server.gd*
@@ -11105,33 +11150,6 @@ GDScript: `on_auth(peer_id: int, signature: PackedByteArray) -> void`
 The client proves it holds the private key for the identity it presented.
 
 **See also:** `accept`, `allowlist_bind`, `ban_of`, `give`, `is_allowed`, `kick`
-
-### `on_identity_stash`
-
-*server/game_server.gd*
-
-GDScript: `on_identity_stash(peer_id: int, handle: String, blob: String) -> void`
-
-**Both ends require a player**, so a stranger cannot fill the table from the door. Rate limited for
-the same reason: guessing a handle is hopeless at a hundred bits, but nothing should be free.
-
-**See also:** `kick`, `stash_identity`, `too_often`
-
-### `on_identity_claim`
-
-*server/game_server.gd*
-
-GDScript: `on_identity_claim(peer_id: int, handle: String) -> void`
-
-**Answered for a peer that has not joined, and that is the point.** The device collecting an
-identity has the wrong one by definition - that is why it is asking - so requiring a player would
-mean an allowlist, a ban or the approval gate turned it away before it could ask, and the feature
-would work only where it was least needed.
-
-Safe because the handle is a hundred bits and a wrong one is answered with nothing. The rate limit
-is kept per peer rather than per player, since there is no player to keep it on.
-
-**See also:** `claim_identity`
 
 ### `on_claim_admin`
 

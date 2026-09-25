@@ -29,7 +29,7 @@ var own_id := ""
 var problem := ""
 
 var _server
-var _key: CryptoKey
+var _key: Dictionary = {}
 var _path := ""
 var _used_nonces := {}  # nonce -> expires
 var _portal_time := {}  # peer -> seconds inside a portal
@@ -40,9 +40,9 @@ func _init(game_server) -> void:
 	_server = game_server
 
 
-func setup(data_dir: String, key: CryptoKey) -> void:
+func setup(data_dir: String, key: Dictionary) -> void:
 	_key = key
-	own_id = TransferTicket.key_id(key) if key != null else ""
+	own_id = TransferTicket.key_id(key) if not key.is_empty() else ""
 	_path = data_dir.path_join(FILE)
 	reload()
 	_server.dev_log.add("info", "server", "Server id %s (for other servers' network.json); %d servers in this one's" % [own_id, servers.size()])

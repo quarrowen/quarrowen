@@ -2,7 +2,7 @@
 //!
 //! Players sign in with their game identity key: the hub hands out a random nonce and the client signs
 //! `quarrowen-hub-login:<hub url>:<nonce hex>` (a message no game server challenge can produce, bound to
-//! the hub it was meant for). The player id is the same as on game servers (SHA-256 of the public key PEM).
+//! the hub it was meant for). The player id is the same as on game servers (SHA-256 of the 32 public key bytes).
 //! Friendships and requests are stored in SQLite; sessions, presence (online, which server) and parties
 //! live in memory and are rebuilt as clients check in.
 

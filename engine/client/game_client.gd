@@ -139,16 +139,13 @@ var server_port := 24565
 var player_name := "Player"
 ## Passed by the menu when this client launched a local server it should stop on exit.
 var admin_token := ""
-## Which saved identity (user://identity/<name>.pem) to log in with.
+## Which saved identity (user://identity/<name>.key) to log in with.
 var identity_name := "default"
 ## Tests only: sign challenges with this key instead of the identity (must fail authentication).
-var test_signing_key: CryptoKey = null
+var test_signing_key := {}
 ## Tests: announce this protocol version instead of the real one.
 var test_protocol := -1
 ## Accept gameplay input without a captured mouse (headless bots / tests).
-## Set before connecting to fetch an identity instead of joining: the transfer handle to ask for. The
-## connection sends nothing else and expects `identity_transfer` in reply.
-var transfer_claim := ""
 ## Whether arriving in a world grabs the mouse. True for a person playing; the screenshot harness
 ## turns it off, because a test run that steals the cursor for a minute is its own small cruelty.
 var auto_capture_mouse := true
@@ -187,7 +184,7 @@ var state := PlayerPhysics.State.new()
 var yaw := 0.0
 var pitch := 0.0
 
-var _identity: CryptoKey
+var _identity := {}
 var _welcomed := false
 var _connect_attempts := 0
 var _exiting := false
@@ -461,7 +458,7 @@ func _exit_tree() -> void:
 # --- Connection ---------------------------------------------------------------------------------
 
 func _connect() -> void:
-	if _identity == null:
+	if _identity.is_empty():
 		_identity = Identity.load_or_create(identity_name)
 	_connect_attempts += 1
 	_set_status("Connecting to %s:%d..." % [server_address, server_port])
@@ -476,35 +473,10 @@ func _connect() -> void:
 
 func _on_connected() -> void:
 	_mark_join("connect")
-	# **Collecting an identity is not joining**, and must not be, or it could not work at all: the
-	# device doing the collecting has the wrong identity by definition - that is the whole reason it is
-	# asking - so an allowlist, a ban or the approval gate would turn it away before it could ask.
-	# A transfer-only connection never says hello; it asks its one question and leaves.
-	# (the user, 2026-09-25: "but if that server is requiring a specific identity how?")
-	if not transfer_claim.is_empty():
-		_set_status("Asking for your identity…")
-		Net.c_identity_claim.rpc_id(1, transfer_claim)
-		return
 	_set_status("Handshaking...")
-	Net.c_hello.rpc_id(1, Protocol.VERSION, player_name, Identity.public_pem(_identity))
+	Net.c_hello.rpc_id(1, Protocol.VERSION, player_name, Identity.public_text(_identity))
 	if not transfer_ticket.is_empty():
 		Net.c_transfer_ticket.rpc_id(1, str(transfer_ticket.get("ticket", "")), str(transfer_ticket.get("signature", "")))
-
-
-## The answer to a stash or a claim: `identity_transfer(ok, blob, message)`. The menu listens; the
-## client only carries it, because decrypting belongs with the key and the key never leaves the device.
-signal identity_transfer(ok: bool, blob: String, message: String, seconds: float)
-## The code this device left has been used. It is spent, not expired, and the difference is the whole
-## reason this is a separate signal: one means "it worked", the other means "you waited too long".
-signal identity_claimed
-
-
-func on_identity_transfer(ok: bool, blob: String, message: String, seconds: float) -> void:
-	identity_transfer.emit(ok, blob, message, seconds)
-
-
-func on_identity_claimed() -> void:
-	identity_claimed.emit()
 
 
 func on_challenge(nonce: PackedByteArray, server_id: String) -> void:
@@ -515,7 +487,7 @@ func on_challenge(nonce: PackedByteArray, server_id: String) -> void:
 		_leave("The server sent an invalid login challenge")
 		return
 	_set_status("Authenticating...")
-	Net.c_auth.rpc_id(1, Identity.sign(test_signing_key if test_signing_key != null else _identity, nonce, server_id))
+	Net.c_auth.rpc_id(1, Identity.sign(test_signing_key if not test_signing_key.is_empty() else _identity, nonce, server_id))
 
 
 ## Gives up on a server that took the connection and then said nothing.

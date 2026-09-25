@@ -11,6 +11,10 @@ crate-type = ["cdylib"]
 [dependencies]
 # experimental-threads: meshing runs on Godot WorkerThreadPool threads.
 godot = { version = "0.5.5", features = ["api-4-7", "experimental-threads"] }
+# Ed25519 player identities. Godot's Crypto offers only RSA, and an RSA private key is too large to
+# type or to put in a QR code - which is what forced identity transfer through a network at all.
+ed25519-dalek = "2.1"
+rand_core = { version = "0.6", features = ["getrandom"] }
 # Pure-Rust math so trig results are identical on every platform (client/server determinism).
 libm = "0.2.16"
 # QuickJS-NG JavaScript engine for server mods written in JavaScript (sandboxed: no fs/network).

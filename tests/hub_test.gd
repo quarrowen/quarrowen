@@ -7,6 +7,7 @@ extends Node
 const HubClient = preload("res://engine/client/menu/hub_client.gd")
 const ServerPinger = preload("res://engine/client/menu/server_pinger.gd")
 const InviteCode = preload("res://engine/shared/invite_code.gd")
+const Identity = preload("res://engine/shared/identity.gd")
 const SocialClient = preload("res://engine/client/social/social_client.gd")
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 
@@ -88,8 +89,8 @@ func _run() -> void:
 	var got_news: Array = await client.news_received
 	_check(got_news[1] == "" and got_news[0].size() == 1 and got_news[0][0].title == "Hub news", "news comes from the hub")
 	# Forgery: another key claiming this server's address cannot prove it; a bad signature is refused.
-	var impostor := Crypto.new().generate_rsa(2048)
-	var body := JSON.stringify({"key": impostor.save_to_string(true), "time": int(Time.get_unix_time_from_system()), "port": game_port, "name": "Fake"})
+	var impostor: Dictionary = Identity.load_or_create("hub_impostor")
+	var body := JSON.stringify({"key": Identity.public_text(impostor), "time": int(Time.get_unix_time_from_system()), "port": game_port, "name": "Fake"})
 	var forged: Array = await _post(hub_url + "/v1/servers/announce", body, _sign(body, impostor))
 	_check(forged[0] == 422 and str(forged[1]).contains("prove"), "an announce for someone else's address is refused (%s)" % [forged])
 	var bad: Array = await _post(hub_url + "/v1/servers/announce", body, Marshalls.raw_to_base64(PackedByteArray([1, 2, 3])))
@@ -117,10 +118,10 @@ func _run() -> void:
 ## Two players: sign in, become friends by code, see each other online and on a server, party up.
 func _social(hub_url: String, game_port: int) -> void:
 	var alice := SocialClient.new()
-	alice.key = Crypto.new().generate_rsa(2048)
+	alice.key = Identity.load_or_create("hub_alice")
 	alice.player_name = "Alice"
 	var bob := SocialClient.new()
-	bob.key = Crypto.new().generate_rsa(2048)
+	bob.key = Identity.load_or_create("hub_bob")
 	bob.player_name = "Bob"
 	add_child(alice)
 	add_child(bob)
@@ -134,9 +135,9 @@ func _social(hub_url: String, game_port: int) -> void:
 	# A sign-in signed for a different hub address is refused.
 	var challenge: Array = await _post(hub_url + "/v1/auth/challenge", "{}", "")
 	var nonce := str(challenge[1].get("nonce", "")) if challenge[1] is Dictionary else ""
-	var key := Crypto.new().generate_rsa(2048)
-	var signed := Marshalls.raw_to_base64(preload("res://engine/shared/identity.gd").sign(key, ("quarrowen-hub-login:%s:%s" % ["http://evil.example", nonce]).to_utf8_buffer()))
-	var replay: Array = await _post(hub_url + "/v1/auth/login", JSON.stringify({"key": key.save_to_string(true), "nonce": nonce, "hub": hub_url, "signature": signed}), "")
+	var key := Identity.load_or_create("hub_replay")
+	var signed := Marshalls.raw_to_base64(Identity.sign(key, ("quarrowen-hub-login:%s:%s" % ["http://evil.example", nonce]).to_utf8_buffer()))
+	var replay: Array = await _post(hub_url + "/v1/auth/login", JSON.stringify({"key": Identity.public_text(key), "nonce": nonce, "hub": hub_url, "signature": signed}), "")
 	_check(replay[0] == 401, "a sign-in signed for another hub is refused")
 	var anonymous: Array = await _post(hub_url + "/v1/friends/request", JSON.stringify({"code": alice_code}), "")
 	_check(anonymous[0] == 401, "friend actions need a sign-in")
@@ -197,11 +198,8 @@ func _until(condition: Callable, timeout := 10.0) -> bool:
 	return false
 
 
-func _sign(body: String, key: CryptoKey) -> String:
-	var ctx := HashingContext.new()
-	ctx.start(HashingContext.HASH_SHA256)
-	ctx.update(body.to_utf8_buffer())
-	return Marshalls.raw_to_base64(Crypto.new().sign(HashingContext.HASH_SHA256, ctx.finish(), key))
+func _sign(body: String, key: Dictionary) -> String:
+	return Marshalls.raw_to_base64(Identity.sign(key, body.to_utf8_buffer()))
 
 
 func _http_get(url: String) -> Array:

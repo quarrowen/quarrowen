@@ -23,8 +23,7 @@ func _run() -> void:
 	# Each server's identity exists before it starts, so each network.json can name the other.
 	var ids := {}
 	for server_name in ["a", "b"]:
-		var identity: Array = Net.load_or_create_server_identity(work.path_join(server_name).path_join("identity"))
-		ids[server_name] = TransferTicket.key_id(identity[0])
+		ids[server_name] = TransferTicket.key_id(Net.load_or_create_server_key(work.path_join(server_name).path_join("identity")))
 	for pair in [["a", "b", port_b, "Server B"], ["b", "a", port_a, "Server A"]]:
 		var f := FileAccess.open(work.path_join(pair[0]).path_join("network.json"), FileAccess.WRITE)
 		f.store_string(JSON.stringify({"servers": {pair[1]: {"name": pair[3], "address": "127.0.0.1", "port": pair[2], "id": ids[pair[1]],

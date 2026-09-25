@@ -9,16 +9,16 @@ var _failures := 0
 
 
 func _ready() -> void:
-	var key := Crypto.new().generate_rsa(1024)
+	var key: Dictionary = Identity.load_or_create("identity_source")
 	var passphrase := "correct horse battery"
 	var text := Identity.export_encrypted(key, passphrase, 20000)
-	_check(not text.contains("PRIVATE KEY"), "export does not contain the key in plain text")
+	_check(not text.contains(Marshalls.raw_to_base64(key.private)), "export does not contain the key in plain text")
 
 	var imported := Identity.import_encrypted(text, passphrase)
 	_check(imported.has("key") and imported.player_id == Identity.player_id(key), "roundtrip keeps the player id")
 	if imported.has("key"):
 		var nonce := Identity.new_nonce()
-		_check(Identity.verify(key, nonce, Identity.sign(imported.key, nonce)), "imported key signs for the original identity")
+		_check(Identity.verify(key.public, nonce, Identity.sign(imported.key, nonce)), "imported key signs for the original identity")
 
 	_check(Identity.import_encrypted(text, "wrong passphrase").get("error", "").contains("Wrong passphrase"), "wrong passphrase rejected")
 	var doc: Dictionary = JSON.parse_string(text)
@@ -34,13 +34,13 @@ func _ready() -> void:
 
 	# Installing replaces the named identity and keeps the previous one.
 	var path := Identity.path_for(NAME)
-	var previous := Identity.load_or_create(NAME, 1024)
+	var previous := Identity.load_or_create(NAME)
 	_check(Identity.install(imported.key, NAME) == OK, "install succeeds")
 	_check(Identity.player_id(Identity.load_or_create(NAME)) == Identity.player_id(key), "installed identity is used")
-	var backups := Array(DirAccess.get_files_at(Identity.dir())).filter(func(f): return f.begins_with(NAME + ".pem.bak-"))
+	var backups := Array(DirAccess.get_files_at(Identity.dir())).filter(func(f): return f.begins_with(NAME + ".key.bak-"))
 	_check(backups.size() == 1, "previous identity kept as backup (%s)" % str(backups))
-	var kept := CryptoKey.new()
-	_check(not backups.is_empty() and kept.load(Identity.dir().path_join(backups[0])) == OK and Identity.player_id(kept) == Identity.player_id(previous), "backup holds the previous key")
+	var kept := Identity.pair_from(FileAccess.get_file_as_bytes(Identity.dir().path_join(backups[0]))) if not backups.is_empty() else {}
+	_check(not kept.is_empty() and Identity.player_id(kept) == Identity.player_id(previous), "backup holds the previous key")
 	for f in backups:
 		DirAccess.remove_absolute(Identity.dir().path_join(f))
 	DirAccess.remove_absolute(path)
@@ -52,7 +52,7 @@ func _ready() -> void:
 ## Moving an identity to another device, and the one property that makes it safe to leave an encrypted
 ## private key on a server for ten minutes: **the server is never given the key.**
 func _transfer() -> void:
-	var key: CryptoKey = Identity.load_or_create("transfer_source")
+	var key: Dictionary = Identity.load_or_create("transfer_source")
 	var code := Identity.new_transfer_code()
 	_check(code.length() == Identity.TRANSFER_GROUPS * (Identity.TRANSFER_GROUP_SIZE + 1) - 1,
 		"a transfer code is groups of characters (%s)" % code)

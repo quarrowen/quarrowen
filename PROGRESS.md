@@ -7118,3 +7118,52 @@ collected" push is not covered end to end: `Net.client` is one global reference 
 moment a second client enters the tree in a test it *becomes* the client, and a message addressed to
 the first is delivered to the second. Two real devices are two processes and do not share it. The
 half that can be asserted - that a stash remembers which device left it - is.
+
+### Ed25519, and why that deleted the relay we had just built (user, 2026-09-25)
+
+The section above is a careful design for a problem that should not have existed. *"C yes!"* - the
+user, choosing to change the key type instead, after being shown the three ways out.
+
+**One number caused everything above it.** An RSA-2048 private key is 1,675 characters. That is too
+big to read aloud, too big to type, too big to write on paper, and right at the edge of the largest QR
+code there is. So an identity could only move over a *network*, and that is what forced a relay, a
+one-time code, a handle, an expiry, a claim and a push telling the first device its code had been
+spent - a fortnight of design, all of it downstream of a key size.
+
+An **Ed25519** private key is 32 bytes: 44 characters of base64. It fits on a sticky note. So the
+whole apparatus goes: no relay, no code, no handle, no expiry, no claim, no `s_identity_stash` /
+`c_identity_claim` / `s_identity_transfer` / `s_identity_claimed`. A person reads their key off one
+screen and types it into the other, or keeps it in a drawer as a backup that survives the house
+burning down - which the relay never offered, because it needed both devices awake at once.
+
+The cost, stated plainly: **every player id in existence changes**, because the id is a hash of the
+public key. That is free before 1.0 and expensive after it, which is the whole argument for doing it
+now rather than noticing in a year. Godot's `Crypto` offers only `generate_rsa`, so signing moved to
+the Rust extension (`native/src/identity.rs`), which is required anyway. Signatures went from 256
+bytes to 64 and verification got far cheaper, which matters at the door of a busy server.
+
+**The server's own key moved too, and it was not obvious that it had to.** The server signed transfer
+tickets and hub announces with its *DTLS certificate's* RSA key. That was tidy while everything was
+RSA. But the hub verifies servers' and players' signatures with one piece of code, so the moment
+players became Ed25519 the hub could no longer read a server - which presented as `400 key too long`
+on an announce, several steps away from the change that caused it. The server now has an Ed25519
+identity (`<data dir>/identity/server.id`) beside its certificate, and that is the better shape
+anyway: **a certificate is replaceable and an identity is not**, so regenerating a certificate no
+longer stops a server being itself to everyone who trusted it. One id scheme in the project now, and
+`TransferTicket.pem_id` is gone.
+
+**Licences checked before adopting, from the crates' own manifests rather than memory:**
+
+| | version | licence |
+|---|---|---|
+| ed25519-dalek | 2.2.0 | BSD-3-Clause |
+| curve25519-dalek | 4.1.3 | BSD-3-Clause |
+| rand_core | 0.6 | MIT OR Apache-2.0 |
+
+All permissive, no copyleft. The hub came out slightly ahead on the trade - 118 crates to 114, since
+the RSA crate's arbitrary-precision arithmetic went and Ed25519's fixed-size field arithmetic replaced
+it - which is a footnote, not a reason. Counted rather than guessed, after a first draft of this
+paragraph read the diff's line counts as crate counts and claimed 44.
+
+Still to build: the two menu screens, now much simpler - show your key, and a box to paste one into.
+The countdown bar and the collected-notice were requirements of the relay and no longer exist.

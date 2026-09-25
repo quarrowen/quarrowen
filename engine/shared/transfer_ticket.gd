@@ -2,33 +2,30 @@ extends RefCounted
 ## Transfer tickets: how a player moves from one server to another that trusts it, carrying where they
 ## should arrive and (when both servers agree) what they carry.
 ##
-## The source server writes the ticket as JSON and signs it with its identity key (the same key as its
-## DTLS certificate). The client passes it to the destination right after saying hello; the destination
-## accepts it only when the signing key is on its trusted list (engine/server/transfers.gd), the ticket
-## names this destination and the player who logged in, it has not expired, and its nonce is new.
+## The source server writes the ticket as JSON and signs it with its Ed25519 identity key
+## (`Net.load_or_create_server_key`, separate from its DTLS certificate since 2026-09-25). The client
+## passes it to the destination right after saying hello; the destination accepts it only when the
+## signing key is on its trusted list (engine/server/transfers.gd), the ticket names this destination
+## and the player who logged in, it has not expired, and its nonce is new.
 ##
 ## {v, player_id, player_name, from: {id, name, key}, to: {name, address, port}, arrival, issued, expires,
 ##  nonce, carry: {inventory?, health?, hunger?, data?}}
+
+const Identity = preload("res://engine/shared/identity.gd")
 
 const VERSION := 1
 const LIFETIME := 120  # seconds a ticket stays valid
 const MAX_SIZE := 64 * 1024
 
 
-## The id servers use for each other: the first 32 hex characters of SHA-256 over the public key PEM.
-static func key_id(key: CryptoKey) -> String:
-	return pem_id(key.save_to_string(true))
-
-
-static func pem_id(pem: String) -> String:
-	var ctx := HashingContext.new()
-	ctx.start(HashingContext.HASH_SHA256)
-	ctx.update(pem.to_utf8_buffer())
-	return ctx.finish().hex_encode().left(32)
+## The id servers use for each other: the same id a player has, over the server's own public key, so
+## there is one id scheme in the project rather than two that look alike.
+static func key_id(key) -> String:
+	return Identity.player_id(key)
 
 
 ## {ticket: JSON text, signature: base64}
-static func make(source_key: CryptoKey, fields: Dictionary) -> Dictionary:
+static func make(source_key: Dictionary, fields: Dictionary) -> Dictionary:
 	var now := int(Time.get_unix_time_from_system())
 	var data := fields.duplicate(true)
 	data.v = VERSION
@@ -36,11 +33,11 @@ static func make(source_key: CryptoKey, fields: Dictionary) -> Dictionary:
 	data.expires = now + LIFETIME
 	data.nonce = Crypto.new().generate_random_bytes(16).hex_encode()
 	var from: Dictionary = data.get("from", {})
-	from.key = source_key.save_to_string(true)
+	from.key = Identity.public_text(source_key)
 	from.id = key_id(source_key)
 	data.from = from
 	var text := JSON.stringify(data)
-	return {"ticket": text, "signature": Marshalls.raw_to_base64(Crypto.new().sign(HashingContext.HASH_SHA256, _digest(text), source_key))}
+	return {"ticket": text, "signature": Marshalls.raw_to_base64(Identity.sign(source_key, text.to_utf8_buffer()))}
 
 
 ## Checks a ticket's signature and shape. `trusted`: source id -> anything truthy.
@@ -52,15 +49,13 @@ static func verify(ticket: String, signature: String, trusted: Dictionary) -> Di
 	var parsed = JSON.parse_string(ticket) if not ticket.is_empty() else null
 	if not (parsed is Dictionary) or int(parsed.get("v", 0)) != VERSION or not (parsed.get("from") is Dictionary):
 		return {"ok": false, "error": "the transfer ticket is not valid"}
-	var pem := str(parsed.from.get("key", ""))
-	var source_id := pem_id(pem)
+	var public := Identity.parse_public_key(str(parsed.from.get("key", "")))
+	if public.is_empty():
+		return {"ok": false, "error": "the transfer ticket is not valid"}
+	var source_id := key_id(public)
 	if source_id != str(parsed.from.get("id", "")) or not trusted.has(source_id):
 		return {"ok": false, "error": "this server does not accept travellers from %s" % str(parsed.from.get("name", "that server"))}
-	var key := CryptoKey.new()
-	if key.load_from_string(pem, true) != OK:
-		return {"ok": false, "error": "the transfer ticket is not valid"}
-	var raw := Marshalls.base64_to_raw(signature)
-	if raw.is_empty() or not Crypto.new().verify(HashingContext.HASH_SHA256, _digest(ticket), raw, key):
+	if not Identity.verify(public, ticket.to_utf8_buffer(), Marshalls.base64_to_raw(signature)):
 		return {"ok": false, "error": "the transfer ticket's signature is wrong"}
 	return {"ok": true, "data": parsed, "source_id": source_id}
 
@@ -77,8 +72,3 @@ static func check(data: Dictionary, player_id: String, own_id: String, now: int)
 	return ""
 
 
-static func _digest(text: String) -> PackedByteArray:
-	var ctx := HashingContext.new()
-	ctx.start(HashingContext.HASH_SHA256)
-	ctx.update(text.to_utf8_buffer())
-	return ctx.finish()

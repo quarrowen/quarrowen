@@ -4,13 +4,15 @@ extends RefCounted
 
 const ServerStatus = preload("res://engine/shared/server_status.gd")
 const Protocol = preload("res://engine/shared/protocol.gd")
+const Identity = preload("res://engine/shared/identity.gd")
 
 const PER_ADDRESS_PER_SECOND := 8
 const MAX_PACKETS_PER_UPDATE := 64
 
 var port := 0
-## The server's identity key (signs proofs for the hub); set by the server when it starts listening.
-var key: CryptoKey
+## The server's Ed25519 identity key (signs proofs for the hub); set by the server when it starts
+## listening. Empty until then, and on an offline server.
+var key: Dictionary = {}
 var _server
 var _udp: PacketPeerUDP
 var _counts := {}  # ip -> answers this second
@@ -72,14 +74,6 @@ func update() -> void:
 		_counts[ip] = count + 1
 		_udp.set_dest_address(ip, from_port)
 		var answer := info()
-		if request.proof and key != null:
-			answer.proof = Marshalls.raw_to_base64(Crypto.new().sign(HashingContext.HASH_SHA256,
-				_sha256(ServerStatus.proof_message(request.nonce)), key))
+		if request.proof and not key.is_empty():
+			answer.proof = Marshalls.raw_to_base64(Identity.sign(key, ServerStatus.proof_message(request.nonce)))
 		_udp.put_packet(ServerStatus.make_response(request.nonce, answer))
-
-
-static func _sha256(bytes: PackedByteArray) -> PackedByteArray:
-	var ctx := HashingContext.new()
-	ctx.start(HashingContext.HASH_SHA256)
-	ctx.update(bytes)
-	return ctx.finish()

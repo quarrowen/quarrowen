@@ -100,12 +100,6 @@ const SAVE_FORMAT := 2
 const JOIN_BURST := 6
 const JOIN_WINDOW_MS := 10000
 const HANDSHAKE_TIMEOUT_MS := 15000
-## How long an identity may wait to be collected, how many may wait at once, and the largest one. Ten
-## minutes is long enough to walk upstairs with an iPad and short enough that a forgotten transfer is
-## not left lying about.
-const TRANSFER_TTL := 600.0
-const MAX_TRANSFERS := 32
-const MAX_TRANSFER_BYTES := 16 * 1024
 
 ## Other players are replicated only within this distance (blocks) of the recipient...
 const INTEREST_RADIUS := 96.0
@@ -314,13 +308,6 @@ var _save_queue: Dictionary:
 		return realm.save_queue
 var _save_writes: Array = []  # serialized [path, text] waiting for the rest of the save
 var _save_meta_pending := false
-## Peer -> when it last asked for an identity. Kept per peer because a peer collecting one has not
-## joined and so has no player to hang a limit on.
-var _claim_attempts := {}
-## Transfer handle -> {blob, at}. **Memory only, never saved.** An encrypted identity waiting to be
-## picked up by its owner's other device: it must not reach the disk, a world save or a backup, and it
-## must not survive a restart. Erased on the first claim and swept after TRANSFER_TTL. (2026-09-25)
-var _identity_transfers := {}
 ## Address -> the times it recently connected, for the throttle. Not saved: a burst is a thing that is
 ## happening, not a thing that happened.
 var _recent_joins := {}
@@ -662,7 +649,10 @@ func start(config: Dictionary) -> Error:
 
 	if config.get("offline", false):
 		return OK
+	# Two keys, two jobs: the certificate is how this server is reached, the Ed25519 identity is who it
+	# is (see Net.load_or_create_server_key).
 	var tls: Array = Net.load_or_create_server_identity(data_dir.path_join("identity"))
+	var own_key: Dictionary = Net.load_or_create_server_key(data_dir.path_join("identity"))
 	err = Net.create_server(int(config.get("port", 24565)), int(config.get("max_players", DEFAULT_MAX_PLAYERS)), tls[0], tls[1], tls[2])
 	if err != OK:
 		start_error = "Port %d is already in use - another copy of the game may still be running." % int(config.get("port", 24565))
@@ -672,8 +662,8 @@ func start(config: Dictionary) -> Error:
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	port = int(config.get("port", 24565))
-	status_query.key = tls[0]
-	transfers.setup(data_dir, tls[0])
+	status_query.key = own_key
+	transfers.setup(data_dir, own_key)
 	var query_port := int(config.get("query_port", port + 1))
 	if query_port > 0:
 		status_query.start(query_port)
@@ -683,7 +673,7 @@ func start(config: Dictionary) -> Error:
 		if query_port <= 0:
 			dev_log.add("warn", "server", "Hub listing needs status queries (--query-port is 0)")
 		else:
-			hub.start(str(config.hub), tls[0], str(config.get("public_address", "")), str(config.get("tags", "")).split(",", false))
+			hub.start(str(config.hub), own_key, str(config.get("public_address", "")), str(config.get("tags", "")).split(",", false))
 	if dev_mode:
 		mod_reload.set_watching(true)
 	_started = true
@@ -1546,42 +1536,6 @@ func _cmd_kick(player, args: PackedStringArray) -> void:
 	kick(target.peer_id, " ".join(args.slice(1)) if args.size() > 1 else "Kicked by %s" % player.name)
 
 
-## Holds an encrypted identity for the owner's other device to collect.
-##
-## **The server cannot read what it is holding**, and that is by construction rather than by promise:
-## it is given a *hash* of the transfer code, never the code, so the key that decrypts the blob never
-## arrives here. See `Identity.transfer_handle`.
-func stash_identity(handle: String, blob: String, by_peer := 0) -> String:
-	if handle.length() != 32 or not handle.is_valid_hex_number():
-		return "that is not a transfer code"
-	if blob.length() > MAX_TRANSFER_BYTES:
-		return "that identity is too large to move this way"
-	if _identity_transfers.size() >= MAX_TRANSFERS and not _identity_transfers.has(handle):
-		return "too many transfers are waiting here just now - try again in a few minutes"
-	# Who left it, so they can be told the moment it is collected. Kept as a peer id rather than a
-	# player id because it is only useful while they are still here to be told.
-	_identity_transfers[handle] = {"blob": blob, "at": _time, "by": by_peer}
-	return ""
-
-
-## Hands it over once and forgets it. **Once**: a code that still works after it has been used is a
-## code somebody can use again, and the honest moment to delete it is the moment it is asked for.
-func claim_identity(handle: String) -> String:
-	var entry = _identity_transfers.get(handle)
-	if not (entry is Dictionary):
-		return ""
-	_identity_transfers.erase(handle)
-	if _time - float(entry.at) > TRANSFER_TTL:
-		return ""
-	# **Tell the device that left it.** Otherwise the only way to know a code has been used is to
-	# discover it no longer works, which is indistinguishable from it having expired - and a person
-	# staring at a code that has already done its job has no way to tell that it is finished.
-	var by := int(entry.get("by", 0))
-	if by > 0 and players.has(by):
-		Net.s_identity_claimed.rpc_id(by)
-	return String(entry.blob)
-
-
 ## Who is waiting, and letting them in. Only means anything while `approval` is on.
 ##
 ## **Refusing is `/ban`, not a verb of its own.** Somebody you will not admit and somebody you have
@@ -2215,9 +2169,6 @@ func _physics_process(delta: float) -> void:
 	dev_log.drain()
 	if tick % 60 == 0:
 		_sweep_half_open()
-		for handle: String in _identity_transfers.keys():
-			if _time - float(_identity_transfers[handle].at) > TRANSFER_TTL:
-				_identity_transfers.erase(handle)
 	_time += delta
 	_stream_assets()
 	_poll_chunk_jobs()
@@ -2952,7 +2903,7 @@ func on_hello(peer_id: int, protocol: int, player_name: String, public_key: Stri
 			% Protocol.GAME_VERSION)
 		return
 	var key := Identity.parse_public_key(public_key)
-	if key == null:
+	if key.is_empty():
 		kick(peer_id, "Invalid identity key")
 		return
 	var player_id := Identity.player_id(key)
@@ -3027,36 +2978,6 @@ func on_auth(peer_id: int, signature: PackedByteArray) -> void:
 		"stations": stations.to_network(), "assembly": assembly.to_network(), "minigames": skill.to_network(), "guide": guide.registry.to_network(), "tutorials": tutorials.to_network(),
 		"loot": loot.sources_index()}
 	Net.s_server_info.rpc_id(peer_id, server_info, content, manifest)
-
-
-## **Both ends require a player**, so a stranger cannot fill the table from the door. Rate limited for
-## the same reason: guessing a handle is hopeless at a hundred bits, but nothing should be free.
-func on_identity_stash(peer_id: int, handle: String, blob: String) -> void:
-	var p: ServerPlayer = players.get(peer_id)
-	if p == null or _absurd(peer_id, blob.length()) or too_often(p, "identity", 2.0):
-		return
-	var problem := stash_identity(handle, blob, peer_id)
-	# The seconds go back with the answer so the other end can show a real countdown rather than
-	# assume a number that the server might change.
-	Net.s_identity_transfer.rpc_id(peer_id, problem.is_empty(), "", problem,
-		TRANSFER_TTL if problem.is_empty() else 0.0)
-
-
-## **Answered for a peer that has not joined, and that is the point.** The device collecting an
-## identity has the wrong one by definition - that is why it is asking - so requiring a player would
-## mean an allowlist, a ban or the approval gate turned it away before it could ask, and the feature
-## would work only where it was least needed.
-##
-## Safe because the handle is a hundred bits and a wrong one is answered with nothing. The rate limit
-## is kept per peer rather than per player, since there is no player to keep it on.
-func on_identity_claim(peer_id: int, handle: String) -> void:
-	var now := Time.get_ticks_msec()
-	if now - int(_claim_attempts.get(peer_id, -10000)) < 2000:
-		return
-	_claim_attempts[peer_id] = now
-	var blob := claim_identity(handle)
-	Net.s_identity_transfer.rpc_id(peer_id, not blob.is_empty(), blob,
-		"" if not blob.is_empty() else "No identity is waiting under that code here. It may have been collected already, or run out of time.", 0.0)
 
 
 func on_transfer_ticket(peer_id: int, ticket: String, signature: String) -> void:
@@ -3339,7 +3260,6 @@ func peer_address(peer_id: int) -> String:
 
 func _on_peer_disconnected(peer_id: int) -> void:
 	_joining_since.erase(peer_id)
-	_claim_attempts.erase(peer_id)
 	_joining.erase(peer_id)
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null:

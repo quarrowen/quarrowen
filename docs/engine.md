@@ -87,7 +87,7 @@ engine/
     block_registry.gd       runtime block table (built from mods, replicated as data)
     player_physics.gd       deterministic movement; tunables come from the server
     world_time.gd           day/night curve
-    identity.gd             RSA identity keys, login challenge signing and verification
+    identity.gd             Ed25519 identity keys, challenge signing, encrypted export
     entity_registry.gd      entity types (mobs, projectiles, dropped items); network subset for clients
     entity_physics.gd       gravity + AABB-vs-voxel collision for entities
     sound_registry.gd       named sounds made of downloadable audio assets
@@ -166,10 +166,15 @@ deleted, and the archive is unpacked in its place.
 
 ## Identity and permissions
 
-Every client has an RSA key (`user://identity/default.pem`, created on first launch). Its hash is the
-player id: saved inventory, position and mod data follow the key, not the name. Each name belongs to
-the first key that claims it on a server, so nobody can take over someone else's player by typing
-their name.
+Every client has an Ed25519 key (`user://identity/default.key`, created on first launch). Its hash is
+the player id: saved inventory, position and mod data follow the key, not the name. Each name belongs
+to the first key that claims it on a server, so nobody can take over someone else's player by typing
+their name. A private key is 32 bytes, which is what makes it small enough to write down.
+
+A server has one of the same kind (`<data dir>/identity/server.id`), and its hash is the server id that
+other servers put in their `network.json` and that a joining client's signature is bound to. It is
+separate from the DTLS certificate beside it: the certificate is how the server is reached and can be
+regenerated, the identity is who it is and cannot.
 
 Admins come from `QW_ADMINS` (player ids from `/whoami`, or names), `/op <player>`, or the local
 host via the token the menu's Host button passes to its server. Mods mark commands as admin-only

@@ -398,6 +398,14 @@ the hub proves the address with a signed status query before listing it. Players
 hub in Settings → Network (or `QW_HUB`). `tools/run_tests.sh` builds it and runs its unit tests and
 `tests/hub_test.tscn` (a real hub and game server) when cargo is installed.
 
+**Upgrade the hub and the servers together.** Identity keys became Ed25519 on 2026-09-25 (they were
+RSA), and neither version can read the other's: a current hub refuses an older server with `key too
+long`, and a hub from before the change refuses a current one as not a key at all. Player and server
+ids are hashes of the keys, so nothing in `hub.sqlite` carries over either - existing listings go stale
+and friend codes are reissued on the first sign-in. Linked worlds are affected the same way: each server
+now has its own identity file (`<data dir>/identity/server.id`) beside its certificate, so every server
+id changed and `link-servers.sh` has to be run again to rewrite the `network.json` files.
+
 ```sh
 docker build -t quarrowen-server .
 docker run -p 24565-24566:24565-24566/udp -v voxel-data:/data -e QW_MODS=proving quarrowen-server

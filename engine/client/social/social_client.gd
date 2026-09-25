@@ -23,7 +23,7 @@ var player_name := "Player"
 ## {name, address, port, code} while playing on a server, else {}.
 var current_server := {}
 ## For tests: sign in with this key instead of the player's identity.
-var key: CryptoKey
+var key := {}
 var state := {}
 var token := ""
 var last_error := ""
@@ -71,7 +71,7 @@ func sign_in() -> void:
 	_signing_in = true
 	_hub = HubClient.hub_url()
 	token = ""
-	var signing_key: CryptoKey = key if key != null else Identity.load_or_create()
+	var signing_key: Dictionary = key if not key.is_empty() else Identity.load_or_create()
 	_post(_hub + "/v1/auth/challenge", {}, "", func(data, error):
 		if not error.is_empty():
 			_signing_in = false
@@ -79,7 +79,7 @@ func sign_in() -> void:
 			return
 		var nonce := str(data.get("nonce", ""))
 		var message := ("quarrowen-hub-login:%s:%s" % [_hub, nonce]).to_utf8_buffer()
-		var login := {"key": Identity.public_pem(signing_key), "nonce": nonce, "hub": _hub, "name": player_name,
+		var login := {"key": Identity.public_text(signing_key), "nonce": nonce, "hub": _hub, "name": player_name,
 			"signature": Marshalls.raw_to_base64(Identity.sign(signing_key, message))}
 		_post(_hub + "/v1/auth/login", login, "", func(result, login_error):
 			_signing_in = false

@@ -19,6 +19,7 @@ const MOVEMENT_CHANNEL := 1
 const BULK_CHANNEL := 2
 const Protocol = preload("res://engine/shared/protocol.gd")
 const KnownServers = preload("res://engine/net/known_servers.gd")
+const Identity = preload("res://engine/shared/identity.gd")
 ## Common name in server certificates; clients verify against a pinned certificate, not a CA.
 const CERT_COMMON_NAME := "quarrowen-server"
 
@@ -93,7 +94,8 @@ func has_pinned_identity(address: String, port: int) -> bool:
 	return KnownServers.load_certificate("%s:%d" % [address, port]) != null
 
 
-## Loads the server's DTLS identity from `dir`, creating a self-signed one on first start.
+## Loads the server's DTLS certificate from `dir`, creating a self-signed one on first start. This is how
+## the server is *reached*; who it *is* comes from `load_or_create_server_key` below.
 ## Returns [CryptoKey, X509Certificate, certificate PEM text].
 static func load_or_create_server_identity(dir: String) -> Array:
 	DirAccess.make_dir_recursive_absolute(dir)
@@ -111,6 +113,21 @@ static func load_or_create_server_identity(dir: String) -> Array:
 	cert.save(cert_path)
 	print("[server] Generated server identity in %s" % ProjectSettings.globalize_path(dir))
 	return [key, cert, FileAccess.get_file_as_string(cert_path)]
+
+
+## The server's own Ed25519 identity: **who it is**, as against the certificate above, which is only
+## how it is reached. This is what signs transfer tickets, status proofs and hub announces, and its
+## hash is the server id other servers put in their `network.json`.
+##
+## **These were one key until 2026-09-25.** The certificate's RSA key did both jobs, which was tidy
+## while everything was RSA - and then players moved to Ed25519 so that an identity would fit in
+## something a person can type, and the hub, which verifies both servers' and players' signatures with
+## the same code, could no longer read the server's. Two keys is also the more honest shape: a
+## certificate is replaceable and an identity is not, so a server that regenerates its certificate no
+## longer stops being itself to everybody who trusted it. The certificate stays RSA because Godot's
+## `generate_self_signed_certificate` takes nothing else.
+static func load_or_create_server_key(dir: String) -> Dictionary:
+	return Identity.load_or_create_at(dir.path_join("server.id"))
 
 
 func _on_peer_authenticating(peer_id: int) -> void:
@@ -1205,33 +1222,3 @@ func s_objectives(view: Dictionary) -> void:
 	if client:
 		client.on_objectives(view)
 
-
-## Leaves an encrypted identity for the same person's other device, under a hash of the one-time code.
-## The code itself never reaches the server, so what is stored cannot be decrypted by it.
-@rpc("any_peer", "call_remote", "reliable")
-func c_identity_stash(handle: String, blob: String) -> void:
-	if server:
-		server.on_identity_stash(_sender(), handle, blob)
-
-
-## Collects one, once. An empty answer means there was nothing there, which is also what an expired or
-## already-collected transfer looks like - the three are deliberately indistinguishable.
-@rpc("any_peer", "call_remote", "reliable")
-func c_identity_claim(handle: String) -> void:
-	if server:
-		server.on_identity_claim(_sender(), handle)
-
-
-## `seconds` is how long a stashed identity has left, so the device that left it can count down
-## honestly rather than assume a number the server may not agree with.
-@rpc("authority", "call_remote", "reliable")
-func s_identity_transfer(ok: bool, blob: String, message: String, seconds: float) -> void:
-	if client:
-		client.on_identity_transfer(ok, blob, message, seconds)
-
-
-## Somebody collected the identity this device left. The code is spent at this point, not expiring.
-@rpc("authority", "call_remote", "reliable")
-func s_identity_claimed() -> void:
-	if client:
-		client.on_identity_claimed()

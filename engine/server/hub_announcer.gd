@@ -1,13 +1,14 @@
 extends Node
 ## Lists this server on a hub (services/hub): every HEARTBEAT seconds it posts the server's name,
-## message, game and player count, signed with the server's identity key; the hub checks the address
-## with a status query and answers with a short invite code (`code`), which status replies and the
-## in-game invite dialog then show. On shutdown it asks the hub to drop the listing.
+## message, game and player count, signed with the server's Ed25519 identity key; the hub checks the
+## address with a status query and answers with a short invite code (`code`), which status replies and
+## the in-game invite dialog then show. On shutdown it asks the hub to drop the listing.
 ##
 ## Off unless configured: --hub=https://hub.example.org [--public-address=play.example.org] [--tags=pvp,modded]
 
 const Protocol = preload("res://engine/shared/protocol.gd")
 const NetAccess = preload("res://engine/shared/net_access.gd")
+const Identity = preload("res://engine/shared/identity.gd")
 
 const HEARTBEAT := 30.0
 ## After a failure: soon at first (the hub may still be starting), then less often.
@@ -23,7 +24,7 @@ var code := ""
 var problem := ""
 
 var _server
-var _key: CryptoKey
+var _key: Dictionary = {}
 var _http: HTTPRequest
 var _timer := 0.0
 var _busy := false
@@ -35,12 +36,12 @@ func _init(game_server) -> void:
 	name = "HubAnnouncer"
 
 
-func start(hub_url: String, key: CryptoKey, address := "", server_tags := PackedStringArray()) -> void:
+func start(hub_url: String, key: Dictionary, address := "", server_tags := PackedStringArray()) -> void:
 	url = hub_url.strip_edges().trim_suffix("/")
 	public_address = address
 	tags = server_tags
 	_key = key
-	if url.is_empty() or key == null:
+	if url.is_empty() or key.is_empty():
 		return
 	if not NetAccess.allowed(url):
 		return
@@ -67,7 +68,7 @@ func _process(delta: float) -> void:
 
 func announce() -> void:
 	var info: Dictionary = _server.status_query.info()
-	var body := {"key": _key.save_to_string(true), "time": int(Time.get_unix_time_from_system()), "port": _server.port,
+	var body := {"key": Identity.public_text(_key), "time": int(Time.get_unix_time_from_system()), "port": _server.port,
 		"query_port": _server.status_query.port, "address": public_address, "name": info.name, "motd": info.motd, "game": info.game,
 		"game_name": info.game_name, "players": info.players, "max_players": info.max_players, "protocol": info.protocol,
 		"version": info.version, "tags": Array(tags)}
@@ -80,7 +81,7 @@ func leave() -> void:
 		return
 	if not NetAccess.allowed(url):
 		return
-	var body := JSON.stringify({"key": _key.save_to_string(true), "time": int(Time.get_unix_time_from_system())})
+	var body := JSON.stringify({"key": Identity.public_text(_key), "time": int(Time.get_unix_time_from_system())})
 	var client := HTTPClient.new()
 	var parts := _split_url(url)
 	if client.connect_to_host(parts.host, parts.port, TLSOptions.client() if parts.tls else null) != OK:
@@ -107,10 +108,9 @@ func _send(path: String, data: Dictionary) -> void:
 
 
 func _headers(body: String) -> PackedStringArray:
-	var ctx := HashingContext.new()
-	ctx.start(HashingContext.HASH_SHA256)
-	ctx.update(body.to_utf8_buffer())
-	var signature := Crypto.new().sign(HashingContext.HASH_SHA256, ctx.finish(), _key)
+	# Signed over the body as sent, not over a digest of it: Ed25519 hashes the whole message itself, so
+	# there is nothing for the two ends to disagree about (services/hub/src/keys.rs).
+	var signature := Identity.sign(_key, body.to_utf8_buffer())
 	return PackedStringArray(["Content-Type: application/json", "X-Quarrowen-Signature: " + Marshalls.raw_to_base64(signature),
 		"User-Agent: Quarrowen/%s" % Protocol.GAME_VERSION])
 
