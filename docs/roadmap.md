@@ -1,13 +1,16 @@
 # What the engine still needs
 
-Quarrowen's rule is that **the engine provides capabilities and mods provide content**. This is the list
-of capabilities it does not have yet, in the order that unlocks the most.
+Quarrowen's rule is that **the engine provides capabilities and mods provide content**. This page began
+as the list of capabilities the engine did not have. **It is now a list of content and four engineering
+items**, because the capabilities are finished - which is the happiest way for a document like this to
+go stale, and the reason it has been rewritten rather than extended.
 
 It comes from working backwards: taking the things people build on top of voxel games — the machines,
 the magic, the economies, the dungeons, the storage systems — and asking not "how would we write that"
 but **"what could our engine not express, that whoever built it had to reach past the game to do?"**
-About a hundred such things collapse into twenty-three answers, because most of them are different
-content over the same few gaps.
+About a hundred such things collapsed into twenty-six answers, because most of them are different
+content over the same few gaps. All twenty-six are built; each is marked below, and the sections are
+kept because *why* a capability exists is worth more than the fact that it landed.
 
 **The test each of these has to pass**: could two mods build genuinely *different* things on it, or
 does it bake one game's answer into the engine? A capability is a mechanism — the engine propagates,
@@ -21,28 +24,43 @@ project and stays one.
 
 ## Where we are
 
-**Seventeen of the twenty-three capabilities below are built** (20 September 2026). Each one is marked
-where it appears, so this page stays a list of what is *left* rather than a record of what was wanted.
+**All twenty-six capabilities below are built** (the last three on 21 September 2026). Each one is
+marked where it appears, so this page stays a list of what is *left* rather than a record of what was
+wanted.
 
 Before all that: graves, roles and permissions, travel between servers, cosmetics, a guidebook,
 tutorials, milestones, loot tables, structures as data, worlds a mod can ship, crafting minigames and
 forging, containers and stations, recipe discovery, held-use charging, ambience, server-chosen music,
 weather, a map with markers, "what am I looking at", UGC moderation, and a hub.
 
-Twelve biomes, eighty blocks, eleven creatures, a boss, four games.
+Since then: the games were deleted and rebuilt on a new architecture, identities moved to Ed25519,
+the security cluster closed, and a cinematic arrival and loading curtain replaced the black screen.
+
+Twelve biomes, seventeen creatures, a boss. Two of the three games for 1.0 (`firstlight`, `creative`)
+on four content packs (`base`, `simple_gear`, `simple_machines`, `guidebook`). The third, `oneblock`,
+is scoped below and not yet written.
 
 ### What is left, shortest honest answer
 
 - **No capabilities.** All 26 are built; the last three (area tools, nested inventories, instances)
-  landed on 21 September 2026. What is left is content, four known limits, and the four 1.0 items.
-- **Four known limits** in things that *are* built - see "Where the built things stop" below.
-- **All of the content**, which is not capability and is now the larger half of the work: the seven
-  games were deleted on 21 September, so `base` has to be re-scoped to nouns and the packs and games
-  written on top of it. See "The mod architecture" below.
+  landed on 21 September 2026.
+- **Five known limits** in things that *are* built - see "Where the built things stop" below.
+- **Content**, which is the larger half of the work. The re-scope of `base` to nouns and the writing of
+  `simple_gear` and `simple_machines` are *done*; what is left is the third game and the long tail of
+  blocks, creatures, villages and voices. See "The mod architecture" below.
 - **Four things for 1.0**: touch controls, instrumenting the network, compressing chunks, interest
-  management.
+  management - plus one decision, Mobile versus Forward+, which sits upstream of all four and is
+  called out in "For 1.0".
+- **Two undiagnosed flaky tests and one unexplained frame stall**, listed under "For 1.0" because the
+  precedent says they are suspects rather than noise.
 
 ## The capabilities
+
+**These sections are kept as history.** Each says why a capability exists and what it had to pass to
+earn a place, which is worth more than the fact that it landed - so the reasoning is preserved as it
+was written. That means a few of them use example ids from mods that have since been deleted
+(`vanilla:poison` and the like). Read those as illustrations of a shape, not as names you can look up.
+
 
 ### 1. Dimensions — built
 
@@ -434,9 +452,13 @@ assumes a mouse, a keyboard and a captured pointer. What it needs is a control s
 port - a thumbstick, a look area, tap-to-break and hold-to-place, a reachable hotbar, and inventory
 screens that work with a finger rather than a hover.
 
-Order: touch controls first, then a local build, then TestFlight, then CI. Nothing about it is blocked
-by anything else on this page, and it is the only item here that would put the game in a child's hands
-somewhere other than a desk.
+Order: touch controls first, then a local build, then TestFlight, then CI. It is the only item here
+that would put the game in a child's hands somewhere other than a desk.
+
+**This section used to say it was blocked by nothing on this page, and that was wrong.** The Mobile
+versus Forward+ decision sits upstream of it: which renderer an iPad build uses decides what the game
+looks like and whether it holds a frame rate, and building touch controls against a renderer that is
+then swapped is work done twice. See "For 1.0".
 
 ## How much of the world is running
 
@@ -634,20 +656,58 @@ no engine change. What is genuinely missing is **weather**, and that is listed o
 
 ## The games and mods to build
 
-Ten, rather than the sprawl this could become:
+**This table listed ten and was wrong in both directions**: four rows claimed mods that had been
+deleted, and it omitted every pack that actually exists. Rewritten 25 September 2026 to say what is
+true - three games on four packs, and nothing else promised.
 
-| Mod | What it is |
-|---|---|
-| `base` | blocks, tools, crafting — exists |
-| `vanilla` | the survival game — exists, and grows to the genre's full depth |
-| `deep` | the Emberdeep and the Hush |
-| `machines` | power, pipes, automation, storage networks |
-| `arcana` | magic: mana, spells, rituals — exists |
-| `guild` | economy, objectives, characters, trade — exists |
-| `frontier` | claims, companies, waystones |
-| `kitchen` | farming, food, bees, orchards |
-| `build` | decoration and building tools |
-| `hearthhold` | the story game — exists |
+| Mod | Kind | What it is |
+|---|---|---|
+| `base` | library | the nouns: blocks, liquids, biomes, flora, fauna. **Zero recipes** - exists |
+| `simple_gear` | pack | things you hold or wear: tools, weapons, armour - exists |
+| `simple_machines` | pack | things that do something: power, pipes, belts, rotation - exists |
+| `guidebook` | pack | the in-game guide - exists, though it wants to live inside a game |
+| `firstlight` | **game** | the guided story: world, hunger, gear, twelve acts and an ending - exists |
+| `creative` | **game** | the sandbox. Zero recipes, everything available - exists |
+| `oneblock` | **game** | one block over the void that comes back as something else - **to write** |
+
+**These three are 1.0** (the user, 25 September 2026). Anything else - a deep-caves game, a farming
+game, a building-tools game - is after it. The earlier list's `deep`, `machines`, `frontier`, `kitchen`
+and `build` were never written and are not commitments.
+
+### `oneblock`, scoped 25 September 2026
+
+**It existed before.** 190 lines at `mods/oneblock/main.gd`, deleted with the others on 21 September
+for being content rather than for being wrong (`git show 00edd6c^:mods/oneblock/main.gd`). A capability
+audit found **nothing in it needs engine work**: void generation, `void_below` physics, the
+`block_broken` hook, weighted tables, per-player `data`, entity spawning and containers all still
+exist. So this is a port, and the old file is the specification.
+
+What survives untouched: 19 of its 20 block and item names (only `clay` went), and its habit of
+filtering every table entry by whether the world actually has that name, so a missing pack degrades
+instead of breaking. What has to move: tools are `simple_gear:` now rather than `base:`, and the
+`vanilla:` creatures are `base:` - most of them by name, with the two genre-standard undead replaced
+by this project's own (goblin, clatterjack, barrow_warden, dustling, hollow_piper, mirelet, palemoth,
+wisp).
+
+Three decisions taken with the user, 25 September 2026:
+
+- **Endless, not finished.** Phases cycle rather than stopping on the last one. **The first pass is
+  the progression and the loop excludes the early phases**, so a child never drops back to dirt after
+  reaching the depths - a plain modulo would read as punishment.
+- **An island each, and a way to visit.** Spatial separation in one persistent world (512 apart, the
+  old mod's scheme), *not* the instances capability: an instance is ephemeral by design and never
+  written to disk, so a visit home would cost a child every break they had made. Visiting needs the
+  one thing the old file lacks - a reverse lookup from a position to whose island it is, so a sibling
+  breaking your block regenerates it for *you* rather than leaving a hole. The break counter is
+  already safe, because the handler only counts a break on your own origin.
+- **It is the factory on-ramp.** Later phases yield quickstone, copper and machine parts so that
+  building a factory becomes the obvious way to keep up. This is what closes the standing "a reason to
+  build a factory" gap below, with content rather than code.
+
+Kept from the original because it was right: mined blocks go straight to the backpack
+(`item_drops: "inventory"`), since nothing catches a dropped item over a void; and falling off
+teleports you back - *"The void spat you back out"* - at y = -12, which catches a child before the
+engine's own void damage at y = -32 ever applies.
 
 ## The mod architecture, settled 21 September 2026
 
@@ -667,7 +727,7 @@ Testing moves to **the Proving Ground** (`tests/mods/proving`), one mod that use
 GDScript and JavaScript. It depends on nothing, because `base` will churn constantly as it grows and a
 test mod that rides on it fails for the wrong reasons.
 
-### Three capabilities this architecture needs and does not have
+### Three capabilities this architecture needed, all since built
 
 **24. Extending another mod's definitions — built.** `extend_loot` already existed and its comment stated the
 principle - "adds pools to a table another mod owns, without forking it" - but it is the only registry
@@ -726,27 +786,40 @@ creatures and biomes actually get built**, and that is the long programme.
   than demonstrated. **The models already exist**: fourteen were archived from the deleted games into
   `art/models/`, which is precisely why they were the one thing kept. They need re-theming, not
   remaking.
-- **First game: the creative sandbox.** Zero recipes, everything available. It is the test that the
-  base/game line held - if a creative game ships no recipes and everything still exists and works,
-  the line is real - and the children can build in it the day it exists.
+- **First game: the creative sandbox - built.** Zero recipes, everything available. It was the test
+  that the base/game line held, and the line held: `base` reached zero recipes and everything still
+  exists and works.
 
 The principle still governs *biomes*: one per generation technique that is genuinely different, not
 one per name.
 
 ## Order
 
-**The 19 September list is done.** Weather, dimensions, signals, networks, keeping the world awake,
-fluids, multiblocks, driven networks and moving assemblies were built in that order over the two days
-after it was written, and item modifiers, objectives, ledgers, plots and companies with them. What
-follows is what is left, in the order that now unlocks the most.
+**Both earlier lists are done.** The 19 September capability list was built over the two days after it
+was written. The 21 September list - re-scope `base` to nouns, write `simple_gear` and
+`simple_machines`, then the games - is also finished, which for three days left this page with no
+instruction in it at all. This is the replacement, agreed with the user on 25 September 2026.
 
-**Characters and shops went first** and are done, which leaves a **village** with no missing capability
-at all: structures, facilities, jobs, ownership, conversation and trade all exist. What a village needs
-now is content - somebody to write the villagers.
+1. **Refresh this page.** Done - it is what you are reading. It had drifted far enough to mislead:
+   four games listed as existing had been deleted, every pack that exists was missing, and the
+   capability count contradicted itself two paragraphs apart.
+2. **Decide Mobile versus Forward+, by measuring on the iPad.** It sits upstream of both remaining
+   engineering tracks and is the one item this page never named as a dependency. Build both and
+   profile on the hardware rather than reasoning about it - the GDScript twins were deleted on
+   measurements and that is the standard here.
+3. **Touch controls, then an iPad build.** The only item on this page that puts the game in a child's
+   hands somewhere other than a desk.
+4. **Diagnose the two flaky tests** (`host_flow_test`, `multiplayer`). Not housekeeping: the third
+   flake in that group was rewritten three times as a timing problem and turned out to be the engine
+   starving its own save queue. Two undiagnosed flakes with that precedent are suspects.
+5. **`oneblock`**, the third and last game for 1.0 - scoped above, a port rather than a design.
+6. **The long tail of content**: villages, creature voices, the hard gem tier, the block palette.
 
-1. **The content**, which is where the remaining weight is: re-scope `base` to nouns, write
-   `simple_gear` and `simple_machines`, then the games. Doing the three capabilities first means the
-   packs get designed against an API that has stopped moving.
+**The frame stall gets its own session**, deliberately not a numbered step: it needs a profiler rather
+than another theory, and the fps harness cannot be used to bisect it.
+
+**A village has no missing capability at all** - structures, facilities, jobs, ownership, conversation
+and trade all exist. What it needs is somebody to write the villagers.
 
 ## Where the built things stop
 
@@ -761,25 +834,59 @@ Limits in capabilities that *are* built, recorded so they are found on purpose r
   mesher *and* the Rust one, which must agree exactly - a great deal of risk for a cosmetic gain.
 - **Belts scroll, conveyed items do not slide.** The belt surface moves; what is being carried is a
   parcel in flight with no position of its own to draw.
+- **Model-block collision is one cell, so tree canopies are walk-through.** Deferred while `base` had
+  no trees; `base` has them now, so this one has stopped being theoretical.
 
 ## Content the capabilities are waiting for
 
 None of this needs engine work. All of it is what makes the engine worth having.
 
-- **Ores worth digging for** - copper, gold, a hard gem, deep variants. Quickstone landed with signals;
-  the rest did not, and the ores that did exist went with the games.
+- **Ores worth digging for - mostly landed.** `base` now carries copper, gold, sunstone, cobalt,
+  deepstone, blackglass and quickstone. **The hard gem tier is the one rung still missing.**
 - **A reason to build a factory.** Power, pipes, belts, machines and rotation all exist; what is
-  missing is a progression that makes a child want one. That progression is a *game's* job now, not
-  `simple_machines`'.
-- **Creature voices**, still generated. The clearest brief the AI-audio phase could have - and the
-  brief has to be rewritten, because the creatures it named no longer exist.
-- **A guided game.** The thinking from the deleted story game is kept in `docs/hearthhold.md` and
-  should feed whatever replaces it; nothing about it needs engine work.
+  missing is a progression that makes a child want one. That progression is a *game's* job, not
+  `simple_machines`' - and **`oneblock` is now the game that does it**, by turning later phases into a
+  supply of machine parts. See its scope above.
+- **Creature voices**, still generated - 25 creatures on placeholder synth voices. The clearest brief
+  the AI-audio phase could have, and the brief can finally be written, because `base` now has a
+  settled roster of seventeen to name.
+- **Villages.** Every capability exists and no content does. The largest single content item left.
+- **A guided game - built** as `firstlight`: twelve acts, side tasks and an ending, walked by the
+  suite as `story:firstlight`. The thinking from the deleted story game in `docs/hearthhold.md` fed
+  it. A real playthrough by a person is still owed before 1.0; the suite walk proves the acts fire,
+  not that the game is good.
+- **Charms and trinkets have no visual path** - no mesh, no armour texture. They work; they cannot be
+  seen.
 
 ## For 1.0
 
-- **Touch controls**, and then an iPad build - see above; the only item that puts the game in a child's
-  hands somewhere other than a desk.
+**One decision sits above all four engineering items and this page never named it:**
+
+- **Mobile versus Forward+.** It gates the value of the iPad work *and* of every performance item
+  below, and it is expensive to reverse. Settled by measuring on an iPad Air 5 rather than by
+  reasoning (the user, 25 September 2026). Worth knowing before the profiling: the Mobile renderer
+  does not support everything Forward+ does, and the voxel shader has already caused one multi-day
+  bug that presented as a white lake, so "it compiles in both" is a claim to test rather than assume.
+
+Then:
+
+- **Touch controls**, and then an iPad build - see above; the only item that puts the game in a
+  child's hands somewhere other than a desk. It installs on an iPad today and is unplayable: no
+  mining, placing, looking or hotbar.
 - **Instrument the network**, then **compress chunk payloads**, then **interest management** - in that
   order, because the first makes the other two answerable rather than guesswork.
+- **Diagnose `host_flow_test` and `multiplayer`.** Two flakes, neither diagnosed. The third in that
+  group looked like a timing problem three times running and was a real engine bug; these get the
+  same suspicion rather than a retry loop.
+- **The unexplained one-second frame stall**, in a session of its own with a profiler. A chunk
+  retirement budget was added and proved *not* to be the cause; the remaining suspects are the relief
+  atlas worker, the sky radiance cubemap, first-use shader compilation and late chunk streaming. The
+  fps harness is fill-bound at plus or minus 15 fps and cannot bisect it.
+- **A real playthrough of `firstlight` by a person.** The suite walks the acts, which proves they
+  fire and not that the game is worth playing.
 - **Migration and corruption-proofing** become real work the day 1.0.0 ships, and not before.
+
+**Platform gaps, which are not engineering so much as absence:** no Android export preset or keystore
+and it has never run on Android hardware; iOS has one registered device and no TestFlight; **neither
+iOS nor Android is in CI at all**; Windows self-update has never been run on Windows and nothing is
+code-signed.

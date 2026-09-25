@@ -7253,3 +7253,67 @@ holds name, friend code, friends and live presence, so the avatar would be joini
 rather than creating one.
 
 Parked by the user, 2026-09-25: *"let's work on this later"*.
+
+### The roadmap said the work was done and did not say what was next (2026-09-25)
+
+Asked what was pending, and found that `docs/roadmap.md` could no longer answer it. Its one ordered
+instruction - re-scope `base` to nouns, write `simple_gear` and `simple_machines`, then the games - was
+**complete and unreplaced**, so for three days the page that exists to say what to do next said nothing.
+Around that, eleven stale or self-contradicting spots: the capability count read "seventeen of
+twenty-three" in one paragraph and "all 26" thirteen lines later; a heading announced three capabilities
+the architecture "does not have" above three subsections each titled "built"; and the mod table listed
+four games that had been deleted while omitting every pack that exists.
+
+**Worth naming as a shape.** A roadmap goes stale in a particular way: not by being wrong about the
+future, but by being *right about a past that has been overtaken*. Every individual sentence in that
+table had been true when written. Nothing in the suite checks a prose document, and nothing ever will,
+so the only defence is to rewrite it when the thing it describes changes - which is the same discipline
+as this file, applied to the document that is supposed to summarise this one.
+
+Rewritten today. Three decisions taken with the user while doing it:
+
+- **1.0 is three games**: `firstlight`, `creative` and `oneblock`. The earlier table's `deep`,
+  `machines`, `frontier`, `kitchen` and `build` were never written and are explicitly not commitments.
+- **Mobile versus Forward+ is settled by measuring on an iPad**, not by reasoning. It was never listed
+  as a dependency and it sits upstream of both remaining engineering tracks; the touch-controls section
+  actively claimed nothing blocked it, which was wrong.
+- **The two flaky tests get diagnosed; the frame stall gets its own session** with a profiler. The
+  precedent is the save-queue flake, which was rewritten three times as a timing problem and turned out
+  to be the engine starving its own queue.
+
+Also corrected: the known limits are **five**, not four - model-block collision is one cell, so tree
+canopies are walk-through, which was deferred while `base` had no trees and has stopped being
+theoretical now that it does.
+
+### `oneblock` scoped, and it turns out to be a port (2026-09-25)
+
+The third game for 1.0. **It existed before** - 190 lines at `mods/oneblock/main.gd`, deleted on
+21 September with the other games for being content, not for being wrong
+(`git show 00edd6c^:mods/oneblock/main.gd`). A capability audit found **nothing in it needs engine
+work**: void generation, `void_below` physics, the `block_broken` hook, weighted tables, per-player
+`data`, entity spawning and containers all still exist. The old file is the specification.
+
+19 of its 20 block and item names survive; only `clay` went, and the original already filtered every
+table entry by whether the world has that name, so it degrades rather than breaks. Tools move from
+`base:` to `simple_gear:`, and the `vanilla:` creatures are `base:` now - most by name, with the two
+genre-standard undead replaced by this project's own.
+
+The three decisions, and the reasoning that is worth keeping:
+
+- **Endless, but the loop excludes the early phases.** A plain modulo would send a child from the
+  depths back to dirt, which reads as punishment rather than as a new lap.
+- **An island each, with a way to visit - and *not* via the instances capability.** An instance is
+  ephemeral by design and never written to disk, so a child's progress would evaporate on logout.
+  Spatial separation at 512 apart, which is what the original did, is correct and costs nothing because
+  chunks only load near players. Visiting needs the one thing the original lacked: a reverse lookup
+  from a position to whose island it is, so a sibling breaking your block regenerates it for *you*
+  instead of leaving a hole. The break counter is already safe, because the handler only counts a break
+  on your own origin.
+- **It is the factory on-ramp**, which closes the standing "a reason to build a factory" gap with
+  content rather than code - later phases supply machine parts, so `simple_machines` becomes the
+  obvious way to keep up.
+
+Two things kept from the original because they were right, and both are about kindness rather than
+mechanism: mined blocks go straight to the backpack, because nothing catches a dropped item over a
+void; and falling off teleports you back at y = -12 - *"The void spat you back out"* - which catches a
+child before the engine's own void damage at y = -32 ever applies.
