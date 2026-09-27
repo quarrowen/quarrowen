@@ -10,10 +10,11 @@ extends Node
 ##   godot --headless --path . res://tests/ai_soak.tscn -- --seconds=180 --sites=6 --seed=42
 ## With --check, exits 1 when a threshold in LIMITS is broken (the test suite runs a short version).
 
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 const GameServer = preload("res://engine/server/game_server.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
 
-var _data_dir := "user://ai_soak_%d" % OS.get_process_id()
+var _data_dir := UserPaths.path("ai_soak_%d" % OS.get_process_id())
 const DT := 1.0 / 60.0
 const HOSTILES := {"proving:biter": 5}
 const ANIMALS := {"proving:grazer": 4}

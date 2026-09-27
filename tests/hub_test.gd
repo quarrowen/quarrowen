@@ -4,6 +4,7 @@ extends Node
 ## announces are refused, and LAN discovery finds the server on this computer.
 ##   godot --headless --path . res://tests/hub_test.tscn -- --hub-bin=services/hub/target/release/quarrowen-hub
 
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 const HubClient = preload("res://engine/client/menu/hub_client.gd")
 const ServerPinger = preload("res://engine/client/menu/server_pinger.gd")
 const InviteCode = preload("res://engine/shared/invite_code.gd")
@@ -29,7 +30,7 @@ func _run() -> void:
 		print("[hub] SKIPPED (no hub binary at %s; build it with cargo build --release in services/hub)" % hub_bin)
 		get_tree().quit(0)
 		return
-	var work := ProjectSettings.globalize_path("user://hub_test_%d" % Time.get_ticks_msec())
+	var work := ProjectSettings.globalize_path(UserPaths.path("hub_test_%d" % OS.get_process_id()))
 	DirAccess.make_dir_recursive_absolute(work.path_join("hub"))
 	var news := FileAccess.open(work.path_join("hub/news.json"), FileAccess.WRITE)
 	news.store_string(JSON.stringify([{"title": "Hub news", "body": "From the hub"}]))

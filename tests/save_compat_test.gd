@@ -4,6 +4,7 @@ extends Node
 ## by that release (tools/make_save_fixture.tscn) together with expected.json.
 ##   godot --headless --path . res://tests/save_compat_test.tscn
 
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 const GameServer = preload("res://engine/server/game_server.gd")
 const FIXTURES := "res://tests/fixtures/saves"
 
@@ -30,7 +31,7 @@ func _check_fixture(version: String) -> void:
 		_check(false, "%s: expected.json is readable" % version)
 		return
 	# Load a copy (loading saves it again in the current format).
-	var work := "user://save_compat_%s_%d" % [version, Time.get_ticks_msec()]
+	var work := UserPaths.path("save_compat_%s_%d" % [version, OS.get_process_id()])
 	_copy_tree(source, work)
 	var server = GameServer.new()
 	add_child(server)

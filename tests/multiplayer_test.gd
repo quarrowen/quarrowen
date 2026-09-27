@@ -4,6 +4,7 @@ extends Node
 ## each other's avatar cosmetics (Bob joins wearing a crown, then changes to a top hat).
 ##   godot --headless --path . res://tests/multiplayer_test.tscn -- --port=25601
 
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 const GameClient = preload("res://engine/client/game_client.gd")
 
 var _port := 25601
@@ -26,7 +27,7 @@ func _ready() -> void:
 	# ~/Library/Application Support/Quarrowen next to somebody's real worlds.
 	var base := OS.get_environment("QW_DATA_DIR")
 	if base.is_empty():
-		base = ProjectSettings.globalize_path("user://")
+		base = ProjectSettings.globalize_path(UserPaths.path(""))
 	var scratch := base.path_join("mp_test_%s_%d" % [_role, Time.get_ticks_msec()])
 	OS.set_environment("QW_CREATIONS_DIR", scratch.path_join("creations"))
 	OS.set_environment("QW_UGC_CACHE_DIR", scratch.path_join("cache"))
@@ -45,7 +46,7 @@ func _alice() -> void:
 	if not await _wait(func(): return _client._can_simulate(), 20.0):
 		_check(false, "Alice joined")
 		return _finish()
-	_result_path = ProjectSettings.globalize_path("user://multiplayer_result_%d.txt" % Time.get_ticks_msec())
+	_result_path = ProjectSettings.globalize_path(UserPaths.path("multiplayer_result_%d.txt" % OS.get_process_id()))
 	var args := PackedStringArray(["--headless", "--path", ProjectSettings.globalize_path("res://"), "res://tests/multiplayer_test.tscn",
 		"--", "--port=%d" % _port, "--role=b", "--result=%s" % _result_path])
 	var bob_pid := OS.create_process(OS.get_executable_path(), args)

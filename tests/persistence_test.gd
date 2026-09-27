@@ -2,11 +2,14 @@ extends Node
 ## Offline test of delta world saves (no networking):
 ##   godot --headless --path . res://tests/persistence_test.tscn
 
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 const GameServer = preload("res://engine/server/game_server.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
 const WorldBackups = preload("res://engine/server/world_backups.gd")
 
-const DATA_DIR := "user://persistence_test"
+## A `var`, not a `const`: a constant may not call a function, and this one must ask UserPaths where
+## the suite has been told to write. The process id keeps concurrent runs apart.
+var DATA_DIR := UserPaths.path("persistence_test_%d" % OS.get_process_id())
 var _failures := 0
 
 

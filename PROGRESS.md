@@ -7606,3 +7606,92 @@ replacement.
 
 Deliberately parked rather than started: the touch work had already run long and the roadmap was
 waiting.
+
+### The "flaky" approval-gate test was a world a previous run left in the player's folder (2026-09-27)
+
+`tests/proving_test.gd` failed the approval gate two runs in three - "with approval on, somebody nobody
+admitted cannot build or chat" - while the precondition above it (the same player *can* build before
+approval is on) passed every time. So the gate was being consulted and answering wrong, which in a
+security feature is not something to wait out.
+
+Nothing in `has_permission`, `is_admitted` or `roles.gd` caches anything, and nothing runs
+asynchronously in that test: the whole thing is one synchronous `_ready`. Instrumenting the assertion
+said it in one line - `admitted=["walker"]` **before the test admits anybody**. The world was not new.
+
+Two mistakes, both in the test, and each harmless without the other:
+
+- `const DATA_DIR := "user://proving_test"` - a bare `user://`, which is the one thing CLAUDE.md says
+  not to write, because `project.godot` sets `use_custom_user_dir` and so that path **is** the installed
+  app's folder. `QW_USER_DIR` only moves what goes through `engine/shared/user_paths.gd`, so the suite's
+  redirection never applied here. 315 world folders and 11 MB of them had collected in the player's
+  folder, going back to 21 September; the test never deleted anything.
+- The world was named `"proving_%d" % Time.get_ticks_msec()`, which is roughly the *same number every
+  run* - the tick count a second or so into startup. So a run would open the world an earlier run had
+  left, 59 of which had `"admitted": {"walker": ...}` saved in `world.json` from the assertions further
+  down the same test. The gate then let Walker build, entirely correctly.
+
+Fixed by making the worlds go through `UserPaths`, live in a directory named after the process, and be
+deleted on the way out (`_remove_tree`, as `ai_soak` and `ai_test` already do). Verified with 16 runs
+after the change, all passing, and with nothing new appearing in the player's folder.
+
+Two things left over, deliberately recorded rather than done here:
+
+- **The 315 stale worlds in `~/Library/Application Support/Quarrowen/proving_test` are still there**
+  (11 MB), along with `map_test_*` folders from `gameplay_test`. Safe to delete by hand; not deleted
+  without being asked, since it is the player's own folder.
+- **`ai_test`, `gameplay_test` and `persistence_test` still use a bare `user://..._test` directory.**
+  They delete it at the end, so they leave nothing behind, but while they run they are writing in the
+  player's folder, and a crash mid-run leaves state that the next run may load - which is exactly the
+  failure above. Routing them through `UserPaths` would close the class rather than this instance.
+
+### The three flaky tests were one bug, and it was the suite in the player's folder (2026-09-27)
+
+**The approval gate was never wrong.** `proving` failed because the player really had been admitted -
+by an earlier run of the same test, whose world the current run reopened.
+
+Two mistakes, each harmless alone:
+
+- **`const DATA_DIR := "user://proving_test"`** - a bare `user://`, which escapes `QW_USER_DIR`
+  entirely. With `use_custom_user_dir` that *is* the installed game's folder.
+- **A world named `"proving_%d" % Time.get_ticks_msec()`** - the tick count one or two seconds into
+  startup, so near enough the same number every run. A run reopened a previous run's world, and **59 of
+  the leftovers carried `admitted: ["walker"]`** from `server.admit(...)` later in the same test. The
+  gate then correctly let in somebody a previous run had admitted.
+
+Not timing. Not caching. Stale state the suite had left in the player's folder - which is why three
+rewrites-as-timing would have failed, exactly as they did for the save-queue flake.
+
+**The same pattern is in `host_flow_test` and `multiplayer_test`**, both bare `user://` named by
+`Time.get_ticks_msec()`. Those are the other two undiagnosed flakes, and there is every reason to think
+this was one bug wearing three hats.
+
+**The damage, measured**: 640 entries and **65 MB** in `~/Library/Application Support/Quarrowen`.
+`user://map_test_<ticks>` in `gameplay_test._map_from_mod` alone had left **606 directories and never
+deleted one**, and was still writing an hour before this was found.
+
+#### The fourth time, and why the guard missed it
+
+This is the **fourth** time "the tests must not touch the player's folder" has bitten, and the previous
+fix is the reason it hid. `gameplay_test:3169` asserts that the *engine's* paths are not bare `user://`
+- the caches, the identity, the pinned certificates, the mods folder. It was written after three of
+those leaked in September. **It never checked the tests' own paths**, so the suite could go on writing
+there while the test that exists to prevent exactly that passed every run.
+
+Fixed: every test path goes through `UserPaths` and is named by **process id** rather than a tick
+count, so concurrent runs cannot collide and a repeat run cannot inherit. And the guard now greps the
+test sources themselves, so a bare `user://` in `tests/` fails the suite.
+
+The proof that matters is not that the tests pass: **the player's folder held 640 entries before a full
+run and 640 after**, where previously it grew on every one.
+
+#### Left for the user to decide
+
+The 65 MB of historical leftovers is still there. It is the player's folder, and the rule cuts both
+ways - deleting it is not mine to do unasked.
+
+#### A process note
+
+The fix landed in commit `f3b063c`, whose message is about touch controls: `git add -A` was run while a
+subagent was mid-edit in the same working tree. The content is right and the history is misleading.
+**One working tree, one writer** - a parallel agent needs its own, or the commits need to be narrower
+than `-A`.

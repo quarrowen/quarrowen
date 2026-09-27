@@ -3,6 +3,7 @@ extends Node
 ##   godot --headless --path . res://tests/bench.tscn -- [--chunks=200] [--steps=20000]
 ## Prints per-operation timings so GDScript and native implementations can be compared.
 
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 const GameServer = preload("res://engine/server/game_server.gd")
 const ChunkMesher = preload("res://engine/client/chunk_mesher.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
@@ -20,9 +21,9 @@ func _ready() -> void:
 
 	var server := GameServer.new()
 	add_child(server)
-	DirAccess.make_dir_recursive_absolute("user://bench")
+	DirAccess.make_dir_recursive_absolute(UserPaths.path("bench"))
 	server.start({"mods": PackedStringArray(["base", "simple_machines", "simple_gear", "proving"]), "mod_dirs": PackedStringArray(["res://tests/mods"]), "world": "bench_%d" % Time.get_ticks_msec(),
-		"data_dir": "user://bench", "seed": 42, "offline": true})
+		"data_dir": UserPaths.path("bench"), "seed": 42, "offline": true})
 	var world = server.world
 	var side := ceili(sqrt(chunk_count))
 	var coords: Array[Vector2i] = []
@@ -122,7 +123,7 @@ func _ready() -> void:
 
 	server.queue_free()
 	await get_tree().process_frame
-	_remove_tree(ProjectSettings.globalize_path("user://bench"))
+	_remove_tree(ProjectSettings.globalize_path(UserPaths.path("bench")))
 	get_tree().quit()
 
 

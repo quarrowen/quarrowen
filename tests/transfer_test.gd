@@ -4,6 +4,7 @@ extends Node
 ## them back.
 ##   godot --headless --path . res://tests/transfer_test.tscn
 
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 const Main = preload("res://engine/main.gd")
 const TransferTicket = preload("res://engine/shared/transfer_ticket.gd")
 
@@ -16,7 +17,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	var work := ProjectSettings.globalize_path("user://transfer_test_%d" % Time.get_ticks_msec())
+	var work := ProjectSettings.globalize_path(UserPaths.path("transfer_test_%d" % OS.get_process_id()))
 	var port_a := 26400 + randi() % 100 * 2
 	var port_b := port_a + 10
 	OS.set_environment("QW_KNOWN_SERVERS_DIR", work.path_join("known_servers"))

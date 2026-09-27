@@ -4,6 +4,7 @@ extends Node
 ## client comes back by itself with the new block.
 ##   godot --headless --path . res://tests/reload_test.tscn
 
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 const Main = preload("res://engine/main.gd")
 
 const MOD_V1 := """extends "res://engine/server/mod.gd"
@@ -30,7 +31,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	var root := ProjectSettings.globalize_path("user://reload_test_%d" % Time.get_ticks_msec())
+	var root := ProjectSettings.globalize_path(UserPaths.path("reload_test_%d" % OS.get_process_id()))
 	OS.set_environment("QW_DATA_DIR", root.path_join("data"))
 	_mod_dir = root.path_join("mods/liveblock")
 	DirAccess.make_dir_recursive_absolute(_mod_dir)

@@ -3,6 +3,7 @@ extends Node
 ## admin token, then stops the server when leaving.
 ##   godot --headless --path . res://tests/host_flow_test.tscn
 
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 const Main = preload("res://engine/main.gd")
 
 var _failures := 0
@@ -14,7 +15,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	# Keep the hosted world out of the real user data folder.
-	var data_dir := ProjectSettings.globalize_path("user://host_flow_test_%d" % Time.get_ticks_msec())
+	var data_dir := ProjectSettings.globalize_path(UserPaths.path("host_flow_test_%d" % OS.get_process_id()))
 	OS.set_environment("QW_DATA_DIR", data_dir)
 	var main := Node.new()
 	main.set_script(Main)

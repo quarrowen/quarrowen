@@ -25,7 +25,9 @@ const Chunk = preload("res://engine/shared/chunk.gd")
 const StationSessions = preload("res://engine/server/station_sessions.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
-const DATA_DIR := "user://gameplay_test"
+## A `var`, not a `const`: a constant may not call a function, and this one must ask UserPaths where
+## the suite has been told to write. The process id keeps concurrent runs apart.
+var DATA_DIR := UserPaths.path("gameplay_test_%d" % OS.get_process_id())
 var _failures := 0
 
 
@@ -503,7 +505,7 @@ func _graves_and_homes() -> void:
 ## Housekeeping: caches pruned oldest-first back to a budget, and nothing of the player's touched.
 func _housekeeping() -> void:
 	var Housekeeping = preload("res://engine/client/housekeeping.gd")
-	var root := "user://test_housekeeping_%d" % Time.get_ticks_msec()
+	var root := UserPaths.path("test_housekeeping_%d" % OS.get_process_id())
 	DirAccess.make_dir_recursive_absolute(root)
 	# Three files of 1 KB, written oldest first. They have to land in different seconds for oldest-first
 	# to mean anything, because a filesystem modification time is only good to the second.
@@ -3168,6 +3170,27 @@ func _test_isolation() -> void:
 			["local worlds", WorldListScript.dir()]]:
 		_check(not str(pair[1]).begins_with("user://"), "%s is not in the player's folder (%s)" % pair)
 
+	# **And the tests' own folders, which this check did not cover and which was the whole problem.** It
+	# asserted the *engine* never writes to the player's folder while the suite itself wrote 640 entries
+	# and 65 MB there - `user://map_test_<ticks>` alone left 606 directories, never once deleted. A bare
+	# `user://` escapes QW_USER_DIR entirely, and naming a folder by `Time.get_ticks_msec()` lands in the
+	# same narrow band every run, so a run reopens an earlier run's world. That is what made `proving`
+	# fail two runs in three: 59 leftover worlds carried `admitted: ["walker"]`, and the approval gate
+	# was correctly letting in somebody a previous run had admitted. (2026-09-27)
+	var bare := []
+	for file in DirAccess.get_files_at("res://tests"):
+		if not file.ends_with(".gd"):
+			continue
+		var text := FileAccess.get_file_as_string("res://tests".path_join(file))
+		# The shot tools name a default output path the caller overrides; everything else must route
+		# through UserPaths so QW_USER_DIR can move it.
+		if file in ["screenshot.gd", "menu_shot.gd"]:
+			continue
+		for line in text.split("\n"):
+			if line.contains("\"user://") and not line.contains("begins_with"):
+				bare.append("%s: %s" % [file, line.strip_edges()])
+	_check(bare.is_empty(), "no test writes to a bare user:// (%s)" % ", ".join(bare))
+
 
 ## Every asset a mod names actually exists.
 ##
@@ -3231,7 +3254,7 @@ func _story_mode() -> void:
 
 
 func _map_from_mod() -> void:
-	var work := ProjectSettings.globalize_path("user://map_test_%d" % Time.get_ticks_msec())
+	var work := ProjectSettings.globalize_path(UserPaths.path("map_test_%d" % OS.get_process_id()))
 	var mod_dir := work.path_join("mods/mapmod")
 	DirAccess.make_dir_recursive_absolute(mod_dir)
 

@@ -3,11 +3,14 @@ extends Node
 ##   godot --headless --path . res://tests/ai_test.tscn
 ## Runs with the native extension and, with QW_NATIVE=0, with the GDScript pathfinder.
 
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 const GameServer = preload("res://engine/server/game_server.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
 const Pathfinder = preload("res://engine/server/ai/pathfinder.gd")
 
-const DATA_DIR := "user://ai_test"
+## A `var`, not a `const`: a constant may not call a function, and this one must ask UserPaths where
+## the suite has been told to write. The process id keeps concurrent runs apart.
+var DATA_DIR := UserPaths.path("ai_test_%d" % OS.get_process_id())
 const DT := 1.0 / 60.0
 const Y := 10  # standing height on the arena floor
 
