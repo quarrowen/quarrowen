@@ -121,7 +121,9 @@ It takes about two minutes on an M1 Max - measured, after the second suite went;
 pair. If a run appears to take far longer than that, suspect the thing watching it rather than the
 run.
 
-**Never wait for the suite with `pgrep -f` on its own command line.** This:
+**Never wait for *anything* with `pgrep -f` on its own command line.** Written as "never wait for the
+suite" until 2026-09-27, when four waiters on `package_ios.sh` hung for exactly the reason below - the
+rule is about the shape of the wait, not about which script is being waited on. This:
 
 ```sh
 while pgrep -f "bash tools/run_tests.sh" >/dev/null; do sleep 20; done   # WRONG
