@@ -9327,6 +9327,19 @@ In game: your look with this server's cosmetics; saved built-in choices travel t
 
 **See also:** `has_modal`, `is_builtin`, `player_id`, `resolve`
 
+### `set_paused`
+
+*client/game_client.gd*
+
+GDScript: `set_paused(paused: bool) -> void`
+
+Opens or closes the pause menu. **Public because Escape was the only way in**, and a tablet has no
+Escape - so once a child was in the world there was no route to Resume, Settings, Disconnect or
+anything else, on a device with no keyboard. (the user, 2026-09-27: "impossible to change settings
+etc since i am in game and no touch controls!")
+
+**See also:** `has_modal`
+
 ### `open_settings`
 
 *client/game_client.gd*

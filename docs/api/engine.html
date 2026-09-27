@@ -2370,6 +2370,13 @@ a minute or when the guide is requested again.</p></div>
 <div class="card" data-search="lookup_recipes opens the recipe book filtered to what makes (`mode` &quot;make&quot;) or uses (&quot;use&quot;) an item. client/game_client.gd the client"><div class="sig"><code>lookup_recipes(item: int, mode: String) -&gt; void</code></div><p>Opens the recipe book filtered to what makes (`mode` "make") or uses ("use") an item.</p></div>
 <div class="card" data-search="pin_recipe pins a recipe to the hud (-1 unpins). saved per server. client/game_client.gd the client"><div class="sig"><code>pin_recipe(index: int) -&gt; void</code></div><p>Pins a recipe to the HUD (-1 unpins). Saved per server.</p></div>
 <div class="card" data-search="open_avatar_editor in game: your look with this server's cosmetics; saved built-in choices travel to other servers. client/game_client.gd the client"><div class="sig"><code>open_avatar_editor() -&gt; void</code></div><p>In game: your look with this server's cosmetics; saved built-in choices travel to other servers.</p></div>
+<div class="card" data-search="set_paused opens or closes the pause menu. **public because escape was the only way in**, and a tablet has no
+escape - so once a child was in the world there was no route to resume, settings, disconnect or
+anything else, on a device with no keyboard. (the user, 2026-09-27: &quot;impossible to change settings
+etc since i am in game and no touch controls!&quot;) client/game_client.gd the client"><div class="sig"><code>set_paused(paused: bool) -&gt; void</code></div><p>Opens or closes the pause menu. **Public because Escape was the only way in**, and a tablet has no
+Escape - so once a child was in the world there was no route to Resume, Settings, Disconnect or
+anything else, on a device with no keyboard. (the user, 2026-09-27: "impossible to change settings
+etc since i am in game and no touch controls!")</p></div>
 <div class="card" data-search="open_settings the settings screen over the game (from the pause menu). client/game_client.gd the client"><div class="sig"><code>open_settings() -&gt; void</code></div><p>The settings screen over the game (from the pause menu).</p></div>
 <div class="card" data-search="open_players_panel players and roles (admins) over the game, in the settings overlay slot. client/game_client.gd the client"><div class="sig"><code>open_players_panel() -&gt; void</code></div><p>Players and roles (admins) over the game, in the settings overlay slot.</p></div>
 <div class="card" data-search="open_server_panel server settings (admins) over the game, in the settings overlay slot. client/game_client.gd the client"><div class="sig"><code>open_server_panel() -&gt; void</code></div><p>Server settings (admins) over the game, in the settings overlay slot.</p></div>
@@ -3099,7 +3106,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1222 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1223 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

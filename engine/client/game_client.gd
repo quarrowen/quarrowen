@@ -360,6 +360,7 @@ var _arrival := -1.0
 ## while one is being torn down, and the reset in `_exit_tree` then let the second fly as well. That
 ## is what "it ran twice, stitched together a bit weirdly" was. (the user, 2026-09-25)
 var _arrived_this_session := false
+var _menu_button: Button
 var _hotbar: HBoxContainer
 ## Name of what the player is holding, shown above the hotbar for a moment when it changes.
 var _held_label: Label
@@ -3583,6 +3584,14 @@ func _capture_mouse() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
+## Opens or closes the pause menu. **Public because Escape was the only way in**, and a tablet has no
+## Escape - so once a child was in the world there was no route to Resume, Settings, Disconnect or
+## anything else, on a device with no keyboard. (the user, 2026-09-27: "impossible to change settings
+## etc since i am in game and no touch controls!")
+func set_paused(paused: bool) -> void:
+	_set_paused(paused)
+
+
 func _set_paused(paused: bool) -> void:
 	_pause_panel.visible = paused
 	_tutorial_hud.panel.visible = false
@@ -3977,13 +3986,34 @@ func _build_hud() -> void:
 	add_child(layer)
 	_hud_root = Control.new()
 	_hud_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_hud_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# PASS rather than IGNORE: the root itself swallows nothing, but a press must be able to reach the
+	# controls inside it (the hotbar, the menu button). IGNORE stops the search at the root.
+	_hud_root.mouse_filter = Control.MOUSE_FILTER_PASS
 	layer.add_child(_hud_root)
 	# **The interface does not exist until the world does.** A compass and a health bar over a
 	# half-built world is what made the old loading screen read as a hung game rather than a busy one.
 	_hud_root.visible = false
 	_curtain = LoadingCurtain.new()
 	layer.add_child(_curtain)
+
+	# **The way out of the world.** Escape opens the pause menu on a desktop and there was nothing else
+	# anywhere - no gesture, no button, no server-side route - so a player on a device without a
+	# keyboard was simply stuck once they joined. Deliberately not touch-only: a visible way to the menu
+	# helps everybody, and it is the one fix here that does not depend on the touch layer working.
+	_menu_button = Button.new()
+	_menu_button.text = "☰"
+	_menu_button.tooltip_text = "Menu"
+	_menu_button.focus_mode = Control.FOCUS_NONE
+	_menu_button.add_theme_font_size_override("font_size", 22)
+	_menu_button.custom_minimum_size = Vector2(46, 46)
+	# Top *right*: the top left already carries the controls hint and the technical readout, and the
+	# first attempt put this straight through the middle of them. The compass owns the top centre.
+	_menu_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_menu_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_menu_button.position = Vector2(-58, 12)
+	_menu_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	_menu_button.pressed.connect(func(): set_paused(not _pause_panel.visible))
+	_hud_root.add_child(_menu_button)
 
 	var crosshair := Control.new()
 	crosshair.set_anchors_preset(Control.PRESET_CENTER)
@@ -4080,7 +4110,7 @@ func _build_hud() -> void:
 		_hotbar_frame.grow_horizontal = Control.GROW_DIRECTION_BOTH
 		_hotbar_frame.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		_hotbar_frame.position.y -= 10
-		_hotbar_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hotbar_frame.mouse_filter = Control.MOUSE_FILTER_PASS  # its slots are tappable; it is not
 		var frame := StyleBoxFlat.new()
 		frame.bg_color = Color(0.09, 0.08, 0.07, 0.72)
 		frame.set_corner_radius_all(10)
@@ -4096,7 +4126,7 @@ func _build_hud() -> void:
 	_hotbar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_hotbar.position.y -= 12
 	_hotbar.add_theme_constant_override("separation", 4)
-	_hotbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hotbar.mouse_filter = Control.MOUSE_FILTER_PASS
 	if _hotbar_frame != null:
 		_hotbar_frame.add_child(_hotbar)
 	else:
@@ -4466,7 +4496,14 @@ func _rebuild_hotbar() -> void:
 	for i in Inventory.HOTBAR:
 		var slot := Panel.new()
 		slot.custom_minimum_size = Vector2(52, 52)
-		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# **A hotbar slot can be clicked, which it never could be on any platform.** Selecting one was
+		# keys 1-9 or the wheel, both read as raw events, so a device with neither had no way to change
+		# what it was holding. Worth doing for the desktop too - pointing at the thing you want is what
+		# everybody tries first. (2026-09-27)
+		slot.mouse_filter = Control.MOUSE_FILTER_STOP
+		slot.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				select_slot(i))
 		var style := StyleBoxFlat.new()
 		if _hud_belt():
 			slot.custom_minimum_size = Vector2(58, 58)
