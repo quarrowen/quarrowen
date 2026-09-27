@@ -3191,6 +3191,19 @@ func _test_isolation() -> void:
 				bare.append("%s: %s" % [file, line.strip_edges()])
 	_check(bare.is_empty(), "no test writes to a bare user:// (%s)" % ", ".join(bare))
 
+	# **Every screen the client can open must have a way out.** `close_top_screen` and `any_screen_open`
+	# list screens by hand, and the block palette was missing from both - so the touch ring opened it and
+	# no close button ever appeared, which on a tablet means trapped. A hand-written list is wrong the
+	# moment somebody adds a screen, so this compares the two lists against the screens that exist.
+	# (2026-09-27)
+	var client_source := FileAccess.get_file_as_string("res://engine/client/game_client.gd")
+	var closes := client_source.get_slice("func close_top_screen", 1).get_slice("func any_screen_open", 0)
+	var knows := client_source.get_slice("func any_screen_open", 1).get_slice("\nfunc ", 0)
+	for screen in ["_guide_screen", "_crafting_screen", "_inventory_screen", "_pause_panel", "_palette",
+			"_map_screen", "_settings_overlay", "_avatar_editor"]:
+		_check(closes.contains(screen), "close_top_screen knows how to close %s" % screen)
+		_check(knows.contains(screen), "any_screen_open counts %s" % screen)
+
 
 ## Every asset a mod names actually exists.
 ##

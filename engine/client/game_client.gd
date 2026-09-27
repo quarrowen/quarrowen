@@ -3026,6 +3026,10 @@ func close_top_screen() -> bool:
 		_set_guide_open(false)
 	elif _crafting_screen.visible:
 		_set_crafting_open(false)
+	elif _palette != null and _palette.visible:
+		_close_palette()
+	elif _map_screen != null and is_instance_valid(_map_screen) and _map_screen.visible:
+		close_map()
 	elif _inventory_screen.visible:
 		_set_inventory_open(false)
 	elif _pause_panel.visible:
@@ -3036,9 +3040,18 @@ func close_top_screen() -> bool:
 
 
 ## Whether any screen is covering the world, and so whether the close button belongs on screen.
+## **Listed by hand, which is how the palette got missed.** The ring opened the block picker and no
+## close button appeared, because this function enumerates screens and nobody had added it - so tapping
+## the rightmost icon was a door with nothing on the other side of it. (the user, 2026-09-27: "the
+## recipe browser didn\'t have a way to close it... the last icon in the flyout menu")
+##
+## A list like this is wrong the moment a screen is added, so the suite now asserts that every screen
+## the client can open is one this function knows about.
 func any_screen_open() -> bool:
 	return _avatar_editor != null or _settings_overlay != null or _guide_screen.visible \
-		or _crafting_screen.visible or _inventory_screen.visible or _pause_panel.visible
+		or _crafting_screen.visible or _inventory_screen.visible or _pause_panel.visible \
+		or (_palette != null and _palette.visible) \
+		or (_map_screen != null and is_instance_valid(_map_screen) and _map_screen.visible)
 
 
 func _gameplay_input_enabled() -> bool:

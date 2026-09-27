@@ -9279,7 +9279,7 @@ a panel like Bag, i am unable to close it")
 The order matters and matches the Escape cascade exactly: the topmost thing goes first, so a
 guidebook opened from the backpack closes the guidebook rather than both.
 
-**See also:** `close_settings`, `has_modal`, `key_name`, `open`, `play_name`, `preferred_page`
+**See also:** `close_map`, `close_settings`, `has_modal`, `key_name`, `open`, `play_name`
 
 ### `any_screen_open`
 
@@ -9288,6 +9288,13 @@ guidebook opened from the backpack closes the guidebook rather than both.
 GDScript: `any_screen_open() -> bool`
 
 Whether any screen is covering the world, and so whether the close button belongs on screen.
+**Listed by hand, which is how the palette got missed.** The ring opened the block picker and no
+close button appeared, because this function enumerates screens and nobody had added it - so tapping
+the rightmost icon was a door with nothing on the other side of it. (the user, 2026-09-27: "the
+recipe browser didn\'t have a way to close it... the last icon in the flyout menu")
+
+A list like this is wrong the moment a screen is added, so the suite now asserts that every screen
+the client can open is one this function knows about.
 
 ### `on_recipe_learned`
 

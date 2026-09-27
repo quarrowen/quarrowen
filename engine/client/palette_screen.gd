@@ -55,9 +55,21 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", 8)
 	panel.add_child(column)
 
+	# **The panel says what it is.** This read "Everything", which is the name of a *category* and told a
+	# player nothing about the thing they had opened - and a panel with no name and no visible way out is
+	# twice as baffling. Every other screen already names itself: Inventory, Guidebook, Map, and the
+	# crafting station's own title. (the user, 2026-09-27: "all panels need to have a title, so players
+	# can learn what each panel is")
 	var title := Label.new()
-	title.text = "Everything"
+	title.text = "Blocks"
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4))
 	column.add_child(title)
+	var subtitle := Label.new()
+	subtitle.text = "Everything you can place. Tap one to hold it."
+	subtitle.add_theme_font_size_override("font_size", 13)
+	subtitle.add_theme_color_override("font_color", Color(0.76, 0.76, 0.80))
+	column.add_child(subtitle)
 
 	_search = LineEdit.new()
 	_search.placeholder_text = "Search"

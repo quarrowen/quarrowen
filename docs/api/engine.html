@@ -2400,7 +2400,21 @@ a panel like Bag, i am unable to close it")
 
 The order matters and matches the Escape cascade exactly: the topmost thing goes first, so a
 guidebook opened from the backpack closes the guidebook rather than both.</p></div>
-<div class="card" data-search="any_screen_open whether any screen is covering the world, and so whether the close button belongs on screen. client/game_client.gd the client"><div class="sig"><code>any_screen_open() -&gt; bool</code></div><p>Whether any screen is covering the world, and so whether the close button belongs on screen.</p></div>
+<div class="card" data-search="any_screen_open whether any screen is covering the world, and so whether the close button belongs on screen.
+**listed by hand, which is how the palette got missed.** the ring opened the block picker and no
+close button appeared, because this function enumerates screens and nobody had added it - so tapping
+the rightmost icon was a door with nothing on the other side of it. (the user, 2026-09-27: &quot;the
+recipe browser didn\'t have a way to close it... the last icon in the flyout menu&quot;)
+
+a list like this is wrong the moment a screen is added, so the suite now asserts that every screen
+the client can open is one this function knows about. client/game_client.gd the client"><div class="sig"><code>any_screen_open() -&gt; bool</code></div><p>Whether any screen is covering the world, and so whether the close button belongs on screen.
+**Listed by hand, which is how the palette got missed.** The ring opened the block picker and no
+close button appeared, because this function enumerates screens and nobody had added it - so tapping
+the rightmost icon was a door with nothing on the other side of it. (the user, 2026-09-27: "the
+recipe browser didn\'t have a way to close it... the last icon in the flyout menu")
+
+A list like this is wrong the moment a screen is added, so the suite now asserts that every screen
+the client can open is one this function knows about.</p></div>
 <div class="card" data-search="on_recipe_learned a new recipe: remember it and celebrate (several at once are grouped into one toast). client/game_client.gd the client"><div class="sig"><code>on_recipe_learned(index: int, source: String) -&gt; void</code></div><p>A new recipe: remember it and celebrate (several at once are grouped into one toast).</p></div>
 <div class="card" data-search="on_objectives the task list, pushed whenever it changes. see engine/client/objective_hud.gd for why this took
 until there was a game with a story in it to notice was missing. client/game_client.gd the client"><div class="sig"><code>on_objectives(view: Dictionary) -&gt; void</code></div><p>The task list, pushed whenever it changes. See engine/client/objective_hud.gd for why this took
