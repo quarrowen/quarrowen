@@ -83,23 +83,26 @@ func _build_stick() -> void:
 func _build_buttons() -> void:
 	# Bottom right, where the other thumb already rests. Offsets are from that corner, so both are
 	# negative and account for the control's own size. Jump is largest: pressed most, and missed most.
-	_add_button("jump", "JUMP", Vector2(-40, -40), Vector2(96, 96))
-	_add_button("break", "MINE", Vector2(-40, -150), BUTTON_SIZE)
-	_add_button("place", "PUT", Vector2(-148, -150), BUTTON_SIZE)
-	_add_button("sneak", "DOWN", Vector2(-148, -40), BUTTON_SIZE)
-	_add_button("sprint", "RUN", Vector2(-256, -40), BUTTON_SIZE)
-	_add_button("inventory", "BAG", Vector2(-256, -150), BUTTON_SIZE)
+	_add_button("jump", "⬆", "Jump", Vector2(-40, -40), Vector2(96, 96))
+	_add_button("break", "⛏", "Mine", Vector2(-40, -150), BUTTON_SIZE)
+	_add_button("place", "🧱", "Place", Vector2(-148, -150), BUTTON_SIZE)
+	_add_button("sneak", "⬇", "Crouch", Vector2(-148, -40), BUTTON_SIZE)
+	_add_button("sprint", "🏃", "Run", Vector2(-256, -40), BUTTON_SIZE)
+	_add_button("inventory", "🎒", "Backpack", Vector2(-256, -150), BUTTON_SIZE)
 
 
 ## One button that holds its action down for as long as it is touched, because `break` and `place` both
 ## mean something different held than tapped - progressive mining, repeat placing, eating a meal.
-func _add_button(action: String, glyph: String, at: Vector2, size: Vector2) -> void:
+func _add_button(action: String, glyph: String, label: String, at: Vector2, size: Vector2) -> void:
 	var button := Button.new()
 	button.text = glyph
+	button.tooltip_text = label
 	button.focus_mode = Control.FOCUS_NONE
-	# Words rather than symbols: these are read by a child who has not met this game before, and "MINE"
-	# needs no legend where a pickaxe glyph does.
-	button.add_theme_font_size_override("font_size", 15)
+	# **A picture rather than a word** (the user, 2026-09-27). The first version spelled them out, on the
+	# reasoning that "MINE" needs no legend - but these are pressed by a child who may not read quickly,
+	# and a pickaxe is understood before a word is decoded. Glyphs rather than a mod's item textures,
+	# because the engine may not reach into content for its own interface.
+	button.add_theme_font_size_override("font_size", 30)
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.modulate = Color(1, 1, 1, 0.82)
 	_anchor(button, 1.0, 1.0, size, at)

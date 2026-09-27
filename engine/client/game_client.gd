@@ -2028,8 +2028,16 @@ func _process(delta: float) -> void:
 	# offered two similar buttons at once.
 	if _close_button != null:
 		var open := any_screen_open()
-		_close_button.visible = open
-		_menu_button.visible = not open
+		if open != _close_button.visible:
+			_close_button.visible = open
+			_menu_button.visible = not open
+			# **Raised above the screens when it appears.** `_bring_to_front` moves an opening screen to
+			# the end of the child list and draw order here is child order, so a button added while the
+			# HUD was built sits *under* every panel - visible through nothing, and untouchable. It
+			# looked right in a screenshot and did nothing on the device. (the user, 2026-09-27: "i see
+			# the x icon but its not clickable")
+			if open:
+				_hud_root.move_child(_close_button, -1)
 	_hurt_flash.color.a = move_toward(_hurt_flash.color.a, 0.0, delta * 1.2)
 	# A tint with no time on it is held until the server says otherwise - that is what "underwater"
 	# wants; one with a time fades out by itself, which is what a flash wants.
@@ -4868,11 +4876,20 @@ func _build_controls_hint() -> Control:
 	row.position = Vector2(10, 8)
 	row.add_theme_constant_override("separation", 14)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for hint in [["T", "chat"], ["E", "inventory"], ["Q", "drop"], ["C", "crafting"], ["Esc", "menu"]]:
+	# **A tablet has none of these keys.** The hint used to name T, E, Q, C and Escape whatever it was
+	# running on, which on a touchscreen is a row of instructions a child cannot follow - and the
+	# on-screen buttons say what they do on their face, so what is actually worth saying there is the
+	# part that is invisible: which half of the screen does what. (the user, 2026-09-27: "on top i see T
+	# chat, E inventory, Q drop, etc which isnt useful for ipad right")
+	var hints := [["T", "chat"], ["E", "inventory"], ["Q", "drop"], ["C", "crafting"], ["Esc", "menu"]]
+	if touch_mode:
+		hints = [["", "Left thumb walks"], ["", "Drag the right to look"], ["", "\u2630 for the menu"]]
+	for hint in hints:
 		var pair := HBoxContainer.new()
 		pair.add_theme_constant_override("separation", 5)
 		pair.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pair.add_child(_keycap(String(hint[0])))
+		if not String(hint[0]).is_empty():
+			pair.add_child(_keycap(String(hint[0])))
 		var what := _shadow_label()
 		what.text = String(hint[1])
 		what.add_theme_font_size_override("font_size", 13)
