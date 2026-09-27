@@ -795,34 +795,60 @@ one per name.
 
 ## Order
 
-**Both earlier lists are done.** The 19 September capability list was built over the two days after it
-was written. The 21 September list - re-scope `base` to nouns, write `simple_gear` and
-`simple_machines`, then the games - is also finished, which for three days left this page with no
-instruction in it at all. This is the replacement, agreed with the user on 25 September 2026.
+**Three earlier lists are done.** The 19 September capability list, the 21 September architecture list,
+and items 1 to 3 of the 25 September list below - the roadmap refresh, the renderer decision and touch
+controls - all landed. This is the consolidated remainder, agreed 27 September 2026.
 
-1. **Refresh this page.** Done - it is what you are reading. It had drifted far enough to mislead:
-   four games listed as existing had been deleted, every pack that exists was missing, and the
-   capability count contradicted itself two paragraphs apart.
-2. **Decide Mobile versus Forward+, by measuring on the iPad.** It sits upstream of both remaining
-   engineering tracks and is the one item this page never named as a dependency. Build both and
-   profile on the hardware rather than reasoning about it - the GDScript twins were deleted on
-   measurements and that is the standard here.
-3. **Touch controls - built and verified on hardware, 27 September 2026.** Tap to break, two fingers to
-   use, hold to mine, drag to look, with a thumbstick, six buttons and a way back out of the world. An
-   iPad build installs over Wi-Fi in twelve seconds. What remains is the tail: the safe area has never
-   been looked at on the device, frame time has only been measured standing still, and the guidebook
-   still tells a tablet to press G.
-4. **Diagnose the two flaky tests** (`host_flow_test`, `multiplayer`). Not housekeeping: the third
-   flake in that group was rewritten three times as a timing problem and turned out to be the engine
-   starving its own save queue. Two undiagnosed flakes with that precedent are suspects.
-5. **`oneblock`**, the third and last game for 1.0 - scoped above, a port rather than a design.
-6. **The long tail of content**: villages, creature voices, the hard gem tier, the block palette.
+### 1. Finish the tablet, while it is fresh
 
-**The frame stall gets its own session**, deliberately not a numbered step: it needs a profiler rather
-than another theory, and the fps harness cannot be used to bisect it.
+- **A radial menu, opened by a button.** Crafting, the map, chat, drop and the creative palette have no
+  home that fits: crafting especially happens *in* play, and the pause menu is where you stop. A ring
+  that opens around the thumb is reachable by construction and holds them all without five permanent
+  buttons. Hung off a visible button, not a bare gesture - a child does not discover an invisible one.
+- **Review the pause menu.** It has reached **seventeen buttons**, because it became the home for
+  everything that needed one. Worlds, server settings, players and roles, friends, invites, reporting
+  and creation review are all in the same list as Resume.
+- **Drop and the creative palette** are still keyboard-only.
+- **Frame time while moving.** 0.8 ms of 16.7 was measured standing still by somebody who could not
+  turn round. Two minutes with the readout on, now that a person can walk about.
 
-**A village has no missing capability at all** - structures, facilities, jobs, ownership, conversation
-and trade all exist. What it needs is somebody to write the villagers.
+### 2. The suite has been red all day
+
+- **The approval-gate flake** (`proving`, two checks, roughly two runs in three). In a security feature,
+  where "usually refuses" is not a property worth shipping.
+- **`host_flow_test` and `multiplayer`**, neither diagnosed. The precedent is on record: the save-queue
+  flake was rewritten three times as a timing problem and was the engine starving its own queue.
+- **The unexplained one-second frame stall**, in a session of its own with a profiler. The fps harness
+  is fill-bound and cannot bisect it; frame-time instrumentation now exists and is the way in.
+
+### 3. The last game for 1.0
+
+- **`oneblock`** - scoped above, a port of a 190-line file rather than a design, and nothing in it needs
+  engine work.
+
+### 4. The 1.0 engineering items
+
+- **Instrument the network**, then **compress chunk payloads**, then **interest management**, in that
+  order, because the first makes the other two answerable rather than guesswork.
+- **Platform absences**: no Android keystore and never run on Android hardware; iOS and Android are in
+  no CI; TestFlight unused; Windows self-update never run on Windows and nothing code-signed.
+
+### 5. Content, which is the long programme
+
+- A **real playthrough of `firstlight`** by a person. The suite proves the acts fire, not that the game
+  is worth playing.
+- **Villages** - every capability exists and no content does. The largest single item left.
+- **Creature voices** - 25 on placeholder synth, and the roster is finally settled enough to write the
+  brief.
+- **A hard gem tier**, the one ore rung missing.
+- **Charms and trinkets have no visual path** - no mesh, no armour texture.
+
+### Parked, needing a decision rather than work
+
+- **Whether a portable avatar and display name follow an identity**, and whether the hub half of that is
+  opt-in. Scoped in PROGRESS; the user stopped it deliberately.
+- **Server sizing.** One measurement exists (265 MB resident, 3.4% CPU, near-idle); `tests/bots.gd` is
+  what would turn it into a recommendation fit for `docs/hosting.md`.
 
 ## Where the built things stop
 
