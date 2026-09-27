@@ -367,6 +367,7 @@ var _arrival := -1.0
 ## is what "it ran twice, stitched together a bit weirdly" was. (the user, 2026-09-25)
 var _arrived_this_session := false
 var _menu_button: Button
+var _close_button: Button
 var _touch_controls
 var _hotbar: HBoxContainer
 ## Name of what the player is holding, shown above the hotbar for a moment when it changes.
@@ -2023,6 +2024,12 @@ func _process(delta: float) -> void:
 	_update_cracks()
 	_update_hud()
 	_log_fps(delta)
+	# The close button replaces the menu button while a screen is up: same corner, and a child is never
+	# offered two similar buttons at once.
+	if _close_button != null:
+		var open := any_screen_open()
+		_close_button.visible = open
+		_menu_button.visible = not open
 	_hurt_flash.color.a = move_toward(_hurt_flash.color.a, 0.0, delta * 1.2)
 	# A tint with no time on it is held until the server says otherwise - that is what "underwater"
 	# wants; one with a time fades out by itself, which is what a flash wants.
@@ -2978,13 +2985,52 @@ func _unhandled_input(event: InputEvent) -> void:
 ## **Split out of the mouse handler so a finger can call it too.** The look maths used to live inside a
 ## branch gated on `Input.mouse_mode == MOUSE_MODE_CAPTURED`, and iOS has no captured pointer - so on a
 ## tablet the camera could never turn, by construction rather than by oversight. (2026-09-27)
-func add_look(moved: Vector2, local := Vector2.ZERO) -> void:
+## `scale` is the caller's own sensitivity, because **a mouse and a thumb do not share one**: with the
+## mouse setting applied here, turning a mouse down would also turn a tablet down, and a player has only
+## one of the two devices in front of them. The mouse passes its setting; the touch layer passes its
+## own. Inversion stays here, since up and down mean the same thing whatever is doing the moving.
+func add_look(moved: Vector2, local := Vector2.ZERO, scale := -1.0) -> void:
 	var settings = ClientSettings.shared()
-	var sensitivity: float = MOUSE_SENSITIVITY * float(settings.get_value("controls/mouse_sensitivity"))
+	if scale < 0.0:
+		scale = float(settings.get_value("controls/mouse_sensitivity"))
+	var sensitivity: float = MOUSE_SENSITIVITY * scale
 	yaw = wrapf(yaw - moved.x * sensitivity, -PI, PI)
 	_look_delta += local
 	pitch = clampf(pitch - moved.y * sensitivity * (-1.0 if settings.get_value("controls/invert_y") else 1.0),
 		-PI * 0.49, PI * 0.49)
+
+
+## Closes whatever screen is on top, the way Escape does, and says whether there was one.
+##
+## **Every screen closed on a key press and nothing else** - Escape, or the key that opened it - so on a
+## tablet the backpack opened and then held the player there with no way back. Same shape as the pause
+## menu: a route in and no route out on a device with no keyboard. (the user, 2026-09-27: "when i opened
+## a panel like Bag, i am unable to close it")
+##
+## The order matters and matches the Escape cascade exactly: the topmost thing goes first, so a
+## guidebook opened from the backpack closes the guidebook rather than both.
+func close_top_screen() -> bool:
+	if _avatar_editor != null:
+		_close_avatar_editor()
+	elif _settings_overlay != null:
+		close_settings()
+	elif _guide_screen.visible:
+		_set_guide_open(false)
+	elif _crafting_screen.visible:
+		_set_crafting_open(false)
+	elif _inventory_screen.visible:
+		_set_inventory_open(false)
+	elif _pause_panel.visible:
+		_set_paused(false)
+	else:
+		return false
+	return true
+
+
+## Whether any screen is covering the world, and so whether the close button belongs on screen.
+func any_screen_open() -> bool:
+	return _avatar_editor != null or _settings_overlay != null or _guide_screen.visible \
+		or _crafting_screen.visible or _inventory_screen.visible or _pause_panel.visible
 
 
 func _gameplay_input_enabled() -> bool:
@@ -4071,6 +4117,24 @@ func _build_hud() -> void:
 	# anywhere - no gesture, no button, no server-side route - so a player on a device without a
 	# keyboard was simply stuck once they joined. Deliberately not touch-only: a visible way to the menu
 	# helps everybody, and it is the one fix here that does not depend on the touch layer working.
+	# **One close button for every screen**, rather than one added to each: the screens are built in five
+	# different files with five different layouts, and a single affordance in a fixed place is also
+	# easier for a child to learn than five that move. Shown only while something is open. Not
+	# touch-only - a visible way to close a panel helps anybody who would rather point than reach for a key.
+	_close_button = Button.new()
+	_close_button.text = "✕"
+	_close_button.tooltip_text = "Close"
+	_close_button.focus_mode = Control.FOCUS_NONE
+	_close_button.add_theme_font_size_override("font_size", 20)
+	_close_button.custom_minimum_size = Vector2(46, 46)
+	_close_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_close_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_close_button.position = Vector2(-58, 12)
+	_close_button.visible = false
+	_close_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	_close_button.pressed.connect(func(): close_top_screen())
+	_hud_root.add_child(_close_button)
+
 	_menu_button = Button.new()
 	_menu_button.text = "☰"
 	_menu_button.tooltip_text = "Menu"

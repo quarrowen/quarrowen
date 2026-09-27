@@ -76,6 +76,13 @@ const SCHEMA := {
 		"help": "Music the server chooses. Who wrote it is under Music in the chat: /music."},
 	"controls/mouse_sensitivity": {"tab": "Controls", "label": "Mouse sensitivity", "type": "float", "default": 1.0, "min": 0.2, "max": 3.0, "step": 0.05, "percent": true},
 	"controls/invert_y": {"tab": "Controls", "label": "Invert mouse up and down", "type": "bool", "default": false},
+	# **Its own number, not a share of the mouse's.** A finger travels several centimetres where a mouse
+	# travels a few millimetres for the same intent, so one setting serving both makes whichever it was
+	# not tuned for feel wrong - and the first attempt tuned it for neither. (the user, 2026-09-27:
+	# "look sensitivity is kinda low yes, maybe it should be adjustable in settings")
+	"controls/touch_sensitivity": {"tab": "Controls", "label": "Touch look sensitivity", "type": "float",
+		"default": 1.0, "min": 0.2, "max": 4.0, "step": 0.05, "percent": true,
+		"help": "How far the view turns for a drag of your thumb. Only used on a touchscreen."},
 	"controls/sprint_toggle": {"tab": "Controls", "label": "Sprint key toggles", "type": "bool", "default": false,
 		"help": "Press once to start sprinting and again to stop, instead of holding it."},
 	"interface/scale": {"tab": "Accessibility", "label": "Interface size", "type": "float", "default": 1.0, "min": 0.75, "max": 2.0, "step": 0.05, "percent": true,

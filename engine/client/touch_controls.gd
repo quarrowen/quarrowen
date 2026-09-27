@@ -27,10 +27,13 @@ const STICK_RADIUS := 78.0
 ## How far the thumb must leave the centre before it counts as a direction. Below this a resting thumb
 ## would twitch the player, which reads as drift rather than as input.
 const STICK_DEADZONE := 0.18
-## Look sensitivity, as a multiplier on the mouse setting. A finger travels much further than a mouse
-## for the same intent, so the same number would make the camera unusable.
-const LOOK_SCALE := 0.55
+## Baseline look sensitivity, before the player's `controls/touch_sensitivity` multiplies it. Raised
+## from 0.55 after the first go on hardware read as sluggish (the user, 2026-09-27) - a finger covers
+## several centimetres where a mouse covers a few millimetres, and 0.55 was scaling the wrong way.
+const LOOK_SCALE := 1.6
 const BUTTON_SIZE := Vector2(64, 64)
+const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
+
 const MOVE_ACTIONS := ["move_left", "move_right", "move_back", "move_forward"]
 
 var _client
@@ -146,7 +149,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.index == _stick_touch:
 			_move_stick(event.position)
 		elif event.index == _look_touch and _client.has_method("add_look"):
-			_client.add_look(event.relative * LOOK_SCALE, event.relative * LOOK_SCALE)
+			# Its own scale, so the mouse setting does not also move the thumb (see GameClient.add_look).
+			var turn: float = LOOK_SCALE * float(ClientSettings.shared().get_value("controls/touch_sensitivity"))
+			_client.add_look(event.relative, event.relative, turn)
 
 
 func _begin_touch(index: int, at: Vector2) -> void:

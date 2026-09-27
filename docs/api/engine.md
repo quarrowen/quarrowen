@@ -9256,7 +9256,7 @@ otherwise against the face that was hit.
 
 *client/game_client.gd*
 
-GDScript: `add_look(moved: Vector2, local := Vector2.ZERO) -> void`
+GDScript: `add_look(moved: Vector2, local := Vector2.ZERO, scale := -1.0) -> void`
 
 Turns the camera by a movement in **screen pixels**, so the interface size does not change how fast
 it turns. `local` is the same movement in viewport units and only feeds the view-model sway.
@@ -9264,8 +9264,38 @@ it turns. `local` is the same movement in viewport units and only feeds the view
 **Split out of the mouse handler so a finger can call it too.** The look maths used to live inside a
 branch gated on `Input.mouse_mode == MOUSE_MODE_CAPTURED`, and iOS has no captured pointer - so on a
 tablet the camera could never turn, by construction rather than by oversight. (2026-09-27)
+`scale` is the caller's own sensitivity, because **a mouse and a thumb do not share one**: with the
+mouse setting applied here, turning a mouse down would also turn a tablet down, and a player has only
+one of the two devices in front of them. The mouse passes its setting; the touch layer passes its
+own. Inversion stays here, since up and down mean the same thing whatever is doing the moving.
 
 **See also:** `get_value`, `shared`
+
+### `close_top_screen`
+
+*client/game_client.gd*
+
+GDScript: `close_top_screen() -> bool`
+
+Closes whatever screen is on top, the way Escape does, and says whether there was one.
+
+**Every screen closed on a key press and nothing else** - Escape, or the key that opened it - so on a
+tablet the backpack opened and then held the player there with no way back. Same shape as the pause
+menu: a route in and no route out on a device with no keyboard. (the user, 2026-09-27: "when i opened
+a panel like Bag, i am unable to close it")
+
+The order matters and matches the Escape cascade exactly: the topmost thing goes first, so a
+guidebook opened from the backpack closes the guidebook rather than both.
+
+**See also:** `close_settings`, `has_modal`, `key_name`, `open`, `play_name`, `preferred_page`
+
+### `any_screen_open`
+
+*client/game_client.gd*
+
+GDScript: `any_screen_open() -> bool`
+
+Whether any screen is covering the world, and so whether the close button belongs on screen.
 
 ### `on_recipe_learned`
 

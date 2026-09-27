@@ -2370,12 +2370,38 @@ it turns. `local` is the same movement in viewport units and only feeds the view
 
 **split out of the mouse handler so a finger can call it too.** the look maths used to live inside a
 branch gated on `input.mouse_mode == mouse_mode_captured`, and ios has no captured pointer - so on a
-tablet the camera could never turn, by construction rather than by oversight. (2026-09-27) client/game_client.gd the client"><div class="sig"><code>add_look(moved: Vector2, local := Vector2.ZERO) -&gt; void</code></div><p>Turns the camera by a movement in **screen pixels**, so the interface size does not change how fast
+tablet the camera could never turn, by construction rather than by oversight. (2026-09-27)
+`scale` is the caller's own sensitivity, because **a mouse and a thumb do not share one**: with the
+mouse setting applied here, turning a mouse down would also turn a tablet down, and a player has only
+one of the two devices in front of them. the mouse passes its setting; the touch layer passes its
+own. inversion stays here, since up and down mean the same thing whatever is doing the moving. client/game_client.gd the client"><div class="sig"><code>add_look(moved: Vector2, local := Vector2.ZERO, scale := -1.0) -&gt; void</code></div><p>Turns the camera by a movement in **screen pixels**, so the interface size does not change how fast
 it turns. `local` is the same movement in viewport units and only feeds the view-model sway.
 
 **Split out of the mouse handler so a finger can call it too.** The look maths used to live inside a
 branch gated on `Input.mouse_mode == MOUSE_MODE_CAPTURED`, and iOS has no captured pointer - so on a
-tablet the camera could never turn, by construction rather than by oversight. (2026-09-27)</p></div>
+tablet the camera could never turn, by construction rather than by oversight. (2026-09-27)
+`scale` is the caller's own sensitivity, because **a mouse and a thumb do not share one**: with the
+mouse setting applied here, turning a mouse down would also turn a tablet down, and a player has only
+one of the two devices in front of them. The mouse passes its setting; the touch layer passes its
+own. Inversion stays here, since up and down mean the same thing whatever is doing the moving.</p></div>
+<div class="card" data-search="close_top_screen closes whatever screen is on top, the way escape does, and says whether there was one.
+
+**every screen closed on a key press and nothing else** - escape, or the key that opened it - so on a
+tablet the backpack opened and then held the player there with no way back. same shape as the pause
+menu: a route in and no route out on a device with no keyboard. (the user, 2026-09-27: &quot;when i opened
+a panel like bag, i am unable to close it&quot;)
+
+the order matters and matches the escape cascade exactly: the topmost thing goes first, so a
+guidebook opened from the backpack closes the guidebook rather than both. client/game_client.gd the client"><div class="sig"><code>close_top_screen() -&gt; bool</code></div><p>Closes whatever screen is on top, the way Escape does, and says whether there was one.
+
+**Every screen closed on a key press and nothing else** - Escape, or the key that opened it - so on a
+tablet the backpack opened and then held the player there with no way back. Same shape as the pause
+menu: a route in and no route out on a device with no keyboard. (the user, 2026-09-27: "when i opened
+a panel like Bag, i am unable to close it")
+
+The order matters and matches the Escape cascade exactly: the topmost thing goes first, so a
+guidebook opened from the backpack closes the guidebook rather than both.</p></div>
+<div class="card" data-search="any_screen_open whether any screen is covering the world, and so whether the close button belongs on screen. client/game_client.gd the client"><div class="sig"><code>any_screen_open() -&gt; bool</code></div><p>Whether any screen is covering the world, and so whether the close button belongs on screen.</p></div>
 <div class="card" data-search="on_recipe_learned a new recipe: remember it and celebrate (several at once are grouped into one toast). client/game_client.gd the client"><div class="sig"><code>on_recipe_learned(index: int, source: String) -&gt; void</code></div><p>A new recipe: remember it and celebrate (several at once are grouped into one toast).</p></div>
 <div class="card" data-search="on_objectives the task list, pushed whenever it changes. see engine/client/objective_hud.gd for why this took
 until there was a game with a story in it to notice was missing. client/game_client.gd the client"><div class="sig"><code>on_objectives(view: Dictionary) -&gt; void</code></div><p>The task list, pushed whenever it changes. See engine/client/objective_hud.gd for why this took
@@ -3131,7 +3157,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1227 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1229 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>
