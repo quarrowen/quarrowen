@@ -6125,6 +6125,15 @@ What reveals a locked page.
 
 **See also:** `get_page`, `index_of`
 
+### `page_title`
+
+*client/objective_hud.gd*
+
+GDScript: `page_title := Callable()  (property)`
+
+Page id -> its title, set by the client, because the guide's registry lives in the guide screen and
+this panel has no business holding a second copy of it.
+
 ### `set_view`
 
 *client/objective_hud.gd*
@@ -6134,6 +6143,18 @@ GDScript: `set_view(view: Dictionary) -> void`
 {active: [{name, display_name, step, of, text, progress, needed}]} from the server.
 
 **See also:** `icon_of`, `key_name`, `new_game`, `node_key`, `texture`, `uptime`
+
+### `preferred_page`
+
+*client/objective_hud.gd*
+
+GDScript: `preferred_page(read: Dictionary) -> String`
+
+The page the book should open at, given what has already been read: whichever the topmost task names
+and the player has not read yet. **Unread only** - once they have read it, opening the guide goes
+back to where they left off, so this nudges once and then stops being in the way. The same shape as
+the tutorial tracker's, which came first; the player is asking the one question with two answers
+("what should I read?") and the story's answer sorts above a tutorial's by being asked for later.
 
 ### `step_done`
 
@@ -6631,7 +6652,7 @@ stay out of the list until they are reached, so the surprise survives being able
 
 GDScript: `kinds := {}  (property)`
 
-Name -> {name, display_name, description, steps: [{text, count}], repeatable, owner}
+Name -> {name, display_name, description, steps: [{text, count, page}], repeatable, page, owner}
 
 ### `give`
 
@@ -6685,7 +6706,7 @@ nobody asked, and the one moment it matters is the moment it changed.
 
 GDScript: `active_for(player) -> Array`
 
-What they are doing now: [{name, display_name, step, of, text, progress, needed}].
+What they are doing now: [{name, display_name, step, of, text, progress, needed, page}].
 
 ### `finished`
 

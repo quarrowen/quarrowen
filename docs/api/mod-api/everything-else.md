@@ -525,9 +525,14 @@ abandoned.
 whatever event means "they did it" and call advance_objective. Otherwise the engine would have to
 learn what delivering a letter is.
 
+`page` names a guide page that helps with this, on the objective or on any single step, and the step
+wins where both are set. The task list shows its title, and the book opens there of its own accord
+next time it is opened - so a child who is stuck looks at the one panel that is already telling them
+what to do. Names without ":" are this mod's.
+
 ```gdscript
-api.register_objective("errand", {"display_name": "An Errand",
-	"steps": [{"text": "Go and see"}, {"text": "Come back", "count": 2}]})
+api.register_objective("errand", {"display_name": "An Errand", "page": "what",
+	"steps": [{"text": "Go and see", "page": "errand"}, {"text": "Come back", "count": 2}]})
 ```
 
 **See also:** `register`
@@ -610,14 +615,16 @@ The engine draws the conversation, so every character in every mod looks and wor
 child who has learned to talk to one has learned to talk to all of them. It knows a conversation is
 lines with options and nothing else about what any of it means.
 
-`goes_to` moves to another line, `gives` hands over an objective, `sells` opens a shop, and `does`
-fires `character_choice` for anything else at all.
+`goes_to` moves to another line, `gives` hands over an objective, `sells` opens a shop, `reads`
+unlocks a guide page and opens the book there, and `does` fires `character_choice` for anything else
+at all. Names without ":" belong to this mod.
 
 ```gdscript
 api.register_character("keeper", {"display_name": "The Keeper", "color": "#ffd166", "lines": {
 	"start": {"text": "You again.", "options": [
 		{"text": "What have you got?", "sells": "stall"},
 		{"text": "Anything to do?", "gives": "errand"},
+		{"text": "Where do I read about this?", "reads": "errand"},
 		{"text": "Who are you?", "goes_to": "who"},
 		{"text": "Nothing", "does": "wave"}]},
 	"who": {"text": "The keeper of this place.", "options": [{"text": "I see", "goes_to": "start"}]},

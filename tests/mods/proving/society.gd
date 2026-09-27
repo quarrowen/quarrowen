@@ -14,8 +14,10 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	api.register_stat("proving:resolve", 1.0)
 	api.register_ledger("coins", {"display_name": "Coins", "min": 0})
 	api.register_ledger("standing", {"display_name": "Standing", "levels": [10, 30, 60]})
-	api.register_objective("errand", {"display_name": "An Errand",
-		"steps": [{"text": "Go and see"}, {"text": "Come back", "count": 2}]})
+	# `page` on the objective and on one step: the step's wins while they are on it, so this covers both
+	# halves of the rule rather than only the one that is easier to assert.
+	api.register_objective("errand", {"display_name": "An Errand", "page": "what",
+		"steps": [{"text": "Go and see", "page": "errand"}, {"text": "Come back", "count": 2}]})
 	# `order` puts a story's spine above its errands: given second and listed first.
 	api.register_objective("daily", {"display_name": "A Daily Thing", "repeatable": true,
 		"order": -1, "steps": [{"text": "Again"}]})
@@ -24,11 +26,13 @@ func setup(mod_api, id_table: Dictionary) -> void:
 		{"item": "proving:rock", "count": 4, "cost": [{"item": "proving:token", "count": 1}]},
 		{"item": "proving:plain", "price": 1, "ledger": "coins", "sells": true}]})
 	# Every kind of option a conversation can have: one that moves along, one that hands over an
-	# objective, one that opens the stall, and one the mod answers itself.
+	# objective, one that opens the stall, one that opens the book at a page, and one the mod answers
+	# itself.
 	api.register_character("keeper", {"display_name": "The Keeper", "color": "#ffd166", "lines": {
 		"start": {"text": "You again.", "options": [
 			{"text": "What have you got?", "sells": "stall"},
 			{"text": "Anything to do?", "gives": "errand"},
+			{"text": "Where do I read about this?", "reads": "errand"},
 			{"text": "Who are you?", "goes_to": "who"},
 			{"text": "Nothing", "does": "wave"}]},
 		"who": {"text": "The keeper of this place.", "options": [{"text": "I see", "goes_to": "start"}]},

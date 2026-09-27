@@ -52,7 +52,16 @@ func setup(mod_api) -> void:
 		if choice == "begin":
 			story.begin(ev.player)
 		elif choice == "remind":
-			ev.player.send_message("[Wick] %s" % story.remind(ev.player)))
+			ev.player.send_message("[Wick] %s" % story.remind(ev.player))
+		elif choice == "read":
+			var page := story.page_for(ev.player)
+			if page.is_empty():
+				# He does not have a page for everything, and saying so in his own voice is kinder than
+				# opening the book at nothing, or at whatever happened to be read last.
+				ev.player.send_message("[Wick] Nothing written down about this one, I'm afraid. This bit's ours.")
+			else:
+				api.unlock_guide_page(ev.player, page, false)
+				api.open_guide(ev.player, page))
 	# Handing over the next act when the one before it lands, so the chain walks itself and nobody has
 	# to remember to go back and ask. He still says it out loud, which is the part that makes it a
 	# story rather than a list refreshing.
@@ -75,7 +84,13 @@ func setup(mod_api) -> void:
 	_watch(api)
 	api.on("entity_interact", func(ev):
 		if ev.entity != null and ev.entity.type == ids.get("wick", -1):
-			api.talk_to(ev.player, "wick")
+			# **Which line to open on is the mod's job and this mod was not doing it.** `talk_to` with no
+			# line always opens "start", so `onward` - written for exactly this and commented as though it
+			# worked - had never once been shown: every conversation for the life of the game reopened on
+			# "Oh, you're up. And in one piece", including the hundredth, and the only way to ask him
+			# anything was to walk back through the introduction. Found on 2026-09-27 while adding the
+			# option that asks him which page to read, which would have been unreachable in the same way.
+			api.talk_to(ev.player, "wick", {"line": "onward" if story.under_way(ev.player) else "start"})
 			ev.cancelled = true)
 
 
@@ -125,10 +140,23 @@ func _conversation(api) -> void:
 			{"text": "Can you help me?", "goes_to": "help"}]},
 		"help": {"text": "I can walk with you and I can tell you what I know. I can't fight - I'd be no use at all. But you look like you might be.", "options": [
 			{"text": "All right", "does": "begin"},
+			# A fixed page, so `reads` says it outright: the Welcome page is the one that lists the
+			# controls, and somebody meeting Wick has been alive for about four minutes.
+			{"text": "I don't know how to do anything", "reads": "guidebook:welcome"},
 			{"text": "Later", "does": "bye"}]},
 		# Once the story is running he opens straight onto whatever comes next.
+		#
+		# **"Where do I read about this?" is the question this story could not answer**, and it is a
+		# `does` rather than a `reads` because the answer moves: it is whatever act they are holding. A
+		# fixed page would be right nine times out of fourteen and wrong the rest, which is worse than
+		# not offering.
 		"onward": {"text": "Still here. Still lit. What's next, then?", "options": [
 			{"text": "Remind me what I'm doing", "does": "remind"},
+			{"text": "Where do I read about this?", "does": "read"},
+			# The way back to the introduction, because a child who tapped through it the first time has
+			# otherwise lost the only explanation of what the game is about. It is three lines away and
+			# nothing about them stops being true on a second hearing.
+			{"text": "Tell me again who you are", "goes_to": "who"},
 			{"text": "Nothing", "does": "bye"}]},
 	}})
 

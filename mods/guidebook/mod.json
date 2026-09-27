@@ -2,7 +2,7 @@
 	"id": "guidebook",
 	"name": "Guidebook",
 	"version": "1.0.0",
-	"description": "The in-game Survival Guide: what the blocks, machines and gear are for. Content for a game to include, not a game itself.",
+	"description": "The in-game Survival Guide: what the blocks, machines and gear are for. A library any game can include, because none of it belongs to one.",
 	"kind": "library",
 	"authors": [
 		"Quarrowen"

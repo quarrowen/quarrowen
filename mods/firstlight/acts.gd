@@ -22,10 +22,17 @@ extends RefCounted
 ## `on` is the event kind story.gd watches; `is`/`any` name blocks or items; `below` is a depth;
 ## `name` is a multiblock's. A goal with no test at all counts anything of that kind.
 ##
-## `page` is a guide page the act unlocks when it is handed over, where one would help. Most acts have
-## none: the book already unlocks pages when you find the thing they are about, and an act that
-## unlocked a page you could not use yet would be a spoiler rather than help. These five are the ones
-## where Wick asks for something the book explains better than he does. (2026-09-24)
+## `page` is a guide page the act unlocks when it is handed over *and* names in the task list, where one
+## would help. The rule for whether an act gets one has not changed - the book already unlocks pages
+## when you find the thing they are about, and a page you cannot use yet is a spoiler rather than help -
+## but the field now does more than unlock, so it was worth going back through the acts and asking the
+## question again: it was five, and it is nine of fourteen, plus four of the five side tasks. Counted
+## off the table rather than tallied by hand, because a number in a comment is the thing that goes
+## stale first. (2026-09-27)
+##
+## **The four with none have none because nothing is written about them.** A hand lantern, deepstone as
+## a material, sunstone blocks and the altar are this game's own subjects and the book is `base`'s. Wick
+## explains those himself, which is what he is for.
 const ACTS := [
 	{"id": "act_waking", "name": "Waking",
 		"said": "Wood first. Everything starts with wood, I find.",
@@ -41,6 +48,9 @@ const ACTS := [
 
 	{"id": "act_roof", "name": "A Roof Before Dark",
 		"said": "Walls. Any walls. I'd rather be embarrassed by a hole in a hill than out in it.",
+		# Why walls, and not only walls: the page is the one that says monsters come out of the dark and
+		# a lit room is a safe one. That is the whole lesson of the first night and Wick only half tells it.
+		"page": "guidebook:light",
 		"steps": [
 			{"text": "Build yourself somewhere: place twenty blocks", "count": 20, "goal": {"on": "place"}},
 			{"text": "Live through a night", "goal": {"on": "night"}}]},
@@ -87,19 +97,28 @@ const ACTS := [
 	# the reason for. (2026-09-24)
 	{"id": "act_armed", "name": "Armed",
 		"said": "I'd feel better if you had something sharp. And something between you and everything else.",
+		# Armour has to be *worn*, in a slot, and nothing before this act has asked anybody to equip
+		# anything. A child who crafts a chestplate and carries it in a bag is not armed at all.
+		"page": "guidebook:health",
 		"steps": [
 			{"text": "Make an iron sword", "goal": {"on": "craft", "is": "simple_gear:iron_sword"}},
 			{"text": "Make an iron chestplate", "goal": {"on": "craft", "is": "simple_gear:iron_chestplate"}}]},
 
 	{"id": "act_down", "name": "Down",
 		"said": "Down, then. I'll be behind you, being no help whatsoever.",
+		# **Moved up from act 9, where it was.** The page says where cobalt is ("far below, near the
+		# lava") and this is the act that asks you to go and find it; by act 9 you have already found it
+		# and the page is telling you something you learned the hard way.
+		"page": "guidebook:deep_ores",
 		"steps": [
 			{"text": "Get deep underground", "goal": {"on": "depth", "below": 30.0}},
 			{"text": "Find five cobalt ore", "count": 5, "goal": {"on": "break", "is": "base:cobalt_ore"}}]},
 
 	{"id": "act_cobalt", "name": "Cobalt",
 		"said": "That blue stuff. Nothing else will get through the floor of the world, and the floor is where we're going.",
-		"page": "guidebook:deep_ores",
+		# This is the best pickaxe in the game and the last one anybody makes, so it is the one worth
+		# making *well*. Nothing in the story has mentioned quality until now.
+		"page": "guidebook:by_hand",
 		"steps": [
 			{"text": "Smelt three cobalt", "count": 3, "goal": {"on": "craft", "is": "base:cobalt_ingot"}},
 			{"text": "Make a cobalt pickaxe", "goal": {"on": "craft", "is": "simple_gear:cobalt_pickaxe"}}]},
@@ -114,6 +133,10 @@ const ACTS := [
 	# deterministic without making it free - see reed.gd. (the user, 2026-09-24)
 	{"id": "act_hunt", "name": "The Ones Worth Hunting",
 		"said": "When the whole world stops to tell you something's out there - that's one of them. If you have a reed, play it after dark. Something always answers.",
+		# **The most useful link in the game.** The page was written for exactly this moment: what the
+		# server message means, what the countdown on the compass is counting, which of the four are
+		# dangerous - and, the part that matters at bedtime, that one of them will not hurt you.
+		"page": "guidebook:night_visitors",
 		"description": "Play a hollow reed at night, or wait for one to find you.",
 		"steps": [
 			{"text": "See off something the world was warned about", "goal": {"on": "notable"}}]},
@@ -142,14 +165,23 @@ const ACTS := [
 ## Given at the start alongside the chain, and none of them is ever in the way. Two repeat, because
 ## cooking and sleeping are things you keep doing and a task that can be done again is a small kind
 ## reason to keep doing them.
+##
+## **The side tasks are where a page earns its place most easily**, and it was missed the first time
+## round: an errand is one subject on its own, with none of the ordering worry the chain has. Four of
+## the five have one now. Taming is the fifth, and the book has never covered it. (2026-09-27)
 const SIDE := [
 	{"id": "side_larder", "name": "A Full Larder", "repeatable": true,
 		"description": "Wick worries about whether you have eaten.",
+		"page": "guidebook:cooking",
 		"steps": [{"text": "Cook ten things", "count": 10,
 			"goal": {"on": "craft", "any": ["base:cooked_porkchop", "base:cooked_beef", "base:cooked_chicken", "base:bread"]}}]},
 
 	{"id": "side_lamplighter", "name": "Lamplighter",
 		"description": "The job Wick can no longer do everywhere at once.",
+		# The torch recipe is deliberately not in the book at first - it is one of the things you find in
+		# the Experiment grid - and this is the page that says so. Without the link the task is twenty
+		# torches and no way of making the first one.
+		"page": "guidebook:light",
 		"steps": [{"text": "Put up twenty torches", "count": 20, "goal": {"on": "place", "is": "base:torch"}}]},
 
 	{"id": "side_company", "name": "Fellow Travellers",
@@ -157,9 +189,11 @@ const SIDE := [
 
 	{"id": "side_reed", "name": "The Piper's Reed",
 		"description": "Something made, rather than found.",
+		"page": "guidebook:night_visitors",
 		"steps": [{"text": "Come by a hollow reed", "goal": {"on": "carry", "is": "base:hollow_reed"}}]},
 
 	{"id": "side_rest", "name": "Well Rested", "repeatable": true,
+		"page": "guidebook:beds",
 		"steps": [{"text": "Sleep in a bed", "goal": {"on": "night"}}]},
 ]
 

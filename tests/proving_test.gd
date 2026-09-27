@@ -315,9 +315,31 @@ func _behaviour(server) -> void:
 	var list: Array = server.objectives.active_for(p)
 	_check(list.size() >= 2 and String(list[0].name) == "proving:daily",
 		"and `order` decides what the player reads first, not when it was given")
+	# The page a task points at. **The step's beats the objective's** while they are on that step, which
+	# is the half of the rule a single assertion would miss - so both are named and both are checked.
+	var errand: Dictionary = {}
+	for task in server.objectives.active_for(p):
+		if String(task.name) == "proving:errand":
+			errand = task
+	_check(String(errand.get("page", "")) == "proving:errand",
+		"a task carries the guide page for the step they are on")
+	server.objectives.advance(p, "proving:errand")
+	for task in server.objectives.active_for(p):
+		if String(task.name) == "proving:errand":
+			errand = task
+	_check(String(errand.get("page", "")) == "proving:what",
+		"and falls back to the objective's own page on a step that names none")
+
 	server.characters.talk(p, "proving:keeper")
 	server.on_ui_action(201, "engine:talk", "say:start:0")
 	_check(p.ui_ids.has("engine:shop"), "another opened the stall")
+
+	# `reads`: the third conversation shortcut. Asserted on the *unlock* rather than on the panel,
+	# because opening the book is an RPC to a client these players do not have.
+	_check(not server.guide.is_unlocked(p, "proving:errand"), "a page behind a condition starts locked")
+	server.characters.talk(p, "proving:keeper")
+	server.on_ui_action(201, "engine:talk", "say:start:2")
+	_check(server.guide.is_unlocked(p, "proving:errand"), "and an option can unlock a page and open the book at it")
 
 	# A condition that ticks, and a field that hurts.
 	p.health = 20.0

@@ -21,12 +21,14 @@ extends RefCounted
 ## any of it means. `does` fires `character_choice` and the mod takes it from there - recruiting,
 ## marrying, opening a gate, whatever this particular person is for.
 ##
-## Two of those got shortcuts, because they are what characters are overwhelmingly *for*: `gives`
-## names an objective and `sells` names a shop, both engine capabilities already. Making a mod catch
-## an event and call one function to hand over a quest would have been ceremony around the common case.
+## Three of those got shortcuts, because they are what characters are overwhelmingly *for*: `gives`
+## names an objective, `sells` names a shop and `reads` names a guide page, all three engine
+## capabilities already. Making a mod catch an event and call one function to hand over a quest would
+## have been ceremony around the common case.
 ##
 ##     {"text": "I'll take the job", "gives": "deliver_the_post"}
 ##     {"text": "What have you got?", "sells": "bramble_wares"}
+##     {"text": "Where do I read about iron?", "reads": "guidebook:stone_tools"}
 ##
 ## **Which line to open on is the mod's too.** Bramble says something different once she has somewhere
 ## to live, and that is a fact about her story, not about conversations. The mod passes the line; the
@@ -75,7 +77,12 @@ func register(character_name: String, def: Dictionary, owner := "engine") -> boo
 				# event and call one function would be ceremony around the two things characters are
 				# actually for. Anything else is still `does`.
 				"gives": ModApi.qualified(String(option.get("gives", "")), owner),
-				"sells": ModApi.qualified(String(option.get("sells", "")), owner)})
+				"sells": ModApi.qualified(String(option.get("sells", "")), owner),
+				# The third of the same kind, and it earned its place the same way: a guided game's
+				# whole problem was that nobody could ask a character "where do I read about this?".
+				# Without it that is an event, a handler and an unlock-then-open in every mod that has
+				# somebody worth asking. (2026-09-27)
+				"reads": ModApi.qualified(String(option.get("reads", "")), owner)})
 		lines[String(id)] = {"text": String(entry.get("text", "")), "options": options}
 	kinds[character_name] = {"name": character_name, "owner": owner,
 		"display_name": String(def.get("display_name", character_name.capitalize())),
@@ -150,6 +157,16 @@ func on_action(player, action: String) -> bool:
 		# The engine has no idea what "recruit" means, and is not about to find out.
 		server.emit("character_choice", {"player": player, "character": kind.name,
 			"entity": int(state.get("entity", 0)), "line": parts[1], "choice": String(option.does)})
+	var reads := String(option.reads)
+	if not reads.is_empty():
+		# Unlocked *and* opened, which is the opposite of what a story act does - and deliberately so.
+		# An act unlocks quietly because it was not asked for; somebody who has just chosen "where do I
+		# read about that?" has asked, and answering by silently adding a badge would be a shrug.
+		server.guide.unlock(player, reads, false)
+		_talking.erase(player.peer_id)
+		player.hide_ui("engine:talk")
+		server.guide.open(player, reads)
+		return true
 	var shop := String(option.sells)
 	if not shop.is_empty():
 		# The stall replaces the conversation rather than sitting on top of it: two modal panels at

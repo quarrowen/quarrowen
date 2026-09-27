@@ -49,6 +49,13 @@ func setup(mod_api, id_table: Dictionary) -> void:
 	api.register_guide_chapter("proving", {"title": "The Proving Ground", "order": 1})
 	api.register_guide_page("what", {"chapter": "proving", "title": "What this is",
 		"content": [{"type": "text", "text": "A mod that exists to be tested."}]})
+	# A second page so the objective and its first step can name *different* ones - which is the only way
+	# to cover the rule that a step's page beats its objective's while they are on that step.
+	# **Locked behind a flag nothing ever sets**, which is the point: a page that starts unlocked cannot
+	# show that anything unlocked it, and `reads` is exactly the thing being covered here.
+	api.register_guide_page("errand", {"chapter": "proving", "title": "On Errands",
+		"unlock": {"flag": "read_up"},
+		"content": [{"type": "text", "text": "Going and seeing, then coming back."}]})
 	# Damage numbers, which is float_text plus the post-damage event in one.
 	api.on("entity_damaged", func(ev):
 		var e = ev.entity

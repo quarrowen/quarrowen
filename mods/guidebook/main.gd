@@ -8,8 +8,24 @@ extends "res://engine/server/mod.gd"
 ## immediately made `simple_machines` name `simple_gear:iron_pickaxe`, which the validator caught.
 ## A thing that documents three packs depends on three packs. (2026-09-23)
 ##
-## This is still game content, and when there is a guided game to own it, it moves there or that game
-## simply depends on this.
+## **It stays here, and that question is now closed.** (2026-09-27) The note this paragraph replaces
+## said it was here "under protest" and would move into a guided game as soon as one existed. One does -
+## `firstlight` - and moving it there would have been wrong, for a reason that only became visible once
+## there were three games to look at rather than none:
+##
+## - Every page in this mod is about `base`, `simple_machines` or `simple_gear`. **Not one is about
+##   Firstlight.** There is nothing in here a game owns.
+## - It documents nouns, and the line this project draws is that `base` owns nouns and a game owns
+##   rules. A reference to the nouns sits on the noun side of that line.
+## - Inside `firstlight` the page ids become `firstlight:*`, and then `creative` and `oneblock` - which
+##   use the very same three packs - can only have a guidebook by depending on a *game*. A game
+##   depending on a game is the thing the split was done to avoid.
+##
+## So the honest shape was the one it already had, and the original reasoning was right for a reason it
+## had not quite named: **a library is what you call content that is not any one game's.** What is still
+## true is the narrower complaint underneath it - the book explains three packs and nothing explains
+## `firstlight` itself, whose subjects (the lantern, the ruin, the Colossus) have no pages at all. That
+## is a gap in the *writing* and not in where the file lives.
 
 const Guide = preload("guide.gd")
 

@@ -6307,11 +6307,16 @@ second list goes stale the first time somebody edits an act, and the failure wou
 
 ### Still open
 
-- The altar wants a look: it is four sunstone blocks and a torch, which is legible but not a moment.
-  A structure worth finding would be better than a shape worth building, and was not attempted.
+- ~~The altar wants a look~~ **Answered** later the same day: it is not built at all any more, it is a
+  broken ruin found in the deep and repaired, and lighting it raises and turns it - see "The altar is
+  found, not built" below. Left here struck through rather than deleted because the reasoning in it
+  (a structure worth finding beats a shape worth building) is what produced the answer.
 - `base:sunstone_block` exists as a noun with no recipe of its own; Firstlight owns the recipe. A
   creative game takes the block and ships nothing, which is the line holding correctly.
-- The Moonpearl night effect and the Hollow Reed calling something rare are both still unstarted.
+- ~~The Moonpearl night effect and the Hollow Reed calling something rare are both still unstarted.~~
+  **Both done 2026-09-24** (`moonpearl.gd`, `reed.gd`). Corrected on 27 September, when this section
+  was read as current and was three days stale - an open-items list is the worst place for that,
+  because a finished item sitting in one gets budgeted for a second time.
 
 ### The chain was unfinishable, twice, and validating said nothing (2026-09-24)
 
@@ -7804,3 +7809,128 @@ mean to change is part of using this script, and that is now written in it.
   and `creative` rather than `oneblock`.
 - **The 25 creature voices**, finally answerable now `base`'s roster has settled at seventeen and a boss.
 - **Real music** to replace the placeholders, which is its own job and blocked by nothing.
+
+## Firstlight points at the book, and Wick's second conversation was never reachable (2026-09-27)
+
+Two of the three things standing between `firstlight` and "finished", both from the list of 24
+September. The third - a real person playing it - is not code and is still owed.
+
+### The capability that was missing: a task may name a guide page
+
+The complaint was written down as *"no act, conversation or task links to the page that would help with
+it"*, and the reason nothing did is that there was nowhere to put it. **Tutorial steps have carried a
+`page` since they were built**; objectives never did, so a guided game could unlock a page at handover
+and then had no way of ever mentioning it again. Three small additions, all general:
+
+- **`register_objective` takes `page`**, on the objective and on any single step, and the step wins
+  while the player is on it - because a chain of steps is often a chain of subjects, and "mine iron"
+  and "smelt iron" are two pages. Qualified at the API boundary like every other mod-written name
+  nested in a definition.
+- **The task list names it** - "Guide: Light and Torches" under the step - and **the book opens there
+  by itself** next time it is opened, through a `preferred_page` that mirrors the tutorial tracker's.
+  A tutorial still wins while one is running, because a tutorial is teaching the game itself.
+- **A conversation option may `reads` a page**: unlock it and open the book there. The third shortcut
+  beside `gives` and `sells`, and it earned its place the same way - without it, every mod with
+  somebody worth asking writes an event, a handler and an unlock-then-open.
+
+**Named rather than clickable, and that is deliberate.** Every control in the task panel ignores the
+mouse and has to: on a desk the pointer is captured while you play, so a button there could not be
+clicked without letting go of the camera first. A label plus "the book knows where to open" works
+identically on a tablet and on a desk, with nothing to hit.
+
+**`preferred_page` only offers a page they have not read.** It nudges once and then stops, so a child
+who opened the book to look up something else is not dragged back to the task page for ever.
+
+### The content: nine acts of fourteen, and four side tasks of five
+
+It was five acts, and the reasoning for the other nine was sound but had only ever been applied once -
+so the acts got read through again with the field now doing two jobs instead of one. New: the first
+night points at **Light and Torches** (Wick says "walls" and only the page says *why* walls), Armed at
+**Health and Armor** (nothing before it has asked anybody to *equip* anything), Down at **The Deeper
+Ores** - moved up from Cobalt, where it was telling you where cobalt is two acts after you found it -
+Cobalt at **Crafting by Hand**, since a cobalt pickaxe is the last one anybody makes and the only one
+worth making well, and The Ones Worth Hunting at **Night Visitors**, which is the most useful link in
+the game: that page exists to say what the server's warning means, what the countdown is counting, and
+which of the four will not hurt you.
+
+**The side tasks were the easy win nobody had taken.** An errand is one subject with none of the
+ordering worry the chain has, and four of the five now have a page. Lamplighter matters most: the torch
+recipe is deliberately *not* in the book at first, and without the link the task is twenty torches with
+no way to make the first one.
+
+The four acts with no page have none because **nothing is written about them** - the hand lantern,
+deepstone as a material, sunstone blocks and the altar are this game's own subjects and the book is
+`base`'s. Wick explains those himself, which is what he is for. That is the real remaining gap in the
+guidebook, and it is writing rather than plumbing.
+
+### Wick's `onward` line had never been shown, in the whole life of the game
+
+Found while adding the option that asks him which page to read - which would have been unreachable in
+exactly the same way. `api.talk_to(player, "wick")` passes no line, and **`talk` with no line always
+opens `start`**, so every conversation reopened on "Oh - you're up. And in one piece" including the
+hundredth, and the only route to asking him anything was to walk back through the introduction. The
+`onward` line was written for this, sat in the file with a comment saying *"once the story is running he
+opens straight onto whatever comes next"*, and had never once been drawn.
+
+**Nothing failed.** A line nobody reaches is not an error: it registers, it validates, and `mod_tool
+validate` is as happy as it was about the two unfinishable chains in September. The general shape is
+the one this file keeps writing down - *a comment describing behaviour is not evidence of behaviour* -
+and the cheap check is that a conversation with more than one entry point needs something to choose
+between them, or the extra entries are decoration.
+
+The condition is **whether they have met him**, which the engine already remembers. The first answer was
+"is the story running", which is wrong and worth keeping written down: the chain is handed over on
+*join*, so every player is in the story before they have laid eyes on him, and that would have replaced
+one never-shown line with the other. `onward` also gained a way back to the introduction, because a
+child who tapped through it the first time had otherwise lost the only explanation of what the game is
+about.
+
+### The guidebook stays a library, and that question is closed
+
+Recorded since 23 September as living in its own mod "under protest", to move into a guided game as soon
+as one existed. One does, and moving it would have been wrong - visible only now there are three games
+to look at rather than none:
+
+- Every page is about `base`, `simple_machines` or `simple_gear`. **Not one is about Firstlight.**
+- It documents nouns, and the line here is that `base` owns nouns and a game owns rules.
+- Inside `firstlight` the page ids become `firstlight:*`, and `creative` and `oneblock` - which use the
+  same three packs - could then only have a guidebook by depending on a *game*. A game depending on a
+  game is the thing the split was done to avoid.
+
+So the original reasoning was right for a reason it had not quite named: **a library is what you call
+content that is not any one game's.** Neither `creative` nor `oneblock` includes it yet, which is a
+one-line change for `creative` and needs thought for `oneblock`, where `simple_machines` is optional and
+the book hard-depends on it - a page naming a block from an absent pack is silently dropped, so the book
+would half-work rather than fail. Worth doing, not worth guessing at.
+
+### The task panel ran off the bottom of the screen, and the picture is what said so
+
+The first build of this worked exactly as designed and was worse than what it replaced. `firstlight`
+hands over the chain **and five side tasks at once**, and every one of them was printed as four lines -
+name, step, progress, and now a guide page. Twenty lines in a panel anchored to the top right, so it
+ran past the hotbar and off the bottom, covering half the world.
+
+Nothing failed and no test could have caught it. It took **photographing the client** - the second time
+this week that inferring a layout instead of looking at it would have shipped something unusable, after
+the button rectangles on the tablet.
+
+The fix uses `order`, which was already there for this: **the top task is written out in full and the
+rest keep only their name and their count.** A story's spine is what you are *on*; the errands are a
+checklist, and a checklist does not need each item's current step spelled out. Six tasks went from
+twenty lines to nine, and the panel now ends above the hotbar.
+
+Worth keeping as a rule: **a HUD panel whose contents a mod decides has no natural height**, so anything
+added to a row is multiplied by however many rows that game hands out. This one is the second panel to
+learn it (the pause menu was the first, on 26 September).
+
+### A note on running the suite twice at once
+
+Four runs in a row appeared to be missing `story:firstlight` and `validate:oneblock` entirely - not
+failing, absent - and the docs-are-current check failed and then passed on an unchanged tree. Both were
+**self-inflicted: two suites overlapping.** They share `PORT_BASE`, they both regenerate into
+`docs/api/` to compare, and they both write servers and worlds, so the second one to arrive loses
+races that look like missing tests and stale documentation.
+
+Run alone, the suite is 29 tests and green. Worth writing down because the symptom is so misleading:
+a test that *vanishes* reads as a broken runner rather than as a collision, and it cost most of an
+hour chasing `selected` and the mod glob, neither of which had anything to do with it.

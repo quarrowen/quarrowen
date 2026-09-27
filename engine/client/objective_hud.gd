@@ -16,6 +16,10 @@ var _title: Label
 var _list: VBoxContainer
 var _active: Array = []
 
+## Page id -> its title, set by the client, because the guide's registry lives in the guide screen and
+## this panel has no business holding a second copy of it.
+var page_title := Callable()
+
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -69,6 +73,7 @@ func _rebuild() -> void:
 	_card.visible = not _active.is_empty()
 	if not _card.visible:
 		return
+	var first := true
 	for task in _active:
 		if not (task is Dictionary):
 			continue
@@ -76,10 +81,23 @@ func _rebuild() -> void:
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_theme_constant_override("separation", 2)
 		_list.add_child(row)
-		var name_label := _label(15, Color.WHITE)
+		var name_label := _label(15, Color.WHITE if first else Color(0.8, 0.84, 0.9))
 		name_label.text = String(task.get("display_name", ""))
 		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(name_label)
+		# **Only the top task is written out in full.** `order` already puts a story's spine above its
+		# errands, and a guided game hands over five errands at once - so with every one of them printed
+		# as name, step, progress and guide page, the panel was twenty lines tall and ran off the bottom
+		# of the screen. Photographed on 2026-09-27 and it covered half the world. The errands keep their
+		# name and their count, which is what a checklist is; what you are actually *on* keeps everything.
+		if not first:
+			var needed_side := int(task.get("needed", 1))
+			if needed_side > 1:
+				var tally := _label(12, Color(0.6, 0.68, 0.78))
+				tally.text = "  %d of %d" % [int(task.get("progress", 0)), needed_side]
+				row.add_child(tally)
+			continue
+		first = false
 		var step := _label(14, Color(0.88, 0.9, 0.94))
 		# A tick rather than a bullet, because the step you are on is the one that is not done yet.
 		step.text = "• %s" % String(task.get("text", ""))
@@ -96,6 +114,33 @@ func _rebuild() -> void:
 			var foot := _label(12, Color(0.6, 0.68, 0.78))
 			foot.text = "  ".join(notes)
 			row.add_child(foot)
+		# **Named, not linked.** Every control in this panel ignores the mouse, and it has to: on a desk
+		# the pointer is captured while you play, so a button here could not be clicked without letting
+		# go of the camera first. So the task says which page helps and the guide opens there by itself
+		# the next time it is opened - see preferred_page. (2026-09-27)
+		var page := String(task.get("page", ""))
+		if not page.is_empty() and page_title.is_valid():
+			var title := String(page_title.call(page))
+			if not title.is_empty():
+				var read := _label(12, ACCENT)
+				read.text = "Guide: %s" % title
+				read.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				row.add_child(read)
+
+
+## The page the book should open at, given what has already been read: whichever the topmost task names
+## and the player has not read yet. **Unread only** - once they have read it, opening the guide goes
+## back to where they left off, so this nudges once and then stops being in the way. The same shape as
+## the tutorial tracker's, which came first; the player is asking the one question with two answers
+## ("what should I read?") and the story's answer sorts above a tutorial's by being asked for later.
+func preferred_page(read: Dictionary) -> String:
+	for task in _active:
+		if not (task is Dictionary):
+			continue
+		var page := String(task.get("page", ""))
+		if not page.is_empty() and not read.has(page):
+			return page
+	return ""
 
 
 func _label(font_size: int, color: Color) -> Label:

@@ -3197,6 +3197,10 @@ func _set_guide_open(open: bool, page_id := "") -> void:
 		_tutorial_hud.panel.visible = false
 		if page_id.is_empty():
 			page_id = _tutorial_hud.preferred_page(_guide_screen.read)
+		# The task list gets asked second, so a tutorial - which is teaching the game itself - still wins
+		# while one is running. After that the story is the only thing with an opinion.
+		if page_id.is_empty():
+			page_id = _objective_hud.preferred_page(_guide_screen.read)
 		_bring_to_front(_guide_screen)
 		_guide_screen.open(page_id)
 		_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -4577,6 +4581,10 @@ func _build_hud() -> void:
 	_guide_screen.make_entity_view = _entity_portrait
 	_guide_screen.texture_of = func(asset: String) -> Texture2D: return _asset_textures.get(asset)
 	_guide_screen.visible = false
+	# Set here rather than where the task list is built, because the guide's registry does not exist
+	# until this line. A page nobody has heard of answers "", which is what the panel checks for.
+	_objective_hud.page_title = func(page_id: String) -> String:
+		return String(_guide_screen.registry.get_page(page_id).get("title", ""))
 	_guide_screen.closed.connect(_set_guide_open.bind(false))
 	_guide_screen.page_viewed.connect(func(page_id):
 		Net.c_guide_read.rpc_id(1, page_id)

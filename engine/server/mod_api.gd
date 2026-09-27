@@ -1398,6 +1398,11 @@ func plots_of(who) -> Array:
 ## **The engine never decides whether a step is done.** It counts, remembers and tells you; you watch
 ## whatever event means "they did it" and call advance_objective. Otherwise the engine would have to
 ## learn what delivering a letter is.
+##
+## `page` names a guide page that helps with this, on the objective or on any single step, and the step
+## wins where both are set. The task list shows its title, and the book opens there of its own accord
+## next time it is opened - so a child who is stuck looks at the one panel that is already telling them
+## what to do. Names without ":" are this mod's.
 func register_objective(objective_name: String, def: Dictionary) -> bool:
 	return _server.objectives.register(_qualify(objective_name), def, mod_id)
 
@@ -1446,8 +1451,9 @@ func objective_finished(player, objective_name: String) -> int:
 ## child who has learned to talk to one has learned to talk to all of them. It knows a conversation is
 ## lines with options and nothing else about what any of it means.
 ##
-## `goes_to` moves to another line, `gives` hands over an objective, `sells` opens a shop, and `does`
-## fires `character_choice` for anything else at all.
+## `goes_to` moves to another line, `gives` hands over an objective, `sells` opens a shop, `reads`
+## unlocks a guide page and opens the book there, and `does` fires `character_choice` for anything else
+## at all. Names without ":" belong to this mod.
 func register_character(character_name: String, def: Dictionary) -> bool:
 	return _server.characters.register(_qualify(character_name), def, mod_id)
 

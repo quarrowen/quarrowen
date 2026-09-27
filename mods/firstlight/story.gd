@@ -47,6 +47,11 @@ func _register_all(entries: Array, order: int) -> void:
 			steps.append({"text": String(step.text), "count": int(step.get("count", 1))})
 		api.register_objective(String(act.id), {"display_name": String(act.name),
 			"description": String(act.get("description", "")), "steps": steps,
+			# The same `page` the act unlocks at handover, handed to the task as well - so the one panel a
+			# stuck child is already looking at says which page helps, and the book opens there by itself
+			# the next time it is opened. One field, read twice, rather than a second table to keep in
+			# step with this one. (2026-09-27)
+			"page": String(act.get("page", "")),
 			"repeatable": bool(act.get("repeatable", false)), "order": order})
 		for i in (act.steps as Array).size():
 			var goal: Dictionary = act.steps[i].get("goal", {})
@@ -185,6 +190,26 @@ func advance_to_next(player) -> bool:
 			api.unlock_guide_page(player, page)
 		return true
 	return false
+
+
+## Whether Wick should skip his introduction, which is simply whether they have met him before.
+##
+## **Not "is the story running"**, which was the first answer and is wrong: the chain is handed over on
+## join, so every player is in the story before they have laid eyes on him, and keying off that would
+## have replaced one never-shown line with the other. Having been spoken to once is the honest test, and
+## the engine already remembers it.
+func under_way(player) -> bool:
+	return api.has_met(player, "wick")
+
+
+## The guide page for whatever they are on, for when Wick is *asked* where to read about it. Walks the
+## chain in order and answers for the first act they are holding, so it follows them without keeping any
+## state of its own; "" when the current act has no page, and the caller says something else.
+func page_for(player) -> String:
+	for act in Acts.ACTS:
+		if api.has_objective(player, String(act.id)):
+			return String(act.get("page", ""))
+	return ""
 
 
 ## What he says when asked to repeat himself, which children do and should.

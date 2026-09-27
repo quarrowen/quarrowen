@@ -20,6 +20,8 @@ extends RefCounted
 ## watches whatever event means "they did it". Anything else would mean the engine learning what
 ## delivering a letter is.
 
+const ModApi = preload("res://engine/server/mod_api.gd")
+
 const KEY := "_objectives"
 ## How many one player may have going at once. Enough for a story and a handful of errands; few enough
 ## that a mod cannot quietly fill a save file.
@@ -27,7 +29,7 @@ const MAX_ACTIVE := 32
 
 var server
 
-## Name -> {name, display_name, description, steps: [{text, count}], repeatable, owner}
+## Name -> {name, display_name, description, steps: [{text, count, page}], repeatable, page, owner}
 var kinds := {}
 
 
@@ -42,7 +44,8 @@ func register(objective_name: String, def: Dictionary, owner := "engine") -> boo
 	var steps := []
 	for entry in (def.get("steps", []) if def.get("steps") is Array else []):
 		if entry is Dictionary:
-			steps.append({"text": String(entry.get("text", "")), "count": maxi(int(entry.get("count", 1)), 1)})
+			steps.append({"text": String(entry.get("text", "")), "count": maxi(int(entry.get("count", 1)), 1),
+				"page": ModApi.qualified(String(entry.get("page", "")), owner)})
 	if steps.is_empty():
 		push_error("Objective '%s' has no steps" % objective_name)
 		return false
@@ -58,6 +61,11 @@ func register(objective_name: String, def: Dictionary, owner := "engine") -> boo
 		# game that hands out five side tasks at the start buries the one line saying what the game is
 		# about, and buries it further with every act that completes. (2026-09-24)
 		"order": int(def.get("order", 0)),
+		# The guide page that helps with this, if one does. **A task is the natural place for it**: a
+		# player who is stuck is looking at the task list, not at the conversation where it was handed
+		# over an hour ago. A step may name its own and wins where it does, because a chain of steps is
+		# often a chain of subjects - "mine iron" and "smelt iron" are two pages. (2026-09-27)
+		"page": ModApi.qualified(String(def.get("page", "")), owner),
 		"owner": owner,
 	}
 	return true
@@ -142,7 +150,7 @@ func sync(player) -> void:
 		Net.s_objectives.rpc_id(player.peer_id, {"active": active_for(player)})
 
 
-## What they are doing now: [{name, display_name, step, of, text, progress, needed}].
+## What they are doing now: [{name, display_name, step, of, text, progress, needed, page}].
 func active_for(player) -> Array:
 	if player == null:
 		return []
@@ -158,6 +166,7 @@ func active_for(player) -> Array:
 		out.append({"name": objective_name, "display_name": String(kind.display_name),
 			"step": step, "of": (kind.steps as Array).size(), "text": String(kind.steps[step].text),
 			"progress": int(state.progress), "needed": int(kind.steps[step].count),
+			"page": String(kind.steps[step].page) if not String(kind.steps[step].page).is_empty() else String(kind.page),
 			"order": int(kind.order), "_given": given})
 		given += 1
 	# By `order`, then by when it was given. The second key is what makes this stable: sorting on one
