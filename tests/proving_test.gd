@@ -9,8 +9,20 @@ extends Node
 const GameServer = preload("res://engine/server/game_server.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
+const UserPaths = preload("res://engine/shared/user_paths.gd")
 
-const DATA_DIR := "user://proving_test"
+## The worlds this test writes, through UserPaths, named after this process, and deleted on the way out.
+## All three parts were needed, and the missing ones cost a day chasing a "flaky" security test:
+##
+## A bare `user://` here **is** the player's installed folder (`project.godot` sets
+## `use_custom_user_dir`), so this had quietly left 315 worlds and 11MB in it - and QW_USER_DIR, the one
+## thing that moves a test out of that folder, only moves what goes through UserPaths.
+##
+## And the world was named from `Time.get_ticks_msec()`, which is roughly the same number every run, so
+## a run loaded the world an *earlier* run had left. That world's saved `admitted` map still held
+## "walker" from the approval assertions below, so the gate let them build - correctly, and the test
+## read as a security feature that "usually refuses". (2026-09-27)
+var _data_dir := UserPaths.path("proving_%d" % OS.get_process_id())
 var _failures := 0
 var _checks := 0
 
@@ -20,7 +32,7 @@ func _ready() -> void:
 	add_child(server)
 	var err: Error = server.start({"mods": PackedStringArray(["proving", "proving_js"]),
 		"mod_dirs": PackedStringArray(["res://tests/mods"]),
-		"world": "proving_%d" % Time.get_ticks_msec(), "data_dir": DATA_DIR, "seed": 42, "offline": true})
+		"world": "proving", "data_dir": _data_dir, "seed": 42, "offline": true})
 	_check(err == OK, "the Proving Ground starts as a game (%s)" % error_string(err))
 	if err != OK:
 		return _finish()
@@ -80,7 +92,7 @@ func _excludes() -> void:
 	add_child(server)
 	var err: Error = server.start({"mods": PackedStringArray(["picky"]),
 		"mod_dirs": PackedStringArray(["res://tests/mods"]),
-		"world": "picky_%d" % Time.get_ticks_msec(), "data_dir": DATA_DIR, "seed": 42, "offline": true})
+		"world": "picky", "data_dir": _data_dir, "seed": 42, "offline": true})
 	_check(err == OK, "a game that excludes part of what it depends on still starts (%s)" % error_string(err))
 	if err != OK:
 		server.queue_free()
@@ -259,13 +271,8 @@ func _behaviour(server) -> void:
 	# build in the first place, and proves nothing at all.
 	_check(server.has_permission(p, "build"), "an ordinary player can build before approval is asked for")
 	server.gameplay.approval = true
-	var diag: String = "approval=%s admitted=%s cfg=%s pid=%s name=%s roles=%s entries=%s adm=%s" % [
-		server.gameplay.approval, server._meta.get("admitted", {}).keys(), server._config_admins.keys(),
-		p.player_id, p.name, server.roles.roles_of(p.player_id), server.roles.entries_of(p.player_id),
-		server.is_admitted(p.player_id)]
-	print("[diag] ", diag)
 	_check(not server.has_permission(p, "build") and not server.has_permission(p, "chat"),
-		"with approval on, somebody nobody admitted cannot build or chat " + diag)
+		"with approval on, somebody nobody admitted cannot build or chat")
 	_check(server.has_permission(p, "build") == false, "and the refusal is not a one-off")
 	server.admit(p.player_id, p.name, "Tester")
 	_check(server.has_permission(p, "build"), "and can once they are let in")
@@ -834,4 +841,17 @@ func _check(ok: bool, what: String) -> void:
 
 func _finish() -> void:
 	print("[proving] %s (%d checks, %d failed)" % ["PASSED" if _failures == 0 else "FAILED", _checks, _failures])
+	# Nothing here is worth keeping, and a world left behind is a world the next run might load.
+	_remove_tree(ProjectSettings.globalize_path(_data_dir))
 	get_tree().quit(1 if _failures > 0 else 0)
+
+
+static func _remove_tree(path: String) -> void:
+	var dir := DirAccess.open(path)
+	if dir == null:
+		return
+	for sub in dir.get_directories():
+		_remove_tree(path.path_join(sub))
+	for file in dir.get_files():
+		DirAccess.remove_absolute(path.path_join(file))
+	DirAccess.remove_absolute(path)

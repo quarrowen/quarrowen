@@ -7576,3 +7576,33 @@ reaching the hardware was most of what made them expensive.
   (the user, 2026-09-27); not started.
 - `mouse_get_position` is still called somewhere and warns on every iOS launch - one read path missed
   when the 25 writes were routed through a no-op.
+
+### Touch: what is reachable, what is not, and a better idea than the one built (2026-09-27)
+
+Making the guidebook name real controls exposed that several screens had **no route at all without a
+keyboard**. The mechanism is worth writing down because it is not obvious: every screen opens from an
+event check in `_unhandled_input` (`event.is_action_pressed("crafting")`), and the touch overlay presses
+actions through `Input.action_press`, which updates the *polled* state that movement and mining read but
+**synthesises no event**. So the thumb buttons worked for free and the backpack needed a direct call -
+and crafting, the map, chat, drop and the palette had nothing but a key.
+
+Crafting, the map and chat now sit in the pause menu. **Drop and the creative palette remain
+keyboard-only** and are a gap, not a decision.
+
+#### The radial menu, proposed and not built (the user, 2026-09-27)
+
+*"Maybe a fly out radial menu ux is worth considering..?"* - and it is the better answer than the one
+shipped. A ring that opens **around the thumb, wherever the thumb happens to be** is reachable by
+construction, which is the same argument that moved the buttons to the screen edge; and it holds five
+or six infrequent actions without five or six permanent buttons competing for a child's screen.
+
+The pause menu is in particular the wrong home for **crafting**: you stop to open a pause menu, and you
+craft in the middle of playing.
+
+Two things it would need: to hang off a visible button rather than a bare gesture, because a child does
+not discover an invisible one - the same reasoning that gave the world a menu button rather than a
+two-finger tap; and the existing thumb buttons kept, because a ring is an accelerator and not a
+replacement.
+
+Deliberately parked rather than started: the touch work had already run long and the roadmap was
+waiting.
