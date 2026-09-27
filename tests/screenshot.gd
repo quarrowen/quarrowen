@@ -19,7 +19,7 @@ const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera", "look": "", "look_wait": "6", "goto": "", "stand": "", "warmup": "120", "size": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera", "look": "", "look_wait": "6", "goto": "", "stand": "", "warmup": "120", "size": "", "ring": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -85,6 +85,13 @@ func _ready() -> void:
 		client._set_paused(true)
 		client.open_players_panel()
 		await get_tree().create_timer(1.0).timeout
+	# The touch ring is transient - it is open only while a thumb has asked for it - so photographing it
+	# needs the same kind of hook the settings overlay gets below.
+	if not String(options.ring).is_empty() and client._touch_controls != null:
+		client._touch_controls._toggle_ring(true)
+		await get_tree().process_frame
+		await get_tree().process_frame
+
 	if not String(options.settings).is_empty():
 		# The settings screen over the game on a tab: --settings=Controls
 		client._set_paused(true)

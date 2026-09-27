@@ -9399,6 +9399,19 @@ the `inventory` action, which needs a key event to reach the handler.
 
 **See also:** `refresh`, `set_container`
 
+### `open_crafting`
+
+*client/game_client.gd*
+
+GDScript: `open_crafting() -> void`
+
+The rest of what a keyboard opens, as methods rather than key events. **A virtual button cannot reach
+`_unhandled_input`**: pressing an action through `Input` updates the polled state that movement and
+mining read, but synthesises no event, and every screen opens from an event check. So each way in
+needs a door that is not a key. (2026-09-27)
+
+**See also:** `crafting_stock`, `evaluate`, `leave`
+
 ### `open_settings`
 
 *client/game_client.gd*

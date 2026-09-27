@@ -2424,6 +2424,13 @@ etc since i am in game and no touch controls!")</p></div>
 <div class="card" data-search="toggle_inventory opens or closes the backpack. public for the same reason as `set_paused`: the only other way in is
 the `inventory` action, which needs a key event to reach the handler. client/game_client.gd the client"><div class="sig"><code>toggle_inventory() -&gt; void</code></div><p>Opens or closes the backpack. Public for the same reason as `set_paused`: the only other way in is
 the `inventory` action, which needs a key event to reach the handler.</p></div>
+<div class="card" data-search="open_crafting the rest of what a keyboard opens, as methods rather than key events. **a virtual button cannot reach
+`_unhandled_input`**: pressing an action through `input` updates the polled state that movement and
+mining read, but synthesises no event, and every screen opens from an event check. so each way in
+needs a door that is not a key. (2026-09-27) client/game_client.gd the client"><div class="sig"><code>open_crafting() -&gt; void</code></div><p>The rest of what a keyboard opens, as methods rather than key events. **A virtual button cannot reach
+`_unhandled_input`**: pressing an action through `Input` updates the polled state that movement and
+mining read, but synthesises no event, and every screen opens from an event check. So each way in
+needs a door that is not a key. (2026-09-27)</p></div>
 <div class="card" data-search="open_settings the settings screen over the game (from the pause menu). client/game_client.gd the client"><div class="sig"><code>open_settings() -&gt; void</code></div><p>The settings screen over the game (from the pause menu).</p></div>
 <div class="card" data-search="open_players_panel players and roles (admins) over the game, in the settings overlay slot. client/game_client.gd the client"><div class="sig"><code>open_players_panel() -&gt; void</code></div><p>Players and roles (admins) over the game, in the settings overlay slot.</p></div>
 <div class="card" data-search="open_server_panel server settings (admins) over the game, in the settings overlay slot. client/game_client.gd the client"><div class="sig"><code>open_server_panel() -&gt; void</code></div><p>Server settings (admins) over the game, in the settings overlay slot.</p></div>
@@ -3156,7 +3163,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1228 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1229 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

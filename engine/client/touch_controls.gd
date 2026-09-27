@@ -27,7 +27,7 @@ extends Control
 ## matters sits in the middle where a finger would cover it, and the two halves of the screen are
 ## independent so walking and looking can happen at once.
 
-const STICK_RADIUS := 78.0
+const STICK_RADIUS := 58.0
 ## How far the thumb must leave the centre before it counts as a direction. Below this a resting thumb
 ## would twitch the player, which reads as drift rather than as input.
 const STICK_DEADZONE := 0.18
@@ -35,14 +35,26 @@ const STICK_DEADZONE := 0.18
 ## from 0.55 after the first go on hardware read as sluggish (the user, 2026-09-27) - a finger covers
 ## several centimetres where a mouse covers a few millimetres, and 0.55 was scaling the wrong way.
 const LOOK_SCALE := 1.6
-const BUTTON_SIZE := Vector2(64, 64)
+## **Sized for a 590 x 410 interface space, not a 1180 x 820 one.** The window is scaled 2x for HiDPI,
+## so the HUD's own coordinates are half the pixels - measured, after a layout built for the larger
+## number crowded every button into the top of the screen and pushed the ring off it. The hotbar's slots
+## are 58 units in this space, which is the scale everything here is judged against. (2026-09-27)
+const BUTTON_SIZE := Vector2(54, 54)
 ## **How much of the bottom edge the hotbar owns.** Nothing of ours may sit in it. The buttons were
 ## anchored 40 units up, which clears the belt on a wide screen and lands on top of slots five to nine
 ## on a squarer one - Godot's content scaling keeps the *height*, so a narrower screen has a narrower
 ## viewport in these units and anything anchored to opposite edges moves towards the middle. A 1.93:1
 ## desktop shot showed no overlap; a 1.44:1 tablet had it all along. (the user, 2026-09-27: "the button
 ## for run is actually overlapping with the action bar")
-const BELT_BAND := 104.0
+const BELT_BAND := 76.0
+## **The ring of things you stop to do.** Crafting, the map, chat, dropping and the creative palette have
+## no business as permanent buttons - a child's thumbs cannot cover eleven - and the pause menu is the
+## wrong home for them because you pause to *stop* and you craft in the middle of playing. A ring opened
+## from a button is reachable by construction, holds all of them, and costs one button's worth of screen.
+## (the user, 2026-09-27: "maybe a fly out radial menu ux is worth considering..? ... yes a button opens
+## it") Hung off a button rather than a bare gesture, because a child does not discover an invisible one.
+const RING_RADIUS := 92.0
+const RING_ITEM := Vector2(50, 50)
 ## **Tapping the world acts on it.** A finger that presses the looking half and does not travel is
 ## reaching for the block in front of it, not turning the view - so a tap swings, and a press held still
 ## mines, and only a finger that actually moves turns the camera. The buttons stay, because they are
@@ -89,6 +101,9 @@ var _tap_action := "break"
 ## Set when a second finger lands on the looking half, so lifting the first does not also swing.
 var _two_fingered := false
 var _held: Dictionary = {}  # action -> true, for the buttons being pressed
+var _ring_items: Array[Button] = []
+var _thumb_buttons: Array[Button] = []
+var _ring_open := false
 
 
 func _init(client) -> void:
@@ -132,12 +147,15 @@ func _build_buttons() -> void:
 	# up on the sides of the screen would be better for accessibility... easier to reach")
 	#
 	# Jump is largest and lowest: pressed most, and missed most.
-	_add_button("jump", "jump", "Jump", Vector2(-28, -BELT_BAND), Vector2(84, 84))
-	_add_button("sneak", "crouch", "Crouch", Vector2(-120, -BELT_BAND), BUTTON_SIZE)
-	_add_button("break", "mine", "Mine", Vector2(-28, -BELT_BAND - 96.0), BUTTON_SIZE)
-	_add_button("place", "place", "Place", Vector2(-120, -BELT_BAND - 96.0), BUTTON_SIZE)
-	_add_button("sprint", "run", "Run", Vector2(-28, -BELT_BAND - 172.0), BUTTON_SIZE)
-	_add_button("inventory", "bag", "Backpack", Vector2(-120, -BELT_BAND - 172.0), BUTTON_SIZE)
+	_add_button("jump", "jump", "Jump", Vector2(-22, -BELT_BAND), Vector2(72, 72))
+	_add_button("sneak", "crouch", "Crouch", Vector2(-102, -BELT_BAND), BUTTON_SIZE)
+	_add_button("break", "mine", "Mine", Vector2(-22, -BELT_BAND - 80.0), BUTTON_SIZE)
+	_add_button("place", "place", "Place", Vector2(-102, -BELT_BAND - 80.0), BUTTON_SIZE)
+	_add_button("sprint", "run", "Run", Vector2(-22, -BELT_BAND - 142.0), BUTTON_SIZE)
+	# The backpack moves into the ring: it is opened between things rather than during them, and its slot
+	# is worth more as the way to everything else.
+	_add_button("more", "more", "More", Vector2(-102, -BELT_BAND - 142.0), BUTTON_SIZE)
+	_build_ring()
 
 
 ## One button that holds its action down for as long as it is touched, because `break` and `place` both
@@ -158,6 +176,7 @@ func _add_button(action: String, icon: String, label: String, at: Vector2, size:
 	button.add_child(drawing)
 	button.button_down.connect(func(): _press(action))
 	button.button_up.connect(func(): _release(action))
+	_thumb_buttons.append(button)
 
 
 ## Places a control against an edge by its anchors, sizing it explicitly. `ax`/`ay` pick the corner
@@ -174,17 +193,92 @@ func _anchor(control: Control, ax: float, ay: float, control_size: Vector2, at: 
 	add_child(control)
 
 
+## The ring: laid out on an arc rather than a full circle, because it opens from a corner and half a
+## circle would be off the screen. It fans up and to the left, which is where the screen is.
+func _build_ring() -> void:
+	# **Anchored from the same corner as every other button, not positioned inside a nested control.**
+	# The first version parented them to a tiny Control and set `position` on each, which put the whole
+	# ring across the compass - a nested coordinate space that has to be reasoned about is one that gets
+	# reasoned about wrongly. Each item is placed by the same `_anchor` the thumb buttons use.
+	var centre := Vector2(-102.0 - RING_ITEM.x * 0.5, -(BELT_BAND + 142.0) - BUTTON_SIZE.y * 0.5)
+	var items := [["inventory", "bag", "Backpack"], ["crafting", "craft", "Crafting"], ["map", "map", "Map"],
+		["chat", "chat", "Chat"], ["drop", "drop", "Drop"], ["palette", "palette", "Blocks"]]
+	for i in items.size():
+		# A quarter turn, from straight left round to straight up: the only quadrant with screen in it
+		# when the opener sits in the bottom right corner.
+		# Half a turn - left, up, and round to the right - because six items on a quarter arc at this
+		# radius overlap one another. There is room to the right: the opener is not against the edge.
+		var angle: float = PI + PI * (float(i) / float(items.size() - 1))
+		var at := centre + Vector2(cos(angle), sin(angle)) * RING_RADIUS + RING_ITEM * 0.5
+		var button := Button.new()
+		button.tooltip_text = String(items[i][2])
+		button.focus_mode = Control.FOCUS_NONE
+		button.mouse_filter = Control.MOUSE_FILTER_STOP
+		button.visible = false
+		button.add_theme_stylebox_override("normal", _round(Color(0.08, 0.08, 0.09, 0.82), 12.0))
+		button.add_theme_stylebox_override("hover", _round(Color(0.16, 0.16, 0.18, 0.90), 12.0))
+		button.add_theme_stylebox_override("pressed", _round(Color(0.24, 0.24, 0.26, 0.94), 12.0))
+		_anchor(button, 1.0, 1.0, RING_ITEM, at)
+		var action: String = items[i][0]
+		button.pressed.connect(func():
+			_toggle_ring(false)
+			_press(action))
+		var drawing := Icon.new(String(items[i][1]))
+		drawing.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		button.add_child(drawing)
+		_ring_items.append(button)
+
+
+func _toggle_ring(open: bool) -> void:
+	_ring_open = open
+	for button in _ring_items:
+		button.visible = open
+	# **The action buttons go while the ring is up.** The arc reaches across where they sit, and two
+	# overlapping sets of round buttons is both ugly and a mis-tap waiting to happen. Hiding them also
+	# says plainly that the ring is the thing being answered. The opener stays, so there is a way back.
+	for button in _thumb_buttons:
+		if button.tooltip_text != "More":
+			button.visible = not open
+	if open:
+		# Anything being held when the ring opens is let go of, or a finger that was mining carries on
+		# mining behind a menu.
+		for action in _held.keys():
+			Input.action_release(action)
+		_held.clear()
+
+
 func _press(action: String) -> void:
-	# `inventory` is a screen rather than a held state, and pressing it as an action would need a real
-	# event to reach the handler in _unhandled_input. Call the client instead.
-	if action == "inventory":
-		_client.toggle_inventory()
-		return
+	# **These open screens, and a screen opens from an event this cannot send.** Pressing the action
+	# would update the polled state and reach nothing, so each calls the client directly.
+	match action:
+		"more":
+			_toggle_ring(not _ring_open)
+			return
+		"inventory":
+			_client.toggle_inventory()
+			return
+		"crafting":
+			_client.open_crafting()
+			return
+		"map":
+			_client.toggle_map()
+			return
+		"chat":
+			_client.open_chat()
+			return
+		"drop":
+			_client.drop_selected()
+			return
+		"palette":
+			_client.open_palette()
+			return
 	_held[action] = true
 	Input.action_press(action)
 
 
 func _release(action: String) -> void:
+	if not _held.has(action):
+		return  # a screen opener, not a held action - there is nothing pressed to let go of
 	_held.erase(action)
 	Input.action_release(action)
 
@@ -357,6 +451,12 @@ class Icon extends Control:
 			"mine": _pick(mid, unit, ink, stroke)
 			"place": _block(mid, unit, ink)
 			"bag": _bag(mid, unit, ink, stroke)
+			"more": _more(mid, unit, ink)
+			"craft": _craft(mid, unit, ink, stroke)
+			"map": _map(mid, unit, ink, stroke)
+			"chat": _chat(mid, unit, ink, stroke)
+			"drop": _drop(mid, unit, ink, stroke)
+			"palette": _palette(mid, unit, ink)
 
 	## An arrow, point up (-1) or down (+1): a head and a stem, as one polygon each.
 	func _arrow(mid: Vector2, unit: float, ink: Color, dir: float) -> void:
@@ -399,6 +499,48 @@ class Icon extends Control:
 			centre + Vector2(0.0, 0.28 * unit), left + Vector2(0.0, 0.28 * unit)]), Color(ink, ink.a * 0.72))
 		draw_colored_polygon(PackedVector2Array([right, centre,
 			centre + Vector2(0.0, 0.28 * unit), right + Vector2(0.0, 0.28 * unit)]), Color(ink, ink.a * 0.50))
+
+	## Six dots: the universal "and the rest", and the only one here that should not look like a thing.
+	func _more(mid: Vector2, unit: float, ink: Color) -> void:
+		for row in 2:
+			for col in 3:
+				draw_circle(mid + Vector2((float(col) - 1.0) * 0.22, (float(row) - 0.5) * 0.24) * unit,
+					unit * 0.055, ink)
+
+	## A crafting grid: four squares with a gap, which is what a recipe looks like everywhere.
+	func _craft(mid: Vector2, unit: float, ink: Color, stroke: float) -> void:
+		for row in 2:
+			for col in 2:
+				var at := mid + Vector2(float(col) - 1.0, float(row) - 1.0) * 0.30 * unit + Vector2(0.03, 0.03) * unit
+				draw_rect(Rect2(at, Vector2(0.24, 0.24) * unit), ink, false, stroke)
+
+	## A folded map: a rectangle with the two creases that make it read as paper rather than a card.
+	func _map(mid: Vector2, unit: float, ink: Color, stroke: float) -> void:
+		draw_rect(Rect2(mid - Vector2(0.32, 0.24) * unit, Vector2(0.64, 0.48) * unit), ink, false, stroke)
+		for x in [-0.11, 0.11]:
+			draw_line(mid + Vector2(x * unit, -0.24 * unit), mid + Vector2(x * unit, 0.24 * unit), ink, stroke * 0.7)
+
+	## A speech bubble, with the tail that stops it being a rounded rectangle.
+	func _chat(mid: Vector2, unit: float, ink: Color, stroke: float) -> void:
+		draw_rect(Rect2(mid - Vector2(0.32, 0.28) * unit, Vector2(0.64, 0.44) * unit), ink, false, stroke)
+		draw_polyline(PackedVector2Array([
+			mid + Vector2(-0.14, 0.16) * unit, mid + Vector2(-0.20, 0.34) * unit,
+			mid + Vector2(-0.02, 0.16) * unit]), ink, stroke)
+
+	## An arrow leaving a hand: a block, and a line away from it downward.
+	func _drop(mid: Vector2, unit: float, ink: Color, stroke: float) -> void:
+		draw_rect(Rect2(mid - Vector2(0.20, 0.34) * unit, Vector2(0.40, 0.26) * unit), ink)
+		draw_line(mid + Vector2(0.0, 0.0), mid + Vector2(0.0, 0.26 * unit), ink, stroke)
+		draw_colored_polygon(PackedVector2Array([
+			mid + Vector2(0.0, 0.36 * unit), mid + Vector2(0.16, 0.16) * unit,
+			mid + Vector2(-0.16, 0.16) * unit]), ink)
+
+	## A painter's palette, as four squares of different weight - the creative block picker.
+	func _palette(mid: Vector2, unit: float, ink: Color) -> void:
+		var shades := [1.0, 0.74, 0.52, 0.34]
+		for i in 4:
+			var at := mid + Vector2(float(i % 2) - 1.0, float(i / 2) - 1.0) * 0.30 * unit + Vector2(0.03, 0.03) * unit
+			draw_rect(Rect2(at, Vector2(0.24, 0.24) * unit), Color(ink, ink.a * shades[i]))
 
 	## A backpack: a body with a flap across it, and a small handle. **Not a padlock** - the first
 	## version put a round strap over a square body with a dark block in the middle of it, which is a

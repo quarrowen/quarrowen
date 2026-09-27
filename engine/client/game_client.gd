@@ -3717,6 +3717,24 @@ func toggle_inventory() -> void:
 	_set_inventory_open(not _inventory_screen.visible)
 
 
+## The rest of what a keyboard opens, as methods rather than key events. **A virtual button cannot reach
+## `_unhandled_input`**: pressing an action through `Input` updates the polled state that movement and
+## mining read, but synthesises no event, and every screen opens from an event check. So each way in
+## needs a door that is not a key. (2026-09-27)
+func open_crafting() -> void:
+	if _welcomed:
+		Net.c_open_menu.rpc_id(1, "crafting")
+
+
+func open_palette() -> void:
+	if _welcomed:
+		Net.c_open_menu.rpc_id(1, "palette")
+
+
+func open_chat() -> void:
+	_open_chat()
+
+
 func _set_paused(paused: bool) -> void:
 	_pause_panel.visible = paused
 	_tutorial_hud.panel.visible = false
@@ -4416,27 +4434,9 @@ func _build_hud() -> void:
 	guide_button.custom_minimum_size = Vector2(240, 44)
 	guide_button.pressed.connect(func(): _set_guide_open(true))
 	pause_box.add_child(guide_button)
-	# **Crafting, the map and chat had no route at all without a keyboard.** Crafting especially: a
-	# survival game is unplayable on a tablet if the only way to open it is to press C. They live here
-	# rather than as more thumb buttons because they are things you stop to do, not things you do while
-	# moving - and the on-screen controls are already as busy as a child's thumbs can cover. Shown on
-	# every platform, because a player who would rather point than remember a letter exists on a desktop
-	# too. (2026-09-27)
-	for entry in [["Crafting", func(): Net.c_open_menu.rpc_id(1, "crafting")], ["Map", func(): toggle_map()],
-			["Chat", func(): _open_chat()]]:
-		var reach := Button.new()
-		reach.text = entry[0]
-		reach.custom_minimum_size = Vector2(240, 44)
-		reach.pressed.connect(func():
-			_set_paused(false)
-			entry[1].call())
-		pause_box.add_child(reach)
-	for entry in [["Worlds…", open_worlds_panel], ["Server settings…", open_server_panel], ["Players and roles…", open_players_panel], ["Friends…", open_friends], ["Invite friends…", open_invite_dialog], ["Report a creation…", open_report_dialog], ["Review creations (admins)", open_ugc_review]]:
-		var ugc_button := Button.new()
-		ugc_button.text = entry[0]
-		ugc_button.custom_minimum_size = Vector2(240, 44)
-		ugc_button.pressed.connect(entry[1])
-		pause_box.add_child(ugc_button)
+	# Crafting, the map and chat reached the pause menu first, when it was the only door that was not a
+	# key. The touch ring is the better home - you craft in the middle of playing and pause to stop - so
+	# they moved there, and this menu is shorter for it. (2026-09-27)
 	var tutorials_button := Button.new()
 	tutorials_button.text = "Tutorials"
 	tutorials_button.custom_minimum_size = Vector2(240, 44)
