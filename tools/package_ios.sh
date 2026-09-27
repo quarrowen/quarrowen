@@ -72,5 +72,19 @@ set -e
 	"$out/Quarrowen.xcodeproj/project.pbxproj"
 
 echo "Xcode project at $out/Quarrowen.xcodeproj ($(du -sh "$out" | cut -f1))"
-echo "Open it, choose your team under Signing & Capabilities, and run on a device."
-echo "The first device needs this: Xcode registers it, and only the GUI can."
+# **Once a device has been registered, the archive stops failing and this produces an .ipa** - which
+# the header above did not expect, because the first time it was written no device was registered and
+# the export never got that far. When there is one, say so and print the command that installs it,
+# because the useful artefact is then the .ipa and not the project. (2026-09-27)
+if [ -f "$out/Quarrowen.ipa" ]; then
+	echo "Installable build at $out/Quarrowen.ipa ($(du -h "$out/Quarrowen.ipa" | cut -f1))"
+	echo "  xcrun devicectl list devices                  # find the device id"
+	echo "  xcrun devicectl device install app --device <id> $out/Quarrowen.ipa"
+else
+	echo "Open it, choose your team under Signing & Capabilities, and run on a device."
+	echo "The first device needs this: Xcode registers it, and only the GUI can."
+fi
+# **The iPad build carries no games.** The preset excludes `mods/*` and, unlike the Mac app, nothing
+# copies them in beside the executable - so this client can join a server and cannot start a world of
+# its own. That is a real limit and not an oversight of this script; see PROGRESS, 2026-09-27.
+echo "Note: no mods are bundled, so this build joins servers and cannot host."

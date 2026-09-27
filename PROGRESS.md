@@ -7993,3 +7993,35 @@ The Wick page opened with his 3D portrait, which is nearly the full height of th
 about a person said nothing about him until you scrolled. Exactly the task-panel mistake, one day and
 one panel apart, and found the same way: by photographing it. An `entity` block is a picture, and a
 picture goes under the sentence it illustrates.
+
+## The iPad build has no games in it (2026-09-27)
+
+Found while building 0.42.0 for both platforms, by unpacking the `.ipa` and looking rather than
+assuming it matched the Mac.
+
+**The Mac app ships the mods as a loose folder** beside the executable - `Contents/Resources/mods` -
+which is what lets it host a world. **The iPad app ships none.** The iOS preset excludes `mods/*` like
+every other preset, and unlike `package_mac.sh` nothing copies them back in afterwards, so the bundle
+has no `mods/` at all.
+
+So the iPad client **can join a server and cannot start a game**. That is exactly how it has been used
+so far - it joined a server on the LAN, which is why this went unnoticed for the whole of the touch
+controls work: everything that was tested on it was tested against a server that had the mods.
+
+Not obviously wrong, and worth deciding rather than patching: a tablet that joins the family server is
+a reasonable thing for a tablet to be, and bundling seven mods into an iOS app is 30 MB and a loader
+that has to find them inside a read-only bundle rather than beside the binary. But **nothing anywhere
+said so**, and the menu on the device will offer to start a game that cannot start.
+
+Left as a decision, with the fact now recorded in `package_ios.sh` and printed by it at the end of
+every build.
+
+### What 0.42.0 built to
+
+- **macOS** - `build/macos/Quarrowen.app`, signed with the real Developer ID (hardened runtime,
+  timestamped, `codesign --verify --strict` clean), plus the `.dmg` and `.zip`. **Not notarized**:
+  that uploads the app to Apple and is the user's to trigger, so `QUARROWEN_SKIP_NOTARIZE=1`.
+- **iPadOS** - the Xcode project, an `.xcarchive` and a signed `.ipa` (32 MB), installed to the iPad
+  Air over the network with `devicectl`. **The archive step succeeded**, which the script's header did
+  not expect - it was written when no device was registered and the export could never get that far.
+  The header is now conditional, and names the `.ipa` and the install command when there is one.
