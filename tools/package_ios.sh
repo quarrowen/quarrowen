@@ -115,13 +115,8 @@ else
 	echo "Open it, choose your team under Signing & Capabilities, and run on a device."
 	echo "The first device needs this: Xcode registers it, and only the GUI can."
 fi
-# **The games are in the bundle now, and the tablet still cannot host.** Those are two different
-# things and the second is the platform's: starting a local world forks a second copy of the
-# executable, and iOS does not allow that - `create_process` returns ERR_CANT_FORK whatever is in the
-# bundle.
-#
-# **A joining client does not need these**, which is worth being clear about: the server streams the
-# content it is running, which is how the iPad played Firstlight on 25 September with an empty bundle.
-# They are here for the day the tablet can host, and meanwhile for the menu's game list and backdrop.
-# See PROGRESS, 2026-09-27.
-echo "Note: this build can join worlds. Starting one locally needs a second process, which iOS forbids."
+# **A joining client never needed these** - the server streams the content it is running, which is how
+# the iPad played Firstlight with an empty bundle. They are here so the tablet can *host*, which it now
+# does by running the world inside the client rather than in a second process iOS would not allow. See
+# PROGRESS, 2026-09-27.
+echo "Note: this build hosts worlds in its own process (iOS cannot fork one); test it with QW_IN_PROCESS_SERVER=1 on a desktop."

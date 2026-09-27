@@ -8252,3 +8252,27 @@ between the rare times anybody does.
 entitlements read back out of what Xcode produced, and rezips - the sequence proved by hand earlier
 today. `ModLoader.search_dirs` already looks in `<executable dir>/mods` first, and on iOS that is inside
 `Quarrowen.app`. 2.8 MB.
+
+### The mod's panel sat on top of the only way into the menu (2026-09-27)
+
+Found immediately after the iPad hosted its first world, by the user: *"the task or objective panel is
+blocking the top right menu icon. So not able to open the esc menu"*. Two separate faults wearing one
+symptom, and the first is a trap this file had already written down:
+
+- **`mouse_filter` is per node.** `show_panel` made the `PanelContainer` transparent to input and left
+  the `VBoxContainer` inside it at the Control default, which is STOP. So a non-modal server panel
+  swallowed every press that landed on it. `oneblock` anchors its progress panel `top_right`, which is
+  exactly where the client's own menu button lives - and on a tablet that button is the *only* way to
+  pause. Buttons inside a panel keep their STOP and still work, which is why only the two containers
+  changed.
+- **The corner was being shared without anybody deciding it should be.** Even once presses got
+  through, the panel was drawn over the button and clipped its own right-hand words. The button now
+  draws above the HUD (`z_index`), and a panel anchored top right starts *below* it - pushed down
+  rather than left, because a panel's width is the mod's business and its top is not. The inset is
+  read off the button rather than written down twice.
+
+**This is the second time this exact `mouse_filter` rule has cost an evening**, after `_hud_root` broke
+mouse capture on the desktop a fortnight ago. It is in CLAUDE.md already. What was missing is that the
+rule was applied to the node somebody was thinking about and not to the one underneath it - so the
+useful form is narrower: **when you make a container transparent, make its children transparent in the
+same edit, or you have only moved the problem one level down.**

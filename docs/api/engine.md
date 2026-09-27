@@ -10054,6 +10054,15 @@ GDScript: `textures := {}  (property)`
 
 asset name -> Texture2D, provided by the client after content loads.
 
+### `top_right_inset`
+
+*client/server_ui.gd*
+
+GDScript: `top_right_inset := 0.0  (property)`
+
+How far below the top-right corner a panel anchored there should start, so it clears the client's
+own menu button. Set by the client, which is the only thing that knows how big that button is.
+
 ### `path`
 
 *client/settings/client_settings.gd*

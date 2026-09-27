@@ -39,6 +39,10 @@ const ANCHORS := {
 ## asset name -> Texture2D, provided by the client after content loads.
 var textures := {}
 
+## How far below the top-right corner a panel anchored there should start, so it clears the client's
+## own menu button. Set by the client, which is the only thing that knows how big that button is.
+var top_right_inset := 0.0
+
 var _panels := {}  # ui_id -> PanelContainer
 var _modal := {}  # ui_id -> true
 var _title: Label
@@ -100,9 +104,22 @@ func show_panel(ui_id: String, spec: Dictionary) -> void:
 	if bool(spec.get("modal", false)):
 		_modal[ui_id] = true
 	else:
+		# **Both of them, because `mouse_filter` is per node.** Making only the panel transparent left
+		# the VBox inside it swallowing every press, and a Control defaults to STOP - so a non-modal
+		# panel anchored top right sat on top of the menu button and there was no way to open the menu
+		# at all. Found on the iPad, where that button is the *only* way in. Buttons inside the panel
+		# keep their own STOP and still work, which is the point of leaving them alone. (2026-09-27)
 		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var anchor: Array = ANCHORS.get(String(spec.get("anchor", "top_right")), ANCHORS.top_right)
 	_anchor(panel, anchor[0], anchor[1])
+	# **The top right corner is not entirely the mod's.** The engine's own menu button lives there, and
+	# it is the only way into the menu on a tablet - so a panel anchored to that corner is nudged below
+	# it rather than allowed to sit underneath and have its right-hand words clipped. Pushed *down*
+	# rather than *left* because a panel's width is the mod's business and its top is not. (2026-09-27)
+	if anchor == ANCHORS.top_right and top_right_inset > 0.0:
+		panel.offset_top += top_right_inset
+		panel.offset_bottom += top_right_inset
 
 
 ## Pins a control to a point of the screen and lets it grow away from that point, so it stays in

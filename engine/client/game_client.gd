@@ -4236,6 +4236,11 @@ func _build_hud() -> void:
 	_menu_button.position = Vector2(-58, 12)
 	_menu_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	_menu_button.pressed.connect(func(): set_paused(not _pause_panel.visible))
+	# **Above everything else in the HUD, because on a tablet it is the only way into the menu.** A mod
+	# may anchor a panel of its own at the top right - `oneblock` does - and it would otherwise be drawn
+	# over the top of this, leaving a child looking at a world they cannot pause. Drawn last rather than
+	# moved somewhere else, so mods keep the corner they were given. (2026-09-27)
+	_menu_button.z_index = 1
 	_hud_root.add_child(_menu_button)
 
 	var crosshair := Control.new()
@@ -4252,6 +4257,9 @@ func _build_hud() -> void:
 
 	_server_ui = ServerUI.new()
 	_server_ui.action_pressed.connect(_on_ui_action)
+	# The menu button's own height plus its margin: a mod's top-right panel starts below it rather than
+	# behind it. Taken from the button rather than written twice, so moving the button moves this.
+	_server_ui.top_right_inset = _menu_button.position.y + _menu_button.custom_minimum_size.y + 6.0
 	_hud_root.add_child(_server_ui)
 
 	# **The technical readout is off unless somebody asks for it** (the user, 2026-09-24: "by default
