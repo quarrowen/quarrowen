@@ -7695,3 +7695,29 @@ The fix landed in commit `f3b063c`, whose message is about touch controls: `git 
 subagent was mid-edit in the same working tree. The content is right and the history is misleading.
 **One working tree, one writer** - a parallel agent needs its own, or the commits need to be narrower
 than `-A`.
+
+### The renderer question, answered on the hardware (2026-09-27)
+
+**0.2 to 0.9 ms of a 16.7 ms budget, while walking and streaming chunks**, on an iPad Air 5 under the
+Mobile renderer, with every gesture and panel confirmed working by the user. Worst case is five per
+cent of the frame. Standing still it was 0.8 ms, so *moving* costs nothing measurable - the number
+wanders with what is on screen rather than with what the player is doing.
+
+That closes the question this whole session began with, and it was never really a choice:
+`rendering_method.mobile` is Godot's default, so every iOS and Android build has used Forward Mobile
+since the day the iOS preset was written. What was open was whether the second target worked, because
+**nobody had ever run it**. It does, it draws the world correctly - no shader errors, water blue rather
+than white, a four per cent difference confined to ground lighting - and it has room to spare.
+
+**Frame rate could never have said any of this.** iOS presents through the display compositor, so it
+reads a flat 60 whether a frame costs 3 ms or 16, and turning V-Sync off changes nothing because it is
+not ours to turn off. Frame *time* is the only headroom measure that works there, and the instrument
+for it had to be built before the question could be answered.
+
+Two honest limits on the figure: GPU timestamps are not reported on this hardware, so it is CPU render
+time and should be read as a floor; and it is one Creative world on one device. It is enough to say
+Mobile is comfortable, not enough to size a budget against.
+
+**What the headroom is for**: it is the argument for spending on the iPad rather than economising -
+draw distance, the relief atlas, shadows. Worth remembering when the network items land, because the
+frame is plainly not where the trouble is.

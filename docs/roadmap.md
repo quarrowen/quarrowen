@@ -799,7 +799,21 @@ one per name.
 and items 1 to 3 of the 25 September list below - the roadmap refresh, the renderer decision and touch
 controls - all landed. This is the consolidated remainder, agreed 27 September 2026.
 
-### 1. Finish the tablet, while it is fresh
+### 1. Finish the tablet - done, 27 September 2026
+
+Built and confirmed on the hardware: a radial menu opened by a button, the pause menu slimmed and
+**gated** by what a player may actually do (`s_capabilities`, protocol 57), the block palette named and
+closable, and the guidebook and recipe browser made to fit an interface space of 590 x 410 rather than
+the 960 x 620 they demanded. Frame time while moving: **0.2 to 0.9 ms of 16.7**, so the tablet has
+room to spare.
+
+Three ratchets came out of it, each from a bug that had shipped green: every screen must appear in both
+close lists; the pause menu must keep its entries; and no test may write to a bare `user://`.
+
+Left: the radial is an accelerator and the buttons remain the discoverable route, which is deliberate;
+and `drop` and the palette are reachable only through the ring, which is fine now that the ring exists.
+
+### 1b. What the tablet still wants, later
 
 - **A radial menu, opened by a button.** Crafting, the map, chat, drop and the creative palette have no
   home that fits: crafting especially happens *in* play, and the pause menu is where you stop. A ring
