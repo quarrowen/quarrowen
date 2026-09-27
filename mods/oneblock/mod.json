@@ -1,0 +1,18 @@
+{
+	"id": "oneblock",
+	"name": "One Block",
+	"version": "1.0.0",
+	"description": "One block over the void. Break it and something else takes its place: soil, then stone and ores, then creatures and crates. Build outwards from whatever you collect.",
+	"kind": "game",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.0",
+	"depends": [
+		"base@^1.0",
+		"simple_gear@^1.0"
+	],
+	"optional_depends": [
+		"simple_machines"
+	]
+}

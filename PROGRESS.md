@@ -7721,3 +7721,46 @@ Mobile is comfortable, not enough to size a budget against.
 **What the headroom is for**: it is the argument for spending on the iPad rather than economising -
 draw distance, the relief atlas, shadows. Worth remembering when the network items land, because the
 frame is plainly not where the trouble is.
+
+### Audio: the lane is built and nearly empty (2026-09-27)
+
+Asked for per-phase music in `oneblock`, I said there was no audio to use. **That was wrong**, and wrong
+in an avoidable way: I searched `mods/` for sound files, found 21, and concluded. The project has a
+whole audio lane already.
+
+What actually exists:
+
+- **`tools/generate_music.py`** - a synthesiser in pure Python, no dependencies, writing seamless loops
+  (every piece a whole number of bars). Building blocks for pads, swells and bells over a pentatonic
+  scale; a new track is a handful of lines.
+- **`tools/generate_sounds.py`** - the same for effects. 34 of them ship inside the client.
+- **`tools/import_kenney_sounds.py`** - swaps generated placeholders for CC0 ones, with the mapping in
+  version control and `CREDITS.md` generated from it, so provenance cannot drift from what is on disk.
+
+And what does not: **two music tracks, both belonging to the Proving Ground.** `generate_music.py`
+writes `daylight.ogg` and `night.ogg` into `tests/mods/proving/music` and nothing else, with a comment
+saying why - *"because that is the only mod there is until 1.0's games are written."* They are written
+now. This is the moment that comment was waiting for.
+
+#### The work
+
+1. **Tracks for the games.** Four moods rather than one per phase: open, deep, bright, and a quiet one
+   for night. `oneblock` maps its six phases onto them, `firstlight` and `creative` take what suits.
+   Composition is cheap here; deciding what a place should sound like is the part that takes thought.
+2. **Wire `register_music` and `play_music`.** Per player, which is what `oneblock` needs - every child
+   is in a different phase on their own island, so world-level ambience cannot express it.
+3. **Ambience passes** (`register_ambience`) for wind, drips and water, which are world-level and suit
+   `firstlight` and `creative` rather than `oneblock`.
+4. **The 25 creature voices**, still the clearest brief the audio work could have, and now answerable
+   because `base`'s roster is settled at seventeen plus a boss.
+
+**Not** replacing the synthesised placeholders with real music. `register_music` refuses a track with
+no attribution, which is the right rule; sourcing real CC0 pieces is its own job and is not blocked by
+any of the above.
+
+#### Why I got it wrong, which is the more useful half
+
+I searched one directory, found the answer I expected, and stopped - the same shape as reading error
+counts instead of logs earlier today, and as inferring button positions from screenshots instead of
+printing them. Three times in one session, the same failure: **stopping at the first plausible answer
+instead of the one that settles it.** `tools/` was one `ls` away.
