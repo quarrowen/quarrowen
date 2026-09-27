@@ -102,7 +102,13 @@ const SCHEMA := {
 		"help": "Multiplayer → LAN asks computers on your network (and this one) for games."},
 }
 
-const TABS := ["Graphics", "Audio", "Controls", "Accessibility", "Network"]
+## **"Interface" was missing here until 2026-09-27**, and a tab that is not on this list is not built -
+## so `interface/hud_style` and `interface/debug_info` had labels, defaults and help text and could not
+## be reached from any settings screen. On desktop that hid itself, because F3 toggles the readout and
+## nobody goes looking for a setting they have a key for. It surfaced on an iPad, where there is no F3
+## and the readout is therefore the only way to see a frame rate. (the user: "i dont see a tab for
+## interface in settings, is it correct?")
+const TABS := ["Graphics", "Interface", "Audio", "Controls", "Accessibility", "Network"]
 
 ## Rebindable actions: [action, label, default events]. Events are "key:<physical keycode name>" or
 ## "mouse:<button index>".

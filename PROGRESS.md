@@ -7362,3 +7362,79 @@ found a misconfiguration that would have cost a day of "why is the iPad blurry".
 vsync-capped at 60 and say nothing about a tablet GPU. Prerequisites are all in place - `apple.env`,
 Xcode 26.3, the iOS native libraries already built - and `tools/package_ios.sh` generates the Xcode
 project. First deployment needs a cable; Xcode can go wireless once the device has been paired.
+
+### An afternoon on an actual iPad, and the six things it found (2026-09-27)
+
+The roadmap's renderer question turned into a device session. Everything below was invisible on a
+desktop and none of it would have produced a visible error on a tablet either - the pattern is worth
+naming, because it is one pattern and not six accidents.
+
+**A desktop affordance was quietly covering for something missing everywhere else**, six times:
+
+| What was wrong | What hid it |
+|---|---|
+| FSR upscaling requested on the Mobile renderer | nobody reads a tablet's console |
+| File logging never worked at all | the desktop has stdout, so nobody needed the file |
+| The Interface settings tab was never built | the desktop has F3 for the one setting anybody wanted |
+| The custom font is missing from **every** export | running from source works, and every screenshot is from source |
+| `mouse_set_mode` called where there is no mouse | desktops have mice |
+| **No local-network permission, so a LAN server was unreachable** | a desktop needs no permission to open a socket |
+
+#### The one that mattered
+
+**`NSLocalNetworkUsageDescription` was absent, so iOS silently blocked every packet.** Since iOS 14 an
+app must declare that key to touch the local network; Godot's exporter writes usage strings for the
+camera, the microphone and the photo library, because those are things Godot knows about, and has no
+idea the app talks to a LAN. Without the key there is no prompt, no error and no traffic.
+
+It presented as three separate mysteries that turned out to be one: LAN discovery found nothing, a
+typed-in address "answered but did not finish letting us in", and **the server log contained no join
+attempt at all** - which is the observation that solved it. A client failing to connect writes
+something on the server; a client whose packets never leave the device writes nothing. Reading both
+logs rather than one is what turned three symptoms into one cause.
+
+So the roadmap's line - "an iOS build today would install and be unplayable" - was **true for a
+stronger reason than it gave**. It is not only that there are no touch controls. The build could not
+reach the family server at all, which is the entire reason an iPad build exists.
+
+Fixed with `application/additional_plist_content` in all the iOS preset, verified by grepping the
+generated `Quarrowen-Info.plist` rather than trusting the option name.
+
+#### The font one is shipping today
+
+All six export presets exclude `assets/*` and re-include only `assets/icon.png`, so
+`assets/fonts/NunitoSans.ttf` is in no exported build and the game falls back to Godot's default font.
+**This is in every release so far.** It has never been noticed because the project is always run from
+source when anybody is looking at it - which is also how every screenshot in this file was taken. A
+reminder that "it looks right here" is a statement about the development machine.
+
+#### Two smaller ones
+
+- **File logging**: `project.godot` said `debug/file_logger/...` where Godot's setting is
+  `debug/file_logging/...`. Godot stores unknown keys happily, so it read as configured and did
+  nothing, with the real `enable_file_logging` still `false`. This is what made the device session
+  possible at all - `Documents/logs/quarrowen.log` is the first log this project has ever produced on
+  a device.
+- **The Interface tab**: `ClientSettings.TABS` did not list `"Interface"`, and a tab that is not on
+  that list is not built - so `interface/hud_style` and `interface/debug_info` had labels, defaults and
+  help text and were unreachable from any settings screen. (the user: *"i dont see a tab for interface
+  in settings, is it correct?"*) On a tablet there is no F3, so the frame-rate readout - the very thing
+  being measured - could not be switched on.
+
+#### Also added
+
+`QW_FPS_LOG=<seconds>` makes the client print avg, median, worst and best, with the render scale and
+the live rendering method. Median and worst separately on purpose: on a tablet the question is never
+the mean, it is whether the thing hitches.
+
+**Confirmed from the device log**: `Metal 4.0 - Forward Mobile - Using Device #0: Apple - Apple M1 GPU`.
+The iPad Air 5 runs the Mobile renderer, as the default implies and as nothing had ever checked.
+
+#### A process note, twice in one day
+
+The name claim (`_meta.names`, first key to claim a name on a server owns it) broke two separate
+measurements: the first `renderer_shots.sh` run, where two clients called Camera photographed a loading
+curtain and reported a confident 60 fps, and the iPad's first join attempt, refused because a desktop
+test client had already claimed Camera in that world. The mechanism is correct and the error message is
+good. What is worth remembering is the failure *shape*: **a test harness that leaves state on a server
+poisons the next measurement**, and a fresh world costs nothing.

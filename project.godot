@@ -29,10 +29,8 @@ Net="*res://engine/net/net.gd"
 
 [debug]
 
-file_logger/enable_file_logging=true
-file_logger/enable_file_logging.pc=true
-file_logger/log_path="user://logs/quarrowen.log"
-file_logger/max_log_files=5
+file_logging/enable_file_logging=true
+file_logging/log_path="user://logs/quarrowen.log"
 
 [display]
 

@@ -336,6 +336,16 @@ var _status_label: Label
 ## Shown only while something is downloading; see `_set_progress`.
 var _progress_bar: ProgressBar
 var _debug_label: Label
+## **Frame rate to the log, for machines whose screen you cannot read.** `QW_FPS_LOG=<seconds>` makes
+## the client print a summary that often; unset, it costs one float comparison a frame and does nothing.
+##
+## It exists for the iPad. There is no F3 on a tablet, the technical readout needs two taps to reach,
+## and a number squinted at across a room is a poor way to carry a measurement back - whereas the
+## device console is already being read over the cable. The same line serves any headless profiling
+## later. (2026-09-25)
+var _fps_log_every := 0.0
+var _fps_log_at := 0.0
+var _fps_samples: Array[float] = []
 ## The controls hint, which is for the player rather than for whoever is fixing the game. Drawn as
 ## keycaps rather than written as "[T] chat"; fades once they have had time to read it.
 var _controls_hint: Control
@@ -427,6 +437,7 @@ var _last_jump_press := 0.0  # for the double-tap that starts flying
 
 
 func _ready() -> void:
+	_fps_log_every = maxf(float(OS.get_environment("QW_FPS_LOG")), 0.0)
 	graphics.load_saved()
 	if not (avatar is Dictionary):
 		avatar = AvatarStore.load_avatar()
@@ -1998,6 +2009,7 @@ func _process(delta: float) -> void:
 			remote.plate.update_for_camera(plate_eye)
 	_update_cracks()
 	_update_hud()
+	_log_fps(delta)
 	_hurt_flash.color.a = move_toward(_hurt_flash.color.a, 0.0, delta * 1.2)
 	# A tint with no time on it is held until the server says otherwise - that is what "underwater"
 	# wants; one with a time fades out by itself, which is what a flash wants.
@@ -4754,6 +4766,30 @@ func _set_progress(fraction: float) -> void:
 		return
 	_progress_bar.visible = fraction >= 0.0
 	_progress_bar.value = clampf(fraction, 0.0, 1.0) * 100.0
+
+
+## Prints a frame-rate summary every `QW_FPS_LOG` seconds, or never when it is unset.
+##
+## **Median and worst, not just average**, because the question on a tablet is never "what is the mean"
+## - it is whether the thing hitches. An average of 58 hides a stall the player feels and the whole
+## reason this exists is to carry that distinction off a device nobody can watch.
+func _log_fps(delta: float) -> void:
+	if _fps_log_every <= 0.0:
+		return
+	_fps_samples.append(1.0 / maxf(delta, 0.0001))
+	_fps_log_at += delta
+	if _fps_log_at < _fps_log_every:
+		return
+	_fps_log_at = 0.0
+	var sorted := _fps_samples.duplicate()
+	sorted.sort()
+	var total := 0.0
+	for f in sorted:
+		total += f
+	print("[fps] avg %.1f  median %.1f  worst %.1f  best %.1f  (%d frames, render scale %d%%, %s)" % [
+		total / sorted.size(), sorted[sorted.size() / 2], sorted[0], sorted[-1], sorted.size(),
+		roundi(graphics.value("render_scale") * 100.0), RenderingServer.get_current_rendering_method()])
+	_fps_samples.clear()
 
 
 func _update_hud() -> void:
