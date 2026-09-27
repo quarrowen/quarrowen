@@ -8276,3 +8276,70 @@ mouse capture on the desktop a fortnight ago. It is in CLAUDE.md already. What w
 rule was applied to the node somebody was thinking about and not to the one underneath it - so the
 useful form is narrower: **when you make a container transparent, make its children transparent in the
 same edit, or you have only moved the problem one level down.**
+
+## Fairground, scoped 28 September 2026
+
+A lobby of short party games, decided with the user after the research above. **The four answers:**
+
+- **It is called `fairground`.** A place of separate attractions you walk between and pick one, which is
+  structurally what a lobby is - so the name does design work as well as decoration: a painted sign over
+  each door, bunting, lamps, and a hub with a reason to look inviting rather than being a grey waiting
+  room. (The test mod is "the Proving Ground"; they are easy to say in the same breath and never ship
+  together.)
+- **It is a fourth game for 1.0.** This **changes the decision of 25 September** - "these three are 1.0
+  ... anything else is after it" - and the change is the user's, made knowing that 1.0 moves and that
+  `firstlight` still has no human playthrough. Recorded here rather than quietly edited into the
+  roadmap, because a reversed decision that leaves no trace is one that gets reversed again.
+- **Games are separate mods, plugged into a registry**, rather than submodules of one big mod. The point
+  is not tidiness: it is that a child could write one.
+- **The floor is lava, with its word-game variant, is the first.** They share an arena and a mechanic,
+  and the word version is spelling practice in a costume.
+
+### The registry cannot live in the mod, and that is the interesting part
+
+**Mods here cannot call each other.** They extend one another only through engine-mediated tables -
+`add_entity_attack`, `add_block_drops`, `add_loot_pools`, `tag` - and `api.on` listens to engine events
+with no `api.emit` to raise one of your own. (`shared_store` is item containers, not an interface.) That
+is a deliberate and good pattern: it is why a mod can never break when engine internals move.
+
+So "a registry other mods plug into" has two possible homes:
+
+1. **Contests in the engine** - `register_contest`, open, join, start, eliminate, score. It works, and
+   it fails the test this project applies to every capability: *could two mods build genuinely different
+   things on it, or does it bake one game's answer in?* A round lifecycle is a lot of policy.
+2. **`api.emit(name, data)` in the engine, and the whole lifecycle in `fairground`.** A mod raises its
+   own event with a mutable payload - exactly what engine events already do with `cancelled`, `amount`
+   and `message`. Fairground emits "who has games for me", each game mod appends itself, and **the
+   engine never learns what a contest is.**
+
+**Taking (2).** It is smaller, it is the same shape as "the engine never learns what delivering a letter
+is", and it unlocks every future mod-to-mod protocol rather than this one. It is also a **27th
+capability** on a page that says all 26 are built, so `docs/roadmap.md` stops being able to claim the
+list is closed - which is worth more than the sentence it costs.
+
+### What has to be built, in order
+
+1. **`api.emit`** - a mod may raise its own event, name qualified to the mod. The smallest piece and
+   everything else leans on it.
+2. **Per-realm rules** - `set_gameplay` and `set_physics` take a `realm_id`, joining the 81 calls that
+   already do. **Earns its place alone**: it is also what lets a survival world hold a creative build
+   area or a safe zone.
+3. **Region volumes** - "a player entered / left this box" as an event. Fields are circles that must do
+   damage and fire on placement, so they are not this. Wanted by checkpoints, goal zones, the queue pad
+   at each door, and above all the word game, which is entirely *who is standing on which platform*.
+4. **`set_look` for players** - entities have had `scale`, `hide`, `tint` and `pose` since Wick got his
+   coat. Giving players the same is not a disguise system to design, it is an existing capability
+   reaching one more noun. Delivers team colours, invisibility and the identical-crowd hide and seek.
+5. **Spectator** - flight is already reachable through `set_creative` and invisibility falls out of (4),
+   so **not colliding is the only genuinely new part**.
+6. **`fairground` itself** - the hub realm, a door per game, the round lifecycle, and the protocol game
+   mods answer.
+7. **The first game** - the floor is lava, then the word-game variant on the same arena.
+
+Already built and not on this list, because the research found them: instances as throwaway arenas,
+`/struct save` and `place_structure_in` so the children can build the maps, kits through
+`save_items`/`clear_inventory`/`load_items`, countdowns through `show_title` and `show_ui`, trackers
+through `set_map_marker`, and the split spawn/rejoin handlers that were written for lobbies in the
+first place.
+
+**`register_minigame` is taken** and means the crafting skill-check. No code here may use that word.
