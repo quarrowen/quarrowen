@@ -3664,6 +3664,15 @@ func _close_avatar_editor() -> void:
 func _apply_safe_area() -> void:
 	if _hud_root == null:
 		return
+	# **Only where system furniture actually overlaps the game.** On a phone or tablet the window *is*
+	# the screen, and a notch or a home indicator sits on top of it. On a desktop the window manager has
+	# already placed the window clear of the menu bar and the dock - but macOS still reports a safe area
+	# of the screen minus both, so honouring it inset the whole interface by 46 px at the top and 114 at
+	# the bottom and clipped every full-screen panel, leaving the world showing in a bright band above
+	# and below the inventory's dimming. (the user, 2026-09-27: "the black film behind the inventory
+	# ends too early... safe area bug?")
+	if not OS.has_feature("mobile"):
+		return
 	var safe := DisplayServer.get_display_safe_area()
 	var screen := DisplayServer.screen_get_size()
 	if screen.x <= 0 or screen.y <= 0 or safe.size.x <= 0 or safe.size.y <= 0:
