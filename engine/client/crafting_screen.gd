@@ -26,6 +26,11 @@ const ClientSettings = preload("res://engine/client/settings/client_settings.gd"
 const ItemVisuals = preload("res://engine/client/item_visuals.gd")
 const RecipeRegistry = preload("res://engine/shared/recipe_registry.gd")
 const COLUMNS := 7
+## Below this the screen sheds its side column and narrows its grid. A tablet's interface space is
+## **590 x 410** - the window is scaled twice over for the display - and this laid out a book of 434, a
+## detail column of 340 and a side column of 290 in a row: 1064, very nearly twice the whole screen, so
+## it hung off both edges with the close button among the parts you could not reach. (2026-09-27)
+const NARROW := 900.0
 const CELL := 58
 
 var items  # ItemRegistry
@@ -99,12 +104,48 @@ var _lab_recipe := -1
 var _station_panel: VBoxContainer
 var _coop_panel: VBoxContainer
 var _side_scroll: ScrollContainer
+var _body: HBoxContainer
 var _coop_key := ""
 var _job_bars: Array[ProgressBar] = []
 var _project_bar: ProgressBar
 var _category := ""
 var _lookup := {}  # {item, mode: "make" | "use"}
 var _cells := {}  # recipe index -> Button
+
+
+## Sheds what does not fit rather than overflowing. The side column is supplementary - the grid and the
+## detail panel are the screen - so it is the first thing to go, and the grid narrows after that.
+func _fit() -> void:
+	if _body == null:
+		return
+	var view := get_viewport_rect().size
+	var narrow := view.x < NARROW
+	if _side_scroll != null:
+		_side_scroll.visible = not narrow
+	if _station_panel != null:
+		_station_panel.visible = not narrow
+	var columns: int = COLUMNS if not narrow else maxi(3, int((view.x - 260.0) / float(CELL + 4)))
+	if _grid != null:
+		_grid.columns = columns
+	if _palette != null:
+		_palette.columns = columns
+	if _book != null:
+		_book.custom_minimum_size.x = float(columns * (CELL + 4))
+	if _detail != null:
+		_detail.custom_minimum_size.x = 340.0 if not narrow else maxf(200.0, view.x - float(columns * (CELL + 4)) - 96.0)
+	# **And then scale whatever is left to fit.** Narrowing the grid and shedding the side column is not
+	# enough on its own: the panel came out 838 wide in a 590 space even so, because the pieces inside it
+	# - the row of categories, the detail text - carry minimums of their own, and chasing those one at a
+	# time is a game without an end. Scaling the finished panel is the one move that cannot fail to fit.
+	# Measured rather than reasoned: the numbers above are what three rounds of constants did not fix.
+	await get_tree().process_frame
+	_panel.scale = Vector2.ONE
+	await get_tree().process_frame
+	var over: float = maxf(_panel.size.x / view.x, _panel.size.y / view.y)
+	if over > 1.0:
+		var shrink := 1.0 / over * 0.97
+		_panel.pivot_offset = _panel.size * 0.5
+		_panel.scale = Vector2(shrink, shrink)
 
 
 func _ready() -> void:
@@ -158,6 +199,7 @@ func _ready() -> void:
 	var body := HBoxContainer.new()
 	body.add_theme_constant_override("separation", 16)
 	root.add_child(body)
+	_body = body
 
 	# Recipe book.
 	var book := VBoxContainer.new()
@@ -301,6 +343,8 @@ func _ready() -> void:
 	side_scroll.add_child(side)
 	_station_panel = VBoxContainer.new()
 	_station_panel.custom_minimum_size = Vector2(270, 0)
+	_fit.call_deferred()
+	get_viewport().size_changed.connect(_fit)
 	_station_panel.add_theme_constant_override("separation", 6)
 	side.add_child(_station_panel)
 	_coop_panel = VBoxContainer.new()

@@ -48,6 +48,8 @@ var _future: Array[String] = []
 var _collapsed := {}
 var _portraits: Array[Node3D] = []
 var _cover: PanelContainer
+## The contents page, which folds away when the book is wider than the screen.
+var _contents_page: PanelContainer
 
 
 func _ready() -> void:
@@ -74,6 +76,7 @@ func _ready() -> void:
 
 	# Left page: contents.
 	var left := PanelContainer.new()
+	_contents_page = left
 	left.custom_minimum_size = Vector2(290, 0)
 	left.add_theme_stylebox_override("panel", _style(PAPER.darkened(0.06), 12, PAPER.darkened(0.3), 1, 6))
 	spread.add_child(left)
@@ -148,10 +151,27 @@ func _ready() -> void:
 	footer.add_child(_next)
 
 
-## Takes more of large screens, never less than 960 x 620.
+## Takes more of large screens, and **fits small ones**, which it did not.
+##
+## The minimum was 960 x 620. A tablet's interface space is **590 x 410** - the window is scaled twice
+## over for the display, so the HUD's coordinates are half the pixels - and a book half again wider than
+## the screen hangs off every edge, including the corner its own close button is in. Measured, after the
+## palette turned out to have a different fault and this one was found on the way. (2026-09-27)
+##
+## Below `NARROW` the contents page folds away and the book becomes one page. Two columns of 290 do not
+## fit in 590 with anything left for the text, and a guidebook a child cannot read is worse than one
+## they cannot browse - the search and the previous/next buttons still reach every page.
+const NARROW := 720.0
+
 func _fit() -> void:
 	var view := get_viewport_rect().size
-	_cover.custom_minimum_size = Vector2(clampf(view.x * 0.55, 960.0, 1500.0), clampf(view.y * 0.62, 620.0, 950.0))
+	# The 72 leaves the top right corner clear: the HUD's own close button lives there, and a book that
+	# reaches the edge puts two crosses on top of one another.
+	_cover.custom_minimum_size = Vector2(
+		clampf(view.x * 0.55, minf(960.0, view.x - 72.0), 1500.0),
+		clampf(view.y * 0.62, minf(620.0, view.y - 72.0), 950.0))
+	if _contents_page != null:
+		_contents_page.visible = view.x >= NARROW
 
 
 func _process(delta: float) -> void:

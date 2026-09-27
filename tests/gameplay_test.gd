@@ -3204,6 +3204,15 @@ func _test_isolation() -> void:
 		_check(closes.contains(screen), "close_top_screen knows how to close %s" % screen)
 		_check(knows.contains(screen), "any_screen_open counts %s" % screen)
 
+	# **Nothing tested what the pause menu contains**, and a text-slice edit meant to remove three
+	# entries silently deleted seven - Worlds, Server settings, Players and roles, Friends, invites,
+	# reporting and creation review - and shipped green. The menu is the only route to most of them.
+	# (2026-09-27)
+	for entry in ["Resume", "Guidebook", "Tutorials", "Settings", "Customize avatar", "Disconnect",
+			"open_worlds_panel", "open_server_panel", "open_players_panel", "open_friends",
+			"open_invite_dialog", "open_report_dialog", "open_ugc_review"]:
+		_check(client_source.contains(entry), "the pause menu still offers %s" % entry)
+
 
 ## Every asset a mod names actually exists.
 ##

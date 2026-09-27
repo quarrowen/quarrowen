@@ -2250,6 +2250,9 @@ stays at chest height rather than snapping to the thing's feet. client/float_tex
 stays at chest height rather than snapping to the thing's feet.</p></div></section>
 <section id="e-client-game-client-gd"><h2>game_client.gd <span class="file">client/game_client.gd</span></h2><p class="lead">Universal game client. Knows nothing about any particular game: it downloads the server's block definitions, textures and physics rules, renders streamed chunks, predicts local movement and edits (the server confirms or corrects them), and draws server-described UI.</p><div class="card" data-search="reload_pending set when the server announced a full reload: whoever owns the client should reconnect (see main.gd). client/game_client.gd the client"><div class="sig"><code>reload_pending := false  (property)</code></div><p>Set when the server announced a full reload: whoever owns the client should reconnect (see main.gd).</p></div>
 <div class="card" data-search="admin_token passed by the menu when this client launched a local server it should stop on exit. client/game_client.gd the client"><div class="sig"><code>admin_token := &quot;&quot;  (property)</code></div><p>Passed by the menu when this client launched a local server it should stop on exit.</p></div>
+<div class="card" data-search="capabilities what the server says this player may do (engine/net/net.gd s_capabilities). empty until it arrives,
+so anything gated on it stays hidden rather than flashing on and off at join. client/game_client.gd the client"><div class="sig"><code>capabilities := PackedStringArray()  (property)</code></div><p>What the server says this player may do (engine/net/net.gd s_capabilities). Empty until it arrives,
+so anything gated on it stays hidden rather than flashing on and off at join.</p></div>
 <div class="card" data-search="identity_name which saved identity (user://identity/&lt;name&gt;.key) to log in with. client/game_client.gd the client"><div class="sig"><code>identity_name := &quot;default&quot;  (property)</code></div><p>Which saved identity (user://identity/<name>.key) to log in with.</p></div>
 <div class="card" data-search="test_signing_key tests only: sign challenges with this key instead of the identity (must fail authentication). client/game_client.gd the client"><div class="sig"><code>test_signing_key := {}  (property)</code></div><p>Tests only: sign challenges with this key instead of the identity (must fail authentication).</p></div>
 <div class="card" data-search="test_protocol tests: announce this protocol version instead of the real one. client/game_client.gd the client"><div class="sig"><code>test_protocol := -1  (property)</code></div><p>Tests: announce this protocol version instead of the real one.</p></div>
@@ -2294,6 +2297,9 @@ leave nobody able to travel at all.)</p></div>
 <div class="card" data-search="fetch_lazy_asset fetches a lazy asset, calling `then(asset_name)` once it is on disk. calling it again for something
 already arriving just adds another listener rather than asking the server twice. client/game_client.gd the client"><div class="sig"><code>fetch_lazy_asset(asset_name: String, then: Callable) -&gt; void</code></div><p>Fetches a lazy asset, calling `then(asset_name)` once it is on disk. Calling it again for something
 already arriving just adds another listener rather than asking the server twice.</p></div>
+<div class="card" data-search="on_capabilities the server has said what this player may do. the pause menu rebuilds its gated entries, because a
+promotion mid-game should reach the menu. client/game_client.gd the client"><div class="sig"><code>on_capabilities(can: PackedStringArray) -&gt; void</code></div><p>The server has said what this player may do. The pause menu rebuilds its gated entries, because a
+promotion mid-game should reach the menu.</p></div>
 <div class="card" data-search="refresh_looks draws everyone again (a creation someone wears has arrived). client/game_client.gd the client"><div class="sig"><code>refresh_looks() -&gt; void</code></div><p>Draws everyone again (a creation someone wears has arrived).</p></div>
 <div class="card" data-search="open_ugc_review the admin review panel for player creations. client/game_client.gd the client"><div class="sig"><code>open_ugc_review() -&gt; void</code></div><p>The admin review panel for player creations.</p></div>
 <div class="card" data-search="invite_text report a creation another player is wearing.
@@ -2832,6 +2838,11 @@ counts the same time everything else does.</p></div>
 <div class="card" data-search="open_crafting_refresh refreshes a player's open crafting screen (the recipe book may have changed). server/game_server.gd the server itself"><div class="sig"><code>open_crafting_refresh(p: ServerPlayer) -&gt; void</code></div><p>Refreshes a player's open crafting screen (the recipe book may have changed).</p></div>
 <div class="card" data-search="tell_moderators messages for admins only (moderation). server/game_server.gd the server itself"><div class="sig"><code>tell_moderators(text: String) -&gt; void</code></div><p>Messages for admins only (moderation).</p></div>
 <div class="card" data-search="request_full_reload saves and asks the owner to restart the server with the same settings; clients are told to reconnect. server/game_server.gd the server itself"><div class="sig"><code>request_full_reload() -&gt; void</code></div><p>Saves and asks the owner to restart the server with the same settings; clients are told to reconnect.</p></div>
+<div class="card" data-search="tell_capabilities tells a player which of the permissions the interface cares about they actually hold, so the client
+can offer only what will work. sent on join and whenever roles change - a promotion that did not
+reach the menu would be worse than not sending it at all. server/game_server.gd the server itself"><div class="sig"><code>tell_capabilities(p) -&gt; void</code></div><p>Tells a player which of the permissions the interface cares about they actually hold, so the client
+can offer only what will work. Sent on join and whenever roles change - a promotion that did not
+reach the menu would be worse than not sending it at all.</p></div>
 <div class="card" data-search="tell_riding tells a client whether it is riding, and on what. the client stops predicting its own movement while
 it is, which is the whole reason this crosses the wire at all. server/game_server.gd the server itself"><div class="sig"><code>tell_riding(p: ServerPlayer) -&gt; void</code></div><p>Tells a client whether it is riding, and on what. The client stops predicting its own movement while
 it is, which is the whole reason this crosses the wire at all.</p></div>
@@ -3177,7 +3188,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1229 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1232 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

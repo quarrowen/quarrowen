@@ -8836,6 +8836,15 @@ GDScript: `admin_token := ""  (property)`
 
 Passed by the menu when this client launched a local server it should stop on exit.
 
+### `capabilities`
+
+*client/game_client.gd*
+
+GDScript: `capabilities := PackedStringArray()  (property)`
+
+What the server says this player may do (engine/net/net.gd s_capabilities). Empty until it arrives,
+so anything gated on it stays hidden rather than flashing on and off at join.
+
 ### `identity_name`
 
 *client/game_client.gd*
@@ -9011,6 +9020,17 @@ GDScript: `fetch_lazy_asset(asset_name: String, then: Callable) -> void`
 
 Fetches a lazy asset, calling `then(asset_name)` once it is on disk. Calling it again for something
 already arriving just adds another listener rather than asking the server twice.
+
+### `on_capabilities`
+
+*client/game_client.gd*
+
+GDScript: `on_capabilities(can: PackedStringArray) -> void`
+
+The server has said what this player may do. The pause menu rebuilds its gated entries, because a
+promotion mid-game should reach the menu.
+
+**See also:** `can`
 
 ### `refresh_looks`
 
@@ -11040,6 +11060,18 @@ GDScript: `request_full_reload() -> void`
 Saves and asks the owner to restart the server with the same settings; clients are told to reconnect.
 
 **See also:** `chunk_coord_of`, `merge`, `tell_admins`, `ticking_chunks`, `to_saved`
+
+### `tell_capabilities`
+
+*server/game_server.gd*
+
+GDScript: `tell_capabilities(p) -> void`
+
+Tells a player which of the permissions the interface cares about they actually hold, so the client
+can offer only what will work. Sent on join and whenever roles change - a promotion that did not
+reach the menu would be worse than not sending it at all.
+
+**See also:** `has_permission`
 
 ### `tell_riding`
 

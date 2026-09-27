@@ -1222,3 +1222,13 @@ func s_objectives(view: Dictionary) -> void:
 	if client:
 		client.on_objectives(view)
 
+
+## What this player is allowed to do, as the permission names the server checks. **Sent so the client can
+## stop offering what it cannot deliver**: the pause menu listed Worlds, Server settings, Players and
+## roles and Review creations to everybody, because nothing had ever told the client who it was - so a
+## child saw four entries that would refuse them. Appended at the end and the protocol bumped, as every
+## RPC here is. (2026-09-27)
+@rpc("authority", "call_remote", "reliable")
+func s_capabilities(can: PackedStringArray) -> void:
+	if client:
+		client.on_capabilities(can)

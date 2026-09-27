@@ -140,6 +140,9 @@ var server_port := 24565
 var player_name := "Player"
 ## Passed by the menu when this client launched a local server it should stop on exit.
 var admin_token := ""
+## What the server says this player may do (engine/net/net.gd s_capabilities). Empty until it arrives,
+## so anything gated on it stays hidden rather than flashing on and off at join.
+var capabilities := PackedStringArray()
 ## Which saved identity (user://identity/<name>.key) to log in with.
 var identity_name := "default"
 ## Tests only: sign challenges with this key instead of the identity (must fail authentication).
@@ -368,6 +371,8 @@ var _arrival := -1.0
 var _arrived_this_session := false
 var _menu_button: Button
 var _close_button: Button
+## Pause-menu entries that need a permission: button -> the permission it needs.
+var _gated_menu: Dictionary = {}
 var _touch_controls
 var _hotbar: HBoxContainer
 ## Name of what the player is holding, shown above the hotbar for a moment when it changes.
@@ -1044,6 +1049,23 @@ func on_rules(values: Dictionary) -> void:
 
 
 # --- Server messages ----------------------------------------------------------------------------
+
+## The server has said what this player may do. The pause menu rebuilds its gated entries, because a
+## promotion mid-game should reach the menu.
+func on_capabilities(can: PackedStringArray) -> void:
+	capabilities = can
+	_refresh_gated_menu()
+
+
+func can(what: String) -> bool:
+	return capabilities.has(what)
+
+
+func _refresh_gated_menu() -> void:
+	for button in _gated_menu:
+		if is_instance_valid(button):
+			button.visible = can(String(_gated_menu[button]))
+
 
 func on_welcome(peer_id: int, spawn: Vector3, spawn_yaw: float) -> void:
 	my_id = peer_id
@@ -4450,6 +4472,27 @@ func _build_hud() -> void:
 	# Crafting, the map and chat reached the pause menu first, when it was the only door that was not a
 	# key. The touch ring is the better home - you craft in the middle of playing and pause to stop - so
 	# they moved there, and this menu is shorter for it. (2026-09-27)
+	# **Restored after a bad edit deleted them.** A text slice meant to remove three entries took the
+	# whole loop with it and shipped in ffd33a0; nothing tests this menu's contents, so the suite stayed
+	# green. Now with the gating they always wanted: the third element is the permission an entry needs,
+	# or "" for everybody. Four of these only ever worked for an admin and every player saw them,
+	# because nothing had told the client who it was. (2026-09-27)
+	for entry in [["Worlds\u2026", open_worlds_panel, "admin"],
+			["Server settings\u2026", open_server_panel, "admin"],
+			["Players and roles\u2026", open_players_panel, "roles.manage"],
+			["Friends\u2026", open_friends, ""],
+			["Invite friends\u2026", open_invite_dialog, ""],
+			["Report a creation\u2026", open_report_dialog, ""],
+			["Review creations", open_ugc_review, "ugc.review"]]:
+		var gated := Button.new()
+		gated.text = String(entry[0])
+		gated.custom_minimum_size = Vector2(240, 44)
+		gated.pressed.connect(entry[1])
+		pause_box.add_child(gated)
+		if not String(entry[2]).is_empty():
+			gated.visible = false
+			_gated_menu[gated] = String(entry[2])
+
 	var tutorials_button := Button.new()
 	tutorials_button.text = "Tutorials"
 	tutorials_button.custom_minimum_size = Vector2(240, 44)

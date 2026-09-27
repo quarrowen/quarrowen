@@ -1450,6 +1450,20 @@ func _player_id_for(player_name: String) -> String:
 	return str(_meta.names.get(player_name.to_lower(), ""))
 
 
+## Tells a player which of the permissions the interface cares about they actually hold, so the client
+## can offer only what will work. Sent on join and whenever roles change - a promotion that did not
+## reach the menu would be worse than not sending it at all.
+func tell_capabilities(p) -> void:
+	if p == null or not players.has(p.peer_id):
+		return
+	var can := PackedStringArray()
+	for check in ["build", "interact", "chat", "creative", "ugc.review", "allowlist.manage",
+			"roles.manage", "admin"]:
+		if has_permission(p, check):
+			can.append(check)
+	Net.s_capabilities.rpc_id(p.peer_id, can)
+
+
 ## Tells a client whether it is riding, and on what. The client stops predicting its own movement while
 ## it is, which is the whole reason this crosses the wire at all.
 func tell_riding(p: ServerPlayer) -> void:
@@ -3146,6 +3160,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	ensure_area_loaded(p.state.position, realm_of(p))
 
 	Net.s_welcome.rpc_id(peer_id, peer_id, p.state.position, 0.0)
+	tell_capabilities(p)
 	var strung := links_for(realm_of(p).id)
 	if not strung.is_empty():
 		Net.s_links.rpc_id(peer_id, strung)
