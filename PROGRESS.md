@@ -7489,3 +7489,29 @@ throttle, which a player experiences as rubber-banding rather than as a billing 
 **Still to measure, and `tests/bots.gd` exists to do it**: memory and CPU with several players actively
 exploring. Until that is run the figure above is a floor, not a recommendation, and it should not go
 into `docs/hosting.md` as though it were one.
+
+### A third flaky test, and it is in the approval gate (2026-09-27)
+
+`proving` fails intermittently on two adjacent checks:
+
+```
+[proving] FAIL with approval on, somebody nobody admitted cannot build or chat
+[proving] FAIL and the refusal is not a one-off
+```
+
+Measured rather than assumed: **two failures and one pass in three runs on master**, and it fails
+identically with the working tree stashed, so it is not this session's changes. Bisecting found
+`d331811` and `9d0b668` passing - but each of those was a single run, which against a flake proves
+nothing, and saying so here is the point. The only commit after them touches documentation only.
+
+`tests/proving_test.gd:261-264` sets `server.gameplay.approval = true` and asserts
+`has_permission(p, "build")` goes false. Sometimes it does not. The test's own comment says the
+precondition *is* the test - it checks the player could build beforehand, so a player who never could
+cannot make it pass by accident - and that precondition passes every time. So the gate is being asked
+and is answering the wrong thing, intermittently.
+
+**Treat it as a suspect, not as noise.** The precedent is directly on point: the save-queue flake was
+rewritten three times as a timing problem and was the engine starving its own queue
+(`PROGRESS.md`, 2026-09-25). This one sits in a security feature, where "usually refuses" is not a
+property anybody wants. It joins `host_flow_test` and `multiplayer` on the undiagnosed list, which is
+now three.

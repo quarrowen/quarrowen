@@ -343,6 +343,8 @@ var _debug_label: Label
 ## and a number squinted at across a room is a poor way to carry a measurement back - whereas the
 ## device console is already being read over the cable. The same line serves any headless profiling
 ## later. (2026-09-25)
+## How often the readout logs a summary when no QW_FPS_LOG is set.
+const FPS_LOG_WITH_READOUT := 5.0
 var _fps_log_every := 0.0
 var _fps_log_at := 0.0
 var _fps_samples: Array[float] = []
@@ -438,6 +440,8 @@ var _last_jump_press := 0.0  # for the double-tap that starts flying
 
 func _ready() -> void:
 	_fps_log_every = maxf(float(OS.get_environment("QW_FPS_LOG")), 0.0)
+	if _fps_log_every > 0.0:
+		_refresh_render_measurement()
 	graphics.load_saved()
 	if not (avatar is Dictionary):
 		avatar = AvatarStore.load_avatar()
@@ -2950,6 +2954,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Saved, so the choice survives a restart. It did not, so anybody who turned it off turned it
 		# off again every single launch.
 		_debug_label.visible = not _debug_label.visible
+		_refresh_render_measurement()
 		ClientSettings.shared().set_value("interface/debug_info", _debug_label.visible)
 	elif event.is_action_pressed("toggle_hud"):
 		# No message about how to get it back: the label that would say so lives inside the thing being
@@ -4003,6 +4008,7 @@ func _build_hud() -> void:
 	_debug_label = _shadow_label()
 	_debug_label.position = Vector2(10, 30)  # below the controls hint, which owns the top line
 	_debug_label.visible = bool(ClientSettings.shared().get_value("interface/debug_info"))
+	_refresh_render_measurement()
 	_hud_root.add_child(_debug_label)
 
 	# **The controls hint is not debug information and no longer shares its switch.** It was the last
@@ -4774,11 +4780,17 @@ func _set_progress(fraction: float) -> void:
 ## - it is whether the thing hitches. An average of 58 hides a stall the player feels and the whole
 ## reason this exists is to carry that distinction off a device nobody can watch.
 func _log_fps(delta: float) -> void:
-	if _fps_log_every <= 0.0:
+	# **Driven by the readout, not only by the environment variable.** `QW_FPS_LOG` never arrives on
+	# iOS - whatever devicectl does with `--environment-variables`, `OS.get_environment` does not see it -
+	# so on the one platform where a log file is the *only* way to read a number, the switch that armed
+	# the logging could not be thrown. The readout can be switched on from Settings, on any device, by
+	# the person holding it. (2026-09-27)
+	var every := _fps_log_every if _fps_log_every > 0.0 else (FPS_LOG_WITH_READOUT if _debug_label != null and _debug_label.visible else 0.0)
+	if every <= 0.0:
 		return
 	_fps_samples.append(1.0 / maxf(delta, 0.0001))
 	_fps_log_at += delta
-	if _fps_log_at < _fps_log_every:
+	if _fps_log_at < every:
 		return
 	_fps_log_at = 0.0
 	var sorted := _fps_samples.duplicate()
@@ -4786,10 +4798,40 @@ func _log_fps(delta: float) -> void:
 	var total := 0.0
 	for f in sorted:
 		total += f
-	print("[fps] avg %.1f  median %.1f  worst %.1f  best %.1f  (%d frames, render scale %d%%, %s)" % [
-		total / sorted.size(), sorted[sorted.size() / 2], sorted[0], sorted[-1], sorted.size(),
+	# Frame *time* is the headroom number where the frame rate is pinned to the display (see
+	# _refresh_render_measurement), so it goes in the log beside it rather than only on screen.
+	print("[fps] avg %.1f  median %.1f  worst %.1f  best %.1f  |  frame %s  (%d frames, render scale %d%%, %s)" % [
+		total / sorted.size(), sorted[sorted.size() / 2], sorted[0], sorted[-1], _frame_cost(), sorted.size(),
 		roundi(graphics.value("render_scale") * 100.0), RenderingServer.get_current_rendering_method()])
 	_fps_samples.clear()
+
+
+## **Frame *time*, not frame rate, is the only headroom measure that works on a tablet.** iOS presents
+## through the display compositor, so nothing renders faster than the refresh rate and the frame rate
+## reads a flat 60 whether a frame costs 3 ms or 16. Turning V-Sync off changes nothing there - it is
+## not ours to turn off. What separates "loads of room" from "about to drop frames" is how much of the
+## 16.7 ms budget a frame actually spends. (2026-09-27, found on an iPad Air 5 reading a constant 60)
+##
+## Measuring costs a little, so it follows the readout rather than being always on.
+## Measuring is wanted whenever anything is going to *report* a frame time - the readout on screen or
+## the log - and one function decides that, because two call sites setting it independently is how it
+## ends up off while something is printing zeros. It did, on the first try. (2026-09-27)
+## Render cost for one frame as text: "cpu 0.4 + gpu 1.2 ms of 16.7", or without the gpu half where the
+## driver does not report timestamps - Metal on this Mac returns 0.00 for every frame, and a number that
+## is always zero reads as "free" rather than as "not measured". Say less rather than say it wrongly.
+func _frame_cost() -> String:
+	var rid := get_viewport().get_viewport_rid()
+	var cpu := RenderingServer.viewport_get_measured_render_time_cpu(rid) + RenderingServer.get_frame_setup_time_cpu()
+	var gpu := RenderingServer.viewport_get_measured_render_time_gpu(rid)
+	var budget := 1000.0 / maxf(float(DisplayServer.screen_get_refresh_rate()), 30.0)
+	if gpu > 0.0:
+		return "cpu %.2f + gpu %.2f ms of %.1f" % [cpu, gpu, budget]
+	return "cpu %.2f ms of %.1f (gpu not reported)" % [cpu, budget]
+
+
+func _refresh_render_measurement() -> void:
+	var wanted := (_debug_label != null and _debug_label.visible) or _fps_log_every > 0.0
+	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), wanted)
 
 
 func _update_hud() -> void:
@@ -4808,7 +4850,8 @@ func _update_hud() -> void:
 		target_text = "%s %s" % [registry.display_name(_target.block), _target.position]
 	var selected := inventory.selected_item()
 	_debug_label.text = "\n".join([
-		"%s - %s  %d fps" % [server_info.get("name", "?"), server_info.get("game", "?"), Engine.get_frames_per_second()],
+		"%s - %s  %d fps   frame %s" % [server_info.get("name", "?"),
+			server_info.get("game", "?"), Engine.get_frames_per_second(), _frame_cost()],
 		"XYZ %.2f / %.2f / %.2f   chunk %s   time %02d:%02d (light %.2f)" % [p.x, p.y, p.z, VoxelWorld.chunk_coord_of(p),
 			int(_time_of_day * 24.0), int(fmod(_time_of_day * 1440.0, 60.0)), _daylight],
 		"Ping %d ms   pending inputs %d   corrections %d" % [Net.get_ping_ms(), _pending_inputs.size(), _correction_count],
