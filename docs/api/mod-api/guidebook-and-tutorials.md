@@ -31,7 +31,10 @@ mod's; image blocks take a texture path in this mod.
 
 ```gdscript
 api.register_guide_page("what", {"chapter": "proving", "title": "What this is",
-	"content": [{"type": "text", "text": "A mod that exists to be tested."}]})
+	"blocks": [{"type": "text", "text": "A mod that exists to be tested."},
+		{"type": "tip", "text": "Every block type the guidebook draws should appear somewhere here."},
+		{"type": "items", "items": ["proving:token"]},
+		{"type": "link", "page": "errand"}]})
 ```
 
 **See also:** `add_page`, `qualified`, `register_asset`

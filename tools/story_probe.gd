@@ -110,6 +110,20 @@ func _walk(server, p) -> Array:
 		return []
 	var problems := []
 	print("")
+	# **The ending must not be readable before it happens.** Four of the story's own guide pages are
+	# gated, two of them on flags the acts set, and the failure mode is silent and unrecoverable: a
+	# guidebook that opens on "you do not have to fight it and you cannot beat it" has given the ending
+	# away to a child who was three acts off finding it, and nothing about that looks like a bug. So the
+	# walk checks the lock before it starts and the unlock as each act lands. (2026-09-27)
+	var gated := {}
+	for act in Acts.ACTS:
+		var page := String(act.get("page", ""))
+		if not String(act.get("flag", "")).is_empty() and not page.is_empty():
+			gated[String(act.id)] = page
+			if server.guide.is_unlocked(p, page):
+				problems.append("%s is readable before %s is handed over" % [page, String(act.id)])
+				print("SPOILER: %s is readable from the start" % page)
+	print("gated:     %d pages wait for the act that needs them" % gated.size())
 	for act in Acts.ACTS:
 		var act_id := String(act.id)
 		if not api.has_objective(p, act_id):
@@ -136,6 +150,11 @@ func _walk(server, p) -> Array:
 			problems.append("%s never finished" % act_id)
 			print("STUCK: %s never finished" % act_id)
 			break
+		# And the other half: handing it over has to actually open the page, or the gate above is simply
+		# a page nobody can ever read.
+		if gated.has(act_id) and not server.guide.is_unlocked(p, String(gated[act_id])):
+			problems.append("%s stayed locked after %s was handed over" % [String(gated[act_id]), act_id])
+			print("LOCKED OUT: %s never opened" % String(gated[act_id]))
 		print("walked:    %s" % act_id)
 	if problems.is_empty():
 		print("chain:     all %d acts walk to the end" % (Acts.ACTS as Array).size())

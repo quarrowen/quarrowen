@@ -185,6 +185,13 @@ func advance_to_next(player) -> bool:
 		# The page that explains what he just asked for, where there is one. Unlocked rather than
 		# opened: a book that opens itself over the world is a thing you have to close, and a child
 		# who wants it will see the badge count go up.
+		# A flag first where there is one: it is what the page's own `unlock` reads, so setting it is what
+		# makes the book true rather than merely opened. `set_guide_flag` unlocks and announces anything
+		# waiting on it, so the explicit unlock below then finds nothing left to do - which is correct,
+		# and means an act may carry either, or both, without saying the same thing twice.
+		var flag := String(act.get("flag", ""))
+		if not flag.is_empty():
+			api.set_guide_flag(player, flag)
 		var page := String(act.get("page", ""))
 		if not page.is_empty():
 			api.unlock_guide_page(player, page)

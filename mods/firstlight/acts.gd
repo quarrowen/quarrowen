@@ -26,13 +26,17 @@ extends RefCounted
 ## would help. The rule for whether an act gets one has not changed - the book already unlocks pages
 ## when you find the thing they are about, and a page you cannot use yet is a spoiler rather than help -
 ## but the field now does more than unlock, so it was worth going back through the acts and asking the
-## question again: it was five, and it is nine of fourteen, plus four of the five side tasks. Counted
-## off the table rather than tallied by hand, because a number in a comment is the thing that goes
-## stale first. (2026-09-27)
+## question again: it was five, then nine, and it is **all fourteen**, plus four of the five side tasks.
+## Counted off the table rather than tallied by hand, because a number in a comment is the thing that
+## goes stale first. (2026-09-27)
 ##
-## **The four with none have none because nothing is written about them.** A hand lantern, deepstone as
-## a material, sunstone blocks and the altar are this game's own subjects and the book is `base`'s. Wick
-## explains those himself, which is what he is for.
+## The last five needed pages that did not exist. Four of their subjects are this story's own - Wick, the
+## old lights, the ruin and what is under the world - and they live in `pages.gd` here, because a library
+## documenting three packs cannot know about them. The fifth, the hand lantern, is `simple_gear`'s noun
+## and its page went into `guidebook` where every game gets it.
+##
+## `flag` is a guide flag set at handover, for a page that must not exist before the act does. See
+## `pages.gd` for why the ending is locked and the rest is not.
 const ACTS := [
 	{"id": "act_waking", "name": "Waking",
 		"said": "Wood first. Everything starts with wood, I find.",
@@ -86,6 +90,7 @@ const ACTS := [
 	# The act the whole lantern capability was built for, and the one Wick has been waiting to ask for.
 	{"id": "act_lantern", "name": "A Light to Carry",
 		"said": "Now this one's mine, really. A light you can take with you. I've wanted to give somebody one of these for years.",
+		"page": "guidebook:lantern",
 		"steps": [
 			{"text": "Make a hand lantern", "goal": {"on": "craft", "is": "simple_gear:hand_lantern"}}]},
 
@@ -125,6 +130,9 @@ const ACTS := [
 
 	{"id": "act_deep", "name": "The Floor of the World",
 		"said": "There. Hear how quiet it's got? We're under everything now.",
+		# The same page act 8 pointed at, which is fine: it is the only thing written about deepstone, and
+		# a page already read is skipped when the book decides where to open.
+		"page": "guidebook:deep_ores",
 		"steps": [
 			{"text": "Mine ten deepstone", "count": 10, "goal": {"on": "break", "is": "base:deepstone"}}]},
 
@@ -145,18 +153,27 @@ const ACTS := [
 	# recipe in colossus.gd for why it is four-to-one and not the conventional nine.
 	{"id": "act_sunstone", "name": "Sunstone",
 		"said": "There's a stone down there that keeps a bit of the sun in it. That's what the old lights were made of.",
+		"page": "firstlight:old_lights",
 		"steps": [
 			{"text": "Mine eight sunstone ore", "count": 8, "goal": {"on": "break", "is": "base:sunstone_ore"}},
 			{"text": "Make two sunstone blocks", "count": 2, "goal": {"on": "craft", "is": "base:sunstone_block"}}]},
 
 	{"id": "act_altar", "name": "The Old Light",
 		"said": "Somebody built one of these long before either of us. Two of its corners are still standing. Put the other two back.",
+		"page": "firstlight:ruin",
+		# **`flag` is how a page stays hidden until the story reaches it.** The two pages that would spoil
+		# the ending are locked on a flag nothing else sets, so handing the act over is the only thing
+		# that opens them - and setting the flag rather than only unlocking the page means the book's own
+		# condition is the truth, not a side effect. (2026-09-27)
+		"flag": "seeking_ruin",
 		"description": "A ruined altar in the deep, two corners short of whole.",
 		"steps": [
 			{"text": "Find the ruin and set its missing corners", "goal": {"on": "built", "name": "firstlight:altar"}}]},
 
 	{"id": "act_firstlight", "name": "Firstlight",
 		"said": "Right. I've been not doing this for a very long time. Let's go and not do it together.",
+		"page": "firstlight:colossus",
+		"flag": "woke_it",
 		"description": "Put the thing under the world back to sleep.",
 		"steps": [
 			{"text": "Light the altar and let the Colossus rest", "goal": {"on": "built", "name": "firstlight:altar_lit"}}]},

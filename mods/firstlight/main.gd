@@ -28,6 +28,7 @@ const DEEP_FROM := 30
 const Colossus = preload("res://mods/firstlight/colossus.gd")
 const Reed = preload("res://mods/firstlight/reed.gd")
 const Moonpearl = preload("res://mods/firstlight/moonpearl.gd")
+const Pages = preload("res://mods/firstlight/pages.gd")
 
 const SEA_LEVEL := 62
 
@@ -38,6 +39,7 @@ var wick := Wick.new()
 var colossus := Colossus.new()
 var reed := Reed.new()
 var moonpearl := Moonpearl.new()
+var pages := Pages.new()
 
 
 func setup(api) -> void:
@@ -45,6 +47,9 @@ func setup(api) -> void:
 	_music(api)
 	_world(api)
 	_who_lives_here(api)
+	# Before Wick, because his acts name the pages these register and a page that does not exist yet is
+	# dropped without a word (guide_registry). Registration order is the usual trap.
+	pages.setup(api)
 	wick.setup(api)
 	colossus.setup(api)
 	reed.setup(api)

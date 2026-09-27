@@ -7934,3 +7934,62 @@ races that look like missing tests and stale documentation.
 Run alone, the suite is 29 tests and green. Worth writing down because the symptom is so misleading:
 a test that *vanishes* reads as a broken runner rather than as a collision, and it cost most of an
 hour chasing `selected` and the mod glob, neither of which had anything to do with it.
+
+## Finishing the book: the four subjects it could not cover (2026-09-27)
+
+`firstlight` pointed at a guide page from every act it had a page for, and the remaining five acts had
+none because **nothing was written about their subjects**. That was the last real gap in the guidebook
+and it is closed: fourteen of fourteen acts now name a page, plus four of the five side tasks.
+
+### Where each page went, which the line decides for us
+
+- **The hand lantern** went into `guidebook`, the library. `simple_gear:hand_lantern` is a noun of a
+  pack the book already documents, so `creative` and `oneblock` get the page too. It was the one piece
+  of gear the book had never mentioned, and it is the only light you can *carry* - the difference
+  between a cave you can see and a cave you are holding a torch in instead of a pickaxe.
+- **Wick, the old lights, the ruin and what is under the world** went into `firstlight`, in a new
+  `pages.gd` and a chapter called The Lights. A library documenting three packs cannot know about a
+  particular story's characters, and the sunstone-block page has to live here for a concrete reason as
+  well as a principled one: **the stone is `base`'s and the recipe is this game's**, so in the library
+  the page would draw a recipe card for something only Firstlight registers.
+
+That is the same line as blocks, arriving at pages without anybody having to restate it.
+
+### The ending is locked, and the walk proves it
+
+A guidebook that opens on *"you do not have to fight it and you cannot beat it"* has given the story
+away to a child three acts short of finding it, and **nothing about that looks like a bug** - the page
+renders perfectly. So the two pages that would spoil it are gated on guide flags nothing else sets, and
+the act sets the flag as it is handed over.
+
+`story_probe` now checks both halves: every gated page is locked before the walk starts, and each one
+opens when its act lands. Two pages, checked at both ends, in the test that already walks the chain.
+
+**Why a flag and not only the unlock call.** `unlock_guide_page` opens a page whatever its condition, so
+the act could have done it alone - but then the page's own `unlock` would be a decoration that describes
+nothing, and the next person to read it would believe it. Setting the flag makes the condition the
+truth; `set_guide_flag` refreshes and announces anything waiting on it, so the unlock that follows finds
+nothing left to do.
+
+### A page with nothing on it, and the reference teaching how to make one
+
+Both of the Proving Ground's guide pages were written with `content`, and `register_guide_page` reads
+`blocks` and silently ignores everything else. So they registered, validated, sorted into their chapter
+and drew **blank sheets** - and had done since the day they were written.
+
+The part worth keeping: **the generated reference's example for `register_guide_page` is lifted from the
+Proving Ground**, so the mod API documentation had been showing every mod author the spelling that does
+nothing. A wrong example in a reference is worse than no example, because it is the thing somebody
+copies. Fixed in the source, and the docs regenerate from it.
+
+Nothing here was a lie anybody told; it is the Proving Ground's exact recurring failure - *registering
+was all anything ever checked*. It now asserts that every page it owns has a body, which is the cheap
+guard: a chapter with no pages and a page with no blocks are the two ways a guidebook can be empty and
+still look registered.
+
+### The entity portrait, and a layout mistake made twice in two days
+
+The Wick page opened with his 3D portrait, which is nearly the full height of the panel - so a page
+about a person said nothing about him until you scrolled. Exactly the task-panel mistake, one day and
+one panel apart, and found the same way: by photographing it. An `entity` block is a picture, and a
+picture goes under the sentence it illustrates.

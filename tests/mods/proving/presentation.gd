@@ -47,15 +47,23 @@ func setup(mod_api, id_table: Dictionary) -> void:
 		{"title": "Look around", "text": "W A S D to walk, the mouse to look.", "goal": {"type": "manual"}}]})
 	api.register_tip("basics", {"text": "Rock is the thing to dig", "trigger": {"type": "night"}})
 	api.register_guide_chapter("proving", {"title": "The Proving Ground", "order": 1})
+	# **`blocks`, not `content`.** This page said `content` from the day it was written and so had no body
+	# at all: `register_guide_page` reads `blocks` and nothing else, silently, so the page registered,
+	# validated and rendered as an empty sheet. Found on 2026-09-27 while adding the second one below.
+	# The Proving Ground's whole job is to be the place a mistake like this shows up, and the reason it
+	# did not is that nothing here ever asked what was *on* a page - see the assertion in proving_test.
 	api.register_guide_page("what", {"chapter": "proving", "title": "What this is",
-		"content": [{"type": "text", "text": "A mod that exists to be tested."}]})
+		"blocks": [{"type": "text", "text": "A mod that exists to be tested."},
+			{"type": "tip", "text": "Every block type the guidebook draws should appear somewhere here."},
+			{"type": "items", "items": ["proving:token"]},
+			{"type": "link", "page": "errand"}]})
 	# A second page so the objective and its first step can name *different* ones - which is the only way
 	# to cover the rule that a step's page beats its objective's while they are on that step.
 	# **Locked behind a flag nothing ever sets**, which is the point: a page that starts unlocked cannot
 	# show that anything unlocked it, and `reads` is exactly the thing being covered here.
 	api.register_guide_page("errand", {"chapter": "proving", "title": "On Errands",
 		"unlock": {"flag": "read_up"},
-		"content": [{"type": "text", "text": "Going and seeing, then coming back."}]})
+		"blocks": [{"type": "text", "text": "Going and seeing, then coming back."}]})
 	# Damage numbers, which is float_text plus the post-damage event in one.
 	api.on("entity_damaged", func(ev):
 		var e = ev.entity

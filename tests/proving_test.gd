@@ -149,6 +149,17 @@ func _registries(server) -> void:
 	_check(server.companions.kinds.has("proving:forage") and server.companions.kinds.has("proving_js:js_wait"),
 		"orders, from both languages")
 
+	# **A page with nothing on it.** Registering was all anything ever checked, and `register_guide_page`
+	# reads `blocks` and silently ignores anything else - so a page written with `content` registered,
+	# validated, sorted into its chapter and drew a blank sheet. Both of the Proving Ground's pages were
+	# like that until 2026-09-27. Asserting the body is the cheap guard: a chapter with no pages and a
+	# page with no blocks are the two ways a guidebook can be empty and still look registered.
+	var guide_pages: Array = server.guide.registry.pages.filter(func(p): return String(p.owner) == "proving")
+	_check(not guide_pages.is_empty(), "the mod registered guide pages")
+	_check(guide_pages.all(func(p): return not (p.blocks as Array).is_empty()),
+		"and every one of them has something on it (empty: %s)"
+			% ", ".join(guide_pages.filter(func(p): return (p.blocks as Array).is_empty()).map(func(p): return String(p.id))))
+
 	# A model part that casts light. Asserted on the network table rather than on the definition,
 	# because the whole capability is that it reaches the client - it was a NETWORK_FIELDS omission
 	# away from being invisible, which is the failure this would not otherwise catch.

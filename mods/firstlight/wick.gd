@@ -128,6 +128,10 @@ func _conversation(api) -> void:
 			{"text": "I should go", "does": "bye"}]},
 		"who": {"text": "Wick. I keep the lights. Keeping them badly, lately, but keeping them.", "options": [
 			{"text": "What lights?", "goes_to": "lights"},
+			# The two things a child most wants to know about a companion - can he die, and will he get
+			# lost - are on his page and nowhere else, and a conversation is exactly where somebody
+			# thinks to ask.
+			{"text": "Are you going to be all right?", "reads": "wick"},
 			{"text": "Can you help me?", "goes_to": "help"}]},
 		"lights": {"text": "The ones that kept the dark thin. They've been going out, one at a time, and I'm not quick enough to be everywhere.", "options": [
 			{"text": "Why are they going out?", "goes_to": "why"},

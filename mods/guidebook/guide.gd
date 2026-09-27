@@ -133,6 +133,22 @@ func _survival(api) -> void:
 			{"type": "tip", "text": "There is no torch recipe in the book at first. Try arranging fuel and a stick in the Experiment grid (see Discovering Recipes)."},
 			{"type": "link", "page": "discovery"},
 		]})
+	# **The one piece of gear the book never mentioned**, and the only light you can carry - which makes
+	# it the difference between a cave you can see and a cave you are holding a torch in instead of a
+	# pickaxe. Its own page rather than a paragraph in Light and Torches, because a child looking for
+	# "how do I see down here" will not find it filed under something they have already read. (2026-09-27)
+	api.register_guide_page("lantern", {"chapter": "survival", "title": "A Light to Carry",
+		"icon": "simple_gear:hand_lantern", "order": 2,
+		"unlock": {"item": ["base:iron_ingot", "simple_gear:hand_lantern"]},
+		"hint": "Smelt some iron and this page fills itself in.",
+		"keywords": "lantern lamp carry hold light cave dark portable",
+		"blocks": [
+			{"type": "text", "text": "A torch has to be put down. A [b]Hand Lantern[/b] comes with you: hold it and it lights the ground around you wherever you go."},
+			{"type": "recipe", "output": "simple_gear:hand_lantern"},
+			{"type": "text", "text": "It never runs out and it is never used up. Keep it in your hotbar and switch to it whenever the light goes."},
+			{"type": "tip", "text": "Make one [b]before[/b] your first trip underground, not after. Three iron and a piece of coal is cheaper than the walk back up."},
+			{"type": "link", "page": "light"},
+		]})
 	api.register_guide_page("farming", {"chapter": "survival", "title": "Farming", "icon": "base:wheat", "order": 2,
 		"unlock": {"item": "base:wheat_seeds"}, "keywords": "seeds wheat hoe farmland water crops grow sapling",
 		"blocks": [
