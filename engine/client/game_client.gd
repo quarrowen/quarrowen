@@ -4416,6 +4416,21 @@ func _build_hud() -> void:
 	guide_button.custom_minimum_size = Vector2(240, 44)
 	guide_button.pressed.connect(func(): _set_guide_open(true))
 	pause_box.add_child(guide_button)
+	# **Crafting, the map and chat had no route at all without a keyboard.** Crafting especially: a
+	# survival game is unplayable on a tablet if the only way to open it is to press C. They live here
+	# rather than as more thumb buttons because they are things you stop to do, not things you do while
+	# moving - and the on-screen controls are already as busy as a child's thumbs can cover. Shown on
+	# every platform, because a player who would rather point than remember a letter exists on a desktop
+	# too. (2026-09-27)
+	for entry in [["Crafting", func(): Net.c_open_menu.rpc_id(1, "crafting")], ["Map", func(): toggle_map()],
+			["Chat", func(): _open_chat()]]:
+		var reach := Button.new()
+		reach.text = entry[0]
+		reach.custom_minimum_size = Vector2(240, 44)
+		reach.pressed.connect(func():
+			_set_paused(false)
+			entry[1].call())
+		pause_box.add_child(reach)
 	for entry in [["Worlds…", open_worlds_panel], ["Server settings…", open_server_panel], ["Players and roles…", open_players_panel], ["Friends…", open_friends], ["Invite friends…", open_invite_dialog], ["Report a creation…", open_report_dialog], ["Review creations (admins)", open_ugc_review]]:
 		var ugc_button := Button.new()
 		ugc_button.text = entry[0]

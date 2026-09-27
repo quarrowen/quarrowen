@@ -6125,14 +6125,6 @@ What reveals a locked page.
 
 **See also:** `get_page`, `index_of`
 
-### `key_name`
-
-*client/guide_screen.gd*
-
-GDScript: `static key_name(action: String) -> String`
-
-The first key bound to an input action ("G", "Space", "Left Mouse").
-
 ### `set_view`
 
 *client/objective_hud.gd*

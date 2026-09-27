@@ -422,7 +422,27 @@ func _block(b: Dictionary) -> Control:
 
 
 ## The first key bound to an input action ("G", "Space", "Left Mouse").
+## **What a touch device is told instead of a key.** The guidebook, the tutorials and the new-page badge
+## all name their controls through here, and on a tablet every one of them said "press G" or "press Esc"
+## - instructions for hardware the player does not have. Naming the on-screen control, or the way in
+## through the menu, is the whole fix; the alternative was a guidebook a child cannot follow.
+##
+## Actions absent from here have no touch route at all and would be a lie to name, so they fall through
+## to the key name and are listed in PROGRESS as a gap rather than papered over. (2026-09-27)
+const TOUCH_NAMES := {
+	"break": "Tap", "place": "Two-finger tap", "jump": "Jump", "sneak": "Crouch", "sprint": "Run",
+	"inventory": "Backpack", "pause": "Menu", "guide": "Menu → Guidebook",
+	"crafting": "Menu → Crafting", "map": "Menu → Map", "chat": "Menu → Chat",
+}
+
+
+static func touch_controls_in_use() -> bool:
+	return OS.get_environment("QW_TOUCH") == "1" or DisplayServer.is_touchscreen_available()
+
+
 static func key_name(action: String) -> String:
+	if touch_controls_in_use() and TOUCH_NAMES.has(action):
+		return String(TOUCH_NAMES[action])
 	if not InputMap.has_action(action):
 		return action.capitalize()
 	for ev in InputMap.action_get_events(action):

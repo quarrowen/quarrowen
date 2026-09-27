@@ -259,8 +259,13 @@ func _behaviour(server) -> void:
 	# build in the first place, and proves nothing at all.
 	_check(server.has_permission(p, "build"), "an ordinary player can build before approval is asked for")
 	server.gameplay.approval = true
+	var diag: String = "approval=%s admitted=%s cfg=%s pid=%s name=%s roles=%s entries=%s adm=%s" % [
+		server.gameplay.approval, server._meta.get("admitted", {}).keys(), server._config_admins.keys(),
+		p.player_id, p.name, server.roles.roles_of(p.player_id), server.roles.entries_of(p.player_id),
+		server.is_admitted(p.player_id)]
+	print("[diag] ", diag)
 	_check(not server.has_permission(p, "build") and not server.has_permission(p, "chat"),
-		"with approval on, somebody nobody admitted cannot build or chat")
+		"with approval on, somebody nobody admitted cannot build or chat " + diag)
 	_check(server.has_permission(p, "build") == false, "and the refusal is not a one-off")
 	server.admit(p.player_id, p.name, "Tester")
 	_check(server.has_permission(p, "build"), "and can once they are let in")
