@@ -4102,9 +4102,12 @@ func _build_hud() -> void:
 	add_child(layer)
 	_hud_root = Control.new()
 	_hud_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	# PASS rather than IGNORE: the root itself swallows nothing, but a press must be able to reach the
-	# controls inside it (the hotbar, the menu button). IGNORE stops the search at the root.
-	_hud_root.mouse_filter = Control.MOUSE_FILTER_PASS
+	# **IGNORE, and that does not stop the hotbar being tappable.** `mouse_filter` is per node: a parent
+	# set to IGNORE simply does not consume input itself, and its children are still hit-tested. Setting
+	# the root to PASS instead made it *accept* mouse buttons, which stopped them reaching
+	# `_unhandled_input` - and click-to-capture-the-mouse lives there, so the desktop lost its pointer
+	# lock entirely. (the user, 2026-09-27: "on PC, click to capture mouse isnt working")
+	_hud_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_hud_root)
 	# Inside the HUD root so the safe-area inset applies to it too, and so `toggle_hud` (F1, screenshot
 	# mode) hides the controls along with everything else rather than leaving them floating.
@@ -4119,6 +4122,11 @@ func _build_hud() -> void:
 	# half-built world is what made the old loading screen read as a hung game rather than a busy one.
 	_hud_root.visible = false
 	_curtain = LoadingCurtain.new()
+	# Giving up while joining takes the same road out as leaving a world does, so a cancelled join is
+	# not a special case anywhere downstream - it stops the local server too, if this was a hosted one.
+	_curtain.cancelled.connect(func():
+		exit_kind = "connect"
+		_leave(""))
 	layer.add_child(_curtain)
 
 	# **The way out of the world.** Escape opens the pause menu on a desktop and there was nothing else
@@ -4253,7 +4261,7 @@ func _build_hud() -> void:
 		_hotbar_frame.grow_horizontal = Control.GROW_DIRECTION_BOTH
 		_hotbar_frame.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		_hotbar_frame.position.y -= 10
-		_hotbar_frame.mouse_filter = Control.MOUSE_FILTER_PASS  # its slots are tappable; it is not
+		_hotbar_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE  # its slots are tappable; it is not
 		var frame := StyleBoxFlat.new()
 		frame.bg_color = Color(0.09, 0.08, 0.07, 0.72)
 		frame.set_corner_radius_all(10)
@@ -4269,7 +4277,7 @@ func _build_hud() -> void:
 	_hotbar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_hotbar.position.y -= 12
 	_hotbar.add_theme_constant_override("separation", 4)
-	_hotbar.mouse_filter = Control.MOUSE_FILTER_PASS
+	_hotbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if _hotbar_frame != null:
 		_hotbar_frame.add_child(_hotbar)
 	else:

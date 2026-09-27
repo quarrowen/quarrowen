@@ -36,6 +36,13 @@ const STICK_DEADZONE := 0.18
 ## several centimetres where a mouse covers a few millimetres, and 0.55 was scaling the wrong way.
 const LOOK_SCALE := 1.6
 const BUTTON_SIZE := Vector2(64, 64)
+## **How much of the bottom edge the hotbar owns.** Nothing of ours may sit in it. The buttons were
+## anchored 40 units up, which clears the belt on a wide screen and lands on top of slots five to nine
+## on a squarer one - Godot's content scaling keeps the *height*, so a narrower screen has a narrower
+## viewport in these units and anything anchored to opposite edges moves towards the middle. A 1.93:1
+## desktop shot showed no overlap; a 1.44:1 tablet had it all along. (the user, 2026-09-27: "the button
+## for run is actually overlapping with the action bar")
+const BELT_BAND := 104.0
 ## **Tapping the world acts on it.** A finger that presses the looking half and does not travel is
 ## reaching for the block in front of it, not turning the view - so a tap swings, and a press held still
 ## mines, and only a finger that actually moves turns the camera. The buttons stay, because they are
@@ -105,7 +112,7 @@ func _build_stick() -> void:
 	# reason it was noticed. (2026-09-27)
 	_stick_base = Panel.new()
 	_stick_base.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_anchor(_stick_base, 0.0, 1.0, Vector2(STICK_RADIUS * 2.0, STICK_RADIUS * 2.0), Vector2(40, -40))
+	_anchor(_stick_base, 0.0, 1.0, Vector2(STICK_RADIUS * 2.0, STICK_RADIUS * 2.0), Vector2(40, -BELT_BAND))
 	_stick_base.add_theme_stylebox_override("panel", _round(Color(1, 1, 1, 0.16), STICK_RADIUS))
 
 	_stick_knob = Panel.new()
@@ -117,14 +124,20 @@ func _build_stick() -> void:
 
 
 func _build_buttons() -> void:
-	# Bottom right, where the other thumb already rests. Offsets are from that corner, so both are
-	# negative and account for the control's own size. Jump is largest: pressed most, and missed most.
-	_add_button("jump", "jump", "Jump", Vector2(-40, -40), Vector2(96, 96))
-	_add_button("break", "mine", "Mine", Vector2(-40, -150), BUTTON_SIZE)
-	_add_button("place", "place", "Place", Vector2(-148, -150), BUTTON_SIZE)
-	_add_button("sneak", "crouch", "Crouch", Vector2(-148, -40), BUTTON_SIZE)
-	_add_button("sprint", "run", "Run", Vector2(-256, -40), BUTTON_SIZE)
-	_add_button("inventory", "bag", "Backpack", Vector2(-256, -150), BUTTON_SIZE)
+	# **Hugging the right edge rather than reaching into the middle.** A thumb pivots from where the
+	# hand grips the side, so its comfortable range is an arc along that edge - a block of buttons
+	# spreading inward puts the far column at the end of the stretch, which is where `run` and the
+	# backpack had ended up. Two short columns instead of three: 184 units from the edge rather than
+	# 320, and all of it in the lower half where a thumb rests. (the user, 2026-09-27: "lining the icons
+	# up on the sides of the screen would be better for accessibility... easier to reach")
+	#
+	# Jump is largest and lowest: pressed most, and missed most.
+	_add_button("jump", "jump", "Jump", Vector2(-28, -BELT_BAND), Vector2(84, 84))
+	_add_button("sneak", "crouch", "Crouch", Vector2(-120, -BELT_BAND), BUTTON_SIZE)
+	_add_button("break", "mine", "Mine", Vector2(-28, -BELT_BAND - 96.0), BUTTON_SIZE)
+	_add_button("place", "place", "Place", Vector2(-120, -BELT_BAND - 96.0), BUTTON_SIZE)
+	_add_button("sprint", "run", "Run", Vector2(-28, -BELT_BAND - 172.0), BUTTON_SIZE)
+	_add_button("inventory", "bag", "Backpack", Vector2(-120, -BELT_BAND - 172.0), BUTTON_SIZE)
 
 
 ## One button that holds its action down for as long as it is touched, because `break` and `place` both

@@ -12,17 +12,35 @@ extends Node
 ##       [--goto=4 (stand 4 m from it first; needs the server started with QW_ADMINS=<--name>)]
 ##       [--stand=133,12,127 (or stand exactly here instead - indoors, where the side matters)]
 ##     [--warmup=0 (skip the 120-frame settle; needed to photograph anything that moves and ends)]
+##     [--size=1180x820 (photograph at another screen shape - a tablet's, a phone's)]
 
 const GameClient = preload("res://engine/client/game_client.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera", "look": "", "look_wait": "6", "goto": "", "stand": "", "warmup": "120"}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera", "look": "", "look_wait": "6", "goto": "", "stand": "", "warmup": "120", "size": ""}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
 			options[kv[0]] = kv[1]
+	# **`--size=1180x820` photographs the interface at another shape.** The window is maximised by
+	# project.godot, so `--resolution` is ignored and every shot came out at the desktop's aspect - which
+	# is how a button that overlaps the hotbar on a 1.44:1 iPad went unseen in a dozen 1.93:1 pictures.
+	# Godot's content scaling keeps the height, so a narrower screen has a narrower viewport in HUD
+	# units and anything anchored to opposite edges moves closer together. (2026-09-27)
+	if not String(options.size).is_empty():
+		var parts := String(options.size).split("x")
+		if parts.size() == 2:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+			DisplayServer.window_set_size(Vector2i(int(parts[0]), int(parts[1])))
+			# A resize takes a few frames to reach the viewport; one is not enough and the shot comes out
+			# at the old shape while looking perfectly plausible.
+			for _i in 12:
+				await get_tree().process_frame
+			print("[screenshot] window %s, viewport %s" % [DisplayServer.window_get_size(),
+				get_viewport().get_visible_rect().size])
+
 	var client = GameClient.new()
 	client.server_port = int(options.port)
 	client.player_name = String(options.name)

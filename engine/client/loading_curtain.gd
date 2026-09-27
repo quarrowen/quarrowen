@@ -18,14 +18,23 @@ extends Control
 ## - **Leave by fading**, handing over to the arrival flight rather than cutting to it. A cut would
 ##   throw away the one moment the flight exists to create.
 
+## Emitted when the player gives up waiting. **Joining had no way out**: a server that is slow, or the
+## wrong one, or not coming back at all left the only choice of waiting for a timeout or killing the
+## game. (the user, 2026-09-27: "a cancel button would be nice so that i dont need to wait for a
+## timeout or something if i realized i connected to the wrong one")
+signal cancelled
+
 ## How long the curtain takes to go, and how long a step of the block animation lasts.
 const FADE_SECONDS := 0.9
 const BLOCK_SECONDS := 0.18
 const BLOCKS := 7
+## How long to wait before offering a way out. Long enough that an ordinary join never shows it.
+const CANCEL_AFTER := 2.5
 
 var _title: Label
 var _status: Label
 var _bar: ProgressBar
+var _cancel: Button
 var _blocks: Array[Panel] = []
 var _elapsed := 0.0
 var _leaving := false
@@ -91,6 +100,17 @@ func _ready() -> void:
 	_bar.add_theme_stylebox_override("background", back)
 	column.add_child(_bar)
 
+	# Deliberately quiet - it is an escape hatch, not an invitation. It appears after a moment rather
+	# than at once, because a join that takes half a second should not flash a cancel button at anybody.
+	_cancel = Button.new()
+	_cancel.text = "Cancel"
+	_cancel.focus_mode = Control.FOCUS_NONE
+	_cancel.visible = false
+	_cancel.modulate = Color(1, 1, 1, 0.75)
+	_cancel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_cancel.pressed.connect(func(): cancelled.emit())
+	column.add_child(_cancel)
+
 
 ## The line under the title: "Connecting…", "Downloading…", "Loading terrain…".
 func status(text: String) -> void:
@@ -123,6 +143,8 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	# One block lit at a time, running along and starting again - a thing that is plainly still going
 	# even when nothing can be measured.
+	if _cancel != null and not _cancel.visible and _elapsed > CANCEL_AFTER:
+		_cancel.visible = true
 	var lit := int(_elapsed / BLOCK_SECONDS) % _blocks.size()
 	for i in _blocks.size():
 		_blocks[i].modulate.a = 1.0 if i == lit else 0.22
