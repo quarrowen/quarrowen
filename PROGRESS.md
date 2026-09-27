@@ -7543,3 +7543,36 @@ square body with a dark block in the middle is a **padlock** in every particular
 drawn. It does not prove the control is reachable (the close button sat under every panel it was meant
 to close), and it does not prove the glyph exists on the device that will run it. Both needed the
 hardware.
+
+### Touch controls work, verified on the device (2026-09-27)
+
+All four world gestures confirmed by the user on an iPad Air 5: **tap breaks, two fingers use, a still
+finger mines, a moving finger looks.** With the thumbstick, the six buttons, the menu button and the
+close button, the engine is playable without a keyboard for the first time.
+
+What made it tractable was refusing to build a second input path. The overlay presses and releases the
+*same actions a keyboard does*, with analogue strength, so progressive mining, hold-to-repeat placing,
+hold-to-eat and the double-tap that starts flying all worked the moment the stick did - none of them
+were written twice. Only looking needed new code, because there is no "look" action.
+
+**The numbers in it were guesses and they happened to land**: 16 px of slop before a tap becomes a
+drag, 0.18 s before a still finger starts mining, 0.12 s that a tap holds its action so the game's
+`is_action_just_pressed` poll can see it. The third is not a tuning value but a correctness one - a
+press that ends inside a single frame is a press that never happened.
+
+**Development is untethered now.** The iPad is paired over Wi-Fi: install takes 11.7 seconds and
+launch works with no cable, verified with the USB tree empty. The loop is build, install, play, report
+- which matters because five of the day's bugs were only findable on the hardware, and the cost of
+reaching the hardware was most of what made them expensive.
+
+#### Still open on the tablet
+
+- **The safe area was written blind** and has never been looked at on the device. The hotbar is drawn
+  where the home indicator lives; whether the inset actually clears it is unverified.
+- **Frame time while moving.** The 0.8 ms of 16.7 was measured standing still, facing a wall, by
+  somebody who could not turn around. Now that a person can walk about, the number can mean something.
+- **The guidebook and tutorials still name keys.** `GuideScreen.key_name()` understands only keys and
+  mouse buttons, so a tablet is told to press G and Escape. Agreed to do properly rather than defer
+  (the user, 2026-09-27); not started.
+- `mouse_get_position` is still called somewhere and warns on every iOS launch - one read path missed
+  when the 25 writes were routed through a no-op.

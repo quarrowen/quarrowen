@@ -807,8 +807,11 @@ instruction in it at all. This is the replacement, agreed with the user on 25 Se
    engineering tracks and is the one item this page never named as a dependency. Build both and
    profile on the hardware rather than reasoning about it - the GDScript twins were deleted on
    measurements and that is the standard here.
-3. **Touch controls, then an iPad build.** The only item on this page that puts the game in a child's
-   hands somewhere other than a desk.
+3. **Touch controls - built and verified on hardware, 27 September 2026.** Tap to break, two fingers to
+   use, hold to mine, drag to look, with a thumbstick, six buttons and a way back out of the world. An
+   iPad build installs over Wi-Fi in twelve seconds. What remains is the tail: the safe area has never
+   been looked at on the device, frame time has only been measured standing still, and the guidebook
+   still tells a tablet to press G.
 4. **Diagnose the two flaky tests** (`host_flow_test`, `multiplayer`). Not housekeeping: the third
    flake in that group was rewritten three times as a timing problem and turned out to be the engine
    starving its own save queue. Two undiagnosed flakes with that precedent are suspects.
