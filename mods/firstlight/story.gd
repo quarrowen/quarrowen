@@ -1,5 +1,5 @@
 extends RefCounted
-## Firstlight's story: twelve acts from waking up in a meadow to waking what is under it, and five
+## Firstlight's story: fourteen acts from waking up in a meadow to waking what is under it, and five
 ## side tasks that are worth doing and are never in the way.
 ##
 ## **Wick hands these out and the task list carries them** - the hybrid the user asked for

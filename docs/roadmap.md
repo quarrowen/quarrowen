@@ -36,9 +36,9 @@ weather, a map with markers, "what am I looking at", UGC moderation, and a hub.
 Since then: the games were deleted and rebuilt on a new architecture, identities moved to Ed25519,
 the security cluster closed, and a cinematic arrival and loading curtain replaced the black screen.
 
-Twelve biomes, seventeen creatures, a boss. Two of the three games for 1.0 (`firstlight`, `creative`)
-on four content packs (`base`, `simple_gear`, `simple_machines`, `guidebook`). The third, `oneblock`,
-is scoped below and not yet written.
+Twelve biomes, seventeen creatures, a boss. **All three games for 1.0** (`firstlight`, `creative`,
+`oneblock`) on four content packs (`base`, `simple_gear`, `simple_machines`, `guidebook`) - `oneblock`
+was written on 27 September 2026, which this line said was still owed.
 
 ### What is left, shortest honest answer
 
@@ -665,10 +665,10 @@ true - three games on four packs, and nothing else promised.
 | `base` | library | the nouns: blocks, liquids, biomes, flora, fauna. **Zero recipes** - exists |
 | `simple_gear` | pack | things you hold or wear: tools, weapons, armour - exists |
 | `simple_machines` | pack | things that do something: power, pipes, belts, rotation - exists |
-| `guidebook` | pack | the in-game guide - exists, though it wants to live inside a game |
-| `firstlight` | **game** | the guided story: world, hunger, gear, twelve acts and an ending - exists |
+| `guidebook` | pack | the in-game guide - exists, and **stays a library**: not one of its pages is about a particular game (settled 27 September 2026) |
+| `firstlight` | **game** | the guided story: world, hunger, gear, fourteen acts and an ending - exists, and every act points at a guide page |
 | `creative` | **game** | the sandbox. Zero recipes, everything available - exists |
-| `oneblock` | **game** | one block over the void that comes back as something else - **to write** |
+| `oneblock` | **game** | one block over the void that comes back as something else - exists |
 
 **These three are 1.0** (the user, 25 September 2026). Anything else - a deep-caves game, a farming
 game, a building-tools game - is after it. The earlier list's `deep`, `machines`, `frontier`, `kitchen`
@@ -894,7 +894,7 @@ None of this needs engine work. All of it is what makes the engine worth having.
   the AI-audio phase could have, and the brief can finally be written, because `base` now has a
   settled roster of seventeen to name.
 - **Villages.** Every capability exists and no content does. The largest single content item left.
-- **A guided game - built** as `firstlight`: twelve acts, side tasks and an ending, walked by the
+- **A guided game - built** as `firstlight`: fourteen acts, five side tasks and an ending, walked by the
   suite as `story:firstlight`. The thinking from the deleted story game in `docs/hearthhold.md` fed
   it. A real playthrough by a person is still owed before 1.0; the suite walk proves the acts fire,
   not that the game is good.
