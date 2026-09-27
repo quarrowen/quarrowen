@@ -8145,3 +8145,57 @@ somewhere else, because "I did not find it" and "it is not there" look identical
 
 The engine reference (`docs/api/engine.md`) exists for precisely this and did not get used in any of the
 three.
+
+## The iPad cannot host, and the reason is not the one I gave (2026-09-27)
+
+Two hours after writing down that the iPad build ships no games and suggesting the menu should stop
+offering to start one, the user asked the right question: **"Why does start a game need to be hidden on
+iPad?"** It does not, and the suggestion was made without checking - the same stopping-at-the-first-
+answer this file recorded three instances of earlier the same day, made a fourth time while the ink was
+wet.
+
+### What was actually wrong, in two layers
+
+**Layer one - the mods, which was a packaging omission and is now proven fixable.** `package_mac.sh`
+copies `mods/` into `Contents/Resources/mods` with one `rsync`; `package_ios.sh` had no equivalent.
+`ModLoader.search_dirs` already looks in `<executable dir>/mods` before anything else, and on iOS the
+executable lives inside `Quarrowen.app` - so the folder just needs to be *there*.
+
+Tested end to end rather than reasoned about: unpacked the `.ipa`, rsynced `mods/` into
+`Payload/Quarrowen.app/`, re-signed with the development identity and the entitlements read back out of
+the original, re-zipped, installed over the network. **It worked** - the menu offered the games and the
+device wrote `cache/menu_backdrop/backdrop_creative`, which only exists if `creative` loaded. It costs
+**2.8 MB**, not the 30 MB guessed at when this was a paragraph of speculation.
+
+**Layer two - and this is the real one.** Starting a local world **forks a second copy of the
+executable** as a headless server and connects to it on `127.0.0.1` (`engine/main.gd:157`). iOS does not
+allow spawning processes. `OS.create_process` returns `ERR_CANT_FORK`, which is the single line in the
+device log that explains everything:
+
+    ERROR: Condition "pid < 0" is true. Returning: ERR_CANT_FORK
+
+So the iPad could not host a world whether or not the mods were in the bundle, and no amount of
+packaging would have found that. **It took reading the device's own log** - which is also the third time
+this week that pulling the log first would have been faster than reasoning about the symptom.
+
+### The message the player gets is a lie on this platform
+
+`_host` falls back to *"Your world could not be started. Try closing the game and opening it again."*
+On iOS reopening will never help, and telling a child to try again at something that cannot work is
+worse than saying no. Worth fixing on its own, separately from anything below.
+
+### Hiding it is still the wrong answer
+
+The server does not need to be another process. `GameServer` is an ordinary node - `proving_test.gd`
+builds one with `GameServer.new()` and adds it to the tree in the same process - and `tests/bots.gd`
+already runs many network peers inside one process, each on its own MultiplayerAPI branch. A client and
+a server in one process over loopback is therefore two proven halves rather than a new idea.
+
+**Two options, not decided:**
+
+1. **Run the server in-process where forking is unavailable.** Mobile gets local play, and the
+   assembly is of things that already work. The real fix, and a session of its own.
+2. **Hide hosting on mobile.** Cheap and honest, and leaves the children a tablet that can only join.
+
+The recommendation is (1), with the honest error message from the section above landing first either
+way, because it is right under both.
