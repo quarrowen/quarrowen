@@ -8025,3 +8025,123 @@ every build.
   Air over the network with `devicectl`. **The archive step succeeded**, which the script's header did
   not expect - it was written when no device was registered and the export could never get that far.
   The header is now conditional, and names the `.ipa` and the install command when there is one.
+
+## A mini-game lobby: researched, not decided (2026-09-27)
+
+The user asked to **ideate and explore** a lobby of short party games - hide and seek, hunter versus
+hunted, escort-the-babies, the floor is lava, a word-game version of the floor is lava - after watching
+somebody play a set of them. **Nothing is committed.** What follows is what the engine turned out to
+already have, what it does not, and the three questions that need answering before any of it is work.
+
+**Architecture, settled by the user in the same conversation:** all of it inside one server, using
+dimensions. Not a server per game.
+
+### The surprise: the world half is already built
+
+Almost everything a lobby needs for *places* exists, and most of it exists because somebody built it
+for something else:
+
+- **The lobby is a realm** (`add_realm`), and **each round is an instance** - which the engine defines
+  as "a realm with a lifetime": made on demand, never written to disk, everyone returned to where they
+  entered, auto-closed when empty. `register_instance`'s own docstring says "a dungeon, a puzzle room,
+  **an arena**", and takes `max_players`.
+- **That kills the hardest problem before it starts.** Every game on the list wrecks its arena - lava
+  floods it, spleef floors get broken, hiders tunnel into walls. There is no reset capability in the
+  engine and none is needed: round two opens a *new* instance and the wrecked one evaporates.
+- **An empty realm is not ticked at all**, so a lobby with eight arena doors costs nothing while
+  nobody is playing.
+- **The arenas can be built by the children.** `/struct pos1` / `pos2` / `save <name>` writes a
+  selected region as a JSON template, `register_structure_template` loads it, and
+  `place_structure_in(template, at, realm_id)` stamps it into a freshly opened instance - a call that
+  exists precisely because a dungeon's rooms were once built in the overworld while the players stood
+  in an empty instance (2026-09-21).
+- **Lobbies are already the stated reason a shipped capability exists.** `set_spawn_handler` and
+  `set_rejoin_handler` were split into two on purpose, and the docstring says why: *"A lobby server
+  wants the opposite: everybody, every time, in the lobby."* PROGRESS says it three times.
+
+Also already there: the kit round-trip (`save_items` / `clear_inventory` / `load_items` - recorded here
+in 2026-09 as "exactly the round trip an arena needs"), `show_title`, `show_ui` with progress bars and
+buttons, `player.hear` for a sound only one person gets, `set_map_marker` with a live position and a
+countdown in its label (built for rare-creature hunts; it *is* a hunter's tracker), objectives,
+ledgers, timers, conversations and liquids.
+
+### What is actually missing
+
+Four things, and the second is the interesting one:
+
+1. **Rules are server-wide.** `set_gameplay` (pvp, fall damage, flight, keep_inventory, mob spawning)
+   and `set_physics` (speed, gravity, jump) apply to the whole server, so a PvP arena cannot sit beside
+   a peaceful lobby. **This is the only piece of real design work**, and it is worth doing on its own
+   merits: it is also what would let a survival world contain a creative build area. The shape is
+   obvious and matches the rest of the API - a trailing `realm_id`, joining the 81 calls that take one.
+2. **`set_look` does not apply to players.** `Entity.set_look` already takes `scale` (0.05-10),
+   `hide: [body parts]`, `tint` and `pose` - Wick's coat colour is that call. Players have no
+   equivalent. So invisibility and disguise are **not new systems to design**: they are an existing
+   capability reaching one more noun. `hide` every part, or `scale: 0.05`, and you have a hider.
+3. **There are no region volumes.** Nothing anywhere fires "a player entered this box". The nearest is
+   `register_field`, which is a *circle*, must do damage or apply a condition, must be visible, and
+   fires on placement rather than on entry. Every party game wants boxes: checkpoints, goal zones, the
+   queue pad by each door - and above all the word game, which is entirely "who is standing on which
+   answer platform". Today that is polling every player against the block under their feet.
+4. **No spectator.** Flight is reachable through `set_creative`; invisibility falls out of (2);
+   **not colliding is the only genuinely new part.** Worth having because every one of these games
+   eliminates people, and a child who is out has to be able to watch.
+
+Plus three one-liners: a GDScript `set_team` (the field and the JavaScript setter both exist and only
+GDScript cannot reach it), exposing `ledgers.all_of()` (its own comment says "for a scoreboard"), and
+exposing `set_flying`.
+
+**The one genuinely expensive thing** is rendering a player *as a block or a mob* - prop-hunt. The rig
+is replaced server-wide, not per player. But (2) gives the version where every hider wears the same
+face and hides in a crowd of identical figures, which for a seven-year-old is the better game anyway:
+a suspicious-looking oak log is a joke you need to already know.
+
+### Two naming traps
+
+- **`register_minigame` is taken** and means something else entirely: the crafting skill-check
+  (timing / hold / sequence, for Fine and Masterwork quality). Nothing in it serves a lobby, and no
+  code here may use the word for party games.
+- **`team` already means something**: a string on the player that scopes shared station trays and
+  projects. A round's sides are transient and that field is not - worth deciding whether they are the
+  same concept before reusing it.
+
+### The three questions, unanswered
+
+1. **Does this displace anything?** The roadmap holds three games for 1.0 and everything else after
+   (the user, 25 September). The recommendation is to keep that line and let **per-realm rules** land
+   early on its own merit, since it is not really a lobby feature.
+2. **One mod, or a lobby that others plug into?** The recommendation is a registry: the lobby provides
+   the capability to register a game, and each game is its own mod - which is the rule this project
+   already runs on, and which would let the children write one.
+3. **Which game first?** The recommendation is the floor is lava **plus its word-game variant**,
+   because they share one arena and one mechanic, and the word version is the one that quietly gets a
+   child practising spelling. It is also the one that forces region volumes, which is the capability
+   with the most use outside this.
+
+### Why it might be worth more than it looks
+
+Every game bundled today is survival with different rules. A party game exercises a completely
+different slice of the API - instances, timers, teams, elimination, spectating, per-realm rules - and
+that is the same argument the Proving Ground is built on. **Instances have been built and tested since
+21 September and no shipped game uses them.** This would be the first thing to spend a capability that
+has been sitting there paid for.
+
+### A search that stops at the first answer, three times in one day
+
+Worth recording because it is the same mistake in three costumes, all on 27 September:
+
+- **"There is no audio to use"** - said after searching `mods/` only. The project has three audio tools.
+- **"The kit swap is missing"** - said after grepping `mod_api.gd` only. `save_items`, `clear_inventory`
+  and `load_items` are on the *player object*, and PROGRESS already described them as "exactly the round
+  trip an arena needs". Reported to the user as a gap, and corrected in the next message.
+- **"Two tests have vanished from the suite"** - chased through `selected()` and the mod glob for the
+  best part of an hour. The cause was two suites running at once, which nothing in either file could
+  have told me.
+
+The pattern is not "searched badly". It is **stopping at the first search that seems conclusive**, which
+is a different failure and does not feel like one at the time - the first answer is usually consistent
+with everything you have seen. The cheap guard is that a *negative* result deserves a second search
+somewhere else, because "I did not find it" and "it is not there" look identical from one grep.
+
+The engine reference (`docs/api/engine.md`) exists for precisely this and did not get used in any of the
+three.
