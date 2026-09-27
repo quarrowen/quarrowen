@@ -19,6 +19,10 @@ extends Control
 ## game saves the file, so the note vanished on the first e2e run. It is recorded here instead, which
 ## is the only place it survives. (2026-09-27)
 ##
+## **On the world itself**: a tap breaks, a two-finger tap uses, a still finger mines, and a finger that
+## moves turns the view. The buttons do the same things and stay, because a gesture nobody is told about
+## is a gesture a child will not find - they are the discoverable route and these are the quick one.
+##
 ## Laid out for thumbs rather than for a mouse: everything a hand rests on is at an edge, nothing that
 ## matters sits in the middle where a finger would cover it, and the two halves of the screen are
 ## independent so walking and looking can happen at once.
@@ -32,6 +36,26 @@ const STICK_DEADZONE := 0.18
 ## several centimetres where a mouse covers a few millimetres, and 0.55 was scaling the wrong way.
 const LOOK_SCALE := 1.6
 const BUTTON_SIZE := Vector2(64, 64)
+## **Tapping the world acts on it.** A finger that presses the looking half and does not travel is
+## reaching for the block in front of it, not turning the view - so a tap swings, and a press held still
+## mines, and only a finger that actually moves turns the camera. The buttons stay, because they are
+## what a child finds first and because they work while the other thumb is walking. (the user,
+## 2026-09-27: "tap should mine/break/use right?")
+##
+## How far a finger may wander and still count as a tap rather than a drag. Generous: nobody holds a
+## tablet perfectly still, and a tap that turns into a look because a thumb shifted two pixels feels
+## broken rather than precise.
+const TAP_SLOP := 16.0
+## How long a still finger waits before it starts mining rather than waiting to be a tap.
+const HOLD_BEGINS := 0.18
+## How long a tap holds its action down, so the game sees a press and a release rather than neither.
+const TAP_HOLD := 0.12
+## **Two fingers use instead of breaking**, which is where a mouse's second button went. One finger on
+## the world is the destructive one and two is the careful one - opening a chest, eating, placing - and
+## that is the right way round for a child, because the careful action is the one that takes more
+## deliberate effort. The PUT button stays, so nobody has to discover this to play. (the user,
+## 2026-09-27: "tap is mine/break and tap with two fingers is use/open")
+const TWO_FINGER_ACTION := "place"
 const ClientSettings = preload("res://engine/client/settings/client_settings.gd")
 
 const MOVE_ACTIONS := ["move_left", "move_right", "move_back", "move_forward"]
@@ -45,6 +69,18 @@ var _stick_knob: Control
 var _stick_touch := -1
 var _look_touch := -1
 var _stick_origin := Vector2.ZERO
+var _look_origin := Vector2.ZERO
+var _look_held := 0.0
+## True once the finger has travelled far enough to be turning the view, which rules out acting.
+var _look_is_drag := false
+## True while a still finger is holding `break` down for progressive mining.
+var _world_mining := false
+## Counts down while a tap's `break` press is still held.
+var _tap_release_in := 0.0
+## Which action a tap is still holding down, so the right one is released.
+var _tap_action := "break"
+## Set when a second finger lands on the looking half, so lifting the first does not also swing.
+var _two_fingered := false
 var _held: Dictionary = {}  # action -> true, for the buttons being pressed
 
 
@@ -153,6 +189,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.index == _stick_touch:
 			_move_stick(event.position)
 		elif event.index == _look_touch and _client.has_method("add_look"):
+			if not _look_is_drag and event.position.distance_to(_look_origin) > TAP_SLOP:
+				_look_is_drag = true
+				_stop_mining()  # it turned out to be a look after all
+			if not _look_is_drag:
+				return
 			# Its own scale, so the mouse setting does not also move the thumb (see GameClient.add_look).
 			var turn: float = LOOK_SCALE * float(ClientSettings.shared().get_value("controls/touch_sensitivity"))
 			_client.add_look(event.relative, event.relative, turn)
@@ -169,6 +210,15 @@ func _begin_touch(index: int, at: Vector2) -> void:
 		_move_stick(at)
 	elif not left and _look_touch < 0:
 		_look_touch = index
+		_look_origin = at
+		_look_held = 0.0
+		_look_is_drag = false
+		_two_fingered = false
+	elif not left and not _look_is_drag:
+		# A second finger on the looking half, before the first became a drag: use rather than break.
+		_stop_mining()
+		_two_fingered = true
+		_pulse(TWO_FINGER_ACTION)
 
 
 func _end_touch(index: int) -> void:
@@ -179,6 +229,41 @@ func _end_touch(index: int) -> void:
 			Input.action_release(action)
 	elif index == _look_touch:
 		_look_touch = -1
+		if _world_mining:
+			_stop_mining()
+		elif not _look_is_drag and not _two_fingered:
+			_pulse("break")
+		_look_is_drag = false
+		_two_fingered = false
+
+
+## Presses an action and lets go a moment later. **Not press-and-release in one frame**: the game polls
+## `is_action_just_pressed`, and a press that has already ended by the time it looks is a press that
+## never happened.
+func _pulse(action: String) -> void:
+	if _tap_release_in > 0.0:
+		Input.action_release(_tap_action)
+	_tap_action = action
+	Input.action_press(action)
+	_tap_release_in = TAP_HOLD
+
+
+func _stop_mining() -> void:
+	if _world_mining:
+		_world_mining = false
+		Input.action_release("break")
+
+
+func _process(delta: float) -> void:
+	if _tap_release_in > 0.0:
+		_tap_release_in -= delta
+		if _tap_release_in <= 0.0:
+			Input.action_release(_tap_action)
+	if _look_touch >= 0 and not _look_is_drag and not _world_mining:
+		_look_held += delta
+		if _look_held >= HOLD_BEGINS:
+			_world_mining = true
+			Input.action_press("break")
 
 
 func _move_stick(at: Vector2) -> void:
@@ -224,8 +309,13 @@ func release_all() -> void:
 	_held.clear()
 	for action in MOVE_ACTIONS:
 		Input.action_release(action)
+	_stop_mining()
+	if _tap_release_in > 0.0:
+		_tap_release_in = 0.0
+		Input.action_release(_tap_action)
 	_stick_touch = -1
 	_look_touch = -1
+	_look_is_drag = false
 	_centre_knob()
 
 

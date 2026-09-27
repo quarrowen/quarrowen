@@ -10171,6 +10171,8 @@ GDScript: `release_all() -> void`
 Lets go of everything. Called when the world is left or a menu opens, so a finger that was holding
 `break` when a screen appeared does not leave the player mining for ever.
 
+**See also:** `add_handler`, `agent_for`, `attach`, `band_center`, `band_half`, `damage`
+
 ### `manifest_url`
 
 *client/updater.gd*
