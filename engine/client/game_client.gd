@@ -65,6 +65,7 @@ const GuideScreen = preload("res://engine/client/guide_screen.gd")
 const TutorialHud = preload("res://engine/client/tutorial_hud.gd")
 const ObjectiveHud = preload("res://engine/client/objective_hud.gd")
 const LoadingCurtain = preload("res://engine/client/loading_curtain.gd")
+const TouchControls = preload("res://engine/client/touch_controls.gd")
 const DevOverlay = preload("res://engine/client/dev_overlay.gd")
 const DebugDraw = preload("res://engine/client/debug_draw.gd")
 const CableView = preload("res://engine/client/cable_view.gd")
@@ -150,6 +151,11 @@ var test_protocol := -1
 ## turns it off, because a test run that steals the cursor for a minute is its own small cruelty.
 var auto_capture_mouse := true
 var ignore_mouse_capture := false
+## Whether the on-screen controls are in use. True on a touchscreen, or anywhere when `QW_TOUCH=1` -
+## **which exists so the layout can be looked at without a tablet in hand.** Every visual change would
+## otherwise need a four-minute iOS rebuild and somebody holding the device, which is how a control
+## scheme ends up shipped without ever having been looked at. (2026-09-27)
+var touch_mode := false
 ## Your portable avatar (Cosmetics data) sent to the server on join; null loads the saved one.
 var avatar = null
 
@@ -361,6 +367,7 @@ var _arrival := -1.0
 ## is what "it ran twice, stitched together a bit weirdly" was. (the user, 2026-09-25)
 var _arrived_this_session := false
 var _menu_button: Button
+var _touch_controls
 var _hotbar: HBoxContainer
 ## Name of what the player is holding, shown above the hotbar for a moment when it changes.
 var _held_label: Label
@@ -440,6 +447,7 @@ var _last_jump_press := 0.0  # for the double-tap that starts flying
 
 
 func _ready() -> void:
+	touch_mode = OS.get_environment("QW_TOUCH") == "1" or DisplayServer.is_touchscreen_available()
 	_fps_log_every = maxf(float(OS.get_environment("QW_FPS_LOG")), 0.0)
 	if _fps_log_every > 0.0:
 		_refresh_render_measurement()
@@ -468,7 +476,7 @@ func _exit_tree() -> void:
 		Net.client = null
 	if Net.handshake_failed.is_connected(_on_handshake_failed):
 		Net.handshake_failed.disconnect(_on_handshake_failed)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
 # --- Connection ---------------------------------------------------------------------------------
@@ -1204,9 +1212,9 @@ func open_ugc_review() -> void:
 		_ugc_review.queue_free()
 		_ugc_review = null
 		if not ignore_mouse_capture:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+			_set_mouse_mode(Input.MOUSE_MODE_CAPTURED))
 	_hud_root.add_child(_ugc_review)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
 func on_ugc_admin_list(items: Array, policy: Dictionary) -> void:
@@ -1469,7 +1477,7 @@ func on_health(value: float, max_value: float, is_dead: bool, hurt: bool) -> voi
 		_set_inventory_open(false)
 		_pause_panel.visible = false  # or it sits under the red overlay swallowing the clicks
 		_chat_input.visible = false
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		_respawn_button.grab_focus.call_deferred()  # so Enter or Space works without finding the button
 	elif not dead and was_dead:
 		_death_panel.visible = false
@@ -1815,7 +1823,7 @@ func on_chat(text: String) -> void:
 func on_ui_show(ui_id: String, spec: Dictionary) -> void:
 	_server_ui.show_panel(ui_id.left(64), spec)
 	if _server_ui.has_modal():
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
 func on_ui_hide(ui_id: String) -> void:
@@ -1982,8 +1990,8 @@ func _process(delta: float) -> void:
 		# thing that makes a game feel broken at exactly the moment it should feel like somewhere you
 		# have turned up. Nothing is in the way at this point: the curtain is going and the pause menu
 		# cannot be open. (the user, 2026-09-25)
-		if auto_capture_mouse and not _pause_panel.visible and not ignore_mouse_capture:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		if auto_capture_mouse and not _pause_panel.visible and not ignore_mouse_capture and not touch_mode:
+			_set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		if not dead and _sleep.is_empty():
 			_arrival = 0.0
 
@@ -2884,13 +2892,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _chat_input.visible:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var settings = ClientSettings.shared()
-		var sensitivity: float = MOUSE_SENSITIVITY * float(settings.get_value("controls/mouse_sensitivity"))
-		# Screen pixels, so the interface size does not change how fast the camera turns.
-		var moved: Vector2 = event.screen_relative
-		yaw = wrapf(yaw - moved.x * sensitivity, -PI, PI)
-		_look_delta += event.relative
-		pitch = clampf(pitch - moved.y * sensitivity * (-1.0 if settings.get_value("controls/invert_y") else 1.0), -PI * 0.49, PI * 0.49)
+		add_look(event.screen_relative, event.relative)
 	elif _avatar_editor != null:
 		if event.is_action_pressed("pause"):
 			_close_avatar_editor()
@@ -2922,7 +2924,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_set_paused(not _pause_panel.visible)
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED \
 			and not _pause_panel.visible and not _server_ui.has_modal() and not _inventory_screen.visible and not dead:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		get_viewport().gui_release_focus()  # typing in the dev overlay stops when you go back to playing
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("map") and _welcomed and (_map_screen != null or _gameplay_input_enabled()):
@@ -2970,8 +2972,26 @@ func _unhandled_input(event: InputEvent) -> void:
 		select_slot(event.physical_keycode - KEY_1)
 
 
+## Turns the camera by a movement in **screen pixels**, so the interface size does not change how fast
+## it turns. `local` is the same movement in viewport units and only feeds the view-model sway.
+##
+## **Split out of the mouse handler so a finger can call it too.** The look maths used to live inside a
+## branch gated on `Input.mouse_mode == MOUSE_MODE_CAPTURED`, and iOS has no captured pointer - so on a
+## tablet the camera could never turn, by construction rather than by oversight. (2026-09-27)
+func add_look(moved: Vector2, local := Vector2.ZERO) -> void:
+	var settings = ClientSettings.shared()
+	var sensitivity: float = MOUSE_SENSITIVITY * float(settings.get_value("controls/mouse_sensitivity"))
+	yaw = wrapf(yaw - moved.x * sensitivity, -PI, PI)
+	_look_delta += local
+	pitch = clampf(pitch - moved.y * sensitivity * (-1.0 if settings.get_value("controls/invert_y") else 1.0),
+		-PI * 0.49, PI * 0.49)
+
+
 func _gameplay_input_enabled() -> bool:
-	var captured := ignore_mouse_capture or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	# `touch_mode` counts as captured: there is no such thing as a captured pointer on a tablet, and
+	# without this every branch below - movement, mining, placing, looking - is switched off on the one
+	# platform the on-screen controls exist for.
+	var captured := ignore_mouse_capture or touch_mode or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	return captured and not _chat_input.visible and not _pause_panel.visible and not _server_ui.has_modal() \
 		and not _inventory_screen.visible and not dead and _avatar_editor == null and not _crafting_screen.visible \
 		and not _guide_screen.visible and _settings_overlay == null
@@ -2992,12 +3012,12 @@ func _set_inventory_open(open: bool) -> void:
 		_inventory_screen.set_container({})
 	if open:
 		_inventory_screen.refresh()
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
 		if _welcomed:
 			Net.c_inventory_closed.rpc_id(1)
 		if not ignore_mouse_capture and not dead:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			_set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 # --- Crafting -------------------------------------------------------------------------------------
@@ -3016,7 +3036,7 @@ func on_crafting_open(station: Dictionary, stock: Dictionary) -> void:
 	if not _pending_lookup.is_empty():
 		_crafting_screen.show_lookup(_pending_lookup.item, _pending_lookup.mode)
 		_pending_lookup = {}
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
 ## Puts a full-screen panel above its siblings. The HUD is one CanvasLayer and nothing sets a z_index,
@@ -3090,7 +3110,7 @@ func _set_guide_open(open: bool, page_id := "") -> void:
 			page_id = _tutorial_hud.preferred_page(_guide_screen.read)
 		_bring_to_front(_guide_screen)
 		_guide_screen.open(page_id)
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		_sounds.play_name("engine:page", Vector3.ZERO, 0.7, 1.0, false)
 		return
 	if not _guide_screen.visible:
@@ -3098,7 +3118,7 @@ func _set_guide_open(open: bool, page_id := "") -> void:
 	_guide_screen.visible = false
 	_update_guide_badge()
 	if not ignore_mouse_capture and not dead:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 func on_guide_state(unlocked: PackedStringArray, read: PackedStringArray, last: String) -> void:
@@ -3135,10 +3155,10 @@ func on_guide_open(page_id: String) -> void:
 func _toggle_dev_overlay() -> void:
 	if not _dev_overlay.visible:
 		_dev_overlay.set_open(true)
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		_dev_pick()
 	elif Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and not ignore_mouse_capture:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
 		_close_dev_overlay()
 
@@ -3147,7 +3167,7 @@ func _close_dev_overlay() -> void:
 	_dev_overlay.set_open(false)
 	get_viewport().gui_release_focus()
 	if not ignore_mouse_capture and not dead and _gameplay_input_enabled_ignoring_mouse():
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 func _gameplay_input_enabled_ignoring_mouse() -> bool:
@@ -3394,7 +3414,7 @@ func _set_crafting_open(open: bool) -> void:
 	if _welcomed:
 		Net.c_crafting_closed.rpc_id(1)
 	if not ignore_mouse_capture and not dead:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 ## Opens the recipe book filtered to what makes (`mode` "make") or uses ("use") an item.
@@ -3544,7 +3564,7 @@ func open_avatar_editor() -> void:
 	_avatar_editor.done.connect(_on_avatar_edited)
 	_avatar_editor.cancelled.connect(_close_avatar_editor)
 	_hud_root.add_child(_avatar_editor)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
 func _on_avatar_edited(edited: Dictionary) -> void:
@@ -3576,12 +3596,48 @@ func _close_avatar_editor() -> void:
 ## Gives the mouse back to the game, unless something still needs the pointer. Dying is the important
 ## case: a player who dies, opens chat and closes it again must not lose the cursor the Respawn button
 ## needs - that left them with no way out but quitting the game.
+## Every write to `Input.mouse_mode` goes through here. **A tablet has no pointer to capture or hide**,
+## and asking iOS to do either prints "Mouse is not supported by this display server" - which is how the
+## device log filled up before anything else could be read in it. There were 25 assignment sites and
+## auditing them one at a time is how one gets missed, so they all call this instead. (2026-09-27)
+## Insets the HUD by the display's safe area, so nothing lands under a notch or a home indicator.
+##
+## **The hotbar is drawn bottom centre, which is exactly where an iPad puts its home indicator** - so
+## the row of slots a child taps sits under the bar they swipe to leave the app. Applied to the HUD
+## root rather than per element: there is one inset and everything inside inherits it, which is the
+## difference between this working on the next device shape and being a magic number. Costs nothing on
+## a desktop, where the safe area is the whole screen. (2026-09-27)
+func _apply_safe_area() -> void:
+	if _hud_root == null:
+		return
+	var safe := DisplayServer.get_display_safe_area()
+	var screen := DisplayServer.screen_get_size()
+	if screen.x <= 0 or screen.y <= 0 or safe.size.x <= 0 or safe.size.y <= 0:
+		return  # headless, or a platform with no notion of one
+	# The safe area is in screen pixels and the HUD is in viewport units, which differ under a content
+	# scale or a render scale, so the insets are converted rather than used raw.
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	var to_view := view / Vector2(screen)
+	_hud_root.offset_left = float(safe.position.x) * to_view.x
+	_hud_root.offset_top = float(safe.position.y) * to_view.y
+	_hud_root.offset_right = -float(screen.x - safe.end.x) * to_view.x
+	_hud_root.offset_bottom = -float(screen.y - safe.end.y) * to_view.y
+
+
+func _set_mouse_mode(mode: int) -> void:
+	if touch_mode:
+		return
+	Input.mouse_mode = mode
+
+
 func _capture_mouse() -> void:
+	if touch_mode:
+		return  # nothing to capture, and asking warns on every call
 	if dead or ignore_mouse_capture or _pause_panel.visible or _inventory_screen.visible or _server_ui.has_modal():
 		return
 	if _palette != null and _palette.visible:
 		return
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 ## Opens or closes the pause menu. **Public because Escape was the only way in**, and a tablet has no
@@ -3592,17 +3648,23 @@ func set_paused(paused: bool) -> void:
 	_set_paused(paused)
 
 
+## Opens or closes the backpack. Public for the same reason as `set_paused`: the only other way in is
+## the `inventory` action, which needs a key event to reach the handler.
+func toggle_inventory() -> void:
+	_set_inventory_open(not _inventory_screen.visible)
+
+
 func _set_paused(paused: bool) -> void:
 	_pause_panel.visible = paused
 	_tutorial_hud.panel.visible = false
 	if paused:
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
 		_capture_mouse()
 
 
 func _open_chat() -> void:
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	_chat_input.visible = true
 	_chat_input.text = ""
 	_chat_input.grab_focus.call_deferred()
@@ -3749,7 +3811,7 @@ func toggle_map() -> void:
 	screen.refresh_requested.connect(func(): Net.c_map.rpc_id(1))
 	_hud_root.add_child(screen)
 	_map_screen = screen
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
 func close_map() -> void:
@@ -3757,7 +3819,7 @@ func close_map() -> void:
 		_map_screen.queue_free()
 	_map_screen = null
 	if not _pause_panel.visible and not _inventory_screen.visible:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 func on_map(state: Dictionary) -> void:
@@ -3990,6 +4052,15 @@ func _build_hud() -> void:
 	# controls inside it (the hotbar, the menu button). IGNORE stops the search at the root.
 	_hud_root.mouse_filter = Control.MOUSE_FILTER_PASS
 	layer.add_child(_hud_root)
+	# Inside the HUD root so the safe-area inset applies to it too, and so `toggle_hud` (F1, screenshot
+	# mode) hides the controls along with everything else rather than leaving them floating.
+	if touch_mode:
+		_touch_controls = TouchControls.new(self)
+		_hud_root.add_child(_touch_controls)
+	_apply_safe_area()
+	# A tablet rotating changes the safe area - the home indicator moves to the new bottom - so this
+	# follows the viewport rather than being computed once at startup.
+	get_viewport().size_changed.connect(_apply_safe_area)
 	# **The interface does not exist until the world does.** A compass and a health bar over a
 	# half-built world is what made the old loading screen read as a hung game rather than a busy one.
 	_hud_root.visible = false
@@ -4469,14 +4540,14 @@ func on_sleep(state_info: Dictionary) -> void:
 		_sleep.started = started
 		_sleep_panel.visible = true
 		if not was:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		_update_sleep()
 	else:
 		_sleep = {}
 		_sleep_panel.visible = false
 		_sleep_fade.color.a = 0.0
 		if was and not dead and not _inventory_screen.visible and not _crafting_screen.visible:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			_set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 
 ## Darkens the screen while asleep and shows who else is in bed.
@@ -4969,7 +5040,7 @@ func on_palette(groups: Dictionary) -> void:
 		_hud_root.add_child(_palette)
 	_bring_to_front(_palette)
 	_palette.show_palette(groups, items, _atlas)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
 func _close_palette() -> void:

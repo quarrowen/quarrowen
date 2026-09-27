@@ -8878,6 +8878,17 @@ Accept gameplay input without a captured mouse (headless bots / tests).
 Whether arriving in a world grabs the mouse. True for a person playing; the screenshot harness
 turns it off, because a test run that steals the cursor for a minute is its own small cruelty.
 
+### `touch_mode`
+
+*client/game_client.gd*
+
+GDScript: `touch_mode := false  (property)`
+
+Whether the on-screen controls are in use. True on a touchscreen, or anywhere when `QW_TOUCH=1` -
+**which exists so the layout can be looked at without a tablet in hand.** Every visual change would
+otherwise need a four-minute iOS rebuild and somebody holding the device, which is how a control
+scheme ends up shipped without ever having been looked at. (2026-09-27)
+
 ### `avatar`
 
 *client/game_client.gd*
@@ -9241,6 +9252,21 @@ otherwise against the face that was hit.
 
 **See also:** `get_block_v`
 
+### `add_look`
+
+*client/game_client.gd*
+
+GDScript: `add_look(moved: Vector2, local := Vector2.ZERO) -> void`
+
+Turns the camera by a movement in **screen pixels**, so the interface size does not change how fast
+it turns. `local` is the same movement in viewport units and only feeds the view-model sway.
+
+**Split out of the mouse handler so a finger can call it too.** The look maths used to live inside a
+branch gated on `Input.mouse_mode == MOUSE_MODE_CAPTURED`, and iOS has no captured pointer - so on a
+tablet the camera could never turn, by construction rather than by oversight. (2026-09-27)
+
+**See also:** `get_value`, `shared`
+
 ### `on_recipe_learned`
 
 *client/game_client.gd*
@@ -9339,6 +9365,17 @@ anything else, on a device with no keyboard. (the user, 2026-09-27: "impossible 
 etc since i am in game and no touch controls!")
 
 **See also:** `has_modal`
+
+### `toggle_inventory`
+
+*client/game_client.gd*
+
+GDScript: `toggle_inventory() -> void`
+
+Opens or closes the backpack. Public for the same reason as `set_paused`: the only other way in is
+the `inventory` action, which needs a key event to reach the handler.
+
+**See also:** `refresh`, `set_container`
 
 ### `open_settings`
 
@@ -10094,6 +10131,15 @@ when it is ready; relief appearing a second after the world does is nothing anyb
 (2026-09-22)
 
 **See also:** `create`, `texture`
+
+### `release_all`
+
+*client/touch_controls.gd*
+
+GDScript: `release_all() -> void`
+
+Lets go of everything. Called when the world is left or a menu opens, so a finger that was holding
+`break` when a screen appeared does not leave the player mining for ever.
 
 ### `manifest_url`
 

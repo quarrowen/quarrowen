@@ -212,6 +212,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#e-client-social-friends-panel-gd">friends_panel.gd</a>
 <a href="#e-client-social-social-client-gd">social_client.gd</a>
 <a href="#e-client-texture-atlas-gd">texture_atlas.gd</a>
+<a href="#e-client-touch-controls-gd">touch_controls.gd</a>
 <a href="#e-client-updater-gd">updater.gd</a>
 <div class="group">The server itself</div>
 <a href="#e-main-gd">main.gd</a>
@@ -2258,6 +2259,13 @@ whether arriving in a world grabs the mouse. true for a person playing; the scre
 turns it off, because a test run that steals the cursor for a minute is its own small cruelty. client/game_client.gd the client"><div class="sig"><code>auto_capture_mouse := true  (property)</code></div><p>Accept gameplay input without a captured mouse (headless bots / tests).
 Whether arriving in a world grabs the mouse. True for a person playing; the screenshot harness
 turns it off, because a test run that steals the cursor for a minute is its own small cruelty.</p></div>
+<div class="card" data-search="touch_mode whether the on-screen controls are in use. true on a touchscreen, or anywhere when `qw_touch=1` -
+**which exists so the layout can be looked at without a tablet in hand.** every visual change would
+otherwise need a four-minute ios rebuild and somebody holding the device, which is how a control
+scheme ends up shipped without ever having been looked at. (2026-09-27) client/game_client.gd the client"><div class="sig"><code>touch_mode := false  (property)</code></div><p>Whether the on-screen controls are in use. True on a touchscreen, or anywhere when `QW_TOUCH=1` -
+**which exists so the layout can be looked at without a tablet in hand.** Every visual change would
+otherwise need a four-minute iOS rebuild and somebody holding the device, which is how a control
+scheme ends up shipped without ever having been looked at. (2026-09-27)</p></div>
 <div class="card" data-search="avatar your portable avatar (cosmetics data) sent to the server on join; null loads the saved one. client/game_client.gd the client"><div class="sig"><code>avatar = null  (property)</code></div><p>Your portable avatar (Cosmetics data) sent to the server on join; null loads the saved one.</p></div>
 <div class="card" data-search="realm which of the server's worlds this player is standing in (&quot;&quot; is the overworld), and what to call it.
 everything in `world` belongs to this realm and nothing outlives a move to another (see on_realm). client/game_client.gd the client"><div class="sig"><code>realm := &quot;&quot;  (property)</code></div><p>Which of the server's worlds this player is standing in ("" is the overworld), and what to call it.
@@ -2357,6 +2365,17 @@ where a block goes when placing against a target: into replaceable blocks (tall 
 otherwise against the face that was hit. client/game_client.gd the client"><div class="sig"><code>placement_spot(target: Dictionary) -&gt; Vector3i</code></div><p>Places the selected hotbar block, predicting the result.
 Where a block goes when placing against a target: into replaceable blocks (tall grass) themselves,
 otherwise against the face that was hit.</p></div>
+<div class="card" data-search="add_look turns the camera by a movement in **screen pixels**, so the interface size does not change how fast
+it turns. `local` is the same movement in viewport units and only feeds the view-model sway.
+
+**split out of the mouse handler so a finger can call it too.** the look maths used to live inside a
+branch gated on `input.mouse_mode == mouse_mode_captured`, and ios has no captured pointer - so on a
+tablet the camera could never turn, by construction rather than by oversight. (2026-09-27) client/game_client.gd the client"><div class="sig"><code>add_look(moved: Vector2, local := Vector2.ZERO) -&gt; void</code></div><p>Turns the camera by a movement in **screen pixels**, so the interface size does not change how fast
+it turns. `local` is the same movement in viewport units and only feeds the view-model sway.
+
+**Split out of the mouse handler so a finger can call it too.** The look maths used to live inside a
+branch gated on `Input.mouse_mode == MOUSE_MODE_CAPTURED`, and iOS has no captured pointer - so on a
+tablet the camera could never turn, by construction rather than by oversight. (2026-09-27)</p></div>
 <div class="card" data-search="on_recipe_learned a new recipe: remember it and celebrate (several at once are grouped into one toast). client/game_client.gd the client"><div class="sig"><code>on_recipe_learned(index: int, source: String) -&gt; void</code></div><p>A new recipe: remember it and celebrate (several at once are grouped into one toast).</p></div>
 <div class="card" data-search="on_objectives the task list, pushed whenever it changes. see engine/client/objective_hud.gd for why this took
 until there was a game with a story in it to notice was missing. client/game_client.gd the client"><div class="sig"><code>on_objectives(view: Dictionary) -&gt; void</code></div><p>The task list, pushed whenever it changes. See engine/client/objective_hud.gd for why this took
@@ -2377,6 +2396,9 @@ etc since i am in game and no touch controls!&quot;) client/game_client.gd the c
 Escape - so once a child was in the world there was no route to Resume, Settings, Disconnect or
 anything else, on a device with no keyboard. (the user, 2026-09-27: "impossible to change settings
 etc since i am in game and no touch controls!")</p></div>
+<div class="card" data-search="toggle_inventory opens or closes the backpack. public for the same reason as `set_paused`: the only other way in is
+the `inventory` action, which needs a key event to reach the handler. client/game_client.gd the client"><div class="sig"><code>toggle_inventory() -&gt; void</code></div><p>Opens or closes the backpack. Public for the same reason as `set_paused`: the only other way in is
+the `inventory` action, which needs a key event to reach the handler.</p></div>
 <div class="card" data-search="open_settings the settings screen over the game (from the pause menu). client/game_client.gd the client"><div class="sig"><code>open_settings() -&gt; void</code></div><p>The settings screen over the game (from the pause menu).</p></div>
 <div class="card" data-search="open_players_panel players and roles (admins) over the game, in the settings overlay slot. client/game_client.gd the client"><div class="sig"><code>open_players_panel() -&gt; void</code></div><p>Players and roles (admins) over the game, in the settings overlay slot.</p></div>
 <div class="card" data-search="open_server_panel server settings (admins) over the game, in the settings overlay slot. client/game_client.gd the client"><div class="sig"><code>open_server_panel() -&gt; void</code></div><p>Server settings (admins) over the game, in the settings overlay slot.</p></div>
@@ -2532,6 +2554,9 @@ a hitch: the client stops draining its socket, Godot starts printing "Buffer ful
 the chunks never arrive and the world comes up empty. Run this on a worker and hand the texture over
 when it is ready; relief appearing a second after the world does is nothing anybody notices.
 (2026-09-22)</p></div></section>
+<section id="e-client-touch-controls-gd"><h2>touch_controls.gd <span class="file">client/touch_controls.gd</span></h2><p class="lead">The on-screen controls: a thumbstick to walk with, a drag area to look with, and the buttons a keyboard would otherwise carry. Shown on a touchscreen, or anywhere with `QW_TOUCH=1`.</p><div class="card" data-search="release_all lets go of everything. called when the world is left or a menu opens, so a finger that was holding
+`break` when a screen appeared does not leave the player mining for ever. client/touch_controls.gd the client"><div class="sig"><code>release_all() -&gt; void</code></div><p>Lets go of everything. Called when the world is left or a menu opens, so a finger that was holding
+`break` when a screen appeared does not leave the player mining for ever.</p></div></section>
 <section id="e-client-updater-gd"><h2>updater.gd <span class="file">client/updater.gd</span></h2><p class="lead">Keeps the game up to date with the project's own releases.</p><div class="card" data-search="manifest_url where to ask about new versions (the project setting wins, so a fork can point somewhere else). client/updater.gd the client"><div class="sig"><code>static manifest_url() -&gt; String</code></div><p>Where to ask about new versions (the project setting wins, so a fork can point somewhere else).</p></div>
 <div class="card" data-search="platform this platform's key in the manifest, or &quot;&quot; where updating is not supported (a server, or a build
 installed by something else). client/updater.gd the client"><div class="sig"><code>static platform() -&gt; String</code></div><p>This platform's key in the manifest, or "" where updating is not supported (a server, or a build
@@ -3106,7 +3131,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1223 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1227 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>
