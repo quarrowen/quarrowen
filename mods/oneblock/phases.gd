@@ -10,10 +10,15 @@ extends RefCounted
 ## first phases are played by somebody with no gear and no room; Meadow spawns nothing that fights back
 ## and Caves barely does. By the Depths a child has a platform, tools and a reason to be wary. (the
 ## user, 2026-09-27: gentle early, sharper later)
+##
+## **`music` is a mood, not a track per phase.** Four of them - open, deep, bright and night - because a
+## mood is something a player can learn to read, and six nearly-identical pieces would teach them
+## nothing. Walking from `open` into `deep` says you have gone underground before any text does.
 
 const PHASES := [
 	{
 		"name": "Meadow",
+		"music": "open",
 		"says": "Soil, and something growing in it",
 		"sound": "engine:level_up",
 		"blocks": [["base:dirt", 5], ["base:grass", 4], ["base:log", 2], ["base:leaves", 2], ["base:sand", 1]],
@@ -24,6 +29,7 @@ const PHASES := [
 	},
 	{
 		"name": "Caves",
+		"music": "deep",
 		"says": "Stone, and the first metal in it",
 		"sound": "engine:discover",
 		"blocks": [["base:stone", 6], ["base:cobblestone", 4], ["base:coal_ore", 2], ["base:iron_ore", 1],
@@ -35,6 +41,7 @@ const PHASES := [
 	},
 	{
 		"name": "The Depths",
+		"music": "deep",
 		"says": "Colder, and something moves down here",
 		"sound": "engine:crit",
 		"blocks": [["base:deepstone", 5], ["base:iron_ore", 2], ["base:copper_ore", 2], ["base:cobalt_ore", 1],
@@ -46,6 +53,7 @@ const PHASES := [
 	},
 	{
 		"name": "Overgrown",
+		"music": "open",
 		"says": "Something has taken the stone back",
 		"sound": "engine:breed",
 		"blocks": [["base:grass", 4], ["base:log", 3], ["base:leaves", 4], ["base:fern", 2],
@@ -60,6 +68,7 @@ const PHASES := [
 		# packs were split. Quickstone and copper arriving by the crate is what makes `simple_machines`
 		# worth the trouble; it is content answering a content question, not new engine work.
 		"name": "The Works",
+		"music": "bright",
 		"says": "Quickstone. Something could be made of this",
 		"sound": "engine:craft",
 		"blocks": [["base:stone", 4], ["simple_machines:quickstone", 3], ["base:copper_ore", 3],
@@ -71,6 +80,7 @@ const PHASES := [
 	},
 	{
 		"name": "Glow",
+		"music": "bright",
 		"says": "Light, where there has never been any",
 		"sound": "engine:discover",
 		"blocks": [["base:sunstone_ore", 3], ["base:deepstone", 4], ["base:gold_ore", 2],

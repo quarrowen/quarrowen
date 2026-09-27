@@ -7764,3 +7764,43 @@ I searched one directory, found the answer I expected, and stopped - the same sh
 counts instead of logs earlier today, and as inferring button positions from screenshots instead of
 printing them. Three times in one session, the same failure: **stopping at the first plausible answer
 instead of the one that settles it.** `tools/` was one `ls` away.
+
+### Music for the games, and two moods that did not exist (2026-09-27)
+
+`generate_music.py` wrote two tracks, both for the Proving Ground, under a comment saying why -
+*"because that is the only mod there is until 1.0's games are written."* They are written, so it now
+writes twelve across three games.
+
+**Four moods rather than one track per place.** `open` and `night` already existed; `deep` and `bright`
+are new and are deliberately each other's opposite, because those two are what a player walks *between*:
+
+- **`deep` has no bells at all.** The sparkle is what makes `open` feel like open air, and taking it
+  away is most of what makes somewhere feel like it has a ceiling. What is left is a low root with a
+  fifth leaning on it, and one landmark note per loop so the piece has a shape without becoming a tune.
+- **`bright`** is the inversion: the same scale an octave up, bells close together, and a pad thin
+  enough to hear them through.
+
+**One Block plays them per player**, which is the case world-level ambience cannot express: every child
+is on their own island in their own phase, so one is in a meadow while another is in the depths, in the
+same world at the same moment. Its six phases map onto the four moods - a mood is something a child can
+learn to read, and six nearly-identical pieces would teach them nothing.
+
+`firstlight` and `creative` had no music at all and now change on a day/night crossing, and on join, so
+somebody arriving at midnight hears the night track rather than waiting for sunrise.
+
+**They are placeholders and say so**, in every attribution: `register_music` refuses a track without
+one, which is the rule that lets real CC0 music arrive later without anything becoming untraceable.
+
+#### A trap in the tool, measured
+
+Re-running the generator **rewrites every file it touches even when nothing changed**, because ffmpeg
+gives each Ogg stream a random serial. Decoded, the audio is byte-identical; the container is not - 399
+bytes differ in a 117 KB file and none of them are sound. So `git checkout` on the files you did not
+mean to change is part of using this script, and that is now written in it.
+
+#### Still open in the audio lane
+
+- **Ambience passes** (`register_ambience`): wind, drips, water. World-level, so they suit `firstlight`
+  and `creative` rather than `oneblock`.
+- **The 25 creature voices**, finally answerable now `base`'s roster has settled at seventeen and a boss.
+- **Real music** to replace the placeholders, which is its own job and blocked by nothing.

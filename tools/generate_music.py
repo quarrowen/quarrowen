@@ -143,16 +143,59 @@ def hearth(length=40.0):
     return mix(low, warm, *notes)
 
 
+def deep(length=44.0):
+    """Underground: the root an octave down and close, with a fifth leaning on it. **No bells** - the
+    sparkle is what makes `daylight` feel like open air, and taking it away is most of what makes a
+    place feel like it has a ceiling. What is left breathes slowly and does not resolve."""
+    low = multiply(pad(length, A_MINOR_PENT[0] / 2.0, 0.6, detune=0.05), swell(length, 22.0, 0.45))
+    lean = multiply(pad(length, A_MINOR_PENT[4] / 2.0, 0.26, detune=0.18), swell(length, 30.0, 0.75, offset=0.4))
+    # One low note, rarely, so the loop has a landmark without becoming a tune.
+    notes = [bell(length, A_MINOR_PENT[0], at, decay=5.5, gain=0.14) for at in [8.0, 30.0]]
+    return mix(low, lean, *notes)
+
+
+def bright(length=44.0):
+    """Light where there has not been any: the same scale an octave up, bells close together and a pad
+    thin enough to hear them through. Deliberately the inverse of `deep`, because the two are what a
+    player walks between."""
+    high = multiply(pad(length, A_MINOR_PENT[5], 0.24, detune=0.2), swell(length, 14.0, 0.5))
+    under = multiply(pad(length, A_MINOR_PENT[2], 0.30, detune=0.08), swell(length, 18.0, 0.45, offset=0.3))
+    notes = [bell(length, A_MINOR_PENT[i], at, decay=2.2, gain=0.26)
+             for i, at in [(6, 1.0), (7, 5.5), (5, 10.0), (7, 16.0), (6, 22.0), (4, 28.0), (7, 33.0), (6, 39.0)]]
+    return mix(high, under, *notes)
+
+
 def main():
     if shutil.which("ffmpeg") is None:
         sys.exit("needs ffmpeg on PATH to encode Ogg Vorbis (brew install ffmpeg)")
-    # Into the Proving Ground, because that is the only mod there is until 1.0's games are written.
-    # Two tracks rather than one: the client picks between them by time of day, and a track list with a
-    # single entry cannot prove it picked. They are also what keeps the lazy asset lane covered - music
-    # is the only content that deliberately does *not* join the download a player waits through, and
-    # tests/smoke_test.gd asserts exactly that against these files. (2026-09-21)
+    # **Re-encoding a track that has not changed still rewrites the file**, because ffmpeg gives each
+    # Ogg stream a random serial - the decoded audio comes out byte-identical and the container does
+    # not. So a run of this script always dirties every file it touches, and `git checkout` on the ones
+    # you did not mean to change is part of using it. Measured rather than assumed: 399 bytes differ in
+    # a 117 KB file and none of them are sound. (2026-09-27)
+    #
+    # The Proving Ground keeps its two, and they are load-bearing: music is the only content that
+    # deliberately does *not* join the download a player waits through, and tests/smoke_test.gd asserts
+    # the lazy asset lane against exactly these files. Two rather than one, because a track list with a
+    # single entry cannot prove the client picked. (2026-09-21)
     write("tests/mods/proving/music/daylight.ogg", daylight())
     write("tests/mods/proving/music/night.ogg", night())
+
+    # **And now the games, which is what this file has been waiting for.** The note above used to say
+    # "because that is the only mod there is until 1.0's games are written" - firstlight, creative and
+    # oneblock are written. (2026-09-27)
+    #
+    # Four moods rather than one per place: open, deep, bright and night. A mood is a thing a player can
+    # learn to read, and six nearly-identical tracks would teach them nothing - whereas walking from
+    # `open` into `deep` says you have gone underground before any text does.
+    for mod in ["firstlight", "creative", "oneblock"]:
+        write("mods/%s/music/open.ogg" % mod, daylight())
+        write("mods/%s/music/night.ogg" % mod, night())
+    # The two that only some places need.
+    write("mods/oneblock/music/deep.ogg", deep())
+    write("mods/oneblock/music/bright.ogg", bright())
+    write("mods/firstlight/music/deep.ogg", deep())
+    write("mods/firstlight/music/hearth.ogg", hearth())
 
 
 if __name__ == "__main__":
