@@ -83,29 +83,30 @@ func _build_stick() -> void:
 func _build_buttons() -> void:
 	# Bottom right, where the other thumb already rests. Offsets are from that corner, so both are
 	# negative and account for the control's own size. Jump is largest: pressed most, and missed most.
-	_add_button("jump", "⬆", "Jump", Vector2(-40, -40), Vector2(96, 96))
-	_add_button("break", "⛏", "Mine", Vector2(-40, -150), BUTTON_SIZE)
-	_add_button("place", "🧱", "Place", Vector2(-148, -150), BUTTON_SIZE)
-	_add_button("sneak", "⬇", "Crouch", Vector2(-148, -40), BUTTON_SIZE)
-	_add_button("sprint", "🏃", "Run", Vector2(-256, -40), BUTTON_SIZE)
-	_add_button("inventory", "🎒", "Backpack", Vector2(-256, -150), BUTTON_SIZE)
+	_add_button("jump", "jump", "Jump", Vector2(-40, -40), Vector2(96, 96))
+	_add_button("break", "mine", "Mine", Vector2(-40, -150), BUTTON_SIZE)
+	_add_button("place", "place", "Place", Vector2(-148, -150), BUTTON_SIZE)
+	_add_button("sneak", "crouch", "Crouch", Vector2(-148, -40), BUTTON_SIZE)
+	_add_button("sprint", "run", "Run", Vector2(-256, -40), BUTTON_SIZE)
+	_add_button("inventory", "bag", "Backpack", Vector2(-256, -150), BUTTON_SIZE)
 
 
 ## One button that holds its action down for as long as it is touched, because `break` and `place` both
 ## mean something different held than tapped - progressive mining, repeat placing, eating a meal.
-func _add_button(action: String, glyph: String, label: String, at: Vector2, size: Vector2) -> void:
+func _add_button(action: String, icon: String, label: String, at: Vector2, size: Vector2) -> void:
 	var button := Button.new()
-	button.text = glyph
 	button.tooltip_text = label
 	button.focus_mode = Control.FOCUS_NONE
 	# **A picture rather than a word** (the user, 2026-09-27). The first version spelled them out, on the
 	# reasoning that "MINE" needs no legend - but these are pressed by a child who may not read quickly,
 	# and a pickaxe is understood before a word is decoded. Glyphs rather than a mod's item textures,
 	# because the engine may not reach into content for its own interface.
-	button.add_theme_font_size_override("font_size", 30)
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.modulate = Color(1, 1, 1, 0.82)
 	_anchor(button, 1.0, 1.0, size, at)
+	var drawing := Icon.new(icon)
+	drawing.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	button.add_child(drawing)
 	button.button_down.connect(func(): _press(action))
 	button.button_up.connect(func(): _release(action))
 
@@ -226,3 +227,83 @@ func release_all() -> void:
 	_stick_touch = -1
 	_look_touch = -1
 	_centre_knob()
+
+
+## **The icons are drawn, not typed.** They were emoji and symbol characters first, which looked right
+## on the development machine and arrived on the iPad as six empty squares: the project ships its own
+## typeface and that typeface has no pickaxe in it, and iOS does not fall back to a symbol font the way
+## macOS quietly did. A glyph is a dependency on whatever font happens to be installed; a few lines and
+## polygons are not, and this project already draws its own textures rather than shipping them.
+## (the user, 2026-09-27: "the buttons for jump, mine, etc are all empty squares")
+class Icon extends Control:
+	var kind := ""
+
+	func _init(of: String) -> void:
+		kind = of
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var ink := Color(0.97, 0.97, 0.94, 0.96)
+		var unit: float = minf(size.x, size.y)
+		var mid: Vector2 = size * 0.5
+		var stroke: float = maxf(unit * 0.09, 2.0)
+		match kind:
+			"jump": _arrow(mid, unit, ink, -1.0)
+			"crouch": _arrow(mid, unit, ink, 1.0)
+			"run": _run(mid, unit, ink, stroke)
+			"mine": _pick(mid, unit, ink, stroke)
+			"place": _block(mid, unit, ink)
+			"bag": _bag(mid, unit, ink, stroke)
+
+	## An arrow, point up (-1) or down (+1): a head and a stem, as one polygon each.
+	func _arrow(mid: Vector2, unit: float, ink: Color, dir: float) -> void:
+		# `dir` is -1 for up and +1 for down, and the head follows it directly. It was negated here as
+		# well as in the caller, so jump pointed down and crouch pointed up - which a screenshot showed
+		# at once and no amount of reading would have.
+		var head := PackedVector2Array([
+			mid + Vector2(0.0, dir * 0.32 * unit),
+			mid + Vector2(0.26 * unit, dir * 0.04 * unit),
+			mid + Vector2(-0.26 * unit, dir * 0.04 * unit)])
+		draw_colored_polygon(head, ink)
+		draw_rect(Rect2(mid.x - 0.10 * unit, mid.y - (0.30 * unit if dir > 0.0 else 0.04 * unit),
+			0.20 * unit, 0.34 * unit), ink)
+
+	## Two chevrons, the way speed is drawn everywhere.
+	func _run(mid: Vector2, unit: float, ink: Color, stroke: float) -> void:
+		for i in 2:
+			var x: float = mid.x + (-0.20 + float(i) * 0.22) * unit
+			draw_polyline(PackedVector2Array([
+				Vector2(x, mid.y - 0.22 * unit),
+				Vector2(x + 0.16 * unit, mid.y),
+				Vector2(x, mid.y + 0.22 * unit)]), ink, stroke)
+
+	## A pickaxe: a shaft, and a shallow arc across the top for the head.
+	func _pick(mid: Vector2, unit: float, ink: Color, stroke: float) -> void:
+		draw_line(mid + Vector2(0.10 * unit, -0.14 * unit), mid + Vector2(-0.06 * unit, 0.34 * unit), ink, stroke)
+		draw_polyline(PackedVector2Array([
+			mid + Vector2(-0.32 * unit, -0.06 * unit),
+			mid + Vector2(0.02 * unit, -0.30 * unit),
+			mid + Vector2(0.34 * unit, -0.06 * unit)]), ink, stroke)
+
+	## A block, drawn as a cube so it reads as a thing you place rather than a square.
+	func _block(mid: Vector2, unit: float, ink: Color) -> void:
+		var top := mid + Vector2(0.0, -0.30 * unit)
+		var right := mid + Vector2(0.28 * unit, -0.14 * unit)
+		var left := mid + Vector2(-0.28 * unit, -0.14 * unit)
+		var centre := mid + Vector2(0.0, 0.02 * unit)
+		draw_colored_polygon(PackedVector2Array([top, right, centre, left]), ink)
+		draw_colored_polygon(PackedVector2Array([left, centre,
+			centre + Vector2(0.0, 0.28 * unit), left + Vector2(0.0, 0.28 * unit)]), Color(ink, ink.a * 0.72))
+		draw_colored_polygon(PackedVector2Array([right, centre,
+			centre + Vector2(0.0, 0.28 * unit), right + Vector2(0.0, 0.28 * unit)]), Color(ink, ink.a * 0.50))
+
+	## A backpack: a body with a flap across it, and a small handle. **Not a padlock** - the first
+	## version put a round strap over a square body with a dark block in the middle of it, which is a
+	## padlock in every particular.
+	func _bag(mid: Vector2, unit: float, ink: Color, stroke: float) -> void:
+		draw_rect(Rect2(mid.x - 0.28 * unit, mid.y - 0.16 * unit, 0.56 * unit, 0.46 * unit), ink)
+		# The flap: a band across the top of the body, darker so it reads as a separate piece.
+		draw_rect(Rect2(mid.x - 0.28 * unit, mid.y - 0.16 * unit, 0.56 * unit, 0.16 * unit),
+			Color(ink, ink.a * 0.55))
+		# A short handle, wider than it is tall, sitting on top rather than arching over the whole bag.
+		draw_arc(mid + Vector2(0.0, -0.16 * unit), 0.11 * unit, PI, TAU, 12, ink, stroke)

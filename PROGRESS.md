@@ -7515,3 +7515,31 @@ rewritten three times as a timing problem and was the engine starving its own qu
 (`PROGRESS.md`, 2026-09-25). This one sits in a security feature, where "usually refuses" is not a
 property anybody wants. It joins `host_flow_test` and `multiplayer` on the undiagnosed list, which is
 now three.
+
+### Interface art belongs to the engine, and glyphs are a dependency (2026-09-27)
+
+The touch buttons carried emoji and symbol characters. They looked right on the machine they were
+written on and arrived on the iPad as **six empty squares** - because the project ships its own
+typeface (which has no pickaxe in it) and iOS does not quietly fall back to a symbol font the way macOS
+does. A glyph is a dependency on whatever font happens to be installed, and the fix for the *font*
+being missing from every build is what exposed it.
+
+They are drawn now: a few polygons and arcs per icon, in `TouchControls.Icon`. That removes the
+dependency entirely and is in keeping with a project that already generates its own block textures
+rather than shipping them.
+
+**The rule question this raised, settled by the user.** The first instinct was that the engine may not
+use a pickaxe icon at all, since `base` owns nouns - and that is the wrong reading. The rule stops the
+engine reaching into *a mod's* content for its own interface; it does not stop the engine owning the
+art for its own controls. (the user: *"since its part of the game, these icons and textures can be part
+of the engine itself"*.) A button that mines is a capability the engine provides, and it may look like
+what it does. What it may not do is load `simple_gear:wooden_pickaxe.png` to say so.
+
+Two drawing mistakes, both caught by photographing and neither findable by reading: `dir` was negated
+in the arrow *and* in its caller, so jump pointed down and crouch pointed up; and a round strap over a
+square body with a dark block in the middle is a **padlock** in every particular, not a backpack.
+
+**The wider lesson of the day, which this is the fifth instance of**: a screenshot proves a control is
+drawn. It does not prove the control is reachable (the close button sat under every panel it was meant
+to close), and it does not prove the glyph exists on the device that will run it. Both needed the
+hardware.
