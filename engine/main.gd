@@ -37,6 +37,15 @@ const DEFAULT_PORT := 24565
 
 var _args := {}
 var _server_pid := -1
+## A world running inside this process, where the platform cannot fork one. Freed by
+## `_stop_local_server` exactly as a forked one is killed, so everything else can keep asking one
+## question ("is a local world running?") without caring which kind it is.
+var _local_server: Node = null
+## The client's own networking node and the multiplayer branch it lives on, for that same case. Two
+## peers cannot share one node - `Net` holds a single `multiplayer_peer` - so the server keeps the
+## autoload and the client gets a private copy, which is the trick `tests/bots.gd` has used to run
+## many clients in one process since it was written.
+var _client_net_branch: Node = null
 var _client: Node
 var _menu: MainMenu
 var _backdrop: MenuBackdrop
@@ -78,7 +87,7 @@ func _ready() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		if _client and _server_pid > 0:
+		if _client and _hosting_locally():
 			await _client.disconnect_from_server()
 		_stop_local_server()
 		get_tree().quit()
@@ -145,6 +154,13 @@ func _host(game: String, port: int, player_name: String, extra := PackedStringAr
 	# start, invisible to everybody else. (2026-09-24)
 	var token := Crypto.new().generate_random_bytes(24).hex_encode()
 	OS.set_environment("QW_ADMIN_TOKEN", token)
+	# **Where forking is not allowed, the world runs in this process instead.** iOS forbids starting a
+	# second copy of the executable, so the ordinary path below can only ever fail there - and hiding
+	# local play on a tablet would be giving up a machine that is perfectly capable of running a world
+	# for two children in the same room. (2026-09-27)
+	if not can_fork_a_server():
+		_host_in_process(game, port, player_name, token, extra)
+		return
 	var args := PackedStringArray()
 	if not OS.has_feature("template"):
 		# Running from the editor binary: point it at this project and its server scene.
@@ -156,10 +172,73 @@ func _host(game: String, port: int, player_name: String, extra := PackedStringAr
 	args.append_array(extra)
 	_server_pid = OS.create_process(OS.get_executable_path(), args)
 	if _server_pid <= 0:
+		# **Two different failures wearing one message.** On a desktop this is a real fault and trying
+		# again is sensible advice. On iOS it is not a fault at all: the platform forbids starting a
+		# second process, `create_process` can only ever return ERR_CANT_FORK, and "close the game and
+		# open it again" is advice that cannot work however many times a child follows it. Telling
+		# somebody to retry the impossible is worse than telling them no. (found on the iPad, 2026-09-27)
 		_show_menu("Your world could not be started. Try closing the game and opening it again.")
 		return
 	print("[menu] Started local %s server (pid %d)" % [game, _server_pid])
 	_start_client("127.0.0.1", port, player_name, token)
+
+
+## Whether this platform lets us start a second copy of the executable to run a world in.
+##
+## **A question about the platform, asked before trying rather than after failing.** iOS says no, and
+## `create_process` there can only ever return ERR_CANT_FORK - so a world runs in this process instead.
+##
+## `QW_IN_PROCESS_SERVER=1` forces the same path on a desktop. **Not a convenience.** Without it the
+## in-process branch is reachable only on a tablet, which means it can only be tested by building,
+## signing, installing and then reading a log off a device - and a branch that expensive to exercise is
+## one that quietly rots between the times anybody does. (2026-09-27)
+static func can_fork_a_server() -> bool:
+	if OS.get_environment("QW_IN_PROCESS_SERVER") == "1":
+		return false
+	return not OS.has_feature("mobile")
+
+
+## Runs the world inside this process, for a platform that will not fork one.
+##
+## Two things make this work and neither is new. The server scene is an ordinary node, which is how the
+## test suite has always built one; and a second networking node on its own multiplayer branch is how
+## `tests/bots.gd` runs many clients in one process. The division of the autoload is the whole design:
+## **the server keeps `Net`, the client gets a private copy**, because a node holds one
+## `multiplayer_peer` and a server peer and a client peer cannot both be it.
+func _host_in_process(game: String, port: int, player_name: String, token: String, extra: PackedStringArray) -> void:
+	var scene := load("res://scenes/server.tscn") as PackedScene
+	if scene == null:
+		_show_menu("Your world could not be started.")
+		return
+	var server := scene.instantiate()
+	# Explicit arguments rather than the environment, so this client's own command line can never be
+	# read as the server's. server_main falls back to the command line when this is empty.
+	var args := PackedStringArray(["--mods=%s" % game, "--port=%d" % port])
+	args.append_array(extra)
+	server.launch_args = args
+	server.name = "LocalWorld"
+	_local_server = server
+	add_child(server)
+	print("[menu] Started local %s world in this process" % game)
+
+	# The client's own branch: a node that owns a SceneMultiplayer, holding a `Net` named exactly that,
+	# because Godot matches an RPC by the node's path *below the multiplayer root* - "Net" here has to
+	# line up with the server's "/root/Net".
+	_client_net_branch = Node.new()
+	_client_net_branch.name = "ClientNet"
+	add_child(_client_net_branch)
+	get_tree().set_multiplayer(SceneMultiplayer.new(), _client_net_branch.get_path())
+	var client_net = load("res://engine/net/net.gd").new()
+	client_net.name = "Net"
+	_client_net_branch.add_child(client_net)
+	_start_client("127.0.0.1", port, player_name, token, {}, client_net)
+
+
+## Whether a world is running here, of either kind. **Asked in four places that used to test
+## `_server_pid > 0`**, which quietly answered "no" for a world running in this process - so leaving one
+## skipped the shutdown entirely and the world ticked on behind the menu.
+func _hosting_locally() -> bool:
+	return _server_pid > 0 or _local_server != null
 
 
 func _stop_local_server() -> void:
@@ -167,13 +246,30 @@ func _stop_local_server() -> void:
 		if OS.is_process_running(_server_pid):
 			OS.kill(_server_pid)
 		_server_pid = -1
+	if _local_server != null:
+		# It may have freed itself already: the host's "leave" asks the world to shut down, and an
+		# in-process world answers that by freeing rather than by quitting the tree.
+		if is_instance_valid(_local_server):
+			_local_server.queue_free()
+		_local_server = null
+	if _client_net_branch != null:
+		if is_instance_valid(_client_net_branch):
+			_client_net_branch.queue_free()
+		_client_net_branch = null
+	if _client_net_branch != null:
+		_client_net_branch.queue_free()
+		_client_net_branch = null
 
 
-func _start_client(address: String, port: int, player_name: String, token: String, ticket := {}) -> void:
+## `own_net` is a private networking node for a client that cannot use the autoload, which is only the
+## in-process world above. Everything else passes null and talks through `Net` as it always has.
+func _start_client(address: String, port: int, player_name: String, token: String, ticket := {}, own_net: Node = null) -> void:
 	_menu.visible = false
 	_backdrop_fallback.visible = false
 	_remove_backdrop()
 	_client = GameClient.new()
+	if own_net != null:
+		_client.net = own_net
 	_client.server_address = address
 	_client.server_port = port
 	_client.player_name = player_name
@@ -223,7 +319,7 @@ func _on_client_exited(message: String) -> void:
 	if not _pending_join.is_empty():
 		var target := _pending_join
 		_pending_join = {}
-		if _server_pid > 0:
+		if _hosting_locally():
 			await get_tree().create_timer(1.0).timeout
 			_stop_local_server()
 		_start_client(target.address, target.port, str(target.get("player", _menu.player_name)), "", target.get("ticket", {}))
@@ -234,8 +330,8 @@ func _on_client_exited(message: String) -> void:
 		await get_tree().create_timer(2.0).timeout
 		_start_client(reconnect.address, reconnect.port, reconnect.name, reconnect.token)
 		return
-	if _server_pid > 0:
-		# The host asked the server to save and quit; kill it only if it is still around.
+	if _hosting_locally():
+		# The host asked the world to save and quit; end it only if it is still around.
 		await get_tree().create_timer(1.0).timeout
 		var local_problem := _local_start_error() if ended.get("kind", "") == "connect" else ""
 		_stop_local_server()

@@ -8849,6 +8849,17 @@ GDScript: `reload_pending := false  (property)`
 
 Set when the server announced a full reload: whoever owns the client should reconnect (see main.gd).
 
+### `net`
+
+*client/game_client.gd*
+
+GDScript: `net = Net  (property)`
+
+The networking node this client talks through. **The autoload by default, which is every ordinary
+client**, and settable before the client enters the tree for the one case that cannot use it: a
+world hosted inside this same process, where the server already owns the autoload and its single
+multiplayer peer. See Main._host_in_process. (2026-09-27)
+
 ### `admin_token`
 
 *client/game_client.gd*
@@ -10347,6 +10358,22 @@ Returns a status message; failures start with "Error".
 
 **See also:** `close`, `export_encrypted`, `load_or_create`, `open`, `player_id`
 
+### `can_fork_a_server`
+
+*main.gd*
+
+GDScript: `static can_fork_a_server() -> bool`
+
+Whether this platform lets us start a second copy of the executable to run a world in.
+
+**A question about the platform, asked before trying rather than after failing.** iOS says no, and
+`create_process` there can only ever return ERR_CANT_FORK - so a world runs in this process instead.
+
+`QW_IN_PROCESS_SERVER=1` forces the same path on a desktop. **Not a convenience.** Without it the
+in-process branch is reachable only on a tablet, which means it can only be tested by building,
+signing, installing and then reading a log off a device - and a branch that expensive to exercise is
+one that quietly rots between the times anybody does. (2026-09-27)
+
 ### `realms`
 
 *server/game_server.gd*
@@ -10463,6 +10490,16 @@ Container types and open container screens (chests, furnaces, machines).
 GDScript: `gameplay := {  (property)`
 
 Game-wide rules mods can change with set_gameplay.
+
+### `in_process`
+
+*server/game_server.gd*
+
+GDScript: `in_process := false  (property)`
+
+True when this world is running inside a player's own client rather than in a process of its own -
+which is how a platform that cannot fork hosts (see Main._host_in_process). It changes exactly one
+thing: ending the world frees this node instead of quitting the tree, because the tree is the game.
 
 ### `map_markers`
 
@@ -11933,6 +11970,17 @@ Breaks a block without a player (support lost, explosions, mods): drops items, p
 the explosion is a noise, not fifty pieces of feedback.
 
 **See also:** `block_changed`, `block_removed`, `block_state`, `break_block`, `chunk_coord_at`, `clear_block_data`
+
+### `launch_args`
+
+*server_main.gd*
+
+GDScript: `launch_args := PackedStringArray()  (property)`
+
+Options for a server started *inside another process* - the client hosting a local world on a
+platform that cannot fork (see Main._host_in_process). Set before the scene enters the tree. Empty
+means read the command line, which is every ordinary server. Passed explicitly rather than smuggled
+through the environment so that a client's own arguments can never be mistaken for a server's.
 
 
 ## Everything else

@@ -8199,3 +8199,56 @@ a server in one process over loopback is therefore two proven halves rather than
 
 The recommendation is (1), with the honest error message from the section above landing first either
 way, because it is right under both.
+
+## A world that runs inside the client, so a tablet can host one (2026-09-27)
+
+The answer to "why does start a game need to be hidden on iPad" was: it does not. Starting a local
+world **forks a second copy of the executable** and connects to it on loopback; iOS forbids that, so
+`create_process` returns `ERR_CANT_FORK` and the menu showed a message telling a child to close the
+game and open it again, which on that platform can never work. Now, where forking is unavailable, the
+world runs in the player's own process instead.
+
+### The one real obstacle: `Net` is an autoload and holds one peer
+
+A `Net` node owns a single `multiplayer_peer`, and a server peer and a client peer cannot both be it.
+So one side has to stop using the autoload. **The client was the cheaper side by a wide margin** -
+73 references in two files against 135 across nineteen - so `GameClient` gained `var net = Net`,
+defaulting to the autoload, and every `Net.` became `net.`. Ordinary clients are unchanged by
+construction: the default *is* what they had.
+
+The server keeps the autoload. The client, only when hosting in-process, is handed a private `Net` on
+its own `SceneMultiplayer` branch - **which is not a new trick**: `tests/bots.gd` has run many clients
+in one process this way since it was written. The node must be named exactly `Net`, because Godot
+resolves an RPC by the node's path *below the multiplayer root*, and that has to line up with the
+server's `/root/Net`.
+
+### Three things that were wrong and what each looked like
+
+- **The client connected and was never greeted.** `game_client.gd` did
+  `multiplayer.connected_to_server.connect(...)`, and `multiplayer` resolves for *that node* - which
+  sits in the default branch, the server's. So the signal never fired, `c_hello` was never sent, and
+  the server kicked it for "took too long to join". The symptom is a hang; the cause is one word. Six
+  references now go through `net.multiplayer`.
+- **Leaving the world closed the whole game.** The host's "leave" asks the server to shut down, and
+  `on_shutdown_request` answered with `get_tree().quit()` - correct for a forked process, fatal when
+  the tree *is* the game. An in-process server frees itself instead, which runs the same `_exit_tree`
+  that saves and waits for the writes.
+- **Leaving left the world running behind the menu.** Four places asked `_server_pid > 0` to mean "is
+  a world running here", which is quietly false for one that never had a pid. They ask
+  `_hosting_locally()` now.
+
+### It is tested on a desktop, deliberately
+
+`QW_IN_PROCESS_SERVER=1` forces the same branch anywhere, and `tests/host_in_process_test.gd` runs it
+on every commit: no second process, the world is a node, the client is on its own networking node and
+not the autoload, it joins, it becomes admin through the launch token, and leaving frees the world and
+shows the menu. **Without that override this code would be reachable only by building, signing,
+installing and reading a log off a tablet** - and a branch that expensive to exercise is one that rots
+between the rare times anybody does.
+
+### And the mods are in the iPad bundle now
+
+`package_ios.sh` copies `mods/` into the app bundle after the export, re-signs with the identity and
+entitlements read back out of what Xcode produced, and rezips - the sequence proved by hand earlier
+today. `ModLoader.search_dirs` already looks in `<executable dir>/mods` first, and on iOS that is inside
+`Quarrowen.app`. 2.8 MB.

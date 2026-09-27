@@ -135,6 +135,12 @@ const STEP_DISTANCE := 1.7
 
 enum Phase { CONNECTING, DOWNLOADING, JOINING, PLAYING }
 
+## The networking node this client talks through. **The autoload by default, which is every ordinary
+## client**, and settable before the client enters the tree for the one case that cannot use it: a
+## world hosted inside this same process, where the server already owns the autoload and its single
+## multiplayer peer. See Main._host_in_process. (2026-09-27)
+var net = Net
+
 var server_address := "127.0.0.1"
 var server_port := 24565
 var player_name := "Player"
@@ -466,11 +472,11 @@ func _ready() -> void:
 	_apply_graphics(false)
 	_apply_accessibility()
 	ClientSettings.shared().changed.connect(_on_setting_changed)
-	Net.client = self
-	multiplayer.connected_to_server.connect(_on_connected)
-	multiplayer.connection_failed.connect(_on_connection_failed)
-	multiplayer.server_disconnected.connect(_on_server_disconnected)
-	Net.handshake_failed.connect(_on_handshake_failed)
+	net.client = self
+	net.multiplayer.connected_to_server.connect(_on_connected)
+	net.multiplayer.connection_failed.connect(_on_connection_failed)
+	net.multiplayer.server_disconnected.connect(_on_server_disconnected)
+	net.handshake_failed.connect(_on_handshake_failed)
 	_connect()
 
 
@@ -478,10 +484,10 @@ func _exit_tree() -> void:
 	for job: Dictionary in _mesh_jobs.values():
 		WorkerThreadPool.wait_for_task_completion(job.task_id)
 	_mesh_jobs.clear()
-	if Net.client == self:
-		Net.client = null
-	if Net.handshake_failed.is_connected(_on_handshake_failed):
-		Net.handshake_failed.disconnect(_on_handshake_failed)
+	if net.client == self:
+		net.client = null
+	if net.handshake_failed.is_connected(_on_handshake_failed):
+		net.handshake_failed.disconnect(_on_handshake_failed)
 	_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 
@@ -496,7 +502,7 @@ func _connect() -> void:
 		_join_started = Time.get_ticks_msec() / 1000.0
 		_join_marks.clear()
 	_handshake_deadline = Time.get_ticks_msec() / 1000.0 + HANDSHAKE_SECONDS
-	var err := Net.create_client(server_address, server_port, test_protocol)
+	var err := net.create_client(server_address, server_port, test_protocol)
 	if err != OK:
 		_leave("Could not start client: %s" % error_string(err))
 
@@ -504,9 +510,9 @@ func _connect() -> void:
 func _on_connected() -> void:
 	_mark_join("connect")
 	_set_status("Handshaking...")
-	Net.c_hello.rpc_id(1, Protocol.VERSION, player_name, Identity.public_text(_identity))
+	net.c_hello.rpc_id(1, Protocol.VERSION, player_name, Identity.public_text(_identity))
 	if not transfer_ticket.is_empty():
-		Net.c_transfer_ticket.rpc_id(1, str(transfer_ticket.get("ticket", "")), str(transfer_ticket.get("signature", "")))
+		net.c_transfer_ticket.rpc_id(1, str(transfer_ticket.get("ticket", "")), str(transfer_ticket.get("signature", "")))
 
 
 func on_challenge(nonce: PackedByteArray, server_id: String) -> void:
@@ -517,7 +523,7 @@ func on_challenge(nonce: PackedByteArray, server_id: String) -> void:
 		_leave("The server sent an invalid login challenge")
 		return
 	_set_status("Authenticating...")
-	Net.c_auth.rpc_id(1, Identity.sign(test_signing_key if not test_signing_key.is_empty() else _identity, nonce, server_id))
+	net.c_auth.rpc_id(1, Identity.sign(test_signing_key if not test_signing_key.is_empty() else _identity, nonce, server_id))
 
 
 ## Gives up on a server that took the connection and then said nothing.
@@ -675,14 +681,14 @@ func _watch_handshake() -> void:
 
 func _on_connection_failed() -> void:
 	if _connect_attempts < MAX_CONNECT_ATTEMPTS and not _exiting:
-		Net.close()
+		net.close()
 		await get_tree().create_timer(0.5).timeout
 		if not _exiting:
 			_connect()
 		return
 	exit_kind = "connect"
 	var message := "Could not connect to %s:%d" % [server_address, server_port]
-	if Net.has_pinned_identity(server_address, server_port):
+	if net.has_pinned_identity(server_address, server_port):
 		exit_kind = "identity"
 		message = "Could not connect to %s:%d. If the server is running, its identity has changed since your last visit: it was reinstalled or its data was reset, or someone is impersonating it." % [server_address, server_port]
 	_leave(message)
@@ -714,9 +720,9 @@ func _on_server_disconnected() -> void:
 
 
 func disconnect_from_server() -> void:
-	if not admin_token.is_empty() and multiplayer.has_multiplayer_peer() \
-			and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
-		Net.c_shutdown.rpc_id(1, admin_token)
+	if not admin_token.is_empty() and net.multiplayer.has_multiplayer_peer() \
+			and net.multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+		net.c_shutdown.rpc_id(1, admin_token)
 		# Give ENet a moment to flush the reliable packet before the peer is closed.
 		await get_tree().create_timer(0.2).timeout
 	_leave("")
@@ -726,7 +732,7 @@ func _leave(message: String) -> void:
 	if _exiting:
 		return
 	_exiting = true
-	Net.close()
+	net.close()
 	exited.emit(message)
 
 
@@ -824,7 +830,7 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 	if not _effects.registry.load_network(content.get("effects", [])):
 		_leave("Server sent invalid effect definitions")
 		return
-	Net.c_set_avatar.rpc_id(1, avatar)
+	net.c_set_avatar.rpc_id(1, avatar)
 	stats = items.stats.duplicate()
 	if content.get("rules") is Dictionary:
 		on_rules(content.rules)
@@ -863,7 +869,7 @@ func on_server_info(info: Dictionary, content: Dictionary, manifest: Array) -> v
 		info.get("name", "?"), info.get("game", "?"), registry.defs.size() - 1, _manifest.size(), missing.size()])
 	_mark_join("handshake")
 	phase = Phase.DOWNLOADING
-	Net.c_request_assets.rpc_id(1, missing)
+	net.c_request_assets.rpc_id(1, missing)
 	_update_download_status()
 	if _downloads.is_empty():
 		_finish_content()
@@ -883,7 +889,7 @@ func fetch_lazy_asset(asset_name: String, then: Callable) -> void:
 		_lazy[hash].waiting.append(then)
 		return
 	_lazy[hash] = {"buffer": PackedByteArray(), "name": asset_name, "waiting": [then]}
-	Net.c_request_assets.rpc_id(1, PackedStringArray([hash]))
+	net.c_request_assets.rpc_id(1, PackedStringArray([hash]))
 
 
 func _lazy_piece(hash: String, offset: int, total: int, bytes: PackedByteArray) -> void:
@@ -1022,7 +1028,7 @@ func _finish_content() -> void:
 	phase = Phase.JOINING
 	_set_status("Joining %s..." % server_info.get("name", "server"))
 	_mark_join("content")
-	Net.c_ready.rpc_id(1)
+	net.c_ready.rpc_id(1)
 
 
 func on_time(time_of_day: float, day_length: float) -> void:
@@ -1078,7 +1084,7 @@ func on_welcome(peer_id: int, spawn: Vector3, spawn_yaw: float) -> void:
 	if _self_avatar != null and _appearances.has(my_id):
 		_apply_look(_self_avatar, player_name, _appearances[my_id])  # it may arrive before the welcome
 	if not admin_token.is_empty():
-		Net.c_claim_admin.rpc_id(1, admin_token)
+		net.c_claim_admin.rpc_id(1, admin_token)
 	ugc.offer_worn(avatar)
 	_set_status("Loading terrain...")
 	_mark_join("world")
@@ -1227,7 +1233,7 @@ func open_ugc_review() -> void:
 	_ugc_review.looks = _looks
 	_ugc_review.images = _asset_images
 	_ugc_review.rig = _player_rig
-	_ugc_review.action_requested.connect(func(action, args): Net.c_ugc_admin.rpc_id(1, action, args))
+	_ugc_review.action_requested.connect(func(action, args): net.c_ugc_admin.rpc_id(1, action, args))
 	_ugc_review.fetch_requested.connect(func(ids): ugc.fetch(ids))
 	ugc.creation_ready.connect(_ugc_review.creation_ready)
 	_ugc_review.closed.connect(func():
@@ -1346,7 +1352,7 @@ func open_report_dialog() -> void:
 	box.add_child(details)
 	dialog.confirmed.connect(func():
 		if not choices.is_empty():
-			Net.c_ugc_report.rpc_id(1, choices[which.selected][0], reason.get_item_metadata(reason.selected), details.text)
+			net.c_ugc_report.rpc_id(1, choices[which.selected][0], reason.get_item_metadata(reason.selected), details.text)
 		dialog.queue_free())
 	dialog.canceled.connect(dialog.queue_free)
 	_hud_root.add_child(dialog)
@@ -1529,7 +1535,7 @@ func on_mining(peer_id: int, pos: Vector3i, seconds: float) -> void:
 
 func respawn() -> void:
 	if dead:
-		Net.c_respawn.rpc_id(1)
+		net.c_respawn.rpc_id(1)
 
 
 func on_entity_spawn(records: Array) -> void:
@@ -1883,7 +1889,7 @@ func _physics_process(_delta: float) -> void:
 			# Double-tap jump starts (or stops) flying; the server decides whether it may.
 			var now := Time.get_ticks_msec() / 1000.0
 			if now - _last_jump_press < 0.35 and _welcomed:
-				Net.c_set_flying.rpc_id(1, not state.flying)
+				net.c_set_flying.rpc_id(1, not state.flying)
 				_last_jump_press = 0.0
 			else:
 				_last_jump_press = now
@@ -1922,7 +1928,7 @@ func _physics_process(_delta: float) -> void:
 	var packet := PackedByteArray([_recent_packets.size()])
 	for p in _recent_packets:
 		packet.append_array(p)
-	Net.c_inputs.rpc_id(1, packet)
+	net.c_inputs.rpc_id(1, packet)
 
 
 func _reconcile(last_seq: int, pos: Vector3, vel: Vector3, on_ground: bool) -> void:
@@ -1985,7 +1991,7 @@ func _process(delta: float) -> void:
 	_map_timer -= delta
 	if _map_timer <= 0.0 and (_compass.visible or _map_screen != null):
 		_map_timer = 2.0
-		Net.c_map.rpc_id(1)
+		net.c_map.rpc_id(1)
 	if _compass.visible:
 		_compass.look(yaw, state.position)
 	ugc.update(delta)
@@ -2215,7 +2221,7 @@ func _handle_edits(delta: float) -> void:
 			_edit_timer = EDIT_REPEAT_DELAY
 			return
 		if Input.is_action_just_pressed("place") and _entity_target.kind == 0:
-			Net.c_interact_entity.rpc_id(1, _entity_target.id)
+			net.c_interact_entity.rpc_id(1, _entity_target.id)
 			_edit_timer = EDIT_REPEAT_DELAY
 			return
 	if not _eating.is_empty():
@@ -2240,7 +2246,7 @@ func _handle_edits(delta: float) -> void:
 		request_break(_target.position)
 	elif placing and Input.is_action_just_pressed("place") and registry.interactive_lut[_target.block] == 1:
 		_edit_timer = EDIT_REPEAT_DELAY
-		Net.c_interact.rpc_id(1, _target.position)
+		net.c_interact.rpc_id(1, _target.position)
 	elif placing:
 		_edit_timer = EDIT_REPEAT_DELAY
 		request_place(placement_spot(_target))
@@ -2264,7 +2270,7 @@ func _continue_mining(pos: Vector3i) -> void:
 			return
 		var seconds := Mining.break_time(registry.defs[block], items.tool_of(inventory.selected_item(), inventory.data[inventory.selected]), float(stats.get("mining_speed", 1.0)))
 		_mining = {"position": pos, "started": now, "seconds": seconds, "block": block}
-		Net.c_mine_start.rpc_id(1, pos)
+		net.c_mine_start.rpc_id(1, pos)
 		_show_crack(0, pos, seconds)
 	if now - float(_mining.get("swung", -1.0)) > 0.3:
 		_mining.swung = now
@@ -2285,7 +2291,7 @@ func _stop_mining() -> void:
 	_mining = {}
 	_clear_crack(0)
 	if _welcomed:
-		Net.c_mine_stop.rpc_id(1)
+		net.c_mine_stop.rpc_id(1)
 
 
 ## Breaks a block the way a player holding the button would (used by tests and automation).
@@ -2295,7 +2301,7 @@ func mine_block(pos: Vector3i) -> void:
 		return
 	var block := world.get_block_v(pos)
 	var seconds := Mining.break_time(registry.defs[block], items.tool_of(inventory.selected_item(), inventory.data[inventory.selected]), float(stats.get("mining_speed", 1.0)))
-	Net.c_mine_start.rpc_id(1, pos)
+	net.c_mine_start.rpc_id(1, pos)
 	_show_crack(0, pos, seconds)
 	await get_tree().create_timer(seconds + 0.05).timeout
 	_clear_crack(0)
@@ -2333,7 +2339,7 @@ func attack_target() -> bool:
 	if _entity_target.is_empty() or dead:
 		return false
 	_attack_timer = maxf(float(stats.get("attack_cooldown", ATTACK_REPEAT)), 0.1)
-	Net.c_attack.rpc_id(1, _entity_target.kind, _entity_target.id)
+	net.c_attack.rpc_id(1, _entity_target.kind, _entity_target.id)
 	_self_swing()
 	_sounds.play_name("engine:swing", _camera.position, 0.7, randf_range(0.9, 1.1))
 	return true
@@ -2359,7 +2365,7 @@ func use_selected_item() -> bool:
 	var wearable := item >= ItemRegistry.FIRST_ITEM and not String(items.get_def(item).get("equip_slot", "")).is_empty()
 	if item < ItemRegistry.FIRST_ITEM or not (items.is_usable(item) or wearable):
 		return false
-	Net.c_use_item.rpc_id(1, _target.hit, _target.get("position", Vector3i.ZERO), _target.get("normal", Vector3i.ZERO))
+	net.c_use_item.rpc_id(1, _target.hit, _target.get("position", Vector3i.ZERO), _target.get("normal", Vector3i.ZERO))
 	var food: Dictionary = items.get_def(item).get("food", {})
 	if not food.is_empty():
 		# Food is eaten while use is held; the server finishes it after eat_time.
@@ -2379,7 +2385,7 @@ func _update_eating() -> void:
 	var meal: Dictionary = _eating.get("meal", {})
 	var overdue: bool = not meal.is_empty() and Time.get_ticks_msec() / 1000.0 - float(meal.started) > float(meal.duration) + 1.5
 	if not Input.is_action_pressed("place") or inventory.selected != int(_eating.slot) or inventory.selected_item() != int(_eating.item) or overdue:
-		Net.c_stop_using.rpc_id(1)
+		net.c_stop_using.rpc_id(1)
 		_end_local_meal()
 
 
@@ -2503,7 +2509,7 @@ func request_break(pos: Vector3i) -> void:
 	_on_block_modified(pos)
 	_block_debris(pos, current)
 	_sounds.play_name(String(registry.defs[current].sounds.get("break", "")), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1))
-	Net.c_break_block.rpc_id(1, pos)
+	net.c_break_block.rpc_id(1, pos)
 
 
 ## Places the selected hotbar block, predicting the result.
@@ -2533,7 +2539,7 @@ func request_place(pos: Vector3i) -> void:
 	inventory.consume_selected()
 	_refresh_hotbar()
 	_sounds.play_name(String(registry.defs[block].sounds.get("place", "")), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1))
-	Net.c_place_block.rpc_id(1, pos, yaw)
+	net.c_place_block.rpc_id(1, pos, yaw)
 	_self_swing()
 
 
@@ -2542,7 +2548,7 @@ func select_slot(index: int) -> void:
 	inventory.selected = wrapi(index, 0, Inventory.HOTBAR)
 	_refresh_hotbar()
 	if _welcomed:
-		Net.c_select_slot.rpc_id(1, inventory.selected)
+		net.c_select_slot.rpc_id(1, inventory.selected)
 
 
 func _on_block_modified(pos: Vector3i) -> void:
@@ -2973,12 +2979,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		_open_chat()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("crafting") and _welcomed:
-		Net.c_open_menu.rpc_id(1, "crafting")
+		net.c_open_menu.rpc_id(1, "crafting")
 	elif event.is_action_pressed("palette") and _welcomed:
 		if _palette != null and _palette.visible:
 			_close_palette()
 		else:
-			Net.c_open_menu.rpc_id(1, "palette")
+			net.c_open_menu.rpc_id(1, "palette")
 	elif event.is_action_pressed("dev") and _welcomed:
 		_toggle_dev_overlay()
 		get_viewport().set_input_as_handled()
@@ -3088,7 +3094,7 @@ func _gameplay_input_enabled() -> bool:
 
 func drop_selected(whole_stack := false) -> void:
 	if inventory.selected_item() > 0 and not dead:
-		Net.c_drop_item.rpc_id(1, whole_stack)
+		net.c_drop_item.rpc_id(1, whole_stack)
 
 
 func _set_inventory_open(open: bool) -> void:
@@ -3104,7 +3110,7 @@ func _set_inventory_open(open: bool) -> void:
 		_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	else:
 		if _welcomed:
-			Net.c_inventory_closed.rpc_id(1)
+			net.c_inventory_closed.rpc_id(1)
 		if not ignore_mouse_capture and not dead:
 			_set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
@@ -3290,8 +3296,8 @@ func _dev_pick() -> void:
 			best = t
 			args = {"player": peer_id}
 	if args.is_empty():
-		args = {"player": multiplayer.get_unique_id()}  # nothing in sight: yourself
-	Net.c_dev.rpc_id(1, "inspect", args)
+		args = {"player": net.multiplayer.get_unique_id()}  # nothing in sight: yourself
+	net.c_dev.rpc_id(1, "inspect", args)
 
 
 func on_dev(kind: String, data) -> void:
@@ -3494,18 +3500,18 @@ func on_structure_guide(missing: Array) -> void:
 ## Asks the server to craft a recipe (see RecipeRegistry indices).
 func craft_recipe(index: int, times := 1) -> void:
 	if index >= 0 and times > 0:
-		Net.c_craft.rpc_id(1, index, times)
+		net.c_craft.rpc_id(1, index, times)
 
 
 func _set_crafting_open(open: bool) -> void:
 	if open:
-		Net.c_open_menu.rpc_id(1, "crafting")
+		net.c_open_menu.rpc_id(1, "crafting")
 		return
 	if not _crafting_screen.visible:
 		return
 	_crafting_screen.visible = false
 	if _welcomed:
-		Net.c_crafting_closed.rpc_id(1)
+		net.c_crafting_closed.rpc_id(1)
 	if not ignore_mouse_capture and not dead:
 		_set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
@@ -3635,7 +3641,7 @@ func on_container_close() -> void:
 
 
 func inventory_click(slot: int, button := 1, shift := false) -> void:
-	Net.c_inventory_click.rpc_id(1, slot, button, shift)
+	net.c_inventory_click.rpc_id(1, slot, button, shift)
 	_sounds.play_name("engine:ui_click", Vector3.ZERO, 0.4, 1.0, false)
 
 
@@ -3675,7 +3681,7 @@ func _on_avatar_edited(edited: Dictionary) -> void:
 	avatar = cosmetics.sanitize_avatar(portable)
 	AvatarStore.save_avatar(avatar)
 	ugc.offer_worn(edited)
-	Net.c_set_avatar.rpc_id(1, edited)
+	net.c_set_avatar.rpc_id(1, edited)
 	_close_avatar_editor()
 
 
@@ -3762,12 +3768,12 @@ func toggle_inventory() -> void:
 ## needs a door that is not a key. (2026-09-27)
 func open_crafting() -> void:
 	if _welcomed:
-		Net.c_open_menu.rpc_id(1, "crafting")
+		net.c_open_menu.rpc_id(1, "crafting")
 
 
 func open_palette() -> void:
 	if _welcomed:
-		Net.c_open_menu.rpc_id(1, "palette")
+		net.c_open_menu.rpc_id(1, "palette")
 
 
 func open_chat() -> void:
@@ -3794,7 +3800,7 @@ func _on_chat_submitted(text: String) -> void:
 	_chat_input.visible = false
 	_chat_input.release_focus()
 	if not text.strip_edges().is_empty():
-		Net.c_chat.rpc_id(1, text)
+		net.c_chat.rpc_id(1, text)
 	_capture_mouse()
 
 
@@ -3806,7 +3812,7 @@ func _on_chat_gui_input(event: InputEvent) -> void:
 
 
 func _on_ui_action(ui_id: String, action: String) -> void:
-	Net.c_ui_action.rpc_id(1, ui_id, action)
+	net.c_ui_action.rpc_id(1, ui_id, action)
 
 
 ## The wheel zooms the map while it is open, and picks a hotbar slot the rest of the time. Reaching for
@@ -3881,7 +3887,7 @@ func open_settings() -> void:
 ## Players and roles (admins) over the game, in the settings overlay slot.
 func open_players_panel() -> void:
 	var panel := PlayersPanel.new()
-	panel.action_requested.connect(func(action, args): Net.c_roles_panel.rpc_id(1, action, args))
+	panel.action_requested.connect(func(action, args): net.c_roles_panel.rpc_id(1, action, args))
 	panel.closed.connect(close_settings)
 	_open_overlay(panel)
 	_players_panel = panel
@@ -3895,7 +3901,7 @@ func on_roles_panel(state: Dictionary) -> void:
 ## Server settings (admins) over the game, in the settings overlay slot.
 func open_server_panel() -> void:
 	var panel := ServerPanel.new()
-	panel.action_requested.connect(func(action, args): Net.c_server_panel.rpc_id(1, action, args))
+	panel.action_requested.connect(func(action, args): net.c_server_panel.rpc_id(1, action, args))
 	panel.closed.connect(close_settings)
 	_open_overlay(panel)
 	_server_panel = panel
@@ -3909,7 +3915,7 @@ func on_server_panel(state: Dictionary) -> void:
 ## The worlds this server is linked to, and travel between them.
 func open_worlds_panel() -> void:
 	var panel := WorldsPanel.new()
-	panel.action_requested.connect(func(action, args): Net.c_worlds.rpc_id(1, action, args))
+	panel.action_requested.connect(func(action, args): net.c_worlds.rpc_id(1, action, args))
 	panel.closed.connect(close_settings)
 	_open_overlay(panel)
 	_worlds_panel = panel
@@ -3928,7 +3934,7 @@ func toggle_map() -> void:
 	var screen := MapScreen.new()
 	screen.client = self
 	screen.closed.connect(close_map)
-	screen.refresh_requested.connect(func(): Net.c_map.rpc_id(1))
+	screen.refresh_requested.connect(func(): net.c_map.rpc_id(1))
 	_hud_root.add_child(screen)
 	_map_screen = screen
 	_set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -4528,19 +4534,19 @@ func _build_hud() -> void:
 	_crafting_screen.craft_requested.connect(craft_recipe)
 	_crafting_screen.pin_requested.connect(func(index): pin_recipe(-1 if index == _crafting_screen.pinned else index))
 	_crafting_screen.closed.connect(_set_crafting_open.bind(false))
-	_crafting_screen.station_action.connect(func(action): Net.c_station_action.rpc_id(1, action))
-	_crafting_screen.coop_action.connect(func(action, arg): Net.c_station_coop.rpc_id(1, action, arg))
-	_crafting_screen.experiment_requested.connect(func(grid): Net.c_experiment.rpc_id(1, grid))
-	_crafting_screen.assemble_requested.connect(func(assembly_name, slots): Net.c_assemble.rpc_id(1, assembly_name, slots))
-	_crafting_screen.skill_requested.connect(func(product, assist, with_partner): Net.c_skill_craft.rpc_id(1, product, assist, with_partner))
-	_crafting_screen.minigame_join_requested.connect(func(game_id): Net.c_minigame_join.rpc_id(1, game_id))
+	_crafting_screen.station_action.connect(func(action): net.c_station_action.rpc_id(1, action))
+	_crafting_screen.coop_action.connect(func(action, arg): net.c_station_coop.rpc_id(1, action, arg))
+	_crafting_screen.experiment_requested.connect(func(grid): net.c_experiment.rpc_id(1, grid))
+	_crafting_screen.assemble_requested.connect(func(assembly_name, slots): net.c_assemble.rpc_id(1, assembly_name, slots))
+	_crafting_screen.skill_requested.connect(func(product, assist, with_partner): net.c_skill_craft.rpc_id(1, product, assist, with_partner))
+	_crafting_screen.minigame_join_requested.connect(func(game_id): net.c_minigame_join.rpc_id(1, game_id))
 	_crafting_screen.load_settings()
 	_hud_root.add_child(_crafting_screen)
 	_minigame_screen = MinigameScreen.new()
 	_minigame_screen.items = items
 	_minigame_screen.visible = false
-	_minigame_screen.input_sent.connect(func(action, t, arg): Net.c_minigame_input.rpc_id(1, action, t, arg))
-	_minigame_screen.join_requested.connect(func(game_id): Net.c_minigame_join.rpc_id(1, game_id))
+	_minigame_screen.input_sent.connect(func(action, t, arg): net.c_minigame_input.rpc_id(1, action, t, arg))
+	_minigame_screen.join_requested.connect(func(game_id): net.c_minigame_join.rpc_id(1, game_id))
 	_minigame_screen.feedback.connect(_on_minigame_feedback)
 	_hud_root.add_child(_minigame_screen)
 	_guide_badge = Label.new()
@@ -4569,7 +4575,7 @@ func _build_hud() -> void:
 	add_child(_decals)
 	_tutorial_hud = TutorialHud.new()
 	_tutorial_hud.client = self
-	_tutorial_hud.action_requested.connect(func(action, arg): Net.c_tutorial.rpc_id(1, action, arg))
+	_tutorial_hud.action_requested.connect(func(action, arg): net.c_tutorial.rpc_id(1, action, arg))
 	_hud_root.add_child(_tutorial_hud)
 	_objective_hud = ObjectiveHud.new()
 	_hud_root.add_child(_objective_hud)
@@ -4587,7 +4593,7 @@ func _build_hud() -> void:
 		return String(_guide_screen.registry.get_page(page_id).get("title", ""))
 	_guide_screen.closed.connect(_set_guide_open.bind(false))
 	_guide_screen.page_viewed.connect(func(page_id):
-		Net.c_guide_read.rpc_id(1, page_id)
+		net.c_guide_read.rpc_id(1, page_id)
 		_update_guide_badge())
 	_guide_screen.lookup_requested.connect(func(item, mode):
 		_set_guide_open(false)
@@ -4597,7 +4603,7 @@ func _build_hud() -> void:
 	_dev_overlay.visible = false
 	_dev_overlay.request.connect(func(action, args):
 		if _welcomed:  # the overlay subscribes while it is built, before there is a server to ask
-			Net.c_dev.rpc_id(1, action, args))
+			net.c_dev.rpc_id(1, action, args))
 	_dev_overlay.pick_requested.connect(_dev_pick)
 	_dev_overlay.closed.connect(_close_dev_overlay)
 	_hud_root.add_child(_dev_overlay)
@@ -4678,7 +4684,7 @@ func leave_bed() -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	if now - _leave_bed_sent > 0.5:
 		_leave_bed_sent = now
-		Net.c_leave_bed.rpc_id(1)
+		net.c_leave_bed.rpc_id(1)
 
 
 ## The server says this player got on or off something.
@@ -5139,7 +5145,7 @@ func _update_hud() -> void:
 			server_info.get("game", "?"), Engine.get_frames_per_second(), _frame_cost()],
 		"XYZ %.2f / %.2f / %.2f   chunk %s   time %02d:%02d (light %.2f)" % [p.x, p.y, p.z, VoxelWorld.chunk_coord_of(p),
 			int(_time_of_day * 24.0), int(fmod(_time_of_day * 1440.0, 60.0)), _daylight],
-		"Ping %d ms   pending inputs %d   corrections %d" % [Net.get_ping_ms(), _pending_inputs.size(), _correction_count],
+		"Ping %d ms   pending inputs %d   corrections %d" % [net.get_ping_ms(), _pending_inputs.size(), _correction_count],
 		"Chunks %d   meshed %d   mesh queue %d (+%d running)" % [world.chunks.size(), _chunk_nodes.size(), _mesh_dirty.size(), _mesh_jobs.size()],
 		"Players %d   %s   holding %s   target %s" % [_remote_players.size() + 1, "creative" if inventory.creative else "survival",
 			items.display_name(selected) if selected > 0 else "nothing", target_text],
@@ -5209,7 +5215,7 @@ var _palette: PaletteScreen
 func on_palette(groups: Dictionary) -> void:
 	if _palette == null:
 		_palette = PaletteScreen.new()
-		_palette.take_requested.connect(func(item: int, whole: bool): Net.c_palette_take.rpc_id(1, item, whole))
+		_palette.take_requested.connect(func(item: int, whole: bool): net.c_palette_take.rpc_id(1, item, whole))
 		# **Into the HUD layer, like every other screen.** It went on the client itself, which is a
 		# Node3D: a Control anchored to a parent that has no rect gets no rect either, so the whole
 		# palette drew as a 190-pixel box in the top-left corner over the debug text. Never noticed

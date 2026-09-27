@@ -42,7 +42,7 @@ func offer_worn(avatar: Dictionary) -> void:
 		if not m.is_empty():
 			manifests.append(m)
 	if not manifests.is_empty():
-		Net.c_ugc_offer.rpc_id(1, manifests)
+		_client.net.c_ugc_offer.rpc_id(1, manifests)
 
 
 static func worn_ids(avatar) -> Array:
@@ -91,7 +91,7 @@ func ensure_known(avatar) -> void:
 			_requested[id] = now
 			missing.append(id)
 	if not missing.is_empty():
-		Net.c_ugc_fetch.rpc_id(1, missing)
+		_client.net.c_ugc_fetch.rpc_id(1, missing)
 
 
 ## Asks the server for creations (e.g. from the library) even if nobody wears them yet.
@@ -101,7 +101,7 @@ func fetch(ids: Array) -> void:
 		if _client.cosmetics.get_def(str(id)).is_empty() and not _load_local(str(id)):
 			missing.append(str(id))
 	if not missing.is_empty():
-		Net.c_ugc_fetch.rpc_id(1, missing)
+		_client.net.c_ugc_fetch.rpc_id(1, missing)
 
 
 ## From the player's library or the download cache.
@@ -167,7 +167,7 @@ func on_piece(id: String, offset: int, total: int, bytes: PackedByteArray) -> vo
 
 
 func request_library(query := {}, offset := 0) -> void:
-	Net.c_ugc_library.rpc_id(1, query, offset)
+	_client.net.c_ugc_library.rpc_id(1, query, offset)
 
 
 func on_library(items: Array, total: int, server_policy: Dictionary) -> void:
@@ -184,7 +184,7 @@ func update(delta: float) -> void:
 	_upload_timer = 0.0
 	var u: Dictionary = _uploads[0]
 	var piece: PackedByteArray = u.bytes.slice(u.offset, u.offset + PIECE_SIZE)
-	Net.c_ugc_upload.rpc_id(1, u.id, u.offset, u.bytes.size(), piece)
+	_client.net.c_ugc_upload.rpc_id(1, u.id, u.offset, u.bytes.size(), piece)
 	u.offset += piece.size()
 	if u.offset >= u.bytes.size():
 		_uploads.pop_front()

@@ -71,6 +71,37 @@ set -e
 /usr/bin/sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Distribution";/CODE_SIGN_IDENTITY = "Apple Development";/g' \
 	"$out/Quarrowen.xcodeproj/project.pbxproj"
 
+# **The mods go into the app bundle, exactly as they do on the Mac.** `ModLoader.search_dirs` looks in
+# `<executable dir>/mods` before anything else, and on iOS the executable lives inside `Quarrowen.app` -
+# so the folder only has to be there. They are kept out of the `.pck` on every platform for the same
+# reason (an export would repack the raw textures and models the server streams to clients), which is
+# why this is a copy and not an include filter.
+#
+# Adding files invalidates the signature, so the app is signed again with the identity and the
+# entitlements read back out of what Xcode produced - and then rezipped. Verified on an iPad Air on
+# 2026-09-27: without this the menu offers no games at all. It costs 2.8 MB. (2026-09-27)
+if [ -f "$out/Quarrowen.ipa" ]; then
+	work="$(mktemp -d "${TMPDIR:-/tmp}/quarrowen-ipa.XXXXXX")"
+	( cd "$work" && unzip -q "$out/Quarrowen.ipa" )
+	app="$work/Payload/Quarrowen.app"
+	if [ -d "$app" ]; then
+		identity="$(codesign -dvv "$app" 2>&1 | sed -n 's/^Authority=\(Apple Development:.*\)$/\1/p' | head -1)"
+		codesign -d --entitlements "$work/ents.plist" --xml "$app" 2>/dev/null
+		rsync -a --exclude "*.import" --exclude "*.uid" --exclude ".DS_Store" mods/ "$app/mods/"
+		for extra in ${QW_EXTRA_MODS:-}; do
+			[ -d "$extra" ] && rsync -a --exclude "*.import" --exclude "*.uid" --exclude ".DS_Store" "$extra" "$app/mods/"
+		done
+		if [ -n "$identity" ] && [ -s "$work/ents.plist" ]; then
+			codesign -f -s "$identity" --entitlements "$work/ents.plist" --timestamp=none "$app" >/dev/null 2>&1
+			codesign --verify "$app" 2>/dev/null && rm -f "$out/Quarrowen.ipa" && ( cd "$work" && zip -qr "$out/Quarrowen.ipa" Payload ) \
+				&& echo "bundled $(du -sh "$app/mods" | cut -f1) of mods into the app"
+		else
+			echo "WARNING: could not read the signing identity or entitlements; the .ipa has no mods" >&2
+		fi
+	fi
+	rm -rf "$work"
+fi
+
 echo "Xcode project at $out/Quarrowen.xcodeproj ($(du -sh "$out" | cut -f1))"
 # **Once a device has been registered, the archive stops failing and this produces an .ipa** - which
 # the header above did not expect, because the first time it was written no device was registered and
@@ -84,7 +115,13 @@ else
 	echo "Open it, choose your team under Signing & Capabilities, and run on a device."
 	echo "The first device needs this: Xcode registers it, and only the GUI can."
 fi
-# **The iPad build carries no games.** The preset excludes `mods/*` and, unlike the Mac app, nothing
-# copies them in beside the executable - so this client can join a server and cannot start a world of
-# its own. That is a real limit and not an oversight of this script; see PROGRESS, 2026-09-27.
-echo "Note: no mods are bundled, so this build joins servers and cannot host."
+# **The games are in the bundle now, and the tablet still cannot host.** Those are two different
+# things and the second is the platform's: starting a local world forks a second copy of the
+# executable, and iOS does not allow that - `create_process` returns ERR_CANT_FORK whatever is in the
+# bundle.
+#
+# **A joining client does not need these**, which is worth being clear about: the server streams the
+# content it is running, which is how the iPad played Firstlight on 25 September with an empty bundle.
+# They are here for the day the tablet can host, and meanwhile for the menu's game list and backdrop.
+# See PROGRESS, 2026-09-27.
+echo "Note: this build can join worlds. Starting one locally needs a second process, which iOS forbids."

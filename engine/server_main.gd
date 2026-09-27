@@ -78,8 +78,15 @@ var _signals := false
 var _config := {}
 
 
+## Options for a server started *inside another process* - the client hosting a local world on a
+## platform that cannot fork (see Main._host_in_process). Set before the scene enters the tree. Empty
+## means read the command line, which is every ordinary server. Passed explicitly rather than smuggled
+## through the environment so that a client's own arguments can never be mistaken for a server's.
+var launch_args := PackedStringArray()
+
+
 func _ready() -> void:
-	var options := read_options(OS.get_cmdline_user_args())
+	var options := read_options(launch_args if not launch_args.is_empty() else OS.get_cmdline_user_args())
 	var mods: PackedStringArray = String(options.mods).split(",", false)
 	# No default. This was "vanilla" until that mod was deleted on 21 September 2026, which turned a
 	# missing --mods into "mod 'vanilla' not found" - a message about a mod nobody asked for. Naming
@@ -154,6 +161,9 @@ func _write_start_error(err: Error) -> void:
 func _start_server() -> Error:
 	_server = GameServer.new()
 	_server.name = "GameServer"
+	# Set before `start`, because the whole difference it makes is what "shut down" means, and a host
+	# can ask for that the moment the world is up.
+	_server.in_process = not launch_args.is_empty()
 	add_child(_server)
 	var err: Error = _server.start(_config)
 	_config.restore = ""  # a backup is restored once, not again on a full reload

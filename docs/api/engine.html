@@ -217,6 +217,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <div class="group">The server itself</div>
 <a href="#e-main-gd">main.gd</a>
 <a href="#e-server-game-server-gd">game_server.gd</a>
+<a href="#e-server-main-gd">server_main.gd</a>
 <div class="group">Everything else</div>
 <a href="#e-server-conflicts-gd">conflicts.gd</a>
 <a href="#e-server-sightings-gd">sightings.gd</a>
@@ -2261,6 +2262,13 @@ the blade sweeps right past the camera) draws a thinner, fainter, shorter ribbon
 stays at chest height rather than snapping to the thing's feet. client/float_text.gd the client"><div class="sig"><code>follow(node: Node3D) -&gt; void</code></div><p>Sticks it to something that moves. The offset is kept so a number that appeared at chest height
 stays at chest height rather than snapping to the thing's feet.</p></div></section>
 <section id="e-client-game-client-gd"><h2>game_client.gd <span class="file">client/game_client.gd</span></h2><p class="lead">Universal game client. Knows nothing about any particular game: it downloads the server's block definitions, textures and physics rules, renders streamed chunks, predicts local movement and edits (the server confirms or corrects them), and draws server-described UI.</p><div class="card" data-search="reload_pending set when the server announced a full reload: whoever owns the client should reconnect (see main.gd). client/game_client.gd the client"><div class="sig"><code>reload_pending := false  (property)</code></div><p>Set when the server announced a full reload: whoever owns the client should reconnect (see main.gd).</p></div>
+<div class="card" data-search="net the networking node this client talks through. **the autoload by default, which is every ordinary
+client**, and settable before the client enters the tree for the one case that cannot use it: a
+world hosted inside this same process, where the server already owns the autoload and its single
+multiplayer peer. see main._host_in_process. (2026-09-27) client/game_client.gd the client"><div class="sig"><code>net = Net  (property)</code></div><p>The networking node this client talks through. **The autoload by default, which is every ordinary
+client**, and settable before the client enters the tree for the one case that cannot use it: a
+world hosted inside this same process, where the server already owns the autoload and its single
+multiplayer peer. See Main._host_in_process. (2026-09-27)</p></div>
 <div class="card" data-search="admin_token passed by the menu when this client launched a local server it should stop on exit. client/game_client.gd the client"><div class="sig"><code>admin_token := &quot;&quot;  (property)</code></div><p>Passed by the menu when this client launched a local server it should stop on exit.</p></div>
 <div class="card" data-search="capabilities what the server says this player may do (engine/net/net.gd s_capabilities). empty until it arrives,
 so anything gated on it stays hidden rather than flashing on and off at join. client/game_client.gd the client"><div class="sig"><code>capabilities := PackedStringArray()  (property)</code></div><p>What the server says this player may do (engine/net/net.gd s_capabilities). Empty until it arrives,
@@ -2671,7 +2679,24 @@ manifest is changed to offer it. An untested script that replaces a folder is no
 flag macos puts on it and starts the new one. kept as a string so a test can read it without installing. client/updater.gd the client"><div class="sig"><code>static install_script(zip_path: String, work_dir: String, installed: String, pid: int) -&gt; String</code></div><p>The script that installs a downloaded update once this process has gone: it unpacks the zip itself
 (so the executable bits inside a .app survive), swaps it with the installed build, clears the download
 flag macOS puts on it and starts the new one. Kept as a string so a test can read it without installing.</p></div></section>
-<section id="e-main-gd"><h2>main.gd <span class="file">main.gd</span></h2><p class="lead">Entry point. Runs a dedicated server with `-- --server`, otherwise shows the main menu.</p><div class="card" data-search="export_identity returns a status message; failures start with &quot;error&quot;. main.gd the server itself"><div class="sig"><code>static export_identity(path: String, passphrase: String) -&gt; String</code></div><p>Returns a status message; failures start with "Error".</p></div></section>
+<section id="e-main-gd"><h2>main.gd <span class="file">main.gd</span></h2><p class="lead">Entry point. Runs a dedicated server with `-- --server`, otherwise shows the main menu.</p><div class="card" data-search="export_identity returns a status message; failures start with &quot;error&quot;. main.gd the server itself"><div class="sig"><code>static export_identity(path: String, passphrase: String) -&gt; String</code></div><p>Returns a status message; failures start with "Error".</p></div>
+<div class="card" data-search="can_fork_a_server whether this platform lets us start a second copy of the executable to run a world in.
+
+**a question about the platform, asked before trying rather than after failing.** ios says no, and
+`create_process` there can only ever return err_cant_fork - so a world runs in this process instead.
+
+`qw_in_process_server=1` forces the same path on a desktop. **not a convenience.** without it the
+in-process branch is reachable only on a tablet, which means it can only be tested by building,
+signing, installing and then reading a log off a device - and a branch that expensive to exercise is
+one that quietly rots between the times anybody does. (2026-09-27) main.gd the server itself"><div class="sig"><code>static can_fork_a_server() -&gt; bool</code></div><p>Whether this platform lets us start a second copy of the executable to run a world in.
+
+**A question about the platform, asked before trying rather than after failing.** iOS says no, and
+`create_process` there can only ever return ERR_CANT_FORK - so a world runs in this process instead.
+
+`QW_IN_PROCESS_SERVER=1` forces the same path on a desktop. **Not a convenience.** Without it the
+in-process branch is reachable only on a tablet, which means it can only be tested by building,
+signing, installing and then reading a log off a device - and a branch that expensive to exercise is
+one that quietly rots between the times anybody does. (2026-09-27)</p></div></section>
 <section id="e-server-game-server-gd"><h2>game_server.gd <span class="file">server/game_server.gd</span></h2><p class="lead">Authoritative game server engine. Loads mods, which define the content and rules; owns the world; simulates every player from their inputs; validates edits; streams content, chunks and snapshots.</p><div class="card" data-search="realms the worlds this server is running. &quot;&quot; is the overworld - the one a server has always had, and the
 one an old save belongs to. realms are added by mods before the world loads. server/game_server.gd the server itself"><div class="sig"><code>realms := {}  (property)</code></div><p>The worlds this server is running. "" is the overworld - the one a server has always had, and the
 one an old save belongs to. Realms are added by mods before the world loads.</p></div>
@@ -2711,6 +2736,11 @@ realm; this is the overworld's, for everything that has not been told which worl
 <div class="card" data-search="multiblocks machines assembled out of blocks (see engine/server/multiblocks.gd). server/game_server.gd the server itself"><div class="sig"><code>multiblocks  (property)</code></div><p>Machines assembled out of blocks (see engine/server/multiblocks.gd).</p></div>
 <div class="card" data-search="containers container types and open container screens (chests, furnaces, machines). server/game_server.gd the server itself"><div class="sig"><code>containers := Containers.new(self)  (property)</code></div><p>Container types and open container screens (chests, furnaces, machines).</p></div>
 <div class="card" data-search="gameplay game-wide rules mods can change with set_gameplay. server/game_server.gd the server itself"><div class="sig"><code>gameplay := {  (property)</code></div><p>Game-wide rules mods can change with set_gameplay.</p></div>
+<div class="card" data-search="in_process true when this world is running inside a player's own client rather than in a process of its own -
+which is how a platform that cannot fork hosts (see main._host_in_process). it changes exactly one
+thing: ending the world frees this node instead of quitting the tree, because the tree is the game. server/game_server.gd the server itself"><div class="sig"><code>in_process := false  (property)</code></div><p>True when this world is running inside a player's own client rather than in a process of its own -
+which is how a platform that cannot fork hosts (see Main._host_in_process). It changes exactly one
+thing: ending the world frees this node instead of quitting the tree, because the tree is the game.</p></div>
 <div class="card" data-search="map_markers map markers mods set for a player: player id -&gt; {marker id: {label, position, color}} (see modapi.set_map_marker). server/game_server.gd the server itself"><div class="sig"><code>map_markers := {}  (property)</code></div><p>Map markers mods set for a player: player id -> {marker id: {label, position, color}} (see ModApi.set_map_marker).</p></div>
 <div class="card" data-search="world_markers markers everyone sees (modapi.set_world_marker); saved in world.json. server/game_server.gd the server itself"><div class="sig"><code>world_markers := {}  (property)</code></div><p>Markers everyone sees (ModApi.set_world_marker); saved in world.json.</p></div>
 <div class="card" data-search="generator what this realm's terrain is generated by (the overworld's, for callers that have not been told
@@ -3152,6 +3182,13 @@ the explosion is a noise, not fifty pieces of feedback. server/game_server.gd th
 
 `sound` is off for a blast, which breaks fifty blocks in one instant: fifty break sounds on top of
 the explosion is a noise, not fifty pieces of feedback.</p></div></section>
+<section id="e-server-main-gd"><h2>server_main.gd <span class="file">server_main.gd</span></h2><p class="lead">Dedicated server entry point (scenes/server.tscn). Contains no client code, so a server export or container only needs engine/shared, engine/server and engine/net.</p><div class="card" data-search="launch_args options for a server started *inside another process* - the client hosting a local world on a
+platform that cannot fork (see main._host_in_process). set before the scene enters the tree. empty
+means read the command line, which is every ordinary server. passed explicitly rather than smuggled
+through the environment so that a client's own arguments can never be mistaken for a server's. server_main.gd the server itself"><div class="sig"><code>launch_args := PackedStringArray()  (property)</code></div><p>Options for a server started *inside another process* - the client hosting a local world on a
+platform that cannot fork (see Main._host_in_process). Set before the scene enters the tree. Empty
+means read the command line, which is every ordinary server. Passed explicitly rather than smuggled
+through the environment so that a client's own arguments can never be mistaken for a server's.</p></div></section>
 <section id="e-server-conflicts-gd"><h2>conflicts.gd <span class="file">server/conflicts.gd</span></h2><p class="lead">Two mods quietly standing on each other, found before a player notices.</p><div class="card" data-search="find everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report. server/conflicts.gd everything else"><div class="sig"><code>find() -&gt; Array</code></div><p>Everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report.</p></div></section>
 <section id="e-server-sightings-gd"><h2>sightings.gd <span class="file">server/sightings.gd</span></h2><p class="lead">The creatures the whole server is told about: the rare ones, announced when they arrive, marked on everybody's map and compass while they are about, and gone again if nobody comes.</p><div class="card" data-search="start starts the sweep. called once the server is running, because `schedule` needs its clock. server/sightings.gd everything else"><div class="sig"><code>start() -&gt; void</code></div><p>Starts the sweep. Called once the server is running, because `schedule` needs its clock.</p></div>
 <div class="card" data-search="arrived a creature has appeared. announces it and marks it, if it is one of the notable ones.
@@ -3200,7 +3237,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1234 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1238 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

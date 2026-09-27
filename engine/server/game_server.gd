@@ -238,6 +238,10 @@ var gameplay := {
 	"approval": false,
 }
 var server_info := {"name": "Quarrowen Server", "game": "", "description": "", "motd": "", "mods": []}
+## True when this world is running inside a player's own client rather than in a process of its own -
+## which is how a platform that cannot fork hosts (see Main._host_in_process). It changes exactly one
+## thing: ending the world frees this node instead of quitting the tree, because the tree is the game.
+var in_process := false
 ## Map markers mods set for a player: player id -> {marker id: {label, position, color}} (see ModApi.set_map_marker).
 var map_markers := {}
 ## Markers everyone sees (ModApi.set_world_marker); saved in world.json.
@@ -5728,6 +5732,14 @@ func on_shutdown_request(peer_id: int, token: String) -> void:
 		push_warning("[server] Rejected shutdown request from peer %d" % peer_id)
 		return
 	print("[server] Shutdown requested by host")
+	# **Quitting the tree is right for a forked server and fatal for one running inside a client.**
+	# Where the platform cannot fork (iOS), the world is a node in the player's own process, so
+	# `get_tree().quit()` would close the whole game instead of returning them to the menu - the player
+	# taps "leave" and the application disappears. Freeing this node runs the same `_exit_tree` that
+	# saves and waits for the writes, so nothing is lost either way. (2026-09-27)
+	if in_process:
+		queue_free()
+		return
 	get_tree().quit()  # _exit_tree saves and waits for the writes
 
 
