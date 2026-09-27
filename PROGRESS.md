@@ -7438,3 +7438,54 @@ curtain and reported a confident 60 fps, and the iPad's first join attempt, refu
 test client had already claimed Camera in that world. The mechanism is correct and the error message is
 good. What is worth remembering is the failure *shape*: **a test harness that leaves state on a server
 poisons the next measurement**, and a fresh world costs nothing.
+
+### The iPad can join, render and hold 60 - and then you are trapped (2026-09-27)
+
+The device session got far enough to produce a number: **a locked 60 fps** on an iPad Air 5, Mobile
+renderer, joining in 1.1 seconds. That is the cap rather than the measurement - V-Sync defaults on and
+the panel is 60 Hz - so what it proves is that the GPU keeps up, not by how much.
+
+Two things stopped it going further, and both are findings rather than obstacles:
+
+- **There is no input path at all.** Look is client-authoritative, so the server cannot turn a player
+  even to point them at a more demanding view; there is no server console to issue a command from; and
+  the player cannot turn themselves. The scene measured was therefore whatever the spawn happened to
+  face - a wall, which is the *cheap* case, few chunks in frame. (the user: *"fps stays constant since
+  i am facing blocks. i need the view to turn around since water is behind me"*)
+- **Once in the world there is no way out.** No pause, no disconnect, no route back to settings: on a
+  desktop that is Esc, and a tablet has no Esc. So a setting that must be changed *before* joining -
+  V-Sync, to see past the 60 Hz cap - cannot be changed once you have joined. The only exit is to
+  force-quit the app. (the user: *"impossible to change settings etc since i am in game and no touch
+  controls!"*)
+
+Neither is a bug to fix on its own; both are the same missing feature, and together they are the
+sharpest argument yet for **touch controls being the next thing built**. Until they exist nobody - not
+the user, not me - can put the engine through a representative frame on a tablet. The renderer
+question got answered anyway, because it turned out not to need one: Forward Mobile is what an iPad
+runs, it draws the world correctly, and it holds the refresh rate.
+
+**Deliberately not done**: contorting the harness to fake a view (teleporting to a vantage, forcing a
+yaw the client would overwrite). A measurement that needed that much staging would not have described
+anything a child will experience.
+
+### What a server actually costs, first measurement (2026-09-27)
+
+Asked what size instance would host two or three servers and a hub. Nothing had ever been measured, and
+`docs/hosting.md` carries no sizing guidance at all.
+
+**One server: 265 MB resident, 3.4% CPU** - Creative, 159 blocks, 266 assets, one or two players, after
+49 minutes. A near-idle world on fast hardware, which is the honest description of what that number
+covers.
+
+Napkin from it: three servers about 800 MB, the hub tens of MB, the host a few hundred - so 2 GB is
+already committed before anybody loads a chunk, and **4 GB is the sensible starting point**. arm64 is
+supported (`native/bin/linux-arm64`, the "Linux Server arm64" export preset), which makes the cheaper
+Graviton instances the obvious target.
+
+The caveat that matters more than the number: **worldgen is bursty**, and a child running into
+unexplored terrain generates chunks hard. On a burstable instance that can drain CPU credits and then
+throttle, which a player experiences as rubber-banding rather than as a billing problem.
+
+**Still to measure, and `tests/bots.gd` exists to do it**: memory and CPU with several players actively
+exploring. Until that is run the figure above is a floor, not a recommendation, and it should not go
+into `docs/hosting.md` as though it were one.
