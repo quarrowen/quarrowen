@@ -1,0 +1,69 @@
+{
+	"comment": "Floors six to eight. Whole pieces rather than parts, and the first curio worth carrying.",
+	"pools": [
+		{
+			"rolls": 2,
+			"guaranteed": true,
+			"entries": [
+				{
+					"item": "base:iron_ingot",
+					"count": [
+						4,
+						8
+					],
+					"weight": 35
+				},
+				{
+					"item": "base:gold_ingot",
+					"count": [
+						2,
+						5
+					],
+					"weight": 30
+				},
+				{
+					"item": "base:cobalt_ingot",
+					"count": [
+						1,
+						2
+					],
+					"weight": 20
+				},
+				{
+					"item": "base:emberheart",
+					"count": 1,
+					"weight": 15
+				}
+			]
+		},
+		{
+			"rolls": 1,
+			"entries": [
+				{
+					"empty": true,
+					"weight": 40
+				},
+				{
+					"item": "simple_gear:iron_chestplate",
+					"count": 1,
+					"weight": 15
+				},
+				{
+					"item": "simple_gear:iron_leggings",
+					"count": 1,
+					"weight": 15
+				},
+				{
+					"item": "simple_gear:gold_sword",
+					"count": 1,
+					"weight": 15
+				},
+				{
+					"item": "simple_gear:hand_lantern",
+					"count": 1,
+					"weight": 15
+				}
+			]
+		}
+	]
+}

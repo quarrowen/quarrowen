@@ -110,6 +110,17 @@ func open(kind_name: String, options := {}) -> String:
 
 
 ## Sends a player in, remembering where they were so `leave` can put them back.
+##
+## **Entering from inside another instance is allowed, and keeps the original way out.** That is what a
+## descent is: floor two is entered from floor one, and leaving at any depth should put you back at the
+## entrance in the overworld rather than on the floor above. The `_returns` guard below does that on its
+## own - the way back is taken once and never overwritten.
+##
+## What did *not* work on its own was the member list. A player who moved from floor one to floor two
+## stayed listed as a member of floor one, so closing the floor they had left walked its stale member
+## list and called `leave` on them - and `leave` asks `id_of`, which answers with the realm they are in
+## *now*. Closing the floor behind you threw you out of the floor in front of you, all the way to the
+## surface. So the move deregisters first. (2026-09-28)
 func enter(player, instance_id: String, position: Vector3) -> bool:
 	problem = ""
 	var it: Dictionary = live.get(instance_id, {})
@@ -123,13 +134,28 @@ func enter(player, instance_id: String, position: Vector3) -> bool:
 	# Taken before the move, because after it their realm is the instance and the way back is gone.
 	if not _returns.has(player.player_id):
 		_returns[player.player_id] = {"realm": String(player.realm_id), "position": player.state.position}
+	var was := id_of(player)
 	if not server.send_to_realm(player, instance_id, position):
 		_returns.erase(player.player_id)
 		problem = "That could not be entered."
 		return false
+	if not was.is_empty() and was != instance_id:
+		_forget_member(was, player.player_id)
 	it.members[player.player_id] = true
 	server.emit("instance_entered", {"player": player, "instance": instance_id, "kind": it.kind})
 	return true
+
+
+## Takes one player off an instance's list, and starts its empty clock if that was the last of them.
+## **Not `leave`**: this moves nobody and touches nothing about where they are. The one thing it has in
+## common with leaving is the bookkeeping.
+func _forget_member(instance_id: String, player_id: String) -> void:
+	var it: Dictionary = live.get(instance_id, {})
+	if it.is_empty():
+		return
+	it.members.erase(player_id)
+	if it.members.is_empty():
+		it.empty_since = server._time
 
 
 ## Puts a player back where they were before they entered. Returns false if they were not in one.
@@ -139,11 +165,7 @@ func leave(player) -> bool:
 		return false
 	var back: Dictionary = _returns.get(player.player_id, {})
 	_returns.erase(player.player_id)
-	var it: Dictionary = live.get(instance_id, {})
-	if not it.is_empty():
-		it.members.erase(player.player_id)
-		if it.members.is_empty():
-			it.empty_since = server._time
+	_forget_member(instance_id, String(player.player_id))
 	# Somewhere rather than nowhere: a return point that has gone (the realm was removed while they
 	# were inside) still has to put them down in a world that exists.
 	var to_realm := String(back.get("realm", ""))

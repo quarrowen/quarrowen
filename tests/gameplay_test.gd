@@ -4192,6 +4192,24 @@ func _realms() -> void:
 	await get_tree().process_frame
 
 
+## How many of somebody's things are lying about near `at` in one realm: dropped item entities, plus any
+## container block a death left there. One number, because the assertion is about *which world* rather
+## than about which of the two shapes a game chose.
+func _belongings_in(server, into, at: Vector3) -> int:
+	var found := 0
+	for e in into.entities.entities.values():
+		if e != null and e.is_alive() and String(e.def.kind) == "item" and e.body.position.distance_to(at) < 12.0:
+			found += 1
+	var grave: int = server.registry.id_of("base:grave")
+	if grave > 0:
+		for x in range(int(at.x) - 3, int(at.x) + 4):
+			for y in range(int(at.y) - 3, int(at.y) + 4):
+				for z in range(int(at.z) - 3, int(at.z) + 4):
+					if into.world.get_block(x, y, z) == grave:
+						found += 1
+	return found
+
+
 ## Everything above proves a realm is *a world*: its own blocks, seed, ticks and folder. None of it
 ## proves anybody can **live** in one - and on 28 September 2026 an audit found about seventy places in
 ## `engine/server` that quietly meant the overworld, with the whole suite passing. That is not bad luck,
@@ -4219,14 +4237,31 @@ func _living_in_a_realm(server, deep, p) -> void:
 	p.inventory.clear()
 	p.inventory.add(stone, 5, 64, {})
 	p.state.position = Vector3(8, 41, 8)
-	var deep_items_before: int = deep.entities.entities.size()
-	var over_items_before: int = server.realm.entities.entities.size()
+	# **Room for a grave in the overworld too, at the same coordinates.** Without this the test passes
+	# whatever happens, because the overworld is solid rock at this depth: a grave aimed at the wrong
+	# realm simply fails to find a spot and the engine drops the items instead, which looks like the
+	# right answer. Same trap as the block-edit check further up, which compares against what the
+	# overworld *had* rather than against "not stone".
+	server._ensure_chunk(Vector2i.ZERO)
+	for x in range(6, 11):
+		for z in range(6, 11):
+			server.realm.world.set_block(x, 40, z, stone)
+			for y in range(41, 44):
+				server.realm.world.set_block(x, y, z, 0)
+	var deep_before := _belongings_in(server, deep, Vector3(8, 41, 8))
+	var over_before := _belongings_in(server, server.realm, Vector3(8, 41, 8))
 	server.set_gameplay({"keep_inventory": false})
 	server.kill_player(p, "fall", null)
-	_check(deep.entities.entities.size() > deep_items_before,
+	# **Counts graves as well as loose items**, because whether a death scatters your things or buries
+	# them is a *mod's* decision - `base` turns the drop into a grave container - and this is asking
+	# about the realm, not about the shape. Written as items alone first, and it then passed for the
+	# wrong reason: the grave was being built in the overworld, where the spot search found solid rock at
+	# that depth, gave up, and let the engine drop the items instead. Fixing graves to use the player's
+	# realm is what made it fail. (2026-09-28)
+	_check(_belongings_in(server, deep, Vector3(8, 41, 8)) > deep_before,
 		"dying in a realm leaves your things in that realm (%d -> %d)"
-		% [deep_items_before, deep.entities.entities.size()])
-	_check(server.realm.entities.entities.size() == over_items_before,
+		% [deep_before, _belongings_in(server, deep, Vector3(8, 41, 8))])
+	_check(_belongings_in(server, server.realm, Vector3(8, 41, 8)) == over_before,
 		"and not at the same coordinates in the overworld")
 	p.dead = false
 	p.health = p.max_health

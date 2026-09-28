@@ -37,12 +37,18 @@ func _on_death(ev: Dictionary) -> void:
 	player.data["base:death_spot"] = _pack(player.position)
 	if ev.keep_inventory or player.is_creative():
 		return
-	var spot := _grave_spot(player.position)
+	# **The world they died in.** Every block call in here used to default to the overworld, so dying
+	# anywhere else built the grave at those coordinates *in the overworld* - over whatever was already
+	# standing there, possibly inside somebody's house - and then told the player their things were at a
+	# spot they could walk to and find untouched ground. It was invisible until something put a player in
+	# another realm and killed them. (2026-09-28)
+	var realm: String = api.realm_of(player)
+	var spot := _grave_spot(player.position, realm)
 	if spot == Vector3i.MAX:
 		return  # nowhere to put it: the engine drops the items as usual
 	ev.keep_inventory = true  # the grave keeps them instead of the floor
-	api.set_block(spot, ids.grave)
-	var grave = api.get_container(spot)
+	api.set_block(spot, ids.grave, realm)
+	var grave = api.get_container(spot, realm)
 	if grave == null:
 		ev.keep_inventory = false
 		return
@@ -55,21 +61,23 @@ func _on_death(ev: Dictionary) -> void:
 	if inventory.cursor_count > 0:
 		grave.add(inventory.cursor_id, inventory.cursor_count, inventory.cursor_data)
 	player.clear_inventory()
-	api.set_block_data(spot, _mark(api.get_block_data(spot), player))
-	api.set_map_marker(player, "grave", {"label": "Your grave", "position": Vector3(spot), "color": "#d8d8e0"})
+	api.set_block_data(spot, _mark(api.get_block_data(spot, realm), player), realm)
+	# The marker carries the world too, or a grave in one realm is drawn on the map of another.
+	api.set_map_marker(player, "grave", {"label": "Your grave", "position": Vector3(spot),
+		"color": "#d8d8e0", "dimension": realm})
 	player.send_message("Your things are in a grave at %d, %d, %d - break it to get them back (/back goes there)." % [spot.x, spot.y, spot.z])
 	api.info("%s left a grave at %s with %d stacks" % [player.name, spot, moved])
 
 
 ## A free block at or just above where the player died, so the grave never replaces someone's build.
-func _grave_spot(position: Vector3) -> Vector3i:
+func _grave_spot(position: Vector3, realm := "") -> Vector3i:
 	var at := Vector3i(floori(position.x), floori(position.y), floori(position.z))
 	for offset in [Vector3i.ZERO, Vector3i.UP, Vector3i.UP * 2, Vector3i.DOWN, Vector3i(1, 0, 0), Vector3i(-1, 0, 0),
 			Vector3i(0, 0, 1), Vector3i(0, 0, -1)]:
 		var cell: Vector3i = at + offset
 		if cell.y < 1 or cell.y > 250:
 			continue
-		var block: int = api.get_loaded_block(cell)
+		var block: int = api.get_loaded_block(cell, realm)
 		if block == 0 or not api.is_solid(block):
 			return cell
 	return Vector3i.MAX

@@ -1,0 +1,77 @@
+{
+	"comment": "Floor fifteen and below, for ever. The bands stop here, so this is what going deeper is for.",
+	"pools": [
+		{
+			"rolls": 3,
+			"guaranteed": true,
+			"entries": [
+				{
+					"item": "base:sunstone",
+					"count": [
+						2,
+						5
+					],
+					"weight": 35
+				},
+				{
+					"item": "base:warden_core",
+					"count": [
+						1,
+						2
+					],
+					"weight": 25
+				},
+				{
+					"item": "base:cobalt_ingot",
+					"count": [
+						6,
+						12
+					],
+					"weight": 25
+				},
+				{
+					"item": "base:moonpearl",
+					"count": [
+						2,
+						3
+					],
+					"weight": 15
+				}
+			]
+		},
+		{
+			"rolls": 1,
+			"entries": [
+				{
+					"empty": true,
+					"weight": 25
+				},
+				{
+					"item": "simple_gear:sunstone_sword",
+					"count": 1,
+					"weight": 18
+				},
+				{
+					"item": "simple_gear:sunstone_pickaxe",
+					"count": 1,
+					"weight": 17
+				},
+				{
+					"item": "simple_gear:sunstone_chestplate",
+					"count": 1,
+					"weight": 15
+				},
+				{
+					"item": "simple_gear:sunstone_helmet",
+					"count": 1,
+					"weight": 13
+				},
+				{
+					"item": "simple_gear:warden_plate",
+					"count": 1,
+					"weight": 12
+				}
+			]
+		}
+	]
+}

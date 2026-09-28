@@ -29,6 +29,7 @@ const Colossus = preload("res://mods/firstlight/colossus.gd")
 const Reed = preload("res://mods/firstlight/reed.gd")
 const Moonpearl = preload("res://mods/firstlight/moonpearl.gd")
 const Pages = preload("res://mods/firstlight/pages.gd")
+const Descent = preload("res://mods/firstlight/descent.gd")
 
 const SEA_LEVEL := 62
 
@@ -40,6 +41,7 @@ var colossus := Colossus.new()
 var reed := Reed.new()
 var moonpearl := Moonpearl.new()
 var pages := Pages.new()
+var descent := Descent.new()
 
 
 func setup(api) -> void:
@@ -54,6 +56,36 @@ func setup(api) -> void:
 	colossus.setup(api)
 	reed.setup(api)
 	moonpearl.setup(api)
+	descent.setup(api)
+	_descent_ways_in(api)
+
+
+## How a descent is started. **A command for now, and that is deliberately temporary**: the design has two
+## entrances - ones found while exploring and one you can build - and neither is written yet. A loop that
+## can be walked and tested beats an entrance into a loop that cannot, so this is the order the work went
+## in. Both entrances are recorded in PROGRESS as the next piece. (28 September 2026)
+##
+## **Harsh loses what you were carrying, for good.** Not to a grave you can go back for: the floor you
+## fell on is an instance and it is thrown away with the run, so whatever was in your hands goes with it.
+## That is the bargain the user asked for - "high risk, high reward" - and it is worth being plain about,
+## because a grave you cannot reach would be the same outcome dressed up as a second chance.
+func _descent_ways_in(api) -> void:
+	api.register_command("descent", "Go down into the descent. Add 'harsh' to risk everything you carry.",
+		func(player, args: Array):
+			if descent.depth_of(player) > 0:
+				player.send_message("You are already down there - floor %d." % descent.depth_of(player))
+				return
+			var harsh: bool = args.size() > 0 and String(args[0]).to_lower() == "harsh"
+			if not descent.enter(player, harsh):
+				player.send_message("You cannot go down from here.")
+	)
+	api.register_command("surface", "Leave the descent from where you are, keeping everything.",
+		func(player, _args: Array):
+			if descent.depth_of(player) <= 0:
+				player.send_message("You are not in the descent.")
+				return
+			descent.out(player)
+	)
 
 
 ## What kind of game this is, in one dictionary.

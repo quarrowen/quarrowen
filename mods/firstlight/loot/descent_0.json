@@ -1,0 +1,91 @@
+{
+	"comment": "The descent, shallowest floors. Supplies and small metal - enough that a first trip pays for the torches.",
+	"pools": [
+		{
+			"rolls": 1,
+			"guaranteed": true,
+			"entries": [
+				{
+					"item": "base:coal",
+					"count": [
+						2,
+						6
+					],
+					"weight": 40
+				},
+				{
+					"item": "base:charcoal",
+					"count": [
+						2,
+						5
+					],
+					"weight": 25
+				},
+				{
+					"item": "base:copper_ingot",
+					"count": [
+						1,
+						3
+					],
+					"weight": 25
+				},
+				{
+					"item": "base:iron_ingot",
+					"count": [
+						1,
+						2
+					],
+					"weight": 10
+				}
+			]
+		},
+		{
+			"rolls": 1,
+			"entries": [
+				{
+					"item": "base:bread",
+					"count": [
+						1,
+						3
+					],
+					"weight": 40
+				},
+				{
+					"item": "base:apple",
+					"count": [
+						1,
+						3
+					],
+					"weight": 30
+				},
+				{
+					"item": "base:torch",
+					"count": [
+						4,
+						10
+					],
+					"weight": 30
+				}
+			]
+		},
+		{
+			"rolls": 1,
+			"entries": [
+				{
+					"empty": true,
+					"weight": 80
+				},
+				{
+					"item": "simple_gear:stone_sword",
+					"count": 1,
+					"weight": 10
+				},
+				{
+					"item": "simple_gear:copper_pickaxe",
+					"count": 1,
+					"weight": 10
+				}
+			]
+		}
+	]
+}
