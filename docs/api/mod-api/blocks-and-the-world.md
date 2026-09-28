@@ -59,13 +59,21 @@ api.register_block_tick("lamp", func(ctx):
 
 ### `api.schedule_block_tick`
 
-GDScript: `api.schedule_block_tick(position: Vector3i, seconds: float, payload := {}) -> void`
+GDScript: `api.schedule_block_tick(position: Vector3i, seconds: float, payload := {}, realm_id := "") -> void`
 
-JavaScript: `api.scheduleBlockTick(position, seconds, payload)`
+JavaScript: `api.scheduleBlockTick(position, seconds, payload, realmId)`
 
 Calls the tick handler of the block at `position` after `seconds`, with `payload` (saved with the world).
 
-**See also:** `schedule`
+**`realm_id` is last here rather than after the required arguments**, which breaks the convention the
+block functions keep, and on purpose: `payload` already occupies the third place and moving it would
+change a signature in place, which is the one thing the API policy forbids. Appending is free.
+
+Without it a handler could not reschedule itself anywhere but the overworld. A handler *is* told which
+realm it is in - `ctx.realm` - so a machine in a dimension would read its own realm, ask for another
+tick, have it scheduled in the overworld where there is no such block, and simply stop. (2026-09-28)
+
+**See also:** `qualified`, `register_instance`, `schedule`
 
 ### `api.get_light`
 

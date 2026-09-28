@@ -925,6 +925,10 @@
 			"args": [
 				{
 					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "get_container"
@@ -2684,6 +2688,10 @@
 				{
 					"default": {},
 					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "schedule_block_tick"

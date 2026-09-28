@@ -161,13 +161,16 @@ The container type of a block, or {}.
 
 *server/containers.gd*
 
-GDScript: `get_container(pos: Vector3i, player = null)`
+GDScript: `get_container(pos: Vector3i, player = null, into = null)`
 
-JavaScript: `api.getContainer(pos, player)`
+JavaScript: `api.getContainer(pos, player, into)`
 
 The container at a position (loads its chunk), or null if the block there is not a container.
+`into` (a Realm) wins over the player's, for a caller that has a world and nobody standing in it -
+a dungeon stocking its own chests, say. Without it the only two answers were "where the player is"
+and "the overworld", and a mod filling a chest it had just built had no way to say which.
 
-**See also:** `block_key`, `get_block_data`, `get_block_loaded`, `realm_of`, `set_block_data`, `type_of_block`
+**See also:** `block_key`, `get_block_data`, `get_block_loaded`, `qualified`, `realm_of`, `register_instance`
 
 ### `at_key`
 

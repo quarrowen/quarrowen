@@ -566,8 +566,16 @@ func register_block_tick(block_name: String, handler: Callable, options := {}) -
 
 
 ## Calls the tick handler of the block at `position` after `seconds`, with `payload` (saved with the world).
-func schedule_block_tick(position: Vector3i, seconds: float, payload := {}) -> void:
-	_server.block_ticks.schedule(position, seconds, payload)
+##
+## **`realm_id` is last here rather than after the required arguments**, which breaks the convention the
+## block functions keep, and on purpose: `payload` already occupies the third place and moving it would
+## change a signature in place, which is the one thing the API policy forbids. Appending is free.
+##
+## Without it a handler could not reschedule itself anywhere but the overworld. A handler *is* told which
+## realm it is in - `ctx.realm` - so a machine in a dimension would read its own realm, ask for another
+## tick, have it scheduled in the overworld where there is no such block, and simply stop. (2026-09-28)
+func schedule_block_tick(position: Vector3i, seconds: float, payload := {}, realm_id := "") -> void:
+	_realm_or_default(realm_id).block_ticks.schedule(position, seconds, payload)
 
 
 ## Light level 0-15 at a position right now: block light or sky light scaled by daylight, whichever is
@@ -642,10 +650,15 @@ func spawn_entity(entity_name: String, position: Vector3, options := {}):
 ## its piece and should go, a boss that settles back down rather than falling over, a prop that was
 ## only there for a moment - all of those are removals, and doing them with damage means loot on the
 ## floor and a death message a child reads as something having gone wrong. (2026-09-24)
+## **Asks the entity, not the overworld.** It used to call `_server.entities.remove`, which is the
+## overworld's manager: for a creature in any other realm that set `removed` and then erased its id from
+## a dictionary it was never in, leaving the creature in its own realm's table - removed as far as the
+## mod was concerned and still walking about. An entity carries the manager it belongs to, so it can be
+## asked. (2026-09-28)
 func remove_entity(entity) -> bool:
 	if entity == null or not is_instance_valid(entity) or entity.removed:
 		return false
-	_server.entities.remove(entity)
+	entity.remove()
 	return true
 
 
@@ -1142,9 +1155,10 @@ func get_shared(store_name: String):
 	return _server.containers._store_view(_qualify(store_name))
 
 
-## The container at a position (engine/server/container.gd), or null.
-func get_container(position: Vector3i):
-	return _server.containers.get_container(position)
+## The container at a position (engine/server/container.gd), or null. `realm_id` sits straight after the
+## position, as it does in the block functions.
+func get_container(position: Vector3i, realm_id := ""):
+	return _server.containers.get_container(position, null, _realm_or_default(realm_id))
 
 
 ## Opens a container's screen for a player (as if they right-clicked it).

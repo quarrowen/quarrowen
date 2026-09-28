@@ -5441,7 +5441,10 @@ func _stock_containers(p: ServerPlayer) -> Array:
 	var r := STATION_PULL_RADIUS + int(p.crafting_station.get("pull_radius", 0))
 	for pos: Vector3i in find_block_data(-1, realm_of(p)):
 		if absi(pos.x - center.x) <= r and absi(pos.y - center.y) <= r and absi(pos.z - center.z) <= r:
-			var c = containers.get_container(pos)
+			# The positions came from their realm on the line above; the container has to as well, or a
+			# station anywhere but the overworld pulls from whatever happens to sit at those coordinates
+			# on the surface.
+			var c = containers.get_container(pos, p)
 			if c != null:
 				out.append(c)
 	return out

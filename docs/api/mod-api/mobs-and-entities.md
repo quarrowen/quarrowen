@@ -86,6 +86,11 @@ Killing was the only thing available and it is not the same thing. A story creat
 its piece and should go, a boss that settles back down rather than falling over, a prop that was
 only there for a moment - all of those are removals, and doing them with damage means loot on the
 floor and a death message a child reads as something having gone wrong. (2026-09-24)
+**Asks the entity, not the overworld.** It used to call `_server.entities.remove`, which is the
+overworld's manager: for a creature in any other realm that set `removed` and then erased its id from
+a dictionary it was never in, leaving the creature in its own realm's table - removed as far as the
+mod was concerned and still walking about. An entity carries the manager it belongs to, so it can be
+asked. (2026-09-28)
 
 ### `api.spawn_projectile`
 

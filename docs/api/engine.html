@@ -287,7 +287,13 @@ server asks for "vault"; a mod wanting one each asks for "vault_" + player_id. T
 sharing rule where the rule belongs and this table a plain dictionary. (2026-09-21)</p></div>
 <div class="card" data-search="register registers a container type. returns false when invalid. server/containers.gd drops, loot and rewards"><div class="sig"><code>register(type_name: String, def: Dictionary) -&gt; bool</code></div><p>Registers a container type. Returns false when invalid.</p></div>
 <div class="card" data-search="type_of_block the container type of a block, or {}. server/containers.gd drops, loot and rewards"><div class="sig"><code>type_of_block(block: int) -&gt; Dictionary</code></div><p>The container type of a block, or {}.</p></div>
-<div class="card" data-search="get_container the container at a position (loads its chunk), or null if the block there is not a container. server/containers.gd drops, loot and rewards"><div class="sig"><code>get_container(pos: Vector3i, player = null)</code></div><p>The container at a position (loads its chunk), or null if the block there is not a container.</p></div>
+<div class="card" data-search="get_container the container at a position (loads its chunk), or null if the block there is not a container.
+`into` (a realm) wins over the player's, for a caller that has a world and nobody standing in it -
+a dungeon stocking its own chests, say. without it the only two answers were &quot;where the player is&quot;
+and &quot;the overworld&quot;, and a mod filling a chest it had just built had no way to say which. server/containers.gd drops, loot and rewards"><div class="sig"><code>get_container(pos: Vector3i, player = null, into = null)</code></div><p>The container at a position (loads its chunk), or null if the block there is not a container.
+`into` (a Realm) wins over the player's, for a caller that has a world and nobody standing in it -
+a dungeon stocking its own chests, say. Without it the only two answers were "where the player is"
+and "the overworld", and a mod filling a chest it had just built had no way to say which.</p></div>
 <div class="card" data-search="at_key the container a key names, whoever it belongs to, or null. the one place that knows where each
 kind of store lives; everything else works in keys. server/containers.gd drops, loot and rewards"><div class="sig"><code>at_key(key: String, player = null)</code></div><p>The container a key names, whoever it belongs to, or null. The one place that knows where each
 kind of store lives; everything else works in keys.</p></div>

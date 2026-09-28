@@ -101,9 +101,13 @@ func type_of_block(block: int) -> Dictionary:
 
 
 ## The container at a position (loads its chunk), or null if the block there is not a container.
-func get_container(pos: Vector3i, player = null):
+## `into` (a Realm) wins over the player's, for a caller that has a world and nobody standing in it -
+## a dungeon stocking its own chests, say. Without it the only two answers were "where the player is"
+## and "the overworld", and a mod filling a chest it had just built had no way to say which.
+func get_container(pos: Vector3i, player = null, into = null):
 	# A container is a block, and a block is in a world. When a player opened it, it is theirs.
-	var into = _server.realm_of(player) if player != null else _server.realm
+	if into == null:
+		into = _server.realm_of(player) if player != null else _server.realm
 	var block: int = _server.get_block_loaded(pos, into)
 	var t := type_of_block(block)
 	if t.is_empty():

@@ -158,13 +158,14 @@ api.register_container("crate", {"title": "Crate",
 
 ### `api.get_container`
 
-GDScript: `api.get_container(position: Vector3i)`
+GDScript: `api.get_container(position: Vector3i, realm_id := "")`
 
-JavaScript: `api.getContainer(position)`
+JavaScript: `api.getContainer(position, realmId)`
 
-The container at a position (engine/server/container.gd), or null.
+The container at a position (engine/server/container.gd), or null. `realm_id` sits straight after the
+position, as it does in the block functions.
 
-**See also:** `block_key`, `get_block_data`, `get_block_loaded`, `realm_of`, `set_block_data`, `type_of_block`
+**See also:** `block_key`, `get_block_data`, `get_block_loaded`, `qualified`, `realm_of`, `register_instance`
 
 ### `api.open_container`
 
