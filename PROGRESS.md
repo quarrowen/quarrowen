@@ -8994,3 +8994,60 @@ nothing else does.
 Registries, block-tick and signal handler tables, liquid kinds and meetings, and multiblock patterns are
 one table for every realm on purpose, each with the reasoning written where it is done: what a block
 *type* does is true everywhere, and only where each block sits differs.
+
+## Touch was built for a tablet, and the export ships to iPhone 28 September 2026
+
+Asked whether the touch controls are good enough for a phone. Audited rather than guessed, and the
+answer is in two halves.
+
+**The controls themselves are cramped but usable.** Every tap target clears 44pt (smallest is 46), and
+the safe-area work in `_apply_safe_area` is genuinely good - it reads
+`DisplayServer.get_display_safe_area`, converts screen pixels to viewport units, insets `_hud_root`, and
+re-runs on resize, which is why `TouchControls` lives inside that node. Three real collisions though,
+all from the same cause: the right-hand cluster needs 362 of a phone's ~369 vertical units.
+
+- The radial ring's "Drop" item overlaps the ☰ menu button on every iPhone but the Max. The menu button
+  has `z_index = 1` so it wins the tap, which means a ring item is unreachable.
+- The ring's top row clips off the top of a mini or an SE.
+- `BELT_BAND` reserves 76 units for the hotbar and the hotbar is actually 72 tall positioned 12 up, so
+  it occupies 12..84 - eight units into the buttons. On an SE the jump button sits on slot 9. This is
+  **the same regression the `BELT_BAND` comment says was already hit once** going desktop → tablet, one
+  device narrower.
+- And `_begin_touch` splits the walk and look halves on `size.x * 0.5` where `size` is the *inset* HUD
+  rect while the event position is in viewport coordinates. On an iPhone the 47pt left inset puts the
+  divider 47 units left of the true centre, so a strip near the middle looks like "walk" and behaves as
+  "look". Invisible on an iPad, whose landscape left inset is 0.
+
+**The screens the controls open are worse than cramped - two are shipped broken.** The creative palette
+is a 16-column grid of 56-unit cells (≈896 units) in a panel about 590 wide with
+`horizontal_scroll_mode` explicitly **disabled**, so six columns of every drawer are unreachable with no
+way to scroll to them. Settings and Friends set `custom_minimum_size` 660 tall inside a plain
+`CenterContainer` with no fit pass, so on a ~369-unit HUD they lose ~145 units off the top *and* the
+bottom - taking the tab strip and the buttons. That is the same complaint already quoted in
+`game_client.gd` about settings being impossible to change, reproduced on a phone. Crafting survives
+because it alone has a shrink pass, but `NARROW := 900` is wider than a phone so it shrinks to ~0.7 and
+its 58-unit cells land at ~40, below the 44pt floor, with 12pt labels at ~8pt.
+
+**Why none of this was noticed:** the file says so in four places. `touch_controls.gd` states it is
+"sized for a 590 x 410 interface space", every comment says "a tablet", and `tests/screenshot.gd`
+defaults to `--size=1180x820`, which is the iPad's point size. There is no phone shape anywhere in the
+repository and **no phone/tablet distinction in any code** - no breakpoint, no DPI read, no size class.
+Meanwhile `export_presets.cfg` has `targeted_device_family=2`, which in Godot's iOS exporter means
+**iPhone and iPad**, so the binary installs and launches on a phone that nothing was ever laid out for.
+
+Also worth recording: `client_settings.apply_ui_scale` sets `CONTENT_SCALE_MODE_DISABLED` with the
+factor set to the device scale, so **one UI unit is one iOS point and nothing is letterboxed** - both
+width and height vary with the device. The comment claiming Godot's content scaling keeps the height is
+wrong for this configuration, which is part of why a tablet layout was assumed to survive.
+
+### Not a redesign
+
+Four changes cover most of it, and none is structural: a breakpoint on viewport height that shrinks
+`RING_RADIUS`, `BELT_BAND` and the button pitch; horizontal scrolling on the palette; the fit pass
+`crafting_screen` already has, given to the two 660-tall overlays; and the viewport-versus-inset
+coordinate fix in `_begin_touch`. The last one is a bug on every device and simply invisible where the
+inset is zero.
+
+Deliberately **not** proposed: hiding things on a phone, or a separate phone layout. The engine is for
+players of all ages on whatever they have, and a layout that reads its own height is less code than two
+layouts.

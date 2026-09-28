@@ -21,17 +21,20 @@ extends "res://engine/server/mod.gd"
 
 const Hub = preload("res://mods/fairground/hub.gd")
 const Rounds = preload("res://mods/fairground/rounds.gd")
+const Boards = preload("res://mods/fairground/boards.gd")
 
 ## Kept as members: a RefCounted nobody holds is freed the moment setup returns, taking its handlers
 ## with it, silently (CLAUDE.md).
 var hub := Hub.new()
 var rounds := Rounds.new()
+var boards := Boards.new()
 
 
 func setup(api) -> void:
 	_rules(api)
-	hub.setup(api)
-	rounds.setup(api, hub)
+	boards.setup(api)
+	hub.setup(api, boards)
+	rounds.setup(api, hub, boards)
 	# The hub is built by the roll call rather than here, because how many doors there are depends on
 	# how many games answered - and nothing can answer until every mod has finished loading.
 	_doors(api)

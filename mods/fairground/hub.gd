@@ -27,14 +27,16 @@ const SPAWN := Vector3(0.5, 65.0, 0.5)
 const REALM := ""
 
 var api
+var boards
 ## slot -> {game, region, position}
 var doors := {}
 
 var _ids := {}
 
 
-func setup(mod_api) -> void:
+func setup(mod_api, board_keeper) -> void:
 	api = mod_api
+	boards = board_keeper
 	# `base` owns the nouns and this game owns none of them, so the fairground is built out of what
 	# already exists: brick underfoot, sunstone for the lit doorways, sandstone for the wall.
 	_ids.floor_block = api.require_block("base:brick")
@@ -98,6 +100,8 @@ func _raise_door(slot: int, game: Dictionary) -> void:
 	var id: int = api.add_region("door_%d" % slot, Vector3(at) + Vector3(-0.6, 0, -0.6),
 		Vector3(at) + Vector3(1.6, 3, 1.6), {"realm": REALM, "data": {"game": String(game.id)}})
 	doors[slot] = {"game": String(game.id), "region": id, "position": at}
+	# The board goes up with the door rather than in a second pass, so a door can never exist without one.
+	boards.raise(slot, game, at, angle)
 
 
 class VoidGenerator:

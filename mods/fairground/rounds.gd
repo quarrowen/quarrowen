@@ -30,15 +30,17 @@ var games := {}
 var live := {}
 
 var _hub
+var _boards
 ## Seconds since this mod started, counted here. **The mod API exposes the time *of day***, which runs
 ## on the world clock and restarts with the server, so it cannot answer "how long has this round been
 ## going". `wick.gd` keeps its own for the same reason.
 var _elapsed := 0.0
 
 
-func setup(mod_api, hub) -> void:
+func setup(mod_api, hub, board_keeper) -> void:
 	api = mod_api
 	_hub = hub
+	_boards = board_keeper
 	# **The roll call cannot happen during setup, and that is not obvious.** A game mod *depends* on the
 	# Fairground, so the Fairground's `setup` runs first and every game's handler is registered after it
 	# - asking here found nobody, every time, and the hub came up with no doors and a cheerful
@@ -168,6 +170,7 @@ func _finish(round_id: String) -> void:
 	api.emit("round_end", {"round": round_id, "game": String(run.game),
 		"instance": String(run.instance), "scores": run.scores, "state": run.state})
 	var board := _scoreboard(run)
+	_record(run)
 	for p in run.players:
 		if p == null:
 			continue
@@ -182,8 +185,29 @@ func _finish(round_id: String) -> void:
 	api.after(LINGER, func(): api.close_instance(String(run.instance)))
 
 
-## The line everybody sees at the end. One line, because five names down the middle of the screen is
-## a wall of text to a seven-year-old and the board in the hub is where the detail belongs.
+## Offers the round's best score to that game's board in the hub, and tells whoever set it.
+##
+## **Only the top score of the round is offered**, not everybody's: the board holds one number per game,
+## so four players all beating the old best would otherwise be four writes in a row where the last one
+## in the loop won rather than the highest.
+func _record(run: Dictionary) -> void:
+	var best := ""
+	var best_score := -INF
+	for player_id in run.scores:
+		if float(run.scores[player_id]) > best_score:
+			best_score = float(run.scores[player_id])
+			best = player_id
+	if best.is_empty() or best_score <= 0.0:
+		return
+	for p in run.players:
+		if p != null and p.player_id == best:
+			if _boards.offer(String(run.game), best_score, String(p.name)):
+				p.show_title("", "A new best at the fairground", 4.0)
+			return
+
+
+## The line everybody sees at the end. One line: the detail belongs on the board in the hub, and five
+## names down the middle of the screen is a wall of text between somebody and their next round.
 func _scoreboard(run: Dictionary) -> String:
 	var best := ""
 	var best_score := -INF

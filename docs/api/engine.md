@@ -3632,8 +3632,11 @@ Mobs: the AI brain (engine/server/ai/mob_brain.gd); null for other kinds.
 GDScript: `set_look(values: Dictionary) -> void`
 
 How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
-prefixes to hide, e.g. "wool" once sheared], tint: {part prefix: "#rrggbb"}, pose: "" | "sit"}. Merged into the current
-look and saved in data.look.
+prefixes to hide, e.g. "wool" once sheared, or "*" for the whole body], tint: {part prefix:
+"#rrggbb"}, pose: "" | "sit"}. Merged into the current look and saved in data.look.
+
+Hiding everything leaves a thing that is present, collides and can wear a nameplate but is not drawn,
+which is how a label stands beside a door without a creature under it.
 
 **See also:** `apply`, `look_changed`, `merge`, `refresh_appearance`
 

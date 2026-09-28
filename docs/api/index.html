@@ -1475,8 +1475,11 @@ are registered, so they change between versions and mod sets; names do not.
 <section id="obj-entity"><h2>Entity</h2><p>A server-side entity: mob, projectile, dropped item stack or mod object. Mods receive these in
 events and from spawn_entity; members above &quot;Engine bookkeeping&quot; are the supported surface.</p>
 <div class="card" id="entity-set-look" data-search="set_look  how clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
-prefixes to hide, e.g. &quot;wool&quot; once sheared], tint: {part prefix: &quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. merged into the current
-look and saved in data.look."><div class="sig"><code>entity.set_look(values: Dictionary) -&gt; void</code></div><p>How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name<br>prefixes to hide, e.g. &quot;wool&quot; once sheared], tint: {part prefix: &quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. Merged into the current<br>look and saved in data.look.</p></div>
+prefixes to hide, e.g. &quot;wool&quot; once sheared, or &quot;*&quot; for the whole body], tint: {part prefix:
+&quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. merged into the current look and saved in data.look.
+
+hiding everything leaves a thing that is present, collides and can wear a nameplate but is not drawn,
+which is how a label stands beside a door without a creature under it."><div class="sig"><code>entity.set_look(values: Dictionary) -&gt; void</code></div><p>How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name<br>prefixes to hide, e.g. &quot;wool&quot; once sheared, or &quot;*&quot; for the whole body], tint: {part prefix:<br>&quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. Merged into the current look and saved in data.look.<br><br>Hiding everything leaves a thing that is present, collides and can wear a nameplate but is not drawn,<br>which is how a label stands beside a door without a creature under it.</p></div>
 <div class="card" id="entity-is-alive" data-search="is_alive  false once the entity died or was removed."><div class="sig"><code>entity.is_alive() -&gt; bool</code></div><p>False once the entity died or was removed.</p></div>
 <div class="card" id="entity-remove" data-search="remove remove removes the entity from the world (no death, no drops)."><div class="sig"><code>entity.remove() -&gt; void</code><span class="tag js" title="remove(): void">JS remove</span></div><p>Removes the entity from the world (no death, no drops).</p></div>
 <div class="card" id="entity-damage" data-search="damage damage deals damage as if from `attacker` (a serverplayer, entity or null). returns true if it applied.

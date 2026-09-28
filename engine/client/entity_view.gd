@@ -165,10 +165,16 @@ func set_look(look: Dictionary) -> void:
 		_root.scale = Vector3.ONE * clampf(float(look.get("scale", 1.0)), 0.05, 10.0)
 	_pose = str(look.get("pose", ""))
 	var hide: Array = look.get("hide", []) if look.get("hide") is Array else []
+	# **"*" means the whole body**, as it does for a player avatar. The two honour the same documented
+	# `hide` channel and only the avatar understood it, so a mod that hid a player and a creature the
+	# same way got one of them - and the other stood there in full view with no error anywhere.
+	# It matters for a thing whose body is not the point: a label beside a door is an entity wearing a
+	# nameplate and nothing else, and without this it is a label with a creature under it. (2026-09-28)
+	var all: bool = hide.has("*")
 	var tint: Dictionary = look.get("tint", {}) if look.get("tint") is Dictionary else {}
 	for part_name: String in _part_meshes:
 		var mesh: MeshInstance3D = _part_meshes[part_name]
-		mesh.visible = not hide.any(func(prefix): return part_name.begins_with(str(prefix).to_lower()))
+		mesh.visible = not all and not hide.any(func(prefix): return part_name.begins_with(str(prefix).to_lower()))
 		var color := Color.WHITE
 		for prefix in tint:
 			if part_name.begins_with(str(prefix).to_lower()) and Color.html_is_valid(str(tint[prefix])):

@@ -1149,10 +1149,16 @@ listen to, and entity_damage fires *before* the change.)</p></div>
 <div class="card" data-search="item_id dropped item stacks. server/entity.gd creatures and ai"><div class="sig"><code>item_id := 0  (property)</code></div><p>Dropped item stacks.</p></div>
 <div class="card" data-search="brain mobs: the ai brain (engine/server/ai/mob_brain.gd); null for other kinds. server/entity.gd creatures and ai"><div class="sig"><code>brain = null  (property)</code></div><p>Mobs: the AI brain (engine/server/ai/mob_brain.gd); null for other kinds.</p></div>
 <div class="card" data-search="set_look how clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
-prefixes to hide, e.g. &quot;wool&quot; once sheared], tint: {part prefix: &quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. merged into the current
-look and saved in data.look. server/entity.gd creatures and ai"><div class="sig"><code>set_look(values: Dictionary) -&gt; void</code></div><p>How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
-prefixes to hide, e.g. "wool" once sheared], tint: {part prefix: "#rrggbb"}, pose: "" | "sit"}. Merged into the current
-look and saved in data.look.</p></div>
+prefixes to hide, e.g. &quot;wool&quot; once sheared, or &quot;*&quot; for the whole body], tint: {part prefix:
+&quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. merged into the current look and saved in data.look.
+
+hiding everything leaves a thing that is present, collides and can wear a nameplate but is not drawn,
+which is how a label stands beside a door without a creature under it. server/entity.gd creatures and ai"><div class="sig"><code>set_look(values: Dictionary) -&gt; void</code></div><p>How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
+prefixes to hide, e.g. "wool" once sheared, or "*" for the whole body], tint: {part prefix:
+"#rrggbb"}, pose: "" | "sit"}. Merged into the current look and saved in data.look.
+
+Hiding everything leaves a thing that is present, collides and can wear a nameplate but is not drawn,
+which is how a label stands beside a door without a creature under it.</p></div>
 <div class="card" data-search="is_alive false once the entity died or was removed. server/entity.gd creatures and ai"><div class="sig"><code>is_alive() -&gt; bool</code></div><p>False once the entity died or was removed.</p></div>
 <div class="card" data-search="remove removes the entity from the world (no death, no drops). server/entity.gd creatures and ai"><div class="sig"><code>remove() -&gt; void</code></div><p>Removes the entity from the world (no death, no drops).</p></div>
 <div class="card" data-search="damage deals damage as if from `attacker` (a serverplayer, entity or null). returns true if it applied.
