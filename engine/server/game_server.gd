@@ -929,15 +929,23 @@ func _apply_rules_to_world() -> void:
 	# Found by the Fairground, which is the first thing to put a player in an instance. (2026-09-28)
 	for each: Realm in realms.values():
 		_give_tables(each)
-	entities.ai.update_tables()
 
 
-## Tells one realm's world which blocks are solid, liquid and which shapes they are. Called for every
-## realm when the rules change, and for a realm the moment it is made - a realm created later would
-## otherwise never hear, which is the bug above.
+## Tells one realm's world which blocks are solid, liquid and which shapes they are, and its pathfinder
+## the same. Called for every realm when the rules change, and for a realm the moment it is made - a
+## realm created later would otherwise never hear, which is the bug above.
+##
+## **The pathfinder's tables were the same bug one line further down.** Yesterday's fix put the world
+## loop in and left `entities.ai.update_tables()` sitting after it, which is the overworld's alias, so
+## every other realm's `Pathfinder` kept its empty solid, liquid, opaque and hazard tables: mobs in a
+## dungeon would path as though the whole floor were open air and nothing were dangerous. It survived
+## the fix *for itself* because the fix was written looking at the world and not at what else the loop
+## should have swallowed. Both belong in here now, where a third thing that needs telling has somewhere
+## obvious to go. (2026-09-28)
 func _give_tables(into: Realm) -> void:
 	into.world.set_lookup_tables(registry.solid_lut, registry.liquid_lut, registry.shape_lut)
 	into.world.void_below = rules.void_below
+	into.entities.ai.update_tables()
 
 
 # --- Events, commands, scheduler ----------------------------------------------------------------
@@ -2629,11 +2637,16 @@ func kill_player(p: ServerPlayer, cause: String, attacker) -> void:
 	p.fall_velocity = 0.0
 	if not ev.keep_inventory and not p.inventory.creative:
 		var center := p.state.position + Vector3(0, 1.0, 0)
+		# **Into the realm they died in.** A bare `entities` is the overworld's, so dying anywhere else
+		# put everything you were carrying at the same coordinates in the overworld - findable only by
+		# accident, and the death message tells you to go and look on the map. It is the whole mechanic of
+		# a dungeon you can lose your things in, so it had to be right before one existed. (2026-09-28)
+		var died_in: Entities = realm_of(p).entities
 		for i in p.inventory.total():
 			if p.inventory.ids[i] > 0 and p.inventory.counts[i] > 0:
-				entities.drop_item(p.inventory.ids[i], p.inventory.counts[i], center, Vector3.INF, 0.6, p.inventory.data[i])
+				died_in.drop_item(p.inventory.ids[i], p.inventory.counts[i], center, Vector3.INF, 0.6, p.inventory.data[i])
 		if p.inventory.cursor_count > 0:
-			entities.drop_item(p.inventory.cursor_id, p.inventory.cursor_count, center, Vector3.INF, 0.6, p.inventory.cursor_data)
+			died_in.drop_item(p.inventory.cursor_id, p.inventory.cursor_count, center, Vector3.INF, 0.6, p.inventory.cursor_data)
 		p.inventory.clear()
 		p.sync_inventory()
 	sync_health(p)
@@ -4163,7 +4176,9 @@ func break_block_for(p: ServerPlayer, pos: Vector3i, into: Realm, harvest := tru
 				continue
 			var data: Dictionary = drop[2] if drop.size() > 2 and drop[2] is Dictionary else {}
 			if gameplay_of(p).item_drops == "entity":
-				entities.drop_item(int(drop[0]), int(drop[1]), Vector3(pos) + Vector3(0.5, 0.3, 0.5),
+				# `into`, not the overworld: the block was broken in `into` four lines up and its drop has
+				# to land in the same world. `break_block`, the non-player path, already did this.
+				into.entities.drop_item(int(drop[0]), int(drop[1]), Vector3(pos) + Vector3(0.5, 0.3, 0.5),
 					Vector3(randf_range(-1.0, 1.0), randf_range(2.0, 3.5), randf_range(-1.0, 1.0)), 0.3, data)
 			else:
 				p.inventory.add(int(drop[0]), int(drop[1]), items.max_stack(int(drop[0])), data)
@@ -4596,7 +4611,13 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 		if _time - p.last_attack_time < float(stats.attack_cooldown) * 0.5:
 			anticheat.record(p, "attack_rate", 1.0, "%.2f s between hits" % (_time - p.last_attack_time))
 		return
-	var target = entities.entities.get(target_id) if kind == 0 else players.get(target_id)
+	# **The realm they are standing in, once, for everything below.** Entity ids restart at 1 in every
+	# realm, so looking a target up in the overworld's table does not merely fail - it can find a
+	# different, living creature that happens to hold the same id, and then damage *that*. The raycast
+	# below already asked `realm_of(p)`, which is how the rest of this function reads as though it were
+	# realm-aware when only one line of it was. (2026-09-28)
+	var here: Realm = realm_of(p)
+	var target = here.entities.entities.get(target_id) if kind == 0 else players.get(target_id)
 	if target == null or target == p or (kind == 0 and not target.is_alive()) or (kind == 1 and target.dead):
 		return
 	var box: AABB = target.aabb() if kind == 0 else AABB(target.state.position - Vector3(PlayerPhysics.HALF_WIDTH, 0, PlayerPhysics.HALF_WIDTH),
@@ -4608,7 +4629,7 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 			anticheat.record(p, "reach", 1.0, "a hit %.1f blocks away" % distance)
 		return
 	var center := box.get_center()
-	var ray := VoxelRaycast.cast(realm_of(p).world, registry.solid_lut, eye, center - eye, eye.distance_to(center))
+	var ray := VoxelRaycast.cast(here.world, registry.solid_lut, eye, center - eye, eye.distance_to(center))
 	if ray.hit and eye.distance_to(Vector3(ray.position) + Vector3.ONE * 0.5) < distance - 0.5:
 		return  # a wall is in the way
 	p.last_attack_time = _time
@@ -4627,23 +4648,23 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 	var direction3 := PlayerPhysics.look_direction(p.yaw, p.pitch)
 	if look.effects.has("swing"):
 		play_effect(look.effects.swing, eye + direction3 * 0.9, {"direction": direction3})
-	entities.ai.make_noise(eye, 14.0, p, true)
+	here.entities.ai.make_noise(eye, 14.0, p, true)
 	var direction := PlayerPhysics.look_direction(p.yaw, 0.0)
 	var landed := false
 	if kind == 0:
-		landed = entities.damage(target, float(ev.damage), "attack", p, direction)
+		landed = here.entities.damage(target, float(ev.damage), "attack", p, direction)
 		if landed:
-			entities.taming.owner_attacked(p, target)
+			here.entities.taming.owner_attacked(p, target)
 		var sweep := float(items.weapon_of(item, p.inventory.data[p.inventory.selected]).get("sweep", 0.0))
 		if landed and sweep > 0.0:
-			for other in entities.in_radius(target.body.position, 1.8):
+			for other in here.entities.in_radius(target.body.position, 1.8):
 				if other != target and other.def.kind == "mob":
 					other.hurt_timer = 0.0
-					entities.damage(other, float(ev.damage) * sweep, "attack", p, other.body.position - p.state.position)
+					here.entities.damage(other, float(ev.damage) * sweep, "attack", p, other.body.position - p.state.position)
 	elif gameplay_of(target).pvp:
 		landed = damage_player(target, float(ev.damage), "attack", p, direction, false, 6.0 * float(stats.knockback))
 		if landed:
-			entities.taming.owner_attacked(p, target)
+			here.entities.taming.owner_attacked(p, target)
 	if landed:
 		var impact := eye.clamp(box.position, box.end).lerp(center, 0.5)
 		play_effect(String(look.effects.get("hit", "engine:hit")), impact, {"direction": -direction3})
@@ -4656,8 +4677,13 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 
 func on_interact_entity(peer_id: int, target_id: int) -> void:
 	var p: ServerPlayer = players.get(peer_id)
-	var e = entities.entities.get(target_id)
-	if p == null or p.dead or e == null or not e.is_alive() or p.edit_tokens < 1.0:
+	if p == null:
+		return
+	# Their realm's table, for the reason in `on_attack`: ids restart per realm, so the overworld's
+	# entity 3 is a real creature and not a miss.
+	var here: Realm = realm_of(p)
+	var e = here.entities.entities.get(target_id)
+	if p.dead or e == null or not e.is_alive() or p.edit_tokens < 1.0:
 		return
 	p.edit_tokens -= 1.0
 	if p.get_eye_position().distance_to(e.aabb().get_center()) > ATTACK_REACH + e.def.width:
@@ -4669,8 +4695,8 @@ func on_interact_entity(peer_id: int, target_id: int) -> void:
 	# you click it, not sit down.
 	if vehicles.is_vehicle(e) and vehicles.mount(p, e):
 		return
-	if not entities.taming.interact(p, e):
-		entities.breeding.feed(p, e)
+	if not here.entities.taming.interact(p, e):
+		here.entities.breeding.feed(p, e)
 
 
 func on_inventory_click(peer_id: int, slot: int, button: int, shift: bool) -> void:
@@ -5046,10 +5072,18 @@ func on_ugc_report(peer_id: int, id: String, reason: String, details: String) ->
 
 
 ## The players and roles panel. Answers with {players, roles, can_kick, denied?}.
-## Which world a player is in. One world today ("" is it); mods that add dimensions set this key on the
-## player, and the map, compass and markers follow them there.
+## Which world a player is in, for the map, the compass and markers. **This is the realm's id**, and the
+## overworld's is "" - so a marker saved before realms existed still means the overworld.
+##
+## It used to read `p.data["dimension"]`, a key nothing in the engine ever wrote: `send_to_realm` sets
+## `realm_id` and has never touched it. So there were two notions of which world somebody was in, one of
+## them maintained and one of them always "". The map therefore showed every player in every realm at
+## once - you appeared on a dungeon party's map, and they appeared on yours, each of you a marker
+## standing in fog where nobody was. `sightings.gd` was already writing a realm id into its own
+## `dimension` field, which is the corroboration that these were always meant to be one thing.
+## (2026-09-28)
 func dimension_of(p) -> String:
-	return str(p.data.get("dimension", "")) if p != null else ""
+	return realm_of(p).id if p != null else ""
 
 
 ## What the player's map shows: everyone in the same dimension (unless the server hides them) and the

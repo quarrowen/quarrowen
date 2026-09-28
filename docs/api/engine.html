@@ -3216,10 +3216,26 @@ the policy uniform, the player's override and avatar_change handlers. server/gam
 the policy uniform, the player's override and avatar_change handlers.</p></div>
 <div class="card" data-search="reapply_requested_avatar applies the avatar the player last asked for again (a creation in it was approved or removed). server/game_server.gd the server itself"><div class="sig"><code>reapply_requested_avatar(p: ServerPlayer) -&gt; void</code></div><p>Applies the avatar the player last asked for again (a creation in it was approved or removed).</p></div>
 <div class="card" data-search="dimension_of the players and roles panel. answers with {players, roles, can_kick, denied?}.
-which world a player is in. one world today (&quot;&quot; is it); mods that add dimensions set this key on the
-player, and the map, compass and markers follow them there. server/game_server.gd the server itself"><div class="sig"><code>dimension_of(p) -&gt; String</code></div><p>The players and roles panel. Answers with {players, roles, can_kick, denied?}.
-Which world a player is in. One world today ("" is it); mods that add dimensions set this key on the
-player, and the map, compass and markers follow them there.</p></div>
+which world a player is in, for the map, the compass and markers. **this is the realm's id**, and the
+overworld's is &quot;&quot; - so a marker saved before realms existed still means the overworld.
+
+it used to read `p.data[&quot;dimension&quot;]`, a key nothing in the engine ever wrote: `send_to_realm` sets
+`realm_id` and has never touched it. so there were two notions of which world somebody was in, one of
+them maintained and one of them always &quot;&quot;. the map therefore showed every player in every realm at
+once - you appeared on a dungeon party's map, and they appeared on yours, each of you a marker
+standing in fog where nobody was. `sightings.gd` was already writing a realm id into its own
+`dimension` field, which is the corroboration that these were always meant to be one thing.
+(2026-09-28) server/game_server.gd the server itself"><div class="sig"><code>dimension_of(p) -&gt; String</code></div><p>The players and roles panel. Answers with {players, roles, can_kick, denied?}.
+Which world a player is in, for the map, the compass and markers. **This is the realm's id**, and the
+overworld's is "" - so a marker saved before realms existed still means the overworld.
+
+It used to read `p.data["dimension"]`, a key nothing in the engine ever wrote: `send_to_realm` sets
+`realm_id` and has never touched it. So there were two notions of which world somebody was in, one of
+them maintained and one of them always "". The map therefore showed every player in every realm at
+once - you appeared on a dungeon party's map, and they appeared on yours, each of you a marker
+standing in fog where nobody was. `sightings.gd` was already writing a realm id into its own
+`dimension` field, which is the corroboration that these were always meant to be one thing.
+(2026-09-28)</p></div>
 <div class="card" data-search="too_often what the player's map shows: everyone in the same dimension (unless the server hides them) and the
 markers mods set, also filtered to that dimension.
 **handlers that do real work per call need a floor on how often.**

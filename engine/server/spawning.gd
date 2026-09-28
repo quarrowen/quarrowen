@@ -161,6 +161,15 @@ func run(for_players: Array = []) -> void:
 ## A spot for a rule's mob around `center` (surface or caves), or Vector3.INF.
 func find_spot(center: Vector3, rule: Dictionary, daylight: float, min_distance := -1.0, max_distance := -1.0) -> Vector3:
 	var world = _entities.realm.world
+	# **This realm's own light, heightmap and biomes.** `_server.block_ticks` and `_server.biome_generator`
+	# are aliases for the overworld's, and `world` on the line above is not - so every test below was
+	# being applied to two different worlds at once: the blocks came from the dungeon and the light,
+	# the open-sky test and the biome came from the surface above it. The visible effect is that
+	# "underground" and light-range rules decide nothing at all anywhere but the overworld, so a cave
+	# creature spawns in daylight and a dungeon gets whatever the sky overhead happens to allow.
+	# (2026-09-28)
+	var ticks = _entities.realm.block_ticks
+	var biomes = _entities.realm.biome_generator
 	var solid: PackedByteArray = _server.registry.solid_lut
 	var liquid: PackedByteArray = _server.registry.liquid_lut
 	var allowed: Array = rule.get("on", [])
@@ -188,14 +197,14 @@ func find_spot(center: Vector3, rule: Dictionary, daylight: float, min_distance 
 				continue
 			if not allowed.is_empty() and not allowed.has(ground):
 				break
-			if not rule.get("biomes", []).is_empty() and _server.biome_generator != null \
-					and not rule.biomes.has(_server.biome_generator.biome_at(x, z)):
+			if not rule.get("biomes", []).is_empty() and biomes != null \
+					and not rule.biomes.has(biomes.biome_at(x, z)):
 				break
 			var cell := Vector3i(x, y, z)
-			var open_sky: bool = _server.block_ticks._column_height(x, z) < y
+			var open_sky: bool = ticks._column_height(x, z) < y
 			if rule.place == "surface" and not open_sky or rule.place == "underground" and open_sky:
 				break
-			var light: int = _server.block_ticks.light_at(cell, daylight)
+			var light: int = ticks.light_at(cell, daylight)
 			if light < int(rule.light[0]) or light > int(rule.light[1]):
 				break
 			var pos := Vector3(x + 0.5, y, z + 0.5)

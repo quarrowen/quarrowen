@@ -11061,7 +11061,7 @@ and then gives the realm a generator the same way it gives the overworld one.
 Returns the realm, or null when the name is taken or empty. The id is the mod's own qualified name
 ("mymod:emberdeep"), so two mods can both have an underworld without colliding.
 
-**See also:** `attach`, `reload`, `set_lookup_tables`, `set_storage`, `start`
+**See also:** `attach`, `reload`, `set_lookup_tables`, `set_storage`, `start`, `update_tables`
 
 ### `add_asset`
 
@@ -11866,8 +11866,18 @@ Applies the avatar the player last asked for again (a creation in it was approve
 GDScript: `dimension_of(p) -> String`
 
 The players and roles panel. Answers with {players, roles, can_kick, denied?}.
-Which world a player is in. One world today ("" is it); mods that add dimensions set this key on the
-player, and the map, compass and markers follow them there.
+Which world a player is in, for the map, the compass and markers. **This is the realm's id**, and the
+overworld's is "" - so a marker saved before realms existed still means the overworld.
+
+It used to read `p.data["dimension"]`, a key nothing in the engine ever wrote: `send_to_realm` sets
+`realm_id` and has never touched it. So there were two notions of which world somebody was in, one of
+them maintained and one of them always "". The map therefore showed every player in every realm at
+once - you appeared on a dungeon party's map, and they appeared on yours, each of you a marker
+standing in fog where nobody was. `sightings.gd` was already writing a realm id into its own
+`dimension` field, which is the corroboration that these were always meant to be one thing.
+(2026-09-28)
+
+**See also:** `realm_of`
 
 ### `too_often`
 

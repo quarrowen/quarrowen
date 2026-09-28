@@ -197,7 +197,15 @@ static func _execute(brain) -> void:
 				var at: Vector3 = e.body.position + Vector3(0, e.def.height * 0.5, 0)
 				_finish(brain)
 				e.remove()
-				ai.server.explosions.explode(at, float(a.get("power", 3.0)), {"source": e})
+				# The realm it is standing in. Without it the blast went off at these coordinates in the
+				# overworld: a creature could detonate harmlessly beside you and quietly blow a hole in
+				# somebody's house in another world.
+				#
+				# **`explode` wants the Realm, `_leave_field` below wants the id.** Written as a string
+				# first, copied from that function two screens down, and it died on `into.id` - the two
+				# take the same idea in different shapes, which is worth knowing before the next one.
+				ai.server.explosions.explode(at, float(a.get("power", 3.0)),
+					{"source": e, "realm": ai.entities.realm})
 				return
 	_finish(brain)
 

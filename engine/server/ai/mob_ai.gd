@@ -87,6 +87,13 @@ func attach(e) -> MobBrain:
 	return brain
 
 
+## The key a boss bar is shown under. **The realm is in it** because entity ids restart at 1 in every
+## realm, so two bosses in two worlds were both "engine:boss_1" - and killing one hid the other's bar,
+## or worse, drew one boss's health into a bar belonging to a creature nobody could see.
+func _boss_key(e) -> String:
+	return "engine:boss_%s_%d" % [entities.realm.id, e.id]
+
+
 func detach(e) -> void:
 	var brain = brains.get(e.id)
 	brains.erase(e.id)
@@ -96,7 +103,7 @@ func detach(e) -> void:
 		for peer_id in _boss_viewers[e.id]:
 			var p = server.players.get(peer_id)
 			if p != null and server._started:
-				p.hide_ui("engine:boss_%d" % e.id)
+				p.hide_ui(_boss_key(e))
 		_boss_viewers.erase(e.id)
 	_boss_sent.erase(e.id)
 
@@ -344,6 +351,8 @@ func announce(brain: MobBrain, message: String) -> void:
 		return
 	var reach := float(brain.config.boss.get("bar_range", 48.0))
 	for p in server.players.values():
+		if server.realm_of(p) != entities.realm:
+			continue  # a boss roaring in a dungeon is not audible in the overworld
 		if p.state.position.distance_to(brain.entity.body.position) <= reach:
 			p.show_title("", message, 3.0)
 
@@ -360,16 +369,20 @@ func _update_boss_bars() -> void:
 		var title := String(brain.config.boss.get("name", e.def.display_name))
 		var changed: bool = _boss_sent.get(e.id, -1.0) != e.health
 		_boss_sent[e.id] = e.health
+		var key := _boss_key(e)
 		for p in server.players.values():
-			var near: bool = e.is_alive() and p.state.position.distance_to(e.body.position) <= reach
+			# **Same realm, then near enough.** Distance alone showed a dungeon boss's health bar to
+			# somebody standing at the same x and z in the overworld, with nothing in front of them.
+			var near: bool = e.is_alive() and server.realm_of(p) == entities.realm \
+				and p.state.position.distance_to(e.body.position) <= reach
 			if near:
 				if viewers.has(p.peer_id) and not changed:
 					continue
 				viewers[p.peer_id] = true
-				p.show_ui("engine:boss_%d" % e.id, {"anchor": "center_top", "children": [
+				p.show_ui(key, {"anchor": "center_top", "children": [
 					{"type": "label", "text": title, "size": 20, "color": "#ff6b6b"},
 					{"type": "progress", "value": e.health, "max": e.def.health, "color": "#e5484d", "width": 360},
 				]})
 			elif viewers.erase(p.peer_id):
-				p.hide_ui("engine:boss_%d" % e.id)
+				p.hide_ui(key)
 		_boss_viewers[e.id] = viewers

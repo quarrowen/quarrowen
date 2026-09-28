@@ -346,7 +346,10 @@ func _check_light(now: float) -> void:
 	var server = ai.server
 	var cell := Vector3i(floori(entity.body.position.x), floori(entity.body.position.y + 0.5), floori(entity.body.position.z))
 	var daylight: float = WorldTime.daylight(server.get_time_of_day())
-	var light: int = server.block_ticks.light_at(cell, daylight)
+	# **This realm's light, not the overworld's.** A creature underground reads the light where it is
+	# standing; asking the overworld gave it the sky's answer, so a mob in an unlit dungeon believed it
+	# was standing in daylight - which flips its temperament and stops it fleeing the dark it is in.
+	var light: int = _here().light_at(cell, daylight)
 	if not config.day_temperament.is_empty():
 		if _night_temperament.is_empty():
 			_night_temperament = config.temperament
@@ -357,10 +360,19 @@ func _check_light(now: float) -> void:
 		_lit = light >= config.fear_light or _torch_near(3.0 + config.fear_light * 0.4) != null
 
 
+## The block bookkeeping for the realm this creature is actually standing in. `ai.server.block_ticks` is
+## an alias for the overworld's, which is the wrong answer everywhere else.
+func _here():
+	return ai.entities.realm.block_ticks if ai.entities.realm != null else ai.server.block_ticks
+
+
 ## A player within `radius` holding a light-giving block (a torch), or null.
 func _torch_near(radius: float):
 	for p in ai.server.players.values():
 		if p.dead or p.state.position.distance_to(entity.body.position) > radius:
+			continue
+		# Someone carrying a torch about in the overworld does not light a dungeon.
+		if ai.entities.realm != null and ai.server.realm_of(p) != ai.entities.realm:
 			continue
 		var held: int = p.inventory.selected_item()
 		if held > 0 and held < 65536 and ai.server.registry.is_valid(held) and int(ai.server.registry.defs[held].light) >= 10:
@@ -381,7 +393,7 @@ func _avoid_light(now: float) -> void:
 	for i in 8:
 		var dir := Vector3.RIGHT.rotated(Vector3.UP, i * TAU / 8.0)
 		var spot := pos + dir * 7.0
-		var score := float(server.block_ticks.light_at(Vector3i(floori(spot.x), floori(spot.y + 0.5), floori(spot.z)), daylight))
+		var score := float(_here().light_at(Vector3i(floori(spot.x), floori(spot.y + 0.5), floori(spot.z)), daylight))
 		if bearer != null:
 			score -= spot.distance_to(bearer.state.position) * 0.8
 		if score < best_score:
