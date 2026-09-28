@@ -8528,3 +8528,49 @@ a round knocks them out - so the game says what happened in its own words and th
   version put the wall at +Z - so the test measured somebody walking cheerfully away from it and
   reported that phasing had failed. The assertion was right and the geometry was wrong, which is the
   more dangerous shape: a test that fails for a reason that has nothing to do with what it names.
+
+## Dungeons and a roguelike for `firstlight` - decided, not yet costed (2026-09-28)
+
+Raised by the user while the Fairground capabilities were being built: a player part-way through
+Firstlight's story gets bored, steps through a portal, and fights a dungeon - traps, spawners,
+mini-bosses, a boss, a defined start and end, alone or with somebody. Feasibility is being researched
+separately; **what follows is settled regardless of what that finds.**
+
+### The decisions
+
+- **Procedural, not hand-built, for both.** The user: *"i dont want to do things by hand much... for
+  this i would prefer structural, both for roguelike as well as regular dungeons."* `/struct save`
+  stays useful for Fairground's arenas; dungeons generate.
+- **Which makes them one thing and not two.** If neither is hand-built, a "dungeon" and a "roguelike
+  run" are two settings of one generator: a dungeon is **one floor with an exit**, a roguelike is
+  **floors until you die**. Same rooms, same traps, same boss placement - different run length and
+  different what-carries-over. `open_instance` already takes a **seed**, so the same registered dungeon
+  lays out differently every run; that *is* the roguelike loop with no extra machinery.
+- **Two difficulty modes, and the harsh one is bought.** Lose-your-items is gated behind an in-game
+  currency rather than offered freely. That is better than a warning: it gives the gentle mode a
+  **reason to exist** - play safe to earn, spend to enter a risky run - where otherwise a child who
+  wants good loot never picks safe and one who does never picks risky. Ledgers are built, so the cost
+  is a number and a confirmation rather than a system.
+- **The two modes rest on per-realm rules**, built earlier the same day. Until then `keep_inventory`
+  was server-wide and a harsh dungeon could not sit beside a forgiving overworld. Now it is one line of
+  difference between two runs of the same arena. Lucky timing rather than planning, and worth saying so.
+- **1.0 grows to four games and the user accepts it**: *"firstlight which is a story mode + combat
+  stuff as dungeons n roguelikes, oneblock which is just plain fun! and then fairgrounds which is just
+  another fun activity too."* Story, combat, plain fun, party games - a defensible shape for a release.
+
+### The risk, which is not the code
+
+A rooms-and-corridors generator is a known quantity. **What makes a roguelike fun or boring is the room
+vocabulary, the pacing of pressure and relief, and whether runs differ from one another** - content and
+tuning, found by playing rather than by building. The engine risk here is low and the "is this actually
+fun" risk is the whole thing, which is the opposite of how it will feel while writing it.
+
+One guard that follows from that and is cheap if done from the start: **runs must differ by more than
+layout**, or floor three of run two is floor three of run one with the corridors moved. Modifiers and
+conditions already exist, so per-run boons and curses are content rather than machinery.
+
+### Open, and worth settling before any of it is built
+
+**Does a run share Firstlight's world at all** - your gear, your gathered levels, your guidebook - or
+do you enter with a kit and leave with loot? That decides whether this is a side activity inside the
+story or a separate game wearing the same clothes, and it is far cheaper to answer now than later.
