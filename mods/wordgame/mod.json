@@ -1,0 +1,15 @@
+{
+	"id": "wordgame",
+	"name": "Stand On The Answer",
+	"version": "1.0.0",
+	"description": "A question, four coloured squares, and the wrong three fall away. Spelling and sums in a costume. A game for the Fairground.",
+	"kind": "addon",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.1",
+	"depends": [
+		"base@^1.0",
+		"fairground@^1.0"
+	]
+}

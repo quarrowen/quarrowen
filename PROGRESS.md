@@ -8777,3 +8777,39 @@ by a different route. The others on that list - item loss dropping into the over
 leaking across realms, `remove_entity`, `get_container` - are all still waiting, and this one suggests
 the prediction was right about their character too: everything *registers* correctly and only the
 behaviour is wrong, so nothing fails loudly.
+
+### Stand On The Answer - built (2026-09-28)
+
+The second half of step 7, and the game the user picked the Fairground for. A question, four coloured
+squares, and the wrong three fall away.
+
+**The world has no text in it**, which is the first thing this had to solve: there is no way to write
+"because" on a block. So the answers are read out in the title and the squares are *coloured* - "stand
+on crimson". `base` ships sixteen hues whose names were chosen, in that file's own words, to be "plain
+enough for an eight-year-old to say"; four of them far apart in hue is exactly the vocabulary this
+needed. A capability written for builders, doing a job nobody had in mind for it.
+
+**The questions are a JSON file**, as the user asked - nothing in the code names a single one, and
+adding a question needs no code. Twenty-one to start: spelling, sums, and a few about the world.
+**The right answer is always first in the file** and the game shuffles, so whoever writes a question
+never has to think about where to hide it.
+
+**Squares are taken away rather than made deadly.** A floor that drops you is a consequence a child can
+see coming and laugh at; a floor that hurts you is a punishment. The Fairground turns fall damage off
+in every arena, so the worst that happens is the walk back up - and because it scores rather than
+eliminates, a wrong answer costs you that question and not the game.
+
+**Not built on regions, deliberately**, even though regions were built partly for this. The question
+here is "where is this player *at this instant*", and a region answers "when did somebody cross a
+line" - the right tool for a doorway and the wrong one for a snapshot. Plain geometry is both simpler
+and more correct. Worth writing down: a capability built for a use case is not always the right answer
+for it.
+
+### Where the Fairground stands
+
+Two mods, neither knowing about the other, both answering the same roll call: `2 games at the
+fairground`, two doors in the hub, two working rounds. That is the registry doing exactly the job it
+was designed for, and the strongest evidence that `api.emit` was the right shape.
+
+Left for it, all content rather than capability: best-score boards beside each door, more games, and
+somebody playing it.

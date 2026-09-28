@@ -1,0 +1,28 @@
+{
+	"_comment": "Questions for Stand On The Answer. Four answers each; the first is the right one and the game shuffles them, so you never have to think about where to put it. Keep them short - this is read off a wall by a child standing on a coloured square with a clock running. Add your own: nothing in the code names any of these.",
+	"questions": [
+		{"ask": "Which is spelled correctly?", "answers": ["because", "becuase", "becasue", "becouse"]},
+		{"ask": "Which is spelled correctly?", "answers": ["friend", "freind", "frend", "friennd"]},
+		{"ask": "Which is spelled correctly?", "answers": ["beautiful", "beutiful", "beautifull", "butiful"]},
+		{"ask": "Which is spelled correctly?", "answers": ["tomorrow", "tommorow", "tomorow", "tommorrow"]},
+		{"ask": "Which is spelled correctly?", "answers": ["enough", "enuogh", "enogh", "enuff"]},
+		{"ask": "Which is spelled correctly?", "answers": ["people", "peaple", "peopel", "pepole"]},
+		{"ask": "Which is spelled correctly?", "answers": ["different", "diffrent", "diferent", "differant"]},
+
+		{"ask": "7 + 6", "answers": ["13", "12", "14", "11"]},
+		{"ask": "9 x 4", "answers": ["36", "32", "34", "38"]},
+		{"ask": "20 - 7", "answers": ["13", "14", "12", "17"]},
+		{"ask": "48 / 6", "answers": ["8", "6", "7", "9"]},
+		{"ask": "Half of 30", "answers": ["15", "16", "13", "20"]},
+		{"ask": "Double 14", "answers": ["28", "26", "24", "30"]},
+		{"ask": "3 x 7", "answers": ["21", "24", "18", "27"]},
+
+		{"ask": "Which one is a bird?", "answers": ["owl", "otter", "adder", "oak"]},
+		{"ask": "Which one is a tree?", "answers": ["birch", "badger", "basalt", "bream"]},
+		{"ask": "How many legs has a spider?", "answers": ["8", "6", "10", "4"]},
+		{"ask": "Which is the biggest?", "answers": ["a kilometre", "a metre", "a centimetre", "a millimetre"]},
+		{"ask": "Which one is frozen water?", "answers": ["ice", "steam", "sand", "smoke"]},
+		{"ask": "How many days in a week?", "answers": ["7", "5", "10", "12"]},
+		{"ask": "Which one is a colour?", "answers": ["indigo", "igloo", "insect", "island"]}
+	]
+}
