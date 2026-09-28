@@ -375,19 +375,27 @@ it every time**, because those launch the game, and `tools/run_tests.sh` does no
 So the open editor is not the culprit and closing it fixes nothing: it is the test suite, and any run
 including `e2e:*` will do it again.
 
-## Right now: do not tag a release
+## Right now: builds go to friends, and a tag is back on the table
 
-**The games are deleted**, so a release from master would ship an engine with nothing to play. The
-children have been told 1.0 will be a fresh game, and that is what a tag waits for. Push to master as
-much as you like — that only runs tests.
+**This section said "do not tag a release - the games are deleted" until 28 September 2026, and that
+had stopped being true.** Four games ship again (`creative`, `fairground`, `firstlight`, `oneblock`)
+plus two addons, so a build from master has plenty to play. The user is preparing Windows and macOS
+builds for friends to try. A stale prohibition is worse than no prohibition: it is a rule somebody
+follows without checking.
+
+What still holds: **`Protocol.VERSION` resets to 1 when 1.0 is cut**, not before, and the moment a
+build is in somebody else's hands a bump stops being free - two friends on different downloads must be
+refused at the door with a readable message rather than shaking hands and talking past each other. So
+bump it whenever the wire changes, and **re-cut every build together** rather than expecting people to
+have matching versions by luck.
 
 The older reason — that the children were playing 0.41.1 and would be auto-updated into a protocol the
 family server did not speak — **no longer applies**, and believing it made protocol bumps feel more
 dangerous than they are. The user, 2026-09-22: *"kids are not playing quarrowen currently. they wont be
 playing it till 1.0 is available... the only person running the built client is me on my own laptop."*
 
-So `Protocol.VERSION` may be bumped freely for now; only a laptop build is affected and it is rebuilt.
-It is at 50 through ordinary churn, and **resets to 1 when 1.0 is cut**, not before: freezing it early
+So `Protocol.VERSION` was bumped freely while only a laptop ran a build. It is at 60 through ordinary
+churn, and **resets to 1 when 1.0 is cut**, not before: freezing it early
 would be actively harmful, because that number is the only thing that refuses a mismatched client at
 the door. Freeze it while the wire still changes and two incompatible builds shake hands and then talk
 past each other, which presents as an unexplained hang rather than as a version problem.
