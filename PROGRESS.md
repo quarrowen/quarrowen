@@ -9103,11 +9103,27 @@ Two engine bugs it found on the way, both now fixed and both with a test that fa
 
 ### What the descent still needs
 
-1. **Both entrances.** A command (`/descent`, `/descent harsh`) is the only way in, and that is scaffolding.
-   The design asks for entrances found while exploring (a worldgen structure with a way down in it) and
-   one that can be built. The buildable one probably wants `register_multiblock` - a controller block with
-   a pattern round it - which was not used here because it needed reading properly rather than guessing,
-   and a loop that can be walked beats an entrance into a loop that cannot.
+1. ~~**Both entrances.**~~ **Done, 28 September 2026, and they turned out to be one thing.** A portal
+   standing on deepstone is a way down - checked where somebody stands rather than written into the block
+   when it is placed - so the chamber you stumble on underground and the doorway you build yourself are
+   the same object, and learning either teaches the other.
+
+   **No new block, which is the part worth keeping.** The obvious move was a `firstlight:deepway` block,
+   and it was wrong twice: a new noun in a game mod (`base` owns nouns) and a texture in a mod that has
+   none. `base:portal` already means "a doorway that goes somewhere" and is inert without a destination
+   in its data, so the noun existed and only the rule was missing. Neither `register_multiblock` nor a new
+   block was needed in the end.
+
+   And **deepstone is the gate with no gating code**: it is only found well below the surface, so building
+   a deepway requires having already been down there. The progression is enforced by where the material is.
+
+   Two smaller things it settled. The found chamber cannot carry block data - a structure template is a
+   palette and a list of cells - which is the *other* reason the rule is "a portal on deepstone" rather
+   than a marker written at placement. And the doorway is found by **polling** rather than by a region,
+   because world generation puts chambers wherever it likes without telling anybody: covering them all
+   would be a region each against 256 in the whole server, while reading one block under each online
+   player costs nothing. The descent's own floors still use regions, because a mod that built the floor
+   knows where it put the stairs.
 2. **The currency gate on harsh.** The user's words were that losing your things should be "the high
    risk, high reward option which we could also gate behind some kind of in-game currency as well so
    that its more of a choice". Nothing is gated yet; `/descent harsh` is free. `register_ledger` is the

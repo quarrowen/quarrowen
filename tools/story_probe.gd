@@ -270,6 +270,32 @@ func _descend(server, p) -> Array:
 		return ["firstlight has no descent"]
 	var descent = mod.descent
 	print("")
+
+	# **A way in that world generation actually placed.** Asked of the same seeded computation that places
+	# it, so it answers for a chamber nobody has been near - which is the lesson the altar's marker paid
+	# an afternoon for. A mechanic whose only entrance is a command is a mechanic nobody finds.
+	# firstlight keeps no api member; the descent does, which is the nearest handle to the thing being asked about.
+	var mouth: Vector3 = descent.api.find_structure("deepway_site", p.state.position)
+	if mouth == Vector3.INF:
+		problems.append("world generation places no deepway chamber anywhere near the player")
+	else:
+		print("deepway:   nearest chamber at %s, %.0f blocks away" % [mouth, mouth.distance_to(p.state.position)])
+		server.ensure_area_loaded(mouth)
+		var door := Vector3i(mouth.floor())
+		var found := Vector3i.MAX
+		for dy in range(-2, 4):
+			for dx in range(-4, 5):
+				for dz in range(-4, 5):
+					var cell := door + Vector3i(dx, dy, dz)
+					if server.get_block_loaded(cell) == server.registry.id_of("base:portal"):
+						found = cell
+		if found == Vector3i.MAX:
+			problems.append("the deepway chamber at %s has no doorway in it" % mouth)
+		elif server.get_block_loaded(found - Vector3i(0, 1, 0)) != server.registry.id_of("base:deepstone"):
+			problems.append("the doorway at %s is not standing on deepstone, so it is not a way down" % found)
+		else:
+			print("deepway:   a doorway on deepstone at %s" % found)
+
 	if not descent.enter(p, false):
 		return ["the descent refused to open"]
 	var first := String(server.realm_of(p).id)

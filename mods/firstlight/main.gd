@@ -30,6 +30,7 @@ const Reed = preload("res://mods/firstlight/reed.gd")
 const Moonpearl = preload("res://mods/firstlight/moonpearl.gd")
 const Pages = preload("res://mods/firstlight/pages.gd")
 const Descent = preload("res://mods/firstlight/descent.gd")
+const WaysDown = preload("res://mods/firstlight/ways_down.gd")
 
 const SEA_LEVEL := 62
 
@@ -42,6 +43,7 @@ var reed := Reed.new()
 var moonpearl := Moonpearl.new()
 var pages := Pages.new()
 var descent := Descent.new()
+var ways_down := WaysDown.new()
 
 
 func setup(api) -> void:
@@ -57,6 +59,7 @@ func setup(api) -> void:
 	reed.setup(api)
 	moonpearl.setup(api)
 	descent.setup(api)
+	ways_down.setup(api, descent)
 	_descent_ways_in(api)
 
 
