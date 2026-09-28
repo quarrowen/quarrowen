@@ -8569,11 +8569,28 @@ One guard that follows from that and is cheap if done from the start: **runs mus
 layout**, or floor three of run two is floor three of run one with the corridors moved. Modifiers and
 conditions already exist, so per-run boons and curses are content rather than machinery.
 
-### Open, and worth settling before any of it is built
+### Answered: a run shares Firstlight's world
 
-**Does a run share Firstlight's world at all** - your gear, your gathered levels, your guidebook - or
-do you enter with a kit and leave with loot? That decides whether this is a side activity inside the
-story or a separate game wearing the same clothes, and it is far cheaper to answer now than later.
+The user, asked whether a run brings your own gear or hands you a kit: *"i think yes it shares loot,
+inventory, etc. since its a choice to enter a roguelike or even a regular dungeon, players can just
+leave their valuables in their base if they are worried about the run."*
+
+So you bring what you bring, and what you find comes home with you. Three things follow:
+
+- **No kit system**, which is the opposite of the Fairground and a nice symmetry to keep: **the
+  Fairground lends you things, the dungeon lets you bring your own.**
+- **The harsh mode is genuinely harsh**, because the items at risk are the ones you care about rather
+  than a loadout. The currency gate is what makes that a choice rather than a trap.
+- **Difficulty has to cope with whatever walks in.** A child in iron and a child in cobalt meet the
+  same dungeon, which is the classic problem and needs an answer before the first floor is tuned.
+  Leaving your valuables at base becomes real player behaviour, and probably something Wick should
+  say out loud once.
+
+### Sequenced after the Fairground (28 September 2026)
+
+The user: *"we can circle back to it after fairground is finished."* So this waits, and the realm
+repairs in the section below wait with it - none of them blocks the Fairground, which uses instances
+only as throwaway arenas that nobody dies in.
 
 ### Researched: the dungeon is not blocked by the dungeon (2026-09-28)
 

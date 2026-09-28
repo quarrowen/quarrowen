@@ -19,6 +19,9 @@ const Protocol = preload("res://mods/fairground/protocol.gd")
 const LINGER := 4.0
 ## The countdown before a round starts, which is also how long somebody has to realise they are in it.
 const COUNTDOWN := 5.0
+## How often a round is asked how it is going. One second: a game that needs finer timing than that
+## keeps its own `api.every`, and asking every frame would put a mod's handler in the physics loop.
+const TICK := 1.0
 
 var api
 ## game id -> definition (see protocol.gd)
@@ -27,6 +30,10 @@ var games := {}
 var live := {}
 
 var _hub
+## Seconds since this mod started, counted here. **The mod API exposes the time *of day***, which runs
+## on the world clock and restarts with the server, so it cannot answer "how long has this round been
+## going". `wick.gd` keeps its own for the same reason.
+var _elapsed := 0.0
 
 
 func setup(mod_api, hub) -> void:
@@ -38,11 +45,13 @@ func setup(mod_api, hub) -> void:
 	for entry in answer.games:
 		var read := Protocol.clean(entry, _owner_of(entry))
 		if read.has("error"):
-			api.log_warn("a game was refused: %s" % read.error)
+			api.warn("a game was refused: %s" % read.error)
 			continue
 		games[read.game.id] = read.game
-	api.log_info("%d game%s at the fairground" % [games.size(), "" if games.size() == 1 else "s"])
-	api.every(1.0, _tick)
+	api.info("%d game%s at the fairground" % [games.size(), "" if games.size() == 1 else "s"])
+	api.every(TICK, func():
+		_elapsed += TICK
+		_tick())
 
 
 ## Which mod appended a game. **Taken from the entry rather than guessed**, because `emit` hands every
@@ -72,10 +81,14 @@ func begin(game_id: String, starters: Array) -> String:
 	# **The arena's own rules, which is what per-realm gameplay was built for.** Nothing spawns, nobody
 	# starves, and falling is the game's business rather than the engine's - a round that killed you
 	# for landing badly would be a different game every time somebody built a ledge.
+	#
+	# Set on **the instance's own id, not the kind's**: each run is its own realm ("fairground:arena#3"), so
+	# the rules are set on the realm that was just opened rather than on the name it was opened from -
+	# which would have set them on a realm that does not exist and silently done nothing.
 	api.set_gameplay({"mob_spawning": false, "hunger": false, "fall_damage": false,
-		"keep_inventory": true, "pvp": false}, "arena")
+		"keep_inventory": true, "pvp": false}, instance)
 	var round_id := instance
-	live[round_id] = {"game": game_id, "instance": instance, "started": api.now(),
+	live[round_id] = {"game": game_id, "instance": instance, "started": _elapsed,
 		"seconds": float(game.seconds) + COUNTDOWN, "players": starters.duplicate(),
 		"scores": {}, "out": {}, "state": {}}
 	for p in starters:
@@ -98,7 +111,7 @@ func _tick() -> void:
 		if game.is_empty():
 			_finish(round_id)
 			continue
-		var elapsed: float = api.now() - float(run.started)
+		var elapsed: float = _elapsed - float(run.started)
 		if elapsed < COUNTDOWN:
 			continue
 		var left: float = float(run.seconds) - elapsed
