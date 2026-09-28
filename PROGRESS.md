@@ -9112,11 +9112,23 @@ Two engine bugs it found on the way, both now fixed and both with a test that fa
    risk, high reward option which we could also gate behind some kind of in-game currency as well so
    that its more of a choice". Nothing is gated yet; `/descent harsh` is free. `register_ledger` is the
    capability to spend.
-3. **Solo only.** A floor takes one player, because a party has real questions in it - if one of you
-   takes the way down, what happens to the others standing on floor four - and answering them badly is
-   worse than not answering them yet. Options when it is picked up: the party moves together when the
-   last of them steps on the pad; or a floor stays open while anybody is on it and the way down opens a
-   floor *per party* rather than per player.
+3. **Solo only, and the party design is settled** (the user, 28 September 2026: *"maybe some kind of
+   mode where leader leads the way? party cant go below until leader goes and when leader goes everyone
+   goes along"*). **The leader leads.** Nobody can take the way down except the leader, and when the
+   leader takes it the whole party goes with them. Not built yet - "we can circle back to it" - but the
+   answer is recorded because it resolves the question that kept it solo.
+
+   Why it is a good answer, worth writing down so it is not re-argued: the hard case was one player
+   dropping to floor five while the others were still on floor four, which needs either two floors open
+   at once per party or somebody being dragged. **The leader rule deletes the case rather than handling
+   it** - there is only ever one floor per party, so there is nothing to synchronise and no partial
+   state to get wrong. It also makes the cash-out decision a conversation, which is the best thing that
+   can happen to a group mechanic.
+
+   What it still needs deciding when picked up: whether the *way up* is also leader-only (probably not -
+   anybody should be able to leave with their things, and one person leaving does not end the run), what
+   happens when the leader logs out mid-run (hand the lead on, or the run ends), and `max_players` on
+   the floor kind, currently 1.
 4. **Nothing marks a run in the interface.** No depth on screen, no way to see how deep you have been.
    A personal best per player would give the descent the thing the Fairground's boards give its games.
 5. **A boss.** `barrow_warden` (80 health) is the obvious one and is deliberately not in the nest bands:
