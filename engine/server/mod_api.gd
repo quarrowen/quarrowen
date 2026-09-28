@@ -3129,11 +3129,11 @@ func show_area(player, cells: Array, options := {}) -> void:
 ##
 ## **Admin, not a player action**: no permission check, no events, no budget, no drops. For a tool a
 ## player holds, use `area_edit`, which asks all of those.
+## **It does not run machinery.** Block ticks, signals, liquids, multiblocks and links are told once per
+## chunk rather than once per block - which is what makes it usable for a room-sized box at all. Use
+## `set_block` for a block that something is attached to.
 func fill(from: Vector3i, to: Vector3i, id: int, realm_id := "") -> void:
-	for x in range(mini(from.x, to.x), maxi(from.x, to.x) + 1):
-		for y in range(mini(from.y, to.y), maxi(from.y, to.y) + 1):
-			for z in range(mini(from.z, to.z), maxi(from.z, to.z) + 1):
-				_server.set_block_authoritative(Vector3i(x, y, z), id, false, 0, _realm_or_default(realm_id))
+	_server.fill_blocks(from, to, id, _realm_or_default(realm_id))
 
 
 ## Y of the highest non-air block in the column, or -1.

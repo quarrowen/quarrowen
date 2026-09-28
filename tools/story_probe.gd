@@ -317,6 +317,20 @@ func _descend(server, p) -> Array:
 	var floor_here: int = server.realms[first].world.get_block_v(Vector3i(0, 40, 0))
 	if floor_here == 0 or floor_here == 65535:
 		problems.append("the floor of the descent is not there (block %d at 0,40,0)" % floor_here)
+
+	# **Is the room actually shut?** A floor that is open to the sky anywhere is lit by the sun - the
+	# client drops sky light straight down until something opaque stops it - so it would be white by day
+	# and dark by night whatever lamps were in it. Checked by walking up the column over where the player
+	# lands and asking whether anything opaque is above them at all.
+	var head := Vector3(run.get("entry", Vector3.ZERO))
+	var above := 0
+	for y in range(int(head.y), 256):
+		var b: int = server.realms[first].world.get_block(int(head.x), y, int(head.z))
+		if b > 0 and b != 65535 and server.registry.defs[b].get("opaque", true):
+			above += 1
+	print("descent:   %d opaque blocks above the landing" % above)
+	if above == 0:
+		problems.append("the descent is open to the sky above where the player lands")
 	if not server.gameplay_in(first).get("keep_inventory", false):
 		problems.append("a gentle descent should keep your things (keep_inventory is off in %s)" % first)
 

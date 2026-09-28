@@ -342,3 +342,10 @@ func _column_height(x: int, z: int) -> int:
 
 static func _local(index: int) -> Vector3i:
 	return Vector3i(index & 15, index >> 8, (index >> 4) & 15)
+
+
+## Drops what was worked out about one chunk, so it is measured again when next asked. Used by a bulk
+## fill, which changes far too many blocks to keep the caches current one at a time.
+func forget_chunk(coord: Vector2i) -> void:
+	_heights.erase(coord)
+	_lights.erase(coord)

@@ -487,7 +487,10 @@ removed automatically when the block is broken or replaced."><div class="sig"><c
 <div class="card" id="api-fill" data-search="fill fill sets every block in the box between two corners (inclusive) to a block id.
 
 **admin, not a player action**: no permission check, no events, no budget, no drops. for a tool a
-player holds, use `area_edit`, which asks all of those."><div class="sig"><code>api.fill(from: Vector3i, to: Vector3i, id: int, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="fill(from: Vec3, to: Vec3, id: BlockId): void">JS fill</span></div><p>Sets every block in the box between two corners (inclusive) to a block id.<br><br>**Admin, not a player action**: no permission check, no events, no budget, no drops. For a tool a<br>player holds, use `area_edit`, which asks all of those.</p></div>
+player holds, use `area_edit`, which asks all of those.
+**it does not run machinery.** block ticks, signals, liquids, multiblocks and links are told once per
+chunk rather than once per block - which is what makes it usable for a room-sized box at all. use
+`set_block` for a block that something is attached to."><div class="sig"><code>api.fill(from: Vector3i, to: Vector3i, id: int, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="fill(from: Vec3, to: Vec3, id: BlockId): void">JS fill</span></div><p>Sets every block in the box between two corners (inclusive) to a block id.<br><br>**Admin, not a player action**: no permission check, no events, no budget, no drops. For a tool a<br>player holds, use `area_edit`, which asks all of those.<br>**It does not run machinery.** Block ticks, signals, liquids, multiblocks and links are told once per<br>chunk rather than once per block - which is what makes it usable for a room-sized box at all. Use<br>`set_block` for a block that something is attached to.</p></div>
 <div class="card" id="api-surface-y" data-search="surface_y surfacey y of the highest non-air block in the column, or -1."><div class="sig"><code>api.surface_y(x: int, z: int, realm_id := &quot;&quot;) -&gt; int</code><span class="tag js" title="surfaceY(x: number, z: number): number">JS surfaceY</span></div><p>Y of the highest non-air block in the column, or -1.</p></div>
 </section>
 <section id="api-players-and-gameplay"><h2>Players and gameplay</h2>

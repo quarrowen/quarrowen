@@ -116,6 +116,9 @@ const MAX_VIEW_DISTANCE := 24
 const UNLOAD_MARGIN := 2
 const SPAWN_RADIUS := 2
 const CHUNK_SENDS_PER_PLAYER_PER_TICK := 3
+## How often each player is reminded which world they are in. Two seconds: long enough to cost nothing,
+## short enough that a lost realm change is a stumble rather than a broken session.
+const REALM_CHECK_EVERY := 2.0
 ## Pending chunks examined per player per tick while looking for ready ones to send.
 const STREAM_SCAN := 48
 const TIME_SYNC_INTERVAL := 30.0
@@ -463,6 +466,7 @@ var connect := Connect.new(self)
 ## Materials, parts and tools built from parts (see Assembly).
 var assembly := Assembly.new()
 var _snapshot_round := 0
+var _realm_check_due := 0.0
 var _support_rules := {}  # block id -> null (none) | true (solid below) | {block id: true}
 var _fuels := {}  # item id -> seconds it burns
 var _processes := {}  # kind -> {input item id: {output, count, seconds}}
@@ -2339,6 +2343,7 @@ func _physics_process(delta: float) -> void:
 	mod_reload.update(delta)
 	ugc.update(delta)
 	tutorials.update(delta)
+	_tell_realms(delta)
 	var t_systems := Time.get_ticks_usec()
 	var sim_usec := 0
 	var stream_usec := 0
@@ -2942,6 +2947,45 @@ func broadcast_entity_event(e, kind: int, arg: int) -> void:
 ## Sound name for a block action ("break", "place", "step"); empty when the block has none.
 func block_sound(block: int, action: String) -> String:
 	return String(registry.defs[block].sounds.get(action, "")) if registry.is_valid(block) else ""
+
+
+## Tells everybody which world they are in, every couple of seconds.
+##
+## **A cheap repeat of something the client was already told once**, because `s_realm` arriving is not
+## guaranteed in practice - see `Net.s_realm_check`. One short string per player per two seconds is
+## nothing next to the chunk stream, and it turns a silent, unrecoverable desync into a hiccup.
+func _tell_realms(delta: float) -> void:
+	if not _started:
+		return
+	_realm_check_due -= delta
+	if _realm_check_due > 0.0:
+		return
+	_realm_check_due = REALM_CHECK_EVERY
+	for p: ServerPlayer in players.values():
+		if p._online():
+			Net.s_realm_check.rpc_id(p.peer_id, realm_of(p).id)
+
+
+## A client saying it is holding the wrong world. Forget what it has been sent so the stream starts
+## again, and tell it where it is - it may have missed that too, which is how it got here.
+func on_resync(peer_id: int) -> void:
+	var p: ServerPlayer = players.get(peer_id)
+	if p == null:
+		return
+	if too_often(p, "resync", 2.0):
+		return  # a client asking constantly would otherwise be a client asking for the world constantly
+	var into: Realm = realm_of(p)
+	push_warning("[server] %s was holding the wrong world; sending %s again" % [p.name, into.id])
+	Net.s_realm.rpc_id(p.peer_id, into.id, into.display_name)
+	var arriving := links_for(into.id)
+	if not arriving.is_empty():
+		Net.s_links.rpc_id(p.peer_id, arriving)
+	Net.s_rules.rpc_id(p.peer_id, rules_in(into.id).to_dict())
+	p.sent_chunks.clear()
+	p.pending_chunks.clear()
+	p.stream_center = Vector2i(1 << 30, 0)
+	p.known_entities.clear()
+	p.known_entities_stale = true
 
 
 func _send_snapshots() -> void:
@@ -3913,6 +3957,75 @@ func get_block_loaded(pos: Vector3i, into: Realm = null) -> int:
 	if pos.y >= 0 and pos.y < Chunk.SIZE_Y:
 		_ensure_chunk(VoxelWorld.chunk_coord_at(pos.x, pos.z), into)
 	return into.world.get_block_v(pos)
+
+
+## Writes a box of blocks straight into the chunks, telling each subsystem once per chunk instead of
+## once per block. Returns how many blocks were written.
+##
+## **This is what `api.fill` always claimed to be.** It went through `set_block_authoritative` per block,
+## and `_apply_block` notifies block ticks, signals, liquids, multiblocks and links *every time* - so a
+## 57x57x8 room cost about 130,000 subsystem calls and **blocked the server for 8.1 seconds**, measured.
+## The client's connection timed out during it about half the time, which presented as a realm change
+## that silently did not happen: the player kept the world they had while the server believed they were
+## somewhere else. Two days of symptoms upstream of one loop. (2026-09-28)
+##
+## The rule this leaves: **`fill` is for building rooms, `set_block` is for changing a world somebody is
+## standing in.** Fill does not run machinery - a conveyor filled over is not told, a liquid is not
+## re-settled - because a builder laying a floor does not want thirty thousand notifications and the one
+## who edits a live machine does.
+func fill_blocks(from: Vector3i, to: Vector3i, id: int, into: Realm = null) -> int:
+	into = into if into != null else realm
+	if not registry.is_valid(id):
+		push_error("fill: %d is not a block id" % id)
+		return 0
+	var lo := Vector3i(mini(from.x, to.x), maxi(mini(from.y, to.y), 0), mini(from.z, to.z))
+	var hi := Vector3i(maxi(from.x, to.x), mini(maxi(from.y, to.y), Chunk.SIZE_Y - 1), maxi(from.z, to.z))
+	if lo.y > hi.y:
+		return 0
+	var written := 0
+	var touched := {}
+	for cx in range(VoxelWorld.chunk_coord_at(lo.x, lo.z).x, VoxelWorld.chunk_coord_at(hi.x, hi.z).x + 1):
+		for cz in range(VoxelWorld.chunk_coord_at(lo.x, lo.z).y, VoxelWorld.chunk_coord_at(hi.x, hi.z).y + 1):
+			var coord := Vector2i(cx, cz)
+			_ensure_chunk(coord, into)
+			var chunk = into.world.chunks.get(coord)
+			if chunk == null:
+				continue
+			# The same snapshot `_apply_block` takes, so what is saved is still a difference from the
+			# terrain that was generated rather than the whole thing.
+			if not into.ephemeral and not into.generated.has(coord):
+				into.generated[coord] = chunk.blocks.duplicate()
+			if not into.ephemeral and not into.deltas.has(coord):
+				into.deltas[coord] = {}
+			var x0 := maxi(lo.x, cx * 16)
+			var x1 := mini(hi.x, cx * 16 + 15)
+			var z0 := maxi(lo.z, cz * 16)
+			var z1 := mini(hi.z, cz * 16 + 15)
+			for x in range(x0, x1 + 1):
+				for z in range(z0, z1 + 1):
+					for y in range(lo.y, hi.y + 1):
+						into.world.set_block(x, y, z, id)
+						var index := Chunk.index(x & 15, y, z & 15)
+						chunk.states.erase(index)
+						# An instance is never written to disk, so the difference from what was generated
+						# is bookkeeping nobody will ever read - and it is a dictionary write per block.
+						if not into.ephemeral:
+							if into.generated[coord].decode_u16(index << 1) == id:
+								into.deltas[coord].erase(index)
+							else:
+								into.deltas[coord][index] = id
+						written += 1
+			touched[coord] = true
+			into.save_dirty[coord] = true
+	# Once per chunk, not once per block: the height and light caches are rebuilt when next asked.
+	for coord: Vector2i in touched:
+		into.block_ticks.forget_chunk(coord)
+		# Anybody in this realm holding the old chunk is sent it again.
+		for p: ServerPlayer in players.values():
+			if realm_of(p) == into and p.sent_chunks.has(coord):
+				p.sent_chunks.erase(coord)
+				p.stream_center = Vector2i(1 << 30, 0)
+	return written
 
 
 func set_block_authoritative(pos: Vector3i, id: int, keep_data := false, state := 0, into: Realm = null) -> void:

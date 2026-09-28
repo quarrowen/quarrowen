@@ -537,7 +537,10 @@ long it was asleep rather than losing the time. server/block_ticks.gd blocks and
 that is loaded is left alone. The clock advances either way, so a chunk that comes back is told how
 long it was asleep rather than losing the time.</p></div>
 <div class="card" data-search="light_levels {sky, block} light levels (0-15) at a position; sky is not scaled by the time of day. server/block_ticks.gd blocks and the world"><div class="sig"><code>light_levels(pos: Vector3i) -&gt; Dictionary</code></div><p>{sky, block} light levels (0-15) at a position; sky is not scaled by the time of day.</p></div>
-<div class="card" data-search="light_at light plants and mobs care about: block light or daylight-scaled sky light, whichever is brighter. server/block_ticks.gd blocks and the world"><div class="sig"><code>light_at(pos: Vector3i, daylight: float) -&gt; int</code></div><p>Light plants and mobs care about: block light or daylight-scaled sky light, whichever is brighter.</p></div></section>
+<div class="card" data-search="light_at light plants and mobs care about: block light or daylight-scaled sky light, whichever is brighter. server/block_ticks.gd blocks and the world"><div class="sig"><code>light_at(pos: Vector3i, daylight: float) -&gt; int</code></div><p>Light plants and mobs care about: block light or daylight-scaled sky light, whichever is brighter.</p></div>
+<div class="card" data-search="forget_chunk drops what was worked out about one chunk, so it is measured again when next asked. used by a bulk
+fill, which changes far too many blocks to keep the caches current one at a time. server/block_ticks.gd blocks and the world"><div class="sig"><code>forget_chunk(coord: Vector2i) -&gt; void</code></div><p>Drops what was worked out about one chunk, so it is measured again when next asked. Used by a bulk
+fill, which changes far too many blocks to keep the caches current one at a time.</p></div></section>
 <section id="e-server-connect-gd"><h2>connect.gd <span class="file">server/connect.gd</span></h2><p class="lead">Blocks that notice their neighbours: fences that join into a run, walls that meet at a corner, panes that make a window rather than four separate sheets of glass.</p><div class="card" data-search="refresh_around called when a block is placed or broken: fixes up that cell and the four around it. server/connect.gd blocks and the world"><div class="sig"><code>refresh_around(pos: Vector3i, into = null) -&gt; void</code></div><p>Called when a block is placed or broken: fixes up that cell and the four around it.</p></div>
 <div class="card" data-search="refresh puts the right form of a connecting block at `pos`, if what is there is one. server/connect.gd blocks and the world"><div class="sig"><code>refresh(pos: Vector3i, into = null) -&gt; void</code></div><p>Puts the right form of a connecting block at `pos`, if what is there is one.</p></div></section>
 <section id="e-server-explosions-gd"><h2>explosions.gd <span class="file">server/explosions.gd</span></h2><p class="lead">Explosions: `explode(center, power, options)`.</p><div class="card" data-search="explode options.realm: the world it goes off in (a realm, or null for the overworld). an explosion is a
@@ -2459,6 +2462,19 @@ This arrives on the same channel as chunks, and that is not incidental: the thre
 delivered independently, so a chunk sent a moment before the move would otherwise be free to arrive
 *after* it and be built into the world the player just walked into. Ordering only exists within a
 channel, so the message that ends a world travels in the same queue as the chunks it invalidates.</p></div>
+<div class="card" data-search="on_realm_check the server saying which world it believes this player is in. usually the one we are already in and
+nothing happens; when it is not, we missed a realm change and are holding a world that is not there
+any more - while the server streams the new one's chunks into it, so what is on screen is two worlds
+mixed together. drop everything and ask for it again.
+
+**this is a recovery, not a realm change**: `on_realm` does the teardown and the server resends the
+world, so the two paths stay one path. (2026-09-28) client/game_client.gd the client"><div class="sig"><code>on_realm_check(realm_id: String) -&gt; void</code></div><p>The server saying which world it believes this player is in. Usually the one we are already in and
+nothing happens; when it is not, we missed a realm change and are holding a world that is not there
+any more - while the server streams the new one's chunks into it, so what is on screen is two worlds
+mixed together. Drop everything and ask for it again.
+
+**This is a recovery, not a realm change**: `on_realm` does the teardown and the server resends the
+world, so the two paths stay one path. (2026-09-28)</p></div>
 <div class="card" data-search="on_assembly cables and pipes: the whole lot on joining, then one at a time as they are made.
 a set of blocks that has left the grid. built once from everything it is made of. client/game_client.gd the client"><div class="sig"><code>on_assembly(id: int, origin: Vector3i, blocks: PackedInt32Array) -&gt; void</code></div><p>Cables and pipes: the whole lot on joining, then one at a time as they are made.
 A set of blocks that has left the grid. Built once from everything it is made of.</p></div>
@@ -3086,6 +3102,9 @@ its own halfway through.</p></div>
 <div class="card" data-search="wind_state the wind as a mod sees it: {angle, strength}. server/game_server.gd the server itself"><div class="sig"><code>wind_state() -&gt; Dictionary</code></div><p>The wind as a mod sees it: {angle, strength}.</p></div>
 <div class="card" data-search="weather_state the weather as a mod sees it: {name, intensity}. &quot;&quot; when the sky is clear. server/game_server.gd the server itself"><div class="sig"><code>weather_state() -&gt; Dictionary</code></div><p>The weather as a mod sees it: {name, intensity}. "" when the sky is clear.</p></div>
 <div class="card" data-search="block_sound sound name for a block action (&quot;break&quot;, &quot;place&quot;, &quot;step&quot;); empty when the block has none. server/game_server.gd the server itself"><div class="sig"><code>block_sound(block: int, action: String) -&gt; String</code></div><p>Sound name for a block action ("break", "place", "step"); empty when the block has none.</p></div>
+<div class="card" data-search="on_resync a client saying it is holding the wrong world. forget what it has been sent so the stream starts
+again, and tell it where it is - it may have missed that too, which is how it got here. server/game_server.gd the server itself"><div class="sig"><code>on_resync(peer_id: int) -&gt; void</code></div><p>A client saying it is holding the wrong world. Forget what it has been sent so the stream starts
+again, and tell it where it is - it may have missed that too, which is how it got here.</p></div>
 <div class="card" data-search="set_world_time `time_of_day`: 0 = midnight, 0.25 = sunrise, 0.5 = noon. `day_length` in seconds, 0 = frozen. server/game_server.gd the server itself"><div class="sig"><code>set_world_time(time_of_day: float, day_length: float) -&gt; void</code></div><p>`time_of_day`: 0 = midnight, 0.25 = sunrise, 0.5 = noon. `day_length` in seconds, 0 = frozen.</p></div>
 <div class="card" data-search="on_auth the client proves it holds the private key for the identity it presented. server/game_server.gd the server itself"><div class="sig"><code>on_auth(peer_id: int, signature: PackedByteArray) -&gt; void</code></div><p>The client proves it holds the private key for the identity it presented.</p></div>
 <div class="card" data-search="on_claim_admin the local host proves it launched this server and becomes a permanent admin. server/game_server.gd the server itself"><div class="sig"><code>on_claim_admin(peer_id: int, token: String) -&gt; void</code></div><p>The local host proves it launched this server and becomes a permanent admin.</p></div>
@@ -3127,6 +3146,33 @@ does not say which world any more - the same coordinates exist in all of them - 
 for a player passes `realm_of(p)`, and anything acting for a creature passes its realm. server/game_server.gd the server itself"><div class="sig"><code>get_block_loaded(pos: Vector3i, into: Realm = null) -&gt; int</code></div><p>Every function here takes the world to act in, and `null` means the overworld. A position alone
 does not say which world any more - the same coordinates exist in all of them - so anything acting
 for a player passes `realm_of(p)`, and anything acting for a creature passes its realm.</p></div>
+<div class="card" data-search="fill_blocks writes a box of blocks straight into the chunks, telling each subsystem once per chunk instead of
+once per block. returns how many blocks were written.
+
+**this is what `api.fill` always claimed to be.** it went through `set_block_authoritative` per block,
+and `_apply_block` notifies block ticks, signals, liquids, multiblocks and links *every time* - so a
+57x57x8 room cost about 130,000 subsystem calls and **blocked the server for 8.1 seconds**, measured.
+the client's connection timed out during it about half the time, which presented as a realm change
+that silently did not happen: the player kept the world they had while the server believed they were
+somewhere else. two days of symptoms upstream of one loop. (2026-09-28)
+
+the rule this leaves: **`fill` is for building rooms, `set_block` is for changing a world somebody is
+standing in.** fill does not run machinery - a conveyor filled over is not told, a liquid is not
+re-settled - because a builder laying a floor does not want thirty thousand notifications and the one
+who edits a live machine does. server/game_server.gd the server itself"><div class="sig"><code>fill_blocks(from: Vector3i, to: Vector3i, id: int, into: Realm = null) -&gt; int</code></div><p>Writes a box of blocks straight into the chunks, telling each subsystem once per chunk instead of
+once per block. Returns how many blocks were written.
+
+**This is what `api.fill` always claimed to be.** It went through `set_block_authoritative` per block,
+and `_apply_block` notifies block ticks, signals, liquids, multiblocks and links *every time* - so a
+57x57x8 room cost about 130,000 subsystem calls and **blocked the server for 8.1 seconds**, measured.
+The client's connection timed out during it about half the time, which presented as a realm change
+that silently did not happen: the player kept the world they had while the server believed they were
+somewhere else. Two days of symptoms upstream of one loop. (2026-09-28)
+
+The rule this leaves: **`fill` is for building rooms, `set_block` is for changing a world somebody is
+standing in.** Fill does not run machinery - a conveyor filled over is not told, a liquid is not
+re-settled - because a builder laying a floor does not want thirty thousand notifications and the one
+who edits a live machine does.</p></div>
 <div class="card" data-search="surface_height y of the highest solid or liquid block in the column (loading it if needed), or -1. plants and
 other non-solid decorations are skipped, so things placed on the surface stand on the ground. server/game_server.gd the server itself"><div class="sig"><code>surface_height(x: int, z: int, into: Realm = null) -&gt; int</code></div><p>Y of the highest solid or liquid block in the column (loading it if needed), or -1. Plants and
 other non-solid decorations are skipped, so things placed on the surface stand on the ground.</p></div>
@@ -3422,7 +3468,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1260 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1264 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

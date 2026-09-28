@@ -9203,3 +9203,58 @@ not switch at all, with nothing in either log. Since `descent.enter` is reliable
   server believes you are somewhere else - and without that line the only way to tell the message from
   the handling of it was a screenshot.
 - `api.instance_problem()`, which should have existed all along beside `plot_problem` and `shop_problem`.
+
+### The 8-second stall, and what it was really causing 28 September 2026
+
+`api.fill` went through `set_block_authoritative` **per block**, and `_apply_block` notifies block ticks,
+signals, liquids, multiblocks and links *every time*. A descent floor is a 57x57x8 box, so building one
+was about 130,000 subsystem calls and **blocked the server for 8,138 ms** - measured, not estimated.
+
+That one loop was upstream of two days of symptoms:
+
+- **The client's connection timed out during the stall**, roughly half the time. That presented as a
+  realm change that silently did not happen: the player kept the world they were holding while the
+  server believed they were somewhere else, and the tell was `RPC 'c_map' on yourself is not allowed`
+  in the client log - which means the peer had gone and the client was talking to itself.
+- It is also the honest explanation of `Buffer full, dropping packets!`, which was suspected twice and
+  is a *consequence*: the server unblocks and dumps a backlog.
+
+`fill_blocks` writes straight into the chunks and tells each subsystem once per chunk. **8,138 ms ->
+38 ms**, and walking into the descent went from 2 of 6 attempts to **6 of 6**.
+
+The rule it leaves, now written on `api.fill`: **fill is for building rooms, `set_block` is for changing
+a world somebody is standing in.** Fill does not run machinery - a conveyor filled over is not told, a
+liquid is not re-settled - because a builder laying a floor does not want thirty thousand
+notifications and somebody editing a live machine does.
+
+Two more things came out of it and stay:
+
+- **`s_realm_check`**, the world a player is in, repeated every two seconds, with `c_resync` to ask for
+  it again. A realm change was a single message, and a lost one is invisible in a way a lost chunk is
+  not: a chunk that never arrives is a hole, and a world that never changes looks like a world. The
+  first attempt put the check on `BULK_CHANNEL` beside `s_realm` and recovered nothing, because it
+  shared the channel with the messages it existed to catch.
+- Deltas and the generated-terrain snapshot are **skipped for an ephemeral realm**. An instance is
+  never written to disk, so recording how it differs from what was generated is a dictionary write per
+  block that nothing will ever read.
+
+### Still not right: the descent's appearance
+
+**Unresolved, and not for want of evidence.** With the stall fixed the player reliably arrives, the
+crosshair names the block in front of them as Deepstone, and the room is verified enclosed (the probe
+counts two opaque blocks above where they land). It still renders washed out, near-white, in daylight.
+
+What is known: the shader takes baked sky light from the mesher as `COLOR.r` and computes
+`ALBEDO = tex * max(sky, 0.06)` where `sky = pow(0.8, (1 - COLOR.r) * 15) * daylight`. Enclosed should
+give about 6% of the texture. So the mesher is baking full sky light for these chunks, and the mesher
+computes it from the chunk data the client holds - which is correct data, because the same client names
+the block correctly.
+
+What was tried and did not settle it: thickening the ceiling to 26 blocks, and removing the lamps. Both
+produced runs with **no geometry visible at all**, which does not match the run before them and is
+probably the harness rather than the change - so those two experiments are void rather than evidence.
+
+The next thing to do is not another screenshot. It is to read what the client passes as the 3x3
+neighbourhood when it meshes a chunk in a realm that has just been switched into, because "unloaded
+chunks are treated as open sky" is written in `compute_light` and a neighbour that has not arrived yet
+would do exactly this.

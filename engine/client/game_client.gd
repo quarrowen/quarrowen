@@ -1705,6 +1705,22 @@ func on_realm(realm_id: String, display_name: String) -> void:
 		on_player_left(peer_id)
 
 
+## The server saying which world it believes this player is in. Usually the one we are already in and
+## nothing happens; when it is not, we missed a realm change and are holding a world that is not there
+## any more - while the server streams the new one's chunks into it, so what is on screen is two worlds
+## mixed together. Drop everything and ask for it again.
+##
+## **This is a recovery, not a realm change**: `on_realm` does the teardown and the server resends the
+## world, so the two paths stay one path. (2026-09-28)
+func on_realm_check(realm_id: String) -> void:
+	if realm_id == realm:
+		return
+	push_warning("[client] the server says this is '%s' and we are holding '%s' - asking for it again"
+		% [realm_id, realm])
+	on_realm(realm_id, realm_name)
+	net.c_resync.rpc_id(1)
+
+
 ## Cables and pipes: the whole lot on joining, then one at a time as they are made.
 ## A set of blocks that has left the grid. Built once from everything it is made of.
 func on_assembly(id: int, origin: Vector3i, blocks: PackedInt32Array) -> void:

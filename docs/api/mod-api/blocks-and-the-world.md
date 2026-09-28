@@ -425,6 +425,9 @@ Sets every block in the box between two corners (inclusive) to a block id.
 
 **Admin, not a player action**: no permission check, no events, no budget, no drops. For a tool a
 player holds, use `area_edit`, which asks all of those.
+**It does not run machinery.** Block ticks, signals, liquids, multiblocks and links are told once per
+chunk rather than once per block - which is what makes it usable for a room-sized box at all. Use
+`set_block` for a block that something is attached to.
 
 ### `api.surface_y`
 

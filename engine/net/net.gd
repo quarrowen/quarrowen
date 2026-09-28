@@ -1243,3 +1243,33 @@ func s_capabilities(can: PackedStringArray) -> void:
 func s_phasing(enabled: bool) -> void:
 	if client:
 		client.on_phasing(enabled)
+
+
+## The world the server believes this player is in, repeated every couple of seconds.
+##
+## **Because `s_realm` is one message, and one message is a thing that can be lost.** Measured rather
+## than feared: over nine runs of walking into a descent, twice the server moved the player and the
+## client never heard - it went on drawing the world it already had, perfectly, while the server
+## streamed the new world's chunks into it. There is no error and nothing in either log; the only way
+## to see it was a photograph. A lost realm change is invisible in a way that a lost chunk is not,
+## because a chunk that never arrives is a hole and a world that never changes looks like a world.
+##
+## So the realm is now also *state* rather than only an event, and the client checks the answer it is
+## given against the one it is holding. Appended at the end and the protocol bumped, as every RPC here
+## is. (2026-09-28)
+## **Not on BULK_CHANNEL, unlike `s_realm` itself.** That was the first thing tried and it recovered
+## nothing: the check shared the channel that was losing the message it exists to catch, so both went
+## together. The reason `s_realm` is on the bulk channel is ordering against the chunks, and a check has
+## no ordering to keep - it is a statement of state, true whenever it arrives.
+@rpc("authority", "call_remote", "reliable")
+func s_realm_check(realm_id: String) -> void:
+	if client:
+		client.on_realm_check(realm_id)
+
+
+## "I am in the wrong world - send it to me again." The server forgets what it thinks this player has
+## been sent, so the whole world streams afresh.
+@rpc("any_peer", "call_remote", "reliable")
+func c_resync() -> void:
+	if server:
+		server.on_resync(multiplayer.get_remote_sender_id())

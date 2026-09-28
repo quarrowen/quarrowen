@@ -996,6 +996,15 @@ GDScript: `light_at(pos: Vector3i, daylight: float) -> int`
 
 Light plants and mobs care about: block light or daylight-scaled sky light, whichever is brighter.
 
+### `forget_chunk`
+
+*server/block_ticks.gd*
+
+GDScript: `forget_chunk(coord: Vector2i) -> void`
+
+Drops what was worked out about one chunk, so it is measured again when next asked. Used by a bulk
+fill, which changes far too many blocks to keep the caches current one at a time.
+
 ### `refresh_around`
 
 *server/connect.gd*
@@ -9307,6 +9316,22 @@ channel, so the message that ends a world travels in the same queue as the chunk
 
 **See also:** `despawn`, `on_assembly_gone`, `on_effect_stop`, `on_player_left`, `on_unload_chunk`
 
+### `on_realm_check`
+
+*client/game_client.gd*
+
+GDScript: `on_realm_check(realm_id: String) -> void`
+
+The server saying which world it believes this player is in. Usually the one we are already in and
+nothing happens; when it is not, we missed a realm change and are holding a world that is not there
+any more - while the server streams the new one's chunks into it, so what is on screen is two worlds
+mixed together. Drop everything and ask for it again.
+
+**This is a recovery, not a realm change**: `on_realm` does the teardown and the server resends the
+world, so the two paths stay one path. (2026-09-28)
+
+**See also:** `on_realm`
+
 ### `on_assembly`
 
 *client/game_client.gd*
@@ -11494,6 +11519,17 @@ GDScript: `block_sound(block: int, action: String) -> String`
 
 Sound name for a block action ("break", "place", "step"); empty when the block has none.
 
+### `on_resync`
+
+*server/game_server.gd*
+
+GDScript: `on_resync(peer_id: int) -> void`
+
+A client saying it is holding the wrong world. Forget what it has been sent so the stream starts
+again, and tell it where it is - it may have missed that too, which is how it got here.
+
+**See also:** `links_for`, `realm_of`, `rules_in`, `too_often`
+
 ### `set_world_time`
 
 *server/game_server.gd*
@@ -11618,6 +11654,29 @@ does not say which world any more - the same coordinates exist in all of them - 
 for a player passes `realm_of(p)`, and anything acting for a creature passes its realm.
 
 **See also:** `add_chunk`, `block`, `chunk_coord_at`, `chunk_path`, `decorate`, `generate`
+
+### `fill_blocks`
+
+*server/game_server.gd*
+
+GDScript: `fill_blocks(from: Vector3i, to: Vector3i, id: int, into: Realm = null) -> int`
+
+Writes a box of blocks straight into the chunks, telling each subsystem once per chunk instead of
+once per block. Returns how many blocks were written.
+
+**This is what `api.fill` always claimed to be.** It went through `set_block_authoritative` per block,
+and `_apply_block` notifies block ticks, signals, liquids, multiblocks and links *every time* - so a
+57x57x8 room cost about 130,000 subsystem calls and **blocked the server for 8.1 seconds**, measured.
+The client's connection timed out during it about half the time, which presented as a realm change
+that silently did not happen: the player kept the world they had while the server believed they were
+somewhere else. Two days of symptoms upstream of one loop. (2026-09-28)
+
+The rule this leaves: **`fill` is for building rooms, `set_block` is for changing a world somebody is
+standing in.** Fill does not run machinery - a conveyor filled over is not told, a liquid is not
+re-settled - because a builder laying a floor does not want thirty thousand notifications and the one
+who edits a live machine does.
+
+**See also:** `add_chunk`, `block`, `chunk_coord_at`, `chunk_path`, `decorate`, `forget_chunk`
 
 ### `surface_height`
 
