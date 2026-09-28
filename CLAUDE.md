@@ -1,8 +1,11 @@
 # Working on Quarrowen
 
-Quarrowen is a voxel game engine in Godot 4.7 with a Rust extension, built for one family's children and
-for anyone else who wants it. This file is the short list of things that are true about this codebase and
-are not obvious from reading any one file. Everything else is in `docs/`.
+Quarrowen is a voxel game engine in Godot 4.7 with a Rust extension. It began as something for one
+family's children and **is built for players and builders of all ages** (the user, 28 September 2026).
+The children are still who it gets tested on; they are not who it is aimed at.
+
+This file is the short list of things that are true about this codebase and are not obvious from
+reading any one file. Everything else is in `docs/`.
 
 ## The one rule the whole design rests on
 
@@ -427,8 +430,21 @@ recorded. Nothing should only exist in the conversation.
 - Commit messages are prose, not bullet lists: what changed, and what it was like before. The first line
   is a sentence, not a category.
 - No attribution lines or co-author trailers in commits.
-- Player-facing text is for children: plain, kind, never arch. Death messages and hints get read by an
-  eight-year-old at bedtime.
+- **Player-facing text is plain, kind and never arch** - and that is a rule about *writing*, not about
+  the reader's age. It reads well to a child and does not talk down to an adult, which is the same
+  sentence done properly rather than two different sentences.
+
+  **Do not justify a design with "a child could not manage it."** Quarrowen is for players and
+  builders of all ages (the user, 28 September 2026: *"stop using kid's ages for discussion n
+  ideation... target quarrowen for both adults and children. players as well as builders of all
+  ages"*). Simplicity, legibility and kindness are worth arguing for on their own merits and usually
+  win; *capping* what the game offers because of an imagined seven-year-old is how an engine ends up
+  too thin for the adult who wanted to build something with it. Where a real constraint exists - a
+  reading age, a reach on a tablet - say the constraint, not the age.
+
+  Older comments in this repository carry the previous framing ("an eight-year-old at bedtime") and
+  are left alone: they record what was being thought at the time, which is what a comment is for.
+  New writing follows the rule above.
 - **Do not name other companies' products anywhere in code, documentation, comments or commit
   messages.** Not as a compliment, not as shorthand for a genre, not in a commit saying we do not look
   like them. Say "the genre's best-known game", or describe the thing itself.

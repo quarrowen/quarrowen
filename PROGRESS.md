@@ -8813,3 +8813,50 @@ was designed for, and the strongest evidence that `api.emit` was the right shape
 
 Left for it, all content rather than capability: best-score boards beside each door, more games, and
 somebody playing it.
+
+## Quarrowen is for all ages, and that was a real correction (2026-09-28)
+
+The user, after a day of me justifying decisions with imagined seven-year-olds: *"i think we need to
+stop using kid's ages for discussion n ideation n rather target quarrowen for both adults and children.
+players as well as builders of all ages."*
+
+**This is a design correction and not a wording one.** Written into CLAUDE.md, because it changes how
+arguments are allowed to be made rather than how sentences are phrased.
+
+### What was wrong with the old framing
+
+"Plain, kind, never arch" was always right and stays. What was wrong was the *reason* attached to it -
+"an eight-year-old reads this at bedtime" - because a reason like that does two things, and only one of
+them is good:
+
+- It argues for **simplicity and legibility**, which are worth having for everybody, and which an adult
+  wants just as much when they are tired.
+- It also, quietly, argues for a **ceiling**. "A child could not manage it" is an argument that ends
+  discussions, and nothing in it is about whether the thing is good. Used often enough it produces an
+  engine too thin for the adult who wanted to build something with it - which for a *modding* engine is
+  the audience that matters most, since builders skew older than players.
+
+The rule now: **say the constraint, not the age.** A reading age, a thumb's reach on a tablet, a
+rule you can learn in one round - all real and all arguable. "A child could not" is not.
+
+### Where it lands on today's work, concretely
+
+Most decisions survive on better reasoning than they were given:
+
+- **"Every game must be worth playing alone"** came from how this family actually plays, not from
+  anyone's age. Unchanged.
+- **Regions rather than a clickable block on a Fairground door** was argued as "a child has to be told
+  to click". The better argument is that walking into a lit doorway needs no instruction *at all*,
+  which is true for everybody and is why it is right.
+- **Squares taken away rather than made deadly** was argued as kindness to a child. The real argument
+  is that a consequence you can see coming is better design than a punishment, at any age.
+- **The word game's questions genuinely were child-aimed** - spelling and sums - and that is the one
+  place the correction bites. They are a JSON file precisely so they need not stay that way; a set
+  pitched at adults is a file, not a feature.
+- **The dungeon's harsh mode** was half-argued with "losing your items is strong to ship to children".
+  Drop that: the currency gate already makes it a choice somebody pays for, which is the whole answer
+  and a better one.
+
+**Old comments keep the old framing.** They record what was being thought at the time, which is what a
+comment in this repository is for; rewriting them would be inventing a past. New writing follows the
+rule.
