@@ -1,0 +1,15 @@
+{
+	"id": "lavagame",
+	"name": "The Floor is Lava",
+	"version": "1.0.0",
+	"description": "The lava is rising and the floor is going. Climb, or build something to stand on. A game for the Fairground.",
+	"kind": "addon",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.1",
+	"depends": [
+		"base@^1.0",
+		"fairground@^1.0"
+	]
+}

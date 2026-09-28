@@ -32,7 +32,8 @@ func setup(api) -> void:
 	_rules(api)
 	hub.setup(api)
 	rounds.setup(api, hub)
-	hub.build(rounds.games)
+	# The hub is built by the roll call rather than here, because how many doors there are depends on
+	# how many games answered - and nothing can answer until every mod has finished loading.
 	_doors(api)
 
 

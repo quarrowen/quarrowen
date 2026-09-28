@@ -8694,3 +8694,49 @@ it. Arenas are still instances. A simplification that only became visible by get
 
 **And the lesson that keeps arriving: the client's log is where client symptoms are explained.** Three
 of those four were diagnosed by reading a log, and the fourth by reading one sooner than I did.
+
+### The Floor is Lava, and a chunk-streaming problem that is the engine's (2026-09-28)
+
+Step 7, and the first game: `mods/lavagame`, a separate mod that answers the Fairground's roll call.
+A pit with staggered pillars laid out from the instance's seed, a kit of 32 planks, and lava that comes
+up one block every eight seconds. **Scored rather than eliminating**, so a round of one is a personal
+best - which is the rule the whole Fairground runs on.
+
+**The architecture is proven end to end.** One mod asked "who has a game", another answered, a door
+went up for it in the hub, walking into the door opened an instance, the game built its arena into it,
+and the player arrived holding the right kit with *"The lava is coming. Climb."* in the chat. That is
+every seam in the design working at once, and it is worth saying plainly because the picture does not
+show it.
+
+#### Two ordering traps, both the same shape
+
+- **A registry that asks at setup asks too early.** A game mod *depends* on the Fairground, so the
+  Fairground's `setup` runs first and every game's handler is registered afterwards. The roll call
+  found nobody, every time, and reported "0 games at the fairground" perfectly cheerfully. Scheduled
+  with `api.after(0.0, ...)` instead, which runs once every mod has been through setup.
+- **The room has to exist before anybody walks into it.** `round_start` was emitted *after*
+  `enter_instance`, so players arrived in an instance that is empty air by design and fell while the
+  arena was being laid around them. The room first, then the people.
+
+Also: a game has to say **where its floor is**. The Fairground did not build the room and cannot know,
+so `spawn` is part of the contract; without it everybody starts a round falling, which is how this was
+found.
+
+#### The open defect, and it is not the mod's
+
+**Entering an instance drops chunks.** The client shows sky, the hotbar and the chat are right, and the
+log says `Buffer full, dropping packets!` twenty-six times. This is the **same symptom that made the
+hub invisible** - there it was a realm change during `player_join`, here it is a realm change moments
+after the hub's own stream - and the fix for the hub was to avoid the second stream entirely, which an
+arena cannot do: going somewhere else is the whole point.
+
+So this is an engine-level problem rather than a mod one: **a realm switch that follows another stream
+closely overruns the client's UDP buffer and the chunks are simply lost.** Nothing retries them. It has
+never been hit before because instances have never had a real consumer - the same reason the dungeon
+research found a cluster of realm-blind sites. Suspects, in order: the send pacing for a burst of
+chunks after `s_realm`, the buffer size on the client peer, and whether `BULK_CHANNEL` is being used
+for the re-stream.
+
+**Step 7 is therefore not finished**, and it is one bug from being finished. The mod is committed as it
+stands because everything except the picture works, and because the bug is worth having written down
+where the next person will find it.

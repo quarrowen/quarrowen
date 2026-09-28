@@ -58,6 +58,10 @@ const DEFAULTS := {
 	## Where the door to this game stands in the hub, as a slot number. Unset means "wherever there is
 	## room", which is what a mod that does not care should get.
 	"door": -1,
+	## Where players stand when the round begins, in the arena the game has just built. **The Fairground
+	## cannot know this** - it did not build the room - so a game whose floor is not at the default has
+	## to say where it is, or everybody starts the round falling.
+	"spawn": Vector3(0.5, 65.0, 0.5),
 }
 
 
@@ -81,6 +85,8 @@ static func clean(entry, owner: String) -> Dictionary:
 	game.min_players = clampi(int(game.min_players), 1, 64)
 	game.max_players = clampi(int(game.max_players), int(game.min_players), 64)
 	game.seconds = clampf(float(game.seconds), 10.0, 3600.0)
+	if not (game.spawn is Vector3):
+		game.spawn = DEFAULTS.spawn
 	if not String(game.ends) in ENDINGS:
 		return {"error": "'%s' is not a way for a round to end" % String(game.ends)}
 	return {"game": game}

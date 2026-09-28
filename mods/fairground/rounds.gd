@@ -39,8 +39,25 @@ var _elapsed := 0.0
 func setup(mod_api, hub) -> void:
 	api = mod_api
 	_hub = hub
-	# **Asked for once, at setup, and not again.** A game that appears later would need the doors
-	# rebuilt and the hub re-laid-out; games are declared by mods and mods are all loaded by now.
+	# **The roll call cannot happen during setup, and that is not obvious.** A game mod *depends* on the
+	# Fairground, so the Fairground's `setup` runs first and every game's handler is registered after it
+	# - asking here found nobody, every time, and the hub came up with no doors and a cheerful
+	# "0 games at the fairground". Scheduled instead, so it runs once every mod has been through setup.
+	# The general shape: **a registry that asks at setup asks too early, because the things that answer
+	# it load afterwards by definition.** (2026-09-28)
+	# **No generator, which is deliberate**: an instance without one is empty air, and the game that
+	# owns the round builds its own room into it. `empty_seconds` is short because a round that has
+	# ended has no reason to keep a world alive, and `_finish` closes it explicitly anyway - this is
+	# only the safety net for a round nobody ever finished.
+	api.register_instance("arena", {"display_name": "Arena", "empty_seconds": 20.0, "max_players": 8})
+	api.after(0.0, _roll_call)
+	api.every(TICK, func():
+		_elapsed += TICK
+		_tick())
+
+
+## Who has a game for us. Answered by every mod listening, in the payload.
+func _roll_call() -> void:
 	var answer: Dictionary = api.emit("games", {"games": []})
 	for entry in answer.games:
 		var read := Protocol.clean(entry, _owner_of(entry))
@@ -49,9 +66,7 @@ func setup(mod_api, hub) -> void:
 			continue
 		games[read.game.id] = read.game
 	api.info("%d game%s at the fairground" % [games.size(), "" if games.size() == 1 else "s"])
-	api.every(TICK, func():
-		_elapsed += TICK
-		_tick())
+	_hub.build(games)
 
 
 ## Which mod appended a game. **Taken from the entry rather than guessed**, because `emit` hands every
@@ -96,10 +111,14 @@ func begin(game_id: String, starters: Array) -> String:
 		# them. `save_items` / `clear_inventory` / `load_items` is the round trip an arena needs.
 		live[round_id].state[p.player_id] = {"kept": p.save_items()}
 		p.clear_inventory()
-		api.enter_instance(p, instance, Vector3(0.5, 65.0, 0.5))
-		p.show_title(String(game.display_name), String(game.blurb), 3.0)
+	# **The game builds before anybody walks in.** Emitting this after `enter_instance` put players in
+	# an instance that is empty air by design, and they fell out of the world while the arena was being
+	# laid around them. The room first, then the people.
 	api.emit("round_start", {"round": round_id, "game": game_id, "instance": instance,
 		"players": starters.duplicate(), "state": live[round_id].state})
+	for p in starters:
+		api.enter_instance(p, instance, game.spawn)
+		p.show_title(String(game.display_name), String(game.blurb), 3.0)
 	return round_id
 
 
