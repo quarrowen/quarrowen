@@ -8860,3 +8860,61 @@ Most decisions survive on better reasoning than they were given:
 **Old comments keep the old framing.** They record what was being thought at the time, which is what a
 comment in this repository is for; rewriting them would be inventing a past. New writing follows the
 rule.
+
+## The descent, scoped 28 September 2026
+
+Four answers from the user, and together they collapse the design rather than complicating it:
+
+- **Depth is the difficulty.** One entrance, floors that get harder the further down you go, and you
+  leave when you choose.
+- **Endless floors.** A run ends when you stop or when you die.
+- **Both kinds of entrance**: found while exploring, and a portal you can build.
+- **Gentle death puts you back at the start of the floor** and the run carries on.
+
+### There is only one thing here, not two
+
+The earlier scope treated "a dungeon" and "a roguelike run" as two settings of one generator - a floor
+with an exit against floors until you die. **With depth as the difficulty those stop being different
+things.** A "dungeon trip" is a shallow descent somebody chose to leave early; a "roguelike run" is the
+same descent taken further. One mechanic, one generator, one set of rooms, and the difference is
+entirely the player's nerve.
+
+So it is called **the descent**, and the word "mode" does not appear in it.
+
+### The decision the answers create, which nothing has yet
+
+If floors are endless and depth is the difficulty, the interesting question every floor is **"deeper,
+or out?"** - and that only exists if there is a way out **that is not dying**. Without one, endless
+floors just means playing until you lose, which deletes the choice that makes the design good.
+
+So the descent needs a **cash-out**: a way to leave a floor with everything you are carrying. That is
+the mechanic the whole thing turns on, and it is not in any of the four answers - it falls out of them.
+Simplest shape that fits: a way up on every floor, obvious and always available, so leaving is never a
+puzzle and always a decision. Going down should cost nothing; going down is the easy thing. Choosing
+to stop is the hard one.
+
+### What the two difficulties become
+
+Not two dungeons. The same descent with one rule different:
+
+- **Gentle** - dying puts you at the start of the floor with your things, and the run continues.
+- **Harsh** - dying ends the run and your things are on the floor where you fell. Bought with currency,
+  so it is a thing somebody chooses and pays for rather than a trap. Loot is better, written as its own
+  tables rather than a multiplier (loot conditions cannot ask about the realm, and "the same but more"
+  is a thin reward anyway).
+
+### Order of work
+
+1. **Finish the realm repairs the descent needs.** Not all of them: item loss dropping into the
+   overworld (which is the harsh mode's entire mechanic), boss bars leaking across realms, containers
+   being unreachable inside an instance, and the map's dimension key. `remove_entity`,
+   `register_structure`, `schedule_block_tick` and `add_spawn_rule` can wait.
+2. **Instrument the network** - pulled forward from the 1.0 engineering items, deliberately. There is
+   a concrete unexplained symptom already (`Buffer full, dropping packets!` when a realm switch follows
+   another stream closely) and the descent will switch realms harder than anything yet built. It adds
+   measurement rather than behaviour, so it cannot break what it is watching.
+3. **The descent itself**: floors, the way down, the way out, and the run's bookkeeping.
+4. **Content**: rooms, traps, spawners, mini-bosses, a boss, and the loot tables.
+
+Compressing chunks and interest management stay at the end, because both rewrite the streaming path and
+should not be in flight while this is moving.
