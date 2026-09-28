@@ -49,19 +49,24 @@ was written on 27 September 2026, which this line said was still owed.
 
 ### What is left, shortest honest answer
 
-- **One capability, and four more scoped.** The 26 landed by 21 September 2026 and `api.emit` on
-  28 September; `fairground` wants per-realm rules, region volumes, `set_look` for players and a
-  spectator mode (scoped in PROGRESS, 28 September).
+- **Thirty-one capabilities, all built.** The 26 by 21 September 2026, then on 28 September:
+  `api.emit`, per-realm gameplay and physics rules, region volumes, `set_look` for players, and
+  spectating. The last five were wanted by `fairground` and four of them earn their place without it.
 - **Five known limits** in things that *are* built - see "Where the built things stop" below.
-- **Content**, which is the larger half of the work. The re-scope of `base` to nouns and the writing of
-  `simple_gear` and `simple_machines` are *done*, and so are all three games; what is left is
-  `fairground` - a fourth game for 1.0, decided 28 September - and the long tail of blocks, creatures,
-  villages and voices. See "The mod architecture" below.
-- **Four things for 1.0**: touch controls, instrumenting the network, compressing chunks, interest
-  management - plus one decision, Mobile versus Forward+, which sits upstream of all four and is
-  called out in "For 1.0".
+- **A cluster of realm-blind sites**, found when `fairground` became the first shipped thing to put a
+  player inside an instance. One is fixed (a realm created after startup was never told which blocks
+  are solid, so players fell through its floors); the rest are listed in PROGRESS under the dungeon
+  research and block the dungeon rather than the Fairground.
+- **Content**, the larger half. `base`, `simple_gear`, `simple_machines` and all four games exist.
+  What is left is the long tail - villages, creature voices, a hard gem tier - plus the Fairground's
+  own scoreboards and more games for it.
+- **Three engineering items for 1.0**: instrument the network, compress chunks, interest management,
+  in that order. Touch controls and the iPad build are done; Mobile versus Forward+ was settled by
+  measuring on the hardware.
 - **Two undiagnosed flaky tests and one unexplained frame stall**, listed under "For 1.0" because the
   precedent says they are suspects rather than noise.
+- **A fifth thing for 1.0, decided and not started**: dungeons and a roguelike inside `firstlight`.
+- **And the one nobody can do for me: somebody playing `firstlight` from end to end.**
 
 ## The capabilities
 
