@@ -180,9 +180,13 @@ and is what to fall back on if CI is unavailable.
 
 In this order, because the middle step is what the children actually feel:
 
-1. `tools/run_tests.sh` and `QW_NATIVE=0 PORT_BASE=25700 tools/run_tests.sh` - both suites.
+1. `tools/run_tests.sh`. (This said "both suites" and named `QW_NATIVE=0`; that second suite was
+   deleted on 2026-09-23 along with the GDScript twins, and there is one now.)
 2. Bump `GAME_VERSION` in `engine/shared/protocol.gd`, and `VERSION` too if anything the client and
-   server must agree on has changed (RPCs, or the block shape table).
+   server must agree on has changed (RPCs, or the block shape table). **And `application/short_version`
+   and `application/version` in `export_presets.cfg`** - no script reads those, which is exactly why
+   they sat at `0.38.0` while four releases went out; they are what macOS shows in Get Info and what
+   `codesign -dv` reports.
 3. Write the release notes in PROGRESS.md, and regenerate the save fixture for the new version
    (`tools/make_save_fixture.tscn -- --out=tests/fixtures/saves/<version>`).
 4. **Bump the pinned image in `deploy/server/.env.example`** (`QW_IMAGE`, `QW_HUB_IMAGE`). It is pinned
@@ -353,3 +357,57 @@ worth having for alpha. The plan when it matters:
    and now re-reads it after an install).
 4. **Community mods**: the advanced install path, and what a public index would need (submissions,
    review, a "verified" mark).
+
+
+## Windows
+
+Windows has been built on every tag and offered on the download page since 0.41.1. It is a second-class
+build on purpose, and the ways it differs are worth knowing before handing the link to somebody.
+
+**It is a folder, not a file.** The Windows export has no embedded PCK, so the zip contains
+`Quarrowen.exe`, `Quarrowen.pck`, `quarrowen_native.dll` and `mods/`. Somebody who drags only the
+`.exe` out of the zip gets a game that will not start. The download page has to say "unzip the whole
+folder and run Quarrowen.exe from inside it".
+
+**It is unsigned**, and `application/modify_resources` is off, so the executable carries no icon and no
+version metadata - which is the shape SmartScreen is harshest on. A friend sees "Windows protected your
+PC" and has to choose More info, then Run anyway. Removing that needs a code-signing certificate, which
+is a yearly cost and, for an OV certificate, a reputation that only builds up over time.
+
+**It does not update itself.** `updater.gd` knows the `windows` platform and contains a complete install
+script for it, but `make_release.sh` writes only a `macos` entry into `update.json`, so a Windows client
+finds nothing for itself and stays where it is. That script has never been run by anybody; arming an
+untested one that replaces a folder is not a trade worth making for a handful of playtesters.
+
+**The consequence that bites:** the protocol check refuses a mismatched client at the door, so **any
+`Protocol.VERSION` bump locks every Windows player out until they download again, and nothing tells
+them to.** If a release changes the wire, say so to the Windows players directly.
+
+## Playing with friends
+
+**On the same network, nothing needs configuring.** "Play" starts a real server rather than a private
+session - `ENetMultiplayerPeer.create_server` binds every interface - so a friend on the same Wi-Fi can
+join the world somebody is already playing. The Multiplayer tab finds it by UDP broadcast across ports
+24565-24574. Guest networks and "client isolation" on a router break that; typing the host's local
+address into the address field still works.
+
+**Off the same network there is nothing in the box to help.** No UPnP, no NAT-PMP, no hole punching, no
+relay. Three options, in the order they are worth trying:
+
+- **Forward two UDP ports**, 24565 **and 24566**, and give out the public address. The second one is the
+  status port and is easy to forget - without it the game is joinable but shows as offline with no ping
+  in everybody's server list, which reads as "the server is down".
+- **Run the dedicated server** on a machine that is already reachable (`ghcr.io/quarrowen/quarrowen/server`,
+  see `hosting.md`). This is also the only way a world keeps running when the host closes the game.
+- **Put everybody on the same overlay network** - Tailscale, ZeroTier or similar - and use the address it
+  hands out. No router configuration, and it sidesteps carrier-grade NAT, which port forwarding cannot.
+
+**Invite codes encode an address, not a name.** `QW-7ZK3M-Q8D1A-4` is an IPv4 address and port packed
+into ten characters; generating one for a friend across the internet means giving it the *public*
+address, and nothing in the client discovers that. A hostname or an IPv6 address falls back to plain
+`host:port` text.
+
+**The hub (the server browser) is not running anywhere public.** The client's `network/hub_url` defaults
+to empty and the deploy example points at loopback, so the browser lists nothing until somebody runs a
+hub and everybody types its URL into Settings. For a few friends, the address field and invite codes are
+less work.

@@ -9,9 +9,12 @@ name: CI
 #   themselves to released versions. An image following master would quietly move the family server ahead
 #   of the children's clients, and they would be turned away at the door with no obvious reason why.
 #
-# macOS on Apple silicon is the only thing shipped today, so it is the only thing exported. Windows and
-# the Linux desktop export are off; the Linux *native library* stays, because the test suite runs on a
-# Linux runner and needs it (a macOS runner costs ten times the minutes for the same answer).
+# macOS and Windows are both exported on a tag, and both are offered on the download page. This comment
+# said "Windows and the Linux desktop export are off" until 28 September 2026 and was wrong about half
+# of that - the Windows jobs below have been running on tags, and make_release.sh has been pulling their
+# artifact onto the page since 0.41.1. Only the Linux *desktop* export is off; the Linux native library
+# stays, because the test suite runs on a Linux runner and needs it (a macOS runner costs ten times the
+# minutes for the same answer).
 #
 # Both images the homelab runs go to GitHub Packages - ghcr.io/<owner>/<repo>/server and .../hub - so the
 # family box pulls them rather than compiling Godot, Rust and the hub itself. NOTE: a new package is
@@ -265,9 +268,15 @@ jobs:
           rm -f "$RUNNER_TEMP/notary.p8" "$RUNNER_TEMP/release_key.pem" "$RUNNER_TEMP/cert.p12"
           security delete-keychain "$RUNNER_TEMP/build.keychain" 2>/dev/null || true
 
-  # Windows is built but not published: nobody has played it, and it is unsigned, so Windows will warn
-  # about it. This exists to prove the export still works and to give anyone who asks something to try.
-  # It is deliberately not in update.json - the Macs must not be offered it.
+  # Windows is built here and **is** published: make_release.sh downloads this artifact and puts it on
+  # the download page. (This comment said "built but not published" until 28 September 2026, which had
+  # been untrue since 0.41.1.)
+  #
+  # What is genuinely still true: it is unsigned, so Windows shows a SmartScreen warning, and it is
+  # deliberately **not in update.json** - the install script for Windows exists in updater.gd but has
+  # never been run by anybody, and an untested script that replaces a folder is not a thing to arm.
+  # The consequence to keep in mind: a Windows player never updates itself, so a protocol bump locks
+  # them out until they download again.
   export-windows:
     name: Export Windows (untested)
     needs: [native-windows, test]

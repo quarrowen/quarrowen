@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds Quarrowen.app (a universal app; the native library is Apple silicon only) and zips it for sharing:
 #   build/macos/Quarrowen.app
-#   build/macos/Quarrowen-<version>-mac-arm64.zip
+#   build/macos/Quarrowen-<version>-mac-universal.zip
 #
 # The app carries the bundled mods in Contents/Resources/mods (so it can host worlds).
 #
@@ -21,7 +21,22 @@ version="$(sed -n 's/^const GAME_VERSION := "\(.*\)"$/\1/p' engine/shared/protoc
 out=build/macos
 app="$out/Quarrowen.app"
 
-tools/build_native.sh
+# **Universal, not the host's architecture.** `build_native.sh` with no argument picks `macos-host`,
+# which on an Apple silicon Mac is an arm64-only dylib - and it was being put inside an app the export
+# preset builds as `universal`. An Intel friend downloaded a signed, notarised app that opened and then
+# refused to run, because the extension could not load: "NOT LOADED - the game will not run". The zip
+# is named `-mac-arm64`, which hid it. CI's own native-macos job already builds universal; only the
+# local path was wrong, and the local path is the one a release is usually cut from. (2026-09-28)
+#
+# QUARROWEN_MAC_ARM64_ONLY=1 keeps the old behaviour for a quick local build, and says so in the name.
+if [ "${QUARROWEN_MAC_ARM64_ONLY:-0}" = "1" ]; then
+  tools/build_native.sh
+  arch_tag="mac-arm64"
+  echo "package_mac: arm64 only, by request - this build will not run on an Intel Mac."
+else
+  tools/build_native.sh macos
+  arch_tag="mac-universal"
+fi
 rm -rf "$app"
 mkdir -p "$out"
 # Export from a clean copy: local editor plugins (addons/) would otherwise add their autoloads to the app.
@@ -78,7 +93,7 @@ else
   codesign --verify --deep --strict "$app"
 fi
 
-zip="$out/Quarrowen-$version-mac-arm64.zip"
+zip="$out/Quarrowen-$version-$arch_tag.zip"
 rm -f "$zip"
 ditto -c -k --keepParent "$app" "$zip"
 
@@ -111,7 +126,7 @@ fi
 # A disk image for people, the zip for the updater. Dragging an app into Applications is what a Mac
 # download looks like; the updater wants something it can unpack unattended in one call, and mounting a
 # disk image in a script that runs while the game is quitting is more to go wrong at bedtime.
-dmg="$out/Quarrowen-$version-mac-arm64.dmg"
+dmg="$out/Quarrowen-$version-$arch_tag.dmg"
 if command -v hdiutil >/dev/null 2>&1 && [ "${QUARROWEN_SKIP_DMG:-0}" != "1" ]; then
   staging="$(mktemp -d)"
   cp -R "$app" "$staging/"

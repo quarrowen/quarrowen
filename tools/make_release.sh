@@ -44,12 +44,20 @@ mkdir -p "$out/$files/mods"
 
 echo "== version $version"
 tools/package_mac.sh
-mac_zip="build/macos/Quarrowen-$version-mac-arm64.zip"
+# **Found, not assumed.** This named the file `-mac-arm64` while `package_mac.sh` decided the suffix,
+# so the day the Mac build became universal this would have failed with "no such file" at the end of a
+# notarisation - or, worse, quietly picked up a stale arm64 zip from a previous run and published it.
+# Two names for one file in two scripts is a pair that drifts; asking the directory is not. (2026-09-28)
+mac_zip="$(ls -1 "build/macos/Quarrowen-$version-mac-"*.zip 2>/dev/null | head -1)"
+if [ -z "$mac_zip" ]; then
+  echo "make_release: package_mac.sh produced no zip for $version" >&2
+  exit 1
+fi
 cp "$mac_zip" "$out/$files/"
 mac_name="$(basename "$mac_zip")"
 # The disk image is what a person downloads; the zip is what the updater swaps in. update.json keeps
 # pointing at the zip, so an unattended update never has to mount anything.
-mac_dmg="build/macos/Quarrowen-$version-mac-arm64.dmg"
+mac_dmg="${mac_zip%.zip}.dmg"
 dmg_name=""
 if [ -f "$mac_dmg" ]; then
   cp "$mac_dmg" "$out/$files/"
