@@ -48,11 +48,21 @@ tools/package_mac.sh
 # so the day the Mac build became universal this would have failed with "no such file" at the end of a
 # notarisation - or, worse, quietly picked up a stale arm64 zip from a previous run and published it.
 # Two names for one file in two scripts is a pair that drifts; asking the directory is not. (2026-09-28)
-mac_zip="$(ls -1 "build/macos/Quarrowen-$version-mac-"*.zip 2>/dev/null | head -1)"
-if [ -z "$mac_zip" ]; then
-  echo "make_release: package_mac.sh produced no zip for $version" >&2
+# Read from the run that just happened rather than guessed at or globbed: build/macos keeps every
+# release ever cut, so a glob finds old ones too - and `-mac-arm64` sorts before `-mac-universal`.
+if [ ! -f build/macos/.last-package ]; then
+  echo "make_release: package_mac.sh left no build/macos/.last-package" >&2
   exit 1
 fi
+mac_zip="build/macos/$(cat build/macos/.last-package)"
+if [ ! -f "$mac_zip" ]; then
+  echo "make_release: $mac_zip does not exist" >&2
+  exit 1
+fi
+case "$mac_zip" in
+  *"-$version-"*) ;;
+  *) echo "make_release: $mac_zip is not version $version - package_mac.sh did not run?" >&2; exit 1 ;;
+esac
 cp "$mac_zip" "$out/$files/"
 mac_name="$(basename "$mac_zip")"
 # The disk image is what a person downloads; the zip is what the updater swaps in. update.json keeps

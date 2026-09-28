@@ -152,3 +152,9 @@ if command -v hdiutil >/dev/null 2>&1 && [ "${QUARROWEN_SKIP_DMG:-0}" != "1" ]; 
 fi
 echo "built $app"
 echo "zipped $zip ($(du -h "$zip" | cut -f1))"
+# **The name of what was just built, written down.** make_release.sh used to spell the filename out a
+# second time, which drifted the moment the Mac build became universal - and worse, a glob that matched
+# both left a stale `-mac-arm64.zip` from an earlier run sorting first, so the release would have
+# published the arm64-only build that does not run on an Intel Mac. One script decides the name; the
+# other reads it. (2026-09-28)
+printf '%s\n' "$(basename "$zip")" > "$out/.last-package"
