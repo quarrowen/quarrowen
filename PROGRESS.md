@@ -8651,3 +8651,46 @@ been found by a child dying in a dungeon and losing everything.
   `watchtower` - surviving in git at `00edd6c` and in a stale build tree. `docs/modding.md` still
   describes them as shipped, which it should stop doing either way. Worth reading before writing a
   rooms generator from nothing.
+
+### The Fairground hub, and a bug that looked like three different bugs (2026-09-28)
+
+Step 6: `mods/fairground` - the hub, the round lifecycle, and the protocol other mods answer. It
+registers no blocks and no items; it is rules over `base`'s nouns, like the other three games.
+
+**The protocol is five events, all answered in the payload** (`protocol.gd`). Fairground raises
+`fairground:games` once at setup and every mod with one appends it; then `round_start`, `round_tick`,
+`round_end`, with the owning mod writing scores, players who are out, or `finished` into the payload it
+was handed.
+
+**There is no call back the other way, and that is forced rather than chosen.** `api.emit` qualifies an
+event to the mod raising it, so a game mod saying `emit("score", ...)` raises `yourgame:score` - a name
+the Fairground has never heard of and cannot subscribe to. Answering in the payload avoids the problem
+entirely, works identically from JavaScript, and is the shape the engine's own events already use.
+Worth recording as a property of `emit` that only showed up when something tried to use it.
+
+#### Four mistakes, and the last one was the only real bug
+
+Getting an empty room to appear took four goes, and the first three were mine:
+
+1. **Invented API.** `api.log_warn`, `api.log_info`, `api.now()` and `api.send_to_realm_ready()` do not
+   exist; they are `api.warn`, `api.info`, and there is no monotonic clock at all - the API exposes the
+   time *of day*, which restarts with the server, so a round counts its own seconds the way `wick.gd`
+   does. Written from memory instead of from the reference, which is what the reference is for.
+2. **`base:stone_bricks` does not exist.** `base` has `brick` and `sandstone`. A `require_block` on a
+   name nobody registered hands back something inert, so this failed silently rather than loudly.
+3. **The spawn handlers take different arguments** - the first-time one is handed the player, the
+   returning one the player *and* where they logged out. Getting it wrong is a lambda arity error at
+   join time, which reads as a server fault rather than a mod one.
+4. **And the real one: a realm change during `player_join` drops the world on the floor.** The hub
+   started as its own realm, entered with `send_to_realm` from the join handler. The server was
+   entirely correct - the floor was built, the player was moved, `realm_of` agreed - and the client
+   showed an empty sky with a player falling through it. The client log said `Buffer full, dropping
+   packets!` seventy-two times and nothing else did: joining already streams a world, and a realm
+   change starts a *second* full stream on top of it.
+
+**The fix was to delete the realm.** This game generates no world of its own, so there was nothing for
+the hub to be separate *from* - the overworld is the hub, with a void generator and the room laid into
+it. Arenas are still instances. A simplification that only became visible by getting it wrong.
+
+**And the lesson that keeps arriving: the client's log is where client symptoms are explained.** Three
+of those four were diagnosed by reading a log, and the fourth by reading one sooner than I did.
