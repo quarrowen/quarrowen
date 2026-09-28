@@ -4185,8 +4185,88 @@ func _realms() -> void:
 	server._refresh_simulation()
 	_check(server.realm.is_awake() and not deep.is_awake(),
 		"a player wakes the world they are in and not the other one")
+
+	await _living_in_a_realm(server, deep, p)
+
 	server.queue_free()
 	await get_tree().process_frame
+
+
+## Everything above proves a realm is *a world*: its own blocks, seed, ticks and folder. None of it
+## proves anybody can **live** in one - and on 28 September 2026 an audit found about seventy places in
+## `engine/server` that quietly meant the overworld, with the whole suite passing. That is not bad luck,
+## it is what this file was asking: the Proving Ground's second realm and its instance were only ever
+## written to and read back, so no test had ever stood in one and been hurt.
+##
+## So this asks, of a player who is somewhere else: do their things fall where they died, can they hit
+## what is in front of them, does their map show the people who are with them. Each of these was broken.
+func _living_in_a_realm(server, deep, p) -> void:
+	server.send_to_realm(p, "test:deep", Vector3(8, 41, 8))
+	server._ensure_chunk(Vector2i.ZERO, deep)
+
+	# **The pathfinder's tables.** Not a behaviour a player sees directly - it is why a creature in a
+	# dungeon can walk - and it was the line immediately after yesterday's realm loop, so it is the one
+	# most likely to be left out again by somebody fixing something near it.
+	_check(deep.entities.ai.pathfinder.solid.size() == server.registry.solid_lut.size(),
+		"a realm's pathfinder knows which blocks are solid (%d)" % deep.entities.ai.pathfinder.solid.size())
+
+	# Death. A floor to land the drops on, then count what is lying in each world - the overworld is
+	# checked too, because the bug did not lose the items, it put them somewhere else.
+	var stone: int = server.registry.id_of("base:stone")
+	for x in range(6, 11):
+		for z in range(6, 11):
+			deep.world.set_block(x, 40, z, stone)
+	p.inventory.clear()
+	p.inventory.add(stone, 5, 64, {})
+	p.state.position = Vector3(8, 41, 8)
+	var deep_items_before: int = deep.entities.entities.size()
+	var over_items_before: int = server.realm.entities.entities.size()
+	server.set_gameplay({"keep_inventory": false})
+	server.kill_player(p, "fall", null)
+	_check(deep.entities.entities.size() > deep_items_before,
+		"dying in a realm leaves your things in that realm (%d -> %d)"
+		% [deep_items_before, deep.entities.entities.size()])
+	_check(server.realm.entities.entities.size() == over_items_before,
+		"and not at the same coordinates in the overworld")
+	p.dead = false
+	p.health = p.max_health
+
+	# Fighting. Entity ids are handed out per realm, so an id from one world is a live creature in
+	# another - the bug was not a miss that failed safely. Asserting a collision happens *naturally* is
+	# not a test (the overworld has had creatures already, so the ids simply differ here); asserting that
+	# an overworld id reaches nothing from inside a realm is, and it is the same fix seen head on.
+	#
+	# `grazer` is persistent, which matters: a non-persistent creature with nobody near it is taken away
+	# the same tick, and the decoy stands in the overworld with nobody in it.
+	var kind: int = server.realm.entities.registry.id_of("proving:grazer")
+	server._ensure_chunk(Vector2i.ZERO)
+	var decoy = server.realm.entities.spawn(kind, Vector3(8, 70, 8))
+	var quarry = deep.entities.spawn(kind, Vector3(9, 41, 9))
+	if decoy != null and quarry != null:
+		# The ids really do collide - the drop from the death above took this realm's id 1, so the decoy
+		# in the overworld and the quarry here are 1 and 2 in two separate numberings. Attacking the
+		# quarry by its id is therefore enough on its own: looked up in the overworld that id is either
+		# nothing or somebody else, and in neither case is the creature in front of you hurt.
+		var decoy_health: float = decoy.health
+		p.state.position = Vector3(9, 42, 8)
+		p.yaw = 0.0
+		p.last_attack_time = -100.0
+		server.on_attack(p.peer_id, 0, quarry.id)
+		_check(quarry.health < quarry.def.health,
+			"you hit the creature in front of you in your own world (%.1f of %d)"
+			% [quarry.health, quarry.def.health])
+		_check(is_equal_approx(decoy.health, decoy_health),
+			"and nothing happens to the creature holding that id in the overworld")
+
+	# The map. Somebody left behind in the overworld must not appear on it, which is the same bug seen
+	# from the other side: there were two notions of which world you were in and only one was kept up.
+	var left_behind := ServerPlayer.new(server, 91, "Surface")
+	left_behind.player_id = "surface"
+	left_behind.state.position = Vector3(8, 70, 8)
+	server.players[91] = left_behind
+	_check(server.dimension_of(p) == "test:deep" and server.dimension_of(left_behind) == "",
+		"the map's idea of which world somebody is in is the realm they are in")
+	server.players.erase(91)
 
 
 ## How much of the world runs: a realm with nobody in it does nothing at all, and inside one that is

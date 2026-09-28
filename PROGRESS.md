@@ -8918,3 +8918,79 @@ Not two dungeons. The same descent with one rule different:
 
 Compressing chunks and interest management stay at the end, because both rewrite the streaming path and
 should not be in flight while this is moving.
+
+## Realms are half-finished, and the list of where 28 September 2026
+
+An audit of `engine/server` for realm-blind sites, run because the descent needs dungeons to work,
+came back with about **seventy** rather than the four that were recorded. Worth stating the shape of it
+before the list, because the list is a symptom:
+
+**`game_server.gd` exposes `entities`, `world`, `block_ticks`, `biome_generator`, `deltas` and
+`block_data` as aliases for the overworld's.** So the realm-blind version of any line is *shorter* than
+the correct one, reads identically in review, and is what anybody writes who is not thinking about
+realms at that moment. Fifteen subsystems were made realm-aware when realms landed; everything else
+kept meaning the overworld, silently. The eventual fix is structural - make the bare alias impossible
+or loud, the way `unbound.txt` and `owned.txt` made two other invisible drifts loud - and until then
+this list is the record.
+
+**Nothing had ever caught one of these**, with the whole suite green, because no test had ever *lived*
+in a realm: the Proving Ground's second realm and its instance were only written to and read back.
+`_living_in_a_realm` in `tests/gameplay_test.gd` now dies, fights and checks its map in one, and each
+of its assertions was confirmed to fail with its own fix reverted.
+
+### Fixed (28 September 2026)
+
+Pathfinder tables per realm; item drops on death; item drops on breaking a block; `on_attack` and
+`on_interact_entity` (including the id-collision, which was not a safe miss); boss bars and boss
+announcements, plus their UI key; creature light checks and the torch-bearer test; mob explosions;
+natural spawning's light, open-sky and biome tests; and `dimension_of`, which was a whole second notion
+of which world somebody was in.
+
+### Still outstanding, roughly by how much it matters
+
+**Sounds and effects have no realm filter at all** - `play_sound_at` and `play_effect` walk every player
+by distance only, while `play_decal`, `play_beam`, `start_effect` and floating text all take a
+`realm_id` and filter correctly, so it is an omission and not a policy. 56 call sites between them,
+each needing its realm derived, which is why it was not done in the same pass. `_broadcast_mining` and
+`broadcast_player_event` are the same shape.
+
+**Crafting stations evaluate against overworld blocks** (`stations.gd:65`, `:122`, `:205`), so a station
+in another realm reads the wrong multiblock entirely. `_stock_containers` asks
+`containers.get_container(pos)` without the player one line after using `realm_of(p)`.
+
+**`station_sessions.gd` is realm-blind throughout**: block data read and written to the overworld, a
+finished community project dropping its output there, and - structurally - `_sessions` keyed on a bare
+`Vector3i`, so two realms' stations at one coordinate are **one session**.
+
+**Beds and sleeping** (`sleep.gd:38`, `:41`, `:51`, `:151`, `:165`): overworld blocks, and overworld
+monsters keeping you awake in a dungeon while the dungeon's own do not.
+
+**`/struct` places in the overworld** while aiming with `realm_of(player).world` - aim at a dungeon wall,
+build on the surface. `Structures.capture` likewise.
+
+**`mod_api` gaps**: `schedule_block_tick` loses the realm, so a machine in a dimension that reschedules
+itself schedules in the overworld and stops; `remove_entity` erases from the wrong table and should
+simply be `entity.remove()`; `get_container`, `get_station`, `entities_near`, `get_entity`,
+`place_structure`, `register_structure`, `register_structure_template`, `add_spawn_rule` and `set_caps`
+all take no realm, and `register_biome` two screens away does. `riding` and `tame` have the player in
+hand and ask the overworld anyway; so do `vehicles.gd:117`/`:155` and `game_server.gd:1534`/`:1550`,
+while `companions.gd` carries a comment from 2026-09-21 fixing exactly this in its own file.
+
+**Loot's `biome` condition, the guide's discoveries, ambience, tutorials' biome goals** - all
+`biome_generator` on the overworld with a position or a player to hand.
+
+**Dev tools and commands**: the inspector reads the overworld's blocks, state, data, light and station;
+`/biome`, `/clearmobs`, `/mobs`, `/summon` all act on the overworld with `player` in scope.
+
+**Entity ids are per-realm and restart at 1**, which is what made the combat bug dangerous rather than
+merely wrong. Anything client-facing keyed on `e.id` alone can still collide across realms -
+`broadcast_entity_event`'s `known_entities` check among them. The boss bar key now includes the realm;
+nothing else does.
+
+**The map still sends the overworld's spawn point** as every realm's spawn marker.
+
+### Deliberately shared, and correct
+
+Registries, block-tick and signal handler tables, liquid kinds and meetings, and multiblock patterns are
+one table for every realm on purpose, each with the reasoning written where it is done: what a block
+*type* does is true everywhere, and only where each block sits differs.
