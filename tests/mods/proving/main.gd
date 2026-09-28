@@ -46,6 +46,14 @@ func setup(mod_api) -> void:
 	api.on("settings_changed", func(ev):
 		if ev.key == "monsters":
 			apply_caps.call())
+	# **A mod's own event, raised and answered here.** Both halves in one mod because the Proving Ground
+	# depends on nothing - but the shape is the one `fairground` uses across mods: raise a question with
+	# a payload, and every listener appends its answer to it.
+	api.on("proving:roll_call", func(ev): ev.answers.append("proving"))
+	# Listening on this mod's *own* `player_death` - which is not the engine's. If `emit` ever stopped
+	# qualifying, a mod passing "player_death" would raise the engine's instead and this would never
+	# run, which is what the assertion in proving_test watches for.
+	api.on("proving:player_death", func(ev): ev.answers.append("qualified"))
 	things.setup(api, ids)
 	# **After things.setup, not before.** The generator is built with block ids, and asking for one that
 	# is not registered yet returns -1, which encodes as 65535 and generates a world made of nothing.

@@ -1,6 +1,6 @@
 # Everything else
 
-Part of the [Mod API reference](../mod-api.md). Mod API 1.0.0 · game 0.42.0
+Part of the [Mod API reference](../mod-api.md). Mod API 1.1.0 · game 0.42.0
 
 
 ### `api.reloading`
@@ -2253,6 +2253,32 @@ Changes one of this mod's settings from code (the same path the admin screen use
 `settings_changed` run). Returns "" or why it was refused.
 
 **See also:** `set_value`
+
+### `api.emit`
+
+GDScript: `api.emit(event_name: String, data := {}) -> Dictionary`
+
+JavaScript: `api.emit(eventName, data)`
+
+Raises an event of this mod's own, which any other mod can listen for with `on`. Returns the payload
+after every handler has seen it, so handlers may answer by changing it.
+
+# in one mod
+var answer := api.emit("games", {"games": []})
+for game in answer.games: ...
+
+# in another
+api.on("fairground:games", func(ev): ev.games.append({"id": "lava", ...}))
+
+**This is the only way one mod can offer anything to another.** Until it existed mods could listen to
+the engine and never to each other, so anything mod-to-mod had to become an engine capability -
+which meant the engine learning what a dungeon, a shop or a contest was. A mod-defined event with a
+payload handlers may edit is the same shape the engine's own events already use (`cancelled`,
+`amount`, `message` are all written back), and it teaches the engine nothing. (2026-09-28)
+
+**The name is always this mod's**, so `api.emit("done")` raises `yourmod:done` and nothing else. That
+is not tidiness: without it a mod could raise `player_death` and every handler in the server would
+believe it.
 
 ### `api.qualified`
 

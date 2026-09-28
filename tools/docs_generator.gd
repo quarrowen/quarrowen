@@ -857,8 +857,15 @@ static func undocumented_events() -> Array:
 	var emitted := {}
 	var call := RegEx.create_from_string('emit\\("([a-z_]+)"')
 	for path in _scripts_under("res://engine/server"):
-		for m in call.search_all(FileAccess.get_file_as_string(path)):
-			emitted[m.get_string(1)] = true
+		# **Line by line, skipping comments.** Reading the whole file at once counted the examples in
+		# `api.emit`'s own documentation as events the engine raises, so documenting the function that
+		# lets a mod raise its own events failed the test that every engine event is documented. A doc
+		# comment is not a call site. (2026-09-28)
+		for line in FileAccess.get_file_as_string(path).split("\n"):
+			if line.strip_edges().begins_with("#"):
+				continue
+			for m in call.search_all(line):
+				emitted[m.get_string(1)] = true
 	var out := []
 	for name: String in emitted:
 		if not documented.has(name):

@@ -1,9 +1,10 @@
 # What the engine still needs
 
 Quarrowen's rule is that **the engine provides capabilities and mods provide content**. This page began
-as the list of capabilities the engine did not have. **It is now a list of content and four engineering
-items**, because the capabilities are finished - which is the happiest way for a document like this to
-go stale, and the reason it has been rewritten rather than extended.
+as the list of capabilities the engine did not have. It became a list of content and four engineering
+items as the capabilities were finished - and then gained capabilities again on 28 September, when a
+fourth game was scoped and wanted five things nobody had needed before. **A finished list is a claim
+about what has been asked for, not about what exists.**
 
 It comes from working backwards: taking the things people build on top of voxel games — the machines,
 the magic, the economies, the dungeons, the storage systems — and asking not "how would we write that"
@@ -11,6 +12,11 @@ but **"what could our engine not express, that whoever built it had to reach pas
 About a hundred such things collapsed into twenty-six answers, because most of them are different
 content over the same few gaps. All twenty-six are built; each is marked below, and the sections are
 kept because *why* a capability exists is worth more than the fact that it landed.
+
+**The list was never closed, and on 28 September 2026 it gained a twenty-seventh**: `api.emit`, so one
+mod can raise an event another mod hears. It was missed because the question above was asked about what
+*games* need, and this is a thing *mods* need from each other - so nothing in a hundred worked examples
+pointed at it. Worth keeping in mind before reading "all of them are built" as "there are no more".
 
 **The test each of these has to pass**: could two mods build genuinely *different* things on it, or
 does it bake one game's answer into the engine? A capability is a mechanism — the engine propagates,
@@ -24,7 +30,8 @@ project and stays one.
 
 ## Where we are
 
-**All twenty-six capabilities below are built** (the last three on 21 September 2026). Each one is
+**All twenty-six capabilities below are built** (the last three on 21 September 2026), and a
+twenty-seventh - `api.emit` - was added on 28 September. Each one is
 marked where it appears, so this page stays a list of what is *left* rather than a record of what was
 wanted.
 
@@ -42,12 +49,14 @@ was written on 27 September 2026, which this line said was still owed.
 
 ### What is left, shortest honest answer
 
-- **No capabilities.** All 26 are built; the last three (area tools, nested inventories, instances)
-  landed on 21 September 2026.
+- **One capability, and four more scoped.** The 26 landed by 21 September 2026 and `api.emit` on
+  28 September; `fairground` wants per-realm rules, region volumes, `set_look` for players and a
+  spectator mode (scoped in PROGRESS, 28 September).
 - **Five known limits** in things that *are* built - see "Where the built things stop" below.
 - **Content**, which is the larger half of the work. The re-scope of `base` to nouns and the writing of
-  `simple_gear` and `simple_machines` are *done*; what is left is the third game and the long tail of
-  blocks, creatures, villages and voices. See "The mod architecture" below.
+  `simple_gear` and `simple_machines` are *done*, and so are all three games; what is left is
+  `fairground` - a fourth game for 1.0, decided 28 September - and the long tail of blocks, creatures,
+  villages and voices. See "The mod architecture" below.
 - **Four things for 1.0**: touch controls, instrumenting the network, compressing chunks, interest
   management - plus one decision, Mobile versus Forward+, which sits upstream of all four and is
   called out in "For 1.0".

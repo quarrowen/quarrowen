@@ -3169,6 +3169,29 @@ func on(event: String, handler: Callable, priority := 0) -> void:
 	_server.add_handler(event, handler, priority, mod_id)
 
 
+## Raises an event of this mod's own, which any other mod can listen for with `on`. Returns the payload
+## after every handler has seen it, so handlers may answer by changing it.
+##
+##     # in one mod
+##     var answer := api.emit("games", {"games": []})
+##     for game in answer.games: ...
+##
+##     # in another
+##     api.on("fairground:games", func(ev): ev.games.append({"id": "lava", ...}))
+##
+## **This is the only way one mod can offer anything to another.** Until it existed mods could listen to
+## the engine and never to each other, so anything mod-to-mod had to become an engine capability -
+## which meant the engine learning what a dungeon, a shop or a contest was. A mod-defined event with a
+## payload handlers may edit is the same shape the engine's own events already use (`cancelled`,
+## `amount`, `message` are all written back), and it teaches the engine nothing. (2026-09-28)
+##
+## **The name is always this mod's**, so `api.emit("done")` raises `yourmod:done` and nothing else. That
+## is not tidiness: without it a mod could raise `player_death` and every handler in the server would
+## believe it.
+func emit(event_name: String, data := {}) -> Dictionary:
+	return _server.emit(_qualify(event_name), data)
+
+
 ## `handler(player, args: PackedStringArray)` runs for "/name args...". permission "admin" restricts
 ## it to server admins (QW_ADMINS, /op, or the local host).
 func register_command(command: String, description: String, handler: Callable, permission := "") -> void:

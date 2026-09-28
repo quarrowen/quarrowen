@@ -319,6 +319,18 @@ func _behaviour(server) -> void:
 	if charm_slot >= 0:
 		p.inventory.set_slot(charm_slot, charm, 1, {})
 		_check(dressed.worn(p, "charm") == charm, "and a mod can ask what a player has on")
+
+	# **A mod raising its own event**, which is the only way one mod can offer anything to another. The
+	# payload comes back edited, because that is how a listener answers.
+	var roll: Dictionary = dressed.emit("roll_call", {"answers": []})
+	_check(roll.answers.has("proving"), "a mod can raise its own event and a listener can answer it")
+	# The name is qualified to the raiser whatever it passes, so nothing can raise an engine event and
+	# be believed. **Asserted positively**, because the first version of this checked that a faked
+	# `player_death` reached nobody - which would have passed just as well with the guard removed, since
+	# the engine's own handlers do not append to `answers` either. The mod listens on its *own*
+	# `proving:player_death`, so seeing that run is proof the name was qualified rather than passed on.
+	var faked: Dictionary = dressed.emit("player_death", {"answers": []})
+	_check(faked.answers == ["qualified"], "and an engine event's name raises the mod's own, not the engine's")
 	# `order` sorts the list, so the one given second comes back first. The whole point is a story's
 	# spine sitting above its errands however they were handed out, and chronological order is what
 	# it has to beat - so the test gives them in the wrong order deliberately.

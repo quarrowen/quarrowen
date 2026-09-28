@@ -8343,3 +8343,54 @@ through `set_map_marker`, and the split spawn/rejoin handlers that were written 
 first place.
 
 **`register_minigame` is taken** and means the crafting skill-check. No code here may use that word.
+
+### Solo first, which re-ranks the whole list (2026-09-28)
+
+Three more answers from the user, and the first changes the design more than it looks:
+
+- **"Usually solo, sometimes together."** So **every game has to be worth playing alone.** That rules
+  out hide and seek and hunter versus hunted as anything but occasional - neither exists with one
+  player - and it makes the two already chosen the right two by luck: the floor is lava and the word
+  game are both played against the world and the clock, with a rival as a bonus rather than a
+  requirement. Personal bests rather than knockout, and the hub gets a job when nobody else is on:
+  best scores on a board beside each door.
+- **Each game decides what losing means** - some score, some eliminate - so the registry carries both
+  from the start rather than growing the second one later.
+- **The word game's questions are data**, a JSON file rather than a table in the code, so the children
+  can write their own. More work up front and the only version that is theirs.
+
+### `api.emit` - built (2026-09-28)
+
+The 27th capability, and the smallest so far: a mod raises an event of its own and any other mod can
+listen with `api.on`. The payload comes back after every handler has seen it, so a listener answers by
+editing it - the same shape the engine's own events already use, where `cancelled`, `amount` and
+`message` are all written back.
+
+**The name is always the raiser's.** `api.emit("done")` raises `yourmod:done` and there is no way to
+raise anything else. That is not tidiness: without it a mod could raise `player_death` and every
+handler in the server would believe it.
+
+**The test for that guard was wrong the first time**, and worth recording because it is a shape that
+recurs: it checked that a faked `player_death` reached nobody, which would have passed just as well with
+the guard *removed* - the engine's own handlers do not append to the payload either. The mod now
+listens on its own `proving:player_death`, so the assertion is positive: seeing that handler run is
+proof the name was qualified. **A negative assertion about a guard usually proves nothing; find the
+positive one.**
+
+This moved **`MOD_API_VERSION` off 1.0.0 for the first time**, to 1.1.0. Additive, so every mod
+declaring `^1.0` keeps working - which is exactly what the policy was written for. `emit` reached the
+JavaScript bridge with no hand-written entry, because the bindings are generated.
+
+And `docs/roadmap.md` can no longer say the capability list is closed.
+
+#### Documenting `emit` broke the test that checks events are documented
+
+A nice circular one. `undocumented_events()` finds what the engine raises by regexing `emit\("name"`
+across every file under `engine/server` - **whole files, comments included**. So the two examples in
+`api.emit`'s own doc comment (`api.emit("games", ...)`, and `yourmod:done`) were read as events the
+engine raises and nobody had documented, and the suite failed on `missing done, games`.
+
+Fixed in the scanner rather than by rewording the comment: it now reads line by line and skips comment
+lines, because **a doc comment is not a call site** and the next person to write an example would have
+hit the same wall. The narrower lesson is about tools that read source with a regex - they see the
+prose too, and the prose is where examples live.

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quarrowen Mod API 1.0.0</title>
+<title>Quarrowen Mod API 1.1.0</title>
 <style>
 :root { --bg: #fbfaf7; --panel: #ffffff; --line: #e6e2d8; --text: #25231f; --muted: #7a7466; --accent: #2f6fd0; --code: #f3f0e8; --tag: #e7f0ff; }
 @media (prefers-color-scheme: dark) { :root { --bg: #111317; --panel: #171a20; --line: #2a2f38; --text: #dde1e7; --muted: #8b919c; --accent: #7fb0ff; --code: #1f232b; --tag: #1d2a40; } }
@@ -87,7 +87,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 </nav>
 <main>
 <section id="start"><h1>Quarrowen mod API</h1>
-<p class="lead">Mod API 1.0.0 · game 0.42.0. Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>
+<p class="lead">Mod API 1.1.0 · game 0.42.0. Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>
 <h3>Make a mod in a minute</h3>
 <ol>
 <li>In the game menu choose <b>Create a mod</b>, or run <code>godot --headless --path . res://tools/mod_tool.tscn -- new my_mod [--lang=js] [--kind=game]</code>.</li>
@@ -1192,6 +1192,25 @@ differently depending on the game it has been added to."><div class="sig"><code>
 <div class="card" id="api-settings" data-search="settings settings every setting of this mod as {key: value}, for passing to something that wants a config dictionary."><div class="sig"><code>api.settings() -&gt; Dictionary</code><span class="tag js" title="settings">JS settings</span></div><p>Every setting of this mod as {key: value}, for passing to something that wants a config dictionary.</p></div>
 <div class="card" id="api-set-setting" data-search="set_setting setsetting changes one of this mod's settings from code (the same path the admin screen uses, so handlers of
 `settings_changed` run). returns &quot;&quot; or why it was refused."><div class="sig"><code>api.set_setting(key: String, value) -&gt; String</code><span class="tag js" title="setSetting">JS setSetting</span></div><p>Changes one of this mod's settings from code (the same path the admin screen uses, so handlers of<br>`settings_changed` run). Returns &quot;&quot; or why it was refused.</p></div>
+<div class="card" id="api-emit" data-search="emit emit raises an event of this mod's own, which any other mod can listen for with `on`. returns the payload
+after every handler has seen it, so handlers may answer by changing it.
+
+# in one mod
+var answer := api.emit(&quot;games&quot;, {&quot;games&quot;: []})
+for game in answer.games: ...
+
+# in another
+api.on(&quot;fairground:games&quot;, func(ev): ev.games.append({&quot;id&quot;: &quot;lava&quot;, ...}))
+
+**this is the only way one mod can offer anything to another.** until it existed mods could listen to
+the engine and never to each other, so anything mod-to-mod had to become an engine capability -
+which meant the engine learning what a dungeon, a shop or a contest was. a mod-defined event with a
+payload handlers may edit is the same shape the engine's own events already use (`cancelled`,
+`amount`, `message` are all written back), and it teaches the engine nothing. (2026-09-28)
+
+**the name is always this mod's**, so `api.emit(&quot;done&quot;)` raises `yourmod:done` and nothing else. that
+is not tidiness: without it a mod could raise `player_death` and every handler in the server would
+believe it."><div class="sig"><code>api.emit(event_name: String, data := {}) -&gt; Dictionary</code><span class="tag js" title="emit">JS emit</span></div><p>Raises an event of this mod's own, which any other mod can listen for with `on`. Returns the payload<br>after every handler has seen it, so handlers may answer by changing it.<br><br># in one mod<br>var answer := api.emit(&quot;games&quot;, {&quot;games&quot;: []})<br>for game in answer.games: ...<br><br># in another<br>api.on(&quot;fairground:games&quot;, func(ev): ev.games.append({&quot;id&quot;: &quot;lava&quot;, ...}))<br><br>**This is the only way one mod can offer anything to another.** Until it existed mods could listen to<br>the engine and never to each other, so anything mod-to-mod had to become an engine capability -<br>which meant the engine learning what a dungeon, a shop or a contest was. A mod-defined event with a<br>payload handlers may edit is the same shape the engine's own events already use (`cancelled`,<br>`amount`, `message` are all written back), and it teaches the engine nothing. (2026-09-28)<br><br>**The name is always this mod's**, so `api.emit(&quot;done&quot;)` raises `yourmod:done` and nothing else. That<br>is not tidiness: without it a mod could raise `player_death` and every handler in the server would<br>believe it.</p></div>
 <div class="card" id="api-qualified" data-search="qualified qualified the same rule, for the capabilities that hold names a mod wrote inside a definition - a shop's
 ledger, a character's shop - and so must qualify them against that mod rather than against
 whoever happens to be asking later. public because three things need it and a private function two

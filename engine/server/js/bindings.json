@@ -608,6 +608,18 @@
 			],
 			"gd": "drop_item"
 		},
+		"emit": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "emit"
+		},
 		"enterInstance": {
 			"args": [
 				{
