@@ -481,7 +481,7 @@ func _poll_met(goal: Dictionary, p) -> bool:
 		"biome":
 			return _server.biome_generator != null and _name_matches(goal.get("target", []), _server.biome_generator.biome_at(floori(pos.x), floori(pos.z)))
 		"hunger_below":
-			return bool(_server.gameplay.get("hunger", true)) and not p.inventory.creative and p.hunger < float(goal.get("value", 6))
+			return bool(_server.gameplay_of(p).get("hunger", true)) and not p.inventory.creative and p.hunger < float(goal.get("value", 6))
 		"health_below":
 			return p.health < float(goal.get("value", 6))
 		"night":

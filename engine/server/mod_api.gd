@@ -806,13 +806,23 @@ func set_spawn_caps(caps: Dictionary) -> void:
 ## Game-wide rules: item_drops ("entity" | "inventory"), keep_inventory, pvp, fall_damage,
 ## natural_regeneration, mob_spawning, flight (false stops the double-tap in a survival game; `/fly`
 ## still obeys an admin who means it). See GameServer.gameplay for the full list and the defaults.
-func set_gameplay(values: Dictionary) -> void:
-	_server.set_gameplay(values)
+## `realm_id` sets them for one world instead of the whole server, and **overlays rather than
+## replaces**: a lobby that only wants PvP off says that and inherits everything else, and a rule the
+## engine gains later reaches it without this call being edited. Names without ":" are this mod's.
+func set_gameplay(values: Dictionary, realm_id := "") -> void:
+	_server.set_gameplay(values, _qualify_ref(realm_id))
 
 
-## A gameplay rule's current value (see set_gameplay), or null.
-func get_gameplay(rule: String):
-	return _server.gameplay.get(rule)
+## A gameplay rule's current value (see set_gameplay), or null. `realm_id` asks what is in force in one
+## world; "" is the server's own set, which every realm without an override of its own reads.
+func get_gameplay(rule: String, realm_id := ""):
+	return _server.gameplay_in(_qualify_ref(realm_id)).get(rule)
+
+
+## What is in force where this player is standing, which is what a rule about hunger, falling or
+## hitting somebody always means. Null if they are gone.
+func gameplay_for(player, rule: String):
+	return _server.gameplay_of(player).get(rule) if player != null else null
 
 
 ## Looks up any block or item id by name ("base:coal", or a local name). -1 if unknown.
@@ -2894,8 +2904,13 @@ func add_ore_pass(def: Dictionary, realm_id := "") -> void:
 
 
 ## Movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`.
-func set_physics(values: Dictionary) -> void:
-	_server.set_rules(values)
+##
+## `realm_id` sets them for one world rather than the whole server, overlaying it the way
+## `set_gameplay` does - a low-gravity arena beside an ordinary world. Players are told the rules of
+## wherever they are standing, on joining and whenever they cross between worlds, because a client that
+## predicts movement the server is not simulating rubber-bands. Names without ":" are this mod's.
+func set_physics(values: Dictionary, realm_id := "") -> void:
+	_server.set_rules(values, _qualify_ref(realm_id))
 
 
 ## Loads the chunk if needed. Use get_loaded_block when scanning large areas.

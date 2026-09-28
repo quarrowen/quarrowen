@@ -848,6 +848,17 @@
 			"args": [],
 			"gd": "game_id"
 		},
+		"gameplayFor": {
+			"args": [
+				{
+					"kind": "player"
+				},
+				{
+					"kind": "str"
+				}
+			],
+			"gd": "gameplay_for"
+		},
 		"getBiome": {
 			"args": [
 				{
@@ -946,6 +957,10 @@
 		"getGameplay": {
 			"args": [
 				{
+					"kind": "str"
+				},
+				{
+					"default": "",
 					"kind": "str"
 				}
 			],
@@ -2832,6 +2847,10 @@
 			"args": [
 				{
 					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "set_gameplay"
@@ -2904,6 +2923,10 @@
 			"args": [
 				{
 					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "set_physics"

@@ -8394,3 +8394,40 @@ Fixed in the scanner rather than by rewording the comment: it now reads line by 
 lines, because **a doc comment is not a call site** and the next person to write an example would have
 hit the same wall. The narrower lesson is about tools that read source with a regex - they see the
 prose too, and the prose is where examples live.
+
+### Per-realm rules - built (2026-09-28)
+
+Step 2 of Fairground, and the one that earns its place whether or not a lobby is ever written: a
+survival world can now hold a creative build area, a safe zone, or an arena with its own gravity.
+
+**Overlay, not replacement.** A realm names the rules it wants different and inherits everything else,
+so a lobby that only turns PvP off says exactly that - and a rule the engine gains next year reaches
+every realm without a single mod being edited. `gameplay_in(realm)` hands back the *server's own
+dictionary* when a realm has no overrides, so the common case copies nothing and every read site that
+existed before behaves identically.
+
+`set_gameplay(values, realm_id)` and `set_physics(values, realm_id)`, with `realm_id` straight after
+the required argument, which is where it sits in the other 81 calls that take one. Both additive, so
+this is the 1.1.0 minor bump `api.emit` already made rather than a second one.
+
+**Typed against the server's table whatever is being written into**, so a realm cannot invent a rule or
+change one's type. An override is a different value for a known rule and nothing more.
+
+#### What had to be routed, and the two that were not obvious
+
+Most read sites already had a player in hand - hunger, falling, regeneration, durability, sleeping,
+flight, keeping your inventory, what a broken block drops - so they became `gameplay_of(p)`. PvP asks
+about the *target*, because the rule that matters is the one where the blow lands. Explosions ask the
+realm the blast is in. Two needed more than a rename:
+
+- **Mob spawning was a single early-out** for the whole server, so a lobby that wanted nothing
+  spawning could only get it by turning spawning off everywhere. The round now filters its players by
+  their own realm's rule and carries on exactly as before.
+- **Physics had to reach the client.** `p.physics_rules` meant "this player has stat modifiers"; it now
+  also means "this player is somewhere with its own rules", and `null` means the server's. Clients are
+  told on joining *and* on crossing between worlds, because a client predicting movement the server is
+  not simulating rubber-bands rather than failing.
+
+The hand-written JavaScript entries for all three functions took one argument and would have silently
+ignored the new one - exactly the desynchronisation CLAUDE.md warns about, since hand-written entries
+win over the generated ones. Updated along with the type definitions.

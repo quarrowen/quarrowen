@@ -35,7 +35,7 @@ JavaScript: `api.explode(position, power, options)`
 Sets off an explosion (see engine/server/explosions.gd): power ~3 is a mob blast. options: source,
 break_blocks, drop_chance, damage (multiplier), effect, sound. Returns the explosion event.
 
-**See also:** `blast_resistance`, `break_block`, `cast`, `damage`, `damage_player`, `get_block_v`
+**See also:** `blast_resistance`, `break_block`, `cast`, `damage`, `damage_player`, `gameplay_in`
 
 ### `api.entity_type`
 

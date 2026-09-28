@@ -90,7 +90,7 @@ static func speedup(helpers: int, station_speed: float) -> float:
 # --- Tray ---------------------------------------------------------------------------------------
 
 func may_take(p, c: Dictionary, stack: Dictionary) -> bool:
-	if p.inventory.creative or String(_server.gameplay.get("tray_access", "contributors")) == "anyone":
+	if p.inventory.creative or String(_server.gameplay_of(p).get("tray_access", "contributors")) == "anyone":
 		return true
 	if stack.get("by", "") == p.player_id or String(c.get("owner", "")).is_empty() or c.get("owner", "") == p.player_id:
 		return true

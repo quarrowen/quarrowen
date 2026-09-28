@@ -101,25 +101,44 @@ api.register_stat("proving:resolve", 1.0)
 
 ### `api.set_gameplay`
 
-GDScript: `api.set_gameplay(values: Dictionary) -> void`
+GDScript: `api.set_gameplay(values: Dictionary, realm_id := "") -> void`
 
-JavaScript: `api.setGameplay(values)`
+JavaScript: `api.setGameplay(values, realmId)`
 
 Game-wide rules: item_drops ("entity" | "inventory"), keep_inventory, pvp, fall_damage,
 natural_regeneration, mob_spawning, flight (false stops the double-tap in a survival game; `/fly`
 still obeys an admin who means it). See GameServer.gameplay for the full list and the defaults.
+`realm_id` sets them for one world instead of the whole server, and **overlays rather than
+replaces**: a lobby that only wants PvP off says that and inherits everything else, and a rule the
+engine gains later reaches it without this call being edited. Names without ":" are this mod's.
 
 ```gdscript
-api.set_gameplay({"keep_inventory": true, "natural_regeneration": true, "tutorials": true})
+api.set_gameplay({"pvp": false, "fall_damage": false}, "deep")
 ```
+
+**See also:** `qualified`
 
 ### `api.get_gameplay`
 
-GDScript: `api.get_gameplay(rule: String)`
+GDScript: `api.get_gameplay(rule: String, realm_id := "")`
 
-JavaScript: `api.getGameplay(rule)`
+JavaScript: `api.getGameplay(rule, realmId)`
 
-A gameplay rule's current value (see set_gameplay), or null.
+A gameplay rule's current value (see set_gameplay), or null. `realm_id` asks what is in force in one
+world; "" is the server's own set, which every realm without an override of its own reads.
+
+**See also:** `gameplay_in`, `qualified`
+
+### `api.gameplay_for`
+
+GDScript: `api.gameplay_for(player, rule: String)`
+
+JavaScript: `api.gameplayFor(player, rule)`
+
+What is in force where this player is standing, which is what a rule about hunger, falling or
+hitting somebody always means. Null if they are gone.
+
+**See also:** `gameplay_of`
 
 ### `api.player_roles`
 
@@ -143,13 +162,22 @@ Gives (or takes) a role. Returns whether anything changed.
 
 ### `api.set_physics`
 
-GDScript: `api.set_physics(values: Dictionary) -> void`
+GDScript: `api.set_physics(values: Dictionary, realm_id := "") -> void`
 
-JavaScript: `api.setPhysics(values: Record<string, number | boolean>): void`
+JavaScript: `api.setPhysics(values: Record<string, number | boolean>, options?: { realm?: string }): void`
 
 Movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`.
 
-**See also:** `set_rules`
+`realm_id` sets them for one world rather than the whole server, overlaying it the way
+`set_gameplay` does - a low-gravity arena beside an ordinary world. Players are told the rules of
+wherever they are standing, on joining and whenever they cross between worlds, because a client that
+predicts movement the server is not simulating rubber-bands. Names without ":" are this mod's.
+
+```gdscript
+api.set_physics({"gravity": 8.0}, "deep")
+```
+
+**See also:** `qualified`, `set_rules`
 
 ### `api.get_players`
 

@@ -96,9 +96,15 @@ func count_near(center: Vector3, category: String) -> int:
 ## One spawning round for `for_players` (default: everyone). The server calls it every tick for a slice of
 ## the players, so each player gets a round about once a second without one tick doing them all.
 func run(for_players: Array = []) -> void:
-	if rules.is_empty() or not _server.gameplay.get("mob_spawning", true) or _server.players.is_empty():
+	if rules.is_empty() or _server.players.is_empty():
 		return
 	var chosen: Array = for_players if not for_players.is_empty() else _server.players.values()
+	# **Per player, not per server.** `mob_spawning` used to be a single early-out, which meant a lobby
+	# realm that wanted nothing spawning could only get it by turning spawning off everywhere. Filtering
+	# here keeps the rest of the round exactly as it was. (2026-09-28)
+	chosen = chosen.filter(func(p): return bool(_server.gameplay_of(p).get("mob_spawning", true)))
+	if chosen.is_empty():
+		return
 	var daylight: float = WorldTime.daylight(_server.get_time_of_day())
 	# Counted once for the round: mobs per type everywhere, and per player by category and type nearby.
 	var totals := {}

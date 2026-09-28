@@ -64,7 +64,7 @@ func use_bed(p, pos: Vector3i) -> void:
 		p.send_message("Respawn point set")
 	if not p.sleeping.is_empty():
 		return
-	if not bool(_server.gameplay.get("sleeping", true)):
+	if not bool(_server.gameplay_of(p).get("sleeping", true)):
 		return
 	if not is_night():
 		p.show_title("", "You can only sleep at night", 1.5)

@@ -36,6 +36,11 @@ func setup(mod_api, id_table: Dictionary) -> void:
 		"controller": "C"})
 	# A realm, so dimensions are covered, and a liquid to put in it.
 	api.add_realm("deep", {"display_name": "The Deep", "generator": "void"})
+	# **Rules of its own**, which is what a lobby or an arena is made of: the same server, different
+	# answers about hitting each other and about gravity. Overlaid, so everything not named here is
+	# still whatever the server says. (2026-09-28)
+	api.set_gameplay({"pvp": false, "fall_damage": false}, "deep")
+	api.set_physics({"gravity": 8.0}, "deep")
 	# A liquid of our own, with a shallow form, plus what happens where two meet.
 	ids.slime = api.register_block("slime", {"display_name": "Slime",
 		"render": "translucent", "liquid": true})

@@ -51,7 +51,8 @@ func explode(center: Vector3, power: float, options := {}) -> Dictionary:
 		into = _server.realm
 	var source = options.get("source")
 	var from_mob: bool = source != null and source.get("brain") != null
-	var break_blocks: bool = bool(options.get("break_blocks", true)) and (not from_mob or bool(_server.gameplay.get("mob_griefing", true)))
+	# The realm the blast is in, not the server: a lobby can forbid what a survival world allows.
+	var break_blocks: bool = bool(options.get("break_blocks", true)) and (not from_mob or bool(_server.gameplay_in(into.id).get("mob_griefing", true)))
 	var blocks := []
 	if break_blocks:
 		var seen := {}

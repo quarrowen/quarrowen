@@ -422,7 +422,7 @@ declare module "quarrowen" {
     findBlockData(block?: BlockId): Vec3[];
     surfaceY(x: number, z: number): number;
     seesSky(position: Vec3): boolean;
-    setPhysics(values: Record<string, number | boolean>): void;
+    setPhysics(values: Record<string, number | boolean>, options?: { realm?: string }): void;
     setWorldTime(timeOfDay: number, dayLength?: number): void;
     timeOfDay(): number;
     daylight(): number;
@@ -517,8 +517,8 @@ declare module "quarrowen" {
     registerMilestone(name: string, def: Milestone): boolean;
     getBiome(position: Vec3): string;
     setSpawnCaps(caps: { monster?: number; animal?: number; ambient?: number; misc?: number }): void;
-    setGameplay(values: Gameplay): void;
-    getGameplay<K extends keyof Gameplay>(rule: K): Gameplay[K];
+    setGameplay(values: Gameplay, options?: { realm?: string }): void;
+    getGameplay<K extends keyof Gameplay>(rule: K, options?: { realm?: string }): Gameplay[K];
     makeNoise(position: Vec3, radius: number, source?: Player | Entity | null): void;
     registerEquipmentSlot(name: string, def?: { display_name?: string }): void;
     registerStat(name: string, base: number): void;

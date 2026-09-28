@@ -497,11 +497,22 @@ for per-player looks (teams, disguises) use player.set_avatar_override or the av
 player.get_stat(name). engine stats: see itemregistry.base_stats."><div class="sig"><code>api.register_stat(stat_name: String, base: float) -&gt; bool</code><span class="tag js" title="registerStat">JS registerStat</span></div><p>Adds a player stat with a base value. Items and effects change it with modifiers; read it with<br>player.get_stat(name). Engine stats: see ItemRegistry.BASE_STATS.</p></div>
 <div class="card" id="api-set-gameplay" data-search="set_gameplay setgameplay game-wide rules: item_drops (&quot;entity&quot; | &quot;inventory&quot;), keep_inventory, pvp, fall_damage,
 natural_regeneration, mob_spawning, flight (false stops the double-tap in a survival game; `/fly`
-still obeys an admin who means it). see gameserver.gameplay for the full list and the defaults."><div class="sig"><code>api.set_gameplay(values: Dictionary) -&gt; void</code><span class="tag js" title="setGameplay">JS setGameplay</span></div><p>Game-wide rules: item_drops (&quot;entity&quot; | &quot;inventory&quot;), keep_inventory, pvp, fall_damage,<br>natural_regeneration, mob_spawning, flight (false stops the double-tap in a survival game; `/fly`<br>still obeys an admin who means it). See GameServer.gameplay for the full list and the defaults.</p></div>
-<div class="card" id="api-get-gameplay" data-search="get_gameplay getgameplay a gameplay rule's current value (see set_gameplay), or null."><div class="sig"><code>api.get_gameplay(rule: String)</code><span class="tag js" title="getGameplay">JS getGameplay</span></div><p>A gameplay rule's current value (see set_gameplay), or null.</p></div>
+still obeys an admin who means it). see gameserver.gameplay for the full list and the defaults.
+`realm_id` sets them for one world instead of the whole server, and **overlays rather than
+replaces**: a lobby that only wants pvp off says that and inherits everything else, and a rule the
+engine gains later reaches it without this call being edited. names without &quot;:&quot; are this mod's."><div class="sig"><code>api.set_gameplay(values: Dictionary, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="setGameplay">JS setGameplay</span></div><p>Game-wide rules: item_drops (&quot;entity&quot; | &quot;inventory&quot;), keep_inventory, pvp, fall_damage,<br>natural_regeneration, mob_spawning, flight (false stops the double-tap in a survival game; `/fly`<br>still obeys an admin who means it). See GameServer.gameplay for the full list and the defaults.<br>`realm_id` sets them for one world instead of the whole server, and **overlays rather than<br>replaces**: a lobby that only wants PvP off says that and inherits everything else, and a rule the<br>engine gains later reaches it without this call being edited. Names without &quot;:&quot; are this mod's.</p></div>
+<div class="card" id="api-get-gameplay" data-search="get_gameplay getgameplay a gameplay rule's current value (see set_gameplay), or null. `realm_id` asks what is in force in one
+world; &quot;&quot; is the server's own set, which every realm without an override of its own reads."><div class="sig"><code>api.get_gameplay(rule: String, realm_id := &quot;&quot;)</code><span class="tag js" title="getGameplay">JS getGameplay</span></div><p>A gameplay rule's current value (see set_gameplay), or null. `realm_id` asks what is in force in one<br>world; &quot;&quot; is the server's own set, which every realm without an override of its own reads.</p></div>
+<div class="card" id="api-gameplay-for" data-search="gameplay_for gameplayfor what is in force where this player is standing, which is what a rule about hunger, falling or
+hitting somebody always means. null if they are gone."><div class="sig"><code>api.gameplay_for(player, rule: String)</code><span class="tag js" title="gameplayFor">JS gameplayFor</span></div><p>What is in force where this player is standing, which is what a rule about hunger, falling or<br>hitting somebody always means. Null if they are gone.</p></div>
 <div class="card" id="api-player-roles" data-search="player_roles playerroles a player's roles by player id (the default role included)."><div class="sig"><code>api.player_roles(player_id: String) -&gt; Array</code><span class="tag js" title="playerRoles(playerId: string): string[]">JS playerRoles</span></div><p>A player's roles by player id (the default role included).</p></div>
 <div class="card" id="api-set-player-role" data-search="set_player_role setplayerrole gives (or takes) a role. returns whether anything changed."><div class="sig"><code>api.set_player_role(player_id: String, role: String, on := true) -&gt; bool</code><span class="tag js" title="setPlayerRole(playerId: string, role: string, on?: boolean): boolean">JS setPlayerRole</span></div><p>Gives (or takes) a role. Returns whether anything changed.</p></div>
-<div class="card" id="api-set-physics" data-search="set_physics setphysics movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`."><div class="sig"><code>api.set_physics(values: Dictionary) -&gt; void</code><span class="tag js" title="setPhysics(values: Record&lt;string, number | boolean&gt;): void">JS setPhysics</span></div><p>Movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`.</p></div>
+<div class="card" id="api-set-physics" data-search="set_physics setphysics movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`.
+
+`realm_id` sets them for one world rather than the whole server, overlaying it the way
+`set_gameplay` does - a low-gravity arena beside an ordinary world. players are told the rules of
+wherever they are standing, on joining and whenever they cross between worlds, because a client that
+predicts movement the server is not simulating rubber-bands. names without &quot;:&quot; are this mod's."><div class="sig"><code>api.set_physics(values: Dictionary, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="setPhysics(values: Record&lt;string, number | boolean&gt;, options?: { realm?: string }): void">JS setPhysics</span></div><p>Movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`.<br><br>`realm_id` sets them for one world rather than the whole server, overlaying it the way<br>`set_gameplay` does - a low-gravity arena beside an ordinary world. Players are told the rules of<br>wherever they are standing, on joining and whenever they cross between worlds, because a client that<br>predicts movement the server is not simulating rubber-bands. Names without &quot;:&quot; are this mod's.</p></div>
 <div class="card" id="api-get-players" data-search="get_players getplayers everyone online (player objects)."><div class="sig"><code>api.get_players() -&gt; Array</code><span class="tag js" title="getPlayers">JS getPlayers</span></div><p>Everyone online (player objects).</p></div>
 <div class="card" id="api-find-player" data-search="find_player findplayer the online player with this name (any case), or null."><div class="sig"><code>api.find_player(player_name: String)</code><span class="tag js" title="findPlayer(name: string): Player | null">JS findPlayer</span></div><p>The online player with this name (any case), or null.</p></div>
 <div class="card" id="api-broadcast" data-search="broadcast broadcast sends a chat message to everyone."><div class="sig"><code>api.broadcast(text: String) -&gt; void</code><span class="tag js" title="broadcast(text: string): void">JS broadcast</span></div><p>Sends a chat message to everyone.</p></div>
@@ -1491,7 +1502,7 @@ property stays for the engine's own writes; a mod wanting to set health should u
 <div class="card" data-search="findblockdata"><div class="sig"><code>api.findBlockData(block?: BlockId): Vec3[]</code></div></div>
 <div class="card" data-search="surfacey"><div class="sig"><code>api.surfaceY(x: number, z: number): number</code></div></div>
 <div class="card" data-search="seessky"><div class="sig"><code>api.seesSky(position: Vec3): boolean</code></div></div>
-<div class="card" data-search="setphysics"><div class="sig"><code>api.setPhysics(values: Record&lt;string, number | boolean&gt;): void</code></div></div>
+<div class="card" data-search="setphysics"><div class="sig"><code>api.setPhysics(values: Record&lt;string, number | boolean&gt;, options?: { realm?: string }): void</code></div></div>
 <div class="card" data-search="setworldtime"><div class="sig"><code>api.setWorldTime(timeOfDay: number, dayLength?: number): void</code></div></div>
 <div class="card" data-search="timeofday"><div class="sig"><code>api.timeOfDay(): number</code></div></div>
 <div class="card" data-search="daylight"><div class="sig"><code>api.daylight(): number</code></div></div>
@@ -1960,7 +1971,7 @@ declare module &quot;quarrowen&quot; {
     findBlockData(block?: BlockId): Vec3[];
     surfaceY(x: number, z: number): number;
     seesSky(position: Vec3): boolean;
-    setPhysics(values: Record&lt;string, number | boolean&gt;): void;
+    setPhysics(values: Record&lt;string, number | boolean&gt;, options?: { realm?: string }): void;
     setWorldTime(timeOfDay: number, dayLength?: number): void;
     timeOfDay(): number;
     daylight(): number;
@@ -2055,8 +2066,8 @@ declare module &quot;quarrowen&quot; {
     registerMilestone(name: string, def: Milestone): boolean;
     getBiome(position: Vec3): string;
     setSpawnCaps(caps: { monster?: number; animal?: number; ambient?: number; misc?: number }): void;
-    setGameplay(values: Gameplay): void;
-    getGameplay&lt;K extends keyof Gameplay&gt;(rule: K): Gameplay[K];
+    setGameplay(values: Gameplay, options?: { realm?: string }): void;
+    getGameplay&lt;K extends keyof Gameplay&gt;(rule: K, options?: { realm?: string }): Gameplay[K];
     makeNoise(position: Vec3, radius: number, source?: Player | Entity | null): void;
     registerEquipmentSlot(name: string, def?: { display_name?: string }): void;
     registerStat(name: string, base: number): void;

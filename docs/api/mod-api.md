@@ -37,7 +37,7 @@ leaving one of them to be guessed at.
 :   34 functions.
 
 [Players and gameplay](mod-api/players-and-gameplay.md)
-:   15 functions.
+:   16 functions.
 
 [Sounds, effects and assets](mod-api/sounds--effects-and-assets.md)
 :   7 functions.

@@ -1024,7 +1024,7 @@ JavaScript: `api.explode(center, power, options)`
 options.realm: the world it goes off in (a Realm, or null for the overworld). An explosion is a
 thing that happens in a place, and a position alone no longer says where.
 
-**See also:** `blast_resistance`, `break_block`, `cast`, `damage`, `damage_player`, `get_block_v`
+**See also:** `blast_resistance`, `break_block`, `cast`, `damage`, `damage_player`, `gameplay_in`
 
 ### `kinds`
 
@@ -3925,7 +3925,7 @@ GDScript: `run(for_players: Array = []) -> void`
 One spawning round for `for_players` (default: everyone). The server calls it every tick for a slice of
 the players, so each player gets a round about once a second without one tick doing them all.
 
-**See also:** `category_of`, `daylight`, `find_spot`, `get_time_of_day`, `is_alive`, `spawn`
+**See also:** `category_of`, `daylight`, `find_spot`, `gameplay_of`, `get_time_of_day`, `is_alive`
 
 ### `find_spot`
 
@@ -4712,7 +4712,7 @@ GDScript: `sync(p, force := false) -> void`
 
 Sends hunger when it changes (-1 while the `hunger` rule is off, which hides the bar).
 
-**See also:** `active_for`, `refresh`, `state_of`, `view`
+**See also:** `active_for`, `gameplay_of`, `refresh`, `state_of`, `view`
 
 ### `update`
 
@@ -5417,7 +5417,7 @@ GDScript: `damage_item(slot: int, amount := 1, reason := "use") -> void`
 
 Wears down the item in a slot (respects the durability gameplay rule and item_durability event).
 
-**See also:** `clear_slot`, `get_eye_position`, `look_direction`, `max_durability`, `play_effect`, `play_sound_at`
+**See also:** `clear_slot`, `gameplay_of`, `get_eye_position`, `look_direction`, `max_durability`, `play_effect`
 
 ### `get_stats`
 
@@ -5466,7 +5466,7 @@ GDScript: `refresh_stats() -> void`
 
 Recomputes stats now (after changing item data or modifiers outside the API).
 
-**See also:** `compute`, `refresh_appearance`, `sync_health`
+**See also:** `compute`, `refresh_appearance`, `rules_in`, `sync_health`
 
 ### `sync_inventory`
 
@@ -5598,7 +5598,7 @@ GDScript: `use_bed(p, pos: Vector3i) -> void`
 
 Right-click on a bed: set the respawn point, then try to sleep.
 
-**See also:** `bed_cells`, `is_alive`, `is_night`, `needed_sleepers`, `refresh_appearance`, `send_message`
+**See also:** `bed_cells`, `gameplay_of`, `is_alive`, `is_night`, `needed_sleepers`, `refresh_appearance`
 
 ### `needed_sleepers`
 
@@ -6396,7 +6396,7 @@ GDScript: `sync(p) -> void`
 
 Sends the full guide state after joining.
 
-**See also:** `active_for`, `refresh`, `state_of`, `view`
+**See also:** `active_for`, `gameplay_of`, `refresh`, `state_of`, `view`
 
 ### `unlock`
 
@@ -6675,7 +6675,7 @@ Counts `amount` towards the step they are on. When the step is filled it moves o
 last one is filled the whole thing is done - which is `objective_done`, where a mod hands out
 whatever it thinks the reward is. The engine has no idea what a reward would be.
 
-**See also:** `advance`, `biome_at`, `give`, `has_flag`, `is_night`, `play_sound_to`
+**See also:** `advance`, `biome_at`, `gameplay_of`, `give`, `has_flag`, `is_night`
 
 ### `abandon`
 
@@ -6698,7 +6698,7 @@ Sends the task list to whoever it belongs to. **Pushed on every change rather th
 way the tutorial tracker is: a list you have to request is a list that is wrong for as long as
 nobody asked, and the one moment it matters is the moment it changed.
 
-**See also:** `active_for`, `refresh`, `state_of`, `view`
+**See also:** `active_for`, `gameplay_of`, `refresh`, `state_of`, `view`
 
 ### `active_for`
 
@@ -6967,7 +6967,7 @@ GDScript: `advance(p, skipped := false) -> void`
 
 Completes the current step (skip, or a "manual" goal done by a mod).
 
-**See also:** `advance`, `biome_at`, `give`, `has_flag`, `is_night`, `play_sound_to`
+**See also:** `advance`, `biome_at`, `gameplay_of`, `give`, `has_flag`, `is_night`
 
 ### `view`
 
@@ -8084,7 +8084,7 @@ GDScript: `static enabled() -> bool`
 Whether the extension is loaded. Kept as a function because a handful of callers want to *report*
 it (the server's startup line, the benchmark's labels) rather than depend on it.
 
-**See also:** `level_of`
+**See also:** `gameplay_of`, `level_of`
 
 ### `create`
 
@@ -10498,7 +10498,9 @@ Container types and open container screens (chests, furnaces, machines).
 
 GDScript: `gameplay := {  (property)`
 
-Game-wide rules mods can change with set_gameplay.
+Game-wide rules mods can change with set_gameplay. A realm may override any of them; see
+`gameplay_in` and `gameplay_of`, which is what read sites should use where a player or a realm is
+in hand.
 
 ### `in_process`
 
@@ -10978,6 +10980,25 @@ The client fetches one the first time something actually needs it. Music lives h
 megabytes where a texture is a few hundred bytes, and a child should not wait through the soundtrack
 to get into the world.
 
+### `set_rules`
+
+*server/game_server.gd*
+
+GDScript: `set_rules(values: Dictionary, realm_id := "") -> void`
+
+Movement tunables, for the whole server or for one realm. Overlays, exactly as `set_gameplay` does.
+
+**See also:** `merge`, `rules_in`, `set_lookup_tables`, `update_tables`
+
+### `rules_in`
+
+*server/game_server.gd*
+
+GDScript: `rules_in(realm_id := "") -> PlayerPhysics.Rules`
+
+The movement rules in force in a realm. Like `gameplay_in`, this hands back the server's own object
+when the realm has nothing of its own, so the ordinary case allocates nothing.
+
 ### `add_handler`
 
 *server/game_server.gd*
@@ -11192,6 +11213,47 @@ turns flight off is saying "this is not a game you fly in", not "the admin may n
 explicit `/fly` still goes through and an accidental double-tap does not.
 
 **See also:** `has_permission`
+
+### `set_gameplay`
+
+*server/game_server.gd*
+
+GDScript: `set_gameplay(values: Dictionary, realm_id := "") -> void`
+
+JavaScript: `api.setGameplay(values, realmId)`
+
+Sets game rules, for the whole server or for one realm.
+
+**A realm overlays the server's rules rather than replacing them**, so a lobby that only wants to
+turn PvP off says exactly that and inherits everything else - and a rule added to the engine later
+reaches every realm without any mod hearing about it. `realm_id` "" is the server's own set, which
+is what every realm without an override of its own reads.
+
+**See also:** `qualified`
+
+### `gameplay_in`
+
+*server/game_server.gd*
+
+GDScript: `gameplay_in(realm_id := "") -> Dictionary`
+
+The rules in force in a realm: the server's, with that realm's overrides laid over them.
+
+**Returns the server's own dictionary when a realm has no overrides**, which is the common case and
+costs nothing - no copy, no merge, the same object every read site used before realms could differ.
+
+**See also:** `merge`
+
+### `gameplay_of`
+
+*server/game_server.gd*
+
+GDScript: `gameplay_of(player) -> Dictionary`
+
+The rules in force where this player is standing. The accessor almost every read site wants, because
+a rule about hunger, falling or hitting somebody is always a rule about a particular player.
+
+**See also:** `gameplay_in`
 
 ### `damage_player`
 
@@ -11633,7 +11695,7 @@ GDScript: `damage_item(p: ServerPlayer, slot: int, amount: int, reason := "use")
 
 Wears an item: adds `amount` to its item data `damage`; at the item's durability it breaks.
 
-**See also:** `clear_slot`, `get_eye_position`, `look_direction`, `max_durability`, `play_effect`, `play_sound_at`
+**See also:** `clear_slot`, `gameplay_of`, `get_eye_position`, `look_direction`, `max_durability`, `play_effect`
 
 ### `refresh_stats`
 
@@ -11644,7 +11706,7 @@ GDScript: `refresh_stats(p: ServerPlayer) -> void`
 Recomputes a player's stats, applies max health and movement speed, reports equipment changes and
 sends the result to the client when it changed.
 
-**See also:** `compute`, `refresh_appearance`, `sync_health`
+**See also:** `compute`, `refresh_appearance`, `rules_in`, `sync_health`
 
 ### `refresh_appearance`
 

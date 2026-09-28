@@ -204,7 +204,21 @@ var multiblocks:
 		return realm.multiblocks
 ## Container types and open container screens (chests, furnaces, machines).
 var containers := Containers.new(self)
-## Game-wide rules mods can change with set_gameplay.
+## Rules a realm overrides, as realm id -> {key: value}, and the merged result cached per realm.
+##
+## **Overlay rather than replacement**, because a realm almost always wants one rule different and
+## everything else the same - and because a rule the engine gains next year then reaches every realm
+## without a mod being edited. Empty for every realm on an ordinary server, where `gameplay_in`
+## short-circuits to the dictionary below and nothing is copied at all. (2026-09-28)
+var _realm_gameplay := {}
+var _gameplay_cache := {}
+## The same for movement tunables: the values a realm overrides, and the built Rules cached per realm.
+var _realm_rule_values := {}
+var _realm_rules := {}
+
+## Game-wide rules mods can change with set_gameplay. A realm may override any of them; see
+## `gameplay_in` and `gameplay_of`, which is what read sites should use where a player or a realm is
+## in hand.
 var gameplay := {
 	"item_drops": "entity",  # "entity": broken blocks drop items to pick up; "inventory": straight into the inventory
 	"keep_inventory": true,
@@ -864,13 +878,36 @@ func _hash_assets() -> void:
 			_lazy_hashes[hash] = true
 
 
-func set_rules(values: Dictionary) -> void:
-	rules.apply_dict(values)
+## Movement tunables, for the whole server or for one realm. Overlays, exactly as `set_gameplay` does.
+func set_rules(values: Dictionary, realm_id := "") -> void:
+	if realm_id.is_empty():
+		rules.apply_dict(values)
+	else:
+		(_realm_rule_values.get_or_add(realm_id, {}) as Dictionary).merge(values, true)
+	_realm_rules.clear()  # rebuilt on demand, and the server's own values may have moved under them
 	_apply_rules_to_world()
 	for p: ServerPlayer in players.values():
 		_update_player_rules(p)
 		if _started:
-			Net.s_rules.rpc_id(p.peer_id, rules.to_dict())
+			Net.s_rules.rpc_id(p.peer_id, rules_in(realm_of(p).id).to_dict())
+
+
+## The movement rules in force in a realm. Like `gameplay_in`, this hands back the server's own object
+## when the realm has nothing of its own, so the ordinary case allocates nothing.
+func rules_in(realm_id := "") -> PlayerPhysics.Rules:
+	var over: Dictionary = _realm_rule_values.get(realm_id, {})
+	if over.is_empty():
+		return rules
+	if _realm_rules.has(realm_id):
+		return _realm_rules[realm_id]
+	var made := PlayerPhysics.Rules.new()
+	made.apply_dict(rules.to_dict())
+	made.apply_dict(over)
+	made.solid_lut = rules.solid_lut
+	made.shape_lut = rules.shape_lut
+	made.liquid_lut = rules.liquid_lut
+	_realm_rules[realm_id] = made
+	return made
 
 
 func _apply_rules_to_world() -> void:
@@ -1846,7 +1883,7 @@ func set_flying(p: ServerPlayer, enabled: bool, deliberate := false) -> bool:
 func may_fly(p: ServerPlayer, deliberate := false) -> bool:
 	if p.inventory.creative:
 		return true
-	return has_permission(p, "fly") and (deliberate or bool(gameplay.get("flight", true)))
+	return has_permission(p, "fly") and (deliberate or bool(gameplay_of(p).get("flight", true)))
 
 
 func on_set_flying(peer_id: int, enabled: bool) -> void:
@@ -2151,18 +2188,51 @@ func set_player_rig(def: Dictionary) -> void:
 	player_rig = PlayerRig.sanitize(def)
 
 
-func set_gameplay(values: Dictionary) -> void:
+## Sets game rules, for the whole server or for one realm.
+##
+## **A realm overlays the server's rules rather than replacing them**, so a lobby that only wants to
+## turn PvP off says exactly that and inherits everything else - and a rule added to the engine later
+## reaches every realm without any mod hearing about it. `realm_id` "" is the server's own set, which
+## is what every realm without an override of its own reads.
+func set_gameplay(values: Dictionary, realm_id := "") -> void:
+	var into: Dictionary = gameplay if realm_id.is_empty() else _realm_gameplay.get_or_add(realm_id, {})
 	for key in values:
 		if not gameplay.has(key):
 			push_warning("[server] Unknown gameplay rule '%s'" % key)
-		elif gameplay[key] is bool:
-			gameplay[key] = bool(values[key])
+			continue
+		# Typed against the *server's* table whatever we are writing into, so a realm cannot invent a
+		# rule or change one's type - an override is a different value for a known rule, nothing more.
+		if gameplay[key] is bool:
+			into[key] = bool(values[key])
 		elif gameplay[key] is int:
-			gameplay[key] = int(values[key])
+			into[key] = int(values[key])
 		elif gameplay[key] is float:
-			gameplay[key] = float(values[key])
+			into[key] = float(values[key])
 		else:
-			gameplay[key] = String(values[key])
+			into[key] = String(values[key])
+	_gameplay_cache.clear()
+
+
+## The rules in force in a realm: the server's, with that realm's overrides laid over them.
+##
+## **Returns the server's own dictionary when a realm has no overrides**, which is the common case and
+## costs nothing - no copy, no merge, the same object every read site used before realms could differ.
+func gameplay_in(realm_id := "") -> Dictionary:
+	var over: Dictionary = _realm_gameplay.get(realm_id, {})
+	if over.is_empty():
+		return gameplay
+	if _gameplay_cache.has(realm_id):
+		return _gameplay_cache[realm_id]
+	var merged := gameplay.duplicate()
+	merged.merge(over, true)
+	_gameplay_cache[realm_id] = merged
+	return merged
+
+
+## The rules in force where this player is standing. The accessor almost every read site wants, because
+## a rule about hunger, falling or hitting somebody is always a rule about a particular player.
+func gameplay_of(player) -> Dictionary:
+	return gameplay_in(realm_of(player).id) if player != null else gameplay
 
 
 func _find_online(player_name: String):
@@ -2389,7 +2459,7 @@ func _track_fall(p: ServerPlayer, speed_before: float) -> void:
 	p.fall_velocity = 0.0
 	# Height an object must fall under normal gravity to land this fast: v^2 / (2g).
 	var height := impact * impact / (2.0 * 32.0)
-	if height > SAFE_FALL_HEIGHT and gameplay.fall_damage:
+	if height > SAFE_FALL_HEIGHT and gameplay_of(p).fall_damage:
 		damage_player(p, floorf(height - SAFE_FALL_HEIGHT + 0.5), "fall", null)
 
 
@@ -2411,7 +2481,7 @@ func _update_health(p: ServerPlayer, delta: float) -> void:
 			p.void_timer = 0.0
 			damage_player(p, 4.0, "void", null, Vector3.ZERO, true)
 	var regen_interval := hunger.regen_interval(p, REGEN_INTERVAL)
-	if gameplay.natural_regeneration and regen_interval > 0.0 and p.health < p.max_health and _time - p.last_damage_time > REGEN_DELAY:
+	if gameplay_of(p).natural_regeneration and regen_interval > 0.0 and p.health < p.max_health and _time - p.last_damage_time > REGEN_DELAY:
 		p.regen_timer += delta
 		if p.regen_timer >= regen_interval:
 			p.regen_timer = 0.0
@@ -2509,7 +2579,7 @@ func kill_player(p: ServerPlayer, cause: String, attacker) -> void:
 	var attacker_type := str(attacker.def.name) if attacker != null and attacker.get("def") != null else ""
 	var message := _death_message(p.name, cause, attacker_name, attacker_type)
 	var ev := emit("player_death", {"player": p, "cause": cause, "attacker": attacker,
-		"keep_inventory": gameplay.keep_inventory, "message": message})
+		"keep_inventory": gameplay_of(p).keep_inventory, "message": message})
 	p.health = 0.0
 	p.dead = true
 	p.fall_velocity = 0.0
@@ -3164,6 +3234,11 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	ensure_area_loaded(p.state.position, realm_of(p))
 
 	Net.s_welcome.rpc_id(peer_id, peer_id, p.state.position, 0.0)
+	# A player logging back into a realm with its own movement rules: the content sent during the
+	# handshake carried the *server's*, which is the right default and the wrong answer for them.
+	_update_player_rules(p)
+	if rules_in(realm_of(p).id) != rules:
+		Net.s_rules.rpc_id(peer_id, rules_in(realm_of(p).id).to_dict())
 	tell_capabilities(p)
 	var strung := links_for(realm_of(p).id)
 	if not strung.is_empty():
@@ -3490,6 +3565,13 @@ func send_to_realm(p: ServerPlayer, realm_id: String, position: Vector3) -> bool
 	p.state.position = position
 	p.state.velocity = Vector3.ZERO
 	p.fall_velocity = 0.0
+
+	# The rules of where they have arrived, before the world they apply to. A realm with its own gravity
+	# or walk speed is a realm a client has to be told about, or it predicts movement the server is not
+	# simulating and the player rubber-bands. (2026-09-28)
+	_update_player_rules(p)
+	if _started:
+		Net.s_rules.rpc_id(p.peer_id, rules_in(into.id).to_dict())
 
 	# Then the client, which drops the whole world it is holding - and only then may a chunk of the new
 	# one be sent. Both travel on BULK_CHANNEL so this order survives the wire (see Net.s_realm).
@@ -4033,7 +4115,7 @@ func break_block_for(p: ServerPlayer, pos: Vector3i, into: Realm, harvest := tru
 			if not (drop is Array and drop.size() >= 2 and items.is_valid(int(drop[0]))):
 				continue
 			var data: Dictionary = drop[2] if drop.size() > 2 and drop[2] is Dictionary else {}
-			if gameplay.item_drops == "entity":
+			if gameplay_of(p).item_drops == "entity":
 				entities.drop_item(int(drop[0]), int(drop[1]), Vector3(pos) + Vector3(0.5, 0.3, 0.5),
 					Vector3(randf_range(-1.0, 1.0), randf_range(2.0, 3.5), randf_range(-1.0, 1.0)), 0.3, data)
 			else:
@@ -4511,7 +4593,7 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 				if other != target and other.def.kind == "mob":
 					other.hurt_timer = 0.0
 					entities.damage(other, float(ev.damage) * sweep, "attack", p, other.body.position - p.state.position)
-	elif gameplay.pvp:
+	elif gameplay_of(target).pvp:
 		landed = damage_player(target, float(ev.damage), "attack", p, direction, false, 6.0 * float(stats.knockback))
 		if landed:
 			entities.taming.owner_attacked(p, target)
@@ -4677,7 +4759,7 @@ func damage_item(p: ServerPlayer, slot: int, amount: int, reason := "use") -> vo
 		return
 	var id := p.inventory.ids[slot]
 	var max_durability := items.max_durability(id, p.inventory.data[slot] if slot >= 0 and slot < p.inventory.total() else {})
-	if id <= 0 or max_durability <= 0 or not gameplay.durability or p.inventory.creative:
+	if id <= 0 or max_durability <= 0 or not gameplay_of(p).durability or p.inventory.creative:
 		return
 	var ev := emit("item_durability", {"player": p, "slot": slot, "item": id, "data": p.inventory.data[slot],
 		"amount": amount, "reason": reason, "cancelled": false})
@@ -5184,19 +5266,23 @@ func set_cosmetics_policy(values: Dictionary) -> void:
 
 
 func _update_player_rules(p: ServerPlayer) -> void:
+	# **Where they are standing, not where the server is.** A realm with its own gravity has to reach a
+	# player who has no stat modifiers at all, so `null` can only mean "the rules of this realm, unaltered"
+	# - and it does, because the physics falls back to `rules_in` for whoever holds none. (2026-09-28)
+	var here := rules_in(realm_of(p).id)
 	var speed := float(p._stats.get("move_speed", 1.0)) if not p._stats.is_empty() else 1.0
 	var sprint := clampf(float(p._stats.get("sprint", 1.0)), 0.0, 1.0) if not p._stats.is_empty() else 1.0
 	if is_equal_approx(speed, 1.0) and is_equal_approx(sprint, 1.0):
-		p.physics_rules = null
+		p.physics_rules = null if here == rules else here
 		return
 	p.physics_rules = PlayerPhysics.Rules.new()
-	var values := rules.to_dict()
-	values.walk_speed = rules.walk_speed * speed
-	values.sprint_speed = (rules.walk_speed + (rules.sprint_speed - rules.walk_speed) * sprint) * speed
+	var values := here.to_dict()
+	values.walk_speed = here.walk_speed * speed
+	values.sprint_speed = (here.walk_speed + (here.sprint_speed - here.walk_speed) * sprint) * speed
 	p.physics_rules.apply_dict(values)
-	p.physics_rules.solid_lut = rules.solid_lut
-	p.physics_rules.shape_lut = rules.shape_lut
-	p.physics_rules.liquid_lut = rules.liquid_lut
+	p.physics_rules.solid_lut = here.solid_lut
+	p.physics_rules.shape_lut = here.shape_lut
+	p.physics_rules.liquid_lut = here.liquid_lut
 
 
 # --- Crafting -----------------------------------------------------------------------------------

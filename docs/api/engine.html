@@ -2738,7 +2738,11 @@ realm; this is the overworld's, for everything that has not been told which worl
 <div class="card" data-search="liquids liquids (see engine/server/liquids.gd). one per realm; this is the overworld's. server/game_server.gd the server itself"><div class="sig"><code>liquids  (property)</code></div><p>Liquids (see engine/server/liquids.gd). One per realm; this is the overworld's.</p></div>
 <div class="card" data-search="multiblocks machines assembled out of blocks (see engine/server/multiblocks.gd). server/game_server.gd the server itself"><div class="sig"><code>multiblocks  (property)</code></div><p>Machines assembled out of blocks (see engine/server/multiblocks.gd).</p></div>
 <div class="card" data-search="containers container types and open container screens (chests, furnaces, machines). server/game_server.gd the server itself"><div class="sig"><code>containers := Containers.new(self)  (property)</code></div><p>Container types and open container screens (chests, furnaces, machines).</p></div>
-<div class="card" data-search="gameplay game-wide rules mods can change with set_gameplay. server/game_server.gd the server itself"><div class="sig"><code>gameplay := {  (property)</code></div><p>Game-wide rules mods can change with set_gameplay.</p></div>
+<div class="card" data-search="gameplay game-wide rules mods can change with set_gameplay. a realm may override any of them; see
+`gameplay_in` and `gameplay_of`, which is what read sites should use where a player or a realm is
+in hand. server/game_server.gd the server itself"><div class="sig"><code>gameplay := {  (property)</code></div><p>Game-wide rules mods can change with set_gameplay. A realm may override any of them; see
+`gameplay_in` and `gameplay_of`, which is what read sites should use where a player or a realm is
+in hand.</p></div>
 <div class="card" data-search="in_process true when this world is running inside a player's own client rather than in a process of its own -
 which is how a platform that cannot fork hosts (see main._host_in_process). it changes exactly one
 thing: ending the world frees this node instead of quitting the tree, because the tree is the game. server/game_server.gd the server itself"><div class="sig"><code>in_process := false  (property)</code></div><p>True when this world is running inside a player's own client rather than in a process of its own -
@@ -2839,6 +2843,10 @@ to get into the world. server/game_server.gd the server itself"><div class="sig"
 The client fetches one the first time something actually needs it. Music lives here: a track is
 megabytes where a texture is a few hundred bytes, and a child should not wait through the soundtrack
 to get into the world.</p></div>
+<div class="card" data-search="set_rules movement tunables, for the whole server or for one realm. overlays, exactly as `set_gameplay` does. server/game_server.gd the server itself"><div class="sig"><code>set_rules(values: Dictionary, realm_id := &quot;&quot;) -&gt; void</code></div><p>Movement tunables, for the whole server or for one realm. Overlays, exactly as `set_gameplay` does.</p></div>
+<div class="card" data-search="rules_in the movement rules in force in a realm. like `gameplay_in`, this hands back the server's own object
+when the realm has nothing of its own, so the ordinary case allocates nothing. server/game_server.gd the server itself"><div class="sig"><code>rules_in(realm_id := &quot;&quot;) -&gt; PlayerPhysics.Rules</code></div><p>The movement rules in force in a realm. Like `gameplay_in`, this hands back the server's own object
+when the realm has nothing of its own, so the ordinary case allocates nothing.</p></div>
 <div class="card" data-search="add_handler `owner`: the mod id (or &quot;engine&quot;) the profiler and tracer credit. server/game_server.gd the server itself"><div class="sig"><code>add_handler(event: String, handler: Callable, priority: int, owner := &quot;engine&quot;) -&gt; void</code></div><p>`owner`: the mod id (or "engine") the profiler and tracer credit.</p></div>
 <div class="card" data-search="is_excluded whether a fully qualified name was excluded by some mod's manifest. checked at registration, so an
 excluded thing is never given an id at all - and anything that later names it simply finds nothing,
@@ -2903,6 +2911,27 @@ explicit `/fly` still goes through and an accidental double-tap does not. server
 Whether `p` may fly. `deliberate` is a command rather than a double-tap on the jump key: a game that
 turns flight off is saying "this is not a game you fly in", not "the admin may never fly", so an
 explicit `/fly` still goes through and an accidental double-tap does not.</p></div>
+<div class="card" data-search="set_gameplay sets game rules, for the whole server or for one realm.
+
+**a realm overlays the server's rules rather than replacing them**, so a lobby that only wants to
+turn pvp off says exactly that and inherits everything else - and a rule added to the engine later
+reaches every realm without any mod hearing about it. `realm_id` &quot;&quot; is the server's own set, which
+is what every realm without an override of its own reads. server/game_server.gd the server itself"><div class="sig"><code>set_gameplay(values: Dictionary, realm_id := &quot;&quot;) -&gt; void</code></div><p>Sets game rules, for the whole server or for one realm.
+
+**A realm overlays the server's rules rather than replacing them**, so a lobby that only wants to
+turn PvP off says exactly that and inherits everything else - and a rule added to the engine later
+reaches every realm without any mod hearing about it. `realm_id` "" is the server's own set, which
+is what every realm without an override of its own reads.</p></div>
+<div class="card" data-search="gameplay_in the rules in force in a realm: the server's, with that realm's overrides laid over them.
+
+**returns the server's own dictionary when a realm has no overrides**, which is the common case and
+costs nothing - no copy, no merge, the same object every read site used before realms could differ. server/game_server.gd the server itself"><div class="sig"><code>gameplay_in(realm_id := &quot;&quot;) -&gt; Dictionary</code></div><p>The rules in force in a realm: the server's, with that realm's overrides laid over them.
+
+**Returns the server's own dictionary when a realm has no overrides**, which is the common case and
+costs nothing - no copy, no merge, the same object every read site used before realms could differ.</p></div>
+<div class="card" data-search="gameplay_of the rules in force where this player is standing. the accessor almost every read site wants, because
+a rule about hunger, falling or hitting somebody is always a rule about a particular player. server/game_server.gd the server itself"><div class="sig"><code>gameplay_of(player) -&gt; Dictionary</code></div><p>The rules in force where this player is standing. The accessor almost every read site wants, because
+a rule about hunger, falling or hitting somebody is always a rule about a particular player.</p></div>
 <div class="card" data-search="damage_player returns true if damage applied. `direction` sets the knockback direction (defaults to away from
 the attacker). `bypass_cooldown` lets continuous damage (void) ignore the invulnerability window. server/game_server.gd the server itself"><div class="sig"><code>damage_player(p: ServerPlayer, amount: float, cause: String, attacker = null, direction := Vector3.ZERO, bypass_cooldown := false, knockback := 6.0) -&gt; bool</code></div><p>Returns true if damage applied. `direction` sets the knockback direction (defaults to away from
 the attacker). `bypass_cooldown` lets continuous damage (void) ignore the invulnerability window.</p></div>
@@ -3240,7 +3269,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1239 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1244 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

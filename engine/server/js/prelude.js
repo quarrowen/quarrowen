@@ -243,7 +243,8 @@
     findBlockData: (block = -1) => host("findBlockData", block),
     surfaceY: (x, z) => host("surfaceY", x, z),
     seesSky: (pos) => host("seesSky", pos),
-    setPhysics: (values) => host("setPhysics", values),
+    // Positional through the bridge, so this order must match set_physics in mod_api.gd.
+    setPhysics: (values, { realm = "" } = {}) => host("setPhysics", values, realm),
     setWorldTime: (timeOfDay, dayLength = -1) => host("setWorldTime", timeOfDay, dayLength),
     timeOfDay: () => host("timeOfDay"),
     daylight: () => host("daylight"),
@@ -343,8 +344,8 @@
     getBiome: (position) => host("getBiome", position),
     /** Mobs of each spawn category allowed around each player: { monster, animal, ambient, misc }. */
     setSpawnCaps: (caps) => host("setSpawnCaps", caps),
-    setGameplay: (values) => host("setGameplay", values),
-    getGameplay: (rule) => host("getGameplay", rule),
+    setGameplay: (values, { realm = "" } = {}) => host("setGameplay", values, realm),
+    getGameplay: (rule, { realm = "" } = {}) => host("getGameplay", rule, realm),
     makeNoise: (position, radius, source = null) => host("makeNoise", position, radius, source),
     registerEquipmentSlot: (name, def = {}) => host("registerEquipmentSlot", name, def),
     registerStat: (name, base) => host("registerStat", name, base),

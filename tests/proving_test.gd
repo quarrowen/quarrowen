@@ -207,6 +207,18 @@ func _registries(server) -> void:
 	_check(server.links.kinds.has("proving:cable") and server.links.kinds.has("proving:aether"),
 		"link kinds, wired and wireless")
 	_check(server.realms.has("proving:deep"), "a second realm (%s)" % str(server.realms.keys()))
+
+	# **Rules that differ by world.** Asserted on all three halves: the realm's override, the server's
+	# own value left alone, and a rule the realm never named still reading through to the server - which
+	# is the whole point of overlaying rather than replacing, and the half a test would skip.
+	_check(server.gameplay_in("proving:deep").pvp == false and server.gameplay.pvp == true,
+		"a realm overrides a gameplay rule without changing the server's")
+	_check(server.gameplay_in("proving:deep").hunger == server.gameplay.hunger,
+		"and a rule it did not name still reads through to the server's")
+	_check(server.gameplay_in("") == server.gameplay and server.gameplay_in("nosuch:realm") == server.gameplay,
+		"a realm with no overrides is handed the server's own dictionary, not a copy")
+	_check(is_equal_approx(server.rules_in("proving:deep").gravity, 8.0) and not is_equal_approx(server.rules.gravity, 8.0),
+		"and movement tunables work the same way (%.1f vs %.1f)" % [server.rules_in("proving:deep").gravity, server.rules.gravity])
 	_check(server.tags.exists("proving:stone_like"), "a tag")
 	_check(server.modifiers.kinds.has("proving:keen"), "an item modifier")
 	_check(server.effects.id_of("proving:puff") >= 0, "an effect")

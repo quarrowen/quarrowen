@@ -39,7 +39,7 @@ func _init(game_server) -> void:
 
 
 func enabled(p) -> bool:
-	return bool(_server.gameplay.get("hunger", true)) and not p.inventory.creative
+	return bool(_server.gameplay_of(p).get("hunger", true)) and not p.inventory.creative
 
 
 func add_exhaustion(p, amount: float) -> void:
@@ -76,7 +76,7 @@ func _update_sprint(p) -> void:
 
 ## Sends hunger when it changes (-1 while the `hunger` rule is off, which hides the bar).
 func sync(p, force := false) -> void:
-	var on := bool(_server.gameplay.get("hunger", true))
+	var on := bool(_server.gameplay_of(p).get("hunger", true))
 	var shown := Vector2(p.hunger if on else -1.0, snappedf(p.saturation, 0.1))
 	if (force or shown != p._sent_hunger) and p._online():
 		p._sent_hunger = shown
@@ -115,7 +115,7 @@ func update(p, delta: float, moved: Vector3, move_time: float, was_on_ground: bo
 		p.starve_timer += delta
 		if p.starve_timer >= STARVE_INTERVAL:
 			p.starve_timer = 0.0
-			var floor_health := maxf(float(_server.gameplay.get("starvation_min_health", 1.0)), 0.0)
+			var floor_health := maxf(float(_server.gameplay_of(p).get("starvation_min_health", 1.0)), 0.0)
 			if p.health > floor_health:
 				_server.damage_player(p, minf(1.0, p.health - floor_health) if floor_health > 0.0 else 1.0, "starvation", null, Vector3.ZERO, true, 0.0)
 	else:
