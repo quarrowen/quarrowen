@@ -271,6 +271,14 @@ func _descend(server, p) -> Array:
 	var descent = mod.descent
 	print("")
 
+	# **The commands have to exist**, which sounds too small to check and is not: a handler whose
+	# arguments are typed wrong, or a setup that threw before reaching the registration, leaves a command
+	# that simply does nothing when typed - no reply, nothing in the server log. Two screenshots were
+	# taken of the overworld before anybody asked whether `/descent` was registered at all.
+	for name in ["descent", "surface"]:
+		if not server._commands.has(name):
+			problems.append("/%s is not registered" % name)
+
 	# **A way in that world generation actually placed.** Asked of the same seeded computation that places
 	# it, so it answers for a chamber nobody has been near - which is the lesson the altar's marker paid
 	# an afternoon for. A mechanic whose only entrance is a command is a mechanic nobody finds.

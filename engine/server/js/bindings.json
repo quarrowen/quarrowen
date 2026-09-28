@@ -1180,6 +1180,10 @@
 			],
 			"gd": "instance_of"
 		},
+		"instanceProblem": {
+			"args": [],
+			"gd": "instance_problem"
+		},
 		"isBreakable": {
 			"args": [
 				{

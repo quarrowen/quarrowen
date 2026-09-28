@@ -1762,6 +1762,19 @@ itself once it has been empty for its kind's `empty_seconds`.
 
 **See also:** `close`
 
+### `api.instance_problem`
+
+GDScript: `api.instance_problem() -> String`
+
+JavaScript: `api.instanceProblem()`
+
+Why the last `open_instance` or `enter_instance` refused, in words somebody can be shown.
+
+The engine has written this down all along and nothing could read it, so a mod that checked the
+answer could say "that did not work" and never why - while `plot_problem` and `shop_problem`, the
+same idea, had been exposed for weeks. Found when a descent stopped opening and the only way to tell
+whether the instance was full, closed or never opened was to read the engine. (2026-09-28)
+
 ### `api.instance_of`
 
 GDScript: `api.instance_of(player) -> String`

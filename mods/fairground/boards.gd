@@ -94,4 +94,13 @@ func _write(slot: int) -> void:
 		# The score is stored as a float because a game may keep fractions of one; shown as a whole
 		# number, because every game written so far counts things.
 		line = "Best  %d  -  %s" % [int(round(float(standing.get("score", 0.0)))), String(standing.get("name", "?"))]
-	api.set_nameplate(board.entity, {"name": String(board.title), "lines": [line], "show_health": false})
+	# **Both in `lines`, with no `name`.** A plate stacks upwards from the head - bar, then name, then the
+	# mod's lines *above* it - which is right for a creature, where the extra line is an aside over a
+	# thing that already has a name in front of you. On a board it put "Nobody has played this yet" above
+	# the name of the game, so the sign read bottom-up. The lines label is one multi-line label and reads
+	# top-down, so saying both there puts the title where a sign's title goes. Seen in a photograph; the
+	# tests had no opinion about it. (2026-09-28)
+	# The empty `name` is not redundant: a plate with no name falls back to the entity's display name, so
+	# every board in the fairground carried the word "Board" under its title. Also only visible in a
+	# photograph.
+	api.set_nameplate(board.entity, {"name": "", "lines": [String(board.title), line], "show_health": false})

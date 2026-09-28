@@ -74,7 +74,7 @@ func setup(api) -> void:
 ## because a grave you cannot reach would be the same outcome dressed up as a second chance.
 func _descent_ways_in(api) -> void:
 	api.register_command("descent", "Go down into the descent. Add 'harsh' to risk everything you carry.",
-		func(player, args: Array):
+		func(player, args: PackedStringArray):
 			if descent.depth_of(player) > 0:
 				player.send_message("You are already down there - floor %d." % descent.depth_of(player))
 				return
@@ -83,7 +83,7 @@ func _descent_ways_in(api) -> void:
 				player.send_message("You cannot go down from here.")
 	)
 	api.register_command("surface", "Leave the descent from where you are, keeping everything.",
-		func(player, _args: Array):
+		func(player, _args: PackedStringArray):
 			if descent.depth_of(player) <= 0:
 				player.send_message("You are not in the descent.")
 				return

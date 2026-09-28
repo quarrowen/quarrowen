@@ -171,6 +171,13 @@ func set_look(look: Dictionary) -> void:
 	# It matters for a thing whose body is not the point: a label beside a door is an entity wearing a
 	# nameplate and nothing else, and without this it is a label with a creature under it. (2026-09-28)
 	var all: bool = hide.has("*")
+	# **Every mesh, not every *part*.** An entity with no model of its own is drawn as a single default
+	# box, and that box goes into `_meshes` without ever reaching `_part_meshes` - so hiding "all the
+	# parts" hid nothing at all for exactly the entities most likely to want hiding. The Fairground's
+	# boards are model-less by design and each came with a small coloured cube sitting under its label.
+	# Found by photographing it; the suite cannot see this and neither could I by reading. (2026-09-28)
+	for m in _meshes:
+		m.visible = not all
 	var tint: Dictionary = look.get("tint", {}) if look.get("tint") is Dictionary else {}
 	for part_name: String in _part_meshes:
 		var mesh: MeshInstance3D = _part_meshes[part_name]

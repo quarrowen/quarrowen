@@ -102,9 +102,23 @@ func _open(player, depth: int) -> bool:
 		_pad(instance, made.up, "up"),
 		_pad(instance, made.down, "down"),
 	]
-	api.enter_instance(player, instance, made.entry)
+	# **Checked, and said out loud when it fails.** `enter_instance` can refuse - the instance closed
+	# under us, or it is full - and a mod that ignores the answer leaves the player standing in the
+	# overworld with a run recorded as being on floor three. Two screenshots were taken of somebody
+	# standing in a field before anything asked whether this had worked. (2026-09-28)
+	if not api.enter_instance(player, instance, made.entry):
+		api.warn("could not put %s into %s: %s" % [player.name, instance, api.instance_problem()])
+		player.send_message("The way down closed before you could take it.")
+		api.close_instance(instance)
+		for id in run.regions:
+			if int(id) > 0:
+				api.remove_region(int(id))
+		run.instance = leaving
+		run.regions = stale
+		return false
 	if not leaving.is_empty():
 		_shut(leaving, stale)
+	api.info("%s is on floor %d (%s, %d rooms)" % [player.name, depth, instance, int(made.rooms)])
 	player.show_title("Floor %d" % depth, "%d rooms" % int(made.rooms), 3.0)
 	return true
 
