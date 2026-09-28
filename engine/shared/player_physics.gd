@@ -70,6 +70,10 @@ class State:
 	var on_ground := false
 	## Set by the server (creative or the "fly" permission); the client predicts with the same flag.
 	var flying := false
+	## Moving through the world rather than against it: no collision, no ground. Flies while it is on,
+	## because something that passes through walls and still falls would sink for ever. Watching a round
+	## you are out of is what it is for; see GameServer.set_phasing.
+	var phasing := false
 	## Whether the last input was crouching (lowers the eye, used for reach and the camera).
 	var sneaking := false
 
@@ -121,7 +125,8 @@ static func look_direction(yaw: float, pitch: float) -> Vector3:
 ## error. The extension is required now, so there is one implementation and nothing to disagree with.
 static func step(s: State, input: PlayerInput, world, rules: Rules) -> void:
 	s.sneaking = input.sneak
-	var flags := int(input.jump) | (int(input.sprint) << 1) | (int(input.sneak) << 2) | (int(s.flying) << 3)
+	var flags := int(input.jump) | (int(input.sprint) << 1) | (int(input.sneak) << 2) | (int(s.flying) << 3) \
+		| (int(s.phasing) << 4)
 	var out: PackedFloat32Array = world.native.step_player(s.position, s.velocity, s.on_ground, input.move,
 		input.yaw, flags, rules.packed)
 	s.position = Vector3(out[0], out[1], out[2])

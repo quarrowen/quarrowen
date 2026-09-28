@@ -463,6 +463,23 @@ func look_of() -> Dictionary:
 	return look
 
 
+## Moves through the world rather than against it: no collision, no ground, flying. What a spectator is
+## made of, and the one part of one a mod cannot write for itself, because passing through blocks lives
+## in the physics.
+##
+## **The engine does not know what a spectator is.** One game hides the watcher and freezes them,
+## another lets them roam and chat, a third shows them only their own side - so the rest is the mod's,
+## composed from `set_look` to disappear, the cancellable `player_damage` to be unhurtable, and
+## `mob_target` to be ignored. (2026-09-28)
+func set_phasing(enabled: bool) -> void:
+	_server.set_phasing(self, enabled)
+
+
+## Whether they are passing through the world (see set_phasing).
+func is_phasing() -> bool:
+	return state.phasing
+
+
 ## Whether the player can craft a recipe (discovered, or discovery is off).
 func knows_recipe(recipe_id: String) -> bool:
 	return _server.knows_recipe(self, recipe_id)

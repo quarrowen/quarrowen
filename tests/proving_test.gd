@@ -10,6 +10,7 @@ const GameServer = preload("res://engine/server/game_server.gd")
 const ServerPlayer = preload("res://engine/server/server_player.gd")
 const EntityRegistry = preload("res://engine/shared/entity_registry.gd")
 const UserPaths = preload("res://engine/shared/user_paths.gd")
+const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
 ## The worlds this test writes, through UserPaths, named after this process, and deleted on the way out.
 ## All three parts were needed, and the missing ones cost a day chasing a "flaky" security test:
@@ -331,6 +332,43 @@ func _behaviour(server) -> void:
 	if charm_slot >= 0:
 		p.inventory.set_slot(charm_slot, charm, 1, {})
 		_check(dressed.worn(p, "charm") == charm, "and a mod can ask what a player has on")
+
+	# **Passing through the world**, which is the only part of a spectator the engine supplies. Asserted
+	# by *stepping the physics into a wall*: checking the flag alone would pass with the Rust side
+	# unchanged, and the Rust side is the whole capability.
+	#
+	# With yaw 0 a forward input moves along **-Z** (see the wish vector in physics.rs), so the wall goes
+	# on that side - the first version of this put it at +Z and measured a player walking happily away
+	# from it. Two blocks tall, because one would be stepped onto rather than stopped at.
+	server.ensure_area_loaded(Vector3(8.5, 65, 6.5))
+	for wall_y in [65, 66]:
+		server.set_block_authoritative(Vector3i(8, wall_y, 5), server.registry.id_of("proving:rock"))
+	var start := Vector3(8.5, 65.0, 6.5)
+	var forward := PlayerPhysics.PlayerInput.new()
+	forward.move = Vector2(0, 1)
+	forward.yaw = 0.0
+	p.state.position = start
+	p.state.velocity = Vector3.ZERO
+	p.state.flying = false
+	p.state.phasing = false
+	for _i in 40:
+		PlayerPhysics.step(p.state, forward, server.realm_of(p).world, server.rules)
+	var walked := p.state.position.z
+	_check(walked > 6.0, "a player walking at a block is stopped by it (z %.2f)" % walked)
+
+	p.state.position = start
+	p.state.velocity = Vector3.ZERO
+	server.set_phasing(p, true)
+	_check(p.state.phasing and p.state.flying, "phasing brings flight with it, or they would sink for ever")
+	for _i in 40:
+		PlayerPhysics.step(p.state, forward, server.realm_of(p).world, server.rules)
+	_check(p.state.position.z < walked - 1.0,
+		"and a phasing player goes straight through it (z %.2f vs %.2f)" % [p.state.position.z, walked])
+	_check(not p.state.on_ground, "and is never reported as standing on anything")
+	server.set_phasing(p, false)
+	_check(not p.state.phasing and not p.state.flying, "and turning it off takes the flight away too")
+	for wall_y in [65, 66]:
+		server.set_block_authoritative(Vector3i(8, wall_y, 5), 0)
 
 	# **How a player is drawn.** Asserted on the appearance the server would *send*, not on the field
 	# that was set - a disguise nobody is told about is not a disguise, and the two are one refresh

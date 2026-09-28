@@ -1232,3 +1232,14 @@ func s_objectives(view: Dictionary) -> void:
 func s_capabilities(can: PackedStringArray) -> void:
 	if client:
 		client.on_capabilities(can)
+
+
+## Whether this player moves through the world rather than against it - see physics::step_phasing.
+##
+## **The client has to be told or it predicts a wall the server is not simulating**, which is the same
+## reason `s_flying` exists rather than the server simply moving somebody. Appended at the end and the
+## protocol bumped, as every RPC here is. (2026-09-28)
+@rpc("authority", "call_remote", "reliable")
+func s_phasing(enabled: bool) -> void:
+	if client:
+		client.on_phasing(enabled)

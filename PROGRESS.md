@@ -8494,3 +8494,37 @@ means all of them, whatever they are called.
 
 The test asserts on the appearance the server would *send* rather than on the field that was set: a
 disguise nobody is told about is not a disguise, and the two are one `refresh_appearance` apart.
+
+### Spectating - built (2026-09-28)
+
+Step 5, and the last capability before the game itself. **The engine does not know what a spectator
+is**, deliberately: one game hides the watcher and freezes them, another lets them roam and chat, a
+third shows them only their own side. So the engine supplies the one part no mod can write - passing
+through the world - and a mod composes the rest from `set_look` to disappear, the cancellable
+`player_damage` to be unhurtable, and `mob_target` to be ignored. The Proving Ground's `/watch` does
+exactly that, in six lines, which is the evidence the split is in the right place.
+
+`player.set_phasing(on)`: no collision, no ground, and **flight comes with it and goes when it goes**,
+because a body that has stopped passing through walls while still hanging in the air is somebody about
+to fall out of the sky the moment they move.
+
+**This is the first Rust change of the Fairground work.** Collision lives in `physics.rs`, so phasing
+is a fifth input flag and a `step_phasing` beside `step` - which is short, because the substepping
+sweep exists entirely to stop at things and a spectator stops at nothing: aim the velocity and add it.
+`Protocol.VERSION` to 59 and a new `s_phasing`, because **the client predicts movement**: without being
+told it would walk into a wall the server is not simulating, and the player would see themselves stop
+and then get dragged forward.
+
+No notification when it turns on, unlike flying. A player never asks for this - a game turns it on when
+a round knocks them out - so the game says what happened in its own words and the engine saying
+"phasing on" over the top would be both jargon and a second voice.
+
+#### Two mistakes writing the test, and the second is the useful one
+
+- `var on := not player.is_phasing()` - **the `:=` trap**, which CLAUDE.md lists and which I wrote
+  anyway. `player` is untyped by convention, so this is a *parse* error, and a parse error takes the
+  whole mod down: the failure arrived as four missing block registrations.
+- **The wall was behind the player.** With yaw 0 a forward input moves along **-Z**, and the first
+  version put the wall at +Z - so the test measured somebody walking cheerfully away from it and
+  reported that phasing had failed. The assertion was right and the geometry was wrong, which is the
+  more dangerous shape: a test that fails for a reason that has nothing to do with what it names.

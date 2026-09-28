@@ -5553,6 +5553,29 @@ GDScript: `look_of() -> Dictionary`
 
 What `set_look` last said, or {}.
 
+### `set_phasing`
+
+*server/server_player.gd*
+
+GDScript: `set_phasing(enabled: bool) -> void`
+
+Moves through the world rather than against it: no collision, no ground, flying. What a spectator is
+made of, and the one part of one a mod cannot write for itself, because passing through blocks lives
+in the physics.
+
+**The engine does not know what a spectator is.** One game hides the watcher and freezes them,
+another lets them roam and chat, a third shows them only their own side - so the rest is the mod's,
+composed from `set_look` to disappear, the cancellable `player_damage` to be unhurtable, and
+`mob_target` to be ignored. (2026-09-28)
+
+### `is_phasing`
+
+*server/server_player.gd*
+
+GDScript: `is_phasing() -> bool`
+
+Whether they are passing through the world (see set_phasing).
+
 ### `knows_recipe`
 
 *server/server_player.gd*
@@ -9215,6 +9238,20 @@ The server started or stopped this player's flight.
 
 **See also:** `notify`
 
+### `on_phasing`
+
+*client/game_client.gd*
+
+GDScript: `on_phasing(enabled: bool) -> void`
+
+Moving through the world rather than against it. Told to the client because the client *predicts*
+movement: without this it would walk into a wall the server is not simulating, and the player would
+see themselves stop and then get dragged forward again.
+
+**No notification.** Unlike flying, this is never something a player asked for - a game turns it on
+when a round knocks them out - so the game says what has happened in its own words, and the engine
+saying "phasing on" over the top of that would be both jargon and a second voice. (2026-09-28)
+
 ### `on_wind`
 
 *client/game_client.gd*
@@ -11248,15 +11285,21 @@ when it finishes. Returns false if a backup is already running.
 
 **See also:** `chunk_coord_of`, `merge`, `ticking_chunks`, `timestamp`, `to_saved`
 
-### `set_flying`
+### `set_phasing`
 
 *server/game_server.gd*
 
-GDScript: `set_flying(p: ServerPlayer, enabled: bool, deliberate := false) -> bool`
+GDScript: `set_phasing(p: ServerPlayer, enabled: bool) -> void`
 
 Starts or stops flight for a player, telling their client. Returns false when they may not fly.
+Moves this player through the world rather than against it: no collision, no ground, flying. What a
+spectator is made of.
 
-**See also:** `may_fly`
+**The engine does not know what a spectator is**, and this is deliberate: a round of one game hides
+the watcher and freezes them, another lets them roam and chat, a third shows them only their own
+team. So the engine supplies the part no mod can write - passing through blocks lives in the physics
+- and a mod composes the rest from `set_look`, the cancellable `player_damage`, and `mob_target`.
+(2026-09-28)
 
 ### `may_fly`
 

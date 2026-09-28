@@ -4013,6 +4013,10 @@
 				"args": [],
 				"gd": "is_creative"
 			},
+			"isPhasing": {
+				"args": [],
+				"gd": "is_phasing"
+			},
 			"kick": {
 				"args": [
 					{
@@ -4176,6 +4180,14 @@
 					}
 				],
 				"gd": "set_max_health"
+			},
+			"setPhasing": {
+				"args": [
+					{
+						"kind": "bool"
+					}
+				],
+				"gd": "set_phasing"
 			},
 			"showTitle": {
 				"args": [

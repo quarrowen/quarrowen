@@ -1866,6 +1866,28 @@ func _cmd_heal(player, args: PackedStringArray) -> void:
 
 
 ## Starts or stops flight for a player, telling their client. Returns false when they may not fly.
+## Moves this player through the world rather than against it: no collision, no ground, flying. What a
+## spectator is made of.
+##
+## **The engine does not know what a spectator is**, and this is deliberate: a round of one game hides
+## the watcher and freezes them, another lets them roam and chat, a third shows them only their own
+## team. So the engine supplies the part no mod can write - passing through blocks lives in the physics
+## - and a mod composes the rest from `set_look`, the cancellable `player_damage`, and `mob_target`.
+## (2026-09-28)
+func set_phasing(p: ServerPlayer, enabled: bool) -> void:
+	if p == null or p.state.phasing == enabled:
+		return
+	p.state.phasing = enabled
+	# Flying comes with it, and goes when it goes: a body that has stopped passing through walls and is
+	# still hanging in the air is somebody about to fall out of the sky the moment they move.
+	p.state.flying = enabled
+	if not enabled:
+		p.state.velocity = Vector3.ZERO
+	if p._online():
+		Net.s_phasing.rpc_id(p.peer_id, enabled)
+		Net.s_flying.rpc_id(p.peer_id, enabled)
+
+
 func set_flying(p: ServerPlayer, enabled: bool, deliberate := false) -> bool:
 	if enabled and not may_fly(p, deliberate):
 		return false

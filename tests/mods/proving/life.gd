@@ -113,6 +113,19 @@ func _conditions_and_fields() -> void:
 		else:
 			player.set_look({})
 			player.send_message("Back."))
+	# Watching a round you are out of, assembled the way a mod has to assemble it: the engine supplies
+	# passing through the world, and everything else about being a spectator is composed here.
+	api.register_command("watch", "Watch, or stop watching", func(player, _args):
+		# Annotated: `player` is untyped by convention here, and `:=` on anything reached through an
+		# untyped variable is a parse error that takes the whole mod down (CLAUDE.md).
+		var on: bool = not player.is_phasing()
+		player.set_phasing(on)
+		player.set_look({"hide": ["*"]} if on else {})
+		player.send_message("Watching." if on else "Back in it."))
+	# Unhurtable while watching, which is the mod's half and not the engine's.
+	api.on("player_damage", func(ev):
+		if ev.player != null and ev.player.is_phasing():
+			ev.cancelled = true)
 	api.on("region_entered", func(ev): _seen_regions.append("in:" + String(ev.region) + ":" + String(ev.data.get("leads", ""))))
 	api.on("region_left", func(ev): _seen_regions.append("out:" + String(ev.region)))
 

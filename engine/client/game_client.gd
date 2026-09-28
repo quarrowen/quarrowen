@@ -1586,6 +1586,17 @@ func on_flying(enabled: bool) -> void:
 	notify("Flying on - jump to rise, crouch to sink" if enabled else "Flying off")
 
 
+## Moving through the world rather than against it. Told to the client because the client *predicts*
+## movement: without this it would walk into a wall the server is not simulating, and the player would
+## see themselves stop and then get dragged forward again.
+##
+## **No notification.** Unlike flying, this is never something a player asked for - a game turns it on
+## when a round knocks them out - so the game says what has happened in its own words, and the engine
+## saying "phasing on" over the top of that would be both jargon and a second voice. (2026-09-28)
+func on_phasing(enabled: bool) -> void:
+	state.phasing = enabled
+
+
 func on_entities(tick: int, payload: PackedByteArray) -> void:
 	if payload.size() < 2:
 		return

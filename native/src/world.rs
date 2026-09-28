@@ -194,7 +194,8 @@ impl NativeVoxelWorld {
         self.void_below = enabled;
     }
 
-    /// One fixed physics step. `flags`: 1 = jump, 2 = sprint. `rules` layout matches
+    /// One fixed physics step. `flags`: 1 = jump, 2 = sprint, 4 = sneak, 8 = flying, 16 = phasing
+    /// (moves through the world; see physics::step_phasing). `rules` layout matches
     /// PlayerPhysics.Rules.TUNABLES. Returns [px, py, pz, vx, vy, vz, on_ground].
     #[func]
     fn step_player(
@@ -215,6 +216,7 @@ impl NativeVoxelWorld {
             sprint: flags & 2 != 0,
             sneak: flags & 4 != 0,
             flying: flags & 8 != 0,
+            phasing: flags & 16 != 0,
         };
         physics::step(&mut body, &input, self, &Rules::from_slice(rules.as_slice()));
         PackedFloat32Array::from(&[

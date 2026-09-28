@@ -102,6 +102,10 @@ pub struct Input {
     pub sprint: bool,
     pub sneak: bool,
     pub flying: bool,
+    /// Moves through the world instead of against it: no collision, no ground, no being pushed out of
+    /// a block. Flies as `flying` does, because something that passes through walls and still falls
+    /// would simply sink for ever. Added for watching a round you have been knocked out of.
+    pub phasing: bool,
 }
 
 pub struct Rules {
@@ -203,7 +207,39 @@ pub fn step_entity(s: &mut Body, size: Size, world: &NativeVoxelWorld, dt: f32, 
     EntityStep { blocked, in_liquid }
 }
 
+/// Moving through the world rather than against it. No collision, no ground, no substepping - the
+/// sweep below exists entirely to stop at things, and a spectator stops at nothing - so this is the
+/// whole of it: aim the velocity and add it.
+fn step_phasing(s: &mut Body, input: &Input, rules: &Rules) {
+    let mut mv = input.move_input;
+    if mv.x * mv.x + mv.y * mv.y > 1.0 {
+        mv = normalized2(mv);
+    }
+    let (sin_yaw, cos_yaw) = (libm::sinf(input.yaw), libm::cosf(input.yaw));
+    let speed = FLY_SPEED * if input.sprint { FLY_SPRINT } else { 1.0 };
+    let wish_x = (cos_yaw * mv.x - sin_yaw * mv.y) * speed;
+    let wish_z = (-sin_yaw * mv.x - cos_yaw * mv.y) * speed;
+    let horizontal = move_toward2(
+        Vector2::new(s.velocity.x, s.velocity.z),
+        Vector2::new(wish_x, wish_z),
+        rules.ground_accel * DT,
+    );
+    s.velocity.x = horizontal.x;
+    s.velocity.z = horizontal.y;
+    let rise = if input.jump { FLY_RISE } else { 0.0 } - if input.sneak { FLY_RISE } else { 0.0 };
+    s.velocity.y = move_toward(s.velocity.y, rise, rules.ground_accel * DT);
+    s.position += s.velocity * DT;
+    // Never grounded: a spectator standing on nothing is the point, and reporting otherwise would let
+    // anything that asks "are they on the floor" believe it.
+    s.on_ground = false;
+}
+
+
 pub fn step(s: &mut Body, input: &Input, world: &NativeVoxelWorld, rules: &Rules) {
+    if input.phasing {
+        step_phasing(s, input, rules);
+        return;
+    }
     if collides(s.position, PLAYER, world) {
         // Stuck inside a block (terrain changed around us): push upward until free.
         s.position.y += 0.25;
