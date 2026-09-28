@@ -1374,6 +1374,9 @@ func _apply_look(target: Avatar, name_text: String, appearance: Dictionary) -> v
 	if _item_meshes == null:
 		return
 	_looks.apply(target, appearance.get("avatar", {}) if appearance.get("avatar") is Dictionary else {}, name_text)
+	# **After the avatar, not before.** `apply` rebuilds the rig when the look changed, which makes new
+	# part nodes and a fresh scale - so a disguise set first would be wiped by the thing that follows it.
+	target.set_look(appearance.get("look", {}) if appearance.get("look") is Dictionary else {})
 	var pieces := {}
 	var armor = appearance.get("armor", {})
 	if armor is Dictionary:

@@ -104,6 +104,15 @@ func _conditions_and_fields() -> void:
 	# A region, which is the other shape of "somewhere": a box that does nothing but say who is in it.
 	# Its `data` rides back on every event, which is how a mod avoids keeping its own table of ids.
 	ids.doorway = api.add_region("doorway", Vector3(20, 64, 20), Vector3(24, 68, 24), {"data": {"leads": "nowhere"}})
+	# A player's own look: the shape of the body, as against what it is wearing. Hiding every part is
+	# how a hider hides, and it is the same call that makes somebody tiny.
+	api.register_command("vanish", "Disappear, or come back", func(player, _args):
+		if player.look_of().is_empty():
+			player.set_look({"hide": ["*"], "scale": 0.5})
+			player.send_message("Gone.")
+		else:
+			player.set_look({})
+			player.send_message("Back."))
 	api.on("region_entered", func(ev): _seen_regions.append("in:" + String(ev.region) + ":" + String(ev.data.get("leads", ""))))
 	api.on("region_left", func(ev): _seen_regions.append("out:" + String(ev.region)))
 

@@ -4058,6 +4058,10 @@
 				],
 				"gd": "load_items"
 			},
+			"lookOf": {
+				"args": [],
+				"gd": "look_of"
+			},
 			"push": {
 				"args": [
 					{
@@ -4156,6 +4160,14 @@
 					}
 				],
 				"gd": "set_item_data"
+			},
+			"setLook": {
+				"args": [
+					{
+						"kind": "dict"
+					}
+				],
+				"gd": "set_look"
 			},
 			"setMaxHealth": {
 				"args": [

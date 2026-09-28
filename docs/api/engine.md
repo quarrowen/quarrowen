@@ -3632,7 +3632,7 @@ How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [mo
 prefixes to hide, e.g. "wool" once sheared], tint: {part prefix: "#rrggbb"}, pose: "" | "sit"}. Merged into the current
 look and saved in data.look.
 
-**See also:** `apply`, `look_changed`, `merge`
+**See also:** `apply`, `look_changed`, `merge`, `refresh_appearance`
 
 ### `is_alive`
 
@@ -4992,6 +4992,15 @@ GDScript: `server_wear := {}  (property)`
 
 Server cosmetics the player picked on this server: {category: {id, color}}.
 
+### `look`
+
+*server/server_player.gd*
+
+GDScript: `look := {}  (property)`
+
+How the body is drawn, as against what it wears: {scale, hide, tint} - see set_look. Not saved,
+because a disguise belongs to a round of a game and not to a person.
+
 ### `avatar_override`
 
 *server/server_player.gd*
@@ -5516,6 +5525,33 @@ Avatar data laid over this player's look, e.g. a team uniform: {wear: {shirt: {i
 empty id takes a category off. Pass {} to clear. Not saved.
 
 **See also:** `refresh_avatar`, `sanitize_avatar`
+
+### `set_look`
+
+*server/server_player.gd*
+
+GDScript: `set_look(values: Dictionary) -> void`
+
+How this player is *drawn*, as against what they are wearing: `scale` (0.05-10) and `hide` (body
+part names, matched by prefix; `"*"` is all of them). Pass {} to clear. Not saved.
+
+**The same controls `Entity.set_look` has had since Wick got his coat**, finally applying to players
+too. Not a new idea - an existing one reaching one more noun, which is why disguises and
+invisibility needed no system of their own: `hide` every part and there is a hider.
+
+**No `tint` here, though entities have one.** A player's colours are already
+`set_avatar_override({"body": {...}})`, and two ways to colour the same arm is how they end up
+disagreeing. Use that for a team colour and this for a shape. (2026-09-28)
+
+**See also:** `apply`, `look_changed`, `merge`, `refresh_appearance`
+
+### `look_of`
+
+*server/server_player.gd*
+
+GDScript: `look_of() -> Dictionary`
+
+What `set_look` last said, or {}.
 
 ### `knows_recipe`
 
@@ -8371,6 +8407,19 @@ Replaces the item in the right hand (null = empty hand). `look`: {glow, trail, h
 GDScript: `set_accessories(list: Array) -> void`
 
 Adds accessory nodes at attachment points: [{attach, node}]. Replaces previous accessories.
+
+### `set_look`
+
+*client/avatar/avatar.gd*
+
+GDScript: `set_look(look: Dictionary) -> void`
+
+How the body is drawn: {scale, hide}. See ServerPlayer.set_look.
+
+**Applied on top of the rig's own scale rather than replacing it**, so a rig with a different height
+keeps it - `_base_scale` is what `build` worked out from the rig, and this multiplies it.
+
+**See also:** `apply`, `look_changed`, `merge`, `refresh_appearance`
 
 ### `set_sleeping`
 

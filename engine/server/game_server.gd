@@ -4822,6 +4822,10 @@ func refresh_appearance(p: ServerPlayer) -> void:
 			armor[slot_name] = p.inventory.ids[index]
 	var visible := cosmetics.visible_armor(armor, p.avatar)
 	var appearance := {"held": p.inventory.selected_item(), "armor": visible, "avatar": p.avatar}
+	# Only when there is one, so an ordinary player's appearance is the same handful of bytes it always
+	# was and every client that never sees a disguise pays nothing for the capability.
+	if not p.look.is_empty():
+		appearance.look = p.look
 	if not p.sleeping.is_empty():
 		appearance.sleeping = {"head": [p.sleeping.head_dir.x, p.sleeping.head_dir.z]}  # lies down, head towards the pillow
 	var held := p.inventory.selected_item()

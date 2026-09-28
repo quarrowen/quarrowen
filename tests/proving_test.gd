@@ -332,6 +332,19 @@ func _behaviour(server) -> void:
 		p.inventory.set_slot(charm_slot, charm, 1, {})
 		_check(dressed.worn(p, "charm") == charm, "and a mod can ask what a player has on")
 
+	# **How a player is drawn.** Asserted on the appearance the server would *send*, not on the field
+	# that was set - a disguise nobody is told about is not a disguise, and the two are one refresh
+	# apart.
+	p.set_look({"hide": ["head", "arm"], "scale": 0.25})
+	_check(p.appearance.get("look", {}).get("hide", []) == ["head", "arm"]
+		and is_equal_approx(float(p.appearance.look.scale), 0.25),
+		"a player's look reaches the appearance clients are sent (%s)" % str(p.appearance.get("look", {})))
+	p.set_look({"scale": 99.0})
+	_check(is_equal_approx(float(p.appearance.look.scale), 10.0), "and an absurd scale is clamped rather than obeyed")
+	p.set_look({})
+	_check(not p.appearance.has("look"),
+		"and clearing it takes the key out, so an ordinary player carries no disguise at all")
+
 	# **A box that says who is in it.** Asserted by *moving* rather than by asking, because the whole
 	# point of a region over polling is that it fires on the change - and a test that only checked
 	# `regions_at` would pass with the sweep deleted.

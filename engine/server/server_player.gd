@@ -87,6 +87,9 @@ var avatar := {}
 var portable_avatar := {}
 ## Server cosmetics the player picked on this server: {category: {id, color}}.
 var server_wear := {}
+## How the body is drawn, as against what it wears: {scale, hide, tint} - see set_look. Not saved,
+## because a disguise belongs to a round of a game and not to a person.
+var look := {}
 ## Avatar data mods lay over the player's look (see set_avatar_override).
 var avatar_override := {}
 ## The avatar the client last asked for (creations in it may still be uploading or awaiting approval).
@@ -433,6 +436,31 @@ func has_cosmetic(cosmetic_name: String) -> bool:
 func set_avatar_override(values: Dictionary) -> void:
 	avatar_override = _server.cosmetics.sanitize_avatar(values, Callable(), true)
 	_server.refresh_avatar(self)
+
+
+## How this player is *drawn*, as against what they are wearing: `scale` (0.05-10) and `hide` (body
+## part names, matched by prefix; `"*"` is all of them). Pass {} to clear. Not saved.
+##
+## **The same controls `Entity.set_look` has had since Wick got his coat**, finally applying to players
+## too. Not a new idea - an existing one reaching one more noun, which is why disguises and
+## invisibility needed no system of their own: `hide` every part and there is a hider.
+##
+## **No `tint` here, though entities have one.** A player's colours are already
+## `set_avatar_override({"body": {...}})`, and two ways to colour the same arm is how they end up
+## disagreeing. Use that for a team colour and this for a shape. (2026-09-28)
+func set_look(values: Dictionary) -> void:
+	var made := {}
+	if values.has("scale"):
+		made.scale = clampf(float(values.scale), 0.05, 10.0)
+	if values.get("hide") is Array:
+		made.hide = (values.hide as Array).slice(0, 16).map(func(h): return str(h).left(32))
+	look = made
+	_server.refresh_appearance(self)
+
+
+## What `set_look` last said, or {}.
+func look_of() -> Dictionary:
+	return look
 
 
 ## Whether the player can craft a recipe (discovered, or discovery is off).

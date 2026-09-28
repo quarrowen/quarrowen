@@ -18,6 +18,9 @@ var attachments := {}
 var rig: Dictionary
 
 var _scale_root: Node3D
+## What `build` worked out from the rig's height, so `set_look` can scale relative to it rather than
+## overwriting it and flattening every rig to the default size.
+var _base_scale := 1.0
 var _base_meshes: Array[MeshInstance3D] = []
 var _overlay_meshes: Array[MeshInstance3D] = []
 var _armor_meshes: Array[MeshInstance3D] = []
@@ -58,6 +61,7 @@ func build(rig_def: Dictionary) -> void:
 	_scale_root = Node3D.new()
 	add_child(_scale_root)
 	var pixel := PlayerRig.PIXEL * float(rig.get("height", 1.8)) / 1.8
+	_base_scale = pixel
 	_scale_root.scale = Vector3.ONE * pixel
 	for material in [_skin_material, _overlay_material, _armor_material]:
 		material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
@@ -129,6 +133,33 @@ func set_accessories(list: Array) -> void:
 		if attachments.has(entry.attach):
 			attachments[entry.attach].add_child(entry.node)
 			_accessories.append(entry.node)
+
+
+## How the body is drawn: {scale, hide}. See ServerPlayer.set_look.
+##
+## **Applied on top of the rig's own scale rather than replacing it**, so a rig with a different height
+## keeps it - `_base_scale` is what `build` worked out from the rig, and this multiplies it.
+func set_look(look: Dictionary) -> void:
+	if _scale_root == null:
+		return
+	var want := clampf(float(look.get("scale", 1.0)), 0.05, 10.0)
+	_scale_root.scale = Vector3.ONE * _base_scale * want
+	var hide: Array = look.get("hide", []) if look.get("hide") is Array else []
+	# **"*" means all of them**, and it is not a convenience. A rig is a mod's to replace, so part names
+	# are not fixed - and "become invisible", which is the commonest thing anybody wants here, would
+	# otherwise mean listing parts you have to already know. The first attempt at this listed head,
+	# body, arm and leg, and the default rig calls its middle `torso`, so a pale blue box stood in the
+	# field on its own. Found by taking a picture of it. (2026-09-28)
+	var all := hide.has("*")
+	for key: String in parts:
+		var hidden := all
+		if not hidden:
+			for prefix in hide:
+				# Prefix, as entities do it: "arm" catches both arms without a mod listing each one.
+				if key.begins_with(String(prefix)):
+					hidden = true
+					break
+		(parts[key] as Node3D).visible = not hidden
 
 
 ## Lies down in a bed: `head` is the [x, z] direction from the feet to the pillow, or [] to get up.

@@ -1509,6 +1509,9 @@ the vehicle and their input is steering (see engine/server/vehicles.gd).</p></di
 <div class="card" data-search="avatar the look others see (cosmetics avatar data), recomputed by the server from the fields below. server/server_player.gd players"><div class="sig"><code>avatar := {}  (property)</code></div><p>The look others see (Cosmetics avatar data), recomputed by the server from the fields below.</p></div>
 <div class="card" data-search="portable_avatar the player's own built-in look, sent by their client. server/server_player.gd players"><div class="sig"><code>portable_avatar := {}  (property)</code></div><p>The player's own built-in look, sent by their client.</p></div>
 <div class="card" data-search="server_wear server cosmetics the player picked on this server: {category: {id, color}}. server/server_player.gd players"><div class="sig"><code>server_wear := {}  (property)</code></div><p>Server cosmetics the player picked on this server: {category: {id, color}}.</p></div>
+<div class="card" data-search="look how the body is drawn, as against what it wears: {scale, hide, tint} - see set_look. not saved,
+because a disguise belongs to a round of a game and not to a person. server/server_player.gd players"><div class="sig"><code>look := {}  (property)</code></div><p>How the body is drawn, as against what it wears: {scale, hide, tint} - see set_look. Not saved,
+because a disguise belongs to a round of a game and not to a person.</p></div>
 <div class="card" data-search="avatar_override avatar data mods lay over the player's look (see set_avatar_override). server/server_player.gd players"><div class="sig"><code>avatar_override := {}  (property)</code></div><p>Avatar data mods lay over the player's look (see set_avatar_override).</p></div>
 <div class="card" data-search="requested_avatar the avatar the client last asked for (creations in it may still be uploading or awaiting approval). server/server_player.gd players"><div class="sig"><code>requested_avatar := {}  (property)</code></div><p>The avatar the client last asked for (creations in it may still be uploading or awaiting approval).</p></div>
 <div class="card" data-search="owned_cosmetics server cosmetics granted to this player: name -&gt; true. server/server_player.gd players"><div class="sig"><code>owned_cosmetics := {}  (property)</code></div><p>Server cosmetics granted to this player: name -> true.</p></div>
@@ -1605,6 +1608,26 @@ removed. Use ids like "my_mod:haste".</p></div>
 <div class="card" data-search="set_avatar_override avatar data laid over this player's look, e.g. a team uniform: {wear: {shirt: {id, color}}}; an
 empty id takes a category off. pass {} to clear. not saved. server/server_player.gd players"><div class="sig"><code>set_avatar_override(values: Dictionary) -&gt; void</code></div><p>Avatar data laid over this player's look, e.g. a team uniform: {wear: {shirt: {id, color}}}; an
 empty id takes a category off. Pass {} to clear. Not saved.</p></div>
+<div class="card" data-search="set_look how this player is *drawn*, as against what they are wearing: `scale` (0.05-10) and `hide` (body
+part names, matched by prefix; `&quot;*&quot;` is all of them). pass {} to clear. not saved.
+
+**the same controls `entity.set_look` has had since wick got his coat**, finally applying to players
+too. not a new idea - an existing one reaching one more noun, which is why disguises and
+invisibility needed no system of their own: `hide` every part and there is a hider.
+
+**no `tint` here, though entities have one.** a player's colours are already
+`set_avatar_override({&quot;body&quot;: {...}})`, and two ways to colour the same arm is how they end up
+disagreeing. use that for a team colour and this for a shape. (2026-09-28) server/server_player.gd players"><div class="sig"><code>set_look(values: Dictionary) -&gt; void</code></div><p>How this player is *drawn*, as against what they are wearing: `scale` (0.05-10) and `hide` (body
+part names, matched by prefix; `"*"` is all of them). Pass {} to clear. Not saved.
+
+**The same controls `Entity.set_look` has had since Wick got his coat**, finally applying to players
+too. Not a new idea - an existing one reaching one more noun, which is why disguises and
+invisibility needed no system of their own: `hide` every part and there is a hider.
+
+**No `tint` here, though entities have one.** A player's colours are already
+`set_avatar_override({"body": {...}})`, and two ways to colour the same arm is how they end up
+disagreeing. Use that for a team colour and this for a shape. (2026-09-28)</p></div>
+<div class="card" data-search="look_of what `set_look` last said, or {}. server/server_player.gd players"><div class="sig"><code>look_of() -&gt; Dictionary</code></div><p>What `set_look` last said, or {}.</p></div>
 <div class="card" data-search="knows_recipe whether the player can craft a recipe (discovered, or discovery is off). server/server_player.gd players"><div class="sig"><code>knows_recipe(recipe_id: String) -&gt; bool</code></div><p>Whether the player can craft a recipe (discovered, or discovery is off).</p></div>
 <div class="card" data-search="learn_recipe teaches a recipe (source is passed to recipe_learned). returns true if it was new. server/server_player.gd players"><div class="sig"><code>learn_recipe(recipe_id: String, source := &quot;mod&quot;) -&gt; bool</code></div><p>Teaches a recipe (source is passed to recipe_learned). Returns true if it was new.</p></div>
 <div class="card" data-search="is_admin whether the player is a server admin. server/server_player.gd players"><div class="sig"><code>is_admin() -&gt; bool</code></div><p>Whether the player is a server admin.</p></div>
@@ -2182,6 +2205,13 @@ line {from, to}, text {position, text}, path {points}, sphere {center, radius}.<
 <div class="card" data-search="set_armor armor shell texture in the skin layout, or null to hide armor. client/avatar/avatar.gd the client"><div class="sig"><code>set_armor(texture: Texture2D) -&gt; void</code></div><p>Armor shell texture in the skin layout, or null to hide armor.</p></div>
 <div class="card" data-search="set_held replaces the item in the right hand (null = empty hand). `look`: {glow, trail, held} of the stack. client/avatar/avatar.gd the client"><div class="sig"><code>set_held(node: Node3D, look := {}) -&gt; void</code></div><p>Replaces the item in the right hand (null = empty hand). `look`: {glow, trail, held} of the stack.</p></div>
 <div class="card" data-search="set_accessories adds accessory nodes at attachment points: [{attach, node}]. replaces previous accessories. client/avatar/avatar.gd the client"><div class="sig"><code>set_accessories(list: Array) -&gt; void</code></div><p>Adds accessory nodes at attachment points: [{attach, node}]. Replaces previous accessories.</p></div>
+<div class="card" data-search="set_look how the body is drawn: {scale, hide}. see serverplayer.set_look.
+
+**applied on top of the rig's own scale rather than replacing it**, so a rig with a different height
+keeps it - `_base_scale` is what `build` worked out from the rig, and this multiplies it. client/avatar/avatar.gd the client"><div class="sig"><code>set_look(look: Dictionary) -&gt; void</code></div><p>How the body is drawn: {scale, hide}. See ServerPlayer.set_look.
+
+**Applied on top of the rig's own scale rather than replacing it**, so a rig with a different height
+keeps it - `_base_scale` is what `build` worked out from the rig, and this multiplies it.</p></div>
 <div class="card" data-search="set_sleeping lies down in a bed: `head` is the [x, z] direction from the feet to the pillow, or [] to get up. client/avatar/avatar.gd the client"><div class="sig"><code>set_sleeping(head: Array) -&gt; void</code></div><p>Lies down in a bed: `head` is the [x, z] direction from the feet to the pillow, or [] to get up.</p></div>
 <div class="card" data-search="set_armor_glow glowing armor: {color, energy} lights up the armor texture in its own colors, and `light` (a radius
 in blocks) makes it light the world around the wearer too. {} turns both off.
@@ -3297,7 +3327,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1253 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1257 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

@@ -8464,3 +8464,33 @@ chunk mesh. If that ever stops being true the answer is a grid, not a time slice
 Added to `mod_reload._forget`, which CLAUDE.md names as the thing a new registry always forgets -
 though regions are *placed* rather than registered, so they needed their own line rather than joining
 the loop over `kinds` dictionaries.
+
+### `set_look` for players - built (2026-09-28)
+
+Step 4, and the cheapest of the five because **it was not a new idea**. `Entity.set_look` has taken
+`scale`, `hide`, `tint` and `pose` since Wick got his coat; players had none of it. Giving them the
+same is an existing capability reaching one more noun, which is why disguises and invisibility needed
+no system of their own - `hide` everything and there is a hider.
+
+**`scale` and `hide` only, no `tint`.** A player's colours are already
+`set_avatar_override({"body": {...}})`, and two ways to colour the same arm is how they end up
+disagreeing. Use the avatar for a team colour and this for a shape. The two calls now sit next to each
+other with a clear line between them: **one changes what somebody is wearing, the other how the body is
+drawn.**
+
+The `look` key is only added to the appearance when there is one, so an ordinary player's appearance is
+the same handful of bytes it always was and a client that never sees a disguise pays nothing.
+
+#### `"*"` exists because the first version left a blue box standing in a field
+
+The Proving Ground's `/vanish` hid `head`, `body`, `arm` and `leg` - and **the default rig calls its
+middle `torso`**, so a pale blue rectangle stayed exactly where the player had been. Found by taking a
+picture rather than by reading, which is the third time this week that looking beat reasoning.
+
+The fix is not to spell `torso` correctly. **A rig is a mod's to replace** (`set_player_rig`), so part
+names are not fixed at all, and "become invisible" - the commonest thing anybody will want here - would
+otherwise mean listing parts you have to already know for a rig somebody else may swap. `hide: ["*"]`
+means all of them, whatever they are called.
+
+The test asserts on the appearance the server would *send* rather than on the field that was set: a
+disguise nobody is told about is not a disguise, and the two are one `refresh_appearance` apart.
