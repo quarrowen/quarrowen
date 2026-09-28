@@ -9040,13 +9040,42 @@ factor set to the device scale, so **one UI unit is one iOS point and nothing is
 width and height vary with the device. The comment claiming Godot's content scaling keeps the height is
 wrong for this configuration, which is part of why a tablet layout was assumed to survive.
 
-### Not a redesign
+### The fixes, for when this is picked up
 
-Four changes cover most of it, and none is structural: a breakpoint on viewport height that shrinks
-`RING_RADIUS`, `BELT_BAND` and the button pitch; horizontal scrolling on the palette; the fit pass
-`crafting_screen` already has, given to the two 660-tall overlays; and the viewport-versus-inset
-coordinate fix in `_begin_touch`. The last one is a bug on every device and simply invisible where the
-inset is zero.
+None is structural, and they are in the order they should be done - the first is a real bug everywhere
+and the cheapest thing on the list.
+
+1. **`touch_controls.gd:310` - the walk/look divider.** `var left := at.x < size.x * 0.5` compares a
+   viewport coordinate against the *inset* HUD rect's width. Use the same space for both. A bug on
+   every device that happens to be invisible wherever the landscape left inset is 0, which is every
+   iPad.
+2. **A breakpoint on viewport height in `touch_controls.gd`.** Everything in that file is a literal
+   (`STICK_RADIUS 58`, `BUTTON_SIZE 54x54`, `BELT_BAND 76`, `RING_RADIUS 92`, `RING_ITEM 50x50`, and
+   the button pitch of 80 and 142). Below roughly 500 units of height, scale the ring radius, the belt
+   band and the pitch down together. This is what fixes the Drop-item-under-the-☰ collision and the
+   ring clipping off the top.
+3. **`BELT_BAND` is simply wrong by 8 units** and should be derived rather than guessed: the hotbar is
+   58 + 2x7 margin = 72 tall at offset 12, so it occupies 12..84 and the band claims 76. Worth fixing
+   on its own even before the breakpoint, because it is an arithmetic error rather than a layout
+   opinion.
+4. **`palette_screen.gd` - enable horizontal scrolling** (`:81` sets `SCROLL_MODE_DISABLED`) or make
+   `COLUMNS` (`:22`, 16) respond to the available width. Six of sixteen columns are currently
+   unreachable on a phone.
+5. **Give Settings and Friends the fit pass `crafting_screen.gd:144-148` already has.** Both set
+   `custom_minimum_size` 660 tall inside a plain `CenterContainer`; the pass that measures the overflow
+   and scales already exists twenty lines away in another file. Make it shared rather than copied - the
+   registries-are-found-and-readers-are-reimplemented rule applies to the client too.
+6. **`crafting_screen.gd`'s `NARROW := 900`** is wider than a phone in landscape, so the narrow path is
+   always on and then the shrink lands near 0.7, which puts its 58-unit cells at ~40 - under the 44pt
+   floor. Needs a second, smaller breakpoint rather than one.
+7. **`menu/main_menu.gd` is never inset.** `_apply_safe_area` lives in `game_client.gd` only, so the
+   menu runs under the notch. The inset logic should be somewhere both can reach.
+8. **Add a phone shape to `tests/screenshot.gd`**, which defaults to `--size=1180x820`. None of the
+   above would have gone unnoticed if anything had ever rendered at 852x393. This is arguably item 1.
+
+Deliberately **not** proposed: hiding controls on a phone, or a second phone layout. A layout that reads
+its own height is less code than two layouts, and the engine is for whoever turns up on whatever they
+have.
 
 Deliberately **not** proposed: hiding things on a phone, or a separate phone layout. The engine is for
 players of all ages on whatever they have, and a layout that reads its own height is less code than two
