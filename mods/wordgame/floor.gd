@@ -1,12 +1,12 @@
 extends RefCounted
 ## The four coloured squares, and the room they sit in.
 ##
-## **Colour is the label**, because the world has no text in it. `base`'s sixteen hues were named to be
-## sayable by a child, so "stand on crimson" is an instruction rather than a puzzle - and four that
-## nobody would confuse across a room, which rules out the greys and the near neighbours.
+## **Colour is the label**, because the world has no text in it. `base`'s sixteen hues have plain
+## spoken names, so "stand on crimson" is an instruction rather than a puzzle - and four that nobody
+## would confuse across a room, which rules out the greys and the near neighbours.
 
-## Four: enough to be a real choice, few enough that reading them all fits in one line of a title and a
-## child can see every square from the middle without turning round.
+## Four: enough to be a real choice, few enough that reading them all fits in one line of a title and
+## that every square is in view from the middle without turning round.
 const PADS := 4
 const FLOOR_Y := 64
 ## Half-width of a square, and how far out from the middle they sit.
