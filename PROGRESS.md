@@ -8574,3 +8574,63 @@ conditions already exist, so per-run boons and curses are content rather than ma
 **Does a run share Firstlight's world at all** - your gear, your gathered levels, your guidebook - or
 do you enter with a kit and leave with loot? That decides whether this is a side activity inside the
 story or a separate game wearing the same clothes, and it is far cheaper to answer now than later.
+
+### Researched: the dungeon is not blocked by the dungeon (2026-09-28)
+
+Most of what a dungeon needs exists and several pieces are better than expected:
+
+- **Spawner blocks are an engine capability**, not something to write. `base:spawner` ("Monster Nest")
+  with block data `{spawner: {entity, count, range, max_nearby, player_range, max_light}}`, ticking
+  only while somebody is near - and explicitly realm-correct: *"a spawner in the Emberdeep should fill
+  the Emberdeep"*.
+- **Boss bars and phases are free.** Any entity whose ai config carries `boss: {name, bar_range}` gets
+  a health bar shown to everyone in range; `phases: [{health_below, message, speed_multiplier,
+  add_attacks}]` swaps attacks and announces as health falls. Firstlight's Colossus uses none of it,
+  because it is deliberately not a fight - so this machinery is built and unexercised.
+- **Traps have their primitives**: `contact_damage` on a block is a spike floor with no engine work,
+  and `add_region` (built today) is the *invisible* trigger a trap needs, since a field is required to
+  be visible by design.
+- **The map reveals a dungeon for free.** It paints only what has been visited, from whatever world
+  the client holds, and a realm change drops and re-streams everything.
+- **Getting in and out is solved**: portal blocks, `send_to_realm`, `leave_instance` returning people
+  exactly where they entered, `close_instance` evacuating anybody left.
+
+### What actually blocks it: instances have never had a real consumer
+
+**Nothing shipped uses instances.** They were built and tested on 21 September and only the Proving
+Ground's `/trial` command touches them. So the realm-awareness was finished exactly as far as the
+tests reach, and being the first real user will surface the rest. The research found a **cluster of
+realm-blind sites**, and the first is fatal to the idea as described:
+
+1. **Dying in a dungeon puts your things in the overworld.** `kill_player` drops the inventory through
+   `entities.drop_item`, and `entities` is a property returning the *overworld's*. `base/graves.gd`
+   places the grave with a realm-less `set_block`. So the harsh mode's entire mechanic - die and your
+   stuff is on the dungeon floor - currently scatters it into another world at the same coordinates.
+2. **Boss bars and phase announcements filter by distance and never by realm**, so a boss in an
+   instance pushes its bar to somebody standing at the same coordinates outside.
+3. **`remove_entity` is realm-blind** - despawning something inside an instance marks it removed and
+   leaves it in its realm's list.
+4. **`get_container(position)` has no realm**, so `fill_container` - the call built for "a chest
+   appears when the boss dies" - cannot reach a chest inside an instance. Only the `{loot: table}`
+   block-data path works there.
+5. **The map's "which world" is `player.data["dimension"]`, which `send_to_realm` never sets**, so
+   markers and player dots silently vanish inside an instance unless a mod maintains the key - and
+   `sightings.gd` already assumes the realm-id convention, so the two disagree.
+6. **`register_structure`, `schedule_block_tick` and `add_spawn_rule` all reach the overworld only**,
+   though their neighbours take a `realm_id`.
+
+None of these is hard. Together they are the actual first phase: **finish realms, then write the
+dungeon.** That is a better discovery than it looks, because every one of them would otherwise have
+been found by a child dying in a dungeon and losing everything.
+
+### Two other findings worth keeping
+
+- **Loot cannot vary by realm from inside a table.** `when` accepts a fixed list (`killed_by`, `tool`,
+  `biome`, `depth`, `time`, `chance`, `first_time`, `player`) and rejects anything else, and
+  `set_loot_boost` is one server-wide number. So two difficulties means two written table sets, not a
+  multiplier - which is probably better anyway, since "the same loot but more of it" is a thin reward.
+- **The deleted `vanilla` mod had a working branching dungeon generator** - `_mineshaft(origin, rng,
+  structures)` plus `dungeon.json`, `mineshaft_corridor/crossing/room`, `ruin_small/long`,
+  `watchtower` - surviving in git at `00edd6c` and in a stale build tree. `docs/modding.md` still
+  describes them as shipped, which it should stop doing either way. Worth reading before writing a
+  rooms generator from nothing.

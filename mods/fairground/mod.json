@@ -1,0 +1,18 @@
+{
+	"id": "fairground",
+	"name": "The Fairground",
+	"version": "1.0.0",
+	"description": "A hub of short games with a door to each: step through one and a round begins. Every game is worth playing on your own, and better with somebody.",
+	"kind": "game",
+	"authors": [
+		"Quarrowen"
+	],
+	"engine": "^1.1",
+	"depends": [
+		"base@^1.0"
+	],
+	"optional_depends": [
+		"simple_gear",
+		"simple_machines"
+	]
+}
