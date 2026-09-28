@@ -9080,3 +9080,47 @@ have.
 Deliberately **not** proposed: hiding things on a phone, or a separate phone layout. The engine is for
 players of all ages on whatever they have, and a layout that reads its own height is less code than two
 layouts.
+
+### The descent runs 28 September 2026
+
+Verified rather than assumed: the story probe now walks it - floor one, down to floor two with floor one
+closed behind, then out to the overworld with the run ended and both floors gone. That probe is the only
+thing that executes the loop, and the loop is four systems agreeing (instances, regions, per-realm
+gameplay, and the generator); all of it was written before any of it had run.
+
+Two engine bugs it found on the way, both now fixed and both with a test that fails without the fix:
+
+- **A player who moved between instances stayed on the old one's member list**, so closing the floor
+  behind them called `leave` - which asks which realm they are in *now* - and threw them out of the
+  floor in *front* of them, all the way to the surface. The reverted-fix run reports the player standing
+  at the first floor's arrival point, which is exactly the symptom.
+- **`base`'s graves were realm-blind, and they write.** Every block call in `_on_death` defaulted to the
+  overworld, so dying anywhere else built the grave at those coordinates in the overworld - over
+  whatever was already standing there - and then told the player their things were somewhere they could
+  walk to and find untouched. This one is worth remembering as a *class*: the engine audit covered
+  `engine/server` and this was in `mods/`. Mods are realm-blind too, and a mod that writes is worse
+  than an engine read that returns the wrong answer.
+
+### What the descent still needs
+
+1. **Both entrances.** A command (`/descent`, `/descent harsh`) is the only way in, and that is scaffolding.
+   The design asks for entrances found while exploring (a worldgen structure with a way down in it) and
+   one that can be built. The buildable one probably wants `register_multiblock` - a controller block with
+   a pattern round it - which was not used here because it needed reading properly rather than guessing,
+   and a loop that can be walked beats an entrance into a loop that cannot.
+2. **The currency gate on harsh.** The user's words were that losing your things should be "the high
+   risk, high reward option which we could also gate behind some kind of in-game currency as well so
+   that its more of a choice". Nothing is gated yet; `/descent harsh` is free. `register_ledger` is the
+   capability to spend.
+3. **Solo only.** A floor takes one player, because a party has real questions in it - if one of you
+   takes the way down, what happens to the others standing on floor four - and answering them badly is
+   worse than not answering them yet. Options when it is picked up: the party moves together when the
+   last of them steps on the pad; or a floor stays open while anybody is on it and the way down opens a
+   floor *per party* rather than per player.
+4. **Nothing marks a run in the interface.** No depth on screen, no way to see how deep you have been.
+   A personal best per player would give the descent the thing the Fairground's boards give its games.
+5. **A boss.** `barrow_warden` (80 health) is the obvious one and is deliberately not in the nest bands:
+   a boss that turns up from a spawner is not an event. Probably every fifth floor, in the room with the
+   way down, so the choice to go deeper is also a choice to fight.
+6. **No sound and no music down there.** `play_sound_at` and `play_effect` have no realm filter at all
+   (see the realm list above), so this waits on that.

@@ -854,6 +854,31 @@ func _instances(server, api, p) -> void:
 	_check(stander.state.position.y > 64.0 and stander.state.on_ground,
 		"and a player stands on a floor inside it rather than falling through (y %.1f)" % stander.state.position.y)
 
+	# **Going from one instance to another**, which is what a descent is: floor two is entered from floor
+	# one, and leaving at any depth has to put you back where you started rather than on the floor above.
+	# Two things had to be true and only one of them was. The way out survived a second entry already,
+	# because it is taken once and never overwritten. The member list did not: a player who moved stayed
+	# listed on the instance they had left, so closing the floor behind them walked that stale list and
+	# called `leave` - which asks which realm they are in *now*. Closing the floor you had left threw you
+	# out of the floor in front of you, all the way to the surface. (2026-09-28)
+	var one: String = api.open_instance("trial", {})
+	var two: String = api.open_instance("trial", {})
+	var delver := _player(server, 206, "Delver")
+	var street: Vector3 = delver.state.position
+	_check(api.enter_instance(delver, one, Vector3(0.5, 66, 0.5)), "a player goes into the first one")
+	_check(api.enter_instance(delver, two, Vector3(0.5, 66, 0.5)),
+		"and can go straight from there into the second")
+	_check(api.instance_of(delver) == two, "and is in the second, not still in the first")
+	_check(not server.instances.live[one].members.has(delver.player_id),
+		"the one they left no longer counts them as being in it")
+	_check(api.close_instance(one), "so the one behind them can be closed")
+	_check(api.instance_of(delver) == two and String(delver.realm_id) == two,
+		"and closing it leaves them where they are")
+	_check(api.leave_instance(delver) and delver.state.position.distance_to(street) < 0.01,
+		"and leaving from the second puts them back on the street, not in the first (%s)" % delver.state.position)
+	api.close_instance(two)
+	server.players.erase(206)
+
 	api.close_instance(inside)
 	api.close_instance(second)
 

@@ -80,6 +80,7 @@ func _ready() -> void:
 		print("blocks:    %s" % ", ".join(blocks))
 	var problems := _reachable(server)
 	problems += await _walk(server, p)
+	problems += _descend(server, p)
 	print("")
 	get_tree().quit(1 if not problems.is_empty() else 0)
 
@@ -257,3 +258,76 @@ func _reachable(server) -> Array:
 	if problems.is_empty():
 		print("reachable: every mining step is within the pickaxe the chain has granted by then")
 	return problems
+
+
+## Walks the descent: down two floors and back out. **Not a print, a check** - this is the only thing that
+## runs the loop, and the loop is four separate systems agreeing (instances, regions, per-realm gameplay
+## and the generator). Everything here was written before any of it had ever been executed.
+func _descend(server, p) -> Array:
+	var problems := []
+	var mod = server.mod_instances.get("firstlight")
+	if mod == null or mod.get("descent") == null:
+		return ["firstlight has no descent"]
+	var descent = mod.descent
+	print("")
+	if not descent.enter(p, false):
+		return ["the descent refused to open"]
+	var first := String(server.realm_of(p).id)
+	if first.is_empty():
+		return ["entering the descent left the player in the overworld"]
+	var run: Dictionary = descent.runs.get(p.player_id, {})
+	print("descent:   floor %d in %s" % [int(run.get("depth", 0)), first])
+
+	# The floor has to be *there*, and the player has to be able to stand on it - a block id proves the
+	# block and not the floor, which is the lesson from the instance that everybody fell through.
+	var floor_here: int = server.realms[first].world.get_block_v(Vector3i(0, 40, 0))
+	if floor_here == 0 or floor_here == 65535:
+		problems.append("the floor of the descent is not there (block %d at 0,40,0)" % floor_here)
+	if not server.gameplay_in(first).get("keep_inventory", false):
+		problems.append("a gentle descent should keep your things (keep_inventory is off in %s)" % first)
+
+	# Stand on the way down. The region is what notices, so the region tick is the thing being tested.
+	if not _stand_on(server, p, first, "down"):
+		return problems + ["the floor has no way down"]
+	server.regions.tick()
+	var second := String(server.realm_of(p).id)
+	if second == first or second.is_empty():
+		problems.append("standing on the way down did not open another floor (still %s)" % second)
+	elif int(descent.runs.get(p.player_id, {}).get("depth", 0)) != 2:
+		problems.append("going down once should be floor 2, not %d" % int(descent.runs[p.player_id].depth))
+	else:
+		print("descent:   floor 2 in %s, and %s is %s" % [second, first,
+			"closed" if not server.realms.has(first) else "STILL OPEN"])
+		if server.realms.has(first):
+			problems.append("the floor above stayed open after going deeper")
+
+	# And out, from floor two, which must land in the overworld rather than on floor one.
+	if not _stand_on(server, p, second, "up"):
+		return problems + ["the floor has no way up"]
+	server.regions.tick()
+	if not String(server.realm_of(p).id).is_empty():
+		problems.append("taking the way up left the player in %s rather than the overworld"
+			% String(server.realm_of(p).id))
+	elif descent.runs.has(p.player_id):
+		problems.append("coming out did not end the run")
+	else:
+		print("descent:   out, and the run is over")
+	if server.realms.has(second):
+		problems.append("the floor left behind stayed open")
+	if problems.is_empty():
+		print("descent:   two floors down and back out, floors closed behind")
+	return problems
+
+
+## Puts the player in the middle of the "up" or "down" pad of one floor. The region is what notices them,
+## so this is deliberately placing a body rather than calling the mod.
+func _stand_on(server, p, realm_id: String, which: String) -> bool:
+	for id: int in server.regions.regions.keys():
+		var region: Dictionary = server.regions.regions[id]
+		if String(region.realm) != realm_id:
+			continue
+		if String((region.data as Dictionary).get("descent", "")) != which:
+			continue
+		p.state.position = (region.lo + region.hi) * 0.5
+		return true
+	return false
