@@ -80,6 +80,24 @@
 			],
 			"gd": "add_realm"
 		},
+		"addRegion": {
+			"args": [
+				{
+					"kind": "str"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": {},
+					"kind": "dict"
+				}
+			],
+			"gd": "add_region"
+		},
 		"addSpawnRule": {
 			"args": [
 				{
@@ -1797,6 +1815,14 @@
 			"args": [],
 			"gd": "players"
 		},
+		"playersInRegion": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "players_in_region"
+		},
 		"plotAt": {
 			"args": [
 				{
@@ -1869,6 +1895,18 @@
 				}
 			],
 			"gd": "received"
+		},
+		"regionsAt": {
+			"args": [
+				{
+					"kind": "vec3"
+				},
+				{
+					"default": "",
+					"kind": "str"
+				}
+			],
+			"gd": "regions_at"
 		},
 		"registerAmbience": {
 			"args": [
@@ -2574,6 +2612,14 @@
 				}
 			],
 			"gd": "remove_plot_member"
+		},
+		"removeRegion": {
+			"args": [
+				{
+					"kind": "int"
+				}
+			],
+			"gd": "remove_region"
 		},
 		"requireBlock": {
 			"args": [

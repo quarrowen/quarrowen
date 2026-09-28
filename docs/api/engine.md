@@ -10703,6 +10703,14 @@ GDScript: `fields := Fields.new(self)  (property)`
 
 Ground that does something to whoever stands in it (see engine/server/fields.gd).
 
+### `regions`
+
+*server/game_server.gd*
+
+GDScript: `regions := Regions.new(self)  (property)`
+
+Boxes that say who is standing in them (engine/server/regions.gd).
+
 ### `companions`
 
 *server/game_server.gd*
@@ -12063,6 +12071,85 @@ through the environment so that a client's own arguments can never be mistaken f
 GDScript: `find() -> Array`
 
 Everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report.
+
+### `regions`
+
+*server/regions.gd*
+
+GDScript: `regions := {}  (property)`
+
+id -> {id, name, owner, realm, lo: Vector3, hi: Vector3, data: Dictionary, inside: {player_id: true}}
+
+### `add`
+
+*server/regions.gd*
+
+GDScript: `add(region_name: String, from: Vector3, to: Vector3, options := {}, owner := "engine") -> int`
+
+Adds a box. Returns its id, or 0 if there was no room or the box was refused.
+
+### `remove`
+
+*server/regions.gd*
+
+GDScript: `remove(id: int) -> bool`
+
+Removes one. Anybody standing in it is told they left first, because a mod that opened a door on
+`region_entered` has to be able to close it - and "the region went away" is not a thing it can see.
+
+### `at`
+
+*server/regions.gd*
+
+GDScript: `at(position: Vector3, realm_id := "") -> Array`
+
+Every region a point is inside, as their ids.
+
+**See also:** `get_block_v`, `uptime`
+
+### `players_in`
+
+*server/regions.gd*
+
+GDScript: `players_in(id: int) -> Array`
+
+Who is standing in one right now, as players.
+
+### `forget`
+
+*server/regions.gd*
+
+GDScript: `forget(owner: String) -> void`
+
+Drops everything a mod added, for a reload.
+
+**See also:** `path_for`
+
+### `tick`
+
+*server/regions.gd*
+
+GDScript: `tick() -> void`
+
+One sweep: every player against every box, firing on the change.
+
+**Called from the server tick and deliberately not budgeted.** A box test is six float compares, so
+the whole sweep is players times regions - sixty players in a lobby of two hundred boxes is twelve
+thousand compares, which is less work than one chunk mesh and far less than the machinery it would
+take to be clever about it. If that stops being true the answer is a grid, not a time slice: a
+region that is only checked *sometimes* misses people, and missing people is the one failure this
+capability cannot have.
+
+**See also:** `aabb`, `allied`, `apply_condition`, `at_path_end`, `at_station`, `broadcast_entity_event`
+
+### `drop_player`
+
+*server/regions.gd*
+
+GDScript: `drop_player(player) -> void`
+
+Someone has gone for good: forget them, without telling anybody they left. A player who logs out is
+not a player who walked out, and a mod that opened a gate for them has nothing left to close.
 
 ### `start`
 

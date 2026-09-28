@@ -3,6 +3,9 @@ extends RefCounted
 
 var api
 var ids: Dictionary
+## What the region handlers saw, in order, so the test can assert on the *change* rather than on a
+## position - which is the whole difference between a region and polling.
+var _seen_regions: Array = []
 
 
 func setup(mod_api, id_table: Dictionary) -> void:
@@ -98,6 +101,11 @@ func _conditions_and_fields() -> void:
 	api.register_field("respite", {"display_name": "Respite", "radius": 4.0, "seconds": 20.0,
 		"effect": "engine:sparkle", "affects": "players", "except_owner": false,
 		"tick": {"seconds": 1.0, "heal": 1.0}})
+	# A region, which is the other shape of "somewhere": a box that does nothing but say who is in it.
+	# Its `data` rides back on every event, which is how a mod avoids keeping its own table of ids.
+	ids.doorway = api.add_region("doorway", Vector3(20, 64, 20), Vector3(24, 68, 24), {"data": {"leads": "nowhere"}})
+	api.on("region_entered", func(ev): _seen_regions.append("in:" + String(ev.region) + ":" + String(ev.data.get("leads", ""))))
+	api.on("region_left", func(ev): _seen_regions.append("out:" + String(ev.region)))
 
 
 func _companions_and_vehicles() -> void:

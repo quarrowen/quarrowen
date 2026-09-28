@@ -174,6 +174,9 @@ func _forget(mod_id: String) -> void:
 		for name in (registry as Dictionary).keys():
 			if String((registry[name] as Dictionary).get("owner", "")) == mod_id:
 				registry.erase(name)
+	# Regions are *placed*, not registered, so they are not in the loop above - but they are still the
+	# mod's, and a box left behind by a mod that is gone would fire events nobody is listening for.
+	s.regions.forget(mod_id)
 	# Area rules hold a Callable rather than a definition, so there is no "owner" field to read; the
 	# name carries the owner instead, because register_area_rule qualifies it.
 	for name in s.area_edits.rules.keys():

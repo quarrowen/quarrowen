@@ -140,6 +140,16 @@ hitting somebody always means. Null if they are gone.
 
 **See also:** `gameplay_of`
 
+### `api.players_in_region`
+
+GDScript: `api.players_in_region(id: int) -> Array`
+
+JavaScript: `api.playersInRegion(id)`
+
+Who is standing in one right now.
+
+**See also:** `players_in`, `register_condition`
+
 ### `api.player_roles`
 
 GDScript: `api.player_roles(player_id: String) -> Array`

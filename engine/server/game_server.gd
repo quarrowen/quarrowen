@@ -43,6 +43,7 @@ const Ledgers = preload("res://engine/server/ledgers.gd")
 const Objectives = preload("res://engine/server/objectives.gd")
 const Conditions = preload("res://engine/server/conditions.gd")
 const Fields = preload("res://engine/server/fields.gd")
+const Regions = preload("res://engine/server/regions.gd")
 const Companions = preload("res://engine/server/companions.gd")
 const Vehicles = preload("res://engine/server/vehicles.gd")
 const Nameplates = preload("res://engine/server/nameplates.gd")
@@ -373,6 +374,8 @@ var shops := Shops.new(self)
 var conditions := Conditions.new(self)
 ## Ground that does something to whoever stands in it (see engine/server/fields.gd).
 var fields := Fields.new(self)
+## Boxes that say who is standing in them (engine/server/regions.gd).
+var regions := Regions.new(self)
 ## What a tamed creature is being told to do (see engine/server/companions.gd).
 var companions := Companions.new(self)
 ## Things you can sit on and steer (see engine/server/vehicles.gd).
@@ -2309,6 +2312,7 @@ func _physics_process(delta: float) -> void:
 		_update_health(p, delta)
 	conditions.tick(delta)
 	fields.tick(delta)
+	regions.tick()
 	var t1 := Time.get_ticks_usec()
 	dev_tools.record("engine", "tick:entities and AI", t1 - te)
 	dev_tools.record("engine", "tick:players", sim_usec)
@@ -3375,6 +3379,9 @@ func _on_peer_disconnected(peer_id: int) -> void:
 		vehicles.dismount(p)  # a rider who logs off leaves the boat where it is, rather than inside it
 	conditions.before_save(p)  # how long is *left*, since server time restarts with the server
 	conditions.forget(p)
+	# Forgotten rather than walked out of: somebody who logs off has not left a box, and a mod that
+	# opened a gate for them has nothing left to close.
+	regions.drop_player(p)
 	_store_player(p)
 	players.erase(peer_id)
 	_simulation_dirty = true

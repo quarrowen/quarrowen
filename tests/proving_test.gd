@@ -332,6 +332,32 @@ func _behaviour(server) -> void:
 		p.inventory.set_slot(charm_slot, charm, 1, {})
 		_check(dressed.worn(p, "charm") == charm, "and a mod can ask what a player has on")
 
+	# **A box that says who is in it.** Asserted by *moving* rather than by asking, because the whole
+	# point of a region over polling is that it fires on the change - and a test that only checked
+	# `regions_at` would pass with the sweep deleted.
+	var life = server.mod_instances.proving.life
+	life._seen_regions.clear()
+	var doorway: int = server.mod_instances.proving.ids.doorway
+	p.state.position = Vector3(22, 65, 22)
+	server.regions.tick()
+	_check(life._seen_regions == ["in:proving:doorway:nowhere"],
+		"walking into a region fires once, with the mod's own data (%s)" % str(life._seen_regions))
+	server.regions.tick()
+	_check(life._seen_regions.size() == 1, "and does not fire again for standing still")
+	p.state.position = Vector3(40, 65, 40)
+	server.regions.tick()
+	_check(life._seen_regions.size() == 2 and String(life._seen_regions[1]) == "out:proving:doorway",
+		"and walking out fires once (%s)" % str(life._seen_regions))
+	_check(server.regions.at(Vector3(22, 65, 22)) == [doorway] and server.regions.at(Vector3(40, 65, 40)).is_empty(),
+		"and a point can be asked what it is inside")
+	# Removing one has to tell whoever was in it, or a mod that opened a gate on the way in can never
+	# close it - "the region went away" is not something a handler can see.
+	p.state.position = Vector3(22, 65, 22)
+	server.regions.tick()
+	life._seen_regions.clear()
+	server.regions.remove(doorway)
+	_check(life._seen_regions == ["out:proving:doorway"], "taking a region away tells whoever was standing in it")
+
 	# **A mod raising its own event**, which is the only way one mod can offer anything to another. The
 	# payload comes back edited, because that is how a listener answers.
 	var roll: Dictionary = dressed.emit("roll_call", {"answers": []})

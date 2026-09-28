@@ -105,6 +105,7 @@ extends RefCounted
 ##   condition_given {target, condition, level, seconds, good}
 ##   condition_cleared {target, condition}   condition_expired {target, condition}
 ##   field_placed   {field, kind, position, realm}   field_cleared {field, kind}
+##   region_entered {player, region, id, data}   region_left {player, region, id, data}
 ##
 ##   -- People, money and what they have been asked to do
 ##   character_choice {player, character, entity, line, choice}   an option with `does` was picked
@@ -1678,6 +1679,39 @@ func clear_field(id: int) -> bool:
 ## Every field a point is inside: [{id, kind, realm, position, radius, level, seconds}].
 func fields_at(position: Vector3, realm_id := "") -> Array:
 	return _server.fields.at(position, _qualify_ref(realm_id))
+
+
+## A box that says when somebody walks into it and when they walk out. Returns its id, or 0.
+##
+##     var pad := api.add_region("door_lava", Vector3(10, 64, 10), Vector3(13, 67, 13), {"data": {"game": "lava"}})
+##     api.on("region_entered", func(ev): ...)   # {player, region, id, data}
+##
+## options: `realm` (which world; "" is the ordinary one) and `data`, a dictionary handed back on every
+## event so a mod does not have to keep its own table of ids.
+##
+## **Not a field.** A field is a circle that must do something and must be seen; a region does nothing
+## and shows nothing, because checkpoints, goal lines, safe zones and the answer squares of a quiz are
+## boxes that only need to say who is inside. Both exist: use a field where a player should *notice*,
+## and a region where the mod should. (2026-09-28)
+func add_region(region_name: String, from: Vector3, to: Vector3, options := {}) -> int:
+	var opts := options.duplicate()
+	opts.realm = _qualify_ref(String(options.get("realm", "")))
+	return _server.regions.add(_qualify(region_name), from, to, opts, mod_id)
+
+
+## Takes one away. Anybody inside is told they left first, so a mod can undo whatever entering did.
+func remove_region(id: int) -> bool:
+	return _server.regions.remove(id)
+
+
+## Every region a point is inside, as ids.
+func regions_at(position: Vector3, realm_id := "") -> Array:
+	return _server.regions.at(position, _qualify_ref(realm_id))
+
+
+## Who is standing in one right now.
+func players_in_region(id: int) -> Array:
+	return _server.regions.players_in(id)
 
 
 ## Something a player or a creature is temporarily under: swiftness, poison, a well-fed glow.

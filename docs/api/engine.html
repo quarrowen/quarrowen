@@ -220,6 +220,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#e-server-main-gd">server_main.gd</a>
 <div class="group">Everything else</div>
 <a href="#e-server-conflicts-gd">conflicts.gd</a>
+<a href="#e-server-regions-gd">regions.gd</a>
 <a href="#e-server-sightings-gd">sightings.gd</a>
 <a href="#e-server-world-backups-gd">world_backups.gd</a>
 <a href="#e-shared-net-access-gd">net_access.gd</a>
@@ -2792,6 +2793,7 @@ flows, and the file says why.</p></div>
 <div class="card" data-search="shops buying and selling, drawn the same way everywhere (see engine/server/shops.gd). server/game_server.gd the server itself"><div class="sig"><code>shops := Shops.new(self)  (property)</code></div><p>Buying and selling, drawn the same way everywhere (see engine/server/shops.gd).</p></div>
 <div class="card" data-search="conditions what somebody is temporarily under - swiftness, poison (see engine/server/conditions.gd). server/game_server.gd the server itself"><div class="sig"><code>conditions := Conditions.new(self)  (property)</code></div><p>What somebody is temporarily under - swiftness, poison (see engine/server/conditions.gd).</p></div>
 <div class="card" data-search="fields ground that does something to whoever stands in it (see engine/server/fields.gd). server/game_server.gd the server itself"><div class="sig"><code>fields := Fields.new(self)  (property)</code></div><p>Ground that does something to whoever stands in it (see engine/server/fields.gd).</p></div>
+<div class="card" data-search="regions boxes that say who is standing in them (engine/server/regions.gd). server/game_server.gd the server itself"><div class="sig"><code>regions := Regions.new(self)  (property)</code></div><p>Boxes that say who is standing in them (engine/server/regions.gd).</p></div>
 <div class="card" data-search="companions what a tamed creature is being told to do (see engine/server/companions.gd). server/game_server.gd the server itself"><div class="sig"><code>companions := Companions.new(self)  (property)</code></div><p>What a tamed creature is being told to do (see engine/server/companions.gd).</p></div>
 <div class="card" data-search="vehicles things you can sit on and steer (see engine/server/vehicles.gd). server/game_server.gd the server itself"><div class="sig"><code>vehicles := Vehicles.new(self)  (property)</code></div><p>Things you can sit on and steer (see engine/server/vehicles.gd).</p></div>
 <div class="card" data-search="nameplates the label over a thing's head (see engine/server/nameplates.gd). server/game_server.gd the server itself"><div class="sig"><code>nameplates := Nameplates.new(self)  (property)</code></div><p>The label over a thing's head (see engine/server/nameplates.gd).</p></div>
@@ -3222,6 +3224,32 @@ platform that cannot fork (see Main._host_in_process). Set before the scene ente
 means read the command line, which is every ordinary server. Passed explicitly rather than smuggled
 through the environment so that a client's own arguments can never be mistaken for a server's.</p></div></section>
 <section id="e-server-conflicts-gd"><h2>conflicts.gd <span class="file">server/conflicts.gd</span></h2><p class="lead">Two mods quietly standing on each other, found before a player notices.</p><div class="card" data-search="find everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report. server/conflicts.gd everything else"><div class="sig"><code>find() -&gt; Array</code></div><p>Everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report.</p></div></section>
+<section id="e-server-regions-gd"><h2>regions.gd <span class="file">server/regions.gd</span></h2><p class="lead">A box in the world that tells a mod when somebody walks into it and when they walk out again.</p><div class="card" data-search="regions id -&gt; {id, name, owner, realm, lo: vector3, hi: vector3, data: dictionary, inside: {player_id: true}} server/regions.gd everything else"><div class="sig"><code>regions := {}  (property)</code></div><p>id -> {id, name, owner, realm, lo: Vector3, hi: Vector3, data: Dictionary, inside: {player_id: true}}</p></div>
+<div class="card" data-search="add adds a box. returns its id, or 0 if there was no room or the box was refused. server/regions.gd everything else"><div class="sig"><code>add(region_name: String, from: Vector3, to: Vector3, options := {}, owner := &quot;engine&quot;) -&gt; int</code></div><p>Adds a box. Returns its id, or 0 if there was no room or the box was refused.</p></div>
+<div class="card" data-search="remove removes one. anybody standing in it is told they left first, because a mod that opened a door on
+`region_entered` has to be able to close it - and &quot;the region went away&quot; is not a thing it can see. server/regions.gd everything else"><div class="sig"><code>remove(id: int) -&gt; bool</code></div><p>Removes one. Anybody standing in it is told they left first, because a mod that opened a door on
+`region_entered` has to be able to close it - and "the region went away" is not a thing it can see.</p></div>
+<div class="card" data-search="at every region a point is inside, as their ids. server/regions.gd everything else"><div class="sig"><code>at(position: Vector3, realm_id := &quot;&quot;) -&gt; Array</code></div><p>Every region a point is inside, as their ids.</p></div>
+<div class="card" data-search="players_in who is standing in one right now, as players. server/regions.gd everything else"><div class="sig"><code>players_in(id: int) -&gt; Array</code></div><p>Who is standing in one right now, as players.</p></div>
+<div class="card" data-search="forget drops everything a mod added, for a reload. server/regions.gd everything else"><div class="sig"><code>forget(owner: String) -&gt; void</code></div><p>Drops everything a mod added, for a reload.</p></div>
+<div class="card" data-search="tick one sweep: every player against every box, firing on the change.
+
+**called from the server tick and deliberately not budgeted.** a box test is six float compares, so
+the whole sweep is players times regions - sixty players in a lobby of two hundred boxes is twelve
+thousand compares, which is less work than one chunk mesh and far less than the machinery it would
+take to be clever about it. if that stops being true the answer is a grid, not a time slice: a
+region that is only checked *sometimes* misses people, and missing people is the one failure this
+capability cannot have. server/regions.gd everything else"><div class="sig"><code>tick() -&gt; void</code></div><p>One sweep: every player against every box, firing on the change.
+
+**Called from the server tick and deliberately not budgeted.** A box test is six float compares, so
+the whole sweep is players times regions - sixty players in a lobby of two hundred boxes is twelve
+thousand compares, which is less work than one chunk mesh and far less than the machinery it would
+take to be clever about it. If that stops being true the answer is a grid, not a time slice: a
+region that is only checked *sometimes* misses people, and missing people is the one failure this
+capability cannot have.</p></div>
+<div class="card" data-search="drop_player someone has gone for good: forget them, without telling anybody they left. a player who logs out is
+not a player who walked out, and a mod that opened a gate for them has nothing left to close. server/regions.gd everything else"><div class="sig"><code>drop_player(player) -&gt; void</code></div><p>Someone has gone for good: forget them, without telling anybody they left. A player who logs out is
+not a player who walked out, and a mod that opened a gate for them has nothing left to close.</p></div></section>
 <section id="e-server-sightings-gd"><h2>sightings.gd <span class="file">server/sightings.gd</span></h2><p class="lead">The creatures the whole server is told about: the rare ones, announced when they arrive, marked on everybody's map and compass while they are about, and gone again if nobody comes.</p><div class="card" data-search="start starts the sweep. called once the server is running, because `schedule` needs its clock. server/sightings.gd everything else"><div class="sig"><code>start() -&gt; void</code></div><p>Starts the sweep. Called once the server is running, because `schedule` needs its clock.</p></div>
 <div class="card" data-search="arrived a creature has appeared. announces it and marks it, if it is one of the notable ones.
 
@@ -3269,7 +3297,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1244 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1253 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

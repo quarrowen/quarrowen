@@ -8431,3 +8431,36 @@ realm the blast is in. Two needed more than a rename:
 The hand-written JavaScript entries for all three functions took one argument and would have silently
 ignored the new one - exactly the desynchronisation CLAUDE.md warns about, since hand-written entries
 win over the generated ones. Updated along with the type definitions.
+
+### Region volumes - built (2026-09-28)
+
+Step 3: a box that says when somebody walks into it and when they walk out. `add_region`,
+`remove_region`, `regions_at`, `players_in_region`, and the events `region_entered` / `region_left`,
+each carrying a `data` dictionary the mod supplied so it never has to keep its own table of ids.
+
+**Why not a field**, since `fields` was the nearest thing that existed and looked close: a field is a
+*circle*, it **must do something** (a field that only watches is refused), and it **must be visible**,
+because an invisible thing on the floor that hurts a child is a trick rather than a hazard. All three
+are right for a pool of fire and wrong for a checkpoint. A region does nothing and shows nothing; its
+whole job is to say who is inside. Both exist now, and the line between them is **who is meant to
+notice** - a field is for the player, a region is for the mod.
+
+**Entered and left, not "is inside".** A mod that polled would write the loop this file writes once,
+for every mod, and would still miss somebody who crossed a corner between two ticks.
+
+Three details that are decisions rather than implementation:
+
+- **Leaving a realm leaves every box in it.** Walking through a portal is not standing still.
+- **Removing a region tells whoever was in it first**, because a mod that opened a gate on the way in
+  has to be able to close it, and "the region went away" is not something a handler can see.
+- **Logging out is forgotten silently**, because somebody who logs off has not walked out and there is
+  nothing to close.
+
+**Not budgeted, deliberately.** A box test is six float compares, so the sweep is players times
+regions - sixty players in a lobby of two hundred boxes is twelve thousand compares, less than one
+chunk mesh. If that ever stops being true the answer is a grid, not a time slice: a region checked
+*sometimes* misses people, and missing people is the one failure this cannot have.
+
+Added to `mod_reload._forget`, which CLAUDE.md names as the thing a new registry always forgets -
+though regions are *placed* rather than registered, so they needed their own line rather than joining
+the loop over `kinds` dictionaries.

@@ -505,6 +505,7 @@ engine gains later reaches it without this call being edited. names without &quo
 world; &quot;&quot; is the server's own set, which every realm without an override of its own reads."><div class="sig"><code>api.get_gameplay(rule: String, realm_id := &quot;&quot;)</code><span class="tag js" title="getGameplay">JS getGameplay</span></div><p>A gameplay rule's current value (see set_gameplay), or null. `realm_id` asks what is in force in one<br>world; &quot;&quot; is the server's own set, which every realm without an override of its own reads.</p></div>
 <div class="card" id="api-gameplay-for" data-search="gameplay_for gameplayfor what is in force where this player is standing, which is what a rule about hunger, falling or
 hitting somebody always means. null if they are gone."><div class="sig"><code>api.gameplay_for(player, rule: String)</code><span class="tag js" title="gameplayFor">JS gameplayFor</span></div><p>What is in force where this player is standing, which is what a rule about hunger, falling or<br>hitting somebody always means. Null if they are gone.</p></div>
+<div class="card" id="api-players-in-region" data-search="players_in_region playersinregion who is standing in one right now."><div class="sig"><code>api.players_in_region(id: int) -&gt; Array</code><span class="tag js" title="playersInRegion">JS playersInRegion</span></div><p>Who is standing in one right now.</p></div>
 <div class="card" id="api-player-roles" data-search="player_roles playerroles a player's roles by player id (the default role included)."><div class="sig"><code>api.player_roles(player_id: String) -&gt; Array</code><span class="tag js" title="playerRoles(playerId: string): string[]">JS playerRoles</span></div><p>A player's roles by player id (the default role included).</p></div>
 <div class="card" id="api-set-player-role" data-search="set_player_role setplayerrole gives (or takes) a role. returns whether anything changed."><div class="sig"><code>api.set_player_role(player_id: String, role: String, on := true) -&gt; bool</code><span class="tag js" title="setPlayerRole(playerId: string, role: string, on?: boolean): boolean">JS setPlayerRole</span></div><p>Gives (or takes) a role. Returns whether anything changed.</p></div>
 <div class="card" id="api-set-physics" data-search="set_physics setphysics movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`.
@@ -852,6 +853,20 @@ learning about sides. `except_owner` (on by default) keeps whoever left it out o
 owner (a player or creature it will not touch), realm. returns its id, or 0."><div class="sig"><code>api.place_field(field_name: String, position: Vector3, options := {}) -&gt; int</code><span class="tag js" title="placeField">JS placeField</span></div><p>Puts one down. options: seconds, radius, level (multiplies damage, heal and the condition's level),<br>owner (a player or creature it will not touch), realm. Returns its id, or 0.</p></div>
 <div class="card" id="api-clear-field" data-search="clear_field clearfield "><div class="sig"><code>api.clear_field(id: int) -&gt; bool</code><span class="tag js" title="clearField">JS clearField</span></div><p class="muted">No description yet.</p></div>
 <div class="card" id="api-fields-at" data-search="fields_at fieldsat every field a point is inside: [{id, kind, realm, position, radius, level, seconds}]."><div class="sig"><code>api.fields_at(position: Vector3, realm_id := &quot;&quot;) -&gt; Array</code><span class="tag js" title="fieldsAt">JS fieldsAt</span></div><p>Every field a point is inside: [{id, kind, realm, position, radius, level, seconds}].</p></div>
+<div class="card" id="api-add-region" data-search="add_region addregion a box that says when somebody walks into it and when they walk out. returns its id, or 0.
+
+var pad := api.add_region(&quot;door_lava&quot;, vector3(10, 64, 10), vector3(13, 67, 13), {&quot;data&quot;: {&quot;game&quot;: &quot;lava&quot;}})
+api.on(&quot;region_entered&quot;, func(ev): ...)   # {player, region, id, data}
+
+options: `realm` (which world; &quot;&quot; is the ordinary one) and `data`, a dictionary handed back on every
+event so a mod does not have to keep its own table of ids.
+
+**not a field.** a field is a circle that must do something and must be seen; a region does nothing
+and shows nothing, because checkpoints, goal lines, safe zones and the answer squares of a quiz are
+boxes that only need to say who is inside. both exist: use a field where a player should *notice*,
+and a region where the mod should. (2026-09-28)"><div class="sig"><code>api.add_region(region_name: String, from: Vector3, to: Vector3, options := {}) -&gt; int</code><span class="tag js" title="addRegion">JS addRegion</span></div><p>A box that says when somebody walks into it and when they walk out. Returns its id, or 0.<br><br>var pad := api.add_region(&quot;door_lava&quot;, Vector3(10, 64, 10), Vector3(13, 67, 13), {&quot;data&quot;: {&quot;game&quot;: &quot;lava&quot;}})<br>api.on(&quot;region_entered&quot;, func(ev): ...)   # {player, region, id, data}<br><br>options: `realm` (which world; &quot;&quot; is the ordinary one) and `data`, a dictionary handed back on every<br>event so a mod does not have to keep its own table of ids.<br><br>**Not a field.** A field is a circle that must do something and must be seen; a region does nothing<br>and shows nothing, because checkpoints, goal lines, safe zones and the answer squares of a quiz are<br>boxes that only need to say who is inside. Both exist: use a field where a player should *notice*,<br>and a region where the mod should. (2026-09-28)</p></div>
+<div class="card" id="api-remove-region" data-search="remove_region removeregion takes one away. anybody inside is told they left first, so a mod can undo whatever entering did."><div class="sig"><code>api.remove_region(id: int) -&gt; bool</code><span class="tag js" title="removeRegion">JS removeRegion</span></div><p>Takes one away. Anybody inside is told they left first, so a mod can undo whatever entering did.</p></div>
+<div class="card" id="api-regions-at" data-search="regions_at regionsat every region a point is inside, as ids."><div class="sig"><code>api.regions_at(position: Vector3, realm_id := &quot;&quot;) -&gt; Array</code><span class="tag js" title="regionsAt">JS regionsAt</span></div><p>Every region a point is inside, as ids.</p></div>
 <div class="card" id="api-register-condition" data-search="register_condition registercondition something a player or a creature is temporarily under: swiftness, poison, a well-fed glow.
 
 api.register_condition(&quot;swiftness&quot;, {&quot;display_name&quot;: &quot;swiftness&quot;, &quot;color&quot;: &quot;#7fd6ff&quot;,
@@ -1316,6 +1331,7 @@ systems copy is a fact about the code that ought to be visible in the code."><di
   condition_given {target, condition, level, seconds, good}
   condition_cleared {target, condition}   condition_expired {target, condition}
   field_placed   {field, kind, position, realm}   field_cleared {field, kind}
+  region_entered {player, region, id, data}   region_left {player, region, id, data}
 
   -- People, money and what they have been asked to do
   character_choice {player, character, entity, line, choice}   an option with `does` was picked
