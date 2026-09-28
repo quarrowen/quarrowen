@@ -9262,18 +9262,38 @@ of the world, so its topmost face *is* the sky's surface and is lit exactly as i
 measurement has to be aimed at the thing being asked about, and "the brightest thing anywhere" almost
 never is.
 
-### What is actually wrong: the floor takes about ten seconds to appear
+### What is actually wrong: the floor is meshed long before it is seen
 
-Measured between two shots: nothing at 9 seconds, the room at 14. The player walks into a doorway and
-then stands in an empty sky for long enough to think it is broken - which is how three of these
-screenshots were read.
+The "ten seconds" in the previous note was measured off screenshots and is wrong about the cause.
+Instrumented properly - time from the realm change until the chunk the player is standing in has a mesh
+with surfaces in it - the answer is **434 ms**. The floor is built (38 ms), streamed and meshed almost
+at once.
 
-The cause is not the build any more (38 ms). It is that entering a realm throws away every chunk the
-client holds and streams a whole world back at `CHUNK_SENDS_PER_PLAYER_PER_TICK` of 3, and most of those
-225 chunks are empty air outside a slab that is only four chunks across. Two obvious directions, neither
-tried yet: stream the chunks the *floor* occupies first rather than in rings from the player, and do not
-send empty chunks at all in a realm whose generator makes nothing - a client that knows the realm is
-void can draw void.
+And yet a shot taken 4 seconds after stepping in still shows open sky, while one taken at 25 seconds
+shows the room. **So the geometry exists, is meshed, and is not drawn for several seconds.** That is a
+different question from the one three days of screenshots were asking, and it is the next one:
+
+- The mesh node is created in `_apply_mesh` with its position set from the chunk coordinate and added
+  to the tree, so "it has surfaces" and "it is on screen" should not be able to differ for long.
+- The suspicion worth testing first is the **camera** rather than the meshes: `_reconcile` resets
+  `_render_offset` and `_prev_position` only when the correction is bigger than `TELEPORT_DISTANCE`,
+  and a realm change moves the player about 35 blocks. If the rendered position lags the real one, the
+  camera is looking from where the player used to be - which in a realm that is empty there is sky.
+
+Measuring that needs the camera's own position printed beside `state.position`, not another photograph.
+
+### Two things that did come out of it
+
+**Empty chunks are no longer meshed.** A chunk of pure air cannot produce a face, and finding that out
+by meshing it costs a full lighting sweep of a 48x48x128 region - about 295,000 cells. A realm whose
+generator makes nothing is almost all empty chunks, so walking into the descent was doing that about
+209 times, four at a time. `Chunk.is_air` is a memcmp against a cached run of zeros. It moved the
+measured number from 474 ms to 434 ms and emptied the mesh queue (4 jobs in flight to 0) - a small win
+on the clock and a large one in work not done.
+
+**The dev commands know which world they are in.** `/biome`, `/clearmobs`, `/mobs` and `/summon` all
+acted on the overworld. `/clearmobs` now says "Removed 1 monsters" in a dungeon where it used to say 0
+while a mirelet was hitting the player.
 
 ### And a realm-blind site confirmed in the wild
 

@@ -1224,22 +1224,27 @@ func _register_builtin_commands() -> void:
 		set_world_time(float(at), get_day_length())
 		player.send_message("set the time to %s" % (word if not word.is_empty() else "%.2f" % at)), "engine", "admin")
 	add_command("struct", "pos1 | pos2 | save <name> [keep_air] | place <name> [rotation] | list - build structures", structure_tools.command, "engine", "admin")
+	# **The world they are standing in, not the overworld.** These four told an admin about somewhere
+	# else the moment they were not in the overworld: `/clearmobs` answered "Removed 0 monsters" with a
+	# mirelet hitting the player, which is how this was finally noticed. (2026-09-28)
 	add_command("biome", "- the biome you are standing in", func(player, _args):
-		if biome_generator == null:
+		var biomes = realm_of(player).biome_generator
+		if biomes == null:
 			player.send_message("This world has no biomes")
 		else:
-			var biome_name: String = biome_generator.biome_at(floori(player.state.position.x), floori(player.state.position.z))
-			player.send_message("Biome: %s" % biome_generator.biomes[biome_generator.biome_ids[biome_name]].display_name), "engine")
+			var biome_name: String = biomes.biome_at(floori(player.state.position.x), floori(player.state.position.z))
+			player.send_message("Biome: %s" % biomes.biomes[biomes.biome_ids[biome_name]].display_name), "engine")
 	add_command("clearmobs", "[radius] - remove monsters near you", func(player, args):
 		var radius := clampf(float(args[0]) if not args.is_empty() and args[0].is_valid_float() else 64.0, 1.0, 512.0)
 		var removed := 0
-		for e in entities.in_radius(player.state.position, radius):
-			if e.def.kind == "mob" and entities.spawning.category_of(e) == "monster":
+		var here: Realm = realm_of(player)
+		for e in here.entities.in_radius(player.state.position, radius):
+			if e.def.kind == "mob" and here.entities.spawning.category_of(e) == "monster":
 				e.remove()
 				removed += 1
 		player.send_message("Removed %d monsters" % removed), "engine", "admin")
 	add_command("mobs", "- mobs near you by spawn category, and the caps", func(player, _args):
-		var summary: Dictionary = entities.spawning.summary(player.state.position)
+		var summary: Dictionary = realm_of(player).entities.spawning.summary(player.state.position)
 		var parts := PackedStringArray()
 		for category in summary:
 			parts.append("%s %d/%d" % [category, summary[category].near, summary[category].cap])
@@ -1879,14 +1884,16 @@ func _cmd_tp(player, args: PackedStringArray) -> void:
 
 
 func _cmd_summon(player, args: PackedStringArray) -> void:
-	var type_id := entities.registry.id_of(args[0]) if not args.is_empty() else -1
+	# Into the world they are standing in: summoning in a dungeon used to put the creature on the surface.
+	var here: Realm = realm_of(player)
+	var type_id := here.entities.registry.id_of(args[0]) if not args.is_empty() else -1
 	if type_id < 0 or type_id == EntityRegistry.ITEM:
-		var names := entities.registry.ids.keys().filter(func(n): return n != "engine:item")
+		var names := here.entities.registry.ids.keys().filter(func(n): return n != "engine:item")
 		player.send_message("Usage: /summon <entity> [count]. Entities: %s" % ", ".join(names))
 		return
 	var forward := PlayerPhysics.look_direction(player.yaw, 0.0)
 	for i in clampi(int(args[1]) if args.size() > 1 else 1, 1, 20):
-		entities.spawn(type_id, player.state.position + forward * 3.0 + Vector3(randf_range(-0.5, 0.5), 0.2, randf_range(-0.5, 0.5)))
+		here.entities.spawn(type_id, player.state.position + forward * 3.0 + Vector3(randf_range(-0.5, 0.5), 0.2, randf_range(-0.5, 0.5)))
 
 
 func _cmd_heal(player, args: PackedStringArray) -> void:

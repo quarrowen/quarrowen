@@ -2619,6 +2619,15 @@ func _schedule_mesh_jobs() -> void:
 			break
 		_mesh_dirty.erase(coord)
 		_mesh_urgent.erase(coord)
+		# **A chunk of nothing needs no mesh**, and finding that out by meshing it costs a full lighting
+		# sweep of the 48x48x128 region around it. Walking into the descent used to mean about 225 of
+		# these, four at a time, and the floor took some ten seconds to appear while the client lit empty
+		# air over and over. It still gets an (empty) mesh applied, so a chunk that has just been emptied
+		# loses the geometry it used to have. (2026-09-28)
+		var here = world.chunks.get(coord)
+		if here != null and Chunk.is_air(here.blocks):
+			_apply_mesh(coord, [[], [], PackedInt32Array()])
+			continue
 		var chunks := []
 		for dz in range(-1, 2):
 			for dx in range(-1, 2):

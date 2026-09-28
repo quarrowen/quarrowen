@@ -44,6 +44,21 @@ static func contains(blocks: PackedByteArray, id: int) -> bool:
 	return false
 
 
+## Nothing but air. **A memcmp against a cached run of zeros**, which is far cheaper than looking for a
+## non-zero byte one at a time and is exact.
+##
+## Worth having because an empty chunk is common and meshing one is not free: the mesher lights a
+## 48x48x128 region - about 295,000 cells - before discovering there is not a single face to draw. A
+## realm whose generator makes nothing is almost entirely empty chunks. (2026-09-28)
+static var _nothing := PackedByteArray()
+
+static func is_air(blocks: PackedByteArray) -> bool:
+	if _nothing.size() != blocks.size():
+		_nothing = PackedByteArray()
+		_nothing.resize(blocks.size())
+	return blocks == _nothing
+
+
 func encode() -> PackedByteArray:
 	return blocks.compress(FileAccess.COMPRESSION_ZSTD)
 
