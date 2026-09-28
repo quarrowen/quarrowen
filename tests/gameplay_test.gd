@@ -22,6 +22,7 @@ const ModLoaderScript = preload("res://engine/server/mod_loader.gd")
 const Validator = preload("res://engine/server/mod_validator.gd")
 const WorldBackupsScript = preload("res://engine/server/world_backups.gd")
 const Chunk = preload("res://engine/shared/chunk.gd")
+const ChunkMesher = preload("res://engine/client/chunk_mesher.gd")
 const StationSessions = preload("res://engine/server/station_sessions.gd")
 const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
@@ -78,6 +79,7 @@ func _ready() -> void:
 	await _tags()
 	await _signals()
 	await _realms()
+	_baked_light()
 	await _simulation_distance()
 	_scripts_compile()
 	_mod_assets_exist()
@@ -5688,3 +5690,86 @@ static func _remove_tree(path: String) -> void:
 	for file in dir.get_files():
 		DirAccess.remove_absolute(path.path_join(file))
 	DirAccess.remove_absolute(path)
+
+
+## What the mesher bakes into a sealed room, asked of the mesher rather than of a screenshot.
+##
+## **The descent renders washed out in daylight**, and the shader computes `ALBEDO = tex * max(sky, 0.06)`
+## from the sky light the mesher bakes into `COLOR.r` - so either the room is not sealed (it is; the
+## story probe counts the blocks over the player's head) or the mesher is baking daylight into a closed
+## box. Three screenshots could not tell those apart. This can. (2026-09-28)
+##
+## It also pins the documented behaviour that **an unloaded neighbour counts as open sky**, which is the
+## right answer while a world streams in - a hole should not be black - and is worth having written down
+## as a test, because it is the thing most likely to be "fixed" by somebody who has just watched a room
+## glow.
+func _baked_light() -> void:
+	var server = _start("light_%d" % Time.get_ticks_msec())
+	var rock: int = server.registry.id_of("proving:rock")
+	if rock <= 0 or server.registry.opaque_lut[rock] != 1:
+		_check(false, "the Proving Ground's rock is an opaque block to build a room out of")
+		server.queue_free()
+		await get_tree().process_frame
+		return
+	# A whole chunk of rock with a sealed pocket cut out of the middle of it.
+	var solid := Chunk.new(Vector2i.ZERO, PackedByteArray())
+	solid.blocks.resize(Chunk.SIZE_X * Chunk.SIZE_Y * Chunk.SIZE_Z * 2)
+	for i in Chunk.SIZE_X * Chunk.SIZE_Y * Chunk.SIZE_Z:
+		solid.blocks.encode_u16(i << 1, rock)
+	var room := Chunk.new(Vector2i.ZERO, solid.blocks.duplicate())
+	for x in range(6, 10):
+		for z in range(6, 10):
+			for y in range(40, 44):
+				room.blocks.encode_u16(Chunk.index(x, y, z) << 1, 0)
+
+	# **The test's own chunk has to be checked first.** A packed array reached through a property is easy
+	# to mutate a copy of, and a chunk that is quietly all air would report a bright room and look exactly
+	# like the bug being hunted.
+	_check(solid.blocks.size() == Chunk.SIZE_X * Chunk.SIZE_Y * Chunk.SIZE_Z * 2
+		and solid.blocks.decode_u16(Chunk.index(8, 40, 8) << 1) == rock,
+		"the test built a chunk that is actually solid")
+	_check(room.blocks.decode_u16(Chunk.index(8, 41, 8) << 1) == 0
+		and room.blocks.decode_u16(Chunk.index(8, 48, 8) << 1) == rock,
+		"with a pocket of air in it and rock over the top")
+
+	var context: Dictionary = ChunkMesher.make_context(server.registry, {"": Rect2(0, 0, 1, 1)})
+	var walled := []
+	var alone := []
+	for i in 9:
+		walled.append(solid.blocks)
+		alone.append(PackedByteArray())
+	walled[4] = room.blocks
+	alone[4] = room.blocks
+
+	# **Only the faces of the pocket.** The first version of this took the brightest face in the whole
+	# chunk and read 1.00 both times, which was true and meaningless: the chunk is solid to the top of
+	# the world, so its topmost face is the sky's own surface and is lit exactly as it should be. A
+	# measurement has to be aimed at the thing being asked about.
+	var pocket := AABB(Vector3(5, 39, 5), Vector3(6, 6, 6))
+	var walled_sky := _brightest(ChunkMesher.build(walled, context), pocket)
+	_check(walled_sky < 0.01, "a sealed room is dark when its neighbours are loaded (sky %.2f)" % walled_sky)
+	# The same room with nothing beside it yet. An unloaded neighbour counts as open sky, which is the
+	# right answer while a world streams in - a hole should not be black - but it must not reach through
+	# rock into a room that is closed.
+	var alone_sky := _brightest(ChunkMesher.build(alone, context), pocket)
+	_check(alone_sky < 0.01,
+		"and still dark when the neighbouring chunks have not arrived yet (sky %.2f)" % alone_sky)
+	server.queue_free()
+	await get_tree().process_frame
+
+
+## The most sky light on any face inside `box`, 0..1 - `COLOR.r`, which the block shader turns into how
+## much daylight reaches the surface. Bounded because the interesting question is always about one part
+## of a chunk, and the brightest face in a whole chunk is usually the sky.
+func _brightest(result: Array, box: AABB) -> float:
+	var most := 0.0
+	for i in 2:
+		var arrays: Array = result[i]
+		if arrays.is_empty():
+			continue
+		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+		for v in mini(vertices.size(), colors.size()):
+			if box.has_point(vertices[v]):
+				most = maxf(most, colors[v].r)
+	return most

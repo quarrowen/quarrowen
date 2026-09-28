@@ -9238,23 +9238,45 @@ Two more things came out of it and stay:
   never written to disk, so recording how it differs from what was generated is a dictionary write per
   block that nothing will ever read.
 
-### Still not right: the descent's appearance
+### The descent's appearance: there was no lighting bug 28 September 2026
 
-**Unresolved, and not for want of evidence.** With the stall fixed the player reliably arrives, the
-crosshair names the block in front of them as Deepstone, and the room is verified enclosed (the probe
-counts two opaque blocks above where they land). It still renders washed out, near-white, in daylight.
+**Settled, and the answer is that two different things were being read as one.** What looked like a room
+washed out by daylight was:
 
-What is known: the shader takes baked sky light from the mesher as `COLOR.r` and computes
-`ALBEDO = tex * max(sky, 0.06)` where `sky = pow(0.8, (1 - COLOR.r) * 15) * daylight`. Enclosed should
-give about 6% of the texture. So the mesher is baking full sky light for these chunks, and the mesher
-computes it from the chunk data the client holds - which is correct data, because the same client names
-the block correctly.
+1. **Chunks that had not arrived yet.** A shot taken 3 or 9 seconds after stepping in shows the title
+   card and open sky, because the floor is still streaming. At 14 seconds the room is there. The client
+   was in the right realm at the right coordinates the whole time - it had nothing to draw.
+2. **The death tint.** The frame that finally showed the room showed it through a red overlay, with
+   "Camera was caught out by Mirelet" in the corner. A nest had spawned a mirelet and it had killed the
+   camera while it stood still waiting for the shutter. The descent was working.
 
-What was tried and did not settle it: thickening the ceiling to 26 blocks, and removing the lamps. Both
-produced runs with **no geometry visible at all**, which does not match the run before them and is
-probably the harness rather than the change - so those two experiments are void rather than evidence.
+**The mesher was exonerated by a test rather than by an argument.** `_baked_light` in
+`tests/gameplay_test.gd` builds a chunk of solid rock with a sealed pocket cut out of it, meshes it, and
+reads the sky light the mesher baked into the vertex colours - which is exactly what the block shader
+turns into daylight. A sealed room comes back dark, with its neighbours loaded and without them. Three
+screenshots could not tell that apart from a room that was open to the sky; one unit test could.
 
-The next thing to do is not another screenshot. It is to read what the client passes as the 3x3
-neighbourhood when it meshes a chunk in a realm that has just been switched into, because "unloaded
-chunks are treated as open sky" is written in `compute_light` and a neighbour that has not arrived yet
-would do exactly this.
+The test also taught its own lesson, worth keeping: **the first version measured the brightest face in
+the whole chunk and read 1.00 both ways**, which was true and meaningless - the chunk is solid to the top
+of the world, so its topmost face *is* the sky's surface and is lit exactly as it should be. A
+measurement has to be aimed at the thing being asked about, and "the brightest thing anywhere" almost
+never is.
+
+### What is actually wrong: the floor takes about ten seconds to appear
+
+Measured between two shots: nothing at 9 seconds, the room at 14. The player walks into a doorway and
+then stands in an empty sky for long enough to think it is broken - which is how three of these
+screenshots were read.
+
+The cause is not the build any more (38 ms). It is that entering a realm throws away every chunk the
+client holds and streams a whole world back at `CHUNK_SENDS_PER_PLAYER_PER_TICK` of 3, and most of those
+225 chunks are empty air outside a slab that is only four chunks across. Two obvious directions, neither
+tried yet: stream the chunks the *floor* occupies first rather than in rings from the player, and do not
+send empty chunks at all in a realm whose generator makes nothing - a client that knows the realm is
+void can draw void.
+
+### And a realm-blind site confirmed in the wild
+
+`/clearmobs` answered **"Removed 0 monsters"** while standing in a dungeon with a mirelet hitting the
+player, because it acts on the overworld. It was already on the audit list above; this is what it looks
+like from the inside.
