@@ -526,6 +526,10 @@ func add_realm(realm_id: String, realm_name := "") -> Realm:
 	var made := Realm.new(self, realm_id, realm_name)
 	realms[realm_id] = made
 	made.attach()
+	# Straight away, so a realm made after the rules were applied still knows what is solid. An
+	# instance opened mid-game is exactly that case.
+	if registry.solid_lut.size() > 0:
+		_give_tables(made)
 	# Derived from the world's seed and the realm's name rather than copied. Two realms given the same
 	# number are the same terrain with different blocks in it, which is a reskin and not a second world;
 	# derived means the Emberdeep is still the same Emberdeep every time this world is loaded.
@@ -917,9 +921,23 @@ func _apply_rules_to_world() -> void:
 	rules.solid_lut = registry.solid_lut
 	rules.shape_lut = registry.shape_lut
 	rules.liquid_lut = registry.liquid_lut
-	world.set_lookup_tables(registry.solid_lut, registry.liquid_lut, registry.shape_lut)
-	world.void_below = rules.void_below
+	# **Every realm, not just the overworld.** A world that has not been told which blocks are solid
+	# treats all of them as air, so a player standing in a realm added after this ran fell straight
+	# through the floor - with the blocks demonstrably there, in the right realm, at the right
+	# coordinates. It had never been seen because nothing shipped had ever *stood* in another realm:
+	# the Proving Ground's second realm and its instance are only ever written to and read back.
+	# Found by the Fairground, which is the first thing to put a player in an instance. (2026-09-28)
+	for each: Realm in realms.values():
+		_give_tables(each)
 	entities.ai.update_tables()
+
+
+## Tells one realm's world which blocks are solid, liquid and which shapes they are. Called for every
+## realm when the rules change, and for a realm the moment it is made - a realm created later would
+## otherwise never hear, which is the bug above.
+func _give_tables(into: Realm) -> void:
+	into.world.set_lookup_tables(registry.solid_lut, registry.liquid_lut, registry.shape_lut)
+	into.world.void_below = rules.void_below
 
 
 # --- Events, commands, scheduler ----------------------------------------------------------------

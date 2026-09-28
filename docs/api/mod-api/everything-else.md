@@ -1811,7 +1811,7 @@ or send_to_realm. What the world is made of is the generator's business, and wha
 api.add_realm("deep", {"display_name": "The Deep", "generator": "void"})
 ```
 
-**See also:** `attach`, `reload`, `set_storage`, `start`
+**See also:** `attach`, `reload`, `set_lookup_tables`, `set_storage`, `start`
 
 ### `api.realm_of`
 

@@ -8740,3 +8740,40 @@ for the re-stream.
 **Step 7 is therefore not finished**, and it is one bug from being finished. The mod is committed as it
 stands because everything except the picture works, and because the bug is worth having written down
 where the next person will find it.
+
+### The floor was there and nobody could stand on it (2026-09-28)
+
+**Corrected by the user**, who looked at the same screenshot and said *"i thought it did render but
+player just kept falling thru the floor"* - against my reading, which was that chunks had been dropped
+and the arena was never drawn. Theirs was right, and it mattered, because the two explanations point at
+completely different halves of the engine.
+
+**The decisive argument is one I had and did not use: the server is authoritative for collision.** If
+the floor existed in the realm the player was standing in, no amount of dropped chunks could make them
+fall through it - the client draws, the server decides. So "falling" was never a rendering symptom and
+I should have stopped looking at the picture the moment I saw it.
+
+Logging the position settled it in one run: `y=-0.5`, in `fairground:arena#1`, with the floor blocks
+demonstrably written at the right coordinates in the right realm.
+
+#### The bug: only the overworld is ever told what is solid
+
+`_apply_rules_to_world` sets the block lookup tables on `world` - and `world` is a property returning
+**the overworld's**. A realm created afterwards never hears, so its world thinks every block is air and
+a player falls through the floor of it.
+
+It is the oldest kind of realm-blindness and it survived because **nothing had ever stood in another
+realm**. The Proving Ground's second realm and its instance are only ever written to and read back; the
+Emberdeep was never built; Firstlight has no realms at all. Every existing assertion about instances
+passed throughout - a block goes in, a creature spawns, loot drops - because none of them is about
+*standing*.
+
+Fixed by giving the tables to every realm when the rules change, and to a realm the moment it is made.
+The Proving Ground now steps the physics inside its instance and checks the player is still above the
+floor, which fails at `y 49.7` with the fix removed.
+
+**This is the first of the realm-blind cluster the dungeon research predicted**, found a day early and
+by a different route. The others on that list - item loss dropping into the overworld, boss bars
+leaking across realms, `remove_entity`, `get_container` - are all still waiting, and this one suggests
+the prediction was right about their character too: everything *registers* correctly and only the
+behaviour is wrong, so nothing fails loudly.

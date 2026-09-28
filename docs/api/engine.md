@@ -11061,7 +11061,7 @@ and then gives the realm a generator the same way it gives the overworld one.
 Returns the realm, or null when the name is taken or empty. The id is the mod's own qualified name
 ("mymod:emberdeep"), so two mods can both have an underworld without colliding.
 
-**See also:** `attach`, `reload`, `set_storage`, `start`
+**See also:** `attach`, `reload`, `set_lookup_tables`, `set_storage`, `start`
 
 ### `add_asset`
 

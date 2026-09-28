@@ -837,6 +837,23 @@ func _instances(server, api, p) -> void:
 	api.drop_item(server.items.id_of("proving:grain"), 3, Vector3(4.5, 67, 4.5), inside)
 	_check(server.realms[inside].entities.in_radius(Vector3(4.5, 67, 4.5), 3.0).size() >= 1,
 		"and loot can be dropped in it")
+
+	# **And somebody can stand on it**, which nothing ever asked before and which was broken the whole
+	# time. A realm's world has to be told which blocks are solid; only the overworld ever was, so a
+	# player inside an instance fell through a floor that was demonstrably there, in the right realm, at
+	# the right coordinates. Every assertion above passed throughout. Asserted by *stepping the physics*,
+	# because a block id proves the block and not the floor. (2026-09-28)
+	var stander := _player(server, 205, "Stander")
+	stander.realm_id = inside
+	api.fill(Vector3i(0, 64, 0), Vector3i(4, 64, 4), server.registry.id_of("proving:rock"), inside)
+	stander.state.position = Vector3(2.5, 66.0, 2.5)
+	stander.state.velocity = Vector3.ZERO
+	var still := PlayerPhysics.PlayerInput.new()
+	for _i in 60:
+		PlayerPhysics.step(stander.state, still, server.realms[inside].world, server.rules)
+	_check(stander.state.position.y > 64.0 and stander.state.on_ground,
+		"and a player stands on a floor inside it rather than falling through (y %.1f)" % stander.state.position.y)
+
 	api.close_instance(inside)
 	api.close_instance(second)
 
