@@ -19,7 +19,7 @@ const PlayerPhysics = preload("res://engine/shared/player_physics.gd")
 
 
 func _ready() -> void:
-	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera", "look": "", "look_wait": "6", "goto": "", "stand": "", "warmup": "120", "size": "", "ring": ""}
+	var options := {"port": "24600", "out": "user://screenshot.png", "yaw": "0.8", "pitch": "-0.25", "commands": "", "after": "", "wait": "3", "menu": "", "inventory": "", "hover": "-1", "mine": "", "camera": "0", "equip": "", "select": "-1", "avatar": "", "editor": "", "wear": "", "swing": "", "open": "", "craft": "", "station": "", "lab": "", "forge": "", "skill": "", "presses": "0", "meal": "", "guide": "", "search": "", "tip": "", "tutorials": "", "dev": "", "dev_ai": "", "settings": "", "players": "", "server": "", "map": "", "hud": "", "fps": "0", "name": "Camera", "look": "", "look_wait": "6", "goto": "", "stand": "", "warmup": "120", "size": "", "ring": "", "settle": "0"}
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=", true, 1)
 		if kv.size() == 2 and options.has(kv[0]):
@@ -59,6 +59,12 @@ func _ready() -> void:
 		await _frame(client, options, float(options.look_wait))
 	# Let a few inputs carry the new facing to the server before commands that build in front of us.
 	await get_tree().create_timer(0.5).timeout
+	# **`--settle=N` waits N more seconds before the commands run.** `_meshed` returns as soon as there is
+	# something to look at, while the rest of the view is still streaming - so a command that makes the
+	# server send a *second* world arrives on top of the first one and the client drops packets. That is a
+	# real bug and worth fixing, but a camera should be able to photograph the thing either way.
+	if float(options.settle) > 0.0:
+		await get_tree().create_timer(float(options.settle)).timeout
 	for command in String(options.commands).split("|", false):
 		Net.c_chat.rpc_id(1, command.strip_edges())
 		await get_tree().create_timer(0.3).timeout

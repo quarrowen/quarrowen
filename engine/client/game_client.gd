@@ -1682,6 +1682,10 @@ func on_sound(sound_id: int, pos: Vector3, volume: float, pitch: float, position
 ## *after* it and be built into the world the player just walked into. Ordering only exists within a
 ## channel, so the message that ends a world travels in the same queue as the chunks it invalidates.
 func on_realm(realm_id: String, display_name: String) -> void:
+	# Said out loud because a realm change is the one message whose loss is invisible: the client keeps
+	# drawing the world it already has, perfectly, while the server believes you are somewhere else.
+	# Without this line the only way to tell the message from the *handling* of it was a screenshot.
+	print("[client] world is now '%s' (%s)" % [display_name, realm_id])
 	realm = realm_id
 	realm_name = display_name
 	_cables.clear()  # the cables strung in the world being left belong to it

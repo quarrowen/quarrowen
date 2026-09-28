@@ -9152,3 +9152,54 @@ Two engine bugs it found on the way, both now fixed and both with a test that fa
    way down, so the choice to go deeper is also a choice to fight.
 6. **No sound and no music down there.** `play_sound_at` and `play_effect` have no realm filter at all
    (see the realm list above), so this waits on that.
+
+## The descent renders wrong, and entering it is flaky 28 September 2026
+
+Photographing the descent turned into a long diagnosis. Writing down what is **established** and what is
+still open, because most of the value here is in what was ruled out.
+
+### Established by measurement
+
+- **The mechanic works.** The server logs `Camera is on floor 1 (firstlight:floor#1, 5 rooms)`, the
+  client logs `world is now 'The Descent'`, and with the camera pointed down the crosshair names the
+  block under it as **Deepstone**. The player really is in the floor, on it, in the right realm.
+- **Chunks reach the client with real geometry in them.** Instrumenting `_stream_chunks` showed 225
+  chunks sent for the instance, and sampling each one's blocks found solid blocks at about 3% - exactly
+  right for an eight-block-tall slab in a 256-tall world.
+- **It renders washed out in daylight and looks correct at night.** A night shot showed a dark deepstone
+  room with legible block texture; the daylight shots are near-white.
+
+### Ruled out
+
+- **Not the realm-change message being lost.** It arrives; the client prints it.
+- **Not the join-stream collision** that the `Buffer full, dropping packets!` note suspected. Waiting 20
+  seconds for the world to settle before descending changes nothing.
+- **Not packet loss generally.** The client reports `Buffer full` about 17 times on an ordinary join
+  with no descent at all, so that message is a **baseline condition and not the smoking gun it looked
+  like**. Worth knowing before it is chased again.
+- **Not depth fog.** `fog_depth_begin` is 55% of the render distance, and the wash is on a floor one
+  block away.
+
+### Still open
+
+**The likely cause is the client's baked sky light for chunks in an instance.** A room with seven blocks
+of deepstone over it should have no sky light; if the client meshes it as open to the sky then daylight
+multiplies straight through, which fits "bright by day, right by night" exactly. Not yet confirmed - the
+next step is to read what the client's mesher uses for sky light and whether it can answer correctly for
+a chunk that arrived by streaming rather than by generation.
+
+**Entering through the chat command is intermittent.** Several runs descended and one identical run did
+not switch at all, with nothing in either log. Since `descent.enter` is reliable when called directly
+(the story probe has never failed), the flakiness is in the chat path or in timing around it, and it is
+**not** the arity bug already fixed.
+
+### Tools that came out of it, which are the lasting part
+
+- `tools/descent_shots.sh` photographs the Fairground's board and a descent floor.
+- `--settle=N` on the screenshot harness waits before running its commands, so a camera can photograph
+  something that needs the world to have settled.
+- The client now prints which world it is in whenever that changes. **A realm change is the one message
+  whose loss is invisible** - the client keeps drawing the world it already has, perfectly, while the
+  server believes you are somewhere else - and without that line the only way to tell the message from
+  the handling of it was a screenshot.
+- `api.instance_problem()`, which should have existed all along beside `plot_problem` and `shop_problem`.
