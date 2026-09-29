@@ -66,6 +66,7 @@
         
       <ul class="d1">
           <li><a class="" href="../../playing/">Playing</a></li>
+          <li><a class="" href="../../security/">Security</a></li>
           <li><a class="" href="../../engine/">The engine</a></li>
           <li><a class="" href="../../roadmap/">What is still missing</a></li>
           <li><a class="" href="../../faq/">Questions</a></li>
@@ -3385,7 +3386,7 @@ this panel has no business holding a second copy of it.</p>
 <p><em>client/objective_hud.gd</em></p>
 <p>GDScript: <code>set_view(view: Dictionary) -&gt; void</code></p>
 <p>{active: [{name, display_name, step, of, text, progress, needed}]} from the server.</p>
-<p><strong>See also:</strong> <code>icon_of</code>, <code>key_name</code>, <code>new_game</code>, <code>node_key</code>, <code>texture</code>, <code>uptime</code></p>
+<p><strong>See also:</strong> <code>icon_of</code>, <code>key_name</code>, <code>new_game</code>, <code>node_key</code>, <code>safe</code>, <code>texture</code></p>
 <h3 id="preferred_page"><code>preferred_page</code></h3>
 <p><em>client/objective_hud.gd</em></p>
 <p>GDScript: <code>preferred_page(read: Dictionary) -&gt; String</code></p>
@@ -3829,7 +3830,7 @@ auto-start one not yet done or stopped.</p>
 <p>GDScript: <code>show_tip(p, id: String) -&gt; bool</code></p>
 <p>JavaScript: <code>api.showTip(p, id)</code></p>
 <p>Shows a tip now (registered id), even if it was seen before.</p>
-<p><strong>See also:</strong> <code>icon_of</code>, <code>key_name</code>, <code>library</code>, <code>node_key</code>, <code>qualified</code>, <code>state_of</code></p>
+<p><strong>See also:</strong> <code>icon_of</code>, <code>key_name</code>, <code>library</code>, <code>node_key</code>, <code>qualified</code>, <code>safe</code></p>
 <h3 id="store"><code>store</code></h3>
 <p><em>server/ugc.gd</em></p>
 <p>GDScript: <code>store := {}  (property)</code></p>
@@ -5423,16 +5424,27 @@ first launch. The server fills in the rest when it starts.</p>
 <p><em>client/menu/world_list.gd</em></p>
 <p>GDScript: <code>static describe_time(unix: int) -&gt; String</code></p>
 <p>"3 minutes ago", "yesterday", "12 Sep 2026".</p>
+<h3 id="is_glb"><code>is_glb</code></h3>
+<p><em>client/model_library.gd</em></p>
+<p>GDScript: <code>static is_glb(bytes: PackedByteArray) -&gt; bool</code></p>
+<p>Is this a binary glTF? <strong>The magic bytes, checked before the parser is handed anything.</strong></p>
+<p>A <code>.glb</code> carries its buffers inside itself. A <em>text</em> <code>.gltf</code> can instead reference external files by
+URI, and these bytes arrive from whichever server the player joined - so letting one through means
+handing a server-authored URI to Godot's resolver with an empty base path. <code>Creations.measure_model</code>
+has always checked this for player creations; the server-asset path did not, which left the stricter
+rule on the less dangerous of the two. (2026-09-29)</p>
 <h3 id="load_mesh"><code>load_mesh</code></h3>
 <p><em>client/model_library.gd</em></p>
 <p>GDScript: <code>static load_mesh(bytes: PackedByteArray) -&gt; ArrayMesh</code></p>
 <p>Returns null if the bytes are not a usable model.</p>
+<p><strong>See also:</strong> <code>is_glb</code></p>
 <h3 id="load_parts"><code>load_parts</code></h3>
 <p><em>client/model_library.gd</em></p>
 <p>GDScript: <code>static load_parts(bytes: PackedByteArray) -&gt; Array</code></p>
 <p>For animated entities: one entry per glTF node with a mesh, {name, mesh, transform}, where the
 transform is the node's global transform (its pivot) and the mesh stays in node space so the part
 can rotate around its pivot. Returns [] if the bytes are not a usable model.</p>
+<p><strong>See also:</strong> <code>is_glb</code></p>
 <h3 id="apply_4"><code>apply</code></h3>
 <p><em>client/nameplate.gd</em></p>
 <p>GDScript: <code>apply(plate: Dictionary) -&gt; void</code></p>
@@ -5640,6 +5652,17 @@ flag macOS puts on it and starts the new one. Kept as a string so a test can rea
 in-process branch is reachable only on a tablet, which means it can only be tested by building,
 signing, installing and then reading a log off a device - and a branch that expensive to exercise is
 one that quietly rots between the times anybody does. (2026-09-27)</p>
+<h3 id="accept_offered_transfer"><code>accept_offered_transfer</code></h3>
+<p><em>main.gd</em></p>
+<p>GDScript: <code>accept_offered_transfer() -&gt; bool</code></p>
+<p>Takes up a transfer that was offered and not yet accepted. <strong>A method rather than a closure</strong>, so the
+menu button and the test press the same thing - a confirmation whose accept path is only reachable
+through a lambda is a confirmation nobody can test. (2026-09-29)</p>
+<p><strong>See also:</strong> <code>check</code>, <code>disconnect_from_server</code>, <code>forget</code>, <code>human</code>, <code>kill</code>, <code>on</code></p>
+<h3 id="offered_transfer"><code>offered_transfer</code></h3>
+<p><em>main.gd</em></p>
+<p>GDScript: <code>offered_transfer() -&gt; Dictionary</code></p>
+<p>Whether a transfer is waiting to be agreed to, for the menu and for tests.</p>
 <h3 id="realms"><code>realms</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>realms := {}  (property)</code></p>
@@ -5952,13 +5975,6 @@ and then gives the realm a generator the same way it gives the overworld one.</p
 <p>Returns the realm, or null when the name is taken or empty. The id is the mod's own qualified name
 ("mymod:emberdeep"), so two mods can both have an underworld without colliding.</p>
 <p><strong>See also:</strong> <code>attach</code>, <code>reload</code>, <code>set_lookup_tables</code>, <code>set_storage</code>, <code>start</code>, <code>update_tables</code></p>
-<h3 id="add_asset"><code>add_asset</code></h3>
-<p><em>server/game_server.gd</em></p>
-<p>GDScript: <code>add_asset(asset_name: String, path: String, lazy := false) -&gt; void</code></p>
-<p><code>lazy</code> assets are in the manifest but are not part of the download a player waits through to join.
-The client fetches one the first time something actually needs it. Music lives here: a track is
-megabytes where a texture is a few hundred bytes, and a child should not wait through the soundtrack
-to get into the world.</p>
 <h3 id="set_rules"><code>set_rules</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>set_rules(values: Dictionary, realm_id := "") -&gt; void</code></p>
@@ -6712,6 +6728,10 @@ for loopback.</p>
 <p>GDScript: <code>static restricted() -&gt; bool</code></p>
 <p>Whether this process has been kept off the network. Tests assert on it, because the whole point is
 that it is true while they run and false while somebody is playing.</p>
+<h3 id="safe"><code>safe</code></h3>
+<p><em>shared/rich_text.gd</em></p>
+<p>GDScript: <code>static safe(text: String) -&gt; String</code></p>
+<p>Neutralises every BBCode tag except <code>ALLOWED</code>. Safe to call on text that contains none.</p>
 <h3 id="chunks"><code>chunks</code></h3>
 <p><em>shared/voxel_world.gd</em></p>
 <p>GDScript: <code>chunks := {}  (property)</code></p>

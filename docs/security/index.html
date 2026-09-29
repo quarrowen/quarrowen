@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-source="quarrowen">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security &middot; Quarrowen</title>
+<meta name="description" content="A voxel game engine you can mod - the reference for its mod API and its internals.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;700&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../css/quarrowen.css">
+</head>
+<body>
+
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="..">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span class="brand-name">Quarrowen</span>
+  </a>
+  <span class="ver">0.42.0</span>
+  <form class="find" role="search" onsubmit="return false;">
+    <label class="vh" for="q">Search the reference</label>
+    <input id="q" type="search" placeholder="Search functions&hellip;" autocomplete="off" spellcheck="false">
+  </form>
+  <button class="menu-btn" type="button" aria-expanded="false" aria-controls="tree">Menu</button>
+</header>
+
+<div class="shell">
+
+  <nav id="tree" class="tree" aria-label="Reference">
+        <ul class="d1"><li><a class="" href="..">Quarrowen</a></li></ul>
+        <div class="grp">Reference</div>
+        
+      <ul class="d1">
+          <li class="sec">
+            <span class="sub-grp">Mod API</span>
+            
+      <ul class="d2">
+          <li><a class="" href="../api/mod-api/">Overview</a></li>
+          <li><a class="" href="../api/mod-api/blocks-and-the-world/">Blocks and the world</a></li>
+          <li><a class="" href="../api/mod-api/crafting/">Crafting</a></li>
+          <li><a class="" href="../api/mod-api/events--commands-and-timers/">Events, commands and timers</a></li>
+          <li><a class="" href="../api/mod-api/everything-else/">Everything else</a></li>
+          <li><a class="" href="../api/mod-api/guidebook-and-tutorials/">Guidebook and tutorials</a></li>
+          <li><a class="" href="../api/mod-api/items/">Items</a></li>
+          <li><a class="" href="../api/mod-api/logging-and-debugging/">Logging and debugging</a></li>
+          <li><a class="" href="../api/mod-api/mobs-and-entities/">Mobs and entities</a></li>
+          <li><a class="" href="../api/mod-api/players-and-gameplay/">Players and gameplay</a></li>
+          <li><a class="" href="../api/mod-api/server/">Server</a></li>
+          <li><a class="" href="../api/mod-api/sounds--effects-and-assets/">Sounds, effects and assets</a></li>
+          <li><a class="" href="../api/mod-api/world-generation/">World generation</a></li>
+      </ul>
+          </li>
+          <li><a class="" href="../api/engine/">Engine internals</a></li>
+          <li><a class="" href="../api/how-do-i/">How do I…</a></li>
+      </ul>
+        <div class="grp">Guides</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../modding/">Writing a mod</a></li>
+          <li><a class="" href="../loot/">Loot tables</a></li>
+          <li><a class="" href="../hosting/">Running a server</a></li>
+          <li><a class="" href="../distribution/">Distributing a build</a></li>
+      </ul>
+        <div class="grp">About</div>
+        
+      <ul class="d1">
+          <li><a class="" href="../playing/">Playing</a></li>
+          <li><a class="cur" href="./">Security</a></li>
+          <li><a class="" href="../engine/">The engine</a></li>
+          <li><a class="" href="../roadmap/">What is still missing</a></li>
+          <li><a class="" href="../faq/">Questions</a></li>
+      </ul>
+  </nav>
+
+  <main id="content" class="doc">
+    <div id="results" class="results" hidden>
+      <h2>Results</h2>
+      <ol id="results-list"></ol>
+    </div>
+    <article id="article">
+      <h1 id="security">Security</h1>
+<p>Quarrowen's whole pitch is that the server decides the game: you download one app, join somebody's
+server, and their blocks, creatures and rules arrive. The obvious question follows immediately.</p>
+<p><strong>If a server sends me its game, is it sending me code?</strong></p>
+<p>No. A server sends data and never code. Your client has no mod runtime in it at all — there is no
+GDScript engine reachable from the network, no JavaScript engine on the client side, and no message in
+the protocol that carries a <code>.gd</code>, a <code>.js</code>, a <code>.zip</code> or a mod of any kind. Mods run on the machine
+hosting the world. Your copy draws what it is told about.</p>
+<p>This page says what that does and does not protect you from. The limits are at the bottom and they are
+not softened; a security page that only lists reassurances is an advertisement.</p>
+<h2 id="what-a-server-can-send-you-and-what-happens-to-it">What a server can send you, and what happens to it</h2>
+<table>
+<thead>
+<tr>
+<th>What arrives</th>
+<th>Treated as</th>
+<th>Bounded by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Blocks, items, creatures, recipes, effects, sounds</td>
+<td>Dictionaries of numbers and strings</td>
+<td>Every field is range-checked and clamped; anything invalid disconnects you rather than being guessed at</td>
+</tr>
+<tr>
+<td>Textures, models, audio</td>
+<td>Files, stored under their own SHA-256</td>
+<td>16 MB each, 256 MB total, 4096 files; only <code>png</code>, <code>ogg</code>, <code>wav</code>, <code>glb</code> and <code>json</code> may be published at all, and only images, audio and binary models are ever decoded</td>
+</tr>
+<tr>
+<td>Terrain</td>
+<td>Compressed voxel data</td>
+<td>Hard size ceiling per chunk; malformed chunks are dropped</td>
+</tr>
+<tr>
+<td>Interface panels</td>
+<td>Seven widget types: label, button, progress, image, box, spacer</td>
+<td>Six levels deep, 64 children, 400 characters, sizes and colours clamped</td>
+</tr>
+<tr>
+<td>Guide and tutorial text</td>
+<td>Text with bold and italic</td>
+<td>Every other formatting tag is neutralised and shown rather than obeyed</td>
+</tr>
+<tr>
+<td>Chat</td>
+<td>Plain text</td>
+<td>300 characters, drawn as a plain label — not rich text, so nothing in a message can format or link</td>
+</tr>
+<tr>
+<td>Other players' skins and models</td>
+<td>Content-addressed files</td>
+<td>64×64 PNG, or a model under 512 KB and 4,000 triangles; <strong>your client re-checks all of it rather than trusting the server's word</strong></td>
+</tr>
+</tbody>
+</table>
+<p>A server cannot choose a filename on your disk. Downloaded content is stored under the hash of its own
+contents, verified before it is written, so one server cannot poison another's files or overwrite
+anything you own.</p>
+<h2 id="what-a-server-cannot-do">What a server cannot do</h2>
+<ul>
+<li><strong>Run code on your machine.</strong> There is no path for it. This is structural, not a policy.</li>
+<li><strong>Give you an update.</strong> Updates come only from this project's own address, must be signed by a key
+  built into your copy, must download from an allowlisted host, and must match a checksum inside the
+  signed manifest. A server that tells your client it is out of date can only make the button appear —
+  the check that follows is your client's own, and the server has no say in where it looks.</li>
+<li><strong>Install a mod on your computer.</strong> Mods come from a signed index, over allowlisted hosts, with
+  checksums, and only when you click install.</li>
+<li><strong>Open a link, run a program, read your files, or write anywhere except its own cache.</strong></li>
+<li><strong>Change your settings, or make you type a command.</strong></li>
+</ul>
+<h2 id="what-it-cannot-protect-you-from">What it cannot protect you from</h2>
+<p>Four things. None of them is theoretical hand-waving; they are the actual edges.</p>
+<p><strong>The first connection to a new address is trust-on-first-use.</strong> The very first time you connect
+somewhere, your client has nothing to compare against, so it trusts whoever answers and remembers their
+certificate. Every connection after that is cryptographically pinned — an impostor cannot complete the
+handshake. But somebody controlling your network at that first moment could impersonate the server from
+then on. This is the same bargain SSH makes.</p>
+<p>Related, and worth knowing before you meet it: if a server's identity later changes, you are told, and
+offered a button to trust the new one. That exists because servers do get rebuilt. <strong>Only press it if
+you know why the identity changed.</strong></p>
+<p><strong>Your client parses files written by the server.</strong> Images, models, audio and compressed terrain are
+decoded by the game engine's own native code. Sizes, dimensions and triangle counts are capped, which
+limits what a malformed file can attempt, but a bug in an image or model decoder would be reachable by
+any server you connect to. This is the strongest reason to prefer servers you have some reason to trust,
+and to keep the game updated.</p>
+<p><strong>A server can ask to send you to another server.</strong> That is how linked worlds work — walking through a
+portal between someone's two worlds. If the destination is one your computer has connected to before, it
+happens seamlessly. <strong>If it is somewhere new, you are asked first</strong>, because arriving somewhere new means
+a fresh trust-on-first-use connection that carries your name and your public key with it.</p>
+<p><strong>Servers can tell it is you.</strong> Your identity is a keypair on your own computer, and the public half goes
+to every server you join. There are no accounts and nothing is collected centrally, but two servers
+comparing notes could tell that the same person visited both. That is the cost of having an identity at
+all without having an account.</p>
+<p>Beyond those: a server can put panels, titles, sounds and effects on your screen as often as it likes.
+There is no rate limit. It is an annoyance rather than a danger, and leaving ends it.</p>
+<h2 id="if-you-host-a-server">If you host a server</h2>
+<p>The trust runs the other way, and it is much stronger. <strong>A mod you install runs with the full privileges
+of the game on your machine</strong> — it is ordinary code in your own process, not sandboxed. Install mods the
+way you would install any other program.</p>
+<p>The exception is JavaScript mods, which run in a sandbox with no file access, no network, no <code>require</code>,
+a memory ceiling and a deadline that interrupts an infinite loop. That is tested, not asserted:
+<code>tests/js_sandbox_test.gd</code> checks each of those directly.</p>
+<p>Your players cannot make you run anything. What arrives from a player is their name, their key, their
+appearance and anything they are wearing — all of it size-limited and validated before it is stored.</p>
+<h2 id="where-things-are-kept">Where things are kept</h2>
+<p>Everything is on your own machine: worlds, settings, your identity key, your creations, and caches of
+what servers have sent you. Nothing is sent anywhere except the server you chose to join. There is no
+account, no email address, no telemetry and no analytics. The caches have size budgets and are pruned
+oldest-first; the things you would miss are never pruned.</p>
+<h2 id="reporting-something">Reporting something</h2>
+<p>If you find a security problem, please report it privately rather than opening a public issue — see
+<a href="https://github.com/quarrowen/quarrowen/blob/master/CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>
+<h2 id="how-this-page-is-kept-honest">How this page is kept honest</h2>
+<p>Every claim here was checked against the code on 29 September 2026, and the checks that can be automated
+are in the test suite rather than in somebody's memory: the JavaScript sandbox, certificate pinning
+against a forged certificate, the update manifest's signature and host rules, and the guard that stops a
+server sending you to your own machine.</p>
+    </article>
+
+    <footer class="foot">
+      <p>Quarrowen is free software. Not affiliated with any other game or its publisher.</p>
+    </footer>
+  </main>
+  <aside class="onpage" aria-label="On this page">
+    <div class="grp">On this page</div>
+    <ul>
+      <li><a href="#security">Security</a></li><li class="sub"><a href="#what-a-server-can-send-you-and-what-happens-to-it">What a server can send you, and what happens to it</a></li><li class="sub"><a href="#what-a-server-cannot-do">What a server cannot do</a></li><li class="sub"><a href="#what-it-cannot-protect-you-from">What it cannot protect you from</a></li><li class="sub"><a href="#if-you-host-a-server">If you host a server</a></li><li class="sub"><a href="#where-things-are-kept">Where things are kept</a></li><li class="sub"><a href="#reporting-something">Reporting something</a></li><li class="sub"><a href="#how-this-page-is-kept-honest">How this page is kept honest</a></li>
+    </ul>
+  </aside>
+
+</div>
+
+<script>
+// The member tree on a phone. `hidden` rather than a display rule, so the button and the CSS cannot
+// disagree about what "closed" means.
+(function () {
+  var btn = document.querySelector('.menu-btn'), tree = document.getElementById('tree');
+  if (!btn || !tree) return;
+  btn.addEventListener('click', function () {
+    var open = tree.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
+<script src="../search/main.js" defer></script>
+<script src="../lang/main.js" defer></script>
+</body>
+</html>

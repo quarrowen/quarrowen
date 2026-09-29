@@ -66,6 +66,7 @@
         
       <ul class="d1">
           <li><a class="" href="../playing/">Playing</a></li>
+          <li><a class="" href="../security/">Security</a></li>
           <li><a class="" href="../engine/">The engine</a></li>
           <li><a class="" href="../roadmap/">What is still missing</a></li>
           <li><a class="cur" href="./">Questions</a></li>
@@ -90,7 +91,8 @@ puzzle or a story, depending only on which server you join.</p>
 <a href="../LICENSE">PolyForm Noncommercial</a> licence. That is deliberately <strong>not</strong> an OSI open source licence:
 commercial use needs a separate one. Worth knowing before you build a business on it.</p>
 <h2 id="what-do-i-need-to-run-it">What do I need to run it?</h2>
-<p>A Mac with Apple silicon. It is signed and notarized, so it opens by double-clicking with no security
+<p>Any Mac - the download is a universal build, so Intel and Apple silicon both run it. It is signed and
+notarized, so it opens by double-clicking with no security
 detour.</p>
 <p>There is a <strong>Windows</strong> build too, linked from the download page. It is unsigned, so Windows asks before
 running it the first time, and it does not update itself yet - you download the new one when there is
@@ -107,6 +109,9 @@ one. Linux is not published, though the engine builds for it.</p>
   and nothing is sent anywhere except the server you choose to join.</li>
 <li>Death messages and hints are written to be read by an eight-year-old at bedtime.</li>
 </ul>
+<p><strong>And the question behind the question:</strong> if the server sends the game, is it sending code to your
+child's computer? No - a server sends data and never code, and the client has no mod runtime in it at
+all. <a href="../security/">Security</a> says exactly what a server can and cannot do, including the limits.</p>
 <h2 id="can-my-children-play-together">Can my children play together?</h2>
 <p>Yes — that is what it is for. Run one server for the family and everyone joins it from the menu. You can
 run several worlds side by side (a survival world, an island world, a story) and walk between them
@@ -126,10 +131,17 @@ your worlds, creations and account key never are.</p>
 machines, commands and UI, in <strong>GDScript or JavaScript</strong>, and everyone who joins your server downloads it
 automatically. Start with <a href="../modding/">modding.md</a>; the full reference is
 <a href="../api/">api/index.html</a>.</p>
-<h2 id="what-is-hearthhold">What is Hearthhold?</h2>
-<p>The story game that comes with it. A valley whose light went out: light the hearth, see the night out,
-find the people who scattered into the hills and build them somewhere to live. It exists partly to prove
-a point — everything it does is built on the same mod API anyone else can use.</p>
+<h2 id="what-comes-with-it">What comes with it?</h2>
+<p>Four games and two add-ons, all in the download. <strong>Firstlight</strong> is the survival one: make it through the
+night, dig, build, and come back out in the morning. <strong>The Fairground</strong> is a hub of short games with a
+door to each - the floor is lava in one, a quiz where the wrong squares fall away in another - and every
+one is worth playing on your own. <strong>Creative</strong> is a world and everything in it with nothing to survive.
+<strong>One Block</strong> is a single block over the void that keeps becoming something else.</p>
+<p>They exist partly to prove a point: every one of them is built on the same mod API anyone else can use,
+with no private engine calls.</p>
+<p>(This answer described <em>Hearthhold</em> until 29 September 2026. That game was deleted in September and the
+FAQ went on describing it as "the story game that comes with it" - a page for people deciding whether to
+trust the thing, describing something that is not in the download.)</p>
 <h2 id="something-is-broken-what-do-i-do">Something is broken. What do I do?</h2>
 <p>Settings → <strong>Files</strong> → Logs, and look at the most recent one. For a server, <code>docker compose logs -f</code>. Then
 open an issue with what you were doing and what the log said — a bug report from a real session is worth
@@ -143,7 +155,7 @@ more than any amount of testing.</p>
   <aside class="onpage" aria-label="On this page">
     <div class="grp">On this page</div>
     <ul>
-      <li><a href="#questions">Questions</a></li><li class="sub"><a href="#is-this-minecraft">Is this Minecraft?</a></li><li class="sub"><a href="#what-does-it-cost">What does it cost?</a></li><li class="sub"><a href="#what-do-i-need-to-run-it">What do I need to run it?</a></li><li class="sub"><a href="#is-it-safe-for-children">Is it safe for children?</a></li><li class="sub"><a href="#can-my-children-play-together">Can my children play together?</a></li><li class="sub"><a href="#does-it-update-itself">Does it update itself?</a></li><li class="sub"><a href="#where-are-my-worlds-and-settings-kept">Where are my worlds and settings kept?</a></li><li class="sub"><a href="#can-i-make-my-own-blocks-creatures-or-games">Can I make my own blocks, creatures or games?</a></li><li class="sub"><a href="#what-is-hearthhold">What is Hearthhold?</a></li><li class="sub"><a href="#something-is-broken-what-do-i-do">Something is broken. What do I do?</a></li>
+      <li><a href="#questions">Questions</a></li><li class="sub"><a href="#is-this-minecraft">Is this Minecraft?</a></li><li class="sub"><a href="#what-does-it-cost">What does it cost?</a></li><li class="sub"><a href="#what-do-i-need-to-run-it">What do I need to run it?</a></li><li class="sub"><a href="#is-it-safe-for-children">Is it safe for children?</a></li><li class="sub"><a href="#can-my-children-play-together">Can my children play together?</a></li><li class="sub"><a href="#does-it-update-itself">Does it update itself?</a></li><li class="sub"><a href="#where-are-my-worlds-and-settings-kept">Where are my worlds and settings kept?</a></li><li class="sub"><a href="#can-i-make-my-own-blocks-creatures-or-games">Can I make my own blocks, creatures or games?</a></li><li class="sub"><a href="#what-comes-with-it">What comes with it?</a></li><li class="sub"><a href="#something-is-broken-what-do-i-do">Something is broken. What do I do?</a></li>
     </ul>
   </aside>
 
