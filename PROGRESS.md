@@ -9300,3 +9300,49 @@ while a mirelet was hitting the player.
 `/clearmobs` answered **"Removed 0 monsters"** while standing in a dungeon with a mirelet hitting the
 player, because it acts on the overworld. It was already on the audit list above; this is what it looks
 like from the inside.
+
+## Release 0.42.0 29 September 2026
+
+The first release since the games came back, and the first built for somebody other than this house:
+friends are being given the download.
+
+### To play
+
+- **The Fairground**, a hub with a door to each party game and a board beside it showing the best anybody
+  has managed. Two games so far: **Floor Is Lava**, where the lava rises and the pillars are laid out
+  from the round's own seed so a second go is not a memory test, and **Stand On The Answer**, a question
+  and four coloured squares where the wrong three fall away. Sixty questions across five bands, and a
+  round climbs through them - everybody starts somewhere they can stand.
+- **The descent**, in Firstlight. One entrance, floors that get harder the deeper you go, and you leave
+  when you choose. A doorway standing on deepstone is the way in, whether you found it in a chamber
+  underground or built it yourself. Every floor has a way up three blocks from where you land, because
+  the question worth asking on each one is "deeper, or out?".
+
+### To build with
+
+- **`api.emit`**, the first thing a mod can offer another mod. The Fairground is the proof: it knows
+  nothing about any game, only a timer and who is still in.
+- **Per-realm gameplay and physics**, so a lobby can forbid what a survival world allows.
+- **Regions**, so walking into a place can mean something.
+
+### Fixed
+
+- **A Mac build that runs on an Intel Mac again.** The app was universal and the extension inside it was
+  not, so the download opened and then refused to start.
+- **`api.fill` was blocking the server for 8.1 seconds** on a room-sized box, because it told five
+  subsystems about every one of 26,000 blocks. It is 38 ms now. That stall was also timing out clients
+  mid-realm-change, which looked like a dozen unrelated bugs.
+- **Realms were only half true.** Dying in one left your things in the overworld; boss bars, creature
+  light, explosions, spawning and the map all answered for the wrong world. Graves were the worst of
+  them, because they *write*: dying anywhere but the overworld built the grave over whatever stood at
+  those coordinates on the surface.
+- A realm change is repeated every two seconds now, because it was one message and a lost one is
+  invisible: the client goes on drawing the world it already has.
+- The Windows executable has an icon and a version block.
+
+### Deliberately not in this release
+
+**`deploy/server/.env.example` still pins 0.41.1.** Its three worlds are named after games that no longer
+exist, and the service names are baked into `compose.yaml`, so moving the pin without rewriting both
+would start worlds with nothing loaded. No server is running on it, and the file's own banner already
+says that rewrite belongs to 1.0. Bumping the pin is checklist step 4 and was skipped on purpose.
