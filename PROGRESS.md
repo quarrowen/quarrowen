@@ -9301,7 +9301,13 @@ while a mirelet was hitting the player.
 player, because it acts on the overworld. It was already on the audit list above; this is what it looks
 like from the inside.
 
-## Release 0.42.0 29 September 2026
+## Release 0.42.1 29 September 2026
+
+Cut as 0.42.1 rather than 0.42.0 because the first attempt failed *after* notarising and a repository
+rule forbids deleting a tag - which is the right rule. Nothing had published: no GitHub release, and
+`gh-pages` still served 0.41.1, so the only cost was the minutes. What failed is written up under
+"Import the project before a release" - the release job had never run before, and a fresh checkout has
+no `.godot`, so `mod_tool` found no GDExtension and every mod failed to validate.
 
 The first release since the games came back, and the first built for somebody other than this house:
 friends are being given the download.

@@ -4,7 +4,7 @@ Every function a mod can call, generated from `engine/server/mod_api.gd` by
 `mod_tool.tscn -- docs`. For the engine's own readers - the registries and helpers behind
 these - see [engine.md](engine.md).
 
-Mod API 1.1.0 · game 0.42.0
+Mod API 1.1.0 · game 0.42.1
 
 Every entry carries both signatures. A mod is written in GDScript or in JavaScript and
 the two are the same API, so the reference shows the same function both ways rather than

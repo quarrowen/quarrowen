@@ -1,6 +1,6 @@
 # Logging and debugging
 
-Part of the [Mod API reference](../mod-api.md). Mod API 1.1.0 · game 0.42.0
+Part of the [Mod API reference](../mod-api.md). Mod API 1.1.0 · game 0.42.1
 
 
 ### `api.info`
