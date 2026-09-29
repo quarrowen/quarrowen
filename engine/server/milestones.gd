@@ -186,8 +186,8 @@ func _award(p, m: Dictionary) -> void:
 		p.grant_cosmetic(m.reward.cosmetic)
 	p.show_title(str(m.title), str(m.description), 4.0)
 	p.send_message("✦ %s - %s" % [m.title, m.description])
-	_server.play_effect("engine:sparkle", p.position + Vector3(0, 1.2, 0), {"scale": 1.2})
-	_server.play_sound_at("engine:discover", p.position)
+	_server.play_effect("engine:sparkle", p.position + Vector3(0, 1.2, 0), {"scale": 1.2}, 0, _server.realm_of(p).id)
+	_server.play_sound_at("engine:discover", p.position, 1.0, 1.0, 0, _server.realm_of(p).id)
 	if m.announce:
 		_server.broadcast_chat("✦ %s reached %s" % [p.name, m.title])
 	_server.emit("milestone_reached", {"player": p, "milestone": m.id, "title": m.title})

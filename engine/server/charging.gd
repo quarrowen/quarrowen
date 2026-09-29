@@ -49,7 +49,7 @@ func start(p, item: int) -> bool:
 	p.charging = {"slot": p.inventory.selected, "item": item, "started": _server._time}
 	var sound := str(charge.get("sound", ""))
 	if not sound.is_empty():
-		_server.play_sound_at(sound, p.get_eye_position(), 0.8)
+		_server.play_sound_at(sound, p.get_eye_position(), 0.8, 1.0, 0, _server.realm_of(p).id)
 	_server.broadcast_player_event(p, _server.Entities.Event.DRAW)
 	return true
 

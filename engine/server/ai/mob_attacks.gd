@@ -78,10 +78,13 @@ static func begin(brain, a: Dictionary, target) -> void:
 		"direction": Vector3(to.x, 0.0, to.z).normalized() if Vector2(to.x, to.z).length() > 0.01 else Vector3.FORWARD}
 	brain.stop()
 	ai.server.broadcast_entity_event(e, Event.WINDUP, brain.config.attacks.find(a))
+	# An entity does not carry its realm; the manager it belongs to is the realm it is in.
+	var where := String(ai.entities.realm.id) if ai.entities.realm != null else ""
 	if not String(a.sound).is_empty():
-		ai.server.play_sound_at(String(a.sound), e.body.position + Vector3(0, e.def.height * 0.5, 0))
+		ai.server.play_sound_at(String(a.sound), e.body.position + Vector3(0, e.def.height * 0.5, 0),
+			1.0, 1.0, 0, where)
 	if not String(a.windup_effect).is_empty():
-		ai.server.play_effect(String(a.windup_effect), e.body.position + Vector3(0, e.def.height * 0.5, 0), {"follow": e, "scale": maxf(e.def.width, 0.5)})
+		ai.server.play_effect(String(a.windup_effect), e.body.position + Vector3(0, e.def.height * 0.5, 0), {"follow": e, "scale": maxf(e.def.width, 0.5)}, 0, where)
 
 
 static func interrupt(brain) -> void:
@@ -155,7 +158,8 @@ static func _execute(brain) -> void:
 		var front: Vector3 = e.body.position + Vector3(-sin(e.yaw), 0.0, -cos(e.yaw)) * (e.def.width * 0.5 + 0.4) + Vector3(0, e.def.height * 0.5, 0)
 		var at_feet: bool = a.type in ["slam", "summon"]
 		ai.server.play_effect(String(a.effect), e.body.position if at_feet else front,
-			{"scale": maxf(float(a.radius) / 3.0, 0.5) if at_feet else maxf(e.def.width, 0.5), "direction": Vector3(-sin(e.yaw), 0.3, -cos(e.yaw))})
+			{"scale": maxf(float(a.radius) / 3.0, 0.5) if at_feet else maxf(e.def.width, 0.5), "direction": Vector3(-sin(e.yaw), 0.3, -cos(e.yaw))},
+			0, String(ai.entities.realm.id) if ai.entities.realm != null else "")
 	_leave_field(brain, a, ai.position_of(target) if a.type in ["ranged"] else e.body.position)
 	match a.type:
 		"melee":

@@ -1773,6 +1773,10 @@
 				{
 					"default": {},
 					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "play_effect"
@@ -1807,6 +1811,10 @@
 				{
 					"default": 1.0,
 					"kind": "float"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "play_sound"

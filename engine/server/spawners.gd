@@ -67,4 +67,4 @@ func _tick(ctx: Dictionary) -> void:
 		var e = into.entities.spawn(type_id, Vector3(spot) + Vector3(0.5, 0.0, 0.5))
 		if e != null:
 			spawned += 1
-			_server.play_effect("engine:smoke", Vector3(spot) + Vector3(0.5, 0.5, 0.5), {"scale": 0.6})
+			_server.play_effect("engine:smoke", Vector3(spot) + Vector3(0.5, 0.5, 0.5), {"scale": 0.6}, 0, into.id)

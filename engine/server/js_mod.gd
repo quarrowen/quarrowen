@@ -277,7 +277,7 @@ func _call_host(method: String, a: Array):
 		"storageSet": api.storage[_str(a, 0)] = a[1] if a.size() > 1 else null
 		"registerEntity": return api.register_entity(_str(a, 0), _dict(a, 1))
 		"registerSound": return api.register_sound(_str(a, 0), a[1] if a.size() > 1 and (a[1] is Array or a[1] is String) else [], _dict(a, 2))
-		"playSound": api.play_sound(_str(a, 0), _vec3(a, 1), float(a[2]) if a.size() > 2 else 1.0, float(a[3]) if a.size() > 3 else 1.0)
+		"playSound": api.play_sound(_str(a, 0), _vec3(a, 1), float(a[2]) if a.size() > 2 else 1.0, float(a[3]) if a.size() > 3 else 1.0, _str(a, 4))
 		"spawnEntity": return api.spawn_entity(_str(a, 0), _vec3(a, 1), _entity_options(_dict(a, 2)))
 		"spawnProjectile": return api.spawn_projectile(_str(a, 0), _vec3(a, 1), _vec3(a, 2), _any_ref(a, 3))
 		"dropItem": return api.drop_item(_int(a, 0), _int(a, 1, 1), _vec3(a, 2))
@@ -350,7 +350,7 @@ func _call_host(method: String, a: Array):
 				options.follow = _any_ref([options.follow], 0)
 			if options.get("direction") is Dictionary:
 				options.direction = _vec3([options.direction], 0)
-			api.play_effect(_str(a, 0), _vec3(a, 1), options)
+			api.play_effect(_str(a, 0), _vec3(a, 1), options, _str(a, 3))
 		"explode":
 			var blast := _dict(a, 2)
 			if blast.has("source"):

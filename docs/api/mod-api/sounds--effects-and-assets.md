@@ -36,9 +36,9 @@ api.register_effect("puff", {"particles": 12, "color": "#cccccc", "scale": 1.0, 
 
 ### `api.play_effect`
 
-GDScript: `api.play_effect(effect_name: String, position: Vector3, options := {}) -> void`
+GDScript: `api.play_effect(effect_name: String, position: Vector3, options := {}, realm_id := "") -> void`
 
-JavaScript: `api.playEffect(effectName, position, options)`
+JavaScript: `api.playEffect(effectName, position, options, realmId)`
 
 Plays an effect for everyone in range. options: color ("#rrggbb", tints it), scale, direction
 (Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).
@@ -46,16 +46,16 @@ Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, e
 engine:dust, engine:explosion.
 
 ```gdscript
-api.play_effect("puff", at + Vector3(0, 1, 0), {"scale": 1.0})
+api.play_effect("puff", at + Vector3(0, 1, 0), {"scale": 1.0}, api.realm_of(player))
 ```
 
-**See also:** `clean_options`, `follow`, `qualified`
+**See also:** `clean_options`, `follow`, `qualified`, `realm_of`
 
 ### `api.play_sound`
 
-GDScript: `api.play_sound(sound_name: String, position: Vector3, volume := 1.0, pitch := 1.0) -> void`
+GDScript: `api.play_sound(sound_name: String, position: Vector3, volume := 1.0, pitch := 1.0, realm_id := "") -> void`
 
-JavaScript: `api.playSound(name: string, position: Vec3, volume?: number, pitch?: number): void`
+JavaScript: `api.playSound(name: string, position: Vec3, volume?: number, pitch?: number, realmId?: string): void`
 
 Plays a sound at a world position for everyone in range.
 
@@ -98,3 +98,5 @@ GDScript: `api.stop_effect(handle: int) -> bool`
 JavaScript: `api.stopEffect(handle)`
 
 Stops one started with start_effect.
+
+**See also:** `realm_of`

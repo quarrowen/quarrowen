@@ -179,7 +179,7 @@ func _update_eating(p) -> void:
 	if now - float(p.eating.sound) >= (GULP_SOUND_INTERVAL if drink else EAT_SOUND_INTERVAL):
 		p.eating.sound = now
 		var sound := str(food.get("sound", ""))
-		_server.play_sound_at(sound if not sound.is_empty() else ("engine:gulp" if drink else "engine:munch"), p.get_eye_position(), 0.8, randf_range(0.85, 1.15))
+		_server.play_sound_at(sound if not sound.is_empty() else ("engine:gulp" if drink else "engine:munch"), p.get_eye_position(), 0.8, randf_range(0.85, 1.15), 0, _server.realm_of(p).id)
 	if now - float(p.eating.started) >= float(food.get("eat_time", 1.2)):
 		stop_eating(p)
 		finish_eating(p, slot)
@@ -221,5 +221,5 @@ func finish_eating(p, slot: int) -> bool:
 			if not str(e.get("message", "")).is_empty():
 				p.show_title("", str(e.message), 1.5)
 	if food.get("style", "plate") != "drink":
-		_server.play_sound_at("engine:burp", p.get_eye_position(), 0.7, randf_range(0.9, 1.1))
+		_server.play_sound_at("engine:burp", p.get_eye_position(), 0.7, randf_range(0.9, 1.1), 0, _server.realm_of(p).id)
 	return true

@@ -361,7 +361,7 @@ func _collect(e: Entity) -> void:
 		var left: int = p.inventory.add(e.item_id, e.item_count, _server.items.max_stack(e.item_id), e.item_data)
 		p.sync_inventory()
 		_server.broadcast_entity_event(e, Event.PICKUP, p.peer_id)
-		_server.play_sound_at("engine:pickup", center, 0.6, randf_range(0.9, 1.5))
+		_server.play_sound_at("engine:pickup", center, 0.6, randf_range(0.9, 1.5), 0, realm.id)
 		if left <= 0:
 			remove(e)
 		else:
@@ -470,7 +470,8 @@ static func _attacker_position(attacker) -> Vector3:
 
 func play_sound(e: Entity, sound_name: String) -> void:
 	if not sound_name.is_empty():
-		_server.play_sound_at(sound_name, e.body.position + Vector3(0, e.def.height * 0.5, 0))
+		_server.play_sound_at(sound_name, e.body.position + Vector3(0, e.def.height * 0.5, 0),
+			1.0, 1.0, 0, realm.id)
 
 
 # --- Natural spawning ---------------------------------------------------------------------------

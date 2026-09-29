@@ -73,12 +73,12 @@ func feed(p, e) -> bool:
 		p.sync_inventory()
 	if baby:
 		e.data.grow_left = float(e.data.get("grow_left", c.grow_seconds)) * 0.9
-		_server.play_effect("engine:sparkle", e.body.position + Vector3(0, e.def.height, 0), {"scale": 0.5})
+		_server.play_effect("engine:sparkle", e.body.position + Vector3(0, e.def.height, 0), {"scale": 0.5}, 0, _entities.realm.id)
 	else:
 		e.data.love_left = c.love_seconds
 		e.data.fed_by = p.player_id
-		_server.play_effect("engine:heal", e.body.position + Vector3(0, e.def.height, 0), {"scale": 0.8})
-	_server.play_sound_at("engine:munch", e.body.position, 0.8, randf_range(0.9, 1.1))
+		_server.play_effect("engine:heal", e.body.position + Vector3(0, e.def.height, 0), {"scale": 0.8}, 0, _entities.realm.id)
+	_server.play_sound_at("engine:munch", e.body.position, 0.8, randf_range(0.9, 1.1), 0, _entities.realm.id)
 	return true
 
 
@@ -99,7 +99,7 @@ func update(delta: float) -> void:
 			if e.data.love_left <= 0.0:
 				e.data.erase("love_left")
 			elif randf() < 0.3:
-				_server.play_effect("engine:heal", e.body.position + Vector3(0, e.def.height, 0), {"scale": 0.4})
+				_server.play_effect("engine:heal", e.body.position + Vector3(0, e.def.height, 0), {"scale": 0.4}, 0, _entities.realm.id)
 		if float(e.data.get("breed_cooldown", 0.0)) > 0.0:
 			e.data.breed_cooldown = float(e.data.breed_cooldown) - delta
 			if e.data.breed_cooldown <= 0.0:
@@ -128,7 +128,7 @@ func mate(a, b) -> Object:
 	var at: Vector3 = (a.body.position + b.body.position) * 0.5
 	var baby = _entities.spawn(a.type, at, {"data": {"baby": true, "grow_left": c.grow_seconds, "look": {"scale": c.baby_scale}}})
 	if baby != null:
-		_server.play_effect("engine:heal", at + Vector3(0, a.def.height, 0), {"scale": 1.2})
+		_server.play_effect("engine:heal", at + Vector3(0, a.def.height, 0), {"scale": 1.2}, 0, _entities.realm.id)
 		var feeder = null
 		for p in _server.players.values():
 			if p.player_id == str(a.data.get("fed_by", "")):

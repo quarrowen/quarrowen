@@ -3076,7 +3076,7 @@ a rule about hunger, falling or hitting somebody is always a rule about a partic
 the attacker). `bypass_cooldown` lets continuous damage (void) ignore the invulnerability window. server/game_server.gd the server itself"><div class="sig"><code>damage_player(p: ServerPlayer, amount: float, cause: String, attacker = null, direction := Vector3.ZERO, bypass_cooldown := false, knockback := 6.0) -&gt; bool</code></div><p>Returns true if damage applied. `direction` sets the knockback direction (defaults to away from
 the attacker). `bypass_cooldown` lets continuous damage (void) ignore the invulnerability window.</p></div>
 <div class="card" data-search="play_sound_at plays a registered sound at a world position for players in range. `exclude` is a peer id that
-already played it locally (e.g. the player who broke the block). server/game_server.gd the server itself"><div class="sig"><code>play_sound_at(sound_name: String, pos: Vector3, volume := 1.0, pitch := 1.0, exclude := 0) -&gt; void</code></div><p>Plays a registered sound at a world position for players in range. `exclude` is a peer id that
+already played it locally (e.g. the player who broke the block). server/game_server.gd the server itself"><div class="sig"><code>play_sound_at(sound_name: String, pos: Vector3, volume := 1.0, pitch := 1.0, exclude := 0, realm_id := &quot;&quot;) -&gt; void</code></div><p>Plays a registered sound at a world position for players in range. `exclude` is a peer id that
 already played it locally (e.g. the player who broke the block).</p></div>
 <div class="card" data-search="play_decal starts an effect that keeps going until stop_effect. returns a handle, or 0.
 
@@ -3198,7 +3198,7 @@ entity so a mod's own mob gets its own send-off; &quot;%s&quot; is the player, a
 entity so a mod's own mob gets its own send-off; "%s" is the player, and a second "%s" is what did it.</p></div>
 <div class="card" data-search="announce_rare_loot a find worth noticing: a sparkle where it landed, a sound for whoever found it, and a line in chat so
 the rest of the server shares the moment. the sparkle repeats for a little while, so a rare drop in
-long grass can still be found. rarity comes from the table's own weights - nothing is marked by hand. server/game_server.gd the server itself"><div class="sig"><code>announce_rare_loot(player, item: int, count: int, position: Vector3) -&gt; void</code></div><p>A find worth noticing: a sparkle where it landed, a sound for whoever found it, and a line in chat so
+long grass can still be found. rarity comes from the table's own weights - nothing is marked by hand. server/game_server.gd the server itself"><div class="sig"><code>announce_rare_loot(player, item: int, count: int, position: Vector3, realm_id := &quot;&quot;) -&gt; void</code></div><p>A find worth noticing: a sparkle where it landed, a sound for whoever found it, and a line in chat so
 the rest of the server shares the moment. The sparkle repeats for a little while, so a rare drop in
 long grass can still be found. Rarity comes from the table's own weights - nothing is marked by hand.</p></div>
 <div class="card" data-search="break_block_for breaks one block *on a player's behalf*: the pre-event, the loot roll, the drops, the tool wear, the

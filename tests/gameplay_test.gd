@@ -79,6 +79,7 @@ func _ready() -> void:
 	await _tags()
 	await _signals()
 	await _realms()
+	_realm_broadcasts()
 	_baked_light()
 	await _simulation_distance()
 	_scripts_compile()
@@ -4400,6 +4401,66 @@ func _shape_twins() -> void:
 ## suite has not got; a name collision is the one class of shader error that can be found by reading,
 ## and it is the one that just cost a day. The pieces are assembled by `create()` from constants that
 ## are written far apart in the file, which is exactly why nobody saw the clash.
+## Every function that walks the player table and sends them something has to decide which realm it is
+## talking to. `play_sound_at` and `play_effect` did not, and the omission was invisible for a week:
+## the symptom is a sound heard in the wrong world, which nobody reports as a bug. It reads the source
+## because that is the only place the question is visible - a passing sound test proves one call site,
+## not the next one somebody writes. A ratchet like `unbound.txt`: GLOBAL may only shrink.
+##
+## GLOBAL is the list of broadcasts that genuinely go to everybody, each for a stated reason. Anything
+## else that walks `players.values()` and calls `rpc_id` must mention a realm somewhere in its body.
+func _realm_broadcasts() -> void:
+	# Told to everyone on purpose: they are about the server or the player list, not about a place.
+	const GLOBAL := {
+		"after_mod_reload": "content changed for the whole server",
+		"request_full_reload": "the same, harder",
+		"_on_dev_error": "a developer message about the server itself",
+		"set_weather": "weather is one sky for now - per-realm weather is a 1.1 item",
+		"_send_wind": "travels with the weather above",
+		"_broadcast_time": "one clock for the server; a realm with its own day is not built",
+		"on_hello": "the joining player is not in a realm yet",
+		"_on_peer_disconnected": "removing a player from everyone's list",
+		"broadcast_chat": "chat is server-wide by design",
+		"refresh_appearance": "what somebody looks like is true wherever they are",
+		"on_map": "answers one player, and reads their realm to do it",
+		"on_roles_panel": "the role list is server-wide",
+		"set_cosmetics_policy": "a server setting",
+		"refresh_crafting_stock": "each player's own inventory",
+		"broadcast_entity_event": "entity ids are per-realm and still collide - tracked for 1.0",
+	}
+	var src := FileAccess.get_file_as_string("res://engine/server/game_server.gd").split("\n")
+	var starts := []
+	for i in src.size():
+		if src[i].begins_with("func "):
+			starts.append(i)
+	var missing := []
+	var checked := 0
+	for n in starts.size():
+		var from: int = starts[n]
+		var to: int = starts[n + 1] if n + 1 < starts.size() else src.size()
+		var body := "\n".join(Array(src).slice(from, to))
+		if not body.contains("ServerPlayer in players.values()") or not body.contains("rpc_id"):
+			continue
+		var name: String = src[from].substr(5).split("(")[0]
+		checked += 1
+		if not body.contains("realm") and not GLOBAL.has(name):
+			missing.append(name)
+	_check(checked > 20, "the scan found the broadcasts at all (%d)" % checked)
+	_check(missing.is_empty(),
+		"every player broadcast picks a realm, or says why it does not (missing: %s)" % ", ".join(missing))
+	# The allowlist may only shrink, so a name that has since been fixed cannot sit here unnoticed.
+	var stale := []
+	for name: String in GLOBAL:
+		var found := false
+		for line in src:
+			if line.begins_with("func " + name + "("):
+				found = true
+				break
+		if not found:
+			stale.append(name)
+	_check(stale.is_empty(), "and the allowlist names no function that has gone (%s)" % ", ".join(stale))
+
+
 func _shader_names() -> void:
 	const VoxelMaterial = preload("res://engine/client/voxel_material.gd")
 	const SkyMaterial = preload("res://engine/client/sky_material.gd")

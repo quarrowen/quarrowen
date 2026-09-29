@@ -78,7 +78,7 @@ func interact(p, e) -> bool:
 		if randf() < c.chance:
 			tame(e, p)
 		else:
-			_server.play_effect("engine:smoke", e.body.position + Vector3(0, e.def.height, 0), {"scale": 0.5})
+			_server.play_effect("engine:smoke", e.body.position + Vector3(0, e.def.height, 0), {"scale": 0.5}, 0, _entities.realm.id)
 		return true
 	if owner_id(e) != p.player_id or c.items.has(item_name) or _entities.breeding.is_food(e, item):
 		return false
@@ -100,7 +100,7 @@ func tame(e, p) -> void:
 		e.brain.threat.erase(_entities.ai.key_of(p))
 		if e.brain.target == p:
 			e.brain.set_target(null)
-	_server.play_effect("engine:heal", e.body.position + Vector3(0, e.def.height, 0), {"scale": 1.2})
+	_server.play_effect("engine:heal", e.body.position + Vector3(0, e.def.height, 0), {"scale": 1.2}, 0, _entities.realm.id)
 	_server.emit("entity_tamed", {"player": p, "entity": e})
 
 

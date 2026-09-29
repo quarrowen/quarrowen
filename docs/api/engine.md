@@ -403,7 +403,7 @@ What getting the loot means for this player: they have now met this table, a lon
 out, and a find worth announcing is announced. Called for you by `roll`; call it yourself after a
 `preview` that really happened.
 
-**See also:** `announce_rare_loot`, `is_rare`, `rarest`
+**See also:** `announce_rare_loot`, `is_rare`, `rarest`, `realm_of`
 
 ### `from_drops`
 
@@ -11439,10 +11439,12 @@ the attacker). `bypass_cooldown` lets continuous damage (void) ignore the invuln
 
 *server/game_server.gd*
 
-GDScript: `play_sound_at(sound_name: String, pos: Vector3, volume := 1.0, pitch := 1.0, exclude := 0) -> void`
+GDScript: `play_sound_at(sound_name: String, pos: Vector3, volume := 1.0, pitch := 1.0, exclude := 0, realm_id := "") -> void`
 
 Plays a registered sound at a world position for players in range. `exclude` is a peer id that
 already played it locally (e.g. the player who broke the block).
+
+**See also:** `realm_of`
 
 ### `play_decal`
 
@@ -11758,7 +11760,7 @@ entity so a mod's own mob gets its own send-off; "%s" is the player, and a secon
 
 *server/game_server.gd*
 
-GDScript: `announce_rare_loot(player, item: int, count: int, position: Vector3) -> void`
+GDScript: `announce_rare_loot(player, item: int, count: int, position: Vector3, realm_id := "") -> void`
 
 A find worth noticing: a sparkle where it landed, a sound for whoever found it, and a line in chat so
 the rest of the server shares the moment. The sparkle repeats for a little while, so a rare drop in

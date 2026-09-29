@@ -81,7 +81,7 @@ func setup(mod_api, id_table: Dictionary) -> void:
 			{"type": "button", "text": "Close", "action": "close"}]}))
 	api.register_command("effects", "Fire one of everything", func(player, _args):
 		var at: Vector3 = player.position
-		api.play_effect("puff", at + Vector3(0, 1, 0), {"scale": 1.0})
+		api.play_effect("puff", at + Vector3(0, 1, 0), {"scale": 1.0}, api.realm_of(player))
 		api.play_beam(at + Vector3(0, 1, 0), at + Vector3(0, 1, 6), {"color": "#88ddff", "seconds": 0.5})
 		api.play_decal(at - Vector3(0, 0.5, 0), Vector3i.UP, {"color": "#222222", "size": 2.0})
 		api.screen_tint(player, {"color": "#3366aa", "strength": 0.3})

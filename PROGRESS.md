@@ -9566,3 +9566,46 @@ Three decisions taken when the user asked what was needed to finish 1.0 autonomo
    has never happened once. It needs a friend, not a test.
 3. **A real human playthrough of Firstlight.** Bots and soak tests say nothing about whether it holds
    somebody for a season, which is the actual criterion.
+
+
+## Realms: sounds and effects, and a ratchet so the next one cannot hide (29 September 2026)
+
+The first 1.0 item. `play_sound_at` and `play_effect` were the only two in their family with no realm
+filter at all, while `play_decal`, `play_beam`, `start_effect` and `float_text` all took a `realm_id`
+and used it - an omission rather than a policy, and 56 call sites was why it had not been done in the
+same pass.
+
+Both now take `realm_id` as a trailing argument. **The overworld's id is the empty string**, so the
+default is backward-compatible and the change is a strict improvement the moment it lands: a sound in
+a dungeon stops being heard on the surface. The work was the call sites, and every one of them had a
+realm in scope already - `into`, `here`, `realm_of(p)`, or the entity manager's own `realm`, which is
+the idiom `mob_attacks.gd` had been using a hundred lines below the three calls that did not.
+
+Four more found on the way, none of them in the original audit:
+
+- **`broadcast_player_event` and `_broadcast_mining` leaked too.** They do not call either function -
+  they `rpc_id` directly - so they were invisible to a search for the two names. Swing, hurt and death
+  animations and mining cracks were reaching players at matching coordinates in other realms.
+- **`stop_effect` told every player in the server**, which was a wasted packet rather than a wrong one
+  because handles are unique, and the realm was sitting in the record being erased.
+- **`tell_assembly_gone` did not filter** while `tell_assembly` and `tell_assembly_moved` both did.
+- **`block_interact` carried no realm**, unlike `block_destroyed` which always had. A mod holding a
+  position and no realm could not act in the right world, which is how `base`'s door sound reached the
+  overworld. Fixed in the event rather than in each mod.
+
+### The ratchet is the part that lasts
+
+`_realm_broadcasts` in `tests/gameplay_test.gd` reads `game_server.gd` as **source** and fails when a
+function walks `players.values()` and calls `rpc_id` without mentioning a realm. It reads the source
+because that is the only place the question is visible: a passing sound test proves one call site, not
+the next one somebody writes, and the symptom of getting this wrong is a sound heard in the wrong
+world, which nobody reports as a bug.
+
+Thirty-five broadcasts; fifteen are on a `GLOBAL` allowlist with a stated reason each (chat is
+server-wide, a joining player is not in a realm yet, weather is one sky until 1.1). The list may only
+shrink, and a second check fails if it names a function that has since gone - so it cannot quietly rot
+into a list of excuses. **This scan would have caught the original omission**, which is the test of
+whether it was worth writing.
+
+`broadcast_entity_event` is on the allowlist and should not stay there: entity ids are per-realm and
+restart at 1, so anything client-facing keyed on `e.id` alone still collides. That is the next item.

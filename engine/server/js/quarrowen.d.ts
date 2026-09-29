@@ -436,7 +436,7 @@ declare module "quarrowen" {
 
     registerEntity(name: string, def: EntityDef): number;
     registerSound(name: string, files: string | string[], options?: { volume?: number; pitch?: number; pitch_variance?: number; range?: number }): number;
-    playSound(name: string, position: Vec3, volume?: number, pitch?: number): void;
+    playSound(name: string, position: Vec3, volume?: number, pitch?: number, realmId?: string): void;
     spawnEntity(type: string, position: Vec3, options?: { yaw?: number; velocity?: Vec3; data?: Record<string, unknown> }): Entity | null;
     spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner?: Player | Entity | null): Entity | null;
     dropItem(item: ItemId, count: number, position: Vec3): Entity | null;
@@ -531,7 +531,7 @@ declare module "quarrowen" {
     getLightLevels(position: Vec3): { sky: number; block: number };
     worldClock(): number;
     breakBlock(position: Vec3, drop?: boolean): void;
-    playEffect(name: string, position: Vec3, options?: EffectOptions): void;
+    playEffect(name: string, position: Vec3, options?: EffectOptions, realmId?: string): void;
     explode(position: Vec3, power: number, options?: { source?: unknown; break_blocks?: boolean; drop_chance?: number; damage?: number; effect?: string; sound?: string }): void;
     registerCosmeticCategory(name: string, def?: { display_name?: string; attach?: string; covers?: string[] }): boolean;
     setCosmeticsPolicy(values: { allow_builtin?: boolean; allow_colors?: boolean; armor?: "player" | "armor" | "cosmetics"; blocked?: string[]; uniform?: Avatar }): void;

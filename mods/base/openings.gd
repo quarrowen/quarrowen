@@ -105,4 +105,5 @@ func _on_interact(ev: Dictionary) -> void:
 	# Both halves move together, and neither drops: this is the same door in a different position.
 	api.set_block(bottom, lower)
 	api.set_block(bottom + Vector3i.UP, upper)
-	api.play_sound("base:wood", Vector3(bottom) + Vector3.ONE * 0.5, 0.7, 1.1 if swapped.contains("_open") else 0.9)
+	api.play_sound("base:wood", Vector3(bottom) + Vector3.ONE * 0.5, 0.7,
+		1.1 if swapped.contains("_open") else 0.9, String(ev.get("realm", "")))

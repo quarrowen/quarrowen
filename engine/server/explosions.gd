@@ -85,8 +85,10 @@ func explode(center: Vector3, power: float, options := {}) -> Dictionary:
 		# observe. Silent, because fifty break sounds under one explosion is a noise. (2026-09-21)
 		_server.break_block(cell, randf() < drop_chance, into, false)
 	_hurt_around(center, power, source, float(options.get("damage", 1.0)), into)
-	_server.play_effect(str(options.get("effect", "engine:explosion")), center, {"scale": clampf(power / 3.0, 0.4, 3.0)})
-	_server.play_sound_at(str(options.get("sound", "engine:explosion")), center, 1.0, randf_range(0.85, 1.05))
+	_server.play_effect(str(options.get("effect", "engine:explosion")), center,
+		{"scale": clampf(power / 3.0, 0.4, 3.0)}, 0, into.id)
+	_server.play_sound_at(str(options.get("sound", "engine:explosion")), center, 1.0,
+		randf_range(0.85, 1.05), 0, into.id)
 	into.entities.ai.make_noise(center, 16.0 + power * 4.0, source, true)
 	return ev
 

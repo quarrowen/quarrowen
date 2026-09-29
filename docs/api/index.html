@@ -544,8 +544,8 @@ engine/shared/effect_registry.gd). emitter textures are paths in this mod or &qu
 <div class="card" id="api-play-effect" data-search="play_effect playeffect plays an effect for everyone in range. options: color (&quot;#rrggbb&quot;, tints it), scale, direction
 (vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).
 built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,
-engine:dust, engine:explosion."><div class="sig"><code>api.play_effect(effect_name: String, position: Vector3, options := {}) -&gt; void</code><span class="tag js" title="playEffect">JS playEffect</span></div><p>Plays an effect for everyone in range. options: color (&quot;#rrggbb&quot;, tints it), scale, direction<br>(Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).<br>Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,<br>engine:dust, engine:explosion.</p></div>
-<div class="card" id="api-play-sound" data-search="play_sound playsound plays a sound at a world position for everyone in range."><div class="sig"><code>api.play_sound(sound_name: String, position: Vector3, volume := 1.0, pitch := 1.0) -&gt; void</code><span class="tag js" title="playSound(name: string, position: Vec3, volume?: number, pitch?: number): void">JS playSound</span></div><p>Plays a sound at a world position for everyone in range.</p></div>
+engine:dust, engine:explosion."><div class="sig"><code>api.play_effect(effect_name: String, position: Vector3, options := {}, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="playEffect">JS playEffect</span></div><p>Plays an effect for everyone in range. options: color (&quot;#rrggbb&quot;, tints it), scale, direction<br>(Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).<br>Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,<br>engine:dust, engine:explosion.</p></div>
+<div class="card" id="api-play-sound" data-search="play_sound playsound plays a sound at a world position for everyone in range."><div class="sig"><code>api.play_sound(sound_name: String, position: Vector3, volume := 1.0, pitch := 1.0, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="playSound(name: string, position: Vec3, volume?: number, pitch?: number, realmId?: string): void">JS playSound</span></div><p>Plays a sound at a world position for everyone in range.</p></div>
 <div class="card" id="api-register-asset" data-search="register_asset registerasset makes a file from this mod's folder downloadable by clients. returns its asset name.
 options: {lazy} - a lazy asset is listed for the client but not part of the download it waits through
 to join; it is fetched the first time something needs it. use it for anything big and optional (music
@@ -1576,7 +1576,7 @@ property stays for the engine's own writes; a mod wanting to set health should u
 <div class="card" data-search="showcrafting"><div class="sig"><code>api.showCrafting(player: Player): void</code></div></div>
 <div class="card" data-search="registerentity"><div class="sig"><code>api.registerEntity(name: string, def: EntityDef): number</code></div></div>
 <div class="card" data-search="registersound"><div class="sig"><code>api.registerSound(name: string, files: string | string[], options?: { volume?: number; pitch?: number; pitch_variance?: number; range?: number }): number</code></div></div>
-<div class="card" data-search="playsound"><div class="sig"><code>api.playSound(name: string, position: Vec3, volume?: number, pitch?: number): void</code></div></div>
+<div class="card" data-search="playsound"><div class="sig"><code>api.playSound(name: string, position: Vec3, volume?: number, pitch?: number, realmId?: string): void</code></div></div>
 <div class="card" data-search="spawnentity"><div class="sig"><code>api.spawnEntity(type: string, position: Vec3, options?: { yaw?: number; velocity?: Vec3; data?: Record&lt;string, unknown&gt; }): Entity | null</code></div></div>
 <div class="card" data-search="spawnprojectile"><div class="sig"><code>api.spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner?: Player | Entity | null): Entity | null</code></div></div>
 <div class="card" data-search="dropitem"><div class="sig"><code>api.dropItem(item: ItemId, count: number, position: Vec3): Entity | null</code></div></div>
@@ -2047,7 +2047,7 @@ declare module &quot;quarrowen&quot; {
 
     registerEntity(name: string, def: EntityDef): number;
     registerSound(name: string, files: string | string[], options?: { volume?: number; pitch?: number; pitch_variance?: number; range?: number }): number;
-    playSound(name: string, position: Vec3, volume?: number, pitch?: number): void;
+    playSound(name: string, position: Vec3, volume?: number, pitch?: number, realmId?: string): void;
     spawnEntity(type: string, position: Vec3, options?: { yaw?: number; velocity?: Vec3; data?: Record&lt;string, unknown&gt; }): Entity | null;
     spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner?: Player | Entity | null): Entity | null;
     dropItem(item: ItemId, count: number, position: Vec3): Entity | null;
@@ -2142,7 +2142,7 @@ declare module &quot;quarrowen&quot; {
     getLightLevels(position: Vec3): { sky: number; block: number };
     worldClock(): number;
     breakBlock(position: Vec3, drop?: boolean): void;
-    playEffect(name: string, position: Vec3, options?: EffectOptions): void;
+    playEffect(name: string, position: Vec3, options?: EffectOptions, realmId?: string): void;
     explode(position: Vec3, power: number, options?: { source?: unknown; break_blocks?: boolean; drop_chance?: number; damage?: number; effect?: string; sound?: string }): void;
     registerCosmeticCategory(name: string, def?: { display_name?: string; attach?: string; covers?: string[] }): boolean;
     setCosmeticsPolicy(values: { allow_builtin?: boolean; allow_colors?: boolean; armor?: &quot;player&quot; | &quot;armor&quot; | &quot;cosmetics&quot;; blocked?: string[]; uniform?: Avatar }): void;

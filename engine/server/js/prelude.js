@@ -258,7 +258,7 @@
     // Entities, sounds & gameplay
     registerEntity: (name, def) => host("registerEntity", name, def),
     registerSound: (name, files, options = {}) => host("registerSound", name, files, options),
-    playSound: (name, position, volume = 1, pitch = 1) => host("playSound", name, position, volume, pitch),
+    playSound: (name, position, volume = 1, pitch = 1, realmId = "") => host("playSound", name, position, volume, pitch, realmId),
     spawnEntity: (type, position, options = {}) => host("spawnEntity", type, position, options),
     spawnProjectile: (type, from, velocity, owner = null) => host("spawnProjectile", type, from, velocity, owner),
     dropItem: (item, count, position) => host("dropItem", item, count, position),
@@ -366,7 +366,7 @@
     worldClock: () => host("worldClock"),
     breakBlock: (position, drop = true) => host("breakBlock", position, drop),
     /** options: {color, scale, direction: {x,y,z} | [x,y,z], duration, follow: entity | player} */
-    playEffect: (name, position, options = {}) => host("playEffect", name, position, options),
+    playEffect: (name, position, options = {}, realmId = "") => host("playEffect", name, position, options, realmId),
     /** An explosion: power ~3 is a mob blast. options: { source, break_blocks, drop_chance, damage, effect, sound }. */
     explode: (position, power, options = {}) => host("explode", position, power, options),
     /** A mob behaviour for mobs listing it in ai.behaviors. score(mob, ctx) -> number each think;

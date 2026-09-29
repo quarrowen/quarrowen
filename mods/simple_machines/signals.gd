@@ -80,9 +80,11 @@ func _flip(position: Vector3i, player) -> void:
 	data.on = on
 	api.set_block_data(position, data)
 	api.set_signal(position, 15 if on else 0)
-	api.play_sound("engine:click", Vector3(position) + Vector3.ONE * 0.5, 1.0, 1.2 if on else 0.8)
+	api.play_sound("engine:click", Vector3(position) + Vector3.ONE * 0.5, 1.0, 1.2 if on else 0.8,
+		api.realm_of(player) if player != null else "")
 	if on:
-		api.play_effect("engine:sparkle", Vector3(position) + Vector3(0.5, 0.6, 0.5), {"scale": 0.8, "color": "#ffd070"})
+		api.play_effect("engine:sparkle", Vector3(position) + Vector3(0.5, 0.6, 0.5),
+			{"scale": 0.8, "color": "#ffd070"}, api.realm_of(player) if player != null else "")
 	if player != null:
 		player.send_message("The quickdust wakes up." if on else "It goes quiet.")
 
@@ -99,4 +101,5 @@ func _show_lamp(ev: Dictionary) -> void:
 		return
 	api.set_block(ev.position, wanted, "", true)
 	if ev.level > 0:
-		api.play_effect("engine:sparkle", Vector3(ev.position) + Vector3(0.5, 1.0, 0.5), {"scale": 1.0, "color": "#ffe8a0"})
+		api.play_effect("engine:sparkle", Vector3(ev.position) + Vector3(0.5, 1.0, 0.5),
+			{"scale": 1.0, "color": "#ffe8a0"}, String(ev.get("realm", "")))

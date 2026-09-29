@@ -95,12 +95,12 @@ func _on_item_use(ev: Dictionary) -> void:
 		if api.get_block(above) == ids.tall_grass:
 			api.set_block(above, 0)
 		api.set_block(pos, ids.farmland, "", false, 1 if _near_water(pos) else 0)
-		api.play_sound("base:dirt", Vector3(pos) + Vector3(0.5, 1.0, 0.5))
+		api.play_sound("base:dirt", Vector3(pos) + Vector3(0.5, 1.0, 0.5), 1.0, 1.0, api.realm_of(player))
 		player.damage_item(player.selected_slot, 1, "till")
 	elif ev.item == ids.seeds and block == ids.farmland and api.get_block(above) == 0:
 		if player.is_creative() or player.take(ids.seeds, 1):
 			api.set_block(above, ids.wheat_stages[0])
-			api.play_sound("base:grass", Vector3(above) + Vector3(0.5, 0.2, 0.5))
+			api.play_sound("base:grass", Vector3(above) + Vector3(0.5, 0.2, 0.5), 1.0, 1.0, api.realm_of(player))
 
 
 ## Each tick has a chance to advance a stage: always on watered farmland, half the time on dry.

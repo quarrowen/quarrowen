@@ -241,7 +241,7 @@ func _fill_personal(container, store: Dictionary, table: String, player) -> void
 	for stack in stacks:
 		player.give(stack[0], stack[1], stack[2])  # a full pack drops the rest at their feet
 		names.append("%s%s" % ["%d × " % int(stack[1]) if int(stack[1]) > 1 else "", _server.items.display_name(stack[0])])
-	_server.play_sound_at("engine:discover", Vector3(container.position) + Vector3.ONE * 0.5)
+	_server.play_sound_at("engine:discover", Vector3(container.position) + Vector3.ONE * 0.5, 1.0, 1.0, 0, _server.realm_of(player).id)
 	player.send_message("The chest had something for you: %s" % ", ".join(PackedStringArray(names)) if not names.is_empty()
 		else "The chest was empty this time.")
 	_server.emit("loot_generated", {"position": container.position, "table": table, "player": player})
@@ -605,7 +605,8 @@ func _after_roll(table_name: String, out: Array, ctx: Dictionary) -> void:
 		var ev: Dictionary = _server.emit("rare_loot", {"player": player, "item": int(stack[0]), "count": int(stack[1]),
 			"table": table_name, "position": where, "announce": announce_rare})
 		if bool(ev.get("announce", true)):
-			_server.announce_rare_loot(player, int(stack[0]), int(stack[1]), where if where is Vector3 else Vector3(where))
+			_server.announce_rare_loot(player, int(stack[0]), int(stack[1]),
+				where if where is Vector3 else Vector3(where), _server.realm_of(player).id)
 
 
 ## The least likely thing a table can give, as {item, count}: what a run of bad luck eventually pays out.

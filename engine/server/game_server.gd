@@ -2618,7 +2618,7 @@ func damage_player(p: ServerPlayer, amount: float, cause: String, attacker = nul
 	entities.taming.owner_hurt(p, attacker)
 	sleep.wake(p, "hurt")
 	sync_health(p, true)
-	play_sound_at("engine:hurt", p.get_eye_position(), 1.0, randf_range(0.9, 1.1))
+	play_sound_at("engine:hurt", p.get_eye_position(), 1.0, randf_range(0.9, 1.1), 0, realm_of(p).id)
 	broadcast_player_event(p, Entities.Event.HURT)
 	if p.health <= 0.0:
 		kill_player(p, cause, attacker)
@@ -2676,7 +2676,7 @@ func kill_player(p: ServerPlayer, cause: String, attacker) -> void:
 		p.sync_inventory()
 	sync_health(p)
 	broadcast_player_event(p, Entities.Event.DEATH)
-	play_sound_at("engine:death", p.get_eye_position())
+	play_sound_at("engine:death", p.get_eye_position(), 1.0, 1.0, 0, realm_of(p).id)
 	# Tell the player what happened to them and to their things, in that order. "You died!" on its own
 	# leaves a child wondering what they did wrong and whether they have lost everything.
 	var reasons := {"fall": "You landed hard", "void": "You dropped off the edge of the world",
@@ -2713,8 +2713,9 @@ func on_respawn(peer_id: int) -> void:
 func broadcast_player_event(p: ServerPlayer, kind: int) -> void:
 	if not _started:
 		return
+	var here := realm_of(p).id
 	for other: ServerPlayer in players.values():
-		if other != p:
+		if other != p and realm_of(other).id == here:
 			Net.s_player_event.rpc_id(other.peer_id, p.peer_id, kind)
 
 
@@ -2722,13 +2723,15 @@ func broadcast_player_event(p: ServerPlayer, kind: int) -> void:
 
 ## Plays a registered sound at a world position for players in range. `exclude` is a peer id that
 ## already played it locally (e.g. the player who broke the block).
-func play_sound_at(sound_name: String, pos: Vector3, volume := 1.0, pitch := 1.0, exclude := 0) -> void:
+func play_sound_at(sound_name: String, pos: Vector3, volume := 1.0, pitch := 1.0, exclude := 0,
+		realm_id := "") -> void:
 	var id := sounds.id_of(sound_name)
 	if id < 0 or not _started:
 		return
 	var reach: float = sounds.defs[id].range
 	for p: ServerPlayer in players.values():
-		if p.peer_id != exclude and p.state.position.distance_to(pos) <= reach:
+		if p.peer_id != exclude and realm_of(p).id == realm_id \
+				and p.state.position.distance_to(pos) <= reach:
 			Net.s_sound.rpc_id(p.peer_id, id, pos, volume, pitch, true)
 
 
@@ -2792,12 +2795,15 @@ func start_effect(effect_name: String, pos: Vector3, options := {}, realm_id := 
 
 
 func stop_effect(handle: int) -> bool:
+	var was: Dictionary = _running_effects.get(handle, {})
 	if not _running_effects.erase(handle):
 		return false
 	if not _started:
 		return true
+	var here := String(was.get("realm", ""))
 	for p: ServerPlayer in players.values():
-		Net.s_effect_stop.rpc_id(p.peer_id, handle)
+		if realm_of(p).id == here:
+			Net.s_effect_stop.rpc_id(p.peer_id, handle)
 	return true
 
 
@@ -2814,7 +2820,8 @@ func _send_running_effects(p: ServerPlayer) -> void:
 			Net.s_effect_start.rpc_id(p.peer_id, handle, running.effect, running.position, running.options)
 
 
-func play_effect(effect_name: String, pos: Vector3, options := {}, exclude := 0) -> void:
+func play_effect(effect_name: String, pos: Vector3, options := {}, exclude := 0,
+		realm_id := "") -> void:
 	var id := effects.id_of(effect_name)
 	if id < 0 or not _started:
 		return
@@ -2826,7 +2833,8 @@ func play_effect(effect_name: String, pos: Vector3, options := {}, exclude := 0)
 		clean.follow_entity = follow.id
 	var reach: float = effects.defs[id].range
 	for p: ServerPlayer in players.values():
-		if p.peer_id != exclude and p.state.position.distance_to(pos) <= reach:
+		if p.peer_id != exclude and realm_of(p).id == realm_id \
+				and p.state.position.distance_to(pos) <= reach:
 			Net.s_effect.rpc_id(p.peer_id, id, pos, clean)
 
 
@@ -3609,8 +3617,11 @@ func tell_assembly_moved(id: int) -> void:
 
 
 func tell_assembly_gone(id: int) -> void:
+	var assembly: Dictionary = assemblies.assemblies.get(id, {})
+	var here := String(assembly.get("realm", ""))
 	for p: ServerPlayer in players.values():
-		Net.s_assembly_gone.rpc_id(p.peer_id, id)
+		if assembly.is_empty() or realm_of(p).id == here:
+			Net.s_assembly_gone.rpc_id(p.peer_id, id)
 
 
 func drive_changed(node: Dictionary, value: float) -> void:
@@ -4196,17 +4207,17 @@ func _death_message(who: String, cause: String, attacker_name: String, attacker_
 ## A find worth noticing: a sparkle where it landed, a sound for whoever found it, and a line in chat so
 ## the rest of the server shares the moment. The sparkle repeats for a little while, so a rare drop in
 ## long grass can still be found. Rarity comes from the table's own weights - nothing is marked by hand.
-func announce_rare_loot(player, item: int, count: int, position: Vector3) -> void:
+func announce_rare_loot(player, item: int, count: int, position: Vector3, realm_id := "") -> void:
 	var display := items.display_name(item)
-	play_effect("engine:sparkle", position + Vector3(0, 0.4, 0), {"scale": 1.4})
-	play_sound_at("engine:discover", position)
+	play_effect("engine:sparkle", position + Vector3(0, 0.4, 0), {"scale": 1.4}, 0, realm_id)
+	play_sound_at("engine:discover", position, 1.0, 1.0, 0, realm_id)
 	if player != null and player._online():
 		player.send_message("✦ You found %s%s!" % ["%d × " % count if count > 1 else "", display])
 		broadcast_chat("✦ %s found %s" % [player.name, display])
 	var left := [5]
 	var marker := [0]
 	marker[0] = schedule(2.5, func():
-		play_effect("engine:sparkle", position + Vector3(0, 0.4, 0), {"scale": 0.7})
+		play_effect("engine:sparkle", position + Vector3(0, 0.4, 0), {"scale": 0.7}, 0, realm_id)
 		left[0] -= 1
 		if left[0] <= 0:
 			cancel_task(marker[0]), 2.5)
@@ -4302,7 +4313,7 @@ func break_block_for(p: ServerPlayer, pos: Vector3i, into: Realm, harvest := tru
 		loot.awarded(loot_table, ev.drops, loot_context)
 	_apply_block(pos, BlockRegistry.AIR, false, 0, into)
 	into.entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 10.0, p)
-	play_sound_at(block_sound(current, "break"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), p.peer_id)
+	play_sound_at(block_sound(current, "break"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), p.peer_id, into.id)
 	if not p.inventory.creative and ev.drops is Array:
 		for drop in ev.drops:
 			if not (drop is Array and drop.size() >= 2 and items.is_valid(int(drop[0]))):
@@ -4358,7 +4369,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 			p.sync_inventory()
 		_apply_block(merge.position, merge.block, true, 0, into)
 		_reject_edit(p, pos)  # the client guessed the cell next door; put it back
-		play_sound_at(block_sound(merge.block, "place"), Vector3(merge.position) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1))
+		play_sound_at(block_sound(merge.block, "place"), Vector3(merge.position) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), 0, into.id)
 		broadcast_player_event(p, Entities.Event.SWING)
 		emit("block_placed", {"player": p, "position": merge.position, "block": merge.block})
 		return
@@ -4390,7 +4401,7 @@ func on_place_block(peer_id: int, pos: Vector3i, yaw: float) -> void:
 	if not str(registry.defs[block].get("station", "")).is_empty():
 		sessions.claim(pos, p)
 	into.entities.ai.make_noise(Vector3(pos) + Vector3.ONE * 0.5, 8.0, p)
-	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id)
+	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 1.0, randf_range(0.85, 1.1), peer_id, into.id)
 	broadcast_player_event(p, Entities.Event.SWING)
 	emit("block_placed", {"player": p, "position": pos, "block": block})
 
@@ -4424,7 +4435,7 @@ func place_block_for(p: ServerPlayer, pos: Vector3i, block: int, into: Realm) ->
 	if not p.inventory.creative:
 		p.inventory.remove(_item_for_block(block), 1)
 	_apply_block(pos, block, false, 0, into)
-	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 0.7, randf_range(0.85, 1.1))
+	play_sound_at(block_sound(block, "place"), Vector3(pos) + Vector3.ONE * 0.5, 0.7, randf_range(0.85, 1.1), 0, into.id)
 	emit("block_placed", {"player": p, "position": pos, "block": block})
 	return true
 
@@ -4445,7 +4456,8 @@ func on_interact(peer_id: int, pos: Vector3i) -> void:
 		return
 	if not _may(p, "interact", "You can't use that here"):
 		return
-	var ev := emit("block_interact", {"player": p, "position": pos, "block": block, "cancelled": false})
+	var ev := emit("block_interact", {"player": p, "position": pos, "block": block,
+		"cancelled": false, "realm": realm_of(p).id})
 	if ev.cancelled:
 		return
 	if sleep.is_bed(block):
@@ -4528,7 +4540,7 @@ func on_use_item(peer_id: int, has_target: bool, target: Vector3i, normal: Vecto
 	var use_effect := String(items.visuals(item, p.inventory.data[p.inventory.selected]).effects.get("use", ""))
 	if not use_effect.is_empty():
 		var look_dir := PlayerPhysics.look_direction(p.yaw, p.pitch)
-		play_effect(use_effect, p.get_eye_position() + look_dir * 0.8, {"direction": look_dir})
+		play_effect(use_effect, p.get_eye_position() + look_dir * 0.8, {"direction": look_dir}, 0, realm_of(p).id)
 	emit("item_use", {"player": p, "item": item, "has_target": has_target, "position": target,
 		"normal": normal.clamp(-Vector3i.ONE, Vector3i.ONE), "direction": PlayerPhysics.look_direction(p.yaw, p.pitch)})
 
@@ -4775,12 +4787,12 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 		"item": item, "slot": p.inventory.selected, "damage": damage, "critical": critical, "cancelled": false})
 	if ev.cancelled:
 		return
-	play_sound_at("engine:swing", eye, 0.7, randf_range(0.9, 1.1), peer_id)
+	play_sound_at("engine:swing", eye, 0.7, randf_range(0.9, 1.1), peer_id, here.id)
 	broadcast_player_event(p, Entities.Event.SWING)
 	var look := items.visuals(item, p.inventory.data[p.inventory.selected]) if item >= ItemRegistry.FIRST_ITEM else {"effects": {}}
 	var direction3 := PlayerPhysics.look_direction(p.yaw, p.pitch)
 	if look.effects.has("swing"):
-		play_effect(look.effects.swing, eye + direction3 * 0.9, {"direction": direction3})
+		play_effect(look.effects.swing, eye + direction3 * 0.9, {"direction": direction3}, 0, here.id)
 	here.entities.ai.make_noise(eye, 14.0, p, true)
 	var direction := PlayerPhysics.look_direction(p.yaw, 0.0)
 	var landed := false
@@ -4800,9 +4812,9 @@ func on_attack(peer_id: int, kind: int, target_id: int) -> void:
 			here.entities.taming.owner_attacked(p, target)
 	if landed:
 		var impact := eye.clamp(box.position, box.end).lerp(center, 0.5)
-		play_effect(String(look.effects.get("hit", "engine:hit")), impact, {"direction": -direction3})
+		play_effect(String(look.effects.get("hit", "engine:hit")), impact, {"direction": -direction3}, 0, here.id)
 		if critical:
-			play_effect("engine:crit", impact + Vector3(0, 0.3, 0))
+			play_effect("engine:crit", impact + Vector3(0, 0.3, 0), {}, 0, here.id)
 	var item_data: Dictionary = p.inventory.data[p.inventory.selected]
 	if landed and items.max_durability(item, item_data) > 0:
 		damage_item(p, p.inventory.selected, 1 if not items.weapon_of(item, item_data).is_empty() else 2, "attack")
@@ -4901,7 +4913,7 @@ func on_drop_item(peer_id: int, whole_stack: bool) -> void:
 		p.inventory.set_slot(slot, id, count - n, item_data)
 		p.sync_inventory()
 	p.drop(id, n, item_data)
-	play_sound_at("engine:drop", p.get_eye_position(), 0.6)
+	play_sound_at("engine:drop", p.get_eye_position(), 0.6, 1.0, 0, realm_of(p).id)
 
 
 func _slot_accepts(slot_index: int, id: int, p: ServerPlayer) -> bool:
@@ -4919,7 +4931,7 @@ func _equip_from_hand(p: ServerPlayer) -> void:
 	var worn := [p.inventory.ids[index], p.inventory.counts[index], p.inventory.data[index]]
 	p.inventory.set_slot(index, id, 1, p.inventory.data[hand])
 	p.inventory.set_slot(hand, worn[0], worn[1], worn[2])
-	play_sound_at("engine:equip", p.get_eye_position(), 0.8)
+	play_sound_at("engine:equip", p.get_eye_position(), 0.8, 1.0, 0, realm_of(p).id)
 	p.sync_inventory()
 
 
@@ -4954,8 +4966,10 @@ func _stop_mining(p: ServerPlayer) -> void:
 func _broadcast_mining(p: ServerPlayer, pos: Vector3i, seconds: float) -> void:
 	if not _started:
 		return
+	var here := realm_of(p).id
 	for other: ServerPlayer in players.values():
-		if other != p and other.state.position.distance_to(Vector3(pos)) < 32.0:
+		if other != p and realm_of(other).id == here \
+				and other.state.position.distance_to(Vector3(pos)) < 32.0:
 			Net.s_mining.rpc_id(other.peer_id, p.peer_id, pos, seconds)
 
 
@@ -4976,8 +4990,8 @@ func damage_item(p: ServerPlayer, slot: int, amount: int, reason := "use") -> vo
 	if item_data.damage >= max_durability:
 		p.inventory.clear_slot(slot)
 		emit("item_break", {"player": p, "slot": slot, "item": id, "data": item_data})
-		play_sound_at("engine:item_break", p.get_eye_position())
-		play_effect(String(items.visuals(id, item_data).effects.get("break", "engine:smoke")), p.get_eye_position() + PlayerPhysics.look_direction(p.yaw, p.pitch) * 0.6, {"scale": 0.4})
+		play_sound_at("engine:item_break", p.get_eye_position(), 1.0, 1.0, 0, realm_of(p).id)
+		play_effect(String(items.visuals(id, item_data).effects.get("break", "engine:smoke")), p.get_eye_position() + PlayerPhysics.look_direction(p.yaw, p.pitch) * 0.6, {"scale": 0.4}, 0, realm_of(p).id)
 		p.send_message("Your %s broke" % items.display_name(id))
 	else:
 		p.inventory.data[slot] = item_data
@@ -5652,7 +5666,7 @@ func _read_blueprint(p: ServerPlayer, teaches: Array) -> void:
 		p.inventory.consume_selected()
 		p.sync_inventory()
 	play_sound_to(p, "engine:discover")
-	play_effect("engine:sparkle", p.get_eye_position() + PlayerPhysics.look_direction(p.yaw, p.pitch) * 0.6, {"scale": 0.6, "color": "#a8d8ff"})
+	play_effect("engine:sparkle", p.get_eye_position() + PlayerPhysics.look_direction(p.yaw, p.pitch) * 0.6, {"scale": 0.6, "color": "#a8d8ff"}, 0, realm_of(p).id)
 
 
 ## Opens the crafting screen for a player: by hand ({}) or at a station {name, position, title}.
@@ -5726,8 +5740,8 @@ func craft(p: ServerPlayer, index: int, times := 1) -> int:
 	emit("item_crafted", {"player": p, "item": recipe.output, "count": total, "recipe": recipe.id})
 	var at: Vector3 = Vector3(p.crafting_station.position) + Vector3(0.5, 1.1, 0.5) if _station_valid(p) \
 		else p.get_eye_position() + PlayerPhysics.look_direction(p.yaw, p.pitch) * 0.7
-	play_effect("engine:craft", at, {"scale": 0.6})
-	play_sound_at("engine:craft", at, 0.8, randf_range(0.95, 1.1))
+	play_effect("engine:craft", at, {"scale": 0.6}, 0, realm_of(p).id)
+	play_sound_at("engine:craft", at, 0.8, randf_range(0.95, 1.1), 0, realm_of(p).id)
 	if p._online():
 		Net.s_crafted.rpc_id(p.peer_id, index, n, crafting_stock(p))
 	return n
@@ -5780,10 +5794,10 @@ func give_crafted(p: ServerPlayer, item: int, count: int, item_data: Dictionary,
 	p.sync_inventory()
 	var at: Vector3 = Vector3(p.crafting_station.position) + Vector3(0.5, 1.1, 0.5) if _station_valid(p) else p.get_eye_position()
 	if forged:
-		play_effect("engine:crit", at, {"scale": 0.7, "color": "#ffd88a"})
+		play_effect("engine:crit", at, {"scale": 0.7, "color": "#ffd88a"}, 0, realm_of(p).id)
 	else:
-		play_effect("engine:craft", at, {"scale": 0.6})
-	play_sound_at("engine:craft", at, 1.0, 0.85 if forged else 1.0)
+		play_effect("engine:craft", at, {"scale": 0.6}, 0, realm_of(p).id)
+	play_sound_at("engine:craft", at, 1.0, 0.85 if forged else 1.0, 0, realm_of(p).id)
 	if p._online():
 		Net.s_crafting_stock.rpc_id(p.peer_id, crafting_stock(p))
 
@@ -6253,7 +6267,8 @@ func break_block(pos: Vector3i, drop := true, into: Realm = null, sound := true)
 	var ev := emit("block_destroyed", {"position": pos, "block": block, "drops": drops, "realm": into.id})
 	_apply_block(pos, BlockRegistry.AIR, false, 0, into)
 	if sound:
-		play_sound_at(block_sound(block, "break"), Vector3(pos) + Vector3.ONE * 0.5, 0.8, randf_range(0.9, 1.1))
+		play_sound_at(block_sound(block, "break"), Vector3(pos) + Vector3.ONE * 0.5, 0.8,
+			randf_range(0.9, 1.1), 0, into.id)
 	for d in (ev.drops if ev.drops is Array else []):
 		if d is Array and d.size() == 2 and items.is_valid(int(d[0])) and int(d[1]) > 0:
 			into.entities.drop_item(int(d[0]), int(d[1]), Vector3(pos) + Vector3(0.5, 0.3, 0.5),

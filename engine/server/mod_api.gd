@@ -540,8 +540,8 @@ func place_structure_in(template_name: String, at: Vector3i, realm_id := "", rot
 ## (Vector3), duration (seconds for continuous emitters), follow (an entity or player it moves with).
 ## Built in: engine:hit, engine:crit, engine:smoke, engine:sparkle, engine:magic, engine:heal,
 ## engine:dust, engine:explosion.
-func play_effect(effect_name: String, position: Vector3, options := {}) -> void:
-	_server.play_effect(_qualify_ref(effect_name), position, options)
+func play_effect(effect_name: String, position: Vector3, options := {}, realm_id := "") -> void:
+	_server.play_effect(_qualify_ref(effect_name), position, options, 0, _qualify_ref(realm_id))
 
 
 ## Makes blocks of a type change over time. `handler(ctx)` gets {position, block, state, ticks, reason,
@@ -601,8 +601,9 @@ func break_block(position: Vector3i, drop := true, realm_id := "") -> void:
 
 
 ## Plays a sound at a world position for everyone in range.
-func play_sound(sound_name: String, position: Vector3, volume := 1.0, pitch := 1.0) -> void:
-	_server.play_sound_at(_qualify_ref(sound_name), position, volume, pitch)
+func play_sound(sound_name: String, position: Vector3, volume := 1.0, pitch := 1.0,
+		realm_id := "") -> void:
+	_server.play_sound_at(_qualify_ref(sound_name), position, volume, pitch, 0, _qualify_ref(realm_id))
 
 
 ## Entity type id by name ("vanilla:zombie", or a local name). -1 if unknown.
