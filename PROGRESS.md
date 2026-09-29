@@ -9390,3 +9390,28 @@ an installer should not have to.
 **One bug found on the way**, and found before it bit: `publish_site.sh` collected release assets with
 `-name '*.zip' -o -name '*.dmg'`. An `.exe` would never have been uploaded, and the page's own link
 check would then have aborted the release. The right outcome, reached for the wrong reason.
+
+
+## Enforcing "check the index before you write" (parked, 29 September 2026)
+
+The rule to search the generated reference before writing a reader has been in CLAUDE.md since 19
+September and the file itself records that it was broken anyway. The project's own answer to that
+pattern has always been a ratchet rather than a sterner sentence - `unbound.txt`, `owned.txt`,
+`uncovered.txt` - so the fix should be a check that fails, not a reminder.
+
+**The shape that would work:** a test that scans every `api.<name>(` call in `mods/` and `tests/mods/`
+and asserts the name exists on `ModApi`. That converts "remember to check" into "the suite fails if you
+invented a name", and it would have caught `api.log_warn`, `api.now()` and `api.send_to_realm_ready()` -
+three invented names from this session alone.
+
+**Prototyped and not finished.** Run as `godot -s tools/probe.gd`, `load()` on `mod_api.gd` fails to
+compile ("Identifier not found: Net") because script mode has no autoloads, so
+`get_script_method_list()` returned 110 of roughly 260 names and 102 of the 1,007 call sites looked
+unknown when almost all were real. The approach is sound; it needs a scene context like
+`mod_tool.tscn`, which is how every other tool here gets a working project.
+
+**What it would not catch**, and this is the honest half: most mistakes this session were *shape*
+errors, not *existence* errors - `explode` wanting a Realm where a String was passed, a region's `lo`
+and `hi` read as `from` and `to`, a command handler declared `Array` when it is handed a
+`PackedStringArray`. A name check finds none of those. It is worth building because the existence
+errors are frequent and free to catch, not because it solves the discipline problem.
