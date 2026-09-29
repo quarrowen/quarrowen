@@ -411,3 +411,60 @@ address, and nothing in the client discovers that. A hostname or an IPv6 address
 to empty and the deploy example points at loopback, so the browser lists nothing until somebody runs a
 hub and everybody types its URL into Settings. For a few friends, the address field and invite codes are
 less work.
+
+
+## Keeping the keys safe when CI does the signing
+
+Asked directly (the user, 29 September 2026) before turning `SIGN_IN_CI` on: can the certificate or the
+notarisation key leak? Here is the honest state of it, audited rather than asserted.
+
+### What is already right
+
+- **No `pull_request_target` anywhere.** That is the trigger that hands secrets to code from a fork, and
+  it is the usual way this goes wrong. Ordinary `pull_request` runs from a fork get no secrets at all.
+- **The release job runs only on a tag** (`startsWith(github.ref, 'refs/tags/v')`), and pushing a tag
+  needs write access.
+- **Secrets reach the scripts as environment variables, never as arguments**, so they are not visible in
+  `ps` on the runner.
+- **The certificate lives in a keychain of its own** with a random password, created for the run and
+  deleted in a step that runs `if: always()`. The `.p12` is removed the moment it has been imported.
+- **`umask 077`** before the notarisation key and the release key are written, and both are deleted in
+  the same cleanup step.
+- **The job's token is scoped** (`permissions: contents: write`) rather than inheriting everything, and
+  it is the run's own `GITHUB_TOKEN` rather than a personal token.
+- The runner is GitHub-hosted, so the machine is destroyed afterwards. **This would not be true on a
+  self-hosted runner**, where `$RUNNER_TEMP` survives between jobs.
+
+### The three things to do, in order
+
+1. **Put the six secrets in the `release` *environment*, not in the repository.** This is the important
+   one and it is free, because none of them exist yet. A *repository* secret is readable by any job in
+   any workflow on any branch - so anybody who can open a branch could add a workflow step that prints
+   it (GitHub masks known secret values in logs, but masking is defeated by anything that transforms
+   the value first). An *environment* secret is only handed to a job that names that environment, and
+   that job waits for the environment's approval. Create them under
+   Settings → Environments → release → Environment secrets.
+2. **Add yourself as a required reviewer on the `release` environment.** Verified on 29 September 2026:
+   it has **no protection rules at all**. `ci.yml` says this in its own header - *"naming an
+   `environment:` does NOT by itself gate anything"* - and it is still true. Without a reviewer, setting
+   `SIGN_IN_CI=true` means every tag signs, notarises and publishes to the live site unattended.
+3. **Only then set `SIGN_IN_CI` to `true`.** In that order: secrets in the environment, reviewer on the
+   environment, switch last. Any other order has a window in which a tag publishes on its own.
+
+### Two smaller ones
+
+- **Actions in the release job are pinned to commit SHAs** (done, 29 September 2026). A tag like `@v4`
+  is mutable, and whatever it points at runs beside the certificate. The other jobs still use tags,
+  which is a reasonable trade: there a moved tag costs a failed build, not a key.
+- **Rotation is cheap and worth knowing before it is needed.** Replacing a secret is the whole
+  procedure; the release keys the *client* trusts are a separate thing (`updater.gd`'s `RELEASE_KEYS`),
+  and rotating one of those means shipping a build that trusts both and only then signing with the new
+  one.
+
+### What this does not protect against
+
+Anyone with write access to the repository can push a tag whose own `ci.yml` prints the secrets. That is
+inherent to putting keys in CI - the workflow that uses them is the workflow the tag carries. The
+required reviewer is the control that matters, because the approval happens *after* the workflow file is
+visible and before the secrets are handed over. Keep the write list short, and read what a tag changed
+before approving its deployment.
