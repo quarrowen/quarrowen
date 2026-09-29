@@ -16,7 +16,8 @@ commercial use needs a separate one. Worth knowing before you build a business o
 
 ## What do I need to run it?
 
-A Mac with Apple silicon. It is signed and notarized, so it opens by double-clicking with no security
+Any Mac - the download is a universal build, so Intel and Apple silicon both run it. It is signed and
+notarized, so it opens by double-clicking with no security
 detour.
 
 There is a **Windows** build too, linked from the download page. It is unsigned, so Windows asks before

@@ -424,7 +424,7 @@ cat > "$out/index.html" <<EOF
       <a class="btn" href="$dmg_url">Download for Mac <small>$version · $(human "$out/$files/$download_name")</small></a>
       <a class="btn ghost" href="/docs/">Read the reference</a>
     </div>
-    <p class="under">Apple silicon · signed and notarized · updates itself · $notes</p>
+    <p class="under">Intel and Apple silicon · signed and notarized · updates itself · $notes</p>
     $win_button
   </div>
 </div>

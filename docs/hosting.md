@@ -7,7 +7,7 @@
 > every capability the engine has and is the best worked example there is.
 
 A family setup: the server runs in Docker on a home Linux machine, and everyone plays from their own Mac
-(Apple silicon) on the same home network.
+(Intel or Apple silicon - the download is universal) on the same home network.
 
 - [1. The server (Ubuntu + Docker)](#1-the-server-ubuntu--docker)
 - [2. The Macs](#2-the-macs)
