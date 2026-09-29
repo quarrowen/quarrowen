@@ -9455,3 +9455,88 @@ lines of prose to rename a world would bury the thing the page is actually teach
 - **Analytics stays off.** If Cloudflare Web Analytics is ever added, the "no telemetry, no analytics"
   line in the fact box on the landing page and the same claim in `docs/security.md` both have to change
   in that commit. Two places, and the page is the one people read.
+
+
+## The road to 1.0, split from 1.1 (29 September 2026, the user's call)
+
+**1.0 is a reset. Full wipe, fresh start** - the user, 29 September 2026: *"i actually really want 1.0
+to be a reset. full wipe n fresh. no one has the game yet for the last few weeks."* Worlds, saves and
+`Protocol.VERSION` all start again. This is the one moment it is free, and the list below is arranged
+around that: **what goes in 1.0 is what a reset or a freeze makes expensive later.** Everything a
+running game can gain without disturbing a saved world goes to 1.1.
+
+The line, stated once so it can be applied rather than re-argued:
+
+- **1.0** - touches the save format, the wire, or the world's shape; or a player meets it in their first
+  evening; or it is one of the four readiness criteria the user set on 19 September.
+- **1.1 and after** - content depth, new platforms, and polish. All of it lands on a frozen format
+  without a migration.
+
+### Done first, because the reset needs it
+
+**The protocol number may now reset safely.** `net.gd` decided which side was out of date by comparing
+`protocol < Protocol.VERSION`. Reset the protocol to 1 and that sentence tells a 0.42.x client (protocol
+60) that a 1.0 server (protocol 1) is the one needing an update - confidently, and backwards. The
+handshake has carried `game_version` since it was written and nobody read it; it now does, through
+`Semver.compare`, and the protocol is what it always should have been: **an equality token with no
+ordering meaning at all.** So the reset at 1.0 is safe, and so is the next one.
+
+It only blames the server when the client is *provably* newer. Equal versions on different protocols
+cannot be told apart, and the person reading the message is the player, for whom "update your client"
+is the one action available.
+
+### 1.0
+
+**Realms, finished.** The largest item by far and the reason it cannot wait: the 28 September audit
+found about seventy realm-blind sites, not the four that were recorded, and several of them are
+*shaped like data*. `station_sessions` keys on a bare `Vector3i`, so two realms' stations at one
+coordinate are one session; entity ids are per-realm and restart at 1. Those are not bugs to fix later,
+they are a world format to get right before it is frozen. `play_sound_at` and `play_effect` have no
+realm filter at all across 56 call sites, which is also what blocks the descent having any sound.
+
+**The save format, made a promise rather than a habit.** Refuse an old world clearly instead of
+half-loading it, add the fixture, and say in the release notes that 1.0 resets. After this, migrations
+start being owed.
+
+**What a player meets in the first evening.**
+
+- The one-second frame stall. It has had theories and needs a profiler.
+- Geometry meshed (434 ms) and then not drawn for several seconds on realm entry.
+- Tree canopies are walk-through: model-block collision is one cell, and `base` has trees now.
+- The touch walk/look divider bug in `touch_controls.gd:310` - a bug on every device, not a phone one.
+- Firstlight's descent is either finished or taken out. Half-in is the one option that is not honest:
+  it needs the run marked in the interface, a boss, sound, and the harsh-mode gate.
+
+**Shipping, now that builds go to people.** The Windows installer has never been run on Windows, and
+neither has the Windows self-update. Both are between a friend and playing.
+
+**The four readiness criteria** (`PROGRESS.md`, 19 September), which were always the real definition:
+capabilities the bundled games need are in; the survival game is deep enough to hold a player for a
+season; the format has settled enough that freezing it is not painful; and **somebody other than its
+author has run a server on it.** The last one has never happened once. A real human playthrough of
+Firstlight - one evening - belongs here too.
+
+**Network instrumentation**, because it is diagnosis rather than a rewrite, it is cheap, and the
+unexplained `Buffer full, dropping packets!` on a realm switch is still unexplained.
+
+### 1.1 and after
+
+Everything here lands on a frozen format without a migration, which is precisely why it waits.
+
+- **Chunk compression and interest management.** Both rewrite the streaming path. They are wire changes,
+  and a wire change after 1.0 costs a protocol bump and nothing else.
+- **Android**, entirely: no export preset, no keystore, never run on hardware. **iOS TestFlight** and
+  provisioning beyond one registered device. Neither platform is in CI.
+- **The seven remaining phone layout fixes.** The eighth is in 1.0 because it is a real bug everywhere.
+- **Content depth**: villages (every capability exists, no content written), the 25 creature voices,
+  real music in place of the placeholders, the Fairground's score boards and more games, charms and
+  trinkets, guide pages for the newer ores, the eating animation.
+- **Accessibility**: gamepad bindings, colour-blind palettes, subtitles. Listed here because none of it
+  is started, not because it ranks below a creature voice.
+- **The rest**: fences joining their neighbours (16 block ids), assemblies solid while moving and able
+  to rotate, a Lua runtime, invite links, the radial menu, the HUD redesign.
+
+### Not moving
+
+`Protocol.VERSION` stays at 60 through 0.4x and resets to 1 when 1.0 is cut. The list of things
+deliberately rejected is unchanged and is not re-opened by this split.

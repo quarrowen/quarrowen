@@ -389,6 +389,14 @@ refused at the door with a readable message rather than shaking hands and talkin
 bump it whenever the wire changes, and **re-cut every build together** rather than expecting people to
 have matching versions by luck.
 
+**The number is an equality token and carries no ordering.** That is what makes the reset safe, and it
+was not true until 29 September 2026: `net.gd` chose between "update your client" and "the server needs
+updating" by comparing `protocol < Protocol.VERSION`, so a reset to 1 would have told every 0.42.x
+client (protocol 60) that a 1.0 server was the one out of date - confidently, and backwards. Which side
+is older now comes from `game_version`, which the handshake had carried all along without anybody
+reading it, compared with `Semver.compare`. **Never reintroduce an ordered comparison on the protocol
+number**; the release string is the thing that is ordered.
+
 The older reason — that the children were playing 0.41.1 and would be auto-updated into a protocol the
 family server did not speak — **no longer applies**, and believing it made protocol bumps feel more
 dangerous than they are. The user, 2026-09-22: *"kids are not playing quarrowen currently. they wont be

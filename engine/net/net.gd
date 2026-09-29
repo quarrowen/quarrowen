@@ -12,6 +12,8 @@ extends Node
 ##   c_request_assets(missing hashes) -> s_asset_piece(...)*
 ##   c_ready() -> s_welcome, s_inventory, s_chunk*, s_snapshot* ...
 
+const Semver = preload("res://engine/shared/semver.gd")
+
 const MOVEMENT_CHANNEL := 1
 ## Chunk data has its own reliable channel so a burst of terrain does not hold up chat, block changes, UI and
 ## effects behind it (ENet delivers each channel in order independently). Clients buffer block changes for
@@ -148,10 +150,19 @@ func _on_auth_message(peer_id: int, data: PackedByteArray) -> void:
 	if multiplayer.is_server():
 		var protocol := int(message.get("protocol", -1))
 		if protocol != Protocol.VERSION:
-			var newer := protocol < Protocol.VERSION
+			# **Which side is older comes from the release, never from the protocol number.** The
+			# protocol is an equality token and nothing more: it resets to 1 at 1.0, so comparing it
+			# with `<` would tell a 0.42.x client (protocol 60) that a 1.0 server (protocol 1) was the
+			# one needing an update - confidently, and backwards. The handshake has carried
+			# `game_version` since it was written; it just was not being read. (2026-09-29)
+			# Only blame the server when the client is *provably* newer. Equal versions on different
+			# protocols, or a version that will not parse, mean we cannot tell - and the person reading
+			# this is the player, for whom "update your client" is the one action available.
+			var theirs := str(message.get("game_version", ""))
+			var older := not (Semver.is_valid(theirs) and Semver.compare(theirs, Protocol.GAME_VERSION) > 0)
 			var reason := "This server runs %s version %s (protocol %d). %s" % [
 				Protocol.GAME_NAME, Protocol.GAME_VERSION, Protocol.VERSION,
-				"Please update your client." if newer else "The server needs updating to support your newer client."]
+				"Please update your client." if older else "The server needs updating to support your newer client."]
 			scene_multiplayer.send_auth(peer_id, JSON.stringify({"ok": false, "reason": reason}).to_utf8_buffer())
 			# Give the refusal time to arrive before dropping the peer.
 			get_tree().create_timer(0.5).timeout.connect(func():
