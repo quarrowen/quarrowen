@@ -110,8 +110,8 @@ func _where(p, entry: Dictionary) -> Vector3:
 			return Vector3.INF
 	if entry.sky != null and bool(entry.sky) != _sees_sky(cell, into):
 		return Vector3.INF
-	if entry.biome != null and _server.biome_generator != null:
-		var here: String = _server.biome_generator.biome_at(cell.x, cell.z)
+	if entry.biome != null and into.biome_generator != null:
+		var here: String = into.biome_generator.biome_at(cell.x, cell.z)
 		var want = entry.biome
 		var ok: bool = (want is Array and (want as Array).map(func(b): return str(b)).has(here)) or str(want) == here
 		if not ok:

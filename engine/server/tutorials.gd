@@ -479,7 +479,9 @@ func _poll_met(goal: Dictionary, p) -> bool:
 			var at = goal.get("position")
 			return at is Array and at.size() == 3 and pos.distance_to(Vector3(at[0], at[1], at[2])) <= float(goal.get("radius", 3.0))
 		"biome":
-			return _server.biome_generator != null and _name_matches(goal.get("target", []), _server.biome_generator.biome_at(floori(pos.x), floori(pos.z)))
+			var gen = _server.realm_of(p).biome_generator
+			return gen != null and _name_matches(goal.get("target", []),
+				gen.biome_at(floori(pos.x), floori(pos.z)))
 		"hunger_below":
 			return bool(_server.gameplay_of(p).get("hunger", true)) and not p.inventory.creative and p.hunger < float(goal.get("value", 6))
 		"health_below":

@@ -236,7 +236,8 @@ func _fill_personal(container, store: Dictionary, table: String, player) -> void
 	looted[player.player_id] = true
 	store.looted = looted
 	var stacks := roll(table, {"seed": hash([int(store.get("structure_seed", 0)), player.player_id]),
-		"player": player, "position": container.position, "source": "container"})
+		"player": player, "position": container.position, "source": "container",
+		"realm": _server.realm_of(player).id})
 	var names := []
 	for stack in stacks:
 		player.give(stack[0], stack[1], stack[2])  # a full pack drops the rest at their feet
@@ -490,10 +491,18 @@ func _tool_matches(tool_id: int, want) -> bool:
 
 
 func _biome_at(ctx: Dictionary) -> String:
-	if not ctx.has("position") or _server.biome_generator == null:
+	if not ctx.has("position"):
+		return ""
+	# The realm if the caller named one, otherwise the player's; a `biome` condition read against the
+	# overworld gives a dungeon chest the loot of whatever is on the surface above it. (2026-09-29)
+	var into = _server.realms.get(String(ctx.get("realm", "")))
+	if into == null and ctx.get("player") != null:
+		into = _server.realm_of(ctx.player)
+	var gen = into.biome_generator if into != null else _server.biome_generator
+	if gen == null:
 		return ""
 	var pos: Vector3 = ctx.position
-	return str(_server.biome_generator.biome_at(int(pos.x), int(pos.z)))
+	return str(gen.biome_at(int(pos.x), int(pos.z)))
 
 
 ## True the first time this player gets loot from this table (the reward for meeting something new).

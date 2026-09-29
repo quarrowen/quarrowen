@@ -9719,3 +9719,26 @@ Genuinely fixed here:
   transfer has no realm to offer, which is exactly when it would need this.
 - **`add_spawn_rule`** put every rule in the overworld. A rule added for a dungeon populated the
   surface, and an arena meant to be empty got the overworld's.
+
+
+## Realms: the biome readers, and the map's spawn marker (29 September 2026)
+
+Every realm carries its own `biome_generator`; `_server.biome_generator` is the overworld's, and four
+things read it with a position or a player in hand.
+
+- **Loot's `biome` condition** gave a dungeon chest the loot table of whatever biome sat on the surface
+  above it. It now takes the realm from the context when one is named and from the player otherwise,
+  and the container roll passes the player's.
+- **The guide's discoveries** recorded what stood at the player's coordinates *in the overworld* -
+  both the biomes seen and the creatures, since `in_radius` was the overworld's `Entities` too. A
+  player could unlock a page about something in a room they had never been in.
+- **Ambience** had `var into = _server.realm_of(p)` on the line above the bug, with the comment "what
+  they can hear is what is around them, in their own world", and then asked the overworld's generator
+  anyway. The third time this week the correct idiom was already in scope at the broken line.
+- **Tutorial `biome` goals** the same, with the player to hand.
+
+**The map drew the overworld's spawn point on every realm's map.** `_default_spawn()` took no realm
+and read `world` directly, so the marker every player navigated by was at the overworld's surface
+height wherever they were.
+
+That is the audit's list finished apart from the dev tools and commands, which are next.

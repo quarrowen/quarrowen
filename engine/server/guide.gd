@@ -147,9 +147,12 @@ func update(delta: float) -> void:
 		if p.dead:
 			continue
 		var s := state_of(p)
-		for e in _server.entities.in_radius(p.state.position, SEE_RADIUS):
+		# What a player has seen is what was in the room with them, not what stands at the same
+		# coordinates in the overworld. (2026-09-29)
+		var into = _server.realm_of(p)
+		for e in into.entities.in_radius(p.state.position, SEE_RADIUS):
 			if e.def.kind == "mob" and e.is_alive():
 				s.entities[e.def.name] = true
-		if _server.biome_generator != null:
-			s.biomes[_server.biome_generator.biome_at(floori(p.state.position.x), floori(p.state.position.z))] = true
+		if into.biome_generator != null:
+			s.biomes[into.biome_generator.biome_at(floori(p.state.position.x), floori(p.state.position.z))] = true
 		refresh(p)

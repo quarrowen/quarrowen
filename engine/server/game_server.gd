@@ -3426,10 +3426,11 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 	tutorials.on_join(p)  # after mods pick the game mode
 
 
-func _default_spawn() -> Vector3:
-	_ensure_chunk(Vector2i.ZERO)
+func _default_spawn(into: Realm = null) -> Vector3:
+	into = into if into != null else realm
+	_ensure_chunk(Vector2i.ZERO, into)
 	for y in range(Chunk.SIZE_Y - 1, 0, -1):
-		if world.get_block(8, y, 8) != BlockRegistry.AIR:
+		if into.world.get_block(8, y, 8) != BlockRegistry.AIR:
 			return Vector3(8.5, y + 1, 8.5)
 	return Vector3(8.5, 64, 8.5)
 
@@ -5303,7 +5304,8 @@ func on_map(peer_id: int) -> void:
 			continue
 		markers.append({"id": id, "label": marker.get("label", id), "position": marker.get("position", Vector3.ZERO),
 			"color": marker.get("color", "#ffd166")})
-	Net.s_map.rpc_id(peer_id, {"players": people, "markers": markers, "spawn": _default_spawn(), "dimension": here})
+	Net.s_map.rpc_id(peer_id, {"players": people, "markers": markers,
+		"spawn": _default_spawn(realm_of(p)), "dimension": here})
 
 
 ## The worlds panel: the servers this one is linked to (network.json), and travel.
