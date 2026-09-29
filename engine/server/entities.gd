@@ -59,7 +59,6 @@ var taming
 ## The realm these creatures are in.
 var realm
 var _server
-var _next_id := 1
 var _round := 0
 var _merge_timer := 0.0
 var _spawn_slot := 0
@@ -83,8 +82,7 @@ func _init(server, home = null) -> void:
 func spawn(type_id: int, pos: Vector3, options := {}) -> Entity:
 	if not registry.is_valid(type_id) or entities.size() >= MAX_ENTITIES or not is_finite(pos.length_squared()):
 		return null
-	var e := Entity.new(self, _next_id, registry.defs[type_id])
-	_next_id += 1
+	var e := Entity.new(self, _server.next_entity_id(), registry.defs[type_id])
 	e.body.position = pos
 	e.body.velocity = options.get("velocity", Vector3.ZERO)
 	e.yaw = float(options.get("yaw", randf() * TAU))

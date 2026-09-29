@@ -3508,7 +3508,7 @@ GDScript: `spawn(type_id: int, pos: Vector3, options := {}) -> Entity`
 
 options: yaw, velocity (Vector3), data (Dictionary), owner, item (id), count, pickup_delay
 
-**See also:** `arrived`, `attach`, `ensure`
+**See also:** `arrived`, `attach`, `ensure`, `next_entity_id`
 
 ### `drop_item`
 
@@ -11652,6 +11652,19 @@ dropping the reference is most of the job. What is not automatic is the simulate
 rebuilt from players, and anything holding the realm id.
 
 **See also:** `is_overworld`
+
+### `next_entity_id`
+
+*server/game_server.gd*
+
+GDScript: `next_entity_id() -> int`
+
+**One counter for every realm.** Each realm has its own `Entities`, and each used to number from 1,
+so entity 7 existed in every world at once. Nothing client-facing carries a realm beside the id -
+`known_entities`, the entity events keyed off it, the boss bar - so a mob in a dungeon and a sheep
+on the surface were the same entity to anything that looked only at the number. Ids are runtime
+only (a saved creature is re-spawned and renumbered on load), so this costs the save format
+nothing. (2026-09-29)
 
 ### `send_to_realm`
 

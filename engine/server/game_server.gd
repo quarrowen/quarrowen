@@ -150,6 +150,7 @@ var rules := PlayerPhysics.Rules.new()
 ## The worlds this server is running. "" is the overworld - the one a server has always had, and the
 ## one an old save belongs to. Realms are added by mods before the world loads.
 var realms := {}
+var _next_entity_id := 1
 ## The realm everything without a realm of its own means. Every field below that used to hold the world
 ## directly now reads through it, so the hundred and seventy places that say `world.get_block(...)` did
 ## not all have to change on the same day. They will change as each becomes realm-aware; until then
@@ -3673,6 +3674,17 @@ func remove_realm(realm_id: String) -> bool:
 
 func realm_of(p: ServerPlayer) -> Realm:
 	return realms.get(p.realm_id, realm)
+
+
+## **One counter for every realm.** Each realm has its own `Entities`, and each used to number from 1,
+## so entity 7 existed in every world at once. Nothing client-facing carries a realm beside the id -
+## `known_entities`, the entity events keyed off it, the boss bar - so a mob in a dungeon and a sheep
+## on the surface were the same entity to anything that looked only at the number. Ids are runtime
+## only (a saved creature is re-spawned and renumbered on load), so this costs the save format
+## nothing. (2026-09-29)
+func next_entity_id() -> int:
+	_next_entity_id += 1
+	return _next_entity_id - 1
 
 
 ## Moves a player to another world, standing at `position`. Portals, the command and the mod API all

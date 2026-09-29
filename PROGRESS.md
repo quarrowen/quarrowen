@@ -9648,3 +9648,26 @@ minigame's invitations do not appear at the same coordinate in another world.
 
 **Asserted, not assumed**: two stations at one coordinate in two realms, each keeping its own tray,
 neither reading the other's block data.
+
+
+## Realms: one entity id counter for the whole server (29 September 2026)
+
+The third 1.0 item and the last of the data-shaped ones. Every realm has its own `Entities`, and each
+one numbered from 1, so **entity 7 existed in every world at once**. Nothing client-facing carries a
+realm beside the id - `known_entities`, the entity events keyed off it, the boss bar - so a mob in a
+dungeon and a sheep on the surface were the same entity to anything that looked only at the number.
+`known_entities` is cleared on a realm change, which hid it most of the time and is why this survived
+the first audit as "still collides" rather than as a bug anybody had seen.
+
+**The fix is allocation, not filtering.** One counter on the server, handed out by `next_entity_id()`.
+Filtering `broadcast_entity_event` by realm would have patched the one site the audit named and left
+the class of bug intact for the next thing keyed on an id; making ids unique removes it everywhere at
+once, including in mods, which can hold an id across a transfer and have no realm to check it against.
+
+**It cost the save format nothing**, which is why it could be done now rather than argued about: a
+saved creature is re-spawned through `spawn()` on load and renumbered, so no world on disk carries an
+entity id at all. Checked before changing it rather than after.
+
+The ratchet's allowlist entry for `broadcast_entity_event` said "entity ids are per-realm and still
+collide - tracked for 1.0". It now says they are unique server-wide, which is the entry doing its job:
+it was a marker for this work, and it had to be rewritten to let the suite pass.

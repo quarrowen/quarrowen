@@ -4135,6 +4135,18 @@ func _realms() -> void:
 	server.sessions.mark(bench, "test:deep")
 	_check(server.sessions.view(bench).tray.size() == 1, "a view of one is not a view of the other")
 
+	# **One id counter for every realm.** Each realm has its own Entities and each numbered from 1, so
+	# entity 7 existed in every world at once - and nothing client-facing carries a realm beside the
+	# id, so a mob in a dungeon and a sheep on the surface were one entity to anything keyed on the
+	# number alone. Ids are runtime only, so this cost the save format nothing. (2026-09-29)
+	var grazer: int = server.realm.entities.registry.id_of("proving:grazer")
+	var here = server.realm.entities.spawn(grazer, Vector3(4, 41, 4))
+	var there = deep.entities.spawn(grazer, Vector3(4, 41, 4))
+	_check(here != null and there != null and here.id != there.id,
+		"two realms' creatures never share an id (%d vs %d)" % [here.id if here != null else -1,
+			there.id if there != null else -1])
+
+
 	_check(deep.block_ticks.realm == deep, "which know the world they are in")
 	_check(deep.entities != server.realm.entities, "and its own creatures")
 
@@ -4442,7 +4454,7 @@ func _realm_broadcasts() -> void:
 		"on_roles_panel": "the role list is server-wide",
 		"set_cosmetics_policy": "a server setting",
 		"refresh_crafting_stock": "each player's own inventory",
-		"broadcast_entity_event": "entity ids are per-realm and still collide - tracked for 1.0",
+		"broadcast_entity_event": "entity ids are unique server-wide now, and known_entities is per player",
 	}
 	var src := FileAccess.get_file_as_string("res://engine/server/game_server.gd").split("\n")
 	var starts := []
