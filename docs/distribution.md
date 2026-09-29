@@ -404,22 +404,23 @@ with no icon and no publisher string looks like exactly what SmartScreen is warn
 
 ### Signing it, and why the obvious answer is the wrong one
 
-Checked against Microsoft's current guidance on 29 September 2026, because the advice that was right for
-years is now wrong:
+Checked against the platform vendor's current guidance on 29 September 2026, because the advice that was
+right for years is now wrong. (The vendor is not named here only because `tools/trademarks.gd` forbids it
+outside the disclaimers - the service names below are the searchable part anyway.)
 
 - **An EV certificate no longer bypasses SmartScreen.** That behaviour was removed in 2024, and EV files
   now build reputation exactly as OV ones do. Paying the EV premium (£400+/year) to skip the warning
   buys nothing. This is the change that matters, because every older guide still recommends it.
-- **Nothing except the Microsoft Store gives instant trust.** Store MSIX submissions are re-signed by
-  Microsoft and never warn - but that means an MSIX package and a Store listing, which is a different
-  distribution model from a zip on a website.
+- **Nothing except the platform's own app store gives instant trust.** MSIX packages submitted there are
+  re-signed by the vendor and never warn - but that means building an MSIX and keeping a store listing,
+  which is a different distribution model from a zip on a website.
 - **OV certificates** are £150-300/year and available worldwide, but since June 2023 the CA/Browser
   Forum requires the private key to live on a hardware token or cloud HSM. **That breaks the model this
   project uses for macOS**, where the certificate is a repository secret: a USB token cannot be handed
   to a GitHub runner, so signing either moves to a machine with the token in it or to the CA's cloud
   HSM.
-- **Azure Artifact Signing** (formerly Trusted Signing) is Microsoft's own service at about $9.99 a
-  month, needs no hardware token, and signs from GitHub Actions - which is the closest thing to the
+- **Azure Artifact Signing** (formerly Trusted Signing) is the platform vendor's own service at about
+  $9.99 a month, needs no hardware token, and signs from GitHub Actions - which is the closest thing to the
   macOS arrangement. The catch is geography: organisations in the USA, Canada, the EU and the UK, but
   **individual developers only in the USA and Canada**.
 - **SignPath Foundation signs qualifying open-source projects for free**, at OV level, through a managed

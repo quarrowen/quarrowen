@@ -180,9 +180,15 @@ jobs:
   release:
     name: Sign and publish
     needs: [native-macos, test]
-    # Off unless somebody turns it on: set the repository variable SIGN_IN_CI to "true" once the secrets
-    # and the reviewers exist. Without this the job runs on every tag and fails for want of a
+    # Off unless somebody turns it on: set the **repository** variable SIGN_IN_CI to "true" once the
+    # secrets and the reviewers exist. Without this the job runs on every tag and fails for want of a
     # certificate, and a tag build that is always red is a tag build nobody reads.
+    #
+    # **It has to be a repository (or organisation) variable, not an environment one.** A job-level `if`
+    # is evaluated before the runner declares the job's environment, so an environment-scoped variable
+    # reads as empty here and this job would never run - on a tag build that goes green with nothing
+    # published. `release-gate` below exists to say so out loud. (checked against GitHub's contexts
+    # reference, 2026-09-29)
     if: startsWith(github.ref, 'refs/tags/v') && vars.SIGN_IN_CI == 'true'
     # **The two actions below are pinned to commit SHAs, and only in this job.** A tag like @v4 is
     # mutable: whoever controls it can change what runs, and what runs *here* runs beside a signing
@@ -271,6 +277,30 @@ jobs:
         run: |
           rm -f "$RUNNER_TEMP/notary.p8" "$RUNNER_TEMP/release_key.pem" "$RUNNER_TEMP/cert.p12"
           security delete-keychain "$RUNNER_TEMP/build.keychain" 2>/dev/null || true
+
+  # Says whether a tag is going to publish, because the alternative is silence. The release job is
+  # gated on a variable, and a gate that is off looks exactly like a gate that is on and simply had
+  # nothing to do: the tag build goes green either way. This runs on every tag, cannot fail the build,
+  # and costs a few seconds. (2026-09-29)
+  release-gate:
+    name: Will this tag publish?
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report
+        env:
+          SIGN_IN_CI: ${{ vars.SIGN_IN_CI }}
+        run: |
+          if [ "${SIGN_IN_CI:-}" = "true" ]; then
+            echo "SIGN_IN_CI is true, so the release job will run and wait for its reviewer."
+          else
+            echo "::warning title=This tag will not publish::SIGN_IN_CI is not 'true' - the release job is skipped and nothing reaches quarrowen.com."
+            echo "SIGN_IN_CI reads as: '${SIGN_IN_CI:-<unset>}'"
+            echo ""
+            echo "If you believe you set it, check *where*. It must be a repository or organisation"
+            echo "variable. A job-level 'if' is evaluated before the environment is declared, so a"
+            echo "variable set on the release *environment* is invisible to it and reads as empty."
+          fi
 
   # Windows is built here and **is** published: make_release.sh downloads this artifact and puts it on
   # the download page. (This comment said "built but not published" until 28 September 2026, which had

@@ -112,6 +112,20 @@ def main() -> int:
     img.save(png)
     print(f"wrote {png}")
 
+    # Windows wants a .ico, and it is written on every platform rather than only on a Mac: the export
+    # that needs it runs on a Linux runner, and a file that only exists on one maintainer's machine is
+    # a file that goes missing. Pillow packs the sizes into one .ico; Windows picks what it needs for
+    # the taskbar, Explorer and the Alt-Tab list.
+    #
+    # Without this the executable had no icon at all, which is not only untidy: an unsigned .exe with no
+    # icon and no publisher string is the shape SmartScreen is harshest on. (2026-09-29)
+    ico = OUT / "icon.ico"
+    # The sizes Godot actually embeds. 24x24 was in this list and was silently dropped at export, which
+    # left the .ico and the executable disagreeing for anyone who counted.
+    sizes = [(s, s) for s in (16, 32, 48, 64, 128, 256)]
+    img.save(ico, format="ICO", sizes=sizes)
+    print(f"wrote {ico} ({len(sizes)} sizes)")
+
     if sys.platform == "darwin":
         iconset = OUT / "icon.iconset"
         iconset.mkdir(exist_ok=True)
