@@ -34,7 +34,7 @@ func setup(mod_api, sounds: Dictionary) -> void:
 
 func _on_death(ev: Dictionary) -> void:
 	var player = ev.player
-	player.data["base:death_spot"] = _pack(player.position)
+	player.data["base:death_spot"] = _pack(player.position, api.realm_of(player))
 	if ev.keep_inventory or player.is_creative():
 		return
 	# **The world they died in.** Every block call in here used to default to the overworld, so dying
@@ -89,14 +89,18 @@ func _mark(data: Dictionary, player) -> Dictionary:
 
 
 ## Whose grave this is, or "" when the block is not a grave (or nobody claimed it).
-func _owner_of(position: Vector3i) -> String:
-	var data: Dictionary = api.get_block_data(position)
+func _owner_of(position: Vector3i, realm := "") -> String:
+	var data: Dictionary = api.get_block_data(position, realm)
 	var grave = data.get("base:grave")
 	return str(grave.get("owner", "")) if grave is Dictionary else ""
 
 
 func _guard_open(ev: Dictionary) -> void:
-	var owner := _owner_of(ev.position)
+	# **Read from the world the grave is in.** Against the overworld this found no grave at all, so
+	# `owner` came back empty and the check below passed for everybody - anyone could open anyone
+	# else's grave in a dungeon. The grave itself was made realm-aware on 28 September; its two
+	# guards were not. (2026-09-29)
+	var owner := _owner_of(ev.position, api.realm_of(ev.player))
 	if not owner.is_empty() and owner != ev.player.player_id and not ev.player.has_permission("admin"):
 		ev.cancelled = true
 		ev.player.show_title("", "This grave is not yours", 1.5)
@@ -105,7 +109,7 @@ func _guard_open(ev: Dictionary) -> void:
 func _guard_break(ev: Dictionary) -> void:
 	if ev.block != ids.grave:
 		return
-	var owner := _owner_of(ev.position)
+	var owner := _owner_of(ev.position, api.realm_of(ev.player))
 	if not owner.is_empty() and owner != ev.player.player_id and not ev.player.has_permission("admin"):
 		ev.cancelled = true
 		ev.player.show_title("", "This grave is not yours", 1.5)
@@ -117,7 +121,7 @@ func _guard_break(ev: Dictionary) -> void:
 # --- Homes ----------------------------------------------------------------------------------------
 
 func _cmd_sethome(player, _args: PackedStringArray) -> void:
-	player.data["base:home"] = _pack(player.position)
+	player.data["base:home"] = _pack(player.position, api.realm_of(player))
 	api.set_map_marker(player, "home", {"label": "Home", "position": player.position, "color": "#8fd88f"})
 	player.send_message("Home set here. /home brings you back.")
 
@@ -131,11 +135,18 @@ func _cmd_back(player, _args: PackedStringArray) -> void:
 
 
 func _go(player, packed, missing: String) -> void:
-	if not (packed is Array) or packed.size() != 3:
+	if not (packed is Array) or packed.size() < 3:
 		player.send_message(missing)
 		return
-	player.teleport(Vector3(float(packed[0]), float(packed[1]), float(packed[2])))
+	var to := Vector3(float(packed[0]), float(packed[1]), float(packed[2]))
+	# A fourth entry is the realm; three on its own is a spot saved before 29 September 2026, and the
+	# overworld is what those meant.
+	var realm: String = String(packed[3]) if packed.size() > 3 else ""
+	if realm == api.realm_of(player):
+		player.teleport(to)
+	elif not api.send_to_realm(player, realm, to):
+		player.send_message("That place is in a world this server no longer has")
 
 
-static func _pack(position: Vector3) -> Array:
-	return [snappedf(position.x, 0.01), snappedf(position.y, 0.01), snappedf(position.z, 0.01)]
+static func _pack(position: Vector3, realm := "") -> Array:
+	return [snappedf(position.x, 0.01), snappedf(position.y, 0.01), snappedf(position.z, 0.01), realm]

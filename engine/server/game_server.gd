@@ -2694,14 +2694,19 @@ func on_respawn(peer_id: int) -> void:
 	var p: ServerPlayer = players.get(peer_id)
 	if p == null or not p.dead:
 		return
+	# **Every branch names the realm it means.** The bed branch did and the other two did not, so a
+	# spawn point set anywhere left `into_realm` empty - which read as "the overworld" and dragged any
+	# player respawning outside it back to the surface, at coordinates that meant something else
+	# entirely. The default spawn is the player's own realm, not world zero. (2026-09-29)
 	var spawn := p.spawn_point
-	var into_realm := ""
+	var into_realm := p.spawn_point_realm if spawn != Vector3.INF else realm_of(p).id
 	if spawn == Vector3.INF:
 		spawn = sleep.respawn_position(p)
 		if spawn != Vector3.INF:
 			into_realm = p.spawn_bed_realm
 	if spawn == Vector3.INF:
-		spawn = spawn_handler.call(p) if spawn_handler.is_valid() else _default_spawn()
+		into_realm = realm_of(p).id
+		spawn = spawn_handler.call(p) if spawn_handler.is_valid() else _default_spawn(realm_of(p))
 	var ev := emit("player_respawn", {"player": p, "position": spawn})
 	p.dead = false
 	p.health = p.max_health
@@ -3356,6 +3361,7 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 		var spawn_point = saved.get("spawn_point")
 		if spawn_point is Array and spawn_point.size() == 3:
 			p.spawn_point = Vector3(spawn_point[0], spawn_point[1], spawn_point[2])
+			p.spawn_point_realm = String(saved.get("spawn_point_realm", ""))
 		# A realm a mod no longer registers puts them back in the overworld rather than nowhere: the
 		# position is meaningless there, but the overworld is at least somewhere to stand.
 		p.realm_id = String(saved.get("realm", ""))
@@ -6390,6 +6396,7 @@ func _store_player(p: ServerPlayer) -> void:
 		"saturation": p.saturation,
 		"exhaustion": p.exhaustion,
 		"spawn_point": [p.spawn_point.x, p.spawn_point.y, p.spawn_point.z] if p.spawn_point != Vector3.INF else null,
+		"spawn_point_realm": p.spawn_point_realm,
 		"realm": p.realm_id,
 		"guide": guide.save_player(p),
 		"tutorial": tutorials.save_player(p),

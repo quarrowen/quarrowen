@@ -96,14 +96,19 @@ func _on_interact(ev: Dictionary) -> void:
 		return
 	ev.cancelled = true
 	var bottom: Vector3i = ev.position if not name.ends_with("_top") else ev.position + Vector3i.DOWN
-	var at_bottom: String = api.block_name(api.get_block(bottom))
+	var at_bottom: String = api.block_name(api.get_block(bottom, String(ev.get("realm", ""))))
 	var swapped: String = at_bottom.replace("_open", "") if at_bottom.contains("_open") else at_bottom + "_open"
 	var lower: int = api.block(swapped)
 	var upper: int = api.block(swapped + "_top")
 	if lower <= 0 or upper <= 0:
 		return
 	# Both halves move together, and neither drops: this is the same door in a different position.
-	api.set_block(bottom, lower)
-	api.set_block(bottom + Vector3i.UP, upper)
+	# **In the world the door is in.** These two wrote to the overworld while the line below already
+	# read `ev.realm` for the sound, so clicking a door anywhere else stamped two door blocks over
+	# whatever stood at those coordinates on the surface, and the door in front of the player did not
+	# move. (2026-09-29)
+	var realm := String(ev.get("realm", ""))
+	api.set_block(bottom, lower, realm)
+	api.set_block(bottom + Vector3i.UP, upper, realm)
 	api.play_sound("base:wood", Vector3(bottom) + Vector3.ONE * 0.5, 0.7,
-		1.1 if swapped.contains("_open") else 0.9, String(ev.get("realm", "")))
+		1.1 if swapped.contains("_open") else 0.9, realm)

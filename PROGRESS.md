@@ -9742,3 +9742,53 @@ and read `world` directly, so the marker every player navigated by was at the ov
 height wherever they were.
 
 That is the audit's list finished apart from the dev tools and commands, which are next.
+
+
+## The realm-blind *writes*, and a grave anyone could rob (29 September 2026)
+
+Four items in and a pattern was obvious enough to act on: the original audit was a grep for realm-blind
+**reads**, so it found every place that read the wrong world and missed every place that **wrote** to
+one or **saved** a coordinate without one. Those are the expensive ones, and they are what a format
+freeze makes permanent. A second sweep was run for that class alone. It found considerably more than
+the first, including an exploit.
+
+### The exploit
+
+**Anyone could open or break anyone else's grave in any world but the overworld.** `_owner_of` read
+block data with no realm, so in a dungeon it found no grave, returned an empty owner, and both
+`_guard_open` and `_guard_break` fall through on an empty owner. The grave *itself* was made
+realm-aware on 28 September; its two guards were not, and `ev.player` was in scope in both. Two lines.
+
+Worth naming why it survived: a guard that fails open looks exactly like a guard that passes. Nothing
+errors, nothing logs, and the only way to notice is to try to rob a grave in a dungeon.
+
+### Saved coordinates with no world
+
+- **`spawn_point`** sat three lines above `spawn_bed` in the same save dictionary and did not get the
+  same treatment yesterday. Worse, `on_respawn` only ever set `into_realm` on the *bed* branch, so a
+  player respawning on a spawn point while anywhere but the overworld was dragged to the surface at
+  coordinates that meant something else. Every branch names its realm now, including the default one,
+  which is the player's own world rather than world zero.
+- **`/home` and `/back`** stored three bare floats in `player.data`, which is saved verbatim. `/back`
+  after dying in the descent teleported you to those coordinates in whatever world you were in -
+  possibly inside rock, and never at the grave, which *is* realm-tagged. A fourth entry carries the
+  realm; three on its own is a spot saved before today and reads as the overworld.
+
+### Writes into the wrong world from ordinary play
+
+**Doors.** `set_block` twice with no realm, and the line immediately below already read `ev.realm` for
+the sound. Clicking a door anywhere but the overworld stamped two door blocks over whatever stood at
+those coordinates on the surface, and the door in front of the player did not move. `base` loads
+beside every realm mod and the fairground builds doors, so this was reachable in normal play.
+
+That is the fourth time this week the correct realm was already in scope at the broken line - after
+`mob_attacks`, `stations`, and `ambience`, which had a comment explaining why it needed the realm
+directly above the call that ignored it.
+
+### Still on the list from that sweep
+
+Furnaces cooking in the overworld (and the container key that is the root cause of it), the whole
+JavaScript world API, `place_structure`, `set_spawn_caps` and `register_mob_behavior` writing only to
+the overworld's tables, cross-server arrival points, companion guard posts, the offline-player loop in
+`instances.gd` that never runs, farming, signals, and two firstlight spawns. Ordered by blast radius
+in that sweep; the saved-state ones are done.

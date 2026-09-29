@@ -1548,6 +1548,9 @@ the same coordinates - which would be a different place entirely. server/server_
 somebody who logged out in another realm comes back to it rather than falling into the overworld at
 the same coordinates - which would be a different place entirely.</p></div>
 <div class="card" data-search="spawn_point where the player respawns; vector3.inf uses their bed, then the game's spawn handler. server/server_player.gd players"><div class="sig"><code>spawn_point := Vector3.INF  (property)</code></div><p>Where the player respawns; Vector3.INF uses their bed, then the game's spawn handler.</p></div>
+<div class="card" data-search="spawn_point_realm the realm that spawn point is in, for the same reason as [member spawn_bed_realm]. empty is the
+overworld. server/server_player.gd players"><div class="sig"><code>spawn_point_realm := &quot;&quot;  (property)</code></div><p>The realm that spawn point is in, for the same reason as [member spawn_bed_realm]. Empty is the
+overworld.</p></div>
 <div class="card" data-search="spawn_bed the bed they last used (vector3i, foot) or null; checked when respawning. server/server_player.gd players"><div class="sig"><code>spawn_bed = null  (property)</code></div><p>The bed they last used (Vector3i, foot) or null; checked when respawning.</p></div>
 <div class="card" data-search="spawn_bed_realm the realm that bed is in. a coordinate without one respawns you at the same numbers in the
 overworld, which is somewhere the player has never been. empty means the overworld. server/server_player.gd players"><div class="sig"><code>spawn_bed_realm := &quot;&quot;  (property)</code></div><p>The realm that bed is in. A coordinate without one respawns you at the same numbers in the
@@ -3510,7 +3513,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1269 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1270 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

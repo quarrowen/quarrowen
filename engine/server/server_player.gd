@@ -31,6 +31,9 @@ var dead := false
 var realm_id := ""
 ## Where the player respawns; Vector3.INF uses their bed, then the game's spawn handler.
 var spawn_point := Vector3.INF
+## The realm that spawn point is in, for the same reason as [member spawn_bed_realm]. Empty is the
+## overworld.
+var spawn_point_realm := ""
 ## The bed they last used (Vector3i, foot) or null; checked when respawning.
 var spawn_bed = null
 ## The realm that bed is in. A coordinate without one respawns you at the same numbers in the

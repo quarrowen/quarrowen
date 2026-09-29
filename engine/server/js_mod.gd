@@ -544,7 +544,10 @@ func _call_player(method: String, a: Array):
 		"hasGuideFlag": return api.has_guide_flag(player, _str(a, 1))
 		"unlockGuidePage": return api.unlock_guide_page(player, _str(a, 1), a.size() <= 2 or bool(a[2]))
 		"team": return player.team
-		"setSpawnPoint": player.spawn_point = _vec3(a, 1) if a.size() > 1 and a[1] != null else Vector3.INF
+		"setSpawnPoint":
+			player.spawn_point = _vec3(a, 1) if a.size() > 1 and a[1] != null else Vector3.INF
+			# Where they are standing when it is set, unless the mod says otherwise.
+			player.spawn_point_realm = _str(a, 2) if a.size() > 2 else String(api.realm_of(player))
 		# Anything with no case above, from the generated table. The hand-written ones win, because
 		# several rename on purpose (perform_attack is `attack`) or take friendlier arguments - the
 		# same rule the api table follows. (2026-09-21)

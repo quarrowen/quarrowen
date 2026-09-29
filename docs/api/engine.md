@@ -4934,6 +4934,15 @@ GDScript: `spawn_point := Vector3.INF  (property)`
 
 Where the player respawns; Vector3.INF uses their bed, then the game's spawn handler.
 
+### `spawn_point_realm`
+
+*server/server_player.gd*
+
+GDScript: `spawn_point_realm := ""  (property)`
+
+The realm that spawn point is in, for the same reason as [member spawn_bed_realm]. Empty is the
+overworld.
+
 ### `spawn_bed`
 
 *server/server_player.gd*
