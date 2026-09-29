@@ -139,10 +139,22 @@ repository variable, and both have to be done deliberately:
    check the environment afterwards and confirm it lists one.
 
 2. **An App Store Connect API key** for notarisation, at appstoreconnect.apple.com → Users and Access →
-   Integrations → App Store Connect API → **+**, with the *Developer* role. Download the `.p8` **once**
-   (Apple will not show it again) and note the Key ID and Issuer ID. An API key rather than the
-   app-specific password in your keychain: it is scoped to notarisation and revocable on its own, where
-   an app-specific password authenticates as your whole Apple Account.
+   Integrations → App Store Connect API. There are two tabs, and **it has to be Team Keys** - Apple's
+   own documentation says an Individual key "isn't able to use Provisioning endpoints, access Sales and
+   Finance, or `notaryTool`". An individual key looks right, downloads the same way, and then fails at
+   the only step it exists for; it also has no Issuer ID, which is the tell. (Checked against Apple's
+   current docs on 29 September 2026, because this page used to say only "→ +" and the tab is the half
+   that matters.)
+
+   So: **Team Keys** tab → Generate API Key (or **+**) → name it → under Access pick the **Developer**
+   role → Generate. Generating a team key needs an Admin account in App Store Connect.
+
+   Then **download the `.p8` once** - the link disappears afterwards and Apple keeps no copy. The **Key
+   ID** is in the key's own row; the **Issuer ID** is a UUID at the top of the Team Keys page, shared by
+   every key on the team.
+
+   An API key rather than the app-specific password in your keychain: it is scoped to notarisation and
+   revocable on its own, where an app-specific password authenticates as your whole Apple Account.
 
 3. **Your Developer ID certificate as a `.p12`** - Keychain Access → My Certificates → right-click
    *Developer ID Application: …* → Export, and give it a strong password.
