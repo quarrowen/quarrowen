@@ -166,10 +166,13 @@ sharing rule where the rule belongs and this table a plain dictionary. (2026-09-
 <p>The container type of a block, or {}.</p>
 <h3 id="get_container"><code>get_container</code></h3>
 <p><em>server/containers.gd</em></p>
-<p>GDScript: <code>get_container(pos: Vector3i, player = null)</code></p>
-<p>JavaScript: <code>api.getContainer(pos, player)</code></p>
-<p>The container at a position (loads its chunk), or null if the block there is not a container.</p>
-<p><strong>See also:</strong> <code>block_key</code>, <code>get_block_data</code>, <code>get_block_loaded</code>, <code>realm_of</code>, <code>set_block_data</code>, <code>type_of_block</code></p>
+<p>GDScript: <code>get_container(pos: Vector3i, player = null, into = null)</code></p>
+<p>JavaScript: <code>api.getContainer(pos, player, into)</code></p>
+<p>The container at a position (loads its chunk), or null if the block there is not a container.
+<code>into</code> (a Realm) wins over the player's, for a caller that has a world and nobody standing in it -
+a dungeon stocking its own chests, say. Without it the only two answers were "where the player is"
+and "the overworld", and a mod filling a chest it had just built had no way to say which.</p>
+<p><strong>See also:</strong> <code>block_key</code>, <code>get_block_data</code>, <code>get_block_loaded</code>, <code>qualified</code>, <code>realm_of</code>, <code>register_instance</code></p>
 <h3 id="at_key"><code>at_key</code></h3>
 <p><em>server/containers.gd</em></p>
 <p>GDScript: <code>at_key(key: String, player = null)</code></p>
@@ -488,6 +491,18 @@ biome, so every column has a clear winner and borders blend over a short distanc
 structure then keeps the terrain there). Block data in the region (chest contents, spawner settings)
 goes into <code>data</code>.</p>
 <p><strong>See also:</strong> <code>get_block_data</code>, <code>get_block_loaded</code>, <code>get_block_state</code></p>
+<h3 id="nearest"><code>nearest</code></h3>
+<p><em>server/worldgen/structures.gd</em></p>
+<p>GDScript: <code>nearest(set_name: String, from: Vector3, gen, rings := 4) -&gt; Vector3</code></p>
+<p>Where the nearest structure of a set is, or Vector3.INF. Searches outwards from the region the
+point is in, up to <code>rings</code> regions away.</p>
+<p><strong>A locator, because a structure nobody can find is the same as no structure.</strong> Everything here is
+computed from the world seed and the region, so this asks the same question chunk generation asks
+and gets the same answer - without generating anything. A game that wants to point a player at the
+dungeon it placed had otherwise to guess a position and hope, which is exactly what Firstlight did
+for an afternoon: it marked a spot near the player and the ruin was two thousand blocks away.
+(2026-09-24)</p>
+<p><strong>See also:</strong> <code>start_for</code></p>
 <h2 id="blocks-and-the-world">Blocks and the world</h2>
 <h3 id="make_context"><code>make_context</code></h3>
 <p><em>client/chunk_mesher.gd</em></p>
@@ -603,6 +618,11 @@ long it was asleep rather than losing the time.</p>
 <p><em>server/block_ticks.gd</em></p>
 <p>GDScript: <code>light_at(pos: Vector3i, daylight: float) -&gt; int</code></p>
 <p>Light plants and mobs care about: block light or daylight-scaled sky light, whichever is brighter.</p>
+<h3 id="forget_chunk"><code>forget_chunk</code></h3>
+<p><em>server/block_ticks.gd</em></p>
+<p>GDScript: <code>forget_chunk(coord: Vector2i) -&gt; void</code></p>
+<p>Drops what was worked out about one chunk, so it is measured again when next asked. Used by a bulk
+fill, which changes far too many blocks to keep the caches current one at a time.</p>
 <h3 id="refresh_around"><code>refresh_around</code></h3>
 <p><em>server/connect.gd</em></p>
 <p>GDScript: <code>refresh_around(pos: Vector3i, into = null) -&gt; void</code></p>
@@ -619,7 +639,7 @@ long it was asleep rather than losing the time.</p>
 <p>JavaScript: <code>api.explode(center, power, options)</code></p>
 <p>options.realm: the world it goes off in (a Realm, or null for the overworld). An explosion is a
 thing that happens in a place, and a position alone no longer says where.</p>
-<p><strong>See also:</strong> <code>blast_resistance</code>, <code>break_block</code>, <code>cast</code>, <code>damage</code>, <code>damage_player</code>, <code>get_block_v</code></p>
+<p><strong>See also:</strong> <code>blast_resistance</code>, <code>break_block</code>, <code>cast</code>, <code>damage</code>, <code>damage_player</code>, <code>gameplay_in</code></p>
 <h3 id="kinds"><code>kinds</code></h3>
 <p><em>server/fields.gd</em></p>
 <p>GDScript: <code>kinds := {}  (property)</code></p>
@@ -673,12 +693,21 @@ takes); without one the instance is empty air, which is what a mod building its 
 <p><em>server/instances.gd</em></p>
 <p>GDScript: <code>enter(player, instance_id: String, position: Vector3) -&gt; bool</code></p>
 <p>Sends a player in, remembering where they were so <code>leave</code> can put them back.</p>
+<p><strong>Entering from inside another instance is allowed, and keeps the original way out.</strong> That is what a
+descent is: floor two is entered from floor one, and leaving at any depth should put you back at the
+entrance in the overworld rather than on the floor above. The <code>_returns</code> guard below does that on its
+own - the way back is taken once and never overwritten.</p>
+<p>What did <em>not</em> work on its own was the member list. A player who moved from floor one to floor two
+stayed listed as a member of floor one, so closing the floor they had left walked its stale member
+list and called <code>leave</code> on them - and <code>leave</code> asks <code>id_of</code>, which answers with the realm they are in
+<em>now</em>. Closing the floor behind you threw you out of the floor in front of you, all the way to the
+surface. So the move deregisters first. (2026-09-28)</p>
 <p><strong>See also:</strong> <code>send_to_realm</code></p>
 <h3 id="leave"><code>leave</code></h3>
 <p><em>server/instances.gd</em></p>
 <p>GDScript: <code>leave(player) -&gt; bool</code></p>
 <p>Puts a player back where they were before they entered. Returns false if they were not in one.</p>
-<p><strong>See also:</strong> <code>allowed</code>, <code>close</code>, <code>finish</code>, <code>get_block</code>, <code>gone</code>, <code>send_to_realm</code></p>
+<p><strong>See also:</strong> <code>allowed</code>, <code>close</code>, <code>get_block</code>, <code>gone</code>, <code>public_text</code>, <code>send_to_realm</code></p>
 <h3 id="close_1"><code>close</code></h3>
 <p><em>server/instances.gd</em></p>
 <p>GDScript: <code>close(instance_id: String) -&gt; bool</code></p>
@@ -1002,7 +1031,7 @@ assumes the sixth-element form gets a block with no texture rather than an error
 <p><em>shared/creations.gd</em></p>
 <p>GDScript: <code>static make(kind: String, category: String, payload: PackedByteArray, name: String, author := "", author_name := "", extra := {}) -&gt; Dictionary</code></p>
 <p>Builds a manifest for new content (the id comes from the payload).</p>
-<p><strong>See also:</strong> <code>content_id</code>, <code>finish</code>, <code>key_id</code>, <code>sign</code>, <code>start</code></p>
+<p><strong>See also:</strong> <code>content_id</code>, <code>key_id</code>, <code>public_text</code>, <code>sign</code></p>
 <h3 id="validate"><code>validate</code></h3>
 <p><em>shared/creations.gd</em></p>
 <p>GDScript: <code>static validate(manifest, payload: PackedByteArray) -&gt; Dictionary</code></p>
@@ -1417,7 +1446,7 @@ silently half-filled backpack.</p>
 <p>GDScript: <code>static is_block_item(id: int) -&gt; bool</code></p>
 <p>Whether an id is a block rather than a registered item. Every block is also an item, and block ids
 run below <code>FIRST_ITEM</code> while item ids start there.</p>
-<p><strong>See also:</strong> <code>attack_damage</code>, <code>max_stack</code>, <code>place</code>, <code>sweep</code></p>
+<p><strong>See also:</strong> <code>attack_damage</code>, <code>max_stack</code>, <code>place</code>, <code>sweep</code>, <code>worn</code></p>
 <h3 id="register_7"><code>register</code></h3>
 <p><em>shared/item_registry.gd</em></p>
 <p>GDScript: <code>register(def: Dictionary, replace := false) -&gt; int</code></p>
@@ -1711,9 +1740,7 @@ items, projectiles and model-less entities.</p>
 <h3 id="update_plate"><code>update_plate</code></h3>
 <p><em>client/entity_view.gd</em></p>
 <p>GDScript: <code>update_plate(camera_position: Vector3) -&gt; void</code></p>
-<p>{scale, hide: [part prefixes], tint: {part prefix: "#rrggbb"}} from the server (babies, sheared or
-dyed sheep, ...).
-Where the camera is, so the plate can fade with distance. Set by the client each frame.</p>
+<p>Where the camera is, so the plate can fade with distance. Set by the client each frame.</p>
 <p><strong>See also:</strong> <code>update_for_camera</code></p>
 <h3 id="windup"><code>windup</code></h3>
 <p><em>client/entity_view.gd</em></p>
@@ -1854,7 +1881,7 @@ just been tamed should do without anybody saying so.</p>
 <p>GDScript: <code>give(entity, order_name: String, options := {}) -&gt; bool</code></p>
 <p>Tells it something. <code>options.at</code> is where, for orders that need a place; it defaults to where the
 creature is standing, which is what "guard this spot" means when somebody says it out loud.</p>
-<p><strong>See also:</strong> <code>add_modifier</code>, <code>exists</code>, <code>give_overflow</code>, <code>is_alive</code>, <code>set_sitting</code>, <code>wake</code></p>
+<p><strong>See also:</strong> <code>add_modifier</code>, <code>exists</code>, <code>give_overflow</code>, <code>is_alive</code>, <code>set_sitting</code>, <code>sync</code></p>
 <h3 id="orders_for"><code>orders_for</code></h3>
 <p><em>server/companions.gd</em></p>
 <p>GDScript: <code>orders_for(entity) -&gt; Array</code></p>
@@ -1916,7 +1943,7 @@ a jammed line does not turn.</p>
 <p><em>server/entities.gd</em></p>
 <p>GDScript: <code>spawn(type_id: int, pos: Vector3, options := {}) -&gt; Entity</code></p>
 <p>options: yaw, velocity (Vector3), data (Dictionary), owner, item (id), count, pickup_delay</p>
-<p><strong>See also:</strong> <code>arrived</code>, <code>attach</code></p>
+<p><strong>See also:</strong> <code>arrived</code>, <code>attach</code>, <code>ensure</code></p>
 <h3 id="drop_item"><code>drop_item</code></h3>
 <p><em>server/entities.gd</em></p>
 <p>GDScript: <code>drop_item(item: int, count: int, pos: Vector3, velocity := Vector3.INF, pickup_delay := ITEM_PICKUP_DELAY, item_data := {}) -&gt; Entity</code></p>
@@ -1993,9 +2020,11 @@ listen to, and entity_damage fires <em>before</em> the change.)</p>
 <p><em>server/entity.gd</em></p>
 <p>GDScript: <code>set_look(values: Dictionary) -&gt; void</code></p>
 <p>How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
-prefixes to hide, e.g. "wool" once sheared], tint: {part prefix: "#rrggbb"}, pose: "" | "sit"}. Merged into the current
-look and saved in data.look.</p>
-<p><strong>See also:</strong> <code>apply</code>, <code>look_changed</code>, <code>merge</code></p>
+prefixes to hide, e.g. "wool" once sheared, or "*" for the whole body], tint: {part prefix:
+"#rrggbb"}, pose: "" | "sit"}. Merged into the current look and saved in data.look.</p>
+<p>Hiding everything leaves a thing that is present, collides and can wear a nameplate but is not drawn,
+which is how a label stands beside a door without a creature under it.</p>
+<p><strong>See also:</strong> <code>apply</code>, <code>look_changed</code>, <code>merge</code>, <code>refresh_appearance</code></p>
 <h3 id="is_alive"><code>is_alive</code></h3>
 <p><em>server/entity.gd</em></p>
 <p>GDScript: <code>is_alive() -&gt; bool</code></p>
@@ -2113,6 +2142,23 @@ add a line without knowing whether health is being shown.</p>
 <p>GDScript: <code>plate_of(target) -&gt; Dictionary</code></p>
 <p>What is over its head now, defaults included.</p>
 <p><strong>See also:</strong> <code>default_for</code></p>
+<h3 id="ensure"><code>ensure</code></h3>
+<p><em>server/nameplates.gd</em></p>
+<p>GDScript: <code>ensure(target) -&gt; void</code></p>
+<p>Writes a plate at spawn for the creatures that should wear one before anybody hits them.</p>
+<p><strong>Only the rare ones</strong>, which is a deliberate line rather than an oversight (the user, 2026-09-24):</p>
+<ul>
+<li><strong>A <code>notable</code> creature is announced to the whole server and marked on everybody's compass</strong>, so
+arriving at it and finding an unlabelled shape would be a worse moment than not announcing it.
+It wears its name from the start.</li>
+<li><strong>Ordinary mobs and animals keep the old behaviour</strong> - a plate the first time they take damage.
+A meadow of sheep each wearing a label is worse than no labels, which is why <code>default_for</code>
+refuses by default and why this does not override it.</li>
+<li><strong>Players already have one</strong> and always did: <code>remote_player.gd</code> applies a plate on setup, so this
+never had anything to do with them.</li>
+<li><strong>Tamed creatures</strong> get theirs from <code>taming.tame</code>, because whose it is only becomes true then.</li>
+</ul>
+<p><strong>See also:</strong> <code>close</code>, <code>notable_of</code>, <code>open</code>, <code>plate_of</code>, <code>set_look</code></p>
 <h3 id="clear_1"><code>clear</code></h3>
 <p><em>server/nameplates.gd</em></p>
 <p>GDScript: <code>clear(target) -&gt; bool</code></p>
@@ -2137,7 +2183,7 @@ hostile temperament: monster; passive: animal).</p>
 <p>GDScript: <code>run(for_players: Array = []) -&gt; void</code></p>
 <p>One spawning round for <code>for_players</code> (default: everyone). The server calls it every tick for a slice of
 the players, so each player gets a round about once a second without one tick doing them all.</p>
-<p><strong>See also:</strong> <code>category_of</code>, <code>daylight</code>, <code>find_spot</code>, <code>get_time_of_day</code>, <code>is_alive</code>, <code>spawn</code></p>
+<p><strong>See also:</strong> <code>category_of</code>, <code>daylight</code>, <code>find_spot</code>, <code>gameplay_of</code>, <code>get_time_of_day</code>, <code>is_alive</code></p>
 <h3 id="find_spot"><code>find_spot</code></h3>
 <p><em>server/spawning.gd</em></p>
 <p>GDScript: <code>find_spot(center: Vector3, rule: Dictionary, daylight: float, min_distance := -1.0, max_distance := -1.0) -&gt; Vector3</code></p>
@@ -2235,6 +2281,11 @@ kind: "mob" | "projectile" | "object" | "item"
 model: glTF asset (nodes named leg_a / leg_b / arm_a / arm_b swing while walking, head turns)
 sprite: texture asset drawn as a billboard when there is no model (projectiles, particles)
 width, height: collision box in blocks; scale: model scale; glow: unshaded (e.g. magic sparks)
+light: a model part that lights the world around it - {part: "lantern", color, energy 0-8,
+range 0-16 blocks}. <code>glow</code> only makes a part draw at full brightness; this one actually
+casts. Items have had the same thing for weeks (item_registry.clean_glow) and creatures
+had no way to say it, which is how a lamplighter ended up carrying a lamp that lit
+nothing. Use it sparingly: it is a real light per creature on screen.
 health (0 = cannot be damaged), speed, gravity, drag, knockback_resistance (0-1)
 ai: a preset name or a Dictionary of behaviour settings, attacks and phases; see
 engine/server/ai/mob_config.gd (mobs only)
@@ -2250,9 +2301,11 @@ or <code>true</code> for the defaults. For the rare ones worth hunting; see serv
 <h3 id="notable_of"><code>notable_of</code></h3>
 <p><em>shared/entity_registry.gd</em></p>
 <p>GDScript: <code>notable_of(type_id: int) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.notableOf(typeId)</code></p>
 <p>Whether this type is one the server announces, and how. <code>{}</code> when it is not.</p>
 <p>A function rather than a reach into <code>defs[id].notable</code>, because <code>notable</code> is a shape a mod wrote
 and this registry normalised, and those have one owner here - see engine/owned.txt.</p>
+<p><strong>See also:</strong> <code>entity_type</code></p>
 <h3 id="id_of_3"><code>id_of</code></h3>
 <p><em>shared/entity_registry.gd</em></p>
 <p>GDScript: <code>id_of(type_name: String) -&gt; int</code></p>
@@ -2279,34 +2332,89 @@ only after checking it, or use the <code>require_*</code> form at the API bounda
 <p>Where identities live. QW_IDENTITY_DIR moves them, which is how the tests keep their bot keys out of
 the player's own folder: a test run used to overwrite default.pem and take the player's account with
 it. (2026-09-18)</p>
+<h3 id="pair_from"><code>pair_from</code></h3>
+<p><em>shared/identity.gd</em></p>
+<p>GDScript: <code>static pair_from(private: PackedByteArray) -&gt; Dictionary</code></p>
+<p>A key pair from 32 private bytes: <code>{private, public}</code>, or <code>{}</code> when the bytes are the wrong size.</p>
 <h3 id="load_or_create"><code>load_or_create</code></h3>
 <p><em>shared/identity.gd</em></p>
-<p>GDScript: <code>static load_or_create(identity_name := "default", bits := DEFAULT_BITS) -&gt; CryptoKey</code></p>
-<p>Loads the named identity from user://identity, creating it on first use.</p>
-<p><strong>See also:</strong> <code>load</code>, <code>path_for</code>, <code>save</code></p>
+<p>GDScript: <code>static load_or_create(identity_name := "default") -&gt; Dictionary</code></p>
+<p>Loads the named identity, creating it on first use. Returns <code>{private, public}</code>.</p>
+<p><strong>See also:</strong> <code>load_or_create_at</code></p>
+<h3 id="load_or_create_at"><code>load_or_create_at</code></h3>
+<p><em>shared/identity.gd</em></p>
+<p>GDScript: <code>static load_or_create_at(path: String) -&gt; Dictionary</code></p>
+<p>The same, at an exact path rather than a name under <code>dir()</code>. A server's own identity lives beside its
+world rather than in the player's identity folder, because it belongs to the world: copy the save and
+the server is still the same server to everybody who trusts it.</p>
+<p><strong>See also:</strong> <code>close</code>, <code>open</code>, <code>pair_from</code></p>
+<h3 id="public_text"><code>public_text</code></h3>
+<p><em>shared/identity.gd</em></p>
+<p>GDScript: <code>static public_text(key: Dictionary) -&gt; String</code></p>
+<p>The public half as text, which is what crosses the wire.</p>
+<h3 id="private_text"><code>private_text</code></h3>
+<p><em>shared/identity.gd</em></p>
+<p>GDScript: <code>static private_text(key: Dictionary) -&gt; String</code></p>
+<p>The private half as text: 44 characters of base64. <strong>This is the whole account</strong> - anybody who reads
+it is you - and it exists as text for exactly one reason: so that moving an identity to another device
+is reading it off one screen and typing it into the other. No network, no server in the middle, no
+code to expire, and a copy on paper is a backup that outlives the house. An RSA key at 1,675
+characters could do none of that, which is why it is no longer an RSA key. (2026-09-25)</p>
+<h3 id="from_private_text"><code>from_private_text</code></h3>
+<p><em>shared/identity.gd</em></p>
+<p>GDScript: <code>static from_private_text(typed: String) -&gt; Dictionary</code></p>
+<p>A key pair from what somebody typed, or <code>{}</code> when it is not one. <strong>Forgiving about spaces and line
+breaks</strong>, because the normal case is a hand copy off another screen or a paste that wrapped, and
+refusing those would make the feature feel broken when nothing was wrong.</p>
+<p><strong>It cannot tell you that you typed it wrong</strong>, and no version of it could: any 32 bytes is a valid
+Ed25519 private key, so a key with one character changed is a real key belonging to a person who has
+never existed. What makes that survivable is upstream - <code>install</code> keeps the key it replaced, and the
+caller shows which id you have become, so a wrong one is visible and undoable rather than silent.</p>
+<p><strong>See also:</strong> <code>pair_from</code></p>
+<h3 id="sign"><code>sign</code></h3>
+<p><em>shared/identity.gd</em></p>
+<p>GDScript: <code>static sign(key: Dictionary, message: PackedByteArray, audience := "") -&gt; PackedByteArray</code></p>
+<p>Signs the challenge. <strong><code>audience</code> is who the signature is <em>for</em>, and leaving it out is the bug this
+parameter exists to fix.</strong></p>
+<p>Signing a bare nonce proves you hold the key and nothing else - so a hostile server could take the
+nonce a real server handed it, pass it to you as its own challenge, and replay your answer to log
+in as you. Binding the server's id into what is signed makes the answer worthless anywhere else:
+the real server hashes its own id and the signature no longer matches. The hub has always done it
+this way; the game handshake did not. (2026-09-24)</p>
+<p>With no <code>audience</code> this signs <code>message</code> exactly as given, which is how everything that is not a login
+challenge uses it: a transfer ticket, a hub announce, a status proof. Ed25519 signs the whole message,
+so there is no digest to agree on separately.</p>
 <h3 id="parse_public_key"><code>parse_public_key</code></h3>
 <p><em>shared/identity.gd</em></p>
-<p>GDScript: <code>static parse_public_key(pem: String) -&gt; CryptoKey</code></p>
-<p>Server side: parses a public key PEM; returns null if it is not a usable key.</p>
+<p>GDScript: <code>static parse_public_key(text: String) -&gt; PackedByteArray</code></p>
+<p>Server side: the 32 public bytes a client sent, or an empty array when it is not a usable key.
+Checked for length <em>before</em> decoding, so an oversized string from a stranger costs nothing.</p>
 <p><strong>See also:</strong> <code>key</code></p>
 <h3 id="player_id"><code>player_id</code></h3>
 <p><em>shared/identity.gd</em></p>
-<p>GDScript: <code>static player_id(key: CryptoKey) -&gt; String</code></p>
-<p>Stable id derived from the public key (32 hex characters).</p>
+<p>GDScript: <code>static player_id(key) -&gt; String</code></p>
+<p>Stable id derived from the public key (32 hex characters). Takes a <code>{private, public}</code> pair or the
+public bytes on their own - which is what a server has.</p>
 <p><strong>See also:</strong> <code>finish</code>, <code>start</code></p>
+<h3 id="verify"><code>verify</code></h3>
+<p><em>shared/identity.gd</em></p>
+<p>GDScript: <code>static verify(public: PackedByteArray, message: PackedByteArray, signature: PackedByteArray, audience := "") -&gt; bool</code></p>
+<p>Whether this public key signed the challenge. Takes the public bytes, since that is all a server
+ever has of somebody.</p>
+<p><strong>See also:</strong> <code>finish</code>, <code>key_id</code>, <code>parse_public_key</code>, <code>start</code></p>
 <h3 id="export_encrypted"><code>export_encrypted</code></h3>
 <p><em>shared/identity.gd</em></p>
-<p>GDScript: <code>static export_encrypted(key: CryptoKey, passphrase: String, iterations := EXPORT_ITERATIONS) -&gt; String</code></p>
+<p>GDScript: <code>static export_encrypted(key: Dictionary, passphrase: String, iterations := EXPORT_ITERATIONS) -&gt; String</code></p>
 <p>Returns the JSON text of an encrypted identity file.</p>
 <p><strong>See also:</strong> <code>finish</code>, <code>pbkdf2_sha256</code>, <code>player_id</code>, <code>start</code></p>
 <h3 id="import_encrypted"><code>import_encrypted</code></h3>
 <p><em>shared/identity.gd</em></p>
 <p>GDScript: <code>static import_encrypted(text: String, passphrase: String) -&gt; Dictionary</code></p>
-<p>Decrypts an exported identity. Returns {key: CryptoKey, player_id} or {error: String}.</p>
-<p><strong>See also:</strong> <code>finish</code>, <code>pbkdf2_sha256</code>, <code>player_id</code>, <code>start</code></p>
+<p>Decrypts an exported identity. Returns {key: {private, public}, player_id} or {error: String}.</p>
+<p><strong>See also:</strong> <code>finish</code>, <code>pair_from</code>, <code>pbkdf2_sha256</code>, <code>player_id</code>, <code>start</code></p>
 <h3 id="install"><code>install</code></h3>
 <p><em>shared/identity.gd</em></p>
-<p>GDScript: <code>static install(key: CryptoKey, identity_name := "default") -&gt; Error</code></p>
+<p>GDScript: <code>static install(key: Dictionary, identity_name := "default") -&gt; Error</code></p>
 <p>Saves <code>key</code> as the named identity. An existing different identity is kept as a .bak file.</p>
 <p><strong>See also:</strong> <code>close</code>, <code>download</code>, <code>install_package</code>, <code>installed</code>, <code>installed_path</code>, <code>installer</code></p>
 <h3 id="pbkdf2_sha256"><code>pbkdf2_sha256</code></h3>
@@ -2469,7 +2577,7 @@ the whole of what pausing means.</p>
 <p>GDScript: <code>give(target, condition_name: String, options := {}) -&gt; bool</code></p>
 <p>Gives one. <code>seconds</code> 0 means until it is taken away. Returns false when the target already has
 something stronger and the condition does not stack.</p>
-<p><strong>See also:</strong> <code>add_modifier</code>, <code>exists</code>, <code>give_overflow</code>, <code>is_alive</code>, <code>set_sitting</code>, <code>wake</code></p>
+<p><strong>See also:</strong> <code>add_modifier</code>, <code>exists</code>, <code>give_overflow</code>, <code>is_alive</code>, <code>set_sitting</code>, <code>sync</code></p>
 <h3 id="clear_all"><code>clear_all</code></h3>
 <p><em>server/conditions.gd</em></p>
 <p>GDScript: <code>clear_all(target, only_bad := false) -&gt; int</code></p>
@@ -2501,7 +2609,7 @@ and an absolute expiry means nothing on the other side of a save.</p>
 <p><em>server/hunger.gd</em></p>
 <p>GDScript: <code>sync(p, force := false) -&gt; void</code></p>
 <p>Sends hunger when it changes (-1 while the <code>hunger</code> rule is off, which hides the bar).</p>
-<p><strong>See also:</strong> <code>refresh</code>, <code>state_of</code>, <code>view</code></p>
+<p><strong>See also:</strong> <code>active_for</code>, <code>gameplay_of</code>, <code>refresh</code>, <code>state_of</code>, <code>view</code></p>
 <h3 id="update_8"><code>update</code></h3>
 <p><em>server/hunger.gd</em></p>
 <p>GDScript: <code>update(p, delta: float, moved: Vector3, move_time: float, was_on_ground: bool) -&gt; void</code></p>
@@ -2644,6 +2752,11 @@ the vehicle and their input is steering (see engine/server/vehicles.gd).</p>
 <p><em>server/server_player.gd</em></p>
 <p>GDScript: <code>server_wear := {}  (property)</code></p>
 <p>Server cosmetics the player picked on this server: {category: {id, color}}.</p>
+<h3 id="look"><code>look</code></h3>
+<p><em>server/server_player.gd</em></p>
+<p>GDScript: <code>look := {}  (property)</code></p>
+<p>How the body is drawn, as against what it wears: {scale, hide, tint} - see set_look. Not saved,
+because a disguise belongs to a round of a game and not to a person.</p>
 <h3 id="avatar_override"><code>avatar_override</code></h3>
 <p><em>server/server_player.gd</em></p>
 <p>GDScript: <code>avatar_override := {}  (property)</code></p>
@@ -2699,6 +2812,7 @@ the vehicle and their input is steering (see engine/server/vehicles.gd).</p>
 <p><em>server/server_player.gd</em></p>
 <p>GDScript: <code>has_permission(permission: String) -&gt; bool</code></p>
 <p>Whether this player's roles grant a permission ("build", "creative", "ugc.review", a mod's own ...).</p>
+<p><strong>See also:</strong> <code>is_admitted</code></p>
 <h3 id="transfer_to"><code>transfer_to</code></h3>
 <p><em>server/server_player.gd</em></p>
 <p>GDScript: <code>transfer_to(server_name: String, arrival := "", data := {}) -&gt; String</code></p>
@@ -2813,7 +2927,7 @@ a mod would otherwise have to remember to check the return value every single ti
 read as "if it worked" and meant "if it failed" - the kind of thing that is right in the one place
 somebody thought about it and wrong everywhere it was copied to. The count is still available from
 <code>give_overflow</code> for the two callers that want to say how much ended up on the floor. (2026-09-21)</p>
-<p><strong>See also:</strong> <code>add_modifier</code>, <code>exists</code>, <code>give_overflow</code>, <code>is_alive</code>, <code>set_sitting</code>, <code>wake</code></p>
+<p><strong>See also:</strong> <code>add_modifier</code>, <code>exists</code>, <code>give_overflow</code>, <code>is_alive</code>, <code>set_sitting</code>, <code>sync</code></p>
 <h3 id="give_overflow"><code>give_overflow</code></h3>
 <p><em>server/server_player.gd</em></p>
 <p>GDScript: <code>give_overflow(item: int, count := 1, item_data := {}) -&gt; int</code></p>
@@ -2863,7 +2977,7 @@ upgrades, custom names ("name"), tooltip lines ("lore") and per-item stat "modif
 <p><em>server/server_player.gd</em></p>
 <p>GDScript: <code>damage_item(slot: int, amount := 1, reason := "use") -&gt; void</code></p>
 <p>Wears down the item in a slot (respects the durability gameplay rule and item_durability event).</p>
-<p><strong>See also:</strong> <code>clear_slot</code>, <code>get_eye_position</code>, <code>look_direction</code>, <code>max_durability</code>, <code>play_effect</code>, <code>play_sound_at</code></p>
+<p><strong>See also:</strong> <code>clear_slot</code>, <code>gameplay_of</code>, <code>get_eye_position</code>, <code>look_direction</code>, <code>max_durability</code>, <code>play_effect</code></p>
 <h3 id="get_stats"><code>get_stats</code></h3>
 <p><em>server/server_player.gd</em></p>
 <p>GDScript: <code>get_stats() -&gt; Dictionary</code></p>
@@ -2888,7 +3002,7 @@ removed. Use ids like "my_mod:haste".</p>
 <p><em>server/server_player.gd</em></p>
 <p>GDScript: <code>refresh_stats() -&gt; void</code></p>
 <p>Recomputes stats now (after changing item data or modifiers outside the API).</p>
-<p><strong>See also:</strong> <code>compute</code>, <code>refresh_appearance</code>, <code>sync_health</code></p>
+<p><strong>See also:</strong> <code>compute</code>, <code>refresh_appearance</code>, <code>rules_in</code>, <code>sync_health</code></p>
 <h3 id="sync_inventory"><code>sync_inventory</code></h3>
 <p><em>server/server_player.gd</em></p>
 <p>GDScript: <code>sync_inventory() -&gt; void</code></p>
@@ -2914,6 +3028,36 @@ removed. Use ids like "my_mod:haste".</p>
 <p>Avatar data laid over this player's look, e.g. a team uniform: {wear: {shirt: {id, color}}}; an
 empty id takes a category off. Pass {} to clear. Not saved.</p>
 <p><strong>See also:</strong> <code>refresh_avatar</code>, <code>sanitize_avatar</code></p>
+<h3 id="set_look_1"><code>set_look</code></h3>
+<p><em>server/server_player.gd</em></p>
+<p>GDScript: <code>set_look(values: Dictionary) -&gt; void</code></p>
+<p>How this player is <em>drawn</em>, as against what they are wearing: <code>scale</code> (0.05-10) and <code>hide</code> (body
+part names, matched by prefix; <code>"*"</code> is all of them). Pass {} to clear. Not saved.</p>
+<p><strong>The same controls <code>Entity.set_look</code> has had since Wick got his coat</strong>, finally applying to players
+too. Not a new idea - an existing one reaching one more noun, which is why disguises and
+invisibility needed no system of their own: <code>hide</code> every part and there is a hider.</p>
+<p><strong>No <code>tint</code> here, though entities have one.</strong> A player's colours are already
+<code>set_avatar_override({"body": {...}})</code>, and two ways to colour the same arm is how they end up
+disagreeing. Use that for a team colour and this for a shape. (2026-09-28)</p>
+<p><strong>See also:</strong> <code>apply</code>, <code>look_changed</code>, <code>merge</code>, <code>refresh_appearance</code></p>
+<h3 id="look_of"><code>look_of</code></h3>
+<p><em>server/server_player.gd</em></p>
+<p>GDScript: <code>look_of() -&gt; Dictionary</code></p>
+<p>What <code>set_look</code> last said, or {}.</p>
+<h3 id="set_phasing"><code>set_phasing</code></h3>
+<p><em>server/server_player.gd</em></p>
+<p>GDScript: <code>set_phasing(enabled: bool) -&gt; void</code></p>
+<p>Moves through the world rather than against it: no collision, no ground, flying. What a spectator is
+made of, and the one part of one a mod cannot write for itself, because passing through blocks lives
+in the physics.</p>
+<p><strong>The engine does not know what a spectator is.</strong> One game hides the watcher and freezes them,
+another lets them roam and chat, a third shows them only their own side - so the rest is the mod's,
+composed from <code>set_look</code> to disappear, the cancellable <code>player_damage</code> to be unhurtable, and
+<code>mob_target</code> to be ignored. (2026-09-28)</p>
+<h3 id="is_phasing"><code>is_phasing</code></h3>
+<p><em>server/server_player.gd</em></p>
+<p>GDScript: <code>is_phasing() -&gt; bool</code></p>
+<p>Whether they are passing through the world (see set_phasing).</p>
 <h3 id="knows_recipe"><code>knows_recipe</code></h3>
 <p><em>server/server_player.gd</em></p>
 <p>GDScript: <code>knows_recipe(recipe_id: String) -&gt; bool</code></p>
@@ -2956,7 +3100,7 @@ are registered, so they change between versions and mod sets; names do not.
 <p><em>server/sleep.gd</em></p>
 <p>GDScript: <code>use_bed(p, pos: Vector3i) -&gt; void</code></p>
 <p>Right-click on a bed: set the respawn point, then try to sleep.</p>
-<p><strong>See also:</strong> <code>bed_cells</code>, <code>is_alive</code>, <code>is_night</code>, <code>needed_sleepers</code>, <code>refresh_appearance</code>, <code>send_message</code></p>
+<p><strong>See also:</strong> <code>bed_cells</code>, <code>gameplay_of</code>, <code>is_alive</code>, <code>is_night</code>, <code>needed_sleepers</code>, <code>refresh_appearance</code></p>
 <h3 id="needed_sleepers"><code>needed_sleepers</code></h3>
 <p><em>server/sleep.gd</em></p>
 <p>GDScript: <code>needed_sleepers() -&gt; int</code></p>
@@ -2973,8 +3117,9 @@ are registered, so they change between versions and mod sets; names do not.
 <p><strong>See also:</strong> <code>ensure_area_loaded</code>, <code>realm_of</code>, <code>send_message</code>, <code>stand_spot</code></p>
 <h3 id="key_1"><code>key</code></h3>
 <p><em>server/status_query.gd</em></p>
-<p>GDScript: <code>key: CryptoKey  (property)</code></p>
-<p>The server's identity key (signs proofs for the hub); set by the server when it starts listening.</p>
+<p>GDScript: <code>key: Dictionary = {}  (property)</code></p>
+<p>The server's Ed25519 identity key (signs proofs for the hub); set by the server when it starts
+listening. Empty until then, and on an offline server.</p>
 <h3 id="step_1"><code>step</code></h3>
 <p><em>shared/player_physics.gd</em></p>
 <p>GDScript: <code>static step(s: State, input: PlayerInput, world, rules: Rules) -&gt; void</code></p>
@@ -3231,15 +3376,29 @@ only after checking it, or use the <code>require_*</code> form at the API bounda
 <p>GDScript: <code>lock_hint(page: Dictionary) -&gt; String</code></p>
 <p>What reveals a locked page.</p>
 <p><strong>See also:</strong> <code>get_page</code>, <code>index_of</code></p>
-<h3 id="key_name"><code>key_name</code></h3>
-<p><em>client/guide_screen.gd</em></p>
-<p>GDScript: <code>static key_name(action: String) -&gt; String</code></p>
-<p>The first key bound to an input action ("G", "Space", "Left Mouse").</p>
+<h3 id="page_title"><code>page_title</code></h3>
+<p><em>client/objective_hud.gd</em></p>
+<p>GDScript: <code>page_title := Callable()  (property)</code></p>
+<p>Page id -&gt; its title, set by the client, because the guide's registry lives in the guide screen and
+this panel has no business holding a second copy of it.</p>
+<h3 id="set_view"><code>set_view</code></h3>
+<p><em>client/objective_hud.gd</em></p>
+<p>GDScript: <code>set_view(view: Dictionary) -&gt; void</code></p>
+<p>{active: [{name, display_name, step, of, text, progress, needed}]} from the server.</p>
+<p><strong>See also:</strong> <code>icon_of</code>, <code>key_name</code>, <code>new_game</code>, <code>node_key</code>, <code>texture</code>, <code>uptime</code></p>
+<h3 id="preferred_page"><code>preferred_page</code></h3>
+<p><em>client/objective_hud.gd</em></p>
+<p>GDScript: <code>preferred_page(read: Dictionary) -&gt; String</code></p>
+<p>The page the book should open at, given what has already been read: whichever the topmost task names
+and the player has not read yet. <strong>Unread only</strong> - once they have read it, opening the guide goes
+back to where they left off, so this nudges once and then stops being in the way. The same shape as
+the tutorial tracker's, which came first; the player is asking the one question with two answers
+("what should I read?") and the story's answer sorts above a tutorial's by being asked for later.</p>
 <h3 id="step_done"><code>step_done</code></h3>
 <p><em>client/tutorial_hud.gd</em></p>
 <p>GDScript: <code>step_done(kind: String) -&gt; void</code></p>
 <p>A step was finished: a quick green flash (the next step arrives with the view).</p>
-<h3 id="preferred_page"><code>preferred_page</code></h3>
+<h3 id="preferred_page_1"><code>preferred_page</code></h3>
 <p><em>client/tutorial_hud.gd</em></p>
 <p>GDScript: <code>preferred_page(read: Dictionary) -&gt; String</code></p>
 <p>The page the G key should open: the tip on show, else the current step's page (if not read yet).</p>
@@ -3357,7 +3516,7 @@ is cheap when nothing changed - the usual case - because the dirty list is empty
 <p><em>server/guide.gd</em></p>
 <p>GDScript: <code>sync(p) -&gt; void</code></p>
 <p>Sends the full guide state after joining.</p>
-<p><strong>See also:</strong> <code>refresh</code>, <code>state_of</code>, <code>view</code></p>
+<p><strong>See also:</strong> <code>active_for</code>, <code>gameplay_of</code>, <code>refresh</code>, <code>state_of</code>, <code>view</code></p>
 <h3 id="unlock"><code>unlock</code></h3>
 <p><em>server/guide.gd</em></p>
 <p>GDScript: <code>unlock(p, page_id: String, notify := true) -&gt; bool</code></p>
@@ -3492,29 +3651,37 @@ stay out of the list until they are reached, so the surprise survives being able
 <h3 id="kinds_9"><code>kinds</code></h3>
 <p><em>server/objectives.gd</em></p>
 <p>GDScript: <code>kinds := {}  (property)</code></p>
-<p>Name -&gt; {name, display_name, description, steps: [{text, count}], repeatable, owner}</p>
+<p>Name -&gt; {name, display_name, description, steps: [{text, count, page}], repeatable, page, owner}</p>
 <h3 id="give_3"><code>give</code></h3>
 <p><em>server/objectives.gd</em></p>
 <p>GDScript: <code>give(player, objective_name: String) -&gt; bool</code></p>
 <p>Gives it to a player. Returns false if they already have it, have finished one that cannot be
 repeated, or are carrying as many as they may.</p>
-<p><strong>See also:</strong> <code>add_modifier</code>, <code>exists</code>, <code>give_overflow</code>, <code>is_alive</code>, <code>set_sitting</code>, <code>wake</code></p>
+<p><strong>See also:</strong> <code>add_modifier</code>, <code>exists</code>, <code>give_overflow</code>, <code>is_alive</code>, <code>set_sitting</code>, <code>sync</code></p>
 <h3 id="advance"><code>advance</code></h3>
 <p><em>server/objectives.gd</em></p>
 <p>GDScript: <code>advance(player, objective_name: String, amount := 1) -&gt; bool</code></p>
 <p>Counts <code>amount</code> towards the step they are on. When the step is filled it moves on, and when the
 last one is filled the whole thing is done - which is <code>objective_done</code>, where a mod hands out
 whatever it thinks the reward is. The engine has no idea what a reward would be.</p>
-<p><strong>See also:</strong> <code>advance</code>, <code>biome_at</code>, <code>give</code>, <code>has_flag</code>, <code>is_night</code>, <code>play_sound_to</code></p>
+<p><strong>See also:</strong> <code>advance</code>, <code>biome_at</code>, <code>gameplay_of</code>, <code>give</code>, <code>has_flag</code>, <code>is_night</code></p>
 <h3 id="abandon"><code>abandon</code></h3>
 <p><em>server/objectives.gd</em></p>
 <p>GDScript: <code>abandon(player, objective_name: String) -&gt; bool</code></p>
 <p>Gives up on one. Kept separate from finishing it, because "I am not doing this" and "I did this"
 are different things and a mod may want to say so.</p>
+<p><strong>See also:</strong> <code>sync</code></p>
+<h3 id="sync_2"><code>sync</code></h3>
+<p><em>server/objectives.gd</em></p>
+<p>GDScript: <code>sync(player) -&gt; void</code></p>
+<p>Sends the task list to whoever it belongs to. <strong>Pushed on every change rather than asked for</strong>, the
+way the tutorial tracker is: a list you have to request is a list that is wrong for as long as
+nobody asked, and the one moment it matters is the moment it changed.</p>
+<p><strong>See also:</strong> <code>active_for</code>, <code>gameplay_of</code>, <code>refresh</code>, <code>state_of</code>, <code>view</code></p>
 <h3 id="active_for"><code>active_for</code></h3>
 <p><em>server/objectives.gd</em></p>
 <p>GDScript: <code>active_for(player) -&gt; Array</code></p>
-<p>What they are doing now: [{name, display_name, step, of, text, progress, needed}].</p>
+<p>What they are doing now: [{name, display_name, step, of, text, progress, needed, page}].</p>
 <h3 id="finished"><code>finished</code></h3>
 <p><em>server/objectives.gd</em></p>
 <p>GDScript: <code>finished(player, objective_name: String) -&gt; int</code></p>
@@ -3646,12 +3813,12 @@ auto-start one not yet done or stopped.</p>
 <p><em>server/tutorials.gd</em></p>
 <p>GDScript: <code>stop(p) -&gt; void</code></p>
 <p>Stops the active tutorial (it will not start by itself again).</p>
-<p><strong>See also:</strong> <code>close</code>, <code>state_of</code>, <code>step</code>, <code>sync</code>, <code>unsubscribe</code></p>
+<p><strong>See also:</strong> <code>close</code>, <code>state_of</code>, <code>step</code>, <code>sync</code></p>
 <h3 id="advance_1"><code>advance</code></h3>
 <p><em>server/tutorials.gd</em></p>
 <p>GDScript: <code>advance(p, skipped := false) -&gt; void</code></p>
 <p>Completes the current step (skip, or a "manual" goal done by a mod).</p>
-<p><strong>See also:</strong> <code>advance</code>, <code>biome_at</code>, <code>give</code>, <code>has_flag</code>, <code>is_night</code>, <code>play_sound_to</code></p>
+<p><strong>See also:</strong> <code>advance</code>, <code>biome_at</code>, <code>gameplay_of</code>, <code>give</code>, <code>has_flag</code>, <code>is_night</code></p>
 <h3 id="view_2"><code>view</code></h3>
 <p><em>server/tutorials.gd</em></p>
 <p>GDScript: <code>view(p) -&gt; Dictionary</code></p>
@@ -3703,17 +3870,17 @@ auto-start one not yet done or stopped.</p>
 <p><em>server/ugc.gd</em></p>
 <p>GDScript: <code>offer(p, manifests: Array) -&gt; Dictionary</code></p>
 <p>A client offers creations it wears. Returns {request: [ids], status: {id: [status, reason]}}.</p>
-<p><strong>See also:</strong> <code>is_id</code></p>
+<p><strong>See also:</strong> <code>is_clean</code>, <code>is_id</code></p>
 <h3 id="upload_piece"><code>upload_piece</code></h3>
 <p><em>server/ugc.gd</em></p>
 <p>GDScript: <code>upload_piece(p, id: String, offset: int, total: int, bytes: PackedByteArray) -&gt; void</code></p>
 <p>A piece of an upload. Completes (validates and stores) when the last piece arrives.</p>
-<p><strong>See also:</strong> <code>close</code>, <code>ensure_registered</code>, <code>is_admin</code>, <code>open</code>, <code>payload_extension</code>, <code>reapply_requested_avatar</code></p>
+<p><strong>See also:</strong> <code>close</code>, <code>ensure_registered</code>, <code>is_admin</code>, <code>is_clean</code>, <code>open</code>, <code>payload_extension</code></p>
 <h3 id="set_status"><code>set_status</code></h3>
 <p><em>server/ugc.gd</em></p>
 <p>GDScript: <code>set_status(id: String, status: String, reason := "", by := "") -&gt; bool</code></p>
 <p>Changes a creation's status (moderation). "removed" also blocks the content for good.</p>
-<p><strong>See also:</strong> <code>draw</code>, <code>ensure_registered</code>, <code>payload_extension</code>, <code>reapply_requested_avatar</code>, <code>save_index</code>, <code>worn_ids</code></p>
+<p><strong>See also:</strong> <code>draw</code>, <code>ensure_registered</code>, <code>payload_extension</code>, <code>reapply_requested_avatar</code>, <code>save_index</code>, <code>status</code></p>
 <h3 id="fetch_2"><code>fetch</code></h3>
 <p><em>server/ugc.gd</em></p>
 <p>GDScript: <code>fetch(p, ids: PackedStringArray) -&gt; void</code></p>
@@ -4128,9 +4295,24 @@ so an impostor cannot complete the connection; the first connection trusts and p
 <h3 id="load_or_create_server_identity"><code>load_or_create_server_identity</code></h3>
 <p><em>net/net.gd</em></p>
 <p>GDScript: <code>static load_or_create_server_identity(dir: String) -&gt; Array</code></p>
-<p>Loads the server's DTLS identity from <code>dir</code>, creating a self-signed one on first start.
+<p>Loads the server's DTLS certificate from <code>dir</code>, creating a self-signed one on first start. This is how
+the server is <em>reached</em>; who it <em>is</em> comes from <code>load_or_create_server_key</code> below.
 Returns [CryptoKey, X509Certificate, certificate PEM text].</p>
 <p><strong>See also:</strong> <code>load</code>, <code>save</code></p>
+<h3 id="load_or_create_server_key"><code>load_or_create_server_key</code></h3>
+<p><em>net/net.gd</em></p>
+<p>GDScript: <code>static load_or_create_server_key(dir: String) -&gt; Dictionary</code></p>
+<p>The server's own Ed25519 identity: <strong>who it is</strong>, as against the certificate above, which is only
+how it is reached. This is what signs transfer tickets, status proofs and hub announces, and its
+hash is the server id other servers put in their <code>network.json</code>.</p>
+<p><strong>These were one key until 2026-09-25.</strong> The certificate's RSA key did both jobs, which was tidy
+while everything was RSA - and then players moved to Ed25519 so that an identity would fit in
+something a person can type, and the hub, which verifies both servers' and players' signatures with
+the same code, could no longer read the server's. Two keys is also the more honest shape: a
+certificate is replaceable and an identity is not, so a server that regenerates its certificate no
+longer stops being itself to everybody who trusted it. The certificate stays RSA because Godot's
+<code>generate_self_signed_certificate</code> takes nothing else.</p>
+<p><strong>See also:</strong> <code>load_or_create_at</code></p>
 <h3 id="peer_rtt_ms"><code>peer_rtt_ms</code></h3>
 <p><em>net/net.gd</em></p>
 <p>GDScript: <code>peer_rtt_ms(peer_id: int) -&gt; int</code></p>
@@ -4147,7 +4329,7 @@ Returns [CryptoKey, X509Certificate, certificate PEM text].</p>
 <p><em>server/hub_announcer.gd</em></p>
 <p>GDScript: <code>leave() -&gt; void</code></p>
 <p>Asks the hub to drop the listing (best effort, on shutdown: a blocking request with a short timeout).</p>
-<p><strong>See also:</strong> <code>allowed</code>, <code>close</code>, <code>finish</code>, <code>get_block</code>, <code>gone</code>, <code>send_to_realm</code></p>
+<p><strong>See also:</strong> <code>allowed</code>, <code>close</code>, <code>get_block</code>, <code>gone</code>, <code>public_text</code>, <code>send_to_realm</code></p>
 <h3 id="transfer"><code>transfer</code></h3>
 <p><em>server/transfers.gd</em></p>
 <p>GDScript: <code>transfer(p, target: String, options := {}) -&gt; String</code></p>
@@ -4216,7 +4398,7 @@ here rather than growing a second block with a second timer that feels slightly 
 <p>GDScript: <code>static enabled() -&gt; bool</code></p>
 <p>Whether the extension is loaded. Kept as a function because a handful of callers want to <em>report</em>
 it (the server's startup line, the benchmark's labels) rather than depend on it.</p>
-<p><strong>See also:</strong> <code>level_of</code></p>
+<p><strong>See also:</strong> <code>gameplay_of</code>, <code>level_of</code></p>
 <h3 id="create_1"><code>create</code></h3>
 <p><em>shared/native.gd</em></p>
 <p>GDScript: <code>static create(native_class: StringName) -&gt; Object</code></p>
@@ -4224,21 +4406,22 @@ it (the server's startup line, the benchmark's labels) rather than depend on it.
 <p><strong>See also:</strong> <code>broadcast_entity_event</code>, <code>close</code>, <code>create</code>, <code>exists</code>, <code>heading</code>, <code>id_for</code></p>
 <h3 id="key_id"><code>key_id</code></h3>
 <p><em>shared/transfer_ticket.gd</em></p>
-<p>GDScript: <code>static key_id(key: CryptoKey) -&gt; String</code></p>
-<p>The id servers use for each other: the first 32 hex characters of SHA-256 over the public key PEM.</p>
-<p><strong>See also:</strong> <code>pem_id</code></p>
+<p>GDScript: <code>static key_id(key) -&gt; String</code></p>
+<p>The id servers use for each other: the same id a player has, over the server's own public key, so
+there is one id scheme in the project rather than two that look alike.</p>
+<p><strong>See also:</strong> <code>player_id</code></p>
 <h3 id="make_1"><code>make</code></h3>
 <p><em>shared/transfer_ticket.gd</em></p>
-<p>GDScript: <code>static make(source_key: CryptoKey, fields: Dictionary) -&gt; Dictionary</code></p>
+<p>GDScript: <code>static make(source_key: Dictionary, fields: Dictionary) -&gt; Dictionary</code></p>
 <p>{ticket: JSON text, signature: base64}</p>
-<p><strong>See also:</strong> <code>content_id</code>, <code>finish</code>, <code>key_id</code>, <code>sign</code>, <code>start</code></p>
-<h3 id="verify"><code>verify</code></h3>
+<p><strong>See also:</strong> <code>content_id</code>, <code>key_id</code>, <code>public_text</code>, <code>sign</code></p>
+<h3 id="verify_1"><code>verify</code></h3>
 <p><em>shared/transfer_ticket.gd</em></p>
 <p>GDScript: <code>static verify(ticket: String, signature: String, trusted: Dictionary) -&gt; Dictionary</code></p>
 <p>Checks a ticket's signature and shape. <code>trusted</code>: source id -&gt; anything truthy.
 Returns {ok: true, data} or {ok: false, error}. Expiry, destination and replay are the caller's checks
 too (see <code>check</code>), since they need the destination's own details.</p>
-<p><strong>See also:</strong> <code>finish</code>, <code>pem_id</code>, <code>start</code></p>
+<p><strong>See also:</strong> <code>finish</code>, <code>key_id</code>, <code>parse_public_key</code>, <code>start</code></p>
 <h3 id="check"><code>check</code></h3>
 <p><em>shared/transfer_ticket.gd</em></p>
 <p>GDScript: <code>static check(data: Dictionary, player_id: String, own_id: String, now: int) -&gt; String</code></p>
@@ -4320,15 +4503,6 @@ event when tracing. Returns the payload.</p>
 <p>GDScript: <code>draw(owner: String, shape: Dictionary) -&gt; void</code></p>
 <p>shape: {type: box | line | text | path | sphere, color, seconds, ...}; box {min, max} or {center, size},
 line {from, to}, text {position, text}, path {points}, sphere {center, radius}.</p>
-<h3 id="start_2"><code>start</code></h3>
-<p><em>server/dev_web.gd</em></p>
-<p>GDScript: <code>start(listen_port: int, bind_host := "127.0.0.1", keep_token := "") -&gt; Error</code></p>
-<p><code>keep_token</code>: reuse a token (a full reload keeps open dashboards working).</p>
-<p><strong>See also:</strong> <code>add_chunk</code>, <code>add_command</code>, <code>add_handler</code>, <code>add_mod_dir</code>, <code>add_recipe</code>, <code>advance</code></p>
-<h3 id="streaming"><code>streaming</code></h3>
-<p><em>server/dev_web.gd</em></p>
-<p>GDScript: <code>streaming() -&gt; bool</code></p>
-<p>Kept because callers ask it; there is only the one transport now, and it pushes.</p>
 <h2 id="the-client">The client</h2>
 <h3 id="last_state"><code>last_state</code></h3>
 <p><em>client/admin/worlds_panel.gd</em></p>
@@ -4371,6 +4545,13 @@ line {from, to}, text {position, text}, path {points}, sphere {center, radius}.<
 <p><em>client/avatar/avatar.gd</em></p>
 <p>GDScript: <code>set_accessories(list: Array) -&gt; void</code></p>
 <p>Adds accessory nodes at attachment points: [{attach, node}]. Replaces previous accessories.</p>
+<h3 id="set_look_2"><code>set_look</code></h3>
+<p><em>client/avatar/avatar.gd</em></p>
+<p>GDScript: <code>set_look(look: Dictionary) -&gt; void</code></p>
+<p>How the body is drawn: {scale, hide}. See ServerPlayer.set_look.</p>
+<p><strong>Applied on top of the rig's own scale rather than replacing it</strong>, so a rig with a different height
+keeps it - <code>_base_scale</code> is what <code>build</code> worked out from the rig, and this multiplies it.</p>
+<p><strong>See also:</strong> <code>apply</code>, <code>look_changed</code>, <code>merge</code>, <code>refresh_appearance</code></p>
 <h3 id="set_sleeping"><code>set_sleeping</code></h3>
 <p><em>client/avatar/avatar.gd</em></p>
 <p>GDScript: <code>set_sleeping(head: Array) -&gt; void</code></p>
@@ -4378,7 +4559,12 @@ line {from, to}, text {position, text}, path {points}, sphere {center, radius}.<
 <h3 id="set_armor_glow"><code>set_armor_glow</code></h3>
 <p><em>client/avatar/avatar.gd</em></p>
 <p>GDScript: <code>set_armor_glow(glow: Dictionary) -&gt; void</code></p>
-<p>Glowing armor: {color, energy} lights up the armor texture in its own colors; {} turns it off.</p>
+<p>Glowing armor: {color, energy} lights up the armor texture in its own colors, and <code>light</code> (a radius
+in blocks) makes it light the world around the wearer too. {} turns both off.</p>
+<p><strong><code>light</code> arrived here for weeks and was thrown away.</strong> The server already computed it from the
+worn stack's data and shipped it in <code>appearance.armor_glow</code>; this function read <code>color</code> and
+<code>energy</code> and dropped the rest on the floor, so armour could look lit and never lit anything. Held
+items have made a real light out of the same field all along (avatar/item_mesh.gd). (2026-09-24)</p>
 <h3 id="animate"><code>animate</code></h3>
 <p><em>client/avatar/avatar.gd</em></p>
 <p>GDScript: <code>animate(delta: float, velocity: Vector3, on_ground: bool, pitch: float) -&gt; void</code></p>
@@ -4596,7 +4782,7 @@ look builder. Returns how many were added.</p>
 <p>GDScript: <code>static crumbs(parent: Node, at: Vector3, color: Color, amount := 8, size := 0.03) -&gt; void</code></p>
 <p>A one-shot burst of pixel crumbs falling in world space.</p>
 <p><strong>See also:</strong> <code>set_color</code></p>
-<h3 id="start_3"><code>start</code></h3>
+<h3 id="start_2"><code>start</code></h3>
 <p><em>client/effects/swing_trail.gd</em></p>
 <p>GDScript: <code>start(grip: Node3D, tip: Node3D, trail: Dictionary, swing_seconds: float, space: Node3D = null, subtle := false) -&gt; void</code></p>
 <p>Records the ribbon for <code>swing_seconds</code>. <code>space</code> null means world space. <code>subtle</code> (first person, where
@@ -4611,26 +4797,47 @@ stays at chest height rather than snapping to the thing's feet.</p>
 <p><em>client/game_client.gd</em></p>
 <p>GDScript: <code>reload_pending := false  (property)</code></p>
 <p>Set when the server announced a full reload: whoever owns the client should reconnect (see main.gd).</p>
+<h3 id="net"><code>net</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>net = Net  (property)</code></p>
+<p>The networking node this client talks through. <strong>The autoload by default, which is every ordinary
+client</strong>, and settable before the client enters the tree for the one case that cannot use it: a
+world hosted inside this same process, where the server already owns the autoload and its single
+multiplayer peer. See Main._host_in_process. (2026-09-27)</p>
 <h3 id="admin_token"><code>admin_token</code></h3>
 <p><em>client/game_client.gd</em></p>
 <p>GDScript: <code>admin_token := ""  (property)</code></p>
 <p>Passed by the menu when this client launched a local server it should stop on exit.</p>
+<h3 id="capabilities"><code>capabilities</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>capabilities := PackedStringArray()  (property)</code></p>
+<p>What the server says this player may do (engine/net/net.gd s_capabilities). Empty until it arrives,
+so anything gated on it stays hidden rather than flashing on and off at join.</p>
 <h3 id="identity_name"><code>identity_name</code></h3>
 <p><em>client/game_client.gd</em></p>
 <p>GDScript: <code>identity_name := "default"  (property)</code></p>
-<p>Which saved identity (user://identity/<name>.pem) to log in with.</p>
+<p>Which saved identity (user://identity/<name>.key) to log in with.</p>
 <h3 id="test_signing_key"><code>test_signing_key</code></h3>
 <p><em>client/game_client.gd</em></p>
-<p>GDScript: <code>test_signing_key: CryptoKey = null  (property)</code></p>
+<p>GDScript: <code>test_signing_key := {}  (property)</code></p>
 <p>Tests only: sign challenges with this key instead of the identity (must fail authentication).</p>
 <h3 id="test_protocol"><code>test_protocol</code></h3>
 <p><em>client/game_client.gd</em></p>
 <p>GDScript: <code>test_protocol := -1  (property)</code></p>
 <p>Tests: announce this protocol version instead of the real one.</p>
-<h3 id="ignore_mouse_capture"><code>ignore_mouse_capture</code></h3>
+<h3 id="auto_capture_mouse"><code>auto_capture_mouse</code></h3>
 <p><em>client/game_client.gd</em></p>
-<p>GDScript: <code>ignore_mouse_capture := false  (property)</code></p>
-<p>Accept gameplay input without a captured mouse (headless bots / tests).</p>
+<p>GDScript: <code>auto_capture_mouse := true  (property)</code></p>
+<p>Accept gameplay input without a captured mouse (headless bots / tests).
+Whether arriving in a world grabs the mouse. True for a person playing; the screenshot harness
+turns it off, because a test run that steals the cursor for a minute is its own small cruelty.</p>
+<h3 id="touch_mode"><code>touch_mode</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>touch_mode := false  (property)</code></p>
+<p>Whether the on-screen controls are in use. True on a touchscreen, or anywhere when <code>QW_TOUCH=1</code> -
+<strong>which exists so the layout can be looked at without a tablet in hand.</strong> Every visual change would
+otherwise need a four-minute iOS rebuild and somebody holding the device, which is how a control
+scheme ends up shipped without ever having been looked at. (2026-09-27)</p>
 <h3 id="avatar_2"><code>avatar</code></h3>
 <p><em>client/game_client.gd</em></p>
 <p>GDScript: <code>avatar = null  (property)</code></p>
@@ -4700,6 +4907,12 @@ leave nobody able to travel at all.)</p>
 <p>GDScript: <code>fetch_lazy_asset(asset_name: String, then: Callable) -&gt; void</code></p>
 <p>Fetches a lazy asset, calling <code>then(asset_name)</code> once it is on disk. Calling it again for something
 already arriving just adds another listener rather than asking the server twice.</p>
+<h3 id="on_capabilities"><code>on_capabilities</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>on_capabilities(can: PackedStringArray) -&gt; void</code></p>
+<p>The server has said what this player may do. The pause menu rebuilds its gated entries, because a
+promotion mid-game should reach the menu.</p>
+<p><strong>See also:</strong> <code>can</code></p>
 <h3 id="refresh_looks"><code>refresh_looks</code></h3>
 <p><em>client/game_client.gd</em></p>
 <p>GDScript: <code>refresh_looks() -&gt; void</code></p>
@@ -4753,6 +4966,15 @@ exactly the thing somebody may need turned down, and a mod should not be able to
 <p>GDScript: <code>on_flying(enabled: bool) -&gt; void</code></p>
 <p>The server started or stopped this player's flight.</p>
 <p><strong>See also:</strong> <code>notify</code></p>
+<h3 id="on_phasing"><code>on_phasing</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>on_phasing(enabled: bool) -&gt; void</code></p>
+<p>Moving through the world rather than against it. Told to the client because the client <em>predicts</em>
+movement: without this it would walk into a wall the server is not simulating, and the player would
+see themselves stop and then get dragged forward again.</p>
+<p><strong>No notification.</strong> Unlike flying, this is never something a player asked for - a game turns it on
+when a round knocks them out - so the game says what has happened in its own words, and the engine
+saying "phasing on" over the top of that would be both jargon and a second voice. (2026-09-28)</p>
 <h3 id="on_wind"><code>on_wind</code></h3>
 <p><em>client/game_client.gd</em></p>
 <p>GDScript: <code>on_wind(angle: float, strength: float) -&gt; void</code></p>
@@ -4776,6 +4998,16 @@ delivered independently, so a chunk sent a moment before the move would otherwis
 <em>after</em> it and be built into the world the player just walked into. Ordering only exists within a
 channel, so the message that ends a world travels in the same queue as the chunks it invalidates.</p>
 <p><strong>See also:</strong> <code>despawn</code>, <code>on_assembly_gone</code>, <code>on_effect_stop</code>, <code>on_player_left</code>, <code>on_unload_chunk</code></p>
+<h3 id="on_realm_check"><code>on_realm_check</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>on_realm_check(realm_id: String) -&gt; void</code></p>
+<p>The server saying which world it believes this player is in. Usually the one we are already in and
+nothing happens; when it is not, we missed a realm change and are holding a world that is not there
+any more - while the server streams the new one's chunks into it, so what is on screen is two worlds
+mixed together. Drop everything and ask for it again.</p>
+<p><strong>This is a recovery, not a realm change</strong>: <code>on_realm</code> does the teardown and the server resends the
+world, so the two paths stay one path. (2026-09-28)</p>
+<p><strong>See also:</strong> <code>on_realm</code></p>
 <h3 id="on_assembly"><code>on_assembly</code></h3>
 <p><em>client/game_client.gd</em></p>
 <p>GDScript: <code>on_assembly(id: int, origin: Vector3i, blocks: PackedInt32Array) -&gt; void</code></p>
@@ -4825,11 +5057,51 @@ caps how many cells it sends (AreaEdits.PREVIEW_CELLS), so this draws whatever a
 Where a block goes when placing against a target: into replaceable blocks (tall grass) themselves,
 otherwise against the face that was hit.</p>
 <p><strong>See also:</strong> <code>get_block_v</code></p>
+<h3 id="add_look"><code>add_look</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>add_look(moved: Vector2, local := Vector2.ZERO, scale := -1.0) -&gt; void</code></p>
+<p>Turns the camera by a movement in <strong>screen pixels</strong>, so the interface size does not change how fast
+it turns. <code>local</code> is the same movement in viewport units and only feeds the view-model sway.</p>
+<p><strong>Split out of the mouse handler so a finger can call it too.</strong> The look maths used to live inside a
+branch gated on <code>Input.mouse_mode == MOUSE_MODE_CAPTURED</code>, and iOS has no captured pointer - so on a
+tablet the camera could never turn, by construction rather than by oversight. (2026-09-27)
+<code>scale</code> is the caller's own sensitivity, because <strong>a mouse and a thumb do not share one</strong>: with the
+mouse setting applied here, turning a mouse down would also turn a tablet down, and a player has only
+one of the two devices in front of them. The mouse passes its setting; the touch layer passes its
+own. Inversion stays here, since up and down mean the same thing whatever is doing the moving.</p>
+<p><strong>See also:</strong> <code>get_value</code>, <code>shared</code></p>
+<h3 id="close_top_screen"><code>close_top_screen</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>close_top_screen() -&gt; bool</code></p>
+<p>Closes whatever screen is on top, the way Escape does, and says whether there was one.</p>
+<p><strong>Every screen closed on a key press and nothing else</strong> - Escape, or the key that opened it - so on a
+tablet the backpack opened and then held the player there with no way back. Same shape as the pause
+menu: a route in and no route out on a device with no keyboard. (the user, 2026-09-27: "when i opened
+a panel like Bag, i am unable to close it")</p>
+<p>The order matters and matches the Escape cascade exactly: the topmost thing goes first, so a
+guidebook opened from the backpack closes the guidebook rather than both.</p>
+<p><strong>See also:</strong> <code>close_map</code>, <code>close_settings</code>, <code>has_modal</code>, <code>key_name</code>, <code>open</code>, <code>play_name</code></p>
+<h3 id="any_screen_open"><code>any_screen_open</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>any_screen_open() -&gt; bool</code></p>
+<p>Whether any screen is covering the world, and so whether the close button belongs on screen.
+<strong>Listed by hand, which is how the palette got missed.</strong> The ring opened the block picker and no
+close button appeared, because this function enumerates screens and nobody had added it - so tapping
+the rightmost icon was a door with nothing on the other side of it. (the user, 2026-09-27: "the
+recipe browser didn\'t have a way to close it... the last icon in the flyout menu")</p>
+<p>A list like this is wrong the moment a screen is added, so the suite now asserts that every screen
+the client can open is one this function knows about.</p>
 <h3 id="on_recipe_learned"><code>on_recipe_learned</code></h3>
 <p><em>client/game_client.gd</em></p>
 <p>GDScript: <code>on_recipe_learned(index: int, source: String) -&gt; void</code></p>
 <p>A new recipe: remember it and celebrate (several at once are grouped into one toast).</p>
 <p><strong>See also:</strong> <code>open</code></p>
+<h3 id="on_objectives"><code>on_objectives</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>on_objectives(view: Dictionary) -&gt; void</code></p>
+<p>The task list, pushed whenever it changes. See engine/client/objective_hud.gd for why this took
+until there was a game with a story in it to notice was missing.</p>
+<p><strong>See also:</strong> <code>set_view</code></p>
 <h3 id="on_dev_error"><code>on_dev_error</code></h3>
 <p><em>client/game_client.gd</em></p>
 <p>GDScript: <code>on_dev_error(e: Dictionary) -&gt; void</code></p>
@@ -4863,6 +5135,28 @@ a minute or when the guide is requested again.</p>
 <p>GDScript: <code>open_avatar_editor() -&gt; void</code></p>
 <p>In game: your look with this server's cosmetics; saved built-in choices travel to other servers.</p>
 <p><strong>See also:</strong> <code>has_modal</code>, <code>is_builtin</code>, <code>player_id</code>, <code>resolve</code></p>
+<h3 id="set_paused"><code>set_paused</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>set_paused(paused: bool) -&gt; void</code></p>
+<p>Opens or closes the pause menu. <strong>Public because Escape was the only way in</strong>, and a tablet has no
+Escape - so once a child was in the world there was no route to Resume, Settings, Disconnect or
+anything else, on a device with no keyboard. (the user, 2026-09-27: "impossible to change settings
+etc since i am in game and no touch controls!")</p>
+<p><strong>See also:</strong> <code>has_modal</code></p>
+<h3 id="toggle_inventory"><code>toggle_inventory</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>toggle_inventory() -&gt; void</code></p>
+<p>Opens or closes the backpack. Public for the same reason as <code>set_paused</code>: the only other way in is
+the <code>inventory</code> action, which needs a key event to reach the handler.</p>
+<p><strong>See also:</strong> <code>refresh</code>, <code>set_container</code></p>
+<h3 id="open_crafting"><code>open_crafting</code></h3>
+<p><em>client/game_client.gd</em></p>
+<p>GDScript: <code>open_crafting() -&gt; void</code></p>
+<p>The rest of what a keyboard opens, as methods rather than key events. <strong>A virtual button cannot reach
+<code>_unhandled_input</code></strong>: pressing an action through <code>Input</code> updates the polled state that movement and
+mining read, but synthesises no event, and every screen opens from an event check. So each way in
+needs a door that is not a key. (2026-09-27)</p>
+<p><strong>See also:</strong> <code>crafting_stock</code>, <code>evaluate</code>, <code>leave</code></p>
 <h3 id="open_settings"><code>open_settings</code></h3>
 <p><em>client/game_client.gd</em></p>
 <p>GDScript: <code>open_settings() -&gt; void</code></p>
@@ -4987,6 +5281,20 @@ from the definition and from item data ("lore": [...]).</p>
 <p>GDScript: <code>static shield_icon(fill: float) -&gt; ImageTexture</code></p>
 <p>9x9 shield: <code>fill</code> 1 = full, 0.5 = left half, 0 = empty outline.</p>
 <p><strong>See also:</strong> <code>create</code></p>
+<h3 id="status"><code>status</code></h3>
+<p><em>client/loading_curtain.gd</em></p>
+<p>GDScript: <code>status(text: String) -&gt; void</code></p>
+<p>The line under the title: "Connecting…", "Downloading…", "Loading terrain…".</p>
+<h3 id="progress"><code>progress</code></h3>
+<p><em>client/loading_curtain.gd</em></p>
+<p>GDScript: <code>progress(fraction: float) -&gt; void</code></p>
+<p>The bar, or anything negative to hide it. Most of the steps have nothing to measure, which is why
+the blocks above keep moving regardless.</p>
+<h3 id="leave_2"><code>leave</code></h3>
+<p><em>client/loading_curtain.gd</em></p>
+<p>GDScript: <code>leave() -&gt; void</code></p>
+<p>The world is ready. Fades out and frees itself; safe to call twice.</p>
+<p><strong>See also:</strong> <code>allowed</code>, <code>close</code>, <code>get_block</code>, <code>gone</code>, <code>public_text</code>, <code>send_to_realm</code></p>
 <h3 id="zoom_by"><code>zoom_by</code></h3>
 <p><em>client/map_screen.gd</em></p>
 <p>GDScript: <code>zoom_by(steps: int) -&gt; void</code></p>
@@ -5139,7 +5447,7 @@ where the camera is, because a plate has no way of knowing on its own.</p>
 <p><em>client/palette_screen.gd</em></p>
 <p>GDScript: <code>show_palette(groups: Dictionary, items, atlas) -&gt; void</code></p>
 <p>Called when the server sends the catalogue.</p>
-<p><strong>See also:</strong> <code>icon_of</code></p>
+<p><strong>See also:</strong> <code>icon_of</code>, <code>uptime</code></p>
 <h3 id="create_3"><code>create</code></h3>
 <p><em>client/scrolling_material.gd</em></p>
 <p>GDScript: <code>static create(texture: Texture2D) -&gt; ShaderMaterial</code></p>
@@ -5153,6 +5461,11 @@ where the camera is, because a plate has no way of knowing on its own.</p>
 <p><em>client/server_ui.gd</em></p>
 <p>GDScript: <code>textures := {}  (property)</code></p>
 <p>asset name -&gt; Texture2D, provided by the client after content loads.</p>
+<h3 id="top_right_inset"><code>top_right_inset</code></h3>
+<p><em>client/server_ui.gd</em></p>
+<p>GDScript: <code>top_right_inset := 0.0  (property)</code></p>
+<p>How far below the top-right corner a panel anchored there should start, so it clears the client's
+own menu button. Set by the client, which is the only thing that knows how big that button is.</p>
 <h3 id="path_1"><code>path</code></h3>
 <p><em>client/settings/client_settings.gd</em></p>
 <p>GDScript: <code>path := DEFAULT_PATH  (property)</code></p>
@@ -5215,7 +5528,7 @@ preset is selected switches to "custom", starting from that preset's values.</p>
 <p>{name, address, port, code} while playing on a server, else {}.</p>
 <h3 id="key_2"><code>key</code></h3>
 <p><em>client/social/social_client.gd</em></p>
-<p>GDScript: <code>key: CryptoKey  (property)</code></p>
+<p>GDScript: <code>key := {}  (property)</code></p>
 <p>For tests: sign in with this key instead of the player's identity.</p>
 <h3 id="refresh_3"><code>refresh</code></h3>
 <p><em>client/social/social_client.gd</em></p>
@@ -5243,6 +5556,12 @@ the chunks never arrive and the world comes up empty. Run this on a worker and h
 when it is ready; relief appearing a second after the world does is nothing anybody notices.
 (2026-09-22)</p>
 <p><strong>See also:</strong> <code>create</code>, <code>texture</code></p>
+<h3 id="release_all"><code>release_all</code></h3>
+<p><em>client/touch_controls.gd</em></p>
+<p>GDScript: <code>release_all() -&gt; void</code></p>
+<p>Lets go of everything. Called when the world is left or a menu opens, so a finger that was holding
+<code>break</code> when a screen appeared does not leave the player mining for ever.</p>
+<p><strong>See also:</strong> <code>add_handler</code>, <code>agent_for</code>, <code>attach</code>, <code>band_center</code>, <code>band_half</code>, <code>damage</code></p>
 <h3 id="manifest_url"><code>manifest_url</code></h3>
 <p><em>client/updater.gd</em></p>
 <p>GDScript: <code>static manifest_url() -&gt; String</code></p>
@@ -5271,11 +5590,11 @@ only when the manifest is signed by the project, sound, names this platform, and
 <p>GDScript: <code>static url_allowed(url: String) -&gt; bool</code></p>
 <p>Only the project's own release hosts (or whatever host the built-in manifest address uses), over https.
 The mod list checks every download address the same way (engine/client/mod_catalog.gd).</p>
-<h3 id="verify_1"><code>verify</code></h3>
+<h3 id="verify_2"><code>verify</code></h3>
 <p><em>client/updater.gd</em></p>
 <p>GDScript: <code>static verify(bytes: PackedByteArray, sha256: String, size := 0) -&gt; bool</code></p>
 <p>Whether a downloaded file is exactly what the manifest described.</p>
-<p><strong>See also:</strong> <code>finish</code>, <code>pem_id</code>, <code>start</code></p>
+<p><strong>See also:</strong> <code>finish</code>, <code>key_id</code>, <code>parse_public_key</code>, <code>start</code></p>
 <h3 id="installed_path"><code>installed_path</code></h3>
 <p><em>client/updater.gd</em></p>
 <p>GDScript: <code>static installed_path() -&gt; String</code></p>
@@ -5311,6 +5630,16 @@ flag macOS puts on it and starts the new one. Kept as a string so a test can rea
 <p>GDScript: <code>static export_identity(path: String, passphrase: String) -&gt; String</code></p>
 <p>Returns a status message; failures start with "Error".</p>
 <p><strong>See also:</strong> <code>close</code>, <code>export_encrypted</code>, <code>load_or_create</code>, <code>open</code>, <code>player_id</code></p>
+<h3 id="can_fork_a_server"><code>can_fork_a_server</code></h3>
+<p><em>main.gd</em></p>
+<p>GDScript: <code>static can_fork_a_server() -&gt; bool</code></p>
+<p>Whether this platform lets us start a second copy of the executable to run a world in.</p>
+<p><strong>A question about the platform, asked before trying rather than after failing.</strong> iOS says no, and
+<code>create_process</code> there can only ever return ERR_CANT_FORK - so a world runs in this process instead.</p>
+<p><code>QW_IN_PROCESS_SERVER=1</code> forces the same path on a desktop. <strong>Not a convenience.</strong> Without it the
+in-process branch is reachable only on a tablet, which means it can only be tested by building,
+signing, installing and then reading a log off a device - and a branch that expensive to exercise is
+one that quietly rots between the times anybody does. (2026-09-27)</p>
 <h3 id="realms"><code>realms</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>realms := {}  (property)</code></p>
@@ -5374,7 +5703,15 @@ realm; this is the overworld's, for everything that has not been told which worl
 <h3 id="gameplay"><code>gameplay</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>gameplay := {  (property)</code></p>
-<p>Game-wide rules mods can change with set_gameplay.</p>
+<p>Game-wide rules mods can change with set_gameplay. A realm may override any of them; see
+<code>gameplay_in</code> and <code>gameplay_of</code>, which is what read sites should use where a player or a realm is
+in hand.</p>
+<h3 id="in_process"><code>in_process</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>in_process := false  (property)</code></p>
+<p>True when this world is running inside a player's own client rather than in a process of its own -
+which is how a platform that cannot fork hosts (see Main._host_in_process). It changes exactly one
+thing: ending the world frees this node instead of quitting the tree, because the tree is the game.</p>
 <h3 id="map_markers"><code>map_markers</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>map_markers := {}  (property)</code></p>
@@ -5476,6 +5813,10 @@ flows, and the file says why.</p>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>fields := Fields.new(self)  (property)</code></p>
 <p>Ground that does something to whoever stands in it (see engine/server/fields.gd).</p>
+<h3 id="regions"><code>regions</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>regions := Regions.new(self)  (property)</code></p>
+<p>Boxes that say who is standing in them (engine/server/regions.gd).</p>
 <h3 id="companions"><code>companions</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>companions := Companions.new(self)  (property)</code></p>
@@ -5557,9 +5898,9 @@ to everybody else (see engine/server/claims.gd).</p>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>dev_mode := false  (property)</code></p>
 <p>--dev: every player gets the developer tools (local development).</p>
-<h3 id="dev_web"><code>dev_web</code></h3>
+<h3 id="status_query"><code>status_query</code></h3>
 <p><em>server/game_server.gd</em></p>
-<p>GDScript: <code>dev_web := DevWeb.new(self)  (property)</code></p>
+<p>GDScript: <code>status_query := StatusQuery.new(self)  (property)</code></p>
 <p>The dev dashboard web server (--dev-web=port).</p>
 <h3 id="hub"><code>hub</code></h3>
 <p><em>server/game_server.gd</em></p>
@@ -5610,7 +5951,7 @@ Both from the host's configuration; see the constants above for why they are sep
 and then gives the realm a generator the same way it gives the overworld one.</p>
 <p>Returns the realm, or null when the name is taken or empty. The id is the mod's own qualified name
 ("mymod:emberdeep"), so two mods can both have an underworld without colliding.</p>
-<p><strong>See also:</strong> <code>attach</code>, <code>reload</code>, <code>set_storage</code>, <code>start</code></p>
+<p><strong>See also:</strong> <code>attach</code>, <code>reload</code>, <code>set_lookup_tables</code>, <code>set_storage</code>, <code>start</code>, <code>update_tables</code></p>
 <h3 id="add_asset"><code>add_asset</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>add_asset(asset_name: String, path: String, lazy := false) -&gt; void</code></p>
@@ -5618,6 +5959,16 @@ and then gives the realm a generator the same way it gives the overworld one.</p
 The client fetches one the first time something actually needs it. Music lives here: a track is
 megabytes where a texture is a few hundred bytes, and a child should not wait through the soundtrack
 to get into the world.</p>
+<h3 id="set_rules"><code>set_rules</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>set_rules(values: Dictionary, realm_id := "") -&gt; void</code></p>
+<p>Movement tunables, for the whole server or for one realm. Overlays, exactly as <code>set_gameplay</code> does.</p>
+<p><strong>See also:</strong> <code>merge</code>, <code>rules_in</code>, <code>set_lookup_tables</code>, <code>update_tables</code></p>
+<h3 id="rules_in"><code>rules_in</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>rules_in(realm_id := "") -&gt; PlayerPhysics.Rules</code></p>
+<p>The movement rules in force in a realm. Like <code>gameplay_in</code>, this hands back the server's own object
+when the realm has nothing of its own, so the ordinary case allocates nothing.</p>
 <h3 id="add_handler"><code>add_handler</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>add_handler(event: String, handler: Callable, priority: int, owner := "engine") -&gt; void</code></p>
@@ -5639,6 +5990,28 @@ permission name (see engine/server/roles.gd).</p>
 <p>GDScript: <code>is_allowed(player_id: String, player_name: String) -&gt; bool</code></p>
 <p>Whether a player may join: always when the allowlist is off; else admins and listed players (by id, or
 by name until that name first joins and binds the entry to the player's identity).</p>
+<h3 id="ban_of"><code>ban_of</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>ban_of(player_id: String) -&gt; Dictionary</code></p>
+<p>Whether this player is banned, and what they were told. <code>{}</code> when they are not.</p>
+<p><strong>Separate from the allowlist on purpose.</strong> The allowlist answers "is this a private server and are
+you on the list"; a ban answers "you in particular are not welcome here", and it has to work on a
+public server where the allowlist is off. Running them together would mean banning somebody turned
+the whole server private.</p>
+<h3 id="is_muted"><code>is_muted</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>is_muted(player_id: String) -&gt; bool</code></p>
+<p>Whether this player may not speak.</p>
+<h3 id="set_ban"><code>set_ban</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>set_ban(player_id: String, banned: bool, player_name := "", reason := "", by := "") -&gt; void</code></p>
+<p>Bans or unbans by player id. The id is the durable half - a name is kept only so the list reads as
+something a person can review.</p>
+<h3 id="player_id_of"><code>player_id_of</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>player_id_of(name_or_id: String) -&gt; String</code></p>
+<p>The id behind a name, whether or not they are online - so somebody can be banned while they are
+not there, which is when most bans are actually written.</p>
 <h3 id="allowlist_add"><code>allowlist_add</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>allowlist_add(name_or_id: String) -&gt; void</code></p>
@@ -5647,10 +6020,11 @@ by name until that name first joins and binds the entry to the player's identity
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>allowlist_bind(player_id: String, player_name: String) -&gt; void</code></p>
 <p>The first time a listed name joins, its entry is tied to that identity (so the name cannot be taken).</p>
-<h3 id="has_permission_1"><code>has_permission</code></h3>
+<h3 id="is_admitted"><code>is_admitted</code></h3>
 <p><em>server/game_server.gd</em></p>
-<p>GDScript: <code>has_permission(p, permission: String) -&gt; bool</code></p>
-<p>Whether a player's roles grant a permission (config admins have everything).</p>
+<p>GDScript: <code>is_admitted(player_id: String) -&gt; bool</code></p>
+<p>Whether this identity has been let in. Admins are always in - otherwise turning approval on would
+lock out the person who has to do the admitting.</p>
 <h3 id="uptime"><code>uptime</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>uptime() -&gt; float</code></p>
@@ -5676,6 +6050,13 @@ counts the same time everything else does.</p>
 <p>GDScript: <code>request_full_reload() -&gt; void</code></p>
 <p>Saves and asks the owner to restart the server with the same settings; clients are told to reconnect.</p>
 <p><strong>See also:</strong> <code>chunk_coord_of</code>, <code>merge</code>, <code>tell_admins</code>, <code>ticking_chunks</code>, <code>to_saved</code></p>
+<h3 id="tell_capabilities"><code>tell_capabilities</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>tell_capabilities(p) -&gt; void</code></p>
+<p>Tells a player which of the permissions the interface cares about they actually hold, so the client
+can offer only what will work. Sent on join and whenever roles change - a promotion that did not
+reach the menu would be worse than not sending it at all.</p>
+<p><strong>See also:</strong> <code>has_permission</code></p>
 <h3 id="tell_riding"><code>tell_riding</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>tell_riding(p: ServerPlayer) -&gt; void</code></p>
@@ -5692,16 +6073,48 @@ it is, which is the whole reason this crosses the wire at all.</p>
 <p>Flushes pending saves, then archives the world on a worker thread. <code>requester</code> (peer id) is told
 when it finishes. Returns false if a backup is already running.</p>
 <p><strong>See also:</strong> <code>chunk_coord_of</code>, <code>merge</code>, <code>ticking_chunks</code>, <code>timestamp</code>, <code>to_saved</code></p>
-<h3 id="set_flying"><code>set_flying</code></h3>
+<h3 id="set_phasing_1"><code>set_phasing</code></h3>
 <p><em>server/game_server.gd</em></p>
-<p>GDScript: <code>set_flying(p: ServerPlayer, enabled: bool) -&gt; bool</code></p>
-<p>Starts or stops flight for a player, telling their client. Returns false when they may not fly.</p>
-<p><strong>See also:</strong> <code>may_fly</code></p>
+<p>GDScript: <code>set_phasing(p: ServerPlayer, enabled: bool) -&gt; void</code></p>
+<p>Starts or stops flight for a player, telling their client. Returns false when they may not fly.
+Moves this player through the world rather than against it: no collision, no ground, flying. What a
+spectator is made of.</p>
+<p><strong>The engine does not know what a spectator is</strong>, and this is deliberate: a round of one game hides
+the watcher and freezes them, another lets them roam and chat, a third shows them only their own
+team. So the engine supplies the part no mod can write - passing through blocks lives in the physics
+- and a mod composes the rest from <code>set_look</code>, the cancellable <code>player_damage</code>, and <code>mob_target</code>.
+(2026-09-28)</p>
 <h3 id="may_fly"><code>may_fly</code></h3>
 <p><em>server/game_server.gd</em></p>
-<p>GDScript: <code>may_fly(p: ServerPlayer) -&gt; bool</code></p>
-<p>Creative players fly; anyone else needs the "fly" permission.</p>
+<p>GDScript: <code>may_fly(p: ServerPlayer, deliberate := false) -&gt; bool</code></p>
+<p>Creative players fly; anyone else needs the "fly" permission.
+Whether <code>p</code> may fly. <code>deliberate</code> is a command rather than a double-tap on the jump key: a game that
+turns flight off is saying "this is not a game you fly in", not "the admin may never fly", so an
+explicit <code>/fly</code> still goes through and an accidental double-tap does not.</p>
 <p><strong>See also:</strong> <code>has_permission</code></p>
+<h3 id="set_gameplay"><code>set_gameplay</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>set_gameplay(values: Dictionary, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.setGameplay(values, realmId)</code></p>
+<p>Sets game rules, for the whole server or for one realm.</p>
+<p><strong>A realm overlays the server's rules rather than replacing them</strong>, so a lobby that only wants to
+turn PvP off says exactly that and inherits everything else - and a rule added to the engine later
+reaches every realm without any mod hearing about it. <code>realm_id</code> "" is the server's own set, which
+is what every realm without an override of its own reads.</p>
+<p><strong>See also:</strong> <code>qualified</code></p>
+<h3 id="gameplay_in"><code>gameplay_in</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>gameplay_in(realm_id := "") -&gt; Dictionary</code></p>
+<p>The rules in force in a realm: the server's, with that realm's overrides laid over them.</p>
+<p><strong>Returns the server's own dictionary when a realm has no overrides</strong>, which is the common case and
+costs nothing - no copy, no merge, the same object every read site used before realms could differ.</p>
+<p><strong>See also:</strong> <code>merge</code></p>
+<h3 id="gameplay_of"><code>gameplay_of</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>gameplay_of(player) -&gt; Dictionary</code></p>
+<p>The rules in force where this player is standing. The accessor almost every read site wants, because
+a rule about hunger, falling or hitting somebody is always a rule about a particular player.</p>
+<p><strong>See also:</strong> <code>gameplay_in</code></p>
 <h3 id="damage_player"><code>damage_player</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>damage_player(p: ServerPlayer, amount: float, cause: String, attacker = null, direction := Vector3.ZERO, bypass_cooldown := false, knockback := 6.0) -&gt; bool</code></p>
@@ -5768,6 +6181,12 @@ its own halfway through.</p>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>block_sound(block: int, action: String) -&gt; String</code></p>
 <p>Sound name for a block action ("break", "place", "step"); empty when the block has none.</p>
+<h3 id="on_resync"><code>on_resync</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>on_resync(peer_id: int) -&gt; void</code></p>
+<p>A client saying it is holding the wrong world. Forget what it has been sent so the stream starts
+again, and tell it where it is - it may have missed that too, which is how it got here.</p>
+<p><strong>See also:</strong> <code>links_for</code>, <code>realm_of</code>, <code>rules_in</code>, <code>too_often</code></p>
 <h3 id="set_world_time"><code>set_world_time</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>set_world_time(time_of_day: float, day_length: float) -&gt; void</code></p>
@@ -5778,12 +6197,16 @@ its own halfway through.</p>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>on_auth(peer_id: int, signature: PackedByteArray) -&gt; void</code></p>
 <p>The client proves it holds the private key for the identity it presented.</p>
-<p><strong>See also:</strong> <code>accept</code>, <code>allowlist_bind</code>, <code>give</code>, <code>is_allowed</code>, <code>kick</code>, <code>sources_index</code></p>
+<p><strong>See also:</strong> <code>accept</code>, <code>allowlist_bind</code>, <code>ban_of</code>, <code>give</code>, <code>is_allowed</code>, <code>kick</code></p>
 <h3 id="on_claim_admin"><code>on_claim_admin</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>on_claim_admin(peer_id: int, token: String) -&gt; void</code></p>
 <p>The local host proves it launched this server and becomes a permanent admin.</p>
 <p><strong>See also:</strong> <code>give</code>, <code>send_message</code></p>
+<h3 id="peer_address"><code>peer_address</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>peer_address(peer_id: int) -&gt; String</code></p>
+<p>Where a peer is connecting from, or "" when that cannot be told (offline play, a peer already gone).</p>
 <h3 id="mark_simulation_stale"><code>mark_simulation_stale</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>mark_simulation_stale() -&gt; void</code></p>
@@ -5832,6 +6255,22 @@ end here, so the order below is the only place it has to be right.</p>
 does not say which world any more - the same coordinates exist in all of them - so anything acting
 for a player passes <code>realm_of(p)</code>, and anything acting for a creature passes its realm.</p>
 <p><strong>See also:</strong> <code>add_chunk</code>, <code>block</code>, <code>chunk_coord_at</code>, <code>chunk_path</code>, <code>decorate</code>, <code>generate</code></p>
+<h3 id="fill_blocks"><code>fill_blocks</code></h3>
+<p><em>server/game_server.gd</em></p>
+<p>GDScript: <code>fill_blocks(from: Vector3i, to: Vector3i, id: int, into: Realm = null) -&gt; int</code></p>
+<p>Writes a box of blocks straight into the chunks, telling each subsystem once per chunk instead of
+once per block. Returns how many blocks were written.</p>
+<p><strong>This is what <code>api.fill</code> always claimed to be.</strong> It went through <code>set_block_authoritative</code> per block,
+and <code>_apply_block</code> notifies block ticks, signals, liquids, multiblocks and links <em>every time</em> - so a
+57x57x8 room cost about 130,000 subsystem calls and <strong>blocked the server for 8.1 seconds</strong>, measured.
+The client's connection timed out during it about half the time, which presented as a realm change
+that silently did not happen: the player kept the world they had while the server believed they were
+somewhere else. Two days of symptoms upstream of one loop. (2026-09-28)</p>
+<p>The rule this leaves: <strong><code>fill</code> is for building rooms, <code>set_block</code> is for changing a world somebody is
+standing in.</strong> Fill does not run machinery - a conveyor filled over is not told, a liquid is not
+re-settled - because a builder laying a floor does not want thirty thousand notifications and the one
+who edits a live machine does.</p>
+<p><strong>See also:</strong> <code>add_chunk</code>, <code>block</code>, <code>chunk_coord_at</code>, <code>chunk_path</code>, <code>decorate</code>, <code>forget_chunk</code></p>
 <h3 id="surface_height"><code>surface_height</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>surface_height(x: int, z: int, into: Realm = null) -&gt; int</code></p>
@@ -5946,13 +6385,13 @@ clear_errors {source}.</p>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>damage_item(p: ServerPlayer, slot: int, amount: int, reason := "use") -&gt; void</code></p>
 <p>Wears an item: adds <code>amount</code> to its item data <code>damage</code>; at the item's durability it breaks.</p>
-<p><strong>See also:</strong> <code>clear_slot</code>, <code>get_eye_position</code>, <code>look_direction</code>, <code>max_durability</code>, <code>play_effect</code>, <code>play_sound_at</code></p>
+<p><strong>See also:</strong> <code>clear_slot</code>, <code>gameplay_of</code>, <code>get_eye_position</code>, <code>look_direction</code>, <code>max_durability</code>, <code>play_effect</code></p>
 <h3 id="refresh_stats_1"><code>refresh_stats</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>refresh_stats(p: ServerPlayer) -&gt; void</code></p>
 <p>Recomputes a player's stats, applies max health and movement speed, reports equipment changes and
 sends the result to the client when it changed.</p>
-<p><strong>See also:</strong> <code>compute</code>, <code>refresh_appearance</code>, <code>sync_health</code></p>
+<p><strong>See also:</strong> <code>compute</code>, <code>refresh_appearance</code>, <code>rules_in</code>, <code>sync_health</code></p>
 <h3 id="refresh_appearance"><code>refresh_appearance</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>refresh_appearance(p: ServerPlayer) -&gt; void</code></p>
@@ -5983,14 +6422,28 @@ the policy uniform, the player's override and avatar_change handlers.</p>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>dimension_of(p) -&gt; String</code></p>
 <p>The players and roles panel. Answers with {players, roles, can_kick, denied?}.
-Which world a player is in. One world today ("" is it); mods that add dimensions set this key on the
-player, and the map, compass and markers follow them there.</p>
-<h3 id="on_map"><code>on_map</code></h3>
+Which world a player is in, for the map, the compass and markers. <strong>This is the realm's id</strong>, and the
+overworld's is "" - so a marker saved before realms existed still means the overworld.</p>
+<p>It used to read <code>p.data["dimension"]</code>, a key nothing in the engine ever wrote: <code>send_to_realm</code> sets
+<code>realm_id</code> and has never touched it. So there were two notions of which world somebody was in, one of
+them maintained and one of them always "". The map therefore showed every player in every realm at
+once - you appeared on a dungeon party's map, and they appeared on yours, each of you a marker
+standing in fog where nobody was. <code>sightings.gd</code> was already writing a realm id into its own
+<code>dimension</code> field, which is the corroboration that these were always meant to be one thing.
+(2026-09-28)</p>
+<p><strong>See also:</strong> <code>realm_of</code></p>
+<h3 id="too_often"><code>too_often</code></h3>
 <p><em>server/game_server.gd</em></p>
-<p>GDScript: <code>on_map(peer_id: int) -&gt; void</code></p>
+<p>GDScript: <code>too_often(p: ServerPlayer, what: String, seconds: float) -&gt; bool</code></p>
 <p>What the player's map shows: everyone in the same dimension (unless the server hides them) and the
-markers mods set, also filtered to that dimension.</p>
-<p><strong>See also:</strong> <code>dimension_of</code>, <code>get_block</code>, <code>has_permission</code>, <code>receive</code></p>
+markers mods set, also filtered to that dimension.
+<strong>Handlers that do real work per call need a floor on how often.</strong></p>
+<p>Three of them had none: <code>c_map</code> walks every player and generates a chunk, and the two UGC listings
+walk the whole library. None of that is expensive once; all of it is expensive at a thousand calls
+a second, and nothing stopped a client sending them that fast. A client asking politely is
+unaffected - the map screen polls every two seconds and these floors are well under that.</p>
+<p>Returns true when the call came too soon and should be dropped. Silent on purpose: an answer
+explaining the limit is itself a reply to send, and a client that is misbehaving is not reading it.</p>
 <h3 id="on_worlds_panel"><code>on_worlds_panel</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>on_worlds_panel(peer_id: int, action: String, args: Dictionary) -&gt; void</code></p>
@@ -6043,7 +6496,7 @@ options: category, id. Returns the recipe index.</p>
 <p>GDScript: <code>check_discoveries(p: ServerPlayer) -&gt; void</code></p>
 <p>"pickup" recipes unlock the first time a player holds one of their ingredients.</p>
 <p><strong>See also:</strong> <code>learn_recipe</code>, <code>total</code>, <code>using</code></p>
-<h3 id="open_crafting"><code>open_crafting</code></h3>
+<h3 id="open_crafting_1"><code>open_crafting</code></h3>
 <p><em>server/game_server.gd</em></p>
 <p>GDScript: <code>open_crafting(p: ServerPlayer, station := {}) -&gt; void</code></p>
 <p>Opens the crafting screen for a player: by hand ({}) or at a station {name, position, title}.</p>
@@ -6124,12 +6577,62 @@ below. Blocks without a rule always can.</p>
 <p><code>sound</code> is off for a blast, which breaks fifty blocks in one instant: fifty break sounds on top of
 the explosion is a noise, not fifty pieces of feedback.</p>
 <p><strong>See also:</strong> <code>block_changed</code>, <code>block_removed</code>, <code>block_state</code>, <code>break_block</code>, <code>chunk_coord_at</code>, <code>clear_block_data</code></p>
+<h3 id="launch_args"><code>launch_args</code></h3>
+<p><em>server_main.gd</em></p>
+<p>GDScript: <code>launch_args := PackedStringArray()  (property)</code></p>
+<p>Options for a server started <em>inside another process</em> - the client hosting a local world on a
+platform that cannot fork (see Main._host_in_process). Set before the scene enters the tree. Empty
+means read the command line, which is every ordinary server. Passed explicitly rather than smuggled
+through the environment so that a client's own arguments can never be mistaken for a server's.</p>
 <h2 id="everything-else">Everything else</h2>
 <h3 id="find"><code>find</code></h3>
 <p><em>server/conflicts.gd</em></p>
 <p>GDScript: <code>find() -&gt; Array</code></p>
 <p>Everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report.</p>
-<h3 id="start_4"><code>start</code></h3>
+<h3 id="regions_1"><code>regions</code></h3>
+<p><em>server/regions.gd</em></p>
+<p>GDScript: <code>regions := {}  (property)</code></p>
+<p>id -&gt; {id, name, owner, realm, lo: Vector3, hi: Vector3, data: Dictionary, inside: {player_id: true}}</p>
+<h3 id="add_9"><code>add</code></h3>
+<p><em>server/regions.gd</em></p>
+<p>GDScript: <code>add(region_name: String, from: Vector3, to: Vector3, options := {}, owner := "engine") -&gt; int</code></p>
+<p>Adds a box. Returns its id, or 0 if there was no room or the box was refused.</p>
+<h3 id="remove_4"><code>remove</code></h3>
+<p><em>server/regions.gd</em></p>
+<p>GDScript: <code>remove(id: int) -&gt; bool</code></p>
+<p>Removes one. Anybody standing in it is told they left first, because a mod that opened a door on
+<code>region_entered</code> has to be able to close it - and "the region went away" is not a thing it can see.</p>
+<h3 id="at_3"><code>at</code></h3>
+<p><em>server/regions.gd</em></p>
+<p>GDScript: <code>at(position: Vector3, realm_id := "") -&gt; Array</code></p>
+<p>Every region a point is inside, as their ids.</p>
+<p><strong>See also:</strong> <code>get_block_v</code>, <code>uptime</code></p>
+<h3 id="players_in"><code>players_in</code></h3>
+<p><em>server/regions.gd</em></p>
+<p>GDScript: <code>players_in(id: int) -&gt; Array</code></p>
+<p>Who is standing in one right now, as players.</p>
+<h3 id="forget_1"><code>forget</code></h3>
+<p><em>server/regions.gd</em></p>
+<p>GDScript: <code>forget(owner: String) -&gt; void</code></p>
+<p>Drops everything a mod added, for a reload.</p>
+<p><strong>See also:</strong> <code>path_for</code></p>
+<h3 id="tick_1"><code>tick</code></h3>
+<p><em>server/regions.gd</em></p>
+<p>GDScript: <code>tick() -&gt; void</code></p>
+<p>One sweep: every player against every box, firing on the change.</p>
+<p><strong>Called from the server tick and deliberately not budgeted.</strong> A box test is six float compares, so
+the whole sweep is players times regions - sixty players in a lobby of two hundred boxes is twelve
+thousand compares, which is less work than one chunk mesh and far less than the machinery it would
+take to be clever about it. If that stops being true the answer is a grid, not a time slice: a
+region that is only checked <em>sometimes</em> misses people, and missing people is the one failure this
+capability cannot have.</p>
+<p><strong>See also:</strong> <code>aabb</code>, <code>allied</code>, <code>apply_condition</code>, <code>at_path_end</code>, <code>at_station</code>, <code>broadcast_entity_event</code></p>
+<h3 id="drop_player"><code>drop_player</code></h3>
+<p><em>server/regions.gd</em></p>
+<p>GDScript: <code>drop_player(player) -&gt; void</code></p>
+<p>Someone has gone for good: forget them, without telling anybody they left. A player who logs out is
+not a player who walked out, and a mod that opened a gate for them has nothing left to close.</p>
+<h3 id="start_3"><code>start</code></h3>
 <p><em>server/sightings.gd</em></p>
 <p>GDScript: <code>start() -&gt; void</code></p>
 <p>Starts the sweep. Called once the server is running, because <code>schedule</code> needs its clock.</p>

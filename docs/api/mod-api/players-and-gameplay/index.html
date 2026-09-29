@@ -79,7 +79,7 @@
     </div>
     <article id="article">
       <h1 id="players-and-gameplay">Players and gameplay</h1>
-<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.1.0 · game 0.42.1</p>
 <h3 id="apiplayers"><code>api.players</code></h3>
 <p>GDScript: <code>api.players() -&gt; Array</code></p>
 <p>JavaScript: <code>api.players(): Player[]</code></p>
@@ -121,12 +121,10 @@ armor: "player" (each player chooses per slot), "armor" (armor always shows), "c
 blocked: [cosmetic names or categories]
 uniform: avatar data laid over every player, e.g. {wear: {shirt: {id: "builtin:tshirt", color: "#d94c4c"}}}
 For per-player looks (teams, disguises) use player.set_avatar_override or the avatar_change event.</p>
-<p><strong>See also:</strong> <code>refresh_avatar</code>, <code>set_policy</code></p>
+<p><strong>See also:</strong> <code>item</code>, <code>refresh_avatar</code>, <code>set_policy</code>, <code>worn</code></p>
 <h3 id="apiregister_equipment_slot"><code>api.register_equipment_slot</code></h3>
 <p>GDScript: <code>api.register_equipment_slot(slot_name: String, def := {}) -&gt; bool</code></p>
 <p>JavaScript: <code>api.registerEquipmentSlot(slotName, def)</code></p>
-<p>Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching
-<code>equip_slot</code> go in it; its modifiers apply while worn. def: display_name.</p>
 <pre class="codehilite"><code class="language-gdscript">api.register_equipment_slot(&quot;charm&quot;, {&quot;display_name&quot;: &quot;Charm&quot;})
 </code></pre>
 
@@ -141,17 +139,35 @@ player.get_stat(name). Engine stats: see ItemRegistry.BASE_STATS.</p>
 
 <p><strong>See also:</strong> <code>can_see_target</code>, <code>health_fraction</code></p>
 <h3 id="apiset_gameplay"><code>api.set_gameplay</code></h3>
-<p>GDScript: <code>api.set_gameplay(values: Dictionary) -&gt; void</code></p>
-<p>JavaScript: <code>api.setGameplay(values)</code></p>
+<p>GDScript: <code>api.set_gameplay(values: Dictionary, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.setGameplay(values, realmId)</code></p>
 <p>Game-wide rules: item_drops ("entity" | "inventory"), keep_inventory, pvp, fall_damage,
-natural_regeneration, mob_spawning.</p>
-<pre class="codehilite"><code class="language-gdscript">api.set_gameplay({&quot;keep_inventory&quot;: true, &quot;natural_regeneration&quot;: true, &quot;tutorials&quot;: true})
+natural_regeneration, mob_spawning, flight (false stops the double-tap in a survival game; <code>/fly</code>
+still obeys an admin who means it). See GameServer.gameplay for the full list and the defaults.
+<code>realm_id</code> sets them for one world instead of the whole server, and <strong>overlays rather than
+replaces</strong>: a lobby that only wants PvP off says that and inherits everything else, and a rule the
+engine gains later reaches it without this call being edited. Names without ":" are this mod's.</p>
+<pre class="codehilite"><code class="language-gdscript">api.set_gameplay({&quot;pvp&quot;: false, &quot;fall_damage&quot;: false}, &quot;deep&quot;)
 </code></pre>
 
+<p><strong>See also:</strong> <code>qualified</code></p>
 <h3 id="apiget_gameplay"><code>api.get_gameplay</code></h3>
-<p>GDScript: <code>api.get_gameplay(rule: String)</code></p>
-<p>JavaScript: <code>api.getGameplay(rule)</code></p>
-<p>A gameplay rule's current value (see set_gameplay), or null.</p>
+<p>GDScript: <code>api.get_gameplay(rule: String, realm_id := "")</code></p>
+<p>JavaScript: <code>api.getGameplay(rule, realmId)</code></p>
+<p>A gameplay rule's current value (see set_gameplay), or null. <code>realm_id</code> asks what is in force in one
+world; "" is the server's own set, which every realm without an override of its own reads.</p>
+<p><strong>See also:</strong> <code>gameplay_in</code>, <code>qualified</code></p>
+<h3 id="apigameplay_for"><code>api.gameplay_for</code></h3>
+<p>GDScript: <code>api.gameplay_for(player, rule: String)</code></p>
+<p>JavaScript: <code>api.gameplayFor(player, rule)</code></p>
+<p>What is in force where this player is standing, which is what a rule about hunger, falling or
+hitting somebody always means. Null if they are gone.</p>
+<p><strong>See also:</strong> <code>gameplay_of</code></p>
+<h3 id="apiplayers_in_region"><code>api.players_in_region</code></h3>
+<p>GDScript: <code>api.players_in_region(id: int) -&gt; Array</code></p>
+<p>JavaScript: <code>api.playersInRegion(id)</code></p>
+<p>Who is standing in one right now.</p>
+<p><strong>See also:</strong> <code>players_in</code>, <code>register_condition</code></p>
 <h3 id="apiplayer_roles"><code>api.player_roles</code></h3>
 <p>GDScript: <code>api.player_roles(player_id: String) -&gt; Array</code></p>
 <p>JavaScript: <code>api.playerRoles(playerId: string): string[]</code></p>
@@ -163,10 +179,17 @@ natural_regeneration, mob_spawning.</p>
 <p>Gives (or takes) a role. Returns whether anything changed.</p>
 <p><strong>See also:</strong> <code>give</code>, <code>take</code></p>
 <h3 id="apiset_physics"><code>api.set_physics</code></h3>
-<p>GDScript: <code>api.set_physics(values: Dictionary) -&gt; void</code></p>
-<p>JavaScript: <code>api.setPhysics(values: Record&lt;string, number | boolean&gt;): void</code></p>
+<p>GDScript: <code>api.set_physics(values: Dictionary, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.setPhysics(values: Record&lt;string, number | boolean&gt;, options?: { realm?: string }): void</code></p>
 <p>Movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and <code>void_below</code>.</p>
-<p><strong>See also:</strong> <code>set_rules</code></p>
+<p><code>realm_id</code> sets them for one world rather than the whole server, overlaying it the way
+<code>set_gameplay</code> does - a low-gravity arena beside an ordinary world. Players are told the rules of
+wherever they are standing, on joining and whenever they cross between worlds, because a client that
+predicts movement the server is not simulating rubber-bands. Names without ":" are this mod's.</p>
+<pre class="codehilite"><code class="language-gdscript">api.set_physics({&quot;gravity&quot;: 8.0}, &quot;deep&quot;)
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code>, <code>set_rules</code></p>
 <h3 id="apiget_players"><code>api.get_players</code></h3>
 <p>GDScript: <code>api.get_players() -&gt; Array</code></p>
 <p>JavaScript: <code>api.getPlayers()</code></p>
@@ -189,7 +212,7 @@ natural_regeneration, mob_spawning.</p>
   <aside class="onpage" aria-label="On this page">
     <div class="grp">On this page</div>
     <ul>
-      <li><a href="#players-and-gameplay">Players and gameplay</a></li><li class="sub"><a href="#apiplayers">api.players</a></li><li class="sub"><a href="#apiset_player_rig">api.set_player_rig</a></li><li class="sub"><a href="#apiregister_cosmetic">api.register_cosmetic</a></li><li class="sub"><a href="#apiregister_cosmetic_category">api.register_cosmetic_category</a></li><li class="sub"><a href="#apiset_cosmetics_policy">api.set_cosmetics_policy</a></li><li class="sub"><a href="#apiregister_equipment_slot">api.register_equipment_slot</a></li><li class="sub"><a href="#apiregister_stat">api.register_stat</a></li><li class="sub"><a href="#apiset_gameplay">api.set_gameplay</a></li><li class="sub"><a href="#apiget_gameplay">api.get_gameplay</a></li><li class="sub"><a href="#apiplayer_roles">api.player_roles</a></li><li class="sub"><a href="#apiset_player_role">api.set_player_role</a></li><li class="sub"><a href="#apiset_physics">api.set_physics</a></li><li class="sub"><a href="#apiget_players">api.get_players</a></li><li class="sub"><a href="#apifind_player">api.find_player</a></li><li class="sub"><a href="#apibroadcast">api.broadcast</a></li>
+      <li><a href="#players-and-gameplay">Players and gameplay</a></li><li class="sub"><a href="#apiplayers">api.players</a></li><li class="sub"><a href="#apiset_player_rig">api.set_player_rig</a></li><li class="sub"><a href="#apiregister_cosmetic">api.register_cosmetic</a></li><li class="sub"><a href="#apiregister_cosmetic_category">api.register_cosmetic_category</a></li><li class="sub"><a href="#apiset_cosmetics_policy">api.set_cosmetics_policy</a></li><li class="sub"><a href="#apiregister_equipment_slot">api.register_equipment_slot</a></li><li class="sub"><a href="#apiregister_stat">api.register_stat</a></li><li class="sub"><a href="#apiset_gameplay">api.set_gameplay</a></li><li class="sub"><a href="#apiget_gameplay">api.get_gameplay</a></li><li class="sub"><a href="#apigameplay_for">api.gameplay_for</a></li><li class="sub"><a href="#apiplayers_in_region">api.players_in_region</a></li><li class="sub"><a href="#apiplayer_roles">api.player_roles</a></li><li class="sub"><a href="#apiset_player_role">api.set_player_role</a></li><li class="sub"><a href="#apiset_physics">api.set_physics</a></li><li class="sub"><a href="#apiget_players">api.get_players</a></li><li class="sub"><a href="#apifind_player">api.find_player</a></li><li class="sub"><a href="#apibroadcast">api.broadcast</a></li>
     </ul>
   </aside>
 

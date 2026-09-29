@@ -126,6 +126,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#e-shared-weather-registry-gd">weather_registry.gd</a>
 <div class="group">Progression and story</div>
 <a href="#e-client-guide-screen-gd">guide_screen.gd</a>
+<a href="#e-client-objective-hud-gd">objective_hud.gd</a>
 <a href="#e-client-tutorial-hud-gd">tutorial_hud.gd</a>
 <a href="#e-client-ugc-client-gd">ugc_client.gd</a>
 <a href="#e-client-ugc-review-gd">ugc_review.gd</a>
@@ -167,7 +168,6 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <div class="group">Dev tools and logging</div>
 <a href="#e-server-dev-log-gd">dev_log.gd</a>
 <a href="#e-server-dev-tools-gd">dev_tools.gd</a>
-<a href="#e-server-dev-web-gd">dev_web.gd</a>
 <div class="group">The client</div>
 <a href="#e-client-admin-worlds-panel-gd">worlds_panel.gd</a>
 <a href="#e-client-avatar-accessory-builder-gd">accessory_builder.gd</a>
@@ -192,6 +192,7 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#e-client-housekeeping-gd">housekeeping.gd</a>
 <a href="#e-client-item-icons-gd">item_icons.gd</a>
 <a href="#e-client-item-visuals-gd">item_visuals.gd</a>
+<a href="#e-client-loading-curtain-gd">loading_curtain.gd</a>
 <a href="#e-client-map-screen-gd">map_screen.gd</a>
 <a href="#e-client-menu-downloads-gd">downloads.gd</a>
 <a href="#e-client-menu-main-menu-gd">main_menu.gd</a>
@@ -211,12 +212,15 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#e-client-social-friends-panel-gd">friends_panel.gd</a>
 <a href="#e-client-social-social-client-gd">social_client.gd</a>
 <a href="#e-client-texture-atlas-gd">texture_atlas.gd</a>
+<a href="#e-client-touch-controls-gd">touch_controls.gd</a>
 <a href="#e-client-updater-gd">updater.gd</a>
 <div class="group">The server itself</div>
 <a href="#e-main-gd">main.gd</a>
 <a href="#e-server-game-server-gd">game_server.gd</a>
+<a href="#e-server-main-gd">server_main.gd</a>
 <div class="group">Everything else</div>
 <a href="#e-server-conflicts-gd">conflicts.gd</a>
+<a href="#e-server-regions-gd">regions.gd</a>
 <a href="#e-server-sightings-gd">sightings.gd</a>
 <a href="#e-server-world-backups-gd">world_backups.gd</a>
 <a href="#e-shared-net-access-gd">net_access.gd</a>
@@ -283,7 +287,13 @@ server asks for "vault"; a mod wanting one each asks for "vault_" + player_id. T
 sharing rule where the rule belongs and this table a plain dictionary. (2026-09-21)</p></div>
 <div class="card" data-search="register registers a container type. returns false when invalid. server/containers.gd drops, loot and rewards"><div class="sig"><code>register(type_name: String, def: Dictionary) -&gt; bool</code></div><p>Registers a container type. Returns false when invalid.</p></div>
 <div class="card" data-search="type_of_block the container type of a block, or {}. server/containers.gd drops, loot and rewards"><div class="sig"><code>type_of_block(block: int) -&gt; Dictionary</code></div><p>The container type of a block, or {}.</p></div>
-<div class="card" data-search="get_container the container at a position (loads its chunk), or null if the block there is not a container. server/containers.gd drops, loot and rewards"><div class="sig"><code>get_container(pos: Vector3i, player = null)</code></div><p>The container at a position (loads its chunk), or null if the block there is not a container.</p></div>
+<div class="card" data-search="get_container the container at a position (loads its chunk), or null if the block there is not a container.
+`into` (a realm) wins over the player's, for a caller that has a world and nobody standing in it -
+a dungeon stocking its own chests, say. without it the only two answers were &quot;where the player is&quot;
+and &quot;the overworld&quot;, and a mod filling a chest it had just built had no way to say which. server/containers.gd drops, loot and rewards"><div class="sig"><code>get_container(pos: Vector3i, player = null, into = null)</code></div><p>The container at a position (loads its chunk), or null if the block there is not a container.
+`into` (a Realm) wins over the player's, for a caller that has a world and nobody standing in it -
+a dungeon stocking its own chests, say. Without it the only two answers were "where the player is"
+and "the overworld", and a mod filling a chest it had just built had no way to say which.</p></div>
 <div class="card" data-search="at_key the container a key names, whoever it belongs to, or null. the one place that knows where each
 kind of store lives; everything else works in keys. server/containers.gd drops, loot and rewards"><div class="sig"><code>at_key(key: String, player = null)</code></div><p>The container a key names, whoever it belongs to, or null. The one place that knows where each
 kind of store lives; everything else works in keys.</p></div>
@@ -448,7 +458,24 @@ biome, so every column has a clear winner and borders blend over a short distanc
 structure then keeps the terrain there). block data in the region (chest contents, spawner settings)
 goes into `data`. server/worldgen/structures.gd world generation"><div class="sig"><code>static capture(server, lo: Vector3i, hi: Vector3i, keep_air := false) -&gt; Dictionary</code></div><p>A template dictionary (JSON-ready) from a region of a world. `keep_air`: leave air cells out (the
 structure then keeps the terrain there). Block data in the region (chest contents, spawner settings)
-goes into `data`.</p></div></section>
+goes into `data`.</p></div>
+<div class="card" data-search="nearest where the nearest structure of a set is, or vector3.inf. searches outwards from the region the
+point is in, up to `rings` regions away.
+
+**a locator, because a structure nobody can find is the same as no structure.** everything here is
+computed from the world seed and the region, so this asks the same question chunk generation asks
+and gets the same answer - without generating anything. a game that wants to point a player at the
+dungeon it placed had otherwise to guess a position and hope, which is exactly what firstlight did
+for an afternoon: it marked a spot near the player and the ruin was two thousand blocks away.
+(2026-09-24) server/worldgen/structures.gd world generation"><div class="sig"><code>nearest(set_name: String, from: Vector3, gen, rings := 4) -&gt; Vector3</code></div><p>Where the nearest structure of a set is, or Vector3.INF. Searches outwards from the region the
+point is in, up to `rings` regions away.
+
+**A locator, because a structure nobody can find is the same as no structure.** Everything here is
+computed from the world seed and the region, so this asks the same question chunk generation asks
+and gets the same answer - without generating anything. A game that wants to point a player at the
+dungeon it placed had otherwise to guess a position and hope, which is exactly what Firstlight did
+for an afternoon: it marked a spot near the player and the ruin was two thousand blocks away.
+(2026-09-24)</p></div></section>
 <section id="e-client-chunk-mesher-gd"><h2>chunk_mesher.gd <span class="file">client/chunk_mesher.gd</span></h2><p class="lead">Builds render arrays for one chunk: flood-fill lighting and greedy merging, in Rust (`native/src/mesher.rs`), producing the vertex format documented in voxel_material.gd. Safe to run on worker threads.</p><div class="card" data-search="make_context builds the read-only context meshing threads need from the registry and atlas. client/chunk_mesher.gd blocks and the world"><div class="sig"><code>static make_context(registry, atlas_uv: Dictionary) -&gt; Dictionary</code></div><p>Builds the read-only context meshing threads need from the registry and atlas.</p></div>
 <div class="card" data-search="build `chunks`: 9 packedbytearrays for the 3x3 neighbourhood, index (dx + 1) + (dz + 1) * 3, empty where
 not loaded. returns [solid_arrays, translucent_arrays, models]; models is a packedint32array of
@@ -510,7 +537,10 @@ long it was asleep rather than losing the time. server/block_ticks.gd blocks and
 that is loaded is left alone. The clock advances either way, so a chunk that comes back is told how
 long it was asleep rather than losing the time.</p></div>
 <div class="card" data-search="light_levels {sky, block} light levels (0-15) at a position; sky is not scaled by the time of day. server/block_ticks.gd blocks and the world"><div class="sig"><code>light_levels(pos: Vector3i) -&gt; Dictionary</code></div><p>{sky, block} light levels (0-15) at a position; sky is not scaled by the time of day.</p></div>
-<div class="card" data-search="light_at light plants and mobs care about: block light or daylight-scaled sky light, whichever is brighter. server/block_ticks.gd blocks and the world"><div class="sig"><code>light_at(pos: Vector3i, daylight: float) -&gt; int</code></div><p>Light plants and mobs care about: block light or daylight-scaled sky light, whichever is brighter.</p></div></section>
+<div class="card" data-search="light_at light plants and mobs care about: block light or daylight-scaled sky light, whichever is brighter. server/block_ticks.gd blocks and the world"><div class="sig"><code>light_at(pos: Vector3i, daylight: float) -&gt; int</code></div><p>Light plants and mobs care about: block light or daylight-scaled sky light, whichever is brighter.</p></div>
+<div class="card" data-search="forget_chunk drops what was worked out about one chunk, so it is measured again when next asked. used by a bulk
+fill, which changes far too many blocks to keep the caches current one at a time. server/block_ticks.gd blocks and the world"><div class="sig"><code>forget_chunk(coord: Vector2i) -&gt; void</code></div><p>Drops what was worked out about one chunk, so it is measured again when next asked. Used by a bulk
+fill, which changes far too many blocks to keep the caches current one at a time.</p></div></section>
 <section id="e-server-connect-gd"><h2>connect.gd <span class="file">server/connect.gd</span></h2><p class="lead">Blocks that notice their neighbours: fences that join into a run, walls that meet at a corner, panes that make a window rather than four separate sheets of glass.</p><div class="card" data-search="refresh_around called when a block is placed or broken: fixes up that cell and the four around it. server/connect.gd blocks and the world"><div class="sig"><code>refresh_around(pos: Vector3i, into = null) -&gt; void</code></div><p>Called when a block is placed or broken: fixes up that cell and the four around it.</p></div>
 <div class="card" data-search="refresh puts the right form of a connecting block at `pos`, if what is there is one. server/connect.gd blocks and the world"><div class="sig"><code>refresh(pos: Vector3i, into = null) -&gt; void</code></div><p>Puts the right form of a connecting block at `pos`, if what is there is one.</p></div></section>
 <section id="e-server-explosions-gd"><h2>explosions.gd <span class="file">server/explosions.gd</span></h2><p class="lead">Explosions: `explode(center, power, options)`.</p><div class="card" data-search="explode options.realm: the world it goes off in (a realm, or null for the overworld). an explosion is a
@@ -540,7 +570,29 @@ def: {generator, passes, empty_seconds, max_players, display_name}.</p></div>
 options: {seed, data (anything the mod wants to keep with it)}. server/instances.gd blocks and the world"><div class="sig"><code>open(kind_name: String, options := {}) -&gt; String</code></div><p>Makes one, and returns its id ("" if it could not be made).
 
 options: {seed, data (anything the mod wants to keep with it)}.</p></div>
-<div class="card" data-search="enter sends a player in, remembering where they were so `leave` can put them back. server/instances.gd blocks and the world"><div class="sig"><code>enter(player, instance_id: String, position: Vector3) -&gt; bool</code></div><p>Sends a player in, remembering where they were so `leave` can put them back.</p></div>
+<div class="card" data-search="enter sends a player in, remembering where they were so `leave` can put them back.
+
+**entering from inside another instance is allowed, and keeps the original way out.** that is what a
+descent is: floor two is entered from floor one, and leaving at any depth should put you back at the
+entrance in the overworld rather than on the floor above. the `_returns` guard below does that on its
+own - the way back is taken once and never overwritten.
+
+what did *not* work on its own was the member list. a player who moved from floor one to floor two
+stayed listed as a member of floor one, so closing the floor they had left walked its stale member
+list and called `leave` on them - and `leave` asks `id_of`, which answers with the realm they are in
+*now*. closing the floor behind you threw you out of the floor in front of you, all the way to the
+surface. so the move deregisters first. (2026-09-28) server/instances.gd blocks and the world"><div class="sig"><code>enter(player, instance_id: String, position: Vector3) -&gt; bool</code></div><p>Sends a player in, remembering where they were so `leave` can put them back.
+
+**Entering from inside another instance is allowed, and keeps the original way out.** That is what a
+descent is: floor two is entered from floor one, and leaving at any depth should put you back at the
+entrance in the overworld rather than on the floor above. The `_returns` guard below does that on its
+own - the way back is taken once and never overwritten.
+
+What did *not* work on its own was the member list. A player who moved from floor one to floor two
+stayed listed as a member of floor one, so closing the floor they had left walked its stale member
+list and called `leave` on them - and `leave` asks `id_of`, which answers with the realm they are in
+*now*. Closing the floor behind you threw you out of the floor in front of you, all the way to the
+surface. So the move deregisters first. (2026-09-28)</p></div>
 <div class="card" data-search="leave puts a player back where they were before they entered. returns false if they were not in one. server/instances.gd blocks and the world"><div class="sig"><code>leave(player) -&gt; bool</code></div><p>Puts a player back where they were before they entered. Returns false if they were not in one.</p></div>
 <div class="card" data-search="close closes one now: everybody inside goes back, and the realm is thrown away. server/instances.gd blocks and the world"><div class="sig"><code>close(instance_id: String) -&gt; bool</code></div><p>Closes one now: everybody inside goes back, and the realm is thrown away.</p></div>
 <div class="card" data-search="id_of the instance a player is in, or &quot;&quot;. server/instances.gd blocks and the world"><div class="sig"><code>id_of(player) -&gt; String</code></div><p>The instance a player is in, or "".</p></div>
@@ -1023,11 +1075,7 @@ blocks, armor, tools, weapons, food, else materials.</p></div>
 <section id="e-client-entity-view-gd"><h2>entity_view.gd <span class="file">client/entity_view.gd</span></h2><div class="card" data-search="setup `parts`: [{name, mesh, transform}] from modellibrary.load_parts, or empty. `sprite`: texture for
 items, projectiles and model-less entities. client/entity_view.gd creatures and ai"><div class="sig"><code>setup(id: int, def: Dictionary, parts: Array, sprite: Texture2D, pos: Vector3, yaw: float) -&gt; void</code></div><p>`parts`: [{name, mesh, transform}] from ModelLibrary.load_parts, or empty. `sprite`: texture for
 items, projectiles and model-less entities.</p></div>
-<div class="card" data-search="update_plate {scale, hide: [part prefixes], tint: {part prefix: &quot;#rrggbb&quot;}} from the server (babies, sheared or
-dyed sheep, ...).
-where the camera is, so the plate can fade with distance. set by the client each frame. client/entity_view.gd creatures and ai"><div class="sig"><code>update_plate(camera_position: Vector3) -&gt; void</code></div><p>{scale, hide: [part prefixes], tint: {part prefix: "#rrggbb"}} from the server (babies, sheared or
-dyed sheep, ...).
-Where the camera is, so the plate can fade with distance. Set by the client each frame.</p></div>
+<div class="card" data-search="update_plate where the camera is, so the plate can fade with distance. set by the client each frame. client/entity_view.gd creatures and ai"><div class="sig"><code>update_plate(camera_position: Vector3) -&gt; void</code></div><p>Where the camera is, so the plate can fade with distance. Set by the client each frame.</p></div>
 <div class="card" data-search="windup the mob is about to attack: arms rise and it glows, so players can react. client/entity_view.gd creatures and ai"><div class="sig"><code>windup() -&gt; void</code></div><p>The mob is about to attack: arms rise and it glows, so players can react.</p></div>
 <div class="card" data-search="despawn server despawn: plays out a running death or pickup animation first. client/entity_view.gd creatures and ai"><div class="sig"><code>despawn() -&gt; void</code></div><p>Server despawn: plays out a running death or pickup animation first.</p></div>
 <div class="card" data-search="aabb hit box for client-side targeting. client/entity_view.gd creatures and ai"><div class="sig"><code>aabb() -&gt; AABB</code></div><p>Hit box for client-side targeting.</p></div></section>
@@ -1126,10 +1174,16 @@ listen to, and entity_damage fires *before* the change.)</p></div>
 <div class="card" data-search="item_id dropped item stacks. server/entity.gd creatures and ai"><div class="sig"><code>item_id := 0  (property)</code></div><p>Dropped item stacks.</p></div>
 <div class="card" data-search="brain mobs: the ai brain (engine/server/ai/mob_brain.gd); null for other kinds. server/entity.gd creatures and ai"><div class="sig"><code>brain = null  (property)</code></div><p>Mobs: the AI brain (engine/server/ai/mob_brain.gd); null for other kinds.</p></div>
 <div class="card" data-search="set_look how clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
-prefixes to hide, e.g. &quot;wool&quot; once sheared], tint: {part prefix: &quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. merged into the current
-look and saved in data.look. server/entity.gd creatures and ai"><div class="sig"><code>set_look(values: Dictionary) -&gt; void</code></div><p>How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
-prefixes to hide, e.g. "wool" once sheared], tint: {part prefix: "#rrggbb"}, pose: "" | "sit"}. Merged into the current
-look and saved in data.look.</p></div>
+prefixes to hide, e.g. &quot;wool&quot; once sheared, or &quot;*&quot; for the whole body], tint: {part prefix:
+&quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. merged into the current look and saved in data.look.
+
+hiding everything leaves a thing that is present, collides and can wear a nameplate but is not drawn,
+which is how a label stands beside a door without a creature under it. server/entity.gd creatures and ai"><div class="sig"><code>set_look(values: Dictionary) -&gt; void</code></div><p>How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
+prefixes to hide, e.g. "wool" once sheared, or "*" for the whole body], tint: {part prefix:
+"#rrggbb"}, pose: "" | "sit"}. Merged into the current look and saved in data.look.
+
+Hiding everything leaves a thing that is present, collides and can wear a nameplate but is not drawn,
+which is how a label stands beside a door without a creature under it.</p></div>
 <div class="card" data-search="is_alive false once the entity died or was removed. server/entity.gd creatures and ai"><div class="sig"><code>is_alive() -&gt; bool</code></div><p>False once the entity died or was removed.</p></div>
 <div class="card" data-search="remove removes the entity from the world (no death, no drops). server/entity.gd creatures and ai"><div class="sig"><code>remove() -&gt; void</code></div><p>Removes the entity from the world (no death, no drops).</p></div>
 <div class="card" data-search="damage deals damage as if from `attacker` (a serverplayer, entity or null). returns true if it applied.
@@ -1182,6 +1236,31 @@ are quiet by default - a field of forty sheep each wearing a label is worse than
 add a line without knowing whether health is being shown. server/nameplates.gd creatures and ai"><div class="sig"><code>set_plate(target, spec := {}) -&gt; bool</code></div><p>Sets or changes what is over something's head. `spec` merges with whatever is there, so a mod can
 add a line without knowing whether health is being shown.</p></div>
 <div class="card" data-search="plate_of what is over its head now, defaults included. server/nameplates.gd creatures and ai"><div class="sig"><code>plate_of(target) -&gt; Dictionary</code></div><p>What is over its head now, defaults included.</p></div>
+<div class="card" data-search="ensure writes a plate at spawn for the creatures that should wear one before anybody hits them.
+
+**only the rare ones**, which is a deliberate line rather than an oversight (the user, 2026-09-24):
+
+- **a `notable` creature is announced to the whole server and marked on everybody's compass**, so
+arriving at it and finding an unlabelled shape would be a worse moment than not announcing it.
+it wears its name from the start.
+- **ordinary mobs and animals keep the old behaviour** - a plate the first time they take damage.
+a meadow of sheep each wearing a label is worse than no labels, which is why `default_for`
+refuses by default and why this does not override it.
+- **players already have one** and always did: `remote_player.gd` applies a plate on setup, so this
+never had anything to do with them.
+- **tamed creatures** get theirs from `taming.tame`, because whose it is only becomes true then. server/nameplates.gd creatures and ai"><div class="sig"><code>ensure(target) -&gt; void</code></div><p>Writes a plate at spawn for the creatures that should wear one before anybody hits them.
+
+**Only the rare ones**, which is a deliberate line rather than an oversight (the user, 2026-09-24):
+
+- **A `notable` creature is announced to the whole server and marked on everybody's compass**, so
+arriving at it and finding an unlabelled shape would be a worse moment than not announcing it.
+It wears its name from the start.
+- **Ordinary mobs and animals keep the old behaviour** - a plate the first time they take damage.
+A meadow of sheep each wearing a label is worse than no labels, which is why `default_for`
+refuses by default and why this does not override it.
+- **Players already have one** and always did: `remote_player.gd` applies a plate on setup, so this
+never had anything to do with them.
+- **Tamed creatures** get theirs from `taming.tame`, because whose it is only becomes true then.</p></div>
 <div class="card" data-search="clear takes it away entirely. server/nameplates.gd creatures and ai"><div class="sig"><code>clear(target) -&gt; bool</code></div><p>Takes it away entirely.</p></div>
 <div class="card" data-search="health_changed called when something's health moves. only reaches the client for a plate that actually draws it. server/nameplates.gd creatures and ai"><div class="sig"><code>health_changed(target) -&gt; void</code></div><p>Called when something's health moves. Only reaches the client for a plate that actually draws it.</p></div></section>
 <section id="e-server-spawning-gd"><h2>spawning.gd <span class="file">server/spawning.gd</span></h2><p class="lead">Natural spawning and despawning of mobs.</p><div class="card" data-search="category_of_type a mob type's category: its `category` key, else from its ai (hostile, archer and boss presets or a
@@ -1223,6 +1302,11 @@ kind: &quot;mob&quot; | &quot;projectile&quot; | &quot;object&quot; | &quot;item
 model: gltf asset (nodes named leg_a / leg_b / arm_a / arm_b swing while walking, head turns)
 sprite: texture asset drawn as a billboard when there is no model (projectiles, particles)
 width, height: collision box in blocks; scale: model scale; glow: unshaded (e.g. magic sparks)
+light: a model part that lights the world around it - {part: &quot;lantern&quot;, color, energy 0-8,
+range 0-16 blocks}. `glow` only makes a part draw at full brightness; this one actually
+casts. items have had the same thing for weeks (item_registry.clean_glow) and creatures
+had no way to say it, which is how a lamplighter ended up carrying a lamp that lit
+nothing. use it sparingly: it is a real light per creature on screen.
 health (0 = cannot be damaged), speed, gravity, drag, knockback_resistance (0-1)
 ai: a preset name or a dictionary of behaviour settings, attacks and phases; see
 engine/server/ai/mob_config.gd (mobs only)
@@ -1238,6 +1322,11 @@ kind: "mob" | "projectile" | "object" | "item"
 model: glTF asset (nodes named leg_a / leg_b / arm_a / arm_b swing while walking, head turns)
 sprite: texture asset drawn as a billboard when there is no model (projectiles, particles)
 width, height: collision box in blocks; scale: model scale; glow: unshaded (e.g. magic sparks)
+light: a model part that lights the world around it - {part: "lantern", color, energy 0-8,
+range 0-16 blocks}. `glow` only makes a part draw at full brightness; this one actually
+casts. Items have had the same thing for weeks (item_registry.clean_glow) and creatures
+had no way to say it, which is how a lamplighter ended up carrying a lamp that lit
+nothing. Use it sparingly: it is a real light per creature on screen.
 health (0 = cannot be damaged), speed, gravity, drag, knockback_resistance (0-1)
 ai: a preset name or a Dictionary of behaviour settings, attacks and phases; see
 engine/server/ai/mob_config.gd (mobs only)
@@ -1270,17 +1359,78 @@ only after checking it, or use the `require_*` form at the API boundary.</p></di
 <div class="card" data-search="is_valid whether anything is registered under this id. shared/entity_registry.gd creatures and ai"><div class="sig"><code>is_valid(id: int) -&gt; bool</code></div><p>Whether anything is registered under this id.</p></div>
 <div class="card" data-search="to_network the creature table as the client receives it, trimmed to `network_fields`. shared/entity_registry.gd creatures and ai"><div class="sig"><code>to_network() -&gt; Array</code></div><p>The creature table as the client receives it, trimmed to `NETWORK_FIELDS`.</p></div>
 <div class="card" data-search="load_network client side. rebuilds the table from the server's copy (the engine:item entry is included). shared/entity_registry.gd creatures and ai"><div class="sig"><code>load_network(data) -&gt; bool</code></div><p>Client side. Rebuilds the table from the server's copy (the engine:item entry is included).</p></div></section>
-<section id="e-shared-identity-gd"><h2>identity.gd <span class="file">shared/identity.gd</span></h2><p class="lead">Player identity: an RSA key pair per client. The public key's hash is the player's permanent id on every server; logging in means signing a server-chosen random challenge. Names are display names, bound to the first identity that claims them on each server.</p><div class="card" data-search="dir where identities live. qw_identity_dir moves them, which is how the tests keep their bot keys out of
+<section id="e-shared-identity-gd"><h2>identity.gd <span class="file">shared/identity.gd</span></h2><p class="lead">Player identity: an Ed25519 key pair per client. The public key's hash is the player's permanent id on every server; logging in means signing a server-chosen random challenge. Names are display names, bound to the first identity that claims them on each server.</p><div class="card" data-search="dir where identities live. qw_identity_dir moves them, which is how the tests keep their bot keys out of
 the player's own folder: a test run used to overwrite default.pem and take the player's account with
 it. (2026-09-18) shared/identity.gd creatures and ai"><div class="sig"><code>static dir() -&gt; String</code></div><p>Where identities live. QW_IDENTITY_DIR moves them, which is how the tests keep their bot keys out of
 the player's own folder: a test run used to overwrite default.pem and take the player's account with
 it. (2026-09-18)</p></div>
-<div class="card" data-search="load_or_create loads the named identity from user://identity, creating it on first use. shared/identity.gd creatures and ai"><div class="sig"><code>static load_or_create(identity_name := &quot;default&quot;, bits := DEFAULT_BITS) -&gt; CryptoKey</code></div><p>Loads the named identity from user://identity, creating it on first use.</p></div>
-<div class="card" data-search="parse_public_key server side: parses a public key pem; returns null if it is not a usable key. shared/identity.gd creatures and ai"><div class="sig"><code>static parse_public_key(pem: String) -&gt; CryptoKey</code></div><p>Server side: parses a public key PEM; returns null if it is not a usable key.</p></div>
-<div class="card" data-search="player_id stable id derived from the public key (32 hex characters). shared/identity.gd creatures and ai"><div class="sig"><code>static player_id(key: CryptoKey) -&gt; String</code></div><p>Stable id derived from the public key (32 hex characters).</p></div>
-<div class="card" data-search="export_encrypted returns the json text of an encrypted identity file. shared/identity.gd creatures and ai"><div class="sig"><code>static export_encrypted(key: CryptoKey, passphrase: String, iterations := EXPORT_ITERATIONS) -&gt; String</code></div><p>Returns the JSON text of an encrypted identity file.</p></div>
-<div class="card" data-search="import_encrypted decrypts an exported identity. returns {key: cryptokey, player_id} or {error: string}. shared/identity.gd creatures and ai"><div class="sig"><code>static import_encrypted(text: String, passphrase: String) -&gt; Dictionary</code></div><p>Decrypts an exported identity. Returns {key: CryptoKey, player_id} or {error: String}.</p></div>
-<div class="card" data-search="install saves `key` as the named identity. an existing different identity is kept as a .bak file. shared/identity.gd creatures and ai"><div class="sig"><code>static install(key: CryptoKey, identity_name := &quot;default&quot;) -&gt; Error</code></div><p>Saves `key` as the named identity. An existing different identity is kept as a .bak file.</p></div>
+<div class="card" data-search="pair_from a key pair from 32 private bytes: `{private, public}`, or `{}` when the bytes are the wrong size. shared/identity.gd creatures and ai"><div class="sig"><code>static pair_from(private: PackedByteArray) -&gt; Dictionary</code></div><p>A key pair from 32 private bytes: `{private, public}`, or `{}` when the bytes are the wrong size.</p></div>
+<div class="card" data-search="load_or_create loads the named identity, creating it on first use. returns `{private, public}`. shared/identity.gd creatures and ai"><div class="sig"><code>static load_or_create(identity_name := &quot;default&quot;) -&gt; Dictionary</code></div><p>Loads the named identity, creating it on first use. Returns `{private, public}`.</p></div>
+<div class="card" data-search="load_or_create_at the same, at an exact path rather than a name under `dir()`. a server's own identity lives beside its
+world rather than in the player's identity folder, because it belongs to the world: copy the save and
+the server is still the same server to everybody who trusts it. shared/identity.gd creatures and ai"><div class="sig"><code>static load_or_create_at(path: String) -&gt; Dictionary</code></div><p>The same, at an exact path rather than a name under `dir()`. A server's own identity lives beside its
+world rather than in the player's identity folder, because it belongs to the world: copy the save and
+the server is still the same server to everybody who trusts it.</p></div>
+<div class="card" data-search="public_text the public half as text, which is what crosses the wire. shared/identity.gd creatures and ai"><div class="sig"><code>static public_text(key: Dictionary) -&gt; String</code></div><p>The public half as text, which is what crosses the wire.</p></div>
+<div class="card" data-search="private_text the private half as text: 44 characters of base64. **this is the whole account** - anybody who reads
+it is you - and it exists as text for exactly one reason: so that moving an identity to another device
+is reading it off one screen and typing it into the other. no network, no server in the middle, no
+code to expire, and a copy on paper is a backup that outlives the house. an rsa key at 1,675
+characters could do none of that, which is why it is no longer an rsa key. (2026-09-25) shared/identity.gd creatures and ai"><div class="sig"><code>static private_text(key: Dictionary) -&gt; String</code></div><p>The private half as text: 44 characters of base64. **This is the whole account** - anybody who reads
+it is you - and it exists as text for exactly one reason: so that moving an identity to another device
+is reading it off one screen and typing it into the other. No network, no server in the middle, no
+code to expire, and a copy on paper is a backup that outlives the house. An RSA key at 1,675
+characters could do none of that, which is why it is no longer an RSA key. (2026-09-25)</p></div>
+<div class="card" data-search="from_private_text a key pair from what somebody typed, or `{}` when it is not one. **forgiving about spaces and line
+breaks**, because the normal case is a hand copy off another screen or a paste that wrapped, and
+refusing those would make the feature feel broken when nothing was wrong.
+
+**it cannot tell you that you typed it wrong**, and no version of it could: any 32 bytes is a valid
+ed25519 private key, so a key with one character changed is a real key belonging to a person who has
+never existed. what makes that survivable is upstream - `install` keeps the key it replaced, and the
+caller shows which id you have become, so a wrong one is visible and undoable rather than silent. shared/identity.gd creatures and ai"><div class="sig"><code>static from_private_text(typed: String) -&gt; Dictionary</code></div><p>A key pair from what somebody typed, or `{}` when it is not one. **Forgiving about spaces and line
+breaks**, because the normal case is a hand copy off another screen or a paste that wrapped, and
+refusing those would make the feature feel broken when nothing was wrong.
+
+**It cannot tell you that you typed it wrong**, and no version of it could: any 32 bytes is a valid
+Ed25519 private key, so a key with one character changed is a real key belonging to a person who has
+never existed. What makes that survivable is upstream - `install` keeps the key it replaced, and the
+caller shows which id you have become, so a wrong one is visible and undoable rather than silent.</p></div>
+<div class="card" data-search="sign signs the challenge. **`audience` is who the signature is *for*, and leaving it out is the bug this
+parameter exists to fix.**
+
+signing a bare nonce proves you hold the key and nothing else - so a hostile server could take the
+nonce a real server handed it, pass it to you as its own challenge, and replay your answer to log
+in as you. binding the server's id into what is signed makes the answer worthless anywhere else:
+the real server hashes its own id and the signature no longer matches. the hub has always done it
+this way; the game handshake did not. (2026-09-24)
+
+with no `audience` this signs `message` exactly as given, which is how everything that is not a login
+challenge uses it: a transfer ticket, a hub announce, a status proof. ed25519 signs the whole message,
+so there is no digest to agree on separately. shared/identity.gd creatures and ai"><div class="sig"><code>static sign(key: Dictionary, message: PackedByteArray, audience := &quot;&quot;) -&gt; PackedByteArray</code></div><p>Signs the challenge. **`audience` is who the signature is *for*, and leaving it out is the bug this
+parameter exists to fix.**
+
+Signing a bare nonce proves you hold the key and nothing else - so a hostile server could take the
+nonce a real server handed it, pass it to you as its own challenge, and replay your answer to log
+in as you. Binding the server's id into what is signed makes the answer worthless anywhere else:
+the real server hashes its own id and the signature no longer matches. The hub has always done it
+this way; the game handshake did not. (2026-09-24)
+
+With no `audience` this signs `message` exactly as given, which is how everything that is not a login
+challenge uses it: a transfer ticket, a hub announce, a status proof. Ed25519 signs the whole message,
+so there is no digest to agree on separately.</p></div>
+<div class="card" data-search="parse_public_key server side: the 32 public bytes a client sent, or an empty array when it is not a usable key.
+checked for length *before* decoding, so an oversized string from a stranger costs nothing. shared/identity.gd creatures and ai"><div class="sig"><code>static parse_public_key(text: String) -&gt; PackedByteArray</code></div><p>Server side: the 32 public bytes a client sent, or an empty array when it is not a usable key.
+Checked for length *before* decoding, so an oversized string from a stranger costs nothing.</p></div>
+<div class="card" data-search="player_id stable id derived from the public key (32 hex characters). takes a `{private, public}` pair or the
+public bytes on their own - which is what a server has. shared/identity.gd creatures and ai"><div class="sig"><code>static player_id(key) -&gt; String</code></div><p>Stable id derived from the public key (32 hex characters). Takes a `{private, public}` pair or the
+public bytes on their own - which is what a server has.</p></div>
+<div class="card" data-search="verify whether this public key signed the challenge. takes the public bytes, since that is all a server
+ever has of somebody. shared/identity.gd creatures and ai"><div class="sig"><code>static verify(public: PackedByteArray, message: PackedByteArray, signature: PackedByteArray, audience := &quot;&quot;) -&gt; bool</code></div><p>Whether this public key signed the challenge. Takes the public bytes, since that is all a server
+ever has of somebody.</p></div>
+<div class="card" data-search="export_encrypted returns the json text of an encrypted identity file. shared/identity.gd creatures and ai"><div class="sig"><code>static export_encrypted(key: Dictionary, passphrase: String, iterations := EXPORT_ITERATIONS) -&gt; String</code></div><p>Returns the JSON text of an encrypted identity file.</p></div>
+<div class="card" data-search="import_encrypted decrypts an exported identity. returns {key: {private, public}, player_id} or {error: string}. shared/identity.gd creatures and ai"><div class="sig"><code>static import_encrypted(text: String, passphrase: String) -&gt; Dictionary</code></div><p>Decrypts an exported identity. Returns {key: {private, public}, player_id} or {error: String}.</p></div>
+<div class="card" data-search="install saves `key` as the named identity. an existing different identity is kept as a .bak file. shared/identity.gd creatures and ai"><div class="sig"><code>static install(key: Dictionary, identity_name := &quot;default&quot;) -&gt; Error</code></div><p>Saves `key` as the named identity. An existing different identity is kept as a .bak file.</p></div>
 <div class="card" data-search="pbkdf2_sha256 pbkdf2-hmac-sha256 with a single 32-byte output block. shared/identity.gd creatures and ai"><div class="sig"><code>static pbkdf2_sha256(password: PackedByteArray, salt: PackedByteArray, iterations: int) -&gt; PackedByteArray</code></div><p>PBKDF2-HMAC-SHA256 with a single 32-byte output block.</p></div></section>
 <section id="e-client-effects-effect-player-gd"><h2>effect_player.gd <span class="file">client/effects/effect_player.gd</span></h2><p class="lead">Renders effects (see EffectRegistry) from data: CPU particle emitters, light flashes, camera shake and sounds. Also block-break debris. Everything is freed when it finishes.</p><div class="card" data-search="textures asset name -&gt; texture2d (mod emitter textures). client/effects/effect_player.gd players"><div class="sig"><code>textures := {}  (property)</code></div><p>Asset name -> Texture2D (mod emitter textures).</p></div>
 <div class="card" data-search="play_sound plays a sound by name at a position: callable(name, position). client/effects/effect_player.gd players"><div class="sig"><code>play_sound: Callable  (property)</code></div><p>Plays a sound by name at a position: Callable(name, position).</p></div>
@@ -1396,6 +1546,9 @@ the vehicle and their input is steering (see engine/server/vehicles.gd).</p></di
 <div class="card" data-search="avatar the look others see (cosmetics avatar data), recomputed by the server from the fields below. server/server_player.gd players"><div class="sig"><code>avatar := {}  (property)</code></div><p>The look others see (Cosmetics avatar data), recomputed by the server from the fields below.</p></div>
 <div class="card" data-search="portable_avatar the player's own built-in look, sent by their client. server/server_player.gd players"><div class="sig"><code>portable_avatar := {}  (property)</code></div><p>The player's own built-in look, sent by their client.</p></div>
 <div class="card" data-search="server_wear server cosmetics the player picked on this server: {category: {id, color}}. server/server_player.gd players"><div class="sig"><code>server_wear := {}  (property)</code></div><p>Server cosmetics the player picked on this server: {category: {id, color}}.</p></div>
+<div class="card" data-search="look how the body is drawn, as against what it wears: {scale, hide, tint} - see set_look. not saved,
+because a disguise belongs to a round of a game and not to a person. server/server_player.gd players"><div class="sig"><code>look := {}  (property)</code></div><p>How the body is drawn, as against what it wears: {scale, hide, tint} - see set_look. Not saved,
+because a disguise belongs to a round of a game and not to a person.</p></div>
 <div class="card" data-search="avatar_override avatar data mods lay over the player's look (see set_avatar_override). server/server_player.gd players"><div class="sig"><code>avatar_override := {}  (property)</code></div><p>Avatar data mods lay over the player's look (see set_avatar_override).</p></div>
 <div class="card" data-search="requested_avatar the avatar the client last asked for (creations in it may still be uploading or awaiting approval). server/server_player.gd players"><div class="sig"><code>requested_avatar := {}  (property)</code></div><p>The avatar the client last asked for (creations in it may still be uploading or awaiting approval).</p></div>
 <div class="card" data-search="owned_cosmetics server cosmetics granted to this player: name -&gt; true. server/server_player.gd players"><div class="sig"><code>owned_cosmetics := {}  (property)</code></div><p>Server cosmetics granted to this player: name -> true.</p></div>
@@ -1492,6 +1645,42 @@ removed. Use ids like "my_mod:haste".</p></div>
 <div class="card" data-search="set_avatar_override avatar data laid over this player's look, e.g. a team uniform: {wear: {shirt: {id, color}}}; an
 empty id takes a category off. pass {} to clear. not saved. server/server_player.gd players"><div class="sig"><code>set_avatar_override(values: Dictionary) -&gt; void</code></div><p>Avatar data laid over this player's look, e.g. a team uniform: {wear: {shirt: {id, color}}}; an
 empty id takes a category off. Pass {} to clear. Not saved.</p></div>
+<div class="card" data-search="set_look how this player is *drawn*, as against what they are wearing: `scale` (0.05-10) and `hide` (body
+part names, matched by prefix; `&quot;*&quot;` is all of them). pass {} to clear. not saved.
+
+**the same controls `entity.set_look` has had since wick got his coat**, finally applying to players
+too. not a new idea - an existing one reaching one more noun, which is why disguises and
+invisibility needed no system of their own: `hide` every part and there is a hider.
+
+**no `tint` here, though entities have one.** a player's colours are already
+`set_avatar_override({&quot;body&quot;: {...}})`, and two ways to colour the same arm is how they end up
+disagreeing. use that for a team colour and this for a shape. (2026-09-28) server/server_player.gd players"><div class="sig"><code>set_look(values: Dictionary) -&gt; void</code></div><p>How this player is *drawn*, as against what they are wearing: `scale` (0.05-10) and `hide` (body
+part names, matched by prefix; `"*"` is all of them). Pass {} to clear. Not saved.
+
+**The same controls `Entity.set_look` has had since Wick got his coat**, finally applying to players
+too. Not a new idea - an existing one reaching one more noun, which is why disguises and
+invisibility needed no system of their own: `hide` every part and there is a hider.
+
+**No `tint` here, though entities have one.** A player's colours are already
+`set_avatar_override({"body": {...}})`, and two ways to colour the same arm is how they end up
+disagreeing. Use that for a team colour and this for a shape. (2026-09-28)</p></div>
+<div class="card" data-search="look_of what `set_look` last said, or {}. server/server_player.gd players"><div class="sig"><code>look_of() -&gt; Dictionary</code></div><p>What `set_look` last said, or {}.</p></div>
+<div class="card" data-search="set_phasing moves through the world rather than against it: no collision, no ground, flying. what a spectator is
+made of, and the one part of one a mod cannot write for itself, because passing through blocks lives
+in the physics.
+
+**the engine does not know what a spectator is.** one game hides the watcher and freezes them,
+another lets them roam and chat, a third shows them only their own side - so the rest is the mod's,
+composed from `set_look` to disappear, the cancellable `player_damage` to be unhurtable, and
+`mob_target` to be ignored. (2026-09-28) server/server_player.gd players"><div class="sig"><code>set_phasing(enabled: bool) -&gt; void</code></div><p>Moves through the world rather than against it: no collision, no ground, flying. What a spectator is
+made of, and the one part of one a mod cannot write for itself, because passing through blocks lives
+in the physics.
+
+**The engine does not know what a spectator is.** One game hides the watcher and freezes them,
+another lets them roam and chat, a third shows them only their own side - so the rest is the mod's,
+composed from `set_look` to disappear, the cancellable `player_damage` to be unhurtable, and
+`mob_target` to be ignored. (2026-09-28)</p></div>
+<div class="card" data-search="is_phasing whether they are passing through the world (see set_phasing). server/server_player.gd players"><div class="sig"><code>is_phasing() -&gt; bool</code></div><p>Whether they are passing through the world (see set_phasing).</p></div>
 <div class="card" data-search="knows_recipe whether the player can craft a recipe (discovered, or discovery is off). server/server_player.gd players"><div class="sig"><code>knows_recipe(recipe_id: String) -&gt; bool</code></div><p>Whether the player can craft a recipe (discovered, or discovery is off).</p></div>
 <div class="card" data-search="learn_recipe teaches a recipe (source is passed to recipe_learned). returns true if it was new. server/server_player.gd players"><div class="sig"><code>learn_recipe(recipe_id: String, source := &quot;mod&quot;) -&gt; bool</code></div><p>Teaches a recipe (source is passed to recipe_learned). Returns true if it was new.</p></div>
 <div class="card" data-search="is_admin whether the player is a server admin. server/server_player.gd players"><div class="sig"><code>is_admin() -&gt; bool</code></div><p>Whether the player is a server admin.</p></div>
@@ -1509,7 +1698,9 @@ are registered, so they change between versions and mod sets; names do not.
 <div class="card" data-search="needed_sleepers how many players must be asleep to skip the night. server/sleep.gd players"><div class="sig"><code>needed_sleepers() -&gt; int</code></div><p>How many players must be asleep to skip the night.</p></div>
 <div class="card" data-search="stand_spot where to stand next to a bed (respawning or getting up), or vector3.inf if it is gone or boxed in. server/sleep.gd players"><div class="sig"><code>stand_spot(anchor: Vector3i) -&gt; Vector3</code></div><p>Where to stand next to a bed (respawning or getting up), or Vector3.INF if it is gone or boxed in.</p></div>
 <div class="card" data-search="respawn_position the respawn position from a player's bed, or vector3.inf (and a message) when it can't be used. server/sleep.gd players"><div class="sig"><code>respawn_position(p) -&gt; Vector3</code></div><p>The respawn position from a player's bed, or Vector3.INF (and a message) when it can't be used.</p></div></section>
-<section id="e-server-status-query-gd"><h2>status_query.gd <span class="file">server/status_query.gd</span></h2><p class="lead">Answers status queries (engine/shared/server_status.gd) so menus can show this server's name, message, game, player count and ping. Off with --query-port=0. Rate limited per address.</p><div class="card" data-search="key the server's identity key (signs proofs for the hub); set by the server when it starts listening. server/status_query.gd players"><div class="sig"><code>key: CryptoKey  (property)</code></div><p>The server's identity key (signs proofs for the hub); set by the server when it starts listening.</p></div></section>
+<section id="e-server-status-query-gd"><h2>status_query.gd <span class="file">server/status_query.gd</span></h2><p class="lead">Answers status queries (engine/shared/server_status.gd) so menus can show this server's name, message, game, player count and ping. Off with --query-port=0. Rate limited per address.</p><div class="card" data-search="key the server's ed25519 identity key (signs proofs for the hub); set by the server when it starts
+listening. empty until then, and on an offline server. server/status_query.gd players"><div class="sig"><code>key: Dictionary = {}  (property)</code></div><p>The server's Ed25519 identity key (signs proofs for the hub); set by the server when it starts
+listening. Empty until then, and on an offline server.</p></div></section>
 <section id="e-shared-player-physics-gd"><h2>player_physics.gd <span class="file">shared/player_physics.gd</span></h2><p class="lead">Deterministic player movement shared by the server (authoritative) and the client (prediction). Uses axis-separated AABB-vs-voxel collision rather than Godot physics so both sides produce identical results from identical inputs. Tunables come from the server's mods via `Rules`.</p><div class="card" data-search="step one movement step, run identically by the client (prediction) and the server (authority).
 
 the gdscript twin of this was deleted on 2026-09-23 along with the rest; it was 94 lines that had
@@ -1632,8 +1823,20 @@ only after checking it, or use the `require_*` form at the API boundary.</p></di
 <div class="card" data-search="texture_of texture of an asset by name (image blocks). client/guide_screen.gd progression and story"><div class="sig"><code>texture_of: Callable  (property)</code></div><p>Texture of an asset by name (image blocks).</p></div>
 <div class="card" data-search="open opens the book at a page (&quot;&quot; = the current page, or the first unlocked one). client/guide_screen.gd progression and story"><div class="sig"><code>open(page_id := &quot;&quot;) -&gt; void</code></div><p>Opens the book at a page ("" = the current page, or the first unlocked one).</p></div>
 <div class="card" data-search="add_unlocked adds newly unlocked pages; returns them. client/guide_screen.gd progression and story"><div class="sig"><code>add_unlocked(pages: PackedStringArray) -&gt; Array</code></div><p>Adds newly unlocked pages; returns them.</p></div>
-<div class="card" data-search="lock_hint what reveals a locked page. client/guide_screen.gd progression and story"><div class="sig"><code>lock_hint(page: Dictionary) -&gt; String</code></div><p>What reveals a locked page.</p></div>
-<div class="card" data-search="key_name the first key bound to an input action (&quot;g&quot;, &quot;space&quot;, &quot;left mouse&quot;). client/guide_screen.gd progression and story"><div class="sig"><code>static key_name(action: String) -&gt; String</code></div><p>The first key bound to an input action ("G", "Space", "Left Mouse").</p></div></section>
+<div class="card" data-search="lock_hint what reveals a locked page. client/guide_screen.gd progression and story"><div class="sig"><code>lock_hint(page: Dictionary) -&gt; String</code></div><p>What reveals a locked page.</p></div></section>
+<section id="e-client-objective-hud-gd"><h2>objective_hud.gd <span class="file">client/objective_hud.gd</span></h2><p class="lead">The task list: what this player has been asked to do, and how far along they are.</p><div class="card" data-search="page_title page id -&gt; its title, set by the client, because the guide's registry lives in the guide screen and
+this panel has no business holding a second copy of it. client/objective_hud.gd progression and story"><div class="sig"><code>page_title := Callable()  (property)</code></div><p>Page id -> its title, set by the client, because the guide's registry lives in the guide screen and
+this panel has no business holding a second copy of it.</p></div>
+<div class="card" data-search="set_view {active: [{name, display_name, step, of, text, progress, needed}]} from the server. client/objective_hud.gd progression and story"><div class="sig"><code>set_view(view: Dictionary) -&gt; void</code></div><p>{active: [{name, display_name, step, of, text, progress, needed}]} from the server.</p></div>
+<div class="card" data-search="preferred_page the page the book should open at, given what has already been read: whichever the topmost task names
+and the player has not read yet. **unread only** - once they have read it, opening the guide goes
+back to where they left off, so this nudges once and then stops being in the way. the same shape as
+the tutorial tracker's, which came first; the player is asking the one question with two answers
+(&quot;what should i read?&quot;) and the story's answer sorts above a tutorial's by being asked for later. client/objective_hud.gd progression and story"><div class="sig"><code>preferred_page(read: Dictionary) -&gt; String</code></div><p>The page the book should open at, given what has already been read: whichever the topmost task names
+and the player has not read yet. **Unread only** - once they have read it, opening the guide goes
+back to where they left off, so this nudges once and then stops being in the way. The same shape as
+the tutorial tracker's, which came first; the player is asking the one question with two answers
+("what should I read?") and the story's answer sorts above a tutorial's by being asked for later.</p></div></section>
 <section id="e-client-tutorial-hud-gd"><h2>tutorial_hud.gd <span class="file">client/tutorial_hud.gd</span></h2><p class="lead">Tutorial tracker, tips and hint markers. - The tracker (left side) shows the running tutorial's current step, its progress and a key to read   the linked guide page; it flashes when a step is done. - Tips slide in below it for a few seconds. - Hints: a bobbing marker above the nearest matching block or mob (or a position) and an arrow at   the screen edge while it is off screen. Blocks are searched a slice at a time around the player. - The tutorials panel (from the pause menu) lists tutorials to start or replay, skip/stop and tips.</p><div class="card" data-search="step_done a step was finished: a quick green flash (the next step arrives with the view). client/tutorial_hud.gd progression and story"><div class="sig"><code>step_done(kind: String) -&gt; void</code></div><p>A step was finished: a quick green flash (the next step arrives with the view).</p></div>
 <div class="card" data-search="preferred_page the page the g key should open: the tip on show, else the current step's page (if not read yet). client/tutorial_hud.gd progression and story"><div class="sig"><code>preferred_page(read: Dictionary) -&gt; String</code></div><p>The page the G key should open: the tip on show, else the current step's page (if not read yet).</p></div></section>
 <section id="e-client-ugc-client-gd"><h2>ugc_client.gd <span class="file">client/ugc_client.gd</span></h2><p class="lead">The client side of player creations (see engine/server/ugc.gd): offers the player's own worn creations to the server and uploads them when asked, fetches creations other players wear, checks and caches them (user://ugc_cache), registers them as cosmetics, and browses the server library.</p><div class="card" data-search="offer_worn offers the player's own creations worn in `avatar` to the server. client/ugc_client.gd progression and story"><div class="sig"><code>offer_worn(avatar: Dictionary) -&gt; void</code></div><p>Offers the player's own creations worn in `avatar` to the server.</p></div>
@@ -1723,7 +1926,7 @@ stays in their data, so a reload does not hand the rewards out twice.</p></div>
 <div class="card" data-search="view the list a player sees: what they have done, what is left, and how far along they are. secret ones
 stay out of the list until they are reached, so the surprise survives being able to read the list. server/milestones.gd progression and story"><div class="sig"><code>view(p) -&gt; Array</code></div><p>The list a player sees: what they have done, what is left, and how far along they are. Secret ones
 stay out of the list until they are reached, so the surprise survives being able to read the list.</p></div></section>
-<section id="e-server-objectives-gd"><h2>objectives.gd <span class="file">server/objectives.gd</span></h2><p class="lead">Something a player has been asked to do, and how far along they are: a story, a daily errand, a contract, a delivery.</p><div class="card" data-search="kinds name -&gt; {name, display_name, description, steps: [{text, count}], repeatable, owner} server/objectives.gd progression and story"><div class="sig"><code>kinds := {}  (property)</code></div><p>Name -> {name, display_name, description, steps: [{text, count}], repeatable, owner}</p></div>
+<section id="e-server-objectives-gd"><h2>objectives.gd <span class="file">server/objectives.gd</span></h2><p class="lead">Something a player has been asked to do, and how far along they are: a story, a daily errand, a contract, a delivery.</p><div class="card" data-search="kinds name -&gt; {name, display_name, description, steps: [{text, count, page}], repeatable, page, owner} server/objectives.gd progression and story"><div class="sig"><code>kinds := {}  (property)</code></div><p>Name -> {name, display_name, description, steps: [{text, count, page}], repeatable, page, owner}</p></div>
 <div class="card" data-search="give gives it to a player. returns false if they already have it, have finished one that cannot be
 repeated, or are carrying as many as they may. server/objectives.gd progression and story"><div class="sig"><code>give(player, objective_name: String) -&gt; bool</code></div><p>Gives it to a player. Returns false if they already have it, have finished one that cannot be
 repeated, or are carrying as many as they may.</p></div>
@@ -1735,7 +1938,12 @@ whatever it thinks the reward is. The engine has no idea what a reward would be.
 <div class="card" data-search="abandon gives up on one. kept separate from finishing it, because &quot;i am not doing this&quot; and &quot;i did this&quot;
 are different things and a mod may want to say so. server/objectives.gd progression and story"><div class="sig"><code>abandon(player, objective_name: String) -&gt; bool</code></div><p>Gives up on one. Kept separate from finishing it, because "I am not doing this" and "I did this"
 are different things and a mod may want to say so.</p></div>
-<div class="card" data-search="active_for what they are doing now: [{name, display_name, step, of, text, progress, needed}]. server/objectives.gd progression and story"><div class="sig"><code>active_for(player) -&gt; Array</code></div><p>What they are doing now: [{name, display_name, step, of, text, progress, needed}].</p></div>
+<div class="card" data-search="sync sends the task list to whoever it belongs to. **pushed on every change rather than asked for**, the
+way the tutorial tracker is: a list you have to request is a list that is wrong for as long as
+nobody asked, and the one moment it matters is the moment it changed. server/objectives.gd progression and story"><div class="sig"><code>sync(player) -&gt; void</code></div><p>Sends the task list to whoever it belongs to. **Pushed on every change rather than asked for**, the
+way the tutorial tracker is: a list you have to request is a list that is wrong for as long as
+nobody asked, and the one moment it matters is the moment it changed.</p></div>
+<div class="card" data-search="active_for what they are doing now: [{name, display_name, step, of, text, progress, needed, page}]. server/objectives.gd progression and story"><div class="sig"><code>active_for(player) -&gt; Array</code></div><p>What they are doing now: [{name, display_name, step, of, text, progress, needed, page}].</p></div>
 <div class="card" data-search="finished how many times they have finished it (0 if never). server/objectives.gd progression and story"><div class="sig"><code>finished(player, objective_name: String) -&gt; int</code></div><p>How many times they have finished it (0 if never).</p></div></section>
 <section id="e-server-shops-gd"><h2>shops.gd <span class="file">server/shops.gd</span></h2><p class="lead">Somewhere to buy and sell: a village stall, a travelling pedlar, a vending machine in a factory.</p><div class="card" data-search="kinds name -&gt; {name, display_name, offers: [...], owner} server/shops.gd progression and story"><div class="sig"><code>kinds := {}  (property)</code></div><p>Name -> {name, display_name, offers: [...], owner}</p></div>
 <div class="card" data-search="problem why the last buy failed, in words a child can read. server/shops.gd progression and story"><div class="sig"><code>problem := &quot;&quot;  (property)</code></div><p>Why the last buy failed, in words a child can read.</p></div>
@@ -1946,11 +2154,34 @@ PEM text is compared directly (X509Certificate.save_to_string() adds a NUL chara
 <div class="card" data-search="create_client connects over dtls. if this server's certificate was seen before, the dtls handshake verifies it,
 so an impostor cannot complete the connection; the first connection trusts and pins it. net/net.gd saving, network and protocol"><div class="sig"><code>create_client(address: String, port: int, protocol_override := -1) -&gt; Error</code></div><p>Connects over DTLS. If this server's certificate was seen before, the DTLS handshake verifies it,
 so an impostor cannot complete the connection; the first connection trusts and pins it.</p></div>
-<div class="card" data-search="load_or_create_server_identity loads the server's dtls identity from `dir`, creating a self-signed one on first start.
-returns [cryptokey, x509certificate, certificate pem text]. net/net.gd saving, network and protocol"><div class="sig"><code>static load_or_create_server_identity(dir: String) -&gt; Array</code></div><p>Loads the server's DTLS identity from `dir`, creating a self-signed one on first start.
+<div class="card" data-search="load_or_create_server_identity loads the server's dtls certificate from `dir`, creating a self-signed one on first start. this is how
+the server is *reached*; who it *is* comes from `load_or_create_server_key` below.
+returns [cryptokey, x509certificate, certificate pem text]. net/net.gd saving, network and protocol"><div class="sig"><code>static load_or_create_server_identity(dir: String) -&gt; Array</code></div><p>Loads the server's DTLS certificate from `dir`, creating a self-signed one on first start. This is how
+the server is *reached*; who it *is* comes from `load_or_create_server_key` below.
 Returns [CryptoKey, X509Certificate, certificate PEM text].</p></div>
+<div class="card" data-search="load_or_create_server_key the server's own ed25519 identity: **who it is**, as against the certificate above, which is only
+how it is reached. this is what signs transfer tickets, status proofs and hub announces, and its
+hash is the server id other servers put in their `network.json`.
+
+**these were one key until 2026-09-25.** the certificate's rsa key did both jobs, which was tidy
+while everything was rsa - and then players moved to ed25519 so that an identity would fit in
+something a person can type, and the hub, which verifies both servers' and players' signatures with
+the same code, could no longer read the server's. two keys is also the more honest shape: a
+certificate is replaceable and an identity is not, so a server that regenerates its certificate no
+longer stops being itself to everybody who trusted it. the certificate stays rsa because godot's
+`generate_self_signed_certificate` takes nothing else. net/net.gd saving, network and protocol"><div class="sig"><code>static load_or_create_server_key(dir: String) -&gt; Dictionary</code></div><p>The server's own Ed25519 identity: **who it is**, as against the certificate above, which is only
+how it is reached. This is what signs transfer tickets, status proofs and hub announces, and its
+hash is the server id other servers put in their `network.json`.
+
+**These were one key until 2026-09-25.** The certificate's RSA key did both jobs, which was tidy
+while everything was RSA - and then players moved to Ed25519 so that an identity would fit in
+something a person can type, and the hub, which verifies both servers' and players' signatures with
+the same code, could no longer read the server's. Two keys is also the more honest shape: a
+certificate is replaceable and an identity is not, so a server that regenerates its certificate no
+longer stops being itself to everybody who trusted it. The certificate stays RSA because Godot's
+`generate_self_signed_certificate` takes nothing else.</p></div>
 <div class="card" data-search="peer_rtt_ms server side: a client's round-trip time in milliseconds (0 if unknown). net/net.gd saving, network and protocol"><div class="sig"><code>peer_rtt_ms(peer_id: int) -&gt; int</code></div><p>Server side: a client's round-trip time in milliseconds (0 if unknown).</p></div></section>
-<section id="e-server-hub-announcer-gd"><h2>hub_announcer.gd <span class="file">server/hub_announcer.gd</span></h2><p class="lead">Lists this server on a hub (services/hub): every HEARTBEAT seconds it posts the server's name, message, game and player count, signed with the server's identity key; the hub checks the address with a status query and answers with a short invite code (`code`), which status replies and the in-game invite dialog then show. On shutdown it asks the hub to drop the listing.</p><div class="card" data-search="code the hub's invite code for this server (&quot;qw-abc-123&quot;), once listed. server/hub_announcer.gd saving, network and protocol"><div class="sig"><code>code := &quot;&quot;  (property)</code></div><p>The hub's invite code for this server ("QW-ABC-123"), once listed.</p></div>
+<section id="e-server-hub-announcer-gd"><h2>hub_announcer.gd <span class="file">server/hub_announcer.gd</span></h2><p class="lead">Lists this server on a hub (services/hub): every HEARTBEAT seconds it posts the server's name, message, game and player count, signed with the server's Ed25519 identity key; the hub checks the address with a status query and answers with a short invite code (`code`), which status replies and the in-game invite dialog then show. On shutdown it asks the hub to drop the listing.</p><div class="card" data-search="code the hub's invite code for this server (&quot;qw-abc-123&quot;), once listed. server/hub_announcer.gd saving, network and protocol"><div class="sig"><code>code := &quot;&quot;  (property)</code></div><p>The hub's invite code for this server ("QW-ABC-123"), once listed.</p></div>
 <div class="card" data-search="problem &quot;&quot; while fine, else why the last announce failed (shown to admins and in the log once per change). server/hub_announcer.gd saving, network and protocol"><div class="sig"><code>problem := &quot;&quot;  (property)</code></div><p>"" while fine, else why the last announce failed (shown to admins and in the log once per change).</p></div>
 <div class="card" data-search="leave asks the hub to drop the listing (best effort, on shutdown: a blocking request with a short timeout). server/hub_announcer.gd saving, network and protocol"><div class="sig"><code>leave() -&gt; void</code></div><p>Asks the hub to drop the listing (best effort, on shutdown: a blocking request with a short timeout).</p></div></section>
 <section id="e-server-transfers-gd"><h2>transfers.gd <span class="file">server/transfers.gd</span></h2><p class="lead">Moving players between servers that trust each other: portals, /server and /transfer, and the mod API.</p><div class="card" data-search="transfer sends a player to another server. options: {arrival, data (a small dictionary for mods), reason}.
@@ -1981,8 +2212,10 @@ here rather than growing a second block with a second timer that feels slightly 
 it (the server's startup line, the benchmark's labels) rather than depend on it. shared/native.gd saving, network and protocol"><div class="sig"><code>static enabled() -&gt; bool</code></div><p>Whether the extension is loaded. Kept as a function because a handful of callers want to *report*
 it (the server's startup line, the benchmark's labels) rather than depend on it.</p></div>
 <div class="card" data-search="create a new instance of a native class. never null in a working build; says what is wrong when it is. shared/native.gd saving, network and protocol"><div class="sig"><code>static create(native_class: StringName) -&gt; Object</code></div><p>A new instance of a native class. Never null in a working build; says what is wrong when it is.</p></div></section>
-<section id="e-shared-transfer-ticket-gd"><h2>transfer_ticket.gd <span class="file">shared/transfer_ticket.gd</span></h2><p class="lead">Transfer tickets: how a player moves from one server to another that trusts it, carrying where they should arrive and (when both servers agree) what they carry.</p><div class="card" data-search="key_id the id servers use for each other: the first 32 hex characters of sha-256 over the public key pem. shared/transfer_ticket.gd saving, network and protocol"><div class="sig"><code>static key_id(key: CryptoKey) -&gt; String</code></div><p>The id servers use for each other: the first 32 hex characters of SHA-256 over the public key PEM.</p></div>
-<div class="card" data-search="make {ticket: json text, signature: base64} shared/transfer_ticket.gd saving, network and protocol"><div class="sig"><code>static make(source_key: CryptoKey, fields: Dictionary) -&gt; Dictionary</code></div><p>{ticket: JSON text, signature: base64}</p></div>
+<section id="e-shared-transfer-ticket-gd"><h2>transfer_ticket.gd <span class="file">shared/transfer_ticket.gd</span></h2><p class="lead">Transfer tickets: how a player moves from one server to another that trusts it, carrying where they should arrive and (when both servers agree) what they carry.</p><div class="card" data-search="key_id the id servers use for each other: the same id a player has, over the server's own public key, so
+there is one id scheme in the project rather than two that look alike. shared/transfer_ticket.gd saving, network and protocol"><div class="sig"><code>static key_id(key) -&gt; String</code></div><p>The id servers use for each other: the same id a player has, over the server's own public key, so
+there is one id scheme in the project rather than two that look alike.</p></div>
+<div class="card" data-search="make {ticket: json text, signature: base64} shared/transfer_ticket.gd saving, network and protocol"><div class="sig"><code>static make(source_key: Dictionary, fields: Dictionary) -&gt; Dictionary</code></div><p>{ticket: JSON text, signature: base64}</p></div>
 <div class="card" data-search="verify checks a ticket's signature and shape. `trusted`: source id -&gt; anything truthy.
 returns {ok: true, data} or {ok: false, error}. expiry, destination and replay are the caller's checks
 too (see `check`), since they need the destination's own details. shared/transfer_ticket.gd saving, network and protocol"><div class="sig"><code>static verify(ticket: String, signature: String, trusted: Dictionary) -&gt; Dictionary</code></div><p>Checks a ticket's signature and shape. `trusted`: source id -> anything truthy.
@@ -2015,8 +2248,6 @@ event when tracing. Returns the payload.</p></div>
 <div class="card" data-search="draw shape: {type: box | line | text | path | sphere, color, seconds, ...}; box {min, max} or {center, size},
 line {from, to}, text {position, text}, path {points}, sphere {center, radius}. server/dev_tools.gd dev tools and logging"><div class="sig"><code>draw(owner: String, shape: Dictionary) -&gt; void</code></div><p>shape: {type: box | line | text | path | sphere, color, seconds, ...}; box {min, max} or {center, size},
 line {from, to}, text {position, text}, path {points}, sphere {center, radius}.</p></div></section>
-<section id="e-server-dev-web-gd"><h2>dev_web.gd <span class="file">server/dev_web.gd</span></h2><p class="lead">The dev dashboard: a tiny HTTP server on the game server that serves engine/server/dev_web/index.html and a JSON API over the same data as the F8 overlay (logs, errors, event trace, profiler, inspector), for a browser next to the game or on a headless server.</p><div class="card" data-search="start `keep_token`: reuse a token (a full reload keeps open dashboards working). server/dev_web.gd dev tools and logging"><div class="sig"><code>start(listen_port: int, bind_host := &quot;127.0.0.1&quot;, keep_token := &quot;&quot;) -&gt; Error</code></div><p>`keep_token`: reuse a token (a full reload keeps open dashboards working).</p></div>
-<div class="card" data-search="streaming kept because callers ask it; there is only the one transport now, and it pushes. server/dev_web.gd dev tools and logging"><div class="sig"><code>streaming() -&gt; bool</code></div><p>Kept because callers ask it; there is only the one transport now, and it pushes.</p></div></section>
 <section id="e-client-admin-worlds-panel-gd"><h2>worlds_panel.gd <span class="file">client/admin/worlds_panel.gd</span></h2><p class="lead">The worlds this server is linked to (its network.json), from the pause menu: where you are, where you can go, and whether your things come with you. Travelling is the same trip a portal makes.</p><div class="card" data-search="last_state what the server last sent (also read by tests). client/admin/worlds_panel.gd the client"><div class="sig"><code>last_state := {}  (property)</code></div><p>What the server last sent (also read by tests).</p></div></section>
 <section id="e-client-avatar-accessory-builder-gd"><h2>accessory_builder.gd <span class="file">client/avatar/accessory_builder.gd</span></h2><p class="lead">Accessory builder: make hats, hair, glasses, capes and backpacks from colored voxels, one layer at a time on a top-down grid around the attachment point, while the 3D preview shows the result on your avatar. Saving merges the voxels into as few boxes as possible (at most Creations.MAX_BOXES) and puts the accessory in the local creation library.</p><div class="card" data-search="voxels vector3i (skin pixels from the attachment point) -&gt; &quot;#rrggbb&quot;. client/avatar/accessory_builder.gd the client"><div class="sig"><code>voxels := {}  (property)</code></div><p>Vector3i (skin pixels from the attachment point) -> "#rrggbb".</p></div>
 <div class="card" data-search="apply_at applies the current tool at a grid cell (x, z) of the current layer. client/avatar/accessory_builder.gd the client"><div class="sig"><code>apply_at(cell: Vector2i, erase := false) -&gt; void</code></div><p>Applies the current tool at a grid cell (x, z) of the current layer.</p></div>
@@ -2027,8 +2258,27 @@ line {from, to}, text {position, text}, path {points}, sphere {center, radius}.<
 <div class="card" data-search="set_armor armor shell texture in the skin layout, or null to hide armor. client/avatar/avatar.gd the client"><div class="sig"><code>set_armor(texture: Texture2D) -&gt; void</code></div><p>Armor shell texture in the skin layout, or null to hide armor.</p></div>
 <div class="card" data-search="set_held replaces the item in the right hand (null = empty hand). `look`: {glow, trail, held} of the stack. client/avatar/avatar.gd the client"><div class="sig"><code>set_held(node: Node3D, look := {}) -&gt; void</code></div><p>Replaces the item in the right hand (null = empty hand). `look`: {glow, trail, held} of the stack.</p></div>
 <div class="card" data-search="set_accessories adds accessory nodes at attachment points: [{attach, node}]. replaces previous accessories. client/avatar/avatar.gd the client"><div class="sig"><code>set_accessories(list: Array) -&gt; void</code></div><p>Adds accessory nodes at attachment points: [{attach, node}]. Replaces previous accessories.</p></div>
+<div class="card" data-search="set_look how the body is drawn: {scale, hide}. see serverplayer.set_look.
+
+**applied on top of the rig's own scale rather than replacing it**, so a rig with a different height
+keeps it - `_base_scale` is what `build` worked out from the rig, and this multiplies it. client/avatar/avatar.gd the client"><div class="sig"><code>set_look(look: Dictionary) -&gt; void</code></div><p>How the body is drawn: {scale, hide}. See ServerPlayer.set_look.
+
+**Applied on top of the rig's own scale rather than replacing it**, so a rig with a different height
+keeps it - `_base_scale` is what `build` worked out from the rig, and this multiplies it.</p></div>
 <div class="card" data-search="set_sleeping lies down in a bed: `head` is the [x, z] direction from the feet to the pillow, or [] to get up. client/avatar/avatar.gd the client"><div class="sig"><code>set_sleeping(head: Array) -&gt; void</code></div><p>Lies down in a bed: `head` is the [x, z] direction from the feet to the pillow, or [] to get up.</p></div>
-<div class="card" data-search="set_armor_glow glowing armor: {color, energy} lights up the armor texture in its own colors; {} turns it off. client/avatar/avatar.gd the client"><div class="sig"><code>set_armor_glow(glow: Dictionary) -&gt; void</code></div><p>Glowing armor: {color, energy} lights up the armor texture in its own colors; {} turns it off.</p></div>
+<div class="card" data-search="set_armor_glow glowing armor: {color, energy} lights up the armor texture in its own colors, and `light` (a radius
+in blocks) makes it light the world around the wearer too. {} turns both off.
+
+**`light` arrived here for weeks and was thrown away.** the server already computed it from the
+worn stack's data and shipped it in `appearance.armor_glow`; this function read `color` and
+`energy` and dropped the rest on the floor, so armour could look lit and never lit anything. held
+items have made a real light out of the same field all along (avatar/item_mesh.gd). (2026-09-24) client/avatar/avatar.gd the client"><div class="sig"><code>set_armor_glow(glow: Dictionary) -&gt; void</code></div><p>Glowing armor: {color, energy} lights up the armor texture in its own colors, and `light` (a radius
+in blocks) makes it light the world around the wearer too. {} turns both off.
+
+**`light` arrived here for weeks and was thrown away.** The server already computed it from the
+worn stack's data and shipped it in `appearance.armor_glow`; this function read `color` and
+`energy` and dropped the rest on the floor, so armour could look lit and never lit anything. Held
+items have made a real light out of the same field all along (avatar/item_mesh.gd). (2026-09-24)</p></div>
 <div class="card" data-search="animate poses the body. `velocity` in blocks/s, `pitch` in radians (look up positive). positive x rotation
 swings a hanging limb forward. client/avatar/avatar.gd the client"><div class="sig"><code>animate(delta: float, velocity: Vector3, on_ground: bool, pitch: float) -&gt; void</code></div><p>Poses the body. `velocity` in blocks/s, `pitch` in radians (look up positive). Positive x rotation
 swings a hanging limb forward.</p></div></section>
@@ -2096,11 +2346,32 @@ the blade sweeps right past the camera) draws a thinner, fainter, shorter ribbon
 stays at chest height rather than snapping to the thing's feet. client/float_text.gd the client"><div class="sig"><code>follow(node: Node3D) -&gt; void</code></div><p>Sticks it to something that moves. The offset is kept so a number that appeared at chest height
 stays at chest height rather than snapping to the thing's feet.</p></div></section>
 <section id="e-client-game-client-gd"><h2>game_client.gd <span class="file">client/game_client.gd</span></h2><p class="lead">Universal game client. Knows nothing about any particular game: it downloads the server's block definitions, textures and physics rules, renders streamed chunks, predicts local movement and edits (the server confirms or corrects them), and draws server-described UI.</p><div class="card" data-search="reload_pending set when the server announced a full reload: whoever owns the client should reconnect (see main.gd). client/game_client.gd the client"><div class="sig"><code>reload_pending := false  (property)</code></div><p>Set when the server announced a full reload: whoever owns the client should reconnect (see main.gd).</p></div>
+<div class="card" data-search="net the networking node this client talks through. **the autoload by default, which is every ordinary
+client**, and settable before the client enters the tree for the one case that cannot use it: a
+world hosted inside this same process, where the server already owns the autoload and its single
+multiplayer peer. see main._host_in_process. (2026-09-27) client/game_client.gd the client"><div class="sig"><code>net = Net  (property)</code></div><p>The networking node this client talks through. **The autoload by default, which is every ordinary
+client**, and settable before the client enters the tree for the one case that cannot use it: a
+world hosted inside this same process, where the server already owns the autoload and its single
+multiplayer peer. See Main._host_in_process. (2026-09-27)</p></div>
 <div class="card" data-search="admin_token passed by the menu when this client launched a local server it should stop on exit. client/game_client.gd the client"><div class="sig"><code>admin_token := &quot;&quot;  (property)</code></div><p>Passed by the menu when this client launched a local server it should stop on exit.</p></div>
-<div class="card" data-search="identity_name which saved identity (user://identity/&lt;name&gt;.pem) to log in with. client/game_client.gd the client"><div class="sig"><code>identity_name := &quot;default&quot;  (property)</code></div><p>Which saved identity (user://identity/<name>.pem) to log in with.</p></div>
-<div class="card" data-search="test_signing_key tests only: sign challenges with this key instead of the identity (must fail authentication). client/game_client.gd the client"><div class="sig"><code>test_signing_key: CryptoKey = null  (property)</code></div><p>Tests only: sign challenges with this key instead of the identity (must fail authentication).</p></div>
+<div class="card" data-search="capabilities what the server says this player may do (engine/net/net.gd s_capabilities). empty until it arrives,
+so anything gated on it stays hidden rather than flashing on and off at join. client/game_client.gd the client"><div class="sig"><code>capabilities := PackedStringArray()  (property)</code></div><p>What the server says this player may do (engine/net/net.gd s_capabilities). Empty until it arrives,
+so anything gated on it stays hidden rather than flashing on and off at join.</p></div>
+<div class="card" data-search="identity_name which saved identity (user://identity/&lt;name&gt;.key) to log in with. client/game_client.gd the client"><div class="sig"><code>identity_name := &quot;default&quot;  (property)</code></div><p>Which saved identity (user://identity/<name>.key) to log in with.</p></div>
+<div class="card" data-search="test_signing_key tests only: sign challenges with this key instead of the identity (must fail authentication). client/game_client.gd the client"><div class="sig"><code>test_signing_key := {}  (property)</code></div><p>Tests only: sign challenges with this key instead of the identity (must fail authentication).</p></div>
 <div class="card" data-search="test_protocol tests: announce this protocol version instead of the real one. client/game_client.gd the client"><div class="sig"><code>test_protocol := -1  (property)</code></div><p>Tests: announce this protocol version instead of the real one.</p></div>
-<div class="card" data-search="ignore_mouse_capture accept gameplay input without a captured mouse (headless bots / tests). client/game_client.gd the client"><div class="sig"><code>ignore_mouse_capture := false  (property)</code></div><p>Accept gameplay input without a captured mouse (headless bots / tests).</p></div>
+<div class="card" data-search="auto_capture_mouse accept gameplay input without a captured mouse (headless bots / tests).
+whether arriving in a world grabs the mouse. true for a person playing; the screenshot harness
+turns it off, because a test run that steals the cursor for a minute is its own small cruelty. client/game_client.gd the client"><div class="sig"><code>auto_capture_mouse := true  (property)</code></div><p>Accept gameplay input without a captured mouse (headless bots / tests).
+Whether arriving in a world grabs the mouse. True for a person playing; the screenshot harness
+turns it off, because a test run that steals the cursor for a minute is its own small cruelty.</p></div>
+<div class="card" data-search="touch_mode whether the on-screen controls are in use. true on a touchscreen, or anywhere when `qw_touch=1` -
+**which exists so the layout can be looked at without a tablet in hand.** every visual change would
+otherwise need a four-minute ios rebuild and somebody holding the device, which is how a control
+scheme ends up shipped without ever having been looked at. (2026-09-27) client/game_client.gd the client"><div class="sig"><code>touch_mode := false  (property)</code></div><p>Whether the on-screen controls are in use. True on a touchscreen, or anywhere when `QW_TOUCH=1` -
+**which exists so the layout can be looked at without a tablet in hand.** Every visual change would
+otherwise need a four-minute iOS rebuild and somebody holding the device, which is how a control
+scheme ends up shipped without ever having been looked at. (2026-09-27)</p></div>
 <div class="card" data-search="avatar your portable avatar (cosmetics data) sent to the server on join; null loads the saved one. client/game_client.gd the client"><div class="sig"><code>avatar = null  (property)</code></div><p>Your portable avatar (Cosmetics data) sent to the server on join; null loads the saved one.</p></div>
 <div class="card" data-search="realm which of the server's worlds this player is standing in (&quot;&quot; is the overworld), and what to call it.
 everything in `world` belongs to this realm and nothing outlives a move to another (see on_realm). client/game_client.gd the client"><div class="sig"><code>realm := &quot;&quot;  (property)</code></div><p>Which of the server's worlds this player is standing in ("" is the overworld), and what to call it.
@@ -2130,6 +2401,9 @@ leave nobody able to travel at all.)</p></div>
 <div class="card" data-search="fetch_lazy_asset fetches a lazy asset, calling `then(asset_name)` once it is on disk. calling it again for something
 already arriving just adds another listener rather than asking the server twice. client/game_client.gd the client"><div class="sig"><code>fetch_lazy_asset(asset_name: String, then: Callable) -&gt; void</code></div><p>Fetches a lazy asset, calling `then(asset_name)` once it is on disk. Calling it again for something
 already arriving just adds another listener rather than asking the server twice.</p></div>
+<div class="card" data-search="on_capabilities the server has said what this player may do. the pause menu rebuilds its gated entries, because a
+promotion mid-game should reach the menu. client/game_client.gd the client"><div class="sig"><code>on_capabilities(can: PackedStringArray) -&gt; void</code></div><p>The server has said what this player may do. The pause menu rebuilds its gated entries, because a
+promotion mid-game should reach the menu.</p></div>
 <div class="card" data-search="refresh_looks draws everyone again (a creation someone wears has arrived). client/game_client.gd the client"><div class="sig"><code>refresh_looks() -&gt; void</code></div><p>Draws everyone again (a creation someone wears has arrived).</p></div>
 <div class="card" data-search="open_ugc_review the admin review panel for player creations. client/game_client.gd the client"><div class="sig"><code>open_ugc_review() -&gt; void</code></div><p>The admin review panel for player creations.</p></div>
 <div class="card" data-search="invite_text report a creation another player is wearing.
@@ -2152,6 +2426,19 @@ exactly the thing somebody may need turned down, and a mod should not be able to
 <div class="card" data-search="on_player_nameplate the label over another player's head changed. client/game_client.gd the client"><div class="sig"><code>on_player_nameplate(peer_id: int, plate: Dictionary) -&gt; void</code></div><p>The label over another player's head changed.</p></div>
 <div class="card" data-search="on_float_text a word that floats in the world for a moment: damage off a hit, a name over a thing. client/game_client.gd the client"><div class="sig"><code>on_float_text(text: String, pos: Vector3, options: Dictionary) -&gt; void</code></div><p>A word that floats in the world for a moment: damage off a hit, a name over a thing.</p></div>
 <div class="card" data-search="on_flying the server started or stopped this player's flight. client/game_client.gd the client"><div class="sig"><code>on_flying(enabled: bool) -&gt; void</code></div><p>The server started or stopped this player's flight.</p></div>
+<div class="card" data-search="on_phasing moving through the world rather than against it. told to the client because the client *predicts*
+movement: without this it would walk into a wall the server is not simulating, and the player would
+see themselves stop and then get dragged forward again.
+
+**no notification.** unlike flying, this is never something a player asked for - a game turns it on
+when a round knocks them out - so the game says what has happened in its own words, and the engine
+saying &quot;phasing on&quot; over the top of that would be both jargon and a second voice. (2026-09-28) client/game_client.gd the client"><div class="sig"><code>on_phasing(enabled: bool) -&gt; void</code></div><p>Moving through the world rather than against it. Told to the client because the client *predicts*
+movement: without this it would walk into a wall the server is not simulating, and the player would
+see themselves stop and then get dragged forward again.
+
+**No notification.** Unlike flying, this is never something a player asked for - a game turns it on
+when a round knocks them out - so the game says what has happened in its own words, and the engine
+saying "phasing on" over the top of that would be both jargon and a second voice. (2026-09-28)</p></div>
 <div class="card" data-search="on_wind the server's music instruction. nothing here can fail loudly: the track may not have arrived yet, or
 may never arrive, and either way the game carries on without it.
 the wind the server is running. stored, not applied: `_wind_angle` eases toward it over a few
@@ -2175,6 +2462,19 @@ This arrives on the same channel as chunks, and that is not incidental: the thre
 delivered independently, so a chunk sent a moment before the move would otherwise be free to arrive
 *after* it and be built into the world the player just walked into. Ordering only exists within a
 channel, so the message that ends a world travels in the same queue as the chunks it invalidates.</p></div>
+<div class="card" data-search="on_realm_check the server saying which world it believes this player is in. usually the one we are already in and
+nothing happens; when it is not, we missed a realm change and are holding a world that is not there
+any more - while the server streams the new one's chunks into it, so what is on screen is two worlds
+mixed together. drop everything and ask for it again.
+
+**this is a recovery, not a realm change**: `on_realm` does the teardown and the server resends the
+world, so the two paths stay one path. (2026-09-28) client/game_client.gd the client"><div class="sig"><code>on_realm_check(realm_id: String) -&gt; void</code></div><p>The server saying which world it believes this player is in. Usually the one we are already in and
+nothing happens; when it is not, we missed a realm change and are holding a world that is not there
+any more - while the server streams the new one's chunks into it, so what is on screen is two worlds
+mixed together. Drop everything and ask for it again.
+
+**This is a recovery, not a realm change**: `on_realm` does the teardown and the server resends the
+world, so the two paths stay one path. (2026-09-28)</p></div>
 <div class="card" data-search="on_assembly cables and pipes: the whole lot on joining, then one at a time as they are made.
 a set of blocks that has left the grid. built once from everything it is made of. client/game_client.gd the client"><div class="sig"><code>on_assembly(id: int, origin: Vector3i, blocks: PackedInt32Array) -&gt; void</code></div><p>Cables and pipes: the whole lot on joining, then one at a time as they are made.
 A set of blocks that has left the grid. Built once from everything it is made of.</p></div>
@@ -2200,7 +2500,61 @@ where a block goes when placing against a target: into replaceable blocks (tall 
 otherwise against the face that was hit. client/game_client.gd the client"><div class="sig"><code>placement_spot(target: Dictionary) -&gt; Vector3i</code></div><p>Places the selected hotbar block, predicting the result.
 Where a block goes when placing against a target: into replaceable blocks (tall grass) themselves,
 otherwise against the face that was hit.</p></div>
+<div class="card" data-search="add_look turns the camera by a movement in **screen pixels**, so the interface size does not change how fast
+it turns. `local` is the same movement in viewport units and only feeds the view-model sway.
+
+**split out of the mouse handler so a finger can call it too.** the look maths used to live inside a
+branch gated on `input.mouse_mode == mouse_mode_captured`, and ios has no captured pointer - so on a
+tablet the camera could never turn, by construction rather than by oversight. (2026-09-27)
+`scale` is the caller's own sensitivity, because **a mouse and a thumb do not share one**: with the
+mouse setting applied here, turning a mouse down would also turn a tablet down, and a player has only
+one of the two devices in front of them. the mouse passes its setting; the touch layer passes its
+own. inversion stays here, since up and down mean the same thing whatever is doing the moving. client/game_client.gd the client"><div class="sig"><code>add_look(moved: Vector2, local := Vector2.ZERO, scale := -1.0) -&gt; void</code></div><p>Turns the camera by a movement in **screen pixels**, so the interface size does not change how fast
+it turns. `local` is the same movement in viewport units and only feeds the view-model sway.
+
+**Split out of the mouse handler so a finger can call it too.** The look maths used to live inside a
+branch gated on `Input.mouse_mode == MOUSE_MODE_CAPTURED`, and iOS has no captured pointer - so on a
+tablet the camera could never turn, by construction rather than by oversight. (2026-09-27)
+`scale` is the caller's own sensitivity, because **a mouse and a thumb do not share one**: with the
+mouse setting applied here, turning a mouse down would also turn a tablet down, and a player has only
+one of the two devices in front of them. The mouse passes its setting; the touch layer passes its
+own. Inversion stays here, since up and down mean the same thing whatever is doing the moving.</p></div>
+<div class="card" data-search="close_top_screen closes whatever screen is on top, the way escape does, and says whether there was one.
+
+**every screen closed on a key press and nothing else** - escape, or the key that opened it - so on a
+tablet the backpack opened and then held the player there with no way back. same shape as the pause
+menu: a route in and no route out on a device with no keyboard. (the user, 2026-09-27: &quot;when i opened
+a panel like bag, i am unable to close it&quot;)
+
+the order matters and matches the escape cascade exactly: the topmost thing goes first, so a
+guidebook opened from the backpack closes the guidebook rather than both. client/game_client.gd the client"><div class="sig"><code>close_top_screen() -&gt; bool</code></div><p>Closes whatever screen is on top, the way Escape does, and says whether there was one.
+
+**Every screen closed on a key press and nothing else** - Escape, or the key that opened it - so on a
+tablet the backpack opened and then held the player there with no way back. Same shape as the pause
+menu: a route in and no route out on a device with no keyboard. (the user, 2026-09-27: "when i opened
+a panel like Bag, i am unable to close it")
+
+The order matters and matches the Escape cascade exactly: the topmost thing goes first, so a
+guidebook opened from the backpack closes the guidebook rather than both.</p></div>
+<div class="card" data-search="any_screen_open whether any screen is covering the world, and so whether the close button belongs on screen.
+**listed by hand, which is how the palette got missed.** the ring opened the block picker and no
+close button appeared, because this function enumerates screens and nobody had added it - so tapping
+the rightmost icon was a door with nothing on the other side of it. (the user, 2026-09-27: &quot;the
+recipe browser didn\'t have a way to close it... the last icon in the flyout menu&quot;)
+
+a list like this is wrong the moment a screen is added, so the suite now asserts that every screen
+the client can open is one this function knows about. client/game_client.gd the client"><div class="sig"><code>any_screen_open() -&gt; bool</code></div><p>Whether any screen is covering the world, and so whether the close button belongs on screen.
+**Listed by hand, which is how the palette got missed.** The ring opened the block picker and no
+close button appeared, because this function enumerates screens and nobody had added it - so tapping
+the rightmost icon was a door with nothing on the other side of it. (the user, 2026-09-27: "the
+recipe browser didn\'t have a way to close it... the last icon in the flyout menu")
+
+A list like this is wrong the moment a screen is added, so the suite now asserts that every screen
+the client can open is one this function knows about.</p></div>
 <div class="card" data-search="on_recipe_learned a new recipe: remember it and celebrate (several at once are grouped into one toast). client/game_client.gd the client"><div class="sig"><code>on_recipe_learned(index: int, source: String) -&gt; void</code></div><p>A new recipe: remember it and celebrate (several at once are grouped into one toast).</p></div>
+<div class="card" data-search="on_objectives the task list, pushed whenever it changes. see engine/client/objective_hud.gd for why this took
+until there was a game with a story in it to notice was missing. client/game_client.gd the client"><div class="sig"><code>on_objectives(view: Dictionary) -&gt; void</code></div><p>The task list, pushed whenever it changes. See engine/client/objective_hud.gd for why this took
+until there was a game with a story in it to notice was missing.</p></div>
 <div class="card" data-search="on_dev_error script errors on the server, for admins: a red card per error (repeats update its count). client/game_client.gd the client"><div class="sig"><code>on_dev_error(e: Dictionary) -&gt; void</code></div><p>Script errors on the server, for admins: a red card per error (repeats update its count).</p></div>
 <div class="card" data-search="on_station_label floating progress text above a station for everyone nearby (&quot;&quot; removes it). client/game_client.gd the client"><div class="sig"><code>on_station_label(pos: Vector3i, text: String) -&gt; void</code></div><p>Floating progress text above a station for everyone nearby ("" removes it).</p></div>
 <div class="card" data-search="on_structure_guide ghost blocks where a structure's missing blocks go (red where a block is in the way). clears after
@@ -2210,6 +2564,23 @@ a minute or when the guide is requested again.</p></div>
 <div class="card" data-search="lookup_recipes opens the recipe book filtered to what makes (`mode` &quot;make&quot;) or uses (&quot;use&quot;) an item. client/game_client.gd the client"><div class="sig"><code>lookup_recipes(item: int, mode: String) -&gt; void</code></div><p>Opens the recipe book filtered to what makes (`mode` "make") or uses ("use") an item.</p></div>
 <div class="card" data-search="pin_recipe pins a recipe to the hud (-1 unpins). saved per server. client/game_client.gd the client"><div class="sig"><code>pin_recipe(index: int) -&gt; void</code></div><p>Pins a recipe to the HUD (-1 unpins). Saved per server.</p></div>
 <div class="card" data-search="open_avatar_editor in game: your look with this server's cosmetics; saved built-in choices travel to other servers. client/game_client.gd the client"><div class="sig"><code>open_avatar_editor() -&gt; void</code></div><p>In game: your look with this server's cosmetics; saved built-in choices travel to other servers.</p></div>
+<div class="card" data-search="set_paused opens or closes the pause menu. **public because escape was the only way in**, and a tablet has no
+escape - so once a child was in the world there was no route to resume, settings, disconnect or
+anything else, on a device with no keyboard. (the user, 2026-09-27: &quot;impossible to change settings
+etc since i am in game and no touch controls!&quot;) client/game_client.gd the client"><div class="sig"><code>set_paused(paused: bool) -&gt; void</code></div><p>Opens or closes the pause menu. **Public because Escape was the only way in**, and a tablet has no
+Escape - so once a child was in the world there was no route to Resume, Settings, Disconnect or
+anything else, on a device with no keyboard. (the user, 2026-09-27: "impossible to change settings
+etc since i am in game and no touch controls!")</p></div>
+<div class="card" data-search="toggle_inventory opens or closes the backpack. public for the same reason as `set_paused`: the only other way in is
+the `inventory` action, which needs a key event to reach the handler. client/game_client.gd the client"><div class="sig"><code>toggle_inventory() -&gt; void</code></div><p>Opens or closes the backpack. Public for the same reason as `set_paused`: the only other way in is
+the `inventory` action, which needs a key event to reach the handler.</p></div>
+<div class="card" data-search="open_crafting the rest of what a keyboard opens, as methods rather than key events. **a virtual button cannot reach
+`_unhandled_input`**: pressing an action through `input` updates the polled state that movement and
+mining read, but synthesises no event, and every screen opens from an event check. so each way in
+needs a door that is not a key. (2026-09-27) client/game_client.gd the client"><div class="sig"><code>open_crafting() -&gt; void</code></div><p>The rest of what a keyboard opens, as methods rather than key events. **A virtual button cannot reach
+`_unhandled_input`**: pressing an action through `Input` updates the polled state that movement and
+mining read, but synthesises no event, and every screen opens from an event check. So each way in
+needs a door that is not a key. (2026-09-27)</p></div>
 <div class="card" data-search="open_settings the settings screen over the game (from the pause menu). client/game_client.gd the client"><div class="sig"><code>open_settings() -&gt; void</code></div><p>The settings screen over the game (from the pause menu).</p></div>
 <div class="card" data-search="open_players_panel players and roles (admins) over the game, in the settings overlay slot. client/game_client.gd the client"><div class="sig"><code>open_players_panel() -&gt; void</code></div><p>Players and roles (admins) over the game, in the settings overlay slot.</p></div>
 <div class="card" data-search="open_server_panel server settings (admins) over the game, in the settings overlay slot. client/game_client.gd the client"><div class="sig"><code>open_server_panel() -&gt; void</code></div><p>Server settings (admins) over the game, in the settings overlay slot.</p></div>
@@ -2265,6 +2636,11 @@ from the definition and from item data (&quot;lore&quot;: [...]). client/item_vi
 from the definition and from item data ("lore": [...]).</p></div>
 <div class="card" data-search="update_wear_bar adds or updates a thin bar along the bottom of an item slot showing remaining durability. client/item_visuals.gd the client"><div class="sig"><code>static update_wear_bar(slot: Control, items, id: int, item_data: Dictionary) -&gt; void</code></div><p>Adds or updates a thin bar along the bottom of an item slot showing remaining durability.</p></div>
 <div class="card" data-search="shield_icon 9x9 shield: `fill` 1 = full, 0.5 = left half, 0 = empty outline. client/item_visuals.gd the client"><div class="sig"><code>static shield_icon(fill: float) -&gt; ImageTexture</code></div><p>9x9 shield: `fill` 1 = full, 0.5 = left half, 0 = empty outline.</p></div></section>
+<section id="e-client-loading-curtain-gd"><h2>loading_curtain.gd <span class="file">client/loading_curtain.gd</span></h2><p class="lead">The black between the menu and the world: what a player looks at while a server is found, content downloads and the ground is built.</p><div class="card" data-search="status the line under the title: &quot;connecting…&quot;, &quot;downloading…&quot;, &quot;loading terrain…&quot;. client/loading_curtain.gd the client"><div class="sig"><code>status(text: String) -&gt; void</code></div><p>The line under the title: "Connecting…", "Downloading…", "Loading terrain…".</p></div>
+<div class="card" data-search="progress the bar, or anything negative to hide it. most of the steps have nothing to measure, which is why
+the blocks above keep moving regardless. client/loading_curtain.gd the client"><div class="sig"><code>progress(fraction: float) -&gt; void</code></div><p>The bar, or anything negative to hide it. Most of the steps have nothing to measure, which is why
+the blocks above keep moving regardless.</p></div>
+<div class="card" data-search="leave the world is ready. fades out and frees itself; safe to call twice. client/loading_curtain.gd the client"><div class="sig"><code>leave() -&gt; void</code></div><p>The world is ready. Fades out and frees itself; safe to call twice.</p></div></section>
 <section id="e-client-map-screen-gd"><h2>map_screen.gd <span class="file">client/map_screen.gd</span></h2><p class="lead">The map (M): the world from above, drawn from the chunks this client already has, with everyone on the server, your home and your grave marked. Nothing extra is downloaded - the picture is built from the blocks around you, so it only shows where somebody has been.</p><div class="card" data-search="zoom_by zooms in (+1) or out (-1). the buttons call this, and so does the mouse wheel: reaching for the wheel
 over a map is what everybody does, and it used to change the hotbar behind the map instead. client/map_screen.gd the client"><div class="sig"><code>zoom_by(steps: int) -&gt; void</code></div><p>Zooms in (+1) or out (-1). The buttons call this, and so does the mouse wheel: reaching for the wheel
 over a map is what everybody does, and it used to change the hotbar behind the map instead.</p></div></section>
@@ -2321,7 +2697,10 @@ where the camera is, because a plate has no way of knowing on its own.</p></div>
 <section id="e-client-palette-screen-gd"><h2>palette_screen.gd <span class="file">client/palette_screen.gd</span></h2><p class="lead">Every block and item there is, for a creative player to take from (B).</p><div class="card" data-search="show_palette called when the server sends the catalogue. client/palette_screen.gd the client"><div class="sig"><code>show_palette(groups: Dictionary, items, atlas) -&gt; void</code></div><p>Called when the server sends the catalogue.</p></div></section>
 <section id="e-client-scrolling-material-gd"><h2>scrolling_material.gd <span class="file">client/scrolling_material.gd</span></h2><p class="lead">The material a conveyor belt wears: its texture slides along while it runs.</p><div class="card" data-search="create a material that scrolls `texture`. one shader for every belt; one material per texture. client/scrolling_material.gd the client"><div class="sig"><code>static create(texture: Texture2D) -&gt; ShaderMaterial</code></div><p>A material that scrolls `texture`. One shader for every belt; one material per texture.</p></div>
 <div class="card" data-search="texture_of the albedo texture a loaded model is drawn with, so the belt keeps its own look. client/scrolling_material.gd the client"><div class="sig"><code>static texture_of(mesh: Mesh) -&gt; Texture2D</code></div><p>The albedo texture a loaded model is drawn with, so the belt keeps its own look.</p></div></section>
-<section id="e-client-server-ui-gd"><h2>server_ui.gd <span class="file">client/server_ui.gd</span></h2><p class="lead">Renders UI described by the server as plain data. Only the element types below exist, so a server can lay out and update interface but never run code on the client.</p><div class="card" data-search="textures asset name -&gt; texture2d, provided by the client after content loads. client/server_ui.gd the client"><div class="sig"><code>textures := {}  (property)</code></div><p>asset name -> Texture2D, provided by the client after content loads.</p></div></section>
+<section id="e-client-server-ui-gd"><h2>server_ui.gd <span class="file">client/server_ui.gd</span></h2><p class="lead">Renders UI described by the server as plain data. Only the element types below exist, so a server can lay out and update interface but never run code on the client.</p><div class="card" data-search="textures asset name -&gt; texture2d, provided by the client after content loads. client/server_ui.gd the client"><div class="sig"><code>textures := {}  (property)</code></div><p>asset name -> Texture2D, provided by the client after content loads.</p></div>
+<div class="card" data-search="top_right_inset how far below the top-right corner a panel anchored there should start, so it clears the client's
+own menu button. set by the client, which is the only thing that knows how big that button is. client/server_ui.gd the client"><div class="sig"><code>top_right_inset := 0.0  (property)</code></div><p>How far below the top-right corner a panel anchored there should start, so it clears the client's
+own menu button. Set by the client, which is the only thing that knows how big that button is.</p></div></section>
 <section id="e-client-settings-client-settings-gd"><h2>client_settings.gd <span class="file">client/settings/client_settings.gd</span></h2><p class="lead">The player's settings, shared by the main menu and the game: one schema, saved to user://settings.cfg (QW_SETTINGS overrides the path, for tests). `changed(key)` fires on every change so whatever uses a setting can apply it at once. Keys are &quot;section/name&quot;, the same as in the file.</p><div class="card" data-search="path resolved in _init, so an instance made directly (a test, a tool) writes where qw_settings says rather
 than over the player's own file. one that did exactly that wiped a player's settings. (2026-09-18) client/settings/client_settings.gd the client"><div class="sig"><code>path := DEFAULT_PATH  (property)</code></div><p>Resolved in _init, so an instance made directly (a test, a tool) writes where QW_SETTINGS says rather
 than over the player's own file. One that did exactly that wiped a player's settings. (2026-09-18)</p></div>
@@ -2339,7 +2718,7 @@ preset is selected switches to "custom", starting from that preset's values.</p>
 <section id="e-client-settings-settings-screen-gd"><h2>settings_screen.gd <span class="file">client/settings/settings_screen.gd</span></h2><p class="lead">The settings screen, used in the main menu's Settings page and from the pause menu: tabs built from ClientSettings.SCHEMA (switches, sliders and choices with help text), key rebinding on the Controls tab, a reset button per tab, and extra tabs a host can add (the menu adds Account). Every change is saved and applied at once through ClientSettings.changed.</p><div class="card" data-search="closable shows a close button (the in-game overlay). client/settings/settings_screen.gd the client"><div class="sig"><code>closable := false  (property)</code></div><p>Shows a close button (the in-game overlay).</p></div></section>
 <section id="e-client-social-friends-panel-gd"><h2>friends_panel.gd <span class="file">client/social/friends_panel.gd</span></h2><p class="lead">Friends and party, for the menu's Friends page and the pause menu: your friend code, adding friends, requests, the friends list (online, which server, join, invite to party, remove) and your party (members, the leader's server, invitations). Emits `join_requested` to go to a friend's server.</p><div class="card" data-search="closable shows a done button (the in-game overlay). client/social/friends_panel.gd the client"><div class="sig"><code>closable := false  (property)</code></div><p>Shows a Done button (the in-game overlay).</p></div></section>
 <section id="e-client-social-social-client-gd"><h2>social_client.gd <span class="file">client/social/social_client.gd</span></h2><p class="lead">Friends and parties through the hub (services/hub, social.rs). Signs in with the player's identity key (the hub's challenge, signed as &quot;quarrowen-hub-login:&lt;hub url&gt;:&lt;nonce&gt;&quot;), checks in every HEARTBEAT seconds with where the player is (`current_server`, shown to friends when &quot;network/share_server&quot; is on) and keeps the latest social state: {me, friends, incoming, outgoing, party, party_invites}. Lives in engine/main.gd for the whole session, so friends see you in the menu and in game.</p><div class="card" data-search="current_server {name, address, port, code} while playing on a server, else {}. client/social/social_client.gd the client"><div class="sig"><code>current_server := {}  (property)</code></div><p>{name, address, port, code} while playing on a server, else {}.</p></div>
-<div class="card" data-search="key for tests: sign in with this key instead of the player's identity. client/social/social_client.gd the client"><div class="sig"><code>key: CryptoKey  (property)</code></div><p>For tests: sign in with this key instead of the player's identity.</p></div>
+<div class="card" data-search="key for tests: sign in with this key instead of the player's identity. client/social/social_client.gd the client"><div class="sig"><code>key := {}  (property)</code></div><p>For tests: sign in with this key instead of the player's identity.</p></div>
 <div class="card" data-search="refresh checks in now (signing in first when needed). client/social/social_client.gd the client"><div class="sig"><code>refresh() -&gt; void</code></div><p>Checks in now (signing in first when needed).</p></div>
 <div class="card" data-search="leader_server the party leader's server, when someone else leads and shares it ({} otherwise). client/social/social_client.gd the client"><div class="sig"><code>leader_server() -&gt; Dictionary</code></div><p>The party leader's server, when someone else leads and shares it ({} otherwise).</p></div></section>
 <section id="e-client-texture-atlas-gd"><h2>texture_atlas.gd <span class="file">client/texture_atlas.gd</span></h2><p class="lead">Packs block textures downloaded from the server into one nearest-filtered atlas.</p><div class="card" data-search="build `images`: asset name -&gt; image. returns {texture, surface, uv: name -&gt; rect2, pixels: name -&gt; rect2}.
@@ -2360,6 +2739,9 @@ a hitch: the client stops draining its socket, Godot starts printing "Buffer ful
 the chunks never arrive and the world comes up empty. Run this on a worker and hand the texture over
 when it is ready; relief appearing a second after the world does is nothing anybody notices.
 (2026-09-22)</p></div></section>
+<section id="e-client-touch-controls-gd"><h2>touch_controls.gd <span class="file">client/touch_controls.gd</span></h2><p class="lead">The on-screen controls: a thumbstick to walk with, a drag area to look with, and the buttons a keyboard would otherwise carry. Shown on a touchscreen, or anywhere with `QW_TOUCH=1`.</p><div class="card" data-search="release_all lets go of everything. called when the world is left or a menu opens, so a finger that was holding
+`break` when a screen appeared does not leave the player mining for ever. client/touch_controls.gd the client"><div class="sig"><code>release_all() -&gt; void</code></div><p>Lets go of everything. Called when the world is left or a menu opens, so a finger that was holding
+`break` when a screen appeared does not leave the player mining for ever.</p></div></section>
 <section id="e-client-updater-gd"><h2>updater.gd <span class="file">client/updater.gd</span></h2><p class="lead">Keeps the game up to date with the project's own releases.</p><div class="card" data-search="manifest_url where to ask about new versions (the project setting wins, so a fork can point somewhere else). client/updater.gd the client"><div class="sig"><code>static manifest_url() -&gt; String</code></div><p>Where to ask about new versions (the project setting wins, so a fork can point somewhere else).</p></div>
 <div class="card" data-search="platform this platform's key in the manifest, or &quot;&quot; where updating is not supported (a server, or a build
 installed by something else). client/updater.gd the client"><div class="sig"><code>static platform() -&gt; String</code></div><p>This platform's key in the manifest, or "" where updating is not supported (a server, or a build
@@ -2410,7 +2792,24 @@ manifest is changed to offer it. An untested script that replaces a folder is no
 flag macos puts on it and starts the new one. kept as a string so a test can read it without installing. client/updater.gd the client"><div class="sig"><code>static install_script(zip_path: String, work_dir: String, installed: String, pid: int) -&gt; String</code></div><p>The script that installs a downloaded update once this process has gone: it unpacks the zip itself
 (so the executable bits inside a .app survive), swaps it with the installed build, clears the download
 flag macOS puts on it and starts the new one. Kept as a string so a test can read it without installing.</p></div></section>
-<section id="e-main-gd"><h2>main.gd <span class="file">main.gd</span></h2><p class="lead">Entry point. Runs a dedicated server with `-- --server`, otherwise shows the main menu.</p><div class="card" data-search="export_identity returns a status message; failures start with &quot;error&quot;. main.gd the server itself"><div class="sig"><code>static export_identity(path: String, passphrase: String) -&gt; String</code></div><p>Returns a status message; failures start with "Error".</p></div></section>
+<section id="e-main-gd"><h2>main.gd <span class="file">main.gd</span></h2><p class="lead">Entry point. Runs a dedicated server with `-- --server`, otherwise shows the main menu.</p><div class="card" data-search="export_identity returns a status message; failures start with &quot;error&quot;. main.gd the server itself"><div class="sig"><code>static export_identity(path: String, passphrase: String) -&gt; String</code></div><p>Returns a status message; failures start with "Error".</p></div>
+<div class="card" data-search="can_fork_a_server whether this platform lets us start a second copy of the executable to run a world in.
+
+**a question about the platform, asked before trying rather than after failing.** ios says no, and
+`create_process` there can only ever return err_cant_fork - so a world runs in this process instead.
+
+`qw_in_process_server=1` forces the same path on a desktop. **not a convenience.** without it the
+in-process branch is reachable only on a tablet, which means it can only be tested by building,
+signing, installing and then reading a log off a device - and a branch that expensive to exercise is
+one that quietly rots between the times anybody does. (2026-09-27) main.gd the server itself"><div class="sig"><code>static can_fork_a_server() -&gt; bool</code></div><p>Whether this platform lets us start a second copy of the executable to run a world in.
+
+**A question about the platform, asked before trying rather than after failing.** iOS says no, and
+`create_process` there can only ever return ERR_CANT_FORK - so a world runs in this process instead.
+
+`QW_IN_PROCESS_SERVER=1` forces the same path on a desktop. **Not a convenience.** Without it the
+in-process branch is reachable only on a tablet, which means it can only be tested by building,
+signing, installing and then reading a log off a device - and a branch that expensive to exercise is
+one that quietly rots between the times anybody does. (2026-09-27)</p></div></section>
 <section id="e-server-game-server-gd"><h2>game_server.gd <span class="file">server/game_server.gd</span></h2><p class="lead">Authoritative game server engine. Loads mods, which define the content and rules; owns the world; simulates every player from their inputs; validates edits; streams content, chunks and snapshots.</p><div class="card" data-search="realms the worlds this server is running. &quot;&quot; is the overworld - the one a server has always had, and the
 one an old save belongs to. realms are added by mods before the world loads. server/game_server.gd the server itself"><div class="sig"><code>realms := {}  (property)</code></div><p>The worlds this server is running. "" is the overworld - the one a server has always had, and the
 one an old save belongs to. Realms are added by mods before the world loads.</p></div>
@@ -2449,7 +2848,16 @@ realm; this is the overworld's, for everything that has not been told which worl
 <div class="card" data-search="liquids liquids (see engine/server/liquids.gd). one per realm; this is the overworld's. server/game_server.gd the server itself"><div class="sig"><code>liquids  (property)</code></div><p>Liquids (see engine/server/liquids.gd). One per realm; this is the overworld's.</p></div>
 <div class="card" data-search="multiblocks machines assembled out of blocks (see engine/server/multiblocks.gd). server/game_server.gd the server itself"><div class="sig"><code>multiblocks  (property)</code></div><p>Machines assembled out of blocks (see engine/server/multiblocks.gd).</p></div>
 <div class="card" data-search="containers container types and open container screens (chests, furnaces, machines). server/game_server.gd the server itself"><div class="sig"><code>containers := Containers.new(self)  (property)</code></div><p>Container types and open container screens (chests, furnaces, machines).</p></div>
-<div class="card" data-search="gameplay game-wide rules mods can change with set_gameplay. server/game_server.gd the server itself"><div class="sig"><code>gameplay := {  (property)</code></div><p>Game-wide rules mods can change with set_gameplay.</p></div>
+<div class="card" data-search="gameplay game-wide rules mods can change with set_gameplay. a realm may override any of them; see
+`gameplay_in` and `gameplay_of`, which is what read sites should use where a player or a realm is
+in hand. server/game_server.gd the server itself"><div class="sig"><code>gameplay := {  (property)</code></div><p>Game-wide rules mods can change with set_gameplay. A realm may override any of them; see
+`gameplay_in` and `gameplay_of`, which is what read sites should use where a player or a realm is
+in hand.</p></div>
+<div class="card" data-search="in_process true when this world is running inside a player's own client rather than in a process of its own -
+which is how a platform that cannot fork hosts (see main._host_in_process). it changes exactly one
+thing: ending the world frees this node instead of quitting the tree, because the tree is the game. server/game_server.gd the server itself"><div class="sig"><code>in_process := false  (property)</code></div><p>True when this world is running inside a player's own client rather than in a process of its own -
+which is how a platform that cannot fork hosts (see Main._host_in_process). It changes exactly one
+thing: ending the world frees this node instead of quitting the tree, because the tree is the game.</p></div>
 <div class="card" data-search="map_markers map markers mods set for a player: player id -&gt; {marker id: {label, position, color}} (see modapi.set_map_marker). server/game_server.gd the server itself"><div class="sig"><code>map_markers := {}  (property)</code></div><p>Map markers mods set for a player: player id -> {marker id: {label, position, color}} (see ModApi.set_map_marker).</p></div>
 <div class="card" data-search="world_markers markers everyone sees (modapi.set_world_marker); saved in world.json. server/game_server.gd the server itself"><div class="sig"><code>world_markers := {}  (property)</code></div><p>Markers everyone sees (ModApi.set_world_marker); saved in world.json.</p></div>
 <div class="card" data-search="generator what this realm's terrain is generated by (the overworld's, for callers that have not been told
@@ -2494,6 +2902,7 @@ flows, and the file says why.</p></div>
 <div class="card" data-search="shops buying and selling, drawn the same way everywhere (see engine/server/shops.gd). server/game_server.gd the server itself"><div class="sig"><code>shops := Shops.new(self)  (property)</code></div><p>Buying and selling, drawn the same way everywhere (see engine/server/shops.gd).</p></div>
 <div class="card" data-search="conditions what somebody is temporarily under - swiftness, poison (see engine/server/conditions.gd). server/game_server.gd the server itself"><div class="sig"><code>conditions := Conditions.new(self)  (property)</code></div><p>What somebody is temporarily under - swiftness, poison (see engine/server/conditions.gd).</p></div>
 <div class="card" data-search="fields ground that does something to whoever stands in it (see engine/server/fields.gd). server/game_server.gd the server itself"><div class="sig"><code>fields := Fields.new(self)  (property)</code></div><p>Ground that does something to whoever stands in it (see engine/server/fields.gd).</p></div>
+<div class="card" data-search="regions boxes that say who is standing in them (engine/server/regions.gd). server/game_server.gd the server itself"><div class="sig"><code>regions := Regions.new(self)  (property)</code></div><p>Boxes that say who is standing in them (engine/server/regions.gd).</p></div>
 <div class="card" data-search="companions what a tamed creature is being told to do (see engine/server/companions.gd). server/game_server.gd the server itself"><div class="sig"><code>companions := Companions.new(self)  (property)</code></div><p>What a tamed creature is being told to do (see engine/server/companions.gd).</p></div>
 <div class="card" data-search="vehicles things you can sit on and steer (see engine/server/vehicles.gd). server/game_server.gd the server itself"><div class="sig"><code>vehicles := Vehicles.new(self)  (property)</code></div><p>Things you can sit on and steer (see engine/server/vehicles.gd).</p></div>
 <div class="card" data-search="nameplates the label over a thing's head (see engine/server/nameplates.gd). server/game_server.gd the server itself"><div class="sig"><code>nameplates := Nameplates.new(self)  (property)</code></div><p>The label over a thing's head (see engine/server/nameplates.gd).</p></div>
@@ -2516,7 +2925,7 @@ to everybody else (see engine/server/claims.gd).</p></div>
 <div class="card" data-search="dev_log logs and script errors for mod authors (see engine/server/dev_log.gd). server/game_server.gd the server itself"><div class="sig"><code>dev_log := DevLog.new()  (property)</code></div><p>Logs and script errors for mod authors (see engine/server/dev_log.gd).</p></div>
 <div class="card" data-search="dev_tools profiler, event tracer, inspector and debug drawing (see engine/server/dev_tools.gd). server/game_server.gd the server itself"><div class="sig"><code>dev_tools := DevTools.new(self)  (property)</code></div><p>Profiler, event tracer, inspector and debug drawing (see engine/server/dev_tools.gd).</p></div>
 <div class="card" data-search="dev_mode --dev: every player gets the developer tools (local development). server/game_server.gd the server itself"><div class="sig"><code>dev_mode := false  (property)</code></div><p>--dev: every player gets the developer tools (local development).</p></div>
-<div class="card" data-search="dev_web the dev dashboard web server (--dev-web=port). server/game_server.gd the server itself"><div class="sig"><code>dev_web := DevWeb.new(self)  (property)</code></div><p>The dev dashboard web server (--dev-web=port).</p></div>
+<div class="card" data-search="status_query the dev dashboard web server (--dev-web=port). server/game_server.gd the server itself"><div class="sig"><code>status_query := StatusQuery.new(self)  (property)</code></div><p>The dev dashboard web server (--dev-web=port).</p></div>
 <div class="card" data-search="hub lists the server on a hub (a child node while online; null for offline servers). server/game_server.gd the server itself"><div class="sig"><code>hub: HubAnnouncer  (property)</code></div><p>Lists the server on a hub (a child node while online; null for offline servers).</p></div>
 <div class="card" data-search="port the game port (0 when offline). server/game_server.gd the server itself"><div class="sig"><code>port := 0  (property)</code></div><p>The game port (0 when offline).</p></div>
 <div class="card" data-search="view_distance chunks of terrain a player is sent, and chunks around them that the world actually runs in.
@@ -2545,6 +2954,10 @@ to get into the world. server/game_server.gd the server itself"><div class="sig"
 The client fetches one the first time something actually needs it. Music lives here: a track is
 megabytes where a texture is a few hundred bytes, and a child should not wait through the soundtrack
 to get into the world.</p></div>
+<div class="card" data-search="set_rules movement tunables, for the whole server or for one realm. overlays, exactly as `set_gameplay` does. server/game_server.gd the server itself"><div class="sig"><code>set_rules(values: Dictionary, realm_id := &quot;&quot;) -&gt; void</code></div><p>Movement tunables, for the whole server or for one realm. Overlays, exactly as `set_gameplay` does.</p></div>
+<div class="card" data-search="rules_in the movement rules in force in a realm. like `gameplay_in`, this hands back the server's own object
+when the realm has nothing of its own, so the ordinary case allocates nothing. server/game_server.gd the server itself"><div class="sig"><code>rules_in(realm_id := &quot;&quot;) -&gt; PlayerPhysics.Rules</code></div><p>The movement rules in force in a realm. Like `gameplay_in`, this hands back the server's own object
+when the realm has nothing of its own, so the ordinary case allocates nothing.</p></div>
 <div class="card" data-search="add_handler `owner`: the mod id (or &quot;engine&quot;) the profiler and tracer credit. server/game_server.gd the server itself"><div class="sig"><code>add_handler(event: String, handler: Callable, priority: int, owner := &quot;engine&quot;) -&gt; void</code></div><p>`owner`: the mod id (or "engine") the profiler and tracer credit.</p></div>
 <div class="card" data-search="is_excluded whether a fully qualified name was excluded by some mod's manifest. checked at registration, so an
 excluded thing is never given an id at all - and anything that later names it simply finds nothing,
@@ -2557,9 +2970,29 @@ permission name (see engine/server/roles.gd).</p></div>
 <div class="card" data-search="is_allowed whether a player may join: always when the allowlist is off; else admins and listed players (by id, or
 by name until that name first joins and binds the entry to the player's identity). server/game_server.gd the server itself"><div class="sig"><code>is_allowed(player_id: String, player_name: String) -&gt; bool</code></div><p>Whether a player may join: always when the allowlist is off; else admins and listed players (by id, or
 by name until that name first joins and binds the entry to the player's identity).</p></div>
+<div class="card" data-search="ban_of whether this player is banned, and what they were told. `{}` when they are not.
+
+**separate from the allowlist on purpose.** the allowlist answers &quot;is this a private server and are
+you on the list&quot;; a ban answers &quot;you in particular are not welcome here&quot;, and it has to work on a
+public server where the allowlist is off. running them together would mean banning somebody turned
+the whole server private. server/game_server.gd the server itself"><div class="sig"><code>ban_of(player_id: String) -&gt; Dictionary</code></div><p>Whether this player is banned, and what they were told. `{}` when they are not.
+
+**Separate from the allowlist on purpose.** The allowlist answers "is this a private server and are
+you on the list"; a ban answers "you in particular are not welcome here", and it has to work on a
+public server where the allowlist is off. Running them together would mean banning somebody turned
+the whole server private.</p></div>
+<div class="card" data-search="is_muted whether this player may not speak. server/game_server.gd the server itself"><div class="sig"><code>is_muted(player_id: String) -&gt; bool</code></div><p>Whether this player may not speak.</p></div>
+<div class="card" data-search="set_ban bans or unbans by player id. the id is the durable half - a name is kept only so the list reads as
+something a person can review. server/game_server.gd the server itself"><div class="sig"><code>set_ban(player_id: String, banned: bool, player_name := &quot;&quot;, reason := &quot;&quot;, by := &quot;&quot;) -&gt; void</code></div><p>Bans or unbans by player id. The id is the durable half - a name is kept only so the list reads as
+something a person can review.</p></div>
+<div class="card" data-search="player_id_of the id behind a name, whether or not they are online - so somebody can be banned while they are
+not there, which is when most bans are actually written. server/game_server.gd the server itself"><div class="sig"><code>player_id_of(name_or_id: String) -&gt; String</code></div><p>The id behind a name, whether or not they are online - so somebody can be banned while they are
+not there, which is when most bans are actually written.</p></div>
 <div class="card" data-search="allowlist_add adds a player by name (or id) to the allowlist. server/game_server.gd the server itself"><div class="sig"><code>allowlist_add(name_or_id: String) -&gt; void</code></div><p>Adds a player by name (or id) to the allowlist.</p></div>
 <div class="card" data-search="allowlist_bind the first time a listed name joins, its entry is tied to that identity (so the name cannot be taken). server/game_server.gd the server itself"><div class="sig"><code>allowlist_bind(player_id: String, player_name: String) -&gt; void</code></div><p>The first time a listed name joins, its entry is tied to that identity (so the name cannot be taken).</p></div>
-<div class="card" data-search="has_permission whether a player's roles grant a permission (config admins have everything). server/game_server.gd the server itself"><div class="sig"><code>has_permission(p, permission: String) -&gt; bool</code></div><p>Whether a player's roles grant a permission (config admins have everything).</p></div>
+<div class="card" data-search="is_admitted whether this identity has been let in. admins are always in - otherwise turning approval on would
+lock out the person who has to do the admitting. server/game_server.gd the server itself"><div class="sig"><code>is_admitted(player_id: String) -&gt; bool</code></div><p>Whether this identity has been let in. Admins are always in - otherwise turning approval on would
+lock out the person who has to do the admitting.</p></div>
 <div class="card" data-search="uptime seconds since the server started ticking. what `schedule` measures against, so anything timing an
 event of its own should ask here rather than reach for a wall clock - a paused or slow server then
 counts the same time everything else does. server/game_server.gd the server itself"><div class="sig"><code>uptime() -&gt; float</code></div><p>Seconds since the server started ticking. What `schedule` measures against, so anything timing an
@@ -2569,6 +3002,11 @@ counts the same time everything else does.</p></div>
 <div class="card" data-search="open_crafting_refresh refreshes a player's open crafting screen (the recipe book may have changed). server/game_server.gd the server itself"><div class="sig"><code>open_crafting_refresh(p: ServerPlayer) -&gt; void</code></div><p>Refreshes a player's open crafting screen (the recipe book may have changed).</p></div>
 <div class="card" data-search="tell_moderators messages for admins only (moderation). server/game_server.gd the server itself"><div class="sig"><code>tell_moderators(text: String) -&gt; void</code></div><p>Messages for admins only (moderation).</p></div>
 <div class="card" data-search="request_full_reload saves and asks the owner to restart the server with the same settings; clients are told to reconnect. server/game_server.gd the server itself"><div class="sig"><code>request_full_reload() -&gt; void</code></div><p>Saves and asks the owner to restart the server with the same settings; clients are told to reconnect.</p></div>
+<div class="card" data-search="tell_capabilities tells a player which of the permissions the interface cares about they actually hold, so the client
+can offer only what will work. sent on join and whenever roles change - a promotion that did not
+reach the menu would be worse than not sending it at all. server/game_server.gd the server itself"><div class="sig"><code>tell_capabilities(p) -&gt; void</code></div><p>Tells a player which of the permissions the interface cares about they actually hold, so the client
+can offer only what will work. Sent on join and whenever roles change - a promotion that did not
+reach the menu would be worse than not sending it at all.</p></div>
 <div class="card" data-search="tell_riding tells a client whether it is riding, and on what. the client stops predicting its own movement while
 it is, which is the whole reason this crosses the wire at all. server/game_server.gd the server itself"><div class="sig"><code>tell_riding(p: ServerPlayer) -&gt; void</code></div><p>Tells a client whether it is riding, and on what. The client stops predicting its own movement while
 it is, which is the whole reason this crosses the wire at all.</p></div>
@@ -2576,8 +3014,51 @@ it is, which is the whole reason this crosses the wire at all.</p></div>
 <div class="card" data-search="backup_now flushes pending saves, then archives the world on a worker thread. `requester` (peer id) is told
 when it finishes. returns false if a backup is already running. server/game_server.gd the server itself"><div class="sig"><code>backup_now(requester := 0) -&gt; bool</code></div><p>Flushes pending saves, then archives the world on a worker thread. `requester` (peer id) is told
 when it finishes. Returns false if a backup is already running.</p></div>
-<div class="card" data-search="set_flying starts or stops flight for a player, telling their client. returns false when they may not fly. server/game_server.gd the server itself"><div class="sig"><code>set_flying(p: ServerPlayer, enabled: bool) -&gt; bool</code></div><p>Starts or stops flight for a player, telling their client. Returns false when they may not fly.</p></div>
-<div class="card" data-search="may_fly creative players fly; anyone else needs the &quot;fly&quot; permission. server/game_server.gd the server itself"><div class="sig"><code>may_fly(p: ServerPlayer) -&gt; bool</code></div><p>Creative players fly; anyone else needs the "fly" permission.</p></div>
+<div class="card" data-search="set_phasing starts or stops flight for a player, telling their client. returns false when they may not fly.
+moves this player through the world rather than against it: no collision, no ground, flying. what a
+spectator is made of.
+
+**the engine does not know what a spectator is**, and this is deliberate: a round of one game hides
+the watcher and freezes them, another lets them roam and chat, a third shows them only their own
+team. so the engine supplies the part no mod can write - passing through blocks lives in the physics
+- and a mod composes the rest from `set_look`, the cancellable `player_damage`, and `mob_target`.
+(2026-09-28) server/game_server.gd the server itself"><div class="sig"><code>set_phasing(p: ServerPlayer, enabled: bool) -&gt; void</code></div><p>Starts or stops flight for a player, telling their client. Returns false when they may not fly.
+Moves this player through the world rather than against it: no collision, no ground, flying. What a
+spectator is made of.
+
+**The engine does not know what a spectator is**, and this is deliberate: a round of one game hides
+the watcher and freezes them, another lets them roam and chat, a third shows them only their own
+team. So the engine supplies the part no mod can write - passing through blocks lives in the physics
+- and a mod composes the rest from `set_look`, the cancellable `player_damage`, and `mob_target`.
+(2026-09-28)</p></div>
+<div class="card" data-search="may_fly creative players fly; anyone else needs the &quot;fly&quot; permission.
+whether `p` may fly. `deliberate` is a command rather than a double-tap on the jump key: a game that
+turns flight off is saying &quot;this is not a game you fly in&quot;, not &quot;the admin may never fly&quot;, so an
+explicit `/fly` still goes through and an accidental double-tap does not. server/game_server.gd the server itself"><div class="sig"><code>may_fly(p: ServerPlayer, deliberate := false) -&gt; bool</code></div><p>Creative players fly; anyone else needs the "fly" permission.
+Whether `p` may fly. `deliberate` is a command rather than a double-tap on the jump key: a game that
+turns flight off is saying "this is not a game you fly in", not "the admin may never fly", so an
+explicit `/fly` still goes through and an accidental double-tap does not.</p></div>
+<div class="card" data-search="set_gameplay sets game rules, for the whole server or for one realm.
+
+**a realm overlays the server's rules rather than replacing them**, so a lobby that only wants to
+turn pvp off says exactly that and inherits everything else - and a rule added to the engine later
+reaches every realm without any mod hearing about it. `realm_id` &quot;&quot; is the server's own set, which
+is what every realm without an override of its own reads. server/game_server.gd the server itself"><div class="sig"><code>set_gameplay(values: Dictionary, realm_id := &quot;&quot;) -&gt; void</code></div><p>Sets game rules, for the whole server or for one realm.
+
+**A realm overlays the server's rules rather than replacing them**, so a lobby that only wants to
+turn PvP off says exactly that and inherits everything else - and a rule added to the engine later
+reaches every realm without any mod hearing about it. `realm_id` "" is the server's own set, which
+is what every realm without an override of its own reads.</p></div>
+<div class="card" data-search="gameplay_in the rules in force in a realm: the server's, with that realm's overrides laid over them.
+
+**returns the server's own dictionary when a realm has no overrides**, which is the common case and
+costs nothing - no copy, no merge, the same object every read site used before realms could differ. server/game_server.gd the server itself"><div class="sig"><code>gameplay_in(realm_id := &quot;&quot;) -&gt; Dictionary</code></div><p>The rules in force in a realm: the server's, with that realm's overrides laid over them.
+
+**Returns the server's own dictionary when a realm has no overrides**, which is the common case and
+costs nothing - no copy, no merge, the same object every read site used before realms could differ.</p></div>
+<div class="card" data-search="gameplay_of the rules in force where this player is standing. the accessor almost every read site wants, because
+a rule about hunger, falling or hitting somebody is always a rule about a particular player. server/game_server.gd the server itself"><div class="sig"><code>gameplay_of(player) -&gt; Dictionary</code></div><p>The rules in force where this player is standing. The accessor almost every read site wants, because
+a rule about hunger, falling or hitting somebody is always a rule about a particular player.</p></div>
 <div class="card" data-search="damage_player returns true if damage applied. `direction` sets the knockback direction (defaults to away from
 the attacker). `bypass_cooldown` lets continuous damage (void) ignore the invulnerability window. server/game_server.gd the server itself"><div class="sig"><code>damage_player(p: ServerPlayer, amount: float, cause: String, attacker = null, direction := Vector3.ZERO, bypass_cooldown := false, knockback := 6.0) -&gt; bool</code></div><p>Returns true if damage applied. `direction` sets the knockback direction (defaults to away from
 the attacker). `bypass_cooldown` lets continuous damage (void) ignore the invulnerability window.</p></div>
@@ -2621,9 +3102,13 @@ its own halfway through.</p></div>
 <div class="card" data-search="wind_state the wind as a mod sees it: {angle, strength}. server/game_server.gd the server itself"><div class="sig"><code>wind_state() -&gt; Dictionary</code></div><p>The wind as a mod sees it: {angle, strength}.</p></div>
 <div class="card" data-search="weather_state the weather as a mod sees it: {name, intensity}. &quot;&quot; when the sky is clear. server/game_server.gd the server itself"><div class="sig"><code>weather_state() -&gt; Dictionary</code></div><p>The weather as a mod sees it: {name, intensity}. "" when the sky is clear.</p></div>
 <div class="card" data-search="block_sound sound name for a block action (&quot;break&quot;, &quot;place&quot;, &quot;step&quot;); empty when the block has none. server/game_server.gd the server itself"><div class="sig"><code>block_sound(block: int, action: String) -&gt; String</code></div><p>Sound name for a block action ("break", "place", "step"); empty when the block has none.</p></div>
+<div class="card" data-search="on_resync a client saying it is holding the wrong world. forget what it has been sent so the stream starts
+again, and tell it where it is - it may have missed that too, which is how it got here. server/game_server.gd the server itself"><div class="sig"><code>on_resync(peer_id: int) -&gt; void</code></div><p>A client saying it is holding the wrong world. Forget what it has been sent so the stream starts
+again, and tell it where it is - it may have missed that too, which is how it got here.</p></div>
 <div class="card" data-search="set_world_time `time_of_day`: 0 = midnight, 0.25 = sunrise, 0.5 = noon. `day_length` in seconds, 0 = frozen. server/game_server.gd the server itself"><div class="sig"><code>set_world_time(time_of_day: float, day_length: float) -&gt; void</code></div><p>`time_of_day`: 0 = midnight, 0.25 = sunrise, 0.5 = noon. `day_length` in seconds, 0 = frozen.</p></div>
 <div class="card" data-search="on_auth the client proves it holds the private key for the identity it presented. server/game_server.gd the server itself"><div class="sig"><code>on_auth(peer_id: int, signature: PackedByteArray) -&gt; void</code></div><p>The client proves it holds the private key for the identity it presented.</p></div>
 <div class="card" data-search="on_claim_admin the local host proves it launched this server and becomes a permanent admin. server/game_server.gd the server itself"><div class="sig"><code>on_claim_admin(peer_id: int, token: String) -&gt; void</code></div><p>The local host proves it launched this server and becomes a permanent admin.</p></div>
+<div class="card" data-search="peer_address where a peer is connecting from, or &quot;&quot; when that cannot be told (offline play, a peer already gone). server/game_server.gd the server itself"><div class="sig"><code>peer_address(peer_id: int) -&gt; String</code></div><p>Where a peer is connecting from, or "" when that cannot be told (offline play, a peer already gone).</p></div>
 <div class="card" data-search="mark_simulation_stale says the simulated set needs working out again. claims call it; so does anything else that changes
 which part of the world should be running. server/game_server.gd the server itself"><div class="sig"><code>mark_simulation_stale() -&gt; void</code></div><p>Says the simulated set needs working out again. Claims call it; so does anything else that changes
 which part of the world should be running.</p></div>
@@ -2661,6 +3146,33 @@ does not say which world any more - the same coordinates exist in all of them - 
 for a player passes `realm_of(p)`, and anything acting for a creature passes its realm. server/game_server.gd the server itself"><div class="sig"><code>get_block_loaded(pos: Vector3i, into: Realm = null) -&gt; int</code></div><p>Every function here takes the world to act in, and `null` means the overworld. A position alone
 does not say which world any more - the same coordinates exist in all of them - so anything acting
 for a player passes `realm_of(p)`, and anything acting for a creature passes its realm.</p></div>
+<div class="card" data-search="fill_blocks writes a box of blocks straight into the chunks, telling each subsystem once per chunk instead of
+once per block. returns how many blocks were written.
+
+**this is what `api.fill` always claimed to be.** it went through `set_block_authoritative` per block,
+and `_apply_block` notifies block ticks, signals, liquids, multiblocks and links *every time* - so a
+57x57x8 room cost about 130,000 subsystem calls and **blocked the server for 8.1 seconds**, measured.
+the client's connection timed out during it about half the time, which presented as a realm change
+that silently did not happen: the player kept the world they had while the server believed they were
+somewhere else. two days of symptoms upstream of one loop. (2026-09-28)
+
+the rule this leaves: **`fill` is for building rooms, `set_block` is for changing a world somebody is
+standing in.** fill does not run machinery - a conveyor filled over is not told, a liquid is not
+re-settled - because a builder laying a floor does not want thirty thousand notifications and the one
+who edits a live machine does. server/game_server.gd the server itself"><div class="sig"><code>fill_blocks(from: Vector3i, to: Vector3i, id: int, into: Realm = null) -&gt; int</code></div><p>Writes a box of blocks straight into the chunks, telling each subsystem once per chunk instead of
+once per block. Returns how many blocks were written.
+
+**This is what `api.fill` always claimed to be.** It went through `set_block_authoritative` per block,
+and `_apply_block` notifies block ticks, signals, liquids, multiblocks and links *every time* - so a
+57x57x8 room cost about 130,000 subsystem calls and **blocked the server for 8.1 seconds**, measured.
+The client's connection timed out during it about half the time, which presented as a realm change
+that silently did not happen: the player kept the world they had while the server believed they were
+somewhere else. Two days of symptoms upstream of one loop. (2026-09-28)
+
+The rule this leaves: **`fill` is for building rooms, `set_block` is for changing a world somebody is
+standing in.** Fill does not run machinery - a conveyor filled over is not told, a liquid is not
+re-settled - because a builder laying a floor does not want thirty thousand notifications and the one
+who edits a live machine does.</p></div>
 <div class="card" data-search="surface_height y of the highest solid or liquid block in the column (loading it if needed), or -1. plants and
 other non-solid decorations are skipped, so things placed on the surface stand on the ground. server/game_server.gd the server itself"><div class="sig"><code>surface_height(x: int, z: int, into: Realm = null) -&gt; int</code></div><p>Y of the highest solid or liquid block in the column (loading it if needed), or -1. Plants and
 other non-solid decorations are skipped, so things placed on the surface stand on the ground.</p></div>
@@ -2784,13 +3296,47 @@ the policy uniform, the player's override and avatar_change handlers. server/gam
 the policy uniform, the player's override and avatar_change handlers.</p></div>
 <div class="card" data-search="reapply_requested_avatar applies the avatar the player last asked for again (a creation in it was approved or removed). server/game_server.gd the server itself"><div class="sig"><code>reapply_requested_avatar(p: ServerPlayer) -&gt; void</code></div><p>Applies the avatar the player last asked for again (a creation in it was approved or removed).</p></div>
 <div class="card" data-search="dimension_of the players and roles panel. answers with {players, roles, can_kick, denied?}.
-which world a player is in. one world today (&quot;&quot; is it); mods that add dimensions set this key on the
-player, and the map, compass and markers follow them there. server/game_server.gd the server itself"><div class="sig"><code>dimension_of(p) -&gt; String</code></div><p>The players and roles panel. Answers with {players, roles, can_kick, denied?}.
-Which world a player is in. One world today ("" is it); mods that add dimensions set this key on the
-player, and the map, compass and markers follow them there.</p></div>
-<div class="card" data-search="on_map what the player's map shows: everyone in the same dimension (unless the server hides them) and the
-markers mods set, also filtered to that dimension. server/game_server.gd the server itself"><div class="sig"><code>on_map(peer_id: int) -&gt; void</code></div><p>What the player's map shows: everyone in the same dimension (unless the server hides them) and the
-markers mods set, also filtered to that dimension.</p></div>
+which world a player is in, for the map, the compass and markers. **this is the realm's id**, and the
+overworld's is &quot;&quot; - so a marker saved before realms existed still means the overworld.
+
+it used to read `p.data[&quot;dimension&quot;]`, a key nothing in the engine ever wrote: `send_to_realm` sets
+`realm_id` and has never touched it. so there were two notions of which world somebody was in, one of
+them maintained and one of them always &quot;&quot;. the map therefore showed every player in every realm at
+once - you appeared on a dungeon party's map, and they appeared on yours, each of you a marker
+standing in fog where nobody was. `sightings.gd` was already writing a realm id into its own
+`dimension` field, which is the corroboration that these were always meant to be one thing.
+(2026-09-28) server/game_server.gd the server itself"><div class="sig"><code>dimension_of(p) -&gt; String</code></div><p>The players and roles panel. Answers with {players, roles, can_kick, denied?}.
+Which world a player is in, for the map, the compass and markers. **This is the realm's id**, and the
+overworld's is "" - so a marker saved before realms existed still means the overworld.
+
+It used to read `p.data["dimension"]`, a key nothing in the engine ever wrote: `send_to_realm` sets
+`realm_id` and has never touched it. So there were two notions of which world somebody was in, one of
+them maintained and one of them always "". The map therefore showed every player in every realm at
+once - you appeared on a dungeon party's map, and they appeared on yours, each of you a marker
+standing in fog where nobody was. `sightings.gd` was already writing a realm id into its own
+`dimension` field, which is the corroboration that these were always meant to be one thing.
+(2026-09-28)</p></div>
+<div class="card" data-search="too_often what the player's map shows: everyone in the same dimension (unless the server hides them) and the
+markers mods set, also filtered to that dimension.
+**handlers that do real work per call need a floor on how often.**
+
+three of them had none: `c_map` walks every player and generates a chunk, and the two ugc listings
+walk the whole library. none of that is expensive once; all of it is expensive at a thousand calls
+a second, and nothing stopped a client sending them that fast. a client asking politely is
+unaffected - the map screen polls every two seconds and these floors are well under that.
+
+returns true when the call came too soon and should be dropped. silent on purpose: an answer
+explaining the limit is itself a reply to send, and a client that is misbehaving is not reading it. server/game_server.gd the server itself"><div class="sig"><code>too_often(p: ServerPlayer, what: String, seconds: float) -&gt; bool</code></div><p>What the player's map shows: everyone in the same dimension (unless the server hides them) and the
+markers mods set, also filtered to that dimension.
+**Handlers that do real work per call need a floor on how often.**
+
+Three of them had none: `c_map` walks every player and generates a chunk, and the two UGC listings
+walk the whole library. None of that is expensive once; all of it is expensive at a thousand calls
+a second, and nothing stopped a client sending them that fast. A client asking politely is
+unaffected - the map screen polls every two seconds and these floors are well under that.
+
+Returns true when the call came too soon and should be dropped. Silent on purpose: an answer
+explaining the limit is itself a reply to send, and a client that is misbehaving is not reading it.</p></div>
 <div class="card" data-search="on_worlds_panel the worlds panel: the servers this one is linked to (network.json), and travel. server/game_server.gd the server itself"><div class="sig"><code>on_worlds_panel(peer_id: int, action: String, args: Dictionary) -&gt; void</code></div><p>The worlds panel: the servers this one is linked to (network.json), and travel.</p></div>
 <div class="card" data-search="on_server_panel the admin settings screen. every action is the command an admin could type, run with their own
 permissions, so nothing here grants more than chat already does. server/game_server.gd the server itself"><div class="sig"><code>on_server_panel(peer_id: int, action: String, args: Dictionary) -&gt; void</code></div><p>The admin settings screen. Every action is the command an admin could type, run with their own
@@ -2841,7 +3387,40 @@ the explosion is a noise, not fifty pieces of feedback. server/game_server.gd th
 
 `sound` is off for a blast, which breaks fifty blocks in one instant: fifty break sounds on top of
 the explosion is a noise, not fifty pieces of feedback.</p></div></section>
+<section id="e-server-main-gd"><h2>server_main.gd <span class="file">server_main.gd</span></h2><p class="lead">Dedicated server entry point (scenes/server.tscn). Contains no client code, so a server export or container only needs engine/shared, engine/server and engine/net.</p><div class="card" data-search="launch_args options for a server started *inside another process* - the client hosting a local world on a
+platform that cannot fork (see main._host_in_process). set before the scene enters the tree. empty
+means read the command line, which is every ordinary server. passed explicitly rather than smuggled
+through the environment so that a client's own arguments can never be mistaken for a server's. server_main.gd the server itself"><div class="sig"><code>launch_args := PackedStringArray()  (property)</code></div><p>Options for a server started *inside another process* - the client hosting a local world on a
+platform that cannot fork (see Main._host_in_process). Set before the scene enters the tree. Empty
+means read the command line, which is every ordinary server. Passed explicitly rather than smuggled
+through the environment so that a client's own arguments can never be mistaken for a server's.</p></div></section>
 <section id="e-server-conflicts-gd"><h2>conflicts.gd <span class="file">server/conflicts.gd</span></h2><p class="lead">Two mods quietly standing on each other, found before a player notices.</p><div class="card" data-search="find everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report. server/conflicts.gd everything else"><div class="sig"><code>find() -&gt; Array</code></div><p>Everything worth telling somebody about: [{kind, detail, mods}], sorted for a stable report.</p></div></section>
+<section id="e-server-regions-gd"><h2>regions.gd <span class="file">server/regions.gd</span></h2><p class="lead">A box in the world that tells a mod when somebody walks into it and when they walk out again.</p><div class="card" data-search="regions id -&gt; {id, name, owner, realm, lo: vector3, hi: vector3, data: dictionary, inside: {player_id: true}} server/regions.gd everything else"><div class="sig"><code>regions := {}  (property)</code></div><p>id -> {id, name, owner, realm, lo: Vector3, hi: Vector3, data: Dictionary, inside: {player_id: true}}</p></div>
+<div class="card" data-search="add adds a box. returns its id, or 0 if there was no room or the box was refused. server/regions.gd everything else"><div class="sig"><code>add(region_name: String, from: Vector3, to: Vector3, options := {}, owner := &quot;engine&quot;) -&gt; int</code></div><p>Adds a box. Returns its id, or 0 if there was no room or the box was refused.</p></div>
+<div class="card" data-search="remove removes one. anybody standing in it is told they left first, because a mod that opened a door on
+`region_entered` has to be able to close it - and &quot;the region went away&quot; is not a thing it can see. server/regions.gd everything else"><div class="sig"><code>remove(id: int) -&gt; bool</code></div><p>Removes one. Anybody standing in it is told they left first, because a mod that opened a door on
+`region_entered` has to be able to close it - and "the region went away" is not a thing it can see.</p></div>
+<div class="card" data-search="at every region a point is inside, as their ids. server/regions.gd everything else"><div class="sig"><code>at(position: Vector3, realm_id := &quot;&quot;) -&gt; Array</code></div><p>Every region a point is inside, as their ids.</p></div>
+<div class="card" data-search="players_in who is standing in one right now, as players. server/regions.gd everything else"><div class="sig"><code>players_in(id: int) -&gt; Array</code></div><p>Who is standing in one right now, as players.</p></div>
+<div class="card" data-search="forget drops everything a mod added, for a reload. server/regions.gd everything else"><div class="sig"><code>forget(owner: String) -&gt; void</code></div><p>Drops everything a mod added, for a reload.</p></div>
+<div class="card" data-search="tick one sweep: every player against every box, firing on the change.
+
+**called from the server tick and deliberately not budgeted.** a box test is six float compares, so
+the whole sweep is players times regions - sixty players in a lobby of two hundred boxes is twelve
+thousand compares, which is less work than one chunk mesh and far less than the machinery it would
+take to be clever about it. if that stops being true the answer is a grid, not a time slice: a
+region that is only checked *sometimes* misses people, and missing people is the one failure this
+capability cannot have. server/regions.gd everything else"><div class="sig"><code>tick() -&gt; void</code></div><p>One sweep: every player against every box, firing on the change.
+
+**Called from the server tick and deliberately not budgeted.** A box test is six float compares, so
+the whole sweep is players times regions - sixty players in a lobby of two hundred boxes is twelve
+thousand compares, which is less work than one chunk mesh and far less than the machinery it would
+take to be clever about it. If that stops being true the answer is a grid, not a time slice: a
+region that is only checked *sometimes* misses people, and missing people is the one failure this
+capability cannot have.</p></div>
+<div class="card" data-search="drop_player someone has gone for good: forget them, without telling anybody they left. a player who logs out is
+not a player who walked out, and a mod that opened a gate for them has nothing left to close. server/regions.gd everything else"><div class="sig"><code>drop_player(player) -&gt; void</code></div><p>Someone has gone for good: forget them, without telling anybody they left. A player who logs out is
+not a player who walked out, and a mod that opened a gate for them has nothing left to close.</p></div></section>
 <section id="e-server-sightings-gd"><h2>sightings.gd <span class="file">server/sightings.gd</span></h2><p class="lead">The creatures the whole server is told about: the rare ones, announced when they arrive, marked on everybody's map and compass while they are about, and gone again if nobody comes.</p><div class="card" data-search="start starts the sweep. called once the server is running, because `schedule` needs its clock. server/sightings.gd everything else"><div class="sig"><code>start() -&gt; void</code></div><p>Starts the sweep. Called once the server is running, because `schedule` needs its clock.</p></div>
 <div class="card" data-search="arrived a creature has appeared. announces it and marks it, if it is one of the notable ones.
 
@@ -2889,7 +3468,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1203 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1264 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

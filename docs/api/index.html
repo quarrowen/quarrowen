@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quarrowen Mod API 1.0.0</title>
+<title>Quarrowen Mod API 1.1.0</title>
 <style>
 :root { --bg: #fbfaf7; --panel: #ffffff; --line: #e6e2d8; --text: #25231f; --muted: #7a7466; --accent: #2f6fd0; --code: #f3f0e8; --tag: #e7f0ff; }
 @media (prefers-color-scheme: dark) { :root { --bg: #111317; --panel: #171a20; --line: #2a2f38; --text: #dde1e7; --muted: #8b919c; --accent: #7fb0ff; --code: #1f232b; --tag: #1d2a40; } }
@@ -82,13 +82,12 @@ pre.block { background: var(--code); padding: 12px 14px; border-radius: 6px; ove
 <a href="#ref-hunger">Hunger</a>
 <a href="#ref-logs-and-errors">Logs and errors</a>
 <a href="#ref-dev-tools">Dev tools</a>
-<a href="#ref-dev-dashboard">Dev dashboard</a>
 <a href="#ref-reloading">Reloading</a>
 <a href="#ref-validator">Validator</a>
 </nav>
 <main>
 <section id="start"><h1>Quarrowen mod API</h1>
-<p class="lead">Mod API 1.0.0 · game 0.42.0. Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>
+<p class="lead">Mod API 1.1.0 · game 0.42.1. Generated from the engine sources by <code>mod_tool.tscn -- docs</code>.</p>
 <h3>Make a mod in a minute</h3>
 <ol>
 <li>In the game menu choose <b>Create a mod</b>, or run <code>godot --headless --path . res://tools/mod_tool.tscn -- new my_mod [--lang=js] [--kind=game]</code>.</li>
@@ -182,7 +181,8 @@ hints, detected, available, next, structure}, or {}."><div class="sig"><code>api
 <div class="card" id="api-register-container" data-search="register_container registercontainer registers a container type (see engine/server/containers.gd): {title, groups: [{name, count,
 columns, label, take_only, accepts}], progress: [{name, label, color}]}. blocks use it with
 `container: &quot;&lt;name&gt;&quot;` and open it on right-click. names without &quot;:&quot; are this mod's."><div class="sig"><code>api.register_container(container_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerContainer(name: string, def: { title?: string; groups: { name: string; count: number; columns?: number; label?: string; take_only?: boolean; accepts?: string[] | &quot;fuel&quot; }[]; progress?: { name: string; label?: string; color?: string }[] }): boolean">JS registerContainer</span></div><p>Registers a container type (see engine/server/containers.gd): {title, groups: [{name, count,<br>columns, label, take_only, accepts}], progress: [{name, label, color}]}. Blocks use it with<br>`container: &quot;&lt;name&gt;&quot;` and open it on right-click. Names without &quot;:&quot; are this mod's.</p></div>
-<div class="card" id="api-get-container" data-search="get_container getcontainer the container at a position (engine/server/container.gd), or null."><div class="sig"><code>api.get_container(position: Vector3i)</code><span class="tag js" title="getContainer">JS getContainer</span></div><p>The container at a position (engine/server/container.gd), or null.</p></div>
+<div class="card" id="api-get-container" data-search="get_container getcontainer the container at a position (engine/server/container.gd), or null. `realm_id` sits straight after the
+position, as it does in the block functions."><div class="sig"><code>api.get_container(position: Vector3i, realm_id := &quot;&quot;)</code><span class="tag js" title="getContainer">JS getContainer</span></div><p>The container at a position (engine/server/container.gd), or null. `realm_id` sits straight after the<br>position, as it does in the block functions.</p></div>
 <div class="card" id="api-open-container" data-search="open_container opencontainer opens a container's screen for a player (as if they right-clicked it)."><div class="sig"><code>api.open_container(player, position: Vector3i) -&gt; bool</code><span class="tag js" title="openContainer(player: Player, position: Vec3): boolean">JS openContainer</span></div><p>Opens a container's screen for a player (as if they right-clicked it).</p></div>
 <div class="card" id="api-set-fuel" data-search="set_fuel setfuel makes an item burn in fuel slots for `seconds`."><div class="sig"><code>api.set_fuel(item_name: String, seconds: float) -&gt; void</code><span class="tag js" title="setFuel(item: string, seconds: number): void">JS setFuel</span></div><p>Makes an item burn in fuel slots for `seconds`.</p></div>
 <div class="card" id="api-get-fuel" data-search="get_fuel getfuel how many seconds an item burns in a furnace (0 = not fuel)."><div class="sig"><code>api.get_fuel(item_id: int) -&gt; float</code><span class="tag js" title="getFuel(item: ItemId): number">JS getFuel</span></div><p>How many seconds an item burns in a furnace (0 = not fuel).</p></div>
@@ -254,13 +254,29 @@ returns the type id, or -1."><div class="sig"><code>api.register_entity(entity_n
 <div class="card" id="api-explode" data-search="explode explode sets off an explosion (see engine/server/explosions.gd): power ~3 is a mob blast. options: source,
 break_blocks, drop_chance, damage (multiplier), effect, sound. returns the explosion event."><div class="sig"><code>api.explode(position: Vector3, power: float, options := {}) -&gt; Dictionary</code><span class="tag js" title="explode">JS explode</span></div><p>Sets off an explosion (see engine/server/explosions.gd): power ~3 is a mob blast. options: source,<br>break_blocks, drop_chance, damage (multiplier), effect, sound. Returns the explosion event.</p></div>
 <div class="card" id="api-entity-type" data-search="entity_type entitytype entity type id by name (&quot;vanilla:zombie&quot;, or a local name). -1 if unknown."><div class="sig"><code>api.entity_type(entity_name: String) -&gt; int</code><span class="tag js" title="entityType">JS entityType</span></div><p>Entity type id by name (&quot;vanilla:zombie&quot;, or a local name). -1 if unknown.</p></div>
+<div class="card" id="api-entity-types" data-search="entity_types entitytypes every creature type registered, by name. for a mod that wants to act on a *kind* of creature
+rather than a named one - &quot;all the rare ones&quot;, &quot;everything that flies&quot; - without keeping a list
+that stops being right the moment anybody adds another."><div class="sig"><code>api.entity_types() -&gt; Array</code><span class="tag js" title="entityTypes">JS entityTypes</span></div><p>Every creature type registered, by name. For a mod that wants to act on a *kind* of creature<br>rather than a named one - &quot;all the rare ones&quot;, &quot;everything that flies&quot; - without keeping a list<br>that stops being right the moment anybody adds another.</p></div>
 <div class="card" id="api-spawn-entity" data-search="spawn_entity spawnentity spawns an entity. options: yaw, velocity (vector3), data (dictionary), owner (player or entity,
 for projectiles), **realm** (which world to put it in; the overworld by default). returns the
 entity or null.
 
 `realm` matters for instances: without it every spawn landed in the overworld, so a dungeon could
 be entered but never populated. (2026-09-21)"><div class="sig"><code>api.spawn_entity(entity_name: String, position: Vector3, options := {})</code><span class="tag js" title="spawnEntity(type: string, position: Vec3, options?: { yaw?: number; velocity?: Vec3; data?: Record&lt;string, unknown&gt; }): Entity | null">JS spawnEntity</span></div><p>Spawns an entity. options: yaw, velocity (Vector3), data (Dictionary), owner (player or entity,<br>for projectiles), **realm** (which world to put it in; the overworld by default). Returns the<br>entity or null.<br><br>`realm` matters for instances: without it every spawn landed in the overworld, so a dungeon could<br>be entered but never populated. (2026-09-21)</p></div>
-<div class="card" id="api-spawn-projectile" data-search="spawn_projectile spawnprojectile fires a projectile entity from `from` with `velocity`, credited to `owner` (player or entity)."><div class="sig"><code>api.spawn_projectile(entity_name: String, from: Vector3, velocity: Vector3, owner = null, realm_id := &quot;&quot;)</code><span class="tag js" title="spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner?: Player | Entity | null): Entity | null">JS spawnProjectile</span></div><p>Fires a projectile entity from `from` with `velocity`, credited to `owner` (player or entity).</p></div>
+<div class="card" id="api-remove-entity" data-search="remove_entity removeentity fires a projectile entity from `from` with `velocity`, credited to `owner` (player or entity).
+takes an entity out of the world **without killing it**: no drops, no death, nothing told about
+it. the opposite of `spawn_entity`, which a mod could do and then not undo.
+
+killing was the only thing available and it is not the same thing. a story creature that has said
+its piece and should go, a boss that settles back down rather than falling over, a prop that was
+only there for a moment - all of those are removals, and doing them with damage means loot on the
+floor and a death message a child reads as something having gone wrong. (2026-09-24)
+**asks the entity, not the overworld.** it used to call `_server.entities.remove`, which is the
+overworld's manager: for a creature in any other realm that set `removed` and then erased its id from
+a dictionary it was never in, leaving the creature in its own realm's table - removed as far as the
+mod was concerned and still walking about. an entity carries the manager it belongs to, so it can be
+asked. (2026-09-28)"><div class="sig"><code>api.remove_entity(entity) -&gt; bool</code><span class="tag js" title="removeEntity">JS removeEntity</span></div><p>Fires a projectile entity from `from` with `velocity`, credited to `owner` (player or entity).<br>Takes an entity out of the world **without killing it**: no drops, no death, nothing told about<br>it. The opposite of `spawn_entity`, which a mod could do and then not undo.<br><br>Killing was the only thing available and it is not the same thing. A story creature that has said<br>its piece and should go, a boss that settles back down rather than falling over, a prop that was<br>only there for a moment - all of those are removals, and doing them with damage means loot on the<br>floor and a death message a child reads as something having gone wrong. (2026-09-24)<br>**Asks the entity, not the overworld.** It used to call `_server.entities.remove`, which is the<br>overworld's manager: for a creature in any other realm that set `removed` and then erased its id from<br>a dictionary it was never in, leaving the creature in its own realm's table - removed as far as the<br>mod was concerned and still walking about. An entity carries the manager it belongs to, so it can be<br>asked. (2026-09-28)</p></div>
+<div class="card" id="api-spawn-projectile" data-search="spawn_projectile spawnprojectile "><div class="sig"><code>api.spawn_projectile(entity_name: String, from: Vector3, velocity: Vector3, owner = null, realm_id := &quot;&quot;)</code><span class="tag js" title="spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner?: Player | Entity | null): Entity | null">JS spawnProjectile</span></div><p class="muted">No description yet.</p></div>
 <div class="card" id="api-get-entities" data-search="get_entities getentities living entities within `radius` of `center`, optionally only of one type."><div class="sig"><code>api.get_entities(center: Vector3, radius: float, entity_name := &quot;&quot;) -&gt; Array</code><span class="tag js" title="getEntities">JS getEntities</span></div><p>Living entities within `radius` of `center`, optionally only of one type.</p></div>
 <div class="card" id="api-get-entity" data-search="get_entity getentity the entity with this id, or null if it is gone."><div class="sig"><code>api.get_entity(entity_id: int)</code><span class="tag js" title="getEntity">JS getEntity</span></div><p>The entity with this id, or null if it is gone.</p></div>
 <div class="card" id="api-register-mob-behavior" data-search="register_mob_behavior registermobbehavior registers a mob behaviour that mobs listing it in ai.behaviors can choose. `def`:
@@ -316,6 +332,15 @@ or a template dictionary. names without &quot;:&quot; are this mod's."><div clas
 stamps a template into the world now, rotated a quarter turn at a time (0-3). what `/struct place`
 does, for a mod that wants to build something itself rather than leave it to world generation: a
 story's outpost, a rescue site, a prize somebody hid."><div class="sig"><code>api.place_structure(template_name: String, at: Vector3i, rotation := 0) -&gt; bool</code><span class="tag js" title="placeStructure">JS placeStructure</span></div><p>Generated structures (see worldgen/structures.gd): {templates: [{template, weight}] or generator<br>(GDScript Callable), spacing, separation, biomes, place, y, sink, foundation, swaps, reach, chance}.<br>Stamps a template into the world now, rotated a quarter turn at a time (0-3). What `/struct place`<br>does, for a mod that wants to build something itself rather than leave it to world generation: a<br>story's outpost, a rescue site, a prize somebody hid.</p></div>
+<div class="card" id="api-find-structure" data-search="find_structure findstructure where the nearest structure of a set is, or vector3.inf if there is none within `rings` regions.
+
+api.find_structure(&quot;altar_site&quot;, player.position)
+
+asks world generation the same question it asks itself, without generating anything - so this
+works for a structure nobody has been near yet, which is the whole point of pointing somebody at
+one. **a structure nobody can find is the same as no structure**: without this a game had to guess
+a position and hope, and firstlight marked a spot near the player while the ruin it meant was two
+thousand blocks away."><div class="sig"><code>api.find_structure(structure_name: String, near: Vector3, realm_id := &quot;&quot;, rings := 4) -&gt; Vector3</code><span class="tag js" title="findStructure">JS findStructure</span></div><p>Where the nearest structure of a set is, or Vector3.INF if there is none within `rings` regions.<br><br>api.find_structure(&quot;altar_site&quot;, player.position)<br><br>Asks world generation the same question it asks itself, without generating anything - so this<br>works for a structure nobody has been near yet, which is the whole point of pointing somebody at<br>one. **A structure nobody can find is the same as no structure**: without this a game had to guess<br>a position and hope, and Firstlight marked a spot near the player while the ruin it meant was two<br>thousand blocks away.</p></div>
 <div class="card" id="api-register-structure" data-search="register_structure registerstructure "><div class="sig"><code>api.register_structure(structure_name: String, def: Dictionary) -&gt; void</code><span class="tag js" title="registerStructure(name: string, def: Record&lt;string, unknown&gt;): void">JS registerStructure</span></div><p class="muted">No description yet.</p></div>
 <div class="card" id="api-register-loot" data-search="register_loot registerloot declares what something gives: a mob that dies, a block that breaks, a chest, a reward (docs/loot.md).
 
@@ -382,7 +407,15 @@ handed the ticks it missed at once when it wakes (`ticks` &gt; 1) unless options
 `ticks` is capped, so returning to a world after a week does not run a week of growth in one frame;
 `elapsed` is the true number of seconds it stood still, for a handler that would rather work the
 answer out itself."><div class="sig"><code>api.register_block_tick(block_name: String, handler: Callable, options := {}) -&gt; bool</code><span class="tag js" title="registerBlockTick">JS registerBlockTick</span></div><p>Makes blocks of a type change over time. `handler(ctx)` gets {position, block, state, ticks, reason,<br>payload, elapsed, realm}: &quot;random&quot; ticks come about every options.interval seconds (default 30) per<br>block, and &quot;scheduled&quot; ticks come from schedule_block_tick. **Use ctx.realm** when reading or<br>writing blocks: a position does not say which world it is in.<br><br>Blocks only tick while somebody is near enough for the server to be running that part of the world.<br>A block that was asleep - because its chunk was unloaded, or because everybody walked away - is<br>handed the ticks it missed at once when it wakes (`ticks` &gt; 1) unless options.catch_up is false.<br>`ticks` is capped, so returning to a world after a week does not run a week of growth in one frame;<br>`elapsed` is the true number of seconds it stood still, for a handler that would rather work the<br>answer out itself.</p></div>
-<div class="card" id="api-schedule-block-tick" data-search="schedule_block_tick scheduleblocktick calls the tick handler of the block at `position` after `seconds`, with `payload` (saved with the world)."><div class="sig"><code>api.schedule_block_tick(position: Vector3i, seconds: float, payload := {}) -&gt; void</code><span class="tag js" title="scheduleBlockTick">JS scheduleBlockTick</span></div><p>Calls the tick handler of the block at `position` after `seconds`, with `payload` (saved with the world).</p></div>
+<div class="card" id="api-schedule-block-tick" data-search="schedule_block_tick scheduleblocktick calls the tick handler of the block at `position` after `seconds`, with `payload` (saved with the world).
+
+**`realm_id` is last here rather than after the required arguments**, which breaks the convention the
+block functions keep, and on purpose: `payload` already occupies the third place and moving it would
+change a signature in place, which is the one thing the api policy forbids. appending is free.
+
+without it a handler could not reschedule itself anywhere but the overworld. a handler *is* told which
+realm it is in - `ctx.realm` - so a machine in a dimension would read its own realm, ask for another
+tick, have it scheduled in the overworld where there is no such block, and simply stop. (2026-09-28)"><div class="sig"><code>api.schedule_block_tick(position: Vector3i, seconds: float, payload := {}, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="scheduleBlockTick">JS scheduleBlockTick</span></div><p>Calls the tick handler of the block at `position` after `seconds`, with `payload` (saved with the world).<br><br>**`realm_id` is last here rather than after the required arguments**, which breaks the convention the<br>block functions keep, and on purpose: `payload` already occupies the third place and moving it would<br>change a signature in place, which is the one thing the API policy forbids. Appending is free.<br><br>Without it a handler could not reschedule itself anywhere but the overworld. A handler *is* told which<br>realm it is in - `ctx.realm` - so a machine in a dimension would read its own realm, ask for another<br>tick, have it scheduled in the overworld where there is no such block, and simply stop. (2026-09-28)</p></div>
 <div class="card" id="api-get-light" data-search="get_light getlight light level 0-15 at a position right now: block light or sky light scaled by daylight, whichever is
 brighter. an estimate (no occlusion) meant for growth and spawning rules."><div class="sig"><code>api.get_light(position: Vector3i) -&gt; int</code><span class="tag js" title="getLight">JS getLight</span></div><p>Light level 0-15 at a position right now: block light or sky light scaled by daylight, whichever is<br>brighter. An estimate (no occlusion) meant for growth and spawning rules.</p></div>
 <div class="card" id="api-get-light-levels" data-search="get_light_levels getlightlevels {sky, block} light levels 0-15 (sky not scaled by the time of day)."><div class="sig"><code>api.get_light_levels(position: Vector3i) -&gt; Dictionary</code><span class="tag js" title="getLightLevels">JS getLightLevels</span></div><p>{sky, block} light levels 0-15 (sky not scaled by the time of day).</p></div>
@@ -454,7 +487,10 @@ removed automatically when the block is broken or replaced."><div class="sig"><c
 <div class="card" id="api-fill" data-search="fill fill sets every block in the box between two corners (inclusive) to a block id.
 
 **admin, not a player action**: no permission check, no events, no budget, no drops. for a tool a
-player holds, use `area_edit`, which asks all of those."><div class="sig"><code>api.fill(from: Vector3i, to: Vector3i, id: int, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="fill(from: Vec3, to: Vec3, id: BlockId): void">JS fill</span></div><p>Sets every block in the box between two corners (inclusive) to a block id.<br><br>**Admin, not a player action**: no permission check, no events, no budget, no drops. For a tool a<br>player holds, use `area_edit`, which asks all of those.</p></div>
+player holds, use `area_edit`, which asks all of those.
+**it does not run machinery.** block ticks, signals, liquids, multiblocks and links are told once per
+chunk rather than once per block - which is what makes it usable for a room-sized box at all. use
+`set_block` for a block that something is attached to."><div class="sig"><code>api.fill(from: Vector3i, to: Vector3i, id: int, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="fill(from: Vec3, to: Vec3, id: BlockId): void">JS fill</span></div><p>Sets every block in the box between two corners (inclusive) to a block id.<br><br>**Admin, not a player action**: no permission check, no events, no budget, no drops. For a tool a<br>player holds, use `area_edit`, which asks all of those.<br>**It does not run machinery.** Block ticks, signals, liquids, multiblocks and links are told once per<br>chunk rather than once per block - which is what makes it usable for a room-sized box at all. Use<br>`set_block` for a block that something is attached to.</p></div>
 <div class="card" id="api-surface-y" data-search="surface_y surfacey y of the highest non-air block in the column, or -1."><div class="sig"><code>api.surface_y(x: int, z: int, realm_id := &quot;&quot;) -&gt; int</code><span class="tag js" title="surfaceY(x: number, z: number): number">JS surfaceY</span></div><p>Y of the highest non-air block in the column, or -1.</p></div>
 </section>
 <section id="api-players-and-gameplay"><h2>Players and gameplay</h2>
@@ -473,16 +509,28 @@ armor: &quot;player&quot; (each player chooses per slot), &quot;armor&quot; (arm
 blocked: [cosmetic names or categories]
 uniform: avatar data laid over every player, e.g. {wear: {shirt: {id: &quot;builtin:tshirt&quot;, color: &quot;#d94c4c&quot;}}}
 for per-player looks (teams, disguises) use player.set_avatar_override or the avatar_change event."><div class="sig"><code>api.set_cosmetics_policy(values: Dictionary) -&gt; void</code><span class="tag js" title="setCosmeticsPolicy">JS setCosmeticsPolicy</span></div><p>Sets how cosmetics work on this server. values (any subset):<br>allow_builtin: players may wear built-in cosmetics (their own look from other servers)<br>allow_colors:  players may recolor cosmetics and choose skin colors<br>armor: &quot;player&quot; (each player chooses per slot), &quot;armor&quot; (armor always shows), &quot;cosmetics&quot;<br>blocked: [cosmetic names or categories]<br>uniform: avatar data laid over every player, e.g. {wear: {shirt: {id: &quot;builtin:tshirt&quot;, color: &quot;#d94c4c&quot;}}}<br>For per-player looks (teams, disguises) use player.set_avatar_override or the avatar_change event.</p></div>
-<div class="card" id="api-register-equipment-slot" data-search="register_equipment_slot registerequipmentslot adds an equipment slot (after head, chest, legs, feet, offhand). items with a matching
-`equip_slot` go in it; its modifiers apply while worn. def: display_name."><div class="sig"><code>api.register_equipment_slot(slot_name: String, def := {}) -&gt; bool</code><span class="tag js" title="registerEquipmentSlot">JS registerEquipmentSlot</span></div><p>Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching<br>`equip_slot` go in it; its modifiers apply while worn. def: display_name.</p></div>
+<div class="card" id="api-register-equipment-slot" data-search="register_equipment_slot registerequipmentslot "><div class="sig"><code>api.register_equipment_slot(slot_name: String, def := {}) -&gt; bool</code><span class="tag js" title="registerEquipmentSlot">JS registerEquipmentSlot</span></div><p class="muted">No description yet.</p></div>
 <div class="card" id="api-register-stat" data-search="register_stat registerstat adds a player stat with a base value. items and effects change it with modifiers; read it with
 player.get_stat(name). engine stats: see itemregistry.base_stats."><div class="sig"><code>api.register_stat(stat_name: String, base: float) -&gt; bool</code><span class="tag js" title="registerStat">JS registerStat</span></div><p>Adds a player stat with a base value. Items and effects change it with modifiers; read it with<br>player.get_stat(name). Engine stats: see ItemRegistry.BASE_STATS.</p></div>
 <div class="card" id="api-set-gameplay" data-search="set_gameplay setgameplay game-wide rules: item_drops (&quot;entity&quot; | &quot;inventory&quot;), keep_inventory, pvp, fall_damage,
-natural_regeneration, mob_spawning."><div class="sig"><code>api.set_gameplay(values: Dictionary) -&gt; void</code><span class="tag js" title="setGameplay">JS setGameplay</span></div><p>Game-wide rules: item_drops (&quot;entity&quot; | &quot;inventory&quot;), keep_inventory, pvp, fall_damage,<br>natural_regeneration, mob_spawning.</p></div>
-<div class="card" id="api-get-gameplay" data-search="get_gameplay getgameplay a gameplay rule's current value (see set_gameplay), or null."><div class="sig"><code>api.get_gameplay(rule: String)</code><span class="tag js" title="getGameplay">JS getGameplay</span></div><p>A gameplay rule's current value (see set_gameplay), or null.</p></div>
+natural_regeneration, mob_spawning, flight (false stops the double-tap in a survival game; `/fly`
+still obeys an admin who means it). see gameserver.gameplay for the full list and the defaults.
+`realm_id` sets them for one world instead of the whole server, and **overlays rather than
+replaces**: a lobby that only wants pvp off says that and inherits everything else, and a rule the
+engine gains later reaches it without this call being edited. names without &quot;:&quot; are this mod's."><div class="sig"><code>api.set_gameplay(values: Dictionary, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="setGameplay">JS setGameplay</span></div><p>Game-wide rules: item_drops (&quot;entity&quot; | &quot;inventory&quot;), keep_inventory, pvp, fall_damage,<br>natural_regeneration, mob_spawning, flight (false stops the double-tap in a survival game; `/fly`<br>still obeys an admin who means it). See GameServer.gameplay for the full list and the defaults.<br>`realm_id` sets them for one world instead of the whole server, and **overlays rather than<br>replaces**: a lobby that only wants PvP off says that and inherits everything else, and a rule the<br>engine gains later reaches it without this call being edited. Names without &quot;:&quot; are this mod's.</p></div>
+<div class="card" id="api-get-gameplay" data-search="get_gameplay getgameplay a gameplay rule's current value (see set_gameplay), or null. `realm_id` asks what is in force in one
+world; &quot;&quot; is the server's own set, which every realm without an override of its own reads."><div class="sig"><code>api.get_gameplay(rule: String, realm_id := &quot;&quot;)</code><span class="tag js" title="getGameplay">JS getGameplay</span></div><p>A gameplay rule's current value (see set_gameplay), or null. `realm_id` asks what is in force in one<br>world; &quot;&quot; is the server's own set, which every realm without an override of its own reads.</p></div>
+<div class="card" id="api-gameplay-for" data-search="gameplay_for gameplayfor what is in force where this player is standing, which is what a rule about hunger, falling or
+hitting somebody always means. null if they are gone."><div class="sig"><code>api.gameplay_for(player, rule: String)</code><span class="tag js" title="gameplayFor">JS gameplayFor</span></div><p>What is in force where this player is standing, which is what a rule about hunger, falling or<br>hitting somebody always means. Null if they are gone.</p></div>
+<div class="card" id="api-players-in-region" data-search="players_in_region playersinregion who is standing in one right now."><div class="sig"><code>api.players_in_region(id: int) -&gt; Array</code><span class="tag js" title="playersInRegion">JS playersInRegion</span></div><p>Who is standing in one right now.</p></div>
 <div class="card" id="api-player-roles" data-search="player_roles playerroles a player's roles by player id (the default role included)."><div class="sig"><code>api.player_roles(player_id: String) -&gt; Array</code><span class="tag js" title="playerRoles(playerId: string): string[]">JS playerRoles</span></div><p>A player's roles by player id (the default role included).</p></div>
 <div class="card" id="api-set-player-role" data-search="set_player_role setplayerrole gives (or takes) a role. returns whether anything changed."><div class="sig"><code>api.set_player_role(player_id: String, role: String, on := true) -&gt; bool</code><span class="tag js" title="setPlayerRole(playerId: string, role: string, on?: boolean): boolean">JS setPlayerRole</span></div><p>Gives (or takes) a role. Returns whether anything changed.</p></div>
-<div class="card" id="api-set-physics" data-search="set_physics setphysics movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`."><div class="sig"><code>api.set_physics(values: Dictionary) -&gt; void</code><span class="tag js" title="setPhysics(values: Record&lt;string, number | boolean&gt;): void">JS setPhysics</span></div><p>Movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`.</p></div>
+<div class="card" id="api-set-physics" data-search="set_physics setphysics movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`.
+
+`realm_id` sets them for one world rather than the whole server, overlaying it the way
+`set_gameplay` does - a low-gravity arena beside an ordinary world. players are told the rules of
+wherever they are standing, on joining and whenever they cross between worlds, because a client that
+predicts movement the server is not simulating rubber-bands. names without &quot;:&quot; are this mod's."><div class="sig"><code>api.set_physics(values: Dictionary, realm_id := &quot;&quot;) -&gt; void</code><span class="tag js" title="setPhysics(values: Record&lt;string, number | boolean&gt;, options?: { realm?: string }): void">JS setPhysics</span></div><p>Movement tunables (walk_speed, sprint_speed, gravity, jump_velocity, ...) and `void_below`.<br><br>`realm_id` sets them for one world rather than the whole server, overlaying it the way<br>`set_gameplay` does - a low-gravity arena beside an ordinary world. Players are told the rules of<br>wherever they are standing, on joining and whenever they cross between worlds, because a client that<br>predicts movement the server is not simulating rubber-bands. Names without &quot;:&quot; are this mod's.</p></div>
 <div class="card" id="api-get-players" data-search="get_players getplayers everyone online (player objects)."><div class="sig"><code>api.get_players() -&gt; Array</code><span class="tag js" title="getPlayers">JS getPlayers</span></div><p>Everyone online (player objects).</p></div>
 <div class="card" id="api-find-player" data-search="find_player findplayer the online player with this name (any case), or null."><div class="sig"><code>api.find_player(player_name: String)</code><span class="tag js" title="findPlayer(name: string): Player | null">JS findPlayer</span></div><p>The online player with this name (any case), or null.</p></div>
 <div class="card" id="api-broadcast" data-search="broadcast broadcast sends a chat message to everyone."><div class="sig"><code>api.broadcast(text: String) -&gt; void</code><span class="tag js" title="broadcast(text: string): void">JS broadcast</span></div><p>Sends a chat message to everyone.</p></div>
@@ -575,6 +623,24 @@ changes - which is how a mod will actually want to use it.
 options: {fade (seconds to cross over, default 2.0), restart (start again even if it is already
 playing, default false)}."><div class="sig"><code>api.play_music(player, track_name: String, options := {}) -&gt; void</code><span class="tag js" title="playMusic(player: Player | null, name: string, options?: { fade?: number; restart?: boolean }): void">JS playMusic</span></div><p>Starts a track for one player, or for everybody when `player` is null. Playing the track that is<br>already playing does nothing, so this is safe to call every time the biome or the time of day<br>changes - which is how a mod will actually want to use it.<br><br>options: {fade (seconds to cross over, default 2.0), restart (start again even if it is already<br>playing, default false)}.</p></div>
 <div class="card" id="api-stop-music" data-search="stop_music stopmusic fades the music out for one player, or for everybody when `player` is null."><div class="sig"><code>api.stop_music(player, options := {}) -&gt; void</code><span class="tag js" title="stopMusic(player: Player | null, options?: { fade?: number }): void">JS stopMusic</span></div><p>Fades the music out for one player, or for everybody when `player` is null.</p></div>
+<div class="card" id="api-notable-of" data-search="notable_of notableof whether this type is one the whole server is told about, and how: {announce, slain, gone, label,
+color, minutes}, or `{}` for the overwhelming majority that are not. takes a type id or a name.
+
+for a mod that wants to do something when a *rare* creature is involved without keeping its own
+list of which ones are rare - &quot;you killed one of the ones worth hunting&quot; is a question about the
+registry, and a mod that answers it from a hand-written list stops being right the moment anybody
+adds a fifth."><div class="sig"><code>api.notable_of(entity_or_name) -&gt; Dictionary</code><span class="tag js" title="notableOf">JS notableOf</span></div><p>Whether this type is one the whole server is told about, and how: {announce, slain, gone, label,<br>color, minutes}, or `{}` for the overwhelming majority that are not. Takes a type id or a name.<br><br>For a mod that wants to do something when a *rare* creature is involved without keeping its own<br>list of which ones are rare - &quot;you killed one of the ones worth hunting&quot; is a question about the<br>registry, and a mod that answers it from a hand-written list stops being right the moment anybody<br>adds a fifth.</p></div>
+<div class="card" id="api-worn" data-search="worn worn adds an equipment slot (after head, chest, legs, feet, offhand). items with a matching
+`equip_slot` go in it; its modifiers apply while worn. def: display_name.
+what a player is wearing in a slot, as an item id, or 0 for nothing. slot names are the ones
+`register_equipment_slot` created, plus the engine's own (&quot;head&quot;, &quot;chest&quot;, &quot;legs&quot;, &quot;feet&quot;).
+
+if api.worn(player, &quot;trinket&quot;) == api.item(&quot;simple_gear:moonpearl_charm&quot;):
+
+**a mod could be told when this changed and could not ask what it was.** `equipment_changed` has
+existed all along, so a mod wanting to act on worn gear had to watch every change and rebuild the
+state itself - including for players who were already wearing the thing when it loaded, which an
+event cannot tell it. asking is the half that was missing. (2026-09-24)"><div class="sig"><code>api.worn(player, slot_name: String) -&gt; int</code><span class="tag js" title="worn">JS worn</span></div><p>Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching<br>`equip_slot` go in it; its modifiers apply while worn. def: display_name.<br>What a player is wearing in a slot, as an item id, or 0 for nothing. Slot names are the ones<br>`register_equipment_slot` created, plus the engine's own (&quot;head&quot;, &quot;chest&quot;, &quot;legs&quot;, &quot;feet&quot;).<br><br>if api.worn(player, &quot;trinket&quot;) == api.item(&quot;simple_gear:moonpearl_charm&quot;):<br><br>**A mod could be told when this changed and could not ask what it was.** `equipment_changed` has<br>existed all along, so a mod wanting to act on worn gear had to watch every change and rebuild the<br>state itself - including for players who were already wearing the thing when it loaded, which an<br>event cannot tell it. Asking is the half that was missing. (2026-09-24)</p></div>
 <div class="card" id="api-set-map-marker" data-search="set_map_marker setmapmarker puts a marker on a player's map and compass (it stays until removed).
 `marker` = {label, position, color, dimension}. markers are per player, so a home or a grave only shows
 to whoever it belongs to. `dimension` (&quot;&quot; = the ordinary world) hides it while they are somewhere else."><div class="sig"><code>api.set_map_marker(player, marker_id: String, marker: Dictionary) -&gt; void</code><span class="tag js" title="setMapMarker">JS setMapMarker</span></div><p>Puts a marker on a player's map and compass (it stays until removed).<br>`marker` = {label, position, color, dimension}. Markers are per player, so a home or a grave only shows<br>to whoever it belongs to. `dimension` (&quot;&quot; = the ordinary world) hides it while they are somewhere else.</p></div>
@@ -655,6 +721,11 @@ this is for a mod that wants to check before offering something."><div class="si
 api.register_objective(&quot;deliver_the_post&quot;, {&quot;display_name&quot;: &quot;the post&quot;,
 &quot;steps&quot;: [{&quot;text&quot;: &quot;take the letter to bramble&quot;}, {&quot;text&quot;: &quot;bring her answer back&quot;}]})
 
+`order` decides where it sits in the player's list (lower first, ties in the order they were
+given): **a story's spine belongs above its errands**, and without it the list is purely
+chronological, so a game that hands out side tasks at the start buries the one line that says what
+the game is about.
+
 **not a tutorial and not a milestone**, both of which exist already. a tutorial teaches, starts
 itself and is the same for everybody; a milestone notices something that already happened. an
 objective is given, can be refused, runs alongside others, has steps in an order, and can be
@@ -662,7 +733,12 @@ abandoned.
 
 **the engine never decides whether a step is done.** it counts, remembers and tells you; you watch
 whatever event means &quot;they did it&quot; and call advance_objective. otherwise the engine would have to
-learn what delivering a letter is."><div class="sig"><code>api.register_objective(objective_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerObjective">JS registerObjective</span></div><p>Something a player has been asked to do: a story, a daily errand, a contract, a delivery.<br><br>api.register_objective(&quot;deliver_the_post&quot;, {&quot;display_name&quot;: &quot;The Post&quot;,<br>&quot;steps&quot;: [{&quot;text&quot;: &quot;Take the letter to Bramble&quot;}, {&quot;text&quot;: &quot;Bring her answer back&quot;}]})<br><br>**Not a tutorial and not a milestone**, both of which exist already. A tutorial teaches, starts<br>itself and is the same for everybody; a milestone notices something that already happened. An<br>objective is given, can be refused, runs alongside others, has steps in an order, and can be<br>abandoned.<br><br>**The engine never decides whether a step is done.** It counts, remembers and tells you; you watch<br>whatever event means &quot;they did it&quot; and call advance_objective. Otherwise the engine would have to<br>learn what delivering a letter is.</p></div>
+learn what delivering a letter is.
+
+`page` names a guide page that helps with this, on the objective or on any single step, and the step
+wins where both are set. the task list shows its title, and the book opens there of its own accord
+next time it is opened - so a child who is stuck looks at the one panel that is already telling them
+what to do. names without &quot;:&quot; are this mod's."><div class="sig"><code>api.register_objective(objective_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerObjective">JS registerObjective</span></div><p>Something a player has been asked to do: a story, a daily errand, a contract, a delivery.<br><br>api.register_objective(&quot;deliver_the_post&quot;, {&quot;display_name&quot;: &quot;The Post&quot;,<br>&quot;steps&quot;: [{&quot;text&quot;: &quot;Take the letter to Bramble&quot;}, {&quot;text&quot;: &quot;Bring her answer back&quot;}]})<br><br>`order` decides where it sits in the player's list (lower first, ties in the order they were<br>given): **a story's spine belongs above its errands**, and without it the list is purely<br>chronological, so a game that hands out side tasks at the start buries the one line that says what<br>the game is about.<br><br>**Not a tutorial and not a milestone**, both of which exist already. A tutorial teaches, starts<br>itself and is the same for everybody; a milestone notices something that already happened. An<br>objective is given, can be refused, runs alongside others, has steps in an order, and can be<br>abandoned.<br><br>**The engine never decides whether a step is done.** It counts, remembers and tells you; you watch<br>whatever event means &quot;they did it&quot; and call advance_objective. Otherwise the engine would have to<br>learn what delivering a letter is.<br><br>`page` names a guide page that helps with this, on the objective or on any single step, and the step<br>wins where both are set. The task list shows its title, and the book opens there of its own accord<br>next time it is opened - so a child who is stuck looks at the one panel that is already telling them<br>what to do. Names without &quot;:&quot; are this mod's.</p></div>
 <div class="card" id="api-give-objective" data-search="give_objective giveobjective gives one to a player. false if they have it, have finished one that does not repeat, or are
 carrying as many as they may."><div class="sig"><code>api.give_objective(player, objective_name: String) -&gt; bool</code><span class="tag js" title="giveObjective">JS giveObjective</span></div><p>Gives one to a player. False if they have it, have finished one that does not repeat, or are<br>carrying as many as they may.</p></div>
 <div class="card" id="api-advance-objective" data-search="advance_objective advanceobjective counts towards the step they are on; finishing the last step fires `objective_done`, which is where
@@ -685,8 +761,9 @@ the engine draws the conversation, so every character in every mod looks and wor
 child who has learned to talk to one has learned to talk to all of them. it knows a conversation is
 lines with options and nothing else about what any of it means.
 
-`goes_to` moves to another line, `gives` hands over an objective, `sells` opens a shop, and `does`
-fires `character_choice` for anything else at all."><div class="sig"><code>api.register_character(character_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerCharacter">JS registerCharacter</span></div><p>Somebody to talk to: a villager, a guide, a shopkeeper, a character in a story.<br><br>api.register_character(&quot;bramble&quot;, {&quot;display_name&quot;: &quot;Bramble&quot;, &quot;color&quot;: &quot;#ffd166&quot;, &quot;lines&quot;: {<br>&quot;start&quot;: {&quot;text&quot;: &quot;Oh - somebody. I saw your fire from the ridge.&quot;, &quot;options&quot;: [<br>{&quot;text&quot;: &quot;What have you got?&quot;, &quot;sells&quot;: &quot;bramble_wares&quot;},<br>{&quot;text&quot;: &quot;Need anything doing?&quot;, &quot;gives&quot;: &quot;deliver_the_post&quot;},<br>{&quot;text&quot;: &quot;Who are you?&quot;, &quot;goes_to&quot;: &quot;who&quot;}]},<br>&quot;who&quot;: {&quot;text&quot;: &quot;Bramble. I mend things, mostly.&quot;,<br>&quot;options&quot;: [{&quot;text&quot;: &quot;I see&quot;, &quot;goes_to&quot;: &quot;start&quot;}]}}})<br><br>The engine draws the conversation, so every character in every mod looks and works the same way - a<br>child who has learned to talk to one has learned to talk to all of them. It knows a conversation is<br>lines with options and nothing else about what any of it means.<br><br>`goes_to` moves to another line, `gives` hands over an objective, `sells` opens a shop, and `does`<br>fires `character_choice` for anything else at all.</p></div>
+`goes_to` moves to another line, `gives` hands over an objective, `sells` opens a shop, `reads`
+unlocks a guide page and opens the book there, and `does` fires `character_choice` for anything else
+at all. names without &quot;:&quot; belong to this mod."><div class="sig"><code>api.register_character(character_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerCharacter">JS registerCharacter</span></div><p>Somebody to talk to: a villager, a guide, a shopkeeper, a character in a story.<br><br>api.register_character(&quot;bramble&quot;, {&quot;display_name&quot;: &quot;Bramble&quot;, &quot;color&quot;: &quot;#ffd166&quot;, &quot;lines&quot;: {<br>&quot;start&quot;: {&quot;text&quot;: &quot;Oh - somebody. I saw your fire from the ridge.&quot;, &quot;options&quot;: [<br>{&quot;text&quot;: &quot;What have you got?&quot;, &quot;sells&quot;: &quot;bramble_wares&quot;},<br>{&quot;text&quot;: &quot;Need anything doing?&quot;, &quot;gives&quot;: &quot;deliver_the_post&quot;},<br>{&quot;text&quot;: &quot;Who are you?&quot;, &quot;goes_to&quot;: &quot;who&quot;}]},<br>&quot;who&quot;: {&quot;text&quot;: &quot;Bramble. I mend things, mostly.&quot;,<br>&quot;options&quot;: [{&quot;text&quot;: &quot;I see&quot;, &quot;goes_to&quot;: &quot;start&quot;}]}}})<br><br>The engine draws the conversation, so every character in every mod looks and works the same way - a<br>child who has learned to talk to one has learned to talk to all of them. It knows a conversation is<br>lines with options and nothing else about what any of it means.<br><br>`goes_to` moves to another line, `gives` hands over an objective, `sells` opens a shop, `reads`<br>unlocks a guide page and opens the book there, and `does` fires `character_choice` for anything else<br>at all. Names without &quot;:&quot; belong to this mod.</p></div>
 <div class="card" id="api-talk-to" data-search="talk_to talkto starts a conversation, usually from an `entity_interact` handler. `line` is where to open - which
 is yours, because whether somebody has settled in or is still a stranger is a fact about your story
 and not about conversations."><div class="sig"><code>api.talk_to(player, character_name: String, options := {}) -&gt; bool</code><span class="tag js" title="talkTo">JS talkTo</span></div><p>Starts a conversation, usually from an `entity_interact` handler. `line` is where to open - which<br>is yours, because whether somebody has settled in or is still a stranger is a fact about your story<br>and not about conversations.</p></div>
@@ -744,7 +821,7 @@ sneak gets off. the player's own physics is untouched, which is why riding canno
 <div class="card" id="api-dismount" data-search="dismount dismount takes a player off. `to` is where to put them down; by default beside the vehicle."><div class="sig"><code>api.dismount(player, to = null) -&gt; bool</code><span class="tag js" title="dismount">JS dismount</span></div><p>Takes a player off. `to` is where to put them down; by default beside the vehicle.</p></div>
 <div class="card" id="api-riding" data-search="riding riding the entity a player is riding, or null."><div class="sig"><code>api.riding(player)</code><span class="tag js" title="riding">JS riding</span></div><p>The entity a player is riding, or null.</p></div>
 <div class="card" id="api-riders-of" data-search="riders_of ridersof who is aboard, as player ids."><div class="sig"><code>api.riders_of(entity) -&gt; Array</code><span class="tag js" title="ridersOf">JS ridersOf</span></div><p>Who is aboard, as player ids.</p></div>
-<div class="card" id="api-register-order" data-search="register_order registerorder something a tamed creature can be told to do.
+<div class="card" id="api-tame" data-search="tame tame something a tamed creature can be told to do.
 
 api.register_order(&quot;fetch&quot;, {&quot;display_name&quot;: &quot;fetch that&quot;, &quot;behavior&quot;: &quot;my_mod:fetch&quot;})
 api.order(dog, &quot;fetch&quot;)
@@ -757,8 +834,18 @@ three orders are the engine's own, because all three are about *where*: `engine:
 `engine:stay` and `engine:guard`. anything else maps to a behaviour registered with
 `register_mob_behavior` - the engine sets the order, your behaviour decides what it looks like.
 
-right-clicking a companion opens the order panel, drawn by the engine. restrict what a particular
-creature may be told by handling `companion_orders` and editing `orders`."><div class="sig"><code>api.register_order(order_name: String, def := {}) -&gt; bool</code><span class="tag js" title="registerOrder">JS registerOrder</span></div><p>Something a tamed creature can be told to do.<br><br>api.register_order(&quot;fetch&quot;, {&quot;display_name&quot;: &quot;Fetch that&quot;, &quot;behavior&quot;: &quot;my_mod:fetch&quot;})<br>api.order(dog, &quot;fetch&quot;)<br><br>Taming already gave a companion three of its four parts - it follows, it is owned, and it does not<br>despawn. Taking instruction was one boolean, `sitting`, toggled by right-clicking, which runs out<br>the moment there are three things to say.<br><br>Three orders are the engine's own, because all three are about *where*: `engine:follow`,<br>`engine:stay` and `engine:guard`. Anything else maps to a behaviour registered with<br>`register_mob_behavior` - the engine sets the order, your behaviour decides what it looks like.<br><br>Right-clicking a companion opens the order panel, drawn by the engine. Restrict what a particular<br>creature may be told by handling `companion_orders` and editing `orders`.</p></div>
+makes `entity` belong to `player`, as taming does: it follows them, it does not despawn, and it
+teleports to them rather than being left behind on the wrong side of a ravine.
+
+**the programmatic half of taming, which was missing.** a creature could only become somebody's
+companion by being fed the items its `taming` block names - fine for a wolf, useless for a story
+character who is a companion from the moment you meet him, and for anything a mod wants to hand
+over as a reward. the behaviour was all already there; there was no way to ask for it.
+(2026-09-24, wanted by firstlight's guide.)
+
+returns false if the entity is gone or is not a creature that can be owned."><div class="sig"><code>api.tame(entity, player) -&gt; bool</code><span class="tag js" title="tame">JS tame</span></div><p>Something a tamed creature can be told to do.<br><br>api.register_order(&quot;fetch&quot;, {&quot;display_name&quot;: &quot;Fetch that&quot;, &quot;behavior&quot;: &quot;my_mod:fetch&quot;})<br>api.order(dog, &quot;fetch&quot;)<br><br>Taming already gave a companion three of its four parts - it follows, it is owned, and it does not<br>despawn. Taking instruction was one boolean, `sitting`, toggled by right-clicking, which runs out<br>the moment there are three things to say.<br><br>Three orders are the engine's own, because all three are about *where*: `engine:follow`,<br>`engine:stay` and `engine:guard`. Anything else maps to a behaviour registered with<br>`register_mob_behavior` - the engine sets the order, your behaviour decides what it looks like.<br><br>Makes `entity` belong to `player`, as taming does: it follows them, it does not despawn, and it<br>teleports to them rather than being left behind on the wrong side of a ravine.<br><br>**The programmatic half of taming, which was missing.** A creature could only become somebody's<br>companion by being fed the items its `taming` block names - fine for a wolf, useless for a story<br>character who is a companion from the moment you meet him, and for anything a mod wants to hand<br>over as a reward. The behaviour was all already there; there was no way to ask for it.<br>(2026-09-24, wanted by Firstlight's guide.)<br><br>Returns false if the entity is gone or is not a creature that can be owned.</p></div>
+<div class="card" id="api-register-order" data-search="register_order registerorder right-clicking a companion opens the order panel, drawn by the engine. restrict what a particular
+creature may be told by handling `companion_orders` and editing `orders`."><div class="sig"><code>api.register_order(order_name: String, def := {}) -&gt; bool</code><span class="tag js" title="registerOrder">JS registerOrder</span></div><p>Right-clicking a companion opens the order panel, drawn by the engine. Restrict what a particular<br>creature may be told by handling `companion_orders` and editing `orders`.</p></div>
 <div class="card" id="api-order" data-search="order order tells a creature something. options: at (where, for orders that need a place; defaults to where it
 is standing)."><div class="sig"><code>api.order(entity, order_name: String, options := {}) -&gt; bool</code><span class="tag js" title="order">JS order</span></div><p>Tells a creature something. options: at (where, for orders that need a place; defaults to where it<br>is standing).</p></div>
 <div class="card" id="api-order-of" data-search="order_of orderof what it is being told to do now (&quot;engine:follow&quot; when nobody has said otherwise)."><div class="sig"><code>api.order_of(entity) -&gt; String</code><span class="tag js" title="orderOf">JS orderOf</span></div><p>What it is being told to do now (&quot;engine:follow&quot; when nobody has said otherwise).</p></div>
@@ -783,6 +870,20 @@ learning about sides. `except_owner` (on by default) keeps whoever left it out o
 owner (a player or creature it will not touch), realm. returns its id, or 0."><div class="sig"><code>api.place_field(field_name: String, position: Vector3, options := {}) -&gt; int</code><span class="tag js" title="placeField">JS placeField</span></div><p>Puts one down. options: seconds, radius, level (multiplies damage, heal and the condition's level),<br>owner (a player or creature it will not touch), realm. Returns its id, or 0.</p></div>
 <div class="card" id="api-clear-field" data-search="clear_field clearfield "><div class="sig"><code>api.clear_field(id: int) -&gt; bool</code><span class="tag js" title="clearField">JS clearField</span></div><p class="muted">No description yet.</p></div>
 <div class="card" id="api-fields-at" data-search="fields_at fieldsat every field a point is inside: [{id, kind, realm, position, radius, level, seconds}]."><div class="sig"><code>api.fields_at(position: Vector3, realm_id := &quot;&quot;) -&gt; Array</code><span class="tag js" title="fieldsAt">JS fieldsAt</span></div><p>Every field a point is inside: [{id, kind, realm, position, radius, level, seconds}].</p></div>
+<div class="card" id="api-add-region" data-search="add_region addregion a box that says when somebody walks into it and when they walk out. returns its id, or 0.
+
+var pad := api.add_region(&quot;door_lava&quot;, vector3(10, 64, 10), vector3(13, 67, 13), {&quot;data&quot;: {&quot;game&quot;: &quot;lava&quot;}})
+api.on(&quot;region_entered&quot;, func(ev): ...)   # {player, region, id, data}
+
+options: `realm` (which world; &quot;&quot; is the ordinary one) and `data`, a dictionary handed back on every
+event so a mod does not have to keep its own table of ids.
+
+**not a field.** a field is a circle that must do something and must be seen; a region does nothing
+and shows nothing, because checkpoints, goal lines, safe zones and the answer squares of a quiz are
+boxes that only need to say who is inside. both exist: use a field where a player should *notice*,
+and a region where the mod should. (2026-09-28)"><div class="sig"><code>api.add_region(region_name: String, from: Vector3, to: Vector3, options := {}) -&gt; int</code><span class="tag js" title="addRegion">JS addRegion</span></div><p>A box that says when somebody walks into it and when they walk out. Returns its id, or 0.<br><br>var pad := api.add_region(&quot;door_lava&quot;, Vector3(10, 64, 10), Vector3(13, 67, 13), {&quot;data&quot;: {&quot;game&quot;: &quot;lava&quot;}})<br>api.on(&quot;region_entered&quot;, func(ev): ...)   # {player, region, id, data}<br><br>options: `realm` (which world; &quot;&quot; is the ordinary one) and `data`, a dictionary handed back on every<br>event so a mod does not have to keep its own table of ids.<br><br>**Not a field.** A field is a circle that must do something and must be seen; a region does nothing<br>and shows nothing, because checkpoints, goal lines, safe zones and the answer squares of a quiz are<br>boxes that only need to say who is inside. Both exist: use a field where a player should *notice*,<br>and a region where the mod should. (2026-09-28)</p></div>
+<div class="card" id="api-remove-region" data-search="remove_region removeregion takes one away. anybody inside is told they left first, so a mod can undo whatever entering did."><div class="sig"><code>api.remove_region(id: int) -&gt; bool</code><span class="tag js" title="removeRegion">JS removeRegion</span></div><p>Takes one away. Anybody inside is told they left first, so a mod can undo whatever entering did.</p></div>
+<div class="card" id="api-regions-at" data-search="regions_at regionsat every region a point is inside, as ids."><div class="sig"><code>api.regions_at(position: Vector3, realm_id := &quot;&quot;) -&gt; Array</code><span class="tag js" title="regionsAt">JS regionsAt</span></div><p>Every region a point is inside, as ids.</p></div>
 <div class="card" id="api-register-condition" data-search="register_condition registercondition something a player or a creature is temporarily under: swiftness, poison, a well-fed glow.
 
 api.register_condition(&quot;swiftness&quot;, {&quot;display_name&quot;: &quot;swiftness&quot;, &quot;color&quot;: &quot;#7fd6ff&quot;,
@@ -837,9 +938,14 @@ api.register_modifier(&quot;keen&quot;, {&quot;display_name&quot;: &quot;keen&qu
 and a line of lore is written into the item so its tooltip says &quot;keen ii&quot; without anything new on
 the wire.
 
+a mark may also carry `glow: {color, energy, light}`, which makes the marked item shine and - when
+`light` is a radius in blocks - light the world around whoever holds or wears it. energy and radius
+both scale with the level, and the brightest mark on an item wins rather than the sum, so stacking
+two of them does not blind anybody.
+
 **there is no hook system here on purpose.** a mark that should set things alight is a mod listening
 to the hit event it already has and asking whether the weapon is kindled. a second way of doing what
-events already do would be worse than one."><div class="sig"><code>api.register_modifier(modifier_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerModifier">JS registerModifier</span></div><p>A named mark that can be put on a particular item and changes what it does - an enchantment, in<br>your own words.<br><br>api.register_modifier(&quot;keen&quot;, {&quot;display_name&quot;: &quot;Keen&quot;, &quot;max_level&quot;: 3,<br>&quot;per_level&quot;: [{&quot;stat&quot;: &quot;damage&quot;, &quot;amount&quot;: 1.0}], &quot;applies_to&quot;: [&quot;#base:axes&quot;]})<br><br>`applies_to` names items or tags; empty means anything. The stat changes are worked out per level,<br>and a line of lore is written into the item so its tooltip says &quot;Keen II&quot; without anything new on<br>the wire.<br><br>**There is no hook system here on purpose.** A mark that should set things alight is a mod listening<br>to the hit event it already has and asking whether the weapon is kindled. A second way of doing what<br>events already do would be worse than one.</p></div>
+events already do would be worse than one."><div class="sig"><code>api.register_modifier(modifier_name: String, def: Dictionary) -&gt; bool</code><span class="tag js" title="registerModifier">JS registerModifier</span></div><p>A named mark that can be put on a particular item and changes what it does - an enchantment, in<br>your own words.<br><br>api.register_modifier(&quot;keen&quot;, {&quot;display_name&quot;: &quot;Keen&quot;, &quot;max_level&quot;: 3,<br>&quot;per_level&quot;: [{&quot;stat&quot;: &quot;damage&quot;, &quot;amount&quot;: 1.0}], &quot;applies_to&quot;: [&quot;#base:axes&quot;]})<br><br>`applies_to` names items or tags; empty means anything. The stat changes are worked out per level,<br>and a line of lore is written into the item so its tooltip says &quot;Keen II&quot; without anything new on<br>the wire.<br><br>A mark may also carry `glow: {color, energy, light}`, which makes the marked item shine and - when<br>`light` is a radius in blocks - light the world around whoever holds or wears it. Energy and radius<br>both scale with the level, and the brightest mark on an item wins rather than the sum, so stacking<br>two of them does not blind anybody.<br><br>**There is no hook system here on purpose.** A mark that should set things alight is a mod listening<br>to the hit event it already has and asking whether the weapon is kindled. A second way of doing what<br>events already do would be worse than one.</p></div>
 <div class="card" id="api-apply-modifier" data-search="apply_modifier applymodifier puts a mark on an item, returning the new item data (level 0 takes it off). the item is returned
 unchanged if the mark does not belong on it, so a mistake gives back an item rather than a mess."><div class="sig"><code>api.apply_modifier(item_data: Dictionary, item_name: String, modifier_name: String, level := 1) -&gt; Dictionary</code><span class="tag js" title="applyModifier">JS applyModifier</span></div><p>Puts a mark on an item, returning the new item data (level 0 takes it off). The item is returned<br>unchanged if the mark does not belong on it, so a mistake gives back an item rather than a mess.</p></div>
 <div class="card" id="api-modifier-level" data-search="modifier_level modifierlevel what level of a mark an item carries, or 0."><div class="sig"><code>api.modifier_level(item_data: Dictionary, modifier_name: String) -&gt; int</code><span class="tag js" title="modifierLevel">JS modifierLevel</span></div><p>What level of a mark an item carries, or 0.</p></div>
@@ -974,6 +1080,12 @@ options: {seed, data (anything you want to keep with it; read it back with `inst
 <div class="card" id="api-leave-instance" data-search="leave_instance leaveinstance puts a player back where they were before they entered."><div class="sig"><code>api.leave_instance(player) -&gt; bool</code><span class="tag js" title="leaveInstance">JS leaveInstance</span></div><p>Puts a player back where they were before they entered.</p></div>
 <div class="card" id="api-close-instance" data-search="close_instance closeinstance closes one now: everybody inside goes back and the space is thrown away. an instance also closes
 itself once it has been empty for its kind's `empty_seconds`."><div class="sig"><code>api.close_instance(instance_id: String) -&gt; bool</code><span class="tag js" title="closeInstance">JS closeInstance</span></div><p>Closes one now: everybody inside goes back and the space is thrown away. An instance also closes<br>itself once it has been empty for its kind's `empty_seconds`.</p></div>
+<div class="card" id="api-instance-problem" data-search="instance_problem instanceproblem why the last `open_instance` or `enter_instance` refused, in words somebody can be shown.
+
+the engine has written this down all along and nothing could read it, so a mod that checked the
+answer could say &quot;that did not work&quot; and never why - while `plot_problem` and `shop_problem`, the
+same idea, had been exposed for weeks. found when a descent stopped opening and the only way to tell
+whether the instance was full, closed or never opened was to read the engine. (2026-09-28)"><div class="sig"><code>api.instance_problem() -&gt; String</code><span class="tag js" title="instanceProblem">JS instanceProblem</span></div><p>Why the last `open_instance` or `enter_instance` refused, in words somebody can be shown.<br><br>The engine has written this down all along and nothing could read it, so a mod that checked the<br>answer could say &quot;that did not work&quot; and never why - while `plot_problem` and `shop_problem`, the<br>same idea, had been exposed for weeks. Found when a descent stopped opening and the only way to tell<br>whether the instance was full, closed or never opened was to read the engine. (2026-09-28)</p></div>
 <div class="card" id="api-instance-of" data-search="instance_of instanceof the instance a player is in, or &quot;&quot;."><div class="sig"><code>api.instance_of(player) -&gt; String</code><span class="tag js" title="instanceOf">JS instanceOf</span></div><p>The instance a player is in, or &quot;&quot;.</p></div>
 <div class="card" id="api-instance-data" data-search="instance_data instancedata what you kept with an instance when you opened it."><div class="sig"><code>api.instance_data(instance_id: String) -&gt; Dictionary</code><span class="tag js" title="instanceData">JS instanceData</span></div><p>What you kept with an instance when you opened it.</p></div>
 <div class="card" id="api-add-realm" data-search="add_realm addrealm adds another world to this server, reached through a portal. call it while the mod is setting up.
@@ -1129,6 +1241,25 @@ differently depending on the game it has been added to."><div class="sig"><code>
 <div class="card" id="api-settings" data-search="settings settings every setting of this mod as {key: value}, for passing to something that wants a config dictionary."><div class="sig"><code>api.settings() -&gt; Dictionary</code><span class="tag js" title="settings">JS settings</span></div><p>Every setting of this mod as {key: value}, for passing to something that wants a config dictionary.</p></div>
 <div class="card" id="api-set-setting" data-search="set_setting setsetting changes one of this mod's settings from code (the same path the admin screen uses, so handlers of
 `settings_changed` run). returns &quot;&quot; or why it was refused."><div class="sig"><code>api.set_setting(key: String, value) -&gt; String</code><span class="tag js" title="setSetting">JS setSetting</span></div><p>Changes one of this mod's settings from code (the same path the admin screen uses, so handlers of<br>`settings_changed` run). Returns &quot;&quot; or why it was refused.</p></div>
+<div class="card" id="api-emit" data-search="emit emit raises an event of this mod's own, which any other mod can listen for with `on`. returns the payload
+after every handler has seen it, so handlers may answer by changing it.
+
+# in one mod
+var answer := api.emit(&quot;games&quot;, {&quot;games&quot;: []})
+for game in answer.games: ...
+
+# in another
+api.on(&quot;fairground:games&quot;, func(ev): ev.games.append({&quot;id&quot;: &quot;lava&quot;, ...}))
+
+**this is the only way one mod can offer anything to another.** until it existed mods could listen to
+the engine and never to each other, so anything mod-to-mod had to become an engine capability -
+which meant the engine learning what a dungeon, a shop or a contest was. a mod-defined event with a
+payload handlers may edit is the same shape the engine's own events already use (`cancelled`,
+`amount`, `message` are all written back), and it teaches the engine nothing. (2026-09-28)
+
+**the name is always this mod's**, so `api.emit(&quot;done&quot;)` raises `yourmod:done` and nothing else. that
+is not tidiness: without it a mod could raise `player_death` and every handler in the server would
+believe it."><div class="sig"><code>api.emit(event_name: String, data := {}) -&gt; Dictionary</code><span class="tag js" title="emit">JS emit</span></div><p>Raises an event of this mod's own, which any other mod can listen for with `on`. Returns the payload<br>after every handler has seen it, so handlers may answer by changing it.<br><br># in one mod<br>var answer := api.emit(&quot;games&quot;, {&quot;games&quot;: []})<br>for game in answer.games: ...<br><br># in another<br>api.on(&quot;fairground:games&quot;, func(ev): ev.games.append({&quot;id&quot;: &quot;lava&quot;, ...}))<br><br>**This is the only way one mod can offer anything to another.** Until it existed mods could listen to<br>the engine and never to each other, so anything mod-to-mod had to become an engine capability -<br>which meant the engine learning what a dungeon, a shop or a contest was. A mod-defined event with a<br>payload handlers may edit is the same shape the engine's own events already use (`cancelled`,<br>`amount`, `message` are all written back), and it teaches the engine nothing. (2026-09-28)<br><br>**The name is always this mod's**, so `api.emit(&quot;done&quot;)` raises `yourmod:done` and nothing else. That<br>is not tidiness: without it a mod could raise `player_death` and every handler in the server would<br>believe it.</p></div>
 <div class="card" id="api-qualified" data-search="qualified qualified the same rule, for the capabilities that hold names a mod wrote inside a definition - a shop's
 ledger, a character's shop - and so must qualify them against that mod rather than against
 whoever happens to be asking later. public because three things need it and a private function two
@@ -1223,6 +1354,7 @@ systems copy is a fact about the code that ought to be visible in the code."><di
   condition_given {target, condition, level, seconds, good}
   condition_cleared {target, condition}   condition_expired {target, condition}
   field_placed   {field, kind, position, realm}   field_cleared {field, kind}
+  region_entered {player, region, id, data}   region_left {player, region, id, data}
 
   -- People, money and what they have been asked to do
   character_choice {player, character, entity, line, choice}   an option with `does` was picked
@@ -1319,6 +1451,26 @@ removed. use ids like &quot;my_mod:haste&quot;."><div class="sig"><code>player.a
 <div class="card" id="player-has-cosmetic" data-search="has_cosmetic hascosmetic whether the player may wear a server cosmetic."><div class="sig"><code>player.has_cosmetic(cosmetic_name: String) -&gt; bool</code><span class="tag js" title="hasCosmetic(name: string): boolean">JS hasCosmetic</span></div><p>Whether the player may wear a server cosmetic.</p></div>
 <div class="card" id="player-set-avatar-override" data-search="set_avatar_override setavataroverride avatar data laid over this player's look, e.g. a team uniform: {wear: {shirt: {id, color}}}; an
 empty id takes a category off. pass {} to clear. not saved."><div class="sig"><code>player.set_avatar_override(values: Dictionary) -&gt; void</code><span class="tag js" title="setAvatarOverride(values: Avatar): void">JS setAvatarOverride</span></div><p>Avatar data laid over this player's look, e.g. a team uniform: {wear: {shirt: {id, color}}}; an<br>empty id takes a category off. Pass {} to clear. Not saved.</p></div>
+<div class="card" id="player-set-look" data-search="set_look  how this player is *drawn*, as against what they are wearing: `scale` (0.05-10) and `hide` (body
+part names, matched by prefix; `&quot;*&quot;` is all of them). pass {} to clear. not saved.
+
+**the same controls `entity.set_look` has had since wick got his coat**, finally applying to players
+too. not a new idea - an existing one reaching one more noun, which is why disguises and
+invisibility needed no system of their own: `hide` every part and there is a hider.
+
+**no `tint` here, though entities have one.** a player's colours are already
+`set_avatar_override({&quot;body&quot;: {...}})`, and two ways to colour the same arm is how they end up
+disagreeing. use that for a team colour and this for a shape. (2026-09-28)"><div class="sig"><code>player.set_look(values: Dictionary) -&gt; void</code></div><p>How this player is *drawn*, as against what they are wearing: `scale` (0.05-10) and `hide` (body<br>part names, matched by prefix; `&quot;*&quot;` is all of them). Pass {} to clear. Not saved.<br><br>**The same controls `Entity.set_look` has had since Wick got his coat**, finally applying to players<br>too. Not a new idea - an existing one reaching one more noun, which is why disguises and<br>invisibility needed no system of their own: `hide` every part and there is a hider.<br><br>**No `tint` here, though entities have one.** A player's colours are already<br>`set_avatar_override({&quot;body&quot;: {...}})`, and two ways to colour the same arm is how they end up<br>disagreeing. Use that for a team colour and this for a shape. (2026-09-28)</p></div>
+<div class="card" id="player-look-of" data-search="look_of  what `set_look` last said, or {}."><div class="sig"><code>player.look_of() -&gt; Dictionary</code></div><p>What `set_look` last said, or {}.</p></div>
+<div class="card" id="player-set-phasing" data-search="set_phasing  moves through the world rather than against it: no collision, no ground, flying. what a spectator is
+made of, and the one part of one a mod cannot write for itself, because passing through blocks lives
+in the physics.
+
+**the engine does not know what a spectator is.** one game hides the watcher and freezes them,
+another lets them roam and chat, a third shows them only their own side - so the rest is the mod's,
+composed from `set_look` to disappear, the cancellable `player_damage` to be unhurtable, and
+`mob_target` to be ignored. (2026-09-28)"><div class="sig"><code>player.set_phasing(enabled: bool) -&gt; void</code></div><p>Moves through the world rather than against it: no collision, no ground, flying. What a spectator is<br>made of, and the one part of one a mod cannot write for itself, because passing through blocks lives<br>in the physics.<br><br>**The engine does not know what a spectator is.** One game hides the watcher and freezes them,<br>another lets them roam and chat, a third shows them only their own side - so the rest is the mod's,<br>composed from `set_look` to disappear, the cancellable `player_damage` to be unhurtable, and<br>`mob_target` to be ignored. (2026-09-28)</p></div>
+<div class="card" id="player-is-phasing" data-search="is_phasing  whether they are passing through the world (see set_phasing)."><div class="sig"><code>player.is_phasing() -&gt; bool</code></div><p>Whether they are passing through the world (see set_phasing).</p></div>
 <div class="card" id="player-knows-recipe" data-search="knows_recipe knowsrecipe whether the player can craft a recipe (discovered, or discovery is off)."><div class="sig"><code>player.knows_recipe(recipe_id: String) -&gt; bool</code><span class="tag js" title="knowsRecipe(id: string): boolean">JS knowsRecipe</span></div><p>Whether the player can craft a recipe (discovered, or discovery is off).</p></div>
 <div class="card" id="player-learn-recipe" data-search="learn_recipe learnrecipe teaches a recipe (source is passed to recipe_learned). returns true if it was new."><div class="sig"><code>player.learn_recipe(recipe_id: String, source := &quot;mod&quot;) -&gt; bool</code><span class="tag js" title="learnRecipe(id: string): boolean">JS learnRecipe</span></div><p>Teaches a recipe (source is passed to recipe_learned). Returns true if it was new.</p></div>
 <div class="card" id="player-is-admin" data-search="is_admin isadmin whether the player is a server admin."><div class="sig"><code>player.is_admin() -&gt; bool</code><span class="tag js" title="isAdmin(): boolean">JS isAdmin</span></div><p>Whether the player is a server admin.</p></div>
@@ -1332,8 +1484,11 @@ are registered, so they change between versions and mod sets; names do not.
 <section id="obj-entity"><h2>Entity</h2><p>A server-side entity: mob, projectile, dropped item stack or mod object. Mods receive these in
 events and from spawn_entity; members above &quot;Engine bookkeeping&quot; are the supported surface.</p>
 <div class="card" id="entity-set-look" data-search="set_look  how clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name
-prefixes to hide, e.g. &quot;wool&quot; once sheared], tint: {part prefix: &quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. merged into the current
-look and saved in data.look."><div class="sig"><code>entity.set_look(values: Dictionary) -&gt; void</code></div><p>How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name<br>prefixes to hide, e.g. &quot;wool&quot; once sheared], tint: {part prefix: &quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. Merged into the current<br>look and saved in data.look.</p></div>
+prefixes to hide, e.g. &quot;wool&quot; once sheared, or &quot;*&quot; for the whole body], tint: {part prefix:
+&quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. merged into the current look and saved in data.look.
+
+hiding everything leaves a thing that is present, collides and can wear a nameplate but is not drawn,
+which is how a label stands beside a door without a creature under it."><div class="sig"><code>entity.set_look(values: Dictionary) -&gt; void</code></div><p>How clients draw this entity: {scale (1 = normal, babies are smaller), hide: [model part name<br>prefixes to hide, e.g. &quot;wool&quot; once sheared, or &quot;*&quot; for the whole body], tint: {part prefix:<br>&quot;#rrggbb&quot;}, pose: &quot;&quot; | &quot;sit&quot;}. Merged into the current look and saved in data.look.<br><br>Hiding everything leaves a thing that is present, collides and can wear a nameplate but is not drawn,<br>which is how a label stands beside a door without a creature under it.</p></div>
 <div class="card" id="entity-is-alive" data-search="is_alive  false once the entity died or was removed."><div class="sig"><code>entity.is_alive() -&gt; bool</code></div><p>False once the entity died or was removed.</p></div>
 <div class="card" id="entity-remove" data-search="remove remove removes the entity from the world (no death, no drops)."><div class="sig"><code>entity.remove() -&gt; void</code><span class="tag js" title="remove(): void">JS remove</span></div><p>Removes the entity from the world (no death, no drops).</p></div>
 <div class="card" id="entity-damage" data-search="damage damage deals damage as if from `attacker` (a serverplayer, entity or null). returns true if it applied.
@@ -1409,7 +1564,7 @@ property stays for the engine's own writes; a mod wanting to set health should u
 <div class="card" data-search="findblockdata"><div class="sig"><code>api.findBlockData(block?: BlockId): Vec3[]</code></div></div>
 <div class="card" data-search="surfacey"><div class="sig"><code>api.surfaceY(x: number, z: number): number</code></div></div>
 <div class="card" data-search="seessky"><div class="sig"><code>api.seesSky(position: Vec3): boolean</code></div></div>
-<div class="card" data-search="setphysics"><div class="sig"><code>api.setPhysics(values: Record&lt;string, number | boolean&gt;): void</code></div></div>
+<div class="card" data-search="setphysics"><div class="sig"><code>api.setPhysics(values: Record&lt;string, number | boolean&gt;, options?: { realm?: string }): void</code></div></div>
 <div class="card" data-search="setworldtime"><div class="sig"><code>api.setWorldTime(timeOfDay: number, dayLength?: number): void</code></div></div>
 <div class="card" data-search="timeofday"><div class="sig"><code>api.timeOfDay(): number</code></div></div>
 <div class="card" data-search="daylight"><div class="sig"><code>api.daylight(): number</code></div></div>
@@ -1878,7 +2033,7 @@ declare module &quot;quarrowen&quot; {
     findBlockData(block?: BlockId): Vec3[];
     surfaceY(x: number, z: number): number;
     seesSky(position: Vec3): boolean;
-    setPhysics(values: Record&lt;string, number | boolean&gt;): void;
+    setPhysics(values: Record&lt;string, number | boolean&gt;, options?: { realm?: string }): void;
     setWorldTime(timeOfDay: number, dayLength?: number): void;
     timeOfDay(): number;
     daylight(): number;
@@ -1973,8 +2128,8 @@ declare module &quot;quarrowen&quot; {
     registerMilestone(name: string, def: Milestone): boolean;
     getBiome(position: Vec3): string;
     setSpawnCaps(caps: { monster?: number; animal?: number; ambient?: number; misc?: number }): void;
-    setGameplay(values: Gameplay): void;
-    getGameplay&lt;K extends keyof Gameplay&gt;(rule: K): Gameplay[K];
+    setGameplay(values: Gameplay, options?: { realm?: string }): void;
+    getGameplay&lt;K extends keyof Gameplay&gt;(rule: K, options?: { realm?: string }): Gameplay[K];
     makeNoise(position: Vec3, radius: number, source?: Player | Entity | null): void;
     registerEquipmentSlot(name: string, def?: { display_name?: string }): void;
     registerStat(name: string, base: number): void;
@@ -2450,31 +2605,6 @@ everyone when the server runs with --dev.
 - Debug draw: `draw(owner, shape)` queues boxes, lines, labels and paths that expire; watchers get them
   each tick. `ai_debug` draws mob paths, targets and homes near watchers.
 Viewers subscribe with a set of channels: logs, errors, perf, events, draw, ai, inspect.</pre></section>
-<section id="ref-dev-dashboard" class="ref"><h2>Dev dashboard <span class="file">engine/server/dev_web.gd</span></h2><pre class="block">The dev dashboard: a tiny HTTP server on the game server that serves engine/server/dev_web/index.html
-and a JSON API over the same data as the F8 overlay (logs, errors, event trace, profiler, inspector),
-for a browser next to the game or on a headless server.
-
-Off unless configured: --dev-web=24580 (or on by default with --dev). It binds 127.0.0.1 unless
---dev-web-host says otherwise, and every request needs the token printed at start (also shown to
-admins by /devweb).
-
-Two transports answer the same routes: with the native extension, NativeHttpServer
-(native/src/http.rs) parses HTTP on its own threads (keep-alive, many clients) and adds
-/api/stream, a Server-Sent Events stream the game pushes the state to every PUSH_INTERVAL seconds,
-so the page need not poll; without it, a small GDScript TCPServer (one request per connection) and
-the page polls /api/state.
-
-API (all GET, ?token=...):
-  /api/state?logs_after=N&amp;events_after=N&amp;events=0|1&amp;filter=...   everything new since the last poll
-  /api/inspect?player=&lt;peer&gt;  |  &amp;look=1 (what that player looks at)  |  entity=&lt;id&gt;  |  x=&amp;y=&amp;z=
-  /api/clear_errors[?source=mod]
-  /api/reload?mod=&lt;id&gt; | mod=all | mod=full
-  /api/ugc?filter=pending|reported|approved|rejected|removed|all&amp;text=   creations for review
-  /api/ugc_action?action=set_status|trust|ban|clear_reports&amp;id=&amp;status=&amp;reason=&amp;player_id=&amp;on=
-  /api/ugc_file?id=   a creation's file (skin PNG, accessory JSON, model GLB)
-  /api/stream   (native only) events: `state` (the /api/state answer with only what is new since the
-                last push, using the dashboard's last /api/state parameters)
-A dashboard that polls within VIEWER_TIMEOUT seconds counts as a dev tools viewer (so events are traced).</pre></section>
 <section id="ref-reloading" class="ref"><h2>Reloading <span class="file">engine/server/mod_reload.gd</span></h2><pre class="block">Reloading mods while the server runs.
 
 Quick reload (`reload(mod_id)`, /reload &lt;mod&gt;): forgets what the mod hooked in live (event handlers,

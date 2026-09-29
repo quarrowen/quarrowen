@@ -197,11 +197,22 @@ repository variable, and both have to be done deliberately:</p>
 </li>
 <li>
 <p><strong>An App Store Connect API key</strong> for notarisation, at appstoreconnect.apple.com → Users and Access →
-   Integrations → App Store Connect API → <strong>+</strong>, with the <em>Developer</em> role. Download the <code>.p8</code> <strong>once</strong>
-   (Apple will not show it again) and note the Key ID and Issuer ID. An API key rather than the
-   app-specific password in your keychain: it is scoped to notarisation and revocable on its own, where
-   an app-specific password authenticates as your whole Apple Account.</p>
+   Integrations → App Store Connect API. There are two tabs, and <strong>it has to be Team Keys</strong> - Apple's
+   own documentation says an Individual key "isn't able to use Provisioning endpoints, access Sales and
+   Finance, or <code>notaryTool</code>". An individual key looks right, downloads the same way, and then fails at
+   the only step it exists for; it also has no Issuer ID, which is the tell. (Checked against Apple's
+   current docs on 29 September 2026, because this page used to say only "→ +" and the tab is the half
+   that matters.)</p>
 </li>
+</ol>
+<p>So: <strong>Team Keys</strong> tab → Generate API Key (or <strong>+</strong>) → name it → under Access pick the <strong>Developer</strong>
+   role → Generate. Generating a team key needs an Admin account in App Store Connect.</p>
+<p>Then <strong>download the <code>.p8</code> once</strong> - the link disappears afterwards and Apple keeps no copy. The <strong>Key
+   ID</strong> is in the key's own row; the <strong>Issuer ID</strong> is a UUID at the top of the Team Keys page, shared by
+   every key on the team.</p>
+<p>An API key rather than the app-specific password in your keychain: it is scoped to notarisation and
+   revocable on its own, where an app-specific password authenticates as your whole Apple Account.</p>
+<ol>
 <li>
 <p><strong>Your Developer ID certificate as a <code>.p12</code></strong> - Keychain Access → My Certificates → right-click
    <em>Developer ID Application: …</em> → Export, and give it a strong password.</p>
@@ -240,10 +251,20 @@ repository variable, and both have to be done deliberately:</p>
 </tr>
 <tr>
 <td><code>RELEASE_SIGNING_KEY</code></td>
-<td>the contents of <code>~/.config/quarrowen/release_key.pem</code></td>
+<td>the contents of <code>~/.config/quarrowen/release_key.pem</code>, <strong>not</strong> base64</td>
 </tr>
 </tbody>
 </table>
+<p><strong><code>RELEASE_SIGNING_KEY</code> is the odd one out and it is worth a sentence</strong>, because the two rows above it
+   are base64 and the eye copies the pattern. The other two are binary files that have to survive being
+   a string; this one is already text, and CI writes it straight back out with
+   <code>printf '%s' "$RELEASE_SIGNING_KEY" &gt; release_key.pem</code>. So: <code>pbcopy &lt; ~/.config/quarrowen/release_key.pem</code>.</p>
+<p>Tested on 29 September 2026 rather than assumed, because all three failure modes are CI-only:
+   a key with no trailing newline signs correctly (so <code>printf '%s'</code> dropping one is harmless), a key
+   with CRLF line endings signs correctly, and a key that has been base64'd by mistake fails to parse
+   and produces <strong>no signature at all</strong>. That last one used to sail through - <code>make_release.sh</code> did not
+   check whether signing worked, so the release would have published an unsigned manifest that every
+   installed client refuses. It stops now.</p>
 <ol>
 <li><strong>The variable <code>SIGN_IN_CI</code> set to <code>true</code></strong>, on the Variables tab beside the secrets. This is the
    switch; everything above is inert without it.</li>
@@ -262,9 +283,13 @@ and is what to fall back on if CI is unavailable.</p>
 <h3 id="cutting-a-release">Cutting a release</h3>
 <p>In this order, because the middle step is what the children actually feel:</p>
 <ol>
-<li><code>tools/run_tests.sh</code> and <code>QW_NATIVE=0 PORT_BASE=25700 tools/run_tests.sh</code> - both suites.</li>
+<li><code>tools/run_tests.sh</code>. (This said "both suites" and named <code>QW_NATIVE=0</code>; that second suite was
+   deleted on 2026-09-23 along with the GDScript twins, and there is one now.)</li>
 <li>Bump <code>GAME_VERSION</code> in <code>engine/shared/protocol.gd</code>, and <code>VERSION</code> too if anything the client and
-   server must agree on has changed (RPCs, or the block shape table).</li>
+   server must agree on has changed (RPCs, or the block shape table). <strong>And <code>application/short_version</code>
+   and <code>application/version</code> in <code>export_presets.cfg</code></strong> - no script reads those, which is exactly why
+   they sat at <code>0.38.0</code> while four releases went out; they are what macOS shows in Get Info and what
+   <code>codesign -dv</code> reports.</li>
 <li>Write the release notes in PROGRESS.md, and regenerate the save fixture for the new version
    (<code>tools/make_save_fixture.tscn -- --out=tests/fixtures/saves/&lt;version&gt;</code>).</li>
 <li><strong>Bump the pinned image in <code>deploy/server/.env.example</code></strong> (<code>QW_IMAGE</code>, <code>QW_HUB_IMAGE</code>). It is pinned
@@ -426,6 +451,146 @@ worth having for alpha. The plan when it matters:</p>
 <li><strong>Community mods</strong>: the advanced install path, and what a public index would need (submissions,
    review, a "verified" mark).</li>
 </ol>
+<h2 id="windows">Windows</h2>
+<p>Windows has been built on every tag and offered on the download page since 0.41.1. It is a second-class
+build on purpose, and the ways it differs are worth knowing before handing the link to somebody.</p>
+<p><strong>It is a folder, not a file.</strong> The Windows export has no embedded PCK, so the zip contains
+<code>Quarrowen.exe</code>, <code>Quarrowen.pck</code>, <code>quarrowen_native.dll</code> and <code>mods/</code>. Somebody who drags only the
+<code>.exe</code> out of the zip gets a game that will not start. The download page has to say "unzip the whole
+folder and run Quarrowen.exe from inside it".</p>
+<p><strong>It is unsigned</strong>, and <code>application/modify_resources</code> is off, so the executable carries no icon and no
+version metadata - which is the shape SmartScreen is harshest on. A friend sees "Windows protected your
+PC" and has to choose More info, then Run anyway.</p>
+<p>The resources part is not a cost, it is a runner: <code>export-windows</code> runs on <code>ubuntu-24.04</code>, and Godot
+needs <code>rcedit</code> (through wine) to write an icon and a version block into a PE file. Either install those
+on the Linux runner or move that one job to <code>windows-latest</code>. Worth doing on its own - an executable
+with no icon and no publisher string looks like exactly what SmartScreen is warning about.</p>
+<h3 id="signing-it-and-why-the-obvious-answer-is-the-wrong-one">Signing it, and why the obvious answer is the wrong one</h3>
+<p>Checked against the platform vendor's current guidance on 29 September 2026, because the advice that was
+right for years is now wrong. (The vendor is not named here only because <code>tools/trademarks.gd</code> forbids it
+outside the disclaimers - the service names below are the searchable part anyway.)</p>
+<ul>
+<li><strong>An EV certificate no longer bypasses SmartScreen.</strong> That behaviour was removed in 2024, and EV files
+  now build reputation exactly as OV ones do. Paying the EV premium (£400+/year) to skip the warning
+  buys nothing. This is the change that matters, because every older guide still recommends it.</li>
+<li><strong>Nothing except the platform's own app store gives instant trust.</strong> MSIX packages submitted there are
+  re-signed by the vendor and never warn - but that means building an MSIX and keeping a store listing,
+  which is a different distribution model from a zip on a website.</li>
+<li><strong>OV certificates</strong> are £150-300/year and available worldwide, but since June 2023 the CA/Browser
+  Forum requires the private key to live on a hardware token or cloud HSM. <strong>That breaks the model this
+  project uses for macOS</strong>, where the certificate is a repository secret: a USB token cannot be handed
+  to a GitHub runner, so signing either moves to a machine with the token in it or to the CA's cloud
+  HSM.</li>
+<li><strong>Azure Artifact Signing</strong> (formerly Trusted Signing) is the platform vendor's own service at about
+  $9.99 a month, needs no hardware token, and signs from GitHub Actions - which is the closest thing to the
+  macOS arrangement. The catch is geography: organisations in the USA, Canada, the EU and the UK, but
+  <strong>individual developers only in the USA and Canada</strong>.</li>
+<li><strong>SignPath Foundation</strong> signs qualifying open-source projects for free, at OV level, through a managed
+  pipeline. <strong>Quarrowen does not qualify, and will not without a relicence.</strong> Their conditions require
+  "an OSI-approved Open Source license" with no commercial dual-licensing; this project ships under
+  PolyForm Noncommercial 1.0.0, which the README already describes as <em>deliberately not an OSI open
+  source licence</em>. A public repository is not the same as an open-source licence, and that is the whole
+  of it. Checked 29 September 2026 so it does not get asked again.</li>
+</ul>
+<p>Two things worth knowing anyway, in case the licence ever changes. The certificate is issued to
+  <strong>SignPath Foundation, who become the publisher</strong> - Windows would show their name as the verified
+  publisher, not this project's, which is the opposite of the macOS arrangement where the certificate
+  carries the maintainer's own name. And they reserve the right to revoke "effective immediately or
+  retroactively", which would invalidate builds already in people's hands. Free, but not the same shape
+  as owning a certificate.</p>
+<h3 id="where-that-leaves-this-project">Where that leaves this project</h3>
+<p>Signing from <strong>Singapore</strong> (the user, 29 September 2026): Azure Artifact Signing is unavailable -
+organisations are limited to the USA, Canada, the EU and the UK, and individuals to the USA and Canada.
+SignPath is out on the licence. That leaves two real options: ship unsigned, or buy an OV certificate
+(£150-300/year, available worldwide) and keep its key on the CA's cloud HSM so CI can still sign.</p>
+<p><strong>For a handful of friends, unsigned is a reasonable answer</strong> and the honest one: one extra click, once,
+on a build they were expecting from somebody they know. Signing earns its cost when strangers download
+it, and the reputation it builds is per-publisher and cumulative - which is an argument for picking one
+identity and keeping it rather than for picking an expensive one.</p>
+<p><strong>It does not update itself.</strong> <code>updater.gd</code> knows the <code>windows</code> platform and contains a complete install
+script for it, but <code>make_release.sh</code> writes only a <code>macos</code> entry into <code>update.json</code>, so a Windows client
+finds nothing for itself and stays where it is. That script has never been run by anybody; arming an
+untested one that replaces a folder is not a trade worth making for a handful of playtesters.</p>
+<p><strong>The consequence that bites:</strong> the protocol check refuses a mismatched client at the door, so <strong>any
+<code>Protocol.VERSION</code> bump locks every Windows player out until they download again, and nothing tells
+them to.</strong> If a release changes the wire, say so to the Windows players directly.</p>
+<h2 id="playing-with-friends">Playing with friends</h2>
+<p><strong>On the same network, nothing needs configuring.</strong> "Play" starts a real server rather than a private
+session - <code>ENetMultiplayerPeer.create_server</code> binds every interface - so a friend on the same Wi-Fi can
+join the world somebody is already playing. The Multiplayer tab finds it by UDP broadcast across ports
+24565-24574. Guest networks and "client isolation" on a router break that; typing the host's local
+address into the address field still works.</p>
+<p><strong>Off the same network there is nothing in the box to help.</strong> No UPnP, no NAT-PMP, no hole punching, no
+relay. Three options, in the order they are worth trying:</p>
+<ul>
+<li><strong>Forward two UDP ports</strong>, 24565 <strong>and 24566</strong>, and give out the public address. The second one is the
+  status port and is easy to forget - without it the game is joinable but shows as offline with no ping
+  in everybody's server list, which reads as "the server is down".</li>
+<li><strong>Run the dedicated server</strong> on a machine that is already reachable (<code>ghcr.io/quarrowen/quarrowen/server</code>,
+  see <code>hosting.md</code>). This is also the only way a world keeps running when the host closes the game.</li>
+<li><strong>Put everybody on the same overlay network</strong> - Tailscale, ZeroTier or similar - and use the address it
+  hands out. No router configuration, and it sidesteps carrier-grade NAT, which port forwarding cannot.</li>
+</ul>
+<p><strong>Invite codes encode an address, not a name.</strong> <code>QW-7ZK3M-Q8D1A-4</code> is an IPv4 address and port packed
+into ten characters; generating one for a friend across the internet means giving it the <em>public</em>
+address, and nothing in the client discovers that. A hostname or an IPv6 address falls back to plain
+<code>host:port</code> text.</p>
+<p><strong>The hub (the server browser) is not running anywhere public.</strong> The client's <code>network/hub_url</code> defaults
+to empty and the deploy example points at loopback, so the browser lists nothing until somebody runs a
+hub and everybody types its URL into Settings. For a few friends, the address field and invite codes are
+less work.</p>
+<h2 id="keeping-the-keys-safe-when-ci-does-the-signing">Keeping the keys safe when CI does the signing</h2>
+<p>Asked directly (the user, 29 September 2026) before turning <code>SIGN_IN_CI</code> on: can the certificate or the
+notarisation key leak? Here is the honest state of it, audited rather than asserted.</p>
+<h3 id="what-is-already-right">What is already right</h3>
+<ul>
+<li><strong>No <code>pull_request_target</code> anywhere.</strong> That is the trigger that hands secrets to code from a fork, and
+  it is the usual way this goes wrong. Ordinary <code>pull_request</code> runs from a fork get no secrets at all.</li>
+<li><strong>The release job runs only on a tag</strong> (<code>startsWith(github.ref, 'refs/tags/v')</code>), and pushing a tag
+  needs write access.</li>
+<li><strong>Secrets reach the scripts as environment variables, never as arguments</strong>, so they are not visible in
+  <code>ps</code> on the runner.</li>
+<li><strong>The certificate lives in a keychain of its own</strong> with a random password, created for the run and
+  deleted in a step that runs <code>if: always()</code>. The <code>.p12</code> is removed the moment it has been imported.</li>
+<li><strong><code>umask 077</code></strong> before the notarisation key and the release key are written, and both are deleted in
+  the same cleanup step.</li>
+<li><strong>The job's token is scoped</strong> (<code>permissions: contents: write</code>) rather than inheriting everything, and
+  it is the run's own <code>GITHUB_TOKEN</code> rather than a personal token.</li>
+<li>The runner is GitHub-hosted, so the machine is destroyed afterwards. <strong>This would not be true on a
+  self-hosted runner</strong>, where <code>$RUNNER_TEMP</code> survives between jobs.</li>
+</ul>
+<h3 id="the-three-things-to-do-in-order">The three things to do, in order</h3>
+<ol>
+<li><strong>Put the six secrets in the <code>release</code> <em>environment</em>, not in the repository.</strong> This is the important
+   one and it is free, because none of them exist yet. A <em>repository</em> secret is readable by any job in
+   any workflow on any branch - so anybody who can open a branch could add a workflow step that prints
+   it (GitHub masks known secret values in logs, but masking is defeated by anything that transforms
+   the value first). An <em>environment</em> secret is only handed to a job that names that environment, and
+   that job waits for the environment's approval. Create them under
+   Settings → Environments → release → Environment secrets.</li>
+<li><strong>Add yourself as a required reviewer on the <code>release</code> environment.</strong> Verified on 29 September 2026:
+   it has <strong>no protection rules at all</strong>. <code>ci.yml</code> says this in its own header - <em>"naming an
+   <code>environment:</code> does NOT by itself gate anything"</em> - and it is still true. Without a reviewer, setting
+   <code>SIGN_IN_CI=true</code> means every tag signs, notarises and publishes to the live site unattended.</li>
+<li><strong>Only then set <code>SIGN_IN_CI</code> to <code>true</code>.</strong> In that order: secrets in the environment, reviewer on the
+   environment, switch last. Any other order has a window in which a tag publishes on its own.</li>
+</ol>
+<h3 id="two-smaller-ones">Two smaller ones</h3>
+<ul>
+<li><strong>Actions in the release job are pinned to commit SHAs</strong> (done, 29 September 2026). A tag like <code>@v4</code>
+  is mutable, and whatever it points at runs beside the certificate. The other jobs still use tags,
+  which is a reasonable trade: there a moved tag costs a failed build, not a key.</li>
+<li><strong>Rotation is cheap and worth knowing before it is needed.</strong> Replacing a secret is the whole
+  procedure; the release keys the <em>client</em> trusts are a separate thing (<code>updater.gd</code>'s <code>RELEASE_KEYS</code>),
+  and rotating one of those means shipping a build that trusts both and only then signing with the new
+  one.</li>
+</ul>
+<h3 id="what-this-does-not-protect-against">What this does not protect against</h3>
+<p>Anyone with write access to the repository can push a tag whose own <code>ci.yml</code> prints the secrets. That is
+inherent to putting keys in CI - the workflow that uses them is the workflow the tag carries. The
+required reviewer is the control that matters, because the approval happens <em>after</em> the workflow file is
+visible and before the secrets are handed over. Keep the write list short, and read what a tag changed
+before approving its deployment.</p>
     </article>
 
     <footer class="foot">
@@ -435,7 +600,7 @@ worth having for alpha. The plan when it matters:</p>
   <aside class="onpage" aria-label="On this page">
     <div class="grp">On this page</div>
     <ul>
-      <li><a href="#getting-the-game-and-mods-to-players">Getting the game (and mods) to players</a></li><li class="sub"><a href="#1-what-a-release-publishes">1. What a release publishes</a></li><li class="sub"><a href="#2-where-it-is-published-github-pages">2. Where it is published: GitHub Pages</a></li><li class="sub"><a href="#2a-signing-the-app-for-macos">2a. Signing the app for macOS</a></li><li class="sub"><a href="#2b-signing-a-release">2b. Signing a release</a></li><li class="sub"><a href="#3-updating">3. Updating</a></li><li class="sub"><a href="#4-mods-the-problem">4. Mods: the problem</a></li><li class="sub"><a href="#5-mods-the-plan-factorio-style">5. Mods: the plan (Factorio-style)</a></li><li class="sub"><a href="#6-mod-settings-done-0390">6. Mod settings (done, 0.39.0)</a></li><li class="sub"><a href="#2c-building-for-ipad">2c. Building for iPad</a></li><li class="sub"><a href="#6b-mods-on-ipad">6b. Mods on iPad</a></li><li class="sub"><a href="#7-order-of-work">7. Order of work</a></li>
+      <li><a href="#getting-the-game-and-mods-to-players">Getting the game (and mods) to players</a></li><li class="sub"><a href="#1-what-a-release-publishes">1. What a release publishes</a></li><li class="sub"><a href="#2-where-it-is-published-github-pages">2. Where it is published: GitHub Pages</a></li><li class="sub"><a href="#2a-signing-the-app-for-macos">2a. Signing the app for macOS</a></li><li class="sub"><a href="#2b-signing-a-release">2b. Signing a release</a></li><li class="sub"><a href="#3-updating">3. Updating</a></li><li class="sub"><a href="#4-mods-the-problem">4. Mods: the problem</a></li><li class="sub"><a href="#5-mods-the-plan-factorio-style">5. Mods: the plan (Factorio-style)</a></li><li class="sub"><a href="#6-mod-settings-done-0390">6. Mod settings (done, 0.39.0)</a></li><li class="sub"><a href="#2c-building-for-ipad">2c. Building for iPad</a></li><li class="sub"><a href="#6b-mods-on-ipad">6b. Mods on iPad</a></li><li class="sub"><a href="#7-order-of-work">7. Order of work</a></li><li class="sub"><a href="#windows">Windows</a></li><li class="sub"><a href="#playing-with-friends">Playing with friends</a></li><li class="sub"><a href="#keeping-the-keys-safe-when-ci-does-the-signing">Keeping the keys safe when CI does the signing</a></li>
     </ul>
   </aside>
 

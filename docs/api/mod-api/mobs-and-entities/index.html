@@ -79,7 +79,7 @@
     </div>
     <article id="article">
       <h1 id="mobs-and-entities">Mobs and entities</h1>
-<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.1.0 · game 0.42.1</p>
 <h3 id="apiregister_entity"><code>api.register_entity</code></h3>
 <p>GDScript: <code>api.register_entity(entity_name: String, def: Dictionary) -&gt; int</code></p>
 <p>JavaScript: <code>api.registerEntity(name: string, def: EntityDef): number</code></p>
@@ -102,12 +102,18 @@ Returns the type id, or -1.</p>
 <p>JavaScript: <code>api.explode(position, power, options)</code></p>
 <p>Sets off an explosion (see engine/server/explosions.gd): power ~3 is a mob blast. options: source,
 break_blocks, drop_chance, damage (multiplier), effect, sound. Returns the explosion event.</p>
-<p><strong>See also:</strong> <code>blast_resistance</code>, <code>break_block</code>, <code>cast</code>, <code>damage</code>, <code>damage_player</code>, <code>get_block_v</code></p>
+<p><strong>See also:</strong> <code>blast_resistance</code>, <code>break_block</code>, <code>cast</code>, <code>damage</code>, <code>damage_player</code>, <code>gameplay_in</code></p>
 <h3 id="apientity_type"><code>api.entity_type</code></h3>
 <p>GDScript: <code>api.entity_type(entity_name: String) -&gt; int</code></p>
 <p>JavaScript: <code>api.entityType(entityName)</code></p>
 <p>Entity type id by name ("vanilla:zombie", or a local name). -1 if unknown.</p>
 <p><strong>See also:</strong> <code>qualified</code></p>
+<h3 id="apientity_types"><code>api.entity_types</code></h3>
+<p>GDScript: <code>api.entity_types() -&gt; Array</code></p>
+<p>JavaScript: <code>api.entityTypes()</code></p>
+<p>Every creature type registered, by name. For a mod that wants to act on a <em>kind</em> of creature
+rather than a named one - "all the rare ones", "everything that flies" - without keeping a list
+that stops being right the moment anybody adds another.</p>
 <h3 id="apispawn_entity"><code>api.spawn_entity</code></h3>
 <p>GDScript: <code>api.spawn_entity(entity_name: String, position: Vector3, options := {})</code></p>
 <p>JavaScript: <code>api.spawnEntity(type: string, position: Vec3, options?: { yaw?: number; velocity?: Vec3; data?: Record&lt;string, unknown&gt; }): Entity | null</code></p>
@@ -117,15 +123,32 @@ entity or null.</p>
 <p><code>realm</code> matters for instances: without it every spawn landed in the overworld, so a dungeon could
 be entered but never populated. (2026-09-21)</p>
 <p><strong>See also:</strong> <code>entity_type</code>, <code>qualified</code>, <code>register_instance</code>, <code>spawn</code></p>
+<h3 id="apiremove_entity"><code>api.remove_entity</code></h3>
+<p>GDScript: <code>api.remove_entity(entity) -&gt; bool</code></p>
+<p>JavaScript: <code>api.removeEntity(entity)</code></p>
+<p>Fires a projectile entity from <code>from</code> with <code>velocity</code>, credited to <code>owner</code> (player or entity).
+Takes an entity out of the world <strong>without killing it</strong>: no drops, no death, nothing told about
+it. The opposite of <code>spawn_entity</code>, which a mod could do and then not undo.</p>
+<p>Killing was the only thing available and it is not the same thing. A story creature that has said
+its piece and should go, a boss that settles back down rather than falling over, a prop that was
+only there for a moment - all of those are removals, and doing them with damage means loot on the
+floor and a death message a child reads as something having gone wrong. (2026-09-24)
+<strong>Asks the entity, not the overworld.</strong> It used to call <code>_server.entities.remove</code>, which is the
+overworld's manager: for a creature in any other realm that set <code>removed</code> and then erased its id from
+a dictionary it was never in, leaving the creature in its own realm's table - removed as far as the
+mod was concerned and still walking about. An entity carries the manager it belongs to, so it can be
+asked. (2026-09-28)</p>
 <h3 id="apispawn_projectile"><code>api.spawn_projectile</code></h3>
 <p>GDScript: <code>api.spawn_projectile(entity_name: String, from: Vector3, velocity: Vector3, owner = null, realm_id := "")</code></p>
 <p>JavaScript: <code>api.spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner?: Player | Entity | null): Entity | null</code></p>
-<p>Fires a projectile entity from <code>from</code> with <code>velocity</code>, credited to <code>owner</code> (player or entity).</p>
 <p><strong>See also:</strong> <code>entity_type</code>, <code>qualified</code>, <code>register_instance</code>, <code>spawn</code></p>
 <h3 id="apiget_entities"><code>api.get_entities</code></h3>
 <p>GDScript: <code>api.get_entities(center: Vector3, radius: float, entity_name := "") -&gt; Array</code></p>
 <p>JavaScript: <code>api.getEntities(center, radius, entityName)</code></p>
 <p>Living entities within <code>radius</code> of <code>center</code>, optionally only of one type.</p>
+<pre class="codehilite"><code class="language-gdscript">for e in api.get_entities(player.position, 12.0, &quot;proving:grazer&quot;):
+</code></pre>
+
 <p><strong>See also:</strong> <code>entity_type</code>, <code>in_radius</code></p>
 <h3 id="apiget_entity"><code>api.get_entity</code></h3>
 <p>GDScript: <code>api.get_entity(entity_id: int)</code></p>
@@ -210,7 +233,7 @@ the player has already been put at the old position and sees themselves moved. (
   <aside class="onpage" aria-label="On this page">
     <div class="grp">On this page</div>
     <ul>
-      <li><a href="#mobs-and-entities">Mobs and entities</a></li><li class="sub"><a href="#apiregister_entity">api.register_entity</a></li><li class="sub"><a href="#apiexplode">api.explode</a></li><li class="sub"><a href="#apientity_type">api.entity_type</a></li><li class="sub"><a href="#apispawn_entity">api.spawn_entity</a></li><li class="sub"><a href="#apispawn_projectile">api.spawn_projectile</a></li><li class="sub"><a href="#apiget_entities">api.get_entities</a></li><li class="sub"><a href="#apiget_entity">api.get_entity</a></li><li class="sub"><a href="#apiregister_mob_behavior">api.register_mob_behavior</a></li><li class="sub"><a href="#apimake_noise">api.make_noise</a></li><li class="sub"><a href="#apiadd_spawn_rule">api.add_spawn_rule</a></li><li class="sub"><a href="#apiset_spawn_caps">api.set_spawn_caps</a></li><li class="sub"><a href="#apirequire_entity">api.require_entity</a></li><li class="sub"><a href="#apiextend_entity">api.extend_entity</a></li><li class="sub"><a href="#apiset_spawn_handler">api.set_spawn_handler</a></li>
+      <li><a href="#mobs-and-entities">Mobs and entities</a></li><li class="sub"><a href="#apiregister_entity">api.register_entity</a></li><li class="sub"><a href="#apiexplode">api.explode</a></li><li class="sub"><a href="#apientity_type">api.entity_type</a></li><li class="sub"><a href="#apientity_types">api.entity_types</a></li><li class="sub"><a href="#apispawn_entity">api.spawn_entity</a></li><li class="sub"><a href="#apiremove_entity">api.remove_entity</a></li><li class="sub"><a href="#apispawn_projectile">api.spawn_projectile</a></li><li class="sub"><a href="#apiget_entities">api.get_entities</a></li><li class="sub"><a href="#apiget_entity">api.get_entity</a></li><li class="sub"><a href="#apiregister_mob_behavior">api.register_mob_behavior</a></li><li class="sub"><a href="#apimake_noise">api.make_noise</a></li><li class="sub"><a href="#apiadd_spawn_rule">api.add_spawn_rule</a></li><li class="sub"><a href="#apiset_spawn_caps">api.set_spawn_caps</a></li><li class="sub"><a href="#apirequire_entity">api.require_entity</a></li><li class="sub"><a href="#apiextend_entity">api.extend_entity</a></li><li class="sub"><a href="#apiset_spawn_handler">api.set_spawn_handler</a></li>
     </ul>
   </aside>
 

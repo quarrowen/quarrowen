@@ -79,7 +79,7 @@
     </div>
     <article id="article">
       <h1 id="world-generation">World generation</h1>
-<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.1.0 · game 0.42.1</p>
 <h3 id="apiplace_structure_in"><code>api.place_structure_in</code></h3>
 <p>GDScript: <code>api.place_structure_in(template_name: String, at: Vector3i, realm_id := "", rotation := 0) -&gt; bool</code></p>
 <p>JavaScript: <code>api.placeStructureIn(templateName, at, realmId, rotation)</code></p>
@@ -140,11 +140,23 @@ or a template dictionary. Names without ":" are this mod's.</p>
 Stamps a template into the world now, rotated a quarter turn at a time (0-3). What <code>/struct place</code>
 does, for a mod that wants to build something itself rather than leave it to world generation: a
 story's outpost, a rescue site, a prize somebody hid.</p>
-<p><strong>See also:</strong> <code>place</code>, <code>qualified</code></p>
+<p><strong>See also:</strong> <code>find_structure</code>, <code>place</code>, <code>qualified</code></p>
+<h3 id="apifind_structure"><code>api.find_structure</code></h3>
+<p>GDScript: <code>api.find_structure(structure_name: String, near: Vector3, realm_id := "", rings := 4) -&gt; Vector3</code></p>
+<p>JavaScript: <code>api.findStructure(structureName, near, realmId, rings)</code></p>
+<p>Where the nearest structure of a set is, or Vector3.INF if there is none within <code>rings</code> regions.</p>
+<p>api.find_structure("altar_site", player.position)</p>
+<p>Asks world generation the same question it asks itself, without generating anything - so this
+works for a structure nobody has been near yet, which is the whole point of pointing somebody at
+one. <strong>A structure nobody can find is the same as no structure</strong>: without this a game had to guess
+a position and hope, and Firstlight marked a spot near the player while the ruin it meant was two
+thousand blocks away.</p>
+<p><strong>See also:</strong> <code>biome_generator</code>, <code>nearest</code>, <code>qualified</code></p>
 <h3 id="apiregister_structure"><code>api.register_structure</code></h3>
 <p>GDScript: <code>api.register_structure(structure_name: String, def: Dictionary) -&gt; void</code></p>
 <p>JavaScript: <code>api.registerStructure(name: string, def: Record&lt;string, unknown&gt;): void</code></p>
-<pre class="codehilite"><code class="language-gdscript">api.register_structure(&quot;hut_site&quot;, {&quot;template&quot;: &quot;proving:hut&quot;, &quot;rarity&quot;: 0.0})
+<pre class="codehilite"><code class="language-gdscript">api.register_structure(&quot;hut_site&quot;, {&quot;templates&quot;: [{&quot;template&quot;: &quot;proving:hut&quot;}],
+    &quot;place&quot;: &quot;underground&quot;, &quot;y&quot;: [8, 24], &quot;spacing&quot;: 8, &quot;separation&quot;: 2})
 </code></pre>
 
 <p><strong>See also:</strong> <code>add_set</code>, <code>biome_generator</code>, <code>qualified</code>, <code>register_loot</code></p>
@@ -249,7 +261,7 @@ wants its own ores, and they are not the overworld's at a different depth.</p>
   <aside class="onpage" aria-label="On this page">
     <div class="grp">On this page</div>
     <ul>
-      <li><a href="#world-generation">World generation</a></li><li class="sub"><a href="#apiplace_structure_in">api.place_structure_in</a></li><li class="sub"><a href="#apiset_world_generator">api.set_world_generator</a></li><li class="sub"><a href="#apiuse_biome_generator">api.use_biome_generator</a></li><li class="sub"><a href="#apibiome_generator">api.biome_generator</a></li><li class="sub"><a href="#apiregister_biome">api.register_biome</a></li><li class="sub"><a href="#apiadd_cave_carver">api.add_cave_carver</a></li><li class="sub"><a href="#apiregister_structure_template">api.register_structure_template</a></li><li class="sub"><a href="#apiplace_structure">api.place_structure</a></li><li class="sub"><a href="#apiregister_structure">api.register_structure</a></li><li class="sub"><a href="#apiregister_loot">api.register_loot</a></li><li class="sub"><a href="#apiregister_loot_table">api.register_loot_table</a></li><li class="sub"><a href="#apiextend_loot">api.extend_loot</a></li><li class="sub"><a href="#apiroll_loot">api.roll_loot</a></li><li class="sub"><a href="#apiloot_sources">api.loot_sources</a></li><li class="sub"><a href="#apiset_loot_rate">api.set_loot_rate</a></li><li class="sub"><a href="#apiget_loot_rate">api.get_loot_rate</a></li><li class="sub"><a href="#apiset_loot_boost">api.set_loot_boost</a></li><li class="sub"><a href="#apiregister_feature">api.register_feature</a></li><li class="sub"><a href="#apiget_biome">api.get_biome</a></li><li class="sub"><a href="#apiadd_generation_pass">api.add_generation_pass</a></li><li class="sub"><a href="#apiadd_ore_pass">api.add_ore_pass</a></li>
+      <li><a href="#world-generation">World generation</a></li><li class="sub"><a href="#apiplace_structure_in">api.place_structure_in</a></li><li class="sub"><a href="#apiset_world_generator">api.set_world_generator</a></li><li class="sub"><a href="#apiuse_biome_generator">api.use_biome_generator</a></li><li class="sub"><a href="#apibiome_generator">api.biome_generator</a></li><li class="sub"><a href="#apiregister_biome">api.register_biome</a></li><li class="sub"><a href="#apiadd_cave_carver">api.add_cave_carver</a></li><li class="sub"><a href="#apiregister_structure_template">api.register_structure_template</a></li><li class="sub"><a href="#apiplace_structure">api.place_structure</a></li><li class="sub"><a href="#apifind_structure">api.find_structure</a></li><li class="sub"><a href="#apiregister_structure">api.register_structure</a></li><li class="sub"><a href="#apiregister_loot">api.register_loot</a></li><li class="sub"><a href="#apiregister_loot_table">api.register_loot_table</a></li><li class="sub"><a href="#apiextend_loot">api.extend_loot</a></li><li class="sub"><a href="#apiroll_loot">api.roll_loot</a></li><li class="sub"><a href="#apiloot_sources">api.loot_sources</a></li><li class="sub"><a href="#apiset_loot_rate">api.set_loot_rate</a></li><li class="sub"><a href="#apiget_loot_rate">api.get_loot_rate</a></li><li class="sub"><a href="#apiset_loot_boost">api.set_loot_boost</a></li><li class="sub"><a href="#apiregister_feature">api.register_feature</a></li><li class="sub"><a href="#apiget_biome">api.get_biome</a></li><li class="sub"><a href="#apiadd_generation_pass">api.add_generation_pass</a></li><li class="sub"><a href="#apiadd_ore_pass">api.add_ore_pass</a></li>
     </ul>
   </aside>
 

@@ -79,7 +79,7 @@
     </div>
     <article id="article">
       <h1 id="everything-else">Everything else</h1>
-<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.1.0 · game 0.42.1</p>
 <h3 id="apireloading"><code>api.reloading</code></h3>
 <p>GDScript: <code>api.reloading := false  (property)</code></p>
 <p>True while the mod's setup re-runs for a quick reload (see engine/server/mod_reload.gd): blocks,
@@ -176,6 +176,29 @@ playing, default false)}.</p>
 <p>JavaScript: <code>api.stopMusic(player: Player | null, options?: { fade?: number }): void</code></p>
 <p>Fades the music out for one player, or for everybody when <code>player</code> is null.</p>
 <p><strong>See also:</strong> <code>send_music</code></p>
+<h3 id="apinotable_of"><code>api.notable_of</code></h3>
+<p>GDScript: <code>api.notable_of(entity_or_name) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.notableOf(entityOrName)</code></p>
+<p>Whether this type is one the whole server is told about, and how: {announce, slain, gone, label,
+color, minutes}, or <code>{}</code> for the overwhelming majority that are not. Takes a type id or a name.</p>
+<p>For a mod that wants to do something when a <em>rare</em> creature is involved without keeping its own
+list of which ones are rare - "you killed one of the ones worth hunting" is a question about the
+registry, and a mod that answers it from a hand-written list stops being right the moment anybody
+adds a fifth.</p>
+<p><strong>See also:</strong> <code>entity_type</code></p>
+<h3 id="apiworn"><code>api.worn</code></h3>
+<p>GDScript: <code>api.worn(player, slot_name: String) -&gt; int</code></p>
+<p>JavaScript: <code>api.worn(player, slotName)</code></p>
+<p>Adds an equipment slot (after head, chest, legs, feet, offhand). Items with a matching
+<code>equip_slot</code> go in it; its modifiers apply while worn. def: display_name.
+What a player is wearing in a slot, as an item id, or 0 for nothing. Slot names are the ones
+<code>register_equipment_slot</code> created, plus the engine's own ("head", "chest", "legs", "feet").</p>
+<p>if api.worn(player, "trinket") == api.item("simple_gear:moonpearl_charm"):</p>
+<p><strong>A mod could be told when this changed and could not ask what it was.</strong> <code>equipment_changed</code> has
+existed all along, so a mod wanting to act on worn gear had to watch every change and rebuild the
+state itself - including for players who were already wearing the thing when it loaded, which an
+event cannot tell it. Asking is the half that was missing. (2026-09-24)</p>
+<p><strong>See also:</strong> <code>equipment_index</code></p>
 <h3 id="apiset_map_marker"><code>api.set_map_marker</code></h3>
 <p>GDScript: <code>api.set_map_marker(player, marker_id: String, marker: Dictionary) -&gt; void</code></p>
 <p>JavaScript: <code>api.setMapMarker(player, markerId, marker)</code></p>
@@ -349,13 +372,17 @@ this is for a mod that wants to check before offering something.</p>
 <p>GDScript: <code>api.plots_of(who) -&gt; Array</code></p>
 <p>JavaScript: <code>api.plotsOf(who)</code></p>
 <p>Every plot somebody has a say in.</p>
-<p><strong>See also:</strong> <code>of_player</code>, <code>register_objective</code></p>
+<p><strong>See also:</strong> <code>list</code>, <code>of_player</code>, <code>register_objective</code></p>
 <h3 id="apiregister_objective"><code>api.register_objective</code></h3>
 <p>GDScript: <code>api.register_objective(objective_name: String, def: Dictionary) -&gt; bool</code></p>
 <p>JavaScript: <code>api.registerObjective(objectiveName, def)</code></p>
 <p>Something a player has been asked to do: a story, a daily errand, a contract, a delivery.</p>
 <p>api.register_objective("deliver_the_post", {"display_name": "The Post",
 "steps": [{"text": "Take the letter to Bramble"}, {"text": "Bring her answer back"}]})</p>
+<p><code>order</code> decides where it sits in the player's list (lower first, ties in the order they were
+given): <strong>a story's spine belongs above its errands</strong>, and without it the list is purely
+chronological, so a game that hands out side tasks at the start buries the one line that says what
+the game is about.</p>
 <p><strong>Not a tutorial and not a milestone</strong>, both of which exist already. A tutorial teaches, starts
 itself and is the same for everybody; a milestone notices something that already happened. An
 objective is given, can be refused, runs alongside others, has steps in an order, and can be
@@ -363,8 +390,12 @@ abandoned.</p>
 <p><strong>The engine never decides whether a step is done.</strong> It counts, remembers and tells you; you watch
 whatever event means "they did it" and call advance_objective. Otherwise the engine would have to
 learn what delivering a letter is.</p>
-<pre class="codehilite"><code class="language-gdscript">api.register_objective(&quot;errand&quot;, {&quot;display_name&quot;: &quot;An Errand&quot;,
-    &quot;steps&quot;: [{&quot;text&quot;: &quot;Go and see&quot;}, {&quot;text&quot;: &quot;Come back&quot;, &quot;count&quot;: 2}]})
+<p><code>page</code> names a guide page that helps with this, on the objective or on any single step, and the step
+wins where both are set. The task list shows its title, and the book opens there of its own accord
+next time it is opened - so a child who is stuck looks at the one panel that is already telling them
+what to do. Names without ":" are this mod's.</p>
+<pre class="codehilite"><code class="language-gdscript">api.register_objective(&quot;errand&quot;, {&quot;display_name&quot;: &quot;An Errand&quot;, &quot;page&quot;: &quot;what&quot;,
+    &quot;steps&quot;: [{&quot;text&quot;: &quot;Go and see&quot;, &quot;page&quot;: &quot;errand&quot;}, {&quot;text&quot;: &quot;Come back&quot;, &quot;count&quot;: 2}]})
 </code></pre>
 
 <p><strong>See also:</strong> <code>register</code></p>
@@ -412,12 +443,14 @@ a reward belongs - the engine has no idea what a reward would be.</p>
 <p>The engine draws the conversation, so every character in every mod looks and works the same way - a
 child who has learned to talk to one has learned to talk to all of them. It knows a conversation is
 lines with options and nothing else about what any of it means.</p>
-<p><code>goes_to</code> moves to another line, <code>gives</code> hands over an objective, <code>sells</code> opens a shop, and <code>does</code>
-fires <code>character_choice</code> for anything else at all.</p>
+<p><code>goes_to</code> moves to another line, <code>gives</code> hands over an objective, <code>sells</code> opens a shop, <code>reads</code>
+unlocks a guide page and opens the book there, and <code>does</code> fires <code>character_choice</code> for anything else
+at all. Names without ":" belong to this mod.</p>
 <pre class="codehilite"><code class="language-gdscript">api.register_character(&quot;keeper&quot;, {&quot;display_name&quot;: &quot;The Keeper&quot;, &quot;color&quot;: &quot;#ffd166&quot;, &quot;lines&quot;: {
     &quot;start&quot;: {&quot;text&quot;: &quot;You again.&quot;, &quot;options&quot;: [
         {&quot;text&quot;: &quot;What have you got?&quot;, &quot;sells&quot;: &quot;stall&quot;},
         {&quot;text&quot;: &quot;Anything to do?&quot;, &quot;gives&quot;: &quot;errand&quot;},
+        {&quot;text&quot;: &quot;Where do I read about this?&quot;, &quot;reads&quot;: &quot;errand&quot;},
         {&quot;text&quot;: &quot;Who are you?&quot;, &quot;goes_to&quot;: &quot;who&quot;},
         {&quot;text&quot;: &quot;Nothing&quot;, &quot;does&quot;: &quot;wave&quot;}]},
     &quot;who&quot;: {&quot;text&quot;: &quot;The keeper of this place.&quot;, &quot;options&quot;: [{&quot;text&quot;: &quot;I see&quot;, &quot;goes_to&quot;: &quot;start&quot;}]},
@@ -538,9 +571,9 @@ Sneak gets off. The player's own physics is untouched, which is why riding canno
 <p>JavaScript: <code>api.ridersOf(entity)</code></p>
 <p>Who is aboard, as player ids.</p>
 <p><strong>See also:</strong> <code>order</code>, <code>register_order</code></p>
-<h3 id="apiregister_order"><code>api.register_order</code></h3>
-<p>GDScript: <code>api.register_order(order_name: String, def := {}) -&gt; bool</code></p>
-<p>JavaScript: <code>api.registerOrder(orderName, def)</code></p>
+<h3 id="apitame"><code>api.tame</code></h3>
+<p>GDScript: <code>api.tame(entity, player) -&gt; bool</code></p>
+<p>JavaScript: <code>api.tame(entity, player)</code></p>
 <p>Something a tamed creature can be told to do.</p>
 <p>api.register_order("fetch", {"display_name": "Fetch that", "behavior": "my_mod:fetch"})
 api.order(dog, "fetch")</p>
@@ -550,6 +583,21 @@ the moment there are three things to say.</p>
 <p>Three orders are the engine's own, because all three are about <em>where</em>: <code>engine:follow</code>,
 <code>engine:stay</code> and <code>engine:guard</code>. Anything else maps to a behaviour registered with
 <code>register_mob_behavior</code> - the engine sets the order, your behaviour decides what it looks like.</p>
+<p>Makes <code>entity</code> belong to <code>player</code>, as taming does: it follows them, it does not despawn, and it
+teleports to them rather than being left behind on the wrong side of a ravine.</p>
+<p><strong>The programmatic half of taming, which was missing.</strong> A creature could only become somebody's
+companion by being fed the items its <code>taming</code> block names - fine for a wolf, useless for a story
+character who is a companion from the moment you meet him, and for anything a mod wants to hand
+over as a reward. The behaviour was all already there; there was no way to ask for it.
+(2026-09-24, wanted by Firstlight's guide.)</p>
+<p>Returns false if the entity is gone or is not a creature that can be owned.</p>
+<pre class="codehilite"><code class="language-gdscript">if api.tame(e, player):
+</code></pre>
+
+<p><strong>See also:</strong> <code>is_alive</code>, <code>key_of</code>, <code>play_effect</code>, <code>set_plate</code>, <code>set_target</code></p>
+<h3 id="apiregister_order"><code>api.register_order</code></h3>
+<p>GDScript: <code>api.register_order(order_name: String, def := {}) -&gt; bool</code></p>
+<p>JavaScript: <code>api.registerOrder(orderName, def)</code></p>
 <p>Right-clicking a companion opens the order panel, drawn by the engine. Restrict what a particular
 creature may be told by handling <code>companion_orders</code> and editing <code>orders</code>.</p>
 <pre class="codehilite"><code class="language-gdscript">api.register_order(&quot;forage&quot;, {&quot;display_name&quot;: &quot;Forage here&quot;, &quot;behavior&quot;: &quot;proving:forage&quot;})
@@ -608,7 +656,32 @@ owner (a player or creature it will not touch), realm. Returns its id, or 0.</p>
 <p>GDScript: <code>api.fields_at(position: Vector3, realm_id := "") -&gt; Array</code></p>
 <p>JavaScript: <code>api.fieldsAt(position, realmId)</code></p>
 <p>Every field a point is inside: [{id, kind, realm, position, radius, level, seconds}].</p>
-<p><strong>See also:</strong> <code>at</code>, <code>qualified</code>, <code>register_condition</code></p>
+<p><strong>See also:</strong> <code>add_region</code>, <code>at</code>, <code>on</code>, <code>qualified</code></p>
+<h3 id="apiadd_region"><code>api.add_region</code></h3>
+<p>GDScript: <code>api.add_region(region_name: String, from: Vector3, to: Vector3, options := {}) -&gt; int</code></p>
+<p>JavaScript: <code>api.addRegion(regionName, from, to, options)</code></p>
+<p>A box that says when somebody walks into it and when they walk out. Returns its id, or 0.</p>
+<p>var pad := api.add_region("door_lava", Vector3(10, 64, 10), Vector3(13, 67, 13), {"data": {"game": "lava"}})
+api.on("region_entered", func(ev): ...)   # {player, region, id, data}</p>
+<p>options: <code>realm</code> (which world; "" is the ordinary one) and <code>data</code>, a dictionary handed back on every
+event so a mod does not have to keep its own table of ids.</p>
+<p><strong>Not a field.</strong> A field is a circle that must do something and must be seen; a region does nothing
+and shows nothing, because checkpoints, goal lines, safe zones and the answer squares of a quiz are
+boxes that only need to say who is inside. Both exist: use a field where a player should <em>notice</em>,
+and a region where the mod should. (2026-09-28)</p>
+<pre class="codehilite"><code class="language-gdscript">ids.doorway = api.add_region(&quot;doorway&quot;, Vector3(20, 64, 20), Vector3(24, 68, 24), {&quot;data&quot;: {&quot;leads&quot;: &quot;nowhere&quot;}})
+</code></pre>
+
+<p><strong>See also:</strong> <code>qualified</code></p>
+<h3 id="apiremove_region"><code>api.remove_region</code></h3>
+<p>GDScript: <code>api.remove_region(id: int) -&gt; bool</code></p>
+<p>JavaScript: <code>api.removeRegion(id)</code></p>
+<p>Takes one away. Anybody inside is told they left first, so a mod can undo whatever entering did.</p>
+<h3 id="apiregions_at"><code>api.regions_at</code></h3>
+<p>GDScript: <code>api.regions_at(position: Vector3, realm_id := "") -&gt; Array</code></p>
+<p>JavaScript: <code>api.regionsAt(position, realmId)</code></p>
+<p>Every region a point is inside, as ids.</p>
+<p><strong>See also:</strong> <code>at</code>, <code>qualified</code></p>
 <h3 id="apiregister_condition"><code>api.register_condition</code></h3>
 <p>GDScript: <code>api.register_condition(condition_name: String, def: Dictionary) -&gt; bool</code></p>
 <p>JavaScript: <code>api.registerCondition(conditionName, def)</code></p>
@@ -724,6 +797,10 @@ your own words.</p>
 <p><code>applies_to</code> names items or tags; empty means anything. The stat changes are worked out per level,
 and a line of lore is written into the item so its tooltip says "Keen II" without anything new on
 the wire.</p>
+<p>A mark may also carry <code>glow: {color, energy, light}</code>, which makes the marked item shine and - when
+<code>light</code> is a radius in blocks - light the world around whoever holds or wears it. Energy and radius
+both scale with the level, and the brightest mark on an item wins rather than the sum, so stacking
+two of them does not blind anybody.</p>
 <p><strong>There is no hook system here on purpose.</strong> A mark that should set things alight is a mod listening
 to the hit event it already has and asking whether the weapon is kindled. A second way of doing what
 events already do would be worse than one.</p>
@@ -1033,6 +1110,14 @@ is empty air, which is what a mod that builds its own room wants.</p>
 <p>Closes one now: everybody inside goes back and the space is thrown away. An instance also closes
 itself once it has been empty for its kind's <code>empty_seconds</code>.</p>
 <p><strong>See also:</strong> <code>close</code></p>
+<h3 id="apiinstance_problem"><code>api.instance_problem</code></h3>
+<p>GDScript: <code>api.instance_problem() -&gt; String</code></p>
+<p>JavaScript: <code>api.instanceProblem()</code></p>
+<p>Why the last <code>open_instance</code> or <code>enter_instance</code> refused, in words somebody can be shown.</p>
+<p>The engine has written this down all along and nothing could read it, so a mod that checked the
+answer could say "that did not work" and never why - while <code>plot_problem</code> and <code>shop_problem</code>, the
+same idea, had been exposed for weeks. Found when a descent stopped opening and the only way to tell
+whether the instance was full, closed or never opened was to read the engine. (2026-09-28)</p>
 <h3 id="apiinstance_of"><code>api.instance_of</code></h3>
 <p>GDScript: <code>api.instance_of(player) -&gt; String</code></p>
 <p>JavaScript: <code>api.instanceOf(player)</code></p>
@@ -1062,7 +1147,7 @@ or send_to_realm. What the world is made of is the generator's business, and wha
 <pre class="codehilite"><code class="language-gdscript">api.add_realm(&quot;deep&quot;, {&quot;display_name&quot;: &quot;The Deep&quot;, &quot;generator&quot;: &quot;void&quot;})
 </code></pre>
 
-<p><strong>See also:</strong> <code>attach</code>, <code>reload</code>, <code>set_storage</code>, <code>start</code></p>
+<p><strong>See also:</strong> <code>attach</code>, <code>reload</code>, <code>set_lookup_tables</code>, <code>set_storage</code>, <code>start</code>, <code>update_tables</code></p>
 <h3 id="apirealm_of"><code>api.realm_of</code></h3>
 <p>GDScript: <code>api.realm_of(player) -&gt; String</code></p>
 <p>JavaScript: <code>api.realmOf(player)</code></p>
@@ -1354,6 +1439,24 @@ differently depending on the game it has been added to.</p>
 <p>Changes one of this mod's settings from code (the same path the admin screen uses, so handlers of
 <code>settings_changed</code> run). Returns "" or why it was refused.</p>
 <p><strong>See also:</strong> <code>set_value</code></p>
+<h3 id="apiemit"><code>api.emit</code></h3>
+<p>GDScript: <code>api.emit(event_name: String, data := {}) -&gt; Dictionary</code></p>
+<p>JavaScript: <code>api.emit(eventName, data)</code></p>
+<p>Raises an event of this mod's own, which any other mod can listen for with <code>on</code>. Returns the payload
+after every handler has seen it, so handlers may answer by changing it.</p>
+<h1 id="in-one-mod">in one mod</h1>
+<p>var answer := api.emit("games", {"games": []})
+for game in answer.games: ...</p>
+<h1 id="in-another">in another</h1>
+<p>api.on("fairground:games", func(ev): ev.games.append({"id": "lava", ...}))</p>
+<p><strong>This is the only way one mod can offer anything to another.</strong> Until it existed mods could listen to
+the engine and never to each other, so anything mod-to-mod had to become an engine capability -
+which meant the engine learning what a dungeon, a shop or a contest was. A mod-defined event with a
+payload handlers may edit is the same shape the engine's own events already use (<code>cancelled</code>,
+<code>amount</code>, <code>message</code> are all written back), and it teaches the engine nothing. (2026-09-28)</p>
+<p><strong>The name is always this mod's</strong>, so <code>api.emit("done")</code> raises <code>yourmod:done</code> and nothing else. That
+is not tidiness: without it a mod could raise <code>player_death</code> and every handler in the server would
+believe it.</p>
 <h3 id="apiqualified"><code>api.qualified</code></h3>
 <p>GDScript: <code>api.static qualified(ref: String, owner: String) -&gt; String</code></p>
 <p>JavaScript: <code>api.qualified(ref, owner)</code></p>
@@ -1370,7 +1473,9 @@ systems copy is a fact about the code that ought to be visible in the code.</p>
   <aside class="onpage" aria-label="On this page">
     <div class="grp">On this page</div>
     <ul>
-      <li><a href="#everything-else">Everything else</a></li><li class="sub"><a href="#apireloading">api.reloading</a></li><li class="sub"><a href="#apiregister_ambience">api.register_ambience</a></li><li class="sub"><a href="#apiset_default_role">api.set_default_role</a></li><li class="sub"><a href="#apiregister_weather">api.register_weather</a></li><li class="sub"><a href="#apiset_weather">api.set_weather</a></li><li class="sub"><a href="#apiget_weather">api.get_weather</a></li><li class="sub"><a href="#apiregister_music">api.register_music</a></li><li class="sub"><a href="#apiplay_music">api.play_music</a></li><li class="sub"><a href="#apistop_music">api.stop_music</a></li><li class="sub"><a href="#apiset_map_marker">api.set_map_marker</a></li><li class="sub"><a href="#apiclear_map_marker">api.clear_map_marker</a></li><li class="sub"><a href="#apiset_world_marker">api.set_world_marker</a></li><li class="sub"><a href="#apiclear_world_marker">api.clear_world_marker</a></li><li class="sub"><a href="#apiopen_bag">api.open_bag</a></li><li class="sub"><a href="#apishared_store">api.shared_store</a></li><li class="sub"><a href="#apiopen_shared">api.open_shared</a></li><li class="sub"><a href="#apiget_shared">api.get_shared</a></li><li class="sub"><a href="#apiplay_decal">api.play_decal</a></li><li class="sub"><a href="#apiscreen_tint">api.screen_tint</a></li><li class="sub"><a href="#apiplay_beam">api.play_beam</a></li><li class="sub"><a href="#apifound_company">api.found_company</a></li><li class="sub"><a href="#apidisband_company">api.disband_company</a></li><li class="sub"><a href="#apiset_company_rank">api.set_company_rank</a></li><li class="sub"><a href="#apiremove_from_company">api.remove_from_company</a></li><li class="sub"><a href="#apicompany_rank">api.company_rank</a></li><li class="sub"><a href="#apicompany_at_least">api.company_at_least</a></li><li class="sub"><a href="#apicompanies_of">api.companies_of</a></li><li class="sub"><a href="#apiclaim_plot">api.claim_plot</a></li><li class="sub"><a href="#apirelease_plot">api.release_plot</a></li><li class="sub"><a href="#apiplot_problem">api.plot_problem</a></li><li class="sub"><a href="#apiplot_at">api.plot_at</a></li><li class="sub"><a href="#apimay_build">api.may_build</a></li><li class="sub"><a href="#apiadd_plot_member">api.add_plot_member</a></li><li class="sub"><a href="#apiremove_plot_member">api.remove_plot_member</a></li><li class="sub"><a href="#apiplots_of">api.plots_of</a></li><li class="sub"><a href="#apiregister_objective">api.register_objective</a></li><li class="sub"><a href="#apigive_objective">api.give_objective</a></li><li class="sub"><a href="#apiadvance_objective">api.advance_objective</a></li><li class="sub"><a href="#apiabandon_objective">api.abandon_objective</a></li><li class="sub"><a href="#apiobjectives_of">api.objectives_of</a></li><li class="sub"><a href="#apihas_objective">api.has_objective</a></li><li class="sub"><a href="#apiobjective_finished">api.objective_finished</a></li><li class="sub"><a href="#apiregister_character">api.register_character</a></li><li class="sub"><a href="#apitalk_to">api.talk_to</a></li><li class="sub"><a href="#apihas_met">api.has_met</a></li><li class="sub"><a href="#apiregister_shop">api.register_shop</a></li><li class="sub"><a href="#apishow_shop">api.show_shop</a></li><li class="sub"><a href="#apishop_trade">api.shop_trade</a></li><li class="sub"><a href="#apishop_problem">api.shop_problem</a></li><li class="sub"><a href="#apishop_offers">api.shop_offers</a></li><li class="sub"><a href="#apiset_nameplate">api.set_nameplate</a></li><li class="sub"><a href="#apinameplate_of">api.nameplate_of</a></li><li class="sub"><a href="#apiclear_nameplate">api.clear_nameplate</a></li><li class="sub"><a href="#apifloat_text">api.float_text</a></li><li class="sub"><a href="#apimount">api.mount</a></li><li class="sub"><a href="#apidismount">api.dismount</a></li><li class="sub"><a href="#apiriding">api.riding</a></li><li class="sub"><a href="#apiriders_of">api.riders_of</a></li><li class="sub"><a href="#apiregister_order">api.register_order</a></li><li class="sub"><a href="#apiorder">api.order</a></li><li class="sub"><a href="#apiorder_of">api.order_of</a></li><li class="sub"><a href="#apishow_orders">api.show_orders</a></li><li class="sub"><a href="#apiregister_field">api.register_field</a></li><li class="sub"><a href="#apiplace_field">api.place_field</a></li><li class="sub"><a href="#apiclear_field">api.clear_field</a></li><li class="sub"><a href="#apifields_at">api.fields_at</a></li><li class="sub"><a href="#apiregister_condition">api.register_condition</a></li><li class="sub"><a href="#apigive_condition">api.give_condition</a></li><li class="sub"><a href="#apiclear_condition">api.clear_condition</a></li><li class="sub"><a href="#apiclear_conditions">api.clear_conditions</a></li><li class="sub"><a href="#apihas_condition">api.has_condition</a></li><li class="sub"><a href="#apicondition_level">api.condition_level</a></li><li class="sub"><a href="#apiconditions_of">api.conditions_of</a></li><li class="sub"><a href="#apiregister_ledger">api.register_ledger</a></li><li class="sub"><a href="#apibalance_of">api.balance_of</a></li><li class="sub"><a href="#apiadd_balance">api.add_balance</a></li><li class="sub"><a href="#apiset_balance">api.set_balance</a></li><li class="sub"><a href="#apispend_balance">api.spend_balance</a></li><li class="sub"><a href="#apilevel_of">api.level_of</a></li><li class="sub"><a href="#apilevel_progress">api.level_progress</a></li><li class="sub"><a href="#apibalances_of">api.balances_of</a></li><li class="sub"><a href="#apiregister_modifier">api.register_modifier</a></li><li class="sub"><a href="#apiapply_modifier">api.apply_modifier</a></li><li class="sub"><a href="#apimodifier_level">api.modifier_level</a></li><li class="sub"><a href="#apimodifiers_on">api.modifiers_on</a></li><li class="sub"><a href="#apiregister_liquid">api.register_liquid</a></li><li class="sub"><a href="#apiregister_liquid_meeting">api.register_liquid_meeting</a></li><li class="sub"><a href="#apikeep_awake">api.keep_awake</a></li><li class="sub"><a href="#apilet_sleep">api.let_sleep</a></li><li class="sub"><a href="#apiwake_claim">api.wake_claim</a></li><li class="sub"><a href="#apiset_accepts">api.set_accepts</a></li><li class="sub"><a href="#apistop_accepting">api.stop_accepting</a></li><li class="sub"><a href="#apiwould_accept">api.would_accept</a></li><li class="sub"><a href="#apiregister_drive">api.register_drive</a></li><li class="sub"><a href="#apiset_drive">api.set_drive</a></li><li class="sub"><a href="#apidriven_at">api.driven_at</a></li><li class="sub"><a href="#apidrive_jammed">api.drive_jammed</a></li><li class="sub"><a href="#apion_driven">api.on_driven</a></li><li class="sub"><a href="#apiregister_unit">api.register_unit</a></li><li class="sub"><a href="#apiset_supply">api.set_supply</a></li><li class="sub"><a href="#apiset_demand">api.set_demand</a></li><li class="sub"><a href="#apireceived">api.received</a></li><li class="sub"><a href="#apion_received">api.on_received</a></li><li class="sub"><a href="#apiregister_link_kind">api.register_link_kind</a></li><li class="sub"><a href="#apilink">api.link</a></li><li class="sub"><a href="#apilink_problem">api.link_problem</a></li><li class="sub"><a href="#apilink_refused">api.link_refused</a></li><li class="sub"><a href="#apiunlink">api.unlink</a></li><li class="sub"><a href="#apilinks_at">api.links_at</a></li><li class="sub"><a href="#apitag">api.tag</a></li><li class="sub"><a href="#apitagged">api.tagged</a></li><li class="sub"><a href="#apihas_tag">api.has_tag</a></li><li class="sub"><a href="#apitags_of">api.tags_of</a></li><li class="sub"><a href="#apiregister_signal">api.register_signal</a></li><li class="sub"><a href="#apiset_signal">api.set_signal</a></li><li class="sub"><a href="#apisignal_at">api.signal_at</a></li><li class="sub"><a href="#apiregister_instance">api.register_instance</a></li><li class="sub"><a href="#apiopen_instance">api.open_instance</a></li><li class="sub"><a href="#apienter_instance">api.enter_instance</a></li><li class="sub"><a href="#apileave_instance">api.leave_instance</a></li><li class="sub"><a href="#apiclose_instance">api.close_instance</a></li><li class="sub"><a href="#apiinstance_of">api.instance_of</a></li><li class="sub"><a href="#apiinstance_data">api.instance_data</a></li><li class="sub"><a href="#apiadd_realm">api.add_realm</a></li><li class="sub"><a href="#apirealm_of">api.realm_of</a></li><li class="sub"><a href="#apisend_to_realm">api.send_to_realm</a></li><li class="sub"><a href="#apiset_wind">api.set_wind</a></li><li class="sub"><a href="#apiget_wind">api.get_wind</a></li><li class="sub"><a href="#apicontent_conflicts">api.content_conflicts</a></li><li class="sub"><a href="#apisources_of">api.sources_of</a></li><li class="sub"><a href="#apiregister_source">api.register_source</a></li><li class="sub"><a href="#apiregister_milestone">api.register_milestone</a></li><li class="sub"><a href="#apimilestone_reached">api.milestone_reached</a></li><li class="sub"><a href="#apiset_ugc_policy">api.set_ugc_policy</a></li><li class="sub"><a href="#apiugc_list">api.ugc_list</a></li><li class="sub"><a href="#apiugc_get">api.ugc_get</a></li><li class="sub"><a href="#apiugc_set_status">api.ugc_set_status</a></li><li class="sub"><a href="#apiugc_report">api.ugc_report</a></li><li class="sub"><a href="#apiugc_trust">api.ugc_trust</a></li><li class="sub"><a href="#apiugc_ban">api.ugc_ban</a></li><li class="sub"><a href="#apiregister_permission">api.register_permission</a></li><li class="sub"><a href="#apinetwork_servers">api.network_servers</a></li><li class="sub"><a href="#apiset_arrival_point">api.set_arrival_point</a></li><li class="sub"><a href="#apiraycast">api.raycast</a></li><li class="sub"><a href="#apilook_direction">api.look_direction</a></li><li class="sub"><a href="#apiset_rejoin_handler">api.set_rejoin_handler</a></li><li class="sub"><a href="#apiis_liquid">api.is_liquid</a></li><li class="sub"><a href="#apiarea_cells">api.area_cells</a></li><li class="sub"><a href="#apiregister_area_rule">api.register_area_rule</a></li><li class="sub"><a href="#apiarea_edit">api.area_edit</a></li><li class="sub"><a href="#apishow_area">api.show_area</a></li><li class="sub"><a href="#apiadd_death_messages">api.add_death_messages</a></li><li class="sub"><a href="#apiregister_settings">api.register_settings</a></li><li class="sub"><a href="#apisetting">api.setting</a></li><li class="sub"><a href="#apiis_game">api.is_game</a></li><li class="sub"><a href="#apigame_id">api.game_id</a></li><li class="sub"><a href="#apisettings">api.settings</a></li><li class="sub"><a href="#apiset_setting">api.set_setting</a></li><li class="sub"><a href="#apiqualified">api.qualified</a></li>
+      <li><a href="#everything-else">Everything else</a></li><li class="sub"><a href="#apireloading">api.reloading</a></li><li class="sub"><a href="#apiregister_ambience">api.register_ambience</a></li><li class="sub"><a href="#apiset_default_role">api.set_default_role</a></li><li class="sub"><a href="#apiregister_weather">api.register_weather</a></li><li class="sub"><a href="#apiset_weather">api.set_weather</a></li><li class="sub"><a href="#apiget_weather">api.get_weather</a></li><li class="sub"><a href="#apiregister_music">api.register_music</a></li><li class="sub"><a href="#apiplay_music">api.play_music</a></li><li class="sub"><a href="#apistop_music">api.stop_music</a></li><li class="sub"><a href="#apinotable_of">api.notable_of</a></li><li class="sub"><a href="#apiworn">api.worn</a></li><li class="sub"><a href="#apiset_map_marker">api.set_map_marker</a></li><li class="sub"><a href="#apiclear_map_marker">api.clear_map_marker</a></li><li class="sub"><a href="#apiset_world_marker">api.set_world_marker</a></li><li class="sub"><a href="#apiclear_world_marker">api.clear_world_marker</a></li><li class="sub"><a href="#apiopen_bag">api.open_bag</a></li><li class="sub"><a href="#apishared_store">api.shared_store</a></li><li class="sub"><a href="#apiopen_shared">api.open_shared</a></li><li class="sub"><a href="#apiget_shared">api.get_shared</a></li><li class="sub"><a href="#apiplay_decal">api.play_decal</a></li><li class="sub"><a href="#apiscreen_tint">api.screen_tint</a></li><li class="sub"><a href="#apiplay_beam">api.play_beam</a></li><li class="sub"><a href="#apifound_company">api.found_company</a></li><li class="sub"><a href="#apidisband_company">api.disband_company</a></li><li class="sub"><a href="#apiset_company_rank">api.set_company_rank</a></li><li class="sub"><a href="#apiremove_from_company">api.remove_from_company</a></li><li class="sub"><a href="#apicompany_rank">api.company_rank</a></li><li class="sub"><a href="#apicompany_at_least">api.company_at_least</a></li><li class="sub"><a href="#apicompanies_of">api.companies_of</a></li><li class="sub"><a href="#apiclaim_plot">api.claim_plot</a></li><li class="sub"><a href="#apirelease_plot">api.release_plot</a></li><li class="sub"><a href="#apiplot_problem">api.plot_problem</a></li><li class="sub"><a href="#apiplot_at">api.plot_at</a></li><li class="sub"><a href="#apimay_build">api.may_build</a></li><li class="sub"><a href="#apiadd_plot_member">api.add_plot_member</a></li><li class="sub"><a href="#apiremove_plot_member">api.remove_plot_member</a></li><li class="sub"><a href="#apiplots_of">api.plots_of</a></li><li class="sub"><a href="#apiregister_objective">api.register_objective</a></li><li class="sub"><a href="#apigive_objective">api.give_objective</a></li><li class="sub"><a href="#apiadvance_objective">api.advance_objective</a></li><li class="sub"><a href="#apiabandon_objective">api.abandon_objective</a></li><li class="sub"><a href="#apiobjectives_of">api.objectives_of</a></li><li class="sub"><a href="#apihas_objective">api.has_objective</a></li><li class="sub"><a href="#apiobjective_finished">api.objective_finished</a></li><li class="sub"><a href="#apiregister_character">api.register_character</a></li><li class="sub"><a href="#apitalk_to">api.talk_to</a></li><li class="sub"><a href="#apihas_met">api.has_met</a></li><li class="sub"><a href="#apiregister_shop">api.register_shop</a></li><li class="sub"><a href="#apishow_shop">api.show_shop</a></li><li class="sub"><a href="#apishop_trade">api.shop_trade</a></li><li class="sub"><a href="#apishop_problem">api.shop_problem</a></li><li class="sub"><a href="#apishop_offers">api.shop_offers</a></li><li class="sub"><a href="#apiset_nameplate">api.set_nameplate</a></li><li class="sub"><a href="#apinameplate_of">api.nameplate_of</a></li><li class="sub"><a href="#apiclear_nameplate">api.clear_nameplate</a></li><li class="sub"><a href="#apifloat_text">api.float_text</a></li><li class="sub"><a href="#apimount">api.mount</a></li><li class="sub"><a href="#apidismount">api.dismount</a></li><li class="sub"><a href="#apiriding">api.riding</a></li><li class="sub"><a href="#apiriders_of">api.riders_of</a></li><li class="sub"><a href="#apitame">api.tame</a></li><li class="sub"><a href="#apiregister_order">api.register_order</a></li><li class="sub"><a href="#apiorder">api.order</a></li><li class="sub"><a href="#apiorder_of">api.order_of</a></li><li class="sub"><a href="#apishow_orders">api.show_orders</a></li><li class="sub"><a href="#apiregister_field">api.register_field</a></li><li class="sub"><a href="#apiplace_field">api.place_field</a></li><li class="sub"><a href="#apiclear_field">api.clear_field</a></li><li class="sub"><a href="#apifields_at">api.fields_at</a></li><li class="sub"><a href="#apiadd_region">api.add_region</a></li><li class="sub"><a href="#apiremove_region">api.remove_region</a></li><li class="sub"><a href="#apiregions_at">api.regions_at</a></li><li class="sub"><a href="#apiregister_condition">api.register_condition</a></li><li class="sub"><a href="#apigive_condition">api.give_condition</a></li><li class="sub"><a href="#apiclear_condition">api.clear_condition</a></li><li class="sub"><a href="#apiclear_conditions">api.clear_conditions</a></li><li class="sub"><a href="#apihas_condition">api.has_condition</a></li><li class="sub"><a href="#apicondition_level">api.condition_level</a></li><li class="sub"><a href="#apiconditions_of">api.conditions_of</a></li><li class="sub"><a href="#apiregister_ledger">api.register_ledger</a></li><li class="sub"><a href="#apibalance_of">api.balance_of</a></li><li class="sub"><a href="#apiadd_balance">api.add_balance</a></li><li class="sub"><a href="#apiset_balance">api.set_balance</a></li><li class="sub"><a href="#apispend_balance">api.spend_balance</a></li><li class="sub"><a href="#apilevel_of">api.level_of</a></li><li class="sub"><a href="#apilevel_progress">api.level_progress</a></li><li class="sub"><a href="#apibalances_of">api.balances_of</a></li><li class="sub"><a href="#apiregister_modifier">api.register_modifier</a></li><li class="sub"><a href="#apiapply_modifier">api.apply_modifier</a></li><li class="sub"><a href="#apimodifier_level">api.modifier_level</a></li><li class="sub"><a href="#apimodifiers_on">api.modifiers_on</a></li><li class="sub"><a href="#apiregister_liquid">api.register_liquid</a></li><li class="sub"><a href="#apiregister_liquid_meeting">api.register_liquid_meeting</a></li><li class="sub"><a href="#apikeep_awake">api.keep_awake</a></li><li class="sub"><a href="#apilet_sleep">api.let_sleep</a></li><li class="sub"><a href="#apiwake_claim">api.wake_claim</a></li><li class="sub"><a href="#apiset_accepts">api.set_accepts</a></li><li class="sub"><a href="#apistop_accepting">api.stop_accepting</a></li><li class="sub"><a href="#apiwould_accept">api.would_accept</a></li><li class="sub"><a href="#apiregister_drive">api.register_drive</a></li><li class="sub"><a href="#apiset_drive">api.set_drive</a></li><li class="sub"><a href="#apidriven_at">api.driven_at</a></li><li class="sub"><a href="#apidrive_jammed">api.drive_jammed</a></li><li class="sub"><a href="#apion_driven">api.on_driven</a></li><li class="sub"><a href="#apiregister_unit">api.register_unit</a></li><li class="sub"><a href="#apiset_supply">api.set_supply</a></li><li class="sub"><a href="#apiset_demand">api.set_demand</a></li><li class="sub"><a href="#apireceived">api.received</a></li><li class="sub"><a href="#apion_received">api.on_received</a></li><li class="sub"><a href="#apiregister_link_kind">api.register_link_kind</a></li><li class="sub"><a href="#apilink">api.link</a></li><li class="sub"><a href="#apilink_problem">api.link_problem</a></li><li class="sub"><a href="#apilink_refused">api.link_refused</a></li><li class="sub"><a href="#apiunlink">api.unlink</a></li><li class="sub"><a href="#apilinks_at">api.links_at</a></li><li class="sub"><a href="#apitag">api.tag</a></li><li class="sub"><a href="#apitagged">api.tagged</a></li><li class="sub"><a href="#apihas_tag">api.has_tag</a></li><li class="sub"><a href="#apitags_of">api.tags_of</a></li><li class="sub"><a href="#apiregister_signal">api.register_signal</a></li><li class="sub"><a href="#apiset_signal">api.set_signal</a></li><li class="sub"><a href="#apisignal_at">api.signal_at</a></li><li class="sub"><a href="#apiregister_instance">api.register_instance</a></li><li class="sub"><a href="#apiopen_instance">api.open_instance</a></li><li class="sub"><a href="#apienter_instance">api.enter_instance</a></li><li class="sub"><a href="#apileave_instance">api.leave_instance</a></li><li class="sub"><a href="#apiclose_instance">api.close_instance</a></li><li class="sub"><a href="#apiinstance_problem">api.instance_problem</a></li><li class="sub"><a href="#apiinstance_of">api.instance_of</a></li><li class="sub"><a href="#apiinstance_data">api.instance_data</a></li><li class="sub"><a href="#apiadd_realm">api.add_realm</a></li><li class="sub"><a href="#apirealm_of">api.realm_of</a></li><li class="sub"><a href="#apisend_to_realm">api.send_to_realm</a></li><li class="sub"><a href="#apiset_wind">api.set_wind</a></li><li class="sub"><a href="#apiget_wind">api.get_wind</a></li><li class="sub"><a href="#apicontent_conflicts">api.content_conflicts</a></li><li class="sub"><a href="#apisources_of">api.sources_of</a></li><li class="sub"><a href="#apiregister_source">api.register_source</a></li><li class="sub"><a href="#apiregister_milestone">api.register_milestone</a></li><li class="sub"><a href="#apimilestone_reached">api.milestone_reached</a></li><li class="sub"><a href="#apiset_ugc_policy">api.set_ugc_policy</a></li><li class="sub"><a href="#apiugc_list">api.ugc_list</a></li><li class="sub"><a href="#apiugc_get">api.ugc_get</a></li><li class="sub"><a href="#apiugc_set_status">api.ugc_set_status</a></li><li class="sub"><a href="#apiugc_report">api.ugc_report</a></li><li class="sub"><a href="#apiugc_trust">api.ugc_trust</a></li><li class="sub"><a href="#apiugc_ban">api.ugc_ban</a></li><li class="sub"><a href="#apiregister_permission">api.register_permission</a></li><li class="sub"><a href="#apinetwork_servers">api.network_servers</a></li><li class="sub"><a href="#apiset_arrival_point">api.set_arrival_point</a></li><li class="sub"><a href="#apiraycast">api.raycast</a></li><li class="sub"><a href="#apilook_direction">api.look_direction</a></li><li class="sub"><a href="#apiset_rejoin_handler">api.set_rejoin_handler</a></li><li class="sub"><a href="#apiis_liquid">api.is_liquid</a></li><li class="sub"><a href="#apiarea_cells">api.area_cells</a></li><li class="sub"><a href="#apiregister_area_rule">api.register_area_rule</a></li><li class="sub"><a href="#apiarea_edit">api.area_edit</a></li><li class="sub"><a href="#apishow_area">api.show_area</a></li><li class="sub"><a href="#apiadd_death_messages">api.add_death_messages</a></li><li class="sub"><a href="#apiregister_settings">api.register_settings</a></li><li class="sub"><a href="#apisetting">api.setting</a></li><li class="sub"><a href="#apiis_game">api.is_game</a></li><li class="sub"><a href="#apigame_id">api.game_id</a></li><li class="sub"><a href="#apisettings">api.settings</a></li><li class="sub"><a href="#apiset_setting">api.set_setting</a></li><li class="sub"><a href="#apiemit">api.emit</a></li>
+      <li><a href="#in-one-mod">in one mod</a></li>
+      <li><a href="#in-another">in another</a></li><li class="sub"><a href="#apiqualified">api.qualified</a></li>
     </ul>
   </aside>
 

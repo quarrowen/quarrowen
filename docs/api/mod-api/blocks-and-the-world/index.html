@@ -79,7 +79,7 @@
     </div>
     <article id="article">
       <h1 id="blocks-and-the-world">Blocks and the world</h1>
-<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.0.0 · game 0.42.0</p>
+<p>Part of the <a href="../">Mod API reference</a>. Mod API 1.1.0 · game 0.42.1</p>
 <h3 id="apiregister_block"><code>api.register_block</code></h3>
 <p>GDScript: <code>api.register_block(block_name: String, def: Dictionary) -&gt; int</code></p>
 <p>JavaScript: <code>api.registerBlock(name: string, def: BlockDef): BlockId</code></p>
@@ -122,10 +122,16 @@ answer out itself.</p>
 
 <p><strong>See also:</strong> <code>block</code>, <code>is_excluded</code>, <code>qualified</code>, <code>register</code></p>
 <h3 id="apischedule_block_tick"><code>api.schedule_block_tick</code></h3>
-<p>GDScript: <code>api.schedule_block_tick(position: Vector3i, seconds: float, payload := {}) -&gt; void</code></p>
-<p>JavaScript: <code>api.scheduleBlockTick(position, seconds, payload)</code></p>
+<p>GDScript: <code>api.schedule_block_tick(position: Vector3i, seconds: float, payload := {}, realm_id := "") -&gt; void</code></p>
+<p>JavaScript: <code>api.scheduleBlockTick(position, seconds, payload, realmId)</code></p>
 <p>Calls the tick handler of the block at <code>position</code> after <code>seconds</code>, with <code>payload</code> (saved with the world).</p>
-<p><strong>See also:</strong> <code>schedule</code></p>
+<p><strong><code>realm_id</code> is last here rather than after the required arguments</strong>, which breaks the convention the
+block functions keep, and on purpose: <code>payload</code> already occupies the third place and moving it would
+change a signature in place, which is the one thing the API policy forbids. Appending is free.</p>
+<p>Without it a handler could not reschedule itself anywhere but the overworld. A handler <em>is</em> told which
+realm it is in - <code>ctx.realm</code> - so a machine in a dimension would read its own realm, ask for another
+tick, have it scheduled in the overworld where there is no such block, and simply stop. (2026-09-28)</p>
+<p><strong>See also:</strong> <code>qualified</code>, <code>register_instance</code>, <code>schedule</code></p>
 <h3 id="apiget_light"><code>api.get_light</code></h3>
 <p>GDScript: <code>api.get_light(position: Vector3i) -&gt; int</code></p>
 <p>JavaScript: <code>api.getLight(position)</code></p>
@@ -323,7 +329,10 @@ removed automatically when the block is broken or replaced.</p>
 <p>JavaScript: <code>api.fill(from: Vec3, to: Vec3, id: BlockId): void</code></p>
 <p>Sets every block in the box between two corners (inclusive) to a block id.</p>
 <p><strong>Admin, not a player action</strong>: no permission check, no events, no budget, no drops. For a tool a
-player holds, use <code>area_edit</code>, which asks all of those.</p>
+player holds, use <code>area_edit</code>, which asks all of those.
+<strong>It does not run machinery.</strong> Block ticks, signals, liquids, multiblocks and links are told once per
+chunk rather than once per block - which is what makes it usable for a room-sized box at all. Use
+<code>set_block</code> for a block that something is attached to.</p>
 <h3 id="apisurface_y"><code>api.surface_y</code></h3>
 <p>GDScript: <code>api.surface_y(x: int, z: int, realm_id := "") -&gt; int</code></p>
 <p>JavaScript: <code>api.surfaceY(x: number, z: number): number</code></p>
