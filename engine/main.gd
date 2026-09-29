@@ -580,6 +580,14 @@ func _labeled(parent: Control, label_text: String, control: Control) -> Control:
 
 ## `ended`: {kind, address, port} of the game that just closed, to offer the right fix with the message.
 func _show_menu(message: String, ended := {}) -> void:
+	# **Sweep again on the way back to the menu.** It used to run only at startup, so a long evening
+	# spent hopping between servers - each one adding textures, models and other players' skins - could
+	# sit over budget until the game was next launched. Here is the right second moment: the caches have
+	# just finished growing and nothing is being drawn, so a directory scan costs nobody a frame.
+	# (2026-09-29)
+	var freed := Housekeeping.sweep()
+	if freed > 0:
+		print("[main] Freed %s of cached downloads" % Housekeeping.human(freed))
 	_menu.visible = true
 	_backdrop_fallback.visible = true
 	_backdrop_fallback.modulate.a = 1.0

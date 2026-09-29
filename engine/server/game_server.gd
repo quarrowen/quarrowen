@@ -859,7 +859,20 @@ func mod_storage(mod_id: String) -> Dictionary:
 ## The client fetches one the first time something actually needs it. Music lives here: a track is
 ## megabytes where a texture is a few hundred bytes, and a child should not wait through the soundtrack
 ## to get into the world.
+## The file types a client will ever decode: images, audio and binary models. Everything else a server
+## published was already inert - the client writes each asset to `<cache>/<sha256>.bin` and only decodes
+## these - but the guarantee was incidental rather than structural, and a server could publish
+## `mymod:payload.exe` and have it sit on every player's disk. Refusing it here makes "assets are data"
+## something the engine enforces rather than something that happens to be true. (2026-09-29)
+const ASSET_TYPES := ["png", "ogg", "wav", "glb", "json"]
+
+
 func add_asset(asset_name: String, path: String, lazy := false) -> void:
+	var kind := asset_name.get_extension().to_lower()
+	if not ASSET_TYPES.has(kind):
+		push_error("[server] Asset %s has type '%s'; assets may only be %s." % [
+			asset_name, kind, ", ".join(ASSET_TYPES)])
+		return
 	if _assets.has(asset_name):
 		# Something already asked for this file eagerly, and that wins: an asset needed to draw the world
 		# cannot become optional because a second caller was relaxed about it.

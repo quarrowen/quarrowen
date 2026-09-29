@@ -6227,7 +6227,7 @@ GDScript: `set_view(view: Dictionary) -> void`
 
 {active: [{name, display_name, step, of, text, progress, needed}]} from the server.
 
-**See also:** `icon_of`, `key_name`, `new_game`, `node_key`, `texture`, `uptime`
+**See also:** `icon_of`, `key_name`, `new_game`, `node_key`, `safe`, `texture`
 
 ### `preferred_page`
 
@@ -7074,7 +7074,7 @@ JavaScript: `api.showTip(p, id)`
 
 Shows a tip now (registered id), even if it was seen before.
 
-**See also:** `icon_of`, `key_name`, `library`, `node_key`, `qualified`, `state_of`
+**See also:** `icon_of`, `key_name`, `library`, `node_key`, `qualified`, `safe`
 
 ### `store`
 
@@ -10109,6 +10109,20 @@ GDScript: `static describe_time(unix: int) -> String`
 
 "3 minutes ago", "yesterday", "12 Sep 2026".
 
+### `is_glb`
+
+*client/model_library.gd*
+
+GDScript: `static is_glb(bytes: PackedByteArray) -> bool`
+
+Is this a binary glTF? **The magic bytes, checked before the parser is handed anything.**
+
+A `.glb` carries its buffers inside itself. A *text* `.gltf` can instead reference external files by
+URI, and these bytes arrive from whichever server the player joined - so letting one through means
+handing a server-authored URI to Godot's resolver with an empty base path. `Creations.measure_model`
+has always checked this for player creations; the server-asset path did not, which left the stricter
+rule on the less dangerous of the two. (2026-09-29)
+
 ### `load_mesh`
 
 *client/model_library.gd*
@@ -10116,6 +10130,8 @@ GDScript: `static describe_time(unix: int) -> String`
 GDScript: `static load_mesh(bytes: PackedByteArray) -> ArrayMesh`
 
 Returns null if the bytes are not a usable model.
+
+**See also:** `is_glb`
 
 ### `load_parts`
 
@@ -10126,6 +10142,8 @@ GDScript: `static load_parts(bytes: PackedByteArray) -> Array`
 For animated entities: one entry per glTF node with a mesh, {name, mesh, transform}, where the
 transform is the node's global transform (its pivot) and the mesh stays in node space so the part
 can rotate around its pivot. Returns [] if the bytes are not a usable model.
+
+**See also:** `is_glb`
 
 ### `apply`
 
@@ -11104,17 +11122,6 @@ Returns the realm, or null when the name is taken or empty. The id is the mod's 
 ("mymod:emberdeep"), so two mods can both have an underworld without colliding.
 
 **See also:** `attach`, `reload`, `set_lookup_tables`, `set_storage`, `start`, `update_tables`
-
-### `add_asset`
-
-*server/game_server.gd*
-
-GDScript: `add_asset(asset_name: String, path: String, lazy := false) -> void`
-
-`lazy` assets are in the manifest but are not part of the download a player waits through to join.
-The client fetches one the first time something actually needs it. Music lives here: a track is
-megabytes where a texture is a few hundred bytes, and a child should not wait through the soundtrack
-to get into the world.
 
 ### `set_rules`
 
@@ -12481,6 +12488,14 @@ GDScript: `static restricted() -> bool`
 
 Whether this process has been kept off the network. Tests assert on it, because the whole point is
 that it is true while they run and false while somebody is playing.
+
+### `safe`
+
+*shared/rich_text.gd*
+
+GDScript: `static safe(text: String) -> String`
+
+Neutralises every BBCode tag except `ALLOWED`. Safe to call on text that contains none.
 
 ### `chunks`
 

@@ -5,11 +5,22 @@ extends RefCounted
 const MAX_VERTICES := 65536
 
 
+## Is this a binary glTF? **The magic bytes, checked before the parser is handed anything.**
+##
+## A `.glb` carries its buffers inside itself. A *text* `.gltf` can instead reference external files by
+## URI, and these bytes arrive from whichever server the player joined - so letting one through means
+## handing a server-authored URI to Godot's resolver with an empty base path. `Creations.measure_model`
+## has always checked this for player creations; the server-asset path did not, which left the stricter
+## rule on the less dangerous of the two. (2026-09-29)
+static func is_glb(bytes: PackedByteArray) -> bool:
+	return bytes.size() >= 12 and bytes.slice(0, 4).get_string_from_ascii() == "glTF"
+
+
 ## Returns null if the bytes are not a usable model.
 static func load_mesh(bytes: PackedByteArray) -> ArrayMesh:
 	var doc := GLTFDocument.new()
 	var state := GLTFState.new()
-	if bytes.is_empty() or doc.append_from_buffer(bytes, "", state) != OK:
+	if not is_glb(bytes) or doc.append_from_buffer(bytes, "", state) != OK:
 		return null
 	var nodes := state.get_nodes()
 	var meshes := state.get_meshes()
@@ -49,7 +60,7 @@ static func load_mesh(bytes: PackedByteArray) -> ArrayMesh:
 static func load_parts(bytes: PackedByteArray) -> Array:
 	var doc := GLTFDocument.new()
 	var state := GLTFState.new()
-	if bytes.is_empty() or doc.append_from_buffer(bytes, "", state) != OK:
+	if not is_glb(bytes) or doc.append_from_buffer(bytes, "", state) != OK:
 		return []
 	var nodes := state.get_nodes()
 	var meshes := state.get_meshes()

@@ -1,6 +1,7 @@
 extends Control
 ## Tutorial tracker, tips and hint markers.
 ## - The tracker (left side) shows the running tutorial's current step, its progress and a key to read
+const RichText = preload("res://engine/shared/rich_text.gd")
 ##   the linked guide page; it flashes when a step is done.
 ## - Tips slide in below it for a few seconds.
 ## - Hints: a bobbing marker above the nearest matching block or mob (or a position) and an arrow at
@@ -147,7 +148,8 @@ func set_view(v: Dictionary) -> void:
 	_tracker.visible = true
 	_header.text = "TUTORIAL · %s   %d/%d" % [v.title, int(v.index) + 1, int(v.total)]
 	_step_title.text = step.title
-	_step_text.text = step.text
+	# Tutorial text is the server's; see engine/shared/rich_text.gd.
+	_step_text.text = RichText.safe(str(step.text))
 	_step_text.visible = not str(step.text).is_empty()
 	var item_id: int = client.items.id_of(str(step.icon)) if not str(step.icon).is_empty() else -1
 	_step_icon.texture = client._crafting_screen._icon(item_id) if item_id > 0 else null
@@ -177,7 +179,7 @@ func step_done(kind: String) -> void:
 
 func show_tip(t: Dictionary) -> void:
 	tip = t
-	_tip_text.text = str(t.get("text", ""))
+	_tip_text.text = RichText.safe(str(t.get("text", "")))
 	var item_id: int = client.items.id_of(str(t.get("icon", ""))) if not str(t.get("icon", "")).is_empty() else -1
 	_tip_icon.texture = client._crafting_screen._icon(item_id) if item_id > 0 else null
 	_tip_icon.visible = _tip_icon.texture != null

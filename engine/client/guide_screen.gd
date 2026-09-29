@@ -11,6 +11,7 @@ signal lookup_requested(item: int, mode: String)
 
 const GuideRegistry = preload("res://engine/shared/guide_registry.gd")
 const EntityView = preload("res://engine/client/entity_view.gd")
+const RichText = preload("res://engine/shared/rich_text.gd")
 
 const PAPER := Color(0.93, 0.88, 0.76)
 const INK := Color(0.22, 0.16, 0.1)
@@ -484,7 +485,8 @@ func _paragraph(text: String) -> RichTextLabel:
 	r.add_theme_font_size_override("normal_font_size", 16)
 	r.add_theme_font_size_override("bold_font_size", 16)
 	r.add_theme_font_size_override("italics_font_size", 16)
-	r.text = text
+	# The page comes from whichever mod the server is running; see engine/shared/rich_text.gd.
+	r.text = RichText.safe(text)
 	r.meta_clicked.connect(func(meta): show_page(str(meta)))
 	return r
 

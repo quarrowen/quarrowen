@@ -9,7 +9,9 @@ extends RefCounted
 ## seen on anyone, and every version of every mod ever loaded, kept for good. On a child's laptop that is
 ## the kind of thing nobody notices until the disk is full.
 ##
-## `sweep()` runs once at startup. Pruning is by last-modified time, oldest first, down to a byte budget:
+## `sweep()` runs at startup and again whenever the menu comes back - that second one because an evening
+## of server-hopping grows these caches and used to leave them over budget until the next launch. Pruning
+## is by last-modified time, oldest first, down to a byte budget:
 ## a cache entry that has not been wanted in a long time is the one to lose, and re-downloading it is
 ## only a wait.
 
