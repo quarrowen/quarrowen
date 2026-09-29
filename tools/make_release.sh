@@ -244,6 +244,7 @@ sign "$out/mods.json"
 # The page groups mods the way the game's own list does: games to play, add-ons for a game, and the
 # library everything is built on (see docs/mods_plan.md). `kind` comes from each mod.json.
 games_rows=""
+game_cards=""
 addon_rows=""
 library_rows=""
 for zip in "$out/$files"/mods/*.zip; do
@@ -254,7 +255,12 @@ for zip in "$out/$files"/mods/*.zip; do
 	kind="$(sed -n 's/.*"kind"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
 	row="<tr><td><b>${name:-$id}</b><br><span class=\"dim\">$description</span></td><td class=\"right\"><a href=\"$mods_base/$file\">$file</a><br><span class=\"dim\">$(human "$zip")</span></td></tr>"
 	case "$kind" in
-		game) games_rows="$games_rows$row" ;;
+		game) games_rows="$games_rows$row"
+			# **The same manifest, read once.** The section near the top of the page that tells a player
+			# what there is to play is built here rather than written into the template, because a
+			# hand-written list is how the README spent a week naming three games that had been deleted.
+			# (2026-09-29)
+			game_cards="$game_cards<div class=\"lane\"><h3>${name:-$id}</h3><p>$description</p></div>" ;;
 		library) library_rows="$library_rows$row" ;;
 		*) addon_rows="$addon_rows$row" ;;
 	esac
@@ -443,6 +449,38 @@ cat > "$out/index.html" <<EOF
 
 <div class="wrap">
 
+<section id="play">
+  <h2>What you can <span>play</span></h2>
+  <p class="sub">All of it comes with the download, and each one is a mod - so anything they do, yours
+  can do too. Play on your own, or start a world and let somebody join.</p>
+  <div class="lanes">$game_cards</div>
+</section>
+
+<section id="safe">
+  <h2>Is it <span>safe</span> to join someone's server?</h2>
+  <p class="sub">The honest answer, because the way this works invites the question: a server sends your
+  game <b>data, never code</b>. There is no mod runtime in the client at all - nothing in the protocol
+  carries a script, and mods run on the machine hosting the world, not yours.</p>
+  <div class="lanes">
+    <div class="lane">
+      <h3>No accounts, nothing collected</h3>
+      <p>No sign-up, no email, no telemetry, no analytics. A player is a key on their own computer, and
+      worlds are files on yours.</p>
+    </div>
+    <div class="lane">
+      <h3>Everything is bounded</h3>
+      <p>What a server may send is size-limited and checked before it is used, and downloaded content is
+      stored under the hash of its own contents - so no server can name a file on your disk.</p>
+    </div>
+    <div class="lane">
+      <h3>The limits, written down</h3>
+      <p>Where the protections end is on the page too, not buried: what trust-on-first-use means, and
+      what your client does parse from a server.</p>
+      <a href="/docs/security/">Security →</a>
+    </div>
+  </div>
+</section>
+
 <section id="different">
   <h2>How this is <span>different</span></h2>
   <p class="sub">Block games are a genre, the way platformers are. What Quarrowen does differently is
@@ -520,6 +558,12 @@ cat > "$out/index.html" <<EOF
       <p>What it costs, whether it's safe for children, where your worlds are kept.</p>
       <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/faq.md">FAQ →</a>
     </div>
+    <div class="lane">
+      <h3>Writing about it</h3>
+      <p>The facts in one table: what it is, what it costs, what it is made of, and screenshots of the
+      build that is actually shipping.</p>
+      <a href="#facts">At a glance →</a>
+    </div>
   </div>
 </section>
 
@@ -550,6 +594,31 @@ docker compose pull &amp;&amp; docker compose up -d</pre>
   <p>It was built for one family's children, and it is free for yours. Free to play, modify and share for
   anything noncommercial; commercial use needs a separate licence.
   <a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a></p>
+</section>
+
+<section id="facts">
+  <h2>At a <span>glance</span></h2>
+  <p class="sub">For anyone writing about it, or deciding quickly whether it is worth their evening.
+  Everything here is checkable in the repository.</p>
+  <table>
+    <tr><td><b>What it is</b></td><td>A voxel game engine. The client ships no game of its own; blocks,
+      creatures and rules arrive from the server you join.</td></tr>
+    <tr><td><b>Version</b></td><td>$version, released $(date -u +"%e %B %Y" | sed 's/^ //')</td></tr>
+    <tr><td><b>Platforms</b></td><td>macOS (Intel and Apple silicon, signed and notarized) and Windows.
+      Linux and iOS build but are not released.</td></tr>
+    <tr><td><b>Price</b></td><td>Free. No accounts, no store, no currency, no advertising, no telemetry.</td></tr>
+    <tr><td><b>Licence</b></td><td>PolyForm Noncommercial 1.0.0 — free to play, modify and share for
+      anything noncommercial. Not an OSI open-source licence; commercial use needs a separate one.</td></tr>
+    <tr><td><b>Made with</b></td><td>Godot 4.7 and a Rust extension, written end to end with Claude Code
+      from an empty folder. Every texture, model and sound is generated by a script — no asset packs.</td></tr>
+    <tr><td><b>Modding</b></td><td>GDScript or JavaScript, the JavaScript sandboxed. Over 260 API
+      functions, all documented and generated from source. No marketplace, no approval queue.</td></tr>
+    <tr><td><b>Source</b></td><td><a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a>
+      — engine, server, protocol, tests and tooling, all published.</td></tr>
+    <tr><td><b>Screenshots</b></td><td><a href="shots/hero.jpg">hero.jpg</a> ·
+      <a href="shots/menu.jpg">menu.jpg</a>. Generated by the project's own screenshot harness, so they
+      are of the build being shipped rather than a mock-up.</td></tr>
+  </table>
 </section>
 
 <footer>
