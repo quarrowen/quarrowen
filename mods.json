@@ -4,24 +4,6 @@
 			"authors": [
 				"Quarrowen"
 			],
-			"depends": [
-				"base@^1.0"
-			],
-			"description": "A mana system: crystals spawn underground, pylons recharge mana, wands cast spells. Add to any game, e.g. --mods=vanilla,arcana",
-			"engine": "^1.0",
-			"game": false,
-			"id": "arcana",
-			"kind": "addon",
-			"name": "Arcana",
-			"sha256": "a478827e81099867e0bc3726070d60c0b33fde50f45240156048f01b5d9a306d",
-			"size": 32906,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/arcana-1.0.0.zip",
-			"version": "1.0.0"
-		},
-		{
-			"authors": [
-				"Quarrowen"
-			],
 			"depends": [],
 			"description": "Common terrain and building blocks shared by other mods. Not a game on its own.",
 			"engine": "^1.0",
@@ -29,27 +11,9 @@
 			"id": "base",
 			"kind": "library",
 			"name": "Base Blocks",
-			"sha256": "33c3e86344567dc07b3aa93d033f124291a0d84ee8a6187168c0718e7297209b",
-			"size": 225409,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/base-1.0.0.zip",
-			"version": "1.0.0"
-		},
-		{
-			"authors": [
-				"Quarrowen"
-			],
-			"depends": [
-				"base@^1.0"
-			],
-			"description": "A JavaScript mod: quest boards, gold coins, a shop that sells other mods' items, gold ore, meteor showers and a guild leaderboard. Add to any game, e.g. --mods=vanilla,guild",
-			"engine": "^1.0",
-			"game": false,
-			"id": "guild",
-			"kind": "addon",
-			"name": "Adventurers' Guild",
-			"sha256": "e2dedd7c8835f207b3528e0c6bc838d6e891ab43ad54abd248f6951443179a70",
-			"size": 56263,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/guild-1.0.0.zip",
+			"sha256": "3cefadb7d868ae8ab1bcc8c35018acf362132aebe3ecba7dd009e41354358e47",
+			"size": 267459,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/base-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -58,17 +22,57 @@
 			],
 			"depends": [
 				"base@^1.0",
-				"vanilla@^1.0"
+				"simple_machines@^1.0",
+				"simple_gear@^1.0"
 			],
-			"description": "A valley whose light went out. Find the people who scattered into the hills, build them somewhere to live, and get the light lit again before another long night.",
+			"description": "A world and everything in it, and nothing to survive. Build.",
 			"engine": "^1.0",
 			"game": true,
-			"id": "hearthhold",
+			"id": "creative",
 			"kind": "game",
-			"name": "Hearthhold",
-			"sha256": "511e3e1a0a017cc191b82fe46e8994ff6d191e81c4598ca0794b532deb66b4d1",
-			"size": 98585,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/hearthhold-0.1.0.zip",
+			"name": "Creative",
+			"sha256": "421047d23163df9e54ada02a466ce50a3fee9ab88de23a1e62a418891e3fe0d3",
+			"size": 170406,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/creative-1.0.0.zip",
+			"version": "1.0.0"
+		},
+		{
+			"authors": [
+				"Quarrowen"
+			],
+			"depends": [
+				"base@^1.0"
+			],
+			"description": "A hub of short games with a door to each: step through one and a round begins. Every game is worth playing on your own, and better with somebody.",
+			"engine": "^1.1",
+			"game": true,
+			"id": "fairground",
+			"kind": "game",
+			"name": "The Fairground",
+			"sha256": "9599ff8feaf03d2d69effc3a3820c384471ce903fd80c6255df0b514f1a794b8",
+			"size": 13398,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/fairground-1.0.0.zip",
+			"version": "1.0.0"
+		},
+		{
+			"authors": [
+				"Quarrowen"
+			],
+			"depends": [
+				"base@^1.0",
+				"simple_machines@^1.0",
+				"simple_gear@^1.0",
+				"guidebook@^1.0"
+			],
+			"description": "Make it through the night. Dig, build, and come back out in the morning.",
+			"engine": "^1.0",
+			"game": true,
+			"id": "firstlight",
+			"kind": "game",
+			"name": "Firstlight",
+			"sha256": "ff68d438db82dee84b50229e5f6bc15c17b983c3d82b012b2cdd5daff257fa14",
+			"size": 358272,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/firstlight-0.1.0.zip",
 			"version": "0.1.0"
 		},
 		{
@@ -76,17 +80,19 @@
 				"Quarrowen"
 			],
 			"depends": [
-				"base@^1.0"
+				"base@^1.0",
+				"simple_machines@^1.0",
+				"simple_gear@^1.0"
 			],
-			"description": "Power networks: coal generators and solar panels feed cables, batteries, lamps and auto-miners. Add to any game, e.g. --mods=vanilla,industry",
+			"description": "The in-game Survival Guide: what the blocks, machines and gear are for. A library any game can include, because none of it belongs to one.",
 			"engine": "^1.0",
 			"game": false,
-			"id": "industry",
-			"kind": "addon",
-			"name": "Industry",
-			"sha256": "08f320717118f8a94404b3c03ca725ea85f5c5171a4f8c1794cb9575ba5af756",
-			"size": 139695,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/industry-1.0.0.zip",
+			"id": "guidebook",
+			"kind": "library",
+			"name": "Guidebook",
+			"sha256": "548d85dc9c7b6a9fa4dba8720044892209ac6bf118c41a22eff8d6176ad01634",
+			"size": 9831,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/guidebook-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -94,17 +100,56 @@
 				"Quarrowen"
 			],
 			"depends": [
-				"base@^1.0"
+				"base@^1.0",
+				"fairground@^1.0"
 			],
-			"description": "One block over the void. Break it and something else takes its place: dirt, then stone and ores, then creatures and crates. Build outwards from what you collect.",
+			"description": "The lava is rising and the floor is going. Climb, or build something to stand on. A game for the Fairground.",
+			"engine": "^1.1",
+			"game": false,
+			"id": "lavagame",
+			"kind": "addon",
+			"name": "The Floor is Lava",
+			"sha256": "30e834e369bf465396ef79985b614432473d060c51e16cba5f4ca069ec295f35",
+			"size": 3922,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/lavagame-1.0.0.zip",
+			"version": "1.0.0"
+		},
+		{
+			"authors": [
+				"Quarrowen"
+			],
+			"depends": [
+				"base@^1.0",
+				"simple_gear@^1.0"
+			],
+			"description": "One block over the void. Break it and something else takes its place: soil, then stone and ores, then creatures and crates. Build outwards from whatever you collect.",
 			"engine": "^1.0",
 			"game": true,
 			"id": "oneblock",
 			"kind": "game",
 			"name": "One Block",
-			"sha256": "fcf7028c287d221a5bb874011f99798d2ed859be7f5d873b60d16c54d27de73f",
-			"size": 3226,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/oneblock-1.0.0.zip",
+			"sha256": "9c236663ad68147c82c80c4125b73364fdd85b1a44c27f71b9a690014596c020",
+			"size": 323555,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/oneblock-1.0.0.zip",
+			"version": "1.0.0"
+		},
+		{
+			"authors": [
+				"Quarrowen"
+			],
+			"depends": [
+				"base@^1.0",
+				"simple_machines@^1.0"
+			],
+			"description": "Tools, weapons, armour and charms, and the benches that build them from parts. Not a game on its own.",
+			"engine": "^1.0",
+			"game": false,
+			"id": "simple_gear",
+			"kind": "library",
+			"name": "Simple Gear",
+			"sha256": "0de24a9a2b396a7c75740be136afbe8f481cb65c5727a9639db61701a761fb4b",
+			"size": 59148,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/simple_gear-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -114,15 +159,15 @@
 			"depends": [
 				"base@^1.0"
 			],
-			"description": "Survive on your own tiny island above the void. Mine the generator, complete challenges, expand.",
+			"description": "Workbenches, furnaces, containers and signals. The verbs a game does with base's nouns. Not a game on its own.",
 			"engine": "^1.0",
-			"game": true,
-			"id": "skyblock",
-			"kind": "game",
-			"name": "Skyblock",
-			"sha256": "bce3bc875f645d5876d2205367cb9b74d04e4469fbede9fef1bbf17aa35b99c0",
-			"size": 4035,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/skyblock-1.0.0.zip",
+			"game": false,
+			"id": "simple_machines",
+			"kind": "library",
+			"name": "Simple Machines",
+			"sha256": "b8b69765d4e36c61496b0c0cac8f1071e2c6cb246f1e79c45a01f9f8342ebd79",
+			"size": 32384,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/simple_machines-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -130,19 +175,20 @@
 				"Quarrowen"
 			],
 			"depends": [
-				"base@^1.0"
+				"base@^1.0",
+				"fairground@^1.0"
 			],
-			"description": "Endless generated terrain with mountains, oceans and forests. Creative building.",
-			"engine": "^1.0",
-			"game": true,
-			"id": "vanilla",
-			"kind": "game",
-			"name": "Vanilla Sandbox",
-			"sha256": "f16ea1b11d78eb4883e7450abb7dd2a2ad5881e1d1db66ff5140ca1c61c223e7",
-			"size": 1035618,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/vanilla-1.0.0.zip",
+			"description": "A question, four coloured squares, and the wrong three fall away. Spelling and sums in a costume. A game for the Fairground.",
+			"engine": "^1.1",
+			"game": false,
+			"id": "wordgame",
+			"kind": "addon",
+			"name": "Stand On The Answer",
+			"sha256": "8f8b50cb1609a164f7a4d16370b59ac87fb64df326e96478845ef12a10784f85",
+			"size": 7939,
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/wordgame-1.0.0.zip",
 			"version": "1.0.0"
 		}
 	],
-	"version": "0.41.1"
+	"version": "0.42.1"
 }

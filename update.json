@@ -1,11 +1,11 @@
 {
-	"version": "0.41.1",
-	"notes": "Real footsteps, wind and water, and a float to watch while you fish.",
+	"version": "0.42.1",
+	"notes": "Cut 0.42.1, because a tag that failed cannot be reused",
 	"builds": {
 		"macos": {
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.41.1/Quarrowen-0.41.1-mac-arm64.zip",
-			"sha256": "b83de30656f93d2e30119278ae62c6d2522cbc614498cc98bb5cf29ea27be1ba",
-			"size": 69898865
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/Quarrowen-0.42.1-mac-universal.zip",
+			"sha256": "da2731dff3972c978c36b4ac68d5c69225e42d2f839b66c5ad5f53553db44ff2",
+			"size": 69875628
 		}
 	}
 }
