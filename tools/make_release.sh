@@ -153,6 +153,19 @@ sign() {
 }
 if [ -f "$key" ]; then
 	sign "$out/update.json"
+	# **And check a client would accept it.** Signing proves the key was readable, not that it is the key
+	# this build's updater trusts - and those come apart the moment one is rotated, or a release is cut on
+	# a machine holding an older key. The failure is silent and late: the site looks right, the manifest
+	# looks right, and every installed game quietly refuses the update. Cheap to ask now. (2026-09-29)
+	if QW_VERIFY_FILE="$out/update.json" "$GODOT" --headless --path . -s tools/verify_signature.gd \
+			>"$out/.verify.log" 2>&1; then
+		grep -h "^verify:" "$out/.verify.log" | tail -1
+	else
+		grep -h "^verify:" "$out/.verify.log" | tail -1 >&2
+		echo "!! the manifest is signed with a key no shipped client trusts - see updater.gd RELEASE_KEYS." >&2
+		exit 1
+	fi
+	rm -f "$out/.verify.log"
 else
 	echo "!! no release key at $key: the manifest is unsigned, and clients that expect a signature will"
 	echo "!! ignore this release. Make one with: godot --headless --path . -s tools/release_key.gd -- new"
