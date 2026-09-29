@@ -100,7 +100,7 @@ GDScript: `changed() -> void`
 
 Shows the current contents to everyone viewing (called automatically by the setters above).
 
-**See also:** `at_key`, `block_key`, `is_block_key`, `position_of`
+**See also:** `at_key`, `block_key`, `is_block_key`, `realm_of_key`
 
 ### `to_network`
 
@@ -114,7 +114,7 @@ Network form: ids and counts packed, item data by slot, progress values.
 
 *server/containers.gd*
 
-GDScript: `static block_key(pos: Vector3i) -> String`
+GDScript: `static block_key(pos: Vector3i, realm_id := "") -> String`
 
 What a container screen is showing, as one string. Three kinds live behind it:
 
@@ -126,6 +126,20 @@ s:mod:vault  a shared store - the store is `stores[name]`, saved with the world
 position everywhere, which is why "a container that is the same wherever you open it" had nowhere
 to live. A tagged string keeps every viewer map, dirty set and open-screen field a single type,
 and the tag says which kind you have rather than leaving it to be inferred. (2026-09-21)
+**A block key names a world as well as a place.** Without one, a chest in a dungeon and a chest at
+the same coordinates on the surface were the same key: breaking either closed both players' screens,
+and every viewer map, dirty set and `container_changed` event ran the two together. The overworld's
+keys keep their old spelling exactly, so nothing that already holds one has to change. (2026-09-29)
+
+### `realm_of_key`
+
+*server/containers.gd*
+
+GDScript: `static realm_of_key(key: String) -> String`
+
+The realm a block key names; empty for the overworld, and for keys that are not block keys.
+
+**See also:** `is_block_key`
 
 ### `stores`
 
@@ -181,7 +195,7 @@ GDScript: `at_key(key: String, player = null)`
 The container a key names, whoever it belongs to, or null. The one place that knows where each
 kind of store lives; everything else works in keys.
 
-**See also:** `get_container`, `get_def`, `is_block_key`, `item_key`, `store_key`
+**See also:** `get_container`, `get_def`, `is_block_key`, `item_key`, `realm_of_key`, `store_key`
 
 ### `declare_store`
 
@@ -209,7 +223,7 @@ GDScript: `open_store(p, store_name: String) -> bool`
 
 Opens a shared store by name.
 
-**See also:** `at_key`, `close`, `is_block_key`, `merge`, `position_of`, `store_key`
+**See also:** `at_key`, `close`, `is_block_key`, `merge`, `position_of`, `realm_of_key`
 
 ### `close`
 
@@ -219,13 +233,13 @@ GDScript: `close(p, tell_client := true) -> void`
 
 Closes the player's container screen (`tell_client`: the server decided, e.g. it was broken).
 
-**See also:** `input`, `is_block_key`, `leave`, `player_by_id`, `position_of`, `remove_realm`
+**See also:** `input`, `is_block_key`, `leave`, `player_by_id`, `position_of`, `realm_of_key`
 
 ### `mark_changed`
 
 *server/containers.gd*
 
-GDScript: `mark_changed(pos: Vector3i, p = null, slot := -1) -> void`
+GDScript: `mark_changed(pos: Vector3i, p = null, slot := -1, realm_id := "") -> void`
 
 Every write to a container passes through here - a player clicking, a hopper, a parcel arriving, a
 station consuming its inputs, loot filling a chest, a mod.
@@ -249,7 +263,7 @@ GDScript: `changed(key: String, p = null, slot := -1) -> void`
 
 The same, for any container: a bag or a shared store has no position to be marked at.
 
-**See also:** `at_key`, `block_key`, `is_block_key`, `position_of`
+**See also:** `at_key`, `block_key`, `is_block_key`, `realm_of_key`
 
 ### `update`
 
@@ -1175,7 +1189,7 @@ GDScript: `close(instance_id: String) -> bool`
 
 Closes one now: everybody inside goes back, and the realm is thrown away.
 
-**See also:** `input`, `is_block_key`, `leave`, `player_by_id`, `position_of`, `remove_realm`
+**See also:** `input`, `is_block_key`, `leave`, `player_by_id`, `position_of`, `realm_of_key`
 
 ### `id_of`
 
@@ -12242,13 +12256,13 @@ index), "start_project" (recipe index), "contribute", "cancel_project".
 
 *server/game_server.gd*
 
-GDScript: `refresh_crafting_stock(pos: Vector3i) -> void`
+GDScript: `refresh_crafting_stock(pos: Vector3i, realm_id := "") -> void`
 
 Tells players crafting near a changed container what their station can draw from now.
 Called from containers.gd when a container a station draws from changed. Public because it is
 reached across files: a leading underscore that another script calls is a lie about what is private.
 
-**See also:** `crafting_stock`
+**See also:** `crafting_stock`, `realm_of`
 
 ### `pair_offset`
 

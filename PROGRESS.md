@@ -9792,3 +9792,32 @@ JavaScript world API, `place_structure`, `set_spawn_caps` and `register_mob_beha
 the overworld's tables, cross-server arrival points, companion guard posts, the offline-player loop in
 `instances.gd` that never runs, farming, signals, and two firstlight spawns. Ordered by blast radius
 in that sweep; the saved-state ones are done.
+
+
+## Realms: container keys name a world, and furnaces cook in their own (29 September 2026)
+
+The structural one the write-sweep pointed at, and the same shape as `station_sessions`: an address
+that was a position where it needed to be a position *in a world*.
+
+`block_key(pos)` returned `"b:x,y,z"`, and that string is `p.open_container`, the `_viewers` map, the
+`_dirty` set, the stock-refresh set and the `key` field on three events. So a chest in a dungeon and a
+chest at the same coordinates on the surface were **one container as far as all of that was
+concerned**: breaking either closed both players' screens while the spill went to the right world, so
+the two halves disagreed.
+
+**The overworld's keys keep their exact old spelling** - the realm is only added when there is one -
+so nothing that already holds a key had to change, and no save or message shifted.
+
+### Why this had to come before the furnace
+
+`container_changed` carries `realm` now, and that is the point rather than a detail. Its `player` is
+null for a hopper, a parcel, a loot fill, a station or a mod, so before this there was **nothing a
+handler could have derived a world from**. The furnace was not careless; it had no way to be right.
+
+With the event carrying one, `simple_machines`' furnace takes it from both its callers - `ctx.realm`
+from the block tick, which has always been there, and `ev.realm` from the container. It had been
+reading the overworld's chest to decide what to cook, stamping a lit-furnace block over whatever stood
+at those coordinates on the surface, and rescheduling itself there for ever.
+
+`refresh_crafting_stock` compares realms too, so a chest changing in one world no longer refreshes a
+station screen in another.

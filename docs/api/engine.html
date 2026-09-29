@@ -267,7 +267,11 @@ s:mod:vault  a shared store - the store is `stores[name]`, saved with the world
 **one type rather than a vector3i that is sometimes something else.** the addressing used to be a
 position everywhere, which is why &quot;a container that is the same wherever you open it&quot; had nowhere
 to live. a tagged string keeps every viewer map, dirty set and open-screen field a single type,
-and the tag says which kind you have rather than leaving it to be inferred. (2026-09-21) server/containers.gd drops, loot and rewards"><div class="sig"><code>static block_key(pos: Vector3i) -&gt; String</code></div><p>What a container screen is showing, as one string. Three kinds live behind it:
+and the tag says which kind you have rather than leaving it to be inferred. (2026-09-21)
+**a block key names a world as well as a place.** without one, a chest in a dungeon and a chest at
+the same coordinates on the surface were the same key: breaking either closed both players' screens,
+and every viewer map, dirty set and `container_changed` event ran the two together. the overworld's
+keys keep their old spelling exactly, so nothing that already holds one has to change. (2026-09-29) server/containers.gd drops, loot and rewards"><div class="sig"><code>static block_key(pos: Vector3i, realm_id := &quot;&quot;) -&gt; String</code></div><p>What a container screen is showing, as one string. Three kinds live behind it:
 
 b:12,64,-3 a block - the store is that block's data
 i:7 the bag in the viewer's own inventory slot 7 - the store is that item's data
@@ -276,7 +280,12 @@ s:mod:vault a shared store - the store is `stores[name]`, saved with the world
 **One type rather than a Vector3i that is sometimes something else.** The addressing used to be a
 position everywhere, which is why "a container that is the same wherever you open it" had nowhere
 to live. A tagged string keeps every viewer map, dirty set and open-screen field a single type,
-and the tag says which kind you have rather than leaving it to be inferred. (2026-09-21)</p></div>
+and the tag says which kind you have rather than leaving it to be inferred. (2026-09-21)
+**A block key names a world as well as a place.** Without one, a chest in a dungeon and a chest at
+the same coordinates on the surface were the same key: breaking either closed both players' screens,
+and every viewer map, dirty set and `container_changed` event ran the two together. The overworld's
+keys keep their old spelling exactly, so nothing that already holds one has to change. (2026-09-29)</p></div>
+<div class="card" data-search="realm_of_key the realm a block key names; empty for the overworld, and for keys that are not block keys. server/containers.gd drops, loot and rewards"><div class="sig"><code>static realm_of_key(key: String) -&gt; String</code></div><p>The realm a block key names; empty for the overworld, and for keys that are not block keys.</p></div>
 <div class="card" data-search="stores shared stores: name -&gt; the dictionary a container view is backed by. saved with the world.
 
 the engine does not decide whose a store is - the *name* does. a mod wanting one vault for the
@@ -312,7 +321,7 @@ handlers.
 **immediate, not deferred.** deferring it to the end of the tick was tried and it broke the furnace:
 lighting when fuel goes in is gameplay and has to happen now. the re-entrancy that made deferring
 look necessary was never the engine's problem - a quickjs runtime cannot be re-entered, and that is
-handled in `_invoke` in js_mod.gd, where it belongs. (2026-09-21) server/containers.gd drops, loot and rewards"><div class="sig"><code>mark_changed(pos: Vector3i, p = null, slot := -1) -&gt; void</code></div><p>Every write to a container passes through here - a player clicking, a hopper, a parcel arriving, a
+handled in `_invoke` in js_mod.gd, where it belongs. (2026-09-21) server/containers.gd drops, loot and rewards"><div class="sig"><code>mark_changed(pos: Vector3i, p = null, slot := -1, realm_id := &quot;&quot;) -&gt; void</code></div><p>Every write to a container passes through here - a player clicking, a hopper, a parcel arriving, a
 station consuming its inputs, loot filling a chest, a mod.
 
 `container_changed` is raised from here, so automation is visible: a hopper, a parcel arriving, a
@@ -3414,7 +3423,7 @@ index), &quot;start_project&quot; (recipe index), &quot;contribute&quot;, &quot;
 index), "start_project" (recipe index), "contribute", "cancel_project".</p></div>
 <div class="card" data-search="refresh_crafting_stock tells players crafting near a changed container what their station can draw from now.
 called from containers.gd when a container a station draws from changed. public because it is
-reached across files: a leading underscore that another script calls is a lie about what is private. server/game_server.gd the server itself"><div class="sig"><code>refresh_crafting_stock(pos: Vector3i) -&gt; void</code></div><p>Tells players crafting near a changed container what their station can draw from now.
+reached across files: a leading underscore that another script calls is a lie about what is private. server/game_server.gd the server itself"><div class="sig"><code>refresh_crafting_stock(pos: Vector3i, realm_id := &quot;&quot;) -&gt; void</code></div><p>Tells players crafting near a changed container what their station can draw from now.
 Called from containers.gd when a container a station draws from changed. Public because it is
 reached across files: a leading underscore that another script calls is a lie about what is private.</p></div>
 <div class="card" data-search="pair_offset offset from one half of a two-block piece to the other: `pair.direction` is &quot;back&quot; (away from the
@@ -3513,7 +3522,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1270 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1271 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

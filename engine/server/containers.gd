@@ -27,8 +27,14 @@ const MAX_DISTANCE := 8.0
 ## position everywhere, which is why "a container that is the same wherever you open it" had nowhere
 ## to live. A tagged string keeps every viewer map, dirty set and open-screen field a single type,
 ## and the tag says which kind you have rather than leaving it to be inferred. (2026-09-21)
-static func block_key(pos: Vector3i) -> String:
-	return "b:%d,%d,%d" % [pos.x, pos.y, pos.z]
+## **A block key names a world as well as a place.** Without one, a chest in a dungeon and a chest at
+## the same coordinates on the surface were the same key: breaking either closed both players' screens,
+## and every viewer map, dirty set and `container_changed` event ran the two together. The overworld's
+## keys keep their old spelling exactly, so nothing that already holds one has to change. (2026-09-29)
+static func block_key(pos: Vector3i, realm_id := "") -> String:
+	if realm_id.is_empty():
+		return "b:%d,%d,%d" % [pos.x, pos.y, pos.z]
+	return "b:%s|%d,%d,%d" % [realm_id, pos.x, pos.y, pos.z]
 
 
 static func item_key(slot: int) -> String:
@@ -44,10 +50,23 @@ static func is_block_key(key: String) -> bool:
 
 
 static func position_of(key: String) -> Vector3i:
-	var parts := key.substr(2).split(",")
+	var body := key.substr(2)
+	var bar := body.find("|")
+	if bar >= 0:
+		body = body.substr(bar + 1)
+	var parts := body.split(",")
 	if parts.size() != 3:
 		return Vector3i.ZERO
 	return Vector3i(int(parts[0]), int(parts[1]), int(parts[2]))
+
+
+## The realm a block key names; empty for the overworld, and for keys that are not block keys.
+static func realm_of_key(key: String) -> String:
+	if not is_block_key(key):
+		return ""
+	var body := key.substr(2)
+	var bar := body.find("|")
+	return body.substr(0, bar) if bar >= 0 else ""
 
 ## Shared stores: name -> the dictionary a container view is backed by. Saved with the world.
 ##
@@ -59,7 +78,7 @@ var types := {}  # type name -> def
 var _server
 var _viewers := {}  # container key -> {peer id: true}
 var _dirty := {}  # container key -> true (send to viewers this tick)
-var _stock_dirty := {}  # Vector3i -> true (crafting stations nearby need new stock)
+var _stock_dirty := {}  # container key -> true (crafting stations nearby need new stock)
 var _check_timer := 0.0
 
 
@@ -116,7 +135,7 @@ func get_container(pos: Vector3i, player = null, into = null):
 	if store.is_empty():
 		_server.set_block_data(pos, store, into)
 		store = _server.get_block_data(pos, into)
-	var view := ContainerView.new(_server, pos, t, store, block_key(pos))
+	var view := ContainerView.new(_server, pos, t, store, block_key(pos, into.id))
 	if store.has("loot"):
 		_server.loot.fill(view, player)  # structure chests roll their loot on first use
 	return view
@@ -126,7 +145,8 @@ func get_container(pos: Vector3i, player = null, into = null):
 ## kind of store lives; everything else works in keys.
 func at_key(key: String, player = null):
 	if is_block_key(key):
-		return get_container(position_of(key), player)
+		# The key says which world, so this answers correctly even with no player to ask.
+		return get_container(position_of(key), player, _server.realms.get(realm_of_key(key)))
 	if key.begins_with("i:"):
 		return _bag_view(player, int(key.substr(2)))
 	if key.begins_with("s:"):
@@ -176,7 +196,7 @@ func declare_store(store_name: String, type_name: String) -> bool:
 
 
 func open(p, pos: Vector3i) -> bool:
-	return _open(p, block_key(pos))
+	return _open(p, block_key(pos, _server.realm_of(p).id))
 
 
 ## Opens the bag in one of a player's own inventory slots.
@@ -194,7 +214,8 @@ func _open(p, key: String) -> bool:
 	if c == null:
 		return false
 	var pos := position_of(key) if is_block_key(key) else Vector3i.ZERO
-	if _server.emit("container_open", {"player": p, "position": pos, "container": c, "key": key, "cancelled": false}).cancelled:
+	if _server.emit("container_open", {"player": p, "position": pos, "container": c, "key": key,
+			"realm": realm_of_key(key), "cancelled": false}).cancelled:
 		return false
 	close(p, false)
 	p.open_container = key
@@ -216,7 +237,8 @@ func close(p, tell_client := true) -> void:
 		_viewers[key].erase(p.peer_id)
 		if _viewers[key].is_empty():
 			_viewers.erase(key)
-	_server.emit("container_close", {"player": p, "position": position_of(key) if is_block_key(key) else Vector3i.ZERO, "key": key})
+	_server.emit("container_close", {"player": p, "key": key, "realm": realm_of_key(key),
+		"position": position_of(key) if is_block_key(key) else Vector3i.ZERO})
 	if tell_client and p._online():
 		Net.s_container_close.rpc_id(p.peer_id)
 
@@ -232,8 +254,8 @@ func close(p, tell_client := true) -> void:
 ## lighting when fuel goes in is gameplay and has to happen now. The re-entrancy that made deferring
 ## look necessary was never the engine's problem - a QuickJS runtime cannot be re-entered, and that is
 ## handled in `_invoke` in js_mod.gd, where it belongs. (2026-09-21)
-func mark_changed(pos: Vector3i, p = null, slot := -1) -> void:
-	changed(block_key(pos), p, slot)
+func mark_changed(pos: Vector3i, p = null, slot := -1, realm_id := "") -> void:
+	changed(block_key(pos, realm_id), p, slot)
 
 
 ## The same, for any container: a bag or a shared store has no position to be marked at.
@@ -242,9 +264,13 @@ func changed(key: String, p = null, slot := -1) -> void:
 		_dirty[key] = true
 	var c = at_key(key, p)
 	if is_block_key(key):
-		_stock_dirty[position_of(key)] = true
+		_stock_dirty[key] = true
 	if c != null:
-		_server.emit("container_changed", {"player": p, "position": c.position, "container": c, "key": key, "slot": slot})
+		# **`realm` is in the event on purpose.** `player` is null for a hopper, a parcel, a station,
+		# a loot fill or a mod, so it was the only thing a handler could have derived a world from -
+		# which is why the furnace handler wrote into the overworld. (2026-09-29)
+		_server.emit("container_changed", {"player": p, "position": c.position, "container": c,
+			"key": key, "realm": realm_of_key(key), "slot": slot})
 
 
 ## Sends changed contents to viewers and closes screens players walked away from.
@@ -260,8 +286,8 @@ func update(delta: float) -> void:
 			if c != null:
 				Net.s_container_update.rpc_id(peer_id, c.to_network())
 	_dirty.clear()
-	for pos: Vector3i in _stock_dirty:
-		_server.refresh_crafting_stock(pos)
+	for key: String in _stock_dirty:
+		_server.refresh_crafting_stock(position_of(key), realm_of_key(key))
 	_stock_dirty.clear()
 	_check_timer += delta
 	if _check_timer < 0.5:
@@ -287,7 +313,7 @@ func update(delta: float) -> void:
 
 ## A container block was removed: close screens and spill the contents.
 func block_removed(pos: Vector3i, store: Dictionary, old_block: int, into = null) -> void:
-	for peer_id: int in _viewers.get(block_key(pos), {}).keys():
+	for peer_id: int in _viewers.get(block_key(pos, into.id if into != null else ""), {}).keys():
 		var p = _server.players.get(peer_id)
 		if p != null:
 			close(p)

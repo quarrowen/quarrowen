@@ -6049,9 +6049,10 @@ func on_station_coop(peer_id: int, action: String, arg: int) -> void:
 ## Tells players crafting near a changed container what their station can draw from now.
 ## Called from containers.gd when a container a station draws from changed. Public because it is
 ## reached across files: a leading underscore that another script calls is a lie about what is private.
-func refresh_crafting_stock(pos: Vector3i) -> void:
+func refresh_crafting_stock(pos: Vector3i, realm_id := "") -> void:
 	for p: ServerPlayer in players.values():
-		if not p.crafting_station.has("position") or not p._online():
+		if not p.crafting_station.has("position") or not p._online() \
+				or realm_of(p).id != realm_id:
 			continue
 		var d: Vector3i = p.crafting_station.position - pos
 		if absi(d.x) <= STATION_PULL_RADIUS and absi(d.y) <= STATION_PULL_RADIUS and absi(d.z) <= STATION_PULL_RADIUS:

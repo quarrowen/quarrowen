@@ -116,17 +116,23 @@ func setup(mod_api, sounds: Dictionary) -> void:
 	api.register_recipe({"base:iron_ingot": 3, "base:planks": 4}, "simple_machines:reinforced_frame", 1, {"station": "forge", "time": 5.0,
 		"unlock": "blueprint", "hint": "Workbench plans turn up on zombies and at traders."})
 
+	# **Both callers knew the world and neither said so.** `ctx.realm` has always been there and
+	# `container_changed` carries one since 29 September 2026, which it had to: a furnace has no player
+	# when a hopper feeds it, so there was nothing else a handler could have asked. Without it a furnace
+	# lit in a dungeon stamped a lit block over whatever stood at those coordinates on the surface and
+	# rescheduled itself there for ever, while reading the overworld's chest to decide what to cook.
 	api.on("container_changed", func(ev):
 		if ev.container.type.name == "simple_machines:furnace":
-			update_furnace(ev.position))
+			update_furnace(ev.position, String(ev.get("realm", ""))))
 	for block_name in ["simple_machines:furnace", "simple_machines:furnace_lit"]:
-		api.register_block_tick(block_name, func(ctx): update_furnace(ctx.position), {"interval": 3600.0, "catch_up": false})
+		api.register_block_tick(block_name, func(ctx): update_furnace(ctx.position, String(ctx.get("realm", ""))),
+			{"interval": 3600.0, "catch_up": false})
 
 
 ## Advances a furnace by the world time since its last update: burns fuel, cooks the input, moves
 ## results to the output, lights or darkens the block and schedules the next update while working.
-func update_furnace(pos: Vector3i) -> void:
-	var c = api.get_container(pos)
+func update_furnace(pos: Vector3i, realm := "") -> void:
+	var c = api.get_container(pos, realm)
 	if c == null:
 		return
 	var s: Dictionary = c.state
@@ -170,11 +176,12 @@ func update_furnace(pos: Vector3i) -> void:
 	c.set_progress("burn", burn / burn_total if burn > 0.0 else 0.0)
 	c.set_progress("cook", cook / float(current.seconds) if not current.is_empty() else 0.0)
 	var lit := burn > 0.0
-	var block: int = api.get_block(pos)
+	var block: int = api.get_block(pos, realm)
 	if lit != (block == ids.furnace_lit):
-		api.set_block(pos, ids.furnace_lit if lit else ids.furnace, "", true, api.get_block_state(pos))
+		api.set_block(pos, ids.furnace_lit if lit else ids.furnace, realm, true,
+			api.get_block_state(pos, realm))
 	if lit:
-		api.schedule_block_tick(pos, TICK)
+		api.schedule_block_tick(pos, TICK, {}, realm)
 
 
 ## The smelting recipe for the input if the output slot has room for its result, else {}.
