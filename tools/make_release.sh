@@ -393,6 +393,13 @@ cat > "$out/index.html" <<EOF
   .mods td:last-child { text-align: right; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .dim { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
 
+  /* The fact table. The label column is fixed so the values start on one line down the page, and
+     wide enough that "Screenshots" does not sit flush against its own value. */
+  #facts table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  #facts td { padding: 10px 0; border-bottom: 1px solid var(--edge); vertical-align: top; }
+  #facts td:first-child { width: 130px; padding-right: 22px; color: var(--ink); white-space: nowrap; }
+  #facts tr:last-child td { border-bottom: 0; }
+
   /* Four lanes */
   .lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
   .lane {
