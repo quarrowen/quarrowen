@@ -9352,3 +9352,41 @@ friends are being given the download.
 exist, and the service names are baked into `compose.yaml`, so moving the pin without rewriting both
 would start worlds with nothing loaded. No server is running on it, and the file's own banner already
 says that rewrite belongs to 1.0. Bumping the pin is checklist step 4 and was skipped on purpose.
+
+
+## The 0.42.1 page keeps its odd headline (the user, 29 September 2026)
+
+*"i would say leave it... its a closed user group testing anyways"*. The download page says "Cut 0.42.1,
+because a tag that failed cannot be reused", which is a commit subject that reached the page because
+`actions/checkout` leaves a lightweight tag and `%(contents:subject)` then falls back to the commit.
+`update.json` is signed, so the page cannot be corrected without cutting another release, and a
+cosmetic line is not worth one for a closed group. Fixed in `ci.yml` for the next release; recorded so
+nobody re-opens it.
+
+## A Windows installer 29 September 2026
+
+*"the unzipping the whole folder is a pain... any reason we cant have an installer?"* No reason, and it
+is built now.
+
+**Why it was a folder, and why it still partly is.** Three loose things: the `.pck`, the GDExtension
+`.dll`, and `mods/`. Embedding the pck was one setting (`binary_format/embed_pck`, Windows only) and is
+done. The other two cannot go: a GDExtension is loaded from disk by the operating system, and `mods/` is
+loose on purpose because the Mods screen writes into it. So an installer was the only route to a
+single-file download.
+
+**NSIS, built on the Linux runner that already exports the game** - `makensis` is an ordinary Ubuntu
+package, so this needed no second machine and no second download of Godot. Per-user install into
+`%LOCALAPPDATA%`, which means **no administrator prompt**: an unsigned installer already has one warning
+to get past, and asking somebody to do two frightening things in a row is worse than asking once. Start
+Menu shortcut, an uninstaller, and an entry in Settings > Apps so it can be removed the ordinary way.
+The uninstaller removes what it wrote **by name** rather than `RMDir /r` on its install directory, so a
+wrong or empty path cannot take somebody's folder with it.
+
+**It does not remove the SmartScreen warning.** Nothing does short of signing and accumulated
+reputation, and an unsigned *installer* is if anything looked at harder than an unsigned game. What it
+removes is the unzipping. The zip stays on the page beside it, because somebody who would rather not run
+an installer should not have to.
+
+**One bug found on the way**, and found before it bit: `publish_site.sh` collected release assets with
+`-name '*.zip' -o -name '*.dmg'`. An `.exe` would never have been uploaded, and the page's own link
+check would then have aborted the release. The right outcome, reached for the wrong reason.

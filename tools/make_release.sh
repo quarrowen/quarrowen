@@ -101,7 +101,9 @@ fi
 # offered through update.json: the updater's install step writes a /bin/sh script, so a Windows client
 # that accepted an update could not install it. Download link only, until that is written.
 win_zip="build/windows/Quarrowen-$version-windows-x86_64.zip"
+win_setup="build/windows/Quarrowen-$version-Setup.exe"
 win_name=""
+setup_name=""
 if [ ! -f "$win_zip" ] && [ "${QUARROWEN_SKIP_WINDOWS:-0}" != "1" ] && command -v gh >/dev/null 2>&1; then
   run_id="$(gh run list --workflow CI --branch "v$version" --limit 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)"
   if [ -n "$run_id" ]; then
@@ -111,6 +113,14 @@ if [ ! -f "$win_zip" ] && [ "${QUARROWEN_SKIP_WINDOWS:-0}" != "1" ] && command -
       mkdir -p build/windows
       # The artifact unpacks to a folder called "windows", which is a poor thing to find in Downloads.
       # Give it the game's name and version, so extracting it produces something recognisable.
+      # The installer is built beside the game folder in the same artifact; take it out before the
+      # folder is renamed and zipped, or it ends up inside the zip of the thing it installs.
+      if [ -f "$tmp/installer/Quarrowen-$version-Setup.exe" ]; then
+        mkdir -p build/windows
+        mv "$tmp/installer/Quarrowen-$version-Setup.exe" "$win_setup"
+        rmdir "$tmp/installer" 2>/dev/null || true
+        echo "   got $win_setup"
+      fi
       inner="$tmp/Quarrowen-$version"
       if [ -d "$tmp/windows" ]; then mv "$tmp/windows" "$inner"; else mkdir -p "$inner" && find "$tmp" -maxdepth 1 -mindepth 1 ! -name "Quarrowen-$version" -exec mv {} "$inner/" \; ; fi
       (cd "$tmp" && zip -qr "$OLDPWD/$win_zip" "Quarrowen-$version") && echo "   got $win_zip"
@@ -123,6 +133,10 @@ fi
 if [ -f "$win_zip" ]; then
   cp "$win_zip" "$out/$files/"
   win_name="$(basename "$win_zip")"
+fi
+if [ -f "$win_setup" ]; then
+  cp "$win_setup" "$out/$files/"
+  setup_name="$(basename "$win_setup")"
 fi
 
 OUT="$out/$files/mods" tools/package_mods.sh >/dev/null
@@ -144,12 +158,27 @@ else
 fi
 download_name="${dmg_name:-$mac_name}"
 win_url=""
+setup_url=""
 win_button=""
+if [ -n "$setup_name" ]; then
+  if [ "$flat" -eq 1 ]; then setup_url="$base_url/$setup_name"; else setup_url="$base_url/$files/$setup_name"; fi
+fi
 if [ -n "$win_name" ]; then
   if [ "$flat" -eq 1 ]; then win_url="$base_url/$win_name"; else win_url="$base_url/$files/$win_name"; fi
-  # Quieter than the Mac button on purpose: it is unsigned, so Windows shows a warning the first time,
-  # and it does not update itself. Saying so here is better than a child finding out.
-  win_button="<p class=\"under\"><a href=\"$win_url\">Windows ($(human "$out/$files/$win_name"))</a> — unsigned, so Windows asks before running it, and it does not update itself yet.</p>"
+fi
+# Quieter than the Mac button on purpose: it is unsigned, so Windows shows a warning the first time,
+# and it does not update itself. Saying so here is better than somebody finding out.
+#
+# **The installer leads and the zip stays.** The zip is a folder and cannot stop being one - the
+# GDExtension is a .dll loaded from disk and `mods/` is loose so players can add to it - so the choice
+# was to make somebody unzip and go looking, or to offer a setup. Both are here, because somebody who
+# would rather not run an installer should not be made to. (2026-09-29)
+if [ -n "$setup_name" ] && [ -n "$win_name" ]; then
+  win_button="<p class=\"under\"><a href=\"$setup_url\">Windows installer ($(human "$out/$files/$setup_name"))</a> — unsigned, so Windows asks before running it, and it does not update itself yet. <a href=\"$win_url\">Zip instead ($(human "$out/$files/$win_name"))</a>: unpack the whole folder and run Quarrowen.exe from inside it.</p>"
+elif [ -n "$setup_name" ]; then
+  win_button="<p class=\"under\"><a href=\"$setup_url\">Windows installer ($(human "$out/$files/$setup_name"))</a> — unsigned, so Windows asks before running it, and it does not update itself yet.</p>"
+elif [ -n "$win_name" ]; then
+  win_button="<p class=\"under\"><a href=\"$win_url\">Windows ($(human "$out/$files/$win_name"))</a> — unpack the whole folder and run Quarrowen.exe from inside it. Unsigned, so Windows asks first, and it does not update itself yet.</p>"
 fi
 
 cat > "$out/update.json" <<EOF

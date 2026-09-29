@@ -93,7 +93,11 @@ if [ "$with_release" -eq 1 ]; then
   # Everything the build produced, not a list kept by hand - a list forgets the disk image, and the site's
   # download button then points at a file that was never uploaded (it did, in 0.40.3).
   assets=()
-  while IFS= read -r f; do assets+=("$f"); done < <(find "$out/v$version" -type f \( -name '*.zip' -o -name '*.dmg' \) | sort)
+  # **.exe too, for the Windows installer.** This listed only .zip and .dmg, so adding the installer to
+  # the page would have linked a file that was never uploaded - caught by the check below, which would
+  # have aborted the release rather than shipping a 404. Right outcome, wrong reason to discover it.
+  # (2026-09-29)
+  while IFS= read -r f; do assets+=("$f"); done < <(find "$out/v$version" -type f \( -name '*.zip' -o -name '*.dmg' -o -name '*.exe' \) | sort)
   [ "${#assets[@]}" -gt 0 ] || { echo "no release files in $out/v$version" >&2; exit 1; }
   # Whatever update.json and the page link to must be among them, or players get a 404 from a live page.
   # Every release-asset link anywhere on the page, not just the main button - the Windows download is an

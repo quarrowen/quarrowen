@@ -348,6 +348,21 @@ jobs:
           mv "$RUNNER_TEMP/tpz/templates/"* "$templates/"
       - name: Export
         run: tools/export.sh Windows
+      # The installer is built here rather than on a Windows runner: makensis is a Linux package, so the
+      # job that already exported the game can package it without a second machine or a second download
+      # of Godot. (2026-09-29)
+      - name: Build the installer
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nsis
+          version="$(sed -n 's/^const GAME_VERSION := "\(.*\)"$/\1/p' engine/shared/protocol.gd)"
+          # Into its own folder, not build/windows: make_release.sh zips that folder whole, and an
+          # installer inside the zip of the thing it installs is a puzzle for whoever opens it.
+          mkdir -p build/installer
+          makensis -V2 -DVERSION="$version" -DSOURCE="$PWD/build/windows" \
+            -DOUTFILE="$PWD/build/installer/Quarrowen-$version-Setup.exe" tools/windows_installer.nsi
+          ls -la "build/installer/Quarrowen-$version-Setup.exe"
       - uses: actions/upload-artifact@v4
         with:
           name: windows-unsigned-untested
