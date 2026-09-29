@@ -173,12 +173,23 @@ fi
 # GDExtension is a .dll loaded from disk and `mods/` is loose so players can add to it - so the choice
 # was to make somebody unzip and go looking, or to offer a setup. Both are here, because somebody who
 # would rather not run an installer should not be made to. (2026-09-29)
-if [ -n "$setup_name" ] && [ -n "$win_name" ]; then
-  win_button="<p class=\"under\"><a href=\"$setup_url\">Windows installer ($(human "$out/$files/$setup_name"))</a> — unsigned, so Windows asks before running it, and it does not update itself yet. <a href=\"$win_url\">Zip instead ($(human "$out/$files/$win_name"))</a>: unpack the whole folder and run Quarrowen.exe from inside it.</p>"
-elif [ -n "$setup_name" ]; then
-  win_button="<p class=\"under\"><a href=\"$setup_url\">Windows installer ($(human "$out/$files/$setup_name"))</a> — unsigned, so Windows asks before running it, and it does not update itself yet.</p>"
+# **Windows gets a button, not a footnote.** It was a line of small text under the Mac button, decided
+# when it was an afterthought - unsigned, untested, no auto-update. Two of those are still true and are
+# said plainly right beneath it, but "second-class" is not the same as "hard to find", and a player on
+# Windows should not have to read the small print to discover the game runs on their machine.
+# (2026-09-29)
+win_cta=""
+if [ -n "$setup_name" ]; then
+  win_cta="<a class=\"btn\" href=\"$setup_url\">Download for Windows <small>$version · $(human "$out/$files/$setup_name")</small></a>"
 elif [ -n "$win_name" ]; then
-  win_button="<p class=\"under\"><a href=\"$win_url\">Windows ($(human "$out/$files/$win_name"))</a> — unpack the whole folder and run Quarrowen.exe from inside it. Unsigned, so Windows asks first, and it does not update itself yet.</p>"
+  win_cta="<a class=\"btn\" href=\"$win_url\">Download for Windows <small>$version · $(human "$out/$files/$win_name")</small></a>"
+fi
+if [ -n "$setup_name" ] && [ -n "$win_name" ]; then
+  win_button="<p class=\"under\">Windows: unsigned, so Windows asks once before running it, and it does not update itself yet. Prefer a zip? <a href=\"$win_url\">Take the folder instead ($(human "$out/$files/$win_name"))</a> and run Quarrowen.exe from inside it.</p>"
+elif [ -n "$setup_name" ]; then
+  win_button="<p class=\"under\">Windows: unsigned, so Windows asks once before running it, and it does not update itself yet.</p>"
+elif [ -n "$win_name" ]; then
+  win_button="<p class=\"under\">Windows: unpack the whole folder and run Quarrowen.exe from inside it. Unsigned, so Windows asks once, and it does not update itself yet.</p>"
 fi
 
 cat > "$out/update.json" <<EOF
@@ -422,9 +433,10 @@ cat > "$out/index.html" <<EOF
     rules all arrive from whichever server you join.</p>
     <div class="cta">
       <a class="btn" href="$dmg_url">Download for Mac <small>$version · $(human "$out/$files/$download_name")</small></a>
+      $win_cta
       <a class="btn ghost" href="/docs/">Read the reference</a>
     </div>
-    <p class="under">Intel and Apple silicon · signed and notarized · updates itself · $notes</p>
+    <p class="under">Mac: Intel and Apple silicon · signed and notarized · updates itself · $notes</p>
     $win_button
   </div>
 </div>
