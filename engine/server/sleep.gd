@@ -34,8 +34,9 @@ func is_night() -> bool:
 
 
 ## Both cells of a bed (the clicked one first), and the direction from foot to head.
-func bed_cells(pos: Vector3i) -> Dictionary:
-	var block: int = _server.world.get_block_v(pos)
+func bed_cells(pos: Vector3i, realm_id := "") -> Dictionary:
+	var into = _server.realms.get(realm_id)
+	var block: int = (into.world if into != null else _server.world).get_block_v(pos)
 	if not is_bed(block):
 		return {}
 	var partner: Vector3i = _server.pair_position(pos)
@@ -48,18 +49,23 @@ func bed_cells(pos: Vector3i) -> Dictionary:
 		var foot: bool = str(_server.registry.defs[block].get("pair", {}).get("direction", "")) == "back"
 		head_dir = (cells[1] - cells[0]) if foot else (cells[0] - cells[1])
 	else:
-		head_dir = -BlockRegistry.facing_direction(_server.get_block_state(pos))
+		head_dir = -BlockRegistry.facing_direction(_server.get_block_state(pos, into))
 	return {"cells": cells, "head_dir": head_dir}
 
 
 ## Right-click on a bed: set the respawn point, then try to sleep.
 func use_bed(p, pos: Vector3i) -> void:
-	var bed := bed_cells(pos)
+	var realm_id := String(_server.realm_of(p).id)
+	var bed := bed_cells(pos, realm_id)
 	if bed.is_empty() or p.dead:
 		return
 	var anchor := _foot_of(bed)
-	if p.spawn_bed != anchor:
+	# **The bed remembers which world it is in.** A bed is a coordinate, and a coordinate means nothing
+	# without the realm: sleeping in a dungeon and dying used to put the player at those coordinates on
+	# the surface, which is somewhere they had never been. (2026-09-29)
+	if p.spawn_bed != anchor or p.spawn_bed_realm != realm_id:
 		p.spawn_bed = anchor
+		p.spawn_bed_realm = realm_id
 		p.spawn_point = Vector3.INF
 		p.send_message("Respawn point set")
 	if not p.sleeping.is_empty():
@@ -70,10 +76,11 @@ func use_bed(p, pos: Vector3i) -> void:
 		p.show_title("", "You can only sleep at night", 1.5)
 		return
 	for other in _server.players.values():
-		if other != p and not other.sleeping.is_empty() and Vector3i(other.sleeping.bed) == anchor:
+		if other != p and not other.sleeping.is_empty() and Vector3i(other.sleeping.bed) == anchor \
+				and String(_server.realm_of(other).id) == realm_id:
 			p.show_title("", "This bed is occupied", 1.5)
 			return
-	if _monsters_near(bed):
+	if _monsters_near(bed, realm_id):
 		p.show_title("", "You may not rest now; there are monsters nearby", 2.0)
 		return
 	if _server.emit("player_sleep", {"player": p, "position": anchor, "cancelled": false}).cancelled:
@@ -82,7 +89,8 @@ func use_bed(p, pos: Vector3i) -> void:
 	for cell: Vector3i in bed.cells:
 		center += Vector3(cell) + Vector3(0.5, 1.0, 0.5)
 	center /= bed.cells.size()
-	p.sleeping = {"bed": anchor, "since": _server._time, "head_dir": bed.head_dir, "return": p.state.position}
+	p.sleeping = {"bed": anchor, "since": _server._time, "head_dir": bed.head_dir,
+		"return": p.state.position, "realm": realm_id}
 	p.teleport(center)
 	p.mining = {}
 	_server.hunger.stop_eating(p)
@@ -95,7 +103,7 @@ func wake(p, reason := "moved") -> void:
 		return
 	var bed: Dictionary = p.sleeping
 	p.sleeping = {}
-	var spot := stand_spot(Vector3i(bed.bed))
+	var spot := stand_spot(Vector3i(bed.bed), String(bed.get("realm", "")))
 	p.teleport(spot if spot != Vector3.INF else Vector3(bed["return"]))
 	_server.refresh_appearance(p)
 	_server.emit("player_wake", {"player": p, "reason": reason})
@@ -146,9 +154,11 @@ func skip_night(sleepers: Array) -> void:
 
 
 ## Hostile mobs within a few blocks of the bed keep players awake.
-func _monsters_near(bed: Dictionary) -> bool:
+func _monsters_near(bed: Dictionary, realm_id := "") -> bool:
 	var center := Vector3(bed.cells[0]) + Vector3(0.5, 0.5, 0.5)
-	for e in _server.entities.entities.values():
+	var into = _server.realms.get(realm_id)
+	var living = into.entities if into != null else _server.entities
+	for e in living.entities.values():
 		if e.brain == null or not e.is_alive() or str(e.brain.config.get("temperament", "")) != "hostile":
 			continue
 		var d: Vector3 = (e.position - center).abs()
@@ -158,11 +168,12 @@ func _monsters_near(bed: Dictionary) -> bool:
 
 
 ## Where to stand next to a bed (respawning or getting up), or Vector3.INF if it is gone or boxed in.
-func stand_spot(anchor: Vector3i) -> Vector3:
-	var bed := bed_cells(anchor)
+func stand_spot(anchor: Vector3i, realm_id := "") -> Vector3:
+	var bed := bed_cells(anchor, realm_id)
 	if bed.is_empty():
 		return Vector3.INF
-	var world = _server.world
+	var into = _server.realms.get(realm_id)
+	var world = into.world if into != null else _server.world
 	var registry = _server.registry
 	for cell: Vector3i in bed.cells:
 		for offset in [Vector3i(1, 0, 0), Vector3i(-1, 0, 0), Vector3i(0, 0, 1), Vector3i(0, 0, -1),
@@ -184,8 +195,9 @@ func stand_spot(anchor: Vector3i) -> Vector3:
 func respawn_position(p) -> Vector3:
 	if p.spawn_bed == null:
 		return Vector3.INF
-	_server.ensure_area_loaded(Vector3(p.spawn_bed), _server.realm_of(p))
-	var spot := stand_spot(Vector3i(p.spawn_bed))
+	var into = _server.realms.get(p.spawn_bed_realm)
+	_server.ensure_area_loaded(Vector3(p.spawn_bed), into if into != null else _server.realm)
+	var spot := stand_spot(Vector3i(p.spawn_bed), p.spawn_bed_realm)
 	if spot == Vector3.INF:
 		p.spawn_bed = null
 		p.send_message("You have no home bed, or it was missing or obstructed")

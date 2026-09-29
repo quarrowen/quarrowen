@@ -9671,3 +9671,22 @@ entity id at all. Checked before changing it rather than after.
 The ratchet's allowlist entry for `broadcast_entity_event` said "entity ids are per-realm and still
 collide - tracked for 1.0". It now says they are unique server-wide, which is the entry doing its job:
 it was a marker for this work, and it had to be rewritten to let the suite pass.
+
+
+## Realms: beds remember which world they are in (29 September 2026)
+
+The audit listed five line numbers in `sleep.gd` reading the overworld. The interesting one was not in
+that file at all: **`spawn_bed` is saved as three numbers and nothing else**, so a bed set in a dungeon
+and slept in sent the player, on death, to those coordinates *on the surface* - somewhere they had
+never been, in a world they had not chosen.
+
+So this was another save-format item rather than a filtering one. `spawn_bed_realm` now travels beside
+`spawn_bed` through the save, and a world written before today has no such key, which reads as the
+overworld and is exactly what those worlds meant. `on_respawn` sends the player back to that realm
+rather than teleporting them inside whichever one they happen to be standing in.
+
+The rest were the ordinary kind and all had a player in hand: `bed_cells` and `stand_spot` read their
+own realm's blocks; occupancy compares realms, so two beds at one coordinate in two worlds are two
+beds; and `_monsters_near` asks the realm's own creatures, which is what the audit meant by "overworld
+monsters keeping you awake in a dungeon while the dungeon's own do not". A sleeping player's record
+carries its realm too, so waking up stands them beside the bed they were actually in.

@@ -4939,6 +4939,15 @@ GDScript: `spawn_bed = null  (property)`
 
 The bed they last used (Vector3i, foot) or null; checked when respawning.
 
+### `spawn_bed_realm`
+
+*server/server_player.gd*
+
+GDScript: `spawn_bed_realm := ""  (property)`
+
+The realm that bed is in. A coordinate without one respawns you at the same numbers in the
+overworld, which is somewhere the player has never been. Empty means the overworld.
+
 ### `sleeping`
 
 *server/server_player.gd*
@@ -5673,7 +5682,7 @@ Loads save_items() output. Returns the names of items this server does not have 
 
 *server/sleep.gd*
 
-GDScript: `bed_cells(pos: Vector3i) -> Dictionary`
+GDScript: `bed_cells(pos: Vector3i, realm_id := "") -> Dictionary`
 
 Both cells of a bed (the clicked one first), and the direction from foot to head.
 
@@ -5687,7 +5696,7 @@ GDScript: `use_bed(p, pos: Vector3i) -> void`
 
 Right-click on a bed: set the respawn point, then try to sleep.
 
-**See also:** `bed_cells`, `gameplay_of`, `is_alive`, `is_night`, `needed_sleepers`, `refresh_appearance`
+**See also:** `bed_cells`, `gameplay_of`, `is_alive`, `is_night`, `needed_sleepers`, `realm_of`
 
 ### `needed_sleepers`
 
@@ -5701,7 +5710,7 @@ How many players must be asleep to skip the night.
 
 *server/sleep.gd*
 
-GDScript: `stand_spot(anchor: Vector3i) -> Vector3`
+GDScript: `stand_spot(anchor: Vector3i, realm_id := "") -> Vector3`
 
 Where to stand next to a bed (respawning or getting up), or Vector3.INF if it is gone or boxed in.
 
@@ -5715,7 +5724,7 @@ GDScript: `respawn_position(p) -> Vector3`
 
 The respawn position from a player's bed, or Vector3.INF (and a message) when it can't be used.
 
-**See also:** `ensure_area_loaded`, `realm_of`, `send_message`, `stand_spot`
+**See also:** `ensure_area_loaded`, `send_message`, `stand_spot`
 
 ### `key`
 

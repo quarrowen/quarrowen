@@ -33,6 +33,9 @@ var realm_id := ""
 var spawn_point := Vector3.INF
 ## The bed they last used (Vector3i, foot) or null; checked when respawning.
 var spawn_bed = null
+## The realm that bed is in. A coordinate without one respawns you at the same numbers in the
+## overworld, which is somewhere the player has never been. Empty means the overworld.
+var spawn_bed_realm := ""
 ## {bed, since, head_dir, return} while asleep in a bed.
 var sleeping := {}
 ## The entity this player is riding, or 0. While it is set they do not walk: their position comes from

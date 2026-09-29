@@ -2695,8 +2695,11 @@ func on_respawn(peer_id: int) -> void:
 	if p == null or not p.dead:
 		return
 	var spawn := p.spawn_point
+	var into_realm := ""
 	if spawn == Vector3.INF:
 		spawn = sleep.respawn_position(p)
+		if spawn != Vector3.INF:
+			into_realm = p.spawn_bed_realm
 	if spawn == Vector3.INF:
 		spawn = spawn_handler.call(p) if spawn_handler.is_valid() else _default_spawn()
 	var ev := emit("player_respawn", {"player": p, "position": spawn})
@@ -2706,7 +2709,12 @@ func on_respawn(peer_id: int) -> void:
 	hunger.set_hunger(p, Hunger.MAX, 5.0)
 	p.hurt_timer = 1.0
 	p.last_damage_time = _time
-	p.teleport(ev.position if ev.position is Vector3 else spawn)
+	var landing: Vector3 = ev.position if ev.position is Vector3 else spawn
+	# A bed in another world means going back to that world, not to its coordinates in this one.
+	if into_realm != realm_of(p).id and realms.has(into_realm):
+		send_to_realm(p, into_realm, landing)
+	else:
+		p.teleport(landing)
 	sync_health(p)
 	broadcast_player_event(p, Entities.Event.RESPAWN)
 
@@ -3341,6 +3349,8 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 		p.exhaustion = clampf(float(saved.get("exhaustion", 0.0)), 0.0, Hunger.EXHAUSTION_PER_POINT)
 		if saved.get("spawn_bed") is Array and saved.spawn_bed.size() == 3:
 			p.spawn_bed = Vector3i(int(saved.spawn_bed[0]), int(saved.spawn_bed[1]), int(saved.spawn_bed[2]))
+			# Absent in worlds saved before 29 September 2026, and the overworld is what those meant.
+			p.spawn_bed_realm = String(saved.get("spawn_bed_realm", ""))
 		guide.load_player(p, saved.get("guide"))
 		tutorials.load_player(p, saved.get("tutorial"))
 		var spawn_point = saved.get("spawn_point")
@@ -6382,6 +6392,7 @@ func _store_player(p: ServerPlayer) -> void:
 		"guide": guide.save_player(p),
 		"tutorial": tutorials.save_player(p),
 		"spawn_bed": [p.spawn_bed.x, p.spawn_bed.y, p.spawn_bed.z] if p.spawn_bed != null else null,
+		"spawn_bed_realm": p.spawn_bed_realm,
 	}
 
 
