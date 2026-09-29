@@ -7,7 +7,7 @@ signal exited(message: String)
 ## Leave this server for a friend's (engine/main.gd switches).
 signal join_friend_requested(address: String, port: int, server_name: String)
 ## The server sent this player to another server (engine/main.gd connects there with the ticket).
-signal transfer_requested(address: String, port: int, server_name: String, ticket: Dictionary)
+signal transfer_requested(address: String, port: int, server_name: String, ticket: Dictionary, known: bool)
 
 ## Set when the server announced a full reload: whoever owns the client should reconnect (see main.gd).
 var reload_pending := false
@@ -795,8 +795,14 @@ func on_transfer(address: String, port: int, server_name: String, ticket: String
 	address = resolve_transfer_address(address, server_address)
 	transfer = {"address": address.left(253), "port": clampi(port, 1, 65535), "name": server_name.left(64),
 		"ticket": {"ticket": ticket, "signature": signature}}
-	_set_status("Travelling to %s…" % transfer.name)
-	transfer_requested.emit(transfer.address, transfer.port, transfer.name, transfer.ticket)
+	# **Whether this computer has met the destination before**, which decides if it is asked about.
+	# Travelling between worlds that are already trusted - the portals a family walks through - stays
+	# silent; a server sending somebody to an address they have never connected to does not, because
+	# that is a fresh unauthenticated first contact and it carries their identity with it. (2026-09-29)
+	transfer["known"] = net.has_pinned_identity(transfer.address, transfer.port)
+	if transfer.known:
+		_set_status("Travelling to %s…" % transfer.name)
+	transfer_requested.emit(transfer.address, transfer.port, transfer.name, transfer.ticket, transfer.known)
 
 
 func on_kick(reason: String) -> void:

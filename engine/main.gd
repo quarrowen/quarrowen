@@ -54,6 +54,8 @@ var _social: SocialClient
 var _updates: Node
 ## A server to go to once the current game has closed (joining a friend from in game).
 var _pending_join := {}
+## A transfer to somewhere this computer has not been before: held until the player says yes.
+var _offered_join := {}
 
 
 func _ready() -> void:
@@ -281,8 +283,22 @@ func _start_client(address: String, port: int, player_name: String, token: Strin
 		_pending_join = {"address": to_address, "port": to_port, "name": to_name, "player": _client.player_name}
 		_client.disconnect_from_server())
 	# A server sending us on (portal, /server, a mod): leave and connect there with the ticket.
-	_client.transfer_requested.connect(func(to_address: String, to_port: int, to_name: String, ticket: Dictionary):
-		_pending_join = {"address": to_address, "port": to_port, "name": to_name, "ticket": ticket, "player": _client.player_name}
+	#
+	# **A destination this computer has never met is asked about first.** A transfer is how linked worlds
+	# work and is meant to be seamless, so one to a server already pinned here goes straight through. One
+	# to a new address does not: it is an unauthenticated first contact, it takes the player's identity
+	# and a signed ticket with it, and until now any server could send anyone to any host and port
+	# without asking. The ask reuses the menu's own message-with-an-action, the same shape as "Trust new
+	# identity". (2026-09-29)
+	_client.transfer_requested.connect(func(to_address: String, to_port: int, to_name: String, ticket: Dictionary, known: bool):
+		var join := {"address": to_address, "port": to_port, "name": to_name, "ticket": ticket,
+			"player": _client.player_name,
+			# Captured now: by the time the question is asked the client is gone.
+			"from": str(_client.server_info.get("name", _client.server_address))}
+		if known:
+			_pending_join = join
+		else:
+			_offered_join = join
 		_client.disconnect_from_server())
 	add_child(_client)
 	_set_presence(address, port, address)
@@ -305,6 +321,23 @@ func _process(_delta: float) -> void:
 		_social.refresh()
 
 
+## Takes up a transfer that was offered and not yet accepted. **A method rather than a closure**, so the
+## menu button and the test press the same thing - a confirmation whose accept path is only reachable
+## through a lambda is a confirmation nobody can test. (2026-09-29)
+func accept_offered_transfer() -> bool:
+	if _offered_join.is_empty():
+		return false
+	_pending_join = _offered_join
+	_offered_join = {}
+	_on_client_exited("")
+	return true
+
+
+## Whether a transfer is waiting to be agreed to, for the menu and for tests.
+func offered_transfer() -> Dictionary:
+	return _offered_join.duplicate()
+
+
 func _on_client_exited(message: String) -> void:
 	var reconnect: Dictionary = {}
 	var ended := {}
@@ -316,6 +349,15 @@ func _on_client_exited(message: String) -> void:
 		_client = null
 	_social.current_server = {}
 	_social.refresh()
+	if not _offered_join.is_empty():
+		var offer := _offered_join
+		_show_menu("")
+		# Both ends named: which server asked, and exactly where it wants to send them. "A server wants
+		# to move you" is not a sentence anybody can make a decision about.
+		_menu.show_message("%s wants to send you to %s (%s:%d), which this computer has not connected to before."
+			% [offer.get("from", "The server"), offer.name, offer.address, offer.port],
+			"error", "Go to %s" % offer.name, accept_offered_transfer)
+		return
 	if not _pending_join.is_empty():
 		var target := _pending_join
 		_pending_join = {}

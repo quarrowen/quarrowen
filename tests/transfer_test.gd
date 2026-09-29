@@ -74,6 +74,17 @@ func _run() -> void:
 	client.close_settings()
 
 	Net.c_chat.rpc_id(1, "/transfer Traveller b")
+	# **Server B has never been connected to from this computer, so the travel is offered rather than
+	# taken.** A server can send a player anywhere, carrying their identity and a signed ticket to an
+	# address that is itself an unauthenticated first contact - so a destination with no pinned identity
+	# is a question rather than a move. Linked worlds stay seamless after the first visit, because the
+	# certificate is pinned on arrival. (2026-09-29)
+	var offered := await _wait(func(): return not main.offered_transfer().is_empty(), 30.0)
+	var offer: Dictionary = main.offered_transfer()
+	_check(offered, "travel to a server this computer has not met is offered, not taken")
+	_check(offered and int(offer.get("port", 0)) == port_b, "and the offer names server B (%s)" % offer.get("port"))
+	_check(offered and not String(offer.get("from", "")).is_empty(), "and says which server asked")
+	_check(main.accept_offered_transfer(), "accepting it goes ahead")
 	var on_b := await _wait(func(): return main._client != null and main._client != client and main._client._welcomed and main._client.server_port == port_b, 60.0)
 	_check(on_b, "/transfer moved the player to server B")
 	if on_b:
