@@ -102,6 +102,10 @@
 			"args": [
 				{
 					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "add_spawn_rule"
@@ -952,6 +956,10 @@
 				},
 				{
 					"kind": "float"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				},
 				{
 					"default": "",

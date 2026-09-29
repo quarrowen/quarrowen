@@ -59,7 +59,8 @@ func command(player, args: PackedStringArray) -> void:
 			if extent.x * extent.y * extent.z > MAX_VOLUME:
 				player.send_message("That selection is too big (max 64x64x64)")
 				return
-			var doc := Structures.capture(_server, sel.a, sel.b, args.size() > 2 and args[2] == "keep_air")
+			var doc := Structures.capture(_server, sel.a, sel.b, args.size() > 2 and args[2] == "keep_air",
+				_server.realm_of(player))
 			DirAccess.make_dir_recursive_absolute(folder())
 			var file := FileAccess.open(folder().path_join(name + ".json"), FileAccess.WRITE)
 			file.store_string(JSON.stringify(doc))
@@ -74,7 +75,10 @@ func command(player, args: PackedStringArray) -> void:
 				player.send_message("Usage: /struct place <template> [rotation 0-3]")
 				return
 			var template_name := args[1] if args[1].contains(":") else "world:" + args[1]
-			var ok := place(template_name, _aimed(player) + Vector3i.UP, int(args[2]) if args.size() > 2 else 0)
+			# Aimed with the player's own realm, so it has to be built in it too - this placed on the
+			# surface while the player was pointing at a dungeon wall. (2026-09-29)
+			var ok := place(template_name, _aimed(player) + Vector3i.UP,
+				int(args[2]) if args.size() > 2 else 0, _server.realm_of(player))
 			player.send_message("Placed %s" % template_name if ok else "No template named %s" % template_name)
 		"list":
 			var names: Array = _server.biome_generator.structures.templates.keys() if _server.biome_generator != null else []

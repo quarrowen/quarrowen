@@ -457,9 +457,15 @@ biome, so every column has a clear winner and borders blend over a short distanc
 <div class="card" data-search="place_in_chunk writes every structure piece that overlaps this chunk. `data` collects block data {vector3i: dict}. server/worldgen/structures.gd world generation"><div class="sig"><code>place_in_chunk(chunk, gen, writer, data: Dictionary) -&gt; void</code></div><p>Writes every structure piece that overlaps this chunk. `data` collects block data {Vector3i: dict}.</p></div>
 <div class="card" data-search="capture a template dictionary (json-ready) from a region of a world. `keep_air`: leave air cells out (the
 structure then keeps the terrain there). block data in the region (chest contents, spawner settings)
-goes into `data`. server/worldgen/structures.gd world generation"><div class="sig"><code>static capture(server, lo: Vector3i, hi: Vector3i, keep_air := false) -&gt; Dictionary</code></div><p>A template dictionary (JSON-ready) from a region of a world. `keep_air`: leave air cells out (the
+goes into `data`.
+`into` is the realm to read from. without it a selection made in one world was captured from the
+overworld, so saving a dungeon room wrote whatever stood at those coordinates on the surface into
+the template file. (2026-09-29) server/worldgen/structures.gd world generation"><div class="sig"><code>static capture(server, lo: Vector3i, hi: Vector3i, keep_air := false, into = null) -&gt; Dictionary</code></div><p>A template dictionary (JSON-ready) from a region of a world. `keep_air`: leave air cells out (the
 structure then keeps the terrain there). Block data in the region (chest contents, spawner settings)
-goes into `data`.</p></div>
+goes into `data`.
+`into` is the realm to read from. Without it a selection made in one world was captured from the
+overworld, so saving a dungeon room wrote whatever stood at those coordinates on the surface into
+the template file. (2026-09-29)</p></div>
 <div class="card" data-search="nearest where the nearest structure of a set is, or vector3.inf. searches outwards from the region the
 point is in, up to `rings` regions away.
 

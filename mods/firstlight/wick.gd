@@ -167,7 +167,7 @@ func _conversation(api) -> void:
 
 ## Makes sure this player has a Wick, and that he belongs to them.
 func _ensure_wick(player) -> void:
-	for e in api.get_entities(player.position, 64.0, "firstlight:wick"):
+	for e in api.get_entities(player.position, 64.0, "firstlight:wick", api.realm_of(player)):
 		if str(e.data.get("owner", "")) == str(player.player_id):
 			return  # theirs already, and following
 	var at: Vector3 = player.position + Vector3(1.5, 0.0, 1.5)
@@ -256,7 +256,7 @@ func _watch(api) -> void:
 	api.every(5.0, func():
 		_elapsed += 5.0
 		for player in api.players():
-			for e in api.get_entities(player.position, NEAR + 2.0, "firstlight:wick"):
+			for e in api.get_entities(player.position, NEAR + 2.0, "firstlight:wick", api.realm_of(player)):
 				if str(e.data.get("owner", "")) == str(player.player_id):
 					_remark(player, e)
 					break)

@@ -9690,3 +9690,32 @@ own realm's blocks; occupancy compares realms, so two beds at one coordinate in 
 beds; and `_monsters_near` asks the realm's own creatures, which is what the audit meant by "overworld
 monsters keeping you awake in a dungeon while the dungeon's own do not". A sleeping player's record
 carries its realm too, so waking up stands them beside the bed they were actually in.
+
+
+## Realms: /struct, and the mod API's remaining gaps (29 September 2026)
+
+**`/struct` was wrong in both directions.** `_aimed` casts through `realm_of(player).world`, so the
+selection and the target were always the player's own world - and then `place` passed no realm and
+`Structures.capture` read `get_block_loaded` with none. Pointing at a dungeon wall and typing
+`/struct place` built on the surface; `/struct save` in a dungeon wrote whatever stood at those
+coordinates on the surface **into the template file on disk**. The second is the worse one and is the
+same shape as the others this week: a read against the wrong world that ends up as saved state.
+
+**Three of the audit's mod-API gaps were already closed** and nobody had ticked them off:
+`schedule_block_tick` and `get_container` take a `realm_id`, and `remove_entity` is now
+`entity.remove()`, which is what the audit said it should be. `place_structure` looked like a gap and
+is not: `place_structure_in` was added beside it on 21 September with the realm in the right place,
+which is the documented way to change a signature here. Left alone rather than deprecated - a mod
+building in a single-world game is not doing anything wrong, and forcing every one of them to rename
+buys nothing.
+
+Genuinely fixed here:
+
+- **`get_entities`** took no realm, so a radius query from a dungeon answered with whatever stood at
+  those coordinates on the surface. It takes one now, and the three call sites in `firstlight` and the
+  Proving Ground pass the player's.
+- **`get_entity`** searched the overworld's table only. Because ids are unique across worlds since
+  this morning, it now asks every realm instead of taking a parameter - a mod holding an id across a
+  transfer has no realm to offer, which is exactly when it would need this.
+- **`add_spawn_rule`** put every rule in the overworld. A rule added for a dungeon populated the
+  surface, and an arena meant to be empty got the overworld's.

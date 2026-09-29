@@ -674,13 +674,23 @@ func drop_item(item_id: int, count: int, position: Vector3, realm_id := ""):
 	return _realm_or_default(realm_id).entities.drop_item(item_id, count, position)
 
 
-## Living entities within `radius` of `center`, optionally only of one type.
-func get_entities(center: Vector3, radius: float, entity_name := "") -> Array:
-	return _server.entities.in_radius(center, radius, entity_type(entity_name) if not entity_name.is_empty() else -1)
+## Living entities within `radius` of `center`, optionally only of one type. `realm_id` is which
+## world to look in - a radius is meaningless without one, and asking from a dungeon used to answer
+## with whatever was standing at those coordinates on the surface. (2026-09-29)
+func get_entities(center: Vector3, radius: float, entity_name := "", realm_id := "") -> Array:
+	return _realm_or_default(realm_id).entities.in_radius(center, radius,
+		entity_type(entity_name) if not entity_name.is_empty() else -1)
 
 
 ## The entity with this id, or null if it is gone.
+##
+## Ids are unique across every world (see `GameServer.next_entity_id`), so this asks all of them
+## rather than taking a realm: a mod holding an id across a transfer has no realm to offer.
 func get_entity(entity_id: int):
+	for r in _server.realms.values():
+		var e = r.entities.entities.get(entity_id)
+		if e != null:
+			return e
 	return _server.entities.entities.get(entity_id)
 
 
@@ -788,7 +798,7 @@ func make_noise(position: Vector3, radius: float, source = null) -> void:
 ## (block names the mob may stand on; default any), group [min, max] (pack size), max_nearby (per
 ## player), max_total, chance (per player per second), min_distance, max_distance. See
 ## engine/server/spawning.gd for caps and despawning.
-func add_spawn_rule(def: Dictionary) -> void:
+func add_spawn_rule(def: Dictionary, realm_id := "") -> void:
 	var type_id := entity_type(String(def.get("entity", "")))
 	if type_id < 0:
 		if not _excluded_not_missing(String(def.get("entity", "")), "spawn rule"):
@@ -810,7 +820,9 @@ func add_spawn_rule(def: Dictionary) -> void:
 			_missing("add_spawn_rule (on)", String(block_ref))
 	rule.on = on
 	rule.owner = mod_id
-	_server.entities.add_spawn_rule(rule)
+	# Spawning belongs to a world: a rule added for a dungeon must not populate the surface, and the
+	# overworld's rules must not fill an arena that was meant to be empty. (2026-09-29)
+	_realm_or_default(realm_id).entities.add_spawn_rule(rule)
 
 
 ## How many mobs of each category may be around each player: {monster, animal, ambient, misc}.

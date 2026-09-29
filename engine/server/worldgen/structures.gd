@@ -270,7 +270,10 @@ func freeze(registry) -> void:
 ## A template dictionary (JSON-ready) from a region of a world. `keep_air`: leave air cells out (the
 ## structure then keeps the terrain there). Block data in the region (chest contents, spawner settings)
 ## goes into `data`.
-static func capture(server, lo: Vector3i, hi: Vector3i, keep_air := false) -> Dictionary:
+## `into` is the realm to read from. Without it a selection made in one world was captured from the
+## overworld, so saving a dungeon room wrote whatever stood at those coordinates on the surface into
+## the template file. (2026-09-29)
+static func capture(server, lo: Vector3i, hi: Vector3i, keep_air := false, into = null) -> Dictionary:
 	var a := Vector3i(mini(lo.x, hi.x), mini(lo.y, hi.y), mini(lo.z, hi.z))
 	var b := Vector3i(maxi(lo.x, hi.x), maxi(lo.y, hi.y), maxi(lo.z, hi.z))
 	var palette := []
@@ -281,7 +284,7 @@ static func capture(server, lo: Vector3i, hi: Vector3i, keep_air := false) -> Di
 		for z in range(a.z, b.z + 1):
 			for x in range(a.x, b.x + 1):
 				var pos := Vector3i(x, y, z)
-				var id: int = server.get_block_loaded(pos)
+				var id: int = server.get_block_loaded(pos, into)
 				if id == BlockRegistry.UNLOADED or (id == 0 and keep_air):
 					continue
 				var name: String = "engine:air" if id == 0 else server.registry.defs[id].name
@@ -289,9 +292,9 @@ static func capture(server, lo: Vector3i, hi: Vector3i, keep_air := false) -> Di
 					index[name] = palette.size()
 					palette.append(name)
 				var local := pos - a
-				var state: int = server.get_block_state(pos)
+				var state: int = server.get_block_state(pos, into)
 				blocks.append([local.x, local.y, local.z, index[name], state] if state != 0 else [local.x, local.y, local.z, index[name]])
-				var block_data: Dictionary = server.get_block_data(pos)
+				var block_data: Dictionary = server.get_block_data(pos, into)
 				if not block_data.is_empty():
 					data["%d,%d,%d" % [local.x, local.y, local.z]] = block_data.duplicate(true)
 	return {"size": [b.x - a.x + 1, b.y - a.y + 1, b.z - a.z + 1], "palette": palette, "blocks": blocks, "data": data}

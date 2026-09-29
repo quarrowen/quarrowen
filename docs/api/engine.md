@@ -755,11 +755,14 @@ Writes every structure piece that overlaps this chunk. `data` collects block dat
 
 *server/worldgen/structures.gd*
 
-GDScript: `static capture(server, lo: Vector3i, hi: Vector3i, keep_air := false) -> Dictionary`
+GDScript: `static capture(server, lo: Vector3i, hi: Vector3i, keep_air := false, into = null) -> Dictionary`
 
 A template dictionary (JSON-ready) from a region of a world. `keep_air`: leave air cells out (the
 structure then keeps the terrain there). Block data in the region (chest contents, spawner settings)
 goes into `data`.
+`into` is the realm to read from. Without it a selection made in one world was captured from the
+overworld, so saving a dungeon room wrote whatever stood at those coordinates on the surface into
+the template file. (2026-09-29)
 
 **See also:** `get_block_data`, `get_block_loaded`, `get_block_state`
 
@@ -3550,7 +3553,7 @@ JavaScript: `api.addSpawnRule(rule)`
 
 See engine/server/spawning.gd for rule keys.
 
-**See also:** `add_rule`, `block`, `entity_type`, `is_excluded`, `qualified`
+**See also:** `add_rule`, `block`, `entity_type`, `is_excluded`, `qualified`, `register_instance`
 
 ### `replicate`
 

@@ -40,7 +40,7 @@ it to server admins (QW_ADMINS, /op, or the local host).
 
 ```gdscript
 api.register_command("adopt", "Make the nearest grazer yours", func(player, _args):
-	for e in api.get_entities(player.position, 12.0, "proving:grazer"):
+	for e in api.get_entities(player.position, 12.0, "proving:grazer", api.realm_of(player)):
 		if api.tame(e, player):
 			player.send_message("It follows you now.")
 			return

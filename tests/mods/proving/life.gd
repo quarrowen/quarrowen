@@ -74,7 +74,7 @@ func _creatures() -> void:
 	# he eats. Exercised here as a command, because a test can run a command and cannot hold out an
 	# apple. (2026-09-24)
 	api.register_command("adopt", "Make the nearest grazer yours", func(player, _args):
-		for e in api.get_entities(player.position, 12.0, "proving:grazer"):
+		for e in api.get_entities(player.position, 12.0, "proving:grazer", api.realm_of(player)):
 			if api.tame(e, player):
 				player.send_message("It follows you now.")
 				return

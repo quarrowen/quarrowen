@@ -102,17 +102,19 @@ JavaScript: `api.spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner
 
 ### `api.get_entities`
 
-GDScript: `api.get_entities(center: Vector3, radius: float, entity_name := "") -> Array`
+GDScript: `api.get_entities(center: Vector3, radius: float, entity_name := "", realm_id := "") -> Array`
 
-JavaScript: `api.getEntities(center, radius, entityName)`
+JavaScript: `api.getEntities(center, radius, entityName, realmId)`
 
-Living entities within `radius` of `center`, optionally only of one type.
+Living entities within `radius` of `center`, optionally only of one type. `realm_id` is which
+world to look in - a radius is meaningless without one, and asking from a dungeon used to answer
+with whatever was standing at those coordinates on the surface. (2026-09-29)
 
 ```gdscript
-for e in api.get_entities(player.position, 12.0, "proving:grazer"):
+for e in api.get_entities(player.position, 12.0, "proving:grazer", api.realm_of(player)):
 ```
 
-**See also:** `entity_type`, `in_radius`
+**See also:** `entity_type`, `in_radius`, `qualified`, `register_instance`
 
 ### `api.get_entity`
 
@@ -121,6 +123,9 @@ GDScript: `api.get_entity(entity_id: int)`
 JavaScript: `api.getEntity(entityId)`
 
 The entity with this id, or null if it is gone.
+
+Ids are unique across every world (see `GameServer.next_entity_id`), so this asks all of them
+rather than taking a realm: a mod holding an id across a transfer has no realm to offer.
 
 ### `api.register_mob_behavior`
 
@@ -157,7 +162,7 @@ Lets mobs hear something at `position` (they come to investigate). `source` may 
 
 ### `api.add_spawn_rule`
 
-GDScript: `api.add_spawn_rule(def: Dictionary) -> void`
+GDScript: `api.add_spawn_rule(def: Dictionary, realm_id := "") -> void`
 
 JavaScript: `api.addSpawnRule(rule: SpawnRule): void`
 
@@ -172,7 +177,7 @@ engine/server/spawning.gd for caps and despawning.
 api.add_spawn_rule({"entity": "biter", "group": [1, 2]})
 ```
 
-**See also:** `add_rule`, `block`, `entity_type`, `is_excluded`, `qualified`
+**See also:** `add_rule`, `block`, `entity_type`, `is_excluded`, `qualified`, `register_instance`
 
 ### `api.set_spawn_caps`
 
