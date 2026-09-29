@@ -1,5 +1,14 @@
 [package]
 name = "quarrowen_native"
+# **Not the game's version, and deliberately not kept in step with it.** This number is Cargo's, it is
+# `publish = false` so it never reaches a registry, and nothing in the code or the .gdextension file
+# reads it - `grep CARGO_PKG_VERSION` finds nothing. Its only appearance is in build output
+# ("Compiling quarrowen_native v0.1.0"), which is where it caused confusion during the 0.42.1 release:
+# a release log that says v0.1.0 looks like something shipping at the wrong version.
+#
+# Left alone rather than synced, because syncing it would create exactly the kind of pair this project
+# has been bitten by - two numbers in two files that must move together, with nothing to check that
+# they did, to fix a cosmetic line in a log. (2026-09-29)
 version = "0.1.0"
 edition = "2021"
 publish = false

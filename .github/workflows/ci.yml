@@ -258,8 +258,22 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           # The tag's subject line, one line of it: the release notes end up inside a JSON string in
           # update.json, and a commit message with a blank line in it would produce invalid JSON.
-          export NOTES="$(git tag -l --format='%(contents:subject)' "$GITHUB_REF_NAME" | head -1)"
+          #
+          # **Fetch the tag object first.** `actions/checkout` leaves a *lightweight* local tag even when
+          # the one that was pushed is annotated, and `%(contents:subject)` on a lightweight tag quietly
+          # falls back to the *commit* subject. 0.42.1 shipped with "Cut 0.42.1, because a tag that
+          # failed cannot be reused" as its headline on the download page - an internal commit message,
+          # on the page people are sent to. Silent because both branches produce a plausible sentence.
+          # (2026-09-29)
+          git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}" || true
+          if [ "$(git cat-file -t "refs/tags/${GITHUB_REF_NAME}" 2>/dev/null)" = "tag" ]; then
+            export NOTES="$(git tag -l --format='%(contents:subject)' "$GITHUB_REF_NAME" | head -1)"
+          else
+            echo "::warning title=No annotated tag::${GITHUB_REF_NAME} is not annotated here, so the release notes fall back to a generic line rather than a commit subject."
+            NOTES=""
+          fi
           [ -n "$NOTES" ] || NOTES="Quarrowen $version"
+          echo "release notes: $NOTES"
           export BASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
           git config user.name "Quarrowen release"
           git config user.email "releases@quarrowen.com"
