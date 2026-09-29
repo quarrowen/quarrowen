@@ -9540,3 +9540,29 @@ Everything here lands on a frozen format without a migration, which is precisely
 
 `Protocol.VERSION` stays at 60 through 0.4x and resets to 1 when 1.0 is cut. The list of things
 deliberately rejected is unchanged and is not re-opened by this split.
+
+
+### 1.0 scope, settled 29 September 2026
+
+Three decisions taken when the user asked what was needed to finish 1.0 autonomously.
+
+- **The descent is finished, not cut.** Run UI (depth and personal best), a boss around every fifth
+  floor, sound, and the harsh-mode gate. It is the largest content item in 1.0 after realms, and it is
+  what takes Firstlight to the "deep enough to hold a player for a season" bar that 1.0 is measured
+  against. Shipping it visibly half-built was rejected: an unfinished corner in a 1.0 costs more trust
+  than a missing feature.
+- **1.0 is macOS and Windows only.** Touch controls stay in the tree and keep working; TestFlight,
+  provisioning, the unchecked safe area and the tablet-hosting question all move to 1.1 with Android.
+  Most of that work needs a device in the user's hands rather than anything this end.
+- **The tag is the user's to push.** Everything up to it is autonomous - the work, the suite, the
+  release notes - and it stops at "1.0 is ready". A release that resets worlds and the protocol is the
+  one worth a person pressing the button.
+
+**Three things cannot be done from this end at all**, and 1.0 is not honestly finished without them:
+
+1. **The Windows installer and the Windows self-update have never run on Windows.** CI builds and never
+   executes them. Somebody has to double-click the installer on a real machine.
+2. **Nobody but the author has ever run a server.** This is one of the four readiness criteria and it
+   has never happened once. It needs a friend, not a test.
+3. **A real human playthrough of Firstlight.** Bots and soak tests say nothing about whether it holds
+   somebody for a season, which is the actual criterion.
