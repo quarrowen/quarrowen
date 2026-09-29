@@ -168,7 +168,19 @@ repository variable, and both have to be done deliberately:
    | `NOTARY_KEY_P8` | `base64 -i AuthKey_XXXX.p8 \| pbcopy` |
    | `NOTARY_KEY_ID` | the Key ID, e.g. `A1B2C3D4E5` |
    | `NOTARY_ISSUER_ID` | the Issuer ID (a UUID) |
-   | `RELEASE_SIGNING_KEY` | the contents of `~/.config/quarrowen/release_key.pem` |
+   | `RELEASE_SIGNING_KEY` | the contents of `~/.config/quarrowen/release_key.pem`, **not** base64 |
+
+   **`RELEASE_SIGNING_KEY` is the odd one out and it is worth a sentence**, because the two rows above it
+   are base64 and the eye copies the pattern. The other two are binary files that have to survive being
+   a string; this one is already text, and CI writes it straight back out with
+   `printf '%s' "$RELEASE_SIGNING_KEY" > release_key.pem`. So: `pbcopy < ~/.config/quarrowen/release_key.pem`.
+
+   Tested on 29 September 2026 rather than assumed, because all three failure modes are CI-only:
+   a key with no trailing newline signs correctly (so `printf '%s'` dropping one is harmless), a key
+   with CRLF line endings signs correctly, and a key that has been base64'd by mistake fails to parse
+   and produces **no signature at all**. That last one used to sail through - `make_release.sh` did not
+   check whether signing worked, so the release would have published an unsigned manifest that every
+   installed client refuses. It stops now.
 
 5. **The variable `SIGN_IN_CI` set to `true`**, on the Variables tab beside the secrets. This is the
    switch; everything above is inert without it.
