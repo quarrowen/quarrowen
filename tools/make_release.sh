@@ -19,6 +19,28 @@ cd "$(dirname "$0")/.."
 
 GODOT="${GODOT:-$(command -v godot || echo /Applications/Godot.app/Contents/MacOS/Godot)}"
 version="$(sed -n 's/^const GAME_VERSION := "\(.*\)"$/\1/p' engine/shared/protocol.gd)"
+
+# **Import the project first, or half of this runs without the native extension.**
+#
+# `.godot/` is not in the repository, so a fresh clone has no import cache and - the part that actually
+# bites - no `extension_list.cfg`, which is the file that tells Godot to load a GDExtension at all. The
+# Mac package does not notice, because it exports from a staged copy and the export imports as it goes.
+# Everything after it does: `mod_tool` runs against *this* checkout, finds no extension, and every mod
+# fails to validate with "NativeVoxelWorld does not exist".
+#
+# It never showed up locally because a working checkout has been imported long ago, and it never showed
+# up in CI because this job had never once run. The first time it did, it signed and notarised a build
+# and then fell over packing the mods. Done here rather than in the workflow so a fresh clone on
+# somebody's laptop behaves the same, and done before the Mac build so it fails in seconds rather than
+# after a notarisation. (2026-09-29)
+if [ ! -f .godot/extension_list.cfg ]; then
+	echo "== importing the project (no .godot yet)"
+	"$GODOT" --headless --path . --import >/dev/null 2>&1 || true
+	if [ ! -f .godot/extension_list.cfg ]; then
+		echo "!! import did not produce .godot/extension_list.cfg - mods will fail to validate." >&2
+		exit 1
+	fi
+fi
 out=build/release
 base_url="${BASE_URL:-https://quarrowen.com}"
 # GitHub release assets are one flat list under the tag, so their URLs have no folders below it; the
