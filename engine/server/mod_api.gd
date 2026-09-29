@@ -1009,8 +1009,8 @@ func register_station(station_name: String, def: Dictionary) -> void:
 
 ## The station at a position: {name, title, tier, tier_title, features, speed, quality, pull_radius,
 ## hints, detected, available, next, structure}, or {}.
-func get_station(position: Vector3i) -> Dictionary:
-	return _server.stations.evaluate(position)
+func get_station(position: Vector3i, realm_id := "") -> Dictionary:
+	return _server.stations.evaluate(position, _qualify_ref(realm_id))
 
 
 ## Adds a recipe book tab, or joins one that already exists. def: display_name, icon (item name shown

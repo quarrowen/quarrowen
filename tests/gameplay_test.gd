@@ -4119,6 +4119,22 @@ func _realms() -> void:
 
 	# Each realm keeps its own tick table, for the same reason.
 	_check(deep.block_ticks != server.realm.block_ticks, "and its own block ticks")
+
+	# **A station is a position in a realm.** Keyed on the bare coordinate, these two were one session:
+	# one tray, one job queue, and each realm's crafting screen listing the other's players. The block
+	# data underneath came from the overworld too, so a dungeon station wrote its tray onto whatever
+	# stood at those coordinates on the surface. (2026-09-29)
+	var bench := Vector3i(8, 40, 8)
+	server.sessions.coop(bench).tray.append({"item": "base:stone", "count": 3, "by": "sky", "by_name": "Sky"})
+	server.sessions.coop(bench, "test:deep").tray.append({"item": "base:glass", "count": 1, "by": "dee", "by_name": "Dee"})
+	_check(server.sessions.coop(bench).tray.size() == 1 and server.sessions.coop(bench, "test:deep").tray.size() == 1,
+		"two realms' stations at one coordinate keep their own trays")
+	_check(String(server.sessions.coop(bench).tray[0].item) == "base:stone"
+		and String(server.sessions.coop(bench, "test:deep").tray[0].item) == "base:glass",
+		"and neither is reading the other's block data")
+	server.sessions.mark(bench, "test:deep")
+	_check(server.sessions.view(bench).tray.size() == 1, "a view of one is not a view of the other")
+
 	_check(deep.block_ticks.realm == deep, "which know the world they are in")
 	_check(deep.entities != server.realm.entities, "and its own creatures")
 

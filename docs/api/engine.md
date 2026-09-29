@@ -80,7 +80,7 @@ GDScript: `take(slot: int, count: int) -> Dictionary`
 
 Removes up to `count` items from a slot and returns what was removed as {item, count, data}.
 
-**See also:** `coop`, `get_item`, `max_stack`, `may_take`, `set_item`, `sync_inventory`
+**See also:** `coop`, `get_item`, `key_name`, `max_stack`, `may_take`, `node_key`
 
 ### `set_progress`
 
@@ -580,7 +580,7 @@ JavaScript: `api.setAccepts(node, filter)`
 What a face will take. `items` and `tags` name what is allowed; an empty filter takes anything.
 `deny` turns it inside out, which is how a mod writes "everything except cobblestone".
 
-**See also:** `key_name`, `node_key`, `qualified`, `tag`
+**See also:** `key_name`, `node_key`, `qualified`, `realm_of`, `tag`
 
 ### `send`
 
@@ -592,7 +592,7 @@ Sends something from a face to whichever connected face will take it. Returns tr
 way; false if nothing would take it, which is the answer a mod needs to decide whether to keep
 holding the thing or to stop trying.
 
-**See also:** `key_name`, `node_key`, `reachable`
+**See also:** `key_name`, `node_key`, `reachable`, `realm_of`
 
 ### `would_accept`
 
@@ -1328,7 +1328,7 @@ GDScript: `claim(realm_id: String, from: Vector3i, to: Vector3i, options := {}) 
 
 Marks out a plot. `owner` is a player id, or use `company` for one owned by a group.
 
-**See also:** `coop`
+**See also:** `coop`, `realm_of`
 
 ### `at`
 
@@ -2224,7 +2224,7 @@ assembly slot]}. Returns the game id, or 0 if it could not start.
 
 *server/skill_crafting.gd*
 
-GDScript: `invites_at(pos: Vector3i) -> Array`
+GDScript: `invites_at(pos: Vector3i, realm_id := "") -> Array`
 
 Invitations waiting at a station: [{id, by_name, title}].
 
@@ -2282,7 +2282,7 @@ makers. Standard leaves the item unchanged.
 
 *server/station_sessions.gd*
 
-GDScript: `coop(pos: Vector3i) -> Dictionary`
+GDScript: `coop(pos: Vector3i, realm_id := "") -> Dictionary`
 
 The co-op state of a station: {owner, owner_name, owner_team, tray: [...], jobs: [...], project: {}}.
 
@@ -2296,7 +2296,7 @@ GDScript: `claim(pos: Vector3i, p) -> void`
 
 Records who placed a station (they own its tray).
 
-**See also:** `coop`
+**See also:** `coop`, `realm_of`
 
 ### `speedup`
 
@@ -2314,7 +2314,7 @@ GDScript: `deposit(p, pos: Vector3i, slot: int) -> bool`
 
 Moves the stack in a backpack slot into the tray. Returns true if anything moved.
 
-**See also:** `clear_slot`, `coop`, `max_stack`, `sync_inventory`
+**See also:** `clear_slot`, `coop`, `key_name`, `max_stack`, `node_key`, `realm_of`
 
 ### `usable_tray`
 
@@ -2324,7 +2324,7 @@ GDScript: `usable_tray(p, pos: Vector3i) -> Dictionary`
 
 Tray items this player may use: {item id: count}.
 
-**See also:** `coop`, `may_take`
+**See also:** `coop`, `may_take`, `realm_of`
 
 ### `consume_tray`
 
@@ -2334,7 +2334,7 @@ GDScript: `consume_tray(p, pos: Vector3i, item: int, count: int) -> int`
 
 Removes up to `count` of an item from the tray stacks the player may use. Returns how many.
 
-**See also:** `coop`, `may_take`
+**See also:** `coop`, `key_name`, `may_take`, `node_key`, `realm_of`
 
 ### `contribute`
 
@@ -2344,17 +2344,17 @@ GDScript: `contribute(p, pos: Vector3i) -> int`
 
 Delivers whatever the project still needs from the player's inventory. Returns items delivered.
 
-**See also:** `broadcast_chat`, `coop`, `count_of`, `drop_item`, `index_of`, `play_effect`
+**See also:** `broadcast_chat`, `coop`, `count_of`, `drop_item`, `index_of`, `key_name`
 
 ### `view`
 
 *server/station_sessions.gd*
 
-GDScript: `view(pos: Vector3i) -> Dictionary`
+GDScript: `view(pos: Vector3i, realm_id := "") -> Dictionary`
 
 What session members see: players and the recipes they look at, tray, jobs with speed, project.
 
-**See also:** `coop`, `index_of`, `invites_at`, `members`, `merge`, `project_fraction`
+**See also:** `coop`, `index_of`, `invites_at`, `key_name`, `members`, `merge`
 
 ### `station_of_block`
 
@@ -2369,10 +2369,14 @@ Station name of a block: from a registered station's tiers or multiblock core, o
 
 *server/stations.gd*
 
-GDScript: `evaluate(pos: Vector3i) -> Dictionary`
+GDScript: `evaluate(pos: Vector3i, realm_id := "") -> Dictionary`
 
 Everything about the station at a position: {name, title, tier, tier_title, features, speed,
 quality, pull_radius, hints, detected: [...], available: [...], next: {...}, structure: {...}}.
+`realm_id` is the world the station stands in. Without it every station was read against the
+overworld, so one in a dungeon evaluated whatever blocks happened to sit at those coordinates on
+the surface - a workshop bonus from a room somebody else built, or a multiblock that was never
+there. (2026-09-29)
 
 **See also:** `apply_condition`, `damage`, `damage_player`, `get_block_v`, `heal`, `station_of_block`
 
@@ -2388,7 +2392,7 @@ Whether the station is usable: multiblock stations must be complete.
 
 *server/stations.gd*
 
-GDScript: `structure_missing(core_pos: Vector3i, m: Dictionary) -> Array`
+GDScript: `structure_missing(core_pos: Vector3i, m: Dictionary, realm_id := "") -> Array`
 
 The best rotation's missing blocks as [[position, block id], ...] (empty when the structure is
 complete). The core is the block at "C".
@@ -3433,7 +3437,7 @@ GDScript: `set_source(unit: String, node: Dictionary, value: float) -> void`
 
 This face drives at `value` - a speed, and a sign for which way round. 0 stops driving.
 
-**See also:** `get_block_v`, `key_name`, `node_key`, `reaching`, `record`
+**See also:** `get_block_v`, `key_name`, `node_key`, `reaching`, `realm_of`, `record`
 
 ### `value_at`
 
@@ -3444,7 +3448,7 @@ GDScript: `value_at(unit: String, node: Dictionary) -> float`
 What this face is being driven at. Zero when nothing drives it, and zero when the line is jammed -
 a jammed line does not turn.
 
-**See also:** `key_name`, `node_key`
+**See also:** `key_name`, `node_key`, `realm_of`
 
 ### `jammed_at`
 
@@ -3454,7 +3458,7 @@ GDScript: `jammed_at(unit: String, node: Dictionary) -> bool`
 
 Whether this face is on a line that two sources are fighting over.
 
-**See also:** `key_name`, `node_key`
+**See also:** `key_name`, `node_key`, `realm_of`
 
 ### `projectiles`
 
@@ -4767,7 +4771,7 @@ GDScript: `start_eating(p) -> bool`
 
 Starts eating the held food. Returns false (with a reason shown) if it cannot be eaten now.
 
-**See also:** `enabled`, `get_def`, `members`, `selected_item`, `show_title`, `view`
+**See also:** `enabled`, `get_def`, `members`, `realm_of`, `selected_item`, `show_title`
 
 ### `finish_eating`
 
@@ -5373,7 +5377,7 @@ GDScript: `take(block: int, count := 1) -> bool`
 
 Removes items if the player has enough; returns false otherwise.
 
-**See also:** `coop`, `get_item`, `max_stack`, `may_take`, `set_item`, `sync_inventory`
+**See also:** `coop`, `get_item`, `key_name`, `max_stack`, `may_take`, `node_key`
 
 ### `count_of`
 
@@ -6227,7 +6231,7 @@ GDScript: `set_view(view: Dictionary) -> void`
 
 {active: [{name, display_name, step, of, text, progress, needed}]} from the server.
 
-**See also:** `icon_of`, `key_name`, `new_game`, `node_key`, `safe`, `texture`
+**See also:** `icon_of`, `key_name`, `new_game`, `node_key`, `realm_of`, `safe`
 
 ### `preferred_page`
 
@@ -6422,7 +6426,7 @@ JavaScript: `api.received(unit, node)`
 
 What this face is actually receiving.
 
-**See also:** `key_name`, `node_key`, `qualified`, `tag`
+**See also:** `key_name`, `node_key`, `qualified`, `realm_of`, `tag`
 
 ### `link_changed`
 
@@ -6432,7 +6436,7 @@ GDScript: `link_changed(a: Dictionary, b: Dictionary) -> void`
 
 A link was made or cut: whatever it touched needs working out again.
 
-**See also:** `key_name`, `node_key`
+**See also:** `key_name`, `node_key`, `realm_of`
 
 ### `settle`
 
@@ -6648,7 +6652,7 @@ GDScript: `cut(id: int, why := "removed") -> bool`
 Removes a link and says so. `why` reaches the mod, which is how a player finds out their cable was
 cut by a wall somebody built rather than simply stopping working.
 
-**See also:** `key_name`, `node_key`
+**See also:** `key_name`, `node_key`, `realm_of`
 
 ### `at_block`
 
@@ -6668,7 +6672,7 @@ GDScript: `reachable(from: Dictionary, limit := 4096) -> Dictionary`
 
 Everything reachable from a node, as node keys. The graph traversal every layer above this uses.
 
-**See also:** `key_name`, `node_key`
+**See also:** `key_name`, `node_key`, `realm_of`
 
 ### `block_changed`
 
@@ -6729,7 +6733,7 @@ GDScript: `view(p) -> Array`
 The list a player sees: what they have done, what is left, and how far along they are. Secret ones
 stay out of the list until they are reached, so the surprise survives being able to read the list.
 
-**See also:** `coop`, `index_of`, `invites_at`, `members`, `merge`, `project_fraction`
+**See also:** `coop`, `index_of`, `invites_at`, `key_name`, `members`, `merge`
 
 ### `kinds`
 
@@ -6930,7 +6934,7 @@ GDScript: `set_source(pos: Vector3i, level: int) -> void`
 Makes the block at `pos` emit `level` (0 stops it). This is how a lever, a plate or a mod's own
 gate speaks: the engine never learns what any of them are.
 
-**See also:** `get_block_v`, `key_name`, `node_key`, `reaching`, `record`
+**See also:** `get_block_v`, `key_name`, `node_key`, `reaching`, `realm_of`, `record`
 
 ### `level_at`
 
@@ -7062,7 +7066,7 @@ GDScript: `view(p) -> Dictionary`
 
 The tracker the client draws: {} when no tutorial is running.
 
-**See also:** `coop`, `index_of`, `invites_at`, `members`, `merge`, `project_fraction`
+**See also:** `coop`, `index_of`, `invites_at`, `key_name`, `members`, `merge`
 
 ### `show_tip`
 
@@ -7074,7 +7078,7 @@ JavaScript: `api.showTip(p, id)`
 
 Shows a tip now (registered id), even if it was seen before.
 
-**See also:** `icon_of`, `key_name`, `library`, `node_key`, `qualified`, `safe`
+**See also:** `icon_of`, `key_name`, `library`, `node_key`, `qualified`, `realm_of`
 
 ### `store`
 
@@ -7858,6 +7862,8 @@ GDScript: `members := {}  (property)`
 
 Tag name -> {member name: true}. Members are kept by *name* rather than by id because ids move
 whenever a mod is added, and a tag outlives the run that defined it.
+
+**See also:** `key_name`, `node_key`, `realm_of`
 
 ### `add`
 
@@ -9597,7 +9603,7 @@ The rest of what a keyboard opens, as methods rather than key events. **A virtua
 mining read, but synthesises no event, and every screen opens from an event check. So each way in
 needs a door that is not a key. (2026-09-27)
 
-**See also:** `crafting_stock`, `evaluate`, `leave`
+**See also:** `crafting_stock`, `evaluate`, `leave`, `realm_of`
 
 ### `open_settings`
 
@@ -12111,7 +12117,7 @@ GDScript: `open_crafting(p: ServerPlayer, station := {}) -> void`
 
 Opens the crafting screen for a player: by hand ({}) or at a station {name, position, title}.
 
-**See also:** `crafting_stock`, `evaluate`, `leave`
+**See also:** `crafting_stock`, `evaluate`, `leave`, `realm_of`
 
 ### `on_station_action`
 
@@ -12389,7 +12395,7 @@ GDScript: `slain(e, attacker) -> void`
 
 It died. Says who, then clears up.
 
-**See also:** `broadcast_chat`, `count`, `gone`, `key_name`, `node_key`
+**See also:** `broadcast_chat`, `count`, `gone`, `key_name`, `node_key`, `realm_of`
 
 ### `gone`
 
@@ -12399,7 +12405,7 @@ GDScript: `gone(e) -> void`
 
 It is no longer in the world, for whatever reason. Takes its marker off the map.
 
-**See also:** `key_name`, `node_key`
+**See also:** `key_name`, `node_key`, `realm_of`
 
 ### `update`
 
@@ -12422,7 +12428,7 @@ session it appeared in - and its marker is saved with the world too, which would
 compass pointing at a monster that had long since been dealt with. Nothing is re-announced: a line
 in chat is for the moment it happened.
 
-**See also:** `is_alive`, `key_name`, `node_key`, `notable_of`, `uptime`
+**See also:** `is_alive`, `key_name`, `node_key`, `notable_of`, `realm_of`, `uptime`
 
 ### `count`
 

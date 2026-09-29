@@ -16,8 +16,8 @@ const MAX_SPEEDUP := 2.5
 const SYNC_INTERVAL := 0.25
 
 var _server
-var _sessions := {}  # Vector3i -> {peer id: {recipe}}
-var _dirty := {}  # Vector3i -> true
+var _sessions := {}  # spot key -> {pos, realm, at: {peer id: {recipe}}}
+var _dirty := {}  # spot key -> {pos, realm}
 var _timer := 0.0
 
 
@@ -25,12 +25,27 @@ func _init(game_server) -> void:
 	_server = game_server
 
 
+## **A station is a position _in a realm_, never a position.** Keyed on the bare `Vector3i`, two
+## realms' stations at one coordinate were one session: the same tray, the same job queue, and each
+## realm's crafting screen showing the other's players. The block data underneath was read from the
+## overworld too, so a dungeon station wrote its tray onto whatever stood at those coordinates on the
+## surface. (2026-09-29)
+static func _key(pos: Vector3i, realm_id: String) -> String:
+	return "%s|%d,%d,%d" % [realm_id, pos.x, pos.y, pos.z]
+
+
+## The realm a player is standing in, which is the realm any station they are using is in.
+func _realm_of(p) -> String:
+	return String(_server.realm_of(p).id)
+
+
 ## The co-op state of a station: {owner, owner_name, owner_team, tray: [...], jobs: [...], project: {}}.
-func coop(pos: Vector3i) -> Dictionary:
-	var data: Dictionary = _server.get_block_data(pos)
+func coop(pos: Vector3i, realm_id := "") -> Dictionary:
+	var into = _server.realms.get(realm_id)
+	var data: Dictionary = _server.get_block_data(pos, into)
 	if data.is_empty():
-		_server.set_block_data(pos, data)
-		data = _server.get_block_data(pos)
+		_server.set_block_data(pos, data, into)
+		data = _server.get_block_data(pos, into)
 	if not (data.get("coop") is Dictionary):
 		data.coop = {}
 	var c: Dictionary = data.coop
@@ -44,7 +59,7 @@ func coop(pos: Vector3i) -> Dictionary:
 
 ## Records who placed a station (they own its tray).
 func claim(pos: Vector3i, p) -> void:
-	var c := coop(pos)
+	var c := coop(pos, _realm_of(p))
 	c.owner = p.player_id
 	c.owner_name = p.name
 	c.owner_team = p.team
@@ -52,30 +67,34 @@ func claim(pos: Vector3i, p) -> void:
 
 func join(p, pos: Vector3i) -> void:
 	leave(p)
-	if not _sessions.has(pos):
-		_sessions[pos] = {}
-	_sessions[pos][p.peer_id] = {"recipe": -1}
-	_dirty[pos] = true
+	var realm_id := _realm_of(p)
+	var key := _key(pos, realm_id)
+	if not _sessions.has(key):
+		_sessions[key] = {"pos": pos, "realm": realm_id, "at": {}}
+	_sessions[key].at[p.peer_id] = {"recipe": -1}
+	_dirty[key] = {"pos": pos, "realm": realm_id}
 
 
 func leave(p) -> void:
-	for pos: Vector3i in _sessions.keys():
-		if _sessions[pos].erase(p.peer_id):
-			_dirty[pos] = true
-			if _sessions[pos].is_empty():
-				_sessions.erase(pos)
+	for key: String in _sessions.keys():
+		var s: Dictionary = _sessions[key]
+		if s.at.erase(p.peer_id):
+			_dirty[key] = {"pos": s.pos, "realm": s.realm}
+			if s.at.is_empty():
+				_sessions.erase(key)
 
 
 func viewing(p, recipe: int) -> void:
-	for pos: Vector3i in _sessions:
-		if _sessions[pos].has(p.peer_id):
-			_sessions[pos][p.peer_id].recipe = recipe
-			_dirty[pos] = true
+	for key: String in _sessions:
+		var s: Dictionary = _sessions[key]
+		if s.at.has(p.peer_id):
+			s.at[p.peer_id].recipe = recipe
+			_dirty[key] = {"pos": s.pos, "realm": s.realm}
 
 
-func members(pos: Vector3i) -> Array:
+func members(pos: Vector3i, realm_id := "") -> Array:
 	var out := []
-	for peer_id: int in _sessions.get(pos, {}):
+	for peer_id: int in _sessions.get(_key(pos, realm_id), {}).get("at", {}):
 		var p = _server.players.get(peer_id)
 		if p != null and not p.dead:
 			out.append(p)
@@ -102,7 +121,7 @@ func deposit(p, pos: Vector3i, slot: int) -> bool:
 	var inv = p.inventory
 	if slot < 0 or slot >= inv.SIZE or inv.ids[slot] <= 0 or inv.counts[slot] <= 0 or not inv.data[slot].is_empty():
 		return false
-	var c := coop(pos)
+	var c := coop(pos, _realm_of(p))
 	var item_name: String = _server.items.name_of(inv.ids[slot])
 	var limit: int = _server.items.max_stack(inv.ids[slot])
 	var left: int = inv.counts[slot]
@@ -122,12 +141,12 @@ func deposit(p, pos: Vector3i, slot: int) -> bool:
 	else:
 		inv.counts[slot] = left
 	p.sync_inventory()
-	_dirty[pos] = true
+	_dirty[_key(pos, _realm_of(p))] = {"pos": pos, "realm": _realm_of(p)}
 	return true
 
 
 func take(p, pos: Vector3i, index: int) -> bool:
-	var c := coop(pos)
+	var c := coop(pos, _realm_of(p))
 	if index < 0 or index >= c.tray.size() or not may_take(p, c, c.tray[index]):
 		return false
 	var stack: Dictionary = c.tray[index]
@@ -138,14 +157,14 @@ func take(p, pos: Vector3i, index: int) -> bool:
 	else:
 		c.tray.remove_at(index)
 	p.sync_inventory()
-	_dirty[pos] = true
+	_dirty[_key(pos, _realm_of(p))] = {"pos": pos, "realm": _realm_of(p)}
 	return true
 
 
 ## Tray items this player may use: {item id: count}.
 func usable_tray(p, pos: Vector3i) -> Dictionary:
 	var out := {}
-	var c := coop(pos)
+	var c := coop(pos, _realm_of(p))
 	for stack in c.tray:
 		if may_take(p, c, stack):
 			var id: int = _server.items.id_of(stack.item)
@@ -156,7 +175,7 @@ func usable_tray(p, pos: Vector3i) -> Dictionary:
 
 ## Removes up to `count` of an item from the tray stacks the player may use. Returns how many.
 func consume_tray(p, pos: Vector3i, item: int, count: int) -> int:
-	var c := coop(pos)
+	var c := coop(pos, _realm_of(p))
 	var item_name: String = _server.items.name_of(item)
 	var taken := 0
 	for i in range(c.tray.size() - 1, -1, -1):
@@ -171,7 +190,7 @@ func consume_tray(p, pos: Vector3i, item: int, count: int) -> int:
 		if int(stack.count) <= 0:
 			c.tray.remove_at(i)
 	if taken > 0:
-		_dirty[pos] = true
+		_dirty[_key(pos, _realm_of(p))] = {"pos": pos, "realm": _realm_of(p)}
 	return taken
 
 
@@ -181,40 +200,45 @@ func add_job(p, pos: Vector3i, index: int, times: int) -> void:
 	var r: Dictionary = _server.recipes.recipes[index]
 	if r.get("removed", false):
 		return
-	var c := coop(pos)
+	var realm_id := _realm_of(p)
+	var c := coop(pos, realm_id)
 	c.jobs.append({"recipe": r.id, "times": times, "by": p.player_id, "by_name": p.name, "done": 0.0,
 		"total": float(r.get("time", 0.0)) * times})
-	_server.emit("craft_job_started", {"player": p, "position": pos, "recipe": r.id, "times": times})
-	_dirty[pos] = true
+	_server.emit("craft_job_started",
+		{"player": p, "position": pos, "recipe": r.id, "times": times, "realm": realm_id})
+	_dirty[_key(pos, realm_id)] = {"pos": pos, "realm": realm_id}
 
 
 func update(delta: float) -> void:
-	for pos: Vector3i in _sessions.keys():
-		var present := members(pos)
+	for key: String in _sessions.keys():
+		var s: Dictionary = _sessions[key]
+		var pos: Vector3i = s.pos
+		var realm_id: String = s.realm
+		var present := members(pos, realm_id)
 		if present.is_empty():
 			continue
-		var c := coop(pos)
+		var c := coop(pos, realm_id)
 		if c.jobs.is_empty():
 			continue
-		var station: Dictionary = _server.stations.evaluate(pos) if Engine.get_process_frames() % 30 == 0 or not c.has("_speed") else {}
+		var station: Dictionary = _server.stations.evaluate(pos, realm_id) if Engine.get_process_frames() % 30 == 0 or not c.has("_speed") else {}
 		if not station.is_empty():
 			c._speed = float(station.get("speed", 0.0))
 		var job: Dictionary = c.jobs[0]
 		job.done = float(job.done) + delta * speedup(present.size(), float(c.get("_speed", 0.0)))
 		if float(job.done) >= float(job.total):
 			c.jobs.pop_front()
-			_finish_job(pos, job, present.size())
-		_dirty[pos] = true
+			_finish_job(pos, job, present.size(), realm_id)
+		_dirty[key] = {"pos": pos, "realm": realm_id}
 	_timer += delta
 	if _timer < SYNC_INTERVAL:
 		return
 	_timer = 0.0
-	for pos: Vector3i in _dirty:
-		_broadcast(pos)
+	for key: String in _dirty:
+		_broadcast(_dirty[key].pos, _dirty[key].realm)
 	_dirty.clear()
 
 
-func _finish_job(pos: Vector3i, job: Dictionary, helpers: int) -> void:
+func _finish_job(pos: Vector3i, job: Dictionary, helpers: int, realm_id := "") -> void:
 	var index: int = _server.recipes.index_of(String(job.recipe))
 	if index < 0:
 		return
@@ -222,7 +246,7 @@ func _finish_job(pos: Vector3i, job: Dictionary, helpers: int) -> void:
 	var total: int = int(r.count) * int(job.times)
 	var owner = null
 	for p in _server.players.values():
-		if p.player_id == job.by:
+		if p.player_id == job.by and _realm_of(p) == realm_id:
 			owner = p
 	var at := Vector3(pos) + Vector3(0.5, 1.1, 0.5)
 	if owner != null and owner.state.position.distance_to(at) <= 32.0:
@@ -231,31 +255,32 @@ func _finish_job(pos: Vector3i, job: Dictionary, helpers: int) -> void:
 			owner.drop(r.output, left)
 		owner.sync_inventory()
 	else:
-		var c := coop(pos)
+		var c := coop(pos, realm_id)
 		c.tray.append({"item": _server.items.name_of(r.output), "count": total, "by": job.by, "by_name": job.by_name})
-	_server.play_effect("engine:craft", at, {"scale": 0.8})
-	_server.play_sound_at("engine:craft", at, 0.9, 1.0)
+	_server.play_effect("engine:craft", at, {"scale": 0.8}, 0, realm_id)
+	_server.play_sound_at("engine:craft", at, 0.9, 1.0, 0, realm_id)
 	_server.emit("item_crafted", {"player": owner, "item": r.output, "count": total, "recipe": r.id, "helpers": helpers})
-	_server.emit("craft_job_finished", {"player_id": job.by, "position": pos, "recipe": r.id, "times": job.times, "helpers": helpers})
+	_server.emit("craft_job_finished", {"player_id": job.by, "position": pos, "recipe": r.id,
+		"times": job.times, "helpers": helpers, "realm": realm_id})
 
 
 # --- Projects -------------------------------------------------------------------------------------
 
 func start_project(p, pos: Vector3i, index: int) -> bool:
-	var c := coop(pos)
+	var c := coop(pos, _realm_of(p))
 	if not c.project.is_empty() or index < 0 or index >= _server.recipes.recipes.size():
 		return false
 	var r: Dictionary = _server.recipes.recipes[index]
 	if not r.get("project", false) or r.get("removed", false):
 		return false
 	c.project = {"recipe": r.id, "delivered": {}, "contributors": {}, "started_by": p.name}
-	_dirty[pos] = true
+	_dirty[_key(pos, _realm_of(p))] = {"pos": pos, "realm": _realm_of(p)}
 	return true
 
 
 ## Delivers whatever the project still needs from the player's inventory. Returns items delivered.
 func contribute(p, pos: Vector3i) -> int:
-	var c := coop(pos)
+	var c := coop(pos, _realm_of(p))
 	if c.project.is_empty():
 		return 0
 	var index: int = _server.recipes.index_of(String(c.project.recipe))
@@ -278,7 +303,7 @@ func contribute(p, pos: Vector3i) -> int:
 		_server.emit("project_contributed", {"player": p, "position": pos, "recipe": r.id, "item": id, "count": n})
 	if delivered > 0:
 		p.sync_inventory()
-		_dirty[pos] = true
+		_dirty[_key(pos, _realm_of(p))] = {"pos": pos, "realm": _realm_of(p)}
 		if project_fraction(c.project, r) >= 1.0:
 			_complete_project(pos, c, r)
 	return delivered
@@ -294,24 +319,28 @@ static func project_fraction(project: Dictionary, r: Dictionary) -> float:
 	return float(have) / maxf(need, 1)
 
 
-func _complete_project(pos: Vector3i, c: Dictionary, r: Dictionary) -> void:
+func _complete_project(pos: Vector3i, c: Dictionary, r: Dictionary, realm_id := "") -> void:
 	var project: Dictionary = c.project
 	c.project = {}
 	var at := Vector3(pos) + Vector3(0.5, 1.2, 0.5)
-	_server.entities.drop_item(r.output, int(r.count), at, Vector3(0, 3.0, 0), 0.5)
-	_server.play_effect("engine:sparkle", at, {"scale": 2.0, "color": "#ffe08a"})
-	_server.play_effect("engine:craft", at, {"scale": 1.5})
-	_server.play_sound_at("engine:discover", at, 1.0, 1.0)
+	# The result drops in the realm the project was built in, not on the surface above it.
+	var into = _server.realms.get(realm_id)
+	var where = into.entities if into != null else _server.entities
+	where.drop_item(r.output, int(r.count), at, Vector3(0, 3.0, 0), 0.5)
+	_server.play_effect("engine:sparkle", at, {"scale": 2.0, "color": "#ffe08a"}, 0, realm_id)
+	_server.play_effect("engine:craft", at, {"scale": 1.5}, 0, realm_id)
+	_server.play_sound_at("engine:discover", at, 1.0, 1.0, 0, realm_id)
 	var names := PackedStringArray()
 	for pid in project.contributors:
 		names.append(String(project.contributors[pid].name))
 	_server.broadcast_chat("Project complete: %s (thanks to %s)" % [_server.items.display_name(r.output), ", ".join(names)])
-	_server.emit("project_completed", {"position": pos, "recipe": r.id, "item": r.output, "contributors": project.contributors})
-	_dirty[pos] = true
+	_server.emit("project_completed", {"position": pos, "recipe": r.id, "item": r.output,
+		"contributors": project.contributors, "realm": realm_id})
+	_dirty[_key(pos, realm_id)] = {"pos": pos, "realm": realm_id}
 
 
 func cancel_project(p, pos: Vector3i) -> bool:
-	var c := coop(pos)
+	var c := coop(pos, _realm_of(p))
 	if c.project.is_empty() or not (p.inventory.creative or String(c.get("owner", "")).is_empty() or c.owner == p.player_id):
 		return false
 	# Everything delivered goes into the tray, credited to whoever gave the most.
@@ -325,19 +354,20 @@ func cancel_project(p, pos: Vector3i) -> bool:
 		c.tray.append({"item": item_name, "count": int(c.project.delivered[item_name]), "by": top,
 			"by_name": c.project.contributors.get(top, {}).get("name", "")})
 	c.project = {}
-	_dirty[pos] = true
+	_dirty[_key(pos, _realm_of(p))] = {"pos": pos, "realm": _realm_of(p)}
 	return true
 
 
 # --- Network --------------------------------------------------------------------------------------
 
 ## What session members see: players and the recipes they look at, tray, jobs with speed, project.
-func view(pos: Vector3i) -> Dictionary:
-	var c := coop(pos)
-	var present := members(pos)
+func view(pos: Vector3i, realm_id := "") -> Dictionary:
+	var c := coop(pos, realm_id)
+	var present := members(pos, realm_id)
+	var at: Dictionary = _sessions.get(_key(pos, realm_id), {}).get("at", {})
 	var players := []
 	for p in present:
-		players.append({"name": p.name, "recipe": int(_sessions.get(pos, {}).get(p.peer_id, {}).get("recipe", -1))})
+		players.append({"name": p.name, "recipe": int(at.get(p.peer_id, {}).get("recipe", -1))})
 	var tray := []
 	for stack in c.tray:
 		tray.append({"item": _server.items.id_of(stack.item), "count": stack.count, "by_name": stack.get("by_name", ""), "by": stack.get("by", "")})
@@ -358,16 +388,16 @@ func view(pos: Vector3i) -> Dictionary:
 		project = {"recipe": index, "delivered": delivered, "contributors": contributors,
 			"fraction": project_fraction(c.project, _server.recipes.recipes[index]) if index >= 0 else 0.0}
 	return {"position": pos, "players": players, "tray": tray, "jobs": jobs, "project": project,
-		"owner": c.get("owner_name", ""), "speedup": speedup(present.size(), float(c.get("_speed", 0.0))), "invites": _server.skill.invites_at(pos)}
+		"owner": c.get("owner_name", ""), "speedup": speedup(present.size(), float(c.get("_speed", 0.0))), "invites": _server.skill.invites_at(pos, realm_id)}
 
 
-func mark(pos: Vector3i) -> void:
-	_dirty[pos] = true
+func mark(pos: Vector3i, realm_id := "") -> void:
+	_dirty[_key(pos, realm_id)] = {"pos": pos, "realm": realm_id}
 
 
-func _broadcast(pos: Vector3i) -> void:
-	var v := view(pos)
-	for p in members(pos):
+func _broadcast(pos: Vector3i, realm_id := "") -> void:
+	var v := view(pos, realm_id)
+	for p in members(pos, realm_id):
 		if p._online():
 			Net.s_station_session.rpc_id(p.peer_id, v)
 	# Everyone nearby sees a project's progress above the station.
@@ -377,5 +407,6 @@ func _broadcast(pos: Vector3i) -> void:
 	elif not v.jobs.is_empty() and v.jobs[0].recipe >= 0:
 		label = "Crafting %s  %d%%" % [_server.items.display_name(_server.recipes.recipes[v.jobs[0].recipe].output), roundi(v.jobs[0].fraction * 100)]
 	for p in _server.players.values():
-		if p._online() and p.state.position.distance_to(Vector3(pos)) <= 48.0:
+		if p._online() and _realm_of(p) == realm_id \
+				and p.state.position.distance_to(Vector3(pos)) <= 48.0:
 			Net.s_station_label.rpc_id(p.peer_id, pos, label)

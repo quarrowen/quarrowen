@@ -172,4 +172,4 @@ JavaScript: `api.showTip(player, tipName)`
 
 Shows a registered tip now (even if seen before).
 
-**See also:** `icon_of`, `key_name`, `library`, `node_key`, `qualified`, `safe`
+**See also:** `icon_of`, `key_name`, `library`, `node_key`, `qualified`, `realm_of`

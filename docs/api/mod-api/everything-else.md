@@ -1357,7 +1357,7 @@ pipe end is; `deny: true` turns it inside out, which is how "everything except c
 
 api.set_accepts(node, {"tags": ["base:logs"]})
 
-**See also:** `key_name`, `node_key`, `qualified`, `tag`
+**See also:** `key_name`, `node_key`, `qualified`, `realm_of`, `tag`
 
 ### `api.stop_accepting`
 
@@ -1365,7 +1365,7 @@ GDScript: `api.stop_accepting(node: Dictionary) -> void`
 
 JavaScript: `api.stopAccepting(node)`
 
-**See also:** `key_name`, `node_key`, `qualified`, `tag`
+**See also:** `key_name`, `node_key`, `qualified`, `realm_of`, `tag`
 
 ### `api.would_accept`
 
@@ -1482,7 +1482,7 @@ JavaScript: `api.received(unitName, node)`
 
 What a face is actually receiving, which is not always what it asked for.
 
-**See also:** `key_name`, `node_key`, `qualified`, `tag`
+**See also:** `key_name`, `node_key`, `qualified`, `realm_of`, `tag`
 
 ### `api.on_received`
 

@@ -61,8 +61,13 @@ func station_of_block(block: int) -> String:
 
 ## Everything about the station at a position: {name, title, tier, tier_title, features, speed,
 ## quality, pull_radius, hints, detected: [...], available: [...], next: {...}, structure: {...}}.
-func evaluate(pos: Vector3i) -> Dictionary:
-	var block: int = _server.world.get_block_v(pos)
+## `realm_id` is the world the station stands in. Without it every station was read against the
+## overworld, so one in a dungeon evaluated whatever blocks happened to sit at those coordinates on
+## the surface - a workshop bonus from a room somebody else built, or a multiblock that was never
+## there. (2026-09-29)
+func evaluate(pos: Vector3i, realm_id := "") -> Dictionary:
+	var into = _server.realms.get(realm_id)
+	var block: int = (into.world if into != null else _server.world).get_block_v(pos)
 	var station_name := station_of_block(block)
 	if station_name.is_empty():
 		return {}
@@ -85,7 +90,8 @@ func evaluate(pos: Vector3i) -> Dictionary:
 					"kit": n.kit, "grants": _describe(n.grants)}
 	_apply(info, def.get("grants", {}))
 	if not def.get("workshop", {}).get("upgrades", []).is_empty():
-		var counts := _count_nearby(pos, def.workshop.radius, def.workshop.upgrades.map(func(u): return u.block))
+		var counts := _count_nearby(pos, def.workshop.radius,
+			def.workshop.upgrades.map(func(u): return u.block), realm_id)
 		for u in def.workshop.upgrades:
 			var n := mini(int(counts.get(u.block, 0)), u.max)
 			var entry := {"block": u.block, "title": u.title, "count": n, "max": u.max, "grants": _describe(u.grants)}
@@ -96,7 +102,7 @@ func evaluate(pos: Vector3i) -> Dictionary:
 			else:
 				info.available.append(entry)
 	if not def.get("multiblock", {}).is_empty():
-		var missing := structure_missing(pos, def.multiblock)
+		var missing := structure_missing(pos, def.multiblock, realm_id)
 		info.structure = {"title": def.multiblock.title, "formed": missing.is_empty(), "missing": missing.size()}
 	info.features = info.features.duplicate()
 	return info
@@ -109,7 +115,8 @@ static func usable(info: Dictionary) -> bool:
 
 ## The best rotation's missing blocks as [[position, block id], ...] (empty when the structure is
 ## complete). The core is the block at "C".
-func structure_missing(core_pos: Vector3i, m: Dictionary) -> Array:
+func structure_missing(core_pos: Vector3i, m: Dictionary, realm_id := "") -> Array:
+	var into = _server.realms.get(realm_id)
 	var best: Array = []
 	var best_count := 1 << 30
 	var cells := _pattern_cells(m)
@@ -119,7 +126,7 @@ func structure_missing(core_pos: Vector3i, m: Dictionary) -> Array:
 			var offset: Vector3i = _rotate(cell[0], rotation)
 			var p := core_pos + offset
 			var want: int = cell[1]
-			var have: int = _server.get_block_loaded(p)
+			var have: int = _server.get_block_loaded(p, into)
 			if want == -1:
 				if have == 0:
 					missing.append([p, -1])
@@ -194,7 +201,9 @@ func to_network() -> Dictionary:
 	return out
 
 
-func _count_nearby(center: Vector3i, radius: int, blocks: Array) -> Dictionary:
+func _count_nearby(center: Vector3i, radius: int, blocks: Array, realm_id := "") -> Dictionary:
+	var into = _server.realms.get(realm_id)
+	var world = into.world if into != null else _server.world
 	var wanted := {}
 	for b in blocks:
 		wanted[b] = true
@@ -202,7 +211,7 @@ func _count_nearby(center: Vector3i, radius: int, blocks: Array) -> Dictionary:
 	for y in range(-radius, radius + 1):
 		for z in range(-radius, radius + 1):
 			for x in range(-radius, radius + 1):
-				var b: int = _server.world.get_block_v(center + Vector3i(x, y, z))
+				var b: int = world.get_block_v(center + Vector3i(x, y, z))
 				if wanted.has(b):
 					counts[b] = int(counts.get(b, 0)) + 1
 	return counts

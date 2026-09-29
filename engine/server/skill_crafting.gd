@@ -71,24 +71,27 @@ func start(p, product: Dictionary, assist := false, with_partner := false) -> in
 	var bonus := float(p.crafting_station.get("quality", 0.0)) if at_station else 0.0
 	var g := Minigame.new_game(def, randi(), assist and bool(_server.gameplay.get("minigame_assist", true)), bonus, with_partner and at_station)
 	g.merge({"id": _next_id, "owner": p.peer_id, "partner": 0, "output": output, "product": product, "started": -1.0,
-		"station": p.crafting_station.position if at_station else null, "names": [p.name], "invite_until": 0.0, "done": false})
+		"station": p.crafting_station.position if at_station else null,
+		"station_realm": String(_server.realm_of(p).id) if at_station else "",
+		"names": [p.name], "invite_until": 0.0, "done": false})
 	_next_id += 1
 	_games[g.id] = g
 	_by_peer[p.peer_id] = g.id
 	if g.team:
 		g.invite_until = now() + INVITE_SECONDS
 		_send(g)
-		_server.sessions.mark(g.station)
+		_server.sessions.mark(g.station, String(g.get("station_realm", "")))
 	else:
 		_begin(g)
 	return g.id
 
 
 ## Invitations waiting at a station: [{id, by_name, title}].
-func invites_at(pos: Vector3i) -> Array:
+func invites_at(pos: Vector3i, realm_id := "") -> Array:
 	var out := []
 	for g in _games.values():
-		if g.team and g.started < 0.0 and g.station == pos:
+		if g.team and g.started < 0.0 and g.station == pos \
+				and String(g.get("station_realm", "")) == realm_id:
 			out.append({"id": g.id, "by_name": g.names[0], "title": g.def.title})
 	return out
 
@@ -118,7 +121,7 @@ func start_alone(p) -> void:
 func _begin(g: Dictionary) -> void:
 	g.started = now() + COUNTDOWN
 	if g.station != null:
-		_server.sessions.mark(g.station)
+		_server.sessions.mark(g.station, String(g.get("station_realm", "")))
 	_send(g)
 
 
@@ -209,7 +212,7 @@ func finish(g: Dictionary) -> void:
 			Net.s_minigame.rpc_id(peer, {"id": g.id, "phase": "done", "result": result})
 	_games.erase(g.id)
 	if g.station != null:
-		_server.sessions.mark(g.station)
+		_server.sessions.mark(g.station, String(g.get("station_realm", "")))
 
 
 func player_left(p) -> void:

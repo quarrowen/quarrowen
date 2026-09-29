@@ -1047,6 +1047,10 @@
 			"args": [
 				{
 					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "get_station"

@@ -117,14 +117,14 @@ api.register_station("bench", {"workshop": {"radius": 2,
 
 ### `api.get_station`
 
-GDScript: `api.get_station(position: Vector3i) -> Dictionary`
+GDScript: `api.get_station(position: Vector3i, realm_id := "") -> Dictionary`
 
 JavaScript: `api.getStation(position: Vec3): Record<string, unknown>`
 
 The station at a position: {name, title, tier, tier_title, features, speed, quality, pull_radius,
 hints, detected, available, next, structure}, or {}.
 
-**See also:** `evaluate`
+**See also:** `evaluate`, `qualified`
 
 ### `api.register_recipe_category`
 

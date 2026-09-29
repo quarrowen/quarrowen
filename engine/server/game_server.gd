@@ -5672,7 +5672,7 @@ func _read_blueprint(p: ServerPlayer, teaches: Array) -> void:
 ## Opens the crafting screen for a player: by hand ({}) or at a station {name, position, title}.
 func open_crafting(p: ServerPlayer, station := {}) -> void:
 	if station.has("position"):
-		station = stations.evaluate(station.position)
+		station = stations.evaluate(station.position, realm_of(p).id)
 	p.crafting_station = station
 	if station.has("position"):
 		sessions.join(p, station.position)
@@ -5698,7 +5698,8 @@ func on_station_action(peer_id: int, action: String) -> void:
 		"guide":
 			var def: Dictionary = stations.defs.get(p.crafting_station.name, {})
 			if not def.get("multiblock", {}).is_empty() and p._online():
-				Net.s_structure_guide.rpc_id(p.peer_id, stations.structure_missing(pos, def.multiblock).slice(0, 256))
+				Net.s_structure_guide.rpc_id(p.peer_id,
+					stations.structure_missing(pos, def.multiblock, realm_of(p).id).slice(0, 256))
 
 
 ## Mods: opens the crafting screen for a player as if they pressed the crafting key.
@@ -5715,7 +5716,7 @@ func craft(p: ServerPlayer, index: int, times := 1) -> int:
 	if recipe.get("removed", false):
 		return 0
 	if p.crafting_station.has("position") and _station_valid(p):
-		p.crafting_station = stations.evaluate(p.crafting_station.position)  # workshop blocks may have changed
+		p.crafting_station = stations.evaluate(p.crafting_station.position, realm_of(p).id)  # workshop blocks may have changed
 	if recipe.get("project", false):
 		return 0  # projects are built together through the station screen (see StationSessions)
 	var n := craftable_times(p, recipe, clampi(times, 1, 64))
@@ -5776,7 +5777,7 @@ func take_recipe_inputs(p: ServerPlayer, index: int) -> Dictionary:
 		return {}
 	var recipe: Dictionary = recipes.recipes[index]
 	if p.crafting_station.has("position") and _station_valid(p):
-		p.crafting_station = stations.evaluate(p.crafting_station.position)
+		p.crafting_station = stations.evaluate(p.crafting_station.position, realm_of(p).id)
 	if recipe.get("removed", false) or recipe.get("project", false) or craftable_times(p, recipe, 1) < 1:
 		return {}
 	_consume_inputs(p, recipe, 1)

@@ -9609,3 +9609,42 @@ whether it was worth writing.
 
 `broadcast_entity_event` is on the allowlist and should not stay there: entity ids are per-realm and
 restart at 1, so anything client-facing keyed on `e.id` alone still collides. That is the next item.
+
+
+## Realms: stations, and the state that was saved into the wrong world (29 September 2026)
+
+The second 1.0 item, and the one that actually justified doing realms before the save format is
+frozen. The audit called `station_sessions` "realm-blind throughout" and noted `_sessions` keyed on a
+bare `Vector3i`. That undersold it: the transient session was the *smaller* half.
+
+**The persistent half.** `coop(pos)` reads the station's state out of block data, and it read it from
+the overworld whatever realm the station was in - so a station in a dungeon wrote its tray, its job
+queue and its community project onto whatever block stood at those coordinates on the surface. That is
+saved state going into the wrong world, which is exactly the class of bug a format freeze makes
+expensive: after 1.0 it needs a migration, and before 1.0 it needs an afternoon.
+
+**`stations.gd` had the same shape** and was listed separately in the audit: `evaluate`,
+`structure_missing` and `_count_nearby` all read `_server.world`. A station in a dungeon was being
+given workshop bonuses from a room somebody had built on the surface, and told its multiblock was
+formed by blocks it could not see. `station_sessions.update()` calls `evaluate`, so this could not
+have been left for later anyway.
+
+### The shape of the fix, and why it touched so few call sites
+
+Every caller holding a station position also holds the player standing at it, so the realm is derived
+**inside** `station_sessions` from that player rather than threaded through fifteen call sites that
+could each get it wrong. Only the handful with no player - `coop`, `view`, `members`, `mark` - take a
+`realm_id`, defaulting to the overworld, which is what the existing tests already assume. So
+`game_server.gd` needed no change at its session call sites at all.
+
+The two that genuinely have no player are the ones the audit flagged as awkward, and they are answered
+by the session record rather than by a parameter: `_sessions` now stores `{pos, realm, at}` under a
+composite key, so `update`, `_finish_job` and `_complete_project` read the realm off the session they
+are already walking. A finished job's owner must now be *in that realm* to catch it in hand, and a
+completed project drops into the world it was built in rather than onto the surface.
+
+`skill_crafting` records a `station_realm` beside the station position it already kept, so a team
+minigame's invitations do not appear at the same coordinate in another world.
+
+**Asserted, not assumed**: two stations at one coordinate in two realms, each keeping its own tray,
+neither reading the other's block data.
