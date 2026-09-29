@@ -423,8 +423,26 @@ outside the disclaimers - the service names below are the searchable part anyway
   $9.99 a month, needs no hardware token, and signs from GitHub Actions - which is the closest thing to the
   macOS arrangement. The catch is geography: organisations in the USA, Canada, the EU and the UK, but
   **individual developers only in the USA and Canada**.
-- **SignPath Foundation signs qualifying open-source projects for free**, at OV level, through a managed
-  pipeline. Quarrowen is a public repository, so this is worth checking before spending anything.
+- **SignPath Foundation** signs qualifying open-source projects for free, at OV level, through a managed
+  pipeline. **Quarrowen does not qualify, and will not without a relicence.** Their conditions require
+  "an OSI-approved Open Source license" with no commercial dual-licensing; this project ships under
+  PolyForm Noncommercial 1.0.0, which the README already describes as *deliberately not an OSI open
+  source licence*. A public repository is not the same as an open-source licence, and that is the whole
+  of it. Checked 29 September 2026 so it does not get asked again.
+
+  Two things worth knowing anyway, in case the licence ever changes. The certificate is issued to
+  **SignPath Foundation, who become the publisher** - Windows would show their name as the verified
+  publisher, not this project's, which is the opposite of the macOS arrangement where the certificate
+  carries the maintainer's own name. And they reserve the right to revoke "effective immediately or
+  retroactively", which would invalidate builds already in people's hands. Free, but not the same shape
+  as owning a certificate.
+
+### Where that leaves this project
+
+Signing from **Singapore** (the user, 29 September 2026): Azure Artifact Signing is unavailable -
+organisations are limited to the USA, Canada, the EU and the UK, and individuals to the USA and Canada.
+SignPath is out on the licence. That leaves two real options: ship unsigned, or buy an OV certificate
+(£150-300/year, available worldwide) and keep its key on the CA's cloud HSM so CI can still sign.
 
 **For a handful of friends, unsigned is a reasonable answer** and the honest one: one extra click, once,
 on a build they were expecting from somebody they know. Signing earns its cost when strangers download
