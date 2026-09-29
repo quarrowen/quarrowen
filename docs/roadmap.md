@@ -943,6 +943,38 @@ Then:
   fire and not that the game is worth playing.
 - **Migration and corruption-proofing** become real work the day 1.0.0 ships, and not before.
 
+## Beta and release channels (the user, 29 September 2026)
+
+Wanted, not started. Written down now because handing builds to friends is what creates the need: the
+moment somebody else depends on a build, "push it and see" stops being free.
+
+**The shape it would take.** `updater.gd` fetches one manifest from one built-in URL
+(`quarrowen.com/update.json`) and compares versions. A channel is either a second manifest beside it
+(`update-beta.json`) or a field inside the one. The second manifest is the smaller change and fails
+better: a client that cannot find its channel's manifest simply does not update, rather than parsing
+something it half-understands.
+
+**What makes it more than a URL**, and the reason to think before building it:
+
+- **The protocol number cuts across it.** A beta client on a newer `Protocol.VERSION` cannot join a
+  release server, and that refusal is deliberate and good - but it means "try the beta" can quietly
+  mean "stop being able to play with your friends". Whatever the channel does, that has to be said in
+  the interface at the moment somebody opts in, not in release notes.
+- **Signing and notarisation do not get cheaper.** Every channel is a real signed build; a beta is not
+  a shortcut past the slow steps, it is twice as many of them.
+- **Windows has no self-update at all**, so a Windows beta is a re-download every time. A channel
+  switch that does nothing for half the players is worth knowing about before it is built.
+- **Going back.** Opting *out* of beta means installing an older version over a newer one, which the
+  updater's "is it newer" check refuses by design. Downgrade is the hard half of channels and the half
+  that gets left out.
+- **Save formats.** A beta that writes a world a release build cannot open is a beta that costs
+  somebody their world. Either the channel is read-only about saves, or the save version gates it.
+
+**Smallest useful first step**, if it is picked up: a `quarrowen/update_manifest_url` override already
+exists in `project.godot` for forks and tests. A setting that points a willing player at a second
+manifest is most of a beta channel, without any of the downgrade machinery - and it would have been
+enough for this playtest.
+
 **Platform gaps, which are not engineering so much as absence:** no Android export preset or keystore
 and it has never run on Android hardware; iOS has one registered device and no TestFlight; **neither
 iOS nor Android is in CI at all**; Windows self-update has never been run on Windows and nothing is
