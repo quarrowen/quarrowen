@@ -38,6 +38,10 @@ It was built for children, and that has shaped it:
   and nothing is sent anywhere except the server you choose to join.
 - Death messages and hints are written to be read by an eight-year-old at bedtime.
 
+**And the question behind the question:** if the server sends the game, is it sending code to your
+child's computer? No - a server sends data and never code, and the client has no mod runtime in it at
+all. [Security](security.md) says exactly what a server can and cannot do, including the limits.
+
 ## Can my children play together?
 
 Yes — that is what it is for. Run one server for the family and everyone joins it from the menu. You can

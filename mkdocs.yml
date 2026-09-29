@@ -83,6 +83,7 @@ nav:
       - Distributing a build: distribution.md
   - About:
       - Playing: playing.md
+      - Security: security.md
       - The engine: engine.md
       - What is still missing: roadmap.md
       - Questions: faq.md
