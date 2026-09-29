@@ -1,0 +1,106 @@
+# Proves the release credentials work, and publishes nothing.
+#
+# There was no safe way to try them before this. The release job only runs on a `v*` tag, and a tag
+# publishes for real - so the first test of six secrets was a live release to quarrowen.com, which is
+# the worst moment to discover that a certificate was exported without its private key or that the
+# notarisation key is an Individual one (those cannot notarise at all).
+#
+# Run it from Actions -> Release preflight -> Run workflow. It names the `release` environment on
+# purpose, so it also exercises the approval gate: if this asks you to approve a deployment, the gate is
+# on, and if it starts without asking then the required reviewer is missing and a tag would publish
+# unattended. (2026-09-29)
+name: Release preflight
+
+on:
+  workflow_dispatch:
+
+jobs:
+  preflight:
+    name: Check the signing credentials
+    runs-on: macos-14
+    environment: release
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.2.2
+
+      # MACOS_CERT_P12 + MACOS_CERT_PASSWORD. The same ephemeral keychain the real job uses, so a
+      # failure here is a failure there.
+      - name: The signing certificate
+        env:
+          CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          if [ -z "${CERT_P12:-}" ]; then echo "::error::MACOS_CERT_P12 is empty or not set"; exit 1; fi
+          keychain="$RUNNER_TEMP/preflight.keychain"
+          password="$(openssl rand -base64 24)"
+          security create-keychain -p "$password" "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          printf '%s' "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security list-keychains -d user -s "$keychain"
+          # The name is printed deliberately: a Developer ID certificate carries the account holder's
+          # name and it is on every signed build anyway, so it is not a secret - and seeing it is the
+          # proof the import worked.
+          if ! security find-identity -v -p codesigning "$keychain" | grep -q "Developer ID Application"; then
+            echo "::error::no Developer ID Application identity - the .p12 may lack its private key, or the password is wrong"
+            security find-identity -v -p codesigning "$keychain" || true
+            exit 1
+          fi
+          security find-identity -v -p codesigning "$keychain" | sed -n 's/.*"\(.*\)"/identity: \1/p'
+
+      # The three notary secrets, checked with a read-only call. `history` authenticates exactly as a
+      # submission would and uploads nothing.
+      - name: The notarisation key
+        env:
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          for v in NOTARY_KEY_P8 NOTARY_KEY_ID NOTARY_ISSUER_ID; do
+            if [ -z "${!v:-}" ]; then echo "::error::$v is empty or not set"; exit 1; fi
+          done
+          printf '%s' "$NOTARY_KEY_P8" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          if ! head -1 "$RUNNER_TEMP/notary.p8" | grep -q "BEGIN PRIVATE KEY"; then
+            echo "::error::NOTARY_KEY_P8 did not base64-decode into a .p8 - was it base64'd from the right file?"
+            exit 1
+          fi
+          if ! xcrun notarytool history --key "$RUNNER_TEMP/notary.p8" \
+              --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" >"$RUNNER_TEMP/history.txt" 2>&1; then
+            echo "::error::notarytool refused these credentials. An Individual App Store Connect key cannot notarise - it has to be a Team key with the Developer role."
+            # The output names the failure without echoing the key.
+            tail -5 "$RUNNER_TEMP/history.txt" || true
+            exit 1
+          fi
+          echo "notarytool accepted the credentials"
+
+      # RELEASE_SIGNING_KEY, and the question that matters: is it the key the shipped client trusts?
+      - name: The release signing key
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          if [ -z "${RELEASE_SIGNING_KEY:-}" ]; then echo "::error::RELEASE_SIGNING_KEY is empty or not set"; exit 1; fi
+          printf '%s' "$RELEASE_SIGNING_KEY" > "$RUNNER_TEMP/release_key.pem"
+          if ! tools/check_release_key.sh "$RUNNER_TEMP/release_key.pem"; then
+            echo "::error::the release key is missing, not raw PEM text, or not one of updater.gd's RELEASE_KEYS"
+            exit 1
+          fi
+
+      - name: Put the keys beyond use
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/notary.p8" "$RUNNER_TEMP/release_key.pem" "$RUNNER_TEMP/cert.p12" \
+                "$RUNNER_TEMP/history.txt"
+          security delete-keychain "$RUNNER_TEMP/preflight.keychain" 2>/dev/null || true
+
+      - name: What this did not check
+        if: success()
+        run: |
+          echo "All six secrets work. Not checked here, because it needs a real build:"
+          echo "  - that the certificate is still within its validity window at notarisation time"
+          echo "  - that SIGN_IN_CI is set, which is what lets a tag reach the release job at all"
