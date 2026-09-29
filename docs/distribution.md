@@ -395,8 +395,40 @@ folder and run Quarrowen.exe from inside it".
 
 **It is unsigned**, and `application/modify_resources` is off, so the executable carries no icon and no
 version metadata - which is the shape SmartScreen is harshest on. A friend sees "Windows protected your
-PC" and has to choose More info, then Run anyway. Removing that needs a code-signing certificate, which
-is a yearly cost and, for an OV certificate, a reputation that only builds up over time.
+PC" and has to choose More info, then Run anyway.
+
+The resources part is not a cost, it is a runner: `export-windows` runs on `ubuntu-24.04`, and Godot
+needs `rcedit` (through wine) to write an icon and a version block into a PE file. Either install those
+on the Linux runner or move that one job to `windows-latest`. Worth doing on its own - an executable
+with no icon and no publisher string looks like exactly what SmartScreen is warning about.
+
+### Signing it, and why the obvious answer is the wrong one
+
+Checked against Microsoft's current guidance on 29 September 2026, because the advice that was right for
+years is now wrong:
+
+- **An EV certificate no longer bypasses SmartScreen.** That behaviour was removed in 2024, and EV files
+  now build reputation exactly as OV ones do. Paying the EV premium (£400+/year) to skip the warning
+  buys nothing. This is the change that matters, because every older guide still recommends it.
+- **Nothing except the Microsoft Store gives instant trust.** Store MSIX submissions are re-signed by
+  Microsoft and never warn - but that means an MSIX package and a Store listing, which is a different
+  distribution model from a zip on a website.
+- **OV certificates** are £150-300/year and available worldwide, but since June 2023 the CA/Browser
+  Forum requires the private key to live on a hardware token or cloud HSM. **That breaks the model this
+  project uses for macOS**, where the certificate is a repository secret: a USB token cannot be handed
+  to a GitHub runner, so signing either moves to a machine with the token in it or to the CA's cloud
+  HSM.
+- **Azure Artifact Signing** (formerly Trusted Signing) is Microsoft's own service at about $9.99 a
+  month, needs no hardware token, and signs from GitHub Actions - which is the closest thing to the
+  macOS arrangement. The catch is geography: organisations in the USA, Canada, the EU and the UK, but
+  **individual developers only in the USA and Canada**.
+- **SignPath Foundation signs qualifying open-source projects for free**, at OV level, through a managed
+  pipeline. Quarrowen is a public repository, so this is worth checking before spending anything.
+
+**For a handful of friends, unsigned is a reasonable answer** and the honest one: one extra click, once,
+on a build they were expecting from somebody they know. Signing earns its cost when strangers download
+it, and the reputation it builds is per-publisher and cumulative - which is an argument for picking one
+identity and keeping it rather than for picking an expensive one.
 
 **It does not update itself.** `updater.gd` knows the `windows` platform and contains a complete install
 script for it, but `make_release.sh` writes only a `macos` entry into `update.json`, so a Windows client
