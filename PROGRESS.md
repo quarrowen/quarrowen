@@ -9415,3 +9415,43 @@ errors, not *existence* errors - `explode` wanting a Realm where a String was pa
 and `hi` read as `from` and `to`, a command handler declared `Array` when it is handed a
 `PackedStringArray`. A name check finds none of those. It is worth building because the existence
 errors are frequent and free to catch, not because it solves the discipline problem.
+
+
+## 0.42.2 - the website, and the server example catching up (29 September 2026)
+
+A release cut for the website rather than the game. 0.42.1 had gone out three days before the landing
+page was reworked and before `docs/security.md` existed, so the site could not be brought up to date
+without either a tag or a hand-edit of the published branch. A tag is the honest one: it republishes the
+page, the docs and the downloads from one commit, and it is the only way the **Windows installer**
+reaches anybody - the NSIS work landed after 0.42.1 was tagged, so that release's CI run has no
+`Setup.exe` in it at all. Checked rather than assumed, by listing the artifacts on run 36510101057.
+
+**`Protocol.VERSION` stays at 60.** Nothing on the wire moved since the tag: no change to `net.gd` or
+`protocol.gd`, and the asset-type allowlist added to `add_asset` is a server-side refusal, so a 0.42.1
+client talking to a 0.42.2 server simply never hears about a file the server declined to publish.
+
+### The server example finally moved
+
+`deploy/server/.env.example` had been pinned to 0.41.1 since 21 September with a four-line warning
+explaining why: the three worlds named `hearthhold` and `skyblock`, games that were deleted, so bumping
+the image alone would have started three worlds with nothing loaded. The warning was right and it was
+also a note that could have sat there for ever - the pin and the world names could only move together,
+and nobody had moved either.
+
+Both moved here. The worlds are now `firstlight`, `fairground` and `oneblock` - three of the four games
+that actually ship - across `.env.example`, `compose.yaml` (services, container names, volumes and
+`QW_WORLD`), `link-servers.sh` and `network.example.json`. The volume names change with them, so an
+existing family server would start fresh worlds; that is the right outcome, because the worlds it has
+today run games that no longer exist.
+
+`docs/hosting.md` was deliberately left alone. It opens with a note saying its examples describe how
+things were and still illustrate the capability correctly, which is true, and rewriting two hundred
+lines of prose to rename a world would bury the thing the page is actually teaching.
+
+### Still not done
+
+- **The installer has never been run on Windows.** It builds on the Ubuntu runner and nobody has
+  double-clicked the result. That is the one untested step between a friend and playing.
+- **Analytics stays off.** If Cloudflare Web Analytics is ever added, the "no telemetry, no analytics"
+  line in the fact box on the landing page and the same claim in `docs/security.md` both have to change
+  in that commit. Two places, and the page is the one people read.

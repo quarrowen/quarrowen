@@ -14,9 +14,9 @@ cd "$(dirname "$0")"
 
 # key:container:port - the key is what a player types in /server <key>.
 WORLDS=(
-  "hearthhold:quarrowen-hearthhold:24565"
+  "firstlight:quarrowen-firstlight:24565"
   "oneblock:quarrowen-oneblock:24567"
-  "skyblock:quarrowen-skyblock:24569"
+  "fairground:quarrowen-fairground:24569"
 )
 # The address a *player's computer* uses to reach this machine - it is handed to the client, which then
 # connects to it itself. So it must not be 127.0.0.1: that is the player's own machine, not this one, and
@@ -38,7 +38,7 @@ esac
 echo "Players will be sent to $ADDRESS when they travel."
 
 # Whether things in a player's pockets come with them. Off by default: each world is its own game, and
-# One Block and Sky Islands are no challenge at all if you arrive with a full chest from somewhere else.
+# One Block is no challenge at all if you arrive with a full chest from somewhere else.
 # Nothing is lost either way - each world remembers its own inventory for when you come back.
 CARRY_INVENTORY="${CARRY_INVENTORY:-false}"
 
@@ -86,9 +86,9 @@ done
 
 echo
 echo "Restarting so they read it..."
-docker compose restart hearthhold oneblock skyblock
+docker compose restart firstlight oneblock fairground
 echo
-echo "Done. In game: /server oneblock, /server skyblock, /server hearthhold - or build a portal."
+echo "Done. In game: /server oneblock, /server fairground, /server firstlight - or build a portal."
 if [ "$CARRY_INVENTORY" = "true" ]; then
   echo "Pockets travel between worlds. CARRY_INVENTORY=false ./link-servers.sh to make each world a clean start."
 else

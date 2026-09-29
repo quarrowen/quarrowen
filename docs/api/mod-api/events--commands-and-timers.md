@@ -1,6 +1,6 @@
 # Events, commands and timers
 
-Part of the [Mod API reference](../mod-api.md). Mod API 1.1.0 · game 0.42.1
+Part of the [Mod API reference](../mod-api.md). Mod API 1.1.0 · game 0.42.2
 
 
 ### `api.cancel_assembly`

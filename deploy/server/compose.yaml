@@ -55,20 +55,20 @@ x-world-env: &world-env
   QW_PUBLIC_ADDRESS: ${PUBLIC_ADDRESS:-}
 
 services:
-  # The valley: survival with the Hearthhold story on top. `hearthhold` pulls in vanilla and base itself.
-  hearthhold:
+  # Survival: make it through the night. `firstlight` pulls in base itself.
+  firstlight:
     <<: *world
-    container_name: quarrowen-hearthhold
+    container_name: quarrowen-firstlight
     environment:
       <<: *world-env
-      QW_NAME: ${HEARTHHOLD_NAME:-Hearthhold}
-      QW_MOTD: ${HEARTHHOLD_MOTD:-A valley whose light went out}
-      QW_MODS: ${HEARTHHOLD_MODS:-hearthhold}
-      QW_WORLD: hearthhold
+      QW_NAME: ${FIRSTLIGHT_NAME:-Firstlight}
+      QW_MOTD: ${FIRSTLIGHT_MOTD:-Make it through the night}
+      QW_MODS: ${FIRSTLIGHT_MODS:-firstlight}
+      QW_WORLD: firstlight
       QW_PORT: "24565"
     volumes:
-      - quarrowen-hearthhold:/data
-      - quarrowen-mods-hearthhold:/mods
+      - quarrowen-firstlight:/data
+      - quarrowen-mods-firstlight:/mods
 
   # One block over the void that comes back as something else each time it is broken.
   oneblock:
@@ -85,20 +85,20 @@ services:
       - quarrowen-oneblock:/data
       - quarrowen-mods-oneblock:/mods
 
-  # An island each, a cobblestone generator, and a list of challenges.
-  skyblock:
+  # A hub with a door to each short game; stepping through one starts a round.
+  fairground:
     <<: *world
-    container_name: quarrowen-skyblock
+    container_name: quarrowen-fairground
     environment:
       <<: *world-env
-      QW_NAME: ${SKYBLOCK_NAME:-Sky Islands}
-      QW_MOTD: ${SKYBLOCK_MOTD:-Start on a tiny island}
-      QW_MODS: ${SKYBLOCK_MODS:-skyblock}
-      QW_WORLD: skyblock
+      QW_NAME: ${FAIRGROUND_NAME:-The Fairground}
+      QW_MOTD: ${FAIRGROUND_MOTD:-A door to each game, and a round begins}
+      QW_MODS: ${FAIRGROUND_MODS:-fairground}
+      QW_WORLD: fairground
       QW_PORT: "24569"
     volumes:
-      - quarrowen-skyblock:/data
-      - quarrowen-mods-skyblock:/mods
+      - quarrowen-fairground:/data
+      - quarrowen-mods-fairground:/mods
 
   # The server list the three worlds announce themselves to.
   hub:
@@ -123,12 +123,12 @@ services:
 volumes:
   # Named outright, so a world does not move when this folder is renamed: Compose otherwise prefixes
   # the volume with whatever the directory happens to be called.
-  quarrowen-hearthhold:
-    name: quarrowen-hearthhold
+  quarrowen-firstlight:
+    name: quarrowen-firstlight
   quarrowen-oneblock:
     name: quarrowen-oneblock
-  quarrowen-skyblock:
-    name: quarrowen-skyblock
+  quarrowen-fairground:
+    name: quarrowen-fairground
   quarrowen-hub:
     name: quarrowen-hub
   # One mods folder per world, not one shared between them. Two reasons, and both bit:
@@ -142,10 +142,10 @@ volumes:
   # folder at the same moment is a race that would eventually eat a mod mid-copy. They are small, and the
   # worlds want different ones anyway.
   #
-  # To add your own mod: docker cp my_mod quarrowen-hearthhold:/mods/ && docker compose restart hearthhold
-  quarrowen-mods-hearthhold:
-    name: quarrowen-mods-hearthhold
+  # To add your own mod: docker cp my_mod quarrowen-firstlight:/mods/ && docker compose restart firstlight
+  quarrowen-mods-firstlight:
+    name: quarrowen-mods-firstlight
   quarrowen-mods-oneblock:
     name: quarrowen-mods-oneblock
-  quarrowen-mods-skyblock:
-    name: quarrowen-mods-skyblock
+  quarrowen-mods-fairground:
+    name: quarrowen-mods-fairground
