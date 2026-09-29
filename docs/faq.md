@@ -66,11 +66,20 @@ machines, commands and UI, in **GDScript or JavaScript**, and everyone who joins
 automatically. Start with [modding.md](modding.md); the full reference is
 [api/index.html](api/index.html).
 
-## What is Hearthhold?
+## What comes with it?
 
-The story game that comes with it. A valley whose light went out: light the hearth, see the night out,
-find the people who scattered into the hills and build them somewhere to live. It exists partly to prove
-a point — everything it does is built on the same mod API anyone else can use.
+Four games and two add-ons, all in the download. **Firstlight** is the survival one: make it through the
+night, dig, build, and come back out in the morning. **The Fairground** is a hub of short games with a
+door to each - the floor is lava in one, a quiz where the wrong squares fall away in another - and every
+one is worth playing on your own. **Creative** is a world and everything in it with nothing to survive.
+**One Block** is a single block over the void that keeps becoming something else.
+
+They exist partly to prove a point: every one of them is built on the same mod API anyone else can use,
+with no private engine calls.
+
+(This answer described *Hearthhold* until 29 September 2026. That game was deleted in September and the
+FAQ went on describing it as "the story game that comes with it" - a page for people deciding whether to
+trust the thing, describing something that is not in the download.)
 
 ## Something is broken. What do I do?
 

@@ -22,12 +22,13 @@ it keeps itself up to date after that.
 
 ## What comes with it
 
-- **Hearthhold** — a valley whose light went out. Light the hearth, see the night out, find the people who
-  scattered into the hills and build them somewhere to live.
-- **Vanilla** — survival and creative building on generated terrain: caves, ores, weather, animals,
-  monsters, a boss, and a guidebook that fills in as you go.
-- **One Block** and **Sky Islands** — two ways of starting from nothing.
-- Add-ons for magic, machines and a trading guild.
+- **Firstlight** — make it through the night. Dig, build, and come back out in the morning. Caves, ores,
+  weather, animals, monsters and a guidebook that fills in as you go.
+- **The Fairground** — a hub of short games with a door to each. The floor is lava in one; in another a
+  question goes up and the three wrong squares fall away. Each is worth playing alone, better together.
+- **Creative** — a world and everything in it, with nothing to survive.
+- **One Block** — a single block over the void that keeps becoming something else.
+- Packs the games are built from: `base`, `simple_machines`, `simple_gear`, `guidebook`.
 
 Every one of those is a mod. None of it is built into the client, which is the whole point: your server
 can load something else entirely, and everyone who joins gets it automatically.
