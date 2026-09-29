@@ -10529,6 +10529,26 @@ in-process branch is reachable only on a tablet, which means it can only be test
 signing, installing and then reading a log off a device - and a branch that expensive to exercise is
 one that quietly rots between the times anybody does. (2026-09-27)
 
+### `accept_offered_transfer`
+
+*main.gd*
+
+GDScript: `accept_offered_transfer() -> bool`
+
+Takes up a transfer that was offered and not yet accepted. **A method rather than a closure**, so the
+menu button and the test press the same thing - a confirmation whose accept path is only reachable
+through a lambda is a confirmation nobody can test. (2026-09-29)
+
+**See also:** `check`, `disconnect_from_server`, `forget`, `human`, `kill`, `on`
+
+### `offered_transfer`
+
+*main.gd*
+
+GDScript: `offered_transfer() -> Dictionary`
+
+Whether a transfer is waiting to be agreed to, for the menu and for tests.
+
 ### `realms`
 
 *server/game_server.gd*

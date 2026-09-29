@@ -2823,7 +2823,13 @@ one that quietly rots between the times anybody does. (2026-09-27) main.gd the s
 `QW_IN_PROCESS_SERVER=1` forces the same path on a desktop. **Not a convenience.** Without it the
 in-process branch is reachable only on a tablet, which means it can only be tested by building,
 signing, installing and then reading a log off a device - and a branch that expensive to exercise is
-one that quietly rots between the times anybody does. (2026-09-27)</p></div></section>
+one that quietly rots between the times anybody does. (2026-09-27)</p></div>
+<div class="card" data-search="accept_offered_transfer takes up a transfer that was offered and not yet accepted. **a method rather than a closure**, so the
+menu button and the test press the same thing - a confirmation whose accept path is only reachable
+through a lambda is a confirmation nobody can test. (2026-09-29) main.gd the server itself"><div class="sig"><code>accept_offered_transfer() -&gt; bool</code></div><p>Takes up a transfer that was offered and not yet accepted. **A method rather than a closure**, so the
+menu button and the test press the same thing - a confirmation whose accept path is only reachable
+through a lambda is a confirmation nobody can test. (2026-09-29)</p></div>
+<div class="card" data-search="offered_transfer whether a transfer is waiting to be agreed to, for the menu and for tests. main.gd the server itself"><div class="sig"><code>offered_transfer() -&gt; Dictionary</code></div><p>Whether a transfer is waiting to be agreed to, for the menu and for tests.</p></div></section>
 <section id="e-server-game-server-gd"><h2>game_server.gd <span class="file">server/game_server.gd</span></h2><p class="lead">Authoritative game server engine. Loads mods, which define the content and rules; owns the world; simulates every player from their inputs; validates edits; streams content, chunks and snapshots.</p><div class="card" data-search="realms the worlds this server is running. &quot;&quot; is the overworld - the one a server has always had, and the
 one an old save belongs to. realms are added by mods before the world loads. server/game_server.gd the server itself"><div class="sig"><code>realms := {}  (property)</code></div><p>The worlds this server is running. "" is the overworld - the one a server has always had, and the
 one an old save belongs to. Realms are added by mods before the world loads.</p></div>
@@ -3476,7 +3482,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1265 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1267 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>
