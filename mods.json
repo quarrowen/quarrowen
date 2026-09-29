@@ -11,9 +11,9 @@
 			"id": "base",
 			"kind": "library",
 			"name": "Base Blocks",
-			"sha256": "3cefadb7d868ae8ab1bcc8c35018acf362132aebe3ecba7dd009e41354358e47",
+			"sha256": "fbd0136830a2cbb8554c3593e158d93926e66518745ceed97a81d836aa84ed59",
 			"size": 267459,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/base-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/base-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -31,9 +31,9 @@
 			"id": "creative",
 			"kind": "game",
 			"name": "Creative",
-			"sha256": "421047d23163df9e54ada02a466ce50a3fee9ab88de23a1e62a418891e3fe0d3",
+			"sha256": "38a9bc366162f687773f037d2833e43ee47396fe90f341637b72f42bc377553c",
 			"size": 170406,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/creative-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/creative-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -49,9 +49,9 @@
 			"id": "fairground",
 			"kind": "game",
 			"name": "The Fairground",
-			"sha256": "9599ff8feaf03d2d69effc3a3820c384471ce903fd80c6255df0b514f1a794b8",
+			"sha256": "cd99b2303d281d54fbcfeb3339a90ea7975f63e0d59db0e093a890328edb56d1",
 			"size": 13398,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/fairground-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/fairground-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -70,9 +70,9 @@
 			"id": "firstlight",
 			"kind": "game",
 			"name": "Firstlight",
-			"sha256": "ff68d438db82dee84b50229e5f6bc15c17b983c3d82b012b2cdd5daff257fa14",
+			"sha256": "61b791a5b4f70169bc7bba8033bc111e81c355319787f80d438a2cc7b5396e84",
 			"size": 358272,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/firstlight-0.1.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/firstlight-0.1.0.zip",
 			"version": "0.1.0"
 		},
 		{
@@ -90,9 +90,9 @@
 			"id": "guidebook",
 			"kind": "library",
 			"name": "Guidebook",
-			"sha256": "548d85dc9c7b6a9fa4dba8720044892209ac6bf118c41a22eff8d6176ad01634",
+			"sha256": "ca5a72896011d26eb59513f9b5a8d58d4570229f05935b8119769aa947b7bb12",
 			"size": 9831,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/guidebook-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/guidebook-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -109,9 +109,9 @@
 			"id": "lavagame",
 			"kind": "addon",
 			"name": "The Floor is Lava",
-			"sha256": "30e834e369bf465396ef79985b614432473d060c51e16cba5f4ca069ec295f35",
+			"sha256": "8e8ca69c21313799b67dff36e8ef2ea59a546722b5b6d5f8285e0f3f165d4115",
 			"size": 3922,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/lavagame-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/lavagame-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -128,9 +128,9 @@
 			"id": "oneblock",
 			"kind": "game",
 			"name": "One Block",
-			"sha256": "9c236663ad68147c82c80c4125b73364fdd85b1a44c27f71b9a690014596c020",
+			"sha256": "ff85a4035ef9104e78a0a87acb8606b4f734ad95dd95ff17293a1f5512bdcf57",
 			"size": 323555,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/oneblock-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/oneblock-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -147,9 +147,9 @@
 			"id": "simple_gear",
 			"kind": "library",
 			"name": "Simple Gear",
-			"sha256": "0de24a9a2b396a7c75740be136afbe8f481cb65c5727a9639db61701a761fb4b",
+			"sha256": "7c020fe41cb84e0f54a4697ce0b381d0fa096aa27b93beaefb1e2b20e60af104",
 			"size": 59148,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/simple_gear-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/simple_gear-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -165,9 +165,9 @@
 			"id": "simple_machines",
 			"kind": "library",
 			"name": "Simple Machines",
-			"sha256": "b8b69765d4e36c61496b0c0cac8f1071e2c6cb246f1e79c45a01f9f8342ebd79",
+			"sha256": "52908ab843887f777023b7230abb1e2c56b43d64246a4a6d5175ecb86e974a42",
 			"size": 32384,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/simple_machines-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/simple_machines-1.0.0.zip",
 			"version": "1.0.0"
 		},
 		{
@@ -184,11 +184,11 @@
 			"id": "wordgame",
 			"kind": "addon",
 			"name": "Stand On The Answer",
-			"sha256": "8f8b50cb1609a164f7a4d16370b59ac87fb64df326e96478845ef12a10784f85",
+			"sha256": "c2811760a67ba015ee5e5bb3ab3cfdfd4b8853c71b7462c1e276b39eace6812c",
 			"size": 7939,
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/wordgame-1.0.0.zip",
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/wordgame-1.0.0.zip",
 			"version": "1.0.0"
 		}
 	],
-	"version": "0.42.1"
+	"version": "0.42.2"
 }

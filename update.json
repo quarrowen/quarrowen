@@ -1,11 +1,11 @@
 {
-	"version": "0.42.1",
-	"notes": "Cut 0.42.1, because a tag that failed cannot be reused",
+	"version": "0.42.2",
+	"notes": "Quarrowen 0.42.2",
 	"builds": {
 		"macos": {
-			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/Quarrowen-0.42.1-mac-universal.zip",
-			"sha256": "da2731dff3972c978c36b4ac68d5c69225e42d2f839b66c5ad5f53553db44ff2",
-			"size": 69875628
+			"url": "https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/Quarrowen-0.42.2-mac-universal.zip",
+			"sha256": "38dcbf787125b4355b9ae310fbbda4102b1b2a91545e39003455ee26d7588e72",
+			"size": 69877031
 		}
 	}
 }

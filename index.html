@@ -120,6 +120,13 @@
   .mods td:last-child { text-align: right; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .dim { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
 
+  /* The fact table. The label column is fixed so the values start on one line down the page, and
+     wide enough that "Screenshots" does not sit flush against its own value. */
+  #facts table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  #facts td { padding: 10px 0; border-bottom: 1px solid var(--edge); vertical-align: top; }
+  #facts td:first-child { width: 130px; padding-right: 22px; color: var(--ink); white-space: nowrap; }
+  #facts tr:last-child td { border-bottom: 0; }
+
   /* Four lanes */
   .lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
   .lane {
@@ -165,15 +172,48 @@
     <p>One app plays any world, because it carries no game of its own. Blocks, creatures, recipes and
     rules all arrive from whichever server you join.</p>
     <div class="cta">
-      <a class="btn" href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/Quarrowen-0.42.1-mac-universal.dmg">Download for Mac <small>0.42.1 · 74M</small></a>
+      <a class="btn" href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/Quarrowen-0.42.2-mac-universal.dmg">Download for Mac <small>0.42.2 · 74M</small></a>
+      <a class="btn" href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/Quarrowen-0.42.2-Setup.exe">Download for Windows <small>0.42.2 · 32M</small></a>
       <a class="btn ghost" href="/docs/">Read the reference</a>
     </div>
-    <p class="under">Apple silicon · signed and notarized · updates itself · Cut 0.42.1, because a tag that failed cannot be reused</p>
-    <p class="under"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/Quarrowen-0.42.1-windows-x86_64.zip">Windows (44M)</a> — unsigned, so Windows asks before running it, and it does not update itself yet.</p>
+    <p class="under">Mac: Intel and Apple silicon · signed and notarized · updates itself · Quarrowen 0.42.2</p>
+    <p class="under">Windows: unsigned, so Windows asks once before running it, and it does not update itself yet. Prefer a zip? <a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/Quarrowen-0.42.2-windows-x86_64.zip">Take the folder instead (44M)</a> and run Quarrowen.exe from inside it.</p>
   </div>
 </div>
 
 <div class="wrap">
+
+<section id="play">
+  <h2>What you can <span>play</span></h2>
+  <p class="sub">All of it comes with the download, and each one is a mod - so anything they do, yours
+  can do too. Play on your own, or start a world and let somebody join.</p>
+  <div class="lanes"><div class="lane"><h3>Creative</h3><p>A world and everything in it, and nothing to survive. Build.</p></div><div class="lane"><h3>The Fairground</h3><p>A hub of short games with a door to each: step through one and a round begins. Every game is worth playing on your own, and better with somebody.</p></div><div class="lane"><h3>Firstlight</h3><p>Make it through the night. Dig, build, and come back out in the morning.</p></div><div class="lane"><h3>One Block</h3><p>One block over the void. Break it and something else takes its place: soil, then stone and ores, then creatures and crates. Build outwards from whatever you collect.</p></div></div>
+</section>
+
+<section id="safe">
+  <h2>Is it <span>safe</span> to join someone's server?</h2>
+  <p class="sub">The honest answer, because the way this works invites the question: a server sends your
+  game <b>data, never code</b>. There is no mod runtime in the client at all - nothing in the protocol
+  carries a script, and mods run on the machine hosting the world, not yours.</p>
+  <div class="lanes">
+    <div class="lane">
+      <h3>No accounts, nothing collected</h3>
+      <p>No sign-up, no email, no telemetry, no analytics. A player is a key on their own computer, and
+      worlds are files on yours.</p>
+    </div>
+    <div class="lane">
+      <h3>Everything is bounded</h3>
+      <p>What a server may send is size-limited and checked before it is used, and downloaded content is
+      stored under the hash of its own contents - so no server can name a file on your disk.</p>
+    </div>
+    <div class="lane">
+      <h3>The limits, written down</h3>
+      <p>Where the protections end is on the page too, not buried: what trust-on-first-use means, and
+      what your client does parse from a server.</p>
+      <a href="/docs/security/">Security →</a>
+    </div>
+  </div>
+</section>
 
 <section id="different">
   <h2>How this is <span>different</span></h2>
@@ -252,6 +292,12 @@
       <p>What it costs, whether it's safe for children, where your worlds are kept.</p>
       <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/faq.md">FAQ →</a>
     </div>
+    <div class="lane">
+      <h3>Writing about it</h3>
+      <p>The facts in one table: what it is, what it costs, what it is made of, and screenshots of the
+      build that is actually shipping.</p>
+      <a href="#facts">At a glance →</a>
+    </div>
   </div>
 </section>
 
@@ -260,8 +306,8 @@
     <h2>Running a server</h2>
     <p class="sub" style="margin-bottom:0">Three files and a pull. The machine never compiles anything,
     and several worlds can sit beside each other with players walking between them through portals.</p>
-<pre><b>QW_IMAGE</b>=ghcr.io/quarrowen/quarrowen/server:0.42.1
-<b>QW_HUB_IMAGE</b>=ghcr.io/quarrowen/quarrowen/hub:0.42.1
+<pre><b>QW_IMAGE</b>=ghcr.io/quarrowen/quarrowen/server:0.42.2
+<b>QW_HUB_IMAGE</b>=ghcr.io/quarrowen/quarrowen/hub:0.42.2
 
 docker compose pull &amp;&amp; docker compose up -d</pre>
   </div>
@@ -269,7 +315,7 @@ docker compose pull &amp;&amp; docker compose up -d</pre>
     <h3>Mods in this release</h3>
     <p class="sub" style="margin:0 0 18px">Every game comes with the download; these are for adding one to
     a server by hand. In the game, the Mods page does it for you.</p>
-    <h3>Games</h3><p class="dim">A world runs one of these.</p><table><tr><td><b>Creative</b><br><span class="dim">A world and everything in it, and nothing to survive. Build.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/creative-1.0.0.zip">creative-1.0.0.zip</a><br><span class="dim">168K</span></td></tr><tr><td><b>The Fairground</b><br><span class="dim">A hub of short games with a door to each: step through one and a round begins. Every game is worth playing on your own, and better with somebody.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/fairground-1.0.0.zip">fairground-1.0.0.zip</a><br><span class="dim">16K</span></td></tr><tr><td><b>Firstlight</b><br><span class="dim">Make it through the night. Dig, build, and come back out in the morning.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/firstlight-0.1.0.zip">firstlight-0.1.0.zip</a><br><span class="dim">352K</span></td></tr><tr><td><b>One Block</b><br><span class="dim">One block over the void. Break it and something else takes its place: soil, then stone and ores, then creatures and crates. Build outwards from whatever you collect.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/oneblock-1.0.0.zip">oneblock-1.0.0.zip</a><br><span class="dim">316K</span></td></tr></table><h3>Add-ons</h3><p class="dim">Extra content on top of a game.</p><table><tr><td><b>The Floor is Lava</b><br><span class="dim">The lava is rising and the floor is going. Climb, or build something to stand on. A game for the Fairground.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/lavagame-1.0.0.zip">lavagame-1.0.0.zip</a><br><span class="dim">4.0K</span></td></tr><tr><td><b>Stand On The Answer</b><br><span class="dim">A question, four coloured squares, and the wrong three fall away. Spelling and sums in a costume. A game for the Fairground.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/wordgame-1.0.0.zip">wordgame-1.0.0.zip</a><br><span class="dim">8.0K</span></td></tr></table><h3>Packs</h3><p class="dim">What a game is built from. A game names the ones it wants.</p><table><tr><td><b>Base Blocks</b><br><span class="dim">Common terrain and building blocks shared by other mods. Not a game on its own.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/base-1.0.0.zip">base-1.0.0.zip</a><br><span class="dim">264K</span></td></tr><tr><td><b>Guidebook</b><br><span class="dim">The in-game Survival Guide: what the blocks, machines and gear are for. A library any game can include, because none of it belongs to one.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/guidebook-1.0.0.zip">guidebook-1.0.0.zip</a><br><span class="dim">12K</span></td></tr><tr><td><b>Simple Gear</b><br><span class="dim">Tools, weapons, armour and charms, and the benches that build them from parts. Not a game on its own.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/simple_gear-1.0.0.zip">simple_gear-1.0.0.zip</a><br><span class="dim">60K</span></td></tr><tr><td><b>Simple Machines</b><br><span class="dim">Workbenches, furnaces, containers and signals. The verbs a game does with base's nouns. Not a game on its own.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.1/simple_machines-1.0.0.zip">simple_machines-1.0.0.zip</a><br><span class="dim">32K</span></td></tr></table>
+    <h3>Games</h3><p class="dim">A world runs one of these.</p><table><tr><td><b>Creative</b><br><span class="dim">A world and everything in it, and nothing to survive. Build.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/creative-1.0.0.zip">creative-1.0.0.zip</a><br><span class="dim">168K</span></td></tr><tr><td><b>The Fairground</b><br><span class="dim">A hub of short games with a door to each: step through one and a round begins. Every game is worth playing on your own, and better with somebody.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/fairground-1.0.0.zip">fairground-1.0.0.zip</a><br><span class="dim">16K</span></td></tr><tr><td><b>Firstlight</b><br><span class="dim">Make it through the night. Dig, build, and come back out in the morning.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/firstlight-0.1.0.zip">firstlight-0.1.0.zip</a><br><span class="dim">352K</span></td></tr><tr><td><b>One Block</b><br><span class="dim">One block over the void. Break it and something else takes its place: soil, then stone and ores, then creatures and crates. Build outwards from whatever you collect.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/oneblock-1.0.0.zip">oneblock-1.0.0.zip</a><br><span class="dim">316K</span></td></tr></table><h3>Add-ons</h3><p class="dim">Extra content on top of a game.</p><table><tr><td><b>The Floor is Lava</b><br><span class="dim">The lava is rising and the floor is going. Climb, or build something to stand on. A game for the Fairground.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/lavagame-1.0.0.zip">lavagame-1.0.0.zip</a><br><span class="dim">4.0K</span></td></tr><tr><td><b>Stand On The Answer</b><br><span class="dim">A question, four coloured squares, and the wrong three fall away. Spelling and sums in a costume. A game for the Fairground.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/wordgame-1.0.0.zip">wordgame-1.0.0.zip</a><br><span class="dim">8.0K</span></td></tr></table><h3>Packs</h3><p class="dim">What a game is built from. A game names the ones it wants.</p><table><tr><td><b>Base Blocks</b><br><span class="dim">Common terrain and building blocks shared by other mods. Not a game on its own.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/base-1.0.0.zip">base-1.0.0.zip</a><br><span class="dim">264K</span></td></tr><tr><td><b>Guidebook</b><br><span class="dim">The in-game Survival Guide: what the blocks, machines and gear are for. A library any game can include, because none of it belongs to one.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/guidebook-1.0.0.zip">guidebook-1.0.0.zip</a><br><span class="dim">12K</span></td></tr><tr><td><b>Simple Gear</b><br><span class="dim">Tools, weapons, armour and charms, and the benches that build them from parts. Not a game on its own.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/simple_gear-1.0.0.zip">simple_gear-1.0.0.zip</a><br><span class="dim">60K</span></td></tr><tr><td><b>Simple Machines</b><br><span class="dim">Workbenches, furnaces, containers and signals. The verbs a game does with base's nouns. Not a game on its own.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/simple_machines-1.0.0.zip">simple_machines-1.0.0.zip</a><br><span class="dim">32K</span></td></tr></table>
   </div>
 </section>
 
@@ -282,6 +328,31 @@ docker compose pull &amp;&amp; docker compose up -d</pre>
   <p>It was built for one family's children, and it is free for yours. Free to play, modify and share for
   anything noncommercial; commercial use needs a separate licence.
   <a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a></p>
+</section>
+
+<section id="facts">
+  <h2>At a <span>glance</span></h2>
+  <p class="sub">For anyone writing about it, or deciding quickly whether it is worth their evening.
+  Everything here is checkable in the repository.</p>
+  <table>
+    <tr><td><b>What it is</b></td><td>A voxel game engine. The client ships no game of its own; blocks,
+      creatures and rules arrive from the server you join.</td></tr>
+    <tr><td><b>Version</b></td><td>0.42.2, released 29 September 2026</td></tr>
+    <tr><td><b>Platforms</b></td><td>macOS (Intel and Apple silicon, signed and notarized) and Windows.
+      Linux and iOS build but are not released.</td></tr>
+    <tr><td><b>Price</b></td><td>Free. No accounts, no store, no currency, no advertising, no telemetry.</td></tr>
+    <tr><td><b>Licence</b></td><td>PolyForm Noncommercial 1.0.0 — free to play, modify and share for
+      anything noncommercial. Not an OSI open-source licence; commercial use needs a separate one.</td></tr>
+    <tr><td><b>Made with</b></td><td>Godot 4.7 and a Rust extension, written end to end with Claude Code
+      from an empty folder. Every texture, model and sound is generated by a script — no asset packs.</td></tr>
+    <tr><td><b>Modding</b></td><td>GDScript or JavaScript, the JavaScript sandboxed. Over 260 API
+      functions, all documented and generated from source. No marketplace, no approval queue.</td></tr>
+    <tr><td><b>Source</b></td><td><a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a>
+      — engine, server, protocol, tests and tooling, all published.</td></tr>
+    <tr><td><b>Screenshots</b></td><td><a href="shots/hero.jpg">hero.jpg</a> ·
+      <a href="shots/menu.jpg">menu.jpg</a>. Generated by the project's own screenshot harness, so they
+      are of the build being shipped rather than a mock-up.</td></tr>
+  </table>
 </section>
 
 <footer>
