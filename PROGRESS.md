@@ -9957,3 +9957,18 @@ It now samples the position on the *frame* the realm changes and fails at `(0.5,
 fix removed and passes at `(220.5, 70.0, 220.5)` with it. Checked by actually disabling the fix and
 running it, which is the only thing that separates a test from a decoration - and which the first
 version would have passed.
+
+
+### 1.0 gains a thirteenth item: a website review (30 September 2026)
+
+The user is asking friends to review quarrowen.com and collecting their feedback to revamp it from.
+**Theirs rather than mine**, like the Windows testing and the playthrough - the whole value is that the
+readers are not the people who wrote it, and I cannot supply that by reading the page again.
+
+Worth pairing with the other four when the moment comes: whoever is asked to look at the page is a
+plausible person to ask for a server run or an installer double-click, and a first impression is only
+available once per person. So the ask is better made as one ask.
+
+What I can do when the feedback arrives is act on it. What would waste it is guessing at it now: the
+page was written for four audiences on 29 September without a single reader outside this project, and
+the point of the exercise is to find out where that was wrong.
