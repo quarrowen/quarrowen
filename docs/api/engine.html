@@ -2799,7 +2799,24 @@ a hitch: the client stops draining its socket, Godot starts printing "Buffer ful
 the chunks never arrive and the world comes up empty. Run this on a worker and hand the texture over
 when it is ready; relief appearing a second after the world does is nothing anybody notices.
 (2026-09-22)</p></div></section>
-<section id="e-client-touch-controls-gd"><h2>touch_controls.gd <span class="file">client/touch_controls.gd</span></h2><p class="lead">The on-screen controls: a thumbstick to walk with, a drag area to look with, and the buttons a keyboard would otherwise carry. Shown on a touchscreen, or anywhere with `QW_TOUCH=1`.</p><div class="card" data-search="release_all lets go of everything. called when the world is left or a menu opens, so a finger that was holding
+<section id="e-client-touch-controls-gd"><h2>touch_controls.gd <span class="file">client/touch_controls.gd</span></h2><p class="lead">The on-screen controls: a thumbstick to walk with, a drag area to look with, and the buttons a keyboard would otherwise carry. Shown on a touchscreen, or anywhere with `QW_TOUCH=1`.</p><div class="card" data-search="is_left_half which half of the controls a touch landed in. **both sides of the comparison have to be in the same
+space**, and they were not: `at` is a viewport coordinate and `size` belongs to this node, which sits
+inside `_hud_root` and is inset by the device's safe area. wherever the landscape left inset is not
+zero - which is every iphone, and no ipad - the divider sat off-centre by exactly that inset, so a
+band down the middle of the screen walked when it should have looked. invisible on the only hardware
+it was ever tried on. (2026-09-30)
+
+static and given its numbers rather than reading them, so the arithmetic can be asserted without a
+viewport, a device or a screenshot. client/touch_controls.gd the client"><div class="sig"><code>static is_left_half(touch_x: float, origin_x: float, width: float) -&gt; bool</code></div><p>Which half of the controls a touch landed in. **Both sides of the comparison have to be in the same
+space**, and they were not: `at` is a viewport coordinate and `size` belongs to this node, which sits
+inside `_hud_root` and is inset by the device's safe area. Wherever the landscape left inset is not
+zero - which is every iPhone, and no iPad - the divider sat off-centre by exactly that inset, so a
+band down the middle of the screen walked when it should have looked. Invisible on the only hardware
+it was ever tried on. (2026-09-30)
+
+Static and given its numbers rather than reading them, so the arithmetic can be asserted without a
+viewport, a device or a screenshot.</p></div>
+<div class="card" data-search="release_all lets go of everything. called when the world is left or a menu opens, so a finger that was holding
 `break` when a screen appeared does not leave the player mining for ever. client/touch_controls.gd the client"><div class="sig"><code>release_all() -&gt; void</code></div><p>Lets go of everything. Called when the world is left or a menu opens, so a finger that was holding
 `break` when a screen appeared does not leave the player mining for ever.</p></div></section>
 <section id="e-client-updater-gd"><h2>updater.gd <span class="file">client/updater.gd</span></h2><p class="lead">Keeps the game up to date with the project's own releases.</p><div class="card" data-search="manifest_url where to ask about new versions (the project setting wins, so a fork can point somewhere else). client/updater.gd the client"><div class="sig"><code>static manifest_url() -&gt; String</code></div><p>Where to ask about new versions (the project setting wins, so a fork can point somewhere else).</p></div>
@@ -3539,7 +3556,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1272 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1273 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

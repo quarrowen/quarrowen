@@ -10040,3 +10040,31 @@ was never tested.
 The general form, for the rest of the debt list: **an entry that says what will happen needs checking
 before it is scheduled; an entry that says what did happen does not.** There are others of that shape
 still on the list.
+
+
+## The touch divider, and a belt band that was six units short (30 September 2026)
+
+Two of the eight recorded touch fixes, the two that are bugs rather than layout opinions.
+
+**The walk/look divider** compared `at.x`, a viewport coordinate, against `size.x`, the width of a node
+sitting inside the safe-area inset. On a notched phone in landscape the HUD starts at 59 and is 794
+wide, so its middle is 456 and the comparison split at 397. The 59 units between are a band down the
+middle of the screen where a thumb meant to walk looked instead - and all of it falls on the walking
+side, which is the half a player uses without looking down. A zero inset is every iPad, where the two
+midpoints coincide and the code is right by accident, which is why the only hardware it ever ran on
+never showed it.
+
+The decision is a static function taking three numbers now, so the arithmetic is asserted without a
+viewport, a device or a photograph. The test states the bug as the band it got wrong.
+
+**`BELT_BAND` was 76 and the belt is 82.** Measured from the three constants it is made of rather than
+taken from the note that reported it: a touch hotbar slot is 58, its frame adds a 7-unit content margin
+each side, and the frame sits 10 up. 10 + 7 + 58 + 7 = 82. Everything anchored to the band was six
+units too low, clipping the belt the band exists to clear. (The earlier note said 8 units and an offset
+of 12; 12 is the inner box's offset and 10 is the frame's, and the frame is what is drawn.)
+
+It is still a literal, and **that is the real fault**: this file cannot see any of the three numbers it
+is derived from, so the next change to the hotbar will move the belt and leave this behind again.
+Having the hotbar publish its own height is the fix and is a bigger change than this one.
+
+Six touch items remain, all of them layout rather than arithmetic, and all needing a phone.

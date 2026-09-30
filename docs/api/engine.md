@@ -10438,6 +10438,22 @@ when it is ready; relief appearing a second after the world does is nothing anyb
 
 **See also:** `create`, `texture`
 
+### `is_left_half`
+
+*client/touch_controls.gd*
+
+GDScript: `static is_left_half(touch_x: float, origin_x: float, width: float) -> bool`
+
+Which half of the controls a touch landed in. **Both sides of the comparison have to be in the same
+space**, and they were not: `at` is a viewport coordinate and `size` belongs to this node, which sits
+inside `_hud_root` and is inset by the device's safe area. Wherever the landscape left inset is not
+zero - which is every iPhone, and no iPad - the divider sat off-centre by exactly that inset, so a
+band down the middle of the screen walked when it should have looked. Invisible on the only hardware
+it was ever tried on. (2026-09-30)
+
+Static and given its numbers rather than reading them, so the arithmetic can be asserted without a
+viewport, a device or a screenshot.
+
 ### `release_all`
 
 *client/touch_controls.gd*

@@ -80,6 +80,7 @@ func _ready() -> void:
 	await _signals()
 	await _realms()
 	_realm_broadcasts()
+	_touch_divider()
 	_baked_light()
 	await _simulation_distance()
 	_scripts_compile()
@@ -4487,6 +4488,30 @@ func _realm_broadcasts() -> void:
 		if not found:
 			stale.append(name)
 	_check(stale.is_empty(), "and the allowlist names no function that has gone (%s)" % ", ".join(stale))
+
+
+## The walk/look divider, which compared a viewport coordinate against an inset rectangle's width.
+##
+## The numbers are an iPhone in landscape: a 59-unit inset for the notch, so the HUD starts at 59 and
+## is 794 wide inside an 853-unit screen. Its middle is 59 + 397 = **456**, and the old arithmetic
+## split at 794 / 2 = **397**. The 59 units between those two are a band down the middle of the screen
+## where a thumb meant to walk looked instead - and every one of them is on the walking side, which is
+## the half a player uses without looking down.
+##
+## A zero inset is every iPad, and the divider is then correct by coincidence, which is why this
+## survived the only hardware it was ever run on.
+func _touch_divider() -> void:
+	const Touch = preload("res://engine/client/touch_controls.gd")
+	_check(Touch.is_left_half(100.0, 0.0, 800.0) and not Touch.is_left_half(700.0, 0.0, 800.0),
+		"with no inset the divider is the middle of the screen")
+	_check(Touch.is_left_half(399.0, 0.0, 800.0) and not Touch.is_left_half(401.0, 0.0, 800.0),
+		"and it splits exactly at the middle")
+	_check(Touch.is_left_half(455.0, 59.0, 794.0) and not Touch.is_left_half(457.0, 59.0, 794.0),
+		"an inset HUD splits at the inset plus half its width, not at half its width")
+	# The whole of the bug, stated as the band it got wrong.
+	for x in [400.0, 420.0, 450.0]:
+		_check(Touch.is_left_half(x, 59.0, 794.0),
+			"a touch at %d on a notched phone walks, where it used to look" % int(x))
 
 
 func _shader_names() -> void:

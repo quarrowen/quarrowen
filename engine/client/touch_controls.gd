@@ -46,7 +46,15 @@ const BUTTON_SIZE := Vector2(54, 54)
 ## viewport in these units and anything anchored to opposite edges moves towards the middle. A 1.93:1
 ## desktop shot showed no overlap; a 1.44:1 tablet had it all along. (the user, 2026-09-27: "the button
 ## for run is actually overlapping with the action bar")
-const BELT_BAND := 76.0
+## **Measured rather than guessed, 30 September 2026.** It was 76, and the belt is 82 tall from the
+## bottom of the screen: a touch hotbar slot is 58 (`game_client.gd`), its frame adds a 7-unit content
+## margin on each side, and the frame sits 10 up - so 10 + 7 + 58 + 7 = 82. Everything anchored to this
+## band was six units too low and clipped the belt it exists to clear.
+##
+## It is still a literal, which is the actual fragility: this file cannot see any of the three numbers
+## it is derived from, so the next change to the hotbar moves the belt and leaves this behind again.
+## Having the hotbar publish its own height is the fix and is not this change.
+const BELT_BAND := 82.0
 ## **The ring of things you stop to do.** Crafting, the map, chat, dropping and the creative palette have
 ## no business as permanent buttons - a child's thumbs cannot cover eleven - and the pause menu is the
 ## wrong home for them because you pause to *stop* and you craft in the middle of playing. A ring opened
@@ -306,8 +314,21 @@ func _unhandled_input(event: InputEvent) -> void:
 			_client.add_look(event.relative, event.relative, turn)
 
 
+## Which half of the controls a touch landed in. **Both sides of the comparison have to be in the same
+## space**, and they were not: `at` is a viewport coordinate and `size` belongs to this node, which sits
+## inside `_hud_root` and is inset by the device's safe area. Wherever the landscape left inset is not
+## zero - which is every iPhone, and no iPad - the divider sat off-centre by exactly that inset, so a
+## band down the middle of the screen walked when it should have looked. Invisible on the only hardware
+## it was ever tried on. (2026-09-30)
+##
+## Static and given its numbers rather than reading them, so the arithmetic can be asserted without a
+## viewport, a device or a screenshot.
+static func is_left_half(touch_x: float, origin_x: float, width: float) -> bool:
+	return touch_x < origin_x + width * 0.5
+
+
 func _begin_touch(index: int, at: Vector2) -> void:
-	var left := at.x < size.x * 0.5
+	var left := is_left_half(at.x, global_position.x, size.x)
 	if left and _stick_touch < 0:
 		_stick_touch = index
 		# The stick appears under the thumb rather than at a fixed spot, so a walk never starts with a
