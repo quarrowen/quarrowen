@@ -271,7 +271,7 @@ for zip in $(for z in "$out/$files"/mods/*.zip; do
 			if [ -f "$out/shots/$id.jpg" ]; then
 				game_cards="$game_cards<div class=\"game\"><div class=\"shot\"><img src=\"shots/$id.jpg\" alt=\"$name\"></div><div><h3>${name:-$id}</h3><p>$description</p></div></div>"
 			else
-				game_cards="$game_cards<div class=\"game no-shot\"><div><h3>${name:-$id}</h3><p>$description</p></div></div>"
+				game_cards="$game_cards<div class=\"game\"><div class=\"shot pending\"><span>picture coming</span></div><div><h3>${name:-$id}</h3><p>$description</p></div></div>"
 			fi ;;
 	esac
 done

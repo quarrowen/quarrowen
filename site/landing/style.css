@@ -179,4 +179,9 @@
   details.under[open] summary { margin-bottom: 10px; }
   details.under p { margin: 0; }
   .lede { color: var(--ink); font-size: 17px; margin: 0 0 20px; max-width: 62ch; text-wrap: pretty; }
-  .game.no-shot { grid-template-columns: 1fr; }
+  .shot.pending {
+    display: grid; place-items: center; min-height: 190px;
+    background: linear-gradient(160deg, var(--panel-2), var(--panel));
+    border-style: dashed;
+  }
+  .shot.pending span { color: var(--muted); font-size: 13px; }

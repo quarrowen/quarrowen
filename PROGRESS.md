@@ -10578,3 +10578,42 @@ The Fairground (avatars mid-round; its board currently says "Nobody has played t
 (an island part way to a factory). Both fail for one reason - **a freshly generated world has nobody in
 it and nothing built in it** - which is the same reason the portal clip needs recording rather than
 scripting. One play session gets all three.
+
+
+## A screenshot pass, and the limit it ran into (30 September 2026)
+
+Copy: the eyebrow is "Quarrowen · a free block-building game" and the section heading "Same app. Four
+worlds. Nothing installed in between." A card with no picture keeps its column now - an empty panel
+holds the place, so the left-right rhythm of the section survives and the picture drops in when it
+exists. Spanning the row made that game look like an afterthought.
+
+**The hero works.** Wick stands at about 85% across - the right half, clear of the text scrim - at
+dusk, close enough to read his hat and coat, with his lamp lit.
+
+**Getting him there was not controllable, and that is the finding.** `/summon` spawns in front of the
+camera, so a summoned creature always lands dead centre; `/tp` takes absolute coordinates and the
+spawn point is not known before the world generates; and Wick *walks*, so where he is when the shutter
+fires depends on the wait. Three seconds put him at 85%, seven put him out of frame entirely, and two
+summons gave one perfectly placed and one filling the left of the lens. Trimming a side afterwards was
+tried and does move the subject - at the cost of the aspect ratio, which a full-bleed hero cannot
+spare, so that was removed again.
+
+So the hero is a good picture taken by rolling the dice until they came up right, not a repeatable
+recipe. Worth knowing before anybody re-runs the script expecting the same frame.
+
+### What a camera could not do at all
+
+- **firstlight in lamplight or at a cave mouth.** The descent was the obvious answer and does not
+  photograph: a floor is dark and still streaming when the shutter fires, so the shot came back as fog
+  with a faint Wick in it and no floor - "meshed but not drawn", underground, with depth fog on top.
+  The meadow at dusk stands until somebody photographs a floor while playing.
+- **fairground with avatars mid-round.** Needs several players in a running round. The bot harness can
+  connect clients now, but bots wander at random and a round starts when somebody steps through a
+  door.
+- **oneblock with machines and cables**, and **creative with something built.** There is no `/setblock`
+  or `/fill`; the only structure templates that ship are firstlight's deepway chamber and altar ruin.
+  Nothing can build a factory from a command line, so these need a world somebody has played.
+
+Three of the five, then, and all three that failed failed for one reason: **a freshly generated world
+has nobody in it and nothing built in it.** That is the same sentence as the portal clip's, and one
+play session answers all of them.

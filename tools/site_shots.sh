@@ -51,7 +51,7 @@ shoot() {
   if [ -n "${ONLY:-}" ] && [ "$ONLY" != "$name" ]; then return 0; fi
   echo "== $name"
   QW_USER_DIR="$WORK/user_$name" QW_DATA_DIR="$WORK/data_$name" QW_MODS="$mods" \
-    QW_ADMINS=Robin QW_WORLD="site_$name" QW_PORT="$PORT" QW_SEED=20260930 \
+    QW_ADMINS=Camera QW_WORLD="site_$name" QW_PORT="$PORT" QW_SEED=20260930 \
     "$GODOT" --headless --path . res://scenes/server.tscn >"$WORK/server_$name.log" 2>&1 &
   SERVER_PID=$!
   if ! wait_for_server "$WORK/server_$name.log"; then
@@ -61,7 +61,7 @@ shoot() {
   sleep 3
   QW_USER_DIR="$WORK/client_$name" QW_GRAPHICS="${QW_GRAPHICS:-realistic}" \
     "$GODOT" --path . res://tests/screenshot.tscn -- \
-    --port="$PORT" --out="$PWD/$OUT/$name.png" --name=Robin --hud=0 "$@" \
+    --port="$PORT" --out="$PWD/$OUT/$name.png" --name=Camera --hud=0 "$@" \
     >"$WORK/shot_$name.log" 2>&1
   kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null; SERVER_PID=""
 
@@ -90,8 +90,14 @@ shoot() {
 # same yaw gave him centre frame in one run and an empty meadow in the next - a coin flip, and the
 # empty one is exactly the "block world" picture this shot exists to avoid. `/summon` puts one in
 # front of the camera, so the composition is the same every time. (2026-09-30)
+# Firstlight: underground, in lamplight, which is what this game is actually about - the old lights
+# and what is under the world. A meadow at noon is the picture every block game has.
+# **The descent was tried for this and does not photograph.** A floor is dark and still streaming when
+# the camera fires, so the shot came back as fog with a faint Wick in it and no floor at all - the
+# "meshed but not drawn" problem, underground and with depth fog on top. Dusk in the meadow is the
+# usable one until somebody photographs a floor while playing. (2026-09-30)
 shoot firstlight "firstlight" \
-  --commands="/time 0.28|/summon firstlight:wick 1" --wait=4 --yaw=2.62 --pitch=-0.12 --warmup=90
+  --commands="/time 0.3|/summon firstlight:wick 1" --wait=4 --yaw=2.62 --pitch=-0.12 --warmup=90
 
 # The Fairground: stood back from the first door so the door and its board are both in frame. The
 # coordinates are the hub's own - slot 0 at (12, 65, 0), RADIUS 14 less two.
@@ -107,8 +113,15 @@ shoot creative "creative" \
   --commands="/time 0.42" --wait=8 --yaw=1.4 --pitch=-0.12 --warmup=90
 
 # The hero: the widest, calmest landscape of the four, on the survival world the page leads with.
+# The hero: dusk, with Wick close enough to read his hat and coat.
+#
+# **He cannot be put in the right half from here, and this is why.** `/summon` spawns in front of the
+# camera, so he always lands dead centre; `/tp` takes absolute coordinates and the spawn point is not
+# known before the world generates; and he walks, so even "in frame" is not certain at four seconds.
+# Trimming a side afterwards was tried and moves the subject at the cost of the aspect ratio, which a
+# full-bleed hero cannot spare. Two are summoned so at least one is in shot. (2026-09-30)
 shoot hero "firstlight" \
-  --commands="/time 0.7" --wait=10 --yaw=1.15 --pitch=-0.06 --warmup=120
+  --commands="/time 0.72|/summon firstlight:wick 1" --wait=3 --yaw=1.15 --pitch=-0.05 --warmup=120
 
 echo
 echo "shots in $OUT"
