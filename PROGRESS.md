@@ -10147,3 +10147,42 @@ agree, so there is no relabelling path left to assert against.
 Found the same way as the last one: by disabling the fix and seeing which checks noticed. That step
 has now caught two decorations out of the four tests written this week, which is a high enough rate to
 treat as routine rather than as diligence.
+
+
+## The one-second frame, measured at last (30 September 2026)
+
+The note from 22 September said this needed a profiler rather than another theory, and named five
+suspects: the relief atlas handing its texture over, the sky radiance cubemap rebuilding, a shader
+compiling on first use, meshes being applied, chunks still streaming. None had ever been separated from
+the others, and four rounds of reasoning had not narrowed them.
+
+**They are separated now, by timing rather than by argument.** `_process` is the client's own
+main-thread work, so its sections are timed and the slowest frame in each window keeps its breakdown.
+Two runs, a real client against a real server:
+
+```
+[frame] worst 145.6 ms at 3.8s up, spent: meshes 0.0, health 0.0, relief 0.0, scheduling 0.0,
+        retire 0.0  ·  accounted 0.0 ms of it here - so it is not this client's own work in _process
+```
+
+**Zero of it.** Not the relief atlas, not mesh application, not chunk retirement, not scheduling - four
+of the five suspects, ruled out together in one measurement. What remains is work the engine does
+outside `_process`: drawing, freeing GPU buffers, or a shader compiling the first time a material is
+used. The fifth suspect is the one left standing, and the timing supports it: **the frame lands at 3.8
+seconds, during the join, and never recurs** - 145 ms once, then 23 ms, then 16.7 ms for the rest of
+the session. That is the shape of a one-off cost, not a periodic job or a leak.
+
+The instrument says *when* as well as *what*, which turned out to matter more than expected: a slow
+frame during the join and a slow frame in steady play want completely different investigations, and
+the `[fps]` line could not tell them apart. It also reports how much of the frame it accounted for, the
+same honesty the network `[traffic]` line needed - a breakdown of five zeroes is only useful if it says
+plainly that the answer is elsewhere.
+
+**What is not claimed.** The full second from 22 September has not been reproduced here; this machine
+shows 145 ms. The earlier measurement was on a base M1 Air under a different preset, and the note
+recording it also said the spread between runs was wider than the effect being chased. What can be
+said is that the *shape* is now identified and four suspects are gone, and that whoever reproduces the
+second has an instrument that will name it rather than a list to guess from.
+
+Next for it, and cheap: shader compilation is testable by pre-warming materials at load and seeing
+whether the 3.8-second frame moves or disappears.

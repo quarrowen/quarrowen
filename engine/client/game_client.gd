@@ -363,6 +363,9 @@ const FPS_LOG_WITH_READOUT := 5.0
 var _fps_log_every := 0.0
 var _fps_log_at := 0.0
 var _fps_samples: Array[float] = []
+var _worst_frame_delta := 0.0
+var _worst_frame_sections := {}
+var _worst_frame_at := 0.0
 ## The controls hint, which is for the player rather than for whoever is fixing the game. Drawn as
 ## keycaps rather than written as "[T] chat"; fades once they have had time to read it.
 var _controls_hint: Control
@@ -2026,13 +2029,27 @@ func _can_simulate() -> bool:
 # --- Frame update -------------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	# **What the frame was doing, for the frames that were slow.** The fps line has reported a worst
+	# frame for weeks - one measurement showed a *full second* - and a worst frame with no attribution
+	# has produced four rounds of theory and no answer. The suspects were named and never separated:
+	# the relief atlas handing its texture over, the sky rebuilding, a shader compiling on first use,
+	# meshes being applied, chunk buffers being freed. Timing the sections costs a handful of
+	# `get_ticks_usec` calls a frame and tells you which. (2026-09-30)
+	var t0 := Time.get_ticks_usec()
 	_refresh_low_health(delta)
+	var t1 := Time.get_ticks_usec()
 	_retire_chunks()
+	var t2 := Time.get_ticks_usec()
 	_watch_handshake()
 	_poll_relief()
+	var t3 := Time.get_ticks_usec()
 	_ease_wind(delta)
 	_poll_mesh_jobs()
+	var t4 := Time.get_ticks_usec()
 	_schedule_mesh_jobs()
+	var t5 := Time.get_ticks_usec()
+	_note_frame(delta, {"health": t1 - t0, "retire": t2 - t1, "relief": t3 - t2,
+		"meshes": t4 - t3, "scheduling": t5 - t4})
 	if not _drive_speed.is_empty():
 		_spin_models(delta)
 	if not _assemblies.is_empty():
@@ -5141,6 +5158,25 @@ func _set_progress(fraction: float) -> void:
 ## **Median and worst, not just average**, because the question on a tablet is never "what is the mean"
 ## - it is whether the thing hitches. An average of 58 hides a stall the player feels and the whole
 ## reason this exists is to carry that distinction off a device nobody can watch.
+## Keeps the section timings of the slowest frame in the current window. Only the worst one is kept,
+## because that is the only frame anybody is asking about and keeping them all would cost more than the
+## thing being measured.
+##
+## What it deliberately does *not* claim: these five sections are the client's own main-thread work in
+## `_process`, not the whole frame. A frame that is slow with every section near zero is the engine
+## doing something outside this function - drawing, or freeing GPU buffers, or compiling a shader - and
+## that is an answer too, and the one theory-making could never distinguish.
+func _note_frame(delta: float, sections: Dictionary) -> void:
+	if delta <= _worst_frame_delta:
+		return
+	_worst_frame_delta = delta
+	_worst_frame_sections = sections
+	# **When** matters as much as what. A slow frame during the join is a one-off cost - a shader
+	# compiling on first use, a resource being made - and one in steady play is a leak or a periodic
+	# job. The two want completely different investigations and the fps line could not tell them apart.
+	_worst_frame_at = Time.get_ticks_msec() / 1000.0
+
+
 func _log_fps(delta: float) -> void:
 	# **Driven by the readout, not only by the environment variable.** `QW_FPS_LOG` never arrives on
 	# iOS - whatever devicectl does with `--environment-variables`, `OS.get_environment` does not see it -
@@ -5165,6 +5201,23 @@ func _log_fps(delta: float) -> void:
 	print("[fps] avg %.1f  median %.1f  worst %.1f  best %.1f  |  frame %s  (%d frames, render scale %d%%, %s)" % [
 		total / sorted.size(), sorted[sorted.size() / 2], sorted[0], sorted[-1], _frame_cost(), sorted.size(),
 		roundi(graphics.value("render_scale") * 100.0), RenderingServer.get_current_rendering_method()])
+	if _worst_frame_delta > 0.0:
+		var named := PackedStringArray()
+		var keys: Array = _worst_frame_sections.keys()
+		keys.sort_custom(func(a, b): return int(_worst_frame_sections[a]) > int(_worst_frame_sections[b]))
+		var counted := 0
+		for key: String in keys:
+			counted += int(_worst_frame_sections[key])
+			if int(_worst_frame_sections[key]) > 0:
+				named.append("%s %.1f" % [key, _worst_frame_sections[key] / 1000.0])
+		print("[frame] worst %.1f ms at %.1fs up, spent: %s  ·  accounted %.1f ms of it here%s" % [
+			_worst_frame_delta * 1000.0, _worst_frame_at,
+			", ".join(named) if not named.is_empty() else "nothing measurable in _process",
+			counted / 1000.0,
+			"" if counted * 1.0 / maxf(_worst_frame_delta * 1000000.0, 1.0) > 0.5
+				else " - so it is not this client's own work in _process"])
+	_worst_frame_delta = 0.0
+	_worst_frame_sections = {}
 	_fps_samples.clear()
 
 
