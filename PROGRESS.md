@@ -10113,3 +10113,37 @@ reached any client and every joining player sat waiting for a world. Twelve test
 error the annotation was added to avoid is loud and immediate; getting the annotation *wrong* is
 silent and only shows up as something else entirely. Bisected by reverting hunks rather than reasoned
 about, which took three runs and no guessing.
+
+
+## The save format's refusal was a comment, not a behaviour (30 September 2026)
+
+The 1.0 item was "make the save format a promise". The promise rests on one behaviour - **a world this
+version cannot read is refused rather than half-loaded** - and that behaviour did not exist.
+
+`_migrate_save_format` warned into the dev log, which nobody starting a server reads, and then set
+`_meta.format = SAVE_FORMAT`: it relabelled the world as current and carried on. Its own doc comment
+said it "refuses a world this version cannot read" and that relabelling one is "worse than saying so".
+Both sentences were right and neither was true of the code under them.
+
+That is the second time this week a comment about intent has been the only place the intent lived - the
+`instances.gd` loop was the first. The trade is still worth making, because a comment about mechanics
+would have been no help here either; what it needs is a test, and there was none, because **a
+relabelled world starts perfectly well.** That is what this bug looks like from outside: nothing.
+
+**A newer world was worse.** A world saved by a later version fell through every branch and was stamped
+*down* to this format - destroying, on first save, a world its owner could have opened by updating.
+Nothing handled that case at all.
+
+Both are refused now, before anything is loaded, with the reason on stderr and in `start_error` rather
+than buried in a log: what format the world is, what this version reads, and what to do instead.
+
+### And the test that was a decoration
+
+Three checks were written; one of them - "the world is not rewritten on the way out" - **passed with
+the fix disabled**, because the file is read before anything would have saved it. It is gone. What it
+was reaching for is structural now: the format is only stamped on the branch where the numbers already
+agree, so there is no relabelling path left to assert against.
+
+Found the same way as the last one: by disabling the fix and seeing which checks noticed. That step
+has now caught two decorations out of the four tests written this week, which is a high enough rate to
+treat as routine rather than as diligence.

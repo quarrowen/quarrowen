@@ -20,8 +20,58 @@ func _run() -> void:
 	_check(not versions.is_empty(), "there are save fixtures to check")
 	for version in versions:
 		await _check_fixture(version)
+	await _check_refusals(versions)
 	print("[saves] %s" % ("PASSED" if _failures == 0 else "FAILED (%d)" % _failures))
 	get_tree().quit(0 if _failures == 0 else 1)
+
+
+## **A world this version cannot read has to be refused, not relabelled.** Until 30 September 2026 the
+## code warned into the dev log and then stamped the current format number onto the world, which is the
+## one outcome its own comment called worse than saying so: it half-loads, saves itself back as
+## current, and what it used to be is gone. Nothing tested it because a relabelled world starts
+## perfectly well, which is exactly what the bug looks like from outside.
+##
+## Both directions, because a world from a *newer* version was being stamped down to this one, which
+## destroys a world somebody could have opened by updating.
+func _check_refusals(versions: Array) -> void:
+	if versions.is_empty():
+		return
+	var newest: String = versions[versions.size() - 1]
+	var expected = JSON.parse_string(FileAccess.get_file_as_string(
+		FIXTURES.path_join(newest).path_join("expected.json")))
+	if not (expected is Dictionary):
+		return
+	for shift in [-1, 1]:
+		var work := UserPaths.path("save_refuse_%d_%d" % [shift, OS.get_process_id()])
+		_copy_tree(FIXTURES.path_join(newest), work)
+		var meta_path := work.path_join(expected.world).path_join("world.json")
+		var meta = JSON.parse_string(FileAccess.get_file_as_string(meta_path))
+		if not (meta is Dictionary):
+			_check(false, "the fixture has a world.json to age (%s)" % meta_path)
+			continue
+		var was := int(meta.get("format", 2))
+		meta["format"] = was + shift
+		var f := FileAccess.open(meta_path, FileAccess.WRITE)
+		f.store_string(JSON.stringify(meta))
+		f.close()
+		var server = GameServer.new()
+		add_child(server)
+		var err: Error = server.start({"mods": PackedStringArray(expected.mods),
+			"mod_dirs": PackedStringArray(["res://tests/mods"]), "world": expected.world,
+			"data_dir": work, "seed": 1, "offline": true})
+		var which := "an older" if shift < 0 else "a newer"
+		_check(err != OK, "a world in %s format is refused (format %d)" % [which, was + shift])
+		_check(server.start_error.contains("format"),
+			"and says why: %s" % server.start_error)
+		# **There was a third check here and it was a decoration**: "the world is not rewritten on the
+		# way out" passed with the refusal disabled too, because the file is read before anything would
+		# have saved. What it was reaching for is now structural instead - `_check_save_format` only
+		# stamps the format on the branch where it agrees - so there is nothing left to assert that the
+		# refusal above does not already imply. Checked by disabling the fix and watching which of the
+		# three failed. (2026-09-30)
+		server.queue_free()
+		await get_tree().process_frame
+		_remove_tree(work)
 
 
 func _check_fixture(version: String) -> void:

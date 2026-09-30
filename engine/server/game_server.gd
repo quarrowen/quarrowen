@@ -620,7 +620,11 @@ func start(config: Dictionary) -> Error:
 		return err
 	_expand_tag_recipes()  # before part recipes: every mod has had its say about what is in a tag
 	_add_part_recipes()
-	_migrate_save_format()
+	var format_problem := _check_save_format()
+	if not format_problem.is_empty():
+		start_error = format_problem
+		printerr("[server] " + format_problem)
+		return FAILED
 	if str(config.get("anticheat", "")) in ["kick", "log", "off"]:
 		anticheat.mode = str(config.anticheat)
 	chat_filter.load_extra(_save_dir)
@@ -1424,14 +1428,33 @@ func _on_dev_error(e: Dictionary, first: bool) -> void:
 			Net.s_dev_error.rpc_id(p.peer_id, alert)
 
 
-## Refuses a world this version cannot read, and stamps the format on one it can. There is no converter:
-## a world older than alpha 4 is not something this game carries forward, and pretending to upgrade one
-## by relabelling it - which is what used to happen here - is worse than saying so.
-func _migrate_save_format() -> void:
+## Refuses a world this version cannot read, and stamps the format on one it can. Returns the reason
+## to refuse, or "".
+##
+## **It said it refused and it did not.** The old version warned into the dev log - which nobody
+## starting a server is reading - and then set `_meta.format = SAVE_FORMAT`, relabelling the world as
+## current and carrying on. Its own comment called that "worse than saying so", which it is: the world
+## then half-loads, writes itself back under the new number, and the evidence of what it used to be is
+## gone. A comment describing intent is worth more than one describing mechanics, and this is the way
+## that trade fails - the intent was right, written down, and not what the code did. (2026-09-30)
+##
+## **A newer world is refused too**, which nothing handled before: a world saved by a later version was
+## silently stamped *down* to this one. That is the same relabelling in the other direction and it
+## destroys a world somebody could otherwise have opened by updating.
+##
+## This matters more from 1.0 on. Breaking the format is allowed until then and becomes a promise
+## afterwards, so the refusal is the thing that has to be trustworthy before the promise is made.
+func _check_save_format() -> String:
 	var format := int(_meta.get("format", SAVE_FORMAT))
 	if format < SAVE_FORMAT:
-		dev_log.add("warn", "server", "This world was saved in format %d; this version reads %d and cannot convert it." % [format, SAVE_FORMAT])
+		return ("This world was saved in format %d and this version reads %d. There is no converter, "
+			+ "and opening it would rewrite it as though there were. Keep a copy and open it with the "
+			+ "version that wrote it.") % [format, SAVE_FORMAT]
+	if format > SAVE_FORMAT:
+		return ("This world was saved in format %d by a newer version of %s; this one reads %d. "
+			+ "Update the game rather than opening it here.") % [format, Protocol.GAME_NAME, SAVE_FORMAT]
 	_meta.format = SAVE_FORMAT
+	return ""
 
 
 ## Checks a permission; tells the player (at most every few seconds) when it is missing.
