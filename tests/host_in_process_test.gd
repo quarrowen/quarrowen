@@ -54,6 +54,42 @@ func _run() -> void:
 					return true
 			return false, 5.0)
 		_check(admin, "and became admin through the launch token, as a forked host does")
+
+		# **Where the camera is standing when a world changes.** The realm message carried only an id
+		# and a name, so the client kept the old world's coordinates until some later snapshot moved
+		# it - in a world whose chunks had just been unloaded, which draws as open sky. The floor was
+		# measured at 434 ms to build, stream and mesh while screenshots four seconds later showed
+		# nothing, and this is why. Asserted against the client's own position rather than a
+		# photograph, which is what the note asking for this said it needed. (2026-09-30)
+		var server = main._local_server._server  # the node hosts the GameServer; this is it
+		var far := Vector3(220.5, 70.0, 220.5)
+		var deep = server.add_realm("test:elsewhere", "Elsewhere")
+		_check(deep != null, "a second world to step into")
+		var p = server.players.values()[0] if not server.players.is_empty() else null
+		_check(p != null, "the server knows about this player")
+		if deep != null and p != null:
+			var before: Vector3 = client.state.position
+			_check(server.send_to_realm(p, "test:elsewhere", far), "the server moved them to it")
+			# **The position is checked on the frame the world changes, not eventually.** A snapshot
+			# from the server corrects it within a second or so either way, so waiting and then looking
+			# passes whether this works or not - which is what the first version of this check did, and
+			# it was a decoration. What is being measured is the gap: the frames between hearing about
+			# the new world and standing in it, every one of which draws a torn-down world from the old
+			# world's coordinates.
+			var arrived_at := Vector3.INF
+			var deadline := Time.get_ticks_msec() + 15000
+			while Time.get_ticks_msec() < deadline:
+				if client.realm == "test:elsewhere":
+					arrived_at = client.state.position
+					break
+				await get_tree().process_frame
+			_check(arrived_at != Vector3.INF, "the client heard about the new world")
+			_check(arrived_at.distance_to(far) < 0.01,
+				"and stands there on that very frame, not where the old world left it (%s, was %s)"
+					% [arrived_at, before])
+			_check(client._render_offset == Vector3.ZERO,
+				"with no leftover smoothing dragging the camera back")
+
 		client.disconnect_from_server()
 		# Freed rather than killed - `_stop_local_server` has to end both kinds of world, or leaving one
 		# would leave a server ticking inside the menu.

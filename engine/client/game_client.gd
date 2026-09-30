@@ -1687,7 +1687,7 @@ func on_sound(sound_id: int, pos: Vector3, volume: float, pitch: float, position
 ## delivered independently, so a chunk sent a moment before the move would otherwise be free to arrive
 ## *after* it and be built into the world the player just walked into. Ordering only exists within a
 ## channel, so the message that ends a world travels in the same queue as the chunks it invalidates.
-func on_realm(realm_id: String, display_name: String) -> void:
+func on_realm(realm_id: String, display_name: String, position := Vector3.INF) -> void:
 	# Said out loud because a realm change is the one message whose loss is invisible: the client keeps
 	# drawing the world it already has, perfectly, while the server believes you are somewhere else.
 	# Without this line the only way to tell the message from the *handling* of it was a screenshot.
@@ -1710,6 +1710,20 @@ func on_realm(realm_id: String, display_name: String) -> void:
 	for peer_id: int in _remote_players.keys():
 		on_player_left(peer_id)
 
+	# **Stand where the new world says, at once.** This message used to carry only the id and the name,
+	# so the camera stayed at the *old* world's coordinates until a server snapshot happened to correct
+	# it - sitting in a world whose chunks had all just been unloaded, which draws as open sky. That is
+	# what "meshed in 434 ms and not seen for several seconds" turned out to be: the floor was built,
+	# streamed and meshed on time, and the camera was thirty-five blocks away looking at nothing.
+	# Prediction is already off here (`_can_simulate` wants chunks that have just gone), so there is
+	# nothing else to hold back. (2026-09-30)
+	if position != Vector3.INF:
+		state.position = position
+		state.velocity = Vector3.ZERO
+		_prev_position = position
+		_render_offset = Vector3.ZERO
+		_pending_inputs.clear()
+
 
 ## The server saying which world it believes this player is in. Usually the one we are already in and
 ## nothing happens; when it is not, we missed a realm change and are holding a world that is not there
@@ -1723,7 +1737,7 @@ func on_realm_check(realm_id: String) -> void:
 		return
 	push_warning("[client] the server says this is '%s' and we are holding '%s' - asking for it again"
 		% [realm_id, realm])
-	on_realm(realm_id, realm_name)
+	on_realm(realm_id, realm_name)  # no position here; the resync that follows brings one
 	net.c_resync.rpc_id(1)
 
 

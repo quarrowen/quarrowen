@@ -9360,7 +9360,7 @@ What the sky is doing. Like music, nothing here can fail loudly: unknown weather
 
 *client/game_client.gd*
 
-GDScript: `on_realm(realm_id: String, display_name: String) -> void`
+GDScript: `on_realm(realm_id: String, display_name: String, position := Vector3.INF) -> void`
 
 The server has put this player in another world. Everything on screen belongs to the one they have
 left - its terrain, its creatures, the people standing in it - so all of it goes, and the server

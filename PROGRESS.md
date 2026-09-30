@@ -9923,3 +9923,37 @@ overworld's heightmap and dropped the summoned creature on the surface.
 
 That closes the write sweep apart from the inspector, which is reads only and is the tool an admin
 uses to chase these - worth doing, and not urgent now the bugs it would have been used on are gone.
+
+
+## The floor was drawn on time; the camera was somewhere else (30 September 2026)
+
+The note from 28 September ended by saying the geometry was meshed in 434 ms and not seen for several
+seconds, that the camera was the suspicion worth testing first, and that testing it needed the camera's
+own position printed beside `state.position` rather than another photograph. That turned out to be
+exactly right, and the answer was simpler than the suspicion.
+
+**`s_realm` carried an id and a display name and nothing else.** The server sets `p.state.position`
+when it moves somebody between worlds and never tells the client, so the client kept the *old* world's
+coordinates - in a world whose chunks `on_realm` had just unloaded, every one of them. A camera
+standing in an empty world draws open sky. It was corrected whenever the next server snapshot happened
+to arrive, which is the several seconds.
+
+Nothing was wrong with the streaming, the mesher or the lighting, all of which had been rewritten or
+measured while looking for this. `_can_simulate` already refuses to predict without chunks, so the
+player was not falling either - just standing still, thirty-five blocks away, looking at nothing.
+
+The message carries the position now and `on_realm` applies it at once, along with clearing the
+smoothing offset and the queued inputs that belonged to the world being left. `Protocol.VERSION` 60 to
+61.
+
+### The first version of the test was a decoration
+
+Worth writing down because it nearly went in. The obvious assertion - move the player, wait for the
+realm to change, check the position - **passes with the fix disabled**, because a server snapshot
+corrects the client within a second either way. It was measuring the end state of something whose
+whole problem is the interval.
+
+It now samples the position on the *frame* the realm changes and fails at `(0.5, 65.0, 0.5)` with the
+fix removed and passes at `(220.5, 70.0, 220.5)` with it. Checked by actually disabling the fix and
+running it, which is the only thing that separates a test from a decoration - and which the first
+version would have passed.

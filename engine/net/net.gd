@@ -730,9 +730,9 @@ func s_drives(positions: PackedVector3Array, values: PackedFloat32Array) -> void
 ## what stops terrain holding up chat - so a chunk sent just before the move could otherwise arrive
 ## after it and be built into the wrong world. Ordering exists only within a channel.
 @rpc("authority", "call_remote", "reliable", BULK_CHANNEL)
-func s_realm(realm_id: String, display_name: String) -> void:
+func s_realm(realm_id: String, display_name: String, position := Vector3.INF) -> void:
 	if client:
-		client.on_realm(realm_id, display_name)
+		client.on_realm(realm_id, display_name, position)
 
 
 @rpc("authority", "call_remote", "reliable")

@@ -3018,7 +3018,7 @@ func on_resync(peer_id: int) -> void:
 		return  # a client asking constantly would otherwise be a client asking for the world constantly
 	var into: Realm = realm_of(p)
 	push_warning("[server] %s was holding the wrong world; sending %s again" % [p.name, into.id])
-	Net.s_realm.rpc_id(p.peer_id, into.id, into.display_name)
+	Net.s_realm.rpc_id(p.peer_id, into.id, into.display_name, p.state.position)
 	var arriving := links_for(into.id)
 	if not arriving.is_empty():
 		Net.s_links.rpc_id(p.peer_id, arriving)
@@ -3744,7 +3744,7 @@ func send_to_realm(p: ServerPlayer, realm_id: String, position: Vector3) -> bool
 
 	# Then the client, which drops the whole world it is holding - and only then may a chunk of the new
 	# one be sent. Both travel on BULK_CHANNEL so this order survives the wire (see Net.s_realm).
-	Net.s_realm.rpc_id(p.peer_id, into.id, into.display_name)
+	Net.s_realm.rpc_id(p.peer_id, into.id, into.display_name, position)
 	var arriving := links_for(into.id)
 	if not arriving.is_empty():
 		Net.s_links.rpc_id(p.peer_id, arriving)
