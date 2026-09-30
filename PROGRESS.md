@@ -6529,8 +6529,18 @@ it matters the day anybody else can reach it.
     guidebook also still lives in its own mod "under protest" and was always meant to move into the
     guided game, which now exists.
 28. **Guide pages for copper, gold, sunstone and the newer ores** - the book covers only the older.
-29. **Model-block collision is one cell, so tree canopies are walk-through.** Deferred until `base`
-    had trees; it has them now.
+29. ~~**Model-block collision is one cell, so tree canopies are walk-through.**~~ **Not true, checked
+    on 30 September 2026.** `base` has no model-block trees: a tree is `base:log` and `base:leaves`,
+    both ordinary blocks, and `register_block` makes anything that is not INVISIBLE, PLANT or a liquid
+    solid by default - so leaves are `solid = true` and a canopy stops you. Verified by starting a
+    server with `base` and reading `solid_lut`, not by reading the definition, because the definition
+    is what made this look wrong in the first place.
+
+    The half that *is* true: a model block still gets one cell of collision whatever its `.glb`
+    covers. The only model blocks in `base` are the two bed halves, and the complaint recorded about
+    those is the opposite one - item 34, that they keep full-block collision so you stand on top.
+    So the limitation is real, nothing in the game hits it, and the sentence predicting that trees
+    would was written before the trees were, and never revisited when they turned out to be blocks.
 30. **25 creatures are still on placeholder synth voices**, earmarked for an AI audio phase that has
     not started - as are layered music stems, its stated prerequisite.
 31. **Villages and villagers: nobody has written any content**, though every capability exists.
@@ -10012,3 +10022,21 @@ descent from outside.
 It also caught the one real question. The first version assumed a five-floor run would pay for harsh;
 it pays 5 and harsh costs 10. That is the design working - harsh should take more than one trip - but
 nothing had said so out loud until a test asserted the wrong number and had to be argued with.
+
+
+## A 1.0 item that was not a bug (30 September 2026)
+
+"Tree canopies are walk-through" has been on the debt list since before `base` had trees, and it went
+onto the 1.0 list from there. It is **false**: trees are made of `base:log` and `base:leaves`, both
+ordinary blocks, and both solid. Checked by starting a server and reading `solid_lut` rather than by
+reading the definitions again.
+
+Two things worth taking from it. The item was a **prediction** - written when trees were expected to be
+model blocks, before they were built out of ordinary ones - and predictions age differently from
+observations: nothing about a tree changed to make it wrong, so nothing prompted anybody to look. And
+it survived being copied onto a 1.0 list, where it was read as a known bug rather than as a guess that
+was never tested.
+
+The general form, for the rest of the debt list: **an entry that says what will happen needs checking
+before it is scheduled; an entry that says what did happen does not.** There are others of that shape
+still on the list.
