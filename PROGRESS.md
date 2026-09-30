@@ -9972,3 +9972,43 @@ available once per person. So the ask is better made as one ask.
 What I can do when the feedback arrives is act on it. What would waste it is guessing at it now: the
 page was written for four audiences on 29 September without a single reader outside this project, and
 the point of the exercise is to find out where that was wrong.
+
+
+## The descent, finished for 1.0 (30 September 2026)
+
+Four of the five open items done; party play stays in 1.1 where the scope decision put it.
+
+**Marks, and what harsh costs.** The user's words were to gate risking everything "behind some kind of
+in-game currency as well so that its more of a choice". The only currency the descent can honestly
+mint is **depth already survived**: coming out pays the floor you reached, dying pays nothing, and
+harsh costs 10. So a first run is always gentle, harsh is bought with two boss floors of nerve, and the
+way up is worth taking because it is the only thing that pays. A refusal says the cost *and* the
+balance *and* where marks come from, in one line - all three ways in print it, including the deepway
+panel, which ignored the answer entirely and so did nothing at all when somebody could not afford it.
+
+**The Warden every fifth floor**, in the room with the way down, so choosing to go deeper is also
+choosing to fight. It is spawned into the air above the pad and then placed, because `spawn_entity`
+refuses a spot with no room to stand and hands back null; it is `persistent`, so it is not swept for
+having nobody near it before the player walks in. Not in the nest bands, deliberately: a boss that
+turns up from a spawner is not an event.
+
+**The run on screen.** Floor, deepest ever, and which kind of run it is, in the top right. The deepest
+floor lives in the player's own saved data, so it outlives the run that set it - the Fairground's
+boards give its games a number to beat and this is the descent's.
+
+**Sound**, now that `play_sound_at` takes a realm. Arriving on a floor is one cue at a falling pitch -
+deeper is lower, which says "further down" without a single new sound file - and there are cues for
+the Warden waking and for coming out. Ambience and music down there stay with the 1.1 audio lane
+alongside the creature voices.
+
+### The test found the design, not the other way round
+
+`tests/descent_test.gd` asserts all of it: the gate refusing and then not, the payout, the Warden on
+floor 10 and **not** on floor 11, the deepest-floor record. Content tested as content, which is against
+the usual rule here and worth it: every one of these fails invisibly. A gate that stops refusing, a
+boss that silently does not spawn and a panel that never appears all look exactly like a working
+descent from outside.
+
+It also caught the one real question. The first version assumed a five-floor run would pay for harsh;
+it pays 5 and harsh costs 10. That is the design working - harsh should take more than one trip - but
+nothing had said so out loud until a test asserted the wrong number and had to be argued with.

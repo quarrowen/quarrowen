@@ -151,4 +151,7 @@ func _chose(ev) -> void:
 	player.hide_ui(UI)
 	var action := String(ev.action)
 	if action == "gentle" or action == "harsh":
-		descent.enter(player, action == "harsh")
+		# The answer is printed here too. This path ignored it, so somebody who could not afford harsh
+		# pressed the button and nothing happened at all - the worst of the three ways to refuse.
+		if not descent.enter(player, action == "harsh") and not descent.problem.is_empty():
+			player.send_message(descent.problem)

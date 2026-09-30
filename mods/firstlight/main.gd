@@ -80,7 +80,8 @@ func _descent_ways_in(api) -> void:
 				return
 			var harsh: bool = args.size() > 0 and String(args[0]).to_lower() == "harsh"
 			if not descent.enter(player, harsh):
-				player.send_message("You cannot go down from here.")
+				player.send_message(descent.problem if not descent.problem.is_empty()
+					else "You cannot go down from here.")
 	)
 	api.register_command("surface", "Leave the descent from where you are, keeping everything.",
 		func(player, _args: PackedStringArray):

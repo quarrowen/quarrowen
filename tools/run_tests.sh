@@ -244,7 +244,7 @@ run_scene "story:firstlight" "$WORK/story_firstlight.log" res://tools/story_prob
 # Mob AI on generated terrain: stuck, hopping in place, dithering, blind hits and failed chases stay under limits.
 run_scene "ai-soak" "$WORK/ai_soak.log" res://tests/ai_soak.tscn --seconds=60 --sites=4 --check
 run_scene "js-sandbox" "$WORK/js_sandbox.log" res://tests/js_sandbox_test.tscn
-for extra in tests/host_flow_test.tscn tests/host_in_process_test.tscn tests/reload_test.tscn tests/transfer_test.tscn tests/save_compat_test.tscn; do
+for extra in tests/host_flow_test.tscn tests/host_in_process_test.tscn tests/reload_test.tscn tests/transfer_test.tscn tests/save_compat_test.tscn tests/descent_test.tscn; do
   [ -f "$extra" ] && run_scene "$(basename "$extra" .tscn)" "$WORK/$(basename "$extra" .tscn).log" "res://$extra"
 done
 # The hub service (Rust) with a real game server; skipped when cargo is not installed.

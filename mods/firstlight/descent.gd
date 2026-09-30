@@ -33,6 +33,21 @@ extends RefCounted
 const Strata = preload("res://mods/firstlight/strata.gd")
 
 const KIND := "floor"
+## The ledger a descent pays into, and what harsh costs to take. **Harsh is bought with gentle runs**,
+## which is the user's "gate it behind some kind of in-game currency so it is more of a choice"
+## (28 September 2026) answered with the only currency the descent could honestly mint: depth already
+## survived. A first run is therefore always gentle, and risking everything is something you work up to
+## rather than something you pick off a menu on day one. Coming out pays the depth you reached, so the
+## cost is a little over two floors' worth - enough to be a decision, not enough to be a wall.
+const MARKS := "marks"
+const HARSH_COST := 10.0
+## Where a boss stands. Every fifth floor, in the room with the way down, so choosing to go deeper is
+## also choosing to fight - and a boss that turns up from a spawner is not an event, which is why the
+## Barrow Warden is deliberately not in the nest bands.
+const BOSS_EVERY := 5
+const BOSS := "base:barrow_warden"
+## A player's deepest floor, kept in their own saved data so it survives the run that set it.
+const BEST := "firstlight:deepest"
 ## A floor nobody is in closes quickly: it is procedural, it is not saved, and there is nothing in it
 ## anybody could come back for. `out` and `_deeper` both close explicitly, so this is only the net.
 const EMPTY := 15.0
@@ -41,11 +56,16 @@ var api
 var strata := Strata.new()
 ## player_id -> {depth, instance, harsh, entry, regions}
 var runs := {}
+## Why the last `enter` refused, or "". The caller prints one message or the other, never both: a
+## player told exactly what a run costs and *then* told "you cannot go down from here" has been
+## answered and then contradicted.
+var problem := ""
 
 
 func setup(mod_api) -> void:
 	api = mod_api
 	strata.setup(api)
+	api.register_ledger(MARKS, {"display_name": "Depth Marks", "min": 0})
 	# No generator, deliberately: an instance without one is empty air, and `strata` fills it with rock
 	# and then cuts rooms out of that.
 	api.register_instance(KIND, {"display_name": "The Descent", "empty_seconds": EMPTY, "max_players": 1})
@@ -59,10 +79,18 @@ func setup(mod_api) -> void:
 ## Starts a descent. `harsh` loses what you are carrying when you die and ends the run; gentle puts you
 ## back at the top of the floor and carries on.
 func enter(player, harsh: bool) -> bool:
+	problem = ""
 	if player == null or runs.has(player.player_id):
 		return false
 	if not api.instance_of(player).is_empty():
-		player.send_message("Not from in here.")
+		problem = "Not from in here."
+		return false
+	# Said before anything is opened, and said in full: what it costs, and what they have. A refusal
+	# that only says no is a refusal somebody has to go and research.
+	if harsh and not api.spend_balance(player, MARKS, HARSH_COST):
+		problem = ("Risking everything costs %d depth marks and you have %d. Marks come from coming "
+			+ "back up: a run pays the floor you reached.") % [int(HARSH_COST),
+			int(api.balance_of(player, MARKS))]
 		return false
 	runs[player.player_id] = {"depth": 0, "instance": "", "harsh": harsh,
 		"entry": Vector3.ZERO, "regions": []}
@@ -120,7 +148,49 @@ func _open(player, depth: int) -> bool:
 		_shut(leaving, stale)
 	api.info("%s is on floor %d (%s, %d rooms)" % [player.name, depth, instance, int(made.rooms)])
 	player.show_title("Floor %d" % depth, "%d rooms" % int(made.rooms), 3.0)
+	# Deeper is lower. The same cue at a falling pitch says "further down" without a single new sound
+	# file, and it is the one thing a player hears on every floor.
+	api.play_sound("engine:discover", run.entry, 0.9, maxf(1.05 - 0.05 * depth, 0.55), instance)
+	if depth % BOSS_EVERY == 0:
+		_wake_the_warden(instance, made.down)
+	_mark_best(player, depth)
+	_show_run(player, run)
 	return true
+
+
+## The boss stands in the room with the way down, so choosing to go deeper is also choosing to fight.
+##
+## Spawned into the air above the pad and then placed, because `spawn_entity` refuses a spot with no
+## room to stand and hands back null, and a mod that does not check carries on as though it worked. The
+## Warden is `persistent`, so it is not swept for having nobody near it before the player walks in.
+func _wake_the_warden(instance: String, at: Vector3i) -> void:
+	var boss = api.spawn_entity(BOSS, Vector3(at) + Vector3(0.5, 2.0, 0.5), {"realm": instance})
+	if boss == null:
+		api.warn("no room for the Warden on this floor (%s)" % instance)
+		return
+	boss.position = Vector3(at) + Vector3(0.5, 0.0, 0.5)
+	api.play_sound("engine:crit", boss.position, 1.0, 0.6, instance)
+	api.play_effect("engine:smoke", boss.position, {"scale": 2.0}, instance)
+
+
+## Deepest floor reached, kept in the player's own saved data so it outlives the run that set it. The
+## Fairground's boards give its games a number to beat; this is the descent's, and it is a reason to
+## come back up rather than a reason to stop.
+func _mark_best(player, depth: int) -> void:
+	if depth <= int(player.data.get(BEST, 0)):
+		return
+	player.data[BEST] = depth
+	if depth > 1:
+		player.send_message("A new deepest: floor %d." % depth)
+
+
+## The only thing on screen that says a run is happening, and how it is going.
+func _show_run(player, run: Dictionary) -> void:
+	player.show_ui("firstlight:descent", {"anchor": "top_right", "children": [
+		{"type": "label", "text": "Floor %d" % int(run.depth), "size": 18},
+		{"type": "label", "text": "Deepest  %d" % int(player.data.get(BEST, 0)), "size": 13},
+		{"type": "label", "text": "Everything at risk" if bool(run.harsh) else "Your things are safe",
+			"size": 12}]})
 
 
 ## A region over one of the two pads. Three blocks across and three tall, so stepping onto it counts and
@@ -155,7 +225,12 @@ func out(player) -> void:
 	runs.erase(player.player_id)
 	api.leave_instance(player)
 	_shut(String(run.instance), run.get("regions", []))
-	player.show_title("Back up", "You came out at floor %d" % depth, 5.0)
+	player.hide_ui("firstlight:descent")
+	# **The floor you reached, paid for reaching it and coming back.** Dying pays nothing, which is what
+	# makes the way up worth taking: a run is only worth what you carry out of it.
+	api.add_balance(player, MARKS, float(depth))
+	api.play_sound("engine:discover", player.position, 1.0, 1.2, api.realm_of(player))
+	player.show_title("Back up", "Floor %d  ·  %d marks" % [depth, depth], 5.0)
 
 
 ## A run that ends without anybody choosing: logging out, or the mod reloading. **No message**, because
@@ -167,6 +242,7 @@ func abandon(player) -> void:
 	runs.erase(player.player_id)
 	api.leave_instance(player)
 	_shut(String(run.instance), run.get("regions", []))
+	player.hide_ui("firstlight:descent")
 
 
 func _shut(instance: String, regions: Array) -> void:
@@ -186,6 +262,7 @@ func _on_respawn(ev) -> void:
 		# Still in the floor, at the top of it, with everything. The run carries on.
 		ev.position = run.entry
 		ev.player.send_message("Back at the top of floor %d." % int(run.depth))
+		_show_run(ev.player, run)
 		return
 	# Harsh: the run is over and what you were carrying is on the floor where you fell - in *that* realm,
 	# which the engine only started doing correctly on 28 September 2026. Before that it went to the same
@@ -194,6 +271,7 @@ func _on_respawn(ev) -> void:
 	runs.erase(ev.player.player_id)
 	api.leave_instance(ev.player)
 	_shut(String(run.instance), run.get("regions", []))
+	ev.player.hide_ui("firstlight:descent")
 	# `leave_instance` has already moved them; the respawn teleport that follows this handler would
 	# otherwise put them back at a spawn point in a realm that no longer exists.
 	ev.position = ev.player.position
