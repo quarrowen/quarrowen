@@ -241,17 +241,24 @@ func _call_host(method: String, a: Array):
 		"isSolid": return api.is_solid(_int(a, 0))
 		"getDrops": return api.get_drops(_int(a, 0))
 		"addOrePass": api.add_ore_pass(_dict(a, 0))
-		"getBlock": return api.get_block(_block_pos(a, 0))
-		"getLoadedBlock": return api.get_loaded_block(_block_pos(a, 0))
-		"setBlock": api.set_block(_block_pos(a, 0), _int(a, 1), bool(a[2]) if a.size() > 2 else false, _int(a, 3, 0))
-		"fill": api.fill(_block_pos(a, 0), _block_pos(a, 1), _int(a, 2))
-		"getBlockState": return api.get_block_state(_block_pos(a, 0))
-		"getBlockData": return api.get_block_data(_block_pos(a, 0))
-		"setBlockData": api.set_block_data(_block_pos(a, 0), _dict(a, 1))
-		"clearBlockData": api.clear_block_data(_block_pos(a, 0))
+		"getBlock": return api.get_block(_block_pos(a, 0), _str(a, 1))
+		"getLoadedBlock": return api.get_loaded_block(_block_pos(a, 0), _str(a, 1))
+		# Argument order is prelude.js's, not mod_api.gd's: (pos, id, realm, keepData, state). When
+		# set_block gained realm_id in third place on 21 September 2026 the prelude, the bindings and
+		# the type declaration all moved and **this line did not**, so every JavaScript setBlock has
+		# since dropped its realm and passed keepData where state belongs. That is precisely the
+		# hazard the commit doing it wrote down, in a file it did not think to check. No JavaScript
+		# test called setBlock, which is why nothing said so. (2026-09-30)
+		"setBlock": api.set_block(_block_pos(a, 0), _int(a, 1), _str(a, 2),
+			bool(a[3]) if a.size() > 3 else false, _int(a, 4, 0))
+		"fill": api.fill(_block_pos(a, 0), _block_pos(a, 1), _int(a, 2), _str(a, 3))
+		"getBlockState": return api.get_block_state(_block_pos(a, 0), _str(a, 1))
+		"getBlockData": return api.get_block_data(_block_pos(a, 0), _str(a, 1))
+		"setBlockData": api.set_block_data(_block_pos(a, 0), _dict(a, 1), _str(a, 2))
+		"clearBlockData": api.clear_block_data(_block_pos(a, 0), _str(a, 1))
 		"findBlockData": return api.find_block_data(_int(a, 0, -1))
-		"surfaceY": return api.surface_y(_int(a, 0), _int(a, 1))
-		"seesSky": return api.sees_sky(_block_pos(a, 0))
+		"surfaceY": return api.surface_y(_int(a, 0), _int(a, 1), _str(a, 2))
+		"seesSky": return api.sees_sky(_block_pos(a, 0), _str(a, 1))
 		"setPhysics": api.set_physics(_dict(a, 0))
 		"setWorldTime": api.set_world_time(float(a[0]) if a.size() > 0 else 0.5, float(a[1]) if a.size() > 1 else -1.0)
 		"timeOfDay": return api.get_time_of_day()
@@ -280,9 +287,9 @@ func _call_host(method: String, a: Array):
 		"playSound": api.play_sound(_str(a, 0), _vec3(a, 1), float(a[2]) if a.size() > 2 else 1.0, float(a[3]) if a.size() > 3 else 1.0, _str(a, 4))
 		"spawnEntity": return api.spawn_entity(_str(a, 0), _vec3(a, 1), _entity_options(_dict(a, 2)))
 		"spawnProjectile": return api.spawn_projectile(_str(a, 0), _vec3(a, 1), _vec3(a, 2), _any_ref(a, 3))
-		"dropItem": return api.drop_item(_int(a, 0), _int(a, 1, 1), _vec3(a, 2))
-		"entities": return api.get_entities(_vec3(a, 0), float(a[1]) if a.size() > 1 else 16.0, _str(a, 2))
-		"addSpawnRule": api.add_spawn_rule(_dict(a, 0))
+		"dropItem": return api.drop_item(_int(a, 0), _int(a, 1, 1), _vec3(a, 2), _str(a, 3))
+		"entities": return api.get_entities(_vec3(a, 0), float(a[1]) if a.size() > 1 else 16.0, _str(a, 2), _str(a, 3))
+		"addSpawnRule": api.add_spawn_rule(_dict(a, 0), _str(a, 1))
 		"useBiomeGenerator": api.use_biome_generator(_dict(a, 0))
 		"registerBiome": api.register_biome(_str(a, 0), _dict(a, 1))
 		"registerFeature": api.register_feature(_str(a, 0), _dict(a, 1))
@@ -339,11 +346,11 @@ func _call_host(method: String, a: Array):
 		"registerBlockTick":
 			var tick_id := _int(a, 1, -1)
 			api.register_block_tick(_str(a, 0), func(ctx): _invoke(tick_id, [ctx]), _dict(a, 2))
-		"scheduleBlockTick": api.schedule_block_tick(_block_pos(a, 0), float(a[1]) if a.size() > 1 else 0.0, _dict(a, 2))
-		"getLight": return api.get_light(_block_pos(a, 0))
-		"getLightLevels": return api.get_light_levels(_block_pos(a, 0))
+		"scheduleBlockTick": api.schedule_block_tick(_block_pos(a, 0), float(a[1]) if a.size() > 1 else 0.0, _dict(a, 2), _str(a, 3))
+		"getLight": return api.get_light(_block_pos(a, 0), _str(a, 1))
+		"getLightLevels": return api.get_light_levels(_block_pos(a, 0), _str(a, 1))
 		"worldClock": return api.get_world_clock()
-		"breakBlock": api.break_block(_block_pos(a, 0), a[1] if a.size() > 1 and a[1] is bool else true)
+		"breakBlock": api.break_block(_block_pos(a, 0), a[1] if a.size() > 1 and a[1] is bool else true, _str(a, 2))
 		"playEffect":
 			var options := _dict(a, 2)
 			if options.has("follow"):

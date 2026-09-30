@@ -230,19 +230,19 @@
     getDrops: (id) => host("getDrops", id),
     addOrePass: (def) => host("addOrePass", def),
     // World
-    getBlock: (pos) => host("getBlock", pos),
-    getLoadedBlock: (pos) => host("getLoadedBlock", pos),
+    getBlock: (pos, realm = "") => host("getBlock", pos, realm),
+    getLoadedBlock: (pos, realm = "") => host("getLoadedBlock", pos, realm),
     // Positional on the way through, so this order must match set_block in mod_api.gd: the realm
     // moved ahead of keepData there on 2026-09-21 to match the other block functions.
     setBlock: (pos, id, { realm = "", keepData = false, state = 0 } = {}) => host("setBlock", pos, id, realm, keepData, state),
-    fill: (from, to, id) => host("fill", from, to, id),
-    getBlockState: (pos) => host("getBlockState", pos),
-    getBlockData: (pos) => host("getBlockData", pos),
-    setBlockData: (pos, data) => host("setBlockData", pos, data),
-    clearBlockData: (pos) => host("clearBlockData", pos),
+    fill: (from, to, id, realm = "") => host("fill", from, to, id, realm),
+    getBlockState: (pos, realm = "") => host("getBlockState", pos, realm),
+    getBlockData: (pos, realm = "") => host("getBlockData", pos, realm),
+    setBlockData: (pos, data, realm = "") => host("setBlockData", pos, data, realm),
+    clearBlockData: (pos, realm = "") => host("clearBlockData", pos, realm),
     findBlockData: (block = -1) => host("findBlockData", block),
-    surfaceY: (x, z) => host("surfaceY", x, z),
-    seesSky: (pos) => host("seesSky", pos),
+    surfaceY: (x, z, realm = "") => host("surfaceY", x, z, realm),
+    seesSky: (pos, realm = "") => host("seesSky", pos, realm),
     // Positional through the bridge, so this order must match set_physics in mod_api.gd.
     setPhysics: (values, { realm = "" } = {}) => host("setPhysics", values, realm),
     setWorldTime: (timeOfDay, dayLength = -1) => host("setWorldTime", timeOfDay, dayLength),
@@ -261,9 +261,9 @@
     playSound: (name, position, volume = 1, pitch = 1, realmId = "") => host("playSound", name, position, volume, pitch, realmId),
     spawnEntity: (type, position, options = {}) => host("spawnEntity", type, position, options),
     spawnProjectile: (type, from, velocity, owner = null) => host("spawnProjectile", type, from, velocity, owner),
-    dropItem: (item, count, position) => host("dropItem", item, count, position),
-    entities: (center, radius, type = "") => host("entities", center, radius, type),
-    addSpawnRule: (rule) => host("addSpawnRule", rule),
+    dropItem: (item, count, position, realm = "") => host("dropItem", item, count, position, realm),
+    entities: (center, radius, type = "", realm = "") => host("entities", center, radius, type, realm),
+    addSpawnRule: (rule, realm = "") => host("addSpawnRule", rule, realm),
     /** Makes this game's world from registered biomes: options {sea_level, snow_level}. */
     useBiomeGenerator: (options = {}) => host("useBiomeGenerator", options),
     registerBiome: (name, def) => host("registerBiome", name, def),
@@ -359,12 +359,12 @@
     /** handler(ctx) with ctx {position, block, state, ticks, reason: "random" | "scheduled", payload};
      *  options {interval: seconds (default 30), catch_up: true}. */
     registerBlockTick: (block, handler, options = {}) => host("registerBlockTick", block, register(handler), options),
-    scheduleBlockTick: (position, seconds, payload = {}) => host("scheduleBlockTick", position, seconds, payload),
+    scheduleBlockTick: (position, seconds, payload = {}, realm = "") => host("scheduleBlockTick", position, seconds, payload, realm),
     /** 0-15: block light or daylight-scaled sky light (estimate). */
-    getLight: (position) => host("getLight", position),
-    getLightLevels: (position) => host("getLightLevels", position),
+    getLight: (position, realm = "") => host("getLight", position, realm),
+    getLightLevels: (position, realm = "") => host("getLightLevels", position, realm),
     worldClock: () => host("worldClock"),
-    breakBlock: (position, drop = true) => host("breakBlock", position, drop),
+    breakBlock: (position, drop = true, realm = "") => host("breakBlock", position, drop, realm),
     /** options: {color, scale, direction: {x,y,z} | [x,y,z], duration, follow: entity | player} */
     playEffect: (name, position, options = {}, realmId = "") => host("playEffect", name, position, options, realmId),
     /** An explosion: power ~3 is a mob blast. options: { source, break_blocks, drop_chance, damage, effect, sound }. */

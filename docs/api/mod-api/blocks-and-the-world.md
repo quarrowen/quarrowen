@@ -77,24 +77,24 @@ tick, have it scheduled in the overworld where there is no such block, and simpl
 
 ### `api.get_light`
 
-GDScript: `api.get_light(position: Vector3i) -> int`
+GDScript: `api.get_light(position: Vector3i, realm_id := "") -> int`
 
-JavaScript: `api.getLight(position)`
+JavaScript: `api.getLight(position, realmId)`
 
 Light level 0-15 at a position right now: block light or sky light scaled by daylight, whichever is
 brighter. An estimate (no occlusion) meant for growth and spawning rules.
 
-**See also:** `get_daylight`, `light_at`
+**See also:** `get_daylight`, `light_at`, `qualified`, `register_instance`
 
 ### `api.get_light_levels`
 
-GDScript: `api.get_light_levels(position: Vector3i) -> Dictionary`
+GDScript: `api.get_light_levels(position: Vector3i, realm_id := "") -> Dictionary`
 
-JavaScript: `api.getLightLevels(position)`
+JavaScript: `api.getLightLevels(position, realmId)`
 
 {sky, block} light levels 0-15 (sky not scaled by the time of day).
 
-**See also:** `light_levels`
+**See also:** `light_levels`, `qualified`, `register_instance`
 
 ### `api.get_world_clock`
 
@@ -229,7 +229,7 @@ is baked into lookup tables at registration and cannot change afterwards.
 
 GDScript: `api.get_block(pos: Vector3i, realm_id := "") -> int`
 
-JavaScript: `api.getBlock(position: Vec3): BlockId`
+JavaScript: `api.getBlock(position: Vec3, realm?: string): BlockId`
 
 Loads the chunk if needed. Use get_loaded_block when scanning large areas.
 
@@ -243,7 +243,7 @@ if api.get_block(at, realm_id) != int(ids.slime):
 
 GDScript: `api.get_loaded_block(pos: Vector3i, realm_id := "") -> int`
 
-JavaScript: `api.getLoadedBlock(position: Vec3): BlockId`
+JavaScript: `api.getLoadedBlock(position: Vec3, realm?: string): BlockId`
 
 Block id without loading anything; BlockRegistry.UNLOADED (255) if the chunk is not in memory.
 
@@ -304,7 +304,7 @@ api.set_block(at, 0, realm_id)
 
 GDScript: `api.get_block_state(pos: Vector3i, realm_id := "") -> int`
 
-JavaScript: `api.getBlockState(position: Vec3): number`
+JavaScript: `api.getBlockState(position: Vec3, realm?: string): number`
 
 Per-block state byte (e.g. facing 0-3 for "orientation": "horizontal" blocks).
 
@@ -336,7 +336,7 @@ Front direction of an oriented block (+Z/+X/-Z/-X for facing 0-3).
 
 GDScript: `api.get_block_data(pos: Vector3i, realm_id := "") -> Dictionary`
 
-JavaScript: `api.getBlockData<T = Record<string, unknown>>(position: Vec3): T`
+JavaScript: `api.getBlockData<T = Record<string, unknown>>(position: Vec3, realm?: string): T`
 
 Block data ("block entities"): a Dictionary of JSON-compatible values stored with the world and
 removed automatically when the block is broken or replaced.
@@ -347,7 +347,7 @@ removed automatically when the block is broken or replaced.
 
 GDScript: `api.set_block_data(pos: Vector3i, data: Dictionary, realm_id := "") -> void`
 
-JavaScript: `api.setBlockData(position: Vec3, data: Record<string, unknown>): void`
+JavaScript: `api.setBlockData(position: Vec3, data: Record<string, unknown>, realm?: string): void`
 
 Replaces the data dictionary stored with the block at a position (saved with the world).
 
@@ -361,7 +361,7 @@ api.set_block_data(ctx.position, {"level": int(ctx.level)}))
 
 GDScript: `api.clear_block_data(pos: Vector3i, realm_id := "") -> void`
 
-JavaScript: `api.clearBlockData(position: Vec3): void`
+JavaScript: `api.clearBlockData(position: Vec3, realm?: string): void`
 
 Removes the data stored with the block at a position.
 
@@ -409,7 +409,7 @@ Sky brightness in [0.12, 1] for the current time of day.
 
 GDScript: `api.sees_sky(pos: Vector3i, realm_id := "") -> bool`
 
-JavaScript: `api.seesSky(position: Vec3): boolean`
+JavaScript: `api.seesSky(position: Vec3, realm?: string): boolean`
 
 True if nothing opaque or solid is above the block (it can see the sky).
 
@@ -419,7 +419,7 @@ True if nothing opaque or solid is above the block (it can see the sky).
 
 GDScript: `api.fill(from: Vector3i, to: Vector3i, id: int, realm_id := "") -> void`
 
-JavaScript: `api.fill(from: Vec3, to: Vec3, id: BlockId): void`
+JavaScript: `api.fill(from: Vec3, to: Vec3, id: BlockId, realm?: string): void`
 
 Sets every block in the box between two corners (inclusive) to a block id.
 
@@ -433,7 +433,7 @@ chunk rather than once per block - which is what makes it usable for a room-size
 
 GDScript: `api.surface_y(x: int, z: int, realm_id := "") -> int`
 
-JavaScript: `api.surfaceY(x: number, z: number): number`
+JavaScript: `api.surfaceY(x: number, z: number, realm?: string): number`
 
 Y of the highest non-air block in the column, or -1.
 

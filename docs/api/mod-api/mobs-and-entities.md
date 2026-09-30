@@ -164,7 +164,7 @@ Lets mobs hear something at `position` (they come to investigate). `source` may 
 
 GDScript: `api.add_spawn_rule(def: Dictionary, realm_id := "") -> void`
 
-JavaScript: `api.addSpawnRule(rule: SpawnRule): void`
+JavaScript: `api.addSpawnRule(rule: SpawnRule, realm?: string): void`
 
 Natural spawning. def: entity (name), category ("monster" | "animal" | "ambient" | "misc"; default
 from the mob's AI), light [min, max] (0-15; monsters default to [0, 7] so torches keep them away,

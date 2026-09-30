@@ -1000,6 +1000,10 @@
 			"args": [
 				{
 					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "get_light"
@@ -1008,6 +1012,10 @@
 			"args": [
 				{
 					"kind": "vec3i"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "get_light_levels"

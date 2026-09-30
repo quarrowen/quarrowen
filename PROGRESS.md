@@ -9821,3 +9821,38 @@ at those coordinates on the surface, and rescheduling itself there for ever.
 
 `refresh_crafting_stock` compares realms too, so a chest changing in one world no longer refreshes a
 station screen in another.
+
+
+## The JavaScript world API, and a binding that had been wrong for nine days (30 September 2026)
+
+The write-sweep's widest finding: **no realm-aware path through the JavaScript bridge at all**, so a
+JS mod could not author a dimension and could not avoid writing into the overworld from inside one.
+Seventeen dispatcher entries, sixteen prelude functions and sixteen type declarations now carry a
+realm. Nearly every GDScript face already took one - the bridge simply never passed it.
+
+Two genuine API gaps closed with them: `get_light` and `get_light_levels` read
+`_server.block_ticks`, and a realm has had its own since realms were built. They are the functions
+crop growth and spawn rules are documented to use.
+
+### The one that was actually broken
+
+`setBlock`'s hand-written binding **had been desynchronised since 21 September** and nothing said so.
+Commit 7bec233 moved `realm_id` into third place in `set_block`, and updated `prelude.js`,
+`quarrowen.d.ts` and `bindings.json` - but not `js_mod.gd`, which reads the arguments positionally on
+the other side of the same call. So every JavaScript `setBlock` since then has dropped its realm and
+passed `keepData` where `state` belongs.
+
+**That commit's own message is the warning**: *"the generated bindings do not cover the hand-written
+entries, which are precisely the ones that reorder."* It says so, correctly, while leaving the file it
+did not think to check. CLAUDE.md carries the same paragraph. Knowing the rule was not enough, because
+the rule names `prelude.js` and the missing half was `js_mod.gd`.
+
+**Nothing caught it because nothing called it.** The JavaScript half of the Proving Ground - which
+exists precisely so a binding cannot quietly stop working - had no `setBlock` in it. So the one
+function whose arguments had been reordered was the one with no coverage. It has a `jsblock` command
+now that writes a block with a state and a realm and reads both back, which fails if the arguments do
+not line up.
+
+**Worth doing and not done**: a check that every hand-written `prelude.js` entry's argument order
+matches its `mod_api.gd` signature. Three documents move together today by hand and a fourth is easy
+to forget; this one was found by reading a line I happened to be editing, which is not a method.

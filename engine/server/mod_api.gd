@@ -580,13 +580,13 @@ func schedule_block_tick(position: Vector3i, seconds: float, payload := {}, real
 
 ## Light level 0-15 at a position right now: block light or sky light scaled by daylight, whichever is
 ## brighter. An estimate (no occlusion) meant for growth and spawning rules.
-func get_light(position: Vector3i) -> int:
-	return _server.block_ticks.light_at(position, get_daylight())
+func get_light(position: Vector3i, realm_id := "") -> int:
+	return _realm_or_default(realm_id).block_ticks.light_at(position, get_daylight())
 
 
 ## {sky, block} light levels 0-15 (sky not scaled by the time of day).
-func get_light_levels(position: Vector3i) -> Dictionary:
-	return _server.block_ticks.light_levels(position)
+func get_light_levels(position: Vector3i, realm_id := "") -> Dictionary:
+	return _realm_or_default(realm_id).block_ticks.light_levels(position)
 
 
 ## Seconds of world time that have passed (keeps counting across restarts, not while stopped).

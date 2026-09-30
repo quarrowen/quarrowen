@@ -410,18 +410,18 @@ declare module "quarrowen" {
     /** World generation hook for JavaScript mods (scripts cannot run on generation threads). */
     addOrePass(def: OrePassDef): void;
 
-    getBlock(position: Vec3): BlockId;
-    getLoadedBlock(position: Vec3): BlockId;
+    getBlock(position: Vec3, realm?: string): BlockId;
+    getLoadedBlock(position: Vec3, realm?: string): BlockId;
     setBlock(position: Vec3, id: BlockId, options?: { realm?: string; keepData?: boolean; state?: number }): void;
-    fill(from: Vec3, to: Vec3, id: BlockId): void;
-    getBlockState(position: Vec3): number;
+    fill(from: Vec3, to: Vec3, id: BlockId, realm?: string): void;
+    getBlockState(position: Vec3, realm?: string): number;
     /** Returns a copy: call setBlockData to save changes. */
-    getBlockData<T = Record<string, unknown>>(position: Vec3): T;
-    setBlockData(position: Vec3, data: Record<string, unknown>): void;
-    clearBlockData(position: Vec3): void;
+    getBlockData<T = Record<string, unknown>>(position: Vec3, realm?: string): T;
+    setBlockData(position: Vec3, data: Record<string, unknown>, realm?: string): void;
+    clearBlockData(position: Vec3, realm?: string): void;
     findBlockData(block?: BlockId): Vec3[];
-    surfaceY(x: number, z: number): number;
-    seesSky(position: Vec3): boolean;
+    surfaceY(x: number, z: number, realm?: string): number;
+    seesSky(position: Vec3, realm?: string): boolean;
     setPhysics(values: Record<string, number | boolean>, options?: { realm?: string }): void;
     setWorldTime(timeOfDay: number, dayLength?: number): void;
     timeOfDay(): number;
@@ -439,9 +439,9 @@ declare module "quarrowen" {
     playSound(name: string, position: Vec3, volume?: number, pitch?: number, realmId?: string): void;
     spawnEntity(type: string, position: Vec3, options?: { yaw?: number; velocity?: Vec3; data?: Record<string, unknown> }): Entity | null;
     spawnProjectile(type: string, from: Vec3, velocity: Vec3, owner?: Player | Entity | null): Entity | null;
-    dropItem(item: ItemId, count: number, position: Vec3): Entity | null;
-    entities(center: Vec3, radius: number, type?: string): Entity[];
-    addSpawnRule(rule: SpawnRule): void;
+    dropItem(item: ItemId, count: number, position: Vec3, realm?: string): Entity | null;
+    entities(center: Vec3, radius: number, type?: string, realm?: string): Entity[];
+    addSpawnRule(rule: SpawnRule, realm?: string): void;
     /** Biome generator: data-driven biomes and features (see engine/server/worldgen). */
     useBiomeGenerator(options?: { sea_level?: number; snow_level?: number }): void;
     registerBiome(name: string, def: Record<string, unknown>): void;
@@ -526,11 +526,11 @@ declare module "quarrowen" {
     registerEffect(name: string, def: EffectDef): number;
     registerBlockTick(block: string, handler: (ctx: { position: Vec3; block: BlockId; state: number; ticks: number; reason: "random" | "scheduled"; payload: Record<string, unknown> }) => void,
       options?: { interval?: number; catch_up?: boolean }): void;
-    scheduleBlockTick(position: Vec3, seconds: number, payload?: Record<string, unknown>): void;
-    getLight(position: Vec3): number;
-    getLightLevels(position: Vec3): { sky: number; block: number };
+    scheduleBlockTick(position: Vec3, seconds: number, payload?: Record<string, unknown>, realm?: string): void;
+    getLight(position: Vec3, realm?: string): number;
+    getLightLevels(position: Vec3, realm?: string): { sky: number; block: number };
     worldClock(): number;
-    breakBlock(position: Vec3, drop?: boolean): void;
+    breakBlock(position: Vec3, drop?: boolean, realm?: string): void;
     playEffect(name: string, position: Vec3, options?: EffectOptions, realmId?: string): void;
     explode(position: Vec3, power: number, options?: { source?: unknown; break_blocks?: boolean; drop_chance?: number; damage?: number; effect?: string; sound?: string }): void;
     registerCosmeticCategory(name: string, def?: { display_name?: string; attach?: string; covers?: string[] }): boolean;

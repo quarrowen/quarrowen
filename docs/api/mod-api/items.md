@@ -23,7 +23,7 @@ ids.pail = api.register_item("pail", {"display_name": "Pail", "max_stack": 1, "u
 
 GDScript: `api.drop_item(item_id: int, count: int, position: Vector3, realm_id := "")`
 
-JavaScript: `api.dropItem(item: ItemId, count: number, position: Vec3): Entity | null`
+JavaScript: `api.dropItem(item: ItemId, count: number, position: Vec3, realm?: string): Entity | null`
 
 Drops an item stack entity (players walk over it to pick it up).
 

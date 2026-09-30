@@ -61,6 +61,20 @@ export function setup(api) {
     player.sendMessage(`js_coins: ${api.balanceOf(player, "js_coins")}, block ${slab}`);
   });
 
+  // **setBlock with its options, which nothing in this language called until 30 September 2026.**
+  // That gap is why a hand-written binding could sit desynchronised from mod_api.gd for nine days:
+  // prelude.js moved realm into third place and js_mod.gd's entry did not, so every JavaScript
+  // setBlock dropped its realm and passed keepData where state belongs, and no test noticed because
+  // no test called it. It writes and reads back, so the arguments have to line up for it to pass.
+  api.registerCommand("jsblock", "Write a block through the bridge and read it back", (player) => {
+    const at = { x: Math.floor(player.position.x), y: 1, z: Math.floor(player.position.z) };
+    api.setBlock(at, slab, { state: 3, realm: api.realmOf(player) });
+    const ok = api.getBlock(at, api.realmOf(player)) === slab
+      && api.getBlockState(at, api.realmOf(player)) === 3;
+    player.sendMessage(`jsblock ${ok ? "ok" : "wrong"}`);
+    api.addBalance(player, "js_coins", ok ? 100 : 0);
+  });
+
   // The arena gear-set round trip, in JavaScript. This is the shape a PvP mod needs - take what they
   // brought, lend them a kit, give their own things back afterwards - and until 21 September 2026 none
   // of these three had a binding, so it could not be written in this language at all.
