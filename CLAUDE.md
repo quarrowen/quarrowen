@@ -446,6 +446,15 @@ recorded. Nothing should only exist in the conversation.
 - Commit messages are prose, not bullet lists: what changed, and what it was like before. The first line
   is a sentence, not a category.
 - No attribution lines or co-author trailers in commits.
+- **The site is written for the host first.** quarrowen.com speaks, in order, to somebody deciding
+  whether to run a world for their people, to a player a host has invited, to somebody curious about
+  building for it, and to a writer (the user, 30 September 2026; the reasoning is in
+  `docs/site-brief.md`). "Universal client" is our term, not a player's: on the page it is "the world
+  you join brings the game with it". Firstlight is described as a story game.
+
+  The host is the reader the page must win, because they are the only one who gets something out of
+  Quarrowen with nobody else using it yet - they bring their own players. Writing for a gamer browsing
+  for their next game is what the page must *not* do until there are servers worth joining.
 - **Player-facing text is plain, kind and never arch** - and that is a rule about *writing*, not about
   the reader's age. It reads well to a child and does not talk down to an adult, which is the same
   sentence done properly rather than two different sentences.

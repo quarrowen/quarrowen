@@ -1,9 +1,9 @@
 # Getting the game (and mods) to players
 
-> **The bundled games were removed on 21 September 2026** and will be rebuilt for 1.0 (see
-> `docs/roadmap.md`). Examples below that name `vanilla`, `hearthhold`, `industry`, `arcana`, `guild`,
-> `skyblock` or `oneblock` describe how things *were*, and still illustrate the capability correctly -
-> but you cannot run them as written. The mod the tests use now is `tests/mods/proving`, which uses
+> **Some examples below name games that no longer exist** - `vanilla`, `hearthhold`, `industry`,
+> `arcana`, `guild` and `skyblock` were deleted on 21 September 2026. They still illustrate the
+> capability correctly, but you cannot run them as written. What ships today is `firstlight`,
+> `fairground`, `creative` and `oneblock`; the mod the tests use is `tests/mods/proving`, which uses
 > every capability the engine has and is the best worked example there is.
 
 How a build reaches a Mac, how it updates itself, and how mods are found, installed, configured and

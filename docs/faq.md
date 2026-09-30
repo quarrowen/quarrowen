@@ -4,9 +4,10 @@
 
 No. It is an independent voxel game, written from scratch, and it is not affiliated with or endorsed by
 Mojang, Microsoft or Roblox. It shares a genre the way a platformer shares a genre: blocks, crafting and
-a first-person view are the vocabulary, not the game. Quarrowen's own idea is that **the server decides
-the game** — the client carries no content at all, so the same app plays a survival world, an island
-puzzle or a story, depending only on which server you join.
+a first-person view are the vocabulary, not the game. Quarrowen's own idea is that **the
+world you join brings the game with it** — the client carries no content at all, so the same app is a
+survival game with a story on one server and a fairground of short games on the next, depending only on
+which world you are in.
 
 ## What does it cost?
 
@@ -26,27 +27,29 @@ one. Linux is not published, though the engine builds for it.
 
 A server wants a Linux box with Docker — a spare mini PC or an old laptop is plenty for a family.
 
-## Is it safe for children?
+## Is it safe to join someone's server?
 
-It was built for children, and that has shaped it:
+A server sends your game **data, never code**. There is no mod runtime in the client at all, nothing in
+the protocol carries a script, and mods run on the machine hosting the world rather than yours.
+[Security](security.md) says exactly what a server can and cannot do, including where the protections
+end — it states the limits rather than softening them.
 
-- **Only people you allow can join.** `ALLOWLIST` in the server's settings, and travel between your own
-  worlds carries the permission across.
+## Who can join my world?
+
+Only the people you allow, and that is the default rather than a setting to find:
+
+- **`ALLOWLIST` in the server's settings** names who may join, and travel between your own worlds
+  carries the permission across, so nobody is bounced halfway through a portal.
 - **Chat can be filtered**, and is not written to the server log.
-- **Player creations** (painted skins, hats) can require an adult's approval before anyone else sees them.
+- **Player creations** (painted skins, hats) can need approval before anyone else sees them.
 - **No accounts, no email, no telemetry.** A player is a key on their own computer. Nothing is collected
-  and nothing is sent anywhere except the server you choose to join.
-- Death messages and hints are written to be read by an eight-year-old at bedtime.
+  and nothing is sent anywhere except the server you chose to join.
 
-**And the question behind the question:** if the server sends the game, is it sending code to your
-child's computer? No - a server sends data and never code, and the client has no mod runtime in it at
-all. [Security](security.md) says exactly what a server can and cannot do, including the limits.
+## Can my friends and family play together?
 
-## Can my children play together?
-
-Yes — that is what it is for. Run one server for the family and everyone joins it from the menu. You can
-run several worlds side by side (a survival world, an island world, a story) and walk between them
-through portals or with `/server <name>`.
+Yes — that is what it is for. Run one server and everyone joins it from the menu. You can run several
+worlds side by side — Firstlight, One Block and The Fairground is what the bundled setup runs — and walk
+between them through portals or with `/server <name>`.
 
 ## Does it update itself?
 
@@ -80,10 +83,6 @@ one is worth playing on your own. **Creative** is a world and everything in it w
 
 They exist partly to prove a point: every one of them is built on the same mod API anyone else can use,
 with no private engine calls.
-
-(This answer described *Hearthhold* until 29 September 2026. That game was deleted in September and the
-FAQ went on describing it as "the story game that comes with it" - a page for people deciding whether to
-trust the thing, describing something that is not in the download.)
 
 ## Something is broken. What do I do?
 

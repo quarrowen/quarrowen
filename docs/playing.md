@@ -105,8 +105,9 @@ Type `T`, then:
 | `/guide` | open the guidebook |
 | `/server <name>` | travel to another of this server's worlds |
 
-In Hearthhold: `/charter` for what the valley needs next, `/valley` for which way it is, and `/bramble`
-for where she has got to.
+In Firstlight: `/descent` goes down into the descent (add `harsh` to risk everything you are carrying),
+and `/surface` leaves it from wherever you are, keeping what you found. What the story wants next is in
+`/tasks` and the guidebook rather than a command of its own.
 
 ## If something goes wrong
 

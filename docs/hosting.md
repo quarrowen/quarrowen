@@ -1,13 +1,11 @@
 # Playing Quarrowen at home
 
-> **The bundled games were removed on 21 September 2026** and will be rebuilt for 1.0 (see
-> `docs/roadmap.md`). Examples below that name `vanilla`, `hearthhold`, `industry`, `arcana`, `guild`,
-> `skyblock` or `oneblock` describe how things *were*, and still illustrate the capability correctly -
-> but you cannot run them as written. The mod the tests use now is `tests/mods/proving`, which uses
-> every capability the engine has and is the best worked example there is.
+The worlds in this guide are the ones `deploy/server/compose.yaml` actually runs: **Firstlight**
+(survival with a story), **One Block**, and **The Fairground** (a hub of short games), with a hub
+service so all three appear in the Multiplayer list without anybody typing an address.
 
-A family setup: the server runs in Docker on a home Linux machine, and everyone plays from their own Mac
-(Intel or Apple silicon - the download is universal) on the same home network.
+A home setup: the server runs in Docker on a Linux machine, and everyone plays from their own computer
+on the same network. Mac (Intel or Apple silicon - the download is universal) and Windows both.
 
 - [1. The server (Ubuntu + Docker)](#1-the-server-ubuntu--docker)
 - [2. The Macs](#2-the-macs)
@@ -70,31 +68,32 @@ Note the machine's address on your network (something like `192.168.1.x`): `host
 **Which mods each world runs.** Two different things, and the difference is worth knowing:
 
 - **Present**: every world's mods folder gets all the bundled mods, refreshed from the image on each
-  start. The log says so: `mods in /mods refreshed from the image: arcana base guild hearthhold ...`.
+  start. The log says so: `mods in /mods refreshed from the image: base firstlight guidebook ...`.
 - **Loaded**: only what that world's `*_MODS` in `.env` names, **plus what those depend on**. So
-  `HEARTHHOLD_MODS=hearthhold` loads base and vanilla too, because Hearthhold depends on them, and
-  `SKYBLOCK_MODS=skyblock` loads base but not vanilla, because Skyblock does not need it.
+  `FIRSTLIGHT_MODS=firstlight` loads `base` and the packs it needs too, and `ONEBLOCK_MODS=oneblock`
+  loads what One Block needs and nothing else.
 
-You never list `base` or `vanilla` yourself: naming the game brings them. To add an add-on to one world,
-list it - `HEARTHHOLD_MODS=hearthhold,arcana,industry` - and `docker compose up -d`. The server's log
-names exactly what it loaded, which is the quickest way to check.
+You never list `base` yourself: naming the game brings it, and the packs a game is built from
+(`simple_machines`, `simple_gear`, `guidebook`) come the same way. To add an add-on to one world, list
+it - `FAIRGROUND_MODS=fairground,my_addon` - and `docker compose up -d`. The server's log names exactly
+what it loaded, which is the quickest way to check.
 
 **Mods live beside each world, not inside the image.** The container holds the engine and a seed copy of
 the mods it shipped with; each world has its own mods folder, in a Docker volume of its own. To add a game
 or an add-on to one world:
 
 ```sh
-docker cp ~/my_mod quarrowen-hearthhold:/mods/      # a mod folder with a mod.json inside
-nano .env                                           # HEARTHHOLD_MODS=hearthhold,my_mod
+docker cp ~/my_mod quarrowen-firstlight:/mods/      # a mod folder with a mod.json inside
+nano .env                                           # FIRSTLIGHT_MODS=firstlight,my_mod
 docker compose up -d
 ```
 
 A volume rather than a folder on the host, for two reasons that both showed up the first time this ran: a
 host folder is created by Docker as root and the server runs as an ordinary user, so it could not write
 its own mods into it; and three worlds refreshing the same folder on start is a race. `docker run --rm -v
-quarrowen-mods-hearthhold:/m -v "$PWD":/out debian cp -r /m /out/mods-hearthhold` copies one out to look at.
+quarrowen-mods-firstlight:/m -v "$PWD":/out debian cp -r /m /out/mods-firstlight` copies one out to look at.
 
-On each start the mods that came with the engine (`base`, `vanilla`, the add-ons) are refreshed from the
+On each start the mods that came with the engine (`base`, the games, the packs) are refreshed from the
 image so an update cannot leave stale content behind; everything else there is left alone. Set
 `SEED_MODS=missing` to keep your own edits to the bundled mods, or `SEED_MODS=never` to manage them yourself.
 
@@ -168,7 +167,7 @@ roles** to give roles (builder, moderator, admin) or kick someone, without typin
 whole world out to a folder:
 
 ```sh
-docker run --rm -v quarrowen-hearthhold:/data -v "$PWD":/out debian tar czf /out/hearthhold-world.tgz -C /data .
+docker run --rm -v quarrowen-firstlight:/data -v "$PWD":/out debian tar czf /out/firstlight-world.tgz -C /data .
 ```
 
 (`docker volume ls` shows the exact volume name.) The volume also holds the server's identity: keep it, or
@@ -176,33 +175,33 @@ every Mac will warn that the server's identity changed.
 
 **Worlds survive updates**, from alpha 4 on: builds, chests, animals and inventories are kept. A world saved
 by anything older is refused rather than converted. Each world has its own volume, named outright in the
-Compose file (`quarrowen-hearthhold`, `quarrowen-oneblock`, `quarrowen-skyblock`, `quarrowen-hub`), so they
+Compose file (`quarrowen-firstlight`, `quarrowen-oneblock`, `quarrowen-fairground`, `quarrowen-hub`), so they
 stay put wherever the folder lives or whatever it is called. `docker volume ls` shows what is on the machine.
 
-**The Macs update themselves.** When the menu opens, the game checks the download page and offers the new
+**Macs update themselves.** When the menu opens, the game checks the download page and offers the new
 version in a banner; pressing Update downloads it, checks it against the checksum published with the release
 and swaps the app (Settings → Network turns the check off, Settings → Account has a "Check for updates"
 button). Nothing is ever downloaded from a game server - a server can only say which version it needs.
+**The Windows build does not update itself yet**, so tell your players when you move the server on.
 
 **Coming from before alpha 4.** Nothing is carried across: worlds, players and identity keys all start
 again. Alpha 4 moved the client's folder and dropped the code that read older saves, so a world from
 alpha 3 or earlier will not load, and each Mac is a new player as far as a server is concerned - add the
-children to `ALLOWLIST` again, or let them join once with it turned off. Old data is not deleted, just no
+everyone to `ALLOWLIST` again, or let them join once with it turned off. Old data is not deleted, just no
 longer read: on a Mac it stays in `~/Library/Application Support/Godot/app_userdata/Quarrowen`, and on the
 server in whatever volume it was in.
 
-**Starting one world again.** A world holds its own story: in Hearthhold, once the hearth is lit,
-chapter one is done for everyone who joins afterwards. To give a world a clean start without disturbing
-anything else:
+**Starting one world again.** A world holds its own story: in Firstlight, an act finished is finished
+for everyone who joins afterwards. To give a world a clean start without disturbing anything else:
 
 ```sh
-docker compose stop hearthhold
-docker run --rm -v quarrowen-hearthhold:/data alpine \
-  sh -c 'rm -rf /data/hearthhold /data/backups/hearthhold'
-docker compose up -d hearthhold
+docker compose stop firstlight
+docker run --rm -v quarrowen-firstlight:/data alpine \
+  sh -c 'rm -rf /data/firstlight /data/backups/firstlight'
+docker compose up -d firstlight
 ```
 
-Name the world in place of `hearthhold` for the others; the volume and the folder inside it share its
+Name the world in place of `firstlight` for the others; the volume and the folder inside it share its
 name. **Do not delete the volume itself.** It also holds `identity/`, which is what the Macs pin so they
 know the server is the same one - losing it makes every client warn that the server's identity changed -
 and `network.json`, which is what lets players travel between the worlds. Removing only the world folder
@@ -241,7 +240,7 @@ sudo ufw allow 24600/tcp         # the hub
 ```
 
 **The hub is a server list, not a way to travel.** Each world announces itself to it, so the game's
-Multiplayer screen shows Hearthhold, One Block and Sky Islands by name and nobody types an address. That
+Multiplayer screen shows Firstlight, One Block and The Fairground by name and nobody types an address. That
 is all it does. Moving a player from one world to another is a separate thing, below.
 
 **Travel** (portals, `/server <name>`, the Worlds panel) needs each world to know the others' 32-character
@@ -260,24 +259,25 @@ Two things it decides, both overridable:
   to be one the player's computer can reach. The script works out this machine's LAN address; if players
   come in some other way (a hostname, a port forward), say so: `LINK_ADDRESS=quarrowen.example ./link-servers.sh`.
 - **Whether pockets come along.** Off by default - One Block is no challenge if you arrive with a chest
-  from Hearthhold. Each world remembers its own inventory, so nothing is lost by travelling and coming
+  from Firstlight. Each world remembers its own inventory, so nothing is lost by travelling and coming
   back. `CARRY_INVENTORY=true ./link-servers.sh` if you would rather things travelled.
 
 Then in game:
 
-- `/server oneblock`, `/server skyblock`, `/server hearthhold` - anyone may.
+- `/server oneblock`, `/server fairground`, `/server firstlight` - anyone may.
 - Or build a **portal**: place Portal blocks (creative inventory), stand next to them and type
   `/portal oneblock`. Walking in takes you there. To choose where travellers arrive, stand on the spot on
-  the far side and type `/network arrival dock`, then point portals at it with `/portal hearthhold dock`.
+  the far side and type `/network arrival dock`, then point portals at it with `/portal firstlight dock`.
 - `/network` lists what this world is linked to, and `/network reload` re-reads the file.
 
 A player on the allowlist is allowed on all three, and an arrival skips the check (`admit`), so nobody is
 bounced halfway through a portal.
 
-**What the three are.** Hearthhold is survival with a story: a valley whose light went out, people to find
-and houses to build them. One Block gives everyone a single block over the void that becomes something
-else each time it is broken, in phases. Sky Islands gives everyone a small island, a cobblestone
-generator and a list of challenges. Hearthhold is the one to start a child on.
+**What the three are.** Firstlight is survival with a story: you wake in a meadow beside Wick the
+lamplighter and follow the old lights down to what is under the world. One Block gives everyone a single
+block over the void that becomes something else each time it is broken, in phases, until what you are
+building is a factory. The Fairground is a hub with a door to each short game - the floor is lava in one,
+a quiz where the wrong squares fall away in another - and is the one to start a group evening on.
 
 ## 6. When something goes wrong
 

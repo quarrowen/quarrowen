@@ -1,14 +1,18 @@
 # Quarrowen
 
-A voxel game where **the server decides the game**. One app plays any server's world, because the client
-ships no content of its own: it downloads the blocks, models, textures, sounds and rules from whichever
-server it joins. A sandbox, an island to survive on, a story to play through — same client, different
-server.
+A voxel game where **the world you join brings the game with it**. Start a world for your people and
+everyone you invite just clicks Join: the blocks, creatures, rules and whole games arrive from the
+server, so nobody installs anything and there is nothing to keep in step between friends.
 
-It was built for one family's children, and it is free for yours.
+Four games come in the download: **Firstlight**, a survival game with a story; **The Fairground**, a hub
+of short games; **Creative**, a world and everything in it with nothing to survive; and **One Block**, a
+single block over the void that keeps becoming something else.
 
-**[Download for Mac](https://quarrowen.com)** — signed and notarized, so it opens by double-clicking, and
-it keeps itself up to date after that.
+I built it for my kids and their friends, and it is free for yours.
+
+**[Download](https://quarrowen.com)** — Mac and Windows. The Mac build is signed and notarized, so it
+opens by double-clicking and keeps itself up to date; the Windows build asks once before running and does
+not update itself yet.
 
 ## Where to go
 

@@ -10379,3 +10379,54 @@ editor. It stayed because the three variants (installer, installer plus zip, zip
 about which artifacts exist, and the template deliberately has no conditionals. Doing it properly means
 either a conditional in the template or a second prose file, and neither is worth deciding while the
 copy is still moving.
+
+
+## The site is written for the host first (30 September 2026, the user's call)
+
+`docs/site-brief.md` settles who quarrowen.com is for, after a review of the page as a first-time
+visitor. The order is **host, invited player, curious builder, writer** - and the host is the reader the
+page must win, because they are the only one who gets something out of Quarrowen with nobody else using
+it yet: they bring their own players. What the page must *not* do is write for a gamer browsing for
+their next game; that reader comes after 1.0, when there are servers worth joining.
+
+Three things fall out of it that were not obvious:
+
+- **"Universal client" is our word and never appears on the page.** The player-facing version is *the
+  world you join brings the game with it*. And the differentiator is not "servers have different games",
+  which every server scene in the genre already feels like - it is that a server here can add real
+  content and the people joining still install nothing.
+- **Firstlight is a story game.** "Make it through the night" describes the genre rather than this game,
+  and stops being its pitch. Fourteen acts, Wick, an ending.
+- **No age framing anywhere.** It began as something for one family's children and that is said once, as
+  the origin, in the story section. Safety is presented as control for any host ("only the people you
+  allow"), which a group of adults wants just as much.
+
+Recorded in CLAUDE.md under House style so the next session writing player-facing text does not drift
+back into it.
+
+### Three open decisions, answered
+
+- **Port forwarding**: keep it generic. No product named, and no mention of a public hub or public
+  servers, which are planned rather than live.
+- **Voice**: first person, no name. "I built it for my kids and their friends", not "one family's
+  children" - which is a change to README.md as well as the page.
+- **Hero**: a new Realistic-preset still now, and a separate attempt at the portal clip with Godot's
+  Movie Maker mode driven by the screenshot harness.
+
+### Stage 1: the stale docs
+
+A writer clicking through would have found all of this in two clicks, contradicting the page.
+
+`docs/hosting.md` was the largest and the worst, because it tells a host what to type: it walked
+through `hearthhold`, `skyblock`, `vanilla`, `arcana`, `industry` and `guild` across five sections,
+while `deploy/server/compose.yaml` runs `firstlight`, `oneblock` and `fairground`. Every command, volume
+name, `.env` key and "what the three are" paragraph now describes what the reader will actually get.
+
+`README.md` opened on "a sandbox, an island to survive on, a story to play through" - none of which
+ship - and offered a Mac-only download. `docs/faq.md` lost its age framing: "Is it safe for children?"
+became "Is it safe to join someone's server?" and "Who can join my world?", the eight-year-old-at-
+bedtime line is gone, and the stale note about a deleted game went with it. `docs/playing.md` listed
+three Hearthhold commands; Firstlight registers exactly two, checked in its source rather than guessed.
+
+And four developer docs carried a banner saying **the bundled games were removed** - which stopped being
+true when they came back. The banner now names which examples are historical and which games ship.
