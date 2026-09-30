@@ -181,17 +181,21 @@ api.add_spawn_rule({"entity": "biter", "group": [1, 2]})
 
 ### `api.set_spawn_caps`
 
-GDScript: `api.set_spawn_caps(caps: Dictionary) -> void`
+GDScript: `api.set_spawn_caps(caps: Dictionary, realm_id := "") -> void`
 
-JavaScript: `api.setSpawnCaps(caps)`
+JavaScript: `api.setSpawnCaps(caps, realmId)`
 
 How many mobs of each category may be around each player: {monster, animal, ambient, misc}.
+`realm_id` is which world's caps. They are per-realm on purpose - how many creatures belong in a
+dungeon is not how many belong on the surface - and until `add_spawn_rule` took a realm this was
+merely incomplete rather than contradictory: a mod could put rules in another world and then had no
+way to cap them, so the dungeon kept the overworld's defaults. (2026-09-30)
 
 ```gdscript
 var apply_caps := func(): api.set_spawn_caps({"monster": int(caps.get(String(api.setting("monsters")), 24))})
 ```
 
-**See also:** `set_caps`
+**See also:** `qualified`, `register_instance`, `set_caps`
 
 ### `api.require_entity`
 

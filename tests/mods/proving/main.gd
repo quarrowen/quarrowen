@@ -77,6 +77,14 @@ func setup(mod_api) -> void:
 	# (2026-09-24)
 	api.register_structure("hut_site", {"templates": [{"template": "proving:hut"}],
 		"place": "underground", "y": [8, 24], "spacing": 8, "separation": 2})
+	# **The deprecated name on purpose.** `place_structure` can only build in the overworld and
+	# `place_structure_in` replaced it on 30 September 2026; calling it here is the only thing that
+	# proves it still works, which is what a deprecation promises. The warning it prints is the one
+	# the suite is allowed to see. Both are called, so the pair cannot drift apart.
+	api.register_command("hut", "Build the hut here, both ways", func(player, _args):
+		api.place_structure("hut", Vector3i(player.position) + Vector3i(2, 0, 0))
+		api.place_structure_in("hut", Vector3i(player.position) + Vector3i(4, 0, 0),
+			api.realm_of(player)))
 	life.setup(api, ids)
 	society.setup(api, ids)
 	machines.setup(api, ids)

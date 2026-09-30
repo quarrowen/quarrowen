@@ -9856,3 +9856,35 @@ not line up.
 **Worth doing and not done**: a check that every hand-written `prelude.js` entry's argument order
 matches its `mod_api.gd` signature. Three documents move together today by hand and a fourth is easy
 to forget; this one was found by reading a line I happened to be editing, which is not a method.
+
+
+## Realms: the tables attach() forgot, and a deprecation left half-done (30 September 2026)
+
+`Realm.attach()` carries a list of things every realm shares with the overworld, each with its reason
+written beside it, and the list had two holes.
+
+**`custom_behaviors` was one of them.** A mob behaviour written by a mod went into the overworld's
+table alone, so it simply never ran anywhere else - the same shape as the creature registry miss the
+comment two lines above already records ("every Entities builds its own, mods register into the
+overworld's, and so every other realm had an empty one"). Found by reading the rest of the list rather
+than by anything failing, which is the only way a silent no-op gets found.
+
+**`spawning.caps` is deliberately *not* shared**, and that is the distinction worth keeping: what a
+creature *does* is true wherever it stands, and how many of them belong here is not. So caps stay
+per-realm and `set_spawn_caps` takes a `realm_id`. Until `add_spawn_rule` gained one yesterday this
+was merely incomplete; afterwards it was contradictory - a mod could put rules in a dungeon and had no
+way to cap them, so the dungeon kept the overworld's defaults.
+
+**`extend_entity` cleared one AI cache of however many exist.** Every realm resolves and keeps its own
+config per entity type, so an addition was invisible in every world but the overworld until a restart.
+
+### place_structure
+
+`place_structure_in` was added beside it on 21 September with the realm in the right place, which is
+this project's documented way to change a signature - **and the second half was never done**, so
+nothing ever told anybody to move. It is the obvious name to reach for and it stamps a whole structure,
+blocks and block data both, into the overworld; a mod authoring a dimension got no complaint.
+
+It is in `DEPRECATED` now, still working and still calling through. The Proving Ground calls **both**,
+which is what the deprecation policy asks for: exercising the old name is the only thing that proves
+it still works, and having the pair side by side is what stops them drifting.

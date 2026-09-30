@@ -3086,6 +3086,10 @@
 			"args": [
 				{
 					"kind": "dict"
+				},
+				{
+					"default": "",
+					"kind": "str"
 				}
 			],
 			"gd": "set_spawn_caps"

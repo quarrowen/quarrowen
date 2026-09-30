@@ -110,6 +110,12 @@ func attach() -> void:
 	# unnoticed because nothing spawned one in a second realm until instances did. (2026-09-21)
 	if _server.realm != null:
 		entities.registry = _server.realm.entities.registry
+		# **And the behaviours, for the same reason again.** What a creature *does* is true wherever it
+		# stands; only how many of them are here differs, which is why `spawning.caps` is deliberately
+		# not shared below. A behaviour registered by a mod went into the overworld's table alone, so
+		# it simply never ran anywhere else - the same shape of miss as the registry above, found by
+		# looking for the rest of the list rather than by anything failing. (2026-09-30)
+		entities.ai.custom_behaviors = _server.realm.entities.ai.custom_behaviors
 
 
 ## Whether anything in this realm should be run this tick. A claim on a chunk (keeping a machine going

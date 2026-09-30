@@ -826,8 +826,12 @@ func add_spawn_rule(def: Dictionary, realm_id := "") -> void:
 
 
 ## How many mobs of each category may be around each player: {monster, animal, ambient, misc}.
-func set_spawn_caps(caps: Dictionary) -> void:
-	_server.entities.spawning.set_caps(caps)
+## `realm_id` is which world's caps. They are per-realm on purpose - how many creatures belong in a
+## dungeon is not how many belong on the surface - and until `add_spawn_rule` took a realm this was
+## merely incomplete rather than contradictory: a mod could put rules in another world and then had no
+## way to cap them, so the dungeon kept the overworld's defaults. (2026-09-30)
+func set_spawn_caps(caps: Dictionary, realm_id := "") -> void:
+	_realm_or_default(realm_id).entities.spawning.set_caps(caps)
 
 
 ## Game-wide rules: item_drops ("entity" | "inventory"), keep_inventory, pvp, fall_damage,
@@ -1058,6 +1062,7 @@ func get_station(position: Vector3i, realm_id := "") -> Dictionary:
 ## cannot be quietly deleted, and `mod_tool -- docs` marks them on the reference page. (2026-09-22)
 const DEPRECATED := {
 	"register_loot_table": "register_loot",
+	"place_structure": "place_structure_in",
 }
 
 
@@ -2453,8 +2458,13 @@ func register_structure_template(template_name: String, source) -> bool:
 ## Stamps a template into the world now, rotated a quarter turn at a time (0-3). What `/struct place`
 ## does, for a mod that wants to build something itself rather than leave it to world generation: a
 ## story's outpost, a rescue site, a prize somebody hid.
+## **Deprecated: use `place_structure_in`**, which says which world. This one can only build in the
+## overworld, and it is the obvious name to reach for, so a mod authoring a dimension stamped a whole
+## structure - blocks and block data both - onto the surface instead and got no complaint. Left working
+## rather than removed: a mod in a single-world game is doing nothing wrong. (2026-09-30)
 func place_structure(template_name: String, at: Vector3i, rotation := 0) -> bool:
-	return _server.structure_tools.place(_qualify_ref(template_name), at, rotation, _server.realm)
+	_deprecated("place_structure", "place_structure_in")
+	return place_structure_in(template_name, at, "", rotation)
 
 
 ## Where the nearest structure of a set is, or Vector3.INF if there is none within `rings` regions.
@@ -2540,7 +2550,11 @@ func extend_entity(entity_name: String, additions: Dictionary) -> bool:
 			push_error("[%s] extend_entity: '%s' is not something that can be added to" % [mod_id, key])
 	# The AI config is worked out once per type and kept, so it has to be dropped or the addition is
 	# invisible to everything that spawns next.
-	_server.entities.ai._configs.erase(id)
+	# Every realm keeps its own resolved-AI cache, so clearing the overworld's left every other world
+	# running the config from before the addition.
+	# `realms[""]` is the overworld, so this covers it too.
+	for r in _server.realms.values():
+		r.entities.ai._configs.erase(id)
 	return added > 0
 
 

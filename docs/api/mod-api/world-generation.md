@@ -12,6 +12,11 @@ JavaScript: `api.placeStructureIn(templateName, at, realmId, rotation)`
 Pastes a saved structure into a world. `realm_id` is which world - without it a dungeon's rooms
 were built in the overworld while the players stood in an empty instance. (2026-09-21)
 
+```gdscript
+api.place_structure_in("hut", Vector3i(player.position) + Vector3i(4, 0, 0),
+	api.realm_of(player)))
+```
+
 **See also:** `follow`, `place`, `qualified`, `register_instance`
 
 ### `api.set_world_generator`
@@ -104,8 +109,16 @@ Generated structures (see worldgen/structures.gd): {templates: [{template, weigh
 Stamps a template into the world now, rotated a quarter turn at a time (0-3). What `/struct place`
 does, for a mod that wants to build something itself rather than leave it to world generation: a
 story's outpost, a rescue site, a prize somebody hid.
+**Deprecated: use `place_structure_in`**, which says which world. This one can only build in the
+overworld, and it is the obvious name to reach for, so a mod authoring a dimension stamped a whole
+structure - blocks and block data both - onto the surface instead and got no complaint. Left working
+rather than removed: a mod in a single-world game is doing nothing wrong. (2026-09-30)
 
-**See also:** `find_structure`, `place`, `qualified`
+```gdscript
+api.place_structure("hut", Vector3i(player.position) + Vector3i(2, 0, 0))
+```
+
+**See also:** `find_structure`, `place_structure_in`
 
 ### `api.find_structure`
 
