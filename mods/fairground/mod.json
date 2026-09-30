@@ -4,6 +4,7 @@
 	"version": "1.0.0",
 	"description": "A hub of short games with a door to each: step through one and a round begins. Every game is worth playing on your own, and better with somebody.",
 	"kind": "game",
+	"order": 2,
 	"authors": [
 		"Quarrowen"
 	],

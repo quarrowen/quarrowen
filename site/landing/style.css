@@ -18,7 +18,7 @@
     margin: 0; padding: 0; background: var(--ground); color: var(--ink);
     font: 400 17px/1.65 var(--sans);
   }
-  .wrap { max-width: 1060px; margin: 0 auto; padding-inline: 24px; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding-inline: 24px; }
   .narrow { max-width: 680px; }
   a { color: var(--accent); text-underline-offset: 3px; }
   a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
@@ -31,7 +31,13 @@
     content: ""; position: absolute; inset: 0;
     background: linear-gradient(180deg, rgba(26,33,46,0.34) 0%, rgba(26,33,46,0.1) 40%, rgba(26,33,46,0.92) 88%, var(--ground) 100%);
   }
-  .hero .wrap { position: relative; z-index: 2; padding-block: 0 64px; width: 100%; }
+  /* A second scrim, horizontal and left-hand only, so the words have a calm backdrop without
+     flattening the picture they are standing on. */
+  .hero::before {
+    content: ""; position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(90deg, rgba(26,33,46,0.85) 0%, rgba(26,33,46,0.55) 30%, rgba(26,33,46,0) 55%);
+  }
+  .hero .wrap { position: relative; z-index: 2; padding-block: 120px 64px; width: 100%; }
   .name {
     font: 600 15px/1 var(--display); letter-spacing: 0.26em; text-transform: uppercase;
     color: var(--accent); margin: 0 0 18px; text-shadow: 0 2px 16px rgba(0,0,0,0.9);
@@ -43,7 +49,7 @@
   }
   h1 span { color: var(--accent); }
   .hero p {
-    font-size: clamp(17px, 2.1vw, 21px); margin: 20px 0 0; max-width: 40ch; color: #DCE2EA;
+    font-size: clamp(17px, 2.1vw, 21px); margin: 20px 0 0; max-width: 52ch; color: #DCE2EA;
     text-shadow: 0 2px 18px rgba(0,0,0,0.85); text-wrap: pretty;
   }
   .cta { display: flex; flex-wrap: wrap; gap: 14px 16px; align-items: center; margin-top: 34px; }
@@ -62,16 +68,17 @@
     box-shadow: none;
   }
   .btn.ghost:hover { background: rgba(255,255,255,0.13); border-color: rgba(255,255,255,0.4); }
-  .under { font-size: 14px; color: var(--muted); margin-top: 14px; }
+  .under { font-size: 15px; color: var(--muted); margin-top: 14px; }
 
   /* --- Sections --- */
   section { padding-block: 86px 0; }
+  section:first-of-type { padding-block: 56px 0; }
   h2 {
     font: 600 clamp(28px, 4vw, 40px)/1.1 var(--display);
     margin: 0 0 16px; letter-spacing: -0.01em; text-wrap: balance;
   }
   h2 span { color: var(--accent); }
-  .sub { color: var(--muted); font-size: 17.5px; margin: 0 0 40px; max-width: 54ch; text-wrap: pretty; }
+  .sub { color: var(--muted); font-size: 17px; margin: 0 0 40px; max-width: 62ch; text-wrap: pretty; }
   p { text-wrap: pretty; }
 
   /* A game: a big picture with its words beside it, alternating sides. */
@@ -84,10 +91,10 @@
     font: 600 12px/1 var(--sans); letter-spacing: 0.14em; text-transform: uppercase;
     color: var(--accent); margin: 0 0 12px;
   }
-  .game p { margin: 0; color: #C7CFDA; font-size: 16.5px; }
+  .game p { margin: 0; color: #C7CFDA; font-size: 17px; }
   .figures {
     display: flex; gap: 26px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--edge);
-    font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums;
+    font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;
   }
   .figures b { display: block; font-family: var(--display); font-weight: 600; font-size: 25px; color: var(--ink); line-height: 1.1; }
 
@@ -97,17 +104,17 @@
     font: 600 20px/1.25 var(--display); margin: 0 0 8px; padding-top: 16px;
     border-top: 2px solid var(--accent);
   }
-  .diff p { margin: 0; color: #C7CFDA; font-size: 15.5px; }
+  .diff p { margin: 0; color: #C7CFDA; font-size: 15px; }
   .diff em { font-style: normal; color: var(--ink); font-weight: 600; }
 
   /* The mod zips: a plain table, since it is a reference rather than something to browse. */
   .mods { margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--edge); }
   .mods h3 { font: 600 20px/1.25 var(--display); margin: 0 0 8px; }
   .mods h3 + p { margin-bottom: 14px; }
-  .mods table { width: 100%; border-collapse: collapse; margin: 0 0 22px; font-size: 14.5px; }
+  .mods table { width: 100%; border-collapse: collapse; margin: 0 0 22px; font-size: 15px; }
   .mods td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--edge); vertical-align: top; }
   .mods td:last-child { text-align: right; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .dim { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+  .dim { color: var(--muted); font-size: 15px; margin: 0 0 8px; }
 
   /* The fact table. The label column is fixed so the values start on one line down the page, and
      wide enough that "Screenshots" does not sit flush against its own value. */
@@ -139,9 +146,9 @@
   pre b { color: var(--accent); font-weight: 400; }
 
   .made { border-top: 1px solid var(--edge); margin-top: 96px; padding-top: 40px; }
-  .made p { color: var(--muted); font-size: 16px; max-width: 62ch; }
+  .made p { color: var(--muted); font-size: 15px; max-width: 62ch; }
   .made strong { color: var(--ink); font-weight: 600; }
-  footer { padding-block: 40px 90px; color: #6F7A8A; font-size: 13.5px; }
+  footer { padding-block: 40px 90px; color: #6F7A8A; font-size: 13px; }
   footer p { max-width: none; }
 
   @media (max-width: 760px) {
@@ -160,3 +167,15 @@
     margin-top: 10px;
   }
   .trio .shot img { aspect-ratio: 16 / 10; object-fit: cover; }
+
+  /* Code is secondary text that happens to be monospaced: one size everywhere it appears. */
+  pre { margin: 0 0 18px; overflow-x: auto; }
+  pre code { display: block; font-size: 14.5px; line-height: 1.6; }
+  /* In "What it takes" the note and the block are one column, so the eye has one left edge and one
+     right edge rather than two that nearly agree. */
+  .mods pre, .mods > p { max-width: 62ch; }
+  /* The folded Windows note: a summary that looks like the line it replaces. */
+  details.under summary { cursor: pointer; }
+  details.under[open] summary { margin-bottom: 10px; }
+  details.under p { margin: 0; }
+  .lede { color: var(--ink); font-size: 17px; margin: 0 0 20px; max-width: 62ch; text-wrap: pretty; }

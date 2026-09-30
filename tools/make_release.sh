@@ -185,11 +185,11 @@ elif [ -n "$win_name" ]; then
   win_cta="<a class=\"btn\" href=\"$win_url\">Download for Windows <small>$version · $(human "$out/$files/$win_name")</small></a>"
 fi
 if [ -n "$setup_name" ] && [ -n "$win_name" ]; then
-  win_button="<p class=\"under\"><b>On Windows:</b> download the setup and run it. Windows asks once before running a program it has not seen before - choose <i>More info</i>, then <i>Run anyway</i>. It does not update itself yet, so come back here when there is a new version. Prefer a zip? <a href=\"$win_url\">Take the folder instead ($(human "$out/$files/$win_name"))</a> and run Quarrowen.exe from inside it.</p>"
+  win_button="<details class=\"under\"><summary><b>On Windows?</b> One extra click the first time</summary><p class=\"under\"><b>On Windows:</b> download the setup and run it. Windows asks once before running a program it has not seen before - choose <i>More info</i>, then <i>Run anyway</i>. It does not update itself yet, so come back here when there is a new version. Prefer a zip? <a href=\"$win_url\">Take the folder instead ($(human "$out/$files/$win_name"))</a> and run Quarrowen.exe from inside it.</p></details>"
 elif [ -n "$setup_name" ]; then
-  win_button="<p class=\"under\"><b>On Windows:</b> download the setup and run it. Windows asks once before running a program it has not seen before - choose <i>More info</i>, then <i>Run anyway</i>. It does not update itself yet, so come back here when there is a new version.</p>"
+  win_button="<details class=\"under\"><summary><b>On Windows?</b> One extra click the first time</summary><p class=\"under\"><b>On Windows:</b> download the setup and run it. Windows asks once before running a program it has not seen before - choose <i>More info</i>, then <i>Run anyway</i>. It does not update itself yet, so come back here when there is a new version.</p></details>"
 elif [ -n "$win_name" ]; then
-  win_button="<p class=\"under\"><b>On Windows:</b> unpack the whole folder and run Quarrowen.exe from inside it. Windows asks once before running a program it has not seen before - choose <i>More info</i>, then <i>Run anyway</i>. It does not update itself yet.</p>"
+  win_button="<details class=\"under\"><summary><b>On Windows?</b> One extra click the first time</summary><p class=\"under\"><b>On Windows:</b> unpack the whole folder and run Quarrowen.exe from inside it. Windows asks once before running a program it has not seen before - choose <i>More info</i>, then <i>Run anyway</i>. It does not update itself yet.</p></details>"
 fi
 
 cat > "$out/update.json" <<EOF
@@ -243,22 +243,27 @@ sign "$out/mods.json"
 # The rows the download page shows, from the same zips.
 # Only the games reach the page now; `kind` comes from each mod.json and the other kinds are listed on
 # the release page instead (see docs/mods_plan.md for what the kinds mean).
+# **The same manifest, read once**, and **sorted by the `order` field in it**. The section that tells a
+# player what there is to play is built here rather than written into the template, because a
+# hand-written list is how the README spent a week naming three games that had been deleted
+# (2026-09-29) - and hand-ordering it in the template is the same mistake one step later, so the order
+# is a fact in each mod.json beside the name it belongs to. (2026-09-30)
+#
+# The zip tables that used to be built here are gone: they were for somebody adding a mod by hand,
+# which the in-game Mods page already does, and sitting beside the games they read as "these games are
+# a few kilobytes". The release page carries them now.
 game_cards=""
-for zip in "$out/$files"/mods/*.zip; do
+for zip in $(for z in "$out/$files"/mods/*.zip; do
+		gid="$(basename "$z")"; gid="${gid%-*}"
+		printf '%s\t%s\n' "$(sed -n 's/.*"order"[ ]*:[ ]*\([0-9]*\).*/\1/p' "mods/$gid/mod.json" | head -1)" "$z"
+	done | sort -n | cut -f2); do
 	file="$(basename "$zip")"
 	id="${file%-*}"
 	description="$(sed -n 's/.*"description"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
 	name="$(sed -n 's/.*"name"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
 	kind="$(sed -n 's/.*"kind"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
 	case "$kind" in
-		# **The same manifest, read once.** The section that tells a player what there is to play is
-		# built here rather than written into the template, because a hand-written list is how the
-		# README spent a week naming three games that had been deleted. (2026-09-29)
-		#
-		# The zip tables that used to be built here are gone: they were for somebody adding a mod by
-		# hand, which the in-game Mods page already does, and sitting beside the games they read as
-		# "these games are a few kilobytes". The release page carries them now. (2026-09-30)
-		game) game_cards="$game_cards<div class=\"lane\"><h3>${name:-$id}</h3><p>$description</p></div>" ;;
+		game) game_cards="$game_cards<div class=\"game\"><div class=\"shot\"><img src=\"shots/$id.jpg\" alt=\"$name\"></div><div><h3>${name:-$id}</h3><p>$description</p></div></div>" ;;
 	esac
 done
 

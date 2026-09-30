@@ -4,6 +4,7 @@
 	"version": "1.0.0",
 	"description": "A world and everything in it, and nothing to survive. Build.",
 	"kind": "game",
+	"order": 4,
 	"authors": [
 		"Quarrowen"
 	],

@@ -10473,3 +10473,37 @@ The lesson is not about Chrome. It is that **a measurement that agrees with a pl
 easiest kind to stop checking** - the clipping looked exactly like a known CSS mistake, so the first
 theory fit and the instrument went unexamined. The check that caught it took one page and thirty
 seconds: ask the renderer what width it thinks it is using.
+
+
+## Review feedback on the stage-2 page, and a layout pass (30 September 2026)
+
+**Content.** The eyebrow says what this is - "Quarrowen · a free block-building game for Mac and
+Windows" - so a cold visitor knows it is a game before reading a word of the headline. The Mac line is
+one sentence and the Windows instructions fold into a `<details>` ("On Windows? One extra click the
+first time"), because they are four lines of caveat that only one reader in two needs. Open Graph and
+`twitter:card` tags added, with an absolute `og:image`, so a pasted link says something.
+
+**The trio and the game cards became one section.** Two sections were saying the same thing with
+different pictures: "here are three worlds" and "here are four games". Now each game has its picture
+beside its words in the existing `.game` layout, alternating sides, under the heading that was the
+trio's line.
+
+**The order is data.** `mod.json` gained an `order` field and `make_release.sh` sorts on it -
+Firstlight, The Fairground, One Block, Creative. Hand-ordering in the template is the same mistake as
+hand-writing the list, one step later: it goes stale the day a game is added.
+
+**The snippet was checked rather than trusted.** `registerBlock`, `addOrePass`, `on` and `showTitle`
+are all in `bindings.json`, and `ore_pass.gd` really reads `veins`, `size`, `min_y` and `max_y`. It
+also shows the file it lives in and the mod id, because `ore: "my_mod:ruby_ore"` only resolves if the
+reader knows where `my_mod` comes from.
+
+**Layout.** One type scale - 17px body, 15px secondary, 13px for the footer and button metadata only -
+replacing the seven sizes that were in use (17.5, 16.5, 16, 15.5, 14.5, 14, 13.5). The hosting note
+and the Modding link were fine print and are secondary text now. The hero gained 120px of top padding
+and a left-hand horizontal scrim so the copy sits on a calm backdrop without flattening the picture;
+`.wrap` is 1200px, the hero paragraph 52ch, `.sub` 62ch. The story's first paragraph is body text in
+full ink rather than grey standfirst - it is the sentence the section exists for. The first section
+after the hero sits 56px below it rather than 86.
+
+Checked at 1440, 1024 and a true 390 (in an iframe, because Chrome headless on macOS will not lay out
+below 500 - see the stage-2 note).

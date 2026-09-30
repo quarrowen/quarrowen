@@ -4,6 +4,7 @@
 	"version": "1.0.0",
 	"description": "One block over the void. Break it and something else takes its place - soil, then stone and ores, then creatures and crates - until what you are building is a factory.",
 	"kind": "game",
+	"order": 3,
 	"authors": [
 		"Quarrowen"
 	],
