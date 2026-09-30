@@ -241,34 +241,34 @@ if [ "$flat" -eq 1 ]; then mods_base="$base_url"; else mods_base="$base_url/$fil
 sign "$out/mods.json"
 
 # The rows the download page shows, from the same zips.
-# The page groups mods the way the game's own list does: games to play, add-ons for a game, and the
-# library everything is built on (see docs/mods_plan.md). `kind` comes from each mod.json.
-games_rows=""
+# Only the games reach the page now; `kind` comes from each mod.json and the other kinds are listed on
+# the release page instead (see docs/mods_plan.md for what the kinds mean).
 game_cards=""
-addon_rows=""
-library_rows=""
 for zip in "$out/$files"/mods/*.zip; do
 	file="$(basename "$zip")"
 	id="${file%-*}"
 	description="$(sed -n 's/.*"description"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
 	name="$(sed -n 's/.*"name"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
 	kind="$(sed -n 's/.*"kind"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
-	row="<tr><td><b>${name:-$id}</b><br><span class=\"dim\">$description</span></td><td class=\"right\"><a href=\"$mods_base/$file\">$file</a><br><span class=\"dim\">$(human "$zip")</span></td></tr>"
 	case "$kind" in
-		game) games_rows="$games_rows$row"
-			# **The same manifest, read once.** The section near the top of the page that tells a player
-			# what there is to play is built here rather than written into the template, because a
-			# hand-written list is how the README spent a week naming three games that had been deleted.
-			# (2026-09-29)
-			game_cards="$game_cards<div class=\"lane\"><h3>${name:-$id}</h3><p>$description</p></div>" ;;
-		library) library_rows="$library_rows$row" ;;
-		*) addon_rows="$addon_rows$row" ;;
+		# **The same manifest, read once.** The section that tells a player what there is to play is
+		# built here rather than written into the template, because a hand-written list is how the
+		# README spent a week naming three games that had been deleted. (2026-09-29)
+		#
+		# The zip tables that used to be built here are gone: they were for somebody adding a mod by
+		# hand, which the in-game Mods page already does, and sitting beside the games they read as
+		# "these games are a few kilobytes". The release page carries them now. (2026-09-30)
+		game) game_cards="$game_cards<div class=\"lane\"><h3>${name:-$id}</h3><p>$description</p></div>" ;;
 	esac
 done
-mod_sections=""
-[ -n "$games_rows" ] && mod_sections="$mod_sections<h3>Games</h3><p class=\"dim\">A world runs one of these.</p><table>$games_rows</table>"
-[ -n "$addon_rows" ] && mod_sections="$mod_sections<h3>Add-ons</h3><p class=\"dim\">Extra content on top of a game.</p><table>$addon_rows</table>"
-[ -n "$library_rows" ] && mod_sections="$mod_sections<h3>Packs</h3><p class=\"dim\">What a game is built from. A game names the ones it wants.</p><table>$library_rows</table>"
+
+# Every picture in site/screenshots, named rather than a hard-coded two - so a shot added there appears
+# in the facts table without anybody remembering to list it.
+shots_list=""
+for shot in "$out"/shots/*.jpg; do
+	[ -f "$shot" ] || continue
+	shots_list="$shots_list<a href=\"shots/$(basename "$shot")\">$(basename "$shot")</a> "
+done
 
 # **The page is a template now, not a heredoc.** Its prose lives in site/landing/ where it can be
 # read, reviewed and edited by somebody who is not editing the release tooling; the values a release
@@ -286,7 +286,7 @@ json.dump({
     "win_button": """$win_button""",
     "win_cta": """$win_cta""",
     "game_cards": """$game_cards""",
-    "mod_sections": """$mod_sections""",
+    "shots_list": """$shots_list""",
 }, open(sys.argv[1], "w"))
 PYEOF
 tools/build_landing.py site/landing "$out/landing_values.json" "$out/index.html"

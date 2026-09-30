@@ -150,3 +150,13 @@
     .hero { min-height: 72vh; }
     .server { padding: 24px; }
   }
+
+  /* Three worlds side by side (the "one app, every world" section). One column on a phone, like
+     everything else here. */
+  .trio { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+  .trio figure { margin: 0; }
+  .trio figcaption {
+    font-family: var(--display); font-weight: 600; font-size: 16px; color: var(--ink);
+    margin-top: 10px;
+  }
+  .trio .shot img { aspect-ratio: 16 / 10; object-fit: cover; }

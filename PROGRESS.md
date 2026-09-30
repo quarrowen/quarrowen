@@ -10430,3 +10430,46 @@ three Hearthhold commands; Firstlight registers exactly two, checked in its sour
 
 And four developer docs carried a banner saying **the bundled games were removed** - which stopped being
 true when they came back. The banner now names which examples are historical and which games ship.
+
+
+## Stage 2: the page rebuilt for the host (30 September 2026)
+
+`site/landing/index.html` rewritten to the brief's part 3. Hero is "Run a world for your people" with
+three buttons (Mac, Windows, **Host a world**) and the "Sent here by a friend?" line; then *One app,
+every world* (three captioned shots), *What comes with it* (`{{game_cards}}`), *Host a world*, *Make
+something*, *Where it came from*, *At a glance*. Gone: the mod zip tables, "Where to go", `menu.jpg`,
+and the standalone safety section, whose four points are now the "why" half of the host section.
+
+**The game copy lives in `mod.json`**, so the site and the in-game Mods list cannot disagree. Every
+claim in Firstlight's new description was checked against the mod rather than written from memory:
+fourteen acts in `acts.gd` (ending on one called Firstlight), "he cannot fight" in `wick.gd`, "waking
+up in a meadow" and "nothing is timed and nothing can be failed" in `story.gd`.
+
+**The Multiplayer wording says what the menu actually shows.** `main_menu.gd` has tabs Browse, LAN,
+Favorites, Recent and a box reading "Server address or invite code (QW-…)", so the page says LAN list
+or paste the address/code - and says nothing about a public hub, which is planned rather than live.
+
+`make_release.sh` lost the zip-table loop and gained `shots_list`, which names every JPG in `shots/`
+rather than a hard-coded two. `build_landing.py` refusing unused values is what forced both halves to
+be done together: dropping `{{mod_sections}}` from the template failed the build until the value went.
+
+### The renderer was lying, and I nearly acted on it
+
+Rendering at `--window-size=390` to check phone width, the hero text looked clipped two characters
+short of the right edge on every paragraph - on this build **and on the live site**. I wrote two CSS
+fixes for it, with comments explaining a bug that has "been happening for as long as there has been a
+hero".
+
+**There is no bug.** Chrome headless on macOS has a minimum window width: asking for 390 lays the page
+out at **500** and crops the screenshot to 390. Proved with a page that prints `window.innerWidth` -
+both `--headless` and `--headless=new` report 500. Every "phone" render this session has been a crop of
+a wider layout.
+
+Rendered properly, inside a 390px iframe, the live page and this one are both fine. Both fixes are
+reverted, because code that fixes nothing is noise and a comment asserting a history that did not
+happen is worse than noise.
+
+The lesson is not about Chrome. It is that **a measurement that agrees with a plausible theory is the
+easiest kind to stop checking** - the clipping looked exactly like a known CSS mistake, so the first
+theory fit and the instrument went unexamined. The check that caught it took one page and thirty
+seconds: ask the renderer what width it thinks it is using.

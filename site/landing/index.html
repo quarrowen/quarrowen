@@ -2,193 +2,128 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="A block-building game: mine, craft, build and make it through the night. Four games in one free download, for Mac and Windows.">
+<meta name="description" content="Run a world for your friends and family: they click Join and the game arrives with it. Four games in one free download, for Mac and Windows.">
 <link rel="icon" href="icon.png">
 <title>Quarrowen</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap">
 {{style}}
-
 <div class="hero">
   <img class="hero-img" src="shots/hero.jpg"
-       alt="A blocky green valley: a cliff with veins of ore, cube-shaped trees, and a beach beyond.">
+       alt="A blocky valley at dusk, a lit lamp on a post and a cliff with veins of ore beyond it.">
   <div class="wrap">
     <p class="name">Quarrowen</p>
-    <h1>Dig, build, and <span>make it through the night</span>.</h1>
-    <p>Every hill, tree and lake is built from cubes, and you can take any of them apart and put them
-    back somewhere better. Mine into a hillside, craft what you need, keep animals, and be somewhere
-    safe before dark. <b>Four games come in the download</b>: survive the night, build with no limits,
-    play short games with friends, or start from a single block over the void.</p>
+    <h1>Run a world for <span>your people</span>.</h1>
+    <p>Start a world and everyone you invite just clicks Join. The world brings the game with it - its
+    blocks, creatures, rules, whole games - so there are no mod folders, no accounts, and nothing to
+    keep in step between friends. Free, for Mac and Windows.</p>
     <div class="cta">
-      <a class="btn" href="{{mac_url}}">Download for Mac <small>{{version}} · {{mac_size}}</small></a>
+      <a class="btn" href="{{mac_url}}">Download for Mac <small>{{version}} &middot; {{mac_size}}</small></a>
       {{win_cta}}
-      <a class="btn ghost" href="/docs/playing/">How to play</a>
+      <a class="btn ghost" href="#host">Host a world &rarr;</a>
     </div>
-    <p class="under"><b>On a Mac:</b> download it, drag it to Applications, and open it. It is
-    signed and notarised, so it opens straight away with no security detour, and it keeps itself up to
-    date. Intel and Apple silicon both.</p>
+    <p class="under"><b>Sent here by a friend?</b> Download it, open it and choose <b>Multiplayer</b>.
+    On the same network as them, their world is already in the <b>LAN</b> list; otherwise paste the
+    address or invite code they sent you into the box at the top and press Join.</p>
+    <p class="under"><b>On a Mac:</b> download it, drag it to Applications, and open it. It is signed
+    and notarised, so there is no warning box to click past, and it keeps itself up to date. Intel and
+    Apple silicon both.</p>
     {{win_button}}
   </div>
 </div>
-
 <div class="wrap">
 
+<section id="worlds">
+  <h2>One app, <span>every world</span></h2>
+  <p class="sub">Same app. Three worlds. Nothing installed in between. Each world on a server runs its
+  own game, so you can walk through a portal out of a survival world and into a fairground of short
+  games, and the app becomes that game on the way through.</p>
+  <div class="trio">
+    <figure><div class="shot"><img src="shots/firstlight.jpg" alt="A meadow at golden hour with a lamplighter standing beside a lit post."></div><figcaption>Firstlight</figcaption></figure>
+    <figure><div class="shot"><img src="shots/fairground.jpg" alt="Several avatars mid-round in a fairground, name tags above them."></div><figcaption>The Fairground</figcaption></figure>
+    <figure><div class="shot"><img src="shots/oneblock.jpg" alt="An island over the void with machines and cables strung between poles."></div><figcaption>One Block</figcaption></figure>
+  </div>
+</section>
+
 <section id="play">
-  <h2>What you can <span>play</span></h2>
-  <p class="sub">All four come with the download - there is nothing else to fetch. Play on your own,
-  or start a world and let a friend join it.</p>
+  <h2>What comes <span>with it</span></h2>
+  <p class="sub">All four come in the download. Play one on your own, or run them side by side on a
+  server and let your people walk between them. The Fairground is the one to start a group evening on.</p>
   <div class="lanes">{{game_cards}}</div>
 </section>
 
-<section id="different">
-  <h2>The server decides <span>the game</span></h2>
-  <p class="sub">Playing a modified block game with friends usually costs you the first hour of the
-  evening: everyone fetches the same files, into the same folder, at the same version, or somebody
-  cannot get in. Here nothing is installed on anybody's computer. One person starts the world and
-  everybody else clicks join, because the server hands out the game along with it.</p>
-
-  <div class="diffs">
-    <div class="diff">
-      <h3>The world you join brings its own rules</h3>
-      <p>The four games in the download are not welded into the app. Each one is a complete set of
-      blocks, creatures and rules, and a server hands over the one it is running - so the same app is a
-      survival world on one server and a hub of quick games on the next.</p>
-    </div>
-    <div class="diff">
-      <h3>Nobody installs a mod</h3>
-      <p>Mods are installed on the server only. A child joins and the content arrives — no launchers, no
-      mod folders, no matching versions between friends, nothing to go wrong at bedtime. A mismatch is
-      refused at the door with a sentence saying so, rather than breaking quietly.</p>
-    </div>
-    <div class="diff">
-      <h3>A mod can change anything</h3>
-      <p>Blocks, creatures and their AI, world generation, machines, crafting, UI panels, commands,
-      whole games. Every game that ships with it is a mod too. The engine only supplies capabilities,
-      which means anything a bundled game does, yours can do.</p>
-    </div>
-    <div class="diff">
-      <h3>Two languages, one of them sandboxed</h3>
-      <p>Write a mod in GDScript, or in JavaScript that runs in a sandbox. There is no marketplace, no
-      approval queue and no revenue share — you write a folder with a manifest in it and put it on your
-      server.</p>
-    </div>
-    <div class="diff">
-      <h3>There is no platform</h3>
-      <p>No account, no sign-up, no email, no telemetry, no store, no currency, no advertising. A player
-      is a key on their own computer. Your worlds are files on your own machine or your own server, and
-      they stay there.</p>
-    </div>
-    <div class="diff">
-      <h3>You can read all of it</h3>
-      <p>The whole engine is published — renderer, server, protocol, AI, tests. Free to play, modify and
-      share for anything noncommercial. If you want to know how something works, the answer is a file,
-      not a support ticket.</p>
-    </div>
-  </div>
-</section>
-
-<section id="safe">
-  <h2>Is it <span>safe</span> to join someone's server?</h2>
-  <p class="sub">A server you have never met supplies the game you play, so the first fair question is
-  what it is allowed to send you. The answer: <b>data, never code</b>. There is no mod runtime in the
-  client at all - nothing in the protocol carries a script, and mods run on the machine hosting the
-  world, not yours.</p>
+<section id="host">
+  <h2>Host a <span>world</span></h2>
+  <p class="sub">You bring the people and the server brings the game. All of this is true whether the
+  world is for a family, a group of friends, or a class.</p>
   <div class="lanes">
     <div class="lane">
-      <h3>Nothing leaves your machine</h3>
-      <p>Nothing is collected and nothing is sent anywhere except the server you chose to join. Your
-      worlds, your settings and the key that is your name all stay on your own computer.</p>
+      <h3>Only the people you allow</h3>
+      <p>A world lets in the names on its list and nobody else, and that permission carries across every
+      world you run, so nobody is stopped halfway through a portal.</p>
     </div>
     <div class="lane">
-      <h3>Only who you allow</h3>
-      <p>A world you run lets in the names you list and nobody else, and that permission carries across
-      every world you run, so a child who can reach one can reach all of them and a stranger can reach
-      none.</p>
+      <h3>No accounts anywhere</h3>
+      <p>No sign-up, no email, no telemetry. A player is a key on their own computer, and nothing is
+      sent anywhere except the server they chose to join.</p>
     </div>
     <div class="lane">
-      <h3>Everything is bounded</h3>
-      <p>What a server may send is size-limited and checked before it is used, and downloaded content is
-      stored under the hash of its own contents - so no server can name a file on your disk.</p>
+      <h3>The server sends data, never code</h3>
+      <p>There is no mod runtime in the app at all. What a server may send is checked and size-limited
+      before anything is done with it.</p>
+      <a href="/docs/security/">Security &rarr;</a>
     </div>
     <div class="lane">
-      <h3>The limits, written down</h3>
-      <p>Where the protections end is on the page too, not buried: what trust-on-first-use means, and
-      what your client does parse from a server.</p>
-      <a href="/docs/security/">Security →</a>
+      <h3>Your worlds are files on your machine</h3>
+      <p>Back them up, move them between machines, keep them. Nothing about a world lives anywhere you
+      cannot reach.</p>
     </div>
   </div>
-</section>
 
-<section>
-  <h2>Made for a family to <span>play together</span></h2>
-  <p class="sub">One person runs a world and everybody joins it from the menu - across the house, or
-  across the world if you open a port. Several worlds can sit side by side, and you can walk between
-  them.</p>
-  <div class="shot" style="max-width:100%">
-    <img src="shots/menu.jpg" alt="The Quarrowen main menu, with a world list over a living world backdrop.">
-  </div>
-</section>
-
-<section>
-  <h2>Where to go</h2>
-  <div class="lanes">
-    <div class="lane">
-      <h3>Play</h3>
-      <p>Controls, your first hour, and how recipes are discovered rather than looked up.</p>
-      <a href="/docs/playing/">Playing →</a>
-    </div>
-    <div class="lane">
-      <h3>Run a server</h3>
-      <p>Several worlds and a hub on one Linux box, in about ten minutes.</p>
-      <a href="/docs/hosting/">Hosting →</a>
-    </div>
-    <div class="lane">
-      <h3>Make a mod</h3>
-      <p>Blocks, creatures, machines, whole games — GDScript or JavaScript.</p>
-      <a href="/docs/modding/">Modding →</a>
-    </div>
-    <div class="lane">
-      <h3>Questions</h3>
-      <p>What it costs, whether it's safe for children, where your worlds are kept.</p>
-      <a href="/docs/faq/">FAQ →</a>
-    </div>
-    <div class="lane">
-      <h3>Writing about it</h3>
-      <p>The facts in one table: what it is, what it costs, what it is made of, and screenshots of the
-      build that is actually shipping.</p>
-      <a href="#facts">At a glance →</a>
-    </div>
-  </div>
-</section>
-
-<section id="get">
-  <div class="server">
-    <h2>Running a server</h2>
-    <p class="sub" style="margin-bottom:0">Three files and a pull. The machine never compiles anything,
-    and several worlds can sit beside each other with players walking between them through portals.</p>
-<pre><b>QW_IMAGE</b>=ghcr.io/quarrowen/quarrowen/server:{{version}}
-<b>QW_HUB_IMAGE</b>=ghcr.io/quarrowen/quarrowen/hub:{{version}}
-
-docker compose pull &amp;&amp; docker compose up -d</pre>
-  </div>
   <div class="mods">
-    <h3>Mods in this release</h3>
-    <p class="sub" style="margin:0 0 18px">Every game comes with the download; these are for adding one to
-    a server by hand. In the game, the Mods page does it for you.</p>
-    {{mod_sections}}
+    <h3>What it takes</h3>
+    <p class="dim">A spare Linux machine with Docker is enough. Three worlds and a hub, running side by
+    side, in about ten minutes.</p>
+    <pre><code>QW_IMAGE=ghcr.io/quarrowen/quarrowen/server:{{version}}
+QW_HUB_IMAGE=ghcr.io/quarrowen/quarrowen/hub:{{version}}
+
+docker compose pull &amp;&amp; docker compose up -d</code></pre>
+    <p class="dim">Players in the same house find the world by themselves. Players somewhere else need
+    you to open a port on your router first, or to put everybody on one private network - that is the
+    part of hosting this cannot do for you. <a href="/docs/hosting/">Hosting &rarr;</a></p>
   </div>
 </section>
 
-<section class="made">
-  <h2>Built with Claude Code</h2>
-  <p><strong>Every line of this engine was written with <a href="https://claude.com/claude-code">Claude
-  Code</a>, from an empty folder</strong> — the renderer and its Rust mesher, the authoritative server and
-  its protocol, mob AI and pathfinding, the mod API and its sandbox, world generation, the tests and the
-  tooling. No engine template and no asset packs: every texture, model and sound is generated by a script.</p>
-  <p>It was built for one family's children, and it is free for yours. Free to play, modify and share for
-  anything noncommercial; commercial use needs a separate licence.
-  <a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a></p>
+<section id="make">
+  <h2>Make <span>something</span></h2>
+  <p class="sub">Anything a bundled game does, yours can do. Blocks, creatures and their behaviour,
+  world generation, machines, crafting, whole games - in GDScript, or in JavaScript that runs in a
+  sandbox. Put it on your server and everyone gets it the next time they join.</p>
+  <pre><code>const ruby = api.registerBlock("ruby_ore", { textures: "textures/ruby.png", light: 5 });
+api.addOrePass({ ore: "my_mod:ruby_ore", veins: 2, min_y: 5, max_y: 30 });
+api.on("block_broken", ({ player, block }) =&gt; {
+  if (block === ruby) player.showTitle("Shiny!");
+});</code></pre>
+  <p class="sub"><b>Written once, kept working.</b> Mods call the mod API and never the engine's
+  insides, and the API only grows: a function never changes in place, and an old name keeps working
+  until a major version.</p>
+  <p class="dim"><a href="/docs/modding/">Modding &rarr;</a> &middot; the mod files for this release are
+  on the <a href="https://github.com/quarrowen/quarrowen/releases/tag/v{{version}}">release page</a>.</p>
+</section>
+
+<section id="story">
+  <h2>Where it <span>came from</span></h2>
+  <p class="sub">I built it for my kids and their friends: a world they could all join without anybody
+  sorting out files first. It grew from there.</p>
+  <p class="sub"><b>Every line of it was written with Claude Code, from an empty folder</b> - the
+  renderer and its Rust mesher, the server and its protocol, creature behaviour, the mod API and its
+  sandbox, world generation, the tests and the tooling. No engine template: the textures, models and
+  music are made by scripts, and the sound effects are CC0 and credited. The decisions and the bugs are
+  written down as they happen, in <code>PROGRESS.md</code>, and the bugs are mostly more interesting
+  than the features.</p>
+  <p class="dim">Free to play, modify and share for anything noncommercial; commercial use needs a
+  separate licence. <a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a></p>
 </section>
 
 <section id="facts">
@@ -196,34 +131,37 @@ docker compose pull &amp;&amp; docker compose up -d</pre>
   <p class="sub">For anyone writing about it, or deciding quickly whether it is worth their evening.
   Everything here is checkable in the repository.</p>
   <table>
-    <tr><td><b>What it is</b></td><td>A block-building game that comes with four games in one free
-      download: a survival world, a creative one, a hub of short games, and a single block over the
-      void. It is also the engine underneath them - the server you join decides which game you are
-      playing, so nobody installs anything to join a friend.</td></tr>
+    <tr><td><b>What it is</b></td><td>A voxel game where the world you join brings the game with it, so
+      nobody installs anything to join a friend. Four games in one free download: a survival game with a
+      story, a fairground of short games, a creative world, and a single block over the void.</td></tr>
     <tr><td><b>Version</b></td><td>{{version}}, released {{released}}</td></tr>
     <tr><td><b>Platforms</b></td><td>macOS (Intel and Apple silicon, signed and notarized) and Windows.
-      Linux and iOS build but are not released.</td></tr>
+      A tablet build works and is not released - the touch controls are done and were tested on
+      hardware. Linux builds and is not released.</td></tr>
     <tr><td><b>Price</b></td><td>Free. No accounts, no store, no currency, no advertising, no telemetry.</td></tr>
-    <tr><td><b>Licence</b></td><td>PolyForm Noncommercial 1.0.0 — free to play, modify and share for
+    <tr><td><b>Licence</b></td><td>PolyForm Noncommercial 1.0.0 &mdash; free to play, modify and share for
       anything noncommercial. Not an OSI open-source licence; commercial use needs a separate one.</td></tr>
     <tr><td><b>Made with</b></td><td>Godot 4.7 and a Rust extension, written end to end with Claude Code
-      from an empty folder. Every texture, model and sound is generated by a script — no asset packs.</td></tr>
+      from an empty folder. Textures, models and music are generated by scripts; the sound effects are
+      CC0 and credited in <code>CREDITS.md</code>.</td></tr>
     <tr><td><b>Modding</b></td><td>GDScript or JavaScript, the JavaScript sandboxed. Over 260 API
       functions, all documented and generated from source. No marketplace, no approval queue.</td></tr>
     <tr><td><b>Source</b></td><td><a href="https://github.com/quarrowen/quarrowen">github.com/quarrowen/quarrowen</a>
-      — engine, server, protocol, tests and tooling, all published.</td></tr>
-    <tr><td><b>Screenshots</b></td><td><a href="shots/hero.jpg">hero.jpg</a> ·
-      <a href="shots/menu.jpg">menu.jpg</a>. Generated by the project's own screenshot harness, so they
-      are of the build being shipped rather than a mock-up.</td></tr>
+      &mdash; engine, server, protocol, tests and tooling, all published.</td></tr>
+    <tr><td><b>Screenshots</b></td><td>{{shots_list}} Taken with the project's own harness on the
+      Realistic preset, so they are of the build being shipped rather than a mock-up.</td></tr>
   </table>
 </section>
 
 <footer>
+  <p><a href="/docs/playing/">Playing</a> &middot; <a href="/docs/hosting/">Hosting</a> &middot;
+  <a href="/docs/modding/">Modding</a> &middot; <a href="/docs/faq/">FAQ</a> &middot;
+  <a href="/docs/security/">Security</a> &middot;
+  <a href="https://github.com/quarrowen/quarrowen">Source</a></p>
   <p>Quarrowen is an independent project, not affiliated with, endorsed by or connected to Mojang
   Synergies AB, Microsoft or Roblox Corporation. Minecraft is a trademark of Mojang Synergies AB; Roblox
   is a trademark of Roblox Corporation.</p>
 </footer>
 
 </div>
-
-
+</html>
