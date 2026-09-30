@@ -185,11 +185,11 @@ elif [ -n "$win_name" ]; then
   win_cta="<a class=\"btn\" href=\"$win_url\">Download for Windows <small>$version · $(human "$out/$files/$win_name")</small></a>"
 fi
 if [ -n "$setup_name" ] && [ -n "$win_name" ]; then
-  win_button="<p class=\"under\">Windows: unsigned, so Windows asks once before running it, and it does not update itself yet. Prefer a zip? <a href=\"$win_url\">Take the folder instead ($(human "$out/$files/$win_name"))</a> and run Quarrowen.exe from inside it.</p>"
+  win_button="<p class=\"under\"><b>On Windows:</b> download the setup and run it. Windows asks once before running a program it has not seen before - choose <i>More info</i>, then <i>Run anyway</i>. It does not update itself yet, so come back here when there is a new version. Prefer a zip? <a href=\"$win_url\">Take the folder instead ($(human "$out/$files/$win_name"))</a> and run Quarrowen.exe from inside it.</p>"
 elif [ -n "$setup_name" ]; then
-  win_button="<p class=\"under\">Windows: unsigned, so Windows asks once before running it, and it does not update itself yet.</p>"
+  win_button="<p class=\"under\"><b>On Windows:</b> download the setup and run it. Windows asks once before running a program it has not seen before - choose <i>More info</i>, then <i>Run anyway</i>. It does not update itself yet, so come back here when there is a new version.</p>"
 elif [ -n "$win_name" ]; then
-  win_button="<p class=\"under\">Windows: unpack the whole folder and run Quarrowen.exe from inside it. Unsigned, so Windows asks once, and it does not update itself yet.</p>"
+  win_button="<p class=\"under\"><b>On Windows:</b> unpack the whole folder and run Quarrowen.exe from inside it. Windows asks once before running a program it has not seen before - choose <i>More info</i>, then <i>Run anyway</i>. It does not update itself yet.</p>"
 fi
 
 cat > "$out/update.json" <<EOF
@@ -283,7 +283,6 @@ json.dump({
     "released": "$(date -u +"%e %B %Y" | sed 's/^ //')",
     "mac_url": "$dmg_url",
     "mac_size": "$(human "$out/$files/$download_name")",
-    "mac_notes": """$notes""",
     "win_button": """$win_button""",
     "win_cta": """$win_cta""",
     "game_cards": """$game_cards""",

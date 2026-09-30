@@ -10237,3 +10237,54 @@ whose own security page promises no telemetry and whose pitch is that you can re
 
 **The split above is the prerequisite for either path**, so nothing here is wasted if the site later
 grows a press page and a features page - which is the point where shared layout starts to pay.
+
+
+## The landing page never said what it is (30 September 2026)
+
+First feedback from readers outside the project, and it is the most useful thing the site has had.
+
+**Trah**, who plays across every genre: *"I read the first couple of bits above the downloads and I
+still don't know what it is... I'm assuming it's a minecraft mod/datapack... I understand what it's
+not, but I'm clueless on what it is. I would highly focus on that very first bit, because if that
+doesn't explain what it is and hook people, they won't even keep reading."*
+
+**Char**, who does not play the genre at all: *"IDK what problem it is solving."*
+
+Two independent readers, the same failure, and one of them is experienced enough that he cannot be
+written off as not the audience. If he cannot tell, nobody can.
+
+### The diagnosis, which is worth more than the fix
+
+The hero led with **"The server decides the game"** and **"One app plays any world, because it carries
+no game of its own."** That is an architectural claim, and it describes *how this differs* before
+saying *what it is*. Both readers filled the gap the same way - and the second sentence is what does
+it: if the app carries no game, a reader concludes the game comes from somewhere else, and the
+somewhere else they reach for is the best-known game in the genre. Hence "a mod for it".
+
+**So the rule against naming other companies' products left a vacuum, and readers filled it with the
+comparison anyway - in a subordinate form.** Not naming is still right. Not naming *and not saying
+plainly what this is* is what produced "it's probably an AI mod that does... something".
+
+### What changed
+
+- The hero leads with verbs: dig, build, craft, keep animals, be somewhere safe before dark. Then
+  "four games come in the download". The architecture waits.
+- **"The server decides the game" is now the heading of the section that explains it**, where a reader
+  already knows what is being decided. The line was good; it was in the wrong place.
+- The meta description had the same fault and had the same fix.
+- **The platform lines are how to run it, with the why after** (Char: *"id rephrase this as how to
+  run... then you can put the bits about why after"*). They opened with "unsigned", which is a caveat
+  about the publisher aimed at a reader who has not been told what to click yet.
+- The release notes string was sitting in the middle of the Mac instructions and is gone from there.
+
+The lede was two paragraphs and is one, because rendering it showed the download button pushed to
+590px on a 900px-tall laptop screen. Fixing the words and then looking at the page is how that was
+caught; the words alone read fine in a diff.
+
+### Not changed, deliberately
+
+The `frontend-design` plugin flags two things this page does - a single accent-coloured word in the
+headline, and a tracked-out all-caps eyebrow - as tells of a generated design. Both are true of the
+existing identity, which is live and which nobody complained about. The reported problem was content.
+Changing a brand on my own initiative while fixing a copy bug would be answering a question nobody
+asked, and would make it impossible to tell which change earned the next round of feedback.
