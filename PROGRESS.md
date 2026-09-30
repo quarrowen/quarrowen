@@ -10068,3 +10068,48 @@ is derived from, so the next change to the hotbar will move the belt and leave t
 Having the hotbar publish its own height is the fix and is a bigger change than this one.
 
 Six touch items remain, all of them layout rather than arithmetic, and all needing a phone.
+
+
+## Network instrumentation, and what it immediately said (30 September 2026)
+
+The first of the three network items, and the one that decides the order of the other two. A total has
+been in `--metrics` for a while (`out N KB/s`); a total cannot say whether compressing chunks is worth
+anything. `[traffic]` now breaks the outgoing bytes down by kind - chunks, snapshots, entity
+replication, assets, block changes - and prints **how much of the real total those add up to**.
+
+**`accounted` is the part that makes it honest.** The counted kinds are payload bytes and ENet's total
+includes headers and acknowledgements, so the two can never agree - but a breakdown explaining 20% of
+the traffic is telling you the answer is somewhere else, and one explaining 90% can be acted on.
+Without that number a tidy list gets trusted either way. The first run said **20%**, which is exactly
+the warning it exists to give; adding entity replication took it to ~60%.
+
+### What it says, measured with two bots on a proving world
+
+- **On join**: `chunks 2.9 KB/s (58%)` of the counted bytes, and the true total spikes to 33 KB/s with
+  only 15% accounted - the join burst is mostly content and assets, not terrain.
+- **In steady state**: `entities 51-59%, snapshots 35-46%, chunks 2-7%`. Terrain is *nothing* once you
+  have it; **entity replication is the largest single sender**.
+
+That reverses the recorded order. PROGRESS had "compress chunks, then interest management"; the
+measurement says interest management is where the steady-state traffic is, and chunks only matter for
+the seconds after a join. Worth knowing before either is built, which is the whole point of doing this
+one first.
+
+**And chunks are already compressed** - `Chunk.encode()` is `blocks.compress(COMPRESSION_ZSTD)` - which
+nothing in the roadmap item acknowledged. "Compress chunks" is really "compress the *states* half and
+the join burst", a much smaller job than it sounded.
+
+### Two things found by trying to use the instrument
+
+**`tests/bots.gd` had not worked for weeks.** The load generator PROGRESS names as the way to measure
+server cost failed its handshake twice over: `on_challenge` never gained the `server_id` argument the
+RPC grew, and then the signature has to be made over that id as well. A bot that cannot connect prints
+"0/8 joined", which reads as a server problem, so the tool was quietly unavailable exactly when the
+network work needed it.
+
+**A wrong type annotation is worse than none.** Annotating `chunk.encode_states()` as
+`PackedByteArray` - it returns `PackedInt32Array` - aborted `_stream_chunks` at runtime, so no chunk
+reached any client and every joining player sat waiting for a world. Twelve tests failed. The parse
+error the annotation was added to avoid is loud and immediate; getting the annotation *wrong* is
+silent and only shows up as something else entirely. Bisected by reverting hunks rather than reasoned
+about, which took three runs and no guessing.

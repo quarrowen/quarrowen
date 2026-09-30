@@ -3209,17 +3209,6 @@ and stays for the session.
 Everything a realm owns hangs off the Realm object - its world, its entities, its tickers - so
 dropping the reference is most of the job. What is not automatic is the simulated set, which is
 rebuilt from players, and anything holding the realm id.</p></div>
-<div class="card" data-search="next_entity_id **one counter for every realm.** each realm has its own `entities`, and each used to number from 1,
-so entity 7 existed in every world at once. nothing client-facing carries a realm beside the id -
-`known_entities`, the entity events keyed off it, the boss bar - so a mob in a dungeon and a sheep
-on the surface were the same entity to anything that looked only at the number. ids are runtime
-only (a saved creature is re-spawned and renumbered on load), so this costs the save format
-nothing. (2026-09-29) server/game_server.gd the server itself"><div class="sig"><code>next_entity_id() -&gt; int</code></div><p>**One counter for every realm.** Each realm has its own `Entities`, and each used to number from 1,
-so entity 7 existed in every world at once. Nothing client-facing carries a realm beside the id -
-`known_entities`, the entity events keyed off it, the boss bar - so a mob in a dungeon and a sheep
-on the surface were the same entity to anything that looked only at the number. Ids are runtime
-only (a saved creature is re-spawned and renumbered on load), so this costs the save format
-nothing. (2026-09-29)</p></div>
 <div class="card" data-search="send_to_realm moves a player to another world, standing at `position`. portals, the command and the mod api all
 end here, so the order below is the only place it has to be right.
 
@@ -3556,7 +3545,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1273 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1272 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

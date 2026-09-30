@@ -524,6 +524,7 @@ func replicate(players: Array) -> void:
 				buf.seek(0)
 				buf.put_u16(count)
 				Net.s_entities.rpc_id(p.peer_id, _server.tick, buf.data_array)
+				_server._count_sent("entities", buf.data_array.size())
 				buf = StreamPeerBuffer.new()
 				buf.put_u16(0)
 				count = 0
@@ -538,6 +539,7 @@ func replicate(players: Array) -> void:
 			buf.seek(0)
 			buf.put_u16(count)
 			Net.s_entities.rpc_id(p.peer_id, _server.tick, buf.data_array)
+			_server._count_sent("entities", buf.data_array.size())
 	for e: Entity in entities.values():
 		e.dirty = false
 

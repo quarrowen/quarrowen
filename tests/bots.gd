@@ -75,8 +75,15 @@ class Bot:
 	func on_entities(_a = null, _b = null, _c = null, _d = null) -> void:
 		pass
 
-	func on_challenge(nonce: PackedByteArray) -> void:
-		net.c_auth.rpc_id(1, Identity.sign(key, nonce))
+	# `server_id` arrived when servers grew an identity separate from their certificate; this handler
+	# was not updated, so every bot failed the challenge and the load generator has been joining nobody
+	# for as long as that has been true. A bot that cannot connect reports "0/8 joined" and looks like a
+	# server problem. (2026-09-30)
+	func on_challenge(nonce: PackedByteArray, server_id: String) -> void:
+		# **Signed over the server id as well**, exactly as the real client does: the binding is what
+		# stops a hostile server passing on a real one's challenge and replaying the answer. Signing the
+		# nonce alone is refused, so this had drifted twice from one change.
+		net.c_auth.rpc_id(1, Identity.sign(key, nonce, server_id))
 
 	func on_server_info(_info, _content, _manifest) -> void:
 		net.c_request_assets.rpc_id(1, PackedStringArray())

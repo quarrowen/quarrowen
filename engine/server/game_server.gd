@@ -151,6 +151,17 @@ var rules := PlayerPhysics.Rules.new()
 ## one an old save belongs to. Realms are added by mods before the world loads.
 var realms := {}
 var _next_entity_id := 1
+## **What the bandwidth is made of**, by message kind, in bytes since the last metrics line.
+##
+## The total has been in `--metrics` for a while (`out N KB/s`) and a total cannot answer the question
+## the next two network items ask. Compressing chunks is worth doing if chunks are most of the traffic
+## and worth nothing if they are a tenth of it; interest management is the other way round. This says
+## which, so the order is a measurement rather than a guess. (2026-09-30)
+##
+## Only the senders big enough to matter are counted, and the line prints how much of the real total
+## they add up to - so an honest "accounted 62%" says plainly that the interesting third is somewhere
+## this does not look, instead of a tidy breakdown that quietly omits it.
+var _sent_by_kind := {}
 ## The realm everything without a realm of its own means. Every field below that used to hold the world
 ## directly now reads through it, so the hundred and seventy places that say `world.get_block(...)` did
 ## not all have to change on the same day. They will change as each becomes realm-aware; until then
@@ -2467,8 +2478,34 @@ func _record_metrics(delta: float, total: int, sections: Dictionary) -> void:
 	print("[metrics] players %d  mobs %d  chunks %d  ticks %d/s (%d over budget)  tick avg %.2f ms  [%s]  max %.1f ms [%s]  slowest task %s %.1f ms  gens %d (%.1f ms each)  out %.1f KB/s (%.1f per player)" % [
 		players.size(), entities.entities.size(), world.chunks.size(), roundi(n / maxf((Time.get_ticks_msec() - m.wall) / 1000.0, 0.001)), m.slow, m.total / n / 1000.0, ", ".join(average), m.max / 1000.0, ", ".join(worst), _slowest_task[0], _slowest_task[1] / 1000.0,
 		m.gen, (m.gen_usec / maxf(m.gen, 1.0)) / 1000.0, sent / m.elapsed / 1024.0, sent / m.elapsed / 1024.0 / maxf(players.size(), 1)])
+	_print_traffic(sent, m.elapsed)
 	_metrics = {}
 	_slowest_task = ["-", 0]
+
+
+## What the outgoing bandwidth was made of, biggest first, with the share of the real total that the
+## counted kinds add up to.
+##
+## **`accounted` is the honest part.** The counted kinds are payload bytes and the total from ENet
+## includes headers, acknowledgements and everything not counted here, so the two will never agree - but
+## a breakdown that explains 40% of the traffic is telling you the answer is elsewhere, and one that
+## explains 90% can be acted on. Without that number a tidy-looking list would be trusted either way.
+func _print_traffic(total_sent: int, elapsed: float) -> void:
+	if _sent_by_kind.is_empty() or elapsed <= 0.0:
+		_sent_by_kind = {}
+		return
+	var kinds: Array = _sent_by_kind.keys()
+	kinds.sort_custom(func(a, b): return int(_sent_by_kind[a]) > int(_sent_by_kind[b]))
+	var counted := 0
+	for kind: String in kinds:
+		counted += int(_sent_by_kind[kind])
+	var parts := PackedStringArray()
+	for kind: String in kinds:
+		parts.append("%s %.1f KB/s (%d%%)" % [kind, _sent_by_kind[kind] / elapsed / 1024.0,
+			roundi(100.0 * float(_sent_by_kind[kind]) / maxf(counted, 1.0))])
+	print("[traffic] %s  ·  accounted %d%% of %.1f KB/s" % [", ".join(parts),
+		roundi(100.0 * float(counted) / maxf(total_sent, 1.0)), total_sent / elapsed / 1024.0])
+	_sent_by_kind = {}
 
 
 func _simulate_player(p: ServerPlayer) -> void:
@@ -3069,6 +3106,7 @@ func _send_snapshots_to(list: Array, full_rate: bool) -> void:
 		velocities, yaws, pitches, grounded, INTEREST_RADIUS, NEAR_RADIUS, full_rate)
 	for i in mini(list.size(), payloads.size()):
 		Net.s_snapshot.rpc_id(list[i].peer_id, tick, payloads[i])
+		_count_sent("snapshots", (payloads[i] as PackedByteArray).size())
 
 
 ## Other players per snapshot (20 bytes each), nearest first, so a crowd stays under the network MTU.
@@ -3295,6 +3333,7 @@ func _stream_assets() -> void:
 			var bytes: PackedByteArray = _asset_bytes[hash]
 			var piece := bytes.slice(j.offset, j.offset + Protocol.ASSET_PIECE_SIZE)
 			Net.s_asset_piece.rpc_id(peer_id, hash, j.offset, bytes.size(), piece)
+			_count_sent("assets", piece.size())
 			j.offset += piece.size()
 			budget -= maxi(piece.size(), 1)
 			if j.offset >= bytes.size():
@@ -3311,6 +3350,7 @@ func _stream_assets() -> void:
 			var bytes: PackedByteArray = _asset_bytes[hash]
 			var piece := bytes.slice(stream.offset, stream.offset + Protocol.ASSET_PIECE_SIZE)
 			Net.s_asset_piece.rpc_id(peer_id, hash, stream.offset, bytes.size(), piece)
+			_count_sent("assets", piece.size())
 			stream.offset += piece.size()
 			budget -= maxi(piece.size(), 1)
 			if stream.offset >= bytes.size():
@@ -3704,6 +3744,12 @@ func realm_of(p: ServerPlayer) -> Realm:
 ## on the surface were the same entity to anything that looked only at the number. Ids are runtime
 ## only (a saved creature is re-spawned and renumbered on load), so this costs the save format
 ## nothing. (2026-09-29)
+## Records bytes put on the wire for one message kind. Cheap enough to sit in a send loop: one
+## dictionary lookup and an add.
+func _count_sent(kind: String, bytes: int) -> void:
+	_sent_by_kind[kind] = int(_sent_by_kind.get(kind, 0)) + bytes
+
+
 func next_entity_id() -> int:
 	_next_entity_id += 1
 	return _next_entity_id - 1
@@ -3827,7 +3873,16 @@ func _stream_chunks(p: ServerPlayer) -> void:
 			continue
 		p.pending_chunks.remove_at(i)
 		p.sent_chunks[coord] = true
-		Net.s_chunk.rpc_id(p.peer_id, coord, chunk.encode(), chunk.encode_states())
+		# Annotated because `chunk` is untyped and `:=` on anything reached through one will not parse -
+		# and annotated **with the types these actually return**, which are not the same: blocks are
+		# ZSTD-compressed bytes, states are a PackedInt32Array. Calling the second one a PackedByteArray
+		# aborted this function at runtime, so no chunk reached any client and every joining player sat
+		# waiting for a world. A wrong annotation fails silently where a missing one fails loudly.
+		# (2026-09-30)
+		var blocks: PackedByteArray = chunk.encode()
+		var states: PackedInt32Array = chunk.encode_states()
+		Net.s_chunk.rpc_id(p.peer_id, coord, blocks, states)
+		_count_sent("chunks", blocks.size() + states.size() * 4)
 		sends += 1
 
 
@@ -6233,6 +6288,7 @@ func _apply_block(pos: Vector3i, block: int, keep_data := false, state := 0, int
 	for p: ServerPlayer in players.values():
 		if p.sent_chunks.has(coord) and realm_of(p) == into:
 			Net.s_block_changed.rpc_id(p.peer_id, pos, block, state & 255)
+			_count_sent("blocks", 12)
 	# Blocks that need support (plants, torches) break when what holds them goes away.
 	if old != block and pos.y + 1 < Chunk.SIZE_Y:
 		var above := into.world.get_block_v(pos + Vector3i.UP)
@@ -6318,6 +6374,7 @@ func _reject_edit(p: ServerPlayer, pos: Vector3i) -> void:
 	var block := into.world.get_block_v(pos)
 	if block != BlockRegistry.UNLOADED and _started:
 		Net.s_block_changed.rpc_id(p.peer_id, pos, block, into.block_state(pos))
+		_count_sent("blocks", 12)
 	p.sync_inventory()
 
 
