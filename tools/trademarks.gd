@@ -38,6 +38,9 @@ const EXACT_CASE := ["Eco"]
 const ALLOWED := [
 	"LICENSE", "README.md", "docs/faq.md",
 	"tools/make_release.sh", "tools/generate_icon.py", "tools/trademarks.gd",
+	# The download page's trademark notice, which has to name the marks it disclaims. It moved here
+	# from inside make_release.sh on 30 September 2026 when the page became a template.
+	"site/landing/index.html",
 	"engine/client/menu/main_menu.gd",
 	"tests/trademark_test.gd",
 ]
@@ -45,7 +48,11 @@ const ALLOWED := [
 ## Ends a commit record in the log output. Plain text on purpose; see `offences_in_commits`.
 const END := "@@quarrowen-end-of-commit@@"
 
-const SCANNED := [".md", ".gd", ".sh", ".py", ".js", ".json", ".txt"]
+## **`.html` and `.css` are scanned because the landing page lives in them now.** Splitting the page
+## out of make_release.sh on 30 September 2026 moved the most public prose in the project into a file
+## type this did not look at, which would have quietly ended enforcement on the one page most people
+## read. A rule that only covers the file types a project happened to have is a rule with a hole in it.
+const SCANNED := [".md", ".gd", ".sh", ".py", ".js", ".json", ".txt", ".html", ".css"]
 ## Not scanned: build output (copies of old games that predate the rule), vendored code, and anything
 ## generated into .godot. Relative to the root, so it works whatever path the scan is started from.
 const SKIPPED_DIRS := [".git", "build", ".godot", "native/target", "addons", "services"]

@@ -1,0 +1,152 @@
+  :root {
+    /* The game's own palette (engine/client/menu/menu_theme.gd), so the site and the game match. */
+    --ground: #1A212E;
+    --panel: #0F141C;
+    --panel-2: #172031;
+    --edge: #2A3445;
+    --ink: #F0F2F5;
+    --muted: #97A0AE;
+    --accent: #5CB86B;
+    --accent-hover: #70CC80;
+    --warn: #FFB880;
+    --display: "Fredoka", system-ui, sans-serif;   /* headings and the name */
+    --sans: "Nunito Sans", system-ui, sans-serif;  /* everything a player reads */
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; padding: 0; background: var(--ground); color: var(--ink);
+    font: 400 17px/1.65 var(--sans);
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding-inline: 24px; }
+  .narrow { max-width: 680px; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  img { max-width: 100%; display: block; }
+
+  /* --- Hero: the valley fills the screen, the words sit on it. --- */
+  .hero { position: relative; min-height: 78vh; display: flex; align-items: flex-end; overflow: hidden; }
+  .hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .hero::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(26,33,46,0.34) 0%, rgba(26,33,46,0.1) 40%, rgba(26,33,46,0.92) 88%, var(--ground) 100%);
+  }
+  .hero .wrap { position: relative; z-index: 2; padding-block: 0 64px; width: 100%; }
+  .name {
+    font: 600 15px/1 var(--display); letter-spacing: 0.26em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 18px; text-shadow: 0 2px 16px rgba(0,0,0,0.9);
+  }
+  h1 {
+    font: 600 clamp(42px, 8vw, 86px)/0.98 var(--display);
+    margin: 0; letter-spacing: -0.015em; max-width: 14ch; text-wrap: balance;
+    text-shadow: 0 4px 32px rgba(0,0,0,0.75);
+  }
+  h1 span { color: var(--accent); }
+  .hero p {
+    font-size: clamp(17px, 2.1vw, 21px); margin: 20px 0 0; max-width: 40ch; color: #DCE2EA;
+    text-shadow: 0 2px 18px rgba(0,0,0,0.85); text-wrap: pretty;
+  }
+  .cta { display: flex; flex-wrap: wrap; gap: 14px 16px; align-items: center; margin-top: 34px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 12px; text-decoration: none;
+    font-family: var(--display); font-weight: 600; font-size: 19px;
+    background: var(--accent); color: #08150C; padding: 16px 30px; border-radius: 12px;
+    border: 2px solid var(--accent); box-shadow: 0 10px 40px rgba(92,184,107,0.28);
+    transition: background 0.15s ease, transform 0.12s ease;
+  }
+  .btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn:active { transform: translateY(2px); }
+  .btn small { font: 400 13px/1 var(--sans); opacity: 0.72; }
+  .btn.ghost {
+    background: rgba(255,255,255,0.06); color: var(--ink); border-color: rgba(255,255,255,0.22);
+    box-shadow: none;
+  }
+  .btn.ghost:hover { background: rgba(255,255,255,0.13); border-color: rgba(255,255,255,0.4); }
+  .under { font-size: 14px; color: var(--muted); margin-top: 14px; }
+
+  /* --- Sections --- */
+  section { padding-block: 86px 0; }
+  h2 {
+    font: 600 clamp(28px, 4vw, 40px)/1.1 var(--display);
+    margin: 0 0 16px; letter-spacing: -0.01em; text-wrap: balance;
+  }
+  h2 span { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 17.5px; margin: 0 0 40px; max-width: 54ch; text-wrap: pretty; }
+  p { text-wrap: pretty; }
+
+  /* A game: a big picture with its words beside it, alternating sides. */
+  .game { display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; align-items: center; margin-bottom: 72px; }
+  .game:nth-child(even) .shot { order: 2; }
+  .shot { border-radius: 14px; overflow: hidden; border: 1px solid var(--edge); background: var(--panel); }
+  .shot img { width: 100%; height: auto; }
+  .game h3 { font: 600 27px/1.2 var(--display); margin: 0 0 4px; }
+  .kind {
+    font: 600 12px/1 var(--sans); letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 12px;
+  }
+  .game p { margin: 0; color: #C7CFDA; font-size: 16.5px; }
+  .figures {
+    display: flex; gap: 26px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--edge);
+    font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .figures b { display: block; font-family: var(--display); font-weight: 600; font-size: 25px; color: var(--ink); line-height: 1.1; }
+
+  /* What makes it different: plain statements, no cards fighting the games above. */
+  .diffs { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 34px 40px; }
+  .diff h3 {
+    font: 600 20px/1.25 var(--display); margin: 0 0 8px; padding-top: 16px;
+    border-top: 2px solid var(--accent);
+  }
+  .diff p { margin: 0; color: #C7CFDA; font-size: 15.5px; }
+  .diff em { font-style: normal; color: var(--ink); font-weight: 600; }
+
+  /* The mod zips: a plain table, since it is a reference rather than something to browse. */
+  .mods { margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--edge); }
+  .mods h3 { font: 600 20px/1.25 var(--display); margin: 0 0 8px; }
+  .mods h3 + p { margin-bottom: 14px; }
+  .mods table { width: 100%; border-collapse: collapse; margin: 0 0 22px; font-size: 14.5px; }
+  .mods td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--edge); vertical-align: top; }
+  .mods td:last-child { text-align: right; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .dim { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+
+  /* The fact table. The label column is fixed so the values start on one line down the page, and
+     wide enough that "Screenshots" does not sit flush against its own value. */
+  #facts table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  #facts td { padding: 10px 0; border-bottom: 1px solid var(--edge); vertical-align: top; }
+  #facts td:first-child { width: 130px; padding-right: 22px; color: var(--ink); white-space: nowrap; }
+  #facts tr:last-child td { border-bottom: 0; }
+
+  /* Four lanes */
+  .lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .lane {
+    background: var(--panel); border: 1px solid var(--edge); border-radius: 14px; padding: 24px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .lane:hover { background: var(--panel-2); border-color: #3C4A61; }
+  .lane h3 { font: 600 20px/1.25 var(--display); margin: 0 0 8px; }
+  .lane p { font-size: 15px; color: var(--muted); margin: 0 0 14px; }
+  .lane a { font-weight: 600; font-size: 15px; text-decoration: none; }
+  .lane a:hover { text-decoration: underline; }
+
+  /* Server */
+  .server { background: var(--panel); border: 1px solid var(--edge); border-radius: 16px; padding: 34px; }
+  .server h2 { font-size: clamp(25px, 3.4vw, 33px); }
+  pre {
+    background: #0A0E15; border: 1px solid var(--edge); border-radius: 10px; margin: 20px 0 0;
+    padding: 16px 18px; overflow-x: auto;
+    font: 400 13.5px/1.75 ui-monospace, SFMono-Regular, Menlo, monospace; color: #C7CFDA;
+  }
+  pre b { color: var(--accent); font-weight: 400; }
+
+  .made { border-top: 1px solid var(--edge); margin-top: 96px; padding-top: 40px; }
+  .made p { color: var(--muted); font-size: 16px; max-width: 62ch; }
+  .made strong { color: var(--ink); font-weight: 600; }
+  footer { padding-block: 40px 90px; color: #6F7A8A; font-size: 13.5px; }
+  footer p { max-width: none; }
+
+  @media (max-width: 760px) {
+    .game { grid-template-columns: 1fr; gap: 22px; margin-bottom: 56px; }
+    .game:nth-child(even) .shot { order: 0; }
+    .hero { min-height: 72vh; }
+    .server { padding: 24px; }
+  }

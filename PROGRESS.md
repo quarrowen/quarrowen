@@ -10186,3 +10186,54 @@ second has an instrument that will name it rather than a list to guess from.
 
 Next for it, and cheap: shader compilation is testable by pre-warming materials at load and seeing
 whether the 3.8-second frame moves or disappears.
+
+
+## The landing page is a template now (30 September 2026)
+
+The page was a 368-line heredoc inside `tools/make_release.sh`, so every word on the site lived in a
+shell script. A change of copy was a change to the release tooling, a one-sentence diff was unreadable,
+and nobody who was not already editing the build could edit the page - which matters now that the point
+is to act on what readers say about it.
+
+- **`site/landing/index.html`** - the page, as ordinary HTML with `{{name}}` where a value goes.
+- **`site/landing/style.css`** - the 152 lines of CSS that were inside it, still inlined into the
+  output because the page has to work from a folder or an archive, but editable as a stylesheet.
+- **`tools/build_landing.py`** - merges them. No loops, no conditions, no expressions: anything that
+  needs deciding is decided in the release script where the artifacts are. A templating language would
+  invite the logic back one placeholder at a time, which is how the heredoc happened.
+
+**It refuses in both directions.** A placeholder with no value is an error, and a value the template
+never uses is an error too - the first would publish the literal text `{{mac_url}}` as a download link,
+and the second is how a page quietly stops saying something somebody added.
+
+**Verified by diffing the output against the old heredoc's, byte for byte.** That is what caught the
+one real mistake: `$(date ...)` was a shell command substitution inside the HTML, and turning the block
+into a template made it literal text, so the page would have shown a shell command where the release
+date goes. A refactor that claims to change nothing can be held to it.
+
+### And it silently ended a rule, which the diff did not catch
+
+`tools/trademarks.gd` scans `.md .gd .sh .py .js .json .txt`. Moving the page out of a `.sh` and into
+an `.html` took **the most public prose in the project** out of the trademark scan - the one page most
+people will ever read. `.html` and `.css` are scanned now, and the page is on the allowlist because its
+footer has to name the marks it disclaims.
+
+Worth remembering as a shape: a rule that covers the file types a project happens to have is a rule
+with a hole in it, and moving a file is enough to fall through. Nothing failed; the suite stayed green
+either way.
+
+### Why not a static site generator
+
+The user asked, twice, and the answer is narrower than "no". mkdocs already builds the reference site
+and should keep it. The landing page resists for one specific reason: its content is **release-time
+data** - real file sizes, download names, which games shipped - and it deploys on the release's
+schedule beside `update.json` and its signature, which every installed client polls. An SSG builds at
+docs-publish time, a different moment. Solvable, but it puts a docs build inside the release path for
+one page, and since the page is a hero, button rows and card grids it would be authored as HTML inside
+the SSG anyway - so what is bought is shared nav and theme, which this page deliberately does not want.
+
+Next.js was also asked about and is a harder no: several hundred transitive dependencies, on a project
+whose own security page promises no telemetry and whose pitch is that you can read all of it.
+
+**The split above is the prerequisite for either path**, so nothing here is wasted if the site later
+grows a press page and a features page - which is the point where shared layout starts to pay.
