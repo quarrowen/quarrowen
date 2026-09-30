@@ -165,17 +165,18 @@
 
 <div class="hero">
   <img class="hero-img" src="shots/hero.jpg"
-       alt="Green hills with an ore-streaked cliff, trees and a beach beyond.">
+       alt="A blocky green valley: a cliff with veins of ore, cube-shaped trees, and a beach beyond.">
   <div class="wrap">
     <p class="name">Quarrowen</p>
     <h1>Dig, build, and <span>make it through the night</span>.</h1>
-    <p>A game about breaking blocks and making something out of what you find: mine into a hillside,
-    craft what you need, keep animals, and be somewhere safe before dark. <b>Four games come in the
-    download</b> and you can play them alone or with friends.</p>
+    <p>Every hill, tree and lake is built from cubes, and you can take any of them apart and put them
+    back somewhere better. Mine into a hillside, craft what you need, keep animals, and be somewhere
+    safe before dark. <b>Four games come in the download</b>: survive the night, build with no limits,
+    play short games with friends, or start from a single block over the void.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/Quarrowen-0.42.2-mac-universal.dmg">Download for Mac <small>0.42.2 · 74M</small></a>
       <a class="btn" href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/Quarrowen-0.42.2-Setup.exe">Download for Windows <small>0.42.2 · 32M</small></a>
-      <a class="btn ghost" href="/docs/">Read the reference</a>
+      <a class="btn ghost" href="/docs/playing/">How to play</a>
     </div>
     <p class="under"><b>On a Mac:</b> download it, drag it to Applications, and open it. It is
     signed and notarised, so it opens straight away with no security detour, and it keeps itself up to
@@ -188,50 +189,24 @@
 
 <section id="play">
   <h2>What you can <span>play</span></h2>
-  <p class="sub">All of it comes with the download, and each one is a mod - so anything they do, yours
-  can do too. Play on your own, or start a world and let somebody join.</p>
+  <p class="sub">All four come with the download - there is nothing else to fetch. Play on your own,
+  or start a world and let a friend join it.</p>
   <div class="lanes"><div class="lane"><h3>Creative</h3><p>A world and everything in it, and nothing to survive. Build.</p></div><div class="lane"><h3>The Fairground</h3><p>A hub of short games with a door to each: step through one and a round begins. Every game is worth playing on your own, and better with somebody.</p></div><div class="lane"><h3>Firstlight</h3><p>Make it through the night. Dig, build, and come back out in the morning.</p></div><div class="lane"><h3>One Block</h3><p>One block over the void. Break it and something else takes its place: soil, then stone and ores, then creatures and crates. Build outwards from whatever you collect.</p></div></div>
-</section>
-
-<section id="safe">
-  <h2>Is it <span>safe</span> to join someone's server?</h2>
-  <p class="sub">The honest answer, because the way this works invites the question: a server sends your
-  game <b>data, never code</b>. There is no mod runtime in the client at all - nothing in the protocol
-  carries a script, and mods run on the machine hosting the world, not yours.</p>
-  <div class="lanes">
-    <div class="lane">
-      <h3>No accounts, nothing collected</h3>
-      <p>No sign-up, no email, no telemetry, no analytics. A player is a key on their own computer, and
-      worlds are files on yours.</p>
-    </div>
-    <div class="lane">
-      <h3>Everything is bounded</h3>
-      <p>What a server may send is size-limited and checked before it is used, and downloaded content is
-      stored under the hash of its own contents - so no server can name a file on your disk.</p>
-    </div>
-    <div class="lane">
-      <h3>The limits, written down</h3>
-      <p>Where the protections end is on the page too, not buried: what trust-on-first-use means, and
-      what your client does parse from a server.</p>
-      <a href="/docs/security/">Security →</a>
-    </div>
-  </div>
 </section>
 
 <section id="different">
   <h2>The server decides <span>the game</span></h2>
-  <p class="sub">This is the unusual part, and it is underneath rather than on the surface. Every one
-  of those four games is a mod, and the server you join supplies the one you are playing - so the same
-  app is a survival world on one server and a hub of quick games on the next, and nobody who joins you
-  has to install anything. Block games are a genre, the way platformers are; what is different here is
-  where the game lives and who is allowed to change it.</p>
+  <p class="sub">Playing a modified block game with friends usually costs you the first hour of the
+  evening: everyone fetches the same files, into the same folder, at the same version, or somebody
+  cannot get in. Here nothing is installed on anybody's computer. One person starts the world and
+  everybody else clicks join, because the server hands out the game along with it.</p>
 
   <div class="diffs">
     <div class="diff">
-      <h3>The app has no game in it</h3>
-      <p>Other block games ship a game and let you mod it. Quarrowen ships an <em>engine</em>: the client
-      has no blocks, no creatures and no rules of its own. It downloads them from whichever server it
-      joins, so the same app is a survival world on one server and a story on the next.</p>
+      <h3>The world you join brings its own rules</h3>
+      <p>The four games in the download are not welded into the app. Each one is a complete set of
+      blocks, creatures and rules, and a server hands over the one it is running - so the same app is a
+      survival world on one server and a hub of quick games on the next.</p>
     </div>
     <div class="diff">
       <h3>Nobody installs a mod</h3>
@@ -266,10 +241,43 @@
   </div>
 </section>
 
+<section id="safe">
+  <h2>Is it <span>safe</span> to join someone's server?</h2>
+  <p class="sub">A server you have never met supplies the game you play, so the first fair question is
+  what it is allowed to send you. The answer: <b>data, never code</b>. There is no mod runtime in the
+  client at all - nothing in the protocol carries a script, and mods run on the machine hosting the
+  world, not yours.</p>
+  <div class="lanes">
+    <div class="lane">
+      <h3>Nothing leaves your machine</h3>
+      <p>Nothing is collected and nothing is sent anywhere except the server you chose to join. Your
+      worlds, your settings and the key that is your name all stay on your own computer.</p>
+    </div>
+    <div class="lane">
+      <h3>Only who you allow</h3>
+      <p>A world you run lets in the names you list and nobody else, and that permission carries across
+      every world you run, so a child who can reach one can reach all of them and a stranger can reach
+      none.</p>
+    </div>
+    <div class="lane">
+      <h3>Everything is bounded</h3>
+      <p>What a server may send is size-limited and checked before it is used, and downloaded content is
+      stored under the hash of its own contents - so no server can name a file on your disk.</p>
+    </div>
+    <div class="lane">
+      <h3>The limits, written down</h3>
+      <p>Where the protections end is on the page too, not buried: what trust-on-first-use means, and
+      what your client does parse from a server.</p>
+      <a href="/docs/security/">Security →</a>
+    </div>
+  </div>
+</section>
+
 <section>
   <h2>Made for a family to <span>play together</span></h2>
-  <p class="sub">Your worlds live on your own machine or your own server. No accounts, no email, nothing
-  collected, and only the people you allow can join.</p>
+  <p class="sub">One person runs a world and everybody joins it from the menu - across the house, or
+  across the world if you open a port. Several worlds can sit side by side, and you can walk between
+  them.</p>
   <div class="shot" style="max-width:100%">
     <img src="shots/menu.jpg" alt="The Quarrowen main menu, with a world list over a living world backdrop.">
   </div>
@@ -281,22 +289,22 @@
     <div class="lane">
       <h3>Play</h3>
       <p>Controls, your first hour, and how recipes are discovered rather than looked up.</p>
-      <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/playing.md">Playing →</a>
+      <a href="/docs/playing/">Playing →</a>
     </div>
     <div class="lane">
       <h3>Run a server</h3>
       <p>Several worlds and a hub on one Linux box, in about ten minutes.</p>
-      <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/hosting.md">Hosting →</a>
+      <a href="/docs/hosting/">Hosting →</a>
     </div>
     <div class="lane">
       <h3>Make a mod</h3>
       <p>Blocks, creatures, machines, whole games — GDScript or JavaScript.</p>
-      <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/modding.md">Modding →</a>
+      <a href="/docs/modding/">Modding →</a>
     </div>
     <div class="lane">
       <h3>Questions</h3>
       <p>What it costs, whether it's safe for children, where your worlds are kept.</p>
-      <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/faq.md">FAQ →</a>
+      <a href="/docs/faq/">FAQ →</a>
     </div>
     <div class="lane">
       <h3>Writing about it</h3>
@@ -323,6 +331,7 @@ docker compose pull &amp;&amp; docker compose up -d</pre>
     a server by hand. In the game, the Mods page does it for you.</p>
     <h3>Games</h3><p class="dim">A world runs one of these.</p><table><tr><td><b>Creative</b><br><span class="dim">A world and everything in it, and nothing to survive. Build.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/creative-1.0.0.zip">creative-1.0.0.zip</a><br><span class="dim">168K</span></td></tr><tr><td><b>The Fairground</b><br><span class="dim">A hub of short games with a door to each: step through one and a round begins. Every game is worth playing on your own, and better with somebody.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/fairground-1.0.0.zip">fairground-1.0.0.zip</a><br><span class="dim">16K</span></td></tr><tr><td><b>Firstlight</b><br><span class="dim">Make it through the night. Dig, build, and come back out in the morning.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/firstlight-0.1.0.zip">firstlight-0.1.0.zip</a><br><span class="dim">352K</span></td></tr><tr><td><b>One Block</b><br><span class="dim">One block over the void. Break it and something else takes its place: soil, then stone and ores, then creatures and crates. Build outwards from whatever you collect.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/oneblock-1.0.0.zip">oneblock-1.0.0.zip</a><br><span class="dim">316K</span></td></tr></table><h3>Add-ons</h3><p class="dim">Extra content on top of a game.</p><table><tr><td><b>The Floor is Lava</b><br><span class="dim">The lava is rising and the floor is going. Climb, or build something to stand on. A game for the Fairground.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/lavagame-1.0.0.zip">lavagame-1.0.0.zip</a><br><span class="dim">4.0K</span></td></tr><tr><td><b>Stand On The Answer</b><br><span class="dim">A question, four coloured squares, and the wrong three fall away. Spelling and sums in a costume. A game for the Fairground.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/wordgame-1.0.0.zip">wordgame-1.0.0.zip</a><br><span class="dim">8.0K</span></td></tr></table><h3>Packs</h3><p class="dim">What a game is built from. A game names the ones it wants.</p><table><tr><td><b>Base Blocks</b><br><span class="dim">Common terrain and building blocks shared by other mods. Not a game on its own.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/base-1.0.0.zip">base-1.0.0.zip</a><br><span class="dim">264K</span></td></tr><tr><td><b>Guidebook</b><br><span class="dim">The in-game Survival Guide: what the blocks, machines and gear are for. A library any game can include, because none of it belongs to one.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/guidebook-1.0.0.zip">guidebook-1.0.0.zip</a><br><span class="dim">12K</span></td></tr><tr><td><b>Simple Gear</b><br><span class="dim">Tools, weapons, armour and charms, and the benches that build them from parts. Not a game on its own.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/simple_gear-1.0.0.zip">simple_gear-1.0.0.zip</a><br><span class="dim">60K</span></td></tr><tr><td><b>Simple Machines</b><br><span class="dim">Workbenches, furnaces, containers and signals. The verbs a game does with base's nouns. Not a game on its own.</span></td><td class="right"><a href="https://github.com/quarrowen/quarrowen/releases/download/v0.42.2/simple_machines-1.0.0.zip">simple_machines-1.0.0.zip</a><br><span class="dim">32K</span></td></tr></table>
   
+  
   </div>
 </section>
 
@@ -342,8 +351,10 @@ docker compose pull &amp;&amp; docker compose up -d</pre>
   <p class="sub">For anyone writing about it, or deciding quickly whether it is worth their evening.
   Everything here is checkable in the repository.</p>
   <table>
-    <tr><td><b>What it is</b></td><td>A voxel game engine. The client ships no game of its own; blocks,
-      creatures and rules arrive from the server you join.</td></tr>
+    <tr><td><b>What it is</b></td><td>A block-building game that comes with four games in one free
+      download: a survival world, a creative one, a hub of short games, and a single block over the
+      void. It is also the engine underneath them - the server you join decides which game you are
+      playing, so nobody installs anything to join a friend.</td></tr>
     <tr><td><b>Version</b></td><td>0.42.2, released 29 September 2026</td></tr>
     <tr><td><b>Platforms</b></td><td>macOS (Intel and Apple silicon, signed and notarized) and Windows.
       Linux and iOS build but are not released.</td></tr>
