@@ -1147,7 +1147,15 @@ behind, and a second copy would drift from this one.</p></div></section>
 <div class="card" data-search="order_of what it is being told to do now. everything defaults to following, which is what a creature that has
 just been tamed should do without anybody saying so. server/companions.gd creatures and ai"><div class="sig"><code>order_of(entity) -&gt; String</code></div><p>What it is being told to do now. Everything defaults to following, which is what a creature that has
 just been tamed should do without anybody saying so.</p></div>
-<div class="card" data-search="post_of where it was told to hold, for guard. vector3.inf when it has no post. server/companions.gd creatures and ai"><div class="sig"><code>post_of(entity) -&gt; Vector3</code></div><p>Where it was told to hold, for guard. Vector3.INF when it has no post.</p></div>
+<div class="card" data-search="post_of where it was told to hold, for guard. vector3.inf when it has no post, and **also when the post is
+in another world**: a companion follows a player through a portal (the comment in `on_action` records
+exactly that happening), and three bare numbers then sent it walking towards those coordinates
+wherever it now stood. the fourth entry is the realm; three on its own is a post given before
+30 september 2026 and means the overworld. (2026-09-30) server/companions.gd creatures and ai"><div class="sig"><code>post_of(entity) -&gt; Vector3</code></div><p>Where it was told to hold, for guard. Vector3.INF when it has no post, and **also when the post is
+in another world**: a companion follows a player through a portal (the comment in `on_action` records
+exactly that happening), and three bare numbers then sent it walking towards those coordinates
+wherever it now stood. The fourth entry is the realm; three on its own is a post given before
+30 September 2026 and means the overworld. (2026-09-30)</p></div>
 <div class="card" data-search="give tells it something. `options.at` is where, for orders that need a place; it defaults to where the
 creature is standing, which is what &quot;guard this spot&quot; means when somebody says it out loud. server/companions.gd creatures and ai"><div class="sig"><code>give(entity, order_name: String, options := {}) -&gt; bool</code></div><p>Tells it something. `options.at` is where, for orders that need a place; it defaults to where the
 creature is standing, which is what "guard this spot" means when somebody says it out loud.</p></div>
@@ -2226,6 +2234,15 @@ Arriving with a ticket (from anywhere in the network) drops the held copy instea
 accepted ticket, or {error}. server/transfers.gd saving, network and protocol"><div class="sig"><code>accept(ticket: String, signature: String, player_id: String) -&gt; Dictionary</code></div><p>A joining player's ticket, checked once they have proven their identity. Returns {entry, data} for an
 accepted ticket, or {error}.</p></div>
 <div class="card" data-search="arrival_position where an arriving player appears: the ticket's named arrival point, or vector3.inf (their usual place). server/transfers.gd saving, network and protocol"><div class="sig"><code>arrival_position(accepted: Dictionary) -&gt; Vector3</code></div><p>Where an arriving player appears: the ticket's named arrival point, or Vector3.INF (their usual place).</p></div>
+<div class="card" data-search="arrival_realm the world that arrival point is in. an arrival point set while standing in a hub or a lobby saved
+three bare numbers, and a traveller from another server was then placed at those coordinates inside
+whatever realm their own record happened to name - which could not be corrected when it was read,
+because no realm was ever written. a fourth entry carries it; three on its own is a point saved
+before 30 september 2026 and means the overworld. server/transfers.gd saving, network and protocol"><div class="sig"><code>arrival_realm(accepted: Dictionary) -&gt; String</code></div><p>The world that arrival point is in. An arrival point set while standing in a hub or a lobby saved
+three bare numbers, and a traveller from another server was then placed at those coordinates inside
+whatever realm their own record happened to name - which could not be corrected when it was read,
+because no realm was ever written. A fourth entry carries it; three on its own is a point saved
+before 30 September 2026 and means the overworld.</p></div>
 <div class="card" data-search="arrive after an arriving player spawned: give what they carried and tell mods. server/transfers.gd saving, network and protocol"><div class="sig"><code>arrive(p, accepted: Dictionary) -&gt; void</code></div><p>After an arriving player spawned: give what they carried and tell mods.</p></div>
 <div class="card" data-search="portal_at the portal settings of a portal block at the player's feet or body, or {}.
 the portal a player is standing in, or {}. its block data says where it goes: `server` for another
@@ -3522,7 +3539,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1271 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1272 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

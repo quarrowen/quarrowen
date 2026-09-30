@@ -9888,3 +9888,38 @@ blocks and block data both, into the overworld; a mod authoring a dimension got 
 It is in `DEPRECATED` now, still working and still calling through. The Proving Ground calls **both**,
 which is what the deprecation policy asks for: exercising the old name is the only thing that proves
 it still works, and having the pair side by side is what stops them drifting.
+
+
+## Realms: the last of the write sweep (30 September 2026)
+
+**The `instances.gd` loop that never ran.** Its comment says it moves the records of players who are
+offline inside a closing instance, so they do not load into a world that no longer exists. It walked
+`server.players`, which holds only the people currently connected - and the loop directly above it had
+already dealt with every one of those. So it did nothing, and the record it was written to rescue kept
+`"realm": "<instance id>"`, which on load falls back to the overworld with the dungeon's coordinates
+intact: exactly what the comment says must not happen. Offline records are in `_meta.players`.
+
+A comment describing what a piece of code intends is worth more than one describing what it does -
+and this is the failure mode of that: the intent was right, was written down, and was not what the
+code did. Nothing could have caught it except reading the two together.
+
+**Cross-server arrival points** stored three bare numbers, so a traveller from another server was
+placed at hub coordinates inside whatever realm their own record happened to name. This one could not
+be repaired when read, because no realm was ever written - the field had to exist first. An arrival
+point now names its world and outranks the traveller's saved realm, which is right: they are being put
+somewhere this server chose, not resumed where they left off.
+
+**Companion guard posts** were three bare numbers too, on a creature that `on_action` already
+documents as following a player through a portal. Told to guard in one world and carried to another,
+it walked towards those coordinates wherever it now stood. A post in the wrong world now reads as no
+post at all, which is the honest answer.
+
+**Farming, signals, and two firstlight spawns.** All the same shape and all with the realm in scope:
+`ev.realm` for the player paths, `ctx.realm` for the tick paths. Crops planted in a dungeon grew into
+the overworld column; a lever wrote its data and raised its signal there; and `_ensure_wick` searched
+the player's realm correctly, found nothing, and then spawned a *new* Wick in the overworld - on every
+call, for ever, since the next search would not find that one either. The reed took a height from the
+overworld's heightmap and dropped the summoned creature on the surface.
+
+That closes the write sweep apart from the inspector, which is reads only and is the tool an admin
+uses to chase these - worth doing, and not urgent now the bugs it would have been used on are gone.

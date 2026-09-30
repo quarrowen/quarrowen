@@ -79,89 +79,93 @@ func _on_item_use(ev: Dictionary) -> void:
 	if not ev.has_target:
 		return
 	var pos: Vector3i = ev.position
-	if api.get_block(pos) == ids.tall_grass:
+	if api.get_block(pos, api.realm_of(player)) == ids.tall_grass:
 		pos += Vector3i.DOWN  # aiming at tall grass means the ground under it
 	elif ev.normal != Vector3i.UP:
 		return
 	var above := pos + Vector3i.UP
-	if api.get_block(above) != 0 and api.get_block(above) != ids.tall_grass:
+	var realm: String = api.realm_of(player)
+	if api.get_block(above, realm) != 0 and api.get_block(above, realm) != ids.tall_grass:
 		return
-	var block: int = api.get_block(pos)
+	var block: int = api.get_block(pos, realm)
 	# **Anything whose tool type is "hoe"**, not a list of ids this mod happened to register. The hoes
 	# live in `simple_gear` now, and farmland is a fact about soil rather than about who sells shovels;
 	# a mod that adds a better hoe tills grass without anything here knowing it exists. (2026-09-23)
 	if String(api.item_tool(ev.item, ev.get("data", {})).get("type", "")) == "hoe" \
 			and (block == api.block("base:grass") or block == api.block("base:dirt")):
-		if api.get_block(above) == ids.tall_grass:
-			api.set_block(above, 0)
-		api.set_block(pos, ids.farmland, "", false, 1 if _near_water(pos) else 0)
-		api.play_sound("base:dirt", Vector3(pos) + Vector3(0.5, 1.0, 0.5), 1.0, 1.0, api.realm_of(player))
+		if api.get_block(above, realm) == ids.tall_grass:
+			api.set_block(above, 0, realm)
+		api.set_block(pos, ids.farmland, realm, false, 1 if _near_water(pos, realm) else 0)
+		api.play_sound("base:dirt", Vector3(pos) + Vector3(0.5, 1.0, 0.5), 1.0, 1.0, realm)
 		player.damage_item(player.selected_slot, 1, "till")
-	elif ev.item == ids.seeds and block == ids.farmland and api.get_block(above) == 0:
+	elif ev.item == ids.seeds and block == ids.farmland and api.get_block(above, realm) == 0:
 		if player.is_creative() or player.take(ids.seeds, 1):
-			api.set_block(above, ids.wheat_stages[0])
-			api.play_sound("base:grass", Vector3(above) + Vector3(0.5, 0.2, 0.5), 1.0, 1.0, api.realm_of(player))
+			api.set_block(above, ids.wheat_stages[0], realm)
+			api.play_sound("base:grass", Vector3(above) + Vector3(0.5, 0.2, 0.5), 1.0, 1.0, realm)
 
 
 ## Each tick has a chance to advance a stage: always on watered farmland, half the time on dry.
 func _grow_wheat(ctx: Dictionary) -> void:
 	var pos: Vector3i = ctx.position
 	var ticks := _lit_ticks(pos, ctx.ticks)
-	var watered: bool = api.get_block_state(pos + Vector3i.DOWN) == 1
+	var realm := String(ctx.get("realm", ""))
+	var watered: bool = api.get_block_state(pos + Vector3i.DOWN, realm) == 1
 	var stage: int = ids.wheat_stages.find(ctx.block)
 	for i in ticks:
 		if watered or randf() < 0.5:
 			stage += 1
 	stage = mini(stage, WHEAT_STAGES - 1)
 	if ids.wheat_stages[stage] != ctx.block:
-		api.set_block(pos, ids.wheat_stages[stage])
+		api.set_block(pos, ids.wheat_stages[stage], realm)
 
 
 ## Farmland remembers whether it is watered (state 1) and turns back to dirt when dry and bare.
 func _dry_farmland(ctx: Dictionary) -> void:
 	var pos: Vector3i = ctx.position
-	var wet := _near_water(pos)
-	var above: int = api.get_block(pos + Vector3i.UP)
+	var realm := String(ctx.get("realm", ""))
+	var wet := _near_water(pos, realm)
+	var above: int = api.get_block(pos + Vector3i.UP, realm)
 	if not wet and above == 0 and randf() < 0.5:
-		api.set_block(pos, api.block("base:dirt"))
+		api.set_block(pos, api.block("base:dirt"), realm)
 	elif int(wet) != ctx.state:
-		api.set_block(pos, ids.farmland, "", true, int(wet))
+		api.set_block(pos, ids.farmland, realm, true, int(wet))
 
 
-func _near_water(pos: Vector3i) -> bool:
+func _near_water(pos: Vector3i, realm := "") -> bool:
 	var water: int = api.block("base:water")
 	for dy in range(0, 2):
 		for dz in range(-WATER_RANGE, WATER_RANGE + 1):
 			for dx in range(-WATER_RANGE, WATER_RANGE + 1):
-				if api.get_loaded_block(pos + Vector3i(dx, dy, dz)) == water:
+				if api.get_loaded_block(pos + Vector3i(dx, dy, dz), realm) == water:
 					return true
 	return false
 
 
 func _grow_sapling(ctx: Dictionary) -> void:
 	var pos: Vector3i = ctx.position
-	if _lit_ticks(pos, ctx.ticks) > 0:
-		grow_tree(pos)
+	var realm := String(ctx.get("realm", ""))
+	if _lit_ticks(pos, ctx.ticks, realm) > 0:
+		grow_tree(pos, realm)
 
 
 ## How many of `ticks` count as lit: all of them in light (sun or lamps), none in the dark. Ticks
 ## caught up after an unload span days and nights, so with only sky light half of them count.
-func _lit_ticks(pos: Vector3i, ticks: int) -> int:
+func _lit_ticks(pos: Vector3i, ticks: int, realm := "") -> int:
 	if ticks <= 1:
-		return ticks if api.get_light(pos) >= MIN_GROW_LIGHT else 0
-	var levels: Dictionary = api.get_light_levels(pos)
+		return ticks if api.get_light(pos, realm) >= MIN_GROW_LIGHT else 0
+	var levels: Dictionary = api.get_light_levels(pos, realm)
 	if levels.block >= MIN_GROW_LIGHT:
 		return ticks
 	return ticks / 2 if levels.sky >= MIN_GROW_LIGHT else 0
 
 
 ## Grows a tree with its trunk starting at `pos` if there is room. Returns whether it grew.
-func grow_tree(pos: Vector3i) -> bool:
+func grow_tree(pos: Vector3i, realm := "") -> bool:
 	var trunk := randi_range(4, 6)
 	var log_id: int = api.block("base:log")
 	var leaves: int = api.block("base:leaves")
 	for dy in range(1, trunk + 2):
-		var b: int = api.get_block(pos + Vector3i(0, dy, 0))
+		var b: int = api.get_block(pos + Vector3i(0, dy, 0), realm)
 		if b != 0 and b != leaves:
 			return false
 	var top := pos.y + trunk
@@ -172,9 +176,9 @@ func grow_tree(pos: Vector3i) -> bool:
 				if absi(dx) == r and absi(dz) == r and (ly >= top or randf() < 0.5):
 					continue
 				var p := Vector3i(pos.x + dx, ly, pos.z + dz)
-				var existing: int = api.get_block(p)
+				var existing: int = api.get_block(p, realm)
 				if existing == 0 or existing == ids.tall_grass:
-					api.set_block(p, leaves)
+					api.set_block(p, leaves, realm)
 	for dy in trunk:
-		api.set_block(pos + Vector3i(0, dy, 0), log_id)
+		api.set_block(pos + Vector3i(0, dy, 0), log_id, realm)
 	return true

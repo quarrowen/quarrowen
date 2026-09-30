@@ -3377,6 +3377,11 @@ func _spawn_player(peer_id: int, player_name: String, player_id: String, avatar 
 			p.state.position = at
 	if not transfer.is_empty() and transfers.arrival_position(transfer) != Vector3.INF:
 		p.state.position = transfers.arrival_position(transfer)
+		# The arrival point names its own world, and it outranks whatever realm the traveller's own
+		# record carried: they are being placed somewhere this server chose, not resumed where they
+		# left off.
+		var arriving_in := transfers.arrival_realm(transfer)
+		p.realm_id = arriving_in if realms.has(arriving_in) else ""
 	ensure_area_loaded(p.state.position, realm_of(p))
 
 	Net.s_welcome.rpc_id(peer_id, peer_id, p.state.position, 0.0)

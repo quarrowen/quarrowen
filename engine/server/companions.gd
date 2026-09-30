@@ -63,10 +63,18 @@ func order_of(entity) -> String:
 	return String(order.get("name", FOLLOW)) if order is Dictionary else FOLLOW
 
 
-## Where it was told to hold, for guard. Vector3.INF when it has no post.
+## Where it was told to hold, for guard. Vector3.INF when it has no post, and **also when the post is
+## in another world**: a companion follows a player through a portal (the comment in `on_action` records
+## exactly that happening), and three bare numbers then sent it walking towards those coordinates
+## wherever it now stood. The fourth entry is the realm; three on its own is a post given before
+## 30 September 2026 and means the overworld. (2026-09-30)
 func post_of(entity) -> Vector3:
 	var order = entity.data.get(KEY) if entity != null else null
-	if not (order is Dictionary) or not (order.get("at") is Array) or (order.at as Array).size() != 3:
+	if not (order is Dictionary) or not (order.get("at") is Array) or (order.at as Array).size() < 3:
+		return Vector3.INF
+	var here = entity._manager.realm if entity._manager != null else null
+	var told := String(order.at[3]) if (order.at as Array).size() > 3 else ""
+	if here != null and String(here.id) != told:
 		return Vector3.INF
 	return Vector3(float(order.at[0]), float(order.at[1]), float(order.at[2]))
 
@@ -78,7 +86,9 @@ func give(entity, order_name: String, options := {}) -> bool:
 	if entity == null or kind.is_empty() or not entity.is_alive():
 		return false
 	var at = options.get("at", entity.body.position)
-	entity.data[KEY] = {"name": order_name, "at": [at.x, at.y, at.z]}
+	var here = entity._manager.realm if entity._manager != null else null
+	entity.data[KEY] = {"name": order_name,
+		"at": [at.x, at.y, at.z, String(here.id) if here != null else ""]}
 	# `sitting` stays what it always was rather than becoming a second opinion about the same thing:
 	# the sit behaviour and its pose are proven, and "stay" is exactly what they already did.
 	if order_name == STAY:

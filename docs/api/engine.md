@@ -3394,7 +3394,11 @@ just been tamed should do without anybody saying so.
 
 GDScript: `post_of(entity) -> Vector3`
 
-Where it was told to hold, for guard. Vector3.INF when it has no post.
+Where it was told to hold, for guard. Vector3.INF when it has no post, and **also when the post is
+in another world**: a companion follows a player through a portal (the comment in `on_action` records
+exactly that happening), and three bare numbers then sent it walking towards those coordinates
+wherever it now stood. The fourth entry is the realm; three on its own is a post given before
+30 September 2026 and means the overworld. (2026-09-30)
 
 ### `give`
 
@@ -8141,6 +8145,18 @@ accepted ticket, or {error}.
 GDScript: `arrival_position(accepted: Dictionary) -> Vector3`
 
 Where an arriving player appears: the ticket's named arrival point, or Vector3.INF (their usual place).
+
+### `arrival_realm`
+
+*server/transfers.gd*
+
+GDScript: `arrival_realm(accepted: Dictionary) -> String`
+
+The world that arrival point is in. An arrival point set while standing in a hub or a lobby saved
+three bare numbers, and a traveller from another server was then placed at those coordinates inside
+whatever realm their own record happened to name - which could not be corrected when it was read,
+because no realm was ever written. A fourth entry carries it; three on its own is a point saved
+before 30 September 2026 and means the overworld.
 
 ### `arrive`
 

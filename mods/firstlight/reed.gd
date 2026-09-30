@@ -74,9 +74,13 @@ func _play(player) -> void:
 	# you hear it coming. Spawning it in front would make the reed a trap rather than a summons.
 	var away := Vector3(randf_range(-1.0, 1.0), 0.0, randf_range(-1.0, 1.0)).normalized() * randf_range(18.0, 26.0)
 	var at: Vector3 = player.position + away
-	at.y = float(api.surface_y(int(at.x), int(at.z)) + 1)
+	# Their own world, for both questions. Blowing the reed in the descent took a height from the
+	# overworld's heightmap and spawned the creature there, so the player heard nothing and a stray
+	# beast accumulated on the surface. (2026-09-30)
+	var realm: String = api.realm_of(player)
+	at.y = float(api.surface_y(int(at.x), int(at.z), realm) + 1)
 	var called: String = choices[randi() % choices.size()]
-	if api.spawn_entity(called, at) == null:
+	if api.spawn_entity(called, at, {"realm": realm}) == null:
 		# Nowhere to stand is an ordinary outcome underground or over water, not an error. The cooldown
 		# is deliberately *not* reset: a player who could retry instantly would stand there spamming it.
 		player.send_message("Something stirs a long way off, and thinks better of it.")

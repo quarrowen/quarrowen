@@ -61,7 +61,7 @@ func setup(mod_api, materials: Dictionary) -> void:
 		{"station": "crafting_table"})
 
 	api.on("block_interact", func(ev):
-		if api.get_block(ev.position) == ids.lever:
+		if api.get_block(ev.position, String(ev.get("realm", ""))) == ids.lever:
 			_flip(ev.position, ev.player))
 
 	# The wire shows what it is carrying, and the lamp shows what reaches it. Both are the same trick:
@@ -75,31 +75,35 @@ func setup(mod_api, materials: Dictionary) -> void:
 ## Flipping a lever: it emits at full strength or not at all. The block does not change - it is a lever
 ## either way - so what it is doing is remembered in its block data.
 func _flip(position: Vector3i, player) -> void:
-	var data: Dictionary = api.get_block_data(position).duplicate()
+	# The lever, its data and the signal it raises all belong to the world the player is standing in.
+	# The two calls at the bottom already asked for it and the three at the top did not. (2026-09-30)
+	var realm: String = api.realm_of(player) if player != null else ""
+	var data: Dictionary = api.get_block_data(position, realm).duplicate()
 	var on: bool = not bool(data.get("on", false))
 	data.on = on
-	api.set_block_data(position, data)
-	api.set_signal(position, 15 if on else 0)
-	api.play_sound("engine:click", Vector3(position) + Vector3.ONE * 0.5, 1.0, 1.2 if on else 0.8,
-		api.realm_of(player) if player != null else "")
+	api.set_block_data(position, data, realm)
+	api.set_signal(position, 15 if on else 0, realm)
+	api.play_sound("engine:click", Vector3(position) + Vector3.ONE * 0.5, 1.0, 1.2 if on else 0.8, realm)
 	if on:
 		api.play_effect("engine:sparkle", Vector3(position) + Vector3(0.5, 0.6, 0.5),
-			{"scale": 0.8, "color": "#ffd070"}, api.realm_of(player) if player != null else "")
+			{"scale": 0.8, "color": "#ffd070"}, realm)
 	if player != null:
 		player.send_message("The quickdust wakes up." if on else "It goes quiet.")
 
 
 func _show_wire(ev: Dictionary) -> void:
+	var realm := String(ev.get("realm", ""))
 	var wanted: int = ids.quickdust_lit if ev.level > 0 else ids.quickdust
-	if api.get_block(ev.position) != wanted:
-		api.set_block(ev.position, wanted, "", true)
+	if api.get_block(ev.position, realm) != wanted:
+		api.set_block(ev.position, wanted, realm, true)
 
 
 func _show_lamp(ev: Dictionary) -> void:
+	var realm := String(ev.get("realm", ""))
 	var wanted: int = ids.quicklamp_lit if ev.level > 0 else ids.quicklamp
-	if api.get_block(ev.position) == wanted:
+	if api.get_block(ev.position, realm) == wanted:
 		return
-	api.set_block(ev.position, wanted, "", true)
+	api.set_block(ev.position, wanted, realm, true)
 	if ev.level > 0:
 		api.play_effect("engine:sparkle", Vector3(ev.position) + Vector3(0.5, 1.0, 0.5),
 			{"scale": 1.0, "color": "#ffe8a0"}, String(ev.get("realm", "")))

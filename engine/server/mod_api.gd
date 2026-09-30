@@ -2900,8 +2900,8 @@ func network_servers() -> Array:
 
 
 ## Names a spot where players arriving from other servers can appear (tickets name it as their arrival).
-func set_arrival_point(id: String, position: Vector3) -> void:
-	_server.transfers.set_arrival(id, position)
+func set_arrival_point(id: String, position: Vector3, realm_id := "") -> void:
+	_server.transfers.set_arrival(id, position, _qualify_ref(realm_id))
 
 
 ## A world feature (tree, cactus, boulder, spike, huge mushroom, patch) as data {type, ...} or, from

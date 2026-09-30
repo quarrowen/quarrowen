@@ -2055,13 +2055,13 @@ The servers players can travel to from here (network.json): [{key, name, address
 
 ### `api.set_arrival_point`
 
-GDScript: `api.set_arrival_point(id: String, position: Vector3) -> void`
+GDScript: `api.set_arrival_point(id: String, position: Vector3, realm_id := "") -> void`
 
-JavaScript: `api.setArrivalPoint(id, position)`
+JavaScript: `api.setArrivalPoint(id, position, realmId)`
 
 Names a spot where players arriving from other servers can appear (tickets name it as their arrival).
 
-**See also:** `set_arrival`
+**See also:** `qualified`, `set_arrival`
 
 ### `api.raycast`
 

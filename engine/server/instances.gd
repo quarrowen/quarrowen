@@ -188,9 +188,16 @@ func close(instance_id: String) -> bool:
 			leave(p)
 	# Anybody offline inside it: their saved position is in a realm that is about to stop existing, so
 	# move the record rather than leave them to load into nowhere.
-	for p in server.players.values():
-		if String(p.realm_id) == instance_id:
-			leave(p)
+	#
+	# **This walked `server.players`, which holds only the people currently connected** - and the loop
+	# above has already dealt with every one of those. So it did nothing at all, and the record it was
+	# written to rescue kept `"realm": "<instance id>"`. Loading it later falls back to the overworld
+	# with the dungeon's coordinates intact, which is the thing the comment says must not happen.
+	# The offline records are in `_meta.players`; that is what has to be edited. (2026-09-30)
+	for record in server._meta.players.values():
+		if record is Dictionary and String(record.get("realm", "")) == instance_id:
+			record["realm"] = ""
+			record.erase("position")  # the overworld's spawn is the only place that means anything
 	live.erase(instance_id)
 	server.remove_realm(instance_id)
 	server.emit("instance_closed", {"instance": instance_id, "kind": it.kind})

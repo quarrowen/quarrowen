@@ -189,8 +189,25 @@ func accept(ticket: String, signature: String, player_id: String) -> Dictionary:
 
 ## Where an arriving player appears: the ticket's named arrival point, or Vector3.INF (their usual place).
 func arrival_position(accepted: Dictionary) -> Vector3:
-	var point = _server._meta.get("arrivals", {}).get(str(accepted.data.get("arrival", "")).to_lower()) if _server._meta.get("arrivals") is Dictionary else null
-	return Vector3(float(point[0]), float(point[1]), float(point[2])) if point is Array and point.size() == 3 else Vector3.INF
+	var point := _arrival_record(accepted)
+	return Vector3(float(point[0]), float(point[1]), float(point[2])) if point.size() >= 3 else Vector3.INF
+
+
+## The world that arrival point is in. An arrival point set while standing in a hub or a lobby saved
+## three bare numbers, and a traveller from another server was then placed at those coordinates inside
+## whatever realm their own record happened to name - which could not be corrected when it was read,
+## because no realm was ever written. A fourth entry carries it; three on its own is a point saved
+## before 30 September 2026 and means the overworld.
+func arrival_realm(accepted: Dictionary) -> String:
+	var point := _arrival_record(accepted)
+	return String(point[3]) if point.size() > 3 else ""
+
+
+func _arrival_record(accepted: Dictionary) -> Array:
+	if not (_server._meta.get("arrivals") is Dictionary):
+		return []
+	var point = _server._meta.arrivals.get(str(accepted.data.get("arrival", "")).to_lower())
+	return point if point is Array else []
 
 
 ## After an arriving player spawned: give what they carried and tell mods.
@@ -214,10 +231,11 @@ func arrive(p, accepted: Dictionary) -> void:
 		"data": carry.get("data", {}) if carry is Dictionary and carry.get("data") is Dictionary else {}})
 
 
-func set_arrival(id: String, position: Vector3) -> void:
+func set_arrival(id: String, position: Vector3, realm_id := "") -> void:
 	if not (_server._meta.get("arrivals") is Dictionary):
 		_server._meta.arrivals = {}
-	_server._meta.arrivals[id.to_lower().left(64)] = [snappedf(position.x, 0.01), snappedf(position.y, 0.01), snappedf(position.z, 0.01)]
+	_server._meta.arrivals[id.to_lower().left(64)] = [snappedf(position.x, 0.01),
+		snappedf(position.y, 0.01), snappedf(position.z, 0.01), realm_id]
 
 
 # --- Portals --------------------------------------------------------------------------------------

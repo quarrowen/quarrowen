@@ -171,7 +171,10 @@ func _ensure_wick(player) -> void:
 		if str(e.data.get("owner", "")) == str(player.player_id):
 			return  # theirs already, and following
 	var at: Vector3 = player.position + Vector3(1.5, 0.0, 1.5)
-	var wick = api.spawn_entity("firstlight:wick", at)
+	# **Spawned beside the player, not on the surface.** The search above is realm-correct, so for a
+	# player in the descent it found nothing and this then made another Wick in the overworld - every
+	# call, for ever, since the next search would not find that one either. (2026-09-30)
+	var wick = api.spawn_entity("firstlight:wick", at, {"realm": api.realm_of(player)})
 	if wick == null:
 		return
 	api.tame(wick, player)
