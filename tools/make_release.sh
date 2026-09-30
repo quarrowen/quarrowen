@@ -263,7 +263,16 @@ for zip in $(for z in "$out/$files"/mods/*.zip; do
 	name="$(sed -n 's/.*"name"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
 	kind="$(sed -n 's/.*"kind"[ ]*:[ ]*"\(.*\)",*/\1/p' "mods/$id/mod.json" | head -1)"
 	case "$kind" in
-		game) game_cards="$game_cards<div class=\"game\"><div class=\"shot\"><img src=\"shots/$id.jpg\" alt=\"$name\"></div><div><h3>${name:-$id}</h3><p>$description</p></div></div>" ;;
+		# **A game with no picture yet gets a card without one**, rather than a broken image or a
+		# stand-in from another game. One Block is the case: a world a harness just made is a single
+		# block over the void, so it photographs as empty sky, and the picture has to come from a world
+		# somebody has played. (2026-09-30)
+		game)
+			if [ -f "$out/shots/$id.jpg" ]; then
+				game_cards="$game_cards<div class=\"game\"><div class=\"shot\"><img src=\"shots/$id.jpg\" alt=\"$name\"></div><div><h3>${name:-$id}</h3><p>$description</p></div></div>"
+			else
+				game_cards="$game_cards<div class=\"game no-shot\"><div><h3>${name:-$id}</h3><p>$description</p></div></div>"
+			fi ;;
 	esac
 done
 

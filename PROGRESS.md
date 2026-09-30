@@ -10551,3 +10551,30 @@ is not the hard part; the content is.** The two static shots that failed above f
 scripted, freshly-generated world has nobody in it and nothing built in it - and the clip needs a
 player walking to a portal at dusk and arriving as a round begins, which is strictly more of the same
 thing. Recording it by playing is the honest route, as the brief already assumed.
+
+
+## The pictures, made repeatable and made light (30 September 2026)
+
+**Wick is summoned rather than hoped for.** He spawns beside the player and then wanders, so the same
+yaw gave him centre frame in one run and an empty meadow in the next - a coin flip, and the empty one
+is exactly the "block world" picture that shot exists to avoid. `/summon` puts one in front of the
+camera, so he is in frame every time. Confirmed by running it twice rather than by reasoning about it;
+he stands in a slightly different place each run, which is fine, and he is always there with his lamp
+lit. A summoned one also has no owner, so the nameplate that read "Robin's Wick" - the harness showing
+through - is gone.
+
+**The pictures were 11 MB.** The window is 5120 wide on this machine, so a straight JPEG conversion
+gave 2.4-2.9 MB each, on a page whose whole pitch to a host is that nothing here is heavy. They are
+1920 wide now and the set is 1.8 MB; the resize is in the harness, so it cannot come back.
+
+**A game with no picture gets a card without one.** One Block's shot was empty sky and read on the page
+as a blank white panel - worse than no picture at all. `make_release.sh` emits a `.game.no-shot` card
+when `shots/<id>.jpg` is missing, so the text simply spans the row. Honest, and it means the card
+appears the moment a picture exists without anything else changing.
+
+### Still needing a played world
+
+The Fairground (avatars mid-round; its board currently says "Nobody has played this yet") and One Block
+(an island part way to a factory). Both fail for one reason - **a freshly generated world has nobody in
+it and nothing built in it** - which is the same reason the portal clip needs recording rather than
+scripting. One play session gets all three.

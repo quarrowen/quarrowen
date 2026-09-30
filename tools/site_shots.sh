@@ -73,8 +73,12 @@ shoot() {
   grep -hE "SCRIPT ERROR|could not|refused" "$WORK/shot_$name.log" | head -3
   if [ -f "$OUT/$name.png" ]; then
     # The page wants JPG; sips ships with macOS.
-    sips -s format jpeg -s formatOptions 82 "$OUT/$name.png" --out "$OUT/$name.jpg" >/dev/null 2>&1 \
-      && rm -f "$OUT/$name.png" && echo "   $OUT/$name.jpg"
+    # **Resized, not just converted.** The window is 5120 wide on this display, so a straight
+    # conversion gave 2.5 MB a picture and about 11 MB of images on one page - for a site whose whole
+    # pitch to a host is that nothing is heavy. 1920 is wider than any layout here uses.
+    sips -s format jpeg -s formatOptions 78 -Z 1920 "$OUT/$name.png" --out "$OUT/$name.jpg" >/dev/null 2>&1 \
+      && rm -f "$OUT/$name.png" \
+      && echo "   $OUT/$name.jpg ($(du -h "$OUT/$name.jpg" | cut -f1))"
   else
     echo "   NO PICTURE"; FAILED=1
   fi
@@ -82,8 +86,12 @@ shoot() {
 
 # Firstlight: the meadow you wake in, with Wick beside you. Golden hour rather than noon, because the
 # picture has to say "a story" and not "a block world".
+# **Wick is summoned rather than hoped for.** He spawns beside the player and then wanders, so the
+# same yaw gave him centre frame in one run and an empty meadow in the next - a coin flip, and the
+# empty one is exactly the "block world" picture this shot exists to avoid. `/summon` puts one in
+# front of the camera, so the composition is the same every time. (2026-09-30)
 shoot firstlight "firstlight" \
-  --commands="/time 0.28" --wait=6 --yaw=2.62 --pitch=-0.10 --warmup=90
+  --commands="/time 0.28|/summon firstlight:wick 1" --wait=4 --yaw=2.62 --pitch=-0.12 --warmup=90
 
 # The Fairground: stood back from the first door so the door and its board are both in frame. The
 # coordinates are the hub's own - slot 0 at (12, 65, 0), RADIUS 14 less two.
