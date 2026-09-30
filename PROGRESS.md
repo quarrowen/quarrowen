@@ -10243,8 +10243,8 @@ grows a press page and a features page - which is the point where shared layout 
 
 First feedback from readers outside the project, and it is the most useful thing the site has had.
 
-**Trah**, who plays across every genre: *"I read the first couple of bits above the downloads and I
-still don't know what it is... I'm assuming it's a minecraft mod/datapack... I understand what it's
+**Trah**, who plays across every genre (the game he names is redacted here, because the rule against naming other companies' products has no exception for quoting somebody else naming one - and the redaction is the finding: he reached for that name unprompted): *"I read the first couple of bits above the downloads and I
+still don't know what it is... I'm assuming it's a [the genre's best-known game] mod/datapack... I understand what it's
 not, but I'm clueless on what it is. I would highly focus on that very first bit, because if that
 doesn't explain what it is and hook people, they won't even keep reading."*
 
@@ -10288,3 +10288,53 @@ headline, and a tracked-out all-caps eyebrow - as tells of a generated design. B
 existing identity, which is live and which nobody complained about. The reported problem was content.
 Changing a brand on my own initiative while fixing a copy bug would be answering a question nobody
 asked, and would make it impossible to tell which change earned the next round of feedback.
+
+
+## An adversarial review of the page, and the verdict that mattered (30 September 2026)
+
+A reviewer was set on the revised page with Trah's and Char's words as the brief. Its verdict:
+**"The hero is genuinely fixed. Everything below the hero still argues the opposite."**
+
+Three separate elements independently re-established "mod / engine / add-on", and two of them sit
+exactly where a scanner and a journalist look:
+
+- **The first explanatory sentence after the download buttons** said "each one is a mod - so anything
+  they do, yours can do too", under a heading promising *What you can play*. One screen after the hero
+  told a stranger this is a game, the page told Trah he had been right. It also smuggled a modder's
+  benefit into the section a player reads to decide whether to download.
+- **A section heading read "The app has no game in it"** - which contradicts the hero and **is not even
+  true of the download**, where four games sit in the zip. People scan headings; that one assembles
+  into "a tool you point at somebody else's content", which is the conclusion two readers reached on
+  their own.
+- **The facts row labelled "for anyone writing about it"** answered "What it is" with "A voxel game
+  engine. The client ships no game of its own" - jargon first, and a different answer from the meta
+  description on the same page. That is the sentence that reaches press.
+
+The page said "mod" or "mods" **sixteen times**, doing double duty: the engine's unit of loadable
+content, and the thing a hobbyist writes for somebody else's game. A stranger only knows the second.
+
+Also cut: *"This is the unusual part, and it is underneath rather than on the surface"* - two clauses,
+no information, and it pre-apologises by telling the reader the interesting thing is invisible,
+immediately before the sentence that finally explains it. Char's unanswered "what problem does it
+solve" took its place, in her terms rather than the engine's.
+
+And **"Read the reference" became "How to play"**: a developer word at equal weight beside two Download
+buttons was the one thing above the fold that read as a toolkit.
+
+### Two of its suggestions were refused
+
+It proposed answering Char's Windows-signing question with "Signing it is on the list." **That would be
+a false promise**: SignPath Foundation sponsors signing for OSI open-source projects and PolyForm
+Noncommercial is explicitly not one, and a certificate costs money yearly with reputation accruing
+slowly afterwards. Saying nothing is better than implying it is coming.
+
+It also read well enough to be trusted on facts it had not checked. Worth remembering that an
+adversarial reviewer is adversarial about the thing it was pointed at, and credulous about everything
+else.
+
+### And the trademark rule caught the write-up
+
+Quoting Trah verbatim put a competitor's name in PROGRESS.md and the suite refused it. There is no
+exception for quoting somebody *else* naming a product. Redacted with a note saying why - and the
+redaction is the finding restated: he reached for that name unprompted, with nothing on the page
+inviting it.
