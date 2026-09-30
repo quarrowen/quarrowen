@@ -12,13 +12,14 @@
 
 <div class="hero">
   <img class="hero-img" src="shots/hero.jpg"
-       alt="Green hills with an ore-streaked cliff, trees and a beach beyond.">
+       alt="A blocky green valley: a cliff with veins of ore, cube-shaped trees, and a beach beyond.">
   <div class="wrap">
     <p class="name">Quarrowen</p>
     <h1>Dig, build, and <span>make it through the night</span>.</h1>
-    <p>A game about breaking blocks and making something out of what you find: mine into a hillside,
-    craft what you need, keep animals, and be somewhere safe before dark. <b>Four games come in the
-    download</b> and you can play them alone or with friends.</p>
+    <p>Every hill, tree and lake is built from cubes, and you can take any of them apart and put them
+    back somewhere better. Mine into a hillside, craft what you need, keep animals, and be somewhere
+    safe before dark. <b>Four games come in the download</b>: survive the night, build with no limits,
+    play short games with friends, or start from a single block over the void.</p>
     <div class="cta">
       <a class="btn" href="{{mac_url}}">Download for Mac <small>{{version}} · {{mac_size}}</small></a>
       {{win_cta}}
@@ -38,31 +39,6 @@
   <p class="sub">All four come with the download - there is nothing else to fetch. Play on your own,
   or start a world and let a friend join it.</p>
   <div class="lanes">{{game_cards}}</div>
-</section>
-
-<section id="safe">
-  <h2>Is it <span>safe</span> to join someone's server?</h2>
-  <p class="sub">The honest answer, because the way this works invites the question: a server sends your
-  game <b>data, never code</b>. There is no mod runtime in the client at all - nothing in the protocol
-  carries a script, and mods run on the machine hosting the world, not yours.</p>
-  <div class="lanes">
-    <div class="lane">
-      <h3>No accounts, nothing collected</h3>
-      <p>No sign-up, no email, no telemetry, no analytics. A player is a key on their own computer, and
-      worlds are files on yours.</p>
-    </div>
-    <div class="lane">
-      <h3>Everything is bounded</h3>
-      <p>What a server may send is size-limited and checked before it is used, and downloaded content is
-      stored under the hash of its own contents - so no server can name a file on your disk.</p>
-    </div>
-    <div class="lane">
-      <h3>The limits, written down</h3>
-      <p>Where the protections end is on the page too, not buried: what trust-on-first-use means, and
-      what your client does parse from a server.</p>
-      <a href="/docs/security/">Security →</a>
-    </div>
-  </div>
 </section>
 
 <section id="different">
@@ -112,10 +88,43 @@
   </div>
 </section>
 
+<section id="safe">
+  <h2>Is it <span>safe</span> to join someone's server?</h2>
+  <p class="sub">A server you have never met supplies the game you play, so the first fair question is
+  what it is allowed to send you. The answer: <b>data, never code</b>. There is no mod runtime in the
+  client at all - nothing in the protocol carries a script, and mods run on the machine hosting the
+  world, not yours.</p>
+  <div class="lanes">
+    <div class="lane">
+      <h3>Nothing leaves your machine</h3>
+      <p>Nothing is collected and nothing is sent anywhere except the server you chose to join. Your
+      worlds, your settings and the key that is your name all stay on your own computer.</p>
+    </div>
+    <div class="lane">
+      <h3>Only who you allow</h3>
+      <p>A world you run lets in the names you list and nobody else, and that permission carries across
+      every world you run, so a child who can reach one can reach all of them and a stranger can reach
+      none.</p>
+    </div>
+    <div class="lane">
+      <h3>Everything is bounded</h3>
+      <p>What a server may send is size-limited and checked before it is used, and downloaded content is
+      stored under the hash of its own contents - so no server can name a file on your disk.</p>
+    </div>
+    <div class="lane">
+      <h3>The limits, written down</h3>
+      <p>Where the protections end is on the page too, not buried: what trust-on-first-use means, and
+      what your client does parse from a server.</p>
+      <a href="/docs/security/">Security →</a>
+    </div>
+  </div>
+</section>
+
 <section>
   <h2>Made for a family to <span>play together</span></h2>
-  <p class="sub">Your worlds live on your own machine or your own server. No accounts, no email, nothing
-  collected, and only the people you allow can join.</p>
+  <p class="sub">One person runs a world and everybody joins it from the menu - across the house, or
+  across the world if you open a port. Several worlds can sit side by side, and you can walk between
+  them.</p>
   <div class="shot" style="max-width:100%">
     <img src="shots/menu.jpg" alt="The Quarrowen main menu, with a world list over a living world backdrop.">
   </div>
@@ -127,22 +136,22 @@
     <div class="lane">
       <h3>Play</h3>
       <p>Controls, your first hour, and how recipes are discovered rather than looked up.</p>
-      <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/playing.md">Playing →</a>
+      <a href="/docs/playing/">Playing →</a>
     </div>
     <div class="lane">
       <h3>Run a server</h3>
       <p>Several worlds and a hub on one Linux box, in about ten minutes.</p>
-      <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/hosting.md">Hosting →</a>
+      <a href="/docs/hosting/">Hosting →</a>
     </div>
     <div class="lane">
       <h3>Make a mod</h3>
       <p>Blocks, creatures, machines, whole games — GDScript or JavaScript.</p>
-      <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/modding.md">Modding →</a>
+      <a href="/docs/modding/">Modding →</a>
     </div>
     <div class="lane">
       <h3>Questions</h3>
       <p>What it costs, whether it's safe for children, where your worlds are kept.</p>
-      <a href="https://github.com/quarrowen/quarrowen/blob/master/docs/faq.md">FAQ →</a>
+      <a href="/docs/faq/">FAQ →</a>
     </div>
     <div class="lane">
       <h3>Writing about it</h3>

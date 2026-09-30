@@ -10338,3 +10338,44 @@ Quoting Trah verbatim put a competitor's name in PROGRESS.md and the suite refus
 exception for quoting somebody *else* naming a product. Redacted with a note saying why - and the
 redaction is the finding restated: he reached for that name unprompted, with nothing on the page
 inviting it.
+
+
+## The rest of the review, and one thing that nearly shipped (30 September 2026)
+
+- **The doc links went to raw Markdown on a code-hosting site.** "Playing", "Hosting", "Modding" and
+  "FAQ" all pointed at `blob/master/docs/*.md`, so a parent following "Controls, your first hour"
+  landed on a `.md` file with a commit history above it. The rendered pages have been served at
+  `/docs/<page>/` since the docs site was built, and all four answer 200. Nothing had been updated to
+  use them.
+- **`#safe` came before the section explaining what it is answering.** Its opening said "the way this
+  works invites the question", which presupposes the reader knows how it works - and the explanation
+  was twenty-five lines below. A stranger's first substantive paragraph was a rebuttal to a worry they
+  had not formed, in protocol vocabulary. The two sections are swapped and the presupposition is gone.
+- **"A player is a key on their own computer" appeared verbatim twice**, fifty lines apart, and the
+  no-accounts pitch four times in all. The family section was a heading, a third repetition and a
+  screenshot; its one genuinely new fact - only the people you allow can join - moved into the safety
+  section, where somebody worrying about who can reach their child is already reading.
+- **The hero now says what a block world *is***: every hill, tree and lake is built from cubes you can
+  take apart and put back somewhere better. For a reader with no picture of the genre, "breaking
+  blocks" is an activity and not a world, and the hero image cannot say it alone. The alt text says it
+  too now.
+
+### The thing that nearly shipped
+
+While moving the allowlist fact I wrote, into player-facing copy: *"This was the one fact worth keeping
+from a section that otherwise said the no-accounts thing for a third time."* An editorial note about my
+own edit, in the voice of the page, one rebuild away from the live site. Caught by reading back what
+had just been written rather than by anything automatic - nothing checks for it, and nothing could.
+
+Worth recording because the mechanism is general: prose written *about* an edit and prose written *as*
+the page are the same keystrokes in the same file, and the only thing separating them is reading the
+result as a reader would.
+
+### Recorded, not done
+
+**The Windows how-to-run prose is still in `make_release.sh`**, not the template - and it is the
+paragraph carrying a security warning and a missing-feature caveat, so it is the one most needing an
+editor. It stayed because the three variants (installer, installer plus zip, zip alone) are a *choice*
+about which artifacts exist, and the template deliberately has no conditionals. Doing it properly means
+either a conditional in the template or a second prose file, and neither is worth deciding while the
+copy is still moving.
