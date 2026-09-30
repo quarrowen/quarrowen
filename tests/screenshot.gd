@@ -70,14 +70,18 @@ func _ready() -> void:
 		await get_tree().create_timer(0.3).timeout
 	if String(options.get("hud", "")) == "0":
 		# --hud=0 for a picture of the world rather than of the interface.
+		#
+		# **The whole HUD root, which is what F1 does.** This used to hide four things by name - the
+		# debug label, the controls hint, the tutorial HUD and the task list - and leave the crosshair,
+		# the hotbar, the compass, the health bars, nameplates and the menu button in frame. Every
+		# picture taken for the site came back with an interface in it, and the list was always going to
+		# go stale the next time something was added to the HUD. Hiding the root cannot. (2026-09-30)
+		client._hud_root.visible = false
 		client._debug_label.visible = false
-		client._controls_hint.visible = false
-		if client._tutorial_hud != null:
-			client._tutorial_hud.visible = false
-		# The task list is part of the interface too. Missed when it was added this morning, and the
-		# first picture that wanted a clean world had a quest log in the corner of it.
-		if client._objective_hud != null:
-			client._objective_hud.visible = false
+		# The arms and what they hold are drawn in the 3D view rather than by the HUD, so they survive
+		# the root going - and their visibility is reasserted every frame, so setting it here would not
+		# last until the capture. The client has a flag for it.
+		client.hide_view_model = true
 	if not String(options.menu).is_empty():
 		Net.c_open_menu.rpc_id(1, options.menu)
 	if not String(options.map).is_empty():

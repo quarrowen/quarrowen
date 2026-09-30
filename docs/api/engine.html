@@ -2432,6 +2432,13 @@ Everything in `world` belongs to this realm and nothing outlives a move to anoth
 <div class="card" data-search="lazy_bytes_skipped bytes the join deliberately did not wait for. counted whether or not they were already cached, so it
 says what the join *decided* rather than what happened to be on disk - which is the thing to test. client/game_client.gd the client"><div class="sig"><code>lazy_bytes_skipped := 0  (property)</code></div><p>Bytes the join deliberately did not wait for. Counted whether or not they were already cached, so it
 says what the join *decided* rather than what happened to be on disk - which is the thing to test.</p></div>
+<div class="card" data-search="hide_view_model hides the first-person arms and whatever they are holding, for a picture of the world alone.
+f1 hides the interface and deliberately keeps these - they are part of the view, not of the hud -
+but a landscape for the site wants neither, and the visibility below is reasserted every frame, so
+a screenshot cannot simply turn them off once. (2026-09-30) client/game_client.gd the client"><div class="sig"><code>hide_view_model := false  (property)</code></div><p>Hides the first-person arms and whatever they are holding, for a picture of the world alone.
+F1 hides the interface and deliberately keeps these - they are part of the view, not of the HUD -
+but a landscape for the site wants neither, and the visibility below is reasserted every frame, so
+a screenshot cannot simply turn them off once. (2026-09-30)</p></div>
 <div class="card" data-search="ugc player creations: uploads, downloads and the server library (see engine/client/ugc_client.gd). client/game_client.gd the client"><div class="sig"><code>ugc := UgcClient.new(self)  (property)</code></div><p>Player creations: uploads, downloads and the server library (see engine/client/ugc_client.gd).</p></div>
 <div class="card" data-search="ugc_models model files of downloaded creations: asset name -&gt; glb bytes. client/game_client.gd the client"><div class="sig"><code>ugc_models := {}  (property)</code></div><p>Model files of downloaded creations: asset name -> GLB bytes.</p></div>
 <div class="card" data-search="social engine/client/social/social_client.gd when main.gd runs the game (null in tests). client/game_client.gd the client"><div class="sig"><code>social  (property)</code></div><p>engine/client/social/social_client.gd when main.gd runs the game (null in tests).</p></div>
@@ -3545,7 +3552,7 @@ native mirror stays in sync.</p></div>
 <div class="card" data-search="phase which quarter of the day it is, as a word: &quot;night&quot;, &quot;dawn&quot;, &quot;day&quot;, &quot;dusk&quot;. named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins. shared/world_time.gd everything else"><div class="sig"><code>static phase(time_of_day: float) -&gt; String</code></div><p>Which quarter of the day it is, as a word: "night", "dawn", "day", "dusk". Named here rather than in
 whichever mod asked first, so two mods cannot disagree about when dusk begins.</p></div></section>
-<section id="e-count"><p class="muted">1272 documented functions across the engine.</p></section>
+<section id="e-count"><p class="muted">1273 documented functions across the engine.</p></section>
 </main>
 </div>
 <script>

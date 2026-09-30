@@ -276,6 +276,11 @@ var _view_model_look := ""
 var _held_effect: Node3D
 var _self_avatar: Avatar
 var camera_mode := CameraMode.FIRST_PERSON
+## Hides the first-person arms and whatever they are holding, for a picture of the world alone.
+## F1 hides the interface and deliberately keeps these - they are part of the view, not of the HUD -
+## but a landscape for the site wants neither, and the visibility below is reasserted every frame, so
+## a screenshot cannot simply turn them off once. (2026-09-30)
+var hide_view_model := false
 var _view_model: ViewModel
 var _look_delta := Vector2.ZERO
 var _armor_textures := []
@@ -2212,7 +2217,7 @@ func _update_self_avatar(delta: float, render_position: Vector3) -> void:
 	_self_avatar.set_dead(dead)
 	_self_avatar.animate(delta, state.velocity, state.on_ground, pitch)
 	# The held item would hang in mid-air in front of a camera that is nine metres behind its owner.
-	_view_model.visible = camera_mode == CameraMode.FIRST_PERSON and not dead and _sleep.is_empty() and _arrival < 0.0
+	_view_model.visible = not hide_view_model and camera_mode == CameraMode.FIRST_PERSON and not dead and _sleep.is_empty() and _arrival < 0.0
 	var held := inventory.selected_item()
 	var look: Dictionary = {}
 	if held >= ItemRegistry.FIRST_ITEM:

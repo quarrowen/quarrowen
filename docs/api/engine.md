@@ -9153,6 +9153,17 @@ GDScript: `lazy_bytes_skipped := 0  (property)`
 Bytes the join deliberately did not wait for. Counted whether or not they were already cached, so it
 says what the join *decided* rather than what happened to be on disk - which is the thing to test.
 
+### `hide_view_model`
+
+*client/game_client.gd*
+
+GDScript: `hide_view_model := false  (property)`
+
+Hides the first-person arms and whatever they are holding, for a picture of the world alone.
+F1 hides the interface and deliberately keeps these - they are part of the view, not of the HUD -
+but a landscape for the site wants neither, and the visibility below is reasserted every frame, so
+a screenshot cannot simply turn them off once. (2026-09-30)
+
 ### `ugc`
 
 *client/game_client.gd*

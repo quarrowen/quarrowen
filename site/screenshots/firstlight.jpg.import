@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://duri4apo45has"
-path="res://.godot/imported/menu.jpg-55d22453706f53f2d6723895044f247d.ctex"
+uid="uid://dl6rcfkepfgx3"
+path="res://.godot/imported/firstlight.jpg-1f439a7c801f156ba1facd02b6dfc87b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://site/screenshots/menu.jpg"
-dest_files=["res://.godot/imported/menu.jpg-55d22453706f53f2d6723895044f247d.ctex"]
+source_file="res://site/screenshots/firstlight.jpg"
+dest_files=["res://.godot/imported/firstlight.jpg-1f439a7c801f156ba1facd02b6dfc87b.ctex"]
 
 [params]
 

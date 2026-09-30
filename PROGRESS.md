@@ -10507,3 +10507,47 @@ after the hero sits 56px below it rather than 86.
 
 Checked at 1440, 1024 and a true 390 (in an iframe, because Chrome headless on macOS will not lay out
 below 500 - see the stage-2 note).
+
+
+## Stage 3: the stills, and what a camera cannot photograph (30 September 2026)
+
+`tools/site_shots.sh` takes the site's pictures the way `descent_shots.sh` takes the descent's: a
+server per shot, the Realistic preset, the interface hidden, and the client log grepped for
+`SHADER ERROR` before anything is trusted. `ONLY=oneblock` re-takes one rather than all five.
+
+Three things had to be fixed before a single picture was usable:
+
+- **`--hud=0` did not hide the HUD.** It hid four things by name - the debug label, the controls hint,
+  the tutorial HUD and the task list - and left the crosshair, hotbar, compass, health bars,
+  nameplates and menu button in frame. It hides `_hud_root` now, which is what F1 does, and cannot go
+  stale the next time something is added to the HUD.
+- **The arms survived that**, because they are drawn in the 3D view rather than by the HUD and their
+  visibility is reasserted every frame, so setting it once in the harness never reached the capture.
+  `GameClient.hide_view_model` is a flag the frame update respects.
+- **`/time` takes a 0-1 fraction**, not a clock. `/time 1400` goes through `fposmod` and lands on 0.0,
+  which is midnight - so the first full set came back at night, in the dark, and looked like a
+  lighting bug rather than a wrong argument.
+
+### Three of five are usable, and the other two are not a camera problem
+
+- **hero**, **firstlight** and **creative** are good. Firstlight has Wick centre frame with his lamp
+  lit, which is the point of that picture: it sells a story rather than a block world. He was out of
+  frame at the first angle and a meadow with nobody in it was exactly the shot the brief says to
+  avoid.
+- **The Fairground** photographs correctly and shows an empty lava room whose board reads *"Nobody has
+  played this yet"*. True, and not a picture of a group evening.
+- **One Block** is sky. A fresh world is one block over the void; aiming down gets one grass block in
+  the corner of an empty frame.
+
+**Both of those need a world somebody has played**, not a better camera angle. The brief asks for
+"several avatars mid-round, name tags visible" and "an island part way to a factory: machines, belts
+or cables" - neither exists in a world a harness just created, and neither can be faked honestly. They
+belong with the portal clip, as things to record while playing.
+
+### The clip
+
+`--write-movie` exists and works (`--fixed-fps` is forced; `.avi` or a PNG sequence). **The recording
+is not the hard part; the content is.** The two static shots that failed above failed because a
+scripted, freshly-generated world has nobody in it and nothing built in it - and the clip needs a
+player walking to a portal at dusk and arriving as a round begins, which is strictly more of the same
+thing. Recording it by playing is the honest route, as the brief already assumed.
