@@ -10617,3 +10617,26 @@ recipe. Worth knowing before anybody re-runs the script expecting the same frame
 Three of the five, then, and all three that failed failed for one reason: **a freshly generated world
 has nobody in it and nothing built in it.** That is the same sentence as the portal clip's, and one
 play session answers all of them.
+
+
+## Where this leaves things, 30 September 2026
+
+Every engineering item on the 1.0 list is done. What remains is five things that need other people,
+and they are the user's:
+
+1. **Run the Windows installer on Windows.** Built by CI, never executed anywhere.
+2. **The Windows self-update**, same.
+3. **Somebody other than the author runs a server** - one of the four readiness criteria set in
+   September, and it has never happened once.
+4. **A real playthrough of Firstlight** by a person.
+5. **The website review** - friends reading the page and saying what is wrong with it.
+
+Plus the pictures a camera could not take, which fail for the same reason as each other: **a freshly
+generated world has nobody in it and nothing built in it.** The portal clip, the Fairground with
+players in a round, a One Block island with machines on it, and something built in Creative. One play
+session with `--write-movie` running answers all four, and `tools/site_shots.sh` will take the stills
+once there is a world worth photographing.
+
+State on exit: master and gh-pages both pushed, working tree clean, suite green at 34. quarrowen.com
+is serving the host-first page with four games and three pictures. Nothing is tagged and no release is
+pending.
